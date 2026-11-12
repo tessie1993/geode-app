@@ -397,11 +397,13 @@ out vec4 fragColor;
 #define NEB_BASS_INFLATE 0.14
 #define NEB_BASS_EXTINCT 0.35
 /**
- * Mids steer the churn: they rotate the noise domain, and only that.
+ * Mids steer the churn: they slide the noise domain, and only that. They
+ * used to turn it; owner rule (no style spins to the music), so the steer is
+ * an offset now, which keeps the churn's life without a rotation.
  *
  * NOT a rate multiplied by uTime. `f(audio) * uTime` is the classic trap -
  * nudging the multiplier teleports the field by elapsed * delta, which after
- * a few minutes is the whole cloud jumping on a cymbal. An angle is safe: it
+ * a few minutes is the whole cloud jumping on a cymbal. An offset is safe: it
  * is continuous in the audio value, it returns when the music does, and at
  * silence it is exactly zero.
  */
@@ -416,7 +418,9 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width (the
 // band of the field they light), k2 FLOW added to the domain warp's bend
 // (gWarpAmp; a volume has no estimate to overshoot), k3 TONE the palette
-// position, k4 BUILD the medium's own glow (the ambient emission), k5 SPACE
+// position and the cloud's grain (a high melody raises the density bar so the
+// medium thins to wisps and filaments, a low one lowers it into full billows;
+// NEB_MIN_THRESHOLD still binds), k4 BUILD the medium's own glow (the ambient emission), k5 SPACE
 // how far the core's light reaches.
 
 // ---- touch ----------------------------------------------------------------
@@ -495,6 +499,8 @@ out vec4 fragColor;
 
 /** k2 FLOW: the domain warp's amplitude (NEB_WARP_AMP at rest). */
 float gWarpAmp = NEB_WARP_AMP;
+/** k3 TONE: added to the density bar (0 at rest). */
+float gToneThr = 0.0;
 
 /**
  * The cloud's envelope at squared radius rSq.
@@ -570,6 +576,7 @@ void main() {
     float ambient = NEB_AMBIENT_EMIT * (1.0 + (clamp(uKnob[4], 0.0, 1.0) - 0.5));
     float falloff = NEB_CORE_FALLOFF / (1.0 + 0.8 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
     gWarpAmp = NEB_WARP_AMP + 0.8 * (clamp(uKnob[2], 0.0, 1.0) - 0.5);
+    gToneThr = 0.12 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -593,8 +600,9 @@ void main() {
     // that integrating exists to prevent. With every audio uniform at zero
     // this drift and this tumble are the whole animation, and they are what
     // keeps a silent screen alive.
-    vec3 drift = vec3(0.031, -0.047, 0.019) * uTime;
-    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime + NEB_MID_STEER * mid) * rotX(NEB_TUMBLE_X * uTime);
+    // The mids' steer is a slide of the domain, never a turn (see NEB_MID_STEER).
+    vec3 drift = vec3(0.031, -0.047, 0.019) * uTime + NEB_MID_STEER * mid * vec3(0.8, -0.35, 0.5);
+    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime) * rotX(NEB_TUMBLE_X * uTime);
 
     // ---- the fingers, hoisted out of the march ----------------------------
     // One uniform branch. Every touch uniform is a literal zero on an
@@ -770,7 +778,7 @@ void main() {
             shock = shockAmp * exp(-sd * sd);
         }
         float thr = max(
-            NEB_THRESHOLD
+            NEB_THRESHOLD + gToneThr
                 - NEB_WELL_THRESHOLD * well
                 - NEB_BRIDGE_THRESHOLD * bridge
                 - NEB_SHOCK_THICKEN * shock,

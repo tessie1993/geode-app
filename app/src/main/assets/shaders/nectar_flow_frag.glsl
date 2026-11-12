@@ -57,7 +57,9 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the filaments' width,
 // k2 FLOW added to the stir's bend (fluidWarp3's amount), k3 TONE the palette
-// position, k4 BUILD the core's glow, k5 SPACE how deep the slab reaches.
+// position and the fold's squash (a high melody packs the nectar into finer,
+// denser chambers, a low one opens it out; always inside the 1.22..1.42 band
+// where the structure holds), k4 BUILD the core's glow, k5 SPACE how deep the slab reaches.
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -119,7 +121,7 @@ void main() {
     // Kept inside 1.22..1.42. Below it the iteration barely folds and the
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
-    float squash = 1.26 + 0.12 * clamp(bass, 0.0, 1.0);
+    float squash = clamp(1.26 + 0.12 * clamp(bass, 0.0, 1.0) + 0.13 * tone, 1.22, 1.42);
     // TEXTURE widens the filaments (a softer shell), never past half or 1.5 times.
     float sharp = (22.0 + 26.0 * clamp(treb, 0.0, 1.0)) / (1.0 + kTexture);
     float warpScale = 0.95 + 0.30 * swell;

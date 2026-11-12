@@ -51,7 +51,9 @@ out vec4 fragColor;
 //     offset from 0.5 so off is the tuned look: k0 PULSE the emission, k1
 //     TEXTURE the rods' width (an exact radius scale, 0.75..1.25), k2 FLOW
 //     added to the mids' twist (clamped to the twist's old range, so the step
-//     bound holds), k3 TONE the palette position, k4 BUILD the halo's glow, k5
+//     bound holds), k3 TONE the palette position and the strands' girth (a
+//     high melody draws the rods in close round the flight, a low one sets them
+//     wide; at the closest they still clear the eye's sway), k4 BUILD the halo's glow, k5
 //     SPACE the reach (far plane and fog).
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -107,6 +109,8 @@ float gBeadDepth;
 float gLife;
 /** k1 TEXTURE: the rods' radius scale, 0.75..1.25 (1 at rest). */
 float gWidth = 1.0;
+/** k3 TONE: the radius the strands stand at (ROD_RADIUS at rest). */
+float gRingR = ROD_RADIUS;
 
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     vec3 pa = p - a;
@@ -131,7 +135,7 @@ float map(vec3 p) {
     ang = mod(ang, sector) - 0.5 * sector;
     gCellZ = mod(floor(p.z / ROD_CELL), 1024.0);
     float z = mod(p.z, ROD_CELL) - 0.5 * ROD_CELL;
-    vec3 q = vec3(ROD_RADIUS - rad, ang * ROD_RADIUS, z);
+    vec3 q = vec3(gRingR - rad, ang * gRingR, z);
     // The cell's own life. The seed is the cell's hash, so each rod's clock
     // is unrelated to its neighbours'; the radius follows the envelope and a
     // dead cell returns the empty capsule's distance, which is a valid lower
@@ -161,6 +165,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
     gWidth = 1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5);
+    gRingR = ROD_RADIUS * (1.0 - 0.5 * kTone);
 
     // 0.715 is the mids' own top (0.55 x 1.3): FLOW never twists past it.
     gTwist = clamp(0.55 * midA + 0.3 * kFlow, -0.15, 0.715);

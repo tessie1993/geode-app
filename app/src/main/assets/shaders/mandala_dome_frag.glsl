@@ -45,8 +45,10 @@ out vec4 fragColor;
 //                              counter-turn, the floor creeps.
 // Touch                        the finger lights the centre sphere, as before.
 // SND_ENERGY_TREND             overall level.
-// Knobs: k0 PULSE the kick swell, k1 TEXTURE the fringe split, k3 TONE the
-// hue, k4 BUILD the inner light, k5 SPACE the orbit radius.
+// Knobs: k0 PULSE the kick swell, k1 TEXTURE the fringe split, k3 TONE where
+// the centre sphere floats (a high melody lifts it up toward the dome, a low
+// one lowers it toward the floor's mandala; its light and halo go with it;
+// and a small hue offset), k4 BUILD the inner light, k5 SPACE the orbit radius.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -83,6 +85,8 @@ float gDomeR;
 vec3 gEye;
 /** Set by map(): the hit's position relative to its own side dome's centre. */
 vec3 gDomeP;
+/** k3 TONE: the centre sphere's centre (the origin at rest). */
+vec3 gSC = vec3(0.0);
 
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -186,7 +190,7 @@ vec2 sphereCells(vec3 n, float spin, float cells) {
 
 float map(vec3 p) {
     // The centre sphere, floating at the origin.
-    float dS = length(p) - gR;
+    float dS = length(p - gSC) - gR;
     // The hall: the inside of a sphere about the floor's centre.
     float dH = MD_HALL - length(p - vec3(0.0, MD_FLOOR, 0.0));
     float dF = p.y - MD_FLOOR;
@@ -235,6 +239,7 @@ void main() {
 
     gR = MD_SPHERE * (1.0 + 0.16 * kick * (0.4 + 1.2 * kPulse));
     gDomeR = MD_DOME_R * (1.0 + 0.04 * kick);
+    gSC = vec3(0.0, 1.8 * kTone, 0.0);
 
     vec3 ro;
     vec3 rd;
@@ -281,7 +286,7 @@ void main() {
         vec3 base;
         if (gMat < 0.5) {
             // The centre sphere: its own tapestry, turning, lit from inside.
-            vec3 sn = p / max(gR, 1e-3);
+            vec3 sn = (p - gSC) / max(gR, 1e-3);
             float dens = MD_CELLS_SPHERE / (MD_TAU * gR);
             base = tapestry(sphereCells(sn, -spin * 1.5, MD_CELLS_SPHERE), glow + finger, split * 0.6,
                             MD_CELLS_SPHERE, px * dens);
@@ -315,7 +320,7 @@ void main() {
                 base += pal(0.5 + hue) * pow(1.0 - ndv, 4.0) * 0.4;
             }
             // Lit by the centre sphere (inverse square, softened) and a dim key from above.
-            vec3 toL = -p;
+            vec3 toL = gSC - p;
             float dl = length(toL);
             float dif = max(dot(n, toL / max(dl, 1e-3)), 0.0) * inner * 6.0 / (4.0 + dl * dl);
             float key = 0.18 * max(dot(n, normalize(vec3(-0.3, 0.9, 0.3))), 0.0);
@@ -326,8 +331,8 @@ void main() {
 
     // The halo around the sphere: the ray's closest approach to the centre,
     // taken only up to what the ray hit, so it never shines through a wall.
-    float tc = clamp(dot(-ro, rd), 0.0, sceneT);
-    float dmin = length(ro + rd * tc);
+    float tc = clamp(dot(gSC - ro, rd), 0.0, sceneT);
+    float dmin = length(ro + rd * tc - gSC);
     float haloW = 1.5 - 0.7 * bass;
     col += lightCol * 0.22 * inner * exp(-max(dmin - gR, 0.0) * haloW);
 

@@ -87,8 +87,10 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the struts' width
 // (0.75..1.25, still under half a cell, so the lattice stays exact), k2 FLOW
-// added to the fold planes' turn (the mids' steer), k3 TONE the palette
-// position, k4 BUILD the glow integrated along the ray, k5 SPACE the haze's
+// added to the fold offset (the mids' steer; neither turns anything: owner
+// rule, no style spins to the music), k3 TONE the palette position and the
+// inversion radius (a high melody turns more of the lattice inside out at
+// every fold, a low one less), k4 BUILD the glow integrated along the ray, k5 SPACE the haze's
 // reach.
 
 // ---- caps ------------------------------------------------------------------
@@ -585,14 +587,16 @@ void main() {
     // fingertip, which is the gesture this style exists for.
     gPoleR2 = POLE_R2 * (1.0 + 0.30 * bassN + 0.85 * pinch + 0.65 * grab);
 
-    // The chain. Mids steer the fold planes: same argument as above about
-    // gain, and mids are the steering band by convention.
-    float foldAngle = uTime * 0.041 + midN * 0.45 + spin + 0.45 * kFlow;
+    // The chain. The fold planes turn on uTime and the user's swirl only
+    // (nothing turns to the music); the mids, the steering band by
+    // convention, and FLOW steer by sliding the fold offset instead, below.
+    float foldAngle = uTime * 0.041 + spin;
     gFoldRot = rotAxis(vec3(0.37, 0.78, -0.51), foldAngle);
     // The offset breathes slowly, so the group is never the same group twice
     // and the structure keeps reorganising with the audio at zero.
-    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029));
-    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN);
+    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029))
+             + (0.12 * midN + 0.12 * kFlow) * vec3(0.55, 0.62, -0.56);
+    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN + 0.25 * (clamp(uKnob[3], 0.0, 1.0) - 0.5));
     gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
     gBead = CELL_BEAD + 0.030 * bassN;
 

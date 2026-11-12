@@ -45,8 +45,11 @@ out vec4 fragColor;
 //
 // Morph rounds the orbs toward soft cubes, Warp stirs the lattice through an
 // ABC flow, Turbulence varies the orb sizes cell by cell. Knobs: k1 TEXTURE
-// the small dots' size, k2 FLOW the stir, k3 TONE the hue, k4 BUILD the
-// halo, k5 SPACE the flight tube's width.
+// the small dots' size, k2 FLOW the stir, k3 TONE which lattice leads (a
+// high melody swells the mid orbs between the big ones and shrinks the big,
+// so the lattice turns airy and fine; a low one the reverse; and a small hue
+// offset; every radius keeps the bound below), k4 BUILD the halo, k5 SPACE
+// the flight tube's width.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -82,6 +85,8 @@ float gRadC;
 float gTube;
 vec3 gEye;
 /** Set by map(): 0 big, 1 mid, 2 small orb; the hit cell's hash; the folded point. */
+/** k3 TONE: the mid lattice's orb radius (0.26 at rest; at most 0.39, so 1.55 r < 1). */
+float gRadB;
 float gMat;
 float gHash;
 vec3 gQ;
@@ -122,7 +127,7 @@ float map(vec3 w) {
     float hC;
     float dA = orbLayer(q, 4.0, gRadA, 4.0, hA);
     // The mid and small lattices sit half a cell off the big one, between its orbs.
-    float dB = orbLayer(q + vec3(1.0, 1.0, 1.0), 2.0, 0.26, 8.0, hB);
+    float dB = orbLayer(q + vec3(1.0, 1.0, 1.0), 2.0, gRadB, 8.0, hB);
     float dC = orbLayer(q + vec3(0.25, 0.25, 0.25), 1.0, gRadC, 16.0, hC);
 
     float d = dA;
@@ -175,7 +180,8 @@ void main() {
     gMorph = 0.6 * smoothstep(0.6, 1.0, uMorph);
     gTurb = clamp(uTurbulence, 0.0, 1.0);
     // Full kick at k0 = 1.0 gives 0.62 * 1.53 = 0.95, and 0.95 * 1.55 < 2.
-    gRadA = 0.62 * (1.0 + 0.35 * kick);
+    gRadA = 0.62 * (1.0 + 0.35 * kick) * (1.0 - 0.6 * (uKnob[3] - 0.5));
+    gRadB = 0.26 * (1.0 + 1.0 * (uKnob[3] - 0.5));
     gRadC = 0.10 * (1.0 + 0.4 * (uKnob[1] - 0.5));
     gTube = 2.3 + 1.2 * (uKnob[5] - 0.5);
 

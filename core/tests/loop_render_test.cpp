@@ -57,6 +57,7 @@ struct World {
     std::vector<int> seamCaps;    // per stop, the most seam frames the stash holds (missing: all asked for)
     std::string seamError;        // the seam pass does not build
     int failFrame = -1;           // renderFrame fails at this frame
+    int failPresentAt = -1;       // the swap fails once this many frames were presented
     int cancelStop = -1;          // cancel while this stop draws ...
     int cancelFrame = -1;         // ... this frame
     lr::Job* job = nullptr;
@@ -231,7 +232,8 @@ public:
         if (index != w_.blends || tail != index || seamFrames != w_.seamRequests.back()) w_.blendsInOrder = false;
         ++w_.blends;
     }
-    void present(int64_t ptsNs) override {
+    const char* present(int64_t ptsNs) override {
+        if (static_cast<int>(w_.presented.size()) == w_.failPresentAt) return "the swap failed";
         w_.presented.push_back(ptsNs);
         ++w_.presentsTotal;
         if (!w_.announced && !w_.neverAnnounce) {
@@ -241,9 +243,10 @@ public:
         }
         if (static_cast<int>(w_.presented.size()) == w_.errorAfterPresents) {
             w_.ready.push_back({sink::Out::Error, {}});
-            return;
+            return nullptr;
         }
         w_.ready.push_back({sink::Out::Sample, {0, 10, ptsNs / 1000, 0}});
+        return nullptr;
     }
     void closeScene() override { w_.events.push_back("close-scene"); }
     void closeSurface() override { w_.events.push_back("close-surface"); }
@@ -447,6 +450,14 @@ void failuresAreNamed() {
         check(j->failure() == lr::Failure::Stopped, "a frame that cannot be drawn stops the job");
         check(j->detail() == "the track's audio could not be decoded", "and says why");
         check(w.files[0].muxStops == 1, "the muxer had samples, so it is stopped");
+    }
+    {
+        World w;
+        w.failPresentAt = 3;
+        FakeHost host(w);
+        const lr::Job* j = runFailing(w, host, job);
+        check(j->failure() == lr::Failure::Stopped && j->detail() == "the swap failed", "a frame the encoder did not get");
+        check(w.presented.size() == 3, "no frame follows it");
     }
     {
         World w;

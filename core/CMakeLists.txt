@@ -74,6 +74,8 @@ add_library(geode_core STATIC
     output/EncodeSink.cpp
     output/RecordSession.cpp
     output/android/MediaCodecSink.cpp
+    output/android/LoopRenderHost.cpp
+    api/geode_loop_job_api.cpp
     api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp

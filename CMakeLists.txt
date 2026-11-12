@@ -134,6 +134,7 @@ add_library(geode SHARED
     app/src/main/cpp/geode_tags_jni.cpp
     app/src/main/cpp/geode_export_dsp_jni.cpp
     app/src/main/cpp/geode_export_jni.cpp
+    app/src/main/cpp/geode_loop_job_jni.cpp
     app/src/main/cpp/geode_sound_jni.cpp
     app/src/main/cpp/geode_playout_jni.cpp
     app/src/main/cpp/geode_ingest_jni.cpp

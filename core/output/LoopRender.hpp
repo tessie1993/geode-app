@@ -102,7 +102,7 @@ public:
     virtual void captureSeam(int index) = 0;
     virtual void blendSeam(int index, int tail, int seamFrames) = 0;
     // The wordmark over the frame, its presentation time, then the swap into the encoder.
-    virtual void present(int64_t ptsNs) = 0;
+    virtual const char* present(int64_t ptsNs) = 0;
     // Frees the mark, the renderer and the stash, in that order; then, after the encoder is gone, the surface.
     virtual void closeScene() = 0;
     virtual void closeSurface() = 0;

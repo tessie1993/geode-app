@@ -243,7 +243,7 @@ Job::End Job::drawStop(Writer& writer, const DriftStop& stop, int index, int cou
             host_.captureSeam(step.index);
         } else {
             if (step.op == loopseam::Op::BlendPresent) host_.blendSeam(step.index, step.tail, kept);
-            host_.present(loopseam::ptsNs(frame, kept, fps_));
+            if (const char* why = host_.present(loopseam::ptsNs(frame, kept, fps_))) return fail(Failure::Stopped, why);
             if (const Failure failure = writer.drain(false, host_); failure != Failure::None) return fail(failure);
         }
         progress_.store(loopseam::progress(index, count, frame, loopFrames, kept), std::memory_order_relaxed);

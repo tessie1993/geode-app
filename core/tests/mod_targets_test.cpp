@@ -118,9 +118,12 @@ void everyTargetKeepsItsNameAndScope() {
               !modtargets::reaches(LfoTarget::EscapeColor, "plasma") && !modtargets::reaches(LfoTarget::EscapeColor, "flame_veil"),
           "Escape colour writes its row, held to the flash rate, offered only on a family whose folds feed it");
     for (LfoTarget t : {LfoTarget::Spawn, LfoTarget::Fractal, LfoTarget::FrontLayer, LfoTarget::BackLayer}) {
-        check(!isLuminanceTarget(t) && modtargets::reaches(t, "petal_rose") && !modtargets::reaches(t, "plasma") &&
-                  !modtargets::reaches(t, "flame_veil"),
-              std::string(modtargets::name(t)) + ": a shape, offered on a family style that draws it and nowhere else");
+        // Drawn by the families with a field of their own and by the loose styles on lib_shell (plasma); not by
+        // Pool, which grows nothing, Flame (owner), or Glass Gem, traced in closed form.
+        check(!isLuminanceTarget(t) && modtargets::reaches(t, "petal_rose") && modtargets::reaches(t, "plasma") &&
+                  modtargets::reaches(t, "bulb_classic") && !modtargets::reaches(t, "pool") &&
+                  !modtargets::reaches(t, "flame_veil") && !modtargets::reaches(t, "glass_gem"),
+              std::string(modtargets::name(t)) + ": a shape, offered on a style that draws it and nowhere else");
     }
     check(paramSlotOf(LfoTarget::KaleidoFolds) == static_cast<int>(ParamSlot::kaleidoFolds) && !isLuminanceTarget(LfoTarget::KaleidoFolds),
           "the kaleidoscope's target writes its folds, a shape and no luminance target");

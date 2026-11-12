@@ -3,12 +3,12 @@ package dev.geode.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.isSpecified
 import dev.geode.ui.ColorDerive
 
 /**
@@ -98,7 +98,10 @@ fun isReadableOnCanvas(color: Color): Boolean = contrastRatio(color, GeodeColors
  * The Material 3 type scale on the system sans, scaled by the user's text-size setting.
  *
  * The scale itself is Material's; the app only multiplies it, so system font and OEM font
- * choices carry through.
+ * choices carry through. Every sp of a style is scaled (size, line height, letter spacing), as
+ * Android's own font scale does, so the setting acts as the app's font scale. Scaling the type
+ * rather than `LocalDensity` is what lets it reach every Dialog and Popup: their windows take a
+ * fresh density from the context, but they inherit the theme.
  */
 fun geodeTypography(textScale: Float = 1f): Typography {
     val base = Typography()
@@ -108,6 +111,7 @@ fun geodeTypography(textScale: Float = 1f): Typography {
         copy(
             fontSize = fontSize.scaledBy(textScale),
             lineHeight = lineHeight.scaledBy(textScale),
+            letterSpacing = letterSpacing.scaledBy(textScale),
         )
     return Typography(
         displayLarge = base.displayLarge.scaled(),
@@ -128,7 +132,13 @@ fun geodeTypography(textScale: Float = 1f): Typography {
     )
 }
 
-private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSpecified) this * factor else this
+private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSp) this * factor else this
+
+/**
+ * The user's text size as the theme applied it (1 outside the theme), for the few rules that
+ * read `LocalDensity.fontScale`: the app's font scale is that times this.
+ */
+val LocalTextScale = compositionLocalOf { 1f }
 
 /**
  * [color]'s contrast against the worst the glass can put behind it ([GeodeGlass.WorstBackdrop]:

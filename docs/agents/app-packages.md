@@ -329,6 +329,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
 - Show on a computer (`ComputerLink`) serves the same picture, with or without a TV, to a browser on the Wi-Fi.
 - Its doors (`ComputerLinkDoor`) are Visuals › Settings' row, the stage's Share to PC icon beside Cast and the Player's tile.
+- Its sheet is `ui/cast/ComputerLinkSheet`: the whole link only as a QR code (`core/util/QrCode`), and for a computer, which has no scanner, the short link with no token as text, Copy, Share and the code its page asks for.
+- The typed path is native in `core/viz/frame/LinkPair` (`geode_link_pair_*`): a random 6-character code from the OS (Crockford base32, 30 bits), single-session, replaced after 5 minutes, a few tries per code with a gap and a lock-out, compared in constant time; only a right code gets the token's path.
 - Its sheet is `ui/cast/ComputerLinkSheet`: the link as text, a QR code from `core/util/QrCode`, Copy and Share.
 - The link it shows has the host as one number (`geode_link_share_url`, the WHATWG IPv4 parser; hides the dotted address from the eye only) and a two-word label.
 - The page (`core/viz/frame/LinkPage`, plain HTTP) tries WebRTC first: it POSTs a receive-only offer to `rtc` and plays the answer from `core/cast/WebRtcLink` with a 0.5 s `jitterBufferTarget`.

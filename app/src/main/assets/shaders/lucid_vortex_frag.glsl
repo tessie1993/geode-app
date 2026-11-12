@@ -139,7 +139,8 @@ float windAt(float z) {
     return z * (LV_TAU / 32.0) + gWind * (z - gEye.z) + gSpin;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (no slots). */
+float mapAt(vec3 p, inout LucidHit found) {
     vec2 c = p.xy - axisAt(p.z);
     float r = length(c);
     float ang = r > 1e-4 ? atan(c.y, c.x) : 0.0;
@@ -149,11 +150,15 @@ float map(vec3 p) {
     return max(d, LV_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_lucid_field. */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_lucid_field
 
 /** Value noise whose lattice wraps every `period` cells along z, 0..1. */
 float lvNoise(vec3 p, float period) {
@@ -200,15 +205,12 @@ float lvFbm(vec3 p, int octaves) {
 }
 
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float rel = clamp(uEnergyRel - 0.6, 0.0, 1.4) * uIntensity;
@@ -218,11 +220,11 @@ void main() {
     int oct = lucidDetail(3, 2);
 
     // Winding per unit of depth: the old 1/r tightening, spent on distance.
-    gWind = clamp(0.03 + 0.11 * rel + 0.08 * uTwist, -0.3, 0.3);
+    gWind = clamp(0.03 + 0.11 * rel + lucidSpan(N.twist, 0.0, -0.08, 0.08), -0.3, 0.3);
     gSpin = mod(t * 0.12, LV_TAU);
     gPhase = mod(t * 0.21, LV_TAU);
-    gRelief = LV_RELIEF_MAX * (0.55 + 0.45 * clamp(uMorph, 0.0, 1.0));
-    gRadius = LV_RADIUS + 1.1 * kSpace;
+    gRelief = LV_RELIEF_MAX * lucidSpan(N.depth, 0.55, 0.55, 1.0);
+    gRadius = LV_RADIUS + lucidSpan(N.reach, 0.0, -0.55, 0.55);
     gAxis = touchAnchor() * touchStrength() * 0.9;
     gWander = uOrbit * 1.2 * uIntensity;
     float wl = length(gWander);
@@ -244,7 +246,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LV_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0008;
         if (d < eps) {
             hitT = tm;
@@ -253,7 +256,7 @@ void main() {
         tm += max(d * 0.9, eps);
     }
 
-    float hue0 = 0.15 * kTone;
+    float hue0 = lucidSpan(N.tone, 0.0, -0.075, 0.075);
     float ahead = pow(max(dot(rd, normalize(uCamBasis[2])), 0.0), 6.0);
     // Smoke lit by the walls, and the drain: the bore's far end sinks to black.
     vec3 fogCol = (blackbody(0.3) * 0.10 + pal(hue0 + 0.05) * 0.02) * (1.0 - 0.9 * ahead)
@@ -263,7 +266,7 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        vec3 n = lucidNormal(p, max(0.0015, 0.0012 * hitT));
 
         // The paint, on the hit point only. Turning the wall point by the
         // spiral's angle is seamless all the way round (it is a rotation of
@@ -273,7 +276,7 @@ void main() {
         float zp = p.z * (LV_TAU / 32.0);
         vec2 zoff = 3.0 * vec2(cos(zp), sin(zp));
         q += lucidJitter(q, t);
-        float push = 0.32 * chaos * (1.0 + 1.2 * kFlow);
+        float push = 0.32 * chaos * lucidSpan(N.flow, 1.0, 0.4, 1.6);
         for (int i = 0; i < LUCID_MAX_DEPTH; i++) {
             if (i >= depthLevels) break;
             float lv = float(i);
@@ -283,9 +286,9 @@ void main() {
         float zn = p.z * LV_ZCELLS;
         float heat = lvFbm(vec3(q * 1.4, zn), oct);
         float fil = 1.0 - abs(2.0 * lvFbm(vec3(q * 2.3 + 4.1, zn + 3.0), oct) - 1.0);
-        fil = pow(fil, 6.0 + 4.0 * kTexture);
+        fil = pow(fil, 6.0 + lucidSpan(N.scale, 0.0, -2.0, 2.0));
 
-        float h = clamp(heat * 0.75 + fil * 0.55 - 0.2 + 0.25 * kBuild, 0.0, 1.0);
+        float h = clamp(heat * 0.75 + fil * 0.55 - 0.2 + lucidSpan(N.glow, 0.0, -0.125, 0.125), 0.0, 1.0);
         vec3 metal = pal(hue0 + 0.05 + 0.2 * heat);
         vec3 glow = mix(blackbody(h), metal * h * 1.4, 0.35);
         glow = lucidCubic(glow, 0.5);
@@ -311,7 +314,7 @@ void main() {
     if (abs(rd.z) > 0.08) {
         float dir = rd.z > 0.0 ? 1.0 : -1.0;
         float base = rd.z > 0.0 ? floor(ro.z * 0.5) + 1.0 : ceil(ro.z * 0.5) - 1.0;
-        float flare = clamp(0.25 + 1.8 * onset * (1.0 + 1.6 * kPulse), 0.0, 3.0);
+        float flare = clamp(0.25 + 1.8 * onset * lucidSpan(N.emit, 1.0, 0.2, 1.8), 0.0, 3.0);
         for (int i = 0; i < 6; i++) {
             float zi = (base + dir * float(i)) * 2.0;
             float ti = (zi - ro.z) / rd.z;

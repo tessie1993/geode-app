@@ -13,6 +13,7 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 
@@ -55,6 +56,14 @@ out vec4 fragColor;
 // k2 FLOW band scroll, k3 TONE the relief (a high melody raises the cliffs
 // into steep spires and gorges, a low one lays them down as soft dunes; plus a
 // small hue offset), k4 BUILD glow, k5 SPACE fog.
+// Every one of these, and the c-plane's scale (SPACE: how much of the set one
+// world unit holds) and the terraces' frequency (TEXTURE), is one normalized
+// input (lib_shell) set in one block at the top of main and mapped there to
+// its range; at rest each is the constant the landscape was tuned with. The
+// landscape is the field the grow hooks act on (SHELL_FIELD3): Spawn slides a
+// second chain of islands down the flight, Fractal grows islands a third the
+// size on the cliffs, the layers open the near and far landscape. A hook that
+// is on starts the march at the eye instead of the slab above the mesa.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -75,7 +84,7 @@ out vec4 fragColor;
 
 #define MB_MAX_STEPS 96
 #define MB_ITERS 64
-/** c per world unit. */
+/** c per world unit at rest (gCs: SPACE); 0.085..0.12 keeps the island inside its tile. */
 #define MB_CS 0.1
 /** Re(c) at the island's centre (world z = 0): between the period-2 bulb and the cardioid. */
 #define MB_CX -0.85
@@ -84,7 +93,7 @@ out vec4 fragColor;
 #define MB_TOP -2.8
 #define MB_DEPTH 6.0
 #define MB_FLOOR (MB_TOP - MB_DEPTH)
-/** Terrace frequency in world units of distance from the set. */
+/** Terrace frequency in world units of distance from the set, at rest (gTerrF: TEXTURE). */
 #define MB_TERR 8.0
 #define MB_FAR 64.0
 /** Nothing stands above the floor this close to a tile seam. */
@@ -101,8 +110,8 @@ float gK;
 float gTerr;
 float gWarp;
 vec2 gGlide;
-
-float mbKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
+float gCs;
+float gTerrF;
 
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
@@ -165,10 +174,11 @@ float setDistance(vec2 c) {
     // Smooth count: log2(log r) is continuous across the bailout.
     float sm = n + 1.0 - log2(max(log(r), 1e-3));
     gIter = clamp(sm / float(MB_ITERS), 0.0, 1.0);
-    return 0.5 * r * log(r) / max(length(dz), 1e-6) / MB_CS;
+    return 0.5 * r * log(r) / max(length(dz), 1e-6) / gCs;
 }
 
-float map(vec3 p) {
+/** The landscape: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+float mandelField(vec3 p) {
     gMat = 0.0;
     float above = p.y - MB_TOP;
     // Nothing reaches above the mesa: a valid bound, and no iteration at all.
@@ -179,12 +189,12 @@ float map(vec3 p) {
 
     // Seam-centred tile coordinate: the island's centre is at u = 0.
     float u = p.z - MB_TILE * floor(p.z / MB_TILE + 0.5);
-    vec2 c = vec2(MB_CX + u * MB_CS, p.x * MB_CS) + gGlide;
+    vec2 c = vec2(MB_CX + u * gCs, p.x * gCs) + gGlide;
     if (gWarp > 0.001) c += gWarp * 0.03 * vec2(sin(c.y * 5.0 + uTime * 0.4), cos(c.x * 5.0 + uTime * 0.33));
 
     float dw = setDistance(c);
-    float h = MB_TOP - gK * dw + gTerr * sin(MB_TERR * dw);
-    float L = gK + gTerr * MB_TERR;
+    float h = MB_TOP - gK * dw + gTerr * sin(gTerrF * dw);
+    float L = gK + gTerr * gTerrF;
     float dCliff = max((p.y - h) / sqrt(1.0 + L * L), above);
     float seam = 0.5 * MB_TILE - abs(u);
     // The flanks off the cusp reach the seam (the estimate there is still
@@ -195,6 +205,10 @@ float map(vec3 p) {
     float dNbr = max(seam + MB_SEAM, above);
     if (dFloor < dCliff) gMat = 1.0;
     return min(min(dCliff, dFloor), dNbr);
+}
+
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mandelField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -220,13 +234,35 @@ void main() {
     float sub = sndLevel(SND_SUB_ATT);
     float hueStep = 0.12 * clamp(SND_ONSET_ENV, 0.0, 1.0);
 
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's steepening
+    float nTexture = shellKnob(1);                                 // TEXTURE  the terraces: depth and frequency
+    float nFlow = shellKnob(2);                                    // FLOW     the bands' scroll
+    float nTone = shellKnob(3);                                    // TONE     the relief, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the glow
+    float nSpace = shellKnob(5);                                   // SPACE    the fog, the c-plane's scale
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    steep cliffs to gentle
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the c-plane's wave
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the terraces
+    float kickK = shellMap(nPulse, 0.0, 1.0, 2.0);
+    float terrTex = shellMap(nTexture, 0.0, 0.25, 0.5);
+    gTerrF = shellMap(nTexture, 6.0, MB_TERR, 10.0);
+    float flowK = shellMap(nFlow, 0.25, 1.0, 1.75);
+    float relief = shellMap(nTone, 0.55, 1.0, 1.45);
+    float hueTone = shellMap(nTone, -0.125, 0.0, 0.125);
+    float glowK = shellMap(nBuild, 0.5, 0.8, 1.1);
+    float fogK = shellMap(nSpace, 0.049, 0.035, 0.021);
+    gCs = shellMap(nSpace, 0.12, MB_CS, 0.085);
+    float steep = shellMap(nMorph, 3.4, 3.4, 2.0);
+    gWarp = shellMap(nWarp, 0.0, 0.0, 1.0);
+    float terrTurb = shellMap(nTurb, 0.0, 0.0, 0.6);
+
     // Morph eases the cliffs from steep to gentle; K stays >= 2, which the
     // terrace limit relies on. The kick only steepens.
-    float morph = clamp(uMorph, 0.0, 1.0);
-    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0))) * (1.0 + 0.9 * mbKnob(3));
-    // A <= 2 / MB_TERR <= K / MB_TERR: the terraces never rise above the mesa.
-    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0) * min(gK * 0.5, 1.0);
-    gWarp = clamp(uWarp, 0.0, 1.0);
+    gK = steep * (1.0 + 0.16 * kick * kickK) * relief;
+    // A <= 2 / MB_TERR <= K / MB_TERR: the terraces never rise above the mesa. A faster terrace
+    // (TEXTURE) is shallower by the same factor, so A x frequency, the bound's term, never grows.
+    gTerr = 0.25 * clamp(terrTurb + terrTex, 0.0, 1.0) * min(gK * 0.5, 1.0) * (MB_TERR / gTerrF);
     // 0.03 of c is 0.3 world units: a nudge on screen, as the flat glide was.
     gGlide = pitchGlide() * 0.03;
 
@@ -237,10 +273,13 @@ void main() {
     // exact (power of two). Without it, far down the 8192 travel a highp z
     // has ~0.001 of fraction left and every sample quantises.
     ro.z = mod(ro.z, MB_TILE);
+    // The layers are measured from the eye; a spawned chain slides 4 down the flight.
+    shellSetup3(ro, 3.0, 4.0, false);
 
-    // Start the march where the ray meets the slab the landscape can occupy.
+    // Start the march where the ray meets the slab the landscape can occupy (a hook that is on can
+    // raise a copy above it, so the march then starts at the eye).
     float t = 0.02;
-    if (ro.y > MB_TOP + 1.0) {
+    if (ro.y > MB_TOP + 1.0 && shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK)) {
         if (rd.y >= -1e-4) t = MB_FAR + 1.0;
         else t = max(t, (ro.y - MB_TOP - 1.0) / -rd.y);
     }
@@ -276,10 +315,9 @@ void main() {
     // through the ground.
     if (hitT < 0.0 && t < MB_FAR && rd.y < 0.0) hitT = t;
 
-    float hue = 0.03 * sin(uTime * 0.05) + 0.25 * mbKnob(3) + hueStep;
+    float hue = 0.03 * sin(uTime * 0.05) + hueTone + hueStep;
     vec3 sky = skyColour(rd, hue);
     vec3 col = sky;
-    float fogK = 0.035 * (1.0 - 0.8 * mbKnob(5));
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0015 * hitT + 0.0008);
@@ -304,7 +342,7 @@ void main() {
             // count, sub bass shifting it, each band lit by its own spectrum bin.
             float f = gIter;
             float smoothF = f + sub * 0.1;
-            float flow = uTime * 0.02 * (1.0 + 1.5 * mbKnob(2));
+            float flow = uTime * 0.02 * flowK;
             vec3 base = pal(smoothF * 2.0 + flow + hue) * (0.2 + f * 1.4 + sndSpectrum(f) * 0.7);
             col = base * (0.25 + 0.75 * dif) * ao + pal(hue + 0.3) * fres * 0.12 + vec3(spec) * 0.2 * ao;
         }
@@ -313,7 +351,7 @@ void main() {
         col = mix(col, skyColour(rd, hue + 0.3 * hitT / MB_FAR), 1.0 - exp(-hitT * fogK));
     }
     float glowFar = glow > 1e-5 ? glowT / (glow * MB_FAR) : 0.0;
-    col += pal(hue + 0.15 + 0.4 * glowFar) * glow * 0.12 * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
+    col += pal(hue + 0.15 + 0.4 * glowFar) * glow * 0.12 * glowK * (0.7 + 0.3 * swell);
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

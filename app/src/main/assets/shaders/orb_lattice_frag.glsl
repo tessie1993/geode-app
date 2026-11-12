@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Orb Lattice: the flat style's spherical kaleidoscope of neon dot lattices,
 // stepped inside. The dots are real orbs now: three cubic lattices of glowing
@@ -109,7 +110,7 @@ float orbLayer(vec3 q, float c, float rad, float zCells, out float h) {
     return min(d, toEdge + 0.5 * c - OL_REACH * rad);
 }
 
-float map(vec3 w) {
+float olField(vec3 w) {
     vec3 p = w + gWarpA * abcFlow(w * OL_WF + gDrift);
 
     // The kaleidoscope: fold the plane round the axis into gFolds mirrored
@@ -143,6 +144,14 @@ float map(vec3 w) {
     return d;
 }
 
+/**
+ * The field every march, normal and occlusion tap reads: olField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, olField);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -174,16 +183,34 @@ void main() {
     // The new spawn grows its offset in over a second rather than cutting to it.
     gShift = 0.6 * (uSpawnSeed - 0.5) * spawnGrow(1.1) * uMoveDir
            + 0.25 * vec2(sin(uTime * 0.19), cos(uTime * 0.23));
-    gWarpA = clamp(0.32 * uWarp + 0.2 * (uKnob[2] - 0.5), 0.0, 0.45);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nWarp = clamp(0.5 + (0.32 * uWarp + 0.2 * (uKnob[2] - 0.5)) / 0.9, 0.0, 1.0);
+    float nMorph = 0.5 + 0.5 * smoothstep(0.6, 1.0, uMorph);
+    float nTone = clamp(uKnob[3], 0.0, 1.0);
+    float nDots = clamp(uKnob[1], 0.0, 1.0);
+    float nTube = clamp(uKnob[5], 0.0, 1.0);
+    float nHalo = clamp(uKnob[4], 0.0, 1.0);
+    // The ABC stir's depth (none at rest, 0.45 its ceiling).
+    gWarpA = shellMap(nWarp, 0.0, 0.0, 0.45);
     gDrift = vec3(uMoveDir * (uFlowPhase * 0.30), uFlowPhase * 0.18);
     gLip = 1.0 + 2.0 * gWarpA * OL_WF;
-    gMorph = 0.6 * smoothstep(0.6, 1.0, uMorph);
+    // Spheres toward soft cubes.
+    gMorph = shellMap(nMorph, 0.0, 0.0, 0.6);
     gTurb = clamp(uTurbulence, 0.0, 1.0);
     // Full kick at k0 = 1.0 gives 0.62 * 1.53 = 0.95, and 0.95 * 1.55 < 2.
-    gRadA = 0.62 * (1.0 + 0.35 * kick) * (1.0 - 0.6 * (uKnob[3] - 0.5));
-    gRadB = 0.26 * (1.0 + 1.0 * (uKnob[3] - 0.5));
-    gRadC = 0.10 * (1.0 + 0.4 * (uKnob[1] - 0.5));
-    gTube = 2.3 + 1.2 * (uKnob[5] - 0.5);
+    // The three lattices' orb radii (big, mid, small dots) and the flight tube.
+    gRadA = shellMap(nTone, 0.806, 0.62, 0.434) * (1.0 + 0.35 * kick);
+    gRadB = shellMap(nTone, 0.13, 0.26, 0.39);
+    gRadC = shellMap(nDots, 0.08, 0.10, 0.12);
+    gTube = shellMap(nTube, 1.7, 2.3, 2.9);
+    // The halo between the orbs.
+    float haloGain = shellMap(nHalo, 0.7, 1.0, 1.3);
 
     vec3 ro;
     vec3 rd;
@@ -253,7 +280,7 @@ void main() {
         col = mix(orb, fogCol, 1.0 - exp(-hitT * 0.075));
     }
 
-    col += pal(0.55 + tone) * halo * (0.018 + 0.03 * bassA) * (0.7 + 0.6 * uKnob[4]);
+    col += pal(0.55 + tone) * halo * (0.018 + 0.03 * bassA) * haloGain;
     col += enA * 0.35 * col * col;
     col *= 0.8 + 0.25 * swell;
     col *= 0.6 + 0.4 * smoothstep(2.2, 0.5, length(uv));

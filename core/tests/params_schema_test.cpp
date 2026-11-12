@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 198;
+constexpr int kWireFloats = 199;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -83,7 +83,8 @@ void theTableIsTheWire() {
               static_cast<int>(ParamSlot::frontLayer) == 195,
           "Grow and layers follow them");
     check(static_cast<int>(ParamSlot::backLayer) == 196, "backLayer keeps its slot");
-    check(static_cast<int>(ParamSlot::formula) == kWireFloats - 1, "formula is the wire's last float");
+    check(static_cast<int>(ParamSlot::formula) == 197, "formula keeps its slot");
+    check(static_cast<int>(ParamSlot::shapes) == kWireFloats - 1, "shapes is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -282,6 +283,8 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Spawn, "spawn", 0.0f, 1.0f},            {LfoTarget::Fractal, "fractal", 0.0f, 1.0f},
     {LfoTarget::FrontLayer, "frontLayer", -1.0f, 1.0f}, {LfoTarget::BackLayer, "backLayer", -1.0f, 1.0f},
     {LfoTarget::Formula, "formula", 0.0f, 1.0f},
+    // Shapes: how far the shape graph melts into the form, 0..1.
+    {LfoTarget::Shapes, "shapes", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -631,6 +634,11 @@ void everyLiveRowHasOneMeta() {
     check(std::string(formula.label) == "Formula" && formula.scope == catalogue::Scope::Formula && (formula.flags & kMod) != 0 &&
               formula.rollLo == 0.0f && formula.rollHi == 0.0f && SceneParams::spec(ParamSlot::formula).defaultValue == 0.0f,
           "Formula: a target on its own scope, 0 by default, never dealt by the param roll");
+    // Shapes: a target on its own scope (the styles that melt the shape graph in), off by default, never rolled.
+    const ParamMeta& shapes = SceneParams::meta(ParamSlot::shapes);
+    check(std::string(shapes.label) == "Shapes" && shapes.scope == catalogue::Scope::Shapes && (shapes.flags & kMod) != 0 &&
+              shapes.rollLo == 0.0f && shapes.rollHi == 0.0f && SceneParams::spec(ParamSlot::shapes).defaultValue == 0.0f,
+          "Shapes: a target on its own scope, off by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {

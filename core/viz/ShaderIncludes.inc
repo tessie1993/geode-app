@@ -49,7 +49,16 @@
 "lib_shard",
 "lib_petal",
 "lib_fold",
+// The depth layers (far fractal, warped haze) and the Formula folds the Shard, Prism and Fluor families share.
+"lib_strata",
+// The depth layers and formulas (midground haze, far fractal, uFormula) that lib_loom, lib_petal and lib_fold include at their end.
+"lib_layers",
 // Their second halves, included after the style's own map: the march that calls it (no prototypes).
+// The five older families' field (the style's map through one entry point, where Grow wraps it).
+"lib_arbor_field",
+"lib_bulb_field",
+"lib_chrys_field",
+"lib_lucid_field",
 "lib_flame_march",
 "lib_opal_march",
 "lib_hollow_march",
@@ -64,7 +73,15 @@
 "lib_fold_march_slice",
 "lib_fold_march_pair",
 "lib_fold_march_probe",
+// The older families' fields, included after the style's own map: the one entry that calls it (no prototypes).
+"lib_terra_field",
+"lib_truchet_field",
+"lib_glass_field",
+"lib_nebula_field",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).
 "lib_world",
+// Every style's shape as normalized inputs (shellMap, shellKnob) and the grow hooks on its own field
+// (SHELL_FIELD3, SHELL_FIELD2); after lib_scene_uniforms.
+"lib_shell",

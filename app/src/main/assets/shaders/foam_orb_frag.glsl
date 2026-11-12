@@ -31,7 +31,7 @@ void main() {
     vec2 uv = view();
     foamSetup();
     gFoamShape = FOAM_BALL;
-    gFoamRadius = 1.25 * clamp(uBreath, 0.9, 1.1) * (1.0 + 0.15 * gFoamSurgeBump);
+    gFoamRadius = foamAt(gFoamIn.radius, 1.25, 0.15) * clamp(uBreath, 0.9, 1.1) * (1.0 + 0.15 * gFoamSurgeBump);
     vec3 ro;
     vec3 rd;
     foamOrbitCamera(uv, 3.4, ro, rd);

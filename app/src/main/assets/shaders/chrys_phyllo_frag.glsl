@@ -107,12 +107,9 @@ float gChaos;
 float gFray;
 float gDroop;
 float gPetRot;
+/** Twist's sweep of the ray petals. */
+float gCurl;
 
-float gMat;     // 0 receptacle, 1 floret, 2 back ring, 3 front ring
-float gK;       // floret index
-float gAwake;
-float gDome;    // 0 at a floret's equator .. 1 at its crown
-vec4 gPet;      // the petal's (d, u, v, id)
 
 vec3 toFlower(vec3 p) {
     return vec3(p.x, dot(p, PH_AXIS), dot(p, PH_SIDE));
@@ -130,10 +127,11 @@ float phBase(float r) {
 
 /**
  * The florets as domes: chrysFloret's lattice, each of the four corners
- * measured as a 3D sphere (see the header). Writes gK, gAwake and gDome for
- * the nearest one.
+ * measured as a 3D sphere (see the header). Hands the nearest one's index
+ * (a.x), awake flag (a.y) and dome height (a.z: 0 at its equator .. 1 at its
+ * crown) back in `found`.
  */
-float phFloret(vec3 q) {
+float phFloret(vec3 q, inout ChrysHit found) {
     vec2 p = q.xz;
     float sp = gSp;
     float r = length(p);
@@ -164,16 +162,16 @@ float phFloret(vec3 q) {
         float d = length(off) - rad;
         if (d < best) {
             best = d;
-            gK = k;
-            gAwake = aw;
-            gDome = clamp(off.y / rad, 0.0, 1.0);
+            found.a.x = k;
+            found.a.y = aw;
+            found.a.z = clamp(off.y / rad, 0.0, 1.0);
         }
     }
     return best;
 }
 
-/** Both rings of ray petals. Writes gPet and the ring's material when nearer than `dIn`. */
-float phPetals(vec3 q, float dIn) {
+/** Both rings of ray petals. Hands the petal (b: d, u, v, id) and the ring's material back in `found` when nearer than `dIn`. */
+float phPetals(vec3 q, float dIn, inout ChrysHit found) {
     float d = dIn;
     vec2 pr = chrysTurn(gPetRot) * q.xz;
     float r0 = gRr * 0.96;
@@ -183,11 +181,11 @@ float phPetals(vec3 q, float dIn) {
         float len = k < 0.5 ? 0.68 : 0.58;
         vec2 q2 = chrysTurn(chrysRingOffset(k, count)) * pr;
         float rho = length(q2);
-        float a = atan(q2.y, q2.x) - uTwist * (rho - r0);
+        float a = atan(q2.y, q2.x) - gCurl * (rho - r0);
         float sector = CHRYS_TAU / count;
         float pid = floor(a / sector + 0.5);
         len *= 1.0 + 0.18 * gChaos * chrysWobble(mod(pid, count) + 5.0 * k, uTime);
-        vec4 pet = chrysPetal(q2, count, r0, len, 0.5, uTwist, 0.15, 0.35);
+        vec4 pet = chrysPetal(q2, count, r0, len, 0.5, gCurl, 0.15, 0.35);
         pet.x += chrysFray(q2, gFray);
         float across = (a - pid * sector) * rho;
         float s = max(rho - r0, 0.0);
@@ -197,14 +195,15 @@ float phPetals(vec3 q, float dIn) {
         float dp = max(pet.x, (abs(q.y - yP) - PH_THICK) / PH_PLIP);
         if (dp < d) {
             d = dp;
-            gMat = 2.0 + k;
-            gPet = pet;
+            found.mat = 2.0 + k;
+            found.b = pet;
         }
     }
     return d;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 receptacle, 1 floret, 2 back ring, 3 front ring; a.x the floret index, a.y its awake flag, a.z its dome height, b the petal frame (d, u, v, id)). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = toFlower(p);
     float rho = length(q.xz);
 
@@ -212,7 +211,7 @@ float map(vec3 p) {
     vec2 w = vec2(rho - (gRr - 0.08), abs(q.y + 0.06) - 0.14);
     float dCyl = min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - 0.08;
     float d = max(dCyl, (q.y - phBase(rho)) / 1.02);
-    gMat = 0.0;
+    found.mat = 0.0;
 
     // The floret band: every dome lies inside it, so outside it the boundary is a bound.
     float sp = gSp;
@@ -220,55 +219,61 @@ float map(vec3 p) {
     float dBand = max(max(q.y - topF, -q.y - 1.6 * sp), rho - gRr - 1.2 * sp);
     float dF = dBand;
     if (dBand < 0.5 * sp) {
-        dF = min(phFloret(q), max(dBand, 0.5 * sp));
+        dF = min(phFloret(q, found), max(dBand, 0.5 * sp));
     }
     if (dF < d) {
         d = dF;
-        gMat = 1.0;
+        found.mat = 1.0;
     }
 
     // Petals only near the rim: inside 0.8 R the disk always hides them.
-    if (rho > gRr * 0.8 - 0.05) d = phPetals(q, d);
+    if (rho > gRr * 0.8 - 0.05) d = phPetals(q, d, found);
     return d;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_chrys_field
+
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    gCurl = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    float popK = chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    float waveK = chrysSpan(N.sway, 0.06, 0.01, 0.11);
+    float glowK = chrysSpan(N.glow, 1.0, 0.25, 1.75);
+    float orbit = chrysSpan(N.reach, 3.9, 3.4125, 4.3875);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float onset = clamp(SND_ONSET_ENV * uIntensity, 0.0, 1.5);
     float sub = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5);
 
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gFray = gChaos * clamp(1.0 + 1.6 * kTexture, 0.2, 1.8);
-    gN = 720.0 * (1.0 + clamp(uMorph, 0.0, 1.0));
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gFray = gChaos * chrysSpan(N.fray, 1.0, 0.2, 1.8);
+    gN = 720.0 * chrysSpan(N.rings, 1.0, 1.0, 2.0);
     gSp = PH_DISK / sqrt(gN) * (1.0 + 0.06 * sub);
     gRr = gSp * sqrt(gN);
     // A bump of the envelope, so a popped floret rises from rest, never snaps.
-    gPop = clamp(chrysBump(min(onset, 1.0)) * (1.0 + 0.5 * step(1.0, onset)) * (1.0 + kPulse), 0.0, 1.5);
+    gPop = clamp(chrysBump(min(onset, 1.0)) * (1.0 + 0.5 * step(1.0, onset)) * popK, 0.0, 1.5);
     gSeed = floor(SND_ONSET_COUNT) * 1.618;
     float breath = clamp(uBreath - 1.0, -1.0, 1.0);
     gDroop = 0.25 + 0.15 * breath;
     gPetRot = t * 0.01;
-    float hue = 0.08 + 0.02 * sin(t * 0.05) + 0.12 * kTone;
+    float hue = 0.08 + 0.02 * sin(t * 0.05) + chrysSpan(N.tone, 0.0, -0.06, 0.06);
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 3.9 * (1.0 + 0.25 * kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 2.0 * CAM_SPIN_UNIT, ro, rd);
 
     float rUv = length(uv);
     vec3 bg = mix(pal(hue + 0.62) * 0.03, pal(hue + 0.5) * 0.08, exp(-rUv * 1.2));
@@ -285,7 +290,8 @@ void main() {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
-            float d = map(ro + rd * tm);
+            fld = chrysField(ro + rd * tm);
+            float d = fld.d;
             float eps = 0.0006 * tm + 0.0004;
             if (d < eps) {
                 hitT = tm;
@@ -296,12 +302,12 @@ void main() {
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0008 * hitT + 0.0004);
+            vec3 n = chrysNormal(p, 0.0008 * hitT + 0.0004);
             // Two short AO taps: the gaps between domes and the petal roots darken.
-            float occ = (0.02 - map(p + n * 0.02)) + 0.6 * (0.05 - map(p + n * 0.05));
+            float occ = (0.02 - chrysField(p + n * 0.02).d) + 0.6 * (0.05 - chrysField(p + n * 0.05).d);
             float ao = clamp(1.0 - 9.0 * occ, 0.3, 1.0);
-            // Restore the hit point's globals after the normal and AO taps.
-            map(p);
+            // The hit at p again for the shading, after the normal and AO taps.
+            fld = chrysField(p);
             vec3 q = toFlower(p);
             float rho = length(q.xz);
 
@@ -315,26 +321,26 @@ void main() {
             float spec = pow(max(dot(reflect(rd, nf), L), 0.0), 28.0);
             float lit = 0.12 + 0.95 * dif + 0.18 * fill;
 
-            if (gMat < 0.5) {
+            if (fld.mat < 0.5) {
                 // The receptacle: dark gaps on top, a muted back.
                 vec3 gap = pal(hue + 0.9) * 0.05;
                 vec3 back = pal(hue + 0.62) * 0.12;
                 col = mix(back, gap, step(0.0, q.y)) * (0.4 + 0.8 * lit);
-            } else if (gMat < 1.5) {
-                float age = clamp(gK / gN, 0.0, 1.0);
-                float wave = (0.06 + 0.1 * kFlow) * sin(gK * 0.035 * 720.0 / gN - uFlowPhase * 0.8);
+            } else if (fld.mat < 1.5) {
+                float age = clamp(fld.a.x / gN, 0.0, 1.0);
+                float wave = waveK * sin(fld.a.x * 0.035 * 720.0 / gN - uFlowPhase * 0.8);
                 vec3 fc = mix(pal(hue + 0.92 + wave) * 0.25, pal(hue + 0.02 + wave) * 0.9, smoothstep(0.0, 0.8, age));
-                fc = mix(fc, pal(hue + 0.45 + wave) * 0.95, gAwake);
-                col = fc * lit * mix(0.55, 1.0, gDome);
+                fc = mix(fc, pal(hue + 0.45 + wave) * 0.95, fld.a.y);
+                col = fc * lit * mix(0.55, 1.0, fld.a.z);
                 col += mix(vec3(1.0), fc, 0.5) * spec * 0.35;
                 // An awake floret glows from inside while it is up.
-                col += pal(hue + 0.45 + wave) * gAwake * gPop * 0.25 * clamp(1.0 + 1.5 * kBuild, 0.0, 2.5);
+                col += pal(hue + 0.45 + wave) * fld.a.y * gPop * 0.25 * glowK;
             } else {
-                float k = gMat - 2.0;
+                float k = fld.mat - 2.0;
                 float count = k < 0.5 ? 21.0 : 34.0;
-                float wob = chrysHash1(mod(gPet.w, count) + 7.0 * k);
-                vec3 pc = mix(pal(hue + 0.03 * wob) * 0.7, pal(hue + 0.06) * 1.05, clamp(gPet.y, 0.0, 1.0))
-                        * chrysPetalShade(gPet, 0.2);
+                float wob = chrysHash1(mod(fld.b.w, count) + 7.0 * k);
+                vec3 pc = mix(pal(hue + 0.03 * wob) * 0.7, pal(hue + 0.06) * 1.05, clamp(fld.b.y, 0.0, 1.0))
+                        * chrysPetalShade(fld.b, 0.2);
                 pc *= 0.75 + 0.25 * wob;
                 col = pc * lit + pc * through * 0.5 + vec3(spec) * 0.1;
                 // The disk shades the petal roots.

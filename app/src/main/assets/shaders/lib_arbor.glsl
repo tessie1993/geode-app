@@ -2,6 +2,8 @@
 // fold, in 3D for the marched styles and in 2D for the flat ones.
 //
 // Include after lib_scene_uniforms and lib_sdf3 (it calls rot2() and hash11()).
+// The style then defines ArborHit arborMap(vec3 p), its world at p, and after it
+// includes lib_arbor_field, which routes it through the family's one field.
 // The tree functions read no uniform at all. The macro helpers at the bottom
 // read uSteps, uMorph, uTurbulence and uWarp, the style knobs (arbKnob) and the
 // mid band (arbMidBow), and arbView() the view controls, each only inside the
@@ -28,6 +30,45 @@
 // limbs' girth, k2 FLOW added to the Chaos bend, k3 TONE the palette position,
 // k4 BUILD the glow, k5 SPACE the reach (the haze, or the orbit). The older
 // five (Grove, Bolt, Roots, Rosette, Sakura) still spend them their own way.
+//
+// ---- the normalization shell ----------------------------------------------------
+//
+// Every shape variable of the family is read once, normalized, in arborIn():
+// one field of ArborIn each, 0 at rest, -1..1 from a knob (its offset from 0.5,
+// doubled) or the Twist slider, 0..1 from the other params (0 their default).
+// Each is then mapped to its own range in one place: the tree's form in
+// arborShape() (arborShape2() for a flat tree), the rest in the style's setup
+// block through arbSpan(), once, into a named value the shading reads. The
+// drivers are scene params and style knobs only, every one a target of the
+// reaction matrix, so the music moves any variable through the matrix; nothing
+// in the shell reads the sound frame. At the defaults every variable is exactly
+// the constant it was, so the rest look is unchanged.
+//
+//   variable  driver                    mapped to
+//   levels    Morph                     fold levels, arbLevels: + extra
+//   chaos     Turbulence + Warp, FLOW   0..2, per-branch jitter and sway noise
+//   twist     Twist                     the forks' spiral, arborShape: +-0.6 rad
+//   girth     k1 TEXTURE                limb girth, arborShape: x0.75..x1.25
+//   density   k1 TEXTURE                the foliage's size (leaves, pads, polyps,
+//                                       beads, blossoms), each style's own range
+//   spread    k2 FLOW                   a child's angle off its parent, x0.8..x1.25
+//   bend      k2 FLOW                   gravity on every limb, +-0.12 rad a level
+//   flow      k2 FLOW                   a style's own wind, fall or flow rate
+//   scale     k5 SPACE                  the trunk's length, x0.92..x1.08
+//   reach     k5 SPACE                  haze, orbit and far, each style's own
+//   glow      k4 BUILD                  the style's glow
+//   emit      k0 PULSE                  the emission
+//   tone      k3 TONE                   the palette position
+//
+// A branch COUNT (ArborForm.arms) is not driven: a count pops on every beat
+// (lib_neon's rule); Morph's levels ease in instead.
+//
+// THE FIELD. arborField(p) (lib_arbor_field) is the family's one field: an
+// ArborHit, the distance with everything the walk and the style found there
+// (the limb's level, along, path and tip, and the style's material), and it
+// writes no global. ARBOR_GROW there is the one line where Grow (lib_grow:
+// Spawn, Fractal, Front and Back layer) and Formula will wrap the style's map
+// once they land.
 //
 // The mid band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
 // added to a 3D form's bend, a 2D form's lean or a dendrite's side angle, so
@@ -58,17 +99,16 @@
 // ---- what the walk leaves behind ----------------------------------------------
 //
 // The fold also tells you WHERE on the tree a point is, for free. arborTree()
-// and friends write four globals that a style reads right after the call that
-// found its hit (a later normalAt() overwrites them, so copy them first):
+// and friends return it in their ArborHit, beside the distance:
 //
-//   gArbLevel  depth of the nearest limb (0 = trunk)
-//   gArbAlong  0 at that limb's base, 1 at its tip
-//   gArbPath   which fork was taken at every level, as a base-k number: a
-//              stable id for the branch, so hash it for per-branch variation
-//              (blossoms, firing dendrites, a hue) that holds while the tree
-//              moves
-//   gArbTip    world distance to the tip of the deepest grown limb on that
-//              path: a sphere of radius R there is a bud, a leaf pad, a polyp
+//   level  depth of the nearest limb (0 = trunk)
+//   along  0 at that limb's base, 1 at its tip
+//   path   which fork was taken at every level, as a base-k number: a
+//          stable id for the branch, so hash it for per-branch variation
+//          (blossoms, firing dendrites, a hue) that holds while the tree
+//          moves
+//   tip    world distance to the tip of the deepest grown limb on that
+//          path: a sphere of radius R there is a bud, a leaf pad, a polyp
 //
 // ---- growth --------------------------------------------------------------------
 //
@@ -81,10 +121,29 @@
 #define ARB_MAX_LEVELS 9
 #define ARB_TAU 6.2831853
 
-float gArbLevel;
-float gArbAlong;
-float gArbPath;
-float gArbTip;
+/**
+ * What the field found at a point: the distance, where on the tree (the walk's
+ * level, along, path and tip, as the header says; 0 where no tree was walked)
+ * and the style's own material in `mat` (each style says what its channels hold).
+ */
+struct ArborHit {
+    float d;
+    float level;
+    float along;
+    float path;
+    float tip;
+    vec4 mat;
+};
+
+/** A hit at distance d off the tree: no limb, no material. */
+ArborHit arbHit(float d) {
+    return ArborHit(d, 0.0, 0.0, 0.0, 0.0, vec4(0.0));
+}
+
+/** The nearer of two hits. */
+ArborHit arbNear(ArborHit a, ArborHit b) {
+    return b.d < a.d ? b : a;
+}
 
 /**
  * The shape of a 3D tree. Lengths are world units at the trunk; every level is
@@ -142,9 +201,9 @@ float arbLimb2(vec2 p, float h, float r0, float r1, out float along) {
 
 /**
  * A 3D tree rooted at the origin, trunk up +y. Returns world distance and
- * writes the gArb* globals. See the header for why this is a fold.
+ * where on the tree it was found. See the header for why this is a fold.
  */
-float arborTree(vec3 p, ArborForm f, float grow) {
+ArborHit arborTree(vec3 p, ArborForm f, float grow) {
     float s = 1.0;
     float r = f.girth * f.len;
     float best = 1e9;
@@ -157,8 +216,7 @@ float arborTree(vec3 p, ArborForm f, float grow) {
     vec3 g = vec3(0.0, -1.0, 0.0);
     mat2 tiltM = rot2(-f.tilt);
     mat2 twistM = rot2(f.twist);
-    gArbLevel = 0.0;
-    gArbAlong = 0.0;
+    ArborHit hit = arbHit(1e9);
     for (int i = 0; i <= ARB_MAX_LEVELS; i++) {
         float fill = clamp(grow - float(i), 0.0, 1.0);
         if (fill <= 0.0) break;
@@ -209,16 +267,17 @@ float arborTree(vec3 p, ArborForm f, float grow) {
         float d = arbLimb3(p, h, r, r * f.taper, al) * s;
         if (d < best) {
             best = d;
-            gArbLevel = float(i);
-            gArbAlong = al;
+            hit.level = float(i);
+            hit.along = al;
         }
         tipP = p - vec3(0.0, h, 0.0);
         tipS = s;
     }
     tipD = length(tipP) * tipS;
-    gArbPath = path;
-    gArbTip = tipD;
-    return best;
+    hit.d = best;
+    hit.path = path;
+    hit.tip = tipD;
+    return hit;
 }
 
 /**
@@ -230,14 +289,13 @@ float arborTree(vec3 p, ArborForm f, float grow) {
  * A point near the fold line only sees its own side's subtree; with thin limbs
  * that is invisible.
  */
-float arborTree2(vec2 p, ArborForm2 f, float grow, float seed) {
+ArborHit arborTree2(vec2 p, ArborForm2 f, float grow, float seed) {
     float s = 1.0;
     float r = f.girth * f.len;
     float best = 1e9;
     float path = 0.0;
     float tipD = 1e9;
-    gArbLevel = 0.0;
-    gArbAlong = 0.0;
+    ArborHit hit = arbHit(1e9);
     for (int i = 0; i <= ARB_MAX_LEVELS; i++) {
         float fill = clamp(grow - float(i), 0.0, 1.0);
         if (fill <= 0.0) break;
@@ -258,14 +316,15 @@ float arborTree2(vec2 p, ArborForm2 f, float grow, float seed) {
         float d = arbLimb2(p, h, r, r * f.taper, al) * s;
         if (d < best) {
             best = d;
-            gArbLevel = float(i);
-            gArbAlong = al;
+            hit.level = float(i);
+            hit.along = al;
         }
         tipD = length(p - vec2(0.0, h)) * s;
     }
-    gArbPath = path;
-    gArbTip = tipD;
-    return best;
+    hit.d = best;
+    hit.path = path;
+    hit.tip = tipD;
+    return hit;
 }
 
 /**
@@ -276,14 +335,13 @@ float arborTree2(vec2 p, ArborForm2 f, float grow, float seed) {
  * node: within side/2 of straight is the spine's child, past it the side
  * arm's. Trunk up +y.
  */
-float arborDendrite2(vec2 p, float side, float mainRatio, float sideRatio, float len, float girth, float grow) {
+ArborHit arborDendrite2(vec2 p, float side, float mainRatio, float sideRatio, float len, float girth, float grow) {
     float s = 1.0;
     float r = girth * len;
     float best = 1e9;
     float path = 0.0;
     float tipD = 1e9;
-    gArbLevel = 0.0;
-    gArbAlong = 0.0;
+    ArborHit hit = arbHit(1e9);
     for (int i = 0; i <= ARB_MAX_LEVELS; i++) {
         float fill = clamp(grow - float(i), 0.0, 1.0);
         if (fill <= 0.0) break;
@@ -306,14 +364,15 @@ float arborDendrite2(vec2 p, float side, float mainRatio, float sideRatio, float
         float d = arbLimb2(p, h, r, r * 0.8, al) * s;
         if (d < best) {
             best = d;
-            gArbLevel = float(i);
-            gArbAlong = al;
+            hit.level = float(i);
+            hit.along = al;
         }
         tipD = length(p - vec2(0.0, h)) * s;
     }
-    gArbPath = path;
-    gArbTip = tipD;
-    return best;
+    hit.d = best;
+    hit.path = path;
+    hit.tip = tipD;
+    return hit;
 }
 
 /**
@@ -397,6 +456,80 @@ float arbLevels(float full, float extra) {
 /** The same for a flat style: no march budget to answer to, so only Complexity moves it. */
 float arbLevels2(float full, float extra) {
     return clamp(full + extra * arbMorph(), 1.0, float(ARB_MAX_LEVELS) + 1.0);
+}
+
+// ---- the normalization shell (see the header) -----------------------------------
+
+/** Every shape variable, normalized: 0 at rest, -1..1 from a knob or Twist, 0..1 from Morph. */
+struct ArborIn {
+    float levels;
+    float chaos;
+    float twist;
+    float girth;
+    float density;
+    float spread;
+    float bend;
+    float flow;
+    float scale;
+    float reach;
+    float glow;
+    float emit;
+    float tone;
+};
+
+/** Each variable from its driver (the header's table): params and knobs only, no sound. */
+ArborIn arborIn() {
+    float kTex = 2.0 * arbKnob(1);
+    float kFlow = 2.0 * arbKnob(2);
+    float kSpace = 2.0 * arbKnob(5);
+    ArborIn n;
+    n.levels = arbMorph();
+    // Half the Chaos macro (0..2) plus FLOW's share, so arbSpan(n.chaos, 0.0, 0.0, 2.0) is the old
+    // arbChaos() + 0.5 * FLOW's offset, floored at none.
+    n.chaos = clamp(0.5 * arbChaos() + 0.125 * kFlow, -1.0, 1.0);
+    n.twist = clamp(uTwist, -1.0, 1.0);
+    n.girth = kTex;
+    n.density = kTex;
+    n.spread = kFlow;
+    n.bend = kFlow;
+    n.flow = kFlow;
+    n.scale = kSpace;
+    n.reach = kSpace;
+    n.glow = 2.0 * arbKnob(4);
+    n.emit = 2.0 * arbKnob(0);
+    n.tone = 2.0 * arbKnob(3);
+    return n;
+}
+
+/**
+ * A normalized n to its variable's range: `rest` at 0, `lo` at -1, `hi` at 1, straight between.
+ * Exactly `rest` at 0, so the rest look is the old one bit for bit. A 0..1 variable uses rest..hi.
+ */
+float arbSpan(float n, float rest, float lo, float hi) {
+    return rest + n * (n < 0.0 ? rest - lo : hi - rest);
+}
+
+/**
+ * A 3D tree's form, `f` at rest, mapped by the normalized variables: spread opens the
+ * forks, bend adds gravity, twist winds them, scale lengthens the trunk, girth thickens
+ * every limb. The arms (a count) stay the style's. f itself at rest.
+ */
+ArborForm arborShape(ArborForm f, ArborIn n) {
+    f.tilt *= arbSpan(n.spread, 1.0, 0.8, 1.25);
+    f.bend += arbSpan(n.bend, 0.0, -0.12, 0.12);
+    f.twist += arbSpan(n.twist, 0.0, -0.6, 0.6);
+    f.len *= arbSpan(n.scale, 1.0, 0.92, 1.08);
+    f.girth *= arbSpan(n.girth, 1.0, 0.75, 1.25);
+    return f;
+}
+
+/** The same for a flat tree: spread opens both sides, twist leans every fork, scale and girth as in 3D. */
+ArborForm2 arborShape2(ArborForm2 f, ArborIn n) {
+    f.spread *= arbSpan(n.spread, 1.0, 0.8, 1.25);
+    f.lean += arbSpan(n.twist, 0.0, -0.15, 0.15);
+    f.len *= arbSpan(n.scale, 1.0, 0.92, 1.08);
+    f.girth *= arbSpan(n.girth, 1.0, 0.75, 1.25);
+    return f;
 }
 
 /** A stable 0..1 per branch: hash of the path id, the level and a style seed. */

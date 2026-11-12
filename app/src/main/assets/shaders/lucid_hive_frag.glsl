@@ -106,21 +106,14 @@ float gTurb;
 float gTwist;
 float gRout;
 
-// Hit globals, restored by one map() call after the normal taps.
-vec2 gGv;
-vec2 gId;
-float gHd;
-float gHc;
-float gH2;
-float gFloorR;
-float gRad;
 
 float hexDist(vec2 p) {
     p = abs(p);
     return max(dot(p, vec2(0.5, 0.8660254)), p.x);
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (a.x the hex distance, a.y and a.z the cell's hashes, a.w the pocket floor's radius, b.xy the point in the cell, b.zw the cell id, mat the radius off the axis). */
+float mapAt(vec3 p, inout LucidHit found) {
     float r = length(p.xy);
     float ang = r > 1e-4 ? atan(p.y, p.x) : 0.0;  // atan(0, 0) is undefined in GLSL ES
     ang += gTwist * sin(p.z * (LH_TAU / 64.0));
@@ -149,24 +142,28 @@ float map(vec3 p) {
     float dPocket = min(side, (floorR - r) / LH_FLOOR_LIP);
     float d = max(dShell, dPocket);
 
-    gGv = gv;
-    gId = vec2(float(ix), float(iz));
-    gHd = hd;
-    gHc = hc;
-    gH2 = h2;
-    gFloorR = floorR;
-    gRad = r;
+    found.b.xy = gv;
+    found.b.zw = vec2(float(ix), float(iz));
+    found.a.x = hd;
+    found.a.y = hc;
+    found.a.z = h2;
+    found.a.w = floorR;
+    found.mat = r;
     return max(d, LH_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_lucid_field. */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 /** The flat style's cell world, at the pocket-local point l (0.5 at the edge midpoints). */
-vec3 cellWorld(vec2 l, float hc, float h2, float inv, float morph, float kTex, float hue0) {
+vec3 cellWorld(vec2 l, float hc, float h2, float inv, float morph, float nestK, float hue0) {
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);
@@ -179,7 +176,7 @@ vec3 cellWorld(vec2 l, float hc, float h2, float inv, float morph, float kTex, f
     float spin = t * (0.15 + 0.35 * hc) * 0.7 + hc * LUCID_TAU;
     vec2 q = lucidRot(spin) * lc * (2.6 + 1.2 * morph) + vec2(hc, h2) * 37.0;
     q += lucidJitter(q, t);
-    vec4 n = lucidNest(q, depth, 1.4 * lucidChaos() * (1.0 + 0.8 * kTex), t * 0.3, LUCID_SIMPLEX, oct);
+    vec4 n = lucidNest(q, depth, 1.4 * lucidChaos() * nestK, t * 0.3, LUCID_SIMPLEX, oct);
 
     vec3 raw = 0.5 + 0.5 * vec3(n.z, n.x, n.y);
     vec3 col = raw * mix(vec3(1.0), pal(hc + hue0 + 0.3 * n.z), 0.55);
@@ -193,26 +190,24 @@ vec3 cellWorld(vec2 l, float hc, float h2, float inv, float morph, float kTex, f
 }
 
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = view();
 
-    float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float k3 = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0);
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float trend = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
 
-    float morph = clamp(uMorph, 0.0, 1.0);
+    float morph = lucidSpan(N.depth, 0.0, 0.0, 1.0);
 
-    float inv = clamp(lucidBump(snare) * 0.85 * uIntensity * (1.0 + k0), 0.0, 0.95);
+    float inv = clamp(lucidBump(snare) * 0.85 * uIntensity * lucidSpan(N.emit, 1.0, 0.5, 1.5), 0.0, 0.95);
     gFlip = 1.0 - 2.0 * inv;
     gRin = LH_APO * (0.84 + 0.1 * morph);
-    gDepth = LH_DEPTH * (1.0 + 0.6 * k5);
-    gTurb = 0.5 * clamp(uTurbulence, 0.0, 2.0);
-    gTwist = 0.5 * clamp(uTwist, -1.0, 1.0);
+    gDepth = LH_DEPTH * lucidSpan(N.reach, 1.0, 0.7, 1.3);
+    gTurb = lucidSpan(N.turb, 0.0, 0.0, 0.75);
+    gTwist = lucidSpan(N.twist, 0.0, -0.5, 0.5);
     gRout = LH_R + gDepth * 1.2 + LH_DISH + gTurb * 0.12 + 0.3;
 
     vec3 ro;
@@ -245,7 +240,8 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (t > LH_FAR) break;
-        float d = map(ro + rd * t);
+        fld = lucidField(ro + rd * t);
+        float d = fld.d;
         float eps = 0.0015 + 0.0008 * t;
         if (d < eps) {
             hitT = t;
@@ -254,38 +250,38 @@ void main() {
         t += max(d * stepScale, eps);
     }
 
-    float hue0 = 0.12 * k3;
+    float hue0 = lucidSpan(N.tone, 0.0, -0.06, 0.06);
     float ahead = pow(max(dot(rd, normalize(uCamBasis[2])), 0.0), 10.0);
     vec3 fogCol = pal(hue0 + 0.5) * (0.02 + 0.2 * ahead * (0.5 + 0.5 * trend)) + vec3(0.004, 0.003, 0.002);
     vec3 col = fogCol;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
-        // Restore the hit cell's globals after the normal taps.
-        map(p);
+        vec3 n = lucidNormal(p, max(0.0015, 0.001 * hitT));
+        // The hit at p again for the shading, after the normal taps.
+        fld = lucidField(p);
 
         // Headlight on the eye.
         float dif = max(dot(n, -rd), 0.0);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 40.0);
         float fall = 1.0 / (1.0 + 0.04 * hitT * hitT);
-        vec3 wax = pal(gHc + hue0 + 0.5);
-        bool inPocket = gHd < gRin + 0.02;
+        vec3 wax = pal(fld.a.y + hue0 + 0.5);
+        bool inPocket = fld.a.x < gRin + 0.02;
 
-        if (gRad > gRout - 0.05) {
+        if (fld.mat > gRout - 0.05) {
             // The outer skin, seen from a glide outside the bore.
             col = wax * (0.03 + 0.08 * dif) * fall + vec3(0.6) * spec * 0.15 * fall;
-        } else if (inPocket && gRad > gFloorR - 0.03) {
+        } else if (inPocket && fld.mat > fld.a.w - 0.03) {
             // The world behind the glass: emissive, with a glassy sheen.
-            vec3 world = cellWorld(gGv * (0.5 / LH_APO), gHc, gH2, inv, morph, k1, hue0);
-            col = world * (1.0 + 0.9 * k4) + mix(vec3(1.0), wax, 0.4) * spec * 0.35 * fall;
-        } else if (inPocket && gRad > LH_R + 0.03) {
+            vec3 world = cellWorld(fld.b.xy * (0.5 / LH_APO), fld.a.y, fld.a.z, inv, morph, lucidSpan(N.scale, 1.0, 0.6, 1.4), hue0);
+            col = world * lucidSpan(N.glow, 1.0, 0.55, 1.45) + mix(vec3(1.0), wax, 0.4) * spec * 0.35 * fall;
+        } else if (inPocket && fld.mat > LH_R + 0.03) {
             // The pocket's wax sides: lit from the world below, darker toward the mouth.
-            float deep = clamp((gRad - LH_R) / max(gFloorR - LH_R, 0.05), 0.0, 1.0);
-            col = wax * (0.02 + 0.06 * dif * fall + 0.3 * deep * deep * (1.0 + 0.6 * k4))
+            float deep = clamp((fld.mat - LH_R) / max(fld.a.w - LH_R, 0.05), 0.0, 1.0);
+            col = wax * (0.02 + 0.06 * dif * fall + 0.3 * deep * deep * lucidSpan(N.glow, 1.0, 0.7, 1.3))
                 + mix(vec3(1.0), wax, 0.5) * spec * 0.2 * fall;
         } else {
             // The comb's face: dark wax, a faint glow on each pocket's lip.
-            float lip = 1.0 - smoothstep(gRin, LH_APO - 0.02, gHd);
+            float lip = 1.0 - smoothstep(gRin, LH_APO - 0.02, fld.a.x);
             col = wax * (0.025 + 0.07 * dif * fall + 0.12 * lip)
                 + mix(vec3(1.0), wax, 0.5) * spec * 0.3 * fall;
         }

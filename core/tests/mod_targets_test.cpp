@@ -74,6 +74,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"SPAWN", "FAMILY_FORM"}, {"FRACTAL", "FAMILY_FORM"}, {"FRONT_LAYER", "FAMILY_FORM"}, {"BACK_LAYER", "FAMILY_FORM"},
     // Which of a style's own distance formulas draws it: on the styles that keep formulas.
     {"FORMULA", "FORMULA"},
+    // How far the shape graph melts into a raymarched style's form: on the styles that melt it in.
+    {"SHAPES", "SHAPES"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -90,7 +92,8 @@ void everyTargetKeepsItsNameAndScope() {
               static_cast<int>(LfoTarget::KaleidoFolds) == 68 && static_cast<int>(LfoTarget::LayerMix) == 69 &&
               static_cast<int>(LfoTarget::SimFluid) == 70 && static_cast<int>(LfoTarget::SimLayerOrder) == 73 &&
               static_cast<int>(LfoTarget::Spawn) == 74 && static_cast<int>(LfoTarget::BackLayer) == 77 &&
-              static_cast<int>(LfoTarget::Formula) == 78 && kLastLfoTarget == LfoTarget::Formula,
+              static_cast<int>(LfoTarget::Formula) == 78 && static_cast<int>(LfoTarget::Shapes) == 79 &&
+              kLastLfoTarget == LfoTarget::Shapes,
           "wire ordinals");
     check(paramSlotOf(LfoTarget::Spawn) == static_cast<int>(ParamSlot::spawn) &&
               paramSlotOf(LfoTarget::Fractal) == static_cast<int>(ParamSlot::fractal) &&
@@ -99,6 +102,9 @@ void everyTargetKeepsItsNameAndScope() {
           "each Grow target writes its own row");
     check(paramSlotOf(LfoTarget::Formula) == static_cast<int>(ParamSlot::formula) && !isLuminanceTarget(LfoTarget::Formula),
           "Formula writes its row, a structural target like Morph and no luminance target");
+    check(paramSlotOf(LfoTarget::Shapes) == static_cast<int>(ParamSlot::shapes) && !isLuminanceTarget(LfoTarget::Shapes) &&
+              !modtargets::reaches(LfoTarget::Shapes, "plasma") && !modtargets::reaches(LfoTarget::Shapes, "flame_veil"),
+          "Shapes writes its row, a structural target, offered only on a style that melts the shape graph in");
     for (LfoTarget t : {LfoTarget::Spawn, LfoTarget::Fractal, LfoTarget::FrontLayer, LfoTarget::BackLayer}) {
         check(!isLuminanceTarget(t) && modtargets::reaches(t, "petal_rose") && !modtargets::reaches(t, "plasma") &&
                   !modtargets::reaches(t, "flame_veil"),
@@ -268,6 +274,8 @@ void offerMaskHasABitPerTarget() {
     check(modtargets::hex(m) == "2" + std::string(18, '0'), "ordinal 73 is the second bit of the nineteenth digit");
     m.reset().set(static_cast<size_t>(LfoTarget::BackLayer));
     check(modtargets::hex(m) == "2" + std::string(19, '0'), "ordinal 77 is the second bit of the twentieth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::Shapes));
+    check(modtargets::hex(m) == "8" + std::string(19, '0'), "ordinal 79 is the top bit of the twentieth digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
@@ -295,7 +303,8 @@ void textCarriesEveryRow() {
     check(hasLine(t, "target|68|KALEIDO_FOLDS|UNIVERSAL|-1|1"), "the kaleidoscope's row");
     check(hasLine(t, "target|69|LAYER_MIX|UNIVERSAL|-1|1"), "the layer mix's row");
     check(hasLine(t, "target|73|SIM_LAYER_ORDER|UNIVERSAL|-1|1"), "the physics layers' last row");
-    check(hasLine(t, "target|78|FORMULA|FORMULA|-1|1"), "the last target row");
+    check(hasLine(t, "target|78|FORMULA|FORMULA|-1|1"), "Formula's row");
+    check(hasLine(t, "target|79|SHAPES|SHAPES|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

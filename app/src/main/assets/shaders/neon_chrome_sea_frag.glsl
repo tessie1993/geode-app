@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_neon
 //#include lib_sdf3
+//#include lib_shell
 
 // Neon Chrome Sea: low flight over a sea of liquid chrome under a violet sky.
 // A kaleidoscopic neon mandala hangs over the horizon like a portal, neon
@@ -39,6 +40,27 @@ out vec4 fragColor;
 // - altitude: in silence (neonQuiet) the eye rises for a calm, wide view;
 //   the drop brings it down to skim the water.
 // - Intensity (neonGlow) is the neon's emission.
+//
+// ---- shape inputs (lib_shell) ------------------------------------------------
+//
+// The sea's own constants are normalized inputs, mapped to their range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Music reaches these only
+// through the knobs (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sGeo        k1 TEXTURE       the waves the march sees 6 .. 11 .. 16 (whole; the normals keep all 30)
+//   sIso        k1 TEXTURE       contour lines per unit of swell 4 .. 7 .. 11
+//   sDrag       k2 FLOW          how far a wave drags the next one 0.15 .. 0.38 .. 0.6
+//   sWedges     k3 TONE          the mandala's mirrored wedges 8 .. 12 .. 16 (whole, even)
+//   sMoonY      k3 TONE          the portal's height 0.08 .. 0.16 .. 0.28
+//   sAmp        k4 BUILD         the swell's base height 0.3 .. 0.45 .. 0.65
+//   sFog        k5 SPACE         the haze's density 0.03 .. 0.02 .. 0.012
+//
+// The wave frequencies stay: each z wavenumber is rounded to OC_KZ, and a
+// slid frequency would jump at every rounding. The sea goes through
+// SHELL_FIELD2 as a height pattern and the mandala through SHELL_FIELD2 as a
+// colour pattern, so the shell's spawn, fractal, front and back hooks reach both.
 //
 // Provenance: written from scratch for BeatRealms from general techniques - a sum
 // of exp(sin) waves (sharp crests, broad troughs) where each wave's slope drags
@@ -67,6 +89,15 @@ float gTime;
 float gFalloff;
 float gTone;
 float gPortal;
+/** Shape inputs (see the header). */
+int sGeo;
+float sIso;
+float sDrag;
+float sWedges;
+float sMoonY;
+float sFog;
+/** The wave count the next ocSeaField() call sums. */
+int gCount;
 
 /**
  * Exp-sine waves with domain drag. Returns height 0..1 (before gAmp). Each
@@ -90,7 +121,7 @@ float ocWaves(vec2 p, int count) {
         sumA += amp;
         // Drag: pull the sample point along the wave's slope, so later, smaller
         // waves ride and crowd the crests of the earlier, bigger ones.
-        p -= normalize(k + 1e-4) * dw * amp * 0.38;
+        p -= normalize(k + 1e-4) * dw * amp * sDrag;
         freq *= 1.19;
         amp *= gFalloff;
         speed *= 1.06;
@@ -99,8 +130,14 @@ float ocWaves(vec2 p, int count) {
     return sumH / sumA;
 }
 
+/** The swell as a 2D pattern (SHELL_FIELD2): gCount waves, height 0..1. */
+float ocSeaField(vec2 p) {
+    return ocWaves(p, gCount);
+}
+
 float ocHeight(vec2 p, int count) {
-    return OC_SEA_Y + gAmp * ocWaves(p, count);
+    gCount = count;
+    return OC_SEA_Y + gAmp * SHELL_FIELD2(p, ocSeaField);
 }
 
 vec3 ocNormal(vec2 p, float eps) {
@@ -145,7 +182,7 @@ vec3 neon(float t) {
 vec3 ocMandala(vec2 p) {
     float r = length(p);
     float a = atan(p.y, p.x);
-    float seg = 6.2831853 / 12.0;
+    float seg = 6.2831853 / sWedges;
     float fa = abs(mod(a + uTime * 0.05, seg) - 0.5 * seg);
     vec2 q = vec2(cos(fa), sin(fa)) * r;
     float lr = log(max(r, 1e-4));
@@ -186,7 +223,7 @@ vec3 ocSky(vec3 d) {
     float md = dot(d, gMoonDir);
     if (md > 0.0) {
         vec2 mp = vec2(dot(d, tangent), dot(d, bitan)) / md / (gPortal * 0.7);
-        col += ocMandala(mp) * (0.6 + 0.8 * gPortal) * smoothstep(0.015, 0.12, d.y);
+        col += SHELL_FIELD2(mp, ocMandala) * (0.6 + 0.8 * gPortal) * smoothstep(0.015, 0.12, d.y);
     }
     col += neon(0.55) * pow(max(md, 0.0), 30.0) * 0.25 * gPortal;
     // Faint stars.
@@ -203,6 +240,15 @@ vec3 ocSky(vec3 d) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sGeo = int(floor(shellMap(shellKnob(1), 6.0, float(OC_GEO_WAVES), 16.0) + 0.5));
+    sIso = shellMap(shellKnob(1), 4.0, 7.0, 11.0);
+    sDrag = shellMap(shellKnob(2), 0.15, 0.38, 0.6);
+    sWedges = 2.0 * floor(shellMap(shellKnob(3), 4.0, 6.0, 8.0) + 0.5);
+    sMoonY = shellMap(shellKnob(3), 0.08, 0.16, 0.28);
+    float sAmp = shellMap(shellKnob(4), 0.3, 0.45, 0.65);
+    sFog = shellMap(shellKnob(5), 0.03, 0.02, 0.012);
+
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
@@ -228,13 +274,13 @@ void main() {
     kSpace = clamp(kSpace + neonKnob(5), 0.0, 1.0);
 
     gTime = uTime * 0.45 + SND_BASS_TIME * 0.6;
-    gAmp = 0.45 * (0.7 + 1.1 * kFlow);
+    gAmp = sAmp * (0.7 + 1.1 * kFlow);
     gFalloff = mix(0.66, 0.78, kTex);
     gTone = 0.3 + neonKeyTurn() + 0.6 * neonKnob(3);
     gPortal = mix(0.55, 1.15, kBuild);
-    gMoonDir = normalize(vec3(0.0, 0.16, 1.0));
+    gMoonDir = normalize(vec3(0.0, sMoonY, 1.0));
 
-    ro.y = max(ro.y + 0.4 + 1.6 * kSpace, ocHeight(ro.xz, OC_GEO_WAVES) + 0.6);
+    ro.y = max(ro.y + 0.4 + 1.6 * kSpace, ocHeight(ro.xz, sGeo) + 0.6);
     // Look down a touch as the eye climbs, so the sea keeps the frame.
     rd = normalize(rd + vec3(0.0, -0.12 * kSpace, 0.0));
     float top = OC_SEA_Y + gAmp;
@@ -250,7 +296,7 @@ void main() {
         for (int i = 0; i < OC_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             vec3 p = ro + rd * t;
-            float g = p.y - ocHeight(p.xz, OC_GEO_WAVES);
+            float g = p.y - ocHeight(p.xz, sGeo);
             if (g < 0.0) {
                 t = mix(tPrev, t, gPrev / (gPrev - g));
                 hit = true;
@@ -284,7 +330,7 @@ void main() {
         chrome += irid * vec3(0.05, 0.02, 0.09) * (0.5 + hRel);
 
         // Neon contour lines running along the swell: the pulse lights them.
-        float iso = hRel * 7.0 - gTime * 0.3;
+        float iso = hRel * sIso - gTime * 0.3;
         float isoW = fwidth(iso);
         float isoLine = 1.0 - smoothstep(0.0, max(isoW * 1.5, 0.02), abs(fract(iso) - 0.5) * 2.0 - 0.0) ;
         isoLine *= (1.0 - smoothstep(10.0, 40.0, t)) * (1.0 - smoothstep(0.1, 0.35, isoW));
@@ -296,7 +342,7 @@ void main() {
         col = chrome;
 
         // Violet haze toward the horizon.
-        float fog = 1.0 - exp(-t * 0.02);
+        float fog = 1.0 - exp(-t * sFog);
         col = mix(col, ocSky(normalize(vec3(rd.x, 0.015, rd.z))) * 0.8 + vec3(0.04, 0.0, 0.08), fog * 0.8);
     }
 

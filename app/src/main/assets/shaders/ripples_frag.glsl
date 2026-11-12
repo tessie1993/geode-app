@@ -10,6 +10,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -48,6 +49,15 @@ out vec4 fragColor;
 // rings' wavelength (a high melody crowds them into fine close rings, a low
 // one spreads them into long slow rollers; plus a small hue offset), k4 BUILD
 // the glow, k5 SPACE how far you see (less fog).
+// Every one of these, and the standing waves' rest height (BUILD), the long
+// swell and the wandering sources' circle (FLOW) and how far the kick's ring
+// runs (PULSE), is one normalized input (lib_shell) set in one block at the top
+// of main and mapped there to its range; at rest each is the constant the lake
+// was tuned with. The water's vertical gap is the field the grow hooks act on
+// (SHELL_FIELD3): Spawn slides a second lake's waves through the first, Fractal
+// raises waves a third the size on the swells, the layers open the near and
+// far water. A hook that is on starts the march at the eye and takes the
+// normal from the field.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -91,6 +101,9 @@ float gRk;
 float gAs;
 float gAt;
 float gWarp;
+/** How far the kick's ring runs (7 at rest: PULSE) and the wandering sources' circle (2.5: FLOW). */
+float gRun;
+float gWander;
 
 /** Warp: each axis is pushed by the OTHER axis only, so the Jacobian is I plus an off-diagonal of at most 0.3 * gWarp. */
 vec2 warpXZ(vec2 q) {
@@ -118,7 +131,7 @@ float lake(vec2 xz) {
             h += win * (gAb * sin(r * gKb - uTime * 2.2 + ph) + gAk * (0.5 + 0.5 * h1) * exp(-rk * rk));
 
             // The wandering source circles within 2.5 of it, so it never leaves the cell.
-            vec2 c2 = c + 2.5 * vec2(sin(uTime * 0.4 + ph), cos(uTime * 0.3 + ph * 1.7));
+            vec2 c2 = c + gWander * vec2(sin(uTime * 0.4 + ph), cos(uTime * 0.3 + ph * 1.7));
             float r2 = length(q - c2);
             float win2 = 1.0 - smoothstep(0.0, RP_REACH, r2);
             h += win2 * gAm * sin(r2 * gKm - uTime * 2.6 + ph);
@@ -128,6 +141,11 @@ float lake(vec2 xz) {
     h += gAs * sin(q.x * 0.21 + q.y * (37.0 * RP_KZ) + uTime * 0.6);
     h += gAt * sin(q.x * 1.9 + uTime * 1.3) * sin(q.y * (310.0 * RP_KZ) - uTime * 1.1);
     return h;
+}
+
+/** The water's vertical gap at p: the field the grow hooks act on (SHELL_FIELD3); the march steps it by stepK. */
+float rpGap(vec3 p) {
+    return p.y - (RP_WATER + lake(p.xz));
 }
 
 vec3 skyColour(vec3 rd, float hue) {
@@ -147,12 +165,31 @@ vec3 skyColour(vec3 rd, float hue) {
 void main() {
     vec2 uv = view();
 
-    float k0 = uKnob[0];
-    float k1 = uKnob[1];
-    float k2 = uKnob[2];
-    float k3 = uKnob[3];
-    float k4 = uKnob[4];
-    float k5 = uKnob[5];
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick ring's height and run
+    float nTexture = shellKnob(1);                                 // TEXTURE  the chop
+    float nFlow = shellKnob(2);                                    // FLOW     the wandering rings, the swell
+    float nTone = shellKnob(3);                                    // TONE     the rings' wavelength, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the glow, the standing waves
+    float nSpace = shellKnob(5);                                   // SPACE    how far you see
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    every ring tightens
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the grid of pools bends
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the fine chop
+    float kickK = shellMap(nPulse, 0.5, 1.0, 1.5);
+    // The ring's crest stays inside RP_REACH, where its window still holds it.
+    gRun = shellMap(nPulse, 5.5, 7.0, 7.5);
+    float chopTex = shellMap(nTexture, 0.4, 1.0, 1.6);
+    float wanderK = shellMap(nFlow, 0.5, 1.0, 1.5);
+    float swellBase = shellMap(nFlow, 0.06, 0.10, 0.14);
+    gWander = shellMap(nFlow, 2.0, 2.5, 3.0);
+    float toneK = shellMap(nTone, 0.45, 1.0, 1.55);
+    float hueTone = shellMap(nTone, -0.125, 0.0, 0.125);
+    float glowK = shellMap(nBuild, 0.5, 1.0, 1.5);
+    float standBase = shellMap(nBuild, 0.035, 0.05, 0.07);
+    float fogK = shellMap(nSpace, 0.048, 0.032, 0.016);
+    float morphK = shellMap(nMorph, 1.0, 1.0, 1.5);
+    gWarp = shellMap(nWarp, 0.0, 0.0, 0.9);
+    float chopTurb = shellMap(nTurb, 0.015, 0.015, 0.0675);
 
     float bass = sndLevel(SND_BASS_ATT);
     float vol = sndLevel(SND_VOL_ATT);
@@ -161,20 +198,17 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
-    float morph = clamp(uMorph, 0.0, 2.0);
 
-    gAb = 0.05 + 0.09 * vol;
+    gAb = standBase + 0.09 * vol;
     // TONE: the rings' wavelength (gLip below follows both wavenumbers).
-    float toneK = 1.0 + 1.1 * (k3 - 0.5);
-    gKb = (2.4 + 1.3 * bass) * (1.0 + 0.5 * morph) * toneK;
-    gAm = 0.08 * mid * (0.5 + k2);
-    gKm = 3.1 * (1.0 + 0.5 * morph) * toneK;
-    gAk = 0.16 * kick * (0.5 + k0);
+    gKb = (2.4 + 1.3 * bass) * morphK * toneK;
+    gAm = 0.08 * mid * wanderK;
+    gKm = 3.1 * morphK * toneK;
+    gAk = 0.16 * kick * kickK;
     // The ring runs out from the source as the envelope falls.
-    gRk = 0.5 + 7.0 * (1.0 - kick);
-    gAs = 0.10 + 0.04 * swell;
-    gAt = (0.015 + 0.035 * clamp(uTurbulence, 0.0, 2.0)) * (0.4 + 1.2 * k1);
-    gWarp = 0.9 * clamp(uWarp, 0.0, 2.0);
+    gRk = 0.5 + gRun * (1.0 - kick);
+    gAs = swellBase + 0.04 * swell;
+    gAt = chopTurb * chopTex;
 
     // Gradient bound of lake() (see the header): 0.1875 is the window's slope,
     // 2.15 the kick Gaussian's (2.5 * sqrt(2 / e)), 0.3 and 2.7 the swell's and
@@ -194,16 +228,18 @@ void main() {
     ro.z = mod(ro.z, RP_ZWRAP);
     // Ride the swell: never closer than 0.45 to the water under the eye.
     ro.y = max(ro.y, RP_WATER + lake(ro.xz) + 0.45);
+    // The layers are measured from the eye; a spawned lake's waves slide 2 down the flight.
+    shellSetup3(ro, 3.0, 2.0, false);
+    bool shellRest = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 
-    float hue = 0.5 + 0.18 * pitchBump + 0.25 * (k3 - 0.5) + 0.03 * sin(uTime * 0.02);
-    float fogK = 0.032 * (1.5 - k5);
+    float hue = 0.5 + 0.18 * pitchBump + hueTone + 0.03 * sin(uTime * 0.02);
     vec3 sky = skyColour(rd, hue);
     vec3 horizon = pal(hue + 0.6) * 0.05;
     vec3 col = sky;
 
     if (rd.y < -0.001) {
-        // Nothing above the tallest possible crest can be water.
-        float t = max((ro.y - waterTop) / -rd.y, 0.0);
+        // Nothing above the tallest possible crest can be water (with a hook on, a copy can stand higher).
+        float t = shellRest ? max((ro.y - waterTop) / -rd.y, 0.0) : 0.0;
         float hitT = -1.0;
         float tPrev = t;
         float gPrev = 1.0;
@@ -212,7 +248,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > RP_FAR) break;
             vec3 p = ro + rd * t;
-            float gap = p.y - (RP_WATER + lake(p.xz));
+            float gap = SHELL_FIELD3(p, rpGap);
             if (gap < 0.0015 * t + 0.001) {
                 // Between the last two samples, for a smooth waterline.
                 hitT = mix(tPrev, t, clamp(gPrev / max(gPrev - gap, 1e-4), 0.0, 1.0));
@@ -229,6 +265,14 @@ void main() {
         float e = 0.02 + 0.0015 * hitT;
         float h0 = lake(p.xz);
         vec3 n = normalize(vec3(h0 - lake(p.xz + vec2(e, 0.0)), e, h0 - lake(p.xz + vec2(0.0, e))));
+        if (!shellRest) {
+            // A copy may be what was hit: its height is where the ray met it, its normal the field's.
+            h0 = p.y - RP_WATER;
+            vec2 k = vec2(e, 0.0);
+            n = normalize(vec3(SHELL_FIELD3(p + k.xyy, rpGap) - SHELL_FIELD3(p - k.xyy, rpGap),
+                               SHELL_FIELD3(p + k.yxy, rpGap) - SHELL_FIELD3(p - k.yxy, rpGap),
+                               SHELL_FIELD3(p + k.yyx, rpGap) - SHELL_FIELD3(p - k.yyx, rpGap)));
+        }
         // Far ripples are finer than a pixel: let them settle flat instead of shimmering.
         n = normalize(mix(n, vec3(0.0, 1.0, 0.0), smoothstep(25.0, RP_FAR, hitT)));
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
@@ -243,7 +287,7 @@ void main() {
         // amp is the sum of every term's peak, which the waves almost never
         // reach together, so the height is read against half of it.
         float v = clamp(h0 / max(0.5 * amp, 0.05), -1.0, 1.0);
-        float glow = (0.30 + 0.8 * vol) * (0.5 + k4) * exp(-hitT * 0.025);
+        float glow = (0.30 + 0.8 * vol) * glowK * exp(-hitT * 0.025);
         // Depth: the glow's hue runs on through the palette with distance, so
         // near rings and far ones read as different water, and the lake has depth.
         float far = hitT / RP_FAR;

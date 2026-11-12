@@ -98,13 +98,9 @@ float gCurl;
 float gShare;
 float gWidth;
 float gFlutter;
+/** k4 BUILD: the hearts' glow. */
+float gBuild;
 vec3 gEye;
-/** Set by map(): material (0 glass, 1 outer petals, 2 inner petals, 3 heart). */
-float gMat;
-/** Set by map(): the hit flower's hue, cup and petal frame (d, u, v, id). */
-float gFh;
-float gCup;
-vec4 gPet;
 
 /** PCG integer hash: exact on every device, unlike a sin() hash. */
 uint ckHash(uint h) {
@@ -114,8 +110,6 @@ uint ckHash(uint h) {
 }
 
 float ckUnit(uint h) { return float(h & 0xffffu) * (1.0 / 65536.0); }
-
-float ckKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
 /**
  * Spin, swing and fold `p` into one wedge. x runs along the wedge's centre
@@ -153,7 +147,8 @@ vec4 ckRing(vec3 s, float size, float count, float r0, float lenK, float bowl, f
     return pet;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 glass, 1 outer petals, 2 inner petals, 3 heart; a.x the flower's hue hash, a.y its cup, b the petal frame (d, u, v, id)). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = ckFold(p);
     float wall = gR - q.x;
 
@@ -199,18 +194,22 @@ float map(vec3 p) {
 
     float d = wall;
     if (fl < wall) d = fl; else mat = 0.0;
-    gMat = mat;
-    gFh = h1;
-    gCup = cup;
-    gPet = pet;
+    found.mat = mat;
+    found.a.x = h1;
+    found.a.y = cup;
+    found.b = pet;
     return max(d, CK_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_chrys_field
 
 /** The light down the tube: the far end glows, the rest is jewel dark. */
 vec3 ckFog(vec3 rd, float hue, float swell) {
@@ -218,28 +217,29 @@ vec3 ckFog(vec3 rd, float hue, float swell) {
     return pal(hue + 0.15) * (0.03 + (0.28 + 0.2 * swell) * ahead) + vec3(0.004, 0.003, 0.007);
 }
 
-/** A flower's petals or heart at `p` (map(p) just called), lit by the eye and by the tube's far end. */
-vec3 ckFlowerShade(vec3 p, vec3 n, vec3 rd, float hue, float ao) {
-    float fh = hue + 0.6 * gFh;
+/** A flower's petals or heart at `p` (`hit` the field there), lit by the eye and by the tube's far end. */
+vec3 ckFlowerShade(vec3 p, vec3 n, vec3 rd, float hue, float ao, ChrysHit hit) {
+    float fh = hue + 0.6 * hit.a.x;
     vec3 nf = dot(n, rd) > 0.0 ? -n : n;
     vec3 endL = vec3(0.0, 0.0, 1.0);
     float diff = max(dot(nf, -rd), 0.0);
     float through = max(dot(-nf, endL), 0.0);
     float spec = pow(max(dot(reflect(rd, nf), -rd), 0.0), 24.0);
-    if (gMat > 2.5) {
+    if (hit.mat > 2.5) {
         // A contrasting heart, glowing with k4 BUILD.
-        float build = 0.5 + ckKnob(4);
+        float build = gBuild;
         vec3 hc = pal(fh + 0.5) * 0.8;
         return hc * (0.3 + 0.6 * diff) * ao + hc * 0.35 * build + vec3(spec) * 0.15;
     }
-    float u = clamp(gPet.y, 0.0, 1.0);
+    float u = clamp(hit.b.y, 0.0, 1.0);
     vec3 pc = mix(pal(fh) * 0.45, mix(pal(fh + 0.07), vec3(1.0), 0.2), u);
-    if (gMat > 1.5) pc = mix(pc, pal(fh + 0.04), 0.3);
-    pc *= chrysPetalShade(gPet, gCup);
+    if (hit.mat > 1.5) pc = mix(pc, pal(fh + 0.04), 0.3);
+    pc *= chrysPetalShade(hit.b, hit.a.y);
     return pc * (0.22 + 0.8 * diff) * ao + pc * through * 0.55 + vec3(spec) * 0.12 * ao;
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
@@ -247,14 +247,16 @@ void main() {
     float mirrors = clamp(floor(uSymmetry + 0.5), 3.0, 12.0);
 
     gSeg = CHRYS_TAU / mirrors;
-    gR = max(3.4, CK_R + 2.4 * ckKnob(5));
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    gR = max(3.4, chrysSpan(N.reach, CK_R, CK_R - 1.2, CK_R + 1.2));
     gSpin = t * 0.02;
-
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gCurl = uTwist * 4.0;
-    gShare = (5.0 + 4.0 * clamp(uMorph, 0.0, 1.0)) / 9.0;
-    gWidth = 0.5 + 0.3 * ckKnob(1);
-    gFlutter = clamp(0.5 + ckKnob(2), 0.0, 1.0);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gCurl = chrysSpan(N.curl, 0.0, -4.0, 4.0);
+    gShare = (5.0 + chrysSpan(N.rings, 0.0, 0.0, 4.0)) / 9.0;
+    gWidth = chrysSpan(N.width, 0.5, 0.35, 0.65);
+    gFlutter = chrysSpan(N.sway, 0.5, 0.0, 1.0);
+    gBuild = chrysSpan(N.glow, 0.5, 0.0, 1.0);
     // Cup slope (<= 1.4 * bowl at the inner ring), curl shear (curl * reach),
     // ragged edge and flutter (~0.35 chaos, ~0.1): bounds multiplied.
     gFLip = 1.45 * (1.0 + abs(gCurl) * 0.95) * (1.0 + 0.4 * gChaos) * (1.0 + 0.1 * gFlutter);
@@ -269,7 +271,7 @@ void main() {
     ro.z = mod(ro.z, CK_ZWRAP);
     gEye = ro;
 
-    float hue = 0.3 + t * 0.003 + 0.3 * ckKnob(3);
+    float hue = 0.3 + t * 0.003 + chrysSpan(N.tone, 0.0, -0.15, 0.15);
 
     float tt = 0.03;
     float hitT = -1.0;
@@ -279,7 +281,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tt > CK_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tt);
+        fld = chrysField(ro + rd * tt);
+        float d = fld.d;
         float eps = 0.0008 * tt + 0.0005;
         if (d < eps) {
             hitT = tt;
@@ -294,12 +297,12 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        map(p);
+        vec3 n = chrysNormal(p, max(0.0015, 0.0012 * hitT));
+        fld = chrysField(p);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
         vec3 surf;
-        if (gMat > 0.5) {
-            surf = ckFlowerShade(p, n, rd, hue, ao);
+        if (fld.mat > 0.5) {
+            surf = ckFlowerShade(p, n, rd, hue, ao, fld);
         } else {
             vec3 q = ckFold(p);
             float ndv = clamp(dot(n, -rd), 0.0, 1.0);
@@ -322,7 +325,8 @@ void main() {
                 for (int i = 0; i < CK_REFL_STEPS; i++) {
                     if (float(i) >= cap) break;
                     if (t2 > CK_REFL_FAR) break;
-                    float d = map(ro2 + rr2 * t2);
+                    fld = chrysField(ro2 + rr2 * t2);
+                    float d = fld.d;
                     float eps = 0.0015 * t2 + 0.001;
                     if (d < eps) {
                         hit2 = t2;
@@ -333,10 +337,10 @@ void main() {
                 vec3 refl = ckFog(rr2, hue, swell);
                 if (hit2 > 0.0) {
                     vec3 p2 = ro2 + rr2 * hit2;
-                    map(p2);
-                    if (gMat > 0.5) {
+                    fld = chrysField(p2);
+                    if (fld.mat > 0.5) {
                         // Cheap: no second normal; the flower is lit as if face-on.
-                        refl = mix(ckFlowerShade(p2, -rr2, rr2, hue, 0.8), refl, 1.0 - exp(-(hit2 + hitT) * fogK));
+                        refl = mix(ckFlowerShade(p2, -rr2, rr2, hue, 0.8, fld), refl, 1.0 - exp(-(hit2 + hitT) * fogK));
                     } else {
                         refl = mix(pal(hue + 0.55) * 0.05, refl, 1.0 - exp(-(hit2 + hitT) * fogK));
                     }

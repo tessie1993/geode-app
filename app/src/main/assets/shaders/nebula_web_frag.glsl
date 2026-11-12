@@ -77,8 +77,30 @@ vec2 web(vec3 p) {
     return min(a, b) / (WB_SCALE * 2.0);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the distances to the nearest filament and knot
+ * (world units, lower bounds the march skips by), and the filaments' density at their base width.
+ */
+struct NebHit {
+    float dens;
+    float edge;
+    float knot;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    vec2 d = web(p);
+    NebHit h;
+    h.edge = d.x;
+    h.knot = d.y;
+    h.dens = exp(-(d.x * d.x) / (gWidth * gWidth));
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -114,7 +136,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tt > WB_FAR) break;
         vec3 p = ro + rd * tt;
-        vec2 d = web(p);
+        NebHit at = nebField(p, gOct);
+        vec2 d = vec2(at.edge, at.knot);
         // Filaments widen a little with distance, so far ones stay sampled.
         float w = gWidth * (1.0 + tt * 0.05);
         float dt = nebVolDt(tt, 0.03, 0.012);

@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_strata
 //#include lib_prism
 
 // Prism Crown: a lotus crown of chrome blades about a mirror ball, turned
@@ -22,7 +23,18 @@ out vec4 fragColor;
 // its mirror, and round its edge.
 //
 // Morph opens the crown: the blades lean further out, from a closed bud to a
-// wide dish. Worst case 108 steps, one fold per ring, no noise.
+// wide dish.
+//
+// Formula, three crowns (lib_strata's folds, the last blended in, so a
+// cluster grows out of the one crown as Detail or k1 TEXTURE rise): 0 the
+// one crown, as it always was; 0.5 a kaleidoscope, the crown mirrored into a
+// wreath of half-size crowns, upright and hanging, and those into smaller
+// still; 1 a Menger fold, crowns on the corners and edges of a cube, a third
+// the size at each fold. The far fractal follows: an Apollonian ball, a
+// kaleidoscope dust, a Mandelbox.
+//
+// Worst case 108 steps, one fold per ring and at most 2 cluster folds a
+// step, no noise; then the layers.
 
 float crownRing(vec3 p, float n, float rad, float len, float cup, float wid, out float seam) {
     vec2 q = prismFold(p.xz, n);
@@ -36,7 +48,8 @@ float crownRing(vec3 p, float n, float rad, float len, float cup, float wid, out
     return max(blade, outline);
 }
 
-vec2 prismMap(vec3 p) {
+/** The crown at p: x the distance, y the ribbon's. */
+vec2 crown(vec3 p) {
     p.y += 0.9;
     float open = mix(0.15, 0.6, gPrismForm);
     float spin = uTime * PRISM_RATE(35);
@@ -60,11 +73,30 @@ vec2 prismMap(vec3 p) {
     return vec2(d, seam);
 }
 
+/** The crown seen through fold k (lib_strata), `iters` folds in units of `span`. */
+vec2 crownFolded(vec3 p, float k, float iters, float span, vec3 c) {
+    float dr = 1.0 / span;
+    vec3 q = strataFold(p * dr, k, iters, c, prismRot(0.5), dr);
+    vec2 m = crown(q);
+    return m / dr;
+}
+
+vec2 prismMap(vec3 p) {
+    vec2 a = vec2(1.0e3);
+    vec2 b = a;
+    vec2 c = a;
+    if (strataUses(0)) a = crown(p);
+    if (strataUses(1)) b = crownFolded(p, 0.0, gStrataIters - 1.0, 1.0, vec3(2.6, 2.6, 1.0));
+    if (strataUses(2)) c = crownFolded(p, 3.0, gStrataIters - 1.0, 1.4, vec3(1.0));
+    return strataBlend2(a, b, c);
+}
+
 //#include lib_prism_march
 
 void main() {
     vec2 uv = view();
     prismSetup();
+    strataSetup(vec3(2.0, 0.0, 1.0), 2.0, 0.45, 0.7);
     gPrismStride = 0.6;
     vec3 ro;
     vec3 rd;

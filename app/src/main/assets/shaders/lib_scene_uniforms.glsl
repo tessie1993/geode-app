@@ -82,6 +82,10 @@ uniform float uBackLayer;
 // (another fold operator, primitive or iteration rule), crossfaded or stepped
 // along 0..1; 0 is the style's first, as it always drew. ParamTable.inc formula.
 uniform float uFormula;
+// uShapeMix 0..1: how far a raymarched style melts the shape graph (core/viz/ShapeGraph) into its own form;
+// 0 is the style's own distance and colour, untouched. ParamTable.inc shapes. The graph's own uniforms and
+// lib_shapes come with the first style that reads it.
+uniform float uShapeMix;
 // The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
 //#include lib_grow
 

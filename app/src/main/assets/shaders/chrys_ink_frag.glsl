@@ -116,13 +116,6 @@ float gOpen;
 float gSplat;
 float gOnset;
 bool gLowQ;
-// The winner of the last map() call, by its unclamped distance.
-float gRaw;
-float gMat;
-float gU;
-float gV;
-float gId;
-float gEdge;
 // Leaf frames, built once per pixel in main: base, across, normal, along.
 vec3 gLO[2];
 vec3 gLS[2];
@@ -141,9 +134,9 @@ vec3 toFlower(vec3 p) {
 }
 
 // One ring of quills in the flower frame (axis +y). Returns (distance, u
-// along the quill, v across it, quill id) and leaves the sector-edge distance
-// in gEdge. The distance is already divided by the hook's stretch.
-vec4 quillRing(vec3 q, int ring) {
+// along the quill, v across it, quill id) and the sector-edge distance in
+// `edge`. The distance is already divided by the hook's stretch.
+vec4 quillRing(vec3 q, int ring, out float edge) {
     float k = float(ring);
     float count = IK_COUNT[ring];
     float r0 = IK_R0[ring];
@@ -161,7 +154,7 @@ vec4 quillRing(vec3 q, int ring) {
     float side = rho * sin(off);
     // The nearer neighbour quill lies in the plane one sector over and is no
     // thicker than this ring's root: a lower bound on its distance.
-    gEdge = (rho * sin(min(sector - abs(off), 1.5)) - IK_ROOT[ring]) / lip;
+    edge = (rho * sin(min(sector - abs(off), 1.5)) - IK_ROOT[ring]) / lip;
 
     float pid = mod(id, count);
     float l = IK_LEN[ring] * (0.62 + 0.55 * chrysHash1(pid + 13.0 * k) * (1.0 + 0.6 * gChaos));
@@ -195,15 +188,16 @@ vec4 quillRing(vec3 q, int ring) {
     return vec4(d / lip, u, side / max(r, 1e-4), pid);
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 heart, 1 + ring on a quill, 5 stem, 6 leaf, 7 splatter; a.x u, a.y v, a.z the quill or leaf id, a.w the winner's unclamped distance (the normal's)). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = toFlower(p);
     // The heart: a low dome of florets.
     float d = (length(vec3(q.x, q.y * 1.8, q.z)) - 0.15) / 1.8;
-    gRaw = d;
-    gMat = 0.0;
-    gU = 0.0;
-    gV = 0.0;
-    gId = 0.0;
+    found.a.w = d;
+    found.mat = 0.0;
+    found.a.x = 0.0;
+    found.a.y = 0.0;
+    found.a.z = 0.0;
     float rho = length(q.xz);
     for (int i = 0; i < 4; i++) {
         float k = float(i);
@@ -211,15 +205,16 @@ float map(vec3 p) {
         float lmax = IK_LEN[i] * (0.62 + 0.55 * (1.0 + 0.6 * gChaos));
         // No quill of this ring reaches farther than its root plus the longest length.
         float envD = length(vec2(rho - IK_R0[i], q.y)) - lmax - IK_ROOT[i];
-        if (envD >= gRaw) continue;
-        vec4 pr = quillRing(q, i);
-        d = min(d, min(pr.x, max(gEdge, envD)));
-        if (pr.x < gRaw) {
-            gRaw = pr.x;
-            gMat = 1.0 + k;
-            gU = pr.y;
-            gV = pr.z;
-            gId = pr.w;
+        if (envD >= found.a.w) continue;
+        float edge;
+        vec4 pr = quillRing(q, i, edge);
+        d = min(d, min(pr.x, max(edge, envD)));
+        if (pr.x < found.a.w) {
+            found.a.w = pr.x;
+            found.mat = 1.0 + k;
+            found.a.x = pr.y;
+            found.a.y = pr.z;
+            found.a.z = pr.w;
         }
     }
 
@@ -234,11 +229,11 @@ float map(vec3 p) {
         ds = length(p - IK_HEAD) - 0.03;
     }
     d = min(d, ds);
-    if (ds < gRaw) {
-        gRaw = ds;
-        gMat = 5.0;
-        gU = clamp(sy * 0.3, 0.0, 1.0);
-        gV = 0.0;
+    if (ds < found.a.w) {
+        found.a.w = ds;
+        found.mat = 5.0;
+        found.a.x = clamp(sy * 0.3, 0.0, 1.0);
+        found.a.y = 0.0;
     }
 
     // Two grey-wash leaves off the stem, each a thin drooping blade.
@@ -257,12 +252,12 @@ float map(vec3 p) {
         vec2 w2 = vec2(leaf.x, abs(l.y) - 0.008);
         float dl = (length(max(w2, 0.0)) + min(max(w2.x, w2.y), 0.0)) * 0.55;
         d = min(d, dl);
-        if (dl < gRaw) {
-            gRaw = dl;
-            gMat = 6.0;
-            gU = leaf.y;
-            gV = leaf.z;
-            gId = float(i);
+        if (dl < found.a.w) {
+            found.a.w = dl;
+            found.mat = 6.0;
+            found.a.x = leaf.y;
+            found.a.y = leaf.z;
+            found.a.z = float(i);
         }
     }
 
@@ -281,11 +276,11 @@ float map(vec3 p) {
             float toEdge = (0.5 - max(max(f.x, f.y), f.z)) * IK_CELL;
             float raw = rr > 0.001 ? (length(sp - (cc + 0.5 + jit)) - rr) * IK_CELL : 1e9;
             d = min(d, min(raw, toEdge + 0.02));
-            if (raw < gRaw) {
-                gRaw = raw;
-                gMat = 7.0;
-                gU = 0.0;
-                gV = 0.0;
+            if (raw < found.a.w) {
+                found.a.w = raw;
+                found.mat = 7.0;
+                found.a.x = 0.0;
+                found.a.y = 0.0;
             }
         } else {
             d = min(d, rq - IK_SPLAT_R + 0.01);
@@ -294,44 +289,52 @@ float map(vec3 p) {
     return d;
 }
 
-float rawAt(vec3 p) {
-    map(p);
-    return gRaw;
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
+//#include lib_chrys_field
+
+/** The normal of the winner's own (unclamped) distance, the field's a.w: the bound in d would blur the creases. */
+vec3 inkNormal(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * rawAt(p + k.xyy * eps) + k.yyx * rawAt(p + k.yyx * eps)
-                   + k.yxy * rawAt(p + k.yxy * eps) + k.xxx * rawAt(p + k.xxx * eps));
+    return normalize(k.xyy * chrysField(p + k.xyy * eps).a.w + k.yyx * chrysField(p + k.yyx * eps).a.w
+                   + k.yxy * chrysField(p + k.yxy * eps).a.w + k.xxx * chrysField(p + k.xxx * eps).a.w);
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     // The sheet itself is flat: paper in unwarped screen space.
     vec2 suv = (vUv * 2.0 - 1.0) * vec2(uResolution.x / uResolution.y, 1.0);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    // This style's older knob roles: BUILD opens the outer ring, FLOW bleeds the ink, TEXTURE dries the brush.
+    ChrysIn N = chrysIn();
+    float splatK = chrysSpan(N.emit, 1.0, 0.4, 1.6);
+    float bleedK = chrysSpan(N.sway, 1.0, 0.4, 1.6);
+    float dryAmt = chrysSpan(N.fray, 1.0, 0.2, 1.8);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.075, 0.075);
+    float orbit = chrysSpan(N.reach, 3.8, 4.37, 3.23);
 
     gLowQ = uSteps < 72.0;
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gRings = gLowQ ? 3.0 : 3.0 + step(0.5, uMorph);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gRings = gLowQ ? 3.0 : 3.0 + step(0.5, N.rings);
     // The 2D hooks were tuned on strokes half as long; scaled for world units.
-    gHookScale = 0.23 * clamp(1.0 + uTwist, 0.0, 3.0);
-    gOpen = 2.0 * kBuild;
+    gHookScale = 0.23 * chrysSpan(N.curl, 1.0, 0.0, 2.0);
+    gOpen = chrysSpan(N.glow, 0.0, -1.0, 1.0);
     float lowmid = clamp(sndSpectrum(0.41) * uIntensity, 0.0, 1.5);
     float flux = clamp(sndLevel(SND_FLUX) * uIntensity, 0.0, 1.5);
-    gSplat = gLowQ ? 0.0 : flux * (1.0 + 1.2 * kPulse);
+    gSplat = gLowQ ? 0.0 : flux * splatK;
     gOnset = mod(floor(SND_ONSET_COUNT), 64.0);
     gSpin = uDrift * 0.08 + 0.15 * sin(t * 0.03);
-    float bleed = (0.004 + 0.05 * lowmid) * (1.0 + 1.2 * kFlow);
-    float dryAmt = clamp(1.0 + 1.6 * kTexture, 0.0, 2.0);
-    float hue = 0.1 + 0.02 * sin(t * 0.02) + 0.15 * kTone;
+    float bleed = (0.004 + 0.05 * lowmid) * bleedK;
+    float hue = 0.1 + 0.02 * sin(t * 0.02) + hueShift;
 
     for (int i = 0; i < 2; i++) {
         float sy = 1.1 + 0.65 * float(i);
@@ -345,7 +348,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 3.8 * (1.0 - 0.3 * kSpace), 4.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 4.0 * CAM_SPIN_UNIT, ro, rd);
 
     // Paper: warm, with fibre and slow blotches.
     vec3 paper = vec3(0.93, 0.89, 0.81);
@@ -370,13 +373,14 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            fld = chrysField(ro + rd * tm);
+            float d = fld.d;
             float eps = 0.0007 * tm + 0.0008;
-            if (gRaw < dmin) {
-                dmin = gRaw;
-                minMat = gMat;
+            if (fld.a.w < dmin) {
+                dmin = fld.a.w;
+                minMat = fld.mat;
             }
-            if (gRaw < eps) {
+            if (fld.a.w < eps) {
                 hitT = tm;
                 break;
             }
@@ -385,11 +389,11 @@ void main() {
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
-            // Restore the hit's globals after the normal taps.
-            map(p);
-            float mat = gMat;
-            float u = clamp(gU, 0.0, 1.0);
+            vec3 n = inkNormal(p, 0.0012 * hitT + 0.0006);
+            // The hit at p again for the shading, after the normal taps.
+            fld = chrysField(p);
+            float mat = fld.mat;
+            float u = clamp(fld.a.x, 0.0, 1.0);
             vec3 nf = dot(n, rd) > 0.0 ? -n : n;
             vec3 L = normalize(vec3(0.4, 0.8, -0.45));
             float lit = max(dot(nf, L), 0.0);
@@ -404,7 +408,7 @@ void main() {
             } else if (mat < 4.5) {
                 float ring = mat - 1.0;
                 // Dry brush: the stroke breaks into streaks toward the tip.
-                float dry = motionNoise(vec2(gV * 3.5 + gId * 7.0 + ring * 3.0, u * 2.0));
+                float dry = motionNoise(vec2(fld.a.y * 3.5 + fld.a.z * 7.0 + ring * 3.0, u * 2.0));
                 float brk = smoothstep(0.45, 1.0, u) * min(dryAmt, 1.0);
                 float tone = mix(0.95, 0.5, u) * mix(1.0, smoothstep(0.25 * dryAmt, 0.6, dry), brk);
                 ink = tone * (0.62 + 0.38 * (1.0 - lit)) + 0.3 * rim * tone;
@@ -413,7 +417,7 @@ void main() {
                 float dry = motionNoise(vec2(p.x * 40.0, p.y * 2.0));
                 ink = 0.8 * mix(1.0, smoothstep(0.2, 0.55, dry), 0.35 * u) * (0.75 + 0.25 * (1.0 - lit)) + 0.2 * rim;
             } else if (mat < 6.5) {
-                float vein = smoothstep(0.08, 0.0, abs(gV)) * step(u, 0.95);
+                float vein = smoothstep(0.08, 0.0, abs(fld.a.y)) * step(u, 0.95);
                 float tone = 0.32 + 0.25 * u + 0.3 * vein;
                 ink = tone * (0.7 + 0.3 * (1.0 - lit)) + 0.25 * rim;
             } else {

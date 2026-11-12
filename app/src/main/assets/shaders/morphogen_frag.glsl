@@ -21,6 +21,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // MORPHOGEN - one organism, continuously metamorphosing between skeletons.
 //
@@ -58,7 +59,9 @@ out vec4 fragColor;
 // THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its offset
 // from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
 // seam line's width (FRONT_WIDTH 0.5..1.5 times, still under the 0.03 that
-// washed), k3 TONE the palette position and the box-fold's scale (a high
+// washed), k2 FLOW added to the weave's thickness (it used to add to the
+// wring's twist, which turned the body to the music; only the fingers wring
+// it now), k3 TONE the palette position and the box-fold's scale (a high
 // melody carves the crystal finer, a low one chunkier), k4 BUILD the glow the body leaks
 // into the room, k5 SPACE how far that glow reaches. k2 FLOW no longer adds to
 // the wring's twist: a knob is the notes', and no sound turns a style (owner
@@ -621,7 +624,7 @@ float bulgeDist(vec3 p) {
  * fused LAST, in the camera frame, because a bulge belongs to the finger and
  * must not be dragged around by the body's rotation.
  */
-float map(vec3 p) {
+float morphField(vec3 p) {
     gFuse = 0.0;
     gFront = 0.0;
 
@@ -718,6 +721,14 @@ float map(vec3 p) {
     return min(body, sat);
 }
 
+/**
+ * The field every march, normal and occlusion tap reads: morphField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, morphField);
+}
+
 /** Tetrahedral normal: four map() taps instead of the six a central
  *  difference needs, and symmetric, so a flat facet reads flat. */
 vec3 normalAt(vec3 p, float e) {
@@ -803,16 +814,32 @@ void main() {
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
-    gFrontW = FRONT_WIDTH * (1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5));
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nSeam = clamp(uKnob[1], 0.0, 1.0);
+    float nWeave = clamp(uKnob[2], 0.0, 1.0);
+    float nScale = clamp(uKnob[3], 0.0, 1.0);
+    float nGlow = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the seam line's width, the weave's thickness, the
+    // box-fold's scale and the palette position, the glow and its reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    gFrontW = shellMap(nSeam, 0.5 * FRONT_WIDTH, FRONT_WIDTH, 1.5 * FRONT_WIDTH);
+    float weaveAdd = shellMap(nWeave, -0.1, 0.0, 0.1);
+    float scaleAdd = shellMap(nScale, -0.125, 0.0, 0.125);
+    float toneHue = shellMap(nScale, -0.3, 0.0, 0.3);
+    float glowK = shellMap(nGlow, 0.5, 1.0, 1.5);
+    float reach = shellMap(nReach, 0.8, 1.0, 1.2);
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.
-    gWeaveThick = 0.30 + 0.42 * bass;
+    gWeaveThick = 0.30 + 0.42 * bass + weaveAdd;
     gWeaveT = uTime * GYROID_CRAWL;
     gSwell = 1.0 + 0.10 * bass;
 
@@ -859,7 +886,7 @@ void main() {
     // TONE moves the scale too: a high melody toward the finer, smaller
     // magnitude end, a low one toward the chunkier larger one, an eighth of a
     // unit each way, still inside the band where the estimator behaves.
-    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid + 0.25 * kTone;
+    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid + scaleAdd;
     // The fold loop is where the cost is, so it is what Detail buys: 3 folds
     // at uSteps 64, 4 at the default 102, 6 at 128. 6/128 is exact in binary,
     // so both ends of the Detail range land on whole numbers rather than on a
@@ -867,6 +894,7 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
+    // The fingers alone wring the body: nothing turns to the music.
     gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
 
     // The organism's own slow turn, on two unrelated rates so it never returns
@@ -920,7 +948,7 @@ void main() {
     // colour identity, and because the clock is continuous the identity slides
     // into the next one instead of cutting at the segment wrap (an index-based
     // hue jumped a quarter of the ramp on every change).
-    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid + 0.6 * kTone;
+    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid + toneHue;
     // Once, not twice: this is two octaves of 3D value noise, and the fog mix
     // below wants the same room the miss branch draws.
     vec3 roomCol = room(rd, uv, baseHue);
@@ -1038,7 +1066,7 @@ void main() {
         }
     }
 
-    col += pal(baseHue + 0.42) * glow * 0.45 * (0.45 + 0.55 * energy) * (1.0 + kBuild);
+    col += pal(baseHue + 0.42) * glow * 0.45 * (0.45 + 0.55 * energy) * glowK;
 
     // Body, rim, specular, seam, core, touch and haze all added
     // together: HDR by construction. Clipping would flatten every rim and every
@@ -1046,7 +1074,7 @@ void main() {
     // being bounded by 1, is also what guarantees that no combination of audio
     // can produce a full-screen white frame. Energy leans on the exposure by a
     // tenth and no more, for the same reason.
-    float exposure = 0.98 * (0.92 + 0.16 * energy) * (1.0 + 0.5 * kPulse);
+    float exposure = 0.98 * (0.92 + 0.16 * energy) * emission;
     col = vec3(1.0) - exp(-max(col, vec3(0.0)) * exposure);
 
     // A soft vignette. Gentle rather than kaleido's hard fade to black: this

@@ -104,12 +104,8 @@ float gTilt;
 float gBend;
 float gTwist;
 float gSway;
-/** Set by map(): 0 root, 1 stone, 2 soil (ceiling or floor). */
-float gMat;
-/** Set by map(): the root field alone, for the sap's glow in the soil. */
-float gRootD;
-/** Set by map(): the stone's own hash, for its tint. */
-float gStoneH;
+/** The roots' form, mapped by the shell; each cell adds its own twist. */
+ArborForm gForm;
 
 /**
  * Value noise whose lattice wraps in z every `pz` cells, so a noise read at
@@ -139,7 +135,7 @@ float wnoise3(vec3 p, float pz) {
 }
 
 /** The root system of the cell p is in, clamped to the cell (see the header). */
-float rootField(vec3 p) {
+ArborHit rootField(vec3 p) {
     vec2 cell = floor(p.xz / RT_CELL);
     vec2 f = p.xz - (cell + 0.5) * RT_CELL;
     uint u = uhash3(uvec3(ivec3(int(cell.x), 7, int(mod(cell.y, RT_ZCELLS)))));
@@ -153,16 +149,17 @@ float rootField(vec3 p) {
     // Flip y: the trunk grows down from the ceiling.
     vec3 q = vec3(f.x - base.x, RT_BASE - p.y, f.y - base.y);
     q.xz = rot2(h1 * RT_TAU) * q.xz;
-    float twist = gTwist + (0.5 + 0.4 * gSway) * (h2 - 0.5) + gSway * sin(gTime * (0.4 + 0.3 * h3) + h1 * RT_TAU);
-    ArborForm form = ArborForm(2.0, gTilt, gBend, twist, 0.74, 1.25, 0.085, 0.74);
-    float d = arborTree(q / sc, form, gGrow) * sc;
+    ArborForm form = gForm;
+    form.twist = form.twist + (0.5 + 0.4 * gSway) * (h2 - 0.5) + gSway * sin(gTime * (0.4 + 0.3 * h3) + h1 * RT_TAU);
+    ArborHit hit = arborTree(q / sc, form, gGrow);
     vec2 af = abs(f);
     float toEdge = 0.5 * RT_CELL - max(af.x, af.y);
-    return min(d, max(toEdge, RT_BOTTOM - p.y));
+    hit.d = min(hit.d * sc, max(toEdge, RT_BOTTOM - p.y));
+    return hit;
 }
 
-/** The stones: one squashed pebble in some 2-unit cells, fewer near the flight path. */
-float stoneField(vec3 p) {
+/** The stones: one squashed pebble in some 2-unit cells, fewer near the flight path. (distance, the stone's own hash) */
+vec2 stoneField(vec3 p) {
     vec3 cell = floor(p / RT_STONE);
     vec3 f = p - (cell + 0.5) * RT_STONE;
     uint u = uhash3(uvec3(ivec3(int(cell.x), int(cell.y), int(mod(cell.z, 512.0)))));
@@ -179,27 +176,28 @@ float stoneField(vec3 p) {
     float ds = h > keep ? (length(q * vec3(1.0, 1.4, 1.0)) - r) / 1.4 : 1e3;
     vec3 af = abs(f);
     float toEdge = 0.5 * RT_STONE - max(max(af.x, af.y), af.z);
-    gStoneH = hr;
-    return min(ds, toEdge + 0.3);
+    return vec2(min(ds, toEdge + 0.3), hr);
 }
 
-float map(vec3 p) {
-    float dr = rootField(p);
-    float ds = stoneField(p);
+/**
+ * The world: roots, stones and soil. mat.x is 0 root, 1 stone, 2 soil (ceiling or floor); mat.y the root
+ * field alone, for the sap's glow in the soil; mat.z the stone's own hash, for its tint.
+ */
+ArborHit arborMap(vec3 p) {
+    ArborHit h = rootField(p);
+    float dr = h.d;
+    vec2 stone = stoneField(p);
+    float ds = stone.x;
     float ceilY = RT_CEIL + 0.25 * sin(p.x * 0.7) * sin(p.z * (RT_TAU / 16.0));
     float floorY = RT_FLOOR + 0.4 * sin(p.x * 0.45 + 1.0) * sin(p.z * (RT_TAU / 32.0)) + 0.2 * sin(p.x * 1.1 + p.z * (RT_TAU / 16.0));
     float soil = min(ceilY - p.y, p.y - floorY) * 0.88;
     float solid = max(min(dr, ds), RT_BUBBLE - length(p - gEye));
-    gRootD = dr;
-    gMat = soil < solid ? 2.0 : (dr < ds ? 0.0 : 1.0);
-    return min(solid, soil);
+    h.mat = vec4(soil < solid ? 2.0 : (dr < ds ? 0.0 : 1.0), dr, stone.y, 0.0);
+    h.d = min(solid, soil);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 /** The soil between the roots, as seen down a ray: warm topsoil above, dark clay below. */
 vec3 fogColour(vec3 rd, float hue, float swell) {
@@ -222,19 +220,21 @@ void main() {
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = arbChaos();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float sub = clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0) * energy;
     float beat = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float flow = arbSpan(N.flow, 1.0, 0.25, 1.75);
+    float sapK = arbSpan(N.emit, 1.0, 0.2, 1.8);
+    float threadK = arbSpan(N.density, 1.0, 0.2, 1.8);
+    float fogK = arbSpan(N.reach, 1.0, 0.3, 1.7);
+    float glowK = arbSpan(N.glow, 1.0, 0.2, 1.8);
+    float hueShift = arbSpan(N.tone, 0.0, -0.15, 0.15);
 
-    float hue = 0.07 + 0.02 * sin(t * 0.03) + 0.3 * kTone;
+    float hue = 0.07 + 0.02 * sin(t * 0.03) + hueShift;
 
     gTime = t;
     gGrow = arbLevels(7.0, 1.0);
@@ -242,14 +242,14 @@ void main() {
     gTilt = 0.42 + 0.30 * sub;
     // Negative bend in the flipped frame turns every fork toward world down.
     gBend = -0.10 - 0.03 * sin(t * 0.13);
-    float flow = 1.0 + 1.5 * kFlow;
-    gTwist = 2.1 + 0.6 * uTwist + 0.05 * flow * sin(t * 0.2);
+    gTwist = 2.1 + 0.05 * flow * sin(t * 0.2);
     gSway = (0.04 + 0.22 * chaos) * flow;
+    gForm = arborShape(ArborForm(2.0, gTilt, gBend, gTwist, 0.74, 1.25, 0.085, 0.74), N);
 
     // Sap front: depth along a tree is level + along; the front runs from
     // the trunk (0) to the tips while the beat envelope falls.
     float front = (1.0 - beat) * (gGrow + 1.5);
-    float sapOn = smoothstep(0.0, 0.15, beat) * clamp(1.0 + 1.6 * kPulse, 0.0, 2.0);
+    float sapOn = smoothstep(0.0, 0.15, beat) * sapK;
 
     float tm = 0.05;
     float hitT = -1.0;
@@ -262,14 +262,15 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         used = float(i);
-        float d = map(ro + rd * tm);
-        float depth = gArbLevel + gArbAlong;
-        glow += exp(-pow((depth - front) * 1.4, 2.0)) * exp(-max(gRootD, 0.0) * 10.0) * min(d, 0.5);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
+        float depth = h.level + h.along;
+        glow += exp(-pow((depth - front) * 1.4, 2.0)) * exp(-max(h.mat.y, 0.0) * 10.0) * min(d, 0.5);
         if (d < 0.0012 + 0.0008 * tm) {
             hitT = tm;
-            hitMat = gMat;
+            hitMat = h.mat.x;
             hitDepth = depth;
-            hitStone = gStoneH;
+            hitStone = h.mat.z;
             break;
         }
         tm += d * 0.75;
@@ -282,7 +283,7 @@ void main() {
     vec3 col = fog;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0015 + 0.001 * hitT);
+        vec3 n = arborNormal(p, 0.0015 + 0.001 * hitT);
         // The headlight rides just above the eye.
         vec3 lp = ro + uCamBasis[1] * 0.4;
         vec3 toL = lp - p;
@@ -321,15 +322,15 @@ void main() {
         // Mycelium: thin glowing threads along a noise field's zero set,
         // drifting slowly in x (no z drift, so the 1024 wrap holds).
         float m = wnoise3(p * 2.0 + vec3(t * 0.04, 0.0, 0.0), 2048.0) - 0.5;
-        float thread = 1.0 - smoothstep(0.0, 0.03 * clamp(1.0 + 1.6 * kTexture, 0.2, 2.0), abs(m));
+        float thread = 1.0 - smoothstep(0.0, 0.03 * threadK, abs(m));
         col += pal(hue + 0.45) * thread * threadAmt * (0.14 + 0.10 * swell) * ao;
 
-        col = mix(col, fog, 1.0 - exp(-hitT * 0.06 * clamp(1.0 + 1.4 * kSpace, 0.2, 2.0)));
+        col = mix(col, fog, 1.0 - exp(-hitT * 0.06 * fogK));
     }
 
     // The sap's glow in the soil around the roots it passes, already
     // weighted by how far the ray went through it.
-    col += sapCol * glow * sapOn * 0.2 * clamp(1.0 + 1.6 * kBuild, 0.0, 2.0);
+    col += sapCol * glow * sapOn * 0.2 * glowK;
 
     col *= 0.9 + 0.12 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));

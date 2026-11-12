@@ -337,3 +337,6 @@ vec4 foldFinish(vec3 col, float exposure) {
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
 }
+
+// The depth layers round the style's form and its formulas (uFormula): see lib_layers.
+//#include lib_layers

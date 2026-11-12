@@ -165,6 +165,7 @@ add_library(geode_core STATIC
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/ShapeGraph.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp

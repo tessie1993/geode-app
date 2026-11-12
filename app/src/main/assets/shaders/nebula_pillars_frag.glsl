@@ -78,18 +78,29 @@ float shapeDist(vec3 p) {
     return min(a, min(b, c));
 }
 
-/** Dust density 0..1 and, through sd, the capsules' distance (for skipping empty space). */
-float density(vec3 p, float oct, out float sd) {
-    sd = shapeDist(p);
-    if (sd > 0.32) return 0.0;
+/** What the field holds at a point (lib_nebula_field): the dust density 0..1, and the capsules' distance (for skipping empty space). */
+struct NebHit {
+    float dens;
+    float sd;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.sd = shapeDist(p);
+    h.dens = 0.0;
+    if (h.sd > 0.32) return h;
     vec3 q = nebWarp3(p, gT) * 2.4 + vec3(0.0, 0.0, -gT * 0.02);
     float n = nebFbm3(q, oct);
-    float d = sd + (n - 0.5) * 0.5;
-    return 1.0 - smoothstep(-0.12, 0.06, d);
+    float d = h.sd + (n - 0.5) * 0.5;
+    h.dens = 1.0 - smoothstep(-0.12, 0.06, d);
+    return h;
 }
+
+//#include lib_nebula_field
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
@@ -122,13 +133,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tt > tb.y) break;
             vec3 p = ro + rd * tt;
-            float sd;
-            float dens = density(p, gOct, sd);
+            NebHit at = nebField(p, gOct);
+            float sd = at.sd;
+            float dens = at.dens;
             float dt = nebVolDt(tt - tb.x, 0.025, 0.012);
             if (dens > 0.002) {
                 vec3 L = normalize(PL_LIGHT - p);
-                float sdL;
-                float dl = density(p + L * 0.25, 2.0, sdL);
+                float dl = nebField(p + L * 0.25, 2.0).dens;
                 float lit = nebLightTap(dl, 5.0);
                 float ph = nebPhase(dot(rd, L), 0.55);
                 float skin = smoothstep(0.03, 0.35, dens) * (1.0 - smoothstep(0.35, 0.9, dens));

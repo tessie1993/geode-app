@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -55,6 +56,14 @@ out vec4 fragColor;
 // TONE the blades' lean on top of Morph's (a high melody lifts the crown into
 // a cup, a low one droops it into an umbrella under the ring plane, and a
 // small hue offset), k4 BUILD the blade gain, k5 SPACE the orbit radius.
+// Every one of these, and the blade width, the core's size, the eye's tilt over
+// the ring, the oscillogram's radius and the halo, is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range: at rest (knobs 0.5, Morph, Warp and Turbulence 0) each is the
+// constant the crown was tuned with. The crown is the field the grow hooks act
+// on (SHELL_FIELD3, about the crown's centre): Spawn sets a twin crown beside
+// it, Fractal grows crowns a third the size on the blades, Front layer swells
+// the crown and Back layer what lies past it.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -78,7 +87,7 @@ out vec4 fragColor;
 #define RG_SECTORS 48.0
 /** Hub radius: where the blades stand. */
 #define RG_RIN 1.45
-/** Blade tangential half-width, before rounding. */
+/** Blade tangential half-width at rest, before rounding (gTh: at most 0.034, inside RG_GAP's margin). */
 #define RG_TH 0.03
 #define RG_ROUND 0.012
 /** (RG_RIN - 0.2) * sin(pi / 48) - (RG_TH + RG_ROUND) = 0.0397, less a margin. */
@@ -105,6 +114,7 @@ float gLean;
 float gWarp;
 float gTurb;
 float gCore;
+float gTh;
 
 float gMat;
 float gBand;
@@ -116,7 +126,8 @@ float mirror01(float u) {
     return abs(2.0 * fract(u) - 1.0);
 }
 
-float map(vec3 p) {
+/** The crown, hub and core: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+float ringField(vec3 p) {
     float r = length(p.xz);
     float ang = r > 1e-5 ? atan(p.z, p.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
 
@@ -140,7 +151,7 @@ float map(vec3 p) {
     float along = dot(q, dir);
     float perp = dot(q, vec2(-dir.y, dir.x));
     float hp = (0.05 + 0.05 * band) * gThick;
-    float dOwn = sdBox(vec3(along - len * 0.5, perp, zt), vec3(len * 0.5, hp, RG_TH)) - RG_ROUND;
+    float dOwn = sdBox(vec3(along - len * 0.5, perp, zt), vec3(len * 0.5, hp, gTh)) - RG_ROUND;
 
     // Distance to the nearer sector boundary plane (both are full planes through the axis).
     const float sw = 0.0654031; // sin(pi / 48)
@@ -173,6 +184,10 @@ float map(vec3 p) {
     return d;
 }
 
+float map(vec3 p) {
+    return SHELL_FIELD3(p, ringField);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -188,19 +203,36 @@ vec3 skyColour(vec3 rd, float hueBase) {
     return col;
 }
 
-float knob(int i) {
-    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
-}
-
 void main() {
     vec2 uv = view();
 
-    float kPulse = knob(0);
-    float kTexture = knob(1);
-    float kFlow = knob(2);
-    float kTone = knob(3);
-    float kBuild = knob(4);
-    float kSpace = knob(5);
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                               // PULSE    the core's kick swell
+    float nTexture = shellKnob(1);                             // TEXTURE  blade thickness and width
+    float nFlow = shellKnob(2);                                // FLOW     the oscillogram's swing and radius
+    float nTone = shellKnob(3);                                // TONE     the blades' lean, the hue
+    float nBuild = shellKnob(4);                               // BUILD    blade gain, core size, halo
+    float nSpace = shellKnob(5);                               // SPACE    orbit radius, the eye's tilt
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);        // Morph    the blades tip up
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);          // Warp     the ring's undulation
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);    // Turbulence the blade shimmer
+    float kickGain = shellMap(nPulse, 0.2, 1.0, 1.8);
+    gThick = shellMap(nTexture, 0.7, 1.0, 1.3);
+    gTh = shellMap(nTexture, 0.022, RG_TH, 0.034);
+    float swing = shellMap(nFlow, 0.6, 1.0, 1.4);
+    float waveR = shellMap(nFlow, 1.0, RG_WAVE_R, 1.22);
+    float leanTone = shellMap(nTone, -0.55, 0.0, 0.55);
+    float hueTone = shellMap(nTone, -0.075, 0.0, 0.075);
+    gGain = shellMap(nBuild, 0.9375, 1.25, 1.5625);
+    float coreR = shellMap(nBuild, 0.4, 0.48, 0.58);
+    float haloK = shellMap(nBuild, 0.45, 0.6, 0.8);
+    float camR = shellMap(nSpace, RG_CAM_MIN, 0.5 * (RG_CAM_MIN + RG_CAM_MAX), RG_CAM_MAX);
+    float tiltK = shellMap(nSpace, 0.5, RG_TILT, 0.8);
+    float leanMorph = shellMap(nMorph, 0.0, 0.0, 0.85);
+    gWarp = shellMap(nWarp, 0.0, 0.0, 1.0);
+    gTurb = shellMap(nTurb, 0.0, 0.0, 1.0);
+    // The hooks grow about the crown's centre, the subject; a twin stands 0.75 aside at full Spawn.
+    shellSetup3(vec3(0.0), 2.5, 1.0, true);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
@@ -209,28 +241,24 @@ void main() {
     float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.0);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
-    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.15 * kTone;
+    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + hueTone;
 
     float spin = 2.0 * CAM_SPIN_UNIT;
     float orbit = uCamTravel * spin;
     gPhase = fract(uTime * 0.02 + orbit / RG_TAU);
-    gGain = 1.25 * (1.0 + 0.5 * kBuild);
-    gThick = 1.0 + 0.6 * kTexture;
-    gLean = clamp(0.85 * clamp(uMorph, 0.0, 1.0) + 1.1 * kTone, -0.7, 1.2);
-    gWarp = clamp(uWarp, 0.0, 1.2);
-    gTurb = clamp(uTurbulence, 0.0, 1.0);
-    gCore = 0.48 + 0.16 * kick * (1.0 + 1.6 * kPulse);
+    gLean = clamp(leanMorph + leanTone, -0.7, 1.2);
+    gCore = coreR + 0.16 * kick * kickGain;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, mix(RG_CAM_MIN, RG_CAM_MAX, kSpace + 0.5), spin, ro, rd);
+    camAround(uv, camR, spin, ro, rd);
     // Into the crown's frame: undo the orbit's turn about +y (the eye then
     // sits near -z), then tip the ring plane toward the eye so the eye sits
     // beta above it. Both are rotations, so distances keep.
     float ca = cos(orbit);
     float sa = sin(orbit);
     mat3 unturn = mat3(ca, 0.0, sa, 0.0, 1.0, 0.0, -sa, 0.0, ca);
-    float beta = RG_TILT + 0.3 * dropBump + 0.08 * uOrbit.x;
+    float beta = tiltK + 0.3 * dropBump + 0.08 * uOrbit.x;
     float cb = cos(beta);
     float sb = sin(beta);
     mat3 tilt = mat3(1.0, 0.0, 0.0, 0.0, cb, sb, 0.0, -sb, cb);
@@ -339,8 +367,8 @@ void main() {
             float pa = pr > 1e-5 ? atan(pp.z, pp.x) : 0.0;
             float wu = fract(pa / RG_TAU + gPhase);
             float w = sndWave01(mirror01(wu));
-            float amp = 0.45 * (1.0 + 0.6 * gWarp + 0.8 * kFlow);
-            float off = abs(pr - (RG_WAVE_R + (w - 0.5) * amp));
+            float amp = 0.45 * (swing + 0.6 * gWarp);
+            float off = abs(pr - (waveR + (w - 0.5) * amp));
             float line = 1.0 - smoothstep(0.0, 0.02 + 0.002 * tp, off);
             float glowW = exp(-off * 16.0) * 0.3;
             col += pal(hueBase + 0.3 + 0.5 * mirror01(wu)) * (line + glowW) * (0.35 + 0.9 * mids) * lineSeen;
@@ -352,7 +380,7 @@ void main() {
     float tc = max(-dot(ro, rd), 0.0);
     float haloSeen = (hitT < 0.0 || hitT > tc) ? 1.0 : through;
     float dc = length(ro + rd * tc);
-    col += pal(hueBase + 0.1) * exp(-dc * 2.2) * (0.25 + 0.6 * sub) * 0.6 * haloSeen;
+    col += pal(hueBase + 0.1) * exp(-dc * 2.2) * (0.25 + 0.6 * sub) * haloK * haloSeen;
 
     col *= 0.8 + 0.25 * swell + 0.1 * energy;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));

@@ -40,7 +40,7 @@ out vec4 fragColor;
 // Speed scales the lava's crawl. Complexity (uMorph) fades in an
 // octave of gully. Chaos (uWarp, uTurbulence, uTwist) bends the flanks and
 // the veins (terraChaos). Energy (uIntensity) scales the kick's pulse. Colour
-// is pal() in the lava, rock and sky. Space is the rig (camAround), its
+// is terraPal() in the lava, rock and sky. Space is the rig (camAround), its
 // radius the k5 SPACE reach; the other knobs as lib_terra.
 
 #define VC_MAX_STEPS 112
@@ -52,7 +52,7 @@ out vec4 fragColor;
 
 float gOct;
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     vec2 w = terraChaos(xz);
     float r = length(w);
     float cone = 3.6 * exp(-0.8 * r) - 0.4;
@@ -61,6 +61,8 @@ float height(vec2 xz) {
     float g = terraRidged(w * 1.5, gOct);
     return h + 0.32 * (g - 0.4) * smoothstep(0.4, 1.4, r);
 }
+
+//#include lib_terra_field
 
 /** The lava veins at xz: 1 on a vein, 0 off it. */
 float vein(vec2 xz, float width, float t) {
@@ -73,6 +75,7 @@ float vein(vec2 xz, float width, float t) {
 
 void main() {
     vec2 uv = view();
+    terraSetup();
     float t0 = terraTime();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
@@ -83,13 +86,13 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv + vec2(0.0, 0.08), VC_CAM_R * (1.0 + 0.4 * terraKnob(5)), 0.0, ro, rd);
+    camAround(uv + vec2(0.0, 0.08), terraAt(gTerraIn.reach, VC_CAM_R, 0.2), 0.0, ro, rd);
     ro.y += VC_LIFT;
 
     vec3 moon = normalize(vec3(-0.6, 0.5, -0.4));
-    vec3 lava = mix(vec3(1.0, 0.32, 0.06), pal(hue), 0.3);
+    vec3 lava = mix(vec3(1.0, 0.32, 0.06), terraPal(hue), 0.3);
     vec3 zenith = vec3(0.01, 0.01, 0.03);
-    vec3 horizon = mix(vec3(0.20, 0.05, 0.04), pal(hue + 0.9) * 0.15, 0.3);
+    vec3 horizon = mix(vec3(0.20, 0.05, 0.04), terraPal(hue + 0.9) * 0.15, 0.3);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -103,7 +106,7 @@ void main() {
             if (t > span.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -125,10 +128,10 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.008);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.008);
         float r = length(p.xz);
         float dif = max(dot(n, moon), 0.0);
-        vec3 rock = mix(vec3(0.07, 0.06, 0.07), pal(hue + 0.7) * 0.06, 0.4);
+        vec3 rock = mix(vec3(0.07, 0.06, 0.07), terraPal(hue + 0.7) * 0.06, 0.4);
         float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
         col = rock * (dif * vec3(0.9, 1.0, 1.3) * 1.6 + 0.2) * terraStepAO(used);
         col += horizon * rim * 0.35;
@@ -137,10 +140,10 @@ void main() {
         col += lava * rock * up * (3.0 + 1.5 * bass) * (0.5 + 0.5 * n.y);
         float inBowl = (1.0 - smoothstep(0.3, 0.6, r)) * (1.0 - smoothstep(1.7, 2.1, p.y));
         col += lava * inBowl * (0.6 + 0.3 * bass + 0.4 * kick);
-        float v = vein(p.xz, 0.035 + 0.03 * kick, t0);
+        float v = vein(p.xz, 0.035 * gTerraWidth + 0.03 * kick, t0);
         float heat = 0.35 + 0.9 * kick + 0.2 * bass;
         col += mix(lava, vec3(1.0, 0.8, 0.4), v * 0.5) * v * heat;
-        col = mix(col, horizon * 0.6, 1.0 - exp(-hitT * 0.04));
+        col = mix(col, horizon * 0.6, 1.0 - exp(-hitT * 0.04 / gTerraReach));
     }
     // Ash haze hugging the plain.
     col += horizon * 0.25 * exp(-max(rd.y + 0.1, 0.0) * 8.0);

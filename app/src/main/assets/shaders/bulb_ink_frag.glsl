@@ -56,23 +56,18 @@ vec3 tone(float t) {
 vec3 gSquash;
 float gLip;
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec3 q = bulbChaos(p) / gSquash;
     // Upright: the needle (c = -2) up, the cardioid down.
     q = vec3(q.x, -q.y + BI_MID, q.z);
     vec4 tr;
     float d = bulbDE(q, 2.0, 2.0, vec2(0.0), gIters, tr);
-    gTrap = tr;
-    return d * gLip / bulbChaosLip();
+    return BulbHit(d * gLip / bulbChaosLip(), tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -85,7 +80,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BI_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BI_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BI_CAM_R), BI_SPIN, ro, rd);
 
     float hue = 0.58 + 0.03 * sin(bulbTime() * 0.02);
 
@@ -100,12 +95,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             nearPx = min(nearPx, d / t);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -124,7 +120,7 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.6, 0.7, -0.4));
         float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x));
         // Three tones, hard steps, kept darker than the paper.

@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Spectrum Terrain: low flight down a valley whose flanks are ridges built
 // from the spectrum. Distance from the valley floor along x picks a band (sub
@@ -49,6 +50,31 @@ out vec4 fragColor;
 // valley (a high melody crowds more, narrower crests into the land, a low one
 // broadens them into fewer, rolling ones), k4 BUILD the contours' glow, k5
 // SPACE the reach (far plane and fog).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the land is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Only knobs drive them here:
+// this style leaves Morph, Warp and Turbulence to view(), which already bends
+// its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sRough      k1 TEXTURE       the finer hill octaves' share 0.3 .. 1 .. 2
+//   sContour    k1 TEXTURE       contour lines per unit of height 1.4 .. 2.2 .. 3.4
+//   gWind       k2 FLOW          the valley's winding -1.5 .. 0 .. 1.5
+//   sCrestD     k2 FLOW          the crests' depth 0.1 .. 0.3 .. 0.6
+//   gCrests     k3 TONE          crests across the span 4.2 .. 6 .. 7.8
+//   sHills      k4 BUILD         the base hills' height 0.5 .. 1 .. 1.5
+//   sSpan       k5 SPACE         the span the bands spread over 12 .. 18 .. 26
+//   sValley     k5 SPACE         the valley floor's width 0.7 .. 1 .. 1.4
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The noise lattices' z periods (128, 256, 512 cells) and the winding's 64
+// stay constants: each tiles the 1024 the eye is rebased by. The give-up
+// height rises with the hills. The land goes through SHELL_FIELD2 as one
+// height pattern, so the shell's spawn, fractal, front and back hooks reach it.
 
 #define ST_MAX_STEPS 112
 #define ST_FAR 70.0
@@ -70,6 +96,13 @@ float gRipA;
 float gWind = 0.0;
 /** k3 TONE: crests across the valley's span (6 at rest). */
 float gCrests = 6.0;
+/** Shape inputs (see the header). */
+float sRough;
+float sContour;
+float sCrestD;
+float sHills;
+float sSpan;
+float sValley;
 
 /** Distance across the valley from its winding floor line: the ridges and the shading read it. */
 float valleyX(vec2 xz) {
@@ -99,18 +132,18 @@ float bandAt(float u) {
 }
 
 /** Ground height above ST_BASE_Y. */
-float terrain(vec2 xz) {
+float terrainField(vec2 xz) {
     float ax = valleyX(xz);
-    float valley = smoothstep(1.2, 9.0, ax);
+    float valley = smoothstep(1.2 * sValley, 9.0 * sValley, ax);
     // Base hills: three octaves, each period 1024 world units along z.
     float n = 0.55 * tnoise(xz * 0.125, 128.0, 0.0)
-            + 0.30 * tnoise(xz * 0.25 + vec2(17.0, 0.0), 256.0, 3.0)
-            + 0.15 * tnoise(xz * 0.5 + vec2(-9.0, 0.0), 512.0, 5.0);
-    float h = n * (0.5 + 2.0 * valley);
+            + (0.30 * tnoise(xz * 0.25 + vec2(17.0, 0.0), 256.0, 3.0)
+            + 0.15 * tnoise(xz * 0.5 + vec2(-9.0, 0.0), 512.0, 5.0)) * sRough;
+    float h = n * (0.5 + 2.0 * valley) * sHills;
     // Spectrum ridges: one crest per band across x, scaled along z by the
     // "history" noise so the land ahead is not a copy of now.
-    float u = clamp((ax - 1.0) / ST_SPAN, 0.0, 1.0);
-    float crest = 0.7 + 0.3 * cos(ST_TAU * u * gCrests);
+    float u = clamp((ax - 1.0) / sSpan, 0.0, 1.0);
+    float crest = (1.0 - sCrestD) + sCrestD * cos(ST_TAU * u * gCrests);
     float hist = tnoise(vec2(xz.x * 0.5, xz.y * 0.25), 256.0, 9.0);
     h += (0.1 + bandAt(u)) * crest * (0.35 + 0.65 * hist) * (0.3 + 2.4 * valley) * gSpecAmp;
     // The kick's shock ring.
@@ -119,17 +152,30 @@ float terrain(vec2 xz) {
     return h;
 }
 
+/** The land as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float terrain(vec2 xz) {
+    return SHELL_FIELD2(xz, terrainField);
+}
+
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sRough = shellMap(shellKnob(1), 0.3, 1.0, 2.0);
+    sContour = shellMap(shellKnob(1), 1.4, 2.2, 3.4);
+    gWind = shellMap(shellKnob(2), -1.5, 0.0, 1.5);
+    sCrestD = shellMap(shellKnob(2), 0.1, 0.3, 0.6);
+    gCrests = shellMap(shellKnob(3), 4.2, 6.0, 7.8);
+    sHills = shellMap(shellKnob(4), 0.5, 1.0, 1.5);
+    sSpan = shellMap(shellKnob(5), 12.0, ST_SPAN, 26.0);
+    sValley = shellMap(shellKnob(5), 0.7, 1.0, 1.4);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+    // Taller or rougher hills lift the height a rising ray gives up past (0 at rest).
+    float topLift = 2.5 * max(sHills * (0.55 + 0.45 * sRough) - 1.0, 0.0);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gWind = 3.0 * kFlow;
-    gCrests = 6.0 * (1.0 + 0.6 * kTone);
-    float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
@@ -181,7 +227,7 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        if (p.y > ST_BASE_Y + ST_TOP && rd.y > 0.0) break;
+        if (p.y > ST_BASE_Y + ST_TOP + topLift && rd.y > 0.0) break;
         float h = p.y - (ST_BASE_Y + terrain(p.xz));
         if (h < 0.002 * t) {
             hitT = mix(tPrev, t, clamp(hPrev / max(hPrev - h, 1e-4), 0.0, 1.0));
@@ -200,8 +246,8 @@ void main() {
         float h0 = terrain(p.xz);
         vec3 n = normalize(vec3(h0 - terrain(p.xz + vec2(e, 0.0)), e, h0 - terrain(p.xz + vec2(0.0, e))));
         float ax = valleyX(p.xz);
-        float u = clamp((ax - 1.0) / ST_SPAN, 0.0, 1.0);
-        float valley = smoothstep(1.2, 9.0, ax);
+        float u = clamp((ax - 1.0) / sSpan, 0.0, 1.0);
+        float valley = smoothstep(1.2 * sValley, 9.0 * sValley, ax);
         float fade = exp(-hitT * 0.035 / reach);
 
         float dif = max(dot(n, sunDir), 0.0);
@@ -209,7 +255,7 @@ void main() {
 
         // Contours every 1/2.2 of height. Width in height units grows with
         // distance so far lines stay a pixel or so; flux thickens them.
-        float dc = abs(fract(h0 * 2.2 + 0.5) - 0.5) / 2.2;
+        float dc = abs(fract(h0 * sContour + 0.5) - 0.5) / sContour;
         float w = (0.012 + 0.0022 * hitT) * (0.7 + 0.8 * flux) * (1.0 + kTexture);
         float line = smoothstep(w, w * 0.3, dc) * fade;
         float ch = landHue + h0 * 0.06 + 0.1 * u;

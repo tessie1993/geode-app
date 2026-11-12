@@ -33,7 +33,7 @@ out vec4 fragColor;
 // scene has no z term at all, so there is nothing else to wrap.
 //
 // Budget: a 112-step ceiling broken on uSteps (the user's Detail), behind a
-// bounding-sphere test so rays that miss the head never march. Inside map()
+// bounding-sphere test so rays that miss the head never march. Inside mapAt
 // a ring whose meridian-plane bound cannot beat the nearest surface so far
 // is skipped, so most taps pay for two or three rings, not eleven. Below
 // uSteps 64 the ambient-occlusion taps are dropped. Normals are the 4-tap
@@ -98,10 +98,8 @@ float gExtra;
 float gRings;
 float gT;
 vec3 gEye;
-float gMat;
-float gU;
-float gV;
-float gF;
+/** Twist's curl on top of each ring's own, radians per unit out. */
+float gCurlK;
 
 vec3 toFlower(vec3 p) {
     // An orthonormal frame (x, axis, side), then the head's own turn: a pure
@@ -111,16 +109,17 @@ vec3 toFlower(vec3 p) {
     return q;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 heart, 1 a quill; a.x its u, a.y its v, a.z its ring's 0..1 place). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = toFlower(p);
     float rho = length(q.xz);
     float phi = atan(q.z, q.x);
     vec2 x = vec2(rho, q.y);
     float d = length(q) - DH_HEART;
-    gMat = 0.0;
-    gU = 0.0;
-    gV = 0.0;
-    gF = 0.0;
+    found.mat = 0.0;
+    found.a.x = 0.0;
+    found.a.y = 0.0;
+    found.a.z = 0.0;
     for (int i = 0; i < DH_MAX_RINGS; i++) {
         float k = float(i);
         if (k >= gRings) break;
@@ -139,7 +138,7 @@ float map(vec3 p) {
         if (length(rel) - reach > d) continue;
 
         float count = max(9.0 + 4.0 * kk, 5.0);
-        float curl = (0.25 + 1.4 * gMid) * mix(1.6, 0.55, f) + 0.6 * uTwist;
+        float curl = (0.25 + 1.4 * gMid) * mix(1.6, 0.55, f) + gCurlK;
         float a = phi + kk * CHRYS_GOLDEN - curl * (rho - base.x);
         float sector = CHRYS_TAU / count;
         float id = floor(a / sector + 0.5);
@@ -156,45 +155,52 @@ float map(vec3 p) {
         pd /= sqrt(1.0 + curl * curl * rho * rho);
         if (pd < d) {
             d = pd;
-            gMat = 1.0;
-            gU = u;
-            gV = across / w;
-            gF = f;
+            found.mat = 1.0;
+            found.a.x = u;
+            found.a.y = across / w;
+            found.a.z = f;
         }
     }
     return max(d, DH_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_chrys_field
+
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTex = clamp(uKnob[1], 0.0, 1.0);
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    // This style's older knob roles: PULSE scales how far the mids curl the petals, BUILD opens the head.
+    ChrysIn N = chrysIn();
+    float midK = chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gFray = gChaos * chrysSpan(N.fray, 1.0, 0.5, 1.5);
+    gOpen = chrysSpan(N.glow, 0.5, 0.1, 0.9);
+    gExtra = floor(chrysSpan(N.rings, 0.0, 0.0, 3.0) + 0.5);
+    gCurlK = chrysSpan(N.curl, 0.0, -0.6, 0.6);
+    float orbit = chrysSpan(N.reach, mix(3.2, 3.9, 0.5), 3.2, 3.9);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.05, 0.05);
 
     float mid = (0.6 * SND_MID_PRESENCE + 0.4 * mix(sndShaped(SND_LOW), sndSpectrum(0.57), 0.6)) * uIntensity;
-    gMid = clamp(mid * (0.5 + kPulse), 0.0, 1.6);
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gFray = gChaos * (0.5 + kTex);
-    gOpen = clamp(0.5 + 0.8 * (kBuild - 0.5), 0.0, 1.0);
-    gExtra = floor(3.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
+    gMid = clamp(mid * midK, 0.0, 1.6);
     gRings = 8.0 + gExtra;
     gSpin = uDrift * 0.25 + t * 0.015;
     gT = t;
-    float hue = 0.92 + 0.03 * sin(t * 0.04) + 0.1 * kTone;
+    float hue = 0.92 + 0.03 * sin(t * 0.04) + hueShift;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, mix(3.2, 3.9, kSpace), 4.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 4.0 * CAM_SPIN_UNIT, ro, rd);
     gEye = ro;
 
     float r = length(uv);
@@ -212,7 +218,8 @@ void main() {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
-            float d = map(ro + rd * tm);
+            fld = chrysField(ro + rd * tm);
+            float d = fld.d;
             float eps = 0.0008 * tm + 0.0005;
             if (d < eps) {
                 hitT = tm;
@@ -222,16 +229,16 @@ void main() {
         }
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
+            vec3 n = chrysNormal(p, 0.0012 * hitT + 0.0006);
             float ao = 1.0;
             if (uSteps >= 64.0) {
                 float occ = 0.0;
-                occ += (0.05 - map(p + n * 0.05));
-                occ += (0.14 - map(p + n * 0.14)) * 0.6;
+                occ += (0.05 - chrysField(p + n * 0.05).d);
+                occ += (0.14 - chrysField(p + n * 0.14).d) * 0.6;
                 ao = clamp(1.0 - 3.0 * occ, 0.3, 1.0);
             }
-            // Restore the hit's material after the normal and AO taps.
-            map(p);
+            // The hit at p again for the shading, after the normal and AO taps.
+            fld = chrysField(p);
             vec3 nf = dot(n, rd) > 0.0 ? -n : n;
 
             // The key light hangs at the viewer's upper left, as the flat
@@ -244,16 +251,16 @@ void main() {
             float spec = pow(max(dot(reflect(rd, nf), lightDir), 0.0), 24.0);
             float fres = pow(1.0 - clamp(dot(nf, -rd), 0.0, 1.0), 3.0);
 
-            if (gMat < 0.5) {
+            if (fld.mat < 0.5) {
                 // A dark, tight heart: the youngest petals are still curled shut.
                 vec3 hq = toFlower(p);
                 float speck = 0.5 + 0.5 * sin(hq.x * 48.0) * sin(hq.z * 48.0);
                 col = pal(hue + 0.02) * 0.08 * (0.5 + 0.5 * diff) * (0.7 + 0.3 * speck);
                 col += pal(hue + 0.5) * 0.05;
             } else {
-                float u = clamp(gU, 0.0, 1.0);
-                float v = clamp(gV, -1.0, 1.0);
-                float f = gF;
+                float u = clamp(fld.a.x, 0.0, 1.0);
+                float v = clamp(fld.a.y, -1.0, 1.0);
+                float f = fld.a.z;
                 vec3 base = pal(hue + 0.05 * f) * 0.35;
                 vec3 tipc = mix(pal(hue + 0.08 + 0.05 * f), vec3(1.0, 0.95, 0.92), 0.45);
                 vec3 pc = mix(base, tipc, smoothstep(0.05, 1.0, u));

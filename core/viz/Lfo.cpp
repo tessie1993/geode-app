@@ -153,6 +153,8 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
         // The whole of Formula per unit, as Morph: a structural target, never a luminance one.
         case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
+        // The whole of Shapes per unit: how far the shape graph melts into the style's form, a structural target.
+        case LfoTarget::Shapes: GEODE_DRIVE(shapes, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

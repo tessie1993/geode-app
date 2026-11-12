@@ -589,9 +589,20 @@ GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
 // rule) crossfades or steps between them along 0..1 as uFormula, so the music can change the shader's formula as
 // well as its shape (owner: "music changes shape but also shader formula"). A structural target like Morph:
 // LfoTarget::Formula, no luminance limit. It reaches the styles listed in Catalogue.cpp's kFormulaStyles
-// (Scope::Formula), none until a style reads uFormula; at 0 every style draws its first formula, as before.
+// (Scope::Formula): the Shard, Prism, Fluor, Loom, Petal and Fold styles; at 0 every style draws its first formula, as before.
 GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
+
+// Shapes (Customize › Shape › Grow): how far a raymarched style's own form takes in the morphing shape graph
+// (viz/ShapeGraph; ShaderScene uploads it as uShapeMix): up to eight primitives that union, melt, cut and mask one another, whose colours
+// melt where they blend, built from the play's seed, Spawn, Morph, Formula and Fractal, and gliding to a new
+// graph whenever one of them changes. 0 is off: the style's own distance and colour, exactly as before, until
+// the user, a macro knob, a wave, an envelope or a route raises it (LfoTarget::Shapes, a structural target like
+// Formula, no luminance limit). It touches no palette, brightness or turn. It reaches the styles listed in
+// Catalogue.cpp's kShapeStyles (Scope::Shapes), none until a style reads uShapeMix. No roll deals it. Appended at
+// wire slot 198 so every wire index survives.
+GEODE_PARAM(Float, shapes, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(shapes, "Shapes", Shapes, kMod, 0, 0)
 
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM

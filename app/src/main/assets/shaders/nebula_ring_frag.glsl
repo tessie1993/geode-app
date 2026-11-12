@@ -102,7 +102,7 @@ vec3 gInner;
 vec3 gOuter;
 
 float knob(int i) {
-    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+    return nebKnobIn(i) - 0.5;
 }
 
 /** The gas at q (nebula frame, axis +z): emission per unit length, and extinction. */
@@ -143,8 +143,23 @@ void gas(vec3 q, out vec3 emit, out float sigma) {
     }
 }
 
+/** What the field holds at a point (lib_nebula_field): the gas's extinction (its density here) and its emission per unit length. */
+struct NebHit {
+    float dens;
+    vec3 emit;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    gas(p, h.emit, h.dens);
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
 
@@ -210,9 +225,9 @@ void main() {
                 aStar = acc.a;
                 starSeen = true;
             }
-            vec3 em;
-            float sg;
-            gas(ro + rd * tt, em, sg);
+            NebHit at = nebField(ro + rd * tt, gOct);
+            vec3 em = at.emit;
+            float sg = at.dens;
             nebVolEmit(acc, em, sg, dt);
             if (acc.a < NEB_TRANS_MIN) break;
             tt += dt;

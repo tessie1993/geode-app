@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_shell
 
 // Hex Hive: a flight down a tunnel whose wall is a honeycomb of chrome hex
 // pillars with neon-wire top edges, the pillars rising with the spectrum,
@@ -55,6 +56,26 @@ out vec4 fragColor;
 // The lattice repeats every HH_CELL (0.5) along z and the coils every 8.0, both
 // dividing 8192, so the rig's travel wrap is invisible; the eye's z is rebased
 // into one 8-unit tile.
+//
+// ---- shape inputs (lib_shell) ------------------------------------------------
+//
+// The hive's own constants are normalized inputs, mapped to their range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off, and Turbulence at its
+// default 0 maps to its rest through shellMapS. Music reaches these only
+// through the knobs and params (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sAround     k1 TEXTURE       hex cells round the bore 14 .. 18 .. 24 (whole, so the lattice closes)
+//   sFacet      k1 TEXTURE       facet lines across a pillar top 16 .. 26 .. 40
+//   sWedges     k3 TONE          the portal's mirrored wedges 8 .. 12 .. 16 (whole, even)
+//   sHexR       k4 BUILD         a pillar's radius, of the cell 0.3 .. 0.43 .. 0.48
+//   sCoilR      k5 SPACE         the innermost coil's radius 0.85 .. 1.05 .. 1.4
+//   sJit        Turbulence       each pillar's jitter 0 .. 0.18
+//
+// The cell (0.5) and the coils' pitch (8) stay: both tile the 8 the eye is
+// rebased by. The hive goes through SHELL_FIELD3 and the portal through
+// SHELL_FIELD2, so the shell's spawn, fractal, front and back hooks reach both.
 
 #define HH_MAX_STEPS 110
 #define HH_TAU 6.2831853
@@ -75,6 +96,15 @@ float gSnare;
 vec3 gGlow;
 /** The march distance of the current sample, for fading glow with depth. */
 float gT;
+/** Shape inputs (see the header). */
+float sAround;
+float sFacet;
+float sWedges;
+float sHexR;
+float sCoilR;
+float sJit;
+/** The material record of the last hhField() call. */
+vec4 gM;
 
 vec3 neon(float t) {
     vec3 c = 0.5 + 0.5 * cos(HH_TAU * (t + gTone + vec3(0.60, 0.78, 0.98)));
@@ -100,20 +130,20 @@ vec4 hexCell(vec2 p, float s) {
 }
 
 /** Scene distance; m receives (hexDist, heightAboveTop, cellHeight, cellId). */
-float map(vec3 p, out vec4 m) {
+float mapCore(vec3 p, out vec4 m) {
     float r = length(p.xy);
     float ang = atan(p.y, p.x);
-    float circ = HH_AROUND * HH_CELL * 1.7320508;
+    float circ = sAround * HH_CELL * 1.7320508;
     vec2 q = vec2(ang / HH_TAU * circ, p.z);
     vec4 hc = hexCell(q, HH_CELL);
-    float hd = sdHex(hc.xy, HH_CELL * 0.43);
+    float hd = sdHex(hc.xy, HH_CELL * sHexR);
     // The cell's place around the bore, mirrored: lows at the bottom.
     float around = fract(hc.z / circ + 0.25);
     float sx = abs(2.0 * around - 1.0);
     float spec = sndSpectrum(0.04 + 0.85 * (1.0 - sx));
     float h = 0.06 + gRise * (0.05 + 1.6 * spec * spec) * (0.75 + 0.25 * sin(hc.w * 1.7 + hc.z));
     // Turbulence: every pillar jitters on its own clock.
-    h += gChaos * 0.18 * (0.5 + 0.5 * sin(uTime * 7.0 + hc.z * 12.9 + hc.w * 7.3));
+    h += sJit * (0.5 + 0.5 * sin(uTime * 7.0 + hc.z * 12.9 + hc.w * 7.3));
     float depth = gR - r;
     float pillar = max(hd, depth - h);
     float floorD = depth + 0.05;
@@ -126,7 +156,7 @@ float map(vec3 p, out vec4 m) {
         float vis = clamp(2.0 + gTex * 2.0 + mod(floor(SND_CUT_COUNT + 0.5), 2.0) - fi, 0.0, 1.0);
         if (vis <= 0.0) break;
         // Inside the pillar tips, so they are seen, not buried.
-        float rc = 1.05 + 0.18 * fi;
+        float rc = sCoilR + 0.18 * fi;
         float ph = ang + fi * HH_TAU / 4.0;
         float zz = p.z - ph / HH_TAU * HH_PITCH;
         float dz = (fract(zz / HH_PITCH) - 0.5) * HH_PITCH;
@@ -146,6 +176,18 @@ float map(vec3 p, out vec4 m) {
     return min(min(pillar, floorD), max(coilD, 0.022));
 }
 
+/** The hive as a plain 3D field, for the shell; its material record lands in gM. */
+float hhField(vec3 p) {
+    return mapCore(p, gM);
+}
+
+/** The hive as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p, out vec4 m) {
+    float d = SHELL_FIELD3(p, hhField);
+    m = gM;
+    return d;
+}
+
 vec3 calcNormal(vec3 p) {
     vec4 m;
     vec3 sg = gGlow;
@@ -158,7 +200,7 @@ vec3 calcNormal(vec3 p) {
 vec3 mandala(vec2 p) {
     float r = length(p);
     float a = atan(p.y, p.x);
-    float seg = HH_TAU / 12.0;
+    float seg = HH_TAU / sWedges;
     float fa = abs(mod(a + uTime * 0.08, seg) - 0.5 * seg);
     float lr = log(max(r, 1e-4));
     vec3 col = vec3(0.0);
@@ -174,6 +216,14 @@ vec3 mandala(vec2 p) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sAround = floor(shellMap(shellKnob(1), 14.0, HH_AROUND, 24.0) + 0.5);
+    sFacet = shellMap(shellKnob(1), 16.0, 26.0, 40.0);
+    sWedges = 2.0 * floor(shellMap(shellKnob(3), 4.0, 6.0, 8.0) + 0.5);
+    sHexR = shellMap(shellKnob(4), 0.3, 0.43, 0.48);
+    sCoilR = shellMap(shellKnob(5), 0.85, 1.05, 1.4);
+    sJit = shellMapS(neonChaos(), -0.18, 0.0, 0.18);
+
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
@@ -231,7 +281,7 @@ void main() {
         vec2 pp = rd.xy / rd.z / mix(0.18, 0.4, kBuild);
         float keep = gTone;
         gTone += 0.4 * SND_CHORD_HUE;
-        bg += mandala(pp) * (0.5 + 0.9 * kBuild) * glow;
+        bg += SHELL_FIELD2(pp, mandala) * (0.5 + 0.9 * kBuild) * glow;
         gTone = keep;
     }
 
@@ -256,7 +306,7 @@ void main() {
         if (top) {
             // Crystal facets on the pillar tops: lines radiating from the centre.
             float fa = atan(m.x, m.y);
-            float facet = exp(-abs(fract(m.x * 26.0) - 0.5) * 18.0) * smoothstep(0.0, 0.6, kTex);
+            float facet = exp(-abs(fract(m.x * sFacet) - 0.5) * 18.0) * smoothstep(0.0, 0.6, kTex);
             float glint = step(0.8, fract(m.w * 0.71 + floor(uTime * 8.0) * 0.37)) * neonSparkle();
             surf += neon(0.7 + m.z * 0.4) * facet * (0.25 + 1.2 * glint);
             // The rim: bright neon wire.

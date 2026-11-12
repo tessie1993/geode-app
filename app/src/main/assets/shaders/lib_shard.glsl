@@ -201,3 +201,20 @@ vec4 shardFinish(vec3 col, float exposure) {
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
 }
+
+/**
+ * A piece seen through lib_strata's fold of kind k (k < 0: no fold), `iters` folds about the
+ * corner c, in units of `span` world units: one piece becomes a cluster of its own mirror images,
+ * each fold's smaller. x the distance, y the edge's, both back in world units. The planes stay
+ * planes, so the faces stay flat and the edges exact. Needs lib_strata before this library.
+ */
+vec2 shardFolded(vec3 q, float k, float iters, float span, vec3 c, float h, float size, float thick) {
+    float dr = 1.0;
+    if (k >= 0.0) {
+        dr = 1.0 / span;
+        q = strataFold(q * dr, k, iters, c, shardRot(0.5 + 0.6 * h), dr);
+    }
+    float edge;
+    float d = shardPiece(q, h, size, thick, edge);
+    return vec2(d, edge) / dr;
+}

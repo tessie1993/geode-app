@@ -244,9 +244,30 @@ constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fl
 constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold"};
 
 // The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
-// (uFormula, Scope::Formula), by id. Empty until a style reads uFormula: a style joins here in the commit that gives
-// it its formulas, and style_reads_test then holds it to reading uFormula.
-constexpr std::array<const char*, 0> kFormulaStyles{};
+// (uFormula, Scope::Formula), by id. A style joins here in the commit that gives it its formulas, and
+// style_reads_test then holds it to reading uFormula. Shard, Prism and Fluor pick theirs through lib_strata
+// (strataSetup's strataFormula), Loom, Petal and Fold through lib_layers (layerSetup's layerPickOf): three each.
+// prism_rain is a loose style, not one of the Prism family, and keeps one formula.
+constexpr std::array kFormulaStyles = {
+    "shard_burst",    "shard_needles",   "shard_panes",   "shard_ring",     "shard_rods",
+    "shard_spires",   "shard_splinter",  "shard_stair",   "shard_tunnel",   "shard_wall",
+    "prism_arcade",   "prism_braid",     "prism_crown",   "prism_facet",    "prism_fan",
+    "prism_jewel",    "prism_mercury",   "prism_nest",    "prism_portal",   "prism_rosette",
+    "fluor_coffer",   "fluor_coil",      "fluor_column",  "fluor_filigree", "fluor_honeycomb",
+    "fluor_lattice",  "fluor_orb",       "fluor_scales",  "fluor_weave",    "fluor_whorl",
+    "loom_basket",    "loom_braid",      "loom_cloth",    "loom_cocoon",    "loom_curtain",
+    "loom_net",       "loom_rope",       "loom_sail",     "loom_spokes",    "loom_spool",
+    "petal_bells",    "petal_buds",      "petal_drift",   "petal_fern",     "petal_garland",
+    "petal_gates",    "petal_rose",      "petal_scales",  "petal_seed",     "petal_stair",
+    "fold_lace",      "fold_nerve",      "fold_onion",    "fold_quartz",    "fold_scaffold",
+    "fold_spire",     "fold_strata",     "fold_thorn",    "fold_twin",      "fold_vault",
+};
+static_assert(kFormulaStyles.size() == 60, "the six formula families' sixty styles");
+
+// The raymarched styles that melt the shape graph (viz/ShapeGraph) into their own form through lib_shapes'
+// shapesInto, by Shapes (uShapeMix, Scope::Shapes), by id. Empty until a style reads uShapeMix: a style joins
+// here in the commit that hooks it up, and style_reads_test then holds it to reading uShapeMix.
+constexpr std::array<const char*, 0> kShapeStyles{};
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
@@ -279,6 +300,7 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
     "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
     "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",   "FORMULA",
+    "SHAPES",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -335,8 +357,8 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
-// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm and Formula are per style, so no
-// kind has them.
+// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula and Shapes are per style,
+// so no kind has them.
 bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
@@ -365,7 +387,8 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::FlowFieldSim: return k != Kind::Fluid;
         case Scope::Spin:
         case Scope::FamilyForm:
-        case Scope::Formula: return false;
+        case Scope::Formula:
+        case Scope::Shapes: return false;
     }
     return false;
 }
@@ -415,6 +438,7 @@ std::string build() {
         if (spinRate(id) != 0.0f) out += "|SPIN";
         if (drawsFamilyForm(id)) out += "|FAMILY_FORM";
         if (hasFormulas(id)) out += "|FORMULA";
+        if (drawsShapes(id)) out += "|SHAPES";
         out += '\n';
     }
     for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
@@ -623,6 +647,8 @@ bool drawsFamilyForm(const std::string& id) {
 
 bool hasFormulas(const std::string& id) { return listed(kFormulaStyles, id); }
 
+bool drawsShapes(const std::string& id) { return listed(kShapeStyles, id); }
+
 std::span<const Family> families() { return kFamilies; }
 
 Look lookOf(const std::string& id) {
@@ -650,6 +676,7 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::Spin) return spinRate(styleId) != 0.0f;
     if (scope == Scope::FamilyForm) return drawsFamilyForm(styleId);
     if (scope == Scope::Formula) return hasFormulas(styleId);
+    if (scope == Scope::Shapes) return drawsShapes(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
 

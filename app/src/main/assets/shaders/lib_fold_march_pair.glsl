@@ -21,6 +21,7 @@ vec3 foldPairNormal(vec3 p, vec3 rd, float eps) {
 
 /** The light along one ray: capped steps, a step back from inside, then the surface lit. */
 vec3 foldPair(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = FOLD_PAIR_STEPS;
     float t = 0.02 + 0.05 * foldDither();
     // The last point known to be outside, and the longest step allowed from here.
@@ -61,5 +62,6 @@ vec3 foldPair(vec3 ro, vec3 rd) {
         // Nothing lights right at the eye: flying into the crust must not fill the frame.
         col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
     }
-    return foldAir(col, t, near);
+    // The haze in front of the surface, the far layer where nothing was hit (lib_layers).
+    return layerCompose(foldAir(col, t, near), ro, rd, t, gFoldFar, hit ? 0.0 : 1.0);
 }

@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // Rod Tunnel: a spiral tunnel of bead-chain rods, flown down toward the
 // chrysanthemum at the end of it.
@@ -119,7 +120,7 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     return length(pa - ba * h) - r;
 }
 
-float map(vec3 p) {
+float rodField(vec3 p) {
     // Straighten the bent tube first: everything below is in the frame where
     // the tunnel is a cylinder down +z.
     p = dmtTunnelWarp(p);
@@ -146,6 +147,14 @@ float map(vec3 p) {
     return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), r);
 }
 
+/**
+ * The field every march, normal and occlusion tap reads: rodField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, rodField);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -159,16 +168,31 @@ void main() {
     float trebA = min(SND_TREBLE_PRESENCE, 1.3);
     float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
     float hit = clamp(SND_ONSET_ENV, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
-    gWidth = 1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5);
-    gRingR = ROD_RADIUS * (1.0 - 0.5 * kTone);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nPulse = clamp(uKnob[0], 0.0, 1.0);
+    float nWidth = clamp(uKnob[1], 0.0, 1.0);
+    float nTwist = clamp(uKnob[2], 0.0, 1.0);
+    float nGirth = clamp(uKnob[3], 0.0, 1.0);
+    float nHalo = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the far plane's and fog's reach, and the halo's glow.
+    float emission = shellMap(nPulse, 0.75, 1.0, 1.25);
+    float reach = shellMap(nReach, 0.8, 1.0, 1.2);
+    float haloGain = shellMap(nHalo, 0.5, 1.0, 1.5);
+    // The rods' radius scale and the radius the strands stand at.
+    gWidth = shellMap(nWidth, 0.75, 1.0, 1.25);
+    gRingR = shellMap(nGirth, ROD_RADIUS * 1.25, ROD_RADIUS, ROD_RADIUS * 0.75);
+    // The twist added to the mids' (0 at rest).
+    float twistAdd = shellMap(nTwist, -0.15, 0.0, 0.15);
 
     // 0.715 is the mids' own top (0.55 x 1.3): FLOW never twists past it.
-    gTwist = clamp(0.55 * midA + 0.3 * kFlow, -0.15, 0.715);
+    gTwist = clamp(0.55 * midA + twistAdd, -0.15, 0.715);
     // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
     // in the middle of the ring and smooth at both ends, and glides because
     // uFormPhase does.
@@ -208,7 +232,7 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    float hueShift = 0.12 * hit + 0.6 * kTone;
+    float hueShift = 0.12 * hit + 0.6 * (nGirth - 0.5);
     vec3 coreCol = pal(0.08 + hueShift);
     // The sky: the mandala on the flight direction. The flight frame has +z
     // along the path, so the direction is taken relative to it rather than to
@@ -240,7 +264,7 @@ void main() {
     } else {
         col = sky;
         // The halo off the nearest rod the ray slid past.
-        col += dmtHalo(near, 0.55 + hueShift, 4.0, (0.22 + 0.3 * enA) * (1.0 + kBuild));
+        col += dmtHalo(near, 0.55 + hueShift, 4.0, (0.22 + 0.3 * enA) * haloGain);
     }
     col += coreCol * (0.6 + 0.9 * bassA) * onAxis * 2.0 / (1.0 + 0.02 * tGlow * tGlow);
     col += coreCol * 0.06 * (0.6 + 0.9 * bassA) / (1.0 + dot(uv, uv) * 3.0);
@@ -251,5 +275,5 @@ void main() {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

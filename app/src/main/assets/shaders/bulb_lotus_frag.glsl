@@ -67,7 +67,6 @@ const float BL_SPIN = -3.0 * CAM_SPIN_UNIT;
 float gLat;
 float gTwirl;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: blush, peach and a pale jade, all kept light.
 vec3 tone(float t) {
@@ -102,12 +101,14 @@ float lotusDE(vec3 p, out vec4 tr) {
     return 0.5 * log(r) * r / dr;
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = lotusDE(bulbChaos(p), tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -142,13 +143,14 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             // Every step near a petal lights the air a little: the veils.
             veil += exp(-max(d, 0.0) * BL_GLOW_K) * 0.03;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.8, eps * 0.5);

@@ -59,19 +59,20 @@ const float BJ_SPIN = 2.0 * CAM_SPIN_UNIT;
 
 vec3 gC;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: jade, teal and a citrus yellow.
 vec3 tone(float t) {
     return bulbRamp(t, vec3(0.45, 0.58, 0.42), vec3(0.40, 0.35, 0.35), vec3(1.0, 1.0, 0.5), vec3(0.25, 0.10, 0.60));
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = bulbJuliaDE(bulbChaos(p), gC, 6.0, gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -86,7 +87,7 @@ void main() {
     gC = vec3(0.5 * cos(a), 0.12 + 0.22 * sin(2.0 * a), 0.5 * sin(a));
     gC += pitchBump * 0.12 * bulbEnergy() * vec3(-sin(a), 0.7, cos(a));
     // Chaos also wobbles c itself.
-    gC += 0.08 * clamp(uTurbulence, 0.0, 1.0) * sin(vec3(1.3, 1.7, 2.3) * bulbTime());
+    gC += bulbSpan(bulbIn().stir, 0.0, 0.0, 0.08) * sin(vec3(1.3, 1.7, 2.3) * bulbTime());
     gIters = bulbIters(7);
 
     // MACRO: close over one flank, looking in past the centre.
@@ -110,12 +111,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             near = min(near, d);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.85, eps * 0.5);

@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Jelly Abyss: a slow drift through deep water past bioluminescent jellyfish,
 // with marine snow and light shafts from the surface far above.
@@ -63,6 +64,29 @@ out vec4 fragColor;
 // short under the bell; at their longest the tips stay inside the cell),
 // k4 BUILD the glow
 // integrated along the ray, k5 SPACE the reach (far plane and fog).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the swarm is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Only knobs drive them here:
+// this style leaves Morph, Warp and Turbulence to view(), which already bends
+// its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gTentW      k1 TEXTURE       the tentacles' radius 0.5 .. 1 .. 1.5
+//   sTentN      k1 TEXTURE       tentacles round the bell 4 .. 6 .. 8 (whole, so the sectors close)
+//   sSway       k2 FLOW          added to the current's sway -0.1 .. 0 .. 0.1
+//   gTentL      k3 TONE          the tentacles' length 0.4 .. 1 .. 1.6
+//   sOral       k3 TONE          the oral arm, of a tentacle's length 0.4 .. 0.55 .. 0.8
+//   sBell       k4 BUILD         the bell's size 0.8 .. 1 .. 1.15 (its crown stays JA_MARGIN inside the cell)
+//   sEmpty      k5 SPACE         the share of empty cells 0.15 .. 0.3 .. 0.55
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The cell (10 by 10 by 8) stays a constant: 32 of it along z are the 256 the
+// eye is rebased by. The swarm goes through SHELL_FIELD3, so the shell's
+// spawn, fractal, front and back hooks reach it.
 
 /** Compile-time ceiling. uSteps is the runtime budget. */
 #define JA_MAX_STEPS 96
@@ -85,6 +109,11 @@ float gOnsetProg;
 float gTentW = 1.0;
 /** k3 TONE: the tentacles' length scale (1 at rest). */
 float gTentL = 1.0;
+/** Shape inputs (see the header). */
+float sTentN;
+float sOral;
+float sBell;
+float sEmpty;
 
 // What map() last found: the live cell's jelly, in jelly-local units.
 float gAlive;
@@ -105,7 +134,7 @@ float sdEllipsoid(vec3 p, vec3 r) {
 void jellyParts(vec3 q, float seed) {
     float idle = 0.12 * (0.5 + 0.5 * sin(uTime * 1.1 + seed * JA_TAU));
     float c = gContract + idle;
-    vec3 r = vec3(0.95 * (1.0 - 0.28 * c), 0.72 * (1.0 + 0.3 * c), 0.95 * (1.0 - 0.28 * c));
+    vec3 r = vec3(0.95 * (1.0 - 0.28 * c), 0.72 * (1.0 + 0.3 * c), 0.95 * (1.0 - 0.28 * c)) * sBell;
     float e = sdEllipsoid(q, r);
     // The scalloped margin: the cut edge rises and falls around the rim.
     float cut = -(q.y + 0.08 + 0.05 * sin(q.x * 9.0 + uTime) * sin(q.z * 9.0));
@@ -120,7 +149,7 @@ void jellyParts(vec3 q, float seed) {
     vec2 sw = gSway * s * s * vec2(sin(q.y * 1.4 + ph), 0.6 * cos(q.y * 1.1 + ph * 0.8));
     vec3 qt = vec3(q.x - sw.x, q.y, q.z - sw.y);
 
-    float sector = JA_TAU / 6.0;
+    float sector = JA_TAU / sTentN;
     float k = floor(atan(qt.z, qt.x + 1e-7) / sector + 0.5);
     vec2 xz = rot2(k * sector) * qt.xz;
     float wig = 0.05 * sin(q.y * 5.0 + k * 2.0 + uTime * 2.0) * s;
@@ -128,7 +157,7 @@ void jellyParts(vec3 q, float seed) {
     float dT = length(off) - 0.035 * (1.0 - 0.6 * s) * gTentW;
 
     // The oral arm: shorter, thicker, frilled.
-    float len2 = 0.55 * len;
+    float len2 = sOral * len;
     float s2 = clamp(-q.y / len2, 0.0, 1.0);
     vec3 off2 = vec3(qt.x, q.y - clamp(q.y, -len2, 0.0), qt.z);
     float frill = (0.09 + 0.04 * sin(q.y * 14.0 + uTime * 2.0)) * (1.0 - 0.5 * s2);
@@ -139,7 +168,7 @@ void jellyParts(vec3 q, float seed) {
  * The repeated field. Returns a step-safe distance and leaves the cell's jelly
  * in the g* globals for the glow and the shading.
  */
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec3 cid = floor(p / JA_CELL + 0.5);
     vec3 lc = p - cid * JA_CELL;
     vec3 db = 0.5 * JA_CELL - abs(lc);
@@ -148,7 +177,7 @@ float map(vec3 p) {
     gSeed = h;
     // The rig's corridor holds no jelly, and some other cells are empty so the
     // swarm never reads as a grid.
-    gAlive = (abs(cid.x) + abs(cid.y) < 0.5 || hash11(h * 3.3 + 0.2) < 0.3) ? 0.0 : 1.0;
+    gAlive = (abs(cid.x) + abs(cid.y) < 0.5 || hash11(h * 3.3 + 0.2) < sEmpty) ? 0.0 : 1.0;
     if (gAlive < 0.5) {
         gDB = 1e3;
         gDT = 1e3;
@@ -168,6 +197,11 @@ float map(vec3 p) {
     gDT *= size;
     // The bell bound and the sway's bend both overestimate; 0.6 covers them.
     return min(min(gDB, gDT) * 0.6, dBound);
+}
+
+/** The swarm as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -207,14 +241,20 @@ void zoneParams(float z, out vec3 water, out vec4 prm) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gTentW = shellMap(shellKnob(1), 0.5, 1.0, 1.5);
+    sTentN = floor(shellMap(shellKnob(1), 4.0, 6.0, 8.0) + 0.5);
+    float sSway = shellMap(shellKnob(2), -0.1, 0.0, 0.1);
+    gTentL = shellMap(shellKnob(3), 0.4, 1.0, 1.6);
+    sOral = shellMap(shellKnob(3), 0.4, 0.55, 0.8);
+    sBell = shellMap(shellKnob(4), 0.8, 1.0, 1.15);
+    sEmpty = shellMap(shellKnob(5), 0.15, 0.3, 0.55);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
-    gTentW = 1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5);
-    gTentL = 1.0 + 1.2 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -229,7 +269,7 @@ void main() {
     // hit and at rest, so the jellies glide up and settle back).
     gContract = 0.55 * kick;
     gJet = 4.0 * kick * (1.0 - kick);
-    gSway = 0.15 + 0.25 * clamp(sndShaped(SND_LOW), 0.0, 1.5) / 1.5 + 0.2 * clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0) + 0.2 * kFlow;
+    gSway = 0.15 + 0.25 * clamp(sndShaped(SND_LOW), 0.0, 1.5) / 1.5 + 0.2 * clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0) + sSway;
     // 0 on the onset's frame (it triggers to 0.4..1), 1 once it has fallen.
     gOnsetProg = (1.0 - smoothstep(0.05, 0.4, onset));
 

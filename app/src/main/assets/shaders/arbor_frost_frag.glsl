@@ -103,10 +103,8 @@ float gT;
 mat2 gYaw;
 mat2 gPitch;
 mat2 gRoll;
-/** Read right after map(): the crystal-plane point and its 2D distance (crystal units). */
-vec2 gC;
-float gD2;
-float gPlate;
+/** Twist's spiral of the arms, radians per crystal unit out (0 at rest). */
+float gTwistK;
 
 vec3 habit(float s) {
     float h = hash11(s * 3.7 + 1.0);
@@ -122,16 +120,17 @@ vec2 hexFold(vec2 p) {
     return length(p) * vec2(cos(a), sin(a));
 }
 
-/** The crystal's outline in its own plane, crystal units. Writes gArb*, gPlate. */
-float crystal2(vec2 p) {
+/** The crystal's outline in its own plane, crystal units: the dendrite's hit, d the outline's distance, mat.x plate minus arm. */
+ArborHit crystal2(vec2 p) {
     p += gChaos * 0.012 * vec2(sin(p.y * 47.0 + gT), cos(p.x * 43.0 - gT * 0.7));
     float r = length(p);
-    p = rot2(3.0 * uTwist * r) * p;
+    p = rot2(gTwistK * r) * p;
     vec2 q = hexFold(p);
     float plate = q.x - gPlateR;
-    float arm = arborDendrite2(vec2(q.y, q.x - gPlateR * 0.6), gHab.x, gHab.y, gHab.z, CF_LEN, 0.10 * gGirth, gGrow);
-    gPlate = plate - arm;
-    return min(plate, arm) / ((1.0 + 0.6 * gChaos) * (1.0 + 3.0 * abs(uTwist) * r));
+    ArborHit arm = arborDendrite2(vec2(q.y, q.x - gPlateR * 0.6), gHab.x, gHab.y, gHab.z, CF_LEN, 0.10 * gGirth, gGrow);
+    arm.mat.x = plate - arm.d;
+    arm.d = min(plate, arm.d) / ((1.0 + 0.6 * gChaos) * (1.0 + abs(gTwistK) * r));
+    return arm;
 }
 
 /** World point into the crystal's frame: the sway, then the slow turn about its axis. */
@@ -142,23 +141,25 @@ vec3 toCrystal(vec3 p) {
     return p;
 }
 
-float map(vec3 p) {
+/**
+ * The world: the crystal, a ridged slab cut to its outline. mat.x is plate minus arm, mat.yz the
+ * crystal-plane point and mat.w its 2D distance (crystal units).
+ */
+ArborHit arborMap(vec3 p) {
     vec3 q = toCrystal(p);
     vec2 c = q.xy / CF_SCALE;
-    float d2 = crystal2(c);
-    gC = c;
-    gD2 = d2;
+    ArborHit h = crystal2(c);
+    float d2 = h.d;
+    h.mat.yz = c;
+    h.mat.w = d2;
     float dw = d2 * CF_SCALE;
     float depth = min(max(-dw, 0.0), CF_RIDGE_CAP);
     float slab = (abs(q.z) - CF_TH - CF_RIDGE * depth) / sqrt(1.0 + CF_RIDGE * CF_RIDGE);
-    return max(dw, slab);
+    h.d = max(dw, slab);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 vec3 skyColour(vec3 rd, float hue) {
     return mix(pal(hue) * 0.10 + vec3(0.01, 0.015, 0.04), pal(hue + 0.1) * 0.03, smoothstep(-1.0, 1.0, rd.y));
@@ -189,37 +190,40 @@ float flakeLayer(vec3 ro, vec3 rd, float R, float cells, float seed, out float t
     lp = rot2(gT * (0.3 + hc) + hc * 6.0) * lp;
     float sz = 0.12 + 0.12 * hc;
     vec2 fq = hexFold(lp / sz);
-    float fd = arborDendrite2(vec2(fq.y, fq.x - 0.08), 1.05, 0.75, 0.5, 0.18, 0.12, arbLevels2(3.0, 1.0)) * sz;
+    float fd = arborDendrite2(vec2(fq.y, fq.x - 0.08), 1.05, 0.75, 0.5, 0.18, 0.12, arbLevels2(3.0, 1.0)).d * sz;
     return arbInk(fd, px) * step(0.55, hc);
 }
 
 void main() {
     vec2 uv = arbView();
-    float kPulse = arbKnob(0);
-    float kTexture = arbKnob(1);
-    float kFlow = arbKnob(2);
-    float kTone = arbKnob(3);
-    float kBuild = arbKnob(4);
-    float kSpace = arbKnob(5);
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    gChaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    gGirth = arbSpan(N.girth, 1.0, 0.75, 1.25);
+    gTwistK = arbSpan(N.twist, 0.0, -3.0, 3.0);
+    float spread = arbSpan(N.spread, 1.0, 0.8, 1.25);
+    float plateR = arbSpan(N.density, 0.075, 0.06, 0.09);
+    float reach = arbSpan(N.reach, 1.0, 0.8, 1.2);
+    float glow = arbSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     gT = t;
     float energy = uIntensity;
-    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
-    gGirth = 1.0 + 0.5 * kTexture;
     float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     gHab = mix(habit(SND_CUT_COUNT - 1.0), habit(SND_CUT_COUNT), morphIn);
-    gHab.x += arbMidBow();
-    gPlateR = 0.075 + 0.025 * kick;
+    gHab.x = gHab.x * spread + arbMidBow();
+    gPlateR = plateR + 0.025 * kick;
     gGrow = arbLevels(2.5 + 4.5 * clamp(treb, 0.0, 1.2), 1.0);
     gYaw = rot2(0.45 * sin(t * 0.11));
     gPitch = rot2(0.28 * sin(t * 0.077 + 1.0));
     gRoll = rot2(t * 0.03);
 
-    float hue = 0.58 + 0.04 * sin(t * 0.03) + 0.6 * kTone;
+    float hue = 0.58 + 0.04 * sin(t * 0.03) + hueShift;
 
     vec3 ro;
     vec3 rd;
@@ -261,26 +265,27 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            ArborHit h = arborField(ro + rd * tm);
+            float d = h.d;
             dMin = min(dMin, d);
             if (d < 0.0006 + 0.0004 * tm) {
                 hitT = tm;
-                hc = gC;
-                hd2 = gD2;
-                hPlate = gPlate;
-                tip = gArbTip;
-                lvl = gArbLevel;
-                path = gArbPath;
+                hc = h.mat.yz;
+                hd2 = h.mat.w;
+                hPlate = h.mat.x;
+                tip = h.tip;
+                lvl = h.level;
+                path = h.path;
                 break;
             }
             tm += d * 0.75;
         }
         // The glow close round every limb, the 2D style's exp(-d * 55) halo.
-        col += pal(hue + 0.08) * 0.16 * exp(-max(dMin, 0.0) * 22.0) * (0.8 + 0.3 * swell) * (1.0 + kBuild);
+        col += pal(hue + 0.08) * 0.16 * exp(-max(dMin, 0.0) * 22.0) * (0.8 + 0.3 * swell) * glow;
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0008 + 0.0003 * hitT);
+            vec3 n = arborNormal(p, 0.0008 + 0.0003 * hitT);
             vec3 L = normalize(vec3(-0.4, 0.75, -0.55));
             vec3 lit = arbLight(n, rd, L, 0.3, 60.0);
             float ao = arbStepAO(used, uSteps);
@@ -305,13 +310,13 @@ void main() {
             float spark = (1.0 - smoothstep(0.0, 0.006, tip)) * step(gGrow - 2.0, lvl);
             spark *= 0.5 + 0.5 * sin(t * 3.0 + hash11(path * 0.37) * 40.0);
             col += vec3(1.0) * spark * 0.5;
-            col = mix(col, sky, 1.0 - exp(-max(hitT - 3.0, 0.0) * 0.04 / (1.0 + 0.4 * kSpace)));
+            col = mix(col, sky, 1.0 - exp(-max(hitT - 3.0, 0.0) * 0.04 / reach));
         }
     }
 
     col *= 0.88 + 0.15 * swell;
     col *= 0.8 + 0.2 * smoothstep(2.0, 0.3, length(uv));
     // k0 PULSE: the emission, as lib_flame's finish.
-    col *= 1.0 + 0.5 * kPulse;
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

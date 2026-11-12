@@ -53,6 +53,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
 - Customize › Motion's Spin (field `motionDrift`, the old Spin drift's wire name) scales the turn of the styles `catalogue::spinRate` lists, shows only on them (scope `SPIN`, per style), holds them still at 0 and is never rolled.
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
+- `ShapeGraph` (`core/viz/ShapeGraph`) is the morphing shape graph: up to 8 primitives that union, blend, cut and mask in a one-level CSG list, packed as 8 × 4 vec4.
+- Its target is a pure function of the play seed, Spawn, Morph, Formula, Fractal and Shapes; numbers glide, primitive and operation changes crossfade by weight, shapes grow from and shrink to 0, and heads drift (translation only) on a Speed-scaled clock.
+- `ShapeGraph::sample` mirrors the shader's distance and colour maths for host tests; no renderer ticks it and no style draws it yet.
+- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`, empty until a style reads it).
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack; `Renderer::uploadPaletteRamp` bakes it into one 256-texel ramp that every shader style reads through `pal()` (`uPalLut`).
 - A shader style with no stack set draws the look's own palette (`palette`, its hue overrides or your colours' stops).
 - Retired with the stack in place: Palette 2 and Palette blend (`palette2`, `paletteMix`, their overrides), Colour map (`paletteLut`) and Color cycle (`colorCycle`, `cycleSpeed`); an old look naming them loads and draws its own palette.
@@ -160,8 +164,8 @@ The renderer runs these in order each frame.
 - Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold).
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
-- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`), none yet.
-- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style); it shows once their styles read `uFormula`.
+- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
+- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style), which their styles read as `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.
@@ -240,6 +244,7 @@ The renderer runs these in order each frame.
 - `ShaderScene::uploadParams` takes the knobs from `NoteResponse` (exactly 0.5 while it is off).
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
+- `lib_shell` maps a style's normalized inputs (0..1, 0.5 = the tuned constant) to their ranges (`shellMap`) and applies Spawn, Fractal and the two layers to a style's own field (`SHELL_FIELD3`, `SHELL_DENSITY3`, `SHELL_FIELD2`); the hooks are 0.0 until the engine uploads them.
 - Silk and Morphing (ids `acid_*`, `AcidScene`) present their field as a lit relief through `lib_relief`.
 - Life presents its field in 3D through `core/viz/present/FieldPresent` (`life_show_frag`): seven styles a terrain on the rig, Gyre a torus, Pulsar and Mitosis a sphere.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.
@@ -251,7 +256,16 @@ The renderer runs these in order each frame.
 - A held simulation that draws the rig redraws its held field when the rig moves (`Scene::redrawHeld`); it is not stepped.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
 - Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Glass, Nebula, Terra and Truchet include `lib_<family>_field` after the style's pure map (`glassMap`, `nebMap`, `terraMap`, `truchetMap`); its `<family>Field` is the one entry the march, normal and shading read, and writes no global.
+- Foam's one field entry is `foamField` in `lib_foam`; it returns a `FoamSample` and writes no global.
+- Foam, Glass, Nebula, Terra and Truchet read the params and the six knobs once, normalized, in `<family>In()` (the normalization shell, at rest exactly the tuned constants); `<FAMILY>_GROW` and `<FAMILY>_FORMULA` are the one-line hooks for lib_grow and uFormula.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Shard, Prism and Fluor also include `lib_strata` before `lib_<family>`: a far fractal lattice and a domain-warped haze round the marched form, and the folds, sponge and nested shells a style's form is built from.
+- `uFormula` (lib_scene_uniforms) picks one of three formulas in a Shard, Prism or Fluor style, crossfaded in two narrow bands (`strataFormula`); 0 is each style's original geometry.
+- Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
+- `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
+- `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
+- Fractal (`uFractal`) also grows `gLayerIter` into its headroom (never past 1) and adds up to two folds to `gStrataIters` and one and a half to `gStrataFarIters`; at 0 both are unchanged.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.

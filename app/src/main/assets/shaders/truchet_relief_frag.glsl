@@ -64,42 +64,51 @@ float gDepth;
 float gHits;
 float gScale;
 float gT;
-float gTone;
 /** The grooves' half-width, TR_W times k1 TEXTURE's factor. */
 float gW;
 
-float floorHeight(vec2 xz) {
+/** The floor at xz: x its height, y its two-tone colour there. */
+vec2 floorAt(vec2 xz) {
     vec2 p = truchetWarp(xz * gScale, gT);
     vec2 id = floor(p);
     id.y = mod(id.y, 64.0);
     TruchetArc a = truchetSquareAt(id, fract(p) - 0.5, gHits, SND_ONSET_ENV, 3.0);
     float g = clamp(abs(a.d) / gW, 0.0, 1.0);
     float groove = 0.5 + 0.5 * cos(TRUCHET_PI * g);
-    gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-gW * 0.8, gW * 0.8, a.d));
-    return TR_TOP * gTone - gDepth * groove;
+    float tone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-gW * 0.8, gW * 0.8, a.d));
+    return vec2(TR_TOP * tone - gDepth * groove, tone);
 }
 
-float map(vec3 p) {
-    return p.y - floorHeight(p.xz);
+/** What the field holds at a point (lib_truchet_field): the distance, the floor's height and its tone under it. */
+struct TruchetHit {
+    float d;
+    float h;
+    float tone;
+};
+
+TruchetHit truchetMap(vec3 p) {
+    vec2 f = floorAt(p.xz);
+    TruchetHit res;
+    res.d = p.y - f.x;
+    res.h = f.x;
+    res.tone = f.y;
+    return res;
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     float t = truchetTime();
     float e = truchetEnergy();
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
     gTruchetFlow = kFlow;
     gW = TR_W * (1.0 + 0.4 * kTexture);
     float reach = 1.0 + 0.4 * kSpace;
@@ -107,12 +116,12 @@ void main() {
     gHits = floor(SND_ONSET_COUNT);
     // 1 or 1.5 cells per world unit: either way 8192 * scale is a multiple
     // of the 64-cell id wrap, so the rig's travel wrap stays invisible.
-    gScale = truchetMorph() >= 0.5 ? 1.5 : 1.0;
+    gScale = gTruchetIn.detail >= 0.5 ? 1.5 : 1.0;
     gDepth = (0.14 + 0.07 * clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.5) * e) / gScale;
     // Slope bound in world units: the groove is gW / gScale wide.
     float slope = gDepth * TRUCHET_PI * gScale / (2.0 * gW) + TR_TOP * gScale / (1.6 * gW);
     // Chaos bends the plan first; its stretch multiplies the slope.
-    slope *= 1.0 + 0.25 * truchetWarpShare() + 0.21 * clamp(uTurbulence, 0.0, 2.0);
+    slope *= 1.0 + 0.25 * truchetWarpShare() + 0.21 * (2.0 * gTruchetIn.chaos);
     float lip = 1.0 / sqrt(1.0 + slope * slope);
 
     vec3 ro = vec3(uCamPos.x, TR_EYE, uCamPos.z);
@@ -142,7 +151,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > t1) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            float d = truchetField(ro + rd * tm).d;
             float eps = 0.0007 * tm + 0.0004;
             if (d < eps) {
                 hitT = tm;
@@ -156,9 +165,10 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        float h = floorHeight(p.xz);
-        tone = gTone;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0008);
+        TruchetHit hit = truchetField(p);
+        float h = hit.h;
+        tone = hit.tone;
+        vec3 n = truchetNormal(p, 0.0012 * hitT + 0.0008);
         vec3 toL = lightPos - p;
         float dl = length(toL);
         vec3 l = toL / dl;

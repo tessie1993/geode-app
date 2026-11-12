@@ -135,4 +135,16 @@ class ParamSchemaTest {
         assertEquals(listOf("Water dish", "Chladni plate"), ParamSchema.choices("cymaticsGeometry"))
         assertTrue(ParamSchema.choices("speed").isEmpty())
     }
+
+    @Test
+    fun theSentinelsAreTheSchemas() {
+        // SceneParams keeps them as constants for its field defaults, so building one needs no libgeode.
+        val overrides = listOf("paletteBaseOverride", "paletteRangeOverride", "palette2BaseOverride", "palette2RangeOverride")
+        val rows = overrides.map { it to SceneParams.UNSET_OVERRIDE } + (0..4).map { "paletteStop$it" to SceneParams.NO_STOP.toFloat() }
+        (rows + ("paletteLut" to SceneParams.NO_PALETTE_LUT.toFloat())).forEach { (name, sentinel) ->
+            val spec = requireNotNull(ParamSchema[name])
+            assertEquals(name, sentinel, spec.default)
+            assertEquals(name, sentinel, spec.range.start)
+        }
+    }
 }

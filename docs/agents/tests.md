@@ -53,6 +53,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `export_preroll_test.cpp`: an export's start: the pre-roll runs the clock whole from frame 0 and through a loop's seam, mid-song frame 0 hears live's tempo, a track with no audio fails.
 - `export_range_test.cpp`: an export segment's clamp (`core/output/ExportRange`): the 1 s minimum, the whole track as no range.
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
+- `field_present_test.cpp`: a simulation presented in 3D (`core/viz/present/FieldGeometry`): each surface's size and eye, where a finger's ray lands on the field, and the composite gate that leaves a rig scene's picture to it.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
 - `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`, and the saved band-levels text (`geode_dsp_restore_bands_text`, `geode_dsp_encode_bands`).
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.

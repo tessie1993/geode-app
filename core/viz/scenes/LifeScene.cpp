@@ -13,32 +13,51 @@ namespace geode::viz {
 namespace {
 constexpr int kCensusProbes[5][2] = {{1, 2}, {3, 2}, {2, 1}, {2, 3}, {2, 2}};
 
-// lib_relief's materials (RELIEF_* in the shader).
+// The materials the field is lit in (lib_field3d's uFieldLook), the eight looks the families lend:
+// a = diffuse, specular, shininess, rim; b = sky reflection, emission of dense matter, contour lines, sheen.
 enum LifeMaterial { kSatin = 0, kGlass = 1, kChrome = 2, kNeon = 3, kTerra = 4, kMembrane = 5, kNebula = 6, kInk = 7 };
+constexpr present::Material kMaterials[] = {
+    {{0.9f, 0.35f, 24.0f, 0.15f}, {0.1f, 0.0f, 0.0f, 0.3f}},    // satin: wrapped diffuse, a long sheen
+    {{0.35f, 0.9f, 90.0f, 0.35f}, {0.6f, 0.05f, 0.0f, 0.6f}},   // glass: the sky in it, a film's sheen
+    {{0.15f, 1.0f, 160.0f, 0.1f}, {1.0f, 0.0f, 0.0f, 0.1f}},    // chrome: nearly all reflection
+    {{0.08f, 0.5f, 40.0f, 1.6f}, {0.0f, 0.5f, 0.0f, 0.2f}},     // neon: dark faces, burning rims
+    {{1.0f, 0.15f, 30.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}},     // terra: lit ground with contour lines
+    {{0.25f, 0.45f, 32.0f, 1.2f}, {0.1f, 0.35f, 0.0f, 0.3f}},   // membrane: a glowing rim round a dense core
+    {{0.3f, 0.1f, 8.0f, 0.4f}, {0.0f, 1.1f, 0.0f, 0.1f}},       // nebula: dense matter glows
+    {{1.0f, 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}},       // ink: flat, drawn by its lines
+};
 
-// Each style's own look: the young-matter material and the old-matter (soma) one, which trade places on
-// every hard cut, plus how deep the relief is. The three Gray-Scott alternatives are the style's other
-// rule presets (Karl Sims' parameterization, Du 1, Dv 0.5): known living (f, k) pairs near its own, so a
-// morph between them transforms the pattern rather than killing it (and the census reseeds if it does).
+// The surfaces (owner, 2026-11-12: seven terrains, three objects).
+constexpr present::Surface kTerrain = present::Surface::Terrain;
+constexpr present::Surface kTorus = present::Surface::Torus;
+constexpr present::Surface kSphere = present::Surface::Sphere;
+// What a style's depth is measured against: the parallax depth the looks were first tuned at.
+constexpr float kDepthUnit = 0.055f;
+
+// Each style's own look: the young-matter material and the old-matter (soma) one, how deep the relief is,
+// and the surface it lives on. The three Gray-Scott alternatives are the style's other rule presets (Karl
+// Sims' parameterization, Du 1, Dv 0.5): known living (f, k) pairs near its own, so a morph between them
+// transforms the pattern rather than killing it (and the census reseeds if it does).
 struct LifeLook {
     const char* id;
     int young;
     int old;
     float depth;
+    present::Surface surface;
     float gs[3][2];
 };
 
 constexpr LifeLook kLooks[] = {
-    {"life_orbium", kMembrane, kNeon, 0.06f, {}},
-    {"life_gyre", kGlass, kChrome, 0.05f, {}},
-    {"life_helix", kSatin, kMembrane, 0.055f, {}},
-    {"life_pulsar", kNeon, kNebula, 0.05f, {}},
-    {"life_hydro", kGlass, kMembrane, 0.065f, {}},
-    {"life_bug", kChrome, kTerra, 0.045f, {}},
-    {"life_mitosis", kMembrane, kGlass, 0.06f, {{0.035f, 0.065f}, {0.037f, 0.06f}, {0.039f, 0.058f}}},
-    {"life_coral", kTerra, kSatin, 0.07f, {{0.062f, 0.0609f}, {0.042f, 0.059f}, {0.039f, 0.058f}}},
-    {"life_labyrinth", kInk, kTerra, 0.04f, {{0.029f, 0.057f}, {0.034f, 0.056f}, {0.022f, 0.051f}}},
-    {"life_worms", kNebula, kNeon, 0.05f, {{0.062f, 0.0609f}, {0.0545f, 0.062f}, {0.046f, 0.0594f}}},
+    {"life_orbium", kMembrane, kNeon, 0.06f, kTerrain, {}},
+    {"life_gyre", kGlass, kChrome, 0.05f, kTorus, {}},
+    {"life_helix", kSatin, kMembrane, 0.055f, kTerrain, {}},
+    {"life_pulsar", kNeon, kNebula, 0.05f, kSphere, {}},
+    {"life_hydro", kGlass, kMembrane, 0.065f, kTerrain, {}},
+    {"life_bug", kChrome, kTerra, 0.045f, kTerrain, {}},
+    {"life_mitosis", kMembrane, kGlass, 0.06f, kSphere, {{0.035f, 0.065f}, {0.037f, 0.06f}, {0.039f, 0.058f}}},
+    {"life_coral", kTerra, kSatin, 0.07f, kTerrain, {{0.062f, 0.0609f}, {0.042f, 0.059f}, {0.039f, 0.058f}}},
+    {"life_labyrinth", kInk, kTerra, 0.04f, kTerrain, {{0.029f, 0.057f}, {0.034f, 0.056f}, {0.022f, 0.051f}}},
+    {"life_worms", kNebula, kNeon, 0.05f, kTerrain, {{0.062f, 0.0609f}, {0.0545f, 0.062f}, {0.046f, 0.0594f}}},
 };
 
 const LifeLook* lookFor(const char* id) {
@@ -74,7 +93,6 @@ LifeScene::Rule LifeScene::preset(int index) const {
 
 void LifeScene::init() {
     stepProgram_ = 0;
-    showProgram_ = 0;
     vao_ = 0;
     programOk_ = false;
     formats_.reset();
@@ -89,13 +107,14 @@ void LifeScene::init() {
         host_.onShaderError("Life unavailable on this GPU: " + error);
         return;
     }
-    showProgram_ = loader_.buildSource(quad, loader_.source("life_show_frag.glsl", &error), &error);
-    if (showProgram_ == 0) {
-        host_.onShaderError("Life unavailable on this GPU: " + error);
-        return;
-    }
     stepLocs_ = UniformCache(stepProgram_);
-    showLocs_ = UniformCache(showProgram_);
+    if (!present_.init(id_, loader_, host_, "life_show_frag.glsl")) return;
+    present_.resize(width_, height_);
+    const LifeLook* look = lookFor(style_.id);
+    const int young = look ? look->young : (style_.rule == 0 ? kMembrane : kTerra);
+    const int old = look ? look->old : kGlass;
+    present_.setLook(look ? look->surface : kTerrain, (look ? look->depth : kDepthUnit) / kDepthUnit, kMaterials[young],
+                     kMaterials[old], style_.hueOffset, style_.hueSpan);
     glGenVertexArrays(1, &vao_);
     sound_.init();
     programOk_ = true;
@@ -108,6 +127,7 @@ void LifeScene::resize(int width, int height) {
     if (state_) state_->release();
     state_.reset();
     seedRemain_ = kSeedSeconds;
+    present_.resize(width_, height_);
 }
 
 void LifeScene::update(const GeodeSoundFrame& features, float dt) {
@@ -115,6 +135,7 @@ void LifeScene::update(const GeodeSoundFrame& features, float dt) {
     lastDt_ = dt;
     pcmStrike_ = pcmPulse_.tick(dt);
     sound_.step(features, dt);
+    present_.update(features, dt);
     steer(features, std::clamp(dt, 0.0f, 1.0f / 15.0f));
 }
 
@@ -269,7 +290,6 @@ void LifeScene::draw(float timeSeconds) {
     if (!field) return;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
-    const float drive = safeAudioDrive(p.audioDrive);
 
     seedRemain_ = std::max(seedRemain_ - dt, 0.0f);
     censusAge_ += dt;
@@ -284,6 +304,10 @@ void LifeScene::draw(float timeSeconds) {
     const float shiftY = std::trunc(driftY_);
     driftX_ -= shiftX;
     driftY_ -= shiftY;
+
+    // The fingers where their rays meet the field, in the state's own space.
+    std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touched{};
+    const int touchedCount = mapTouch(*field, touched);
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const int substeps = std::clamp(static_cast<int>(std::lround(style_.substeps * speed)), 1, 8);
@@ -327,50 +351,60 @@ void LifeScene::draw(float timeSeconds) {
         glUniform1f(stepLocs_.loc("uSeed"), first ? seedRemain_ / kSeedSeconds : 0.0f);
         glUniform1f(stepLocs_.loc("uBud"), first ? std::min(budFeed_, 1.0f) : 0.0f);
         glUniform1f(stepLocs_.loc("uSprinkle"), first ? sprinkle_ : 0.0f);
-        uploadSceneTouch(stepLocs_, touch_, first);
+        uploadSceneTouch(stepLocs_, touched, touchedCount, first);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         field->swap();
     }
     budFeed_ = 0.0f;
     sprinkle_ = 0.0f;
 
+    glBindVertexArray(0);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-    glUseProgram(showProgram_);
-    sound_.upload(showLocs_, drive, 3);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, field->read().tex());
-    glUniform1i(showLocs_.loc("uState"), 0);
-    glUniform2f(showLocs_.loc("uRes"), static_cast<float>(width_), static_cast<float>(height_));
-    glUniform2f(showLocs_.loc("uSimRes"), static_cast<float>(field->width()), static_cast<float>(field->height()));
-    glUniform2f(showLocs_.loc("uFrac"), driftX_, driftY_);
-    const LifeLook* look = lookFor(style_.id);
-    const int fallbackYoung = style_.rule == 0 ? kMembrane : kTerra;
-    glUniform1i(showLocs_.loc("uLookYoung"), look ? look->young : fallbackYoung);
-    glUniform1i(showLocs_.loc("uLookOld"), look ? look->old : kGlass);
-    glUniform1f(showLocs_.loc("uDepth"), look ? look->depth : 0.05f);
-    glUniform1f(showLocs_.loc("uShowV"), style_.rule == 1 ? 1.0f : 0.0f);
-    glUniform1f(showLocs_.loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset);
-    glUniform1f(showLocs_.loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
+    // The present: the living matter (Lenia's A, or Gray-Scott's v, whose pattern lives around 0..0.45) is
+    // the height, the melody's ink the tint, the age trace the second material.
+    present::Channels ch;
+    ch.height = style_.rule == 1 ? std::array<float, 4>{0.0f, 1.0f, 0.0f, 0.0f} : std::array<float, 4>{1.0f, 0.0f, 0.0f, 0.0f};
+    ch.low = style_.rule == 1 ? 0.03f : 0.02f;
+    ch.high = style_.rule == 1 ? 0.42f : 0.92f;
+    ch.tint = {0.0f, 0.0f, 0.0f, 1.0f};
+    ch.age = {0.0f, 0.0f, 1.0f, 0.0f};
+    present_.draw(field->read().tex(), field->width(), field->height(), driftX_, driftY_, ch,
+                  byteState_ ? fluid::kRgba8 : formats_->rgba);
     glUseProgram(0);
 }
 
+int LifeScene::mapTouch(const fluid::DoubleFbo& field, std::array<float, TouchField::kMaxPoints * TouchField::kPointStride>& out) const {
+    if (!touch_) return 0;
+    const auto& pts = touch_->points();
+    int n = 0;
+    for (int i = 0; i < std::min(touch_->count(), TouchField::kMaxPoints); ++i) {
+        const size_t in = static_cast<size_t>(i * TouchField::kPointStride);
+        // A finger on the sky or beside an object seeds nothing.
+        const auto at = present_.touchToState(pts[in], pts[in + 1], field.width(), field.height(), driftX_, driftY_);
+        if (!at) continue;
+        const size_t o = static_cast<size_t>(n * TouchField::kPointStride);
+        out[o] = (*at)[0];
+        out[o + 1] = (*at)[1];
+        out[o + 2] = pts[in + 2];
+        out[o + 3] = pts[in + 3];
+        ++n;
+    }
+    return n;
+}
+
 void LifeScene::release() {
+    present_.release();
     if (stepProgram_ != 0) glDeleteProgram(stepProgram_);
-    if (showProgram_ != 0) glDeleteProgram(showProgram_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     if (state_) state_->release();
     state_.reset();
     formats_.reset();
     sound_.release();
     stepProgram_ = 0;
-    showProgram_ = 0;
     vao_ = 0;
     programOk_ = false;
     stepLocs_ = UniformCache(0);
-    showLocs_ = UniformCache(0);
 }
 
 }  // namespace geode::viz

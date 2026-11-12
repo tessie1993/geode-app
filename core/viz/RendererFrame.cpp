@@ -316,8 +316,18 @@ bool Renderer::holds(const Scene& scene, const Scene* held) const {
 }
 
 void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
-    if (!sceneJustSwitched_ && holds(scene, heldScene_)) return;
+    if (!sceneJustSwitched_ && holds(scene, heldScene_)) {
+        // The field holds, but a scene that draws the rig owes a moved eye a new picture of it.
+        if (!scene.drawsCamera() || camera_.pose() == heldPose_) return;
+        heldPose_ = camera_.pose();
+        glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
+        glViewport(0, 0, renderWidth_, renderHeight_);
+        glClear(GL_COLOR_BUFFER_BIT);
+        scene.redrawHeld();
+        return;
+    }
     heldScene_ = &scene;
+    heldPose_ = camera_.pose();
     glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
@@ -360,9 +370,9 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.postCyclePhase = postCyclePhase_;
     in.quadVao = quadVao_;
     in.fx = fx;
-    in.gateA = grade::gateFor(activeScene_->family()).toVec4();
+    in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
     Scene* other = layerScene_ ? layerScene_ : outgoingScene_ ? outgoingScene_ : activeScene_;
-    in.gateB = grade::gateFor(other->family()).toVec4();
+    in.gateB = grade::gateFor(other->family(), other->drawsCamera()).toVec4();
     // The rig's flat projection, for every scene that does not march the 3D pose itself.
     const CameraPose& cam = camera_.pose();
     in.camFlat = cam.flat;

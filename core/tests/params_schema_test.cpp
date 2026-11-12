@@ -8,6 +8,7 @@
 //
 // The fixture is what the shell's JVM tests read in place of geode_params_schema_text (the geode.paramsSchema
 // property, dev.geode.render.scene.ParamSchema), so this check is what keeps their schema the device's.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -347,6 +348,32 @@ void everyPickerLabelsItsRange() {
     check(SceneParams::choices(ParamSlot::speed).empty() && SceneParams::choices(ParamSlot::kCount).empty(), "a slider or no slot has none");
 }
 
+// The Folds menu is real folds in symmetry's range, rising, the default among them. Switching the kaleidoscope on
+// without a fold (below 2) takes the default; nothing else moves symmetry.
+void theKaleidoscopeFoldsAreTheMenu() {
+    const auto& folds = SceneParams::kSymmetryFolds;
+    const ParamSpec& s = SceneParams::spec(ParamSlot::symmetry);
+    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "the menu runs from 2 to symmetry's max");
+    for (size_t i = 1; i < folds.size(); ++i) check(folds[i] > folds[i - 1], "the folds rise: " + std::to_string(folds[i]));
+    check(std::find(folds.begin(), folds.end(), SceneParams::kDefaultSymmetryFolds) != folds.end(), "the default is on the menu");
+    check(s.defaultValue == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "symmetry's default is the default folds");
+    for (int n = 0; n <= static_cast<int>(s.max); ++n) {
+        check(SceneParams::kaleidoscopeFolds(false, n) == n, "switching off keeps " + std::to_string(n));
+        const int on = n < 2 ? SceneParams::kDefaultSymmetryFolds : n;
+        check(SceneParams::kaleidoscopeFolds(true, n) == on, "switching on with " + std::to_string(n));
+    }
+    // The control's answer: the menu shows with the switch, the row of the folds (-1 off the menu), what a flip leaves.
+    const std::string labels = "\n2\n3\n4\n5\n6\n7\n8\n9\n12\n16";
+    check(SceneParams::kaleidoscopeMenu(true, 6) == "1|4|6" + labels, "on at 6: shown, row 4, a flip keeps 6");
+    check(SceneParams::kaleidoscopeMenu(false, 0) == "0|-1|6" + labels, "off at 0: hidden, a flip takes the default");
+    check(SceneParams::kaleidoscopeMenu(true, 10) == "1|-1|10" + labels, "an unlisted count selects no row");
+    check(SceneParams::kaleidoscopeMenu(false, 16) == "0|9|16" + labels, "off keeps its row");
+    for (size_t i = 0; i < folds.size(); ++i) {
+        check(SceneParams::kaleidoscopePick(static_cast<int>(i)) == folds[i], "row " + std::to_string(i) + " picks its folds");
+    }
+    check(SceneParams::kaleidoscopePick(-1) == folds.front() && SceneParams::kaleidoscopePick(99) == folds.back(), "off the menu, held to it");
+}
+
 std::vector<std::string> split(const std::string& line) {
     std::vector<std::string> out;
     std::string field;
@@ -562,6 +589,7 @@ int main(int argc, char** argv) {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     everyPickerLabelsItsRange();
+    theKaleidoscopeFoldsAreTheMenu();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();

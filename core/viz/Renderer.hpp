@@ -486,6 +486,8 @@ private:
     // they were drawn at. redrawFrames_ lets a request the params do not carry (a MilkDrop preset) through.
     bool frameStill_ = false;
     const Scene* heldScene_ = nullptr;
+    // The rig's pose when heldScene_ last drew, so a held scene that draws the rig redraws when it moves.
+    CameraPose heldPose_{};
     const Scene* heldLayer_ = nullptr;
     std::array<float, SceneParams::kFieldCount> heldWire_{};
     int heldWidth_ = 0;

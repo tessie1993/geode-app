@@ -120,4 +120,14 @@ const std::string& SceneParams::schemaText() {
     return kText;
 }
 
+std::string SceneParams::kaleidoscopeMenu(bool on, int symmetry) {
+    int selected = -1;
+    std::string labels;
+    for (size_t i = 0; i < kSymmetryFolds.size(); ++i) {
+        if (kSymmetryFolds[i] == symmetry) selected = static_cast<int>(i);
+        labels += "\n" + std::to_string(kSymmetryFolds[i]);
+    }
+    return std::string(on ? "1|" : "0|") + std::to_string(selected) + "|" + std::to_string(kaleidoscopeFolds(!on, symmetry)) + labels;
+}
+
 }  // namespace geode::viz

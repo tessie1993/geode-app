@@ -17,7 +17,12 @@ constexpr float kMinZoom = 0.05f;
 constexpr float kMinGamma = 0.05f;
 constexpr float kTau = 6.2831855f;
 
-inline Gate gateFor(SceneFamily family) {
+// What the composite applies to a scene's finished picture. A shader style applies all of it itself, and so
+// does any scene that draws the camera rig itself (Scene::drawsCamera): a simulation presented in 3D
+// (core/viz/present/FieldPresent) bends its own shape by the Kaleidoscope, Twist, Tile, Warp and Ripple and
+// grades its own colour through the shared block, so the composite must not do either a second time.
+inline Gate gateFor(SceneFamily family, bool drawsCamera = false) {
+    if (drawsCamera) return Gate{false, false, false};
     return Gate{family != SceneFamily::Shader, family == SceneFamily::Fluid, family == SceneFamily::Fluid};
 }
 

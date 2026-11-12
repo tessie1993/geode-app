@@ -131,6 +131,9 @@ vec2 view() {
         uv = floor(uv * px) / px;
     }
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
+    // VIEW_BENDS_IN_3D: a present that bends its 3D shape by the Kaleidoscope, Twist, Tile and Ripple
+    // (lib_field3d) defines it before including this file, so the screen is not bent a second time.
+#ifndef VIEW_BENDS_IN_3D
     // Kaleidoscope: fold the plane into uSymmetry angular wedges.
     if (uKaleido > 0.5 && uSymmetry >= 2.0) {
         float ang = atan(uv.y, uv.x);
@@ -139,6 +142,7 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+#endif
     // VIEW_OWNS_SHAPE: a style that spends uMorph, uTurbulence and uWarp on
     // its own geometry (the style families: Complexity and Chaos macros move
     // these) defines it before including this file, so the generic screen
@@ -182,6 +186,7 @@ vec2 view() {
 #ifndef VIEW_OWNS_SHAPE
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
 #endif
+#ifndef VIEW_BENDS_IN_3D
     // Radial twist: rotate by an angle growing with radius.
     if (abs(uTwist) > 0.001) {
         float tr = length(uv) * uTwist * 2.0;
@@ -193,6 +198,7 @@ vec2 view() {
     if (uTile > 1.01) {
         uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
+#endif
 #ifndef VIEW_OWNS_SHAPE
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -200,10 +206,12 @@ vec2 view() {
         uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
     }
 #endif
+#ifndef VIEW_BENDS_IN_3D
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
         uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
     }
+#endif
     return uv;
 }

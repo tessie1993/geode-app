@@ -68,6 +68,16 @@ inline void uploadSceneTouch(UniformCache& locs, const TouchField* field, bool e
     glUniform4fv(locs.loc("uTouchPoints"), locs.arrayCount("uTouchPoints", TouchField::kMaxPoints), field->points().data());
 }
 
+// The same for fingers already mapped into the program's space (a simulation presented in 3D maps each
+// finger onto its field, core/viz/present/FieldPresent): `count` points at TouchField's stride.
+inline void uploadSceneTouch(UniformCache& locs, const std::array<float, TouchField::kMaxPoints * TouchField::kPointStride>& points,
+                             int count, bool enabled = true) {
+    const int n = enabled ? std::clamp(count, 0, TouchField::kMaxPoints) : 0;
+    glUniform1i(locs.loc("uTouchCount"), n);
+    if (n <= 0) return;
+    glUniform4fv(locs.loc("uTouchPoints"), locs.arrayCount("uTouchPoints", TouchField::kMaxPoints), points.data());
+}
+
 // The envelope slew every simulation scene shares: fast rise, slow fall, per second.
 inline float slewEnvelope(float current, float target, float dt, float risePerSec, float fallPerSec) {
     const float limit = target > current ? risePerSec : fallPerSec;

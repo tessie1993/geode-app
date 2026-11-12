@@ -275,7 +275,6 @@ Overall finding: almost no formula is left in this tree. What is left is (a) the
 | `R/bridge/ModConfigCodec.kt` (81) | engine (wire codec) | `packLfo` 16-29 (11 floats), `packAdsr` 31-47 (12 + targets), `packReactions` 50-64 (12 routes × 8 floats, padding disabled), `unpackReactions` 70-78 (drops unknown ordinals, curve falls back to LINEAR). Hand-kept float layouts; enums as ordinals. | GL thread on push; main in UI | none | `core/api` config structs (`GEODE_*_CONFIG_FLOATS`), `core/viz/Lfo.hpp`, `Adsr.hpp`, `Reactions.hpp` | Nothing once configs are stored natively. |
 | `R/bridge/NativeViz.kt` (522) | mixed | Handle lifecycle 71-108 (create, destroy, Cleaner). Latch-and-replay state: see §8. `LastSent` 465-522: Kotlin change detection. `deliverStill` 410-417: reads the still into a `Bitmap`. `setStyleSchedule` 371-382: marshals cues. `sceneIds` 112: splits a `\n` list. | GL thread mostly; any thread for latches | `GN.vizCreate/vizDestroy/vizSetMilkTextureDir/vizKnows/vizSceneIds/vizSetParams/vizSetReducedMotion/vizSetTransition/vizBeginParamMorph/vizSetTouch/vizSetTouchSmear/vizSetFluidInjection/vizLoadMilkPreset/vizReloadMilkPreset/vizTakeMilkPresetLoaded/vizTakeDirectorStyleMoments/vizWriteAudio/vizHearTrack/vizEndPreRoll/vizFeedRing/vizSetSoundTuning/vizSetLfo/vizSetAdsr/vizSetUserReactions/vizGyroSample/vizGyroReset/vizFrameBegin/vizPinEngineSettings/vizSetOffscreen/vizPrepareOffscreen/vizSetFrameRate/vizSetUiBlurRegion/vizSetCastSource/vizSetEdgeGlow/vizRecordStart/vizRecordStop/vizSurfaceCreated/vizSurfaceChanged/vizSetScene/vizSetStyleSchedule/vizWarmTransition/vizCut/vizRender/vizStillRequest/vizStillSize/vizStillRead/vizReleaseScenes/vizTrimSpares/vizSetUnderlay/vizLastError/vizTapAlong` | `core/viz` Renderer behind `core/api/geode_api.h`; the latches: new, a per-surface settings block that outlives the renderer handle | `AssetManager`, `cacheDir`/`filesDir` paths, `Bitmap` creation for the still. |
 | `R/bridge/SceneParamsCodec.kt` (80) | engine (wire codec) | `pack` 21-35, `unpack` 46-66, `slotFields` 69-79: reflection over `SceneParams` by native schema names; retired slots carry the default; ints rounded, flags > 0.5; lines 63-64 drop a saved-palette id when the frame cleared its overrides. Called on the GL thread for every params push (`NativeViz.setParams` 114-118). | GL thread; main (`app/.../ui/ModulationController.kt:149-227`) | none | `core/viz/ParamTable.inc`, `core/viz/Params.hpp` | Nothing once params are held natively; the palette-id rule moves with them. |
-| `R/bridge/StyleSchedule.kt` (31) | shell (value) | `everyBeats = 4` default (16). | n/a | none | `core/viz/StyleSchedule.hpp` | Value type. |
 | `R/fluid/FluidQuality.kt` (13) | duplicate (labels) | Five tier labels; count held to native `fluidTiers` by a test. | n/a | none | `core/viz/fluid/FluidQuality` | Labels. |
 | `R/fluid/FluidShaderTemplate.kt` (15) | shell | Reads an asset as text. | main | none | n/a | Asset read for the editor. |
 | `R/look/LookApplier.kt` (97) | engine | `apply` 68-96: decides which of scene, params, LFOs, ADSRs, tuning, reactions+hand mask, reduced motion, transition, underlay cross JNI this frame; two modes (native `due` bits for live, identity compare for export). Scene retry rule 74. `LookTarget` 14-46 is the seam. | GL thread (live, every frame); export thread (every frame) | `GN.FRAME_PUSH_PARAMS/LFO/ADSR/TUNING` constants | `core/viz/frame/PushVersions.hpp` (exists, versions only); the applier: new, native look state per surface | Nothing. |
@@ -444,7 +443,7 @@ Fixed JNI calls per live frame with nothing changed: `pacerOnVsync`, `vizFrameBe
 | `SceneIds` (66), `SceneKind` (9), `ParamScope` (22), `ParamKeys` (147) | `R/scene/*` | `core/viz/Catalogue.hpp` | `T/render/scene/CatalogueTest.kt` |
 | `TransitionStyle` (5), `BlendMode` (8), `UnderlayBlend` (3), `LiquidHotPolicy` (3), `PerformanceMode` (3) | `R/*.kt` | `core/viz` transition programs, `LayerState`, `CompositePass.cpp`, `liquid/LiquidMath.hpp`, `frame/Quality.hpp` | `PerformanceSettingsTest.kt` for the policy only |
 | `TouchField.MAX_POINTS = 5`, `FluidQuality.LABELS` (5) | `R/TouchField.kt:12`, `R/fluid/FluidQuality.kt:12` | shader `uTouchPoints`, `fluidTiers` | `CatalogueTest.kt:107` for the tiers |
-| `PerformanceSettings.RENDER_SCALES/MARCH_SCALES`, `LfoConfig.BEAT_CHOICES`, `FramePacer.DEFAULT_TARGET_FPS = 60`, `LookSnapshot` default style and 1200 ms fade, `StyleSchedule.everyBeats = 4`, `ThermalGovernor` 30 s forecast, `SampleRing` runway divisor 4, `TrackAudio.TIMEOUT_US` | various (see table 1) | none: these values exist only in Kotlin | nothing |
+| `PerformanceSettings.RENDER_SCALES/MARCH_SCALES`, `LfoConfig.BEAT_CHOICES`, `FramePacer.DEFAULT_TARGET_FPS = 60`, `LookSnapshot` default style and 1200 ms fade, `ThermalGovernor` 30 s forecast, `SampleRing` runway divisor 4, `TrackAudio.TIMEOUT_US` | various (see table 1) | none: these values exist only in Kotlin | nothing |
 | `SHADER_SCENES` asset path rule `shaders/<id>_frag.glsl` | `R/scene/SceneCapabilities.kt:27-30` | native ShaderScene's path rule | `StyleFamiliesTest.kt:46-53` |
 
 ### 8. State `NativeViz` latches in Kotlin and replays on a new handle
@@ -620,7 +619,7 @@ Mostly yes. Places that hold state, loops or decisions:
 |---|---|---|
 | 587-593 | `HAND_UNCLAIMED`, `HAND_ALL`, `MUSIC_STATE_FLOATS` | `GEODE_HAND_*`, `GEODE_MUSIC_STATE_FLOATS` |
 | 619-622 | `RECIPE_ON`, `RECIPE_FITS` | `GEODE_RECIPE_*` |
-| 663-687 | `FRAME_CLEAR_ONLY`, `FRAME_THERMAL_DUE`, `FRAME_LIQUID_CHANGED`, `FRAME_ERROR_CHANGED`, `FRAME_PUSH_PARAMS/LFO/ADSR/TUNING` | `GEODE_FRAME_*` |
+| 663-687 | `FRAME_THERMAL_DUE`, `FRAME_LIQUID_CHANGED`, `FRAME_ERROR_CHANGED`, `FRAME_PUSH_PARAMS/LFO/ADSR/TUNING` | `GEODE_FRAME_*` |
 | 1166-1173 | `LOOP_SPEC_*` (8) | none; `geode_export_jni.cpp:15-23` |
 | 1291-1300 | `RECORD_STOP_*` (5), `RECORD_AUDIO_RATE_HZ`, `RECORD_AUDIO_CHANNELS`, `RECORD_AUDIO_BPS` | `GEODE_RECORD_*` |
 | 1600-1609 | `SOUND_SOURCE_STATE_LONGS`, `SOUND_SOURCE_USE_CAPTURE/START_CAPTURE/STOP_CAPTURE` | `GEODE_SOUND_SOURCE_*` |
@@ -632,7 +631,7 @@ Mostly yes. Places that hold state, loops or decisions:
 | 2048-2076 | `SURFACE_*` (12), `PACER_STATE_LONGS`, `PACER_CAP_SLOT`, `PACER_PACED_SLOT` | `GEODE_SURFACE_*`, `GEODE_PACER_*` |
 | 2462-2487 | `CAST_AUDIO_STATE`, `CAST_AUDIO_STEP`, `CAST_AUDIO_FEED_STATE` | `GEODE_CAST_AUDIO_*` |
 | 2512-2632 | `LINK_*` (45: resources, body codes, state, phases, reasons, events, flags, actions, wants, peers, receiver health) | `GEODE_LINK_*` |
-| 2647-2661 | `QR_MAX_MODULES`, `WEBRTC_OFFER_MAX`, `WEBRTC_REFUSED_FULL`, `WEBRTC_REFUSED_NOT_READY` | `GEODE_QR_MAX_MODULES`, `GEODE_WEBRTC_*` |
+| 2647-2661 | `QR_MAX_MODULES` | `GEODE_QR_MAX_MODULES` |
 | 2727 | `HLS_TRACKS` | `GEODE_HLS_TRACKS` |
 
 ### 6. Native platform use today
@@ -1295,7 +1294,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/TemplateRepository.kt` (717) | mixed | `BundledTemplates` `:163-501`: **six built-in looks defined as Kotlin `SceneParams` literals** with attack/decay, palette index, bloom, speed etc. (`reelNeon` `:176-211`, `loFiLoop` `:213-272`, `vinylSpin` `:274-323`, `albumTeaser` `:325-380`, `podcastBars` `:382-437`, `master4K` `:439-473`). Storage part `:77-155`, `:561-717` is shell | IO; `BundledTemplates.ALL` built at class init | none | `core/viz/CataloguePresets.*` (the place bundled looks already live) | template files, share staging |
 | `data/TextureStore.kt` (258) | mixed | `generateDisplayPreset` `:173-214` **writes a MilkDrop preset with its composite shader text from a Kotlin string** (pulse `0.75 + 0.45*treb + 0.30*bass`, zoom `1 + 0.10*bass`, `fDecay=0.97`, `fGammaAdj=1.6`); image validation: DDS/TGA header parse and `MAX_TEXTURE_SIDE = 4096`, `MAX_TEXTURE_BYTES = 16 MiB` `:64-112`, `:220-223`; `safeTextureFileName` `:243-256` | caller (`ui/TextureController`; thread not traced) | none | new: generated-preset text in `core/viz` (projectM adapter) or a shipped asset; texture limits beside the native texture decoder | SAF read, `BitmapFactory` bounds decode |
 | `data/TrackLibrary.kt` (167) | shell | none (`remove` `:39` has no caller) | IO | none | n/a | filesDir |
-| `data/VideoTemplate.kt` (392) | mixed (thin) | Kotlin defaults of a look: `DEFAULT_ATTACK = 0.6`, `DEFAULT_DECAY = 0.12` `:181-182`, `SceneIds.DEFAULT` `:159`; `TemplateExport.resolvedFps` `:383` (nearest of `EXPORT_FPS_OPTIONS`; test-only caller). The layout/text/export model is stored and round-tripped, not rendered `:9-10` | n/a (model) | none | defaults: `core/viz/ParamTable.inc` / native preset codec | template model for the UI |
+| `data/VideoTemplate.kt` (392) | mixed (thin) | Kotlin defaults of a look: `DEFAULT_ATTACK = 0.6`, `DEFAULT_DECAY = 0.12` `:181-182`, `SceneIds.DEFAULT` `:159`. The layout/text/export model is stored and round-tripped, not rendered `:9-10` | n/a (model) | none | defaults: `core/viz/ParamTable.inc` / native preset codec | template model for the UI |
 | `data/VisualsSettings.kt` (76) | mixed (thin) | Kotlin defaults and a range of engine-facing values: `presetMorphSeconds = 2` (max 8 `:38`, clamp `:62-63`), `touchTransform = true`, `touchSmear = false`, `touchSmearStrength = 1` `:19-25` | IO via repository | none | `core/viz/TouchTransform`, `core/viz/TouchSmear` (named `:21-23`); morph length: `core/viz/Transition.*` | prefs |
 | `data/VizStateStore.kt` (108) | mixed (thin) | `restore` `:42-62` builds the live look at start: derives `transitionStyle` from `TransitionCatalog.builtIn(id)` `:51`, parses `live_state` with `PresetStore.fromJson`; `write` `:78-89` serialises it under the name `__live__`; `committedSceneId` rule `:34-35`, `:81` | main for restore; write 400 ms later on IO `:67-71`; `flushIfDirty` on the caller | none direct | native preset codec (opaque `live_state`); `core/viz/Transition*.hpp` | prefs, debounce |
 | `data/VizUiState.kt` (27) | mixed (data) | **Kotlin defaults of the live look and Auto:** first style `FreeTier.FIRST_STYLE_ID` `:10`, attack `0.6`, decay `0.12` `:11-12`, transition `FADE` / `"fade"` / `1.2 s` `:19-21`, visual playlist interval `30 s` `:18`, random interval `20 s` and its include flags `:23-26` | n/a | none | `core/viz/Catalogue.*` (first style), `core/viz/Transition*.hpp`, param defaults in `core/viz/ParamTable.inc` | UI state holder |
@@ -1478,7 +1477,6 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 | `data/GuiSettingsCodecsTest.kt` | legacy key migrations of `AppState` and `GeneralSettings` (intent, tour-seen, reduced motion, PiP, white font); the codecs share one file without overwriting each other |
 | `data/TouchAndDreamPrefsTest.kt` | touch and dream keys and defaults |
 | `data/WatermarkPrefsCodecTest.kt`, `data/StudioPrefsStoreTest.kt`, `data/RecordPrefsStoreTest.kt`, `data/RecordSaveStoreTest.kt`, `data/LibraryPrefsStoreTest.kt` | each store's keys, defaults and fallbacks |
-| `data/ExportFpsTest.kt` | `TemplateExport.resolvedFps` (the function's only caller) |
 | `data/ExportPresetFillTest.kt` | `filledFrom` sets only quality, fps, ratio, loop; every platform preset is an offered combination |
 | `data/backup/BackupArchiveTest.kt` | **saved format:** manifest round trip, pack/unpack, newer version, wrong format id, zip-slip, allowlist → section, checksum, caps, migration chain, typed prefs JSON, device-local keys, macro bank rides with Creative |
 | `data/BackupRulesCoverageTest.kt` | Android auto-backup XML rules (`backup_rules.xml`, `data_extraction_rules.xml`) |
@@ -1506,7 +1504,7 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 - The template's layout, text and export sections are stored and round-tripped but not rendered (`data/VideoTemplate.kt:9-10`).
 - `project-templates/<id>/template.json` has a reader (`data/EditorProjectJson.kt:86`) and no writer in this scope.
 - `HistoryStore` reads `history.json` in its constructor on the constructing thread (`data/HistoryStore.kt:28-30`); `VizStateStore.flushIfDirty` does a `commit()` on the caller's thread (`data/VizStateStore.kt:74-76`, `:88`).
-- Dead code (Grep over `app/src` and `engine`): `TrackLibrary.remove` (`data/TrackLibrary.kt:39`) has no caller; `EditorProjectJson.toJson` / `fromJson` (`data/EditorProjectJson.kt:50-52`) have no production caller; `TemplateExport.resolvedFps` (`data/VideoTemplate.kt:383`) is called only by `ExportFpsTest`.
+- Dead code (Grep over `app/src` and `engine`): `TrackLibrary.remove` (`data/TrackLibrary.kt:39`) has no caller; `EditorProjectJson.toJson` / `fromJson` (`data/EditorProjectJson.kt:50-52`) have no production caller.
 
 ### Not verified
 
@@ -3306,7 +3304,6 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/data/ByteBudgetCacheTest.kt` (127, 7) | `main/data/ByteBudgetCache.kt:23` | byte-budget LRU, remembered misses (`maxMisses`), single decode under concurrency | shell (artwork cache) | – | stays |
 | `test/data/DeviceTrackTagTest.kt` (23, 3) | `main/data/DeviceTrackQuery.kt:23` (`tagOr`) | `"<unknown>"`, null, blank → fallback | shell | – | stays |
 | `test/data/EditorProjectStoreFoldersTest.kt` (51, 3) | `main/data/EditorProjectStore.kt:34` | any `ProjectId` string (`""`, `.`, `..`, `../x`, `a/b`, …) maps to one folder directly under `projects`; delete never escapes | shell + FMT (folder naming of saved projects) | – | stays |
-| `test/data/ExportFpsTest.kt` (15, 1) | `main/data/VideoTemplate.kt:373` (`TemplateExport.resolvedFps`) | authored fps snaps to nearest of 24/25/30/50/60: 0→24, 27→25, 40→30, 45→50, 55→50, 120→60 | ENG (export maths in Kotlin) + FMT (template `fps`) | `core/tests/output_test.cpp` pins the encoder fps retry (per the test's own comment :6), `encoder_ladder_test.cpp`; grep found no snap-to-offered-rate case | port the 11-row table to `core/tests/output_test.cpp`; delete with `resolvedFps` |
 | `test/data/ExportPresetFillTest.kt` (58, 3) | `main/data/ExportPrefs.kt:91` (`ExportDefaults.filledFrom`), `main/export/ExportPresets.kt:18` | a platform preset sets only quality, fps, ratio, loopSafe; codec and loudness target kept; every `ExportPresets.ALL` fills fps in `EXPORT_FPS_OPTIONS` | ENG table (export presets) + shell rule | none found | port the "every preset is an offered combination" case if `ExportPresets` moves to `core/output`; the fill rule can stay Kotlin |
 | `test/data/FavouritesRepositoryTest.kt` (73, 3) | `main/data/FavouritesRepository.kt:23`, `FavouritesStore.kt:7` | toggles saved under track URI; external writes observed; newest first | shell + FMT | – | stays |
 | `test/data/GuiSettingsCodecsTest.kt` (189, 7) | `main/data/AppState.kt:33` (`AppStateCodec`), `GeneralSettingsCodec`, `VisualsSettingsCodec`, `SoundInputSettingsCodec`, `LibrarySettingsCodec` | legacy keys still read and are folded away on next save: `KEY_INTENT="LISTENING"` → setupDone; `KEY_TUTORIAL_SEEN=true` → every `TourChapter` done, key removed; `KEY_REDUCED_MOTION` dropped; `KEY_AUTO_ENTER_PIP_OFF_DEFAULT=false` ignored; `KEY_WHITE_FONT=true` → `FontColorChoice.WHITE_ARGB` | FMT (prefs migration) | – | stays |
@@ -3468,7 +3465,6 @@ Not covered by any fixture in this scope (so the port has no written record here
 
 | Test | Kotlin production function (path:line) | What it decides |
 |---|---|---|
-| `test/data/ExportFpsTest.kt:10-12` | `TemplateExport.resolvedFps()` `app/src/main/java/dev/geode/data/VideoTemplate.kt:383` | snaps an authored fps to the nearest of `EXPORT_FPS_OPTIONS` |
 | `test/export/RenderBatchTest.kt` | `RenderScope.tracksFor` `app/src/main/java/dev/geode/export/RenderBatch.kt:39`; `RenderBatch` `:76`; `progress` `:101` | which tracks a batch renders, batch progress |
 | `test/export/ExportRunTest.kt` | `ExportRun.requestCancel` `app/src/main/java/dev/geode/export/ExportRun.kt:11,62` | the cancel flag the Kotlin frame loops poll |
 | `test/export/PcmResamplerTest.kt` | `PcmResampler.isPassthrough` / `process` `app/src/main/java/dev/geode/export/PcmResampler.kt:15,25` | equal-rate passthrough, frame count cut |
@@ -3488,7 +3484,7 @@ Not covered by any fixture in this scope (so the port has no written record here
 
 ## 5. Tempo rule check
 
-No test in scope uses 120 as a tempo. The literal 120 appears five times, none a BPM: fps cases `test/data/ExportFpsTest.kt:10` and `test/data/RecordPrefsStoreTest.kt:39`; seconds `test/data/MinTrackLengthTest.kt:33`; pixels `test/widget/NowPlayingWidgetTest.kt:30` and `androidTest/journey/UiTourTest.kt:804`. The only tempo in scope is 93 BPM (`androidTest/thumbs/SyntheticGroove.kt:93`).
+No test in scope uses 120 as a tempo. The literal 120 appears four times, none a BPM: an fps case `test/data/RecordPrefsStoreTest.kt:39`; seconds `test/data/MinTrackLengthTest.kt:33`; pixels `test/widget/NowPlayingWidgetTest.kt:30` and `androidTest/journey/UiTourTest.kt:804`. The only tempo in scope is 93 BPM (`androidTest/thumbs/SyntheticGroove.kt:93`).
 
 ## 6. Gaps: classes with no test at all
 
@@ -3501,7 +3497,7 @@ Method: a main file counts as untested when its base name appears nowhere in any
 - `audio/`: `AiffExtractor.kt` (172), `AudioBus.kt` (10), `AudioCapturePump.kt` (121), `AudioFxPresets.kt` (27), `MicCapture.kt` (98), `NowPlayingBridge.kt` (75), `OboeAudioOutput.kt` (175), `PlaybackCapture.kt` (82), `PlaybackCaptureService.kt` (177), `PlayoutSink.kt` (70), `TapRenderersFactory.kt` (69), `dsp/MvzAudioProcessorChain.kt` (38).
 - `playback/`: `AutoDirectorFeed.kt` (77), `BitPerfectOutput.kt` (156), `HeadphoneAutoplay.kt` (65), `MediaArtwork.kt` (59), `PlaybackErrorRecovery.kt` (55), `PlaybackErrors.kt` (68), `QueueEnd.kt` (63), `QueueOps.kt` (31), `ReplayGain.kt` (92), `SessionBitmapLoader.kt` (96), `SleepTimer.kt` (126), `TrackBookmarks.kt` (46), `TrackCrossfade.kt` (52).
 - `editor/`: `ClipTransition.kt` (24), `Keyframes.kt` (160), `Markers.kt` (118; only its `Marker`/`MarkerId` types are used), `StudioProject.kt` (309).
-- `engine/`: `audio-android/.../PcmTap.kt` (55), `audio-core/.../audio/SampleRing.kt` (95), `audio-core/.../audio/SoundCursor.kt` (39), `scenes/.../analysis/PlaybackMath.kt` (18), `scenes/.../audio/AiffPcm.kt` (57), `scenes/.../render/Adsr.kt` (33), `BlendMode.kt` (24), `FramePacer.kt` (248), `GyroLook.kt` (50), `SceneFactory.kt` (14), `ThermalGovernor.kt` (38), `TouchField.kt` (13), `TransitionCatalog.kt` (79), `UnderlayBlend.kt` (22), `VisualizerRenderer.kt` (313), `VisualizerView.kt` (220), `bridge/StyleSchedule.kt` (31), `fluid/FluidShaderTemplate.kt` (15), `scene/MilkStarterPack.kt` (50), `util/BestEffort.kt` (18).
+- `engine/`: `audio-android/.../PcmTap.kt` (55), `audio-core/.../audio/SampleRing.kt` (95), `audio-core/.../audio/SoundCursor.kt` (39), `scenes/.../analysis/PlaybackMath.kt` (18), `scenes/.../audio/AiffPcm.kt` (57), `scenes/.../render/Adsr.kt` (33), `BlendMode.kt` (24), `FramePacer.kt` (248), `GyroLook.kt` (50), `SceneFactory.kt` (14), `ThermalGovernor.kt` (38), `TouchField.kt` (13), `TransitionCatalog.kt` (79), `UnderlayBlend.kt` (22), `VisualizerRenderer.kt` (313), `VisualizerView.kt` (220), `fluid/FluidShaderTemplate.kt` (15), `scene/MilkStarterPack.kt` (50), `util/BestEffort.kt` (18).
 
 Largest untested engine-looking files: `LoopRender.kt`, `LoopExtend.kt`, `VideoExporter.kt`, `AudioTranscoder.kt`, `LiveHttpServer.kt`, `LoudnessMeter.kt`, `VisualizerRenderer.kt`, `RecordEncoder.kt`, `CastEncoder.kt`, `FramePacer.kt`, `AiffExtractor.kt`, `Keyframes.kt`, `StudioProject.kt`. Whether each is engine or shell is for the scanners of those directories; this section only says no test names them.
 
@@ -3520,7 +3516,6 @@ Named by a test but with no behaviour pinned: `LfoStore`, `ModulationController`
 - `PresetLinkTest`'s sample payload (`"style"`, nested `"params"`, `test/model/PresetLinkTest.kt:15`) is not the flat shape `PresetStore.fromJson` reads (`"sceneId"`, params at top level); no test decodes a real link into a preset end to end.
 - `StyleThumbnailRenderTest` and `StyleLookTest` read the Kotlin `Catalogue`/`ParamScope` (`engine/scenes`), so tools and tests keep the Kotlin catalogue alive.
 - `UiTourTest`, `StoreShotsTest`, `StoreReelTest`, `StoreFramesTest`, `StyleThumbnailRenderTest` are tools gated by instrumentation arguments (`uitour`, `storeshots`, `storereel`, `storeframes`, `thumbs`); they assert almost nothing and are skipped in the ordinary run.
-- `test/data/ExportFpsTest.kt:6` says the encoder's fps retry is native and pinned by `core/tests/output_test.cpp`; that file's fps cases (`:35-66`) are `FrameClock` timing, and the snap table tested here (`resolvedFps`) has no native twin found by grep.
 - `MemoryPrefs.kt`, `RecordingPrefs.kt` and two private `MapPrefs` classes (`GuiSettingsCodecsTest.kt:96`, `NoteResponseStoreTest.kt:75`) are four in-memory `SharedPreferences` fakes.
 
 Unverified: nothing was run, so "fails"/"passes" statements are from reading. Native coverage columns come from file-name and keyword greps of `core/tests/*.cpp`, not from reading each native test in full. Section 6 is a name match, not a call-graph check. Graphify was not used (tests reference production code by name; Grep was enough).
@@ -3700,7 +3695,6 @@ Exempt, verbatim (`:151`): `exempt='/GeodeNative\.kt$'`. Nothing else is exempt.
 "$S/render/bridge/ModConfigCodec.kt"
 "$S/render/bridge/NativeViz.kt"
 "$S/render/bridge/SceneParamsCodec.kt"
-"$S/render/bridge/StyleSchedule.kt"
 "$S/render/fluid/FluidQuality.kt"
 "$S/render/fluid/FluidShaderTemplate.kt"
 "$S/render/look/LookApplier.kt"

@@ -365,10 +365,6 @@ sealed interface TemplateSegment {
 
 /**
  * Everything about producing the file, apart from framing (see [TemplateLayout]).
- *
- * [fps] is stored as written; [resolvedFps] snaps it to the nearest rate the exporter offers
- * ([EXPORT_FPS_OPTIONS]: 24, 25, 30, 50, 60) while the authored value round-trips untouched.
- * It used to snap to 30 or 60 only, so a 24 or 25 fps template rendered at 30.
  */
 data class TemplateExport(
     val quality: Tolerant<ExportQuality> = Tolerant.Known(DEFAULT_QUALITY),
@@ -379,9 +375,6 @@ data class TemplateExport(
     val fileNamePattern: String = DEFAULT_FILE_NAME_PATTERN,
     val foreign: ForeignFields = ForeignFields.NONE,
 ) {
-    // Nearest offered rate; on a tie the lower one, which is the cheaper render.
-    fun resolvedFps(): Int = EXPORT_FPS_OPTIONS.minBy { kotlin.math.abs(it - fps) }
-
     companion object {
         val DEFAULT_QUALITY: ExportQuality = ExportQuality.FHD1080
         val DEFAULT_AUDIO: AudioHandling = AudioHandling.FULL_MIX

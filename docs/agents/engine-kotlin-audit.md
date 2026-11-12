@@ -30,7 +30,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `BestEffort` | 18 | pending: shell glue, but `VisualizerView`, `Reactions`, `OffscreenSceneRenderer` and `TrackAudio` in `:engine:scenes` still call it, so it moves when they do. |
 | `UnderlayBlend` | 22 | **moved to UI**: to `:app`, same package; its names are saved data (Background, Studio projects) and its ordinals the underlay's wire int, clamped natively. The unused `fromOrdinal` is gone. |
 | `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
-| `StyleSchedule` | 31 | pending |
+| `StyleSchedule` | 31 | **deleted**: nothing built one since the export frame driver went native; `core/viz/StyleSchedule` stays (test `core/tests/style_schedule_test.cpp`). |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | **ported**: `core/viz/Catalogue` (`Trait`); the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |

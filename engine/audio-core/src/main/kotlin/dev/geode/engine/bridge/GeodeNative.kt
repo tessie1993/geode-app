@@ -2177,6 +2177,71 @@ object GeodeNative {
         out: ShortArray,
     ): Int
 
+    /** What [aiffScanStep] answers: feed it again, the header is read, or this is not an AIFF that plays. */
+    const val AIFF_SCAN_MORE = 0
+    const val AIFF_SCAN_DONE = 1
+    const val AIFF_SCAN_INVALID = -1
+
+    /** The most [aiffScanRead] asks for at once. */
+    const val AIFF_SCAN_MAX_READ = 22
+
+    /** Where [aiffScanHeader] puts each value. */
+    const val AIFF_HEADER_CHANNELS = 0
+    const val AIFF_HEADER_SAMPLE_RATE = 1
+    const val AIFF_HEADER_PCM = 2
+    const val AIFF_HEADER_BYTES_PER_FRAME = 3
+    const val AIFF_HEADER_FRAMES = 4
+    const val AIFF_HEADER_DATA_START = 5
+    const val AIFF_HEADER_DATA_BYTES = 6
+    const val AIFF_HEADER_COUNT = 7
+
+    /** The header's `AIFF_HEADER_PCM`: how the samples lie, 0 for a layout the player has no encoding for. */
+    const val AIFF_PCM_S16_LE = 1
+    const val AIFF_PCM_S16_BE = 2
+    const val AIFF_PCM_S24_BE = 3
+    const val AIFF_PCM_S32_BE = 4
+
+    /**
+     * The AIFF header walk for a caller that holds the file itself (the player's extractor): skip
+     * [aiffScanSkip] bytes, read [aiffScanRead] bytes, hand them to [aiffScanStep], and repeat while it
+     * answers [AIFF_SCAN_MORE]. Freed with [aiffScanDestroy].
+     */
+    external fun aiffScanCreate(): Long
+
+    external fun aiffScanDestroy(handle: Long)
+
+    external fun aiffScanSkip(handle: Long): Long
+
+    external fun aiffScanRead(handle: Long): Int
+
+    /** The first [n] bytes of [bytes], which must be the count [aiffScanRead] asked for. */
+    external fun aiffScanStep(
+        handle: Long,
+        bytes: ByteArray,
+        n: Int,
+    ): Int
+
+    /** Fills [out] (`AIFF_HEADER_COUNT` values); false before [AIFF_SCAN_DONE]. */
+    external fun aiffScanHeader(
+        handle: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The start time of the frame [bytes] into the samples lies in. */
+    external fun aiffTimeUs(
+        bytes: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+    ): Long
+
+    /** The byte offset into the samples of the frame playing at [timeUs], held inside [dataBytes]. */
+    external fun aiffSeekOffset(
+        timeUs: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+        dataBytes: Long,
+    ): Long
+
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(
         handle: Long,

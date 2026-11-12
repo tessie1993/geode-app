@@ -43,7 +43,6 @@
     <ID>ReturnCount:TextureStore.kt$TextureStore$private fun importOne(uri: Uri): TextureImportResult</ID>
     <ID>ReturnCount:TrackLibrary.kt$TrackLibrary$private fun readLocked(): List&lt;LibraryTrack&gt;?</ID>
     <ID>SwallowedException:VideoExporter.kt$VideoExporter$e: Exception</ID>
-    <ID>ThrowsCount:AiffExtractor.kt$AiffExtractor$private fun parseHeaders(input: ExtractorInput)</ID>
     <ID>ThrowsCount:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, outputRateHz: Int? = null, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>
     <ID>ThrowsCount:AudioTranscoder.kt$AudioTranscoder$private fun transcodeAiff( aiff: Long, maxDurationMs: Long, startMs: Long, outputRateHz: Int?, isCancelled: () -&gt; Boolean, onProgress: (Float) -&gt; Unit, ): Result</ID>
     <ID>TooGenericExceptionCaught:AudioTranscoder.kt$AudioTranscoder$t: Throwable</ID>

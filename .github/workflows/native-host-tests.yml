@@ -121,6 +121,10 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # The AIFF header scan the export's reader and the player's extractor share: every layout, the chunk walk, the
+          # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
+          ./aiff_header_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \

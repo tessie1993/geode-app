@@ -252,12 +252,6 @@ void chapters() {
     const int64_t past[] = {0, 200'000};
     check(chaptersFromMarkers(past, 2, 100'000)[1].durationMs == 0, "a marker past the end is an empty chapter");
     check(chaptersFromMarkers(late, 1, 100'000).empty(), "one marker is no chapters");
-
-    int64_t s[4];
-    int64_t d[4];
-    int32_t src[4];
-    check(geode_chapters_from_markers(late, 2, 120'000, s, d, src, 4) == 3 && src[0] == -1 && s[2] == 90'000,
-          "ABI chapters");
 }
 
 }  // namespace

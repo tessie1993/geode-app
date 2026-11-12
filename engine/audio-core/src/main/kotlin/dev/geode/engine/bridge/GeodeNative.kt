@@ -1546,18 +1546,6 @@ object GeodeNative {
         lengthSec: Int,
     ): Boolean
 
-    /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
-    external fun chaptersFromClips(
-        startsMs: LongArray,
-        durationsMs: LongArray,
-    ): LongArray
-
-    /** Chapter spans from markers as triples; source -1 is the lead-in that makes the list start at 0:00. */
-    external fun chaptersFromMarkers(
-        markersMs: LongArray,
-        totalMs: Long,
-    ): LongArray
-
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(
         input: ShortArray,

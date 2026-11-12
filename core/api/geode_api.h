@@ -1013,7 +1013,7 @@ GEODE_API void            geode_memory_trim(int android_level);
 /* ── Export planning and PCM maths (ADR 0006: core/output; ADR 0003 ports) ──────────────────────────────────
  * Pure functions, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender, LoopExtend,
  * AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are
- * output/FrameClock, LoopPlan, EncodePlan, Chapters, audio/dsp/PcmConvert and PcmTiming. */
+ * output/FrameClock, LoopPlan, EncodePlan, audio/dsp/PcmConvert and PcmTiming. */
 
 /* Frame clock (output/FrameClock): each value from the frame index alone, so nothing accumulates. */
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
@@ -1165,15 +1165,6 @@ GEODE_API void    geode_record_session_size(const geode_record_session*, int* ou
 GEODE_API int     geode_record_session_state(const geode_record_session*);
 GEODE_API void    geode_record_session_tee_closed(geode_record_session*);
 GEODE_API int     geode_record_session_tee_start(geode_record_session*, geode_viz* v, geode_export_pass* watermark);
-
-/* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
- * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */
-GEODE_API int     geode_chapters_from_clips(const int64_t* starts_ms, const int64_t* durations_ms, int count,
-                                            int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
-                                            int capacity);
-GEODE_API int     geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t total_ms,
-                                              int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
-                                              int capacity);
 
 /* PCM conversions (audio/dsp/PcmConvert). downmix returns the frames written (0: not a downmix). */
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,

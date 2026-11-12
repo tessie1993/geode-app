@@ -24,27 +24,6 @@ void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
     env->SetLongArrayRegion(out, 0, kLoopSpecLongs, values);
 }
 
-std::vector<int64_t> longs(JNIEnv* env, jlongArray array) {
-    const jsize n = array ? env->GetArrayLength(array) : 0;
-    std::vector<int64_t> v(static_cast<size_t>(n));
-    if (n > 0) env->GetLongArrayRegion(array, 0, n, reinterpret_cast<jlong*>(v.data()));
-    return v;
-}
-
-// Chapter spans as one long[] of (start ms, duration ms, source) triples.
-jlongArray chapterTriples(JNIEnv* env, int count, const std::vector<int64_t>& start, const std::vector<int64_t>& duration,
-                          const std::vector<int32_t>& source) {
-    std::vector<jlong> flat(static_cast<size_t>(count) * 3);
-    for (int i = 0; i < count; ++i) {
-        flat[static_cast<size_t>(i) * 3] = start[static_cast<size_t>(i)];
-        flat[static_cast<size_t>(i) * 3 + 1] = duration[static_cast<size_t>(i)];
-        flat[static_cast<size_t>(i) * 3 + 2] = source[static_cast<size_t>(i)];
-    }
-    jlongArray result = env->NewLongArray(static_cast<jsize>(flat.size()));
-    if (result && !flat.empty()) env->SetLongArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
-    return result;
-}
-
 }  // namespace
 
 extern "C" {
@@ -260,34 +239,6 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordRateLo
     int lowered = 0;
     geode_record_estimate_bytes(videoBps, lengthSec, &lowered);
     return lowered ? JNI_TRUE : JNI_FALSE;
-}
-
-// Chapters (output/Chapters).
-
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFromClips(JNIEnv* env, jobject,
-                                                                                         jlongArray startsMs,
-                                                                                         jlongArray durationsMs) {
-    const auto starts = longs(env, startsMs);
-    const auto durations = longs(env, durationsMs);
-    const int count = static_cast<int>(starts.size() < durations.size() ? starts.size() : durations.size());
-    std::vector<int64_t> s(static_cast<size_t>(count));
-    std::vector<int64_t> d(static_cast<size_t>(count));
-    std::vector<int32_t> src(static_cast<size_t>(count));
-    const int n = geode_chapters_from_clips(starts.data(), durations.data(), count, s.data(), d.data(), src.data(), count);
-    return chapterTriples(env, n, s, d, src);
-}
-
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFromMarkers(JNIEnv* env, jobject,
-                                                                                           jlongArray markersMs,
-                                                                                           jlong totalMs) {
-    const auto markers = longs(env, markersMs);
-    const int count = static_cast<int>(markers.size());
-    // A lead-in chapter may be added in front of the markers.
-    std::vector<int64_t> s(static_cast<size_t>(count) + 1);
-    std::vector<int64_t> d(static_cast<size_t>(count) + 1);
-    std::vector<int32_t> src(static_cast<size_t>(count) + 1);
-    const int n = geode_chapters_from_markers(markers.data(), count, totalMs, s.data(), d.data(), src.data(), count + 1);
-    return chapterTriples(env, n, s, d, src);
 }
 
 // PCM conversions (audio/dsp/PcmConvert).

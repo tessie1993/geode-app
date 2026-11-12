@@ -190,6 +190,8 @@ internal fun CustomizePanel(
     }
 }
 
+private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(SceneParamsCodec.pack(params))
+
 /**
  * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo
  * and ⋯ (Redo, Randomize every group, Reset this category, Keep it, Take it from a preset, Reset
@@ -212,8 +214,8 @@ private fun CustomizeHeader(
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val changed by remember(viewModel) {
-        viewModel.vizState.map { GeodeNative.customizeChangedCount(SceneParamsCodec.pack(it.params)) }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(remember(viewModel) { GeodeNative.customizeChangedCount(SceneParamsCodec.pack(viewModel.vizState.value.params)) })
+        viewModel.vizState.map { changedCount(it.params) }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(remember(viewModel) { changedCount(viewModel.vizState.value.params) })
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }

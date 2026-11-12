@@ -377,7 +377,6 @@ void resetPutsBackOnlyItsCategory() {
     check(customize::reset(changed, Category::Music).noteColor == defaults.noteColor, "Music reset puts Notes & key back");
 }
 
-// MilkDrop's mash-up: one category of another look laid over this one.
 void changedCountCountsLiveFieldsOffTheDefault() {
     const SceneParams defaults;
     SceneParams p;
@@ -395,6 +394,7 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     check(customize::changedCount(SceneParams::fromWire(wire)) == 1, "the wire frame counts the same");
 }
 
+// MilkDrop's mash-up: one category of another look laid over this one.
 void borrowTakesOnlyItsCategory() {
     SceneParams from;
     from.speed = 2.0f;   // Motion

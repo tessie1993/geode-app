@@ -38,6 +38,9 @@ inline constexpr std::string_view kStyleName = "player.css";
 inline constexpr std::string_view kStreamName = "stream.mp4";
 // Browsers fed at once; past it a viewer gets 503 and its page retries (the server's pool is small).
 inline constexpr int kMaxStreams = 3;
+// WebRTC's signalling (WebRtcRule.hpp): the page POSTs its offer here and reads the phone's answer back. Plain
+// http under the token like everything else; only the media that follows is encrypted (DTLS-SRTP).
+inline constexpr std::string_view kRtcName = "rtc";
 
 // The token: 32 lowercase hex characters (16 random bytes).
 inline constexpr size_t kTokenChars = 32;
@@ -53,6 +56,7 @@ enum class Resource : int {
     Segment = 7,
     Redirect = 8,   // /<token> without its slash: 308 to /<token>/, so the page's relative names resolve
     Stream = 9,     // stream.mp4: the browser's live feed, no Content-Length, held open while the page plays
+    Rtc = 10,       // rtc: POST an offer (application/sdp), get the answer; the only resource that takes a body
 };
 
 struct Route {
@@ -71,7 +75,8 @@ bool tokenMatches(std::string_view candidate, std::string_view token);
 // Where a request goes: its method and request-target as the request line has them. 200 with a resource,
 // 204 for OPTIONS on a known path (the TV receiver's CORS preflight), 308 for the bare token, 405 for
 // another method on a known path, 404 for everything else (a wrong or malformed token included). The feed
-// (stream.mp4) has no preflight: only the page, on the phone's own origin, reads it.
+// (stream.mp4) has no preflight: only the page, on the phone's own origin, reads it. rtc takes POST alone
+// (no preflight either: the page is same-origin) and everything else takes no POST.
 Route route(std::string_view method, std::string_view target, std::string_view token);
 
 // The response head (status line, headers, blank line) for a status and resource with a body of length
@@ -81,6 +86,32 @@ Route route(std::string_view method, std::string_view target, std::string_view t
 // stream's files and their preflight add CORS for the TV's receiver; the page adds its CSP and denies
 // framing; the redirect names /<token>/.
 std::string responseHead(int status, Resource resource, int64_t length, std::string_view token);
+
+// The body a request announces in its header lines (each without its line break): its Content-Length, or
+// kNoBody when there is none; kBadBody for a Transfer-Encoding (no chunked bodies), two lengths, a length that
+// is not a plain decimal, or one over max. The shell reads exactly that many bytes, within the deadline.
+inline constexpr int64_t kNoBody = -1;
+inline constexpr int64_t kBadBody = -2;
+int64_t bodyLength(const std::string_view* headers, size_t count, int64_t max);
+
+// The status of the answer to a POST on rtc, from what the WebRTC link said (geode_webrtc_answer: a length,
+// or a negative GEODE_WEBRTC_REFUSED_*): 200 with the answer; 503 while the stream has no picture yet or the
+// browsers are full (the page then uses the fMP4 feed; it is not retried there); 400 for any other refusal.
+int rtcStatus(int answerResult);
+
+// ---- The link the user sees (owner: "Wrap ip link in link maker so link is not exact ip adress") ----
+//
+// The page's address written with its IPv4 host as one decimal number (http://3232235876:port/token/ for
+// 192.168.1.100): the WHATWG URL standard's IPv4 parser reads a host that is a single number as the whole
+// 32-bit address, every browser follows it, and nothing is looked up, so it works with no internet and no DNS.
+// It hides the dotted address from a glance, not from the network: the browser shows the dotted form once it
+// opens the page, and anyone on the Wi-Fi sees the phone's address in the traffic. address 0 or a port outside
+// 1..65535 gives "". A dotted form (the server's own) is still what the TV's receiver is handed.
+std::string shareUrl(uint32_t address, int port, std::string_view token);
+// A short name for the sheet to show beside the QR code ("Blue Comet"), the same for the same token, so a
+// viewer can tell which phone's link they opened; two words from the token's hash, saying nothing of the
+// address and too little of the token to help guess it.
+std::string friendlyLabel(std::string_view token);
 
 // The RFC 6381 codecs string of the init segment's tracks, video first: "avc1.PPCCLL" from the avcC
 // (profile, constraint flags, level), "mp4a.40.N" from the esds (object type, audio object type).

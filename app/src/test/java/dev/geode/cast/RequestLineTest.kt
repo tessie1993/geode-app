@@ -39,7 +39,7 @@ class RequestLineTest {
             flush()
         }
         val r = RequestLineReader.read(accepted, deadlineIn(5_000))
-        assertEquals(RequestLine.Line("GET /abc/live.m3u8 HTTP/1.1"), r)
+        assertEquals(RequestLine.Line("GET /abc/live.m3u8 HTTP/1.1", listOf("Host: x")), r)
     }
 
     @Test
@@ -48,8 +48,32 @@ class RequestLineTest {
             write("GET /a/seg3.m4s HTTP/1.1\r\nHost: x\r\nOrigin: https://r\r\n\r\nNEXT".toByteArray())
             flush()
         }
-        assertEquals(RequestLine.Line("GET /a/seg3.m4s HTTP/1.1"), RequestLineReader.read(accepted, deadlineIn(5_000)))
+        assertEquals(
+            RequestLine.Line("GET /a/seg3.m4s HTTP/1.1", listOf("Host: x", "Origin: https://r")),
+            RequestLineReader.read(accepted, deadlineIn(5_000)),
+        )
         assertEquals('N'.code, accepted.getInputStream().read())
+    }
+
+    @Test
+    fun aBodyIsReadToItsLength() {
+        client.getOutputStream().apply {
+            write("POST /a/rtc HTTP/1.1\r\nContent-Length: 5\r\n\r\nv=0\r\nNEXT".toByteArray())
+            flush()
+        }
+        val head = RequestLineReader.read(accepted, deadlineIn(5_000))
+        assertEquals(RequestLine.Line("POST /a/rtc HTTP/1.1", listOf("Content-Length: 5")), head)
+        assertEquals("v=0\r\n", RequestLineReader.readBody(accepted, deadlineIn(5_000), 5)?.toString(Charsets.US_ASCII))
+        assertEquals('N'.code, accepted.getInputStream().read())
+    }
+
+    @Test
+    fun aShortBodyIsDroppedAtTheDeadline() {
+        client.getOutputStream().apply {
+            write("ab".toByteArray())
+            flush()
+        }
+        assertEquals(null, RequestLineReader.readBody(accepted, deadlineIn(200), 5))
     }
 
     @Test

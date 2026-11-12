@@ -209,9 +209,10 @@ internal class CastStream(
                 val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 val now = System.nanoTime()
                 val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, encoder.width, encoder.height)
-                val stageDue = tee != 0L && fallback == null && now - teeOpenedNs < STAGE_FIRST_COPY_NS
-                if (!fromStage && stageDue) {
-                    // The stage's first copy is a frame away: wait for it rather than build a second renderer.
+                val stageDraws = GeodeNative.stageRun(CastMirror.stageFlags) and GeodeNative.STAGE_DRAWS != 0
+                if (!fromStage && tee != 0L && GeodeNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
+                    // The stage is on screen and its first copy is coming (a new surface stages its scene over
+                    // several frames): wait for it rather than have a second renderer show another visual first.
                     audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
                     continue
                 }
@@ -420,9 +421,6 @@ internal class CastStream(
 
         /** The fallback renderer is freed after the stage has led this long (30 s): it costs scenes and a sound engine. */
         const val FALLBACK_IDLE_NS = 30_000_000_000L
-
-        /** How long a new stream waits for the stage's first copy before the fallback draws (half a second). */
-        const val STAGE_FIRST_COPY_NS = 500_000_000L
 
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active

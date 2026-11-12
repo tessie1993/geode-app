@@ -257,6 +257,10 @@ GEODE_API void            geode_viz_set_cast_source(geode_viz*, int on);
 GEODE_API geode_cast_tee* geode_cast_tee_open(int width, int height, int fps);
 GEODE_API int             geode_cast_tee_draw(geode_cast_tee*, int64_t now_ns, int width, int height);
 GEODE_API void            geode_cast_tee_close(geode_cast_tee*);
+/* 1 while a new stream should leave this frame slot empty for the stage's first copy instead of drawing on its own
+ * renderer: the shell says the stage draws (GEODE_STAGE_DRAWS), that renderer is not made yet and the tee opened
+ * since_open_ns ago, under 3 s. Pure (viz/frame/CastTeeRule). */
+GEODE_API int             geode_cast_tee_await_stage(int stage_draws, int fallback_made, int64_t since_open_ns);
 /* Shake to screenshot's picture: the next frame's finished visual (after the composite and the edge glow,
  * before the UI blur, as Record's tee sees it) is read back once, rows top first, RGBA8. Any thread.
  * geode_viz_still_size gives its width and height (1 once it is ready, 0 before); geode_viz_still_read copies
@@ -842,6 +846,18 @@ GEODE_API void            geode_styles_lead(int count, int lead, int* out);
 #define GEODE_STAGE_DRAWS                    (1u << 0)
 #define GEODE_STAGE_CAST_LEADS_AUTO          (1u << 1)
 GEODE_API unsigned        geode_stage_run(unsigned flags);
+
+/* Where the shell lays the stage's view out (viz/StageRun host): flags are GEODE_STAGE_HOST_*, bounds the Visuals
+ * screen's rect in window pixels (left, top, right, bottom; empty before Visuals was laid out), window_w x window_h
+ * the window. rect_out gets the view's rect (left, top, right, bottom; empty: 0 x 0): the bounds, or while casting
+ * the window when there are none (the tee turns and crops the picture to the stream, tee::place). Returns
+ * GEODE_STAGE_HOST_HIDDEN, _FAINT (drawing under the other screens) or _OPAQUE. Pure. */
+#define GEODE_STAGE_HOST_SHOWN               (1u << 0)
+#define GEODE_STAGE_HOST_CASTING             (1u << 1)
+#define GEODE_STAGE_HOST_HIDDEN              0
+#define GEODE_STAGE_HOST_FAINT               1
+#define GEODE_STAGE_HOST_OPAQUE              2
+GEODE_API int             geode_stage_host(unsigned flags, const int* bounds, int window_w, int window_h, int* rect_out);
 
 /* The connected display the stage shows on (viz/StageRun): flags per display are the GEODE_STAGE_DISPLAY_* bits
  * plus its failures so far << GEODE_STAGE_DISPLAY_FAILURE_SHIFT. pick returns the index of the display to use

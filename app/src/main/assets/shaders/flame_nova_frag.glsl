@@ -29,7 +29,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     f.x = 2.0 * (ll - mix(0.35, 1.5, gFlameForm) * log(waist)) - uTime * FLAME_RATE(45);
     f.y = 8.0 * th / FLAME_TAU + 1.4 * ll;
     hue = vec2(0.3 * ll - 0.1 * log(waist), 0.5 + 0.2 * ll);
-    float reach = smoothstep(3.6, 2.2, l) * smoothstep(0.0, 0.08, waist);
+    float reach = (1.0 - smoothstep(2.2, 3.6, l)) * smoothstep(0.0, 0.08, waist);
     wt = reach * vec2(0.85, 0.35);
 }
 

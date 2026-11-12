@@ -146,7 +146,7 @@ vec3 hollowBend(vec3 p) {
 /** How deep in a groove a relief coordinate is, 0..1. */
 float hollowCut(float relief) {
     float c = abs(fract(relief) - 0.5);
-    return smoothstep(0.1, 0.0, c);
+    return 1.0 - smoothstep(0.0, 0.1, c);
 }
 
 /** The eye, held where the air is. */
@@ -166,5 +166,8 @@ float hollowDither() {
 vec4 hollowFinish(vec3 col, float exposure) {
     col *= exposure * 1.4 * neonGlow() * (1.0 + 0.5 * neonKnob(0));
     col = max(mix(vec3(dot(col, vec3(0.299, 0.587, 0.114))), col, 1.25), 0.0);
-    return vec4(grade(neonAces(col)), 1.0);
+    col = grade(neonAces(col));
+    // No pixel leaves as a NaN or an infinity: the feedback pass would carry it for good.
+    if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
+    return vec4(col, 1.0);
 }

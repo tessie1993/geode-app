@@ -19,7 +19,7 @@ out vec4 fragColor;
 // swelling and thinning as they go.
 //
 // Morph grows the roots: from threads to trunks that crowd the burrow. Worst
-// case 72 steps, no noise.
+// case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);

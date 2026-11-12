@@ -20,7 +20,7 @@ out vec4 fragColor;
 // patches.
 //
 // Morph slides the surface from a gyroid's saddles to a lattice of rounded
-// cells, and the sheets with it. Worst case 72 samples, no folds, no noise.
+// cells, and the sheets with it. Worst case 90 samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     vec3 q = p * 1.5707963;

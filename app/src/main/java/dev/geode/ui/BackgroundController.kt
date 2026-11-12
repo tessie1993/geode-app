@@ -75,8 +75,7 @@ internal class BackgroundController(
         setPrefs(_prefs.value.copy(uri = null))
     }
 
-    fun setBlend(blend: Int) =
-        setPrefs(_prefs.value.copy(blend = GeodeNative.underlayBlendName(blend)), redecode = false)
+    fun setBlend(blend: Int) = setPrefs(_prefs.value.copy(blend = GeodeNative.underlayBlendName(blend)), redecode = false)
 
     fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = GeodeNative.underlayClampAmount(amount)), redecode = false)
 

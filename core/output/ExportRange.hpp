@@ -7,6 +7,8 @@ namespace geode::output {
 struct ExportRange {
     int64_t startMs = 0;
     int64_t durationMs = 0;
+
+    constexpr int64_t endMs() const { return startMs + durationMs; }
 };
 
 // The shortest part a render is offered: under a second there is nothing to see.

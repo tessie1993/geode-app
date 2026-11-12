@@ -179,6 +179,22 @@ void testClamps() {
           "C ABI clamps");
 }
 
+// The saved names are the ones already in users' prefs; anything else falls back to screen.
+void testBlends() {
+    check(underlay::kBlendCount == 3 && geode_underlay_blend_count() == 3, "three blends");
+    check(underlay::blendOf("SCREEN") == 0 && underlay::blendOf("MULTIPLY") == 1 && underlay::blendOf("ADD") == 2,
+          "saved names read back as the wire ints");
+    for (int i = 0; i < underlay::kBlendCount; ++i) {
+        check(underlay::blendOf(underlay::blendName(i)) == i, "a blend's name reads back as itself");
+    }
+    check(underlay::blendOf(nullptr) == 0 && underlay::blendOf("") == 0 && underlay::blendOf("screen") == 0 &&
+              underlay::blendOf("OVERLAY") == 0,
+          "an unknown name is screen");
+    check(underlay::blendOf(underlay::blendName(-1)) == 0 && underlay::blendOf(underlay::blendName(3)) == 0,
+          "an index out of range names screen");
+    check(geode_underlay_blend_of("ADD") == 2 && geode_underlay_blend_of(geode_underlay_blend_name(1)) == 1, "C ABI blends");
+}
+
 // #999: the renderer keeps the RGBA8 bytes GL takes, converted once when the image is set.
 void testRgbaBytes() {
     const uint32_t argb[3] = {0x80112233u, 0xFF000000u, 0x00FFFFFFu};
@@ -201,6 +217,7 @@ int main() {
     testDim();
     testBlur();
     testClamps();
+    testBlends();
     if (failures) {
         std::printf("underlay_test: %d failure(s)\n", failures);
         return 1;

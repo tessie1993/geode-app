@@ -4,7 +4,6 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.UnderlayBlend
 
 /**
  * The background image behind the scene: which picture, how it blends into the composite, and
@@ -16,7 +15,8 @@ import dev.geode.render.UnderlayBlend
  */
 data class BackgroundPrefs(
     val uri: String? = null,
-    val blend: UnderlayBlend = UnderlayBlend.SCREEN,
+    /** The blend's saved name; `GeodeNative.underlayBlendOf` gives the int the renderer takes. */
+    val blend: String = "SCREEN",
     val amount: Float = 0.6f,
     val blurRadius: Int = 0,
     val dim: Float = 0f,
@@ -29,9 +29,7 @@ class BackgroundPrefsStore(
         val d = BackgroundPrefs()
         return BackgroundPrefs(
             uri = prefs.getString(KEY_URI, null),
-            blend =
-                runCatching { UnderlayBlend.valueOf(prefs.getString(KEY_BLEND, null) ?: d.blend.name) }
-                    .getOrDefault(d.blend),
+            blend = prefs.getString(KEY_BLEND, null) ?: d.blend,
             amount = GeodeNative.underlayClampAmount(prefs.getFloat(KEY_AMOUNT, d.amount)),
             blurRadius = GeodeNative.underlayClampBlur(prefs.getInt(KEY_BLUR, d.blurRadius)),
             dim = GeodeNative.underlayClampDim(prefs.getFloat(KEY_DIM, d.dim)),
@@ -42,7 +40,7 @@ class BackgroundPrefsStore(
         prefs
             .edit()
             .putString(KEY_URI, p.uri)
-            .putString(KEY_BLEND, p.blend.name)
+            .putString(KEY_BLEND, p.blend)
             .putFloat(KEY_AMOUNT, p.amount)
             .putInt(KEY_BLUR, p.blurRadius)
             .putFloat(KEY_DIM, p.dim)

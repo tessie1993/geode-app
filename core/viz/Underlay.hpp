@@ -27,6 +27,16 @@ float clampAmount(float amount);
 float clampDim(float dim);
 int clampBlur(int radius);
 
+// How the image meets the scene: the int geode_viz_set_underlay_rgba takes and composite_frag.glsl's
+// uUnderlayBlend reads. The names are what the shell saves, so they never change; a name not in the
+// list (or null) reads as kBlendScreen, and an index outside it gives kBlendScreen's name.
+inline constexpr int kBlendScreen = 0;
+inline constexpr int kBlendMultiply = 1;
+inline constexpr int kBlendAdd = 2;
+inline constexpr int kBlendCount = 3;
+const char* blendName(int blend);
+int blendOf(const char* name);
+
 struct Rect {
     int x = 0;
     int y = 0;

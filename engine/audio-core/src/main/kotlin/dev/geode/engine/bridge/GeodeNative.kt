@@ -1113,6 +1113,14 @@ object GeodeNative {
 
     external fun underlayBlurMax(): Int
 
+    /** The background blends [vizSetUnderlay] takes, 0 until this count: 0 screen, 1 multiply, 2 add. */
+    external fun underlayBlendCount(): Int
+
+    /** The name a blend is saved under; [underlayBlendOf] reads it back (an unknown or null name is 0). */
+    external fun underlayBlendName(blend: Int): String
+
+    external fun underlayBlendOf(name: String?): Int
+
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */
@@ -1276,27 +1284,26 @@ object GeodeNative {
         values: FloatArray,
     )
 
-    external fun loopJobSetLfo(
+    external fun loopJobSetLfos(
         job: Long,
-        slot: Int,
-        config: FloatArray,
+        lfos: String,
     )
 
-    external fun loopJobSetAdsr(
+    external fun loopJobSetAdsrs(
         job: Long,
-        slot: Int,
-        config: FloatArray,
+        adsrs: String,
     )
 
+    /** [saved] null: the default tuning. */
     external fun loopJobSetSoundTuning(
         job: Long,
-        tuning: FloatArray,
+        saved: FloatArray?,
     )
 
-    /** [routes] null: the user set no reactions of their own. */
-    external fun loopJobSetUserReactions(
+    /** [reactions] null: Auto, the style's own play. */
+    external fun loopJobSetReactions(
         job: Long,
-        routes: FloatArray?,
+        reactions: String?,
     )
 
     external fun loopJobSetMotion(

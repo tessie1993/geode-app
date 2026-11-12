@@ -976,6 +976,23 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayBlurMax(JNIEnv*, jobject) {
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendCount(JNIEnv*, jobject) {
+    return geode_underlay_blend_count();
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendName(JNIEnv* env, jobject, jint blend) {
+    return env->NewStringUTF(geode_underlay_blend_name(blend));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendOf(JNIEnv* env, jobject, jstring name) {
+    if (!name) return geode_underlay_blend_of(nullptr);
+    Utf8Chars text(env, name);
+    return geode_underlay_blend_of(text.get());
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_thermalTakeWarmNote(JNIEnv*, jobject, jfloat capFps, jfloat pacedFps) {
     return geode_thermal_take_warm_note(capFps, pacedFps);
 }

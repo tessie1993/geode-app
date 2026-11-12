@@ -130,7 +130,7 @@ void anOldLookWithRetiredNamesStillLoads() {
     const std::pair<const char*, float> kOldLook[] = {
         {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
         {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
-        {"motionDrift", 0.8f},
+        {"motionDrift", 0.8f}, {"beatResponse", 1.9f},
     };
     const SceneParams fresh;
     SceneParams p;
@@ -157,7 +157,8 @@ void anOldLookWithRetiredNamesStillLoads() {
     p.toWire(a.data());
     q.toWire(b.data());
     check(a == b, "a retired slot's wire value is ignored");
-    check(!SceneParams::retired(ParamSlot::beatResponse), "beatResponse is not retired");
+    check(SceneParams::retired(ParamSlot::beatResponse) && static_cast<int>(ParamSlot::beatResponse) == 11,
+          "beatResponse is retired and keeps slot 11");
 }
 
 void theWireRoundTrips() {
@@ -469,7 +470,7 @@ void everyLiveRowHasOneMeta() {
     check(SceneParams::meta(ParamSlot::speed).scope == catalogue::Scope::SceneClock, "Speed paces the scene clock");
     check(std::string(SceneParams::meta(ParamSlot::paletteBaseOverride).label) == "Palette", "a hue override belongs to Palette");
     check(std::string(SceneParams::meta(ParamSlot::paletteStop4).label) == "Palette", "your colours' stops belong to Palette");
-    check(std::string(SceneParams::meta(ParamSlot::beatResponse).label).empty(), "beatResponse has no control");
+    check(!SceneParams::meta(ParamSlot::beatResponse).live, "beatResponse is retired: no meta, no control");
     check((SceneParams::meta(ParamSlot::camYaw).flags & kMod) != 0 && (SceneParams::meta(ParamSlot::camTouch).flags & kMod) == 0,
           "a modulation target is flagged, a switch is not");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");

@@ -86,7 +86,8 @@ class PresetGoldenTest {
         // Retired and unknown keys are not read: the frame carries each retired row's default.
         val frame = SceneParamsCodec.pack(p)
         val retired = ParamSchema.params.filter { it.retired }
-        assertEquals(setOf("pulse", "shake", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired.map { it.name }.toSet())
+        val retiredNames = setOf("pulse", "shake", "beatResponse", "flash", "glitch", "strobe", "formDrive", "motionOrbit")
+        assertEquals(retiredNames, retired.map { it.name }.toSet())
         for (spec in retired) assertEquals(spec.name, spec.default, frame[spec.slot])
         // Keys the old file never had come back as the schema's defaults.
         assertEquals(SceneParams.DEFAULT.flowCurl, p.flowCurl)

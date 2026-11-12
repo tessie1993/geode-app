@@ -302,10 +302,10 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"liquidBorn", "a Liquid mode pick"},
         {"liquidAge", "a Liquid mode pick"},
         {"liquidSurface", "a Liquid mode pick"},
-        {"beatResponse", "inert since wave three"},
         // SceneParams::retired: no reader, so no control and no roll.
         {"pulse", "retired"},
         {"shake", "retired"},
+        {"beatResponse", "retired"},
         {"flash", "retired"},
         {"glitch", "retired"},
         {"strobe", "retired"},

@@ -14,7 +14,6 @@ void CymaticsScene::init() {
     uniforms_ = UniformCache(0);
     programOk_ = false;
     plate_.reset();
-    drops_.reset();
     touchPhase_ = 0.0f;
     std::string error;
     program_ = loader_.build("quad_vert.glsl", "cymatics_field_frag.glsl", &error);
@@ -58,9 +57,6 @@ void CymaticsScene::draw(float timeSeconds) {
     float totalAmplitude = 0.0f;
     for (int i = 0; i < modeCount_; ++i) totalAmplitude += modes_[static_cast<size_t>(i) * 4 + 2];
 
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float swirlRate = std::clamp(p.cymaticsSwirl * style_.swirl, -1.0f, 1.0f) * speed;
     swirlPhase_ = cymatics::wrapPhase(swirlPhase_ + swirlRate * dt, kTwoPi);
@@ -71,8 +67,8 @@ void CymaticsScene::draw(float timeSeconds) {
     // The finger's ripples ring at the loudest mode's own frequency so they keep time with the plate.
     const float touchK = std::clamp(3.1415927f * plate_.dominantWavenumber(), kMinTouchK, kMaxTouchK);
     touchPhase_ = cymatics::wrapPhase(touchPhase_ + cymatics::vibrationHz(plate_.dominantWavenumber()) * speed * kTwoPi * dt, kTwoPi);
-
-    if (style_.shaderStyle == kStyleFaraday) drops_.update(dt, hit);
+    // No hit of its own: the beat pulse (hit times the retired beat-response slot) and Faraday's
+    // hit-spawned droplets are gone with the hidden hit reactions.
 
     toneHue_ = cymatics::approachHue(toneHue_, live::brightness(f), cymatics::smoothing(dt, kToneTauSeconds));
     const float toneNudge = std::sin(toneHue_ * kTwoPi) * kToneHueSpan;
@@ -98,12 +94,10 @@ void CymaticsScene::draw(float timeSeconds) {
     glUniform1f(loc("uSwirlPhase"), swirlPhase_);
     glUniform1f(loc("uTravelPhase"), travelPhase_);
     glUniform1f(loc("uDriftShift"), driftShift_);
-    glUniform4fv(loc("uDrops"), uniforms_.arrayCount("uDrops", cymatics::Drops::kSlots), drops_.packed().data());
     glUniform1f(loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset + toneNudge);
     glUniform1f(loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(loc("uEnergy"), clampedBand(f.rms));
     glUniform1f(loc("uTreble"), clampedBand(live::treble(f)));
-    glUniform1f(loc("uBeat"), beatPulse_);
     glUniform1f(loc("uExposure"), kExposure);
     glUniform1f(loc("uTouchK"), touchK);
     glUniform1f(loc("uTouchPhase"), touchPhase_);

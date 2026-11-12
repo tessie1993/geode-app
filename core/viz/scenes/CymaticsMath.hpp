@@ -4,7 +4,8 @@
 
 namespace geode::viz::cymatics {
 
-// Cymatics: the plate modes and how bands map onto them, the resonant Plate, and the Drops.
+// Cymatics: the plate modes and how bands map onto them, and the resonant Plate. (The Drops, Faraday's
+// droplet rings spawned on every hit, were a hidden hit reaction and are gone.)
 constexpr float kMinBandHz = 30.0f;
 constexpr float kMaxBandHz = 16000.0f;
 constexpr int kMaxOrder = 14;
@@ -66,30 +67,6 @@ private:
     float mapFundamental_ = -1.0f;
     std::vector<float> smoothed_;
     float dominantWavenumber_ = 0.0f;
-};
-
-class Drops {
-public:
-    static constexpr int kSlots = 6;
-    static constexpr float kOmega = 2.4f;
-    static constexpr float kDecaySeconds = 1.4f;
-    static constexpr float kSpawnThreshold = 0.3f;
-    static constexpr float kCooldownSeconds = 0.12f;
-    static constexpr float kDropSilence = 0.004f;
-    static constexpr float kSpread = 1.1f;
-
-    const std::array<float, kSlots * 4>& packed() const { return packed_; }
-    void update(float dt, float hit);
-    void reset();
-
-private:
-    void spawn(float strength);
-    static float hash(int n);
-
-    std::array<float, kSlots * 4> packed_{};
-    int next_ = 0;
-    float cooldown_ = 0.0f;
-    int seed_ = 0;
 };
 
 }  // namespace geode::viz::cymatics

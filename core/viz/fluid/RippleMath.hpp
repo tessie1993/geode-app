@@ -25,10 +25,10 @@ float inkDissipation(float dissipation, float dt);
 std::vector<StrokeDrop> strokeDrops(float x, float y, float dx, float dy, float dt, float radius, float strength);
 std::pair<float, float> overlayDropPosition(int index, float aspect);
 
-// The ripple overlay's drops: rings on the heard transient, sparkles on bright treble.
+// The ripple overlay's drops: sparkles on bright treble. (Its rings on every heard hit were a hidden hit
+// reaction and are gone: what moves on a hit is the reaction matrix alone.)
 class OverlayDrops {
 public:
-    static constexpr int kBeatDrops = 2;
     static constexpr int kSparkleInterval = 6;
     static constexpr float kSparkleThreshold = 0.5f;
 
@@ -40,7 +40,6 @@ public:
 private:
     int frame_ = 0;
     int dropIndex_ = 0;
-    live::Edge hitEdge_;
 };
 
 }  // namespace geode::viz::fluid::ripple

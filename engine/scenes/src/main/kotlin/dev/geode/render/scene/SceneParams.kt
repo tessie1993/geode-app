@@ -12,8 +12,6 @@ data class SceneParams(
     val driftX: Float = 0f,
     val driftY: Float = 0f,
     val audioDrive: Float = 1f,
-    // Inert since wave three; removed with the next format bump.
-    val beatResponse: Float = 1f,
     val turbulence: Float = 0f,
     val density: Float = 1f,
     /**

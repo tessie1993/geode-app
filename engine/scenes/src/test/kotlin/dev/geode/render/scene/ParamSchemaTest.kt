@@ -45,7 +45,7 @@ class ParamSchemaTest {
     @Test
     fun retiredRowsKeepTheirSlotAndHaveNoField() {
         val retired = ParamSchema.params.filter { it.retired }.map { it.name }
-        assertEquals(listOf("pulse", "shake", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired)
+        assertEquals(listOf("pulse", "shake", "beatResponse", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired)
         val declared = SceneParams::class.java.declaredFields
         val fields = declared.map { it.name }.toSet()
         ParamSchema.params.forEach { assertEquals(it.name, !it.retired, it.name in fields) }

@@ -164,11 +164,7 @@ float catchWellAmplitude(float speed, float catchRadius, float rippleStrength) {
 
 namespace curl {
 
-float beatDrive(float beatEnvelope, float beatResponse) { return beatEnvelope * std::clamp(beatResponse, 0.0f, 2.0f); }
-
-float fieldAmp(float audioDrive, float beatDrive) {
-    return kBaseAmp * std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive) * (1.0f + std::clamp(beatDrive, 0.0f, 2.0f) * kBeatAmp);
-}
+float fieldAmp(float audioDrive) { return kBaseAmp * std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive); }
 
 float retention(float trailLength, bool trails) {
     if (!trails) return kOffRetention;
@@ -178,8 +174,6 @@ float retention(float trailLength, bool trails) {
 float fadeAlpha(bool trails, float trailLength, float dt) { return 1.0f - std::pow(retention(trailLength, trails) * 0.97f, dt * 60.0f); }
 
 float warpDecay(float retentionValue, float dt) { return std::pow(std::clamp(retentionValue * 0.97f + 0.02f, 0.0f, 0.99f), dt * 60.0f); }
-
-float particleBrightness(float beatEnvelope) { return kBaseBrightness + std::clamp(beatEnvelope, 0.0f, 1.0f) * kBeatBrightness; }
 
 }  // namespace curl
 

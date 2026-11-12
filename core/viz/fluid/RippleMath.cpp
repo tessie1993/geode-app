@@ -47,19 +47,10 @@ std::pair<float, float> overlayDropPosition(int index, float aspect) {
 void OverlayDrops::reset() {
     frame_ = 0;
     dropIndex_ = 0;
-    hitEdge_.reset();
 }
 
 void OverlayDrops::tick(const GeodeSoundFrame& features, float aspect, const Queue& queue) {
     frame_++;
-    const float hit = live::hit(features);
-    if (hitEdge_.step(features)) {
-        const float amp = (0.22f + 0.4f * std::clamp(live::bass(features), 0.0f, 1.5f)) * hit;
-        for (int i = 0; i < kBeatDrops; ++i) {
-            const auto [x, y] = overlayDropPosition(dropIndex_++, aspect);
-            queue(x, y, 0.055f, amp);
-        }
-    }
     if (live::treble(features) > kSparkleThreshold && frame_ % kSparkleInterval == 0) {
         const auto [x, y] = overlayDropPosition(dropIndex_++, aspect);
         queue(x, y, 0.03f, 0.1f * std::min(live::treble(features), 2.0f));

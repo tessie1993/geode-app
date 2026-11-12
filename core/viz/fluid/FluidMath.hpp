@@ -193,23 +193,20 @@ float catchWellRadius(float catchRadius);
 float catchWellAmplitude(float speed, float catchRadius, float rippleStrength);
 }  // namespace water
 
-// Curl flow: beat drive, field amplitude, trail retention and particle brightness.
+// Curl flow: field amplitude, trail retention and particle brightness. No hit reaches either: the swell
+// and flare on every hit (the hit times the retired beat-response slot) were hidden reactions, gone.
 namespace curl {
 constexpr float kMinRetention = 0.6f;
 constexpr float kOffRetention = 0.45f;
 constexpr float kBaseBrightness = 0.85f;
-constexpr float kBeatBrightness = 0.35f;
 constexpr float kBaseAmp = 0.55f;
-constexpr float kBeatAmp = 0.9f;
 /** The population Curl Flow's brightness was tuned on, before its count followed the quality tier. */
 constexpr int kRefParticles = 49152;
 
-float beatDrive(float beatEnvelope, float beatResponse);
-float fieldAmp(float audioDrive, float beatDrive);
+float fieldAmp(float audioDrive);
 float retention(float trailLength, bool trails = true);
 float fadeAlpha(bool trails, float trailLength, float dt);
 float warpDecay(float retention, float dt);
-float particleBrightness(float beatEnvelope);
 }  // namespace curl
 
 }  // namespace geode::viz::fluid

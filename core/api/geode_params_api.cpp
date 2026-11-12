@@ -53,7 +53,9 @@ int geode_params_randomize(const char* style_id, const char* tab, const char* lo
             return 0;
         }
     }
-    const SceneParams rolled = randomizer::randomize(current, seed, only, style_id ? style_id : "", lockedSet(locked));
+    const std::string style = style_id ? style_id : "";
+    const SceneParams rolled = only ? randomizer::randomize(current, seed, only, style, lockedSet(locked))
+                                    : customize::randomizeAll(current, seed, style, lockedSet(locked));
     return copyOut(current, rolled, out);
 }
 

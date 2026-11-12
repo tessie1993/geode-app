@@ -348,6 +348,8 @@ const std::set<std::string>& sharedStageFields() {
         "trails", "trailLength", "trailZoom", "trailWarp",
         "flowEnabled", "flowStrength", "flowForce", "flowCurl", "liquidBorn", "liquidAge", "liquidSurface",
         "endlessZoom", "endlessZoomSpeed", "camFlat",
+        // The dive's tunnel (Customize › Dive): DivePass draws it over every style kind's finished picture.
+        "diveSpacing", "diveTwist", "diveAimX", "diveAimY", "diveShape", "diveBlend", "diveFog", "diveLens", "diveFollow",
         "rippleOverlayEnabled", "rippleOverlayStrength", "rippleOverlaySpecular", "waterWaveSpeed", "waterDamping",
         "camPath", "camFly", "camOrbit", "camFov", "camShake", "camPush", "camYaw", "camPitch", "camRoll", "camSmooth",
         "camTouch", "camGyro",

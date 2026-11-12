@@ -7,12 +7,16 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import dev.geode.data.BehaviourCodec
+import dev.geode.data.BehaviourPrefs
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.MediaStoreSource
 import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PerformanceStore
 import dev.geode.data.SharedPrefsUserDataRepository
 import dev.geode.data.UserDataRepository
+import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.data.prefs.SettingsRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +32,13 @@ class GeodeContainer(
     val prefsFiles = GeodePrefsFiles(context)
 
     val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+
+    /**
+     * Settings' Behaviour choices, one instance per process (#1009, PR 4). Loaded on IO from here, at process
+     * start, so the playback service's listeners read [SettingsRepository.value] long after it has landed;
+     * Settings and the last screen shown write through [SettingsRepository.update].
+     */
+    val behaviour: SettingsRepository<BehaviourPrefs> = PrefsSettingsRepository(prefsFiles.general, BehaviourCodec, appScope)
 
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }

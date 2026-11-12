@@ -120,7 +120,9 @@ void main() {
 
     vec3 liquid = prev;
     float r = uBornR;
-    float bornMask = uBornGain * (1.0 - smoothstep(r * 0.5, r, length(c - uVp)));
+    // A bell with no plateau: a disc with a flat top and a narrow rim left a ring the dive magnified.
+    float bell = 1.0 - smoothstep(0.0, r * 1.25, length(c - uVp));
+    float bornMask = uBornGain * bell * bell;
     if (uFeedback == 1) {
         vec3 style = texture(uStyle, vUv).rgb;
         float gx = luma(texture(uStyle, vUv + vec2(uStyleTexel.x, 0.0)).rgb) - luma(texture(uStyle, vUv - vec2(uStyleTexel.x, 0.0)).rgb);

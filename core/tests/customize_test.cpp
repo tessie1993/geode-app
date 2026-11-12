@@ -126,7 +126,8 @@ void basicsAreFirstFewAndExpertHasNone() {
         const auto category = static_cast<Category>(i);
         const std::string name = customize::name(category);
         check(seen[category] > 0, "every category has a section: " + name);
-        check(basics[category] == (category == Category::Expert ? 0 : 1), "one Basics, none on Expert: " + name);
+        const bool below = category == Category::Expert || category == Category::Engine;
+        check(basics[category] == (below ? 0 : 1), "one Basics, none on Engine or Expert: " + name);
         check(customize::categoryNamed(name) == category, "category name round-trips: " + name);
     }
     // Section ids are unique inside a category: the panel saves the open ones by them.
@@ -203,6 +204,157 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
     check(movedElsewhere, "the roll still moves the other categories");
 }
 
+// One style of each engine kind the panel treats differently, and the looks a roll starts from.
+const char* const kRollStyles[] = {"julia", "crystal_canyon", "silk_web", "life_orbium", "milkdrop",
+                                   "fluid", "curlflow",       "water",    "cymatics"};
+
+std::set<std::string> movedControls(const SceneParams& from, const SceneParams& to) {
+    std::set<std::string> out;
+    for (const auto& section : customize::sections()) {
+        for (const char* control : section.controls) {
+            for (const char* field : customize::fieldsOf(control)) {
+                if (from.get(field) != to.get(field)) out.insert(control);
+            }
+        }
+    }
+    return out;
+}
+
+// The owner's report: "Randomize is not wired properly". On every engine kind, with Liquid off and
+// on, each category's roll moves something the panel shows there and the picture reads, stays in
+// its category, and the dice is offered exactly where it has something to move.
+void everyRollMovesWhatThePanelShows() {
+    for (const char* style : kRollStyles) {
+        for (int liquid = 0; liquid < 2; ++liquid) {
+            SceneParams start;
+            start.flowEnabled = liquid == 1;
+            for (int i = 0; i < customize::kCategoryCount; ++i) {
+                const auto category = static_cast<Category>(i);
+                const std::string where = std::string(customize::name(category)) + " on " + style + (liquid ? " in Liquid" : "");
+                const bool offered = customize::shownOn(style).find(std::string(customize::name(category)) + ":roll\n") != std::string::npos;
+                check(offered == customize::rolls(category, style), where + ": the dice line follows rolls()");
+                const auto own = fieldsOfCategory(category);
+                for (uint64_t seed = 1; seed <= 60; ++seed) {
+                    const SceneParams out = customize::randomize(start, seed, category, style, {});
+                    for (const char* field : SceneParams::fieldNames()) {
+                        if (out.get(field) != start.get(field)) check(own.count(field), where + " moved outside itself: " + field);
+                    }
+                    const auto moved = movedControls(start, out);
+                    check(!moved.empty() == offered, where + ": rolls exactly when the dice is offered");
+                    bool read = moved.empty();
+                    for (const auto& control : moved) {
+                        check(customize::offered(control, style), where + " moved a control the panel hides: " + control);
+                        read = read || customize::live(control, out, style);
+                    }
+                    check(read, where + ": the roll moved only controls behind a switch that is off");
+                }
+            }
+            // The roll of everything keeps to what the panel shows too.
+            for (uint64_t seed = 1; seed <= 60; ++seed) {
+                const SceneParams out = customize::randomizeAll(start, seed, style, {});
+                const auto moved = movedControls(start, out);
+                check(!moved.empty(), std::string("a roll of everything moves ") + style);
+                for (const auto& control : moved) {
+                    check(customize::offered(control, style), std::string(style) + ": everything moved a hidden control: " + control);
+                }
+            }
+        }
+    }
+    check(!customize::rolls(Category::QuickKnobs, "julia"), "the knobs are the user's: no roll");
+    check(!customize::rolls(Category::Engine, "julia") && customize::rolls(Category::Engine, "fluid") &&
+              customize::rolls(Category::Engine, "milkdrop") && !customize::rolls(Category::Expert, "fluid"),
+          "Engine rolls where the style has one; Expert's layers and shader code have no roll");
+}
+
+// Dive and Liquid sit behind a switch: their roll never deals it off, opens it when the rest would
+// not show, and leaves it to the user once it is kept.
+void aSwitchedCategoryRollsWhatShows() {
+    SceneParams diving;
+    diving.endlessZoom = true;
+    for (uint64_t seed = 1; seed <= 60; ++seed) {
+        check(customize::randomize(diving, seed, Category::Dive, "julia", {}).endlessZoom, "Dive's roll keeps the dive on");
+        check(customize::randomize(SceneParams{}, seed, Category::Dive, "julia", {}).endlessZoom, "Dive's roll starts the dive");
+        const SceneParams kept = customize::randomize(SceneParams{}, seed, Category::Dive, "julia", {"Endless zoom"});
+        check(!kept.endlessZoom, "a kept Endless zoom stays off");
+
+        const SceneParams flat = customize::randomize(SceneParams{}, seed, Category::Liquid, "julia", {});
+        check(flat.flowEnabled && !flat.rippleOverlayEnabled, "Liquid's roll opens Liquid mode when nothing of it shows");
+        const SceneParams held = customize::randomize(SceneParams{}, seed, Category::Liquid, "julia", {"Flow field on"});
+        check(!held.flowEnabled && !held.rippleOverlayEnabled, "a kept Liquid switch stays off");
+        const SceneParams water = customize::randomize(SceneParams{}, seed, Category::Liquid, "water", {});
+        check(!water.flowEnabled && !water.rippleOverlayEnabled, "Water reads its roll as it is");
+        SceneParams rippling;
+        rippling.rippleOverlayEnabled = true;
+        check(!customize::randomize(rippling, seed, Category::Liquid, "julia", {}).flowEnabled, "ripples already show the roll");
+    }
+    bool on = false;
+    bool off = false;
+    for (uint64_t seed = 1; seed <= 60; ++seed) {
+        (customize::randomizeAll(SceneParams{}, seed, "julia", {}).endlessZoom ? on : off) = true;
+    }
+    check(on && off, "a roll of everything deals the dive on and off");
+}
+
+// Without Pro a roll moves the free Basics only (pro/FreeTier), in a category and across them.
+void theFreeRollMovesBasicsOnly() {
+    const auto pro = customize::expandLocks({customize::kProLock});
+    std::set<std::string> basics;
+    for (const auto& section : customize::sections()) {
+        for (const char* control : section.controls) {
+            check(pro.count(control) == (section.basics ? 0u : 1u), std::string("#PRO holds exactly what is below a Basics: ") + control);
+            if (section.basics) basics.insert(control);
+        }
+    }
+    const SceneParams start;
+    for (const char* style : kRollStyles) {
+        bool movedAny = false;
+        for (uint64_t seed = 1; seed <= 40; ++seed) {
+            for (const auto& control : movedControls(start, customize::randomizeAll(start, seed, style, pro))) {
+                check(basics.count(control), std::string("the free roll moved a Pro control: ") + control);
+                movedAny = true;
+            }
+            for (const auto& control : movedControls(start, customize::randomize(start, seed, Category::Look, style, pro))) {
+                check(basics.count(control), std::string("Look's free roll moved a Pro control: ") + control);
+            }
+        }
+        check(movedAny, std::string("the free roll moves the Basics on ") + style);
+    }
+    // #PRO narrows a roll and keeps nothing: what Keep puts back (Randomize everything) is the rest.
+    check(customize::expandKeeps({customize::kProLock}).empty(), "#PRO is no Keep");
+    check(customize::expandKeeps({customize::kProLock, "#LOOK", "Speed"}) == customize::expandLocks({"#LOOK", "Speed"}),
+          "Keep is the lock set without #PRO");
+    // A kept category still holds under it.
+    auto both = customize::expandLocks({customize::kProLock, "#LOOK"});
+    for (uint64_t seed = 1; seed <= 20; ++seed) {
+        const SceneParams out = customize::randomizeAll(start, seed, "julia", both);
+        check(out.palette == start.palette && out.brightness == start.brightness, "a kept Look holds through the free roll");
+    }
+}
+
+// Reset and Take from a preset reach every control a category shows, the new Dive's included.
+void resetAndBorrowCoverEveryControl() {
+    for (int i = 0; i < customize::kCategoryCount; ++i) {
+        const auto category = static_cast<Category>(i);
+        SceneParams rolled;
+        for (uint64_t seed = 1; seed <= 30; ++seed) rolled = customize::randomize(rolled, seed, category, "", {});
+        const SceneParams back = customize::reset(rolled, category);
+        check(movedControls(SceneParams{}, back).empty(), std::string(customize::name(category)) + ": Reset puts back all its roll moved");
+    }
+    SceneParams dive;
+    dive.endlessZoom = true;
+    dive.diveTwist = 0.5f;
+    dive.diveAimX = 0.3f;
+    dive.diveFollow = 1.6f;
+    dive.speed = 2.0f;
+    const SceneParams reset = customize::reset(dive, Category::Dive);
+    check(!reset.endlessZoom && reset.diveTwist == 0.0f && reset.diveAimX == 0.0f && reset.diveFollow == 1.0f,
+          "Dive reset puts the switch, the rolled and the held controls back");
+    check(reset.speed == dive.speed, "Dive reset leaves Motion alone");
+    const SceneParams taken = customize::borrow(SceneParams{}, dive, Category::Dive);
+    check(taken.endlessZoom && taken.diveTwist == 0.5f && taken.diveFollow == 1.6f && taken.speed == SceneParams{}.speed,
+          "Dive is taken from a preset whole and alone");
+}
+
 void resetPutsBackOnlyItsCategory() {
     SceneParams changed;
     changed.speed = 2.0f;           // Motion
@@ -262,10 +414,13 @@ void categoriesAndSectionsFollowTheStyle() {
     check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
-    check(shownSection("fluid", "EXPERT/fluid_flow") && shownSection("fluid", "EXPERT/fluid_look"), "Fluid's engine in Expert");
-    check(!shownSection("fluid", "EXPERT/plate") && !shownSection("fluid", "EXPERT/milkdrop"), "only its own engine on Fluid");
-    check(shownSection("milkdrop", "EXPERT/milkdrop"), "MilkDrop's engine in Expert");
-    check(!shownSection("julia", "EXPERT/fluid_flow") && !shownSection("julia", "EXPERT/plate") && !shownSection("julia", "EXPERT/milkdrop"),
+    check(shownSection("fluid", "ENGINE/fluid_flow") && shownSection("fluid", "ENGINE/fluid_look"), "Fluid's engine in Engine");
+    check(!shownSection("fluid", "ENGINE/plate") && !shownSection("fluid", "ENGINE/milkdrop"), "only its own engine on Fluid");
+    check(shownSection("milkdrop", "ENGINE/milkdrop"), "MilkDrop's engine in Engine");
+    check(customize::shows(Category::Engine, "cymatics") && !customize::shows(Category::Engine, "julia") &&
+              !customize::shows(Category::Engine, "curlflow"),
+          "Engine only on a style with an engine to tune");
+    check(!shownSection("julia", "ENGINE/fluid_flow") && !shownSection("julia", "ENGINE/plate") && !shownSection("julia", "ENGINE/milkdrop"),
           "no engine section on a shader style");
     // Shader code holds only Fluid's force and dye editors: the style's own shader box left Customize.
     check(shownSection("fluid", "EXPERT/shader_code"), "Fluid's shaders in Expert");
@@ -312,6 +467,10 @@ int main(int argc, char** argv) {
     basicsAreFirstFewAndExpertHasNone();
     randomizeStaysInsideItsCategory();
     aKeptCategoryHoldsThroughARollOfEverything();
+    everyRollMovesWhatThePanelShows();
+    aSwitchedCategoryRollsWhatShows();
+    theFreeRollMovesBasicsOnly();
+    resetAndBorrowCoverEveryControl();
     resetPutsBackOnlyItsCategory();
     borrowTakesOnlyItsCategory();
     categoriesAndSectionsFollowTheStyle();

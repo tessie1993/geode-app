@@ -160,7 +160,7 @@ static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the p
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 

@@ -86,7 +86,7 @@ class OffscreenSceneRenderer(
         // The pre-roll (core/output/PreRoll): the engine hears the track before frame 0, so the render opens warm, as live
         // plays on. A track it cannot hear fails the render; it used to export a picture the silence rule froze (#999 F1).
         val (fromMs, heardMs) = LongArray(2).also { GeodeNative.exportPreRoll(spec.rangeStartMs, it) }
-        TrackAudio(context, spec.audioUri, fromMs).use { it.deliverUntilMs(heardMs, viz) }
+        TrackAudio(context, spec.audioUri, fromMs).use { it.deliverUntil(viz) { f -> GeodeNative.trackFeedTargetMs(f, heardMs) } }
         check(viz.endPreRoll(spec.rangeStartMs)) { "the track's audio could not be heard" }
         audio = TrackAudio(context, spec.audioUri, spec.rangeStartMs)
     }
@@ -105,11 +105,10 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
-        val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         // Keyframed params ride in the look; reactSeed among them, so native re-deals the DNA when keyframes change it.
         looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz, handMask = pinnedHandMask ?: HandMask.current)
-        // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.deliverUntilMs(nextTimeMs, viz)
+        // Exactly the audio up to the end of this frame, to the sample (#999 F6), then a render steps the engine by 1/fps.
+        audio?.deliverUntil(viz) { GeodeNative.trackFeedTargetFrame(it, frame.toLong(), fps) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.
         viz.render(GeodeNative.exportFramePtsNs(frame.toLong(), fps) / NANOS_PER_SECOND, targetFbo)
     }

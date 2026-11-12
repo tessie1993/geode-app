@@ -192,7 +192,8 @@ private const val MILLIS_PER_SECOND = 1000f
 
 /**
  * The floating mini player: the Player's seek bar ([TrackSeekBar]: tap or drag to seek, a 48 dp
- * target) over art, title · artist, play/pause and next. A touch that starts on the bar is the
+ * target) over art, title · artist, play/pause and next, with previous before them when
+ * Settings › Preferences asks for it ([onPrevious]; off by default, so the title keeps its room). A touch that starts on the bar is the
  * bar's alone: it never opens Library or Player and never hides the card.
  * It draws no glass of its own: on a phone the dock's one slab is around it and the tab bar
  * ([DockSlab]); beside the rail the caller's modifier makes it a card. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
@@ -223,6 +224,7 @@ internal fun FloatingMiniPlayer(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    onPrevious: (() -> Unit)? = null,
 ) {
     val seekHeld = remember { mutableStateOf(false) }
     val view = LocalView.current
@@ -276,6 +278,11 @@ internal fun FloatingMiniPlayer(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+            }
+            if (onPrevious != null) {
+                IconButton(onClick = { tap(onPrevious) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
+                    StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
                 }
             }
             IconButton(onClick = { tap(onPlayPause) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {

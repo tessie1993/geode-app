@@ -16,15 +16,7 @@ data class SceneParams(
     val beatResponse: Float = 1f,
     val turbulence: Float = 0f,
     val density: Float = 1f,
-    /**
-     * March-step budget for the raymarched fragment styles, 0.25..1.5.
-     *
-     * This was `hyperDetail` and belonged to the Hyperspace family, which is gone. The
-     * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID and KIFS are all
-     * distance-marched and all need somewhere to spend or save steps; naming it after the
-     * technique rather than a style means the next marched style inherits it for free.
-     * Native ShaderScene turns it into the `uSteps` uniform every one of them breaks on.
-     */
+    /** March-step budget for the raymarched styles, 0.25..1.5: native ShaderScene's `uSteps`. */
     val marchDetail: Float = 1f,
     val trails: Boolean = true,
     val trailLength: Float = 0.5f,
@@ -149,9 +141,7 @@ data class SceneParams(
     val motionBreath: Float = 0.5f,
     val motionDrift: Float = 0.5f,
     val motionHue: Float = 0.4f,
-    // The shared camera rig (core/viz/CameraRig) and the reaction matrix (core/viz/Reactions).
-    // The push/yaw/pitch/roll offsets are what reaction routes and LFOs write; the rig springs
-    // toward them. Appended so every existing wire index survives.
+    // The camera rig (core/viz/CameraRig); push/yaw/pitch/roll are the offsets routes and LFOs write.
     val camFly: Float = 0.5f,
     val camPath: Int = 0,
     val camOrbit: Float = 0.35f,
@@ -204,6 +194,16 @@ data class SceneParams(
     val paletteStop2: Int = NO_STOP,
     val paletteStop3: Int = NO_STOP,
     val paletteStop4: Int = NO_STOP,
+    // Endless zoom's tunnel (core/viz/EndlessZoom.hpp, Customize › Dive); the defaults are the plain tunnel.
+    val diveSpacing: Float = 1f,
+    val diveTwist: Float = 0f,
+    val diveAimX: Float = 0f,
+    val diveAimY: Float = 0f,
+    val diveShape: Float = 0.5f,
+    val diveBlend: Float = 0.75f,
+    val diveFog: Float = 0f,
+    val diveLens: Float = 0f,
+    val diveFollow: Float = 1f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

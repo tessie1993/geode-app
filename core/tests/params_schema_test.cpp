@@ -41,7 +41,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 169;
+constexpr int kWireFloats = 178;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -63,7 +63,9 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::paletteStop4) == kWireFloats - 1, "paletteStop4 is the wire's last float");
+    check(static_cast<int>(ParamSlot::camFlat) == 163, "camFlat keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteStop4) == 168, "paletteStop4 keeps its slot");
+    check(static_cast<int>(ParamSlot::diveFollow) == kWireFloats - 1, "diveFollow is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -255,6 +257,8 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::CamFov, "camFov", 0.5f, 2.0f},          {LfoTarget::CamShake, "camShake", 0.0f, 1.0f},
     {LfoTarget::FlowCurl, "flowCurl", 0.0f, 50.0f},     {LfoTarget::FlowForce, "flowForce", 0.0f, 3.0f},
     {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
+    {LfoTarget::DiveTwist, "diveTwist", -1.0f, 1.0f},   {LfoTarget::DiveAimX, "diveAimX", -0.6f, 0.6f},
+    {LfoTarget::DiveAimY, "diveAimY", -0.6f, 0.6f},
 };
 
 void theLfoClampsAreTheTablesRanges() {

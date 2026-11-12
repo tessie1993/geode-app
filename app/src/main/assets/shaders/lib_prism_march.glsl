@@ -90,14 +90,15 @@ vec3 prismTrace(vec3 ro, vec3 rd) {
             u += max(k.x * gPrismStride, 0.002);
         }
         vec3 seen = prismSky(r, hue);
-        // The far layer (lib_strata) seen in the mirror, once along the reflection.
-        vec2 glance = strataGlance(from, r, 0.7 * gPrismFar);
-        seen += prismCol(hue + 0.6 + glance.y) * glance.x * gStrataFarGlow;
         if (echo) {
             vec3 p2 = from + r * u;
             vec3 nor2 = prismNormal(p2, r, 0.006);
             vec3 sky2 = prismSky(reflect(r, nor2), hue + 0.2);
             seen = prismSkin(p2, r, nor2, sky2, k.y, hue + 0.2, 0.03) * exp(-0.4 * u);
+        } else {
+            // The far layer (lib_strata) seen in the mirror, once along the reflection.
+            vec2 glance = strataGlance(from, r, 0.7 * gPrismFar);
+            seen += prismCol(hue + 0.6 + glance.y) * glance.x * gStrataFarGlow;
         }
         // Nothing lights right at the eye: flying into the chrome must not fill the frame.
         col = prismSkin(p, rd, nor, seen, m.y, hue, 0.02 + 0.004 * t) * exp(-2.6 * depth) * smoothstep(0.05, 0.5, t);

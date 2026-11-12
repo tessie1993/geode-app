@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStackState
 import dev.geode.data.PaletteStackStore
 import dev.geode.engine.bridge.GeodeNative
@@ -92,9 +93,26 @@ internal fun PaletteStackCard(
                 selectedIndex = -1,
                 placeholder = "+",
             ) { store.add(stack.picks[it].index) }
+            val yours = rememberSavedPalettes().items
+            if (yours.isNotEmpty()) {
+                DropdownRow(
+                    name = stringResource(R.string.palette_stack_add_yours),
+                    options = yours.map { it.name },
+                    selectedIndex = -1,
+                    placeholder = "+",
+                ) { store.addColours(yours[it].name, coloursOf(yours[it])) }
+            }
         }
     }
 }
+
+/** A saved palette's colours: its stops, else native's stops for its hue ramp. */
+private fun coloursOf(palette: CustomPalette): List<Int> =
+    palette.stops.ifEmpty {
+        runCatching { GeodeNative.paletteStopsFromHues(palette.baseHue, palette.hueSpan, HUE_RAMP_STOPS).toList() }.getOrDefault(emptyList())
+    }
+
+private const val HUE_RAMP_STOPS = 5
 
 @Composable
 private fun StackLayerRow(

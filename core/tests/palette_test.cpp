@@ -456,6 +456,12 @@ void theStackAsLookDrawsIt() {
     layer[0] = 7;
     geode_palette_stack_layer_swatch(twoLayers.c_str(), 2, 5, layer);
     check(layer[0] == 0, "no such layer: zeros");
+    const int mine[] = {0xFF0000, 0x00FF00, 0x0000FF};
+    const std::string withMine = geode_palette_stack_add_colours(unset.c_str(), "Mine", mine, 3);
+    check(geode_palette_stack_layer_count(withMine.c_str()) == 1 &&
+              std::string(geode_palette_stack_editor(withMine.c_str())).find("layer|0|Mine\n") != std::string::npos,
+          "the user's own colours stack as one palette under their name");
+    check(std::string(geode_palette_stack_add_colours(unset.c_str(), "Mine", nullptr, 0)) == unset, "no colours: the stack unchanged");
 }
 
 int main(int argc, char** argv) {

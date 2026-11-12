@@ -108,6 +108,11 @@ const char* geode_palette_stack_add_library(const char* stack, int index) {
     return handOut(palette::addLayer(stackOf(stack), lib[static_cast<size_t>(index)].palette));
 }
 
+const char* geode_palette_stack_add_colours(const char* stack, const char* name, const int* rgb, int count) {
+    if (!rgb || count <= 0) return handOut(stackOf(stack));
+    return handOut(palette::addLayer(stackOf(stack), palette::fromColours(palette::Source::Yours, "", name ? name : "", rgb, count)));
+}
+
 void geode_palette_stack_layer_swatch(const char* stack, int layer, int samples, int* out) {
     if (!out || samples <= 0) return;
     const palette::Stack s = stackOf(stack);

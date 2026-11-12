@@ -3053,6 +3053,13 @@ object GeodeNative {
         index: Int,
     ): String
 
+    /** [stack] with the user's own colours [rgb] added last as one palette (`geode_palette_stack_add_colours`). Pure. */
+    external fun paletteStackAddColours(
+        stack: String,
+        name: String,
+        rgb: IntArray,
+    ): String
+
     /** [stack] without [layer] (`geode_palette_stack_remove`). Pure. */
     external fun paletteStackRemove(
         stack: String,

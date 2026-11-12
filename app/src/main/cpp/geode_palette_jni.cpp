@@ -51,6 +51,17 @@ Java_dev_geode_engine_bridge_GeodeNative_paletteStackAddLibrary(JNIEnv* env, job
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paletteStackAddColours(JNIEnv* env, jobject, jstring stack, jstring name, jintArray rgb) {
+    Utf8Chars text(env, stack);
+    Utf8Chars label(env, name);
+    const jsize count = rgb ? env->GetArrayLength(rgb) : 0;
+    std::vector<jint> colours(static_cast<size_t>(count));
+    if (count > 0) env->GetIntArrayRegion(rgb, 0, count, colours.data());
+    return utf8String(env, geode_palette_stack_add_colours(textOf(text), textOf(label), reinterpret_cast<const int*>(colours.data()),
+                                                           static_cast<int>(count)));
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paletteStackRemove(JNIEnv* env, jobject, jstring stack, jint layer) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_remove(textOf(text), layer));

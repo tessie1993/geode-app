@@ -52,6 +52,11 @@ class PaletteStackStore internal constructor(
 
     fun add(libraryIndex: Int) = edit { GeodeNative.paletteStackAddLibrary(it, libraryIndex) }
 
+    fun addColours(
+        name: String,
+        rgb: List<Int>,
+    ) = edit { GeodeNative.paletteStackAddColours(it, name, rgb.toIntArray()) }
+
     fun remove(layer: Int) = edit { GeodeNative.paletteStackRemove(it, layer) }
 
     fun move(

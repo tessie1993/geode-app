@@ -525,6 +525,8 @@ GEODE_API void        geode_palette_stack_set(const char* stack);
  * palette's own run, zeros out of range. Pure, any thread. */
 GEODE_API const char* geode_palette_stack_editor(const char* stack);
 GEODE_API const char* geode_palette_stack_add_library(const char* stack, int index);
+/* The stack with the user's own colours added last as one palette named `name`. */
+GEODE_API const char* geode_palette_stack_add_colours(const char* stack, const char* name, const int* rgb, int count);
 GEODE_API void        geode_palette_stack_layer_swatch(const char* stack, int layer, int samples, int* out);
 GEODE_API void        geode_palette_library_swatch(int index, int samples, int* out);
 GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);

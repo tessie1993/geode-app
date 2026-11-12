@@ -1306,6 +1306,7 @@
     <string name="palette_stack_heading">Palettes</string>
     <string name="palette_stack_explainer">Stack palettes and every style takes its colours from them. With none, the style keeps the palette above.</string>
     <string name="palette_stack_add">Add palette</string>
+    <string name="palette_stack_add_yours">Add one of yours</string>
     <string name="palette_stack_remove">Remove %1$s</string>
     <string name="palette_stack_up">Move %1$s up</string>
     <string name="palette_stack_amount">Amount of %1$s</string>

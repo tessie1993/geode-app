@@ -33,7 +33,7 @@ import kotlin.random.Random
  * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
  * starts with the director part on. A free user gets the first minute of each song ([AutoDirectorPolicy]).
  *
- * How far it reaches past its look is [reach] (Visuals › Settings, under Auto): the levels and what each
+ * How far it reaches past its look is [reach] (Visuals › Settings, under Auto Director): the levels and what each
  * does are native (core/viz/DirectorReach); this store keeps the choice and hands it over, with Customize's
  * keep set, which the reach never moves.
  *
@@ -83,7 +83,10 @@ class AutoDirectorStore internal constructor(
         scope.launch { repository.update { it.copy(reach = level) } }
     }
 
-    /** Customize's locked controls and kept categories, as saved under [KEY_KEPT]. */
+    /**
+     * Customize's locked controls and kept categories, as saved under [KEY_KEPT]: the saved set at start, then
+     * each change `ModulationController` saves. The one writer of the native keep set.
+     */
     fun setKept(keys: Set<String>) {
         bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(keys.joinToString("\n")) }
     }

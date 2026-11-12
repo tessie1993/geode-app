@@ -36,7 +36,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Settings (`AppSettingsTab`) is a list, then pages.
 - It is a list of fifteen tabs (`SettingsGroupKey`: icon, name, one-line summary).
 - The tabs: Playback, Sound & equalizer, Output & devices, Library, Visual playback, Sound reaction, Photosensitivity & motion, Displays & casting, Wallpaper & screen saver, Gestures & controls, Look, Performance, Export & recording, Preferences, Backup, help & about.
-- Visual playback has the same Auto and style-timer rows as Visuals' quick settings, on the same stores.
+- Visual playback has the same Auto Director and style-timer rows as Visuals' quick settings, on the same stores.
 - Preferences is the home of small choices with no other tab: the watermark's placement (tiled, a corner or an end card) and Pro's switch to add it (`PreferencesSettings`).
 - `SettingsGroupKey.fromName` restores the ten old group names.
 - Each tab is a page with ← the title and ‹ › to the next tab.
@@ -49,7 +49,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction, envelope and wave editors), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert; a tab makes no back entry.
+- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list (`PaletteDropdown`, built-ins then the user's own); the blend's second slot steps through the built-ins.
@@ -61,7 +61,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
-- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
+- The waves' own Randomize, which randomize-everything runs for the waves already on (Expert has no roll of its own), is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.
@@ -85,7 +85,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A long press on a knob opens its editor (`KnobEditorDialog`).
 - A long press on a Customize slider offers "Add to knob" (`KnobLinks`, from `geode_macro_bank_controls`, which also marks the sliders a knob moves).
 - `VisualsSettingsPage` (`VisualsQuickSettings.kt`) is Visuals › Settings, the page the ⚙ at the top of the visual opens (no gesture).
-- Visuals › Settings holds Auto and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- Visuals › Settings holds the Auto Director (first row, with a line on what it does) and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- The Auto Director switch lives only there and in Settings › Visual playback; Customize has none.
 - Studio (`StudioHub`: Render and My videos (`MyVideosTab`)) owns export, loop render and export defaults.
 - Studio has no editor: the owner dropped video editing (#227).
 - Record (`RecordController`, Pro) is a live video of the visual and what it hears, until the user stops or Settings › Export › Record's maximum length (`ui/RecordSettings`).
@@ -235,6 +236,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `MacroEditorTable` reads the knob editor's rows.
 - The dials' size is `GeneralSettings.knobSize`.
 - `AutoDirectorStore` keeps the auto-director's switch and reach (Visuals quick settings), play seed and Customize's keep set, pushed to native the same way.
+- Its `setKept` is the keep set's one writer: the saved set at start, then each lock change `ui/ModulationController` saves.
 - Note & key reactions' switch is `NoteResponseStore` (`ui/NoteResponseSettings`).
 - Studio's project and template folders are `EditorProjectStore`: `files/projects/<id>/`; the old replayed takes are deleted at start.
 - Where recordings go, asked once, is `RecordSaveStore`.

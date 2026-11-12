@@ -40,7 +40,7 @@ namespace director {
 // The free taste (pro/FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS, which times the live taste in the shell): a free
 // user's director drives the first minute of each song, and an export no longer than that throughout.
 constexpr long long kFreeTasteMs = 60'000;
-// `on` is the user's switch (Settings › Behaviour › Auto-director) as set, before any entitlement; `amount`
+// `on` is the user's switch (Visuals › Settings › Auto Director) as set, before any entitlement; `amount`
 // is what live surfaces drive with now (the switch cut to the free taste by the shell's live rule).
 void setGlobal(bool on, float amount, uint64_t seed);
 // What live surfaces drive with: the live amount and the play's seed.

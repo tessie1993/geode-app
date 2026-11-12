@@ -918,7 +918,6 @@
     <string name="music_recipes_summary">%1$d on</string>
     <string name="music_recipes_button">Ready-made reactions</string>
     <!-- Customize overview cards (CustomizePanel) and shared rows (CustomizeTabs) -->
-    <string name="customize_director">Auto-director</string>
     <string name="customize_what_is_this">What is this</string>
     <string name="customize_about_close">Close</string>
     <string name="customize_make_it_react">Make it react to music</string>
@@ -959,8 +958,9 @@
     <string name="transition_library_pick">Pick one of %1$d</string>
     <!-- Visuals quick settings (VisualsQuickSettings) -->
     <string name="visuals_qs_title">Visual settings</string>
-    <string name="visuals_qs_auto">Auto</string>
-    <string name="visuals_qs_reach">Auto reach</string>
+    <string name="visuals_qs_auto">Auto Director</string>
+    <string name="visuals_qs_auto_about">Changes the look with the song\'s sections, drops and key changes</string>
+    <string name="visuals_qs_reach">Director reach</string>
     <string name="visuals_qs_reach_look">Look only</string>
     <string name="visuals_qs_reach_shuffle">Shuffle controls</string>
     <string name="visuals_qs_reach_modulate">Shuffle and move sliders</string>

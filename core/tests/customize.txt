@@ -35,13 +35,11 @@ section|DIVE|travel|PRO|ALWAYS|Music follow,Travel zoom
 section|CAMERA|basics|BASICS|ALWAYS|Camera path,Fly speed
 section|CAMERA|framing|PRO|THREE_D|Field of view,Swing,Push in,Look turn,Look tilt,Roll
 section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,Camera smoothing
-section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA,@auto_moments
+section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA
 section|MUSIC|moments|PRO|ALWAYS|@moments
 section|MUSIC|listening|PRO|ALWAYS|Bass gain,Mid gain,Treble gain,@rise_fall
 section|MUSIC|notes_key|PRO|ALWAYS|Key colour,@notes_key
 section|MUSIC|reactions|PRO|ALWAYS|@reactions
-section|MUSIC|envelopes|PRO|ALWAYS|@envelopes
-section|MUSIC|waves|PRO|ALWAYS|@waves
 section|EFFECTS|basics|BASICS|ALWAYS|Trails,Vignette,@transition_style
 section|EFFECTS|trail_detail|PRO|ALWAYS|Trail length,Trail zoom (echo in/out),Trail warp (liquid echo)
 section|EFFECTS|lens|PRO|ALWAYS|Chromatic aberration,Fisheye
@@ -56,5 +54,7 @@ section|ENGINE|fluid_layers|PRO|ENGINE|Particle brightness,Particle layer,Ink la
 section|ENGINE|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl
 section|ENGINE|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
 section|ENGINE|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint
+section|EXPERT|waves|PRO|ALWAYS|@waves
+section|EXPERT|envelopes|PRO|ALWAYS|@envelopes
 section|EXPERT|layers|PRO|ALWAYS|@layers
 section|EXPERT|shader_code|PRO|SHADER_CODE|@shader_code

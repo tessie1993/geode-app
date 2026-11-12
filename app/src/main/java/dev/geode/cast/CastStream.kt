@@ -74,6 +74,7 @@ internal class CastStream(
 
     /** The Wi-Fi or Ethernet address the stream is served from. */
     val address: InetAddress = link.address
+
     /** WebRTC for browsers, bound to the same address; closed after the server and the encoder stop. */
     private val webrtc = WebRtcLink(address, link.prefixLength)
     private val server = LiveHttpServer(segments, address, link.prefixLength, webrtc::answer)

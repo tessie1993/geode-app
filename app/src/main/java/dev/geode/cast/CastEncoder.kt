@@ -130,7 +130,8 @@ internal class CastEncoder(
         }
         val buffer = codec.getOutputBuffer(index)
         val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
-        if (buffer != null && info.size > 0 && (!isConfig || (isVideo && videoTap != null))) {
+        val wanted = !isConfig || (isVideo && videoTap != null)
+        if (buffer != null && info.size > 0 && wanted) {
             val bytes = ByteArray(info.size)
             buffer.position(info.offset)
             buffer.get(bytes, 0, info.size)

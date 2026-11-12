@@ -53,7 +53,7 @@ Outside `engine/` but bound to it: `app/proguard-rules.pro` line 14 keeps `Geode
 - **363 `external fun`**, 132 `const val` mirrors of `GEODE_*` constants, about 1134 comment and blank lines.
 - Not a declaration: `init { System.loadLibrary("geode") }` and one real function, `fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF` (a bit decode of the frame's due word: logic, belongs behind a native getter or in the due-bit constants).
 - Externals by prefix: viz 50, export 25, macro 24, pcm 22, dsp 22, audio 15, playout 14, link 11, recorder 10, cast 9, loudness 8, loop 8, webrtc 7, track 7, surface 7, stage 7, sound 7, record 7, underlay 6, params 6, customize 6, library 5, colour 5, aiff 5, hls 4, frame 4, auto 4, the rest in ones to threes.
-- Referenced by 96 files outside the module; heaviest: `data/MacroStore` 26, `cast/LiveHttpServer` 25, `export/LoopRender` 23, `audio/dsp/NativeDspProcessor` 18.
+- Referenced by 96 files outside the module; heaviest: `data/MacroStore` 26, `export/LoopRender` 23, `audio/dsp/NativeDspProcessor` 18.
 - Native side: `core/api/geode_api.h` through `app/src/main/cpp/*_jni.cpp`.
 
 ### `S/render/bridge/NativeViz.kt` (509 lines)
@@ -198,7 +198,7 @@ Audio
 Cast
 - `cast/CastStream.kt` (466): a "cast-render" thread with EGL; drives a fallback `VisualizerRenderer` by hand.
 - `cast/CastEncoder.kt` (253): codec drain thread.
-- `cast/LiveSegments.kt` (190), `LiveHttpServer.kt` (426), `RequestLine.kt` (148): HLS cut and LAN server (timing native).
+- `cast/LiveLink.kt` (132): the handle on the native LAN server (`core/cast/LiveServer`); the HLS cut, the request parser, the routes and the typed pairing are native.
 - `cast/WebRtcLink.kt` (145), `ComputerLink.kt` (123), `CastMirror.kt` (100).
 
 Record, wallpaper, viz, playback

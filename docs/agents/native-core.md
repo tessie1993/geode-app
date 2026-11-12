@@ -10,6 +10,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - projectM also gets `tools/projectm-v4.1.7-shader-fallback.patch`, which reports the shaders it swapped for the default (`projectm_get_dropped_shaders`).
 - The submodules are `third_party/{projectm,taglib,cgltf,meshoptimizer,basis_universal,kissfft,libdatachannel,mbedtls}`.
 - libdatachannel and its Mbed TLS (`core/cast/mbedtls_user_config.h`) build only for `core/cast/WebRtcLink`, Show on a computer's WebRTC; `core/cast/` is the only native directory that may include them or a socket header (`tools/network-gate.sh`).
+- `core/cast/LiveServer` is the cast's HTTP server on plain POSIX sockets, bound to the phone's LAN address; `LiveHttp` (requests and answers) and `LiveSegments` (the segment window and playlist) hold its decisions and include no socket header.
 - KISS FFT's header-only `kissfft.hh` is the transform under `core/sound/Fft`.
 - cgltf is compiled in `GltfImport.cpp`.
 - meshoptimizer's simplifier and codecs build as `geode_meshopt`, in `core/CMakeLists.txt`.

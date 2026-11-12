@@ -40,7 +40,7 @@ sealed interface LinkState {
  * "Show on a computer" (owner: "The connected display. Needs cast to pc option"): the Cast stream, without a
  * Chromecast, served to a browser on the same Wi-Fi through a link. Pro, like Cast to TV ([ProFeature.CAST]).
  *
- * The same pipeline as a TV cast ([CastService], [CastStream], [LiveHttpServer]), started without a Cast
+ * The same pipeline as a TV cast ([CastService], [CastStream], [LiveLink]), started without a Cast
  * session; with a TV casting too they share the one stream. The sound plays in the browser and the phone goes
  * silent, as for a TV: the stream runs a few seconds behind the phone, so both at once would echo.
  *

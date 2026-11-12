@@ -2788,111 +2788,11 @@ object GeodeNative {
         ptsUs: LongArray,
     ): Int
 
-    // Show on a computer (core/viz/frame/LinkShare, LinkPage): the browser link's routes, heads, page, master
-    // playlist and state; and its QR code (core/util/QrCode). cast/LiveHttpServer only moves the bytes.
-
-    /** Resources [linkRoute] names (GEODE_LINK_*). */
-    const val LINK_PAGE = 1
-    const val LINK_SCRIPT = 2
-    const val LINK_STYLE = 3
-    const val LINK_MASTER = 4
-    const val LINK_PLAYLIST = 5
-    const val LINK_INIT = 6
-    const val LINK_SEGMENT = 7
-
-    /** stream.mp4: the browser's live feed, the init segment then each fragment as it is cut, held open. */
-    const val LINK_STREAM = 9
-
-    /** Browsers fed at once (GEODE_LINK_MAX_STREAMS); past it the feed answers 503 and the page retries. */
-    const val LINK_MAX_STREAMS = 3
-
-    /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
-    const val LINK_RTC = 10
-
-    /** The typed path, off the token: its page at "/", its script, and POST /pair with the typed code. */
-    const val LINK_PAIR_PAGE = 11
-    const val LINK_PAIR_SCRIPT = 12
-    const val LINK_PAIR = 13
-
-    /** Most bytes a POST on [LINK_PAIR] may carry (GEODE_LINK_PAIR_BODY_MAX). */
-    const val LINK_PAIR_BODY_MAX = 64L
-
-    /** The short link a computer types (host as one number, no token); null when it cannot be made. */
-    external fun linkPairUrl(
-        address: Int,
-        port: Int,
-    ): String?
-
-    /** Opens the typed path's pairing with a fresh code, or closes it. */
-    external fun linkPairOpen(
-        open: Boolean,
-        nowMs: Long,
-    )
+    // Show on a computer (core/viz/frame/LinkShare, LinkPair): the link's state and the typed path's code; and its
+    // QR code (core/util/QrCode). The server, its routes and its pairing are native ([castServerOpen]).
 
     /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
     external fun linkPairCode(nowMs: Long): String
-
-    /**
-     * One typed try, [typed] as the POST carried it: returns the HTTP status (200, 403, 404, 429) and, on 200, puts
-     * the token's path in [path]`[0]`.
-     */
-    external fun linkPairTry(
-        typed: String,
-        nowMs: Long,
-        token: String,
-        path: Array<String?>,
-    ): Int
-
-    /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
-    const val LINK_NO_BODY = -1L
-    const val LINK_BAD_BODY = -2L
-
-    /** The body a request's [headers] (each line without its break) announce: its length, or LINK_NO_BODY / LINK_BAD_BODY. */
-    external fun linkBodyLength(
-        headers: Array<String>,
-        max: Long,
-    ): Long
-
-    /** The HTTP status for the rtc POST from [webrtcAnswer]'s result: 200, 503 (busy) or 400. */
-    external fun linkRtcStatus(answerResult: Int): Int
-
-    /**
-     * The link the user sees, copies and shares: the page's address with its IPv4 host ([address], host order)
-     * written as one decimal number, not the dotted address; null when it cannot be made.
-     */
-    external fun linkShareUrl(
-        address: Int,
-        port: Int,
-        token: String,
-    ): String?
-
-    /** A short friendly name for [token] ("Blue Comet"), shown beside the QR code. */
-    external fun linkLabel(token: String): String
-
-    /**
-     * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)
-     * with the resource and, for a segment, its sequence.
-     */
-    external fun linkRoute(
-        method: String,
-        target: String,
-        token: String,
-        out: LongArray,
-    ): Int
-
-    /** The response head (status line, headers, blank line) for [status] and [resource] with a [length]-byte body. */
-    external fun linkResponseHead(
-        status: Int,
-        resource: Int,
-        length: Long,
-        token: String,
-    ): String
-
-    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT], [LINK_STYLE], [LINK_PAIR_PAGE] or [LINK_PAIR_SCRIPT]). */
-    external fun linkAsset(resource: Int): ByteArray?
-
-    /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */
-    external fun linkMasterPlaylist(init: ByteArray): String?
 
     /** Size of the share's state (GEODE_LINK_STATE): phase, reason. */
     const val LINK_STATE = 2
@@ -2923,24 +2823,9 @@ object GeodeNative {
         arg: Int,
     ): Int
 
-    /** [linkAdmit]'s wants (GEODE_LINK_WANT_*) and answers (GEODE_LINK_PEER_*). */
+    /** [castServerAdmit]'s wants (GEODE_LINK_WANT_*). */
     const val LINK_WANT_TV = 1
     const val LINK_WANT_LINK = 2
-    const val LINK_PEER_REFUSED = 0
-    const val LINK_PEER_RECEIVER = 1
-    const val LINK_PEER_BROWSER = 2
-
-    /**
-     * Whether a connection from [peer] is let in (IPv4 as an int, host order, 0 = unknown), for a server bound to
-     * [bound]/[prefix] with the Cast device at [tv] and [wants] LINK_WANT_* bits; returns LINK_PEER_*.
-     */
-    external fun linkAdmit(
-        peer: Int,
-        bound: Int,
-        prefix: Int,
-        tv: Int,
-        wants: Int,
-    ): Int
 
     /** [linkReceiverHealth]'s answers (GEODE_LINK_RECEIVER_*). */
     const val LINK_RECEIVER_OK = 0
@@ -2972,12 +2857,12 @@ object GeodeNative {
     // Show on a computer over WebRTC (core/cast/WebRtcLink, rules in core/viz/frame/WebRtcRule): the browser's
     // low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream; 0 = none.
 
-    /** Largest offer [webrtcAnswer] takes (GEODE_WEBRTC_OFFER_MAX). */
+    /** Largest offer a browser may send (GEODE_WEBRTC_OFFER_MAX). */
     const val WEBRTC_OFFER_MAX = 16 * 1024
     const val WEBRTC_REFUSED_FULL = -4
     const val WEBRTC_REFUSED_NOT_READY = -5
 
-    /** Opens the link bound to the server's address: [boundDotted], and [bound]/[prefix] as [linkAdmit] reads them. */
+    /** Opens the link bound to the server's address: [boundDotted], and [bound] (IPv4, host order) with its [prefix] length. */
     external fun webrtcOpen(
         boundDotted: String,
         bound: Int,
@@ -2985,13 +2870,6 @@ object GeodeNative {
     ): Long
 
     external fun webrtcClose(handle: Long)
-
-    /** The answer to a browser's [offer], or null; [result] (1 int) gets its length or a WEBRTC_REFUSED_* code. */
-    external fun webrtcAnswer(
-        handle: Long,
-        offer: String,
-        result: IntArray,
-    ): String?
 
     /** One encoded H.264 frame (the first [size] bytes of [data], Annex B) as the cast encoder wrote it. */
     external fun webrtcVideo(
@@ -3020,34 +2898,68 @@ object GeodeNative {
     /** Browsers connected over WebRTC now. */
     external fun webrtcPeers(handle: Long): Int
 
-    // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
+    // The cast's HTTP server (core/cast/LiveServer, LiveHttp, LiveSegments): the live stream cut from the muxer's
+    // bytes and served on the LAN address under a random token, every request read and answered in native. One
+    // handle per cast stream; 0 = none.
 
-    /** Segments kept and listed (GEODE_HLS_WINDOW). */
-    external fun hlsWindow(): Int
+    /** [castServerText]'s texts (GEODE_CAST_TEXT_*). */
+    const val CAST_TEXT_PLAYLIST_URL = 0
+    const val CAST_TEXT_SHARE_URL = 1
+    const val CAST_TEXT_LABEL = 2
+    const val CAST_TEXT_REFUSALS = 3
+    const val CAST_TEXT_PAIR_URL = 4
 
-    /** Seconds of media time the fragment (moof, with or without its mdat) plays, read with [init]'s timescales; 0 = unknown. */
-    external fun hlsFragmentSeconds(
-        init: ByteArray,
-        fragment: ByteArray,
-    ): Double
+    /** Size of [castServerState]'s array (GEODE_CAST_STATE) and what each long is. */
+    const val CAST_STATE = 5
+    const val CAST_STATE_LAST_FETCH_MS = 0
+    const val CAST_STATE_SEGMENT_AGE_MS = 1
+    const val CAST_STATE_READY = 2
+    const val CAST_STATE_AS_MUXED = 3
+    const val CAST_STATE_BROKEN = 4
 
-    /** The live playlist for [durations] (0 = unknown) numbered from [firstSequence], or null until enough are listed. */
-    external fun hlsPlaylist(
-        firstSequence: Long,
-        durations: DoubleArray,
-        initUri: String,
-        segmentPrefix: String,
-        segmentSuffix: String,
+    /**
+     * Makes the server for the address [boundDotted] ([bound] IPv4 in host order, [prefix] its length); [webrtc] is the
+     * stream's [webrtcOpen] handle, asked for the answer to a browser's offer, and must be closed after this one.
+     */
+    external fun castServerOpen(
+        boundDotted: String,
+        bound: Int,
+        prefix: Int,
+        webrtc: Long,
+    ): Long
+
+    /** Binds and serves; the port, or 0 when the address could not be bound. */
+    external fun castServerStart(handle: Long): Int
+
+    /** Ends every connection and the server's threads; the texts and state stay readable. */
+    external fun castServerStop(handle: Long)
+
+    /** Stops and frees. */
+    external fun castServerClose(handle: Long)
+
+    /** Who may connect: the Cast device at [tv] (IPv4, host order, 0 = none named) and [wants] LINK_WANT_* bits. */
+    external fun castServerAdmit(
+        handle: Long,
+        tv: Int,
+        wants: Int,
+    )
+
+    /** The next [size] bytes of the muxer's output, in whatever pieces they come. */
+    external fun castServerWrite(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+    )
+
+    /** One of the CAST_TEXT_* texts; "" when there is none. */
+    external fun castServerText(
+        handle: Long,
+        which: Int,
     ): String?
 
-    /** Size of the decode times [hlsRewriteFragment] keeps (GEODE_HLS_TRACKS), zeroed at the stream's start. */
-    const val HLS_TRACKS = 8
-
-    /** [fragment] (moof + mdat, its moof at [moofAt] in the muxer's output) as a self-contained segment; null = refused. */
-    external fun hlsRewriteFragment(
-        init: ByteArray,
-        moofAt: Long,
-        fragment: ByteArray,
-        decodeTimes: LongArray,
-    ): ByteArray?
+    /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
+    external fun castServerState(
+        handle: Long,
+        out: LongArray,
+    )
 }

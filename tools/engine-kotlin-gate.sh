@@ -46,7 +46,6 @@ S='engine/scenes/src/main/kotlin/dev/geode'
 C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
     "$C/bridge/GeodeNative.kt"
-    "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"
 )
 

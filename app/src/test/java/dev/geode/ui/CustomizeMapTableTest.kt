@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import dev.geode.pro.FreeTier
-import dev.geode.render.scene.ParamKeys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -27,19 +26,19 @@ class CustomizeMapTableTest {
         // A slice of the engine's TAB|key roll table, one or more per group, as Kotlin read it before #333.
         val rolled =
             listOf(
-                "MOTION" to ParamKeys.SPEED,
-                "MOTION" to ParamKeys.CAM_FLY,
-                "MOTION" to ParamKeys.ENDLESS_ZOOM,
-                "MOTION" to ParamKeys.TURBULENCE,
-                "COLOR" to ParamKeys.PALETTE,
-                "COLOR" to ParamKeys.POSTERIZE,
-                "FX" to ParamKeys.VIGNETTE,
-                "SHAPE" to ParamKeys.KALEIDOSCOPE,
-                "SCENE" to ParamKeys.BLEND_PRESET_CHANGES,
-                "FLUID" to ParamKeys.FLUID_CURL,
-                "FLUID" to ParamKeys.FLOW_STRENGTH,
-                "CYMATICS" to ParamKeys.GEOMETRY,
-                "REACTIVITY" to ParamKeys.AUDIO_DRIVE,
+                "MOTION" to "Speed",
+                "MOTION" to "Fly speed",
+                "MOTION" to "Endless zoom",
+                "MOTION" to "Turbulence",
+                "COLOR" to "Palette",
+                "COLOR" to "Posterize",
+                "FX" to "Vignette",
+                "SHAPE" to "Kaleidoscope",
+                "SCENE" to "Blend preset changes",
+                "FLUID" to "Fluid curl",
+                "FLUID" to "Flow strength",
+                "CYMATICS" to "Geometry",
+                "REACTIVITY" to "Audio drive",
                 "REACTIVITY" to "Reaction DNA",
             )
         val placed = sections.flatMap { it.controls }.toSet()
@@ -66,10 +65,10 @@ class CustomizeMapTableTest {
     fun theFreeSetIsTheUnionOfTheBasics() {
         val union = sections.filter { it.basics }.flatMapTo(mutableSetOf()) { it.controls }
         assertEquals(union, FreeTier.freeCustomizeControls(CustomizeMapTable.basicControls))
-        assertTrue(ParamKeys.PALETTE in union)
+        assertTrue("Palette" in union)
         assertTrue("@macros" in union)
         // Deeper controls stay Pro.
-        listOf(ParamKeys.HUE_SHIFT, ParamKeys.FLUID_CURL, "@reactions", "@shader_code").forEach { key ->
+        listOf("Hue shift", "Fluid curl", "@reactions", "@shader_code").forEach { key ->
             assertTrue("$key is Pro", key !in union)
         }
     }
@@ -88,12 +87,12 @@ class CustomizeMapTableTest {
     fun theOwnersLayoutHolds() {
         fun section(path: String) = sections.single { it.path == path }
         assertEquals(
-            listOf(ParamKeys.PALETTE, ParamKeys.BRIGHTNESS, ParamKeys.SATURATION, ParamKeys.BLOOM),
+            listOf("Palette", "Brightness", "Saturation", "Bloom"),
             section("LOOK/basics").controls,
         )
-        assertTrue(ParamKeys.HUE_SHIFT in section("LOOK/colour_detail").controls)
-        assertEquals(listOf(ParamKeys.SPEED, ParamKeys.ZOOM, ParamKeys.ROTATION), section("MOTION/basics").controls)
-        assertEquals(listOf(ParamKeys.CAM_PATH, ParamKeys.CAM_FLY), section("CAMERA/basics").controls)
+        assertTrue("Hue shift" in section("LOOK/colour_detail").controls)
+        assertEquals(listOf("Speed", "Zoom", "Rotation"), section("MOTION/basics").controls)
+        assertEquals(listOf("Camera path", "Fly speed"), section("CAMERA/basics").controls)
         assertNull(CustomizeMapTable.sectionsOf(CustomizeCategory.EXPERT).firstOrNull { it.basics })
         assertEquals("Colour detail", section("LOOK/colour_detail").title)
     }

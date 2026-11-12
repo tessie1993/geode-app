@@ -46,7 +46,7 @@ data class MacroLibraryKnob(
 
 /**
  * A target a link may name, by its wire name, whether the style on screen shows it, and the Customize control
- * that sets it (its ParamKeys key), which labels a param no modulation target names.
+ * that sets it (its control key), which labels a param no modulation target names.
  */
 data class MacroTarget(
     val name: String,
@@ -116,7 +116,7 @@ data class MacroControl(
 
 /**
  * Which Customize sliders a knob can move (core/viz/MacroBank's controlsText, `geode_macro_bank_controls`),
- * by ParamKeys name. A slider missing here cannot be put on a knob.
+ * by control key. A slider missing here cannot be put on a knob.
  */
 object MacroControlsTable {
     private const val VERSION = "1"

@@ -521,7 +521,7 @@ object GeodeNative {
         curve: String,
     ): String
 
-    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    /** A new knob that moves the Customize control [control] (a control key); native names it. */
     external fun macroBankAddKnobFor(
         bank: String,
         control: String,
@@ -1242,7 +1242,7 @@ object GeodeNative {
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
     external fun paramsRandomize(
@@ -1261,7 +1261,7 @@ object GeodeNative {
      */
     external fun customizeText(): String
 
-    /** Every control a roll can move (ParamKeys strings, one per line), so the panel offers to keep it; ask once. */
+    /** Every control a roll can move (control keys, one per line), so the panel offers to keep it; ask once. */
     external fun customizeLockableKeys(): String
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
@@ -1270,7 +1270,7 @@ object GeodeNative {
     /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     * control keys in [locked]. Every other control holds. True when it changed something.
      */
     external fun customizeRandomize(
         styleId: String?,

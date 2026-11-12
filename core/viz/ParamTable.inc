@@ -26,7 +26,7 @@
 //
 //   GEODE_PARAM_META(name, label, scope, flags, rollLo, rollHi)
 //
-//   label    the Customize control that sets the field, by its key (the Kotlin ParamKeys string, the
+//   label    the Customize control that sets the field, by its key (its native label: the text on screen, the
 //            lock key and the search term); rows of one control share it ("Palette" is the palette and
 //            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).

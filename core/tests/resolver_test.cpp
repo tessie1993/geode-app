@@ -494,11 +494,11 @@ void testLatchPinnedAgainstGlobals() {
         const bool reduced = i % 2 == 0;
         const EngineSettings p = pinned.latch(reduced);
         held = held && p.bank && *p.bank == knobs && p.notesOn && p.handMask == snare && p.director.amount == 1.0f &&
-               p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced;
+               p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced && pinned.handMask() == snare;
         const EngineSettings l = live.latch(reduced);
         followed = followed && l.bank && *l.bank == now && l.notesOn == (i % 2 == 0) && l.handMask == (i % 2 == 0 ? hand::kAll : 0u) &&
                    l.director.amount == (i % 2 == 0 ? 0.0f : 1.0f) && l.director.seed == static_cast<uint64_t>(i + 100) &&
-                   l.reducedMotion == reduced;
+                   l.reducedMotion == reduced && live.handMask() == (i % 2 == 0 ? hand::kAll : 0u);
     }
     macrobank::setGlobal(macrobank::defaultBank());
     geode::viz::note_response::setGlobal(false);

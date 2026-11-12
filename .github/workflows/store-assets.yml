@@ -117,6 +117,11 @@ jobs:
           timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
           adb logcat -b main,system,crash -v threadtime > "$OUT/logs/logcat.txt" 2>&1 &
           LOGCAT_PID=$!
+          # The host's memory every 30 s, for the day the emulator dies again (run 43112454833 lost it
+          # in the 10-inch set with nothing in logcat or the emulator's output to say why).
+          ( while sleep 30; do echo "== $(date -u +%T)"; free -m | sed -n 2p; ps -eo rss=,comm= --sort=-rss | head -4; done ) \
+            > "$OUT/logs/host-memory.txt" 2>&1 &
+          MEM_PID=$!
 
           # The screen each set is cut to: logical size and density. Width x height as the user
           # holds it; sw = short side * 160 / density (phone 411 dp, 7-inch 600 dp, 10-inch 720 dp).
@@ -200,7 +205,7 @@ jobs:
             timeout 600 adb pull /sdcard/googletest/test_outputfiles/store-frames "$OUT/raw/frames" >/dev/null 2>&1 || true
             echo "::endgroup::"
           fi
-          kill "$LOGCAT_PID" >/dev/null 2>&1 || true
+          kill "$LOGCAT_PID" "$MEM_PID" >/dev/null 2>&1 || true
           touch "$OUT/raw/finished"
           SH
           chmod +x "$RUNNER_TEMP/store-assets.sh"
@@ -223,6 +228,17 @@ jobs:
           disable-animations: true
           working-directory: .
           script: bash "$RUNNER_TEMP/store-assets.sh"
+
+      - name: Host kernel log
+        if: always()
+        shell: bash
+        run: |
+          # If the emulator died, the host kernel says whether it was killed (OOM) or crashed (segfault).
+          mkdir -p store-assets-out/logs
+          sudo dmesg -T > store-assets-out/logs/host-dmesg.txt 2>&1 || true
+          grep -iE "out of memory|oom-kill|killed process|segfault|qemu" store-assets-out/logs/host-dmesg.txt \
+            || echo "no OOM kill or segfault in the host kernel log"
+          ls -la /tmp/android-runner/ 2>/dev/null || true
 
       - name: Collect and check the assets
         if: always()

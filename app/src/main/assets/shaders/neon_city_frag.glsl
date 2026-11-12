@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Neon City: a synthwave flyover. An endless grid of blocks below the eye has
 // neon-edged roofs and lit windows, the streets are glowing grid lines, and a
@@ -41,6 +42,31 @@ out vec4 fragColor;
 // blocks, a low one cuts them down to a low-rise sprawl; no roof passes the
 // tallest one the bound allows), k4 BUILD the horizon's glow, k5 SPACE the
 // reach (far plane, haze).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the city is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Only knobs drive them here:
+// this style leaves Morph, Warp and Turbulence to view(), which already bends
+// its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sLit        k0 PULSE         the share of windows lit 0.1 .. 0.22 .. 0.4
+//   sRows       k1 TEXTURE       window rows per unit of height 1.4 .. 2.2 .. 3.4
+//   gBend       k2 FLOW          the avenues' bend -1 .. 0 .. 1
+//   gTone       k3 TONE          palette and skyline -0.3 .. 0 .. 0.3
+//   gGlow       k4 BUILD         the horizon band's glow 0.5 .. 1 .. 1.5
+//   sBlockH     k4 BUILD         the blocks' height 0.5 .. 1 .. 1.4
+//   sFoot       k5 SPACE         a block's footprint 1.2 .. 1 .. 0.7
+//   sMoonR      k5 SPACE         the moon's radius 0.12 .. 0.085 .. 0.06
+//   reach       k5 SPACE         far plane and haze 0.8 .. 1 .. 1.2
+//
+// The cell (2), its hash wrap (512 cells) and the window columns (3 per unit,
+// wrapping at 3072) stay constants: each is the 1024 tile the eye's rebase
+// relies on. The roof bound gHiMax grows with sBlockH. The city goes through
+// SHELL_FIELD3, so the shell's spawn, fractal, front and back hooks reach it.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -81,6 +107,12 @@ vec3 gEye;
 /** k2 FLOW: how far the avenues bend sideways, world units (0 at rest); k3 TONE's palette offset. */
 float gBend = 0.0;
 float gTone = 0.0;
+/** Shape inputs (see the header). */
+float sLit;
+float sRows;
+float sBlockH;
+float sFoot;
+float sMoonR;
 
 /** The city's own frame: the world sheared sideways along z by FLOW's bend. */
 vec3 cityP(vec3 p) {
@@ -95,7 +127,7 @@ float bandPick(float h) {
     return dot(lo, vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57))) + dot(hi, vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX)));
 }
 
-float map(vec3 w) {
+float mapField(vec3 w) {
     vec3 p = cityP(w);
     vec2 cell = floor(p.xz / NC_CELL);
     vec2 centre = (cell + 0.5) * NC_CELL;
@@ -111,10 +143,10 @@ float map(vec3 w) {
     float tower = step(0.88, h);
     if (gTone > 0.0) tower = max(tower, smoothstep(0.88 - 1.2 * gTone, 0.92 - 1.2 * gTone, h));
     tower *= 1.0 + 2.6 * min(gTone, 0.0);
-    float height = ((0.8 + 3.2 * h) * (0.45 + 0.7 * band) + 2.5 * tower) * gStretch;
+    float height = ((0.8 + 3.2 * h) * (0.45 + 0.7 * band) * sBlockH + 2.5 * tower) * gStretch;
     float top = min(NC_GROUND + height, gCap);
-    // Footprint at most 0.8 of the 1.0 half-cell: the rest is street.
-    vec2 hs = vec2(0.55 + 0.25 * hw, 0.55 + 0.25 * fract(hw * 7.13));
+    // Footprint at most 0.8 of the 1.0 half-cell (0.96 at SPACE's widest): the rest is street.
+    vec2 hs = vec2(0.55 + 0.25 * hw, 0.55 + 0.25 * fract(hw * 7.13)) * sFoot;
     // The box runs one unit below the ground so there is no seam at its foot.
     float yc = 0.5 * (top + NC_GROUND - 1.0);
     float hy = 0.5 * (top - NC_GROUND + 1.0);
@@ -136,6 +168,11 @@ float map(vec3 w) {
     return d;
 }
 
+/** The city as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -155,7 +192,7 @@ vec3 skyColour(vec3 rd, float glowY) {
     // The moon: pale, unstriped, a little above the glow, mottled with maria.
     vec3 md = normalize(vec3(0.12, glowY + 0.26, 1.0));
     float r = sqrt(max(2.0 * (1.0 - dot(rd, md)), 0.0));
-    float disc = 1.0 - smoothstep(0.085, 0.09, r);
+    float disc = 1.0 - smoothstep(sMoonR, sMoonR + 0.005, r);
     vec2 mq = (rd.xy - md.xy) * 24.0;
     float maria = 0.6 + 0.4 * sin(mq.x * 1.3 + 1.3) * sin(mq.y * 1.6 - 0.4);
     col += mix(vec3(0.95, 0.96, 1.0), pal(0.6), 0.12) * disc * (0.72 + 0.22 * maria);
@@ -169,13 +206,20 @@ vec3 skyColour(vec3 rd, float glowY) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sLit = shellMap(shellKnob(0), 0.1, 0.22, 0.4);
+    sRows = shellMap(shellKnob(1), 1.4, 2.2, 3.4);
+    gBend = shellMap(shellKnob(2), -1.0, 0.0, 1.0);
+    gTone = shellMap(shellKnob(3), -0.3, 0.0, 0.3);
+    gGlow = shellMap(shellKnob(4), 0.5, 1.0, 1.5);
+    sBlockH = shellMap(shellKnob(4), 0.5, 1.0, 1.4);
+    sFoot = shellMap(shellKnob(5), 1.2, 1.0, 0.7);
+    sMoonR = shellMap(shellKnob(5), 0.12, 0.085, 0.06);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    gBend = 2.0 * (clamp(uKnob[2], 0.0, 1.0) - 0.5);
-    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
-    gGlow = 1.0 + (clamp(uKnob[4], 0.0, 1.0) - 0.5);
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -193,7 +237,7 @@ void main() {
 
     gStretch = 1.0 + 0.55 * drop;
     gCap = uCamPos.y - NC_CLEAR;
-    gHiMax = min(NC_GROUND + NC_MAX_HEIGHT * gStretch, gCap);
+    gHiMax = min(NC_GROUND + NC_MAX_HEIGHT * gStretch * max(sBlockH, 1.0), gCap);
     float glowY = 0.02 + 0.16 * drop;
 
     float t = 0.05;
@@ -247,12 +291,12 @@ void main() {
             // Windows on the side faces.
             float sideFace = 1.0 - step(0.5, n.y);
             float along = abs(n.x) > abs(n.z) ? p.z : p.x;
-            vec2 wc = vec2(along * 3.0, p.y * 2.2);
+            vec2 wc = vec2(along * 3.0, p.y * sRows);
             vec2 wf = fract(wc);
             float shape = smoothstep(0.18, 0.26, wf.x) * (1.0 - smoothstep(0.74, 0.82, wf.x))
                         * smoothstep(0.25, 0.33, wf.y) * (1.0 - smoothstep(0.77, 0.85, wf.y));
             float wid = hashCell(ivec3(int(mod(floor(wc.x), NC_WINWRAP)), int(floor(wc.y)), int(gH * 4096.0)));
-            float lit = step(wid, 0.22 + 0.35 * gBand);
+            float lit = step(wid, sLit + 0.35 * gBand);
             // A slow sweep keeps the lights moving in silence.
             float dist = length(pw.xz - gEye.xz);
             float sweep = 0.5 + 0.5 * sin(dist * 0.35 - uTime * 1.2 + gH * 6.0);

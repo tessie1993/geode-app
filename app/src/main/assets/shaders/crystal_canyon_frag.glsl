@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Crystal Canyon: a flight down a canyon whose walls are faceted crystal
 // pillars, hexagonal prisms with pointed tips standing on a grid. Short ones
@@ -35,6 +36,31 @@ out vec4 fragColor;
 // position and how high the walls tower (a high melody raises them into tall
 // spires, a low one settles them into low mesas; hiN follows it), k4 BUILD
 // the tips' glow, k5 SPACE the reach (far plane and haze).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the canyon is a normalized input, mapped to its range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off. Only knobs drive them
+// here: this style leaves Morph, Warp and Turbulence to view(), which already
+// bends its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sKick       k0 PULSE         a full kick's tip growth 0.8 .. 1.5 .. 2.2
+//   sThick      k1 TEXTURE       the pillars' thickness 0.65 .. 1 .. 1.1
+//   sTip        k1 TEXTURE       the tips' point (face tilt) 0.6 .. 1.3 .. 2.4
+//   gBend       k2 FLOW          the width's wobble 0.4 .. 0.7 .. 1.0
+//   gRise       k3 TONE          the walls' height 5.7 .. 9.5 .. 13.3
+//   sCarpet     k4 BUILD         the floor crystals' spread of height 0.3 .. 0.7 .. 1.4
+//   sBank       k4 BUILD         the run up to the wall tops 4.4 .. 3.4 .. 2.4
+//   sWidth      k5 SPACE         the open floor's half-width 3.6 .. 4.4 .. 5.6
+//   reach       k5 SPACE         far plane and haze 0.8 .. 1 .. 1.2
+//
+// The cell (1) and its hash wrap (1024) stay constants: the wrap is the power
+// of two the eye's rebase relies on, and 1.1 keeps the widest pillar inside
+// its cell. The canyon goes through SHELL_FIELD3, so the shell's spawn,
+// fractal, front and back hooks reach it.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -70,17 +96,24 @@ vec3 gEye;
 float gBend = 0.7;
 /** k3 TONE: how far the wall pillars rise (CC_RISE at rest). */
 float gRise = CC_RISE;
+/** Shape inputs (see the header). */
+float sKick;
+float sThick;
+float sTip;
+float sCarpet;
+float sBank;
+float sWidth;
 
 float canyonWidth(float z) {
-    return CC_WIDTH + gBend * sin(z * (CC_TAU / 64.0));
+    return sWidth + gBend * sin(z * (CC_TAU / 64.0));
 }
 
 float wallAt(float ax, float z) {
     float w = canyonWidth(z);
-    return smoothstep(w, w + CC_BANK, ax);
+    return smoothstep(w, w + sBank, ax);
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 cell = floor(p.xz);
     vec2 cc = cell + 0.5;
     vec2 f = p.xz - cc;
@@ -93,23 +126,24 @@ float map(vec3 p) {
     float kickAll = clamp(SND_KICK_ENV, 0.0, 1.0);
     // Only the crystals just ahead of the eye answer the kick.
     float kick = kickAll * exp(-abs(cc.y - gEye.z - 4.0) * 0.14);
-    float top = CC_FLOOR + 0.25 + 0.7 * h + gRise * wall * (0.62 + 0.38 * h2)
-              + CC_KICK * kick * (0.3 + 0.7 * wall);
-    // Largest apothem 0.341 plus the 0.07 jitter stays inside the half-cell.
-    float r = (0.23 + 0.08 * h2) * (1.0 + 0.1 * kick);
+    float top = CC_FLOOR + 0.25 + sCarpet * h + gRise * wall * (0.62 + 0.38 * h2)
+              + sKick * kick * (0.3 + 0.7 * wall);
+    // Largest apothem 0.341 (0.375 at TEXTURE's thickest) plus the 0.07 jitter stays inside the half-cell.
+    float r = (0.23 + 0.08 * h2) * sThick * (1.0 + 0.1 * kick);
 
     vec2 q = rot2(h2 * CC_TAU) * (f - (vec2(h, h2) - 0.5) * 0.1);
     vec2 aq = abs(q);
     // Hexagonal cross-section (max of face planes: a lower bound at corners).
     float pr = max(aq.x * 0.8660254 + aq.y * 0.5, aq.y);
     float side = pr - r;
-    // Pointed tip: the face planes tilted by 1.3, normalised by sqrt(1 + 1.69).
-    float cap = (p.y - top + 1.3 * pr) / 1.64;
+    // Pointed tip: the face planes tilted by sTip (1.3 at rest), normalised by
+    // sqrt(1 + sTip^2) (1.64 at rest, where the ratio below is exactly 1).
+    float cap = (p.y - top + sTip * pr) / (1.64 * sqrt((1.0 + sTip * sTip) / (1.0 + 1.3 * 1.3)));
     float dc = max(side, cap);
 
     // A neighbour one cell further out (plus the width's z wobble) is the
     // tallest one could be.
-    float hiN = CC_FLOOR + 0.95 + gRise * wallAt(ax + 1.1, cc.y) + CC_KICK * kickAll;
+    float hiN = CC_FLOOR + 0.25 + sCarpet + gRise * wallAt(ax + 1.1, cc.y) + sKick * kickAll;
     vec2 af = abs(f);
     float toEdge = 0.5 - max(af.x, af.y);
     float d = min(dc, max(toEdge + 0.02, p.y - hiN));
@@ -124,6 +158,11 @@ float map(vec3 p) {
     gWall = wall;
     gTop = top;
     return d;
+}
+
+/** The canyon as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -146,16 +185,22 @@ vec3 skyColour(vec3 rd, float hueBase) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sKick = shellMap(shellKnob(0), 0.8, CC_KICK, 2.2);
+    sThick = shellMap(shellKnob(1), 0.65, 1.0, 1.1);
+    sTip = shellMap(shellKnob(1), 0.6, 1.3, 2.4);
+    gBend = shellMap(shellKnob(2), 0.4, 0.7, 1.0);
+    gRise = shellMap(shellKnob(3), CC_RISE * 0.6, CC_RISE, CC_RISE * 1.4);
+    sCarpet = shellMap(shellKnob(4), 0.3, 0.7, 1.4);
+    sBank = shellMap(shellKnob(4), 4.4, CC_BANK, 2.4);
+    sWidth = shellMap(shellKnob(5), 3.6, CC_WIDTH, 5.6);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gBend = 0.7 + 0.6 * kFlow;
-    gRise = CC_RISE * (1.0 + 0.8 * kTone);
-    float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);

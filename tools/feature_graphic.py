@@ -2,8 +2,8 @@
 
   python3 tools/feature_graphic.py
 
-The wordmark is the outlined one the system splash uses (res/drawable/splash_wordmark.xml,
-made by tools/wordmark.py), so no font is needed. The eye is the launcher icon's art
+The wordmark is the one the system splash and the app draw (res/drawable/splash_wordmark.xml,
+made by tools/wordmark.py), read from that file, so the graphic follows it and no font is needed. The eye is the launcher icon's art
 (docs/brand/flow/icon-neon.jpg). Everything else is drawn here. Render the PNG with
 docs/brand/README.md › Regenerating.
 
@@ -12,27 +12,71 @@ no alpha, key elements away from the edges, and no pure black, white or dark gre
 so the ground is indigo, not the app's black.
 """
 import math
-import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WORDMARK = ROOT / "app/src/main/res/drawable/splash_wordmark.xml"
 OUT = ROOT / "docs/brand/beatrealms-feature-graphic.svg"
 W, H = 1024, 500
+A = "{http://schemas.android.com/apk/res/android}"
+AAPT = "{http://schemas.android.com/aapt}"
 
-xml = WORDMARK.read_text()
-paths = re.findall(r'android:fillColor="(#[0-9A-Fa-f]{6})"\s+android:pathData="([^"]+)"', xml)
-nums = [float(n) for _, d in paths for n in re.findall(r"-?\d+(?:\.\d+)?", d)]
-xs, ys = nums[0::2], nums[1::2]
-x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
 
-# The wordmark, 600 px wide, centred, under the eye.
-word_w = 600
-s = word_w / (x1 - x0)
-word_h = (y1 - y0) * s
-wx, wy = (W - word_w) / 2, 318
-word = "".join(f'<path fill="{c}" d="{d}"/>' for c, d in paths)
-word_g = f'<g transform="translate({wx - x0 * s:.2f},{wy - y0 * s:.2f}) scale({s:.4f})">{word}</g>'
+def paint(colour):
+    """An Android #RRGGBB or #AARRGGBB colour as SVG (colour, opacity)."""
+    h = colour.lstrip("#")
+    if len(h) == 8:
+        return "#" + h[2:], int(h[:2], 16) / 255
+    return "#" + h, 1.0
+
+
+def wordmark_svg():
+    """The vector drawable's paths as SVG: flat fills, linear gradient fills and strokes."""
+    root = ET.parse(WORDMARK).getroot()
+    vw, vh = float(root.get(A + "viewportWidth")), float(root.get(A + "viewportHeight"))
+    defs, body = [], []
+    for n, path in enumerate(root.iter("path")):
+        d = path.get(A + "pathData")
+        attrs = ['fill="none"']
+        grad = path.find(f"{AAPT}attr/gradient")
+        if grad is not None:
+            gid = f"wm{n}"
+            stops = "".join(
+                '<stop offset="{}" stop-color="{}" stop-opacity="{:.3f}"/>'.format(
+                    item.get(A + "offset"), *paint(item.get(A + "color"))
+                )
+                for item in grad.iter("item")
+            )
+            defs.append(
+                f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" '
+                f'x1="{grad.get(A + "startX")}" y1="{grad.get(A + "startY")}" '
+                f'x2="{grad.get(A + "endX")}" y2="{grad.get(A + "endY")}">{stops}</linearGradient>'
+            )
+            attrs = [f'fill="url(#{gid})"']
+        elif path.get(A + "fillColor"):
+            c, o = paint(path.get(A + "fillColor"))
+            attrs = [f'fill="{c}" fill-opacity="{o:.3f}"']
+        if path.get(A + "strokeColor"):
+            c, o = paint(path.get(A + "strokeColor"))
+            attrs.append(
+                f'stroke="{c}" stroke-opacity="{o:.3f}" stroke-width="{path.get(A + "strokeWidth")}" '
+                f'stroke-linejoin="{path.get(A + "strokeLineJoin", "miter")}"'
+            )
+        body.append(f'<path {" ".join(attrs)} d="{d}"/>')
+    return vw, vh, "".join(defs), "".join(body)
+
+
+# The eye on the left, the wordmark on the right, the pair centred and inside the middle 80 %.
+vw, vh, word_defs, word = wordmark_svg()
+eye = 330
+word_w = 500
+s = word_w / vw
+word_h = vh * s
+gap = 0
+ex = (W - eye - gap - word_w) / 2
+wx, wy = ex + eye + gap, (H - word_h) / 2 - 6
+word_g = f'<g transform="translate({wx:.2f},{wy:.2f}) scale({s:.4f})">{word}</g>'
 
 # A spectrum across the whole width, quiet, symmetric about the centre: background only.
 bars = []
@@ -50,7 +94,8 @@ def wave(amp, freq, phase, yc):
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
 <defs>
-  <radialGradient id="ground" cx="512" cy="190" r="620" gradientUnits="userSpaceOnUse">
+  {word_defs}
+  <radialGradient id="ground" cx="512" cy="230" r="620" gradientUnits="userSpaceOnUse">
     <stop offset="0" stop-color="#3B2183"/>
     <stop offset="0.45" stop-color="#22125A"/>
     <stop offset="1" stop-color="#160C3C"/>
@@ -78,10 +123,10 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org
   <path d="{wave(18, 2.5, 0.4, 150)}" stroke="#C792EA" stroke-opacity="0.18" stroke-width="2"/>
   <path d="{wave(14, 3.5, 2.1, 168)}" stroke="#89DDFF" stroke-opacity="0.14" stroke-width="2"/>
 </g>
-<image xlink:href="flow/icon-neon.jpg" href="flow/icon-neon.jpg" x="{W / 2 - 160}" y="-14" width="320" height="320" mask="url(#eyeMask)" style="mix-blend-mode:screen"/>
-<g filter="url(#glow)" opacity="0.55">{word_g}</g>
+<image xlink:href="flow/icon-neon.jpg" href="flow/icon-neon.jpg" x="{ex:.1f}" y="{(H - eye) / 2 - 10:.1f}" width="{eye}" height="{eye}" mask="url(#eyeMask)" style="mix-blend-mode:screen"/>
+<g filter="url(#glow)" opacity="0.45">{word_g}</g>
 {word_g}
 </svg>
 '''
 OUT.write_text(svg)
-print(f"wrote {OUT.relative_to(ROOT)}; wordmark {word_w} x {word_h:.0f} at y {wy}")
+print(f"wrote {OUT.relative_to(ROOT)}; wordmark {word_w} x {word_h:.0f} at {wx:.0f},{wy:.0f}")

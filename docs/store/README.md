@@ -50,7 +50,7 @@ what goes in which form.
 | 7 | App content › Data safety | Answer as written | [data-safety.md](data-safety.md) |
 | 8 | App content › Content rating | Answer the questionnaire | [content-rating.md](content-rating.md) |
 | 9 | App content › Target audience, Ads, App access, News, Health apps, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
-| 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type | [permissions.md](permissions.md) |
+| 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type: media playback, microphone, media projection, media processing, data sync | [permissions.md](permissions.md) |
 | 11 | Monetize › Products › In-app products | Create the one-time product with id `beatrealms3d_pro`, set its price, activate it | owner |
 | 12 | Release › Production (or a test track first) | Upload the AAB from `release.yml`, paste the release notes | `fastlane/metadata/android/en-US/changelogs/default.txt` |
 
@@ -98,6 +98,8 @@ read 2026-11-11:
   repository's secrets).
 - The contact email and website shown on the store page.
 - Uploading the promo video to YouTube and the foreground-service clips.
+- Creating the app and the in-app product `beatrealms3d_pro`, and accepting Play's terms and
+  declarations.
 - Running the **Store assets** workflow, looking at the pictures and choosing which go up.
 - Confirming the privacy policy's public URL shows the renamed text.
 
@@ -123,37 +125,58 @@ read 2026-11-11:
 5. **The styles named "Acid"** in a store screenshot or the listing: harmless in the app, but
    keep them out of store pictures (the metadata policy bans depictions of drug use, and a
    reviewer reads names).
-6. **Screenshots: decided 2026-11-11**, "screenshots free, record pro". Still open: which styles,
+6. **Screenshots: decided 2026-11-11**, "screenshots free, record pro" (and the hidden easter eggs are free; the listing does not name them). Still open: which styles,
    and whether the player screenshot is retaken on a phone with real cover art.
 7. **Promo video.** Optional. The workflow's clips are silent and software-rendered; a
    published video needs a recording from a real phone ([promo-video.md](promo-video.md)).
 8. **Tags.** Play's tag list could not be read outside the Console; pick from the order in
    [category-tags.md](category-tags.md).
-9. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
+9. **"Your colours stay yours"** (the Auto mode bullet). True in the code (the director touches
+   no colour param, `core/tests/director_test.cpp`, `resolver_test.cpp`), but it is a promise;
+   drop the sentence if Auto should be free to change colours later.
+10. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
    say what the app is compatible with ("a MilkDrop-compatible engine", "with Google Cast").
    If a reviewer objects, drop the words; nothing else depends on them.
+11. **Android TV.** The manifest now declares TV support (`android.software.leanback`, a
+   `LEANBACK_LAUNCHER` entry, a TV banner, touchscreen not required). Play then offers the app
+   to Android TV only if the owner opts in under Advanced settings › Form factors, which needs
+   TV screenshots and passes Play's TV quality review. The listing says nothing about TV; this
+   folder has no TV screenshots.
+12. **"Show on a computer" in the listing.** Named as a Pro bullet ("in a web browser on a
+   computer on the same Wi-Fi, through a link or a QR code"); #1099 changes the link (no IP
+   address) and adds WebRTC, so reread the bullet and the privacy section when it merges.
 
-## Listing sentences to revisit when pending PRs merge
+## Listing lines to change when the open PRs merge
 
-- **Real-time Record (#1035):** the "Record a take (Pro)" bullet describes today's take (the
-  changes are replayed and rendered in the background). Reword it to what #1035 records.
-- **Pool style (#1036):** one more style; rerun `tools/store-stats.sh` and change "274 visual
-  styles" (and the changelog's 274) to the new count. If Pool is free, "more than 60" stays true.
-- **Macro editor (#1034):** the listing says "quick knobs" only. Add "make your own knobs" to the
-  Customize bullet if the editor ships, and say whether it is Pro.
-- **Cast microphone fix:** no listing change; add the microphone foreground-service declaration
-  ([permissions.md](permissions.md) › Pending).
+The store text is a sketch; the code is the source of truth (owner, 2026-11-12). The listing
+describes `origin/main` at 8fd87553d, rechecked against the files on 2026-11-12. Landed since
+the first version and now in the text: real-time Record (#1035), the knob editor (#1062), the
+connected display (#1039), the Cast microphone type (#1037), Show on a computer (#1048, Pro
+through `ProFeature.CAST`), the Flame, Opal and Hollow families (#1088: 274 styles, thirteen
+families), Customize's Dive and Engine categories (#1065: eleven categories). #1024 retired
+pulse, shake and flash, which the listing never named. The easter eggs (#1055: shake for a
+screenshot, tap along) are free and hidden, so the listing does not name them; the privacy
+policy does (sensors, screenshots).
+
+| PR | Change when it merges |
+|---|---|
+| #1036 Pool replaces Water | The count stays 274 if it is one style for one (recount `core/tests/catalogue.txt`); the listing names neither style, keep it so. Free or Pro follows its kind (`pro/FreeTier.kt:45`: only loose shader styles are free); either way "more than 60" free stays true. Liquid's ripple controls go: screenshot alt text that names ripples needs a look |
+| #1089, #1099 Show on a computer: the phone's own picture, WebRTC, a link without the IP address | Recheck the privacy policy's "Show on a computer" section (three copies), [data-safety.md](data-safety.md) › the casting row and the listing's "through a link or a QR code" bullet: #1099 adds WebRTC (DTLS-SRTP, no STUN or TURN, local network only) and a new `tools/network-gate.sh`, and moves socket code to `core/cast/` as well as `cast/`, so the evidence paths change |
+| #1100 Remove hidden hit reactions | None (the listing names no hit reaction) |
+| #1094 90 and 120 fps on fast screens | None (the listing quotes no live frame rate) |
 
 ## What has been checked and what has not
 
-Checked: the listing's lengths and banned words (`tools/store-check.sh`); every count
+Checked: the listing's lengths and banned words (`tools/store-check.sh`, at b1ac6a75a; on 2026-11-12 the lengths were recounted with `wc -m` only, the script was not rerun); every count
 (`tools/store-stats.sh`, [stats.md](stats.md)); the icon's and the new feature graphic's size
-and format; each claim in the full description against the code on `main` at 022d8dd8d; the collect script on made-up pictures; each form answer against the code lines it
+and format; each claim in the full description against the code on `main` at b1ac6a75a (Graphify, then the files), and again by reading the files at 8fd87553d on 2026-11-12; the collect script on made-up pictures; each form answer against the code lines it
 cites; Play's rules against the help pages named in each file, read on 2026-11-11.
 
-Not checked: the screenshot tests and the workflow have never run. They were not compiled
-here either (the Gradle compile ran out of memory in the agent container), so the first CI
-build is also the first ktlint, detekt and compile check of `dev.geode.store`.
+Not checked: the first run of the **Store assets** workflow (run 43112454833, 2026-11-11, two
+hours) got only part of each set: `UiAutomation.takeScreenshot()` returned null on some
+Visuals captures under software GL (`StoreStage.shot`, `the system gave no screenshot`), the
+emulator went offline during the 10-inch set, and the collect step never ran because
+`pillow==11.0.0` has no wheel for the runner's Python 3.14 (fixed: Pillow 12.0.0, wheels only).
 [screenshots.md](screenshots.md) › Honest limits lists what a first run could show.
 
 `policy-audit.md` is the raw report of the `play-policy-insights` skill, kept as the source the

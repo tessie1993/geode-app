@@ -868,11 +868,12 @@ void dnaLeavesRoomAndStaysInRange() {
 // transient detector, whatever its traits and seed, within the cap, and the layer comes last: without it the
 // routes before it are what they were.
 void everyStyleHearsTransients() {
-    // The transient layer is the groove's last; the bar-count and melody layers follow it (everyStyleHearsTheSongsTime).
+    // The transient layer is the groove's last; the four musical layers follow it (everyStyleHearsTheSongsTime and
+    // everyStyleHearsTheMusicNotTheVolume).
     const auto heard = [](const StyleDna& dna) {
         for (int r = 0; r < dna.count; ++r) {
             const ReactSource s = dna.routes[static_cast<size_t>(r)].source;
-            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 3;
+            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 5;
         }
         return false;
     };
@@ -891,7 +892,7 @@ void everyStyleHearsTransients() {
     std::set<int> targets;
     for (int i = 0; i < kStyleCount; ++i) {
         const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
-        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 3)].target));
+        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 5)].target));
     }
     check(targets.size() >= 3, "the transient layer's target is the style's own, not one for every style");
 }
@@ -901,7 +902,8 @@ void everyStyleHearsTransients() {
 // user sees and edits. Neither moves a colour or turns anything, and the groove before them keeps its room.
 void everyStyleHearsTheSongsTime() {
     const auto longTime = [](ReactSource s) {
-        return s == ReactSource::Bar4Hold || s == ReactSource::PhraseHold || s == ReactSource::Bar4Pulse || s == ReactSource::Phrase;
+        return s == ReactSource::Bar4Hold || s == ReactSource::PhraseHold || s == ReactSource::Bar4Pulse || s == ReactSource::Phrase ||
+               s == ReactSource::Bar2Flip || s == ReactSource::PhraseFlip;
     };
     const auto tune = [](ReactSource s) {
         return s == ReactSource::MelodyContour || s == ReactSource::PitchHeight || s == ReactSource::MelodyNote ||
@@ -919,14 +921,14 @@ void everyStyleHearsTheSongsTime() {
         for (int seed = 0; seed < 4; ++seed) {
             for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
                 const StyleDna dna = buildStyleDna(id, seed, t);
-                check(dna.count >= 3 && dna.count <= StyleDna::kMaxRoutes, "the DNA stays within its cap");
-                const ReactRoute& bars = dna.routes[static_cast<size_t>(dna.count - 2)];
-                const ReactRoute& line = dna.routes[static_cast<size_t>(dna.count - 1)];
+                check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA stays within its cap");
+                const ReactRoute& bars = dna.routes[static_cast<size_t>(dna.count - 4)];
+                const ReactRoute& line = dna.routes[static_cast<size_t>(dna.count - 3)];
                 check(bars.enabled && longTime(bars.source), "every style has a route on every 4 bars or every phrase");
                 check(line.enabled && tune(line.source), "every style has a route on the melody");
                 check(calm(bars.target) && calm(line.target), "the long and tune routes move no colour and turn nothing");
                 check(bars.attackSeconds >= 1.0f && bars.releaseSeconds >= 1.0f, "the long route glides over a second or more");
-                check(dna.count - 3 <= StyleDna::kGrooveRoutes, "the groove keeps the room it had");
+                check(dna.count - 5 <= StyleDna::kGrooveRoutes, "the groove stays within its room");
                 longSources.insert(static_cast<int>(bars.source));
                 longTargets.insert(static_cast<int>(bars.target));
                 tuneSources.insert(static_cast<int>(line.source));
@@ -936,6 +938,72 @@ void everyStyleHearsTheSongsTime() {
     }
     check(longSources.size() >= 3 && longTargets.size() >= 2, "the long route's source and target are drawn per style");
     check(tuneSources.size() >= 3 && tuneTargets.size() >= 3, "the tune route's source and target are drawn per style");
+}
+
+// The owner: "make the visual respond in varied ways to musical content rather than volume". Every style's DNA ends
+// on a harmony-and-form route and a feel-and-timbre route; no default route follows the absolute loudness; each
+// musical family of sources is heard by a fair share of styles; and no family of styles (the Styles page's groups)
+// hands every one of its styles the same musical routes.
+void everyStyleHearsTheMusicNotTheVolume() {
+    using S = ReactSource;
+    const auto in = [](S s, std::initializer_list<S> set) {
+        for (const S x : set) {
+            if (x == s) return true;
+        }
+        return false;
+    };
+    const std::initializer_list<S> harmony = {S::HarmonicChange, S::Tension, S::KeyClarity, S::TensionRise, S::ScaleBrightness};
+    const std::initializer_list<S> form = {S::SectionChange, S::Drop, S::BuildUp, S::Novelty};
+    const std::initializer_list<S> feeling = {S::Valence, S::FeltTension, S::DegreeAccent};
+    const std::initializer_list<S> timbre = {S::Flatness, S::Centroid, S::Rolloff, S::Evenness, S::StereoWidth};
+    const std::initializer_list<S> bars = {S::Bar4Hold, S::PhraseHold, S::Bar4Pulse, S::Phrase, S::Bar2Flip, S::PhraseFlip};
+    const std::initializer_list<S> melody = {S::MelodyContour, S::PitchHeight, S::MelodyNote, S::MelodyPresence, S::RunDensity,
+                                             S::Vibrato, S::Glide, S::Legato, S::Interval};
+    const std::initializer_list<S> loudness = {S::Level, S::Loudness, S::Vol, S::VolAtt, S::Intensity};
+    std::array<int, 6> heardBy{};
+    int styles = 0;
+    for (const catalogue::PickerFamily& fam : catalogue::pickerFamilies()) {
+        std::set<std::string> musical;  // each style's four musical routes, as one key
+        for (const std::string& id : fam.ids) {
+            ++styles;
+            const StyleDna dna = buildStyleDna(id, 0, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            const ReactRoute& form1 = dna.routes[static_cast<size_t>(dna.count - 2)];
+            const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
+            check(in(form1.source, harmony) || in(form1.source, form) || form1.source == S::DegreeAccent,
+                  "every style has a harmony or form route");
+            check(in(feel.source, feeling) || in(feel.source, timbre) || in(feel.source, melody) || feel.source == S::ScaleBrightness,
+                  "every style has a feel or timbre route");
+            check(!isLuminanceTarget(form1.target) && !isLuminanceTarget(feel.target) && form1.target != LfoTarget::Rotation &&
+                      feel.target != LfoTarget::Rotation,
+                  "the harmony and feel routes move no colour and turn nothing");
+            check(feel.attackSeconds >= 0.8f && feel.releaseSeconds >= 1.5f, "feel and timbre are followed slowly");
+            std::array<bool, 6> uses{};
+            std::string key;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                check(!in(route.source, loudness), "no default route follows the absolute loudness");
+                uses[0] = uses[0] || in(route.source, harmony);
+                uses[1] = uses[1] || in(route.source, form);
+                uses[2] = uses[2] || in(route.source, feeling);
+                uses[3] = uses[3] || in(route.source, timbre);
+                uses[4] = uses[4] || in(route.source, bars);
+                uses[5] = uses[5] || in(route.source, melody);
+                if (r >= dna.count - 4) {
+                    key += std::to_string(static_cast<int>(route.source)) + ":" + std::to_string(static_cast<int>(route.target)) + ":" +
+                           std::to_string(static_cast<int>(route.mode)) + ";";
+                }
+            }
+            for (size_t k = 0; k < uses.size(); ++k) heardBy[k] += uses[k] ? 1 : 0;
+            musical.insert(key);
+        }
+        if (fam.ids.size() >= 2) check(musical.size() >= 2, ("a family's styles do not all get the same musical routes: " + fam.name).c_str());
+    }
+    check(styles > 100, "the catalogue's styles were checked");
+    const char* names[] = {"harmony", "form", "feeling", "timbre", "bar counts", "melody"};
+    for (size_t k = 0; k < heardBy.size(); ++k) {
+        check(heardBy[k] * 8 >= styles, (std::string("at least an eighth of the styles hear the ") + names[k]).c_str());
+    }
+    check(heardBy[4] == styles && heardBy[5] == styles, "every style hears the bars and the tune");
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -2250,6 +2318,7 @@ int main() {
     dnaLeavesRoomAndStaysInRange();
     everyStyleHearsTransients();
     everyStyleHearsTheSongsTime();
+    everyStyleHearsTheMusicNotTheVolume();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

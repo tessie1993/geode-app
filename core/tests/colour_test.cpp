@@ -118,7 +118,16 @@ void stopsAreSceneParams() {
 
 }  // namespace
 
+void theShellAccentIsTheMiddleOfThePalette() {
+    // Hue 0.5 + 0.2 / 2 = 0.6 (216 degrees) at HSL 0.85 / 0.6, the old Kotlin Color.hsl(216, 0.85, 0.6): #4288F0.
+    check(geode_colour_palette_accent(0.5f, 0.2f) == 0x4288F0, "the accent sits on the middle of the hue span");
+    check(geode_colour_palette_accent(0.9f, 0.4f) == geode_colour_palette_accent(0.1f, 0.0f), "the middle wraps past one turn");
+    check(geode_colour_palette_accent(-0.25f, 0.0f) == geode_colour_palette_accent(0.75f, 0.0f), "a negative base wraps too");
+    check(geode_colour_palette_accent(std::nanf(""), 0.0f) == colour::kNone, "a non-finite input is no colour");
+}
+
 int main() {
+    theShellAccentIsTheMiddleOfThePalette();
     hsvRoundTrips();
     hexParsesAndFormats();
     eyedropperAverages();

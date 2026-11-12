@@ -1533,6 +1533,40 @@ Java_dev_geode_engine_bridge_GeodeNative_linkLabel(JNIEnv* env, jobject, jstring
     return geode::jni::utf8String(env, text.data());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairUrl(JNIEnv* env, jobject, jint address, jint port) {
+    char text[64];
+    return geode_link_pair_url(static_cast<uint32_t>(address), port, text, sizeof text) > 0 ? geode::jni::utf8String(env, text)
+                                                                                          : nullptr;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairOpen(JNIEnv*, jobject, jboolean open, jlong nowMs) {
+    geode_link_pair_open(open ? 1 : 0, nowMs);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairCode(JNIEnv* env, jobject, jlong nowMs) {
+    char text[32];
+    geode_link_pair_code(nowMs, text, sizeof text);
+    return geode::jni::utf8String(env, text);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairTry(JNIEnv* env, jobject, jstring typed, jlong nowMs, jstring token,
+                                                     jobjectArray path) {
+    if (!path || env->GetArrayLength(path) < 1) return 404;
+    geode::jni::Utf8Chars t(env, typed), k(env, token);
+    char out[GEODE_LINK_TOKEN_CHARS + 3];
+    const int status = geode_link_pair_try(t.get(), nowMs, k.get(), out, sizeof out);
+    if (status == 200) {
+        jstring s = geode::jni::utf8String(env, out);
+        env->SetObjectArrayElement(path, 0, s);
+        if (s) env->DeleteLocalRef(s);
+    }
+    return status;
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_linkReceiverHealth(JNIEnv*, jobject, jlong nowMs, jlong loadMs, jlong lastFetchMs,
                                                             jint playerState, jint idleReason) {

@@ -2541,6 +2541,40 @@ object GeodeNative {
     /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
     const val LINK_RTC = 10
 
+    /** The typed path, off the token: its page at "/", its script, and POST /pair with the typed code. */
+    const val LINK_PAIR_PAGE = 11
+    const val LINK_PAIR_SCRIPT = 12
+    const val LINK_PAIR = 13
+
+    /** Most bytes a POST on [LINK_PAIR] may carry (GEODE_LINK_PAIR_BODY_MAX). */
+    const val LINK_PAIR_BODY_MAX = 64L
+
+    /** The short link a computer types (host as one number, no token); null when it cannot be made. */
+    external fun linkPairUrl(
+        address: Int,
+        port: Int,
+    ): String?
+
+    /** Opens the typed path's pairing with a fresh code, or closes it. */
+    external fun linkPairOpen(
+        open: Boolean,
+        nowMs: Long,
+    )
+
+    /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
+    external fun linkPairCode(nowMs: Long): String
+
+    /**
+     * One typed try, [typed] as the POST carried it: returns the HTTP status (200, 403, 404, 429) and, on 200, puts
+     * the token's path in [path]`[0]`.
+     */
+    external fun linkPairTry(
+        typed: String,
+        nowMs: Long,
+        token: String,
+        path: Array<String?>,
+    ): Int
+
     /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
     const val LINK_NO_BODY = -1L
     const val LINK_BAD_BODY = -2L
@@ -2586,7 +2620,7 @@ object GeodeNative {
         token: String,
     ): String
 
-    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT] or [LINK_STYLE]); null for any other resource. */
+    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT], [LINK_STYLE], [LINK_PAIR_PAGE] or [LINK_PAIR_SCRIPT]). */
     external fun linkAsset(resource: Int): ByteArray?
 
     /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */

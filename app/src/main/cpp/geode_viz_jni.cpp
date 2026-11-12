@@ -241,11 +241,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizEndPreRoll(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
-    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
-    GeodeSoundTuning t{};
-    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
-    geode_viz_set_sound_tuning(vizOf(handle), &t);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray saved) {
+    std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
+    if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
+    geode_viz_set_sound_tuning(vizOf(handle), saved ? in.data() : nullptr, static_cast<int>(in.size()));
 }
 
 JNIEXPORT void JNICALL

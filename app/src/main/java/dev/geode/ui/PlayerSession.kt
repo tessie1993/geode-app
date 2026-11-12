@@ -57,7 +57,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
@@ -186,7 +185,7 @@ class PlayerSession internal constructor(
         )
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
-    internal val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore, MilkPresetMemory.shared(application))
+    internal val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore)
     private val audioFxController = playback.audioFx
 
     internal val settings: PlayerSettingsController =

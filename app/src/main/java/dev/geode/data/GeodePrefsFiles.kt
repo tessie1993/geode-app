@@ -4,14 +4,14 @@ import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.render.MilkPresetMemory
+import dev.geode.render.VisualizerRenderer
 
 /**
  * The registry of the app's SharedPreferences files: every file the app keeps is named here, and
  * one instance is built per process, by `GeodeContainer` (read it as `context.geodeContainer.prefsFiles`).
  * Outside `data/` and the container nothing opens a prefs file or builds this class
  * (`tools/layer-gate.sh`), so a later change of storage or of who owns a file has one place to go
- * (#1009, PR 2). `:engine:scenes`' `MilkPresetMemory` is the one opener outside `:app`.
+ * (#1009, PR 2). `:engine:scenes`' `VisualizerRenderer` is the one opener outside `:app`.
  */
 class GeodePrefsFiles(
     context: Context,
@@ -57,10 +57,10 @@ class GeodePrefsFiles(
          */
         const val RECORD = "geode-record"
 
-        /** `:engine:scenes`' [MilkPresetMemory] writes this one; it cannot name the schema, so it is listed here. */
+        /** `:engine:scenes`' [VisualizerRenderer] writes this one; it cannot name the schema, so it is listed here. */
         internal val MILK_PRESET_PREF_KEYS =
             prefKeys(VIZ) {
-                portable(PrefType.STRING, MilkPresetMemory.KEY)
+                portable(PrefType.STRING, VisualizerRenderer.MILK_PATH_KEY)
             }
     }
 }

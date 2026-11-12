@@ -1305,9 +1305,6 @@ object GeodeNative {
         nowNs: Long,
     ): Long
 
-    /** The stage frames left out because the encoder was behind. */
-    external fun recorderFramesDropped(handle: Long): Long
-
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
 

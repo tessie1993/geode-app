@@ -1543,10 +1543,6 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderRecorde
     return geode_recorder_recorded_ms(reinterpret_cast<const geode_recorder*>(handle), nowNs);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderFramesDropped(JNIEnv*, jobject, jlong handle) {
-    return geode_recorder_frames_dropped(reinterpret_cast<const geode_recorder*>(handle));
-}
-
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderLimitMs(JNIEnv*, jobject, jlong handle) {
     return geode_recorder_limit_ms(reinterpret_cast<const geode_recorder*>(handle));
 }

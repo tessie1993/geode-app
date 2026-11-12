@@ -40,13 +40,15 @@ namespace {
 long allocations = 0;   // every operator new in this process, so a pump can be held to none per frame
 }  // namespace
 
-void* operator new(std::size_t bytes) {
+// All three out of line: inlined into a caller, GCC 15 pairs the free (or the malloc) with the operator new (or
+// delete) it sees there and fails the build (-Wmismatched-new-delete), though the pair underneath is malloc's.
+[[gnu::noinline]] void* operator new(std::size_t bytes) {
     ++allocations;
     if (void* p = std::malloc(bytes > 0 ? bytes : 1)) return p;
     throw std::bad_alloc();
 }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+[[gnu::noinline]] void operator delete(void* p) noexcept { std::free(p); }
+[[gnu::noinline]] void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 

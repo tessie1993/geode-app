@@ -219,17 +219,17 @@ object GeodeNative {
     )
 
     /**
-     * [buffer] must be a direct buffer holding [frames] interleaved frames of [channels] channels, the format
-     * they were queued in, as 16-bit PCM or as float when [pcmFloat]; processed in place (the int16 conversion
-     * is native), never past the buffer's capacity.
+     * Processes the whole frames of the first [bytes] of a direct [buffer] in place, as [encoding]
+     * (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its capacity. Returns
+     * the bytes to pass on: those whole frames, a trailing part frame dropped.
      */
-    external fun dspProcess(
+    external fun dspProcessBytes(
         handle: Long,
         buffer: java.nio.ByteBuffer,
-        frames: Int,
+        bytes: Int,
+        encoding: Int,
         channels: Int,
-        pcmFloat: Boolean,
-    )
+    ): Int
 
     /**
      * Reads the tags of [fd], which native closes. Fills [texts] with UTF-8 title, artist, album, album artist,
@@ -2713,7 +2713,12 @@ object GeodeNative {
         deviceId: Int,
     )
 
-    /** Bits since the last call: 1 the position began to move, 2 an underrun, 4 the stream failed for good. */
+    /** GEODE_AUDIO_OUT_*: the position began to move, an underrun, the stream failed for good. */
+    const val AUDIO_OUT_ADVANCING = 1
+    const val AUDIO_OUT_UNDERRUN = 2
+    const val AUDIO_OUT_FAILED = 4
+
+    /** The AUDIO_OUT_* bits since the last call. */
     external fun audioOutEvents(handle: Long): Int
 
     external fun audioOutStalled(handle: Long): Boolean

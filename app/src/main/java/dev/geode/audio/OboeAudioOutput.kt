@@ -112,12 +112,12 @@ internal class OboeAudioOutput private constructor(
 
     /** Native's event bits (`GEODE_AUDIO_OUT_*`) as Media3's listener calls, on the playback thread. */
     private fun report(events: Int) {
-        if (events and EVENT_ADVANCING != 0) {
+        if (events and GeodeNative.AUDIO_OUT_ADVANCING != 0) {
             val startedMs = System.currentTimeMillis()
             listeners.forEach { it.onPositionAdvancing(startedMs) }
         }
-        if (events and EVENT_UNDERRUN != 0) listeners.forEach { it.onUnderrun() }
-        if (events and EVENT_FAILED != 0) fail()
+        if (events and GeodeNative.AUDIO_OUT_UNDERRUN != 0) listeners.forEach { it.onUnderrun() }
+        if (events and GeodeNative.AUDIO_OUT_FAILED != 0) fail()
     }
 
     private fun fail() {
@@ -126,10 +126,6 @@ internal class OboeAudioOutput private constructor(
     }
 
     companion object {
-        private const val EVENT_ADVANCING = 1
-        private const val EVENT_UNDERRUN = 2
-        private const val EVENT_FAILED = 4
-
         /**
          * An output for [config], or null when the platform track must play it: anything but plain
          * 16-bit or float PCM in mono or stereo at a rate native takes, offload, tunneling, a

@@ -177,6 +177,16 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat v
     return geode_playback_snap(value, step);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_bookmarkVerdict(JNIEnv*, jobject, jlong positionMs, jlong durationMs) {
+    return geode_bookmark_verdict(positionMs, durationMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_bookmarkResumesFrom(JNIEnv*, jobject, jlong currentPositionMs) {
+    return geode_bookmark_resumes_from(currentPositionMs) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);

@@ -62,6 +62,8 @@ add_library(geode_core STATIC
     audio/dsp/Limiter.cpp
     audio/dsp/PlaybackControls.cpp
     api/geode_playback_api.cpp
+    audio/dsp/TrackBookmark.cpp
+    api/geode_bookmark_api.cpp
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp

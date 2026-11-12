@@ -271,6 +271,39 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    // The MilkDrop preset every surface restores (core/viz/MilkMemory), one per process. The shell seeds it
+    // with the path it saved and saves again when [milkMemoryLoaded] or [milkMemoryForget] says so.
+
+    /** The saved path, null for none; only a process's first seed counts. */
+    external fun milkMemorySeed(saved: String?)
+
+    /** The UI asked for [path]; any thread. */
+    external fun milkMemoryRequest(path: String)
+
+    /** A renderer reported [path] shown; true when it is new and must be saved. */
+    external fun milkMemoryLoaded(path: String): Boolean
+
+    /** [paths] were deleted; true when the saved path must be removed. */
+    external fun milkMemoryForget(paths: Array<String>): Boolean
+
+    /** The last preset shown, still on disk; null when none has been. */
+    external fun milkMemoryLastShown(): String?
+
+    /**
+     * What a new renderer starts on; null only when not even a bundled preset is there. With nothing shown or
+     * asked for, the starter pack goes into [milkDir] first. [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
+     */
+    external fun milkMemoryRestorePath(
+        assets: Any,
+        milkDir: String,
+    ): String?
+
+    /** Copies the bundled presets into [milkDir] once per pack version, never over a file; how many it wrote. */
+    external fun milkStarterInstall(
+        assets: Any,
+        milkDir: String,
+    ): Int
+
     external fun vizTakeDirectorStyleMoments(handle: Long): Int
 
     external fun vizWriteAudio(
@@ -281,9 +314,10 @@ object GeodeNative {
         sampleRate: Int,
     )
 
+    /** Settings › Audio's saved tuning (null: the engine's defaults), resolved natively as [soundTuningResolve]. */
     external fun vizSetSoundTuning(
         handle: Long,
-        tuning: FloatArray,
+        saved: FloatArray?,
     )
 
     /** The reaction source catalogue (core/viz/Reactions.cpp): a "NAME|Label|GROUP|0/1" line per source, in wire order. */
@@ -1689,13 +1723,33 @@ object GeodeNative {
         nowMs: Long,
     )
 
-    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+    // Settings › Audio's listening tuning (core/sound/Tuning). The shell keeps only the saved floats, null for
+    // the engine's defaults, so a reset follows the engine when they change.
+
+    /** `GEODE_SOUND_TUNING_FLOATS`, then each field's first slot (`core/sound/SoundFrame.h`); a band or drum field takes three. */
+    const val SOUND_TUNING_FLOATS = 30
+    const val SOUND_TUNING_GAIN = 0
+    const val SOUND_TUNING_THRESHOLD = 3
+    const val SOUND_TUNING_OFFSET = 6
+    const val SOUND_TUNING_ATTACK = 9
+    const val SOUND_TUNING_RELEASE = 12
+    const val SOUND_TUNING_DRUM = 15
+    const val SOUND_TUNING_DRUM_DECAY = 18
+    const val SOUND_TUNING_REACTIVITY = 21
+    const val SOUND_TUNING_SPEED = 22
+    const val SOUND_TUNING_ONSET_THRESHOLD = 23
+    const val SOUND_TUNING_HARD_CUT_LEVEL = 24
+    const val SOUND_TUNING_HARD_CUT_HALF_LIFE = 25
+    const val SOUND_TUNING_PITCH_THRESHOLD = 26
+    const val SOUND_TUNING_NOTE_HOLD = 27
+    const val SOUND_TUNING_SILENCE_DB = 28
+    const val SOUND_TUNING_INPUT_TRIM_DB = 29
 
     /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
     external fun soundTuningSchema(): FloatArray?
 
-    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
-    external fun soundTuningClamp(values: FloatArray)
+    /** Every slot as the engine hears [saved] (any length, null for none): clamped, or the defaults; null when out of memory. */
+    external fun soundTuningResolve(saved: FloatArray?): FloatArray?
     // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
     // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
 

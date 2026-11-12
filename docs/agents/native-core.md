@@ -174,9 +174,12 @@ The renderer runs these in order each frame.
 - The simulation scenes (Silk, Fluid, Life, Morphing (ids `acid_*`, `AcidScene`), Cymatics) present their field as a lit 3D surface through `lib_relief`.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
-- Flame, Opal and Hollows also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
+- A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.
-- Ten styles each: `flame_*`, `opal_*`, `hollow_*`.
+- Ten styles each: `flame_*`, `opal_*`, `hollow_*`, `prism_*`, `fluor_*`, `loom_*`, `shard_*`, `petal_*`, `fold_*`.
 
 ## Endless zoom, Trails, Liquid
 

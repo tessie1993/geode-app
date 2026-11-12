@@ -180,11 +180,12 @@ void everyOldStyleKeepsItsNumbersAndKind() {
 void familiesCarryTheirOwnCountAndAnOpener() {
     const char* const openers[] = {"arbor_grove", "bulb_classic", "chrys_bloom",  "lucid_weave", "dive_lattice",
                                    "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall",
-                                   "flame_veil",  "opal_bubbles", "hollow_sinew"};
+                                   "flame_veil",  "opal_bubbles", "hollow_sinew", "prism_portal", "fluor_whorl",
+                                   "loom_braid",  "shard_splinter", "petal_rose", "fold_lace"};
     const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam",
-                                 "flame", "opal",  "hollow"};
+                                 "flame", "opal",  "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
     // The first ten families have twelve styles, the ones since ten: the count is the family's own.
-    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10};
+    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10};
     std::set<std::string> seen;
     int i = 0;
     for (const auto& family : catalogue::families()) {
@@ -200,8 +201,8 @@ void familiesCarryTheirOwnCountAndAnOpener() {
         }
         ++i;
     }
-    check(i == 13, "thirteen families");
-    check(seen.size() == 10 * 12 + 3 * 10, "150 distinct family styles");
+    check(i == 19, "nineteen families");
+    check(seen.size() == 10 * 12 + 9 * 10, "210 distinct family styles");
 }
 
 void spinRateAndShaderStyleAgree() {
@@ -219,12 +220,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 212, "212 shader styles (62 loose + 150 family), got " + std::to_string(shaders));
+    check(shaders == 272, "272 shader styles (62 loose + 210 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 274, "274 ids");
+    check(catalogue::allIds().size() == 334, "334 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -258,7 +259,7 @@ void marchedStylesMatchTheOldSet() {
         "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
     std::set<std::string> want = old;
     // Every style of the families added since marches.
-    for (const char* family : {"flame", "opal", "hollow"}) {
+    for (const char* family : {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"}) {
         for (const auto& f : catalogue::families()) {
             if (std::string(f.name) == family) want.insert(f.ids.begin(), f.ids.end());
         }
@@ -324,6 +325,8 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
     {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
     // Added after the tags moved here.
     {"flame", "PSYCHEDELIC"},   {"opal", "GLASS"},   {"hollow", "FLY_THROUGH"},
+    {"prism", "GLASS"},         {"fluor", "FLY_THROUGH"}, {"loom", "FLY_THROUGH"}, {"shard", "GLASS"},
+    {"petal", "FLOWING"},       {"fold", "FRACTALS"},
 };
 const std::map<Kind, std::string> kOldKindLooks = {
     {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"},
@@ -433,7 +436,7 @@ void textRoundTrips() {
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
     // took over Spin drift's field on the turning styles' own scope.
-    check(kinds == catalogue::kKindCount && families == 13 && keys == 87 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 87 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

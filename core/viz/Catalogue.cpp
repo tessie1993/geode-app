@@ -152,6 +152,35 @@ constexpr const char* kOpalIds[] = {
 constexpr const char* kHollowIds[] = {
     "hollow_sinew", "hollow_cave", "hollow_ribs", "hollow_coral", "hollow_roots",
     "hollow_hive", "hollow_throat", "hollow_neuron", "hollow_bone", "hollow_shell"};
+// Kaleidoscope portals in liquid chrome: space folded by mirrors into stars, rosettes, arches and fans,
+// thin ribbons of light along every fold, dark between. Not prism_rain, the loose style older than them.
+constexpr const char* kPrismIds[] = {
+    "prism_portal", "prism_rosette", "prism_arcade", "prism_fan", "prism_crown",
+    "prism_jewel", "prism_nest", "prism_braid", "prism_facet", "prism_mercury"};
+// Carved and embossed ornament under blacklight, flown along or turned about, every raised edge glowing
+// like fluorescent paint.
+constexpr const char* kFluorIds[] = {
+    "fluor_whorl", "fluor_lattice", "fluor_coffer", "fluor_column", "fluor_orb",
+    "fluor_coil", "fluor_weave", "fluor_scales", "fluor_filigree", "fluor_honeycomb"};
+// Woven light: threads, braids, nets and translucent skins strung across the dark, glowing along their fibres.
+constexpr const char* kLoomIds[] = {
+    "loom_braid", "loom_net", "loom_cloth", "loom_cocoon", "loom_spokes",
+    "loom_rope", "loom_curtain", "loom_basket", "loom_sail", "loom_spool"};
+// Broken glass in the dark: splinters, panes and spires with thin-film faces and edges that split the light.
+constexpr const char* kShardIds[] = {
+    "shard_splinter", "shard_burst", "shard_panes", "shard_spires", "shard_wall",
+    "shard_stair", "shard_needles", "shard_tunnel", "shard_rods", "shard_ring"};
+// Translucent petals and blossoms lit from within: thin sheets that let the light through and gather it
+// at their rims.
+constexpr const char* kPetalIds[] = {
+    "petal_rose", "petal_gates", "petal_bells", "petal_drift", "petal_buds",
+    "petal_garland", "petal_scales", "petal_fern", "petal_seed", "petal_stair"};
+// Fractals made by folding space, each drawn by its own march: glowing threads, cone-traced crusts, 4D
+// sections, alternating hybrids and sign-probed surfaces. Its library is lib_fold; each style also includes
+// one of five lib_fold_march_* (glow, cone, slice, pair, probe).
+constexpr const char* kFoldIds[] = {
+    "fold_lace", "fold_nerve", "fold_spire", "fold_vault", "fold_onion",
+    "fold_strata", "fold_twin", "fold_scaffold", "fold_thorn", "fold_quartz"};
 
 constexpr Family kFamilies[] = {
     {"arbor", "arbor_", "lib_arbor", Look::Fractals, kArborIds},
@@ -167,6 +196,12 @@ constexpr Family kFamilies[] = {
     {"flame", "flame_", "lib_flame", Look::Psychedelic, kFlameIds},
     {"opal", "opal_", "lib_opal", Look::Glass, kOpalIds},
     {"hollow", "hollow_", "lib_hollow", Look::FlyThrough, kHollowIds},
+    {"prism", "prism_", "lib_prism", Look::Glass, kPrismIds},
+    {"fluor", "fluor_", "lib_fluor", Look::FlyThrough, kFluorIds},
+    {"loom", "loom_", "lib_loom", Look::FlyThrough, kLoomIds},
+    {"shard", "shard_", "lib_shard", Look::Glass, kShardIds},
+    {"petal", "petal_", "lib_petal", Look::Flowing, kPetalIds},
+    {"fold", "fold_", "lib_fold", Look::Fractals, kFoldIds},
 };
 
 // The family styles that march.
@@ -194,13 +229,11 @@ constexpr std::array kFamilyMarched = {
     "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo", "truchet_arcs", "truchet_hex", "truchet_weave",
     "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot",
     "truchet_tunnel",
-    // Fractal Flame, Opal and Hollows: every style flies the rig and marches.
-    "flame_veil", "flame_spiral", "flame_orb", "flame_star", "flame_lotus", "flame_helix",
-    "flame_knot", "flame_web", "flame_aurora", "flame_nova", "opal_bubbles", "opal_nautilus",
-    "opal_melt", "opal_domes", "opal_pearls", "opal_lava", "opal_ribbon", "opal_cells",
-    "opal_rings", "opal_drop", "hollow_sinew", "hollow_cave", "hollow_ribs", "hollow_coral",
-    "hollow_roots", "hollow_hive", "hollow_throat", "hollow_neuron", "hollow_bone", "hollow_shell",
 };
+
+// The families every style of which flies the rig and marches, by name, so a family like these joins with
+// one word here: Fractal Flame, Opal, Hollows, and the six after them.
+constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
@@ -265,6 +298,13 @@ bool listed(const Table& table, const std::string& id) {
 bool familyStyle(const std::string& id) {
     for (const auto& family : kFamilies) {
         if (listed(family.ids, id)) return true;
+    }
+    return false;
+}
+
+bool inMarchedFamily(const std::string& id) {
+    for (const auto& family : kFamilies) {
+        if (listed(kMarchedFamilies, family.name) && listed(family.ids, id)) return true;
     }
     return false;
 }
@@ -537,7 +577,9 @@ Kind kindOf(const std::string& id) {
     return Kind::Silk;
 }
 
-bool isMarched(const std::string& id) { return listed(kLooseMarched, id) || listed(kFamilyMarched, id); }
+bool isMarched(const std::string& id) {
+    return listed(kLooseMarched, id) || listed(kFamilyMarched, id) || inMarchedFamily(id);
+}
 
 bool fliesCamera(const std::string& id) {
     return listed(kRigUnmarched, id) || (isMarched(id) && !listed(kMarchedOffRig, id));

@@ -1343,7 +1343,7 @@ object GeodeNative {
     const val LOOP_FAILURE_ENCODER_FAILED = 6
     const val LOOP_FAILURE_CACHE_WRITE = 7
 
-    /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
+    /** Fields of the long[7] [loopSpecOf] and [loopSpecDerive] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
     const val LOOP_SPEC_CROSSFADE_MS = 1
     const val LOOP_SPEC_FPS = 2
@@ -1366,16 +1366,6 @@ object GeodeNative {
         loopMs: Long,
         crossfadeMs: Long,
         fps: Int,
-        out: LongArray,
-    )
-
-    /** The spec with its dissolve shortened to what the seam stash holds at [width] x [height]. */
-    external fun loopSpecBudgeted(
-        loopMs: Long,
-        crossfadeMs: Long,
-        fps: Int,
-        width: Int,
-        height: Int,
         out: LongArray,
     )
 
@@ -1407,25 +1397,6 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
-    /**
-     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
-     * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
-     */
-    external fun loopDriftStops(
-        hueTurns: Float,
-        warmth: Float,
-        stops: Int,
-    ): FloatArray
-
-    /** One drift stop on a look: [out] gets the wrapped colorShift, then the temperature held to -1..1. */
-    external fun loopDriftApply(
-        colorShift: Float,
-        temperature: Float,
-        hueOffset: Float,
-        warmthOffset: Float,
-        out: FloatArray,
-    )
-
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
         loopUs: Long,
@@ -1448,11 +1419,6 @@ object GeodeNative {
         audioBytes: Long,
         limitBytes: Long,
     ): Int
-
-    external fun exportAudioBytes(
-        durationUs: Long,
-        bps: Int,
-    ): Long
 
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
@@ -1904,58 +1870,6 @@ object GeodeNative {
         frameHeight: Int,
         timeMs: Long,
     )
-
-    external fun exportSeamCreate(
-        assets: Any,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /** Returns how many of [requested] stash frames fitted on the GPU. */
-    external fun exportSeamAllocate(
-        handle: Long,
-        requested: Int,
-    ): Int
-
-    /**
-     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
-     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
-     * in ns at [fps] (core/viz/frame/LoopSeam).
-     */
-    external fun exportSeamFrame(
-        handle: Long,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-        fps: Int,
-    ): Long
-
-    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
-    external fun exportSeamBudgetedCrossfadeMs(
-        crossfadeMs: Long,
-        crossfadeFrames: Int,
-        fps: Int,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /**
-     * The fraction of a whole loop render done once source [frame] of stop [stop] of [stops] is drawn,
-     * rising in 0..1 and exactly 1 on the last frame (core/viz/frame/LoopSeam). Pure.
-     */
-    external fun exportLoopProgress(
-        stop: Int,
-        stops: Int,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-    ): Float
-
-    /** The crossfade a finished reel reports: [seamFrames] at [fps] in whole milliseconds. Pure. */
-    external fun exportLoopReportedCrossfadeMs(
-        seamFrames: Int,
-        fps: Int,
-    ): Long
 
     /**
      * The GL Transitions library as UTF-8 bytes, in the control-separated table of

@@ -1,13 +1,8 @@
 package dev.geode.export
 
 import android.content.Context
-import android.media.MediaCodec
-import android.media.MediaCodecInfo
-import android.media.MediaFormat
-import android.media.MediaMuxer
+import android.content.res.AssetFileDescriptor
 import android.net.Uri
-import android.util.Log
-import android.view.Surface
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
@@ -15,15 +10,23 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
+import dev.geode.render.AdsrEngine
+import dev.geode.render.LfoEngine
 import dev.geode.render.SceneFactory
+import dev.geode.render.bridge.ModConfigCodec
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.Closeable
 import java.io.File
-import java.io.IOException
+import java.io.FileNotFoundException
 
 /**
  * The shape of one visual loop: how long it runs, how long its seam takes to dissolve, and at
@@ -114,16 +117,6 @@ data class TimeOfDayDrift(
         require(warmth.isFinite()) { "warmth must be finite, was $warmth" }
     }
 
-    /**
-     * The palette offset for each stop, from none at the start to the full drift at the end.
-     * One stop means one render and no drift. The phases are native (`core/output/LoopPlan`,
-     * pinned by `core/tests/output_test.cpp`).
-     */
-    fun stopPhases(): List<DriftStop> {
-        val pairs = GeodeNative.loopDriftStops(hueTurns, warmth, stops)
-        return List(pairs.size / 2) { index -> DriftStop(index, pairs[index * 2], pairs[index * 2 + 1]) }
-    }
-
     companion object {
         val None: TimeOfDayDrift = TimeOfDayDrift(0f, 0f, 1)
 
@@ -131,24 +124,9 @@ data class TimeOfDayDrift(
     }
 }
 
-/** One palette position along the drift, and the parameter change that realises it. */
-data class DriftStop(
-    val index: Int,
-    val hueOffset: Float,
-    val warmthOffset: Float,
-) {
-    /** colorShift moved and wrapped into a turn, temperature moved and held to its range, natively. */
-    fun applyTo(params: SceneParams): SceneParams {
-        val out = FloatArray(2)
-        GeodeNative.loopDriftApply(params.colorShift, params.temperature, hueOffset, warmthOffset, out)
-        return params.copy(colorShift = out[0], temperature = out[1])
-    }
-}
-
 /** One rendered loop: a self-contained, video-only MP4 that starts on a keyframe. */
 class RenderedLoop(
     val file: File,
-    val stop: DriftStop,
 ) {
     fun delete() {
         bestEffort(TAG, "file.delete()") { file.delete() }
@@ -181,6 +159,10 @@ class LoopReel(
  * tail into the stashed opening frames, so the last frame of the encoded loop flows into the
  * first exactly as two consecutive frames would. Repeating that loop is then seamless without
  * anything downstream having to touch pixels again.
+ *
+ * The render itself is one native job (`core/output/LoopRender`): the encoder it settles on, each
+ * drift stop's frames, seam and presentation times, and the scratch file each stop is written to.
+ * This hands the job its values, polls it, passes a cancel on and words its outcome.
  */
 class LoopRender(
     private val context: Context,
@@ -250,492 +232,145 @@ class LoopRender(
         longFormMs: Long = 0L,
     ): Result =
         withContext(Dispatchers.Default) {
-            val choice =
-                negotiate(aspect, spec.fps, codec, longFormMs)
-                    ?: return@withContext failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
-            val budgeted = budgetedSpec(spec.copy(fps = choice.fps), aspect)
-            renderStops(
-                RenderJob(
-                    sceneFactory = sceneFactory,
-                    aspect = aspect,
-                    choice = choice,
-                    spec = budgeted,
-                    look = look,
-                    drift = drift,
-                    watermark = watermark,
-                    audioUri = audioUri,
-                ),
-                onProgress,
-                isCancelled,
-            )
-        }
-
-    /** Everything one reel render needs, gathered so the stop loop stays readable. */
-    private class RenderJob(
-        val sceneFactory: SceneFactory,
-        val aspect: ExportAspect,
-        val choice: EncoderChoice,
-        val spec: LoopSpec,
-        val look: LookSnapshot,
-        val drift: TimeOfDayDrift,
-        val watermark: WatermarkChoice,
-        val audioUri: Uri,
-    )
-
-    private data class EncoderChoice(
-        val fps: Int,
-        val bitRate: Int,
-        val codec: ExportCodec,
-    )
-
-    private sealed interface StopOutcome {
-        data class Done(
-            val crossfadeFrames: Int,
-        ) : StopOutcome
-
-        data object Cancelled : StopOutcome
-    }
-
-    @Suppress("ReturnCount")
-    private fun renderStops(
-        job: RenderJob,
-        onProgress: (Float) -> Unit,
-        isCancelled: () -> Boolean,
-    ): Result {
-        val phases = job.drift.stopPhases()
-        val rendered = mutableListOf<RenderedLoop>()
-        var seamFrames = job.spec.crossfadeFrames
-        var pending: File? = null
-        try {
-            for ((index, stop) in phases.withIndex()) {
-                val file = File.createTempFile("geode_loop_${stop.index}_", ".mp4", context.cacheDir).also { pending = it }
-                val outcome =
-                    renderStop(
-                        job = job,
-                        stop = stop,
-                        file = file,
-                        crossfadeFrames = seamFrames,
-                        stopIndex = index,
-                        stopCount = phases.size,
-                        onProgress = onProgress,
-                        isCancelled = isCancelled,
-                    )
-                val cancelled =
-                    when (outcome) {
-                        is StopOutcome.Done -> {
-                            // A later stop cannot hold more seam frames than an earlier one did,
-                            // so the reel reports the shortest seam any of its loops used.
-                            seamFrames = minOf(seamFrames, outcome.crossfadeFrames)
-                            rendered += RenderedLoop(file, stop)
-                            pending = null
-                            false
+            val job = GeodeNative.loopJobCreate()
+            if (job == 0L) return@withContext failed(R.string.export_error_loop_stopped)
+            try {
+                setOutput(job, aspect, spec, drift, codec, longFormMs)
+                setScene(job, sceneFactory, look)
+                if (!setTrack(job, audioUri)) return@withContext Result.Failed("the track cannot be opened")
+                if (!setMark(job, watermark, aspect)) return@withContext Result.Failed("watermark pass failed: out of memory")
+                coroutineScope {
+                    val poll =
+                        launch {
+                            while (isActive) {
+                                if (isCancelled()) GeodeNative.loopJobCancel(job)
+                                onProgress(GeodeNative.loopJobProgress(job))
+                                delay(POLL_MS)
+                            }
                         }
-                        StopOutcome.Cancelled -> true
-                    }
-                if (cancelled) return discard(rendered, pending, Result.Cancelled)
+                    // Blocks this worker thread for the whole render; the poll above runs on another.
+                    GeodeNative.loopJobRun(job)
+                    poll.cancelAndJoin()
+                }
+                resultOf(job, aspect, spec).also { if (it is Result.Rendered) onProgress(1f) }
+            } finally {
+                GeodeNative.loopJobDestroy(job)
             }
-        } catch (e: MediaCodec.CodecException) {
-            RingLog.note(TAG, "loop render hit a codec exception", e)
-            return discard(rendered, pending, codecFailure(e))
-        } catch (e: IllegalStateException) {
-            RingLog.note(TAG, "loop render stopped unexpectedly", e)
-            val resolved = e.message?.let { Result.Failed(it) } ?: failed(R.string.export_error_loop_stopped)
-            return discard(rendered, pending, resolved)
-        } catch (e: IOException) {
-            RingLog.note(TAG, "loop render failed to write to cache", e)
-            return discard(rendered, pending, failed(R.string.export_error_loop_cache_write, e.message.orEmpty()))
-        } catch (e: SeamBuildException) {
-            RingLog.note(TAG, "loop render's seam shader failed to compile", e)
-            return discard(rendered, pending, failed(R.string.export_error_loop_shader_compile, e.message.orEmpty()))
         }
-        onProgress(1f)
-        val effective = job.spec.copy(crossfadeMs = GeodeNative.exportLoopReportedCrossfadeMs(seamFrames, job.spec.fps))
-        return Result.Rendered(
-            LoopReel(
-                loops = rendered.toList(),
-                spec = effective,
-                width = job.aspect.width,
-                height = job.aspect.height,
-            ),
-        )
-    }
 
-    private fun renderStop(
-        job: RenderJob,
-        stop: DriftStop,
-        file: File,
-        crossfadeFrames: Int,
-        stopIndex: Int,
-        stopCount: Int,
-        onProgress: (Float) -> Unit,
-        isCancelled: () -> Boolean,
-    ): StopOutcome {
-        var writer: StopWriter? = null
-        var egl: EncoderSurface? = null
-        var renderer: ExportScene? = null
-        var stash: SeamStash? = null
-        var mark: WatermarkOverlay? = null
-        try {
-            val encoded =
-                StopWriter.open(context, file, videoFormat(job.aspect, job.choice), job.choice.codec.mimeType).also { writer = it }
-            val surface = EncoderSurface(encoded.surface).also { egl = it }
-            surface.makeCurrent()
-
-            val seam = SeamStash(context, job.aspect.width, job.aspect.height).also { stash = it }
-            val seamFrames = seam.allocate(crossfadeFrames)
-            check(seamFrames > 0) {
-                context.getString(R.string.export_error_loop_low_gpu_memory, job.aspect.width, job.aspect.height)
-            }
-            val loopFrames = job.spec.loopFrames
-            val sourceFrames = loopFrames + seamFrames
-            val scene = prepareRenderer(job, stop, sourceFrames).also { renderer = it }
-            scene.prepare()
-            mark = WatermarkOverlay(job.watermark, context, WatermarkChoice.USE_LOOP).apply { prepare(job.aspect.width, job.aspect.height) }
-
-            val outcome =
-                drawFrames(
-                    scene = scene,
-                    writer = encoded,
-                    egl = surface,
-                    seam = seam,
-                    loopFrames = loopFrames,
-                    seamFrames = seamFrames,
-                    fps = job.choice.fps,
-                    stopIndex = stopIndex,
-                    stopCount = stopCount,
-                    onProgress = onProgress,
-                    isCancelled = isCancelled,
-                    mark = mark,
-                )
-            if (outcome is StopOutcome.Done) encoded.finish()
-            return outcome
-        } finally {
-            bestEffort(TAG, "mark?.release()") { mark?.release() }
-            bestEffort(TAG, "renderer?.release()") { renderer?.release() }
-            bestEffort(TAG, "stash?.close()") { stash?.close() }
-            bestEffort(TAG, "writer?.close()") { writer?.close() }
-            bestEffort(TAG, "egl?.release()") { egl?.release() }
-        }
-    }
-
-    /**
-     * Draws one loop plus its tail. Which frames are stashed, blended and presented, and at what
-     * time, is the native seam driver's (`core/viz/frame/LoopSeam`): this only presents.
-     */
-    private fun drawFrames(
-        scene: ExportScene,
-        writer: StopWriter,
-        egl: EncoderSurface,
-        seam: SeamStash,
-        loopFrames: Int,
-        seamFrames: Int,
-        fps: Int,
-        stopIndex: Int,
-        stopCount: Int,
-        onProgress: (Float) -> Unit,
-        isCancelled: () -> Boolean,
-        mark: WatermarkOverlay?,
-    ): StopOutcome {
-        val sourceFrames = loopFrames + seamFrames
-        var frame = 0
-        var cancelled = false
-        while (frame < sourceFrames) {
-            if (isCancelled()) {
-                cancelled = true
-                break
-            }
-            scene.renderFrame(frame)
-            val ptsNs = seam.frame(frame, loopFrames, seamFrames, fps)
-            if (ptsNs >= 0) {
-                mark?.draw()
-                egl.setPresentationTimeNs(ptsNs)
-                egl.swapBuffers()
-                writer.drain(untilEndOfStream = false)
-            }
-            onProgress(GeodeNative.exportLoopProgress(stopIndex, stopCount, frame, loopFrames, seamFrames))
-            frame++
-        }
-        return if (cancelled) StopOutcome.Cancelled else StopOutcome.Done(seamFrames)
-    }
-
-    private fun prepareRenderer(
-        job: RenderJob,
-        stop: DriftStop,
-        sourceFrames: Int,
-    ): ExportScene =
-        ExportScene(
-            context = context,
-            sceneFactory = job.sceneFactory,
-            spec =
-                ExportScene.Spec(
-                    width = job.aspect.width,
-                    height = job.aspect.height,
-                    fps = job.choice.fps,
-                    rangeStartMs = 0L,
-                    // Each drift stop shifts the pinned look's palette.
-                    look = job.look.copy(params = stop.applyTo(job.look.params)),
-                    audioUri = job.audioUri,
-                    // Pinned at prepare: live edits and the player moving on never reach the render.
-                    durationMs = sourceFrames * 1000L / job.choice.fps,
-                    entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
-                ),
-        )
-
-    private fun discard(
-        rendered: List<RenderedLoop>,
-        pending: File?,
-        result: Result,
-    ): Result {
-        rendered.forEach { it.delete() }
-        pending?.let { file -> bestEffort(TAG, "file.delete()") { file.delete() } }
-        return result
-    }
-
-    /**
-     * Settles the encoder format before any stop starts.
-     *
-     * Every stop's loop ends up in one track of one file, so they must agree on frame rate and
-     * codec configuration; discovering a fallback halfway through the reel would mean throwing
-     * away the loops already rendered.
-     */
-    private fun negotiate(
+    private fun setOutput(
+        job: Long,
         aspect: ExportAspect,
-        fps: Int,
+        spec: LoopSpec,
+        drift: TimeOfDayDrift,
         codec: ExportCodec,
         longFormMs: Long,
-    ): EncoderChoice? {
-        // The reel is short, but LoopExtend copies its samples into the long-form file once per
-        // repeat, so that file's size is this rate times the long form's length. Choosing the rate
-        // here is the only point it can still change: past MediaMuxer's 4 GB the extend would fail
-        // after the whole reel had rendered.
-        val longFormUs = longFormMs * 1000L
-        val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, longFormUs, MuxerBudget.audioBytes(longFormUs))
-        if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
-        return codec.attempts(aspect, fps, bitRate).map { EncoderChoice(it.fps, it.bitRate, it.codec) }.firstOrNull { accepts(aspect, it) }
+    ) {
+        GeodeNative.loopJobSetOutput(
+            job,
+            context.cacheDir.absolutePath,
+            aspect.width,
+            aspect.height,
+            aspect.bitRate,
+            spec.loopMs,
+            spec.crossfadeMs,
+            spec.fps,
+            longFormMs,
+        )
+        GeodeNative.loopJobSetDrift(job, drift.hueTurns, drift.warmth, drift.stops)
+        codec.candidates().forEach { GeodeNative.loopJobAddCodec(job, it.mimeType, it.topFps(aspect)) }
     }
 
-    private fun accepts(
-        aspect: ExportAspect,
-        choice: EncoderChoice,
+    /** The renderer's inputs and the pinned look, each part in the frame the live renderer takes it in. */
+    private fun setScene(
+        job: Long,
+        sceneFactory: SceneFactory,
+        look: LookSnapshot,
+    ) {
+        GeodeNative.loopJobSetScene(
+            job,
+            context.assets,
+            File(context.filesDir, "milk/textures").absolutePath,
+            sceneFactory.sceneId,
+            sceneFactory.milkPresetPath,
+            ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
+        )
+        GeodeNative.loopJobSetParams(job, SceneParamsCodec.pack(look.params))
+        look.lfos.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.loopJobSetLfo(job, slot, ModConfigCodec.packLfo(c)) }
+        look.adsrs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.loopJobSetAdsr(job, slot, ModConfigCodec.packAdsr(c)) }
+        GeodeNative.loopJobSetSoundTuning(job, look.soundTuning.toFloats())
+        GeodeNative.loopJobSetUserReactions(job, look.reactions?.let { BuildStyleReactionsUseCase.packExact(it) })
+        GeodeNative.loopJobSetMotion(job, look.reducedMotion, look.transitionId, look.transitionMs)
+        val u = look.underlay
+        GeodeNative.loopJobSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+    }
+
+    /** Hands the track's descriptor to the job, which closes it; false when the track cannot be opened. */
+    private fun setTrack(
+        job: Long,
+        audioUri: Uri,
     ): Boolean {
-        var codec: MediaCodec? = null
-        try {
-            return runCatching {
-                codec =
-                    MediaCodec.createEncoderByType(choice.codec.mimeType).also {
-                        it.configure(videoFormat(aspect, choice), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                    }
-                true
-            }.getOrElse {
-                Log.w(TAG, "encoder rejected ${aspect.width}x${aspect.height}@${choice.fps}", it)
-                false
+        val afd =
+            try {
+                context.contentResolver.openAssetFileDescriptor(audioUri, "r")
+            } catch (e: FileNotFoundException) {
+                RingLog.note(TAG, "the loop's track is gone", e)
+                null
             }
-        } finally {
-            bestEffort(TAG, "codec?.release()") { codec?.release() }
-        }
+        if (afd == null) return false
+        val length = afd.declaredLength
+        val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
+        GeodeNative.loopJobSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length)
+        return true
     }
 
-    /**
-     * Shortens the seam to what the GPU can be expected to hold: the stash's 192 MB budget, one
-     * full-resolution frame per crossfade frame (`core/viz/frame/LoopSeam`).
-     */
-    private fun budgetedSpec(
+    /** The wordmark's tile, when these frames carry one; false when it could not be handed over, so a free render never ships unmarked. */
+    private fun setMark(
+        job: Long,
+        watermark: WatermarkChoice,
+        aspect: ExportAspect,
+    ): Boolean {
+        val tile = WatermarkOverlay(watermark, context, WatermarkChoice.USE_LOOP).tile(aspect.width, aspect.height) ?: return true
+        return GeodeNative.loopJobSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)
+    }
+
+    /** What the finished job says, in the shell's words. */
+    private fun resultOf(
+        job: Long,
+        aspect: ExportAspect,
         spec: LoopSpec,
-        aspect: ExportAspect,
-    ): LoopSpec {
-        val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
-        GeodeNative.loopSpecBudgeted(spec.loopMs, spec.crossfadeMs, spec.fps, aspect.width, aspect.height, out)
-        val crossfadeMs = out[GeodeNative.LOOP_SPEC_CROSSFADE_MS]
-        return if (crossfadeMs == spec.crossfadeMs) spec else spec.copy(crossfadeMs = crossfadeMs)
-    }
-
-    private fun videoFormat(
-        aspect: ExportAspect,
-        choice: EncoderChoice,
-    ): MediaFormat =
-        MediaFormat.createVideoFormat(choice.codec.mimeType, aspect.width, aspect.height).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, choice.bitRate)
-            setInteger(MediaFormat.KEY_FRAME_RATE, choice.fps)
-            // A keyframe every second keeps a seam preview cheap to scrub, and guarantees the
-            // sample copy in LoopExtend can start every repeat on an IDR.
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+    ): Result {
+        val detail = GeodeNative.loopJobDetail(job).orEmpty()
+        val state = GeodeNative.loopJobState(job)
+        if (state != GeodeNative.LOOP_JOB_RENDERED && state != GeodeNative.LOOP_JOB_CANCELLED) {
+            RingLog.note(TAG, "loop render failed (${GeodeNative.loopJobFailure(job)}): $detail")
         }
-
-    private fun codecFailure(e: MediaCodec.CodecException): Result.Failed =
-        if (e.isRecoverable || e.isTransient) {
-            failed(R.string.export_error_loop_encoder_busy)
-        } else {
-            failed(R.string.export_error_loop_encoder_failed, e.message.orEmpty())
-        }
-
-    /**
-     * The encoder and muxer for one loop file.
-     *
-     * The loop is video only. Its soundtrack is laid over the repeats later, once, at full
-     * length — encoding audio into a loop that is about to be repeated hundreds of times would
-     * mean encoding the same seconds hundreds of times.
-     */
-    private class StopWriter private constructor(
-        private val context: Context,
-        private val encoder: MediaCodec,
-        private val muxer: MediaMuxer,
-    ) : Closeable {
-        val surface: Surface = encoder.createInputSurface()
-
-        private val info = MediaCodec.BufferInfo()
-        private var track = -1
-        private var muxing = false
-        private var muxed = false
-        private var sawEndOfStream = false
-        private var sampleWritten = false
-
-        fun start() {
-            encoder.start()
-        }
-
-        fun drain(untilEndOfStream: Boolean) {
-            var idleAttempts = 0
-            var done = false
-            while (!done && idleAttempts < FLUSH_ATTEMPT_LIMIT) {
-                val index = encoder.dequeueOutputBuffer(info, if (untilEndOfStream) TIMEOUT_US else 0L)
-                when {
-                    index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> openTrack()
-                    index >= 0 -> done = writeSample(index)
-                    else -> {
-                        done = !untilEndOfStream
-                        idleAttempts++
-                    }
+        return when (state) {
+            GeodeNative.LOOP_JOB_RENDERED -> {
+                val files = List(GeodeNative.loopJobFileCount(job)) { RenderedLoop(File(GeodeNative.loopJobFile(job, it).orEmpty())) }
+                val kept = spec.copy(crossfadeMs = GeodeNative.loopJobCrossfadeMs(job), fps = GeodeNative.loopJobFps(job))
+                Result.Rendered(LoopReel(loops = files, spec = kept, width = aspect.width, height = aspect.height))
+            }
+            GeodeNative.LOOP_JOB_CANCELLED -> Result.Cancelled
+            else ->
+                when (GeodeNative.loopJobFailure(job)) {
+                    GeodeNative.LOOP_FAILURE_ENCODER_REJECTED ->
+                        failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
+                    GeodeNative.LOOP_FAILURE_SHADER_COMPILE -> failed(R.string.export_error_loop_shader_compile, detail)
+                    GeodeNative.LOOP_FAILURE_LOW_GPU_MEMORY ->
+                        failed(R.string.export_error_loop_low_gpu_memory, aspect.width, aspect.height)
+                    GeodeNative.LOOP_FAILURE_NO_OUTPUT -> failed(R.string.export_error_loop_no_output)
+                    GeodeNative.LOOP_FAILURE_STALLED -> failed(R.string.export_error_loop_stalled)
+                    GeodeNative.LOOP_FAILURE_ENCODER_FAILED -> failed(R.string.export_error_loop_encoder_failed, detail)
+                    GeodeNative.LOOP_FAILURE_CACHE_WRITE -> failed(R.string.export_error_loop_cache_write, detail)
+                    else -> if (detail.isEmpty()) failed(R.string.export_error_loop_stopped) else Result.Failed(detail)
                 }
-            }
-        }
-
-        fun finish() {
-            encoder.signalEndOfInputStream()
-            drain(untilEndOfStream = true)
-            check(muxing) { context.getString(R.string.export_error_loop_no_output) }
-            check(sawEndOfStream) { context.getString(R.string.export_error_loop_stalled) }
-            muxer.stop()
-            muxed = true
-        }
-
-        override fun close() {
-            if (muxing && !muxed) {
-                if (sampleWritten) {
-                    bestEffort(TAG, "muxer.stop()") { muxer.stop() }
-                } else {
-                    // Same reasoning as VideoExporter's finally block: a muxer that started but never
-                    // received a sample (e.g. cancelled before the first frame drained) cannot be
-                    // stopped — MediaMuxer.stop() with zero samples always throws.
-                    RingLog.note(TAG, "muxer started but wrote no samples; skipping stop() to avoid a guaranteed IllegalStateException")
-                }
-            }
-            bestEffort(TAG, "muxer.release()") { muxer.release() }
-            bestEffort(TAG, "encoder.stop()") { encoder.stop() }
-            bestEffort(TAG, "encoder.release()") { encoder.release() }
-            bestEffort(TAG, "surface.release()") { surface.release() }
-        }
-
-        private fun openTrack() {
-            track = muxer.addTrack(encoder.outputFormat)
-            muxer.start()
-            muxing = true
-        }
-
-        private fun writeSample(index: Int): Boolean {
-            val endOfStream = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-            // A codec-config buffer carries the SPS/PPS the muxer already took from the output
-            // format, and an empty buffer carries nothing; neither is a frame worth writing.
-            val hasMediaPayload = info.size > 0 && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
-            if (muxing && track >= 0 && hasMediaPayload) {
-                val buffer =
-                    checkNotNull(encoder.getOutputBuffer(index)) { context.getString(R.string.export_error_encoder_buffer_null) }
-                buffer.position(info.offset)
-                buffer.limit(info.offset + info.size)
-                muxer.writeSampleData(track, buffer, info)
-                sampleWritten = true
-            }
-            encoder.releaseOutputBuffer(index, false)
-            if (endOfStream) sawEndOfStream = true
-            return endOfStream
-        }
-
-        companion object {
-            fun open(
-                context: Context,
-                file: File,
-                format: MediaFormat,
-                mimeType: String,
-            ): StopWriter {
-                var encoder: MediaCodec? = null
-                var muxer: MediaMuxer? = null
-                val opened =
-                    runCatching {
-                        val codec =
-                            MediaCodec.createEncoderByType(mimeType).also {
-                                encoder = it
-                                it.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                            }
-                        val writer =
-                            MediaMuxer(file.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxer = it }
-                        StopWriter(context, codec, writer).also { it.start() }
-                    }
-                return opened.getOrElse { failure ->
-                    bestEffort(TAG, "muxer?.release()") { muxer?.release() }
-                    bestEffort(TAG, "encoder?.release()") { encoder?.release() }
-                    throw failure
-                }
-            }
         }
     }
-
-    /**
-     * Holds the loop's opening frames so the closing frames can dissolve into them.
-     *
-     * A handle over the native seam pass (`core/viz/frame/ExportPasses`, `SeamPass`, #442): the
-     * frames are copied straight off the encoder surface into textures and blended back at the
-     * dissolve's weight (`exportmath::seam::weight`: none on the first closing frame, all on the
-     * last, so the frames either side of the wrap are untouched renders). Nothing crosses to the
-     * CPU. One full-resolution texture per crossfade frame, so the stash takes what it can get and
-     * reports how much that was.
-     */
-    private class SeamStash(
-        context: Context,
-        width: Int,
-        height: Int,
-    ) : Closeable {
-        private var handle = GeodeNative.exportSeamCreate(context.assets, width, height)
-
-        /** Throws [SeamBuildException] when the pass did not build, as the Kotlin shader's compile did. */
-        fun allocate(requested: Int): Int {
-            val error = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
-            if (error.isNotEmpty()) throw SeamBuildException(error)
-            return GeodeNative.exportSeamAllocate(handle, requested)
-        }
-
-        /** Stashes or blends source [frame]; its presentation time in ns, or -1 when it is not presented. */
-        fun frame(
-            frame: Int,
-            loopFrames: Int,
-            seamFrames: Int,
-            fps: Int,
-        ): Long = GeodeNative.exportSeamFrame(handle, frame, loopFrames, seamFrames, fps)
-
-        override fun close() {
-            val owned = handle
-            handle = 0L
-            if (owned != 0L) GeodeNative.exportPassDestroy(owned)
-        }
-    }
-
-    /** The seam pass did not build; reported as the shader-compile failure it replaced. */
-    private class SeamBuildException(
-        message: String,
-    ) : RuntimeException(message)
 
     private companion object {
-        const val TIMEOUT_US = 10_000L
-        const val FLUSH_ATTEMPT_LIMIT = 1_000
+        /** How often the job is asked for its progress and told of a cancel. */
+        const val POLL_MS = 50L
     }
 }
 

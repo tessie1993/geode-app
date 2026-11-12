@@ -40,20 +40,36 @@ class WatermarkOverlay(
         frameHeight: Int,
         lengthMs: Long = 0L,
     ) {
-        if (placement == 0) return
+        val tile = tile(frameWidth, frameHeight) ?: return
         width = frameWidth
         height = frameHeight
-        val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
-        val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
-        bitmap.copyPixelsToBuffer(pixels)
-        handle = GeodeNative.exportWatermarkCreate(assets, pixels, bitmap.width, bitmap.height, placement, choice.corner, lengthMs)
-        bitmap.recycle()
+        handle = GeodeNative.exportWatermarkCreate(assets, tile.pixels, tile.width, tile.height, placement, choice.corner, lengthMs)
         val problem = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
         if (problem.isNotEmpty()) {
             release()
             error("watermark pass failed: $problem")
         }
     }
+
+    /** The rasterised wordmark and where it goes, for a native job that draws it itself; null when these frames carry none. */
+    fun tile(
+        frameWidth: Int,
+        frameHeight: Int,
+    ): Tile? {
+        if (placement == 0) return null
+        val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
+        val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
+        bitmap.copyPixelsToBuffer(pixels)
+        return Tile(pixels, bitmap.width, bitmap.height, placement, choice.corner).also { bitmap.recycle() }
+    }
+
+    class Tile(
+        val pixels: ByteBuffer,
+        val width: Int,
+        val height: Int,
+        val placement: Int,
+        val corner: Int,
+    )
 
     /** Composites the mark over whatever is in the default framebuffer; [timeMs] is the frame's time in the video. */
     fun draw(timeMs: Long = 0L) {

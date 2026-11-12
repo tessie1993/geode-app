@@ -647,7 +647,6 @@
     <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
     <string name="export_error_loop_cache_write">The loop could not be written to this device\'s cache: %1$s</string>
     <string name="export_error_loop_shader_compile">The seam blend could not be compiled on this GPU: %1$s</string>
-    <string name="export_error_loop_encoder_busy">The video encoder was busy — close other apps that are recording or playing video and try again.</string>
     <string name="export_error_loop_encoder_failed">This device\'s video encoder failed while rendering the loop: %1$s</string>
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>

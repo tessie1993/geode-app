@@ -103,15 +103,15 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 // it (terraChaos), Energy (uIntensity) scales how far the music moves the
 // land, Colour is pal(), Space is the rig.
 //
-// The style knobs (uKnob), each read as its offset from 0.5 (terraKnob), so
-// with Note & key reactions off every term is exactly zero: k0 PULSE swells
-// the sun's glow and the stars (the drums through the user's own Notes & key
-// mapping; terraSky, terraStars), k1 TEXTURE fades in up to a third of an
-// octave more or less ground (terraOctaves), k2 FLOW adds to the Chaos bend
-// (terraChaosAmp), k4 BUILD scales how far the music moves the land
-// (terraEnergy, under the same clamp that keeps every peak below the eye), k5
-// SPACE tips the view up toward the sky (terraFly). k3 TONE has no shared hand
-// here: each style mixes pal() into its own fixed materials.
+// The style knobs (uKnob), with the roles lib_flame, lib_opal and lib_hollow
+// give them as far as a landscape has them, each read as its offset from 0.5
+// (terraKnob), so with Note & key reactions off every term is exactly zero: k0
+// PULSE the emission of the sun's glow and the stars (terraSky, terraStars),
+// k1 TEXTURE the ground's grain, up to a third of an octave (terraOctaves: a
+// landscape has no line to widen), k2 FLOW added to Warp's bend
+// (terraChaosAmp), k4 BUILD the sun's glow in the fog (terraFog), k5 SPACE the
+// reach (terraFog's density divides by it). k3 TONE has no shared hand here:
+// each style mixes pal() into its own fixed materials.
 //
 // The mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, turns the eye's look
 // aside while the mids climb and eases it back as they fall (terraTurn, read by
@@ -131,7 +131,7 @@ float terraTime() {
 
 /** The Energy macro as a gain on in-shader reaction, clamped so a high setting cannot lift a peak through the eye. */
 float terraEnergy() {
-    return clamp(uIntensity * (1.0 + 0.5 * terraKnob(4)), 0.0, 2.0);
+    return clamp(uIntensity, 0.0, 2.0);
 }
 
 /**
@@ -235,9 +235,9 @@ float terraRidged(vec2 xz, float oct) {
 
 // ---- Chaos: a warp of the ground plane --------------------------------------
 
-/** Warp amplitude in world units for the Chaos macro, k2 FLOW added, floored at none. */
+/** Warp amplitude in world units for the Chaos macro, k2 FLOW added to Warp's share, floored at none. */
 float terraChaosAmp() {
-    return max(0.9 * uWarp + 0.6 * uTurbulence + 0.4 * abs(uTwist) + 0.5 * terraKnob(2), 0.0);
+    return 0.9 * max(uWarp + 0.5 * terraKnob(2), 0.0) + 0.6 * uTurbulence + 0.4 * abs(uTwist);
 }
 
 /**
@@ -277,8 +277,7 @@ float terraTurn() {
  * and the horizon sits high.
  */
 void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
-    // k5 SPACE tips the view up (half the tilt at most) or down: more sky, or more land.
-    camFly(uv - vec2(terraTurn(), tilt * (1.0 - terraKnob(5))), ro, rd);
+    camFly(uv - vec2(terraTurn(), tilt), ro, rd);
     ro.y = eye + 0.35 * ro.y;
 }
 
@@ -333,15 +332,16 @@ vec3 terraSky(vec3 rd, vec3 sun, vec3 zenith, vec3 horizon, vec3 sunCol) {
     float h = clamp(rd.y, 0.0, 1.0);
     vec3 c = mix(horizon, zenith, pow(h, 0.45));
     float s = max(dot(rd, sun), 0.0);
-    // k0 PULSE swells the glow and the halo, never the disc.
-    c += sunCol * ((0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0)) * (1.0 + 0.6 * terraKnob(0)) + 1.2 * smoothstep(0.9990, 0.9996, s));
+    // k0 PULSE the emission of the glow and the halo, never the disc.
+    c += sunCol * ((0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0)) * (1.0 + 0.5 * terraKnob(0)) + 1.2 * smoothstep(0.9990, 0.9996, s));
     return c;
 }
 
 /** Distance fog toward fogCol, warmed toward the sun's colour when looking into it (the in-scatter). */
 vec3 terraFog(vec3 col, vec3 rd, float t, float density, vec3 fogCol, vec3 sun, vec3 sunCol) {
-    float f = 1.0 - exp(-t * density);
-    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0);
+    // k5 SPACE the reach, k4 BUILD the sun's glow in the haze.
+    float f = 1.0 - exp(-t * density / (1.0 + 0.4 * terraKnob(5)));
+    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0) * (1.0 + terraKnob(4));
     return mix(col, fc, f);
 }
 
@@ -352,5 +352,5 @@ float terraStars(vec3 rd, float density) {
     float h = terraHash3(i);
     float on = step(1.0 - density, h);
     float d = length(c - i - 0.5);
-    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0)) * (1.0 + 0.6 * terraKnob(0));
+    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0)) * (1.0 + 0.5 * terraKnob(0));
 }

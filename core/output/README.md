@@ -6,6 +6,8 @@ Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
 
 **Here now:** `EncodeSink` (the encoder ladder's try-loop, the drain, samples held until the muxer starts, the end of stream) behind a codec seam, `android/MediaCodecSink` (AMediaCodec and AMediaMuxer, Android only), and `RecordSession`, Record's encoder thread on them (`geode_record_session_*`). Test: `core/tests/encode_sink_test.cpp`.
 
+**Here now:** `CastAudioPump` (#1150), Cast's sound per video frame: the player's ring through its own `Cursor`, the export's `PcmResampler` to the stream's rate, the hold and silence pad of `viz/frame/CastAudio` (`geode_cast_audio_*`). Test: `core/tests/cast_audio_test.cpp`.
+
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
 - A frame clock from samples: for frame `n` at `fps`, deliver samples up to `llround((n + 1) · rate / fps)` and render at that sample position, with dt passed in rather than worked out from wall time (`RendererFrame.cpp:50-51` clamps and guesses it today; the first frame is always 1/60 s).
 - Pre-roll (landed, `PreRoll.hpp`): the analysis starts before the range, listening without drawing, so no render begins on a cold engine.

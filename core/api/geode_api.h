@@ -381,6 +381,12 @@ GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t ca
 /* The same on 16-bit PCM in place (the sink's encoding): the int16 <-> float conversion is native too. A block
  * the chain does not run is left byte for byte as it came. */
 GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, size_t capacity_samples, size_t frames, int channels);
+/* The shell's raw block, in place: `bytes` (held to capacity_bytes) of `encoding` (GEODE_PCM_S16 or
+ * GEODE_PCM_FLOAT, Media3's C.ENCODING_PCM_* as queued) at `channels`. Runs its whole frames through one of the
+ * two calls above and returns their bytes, the block the shell passes on (a trailing part frame is dropped).
+ * Any other encoding, or no channels, returns all of `bytes` untouched; a NULL dsp or pcm runs nothing but
+ * still answers (capacity then unused). 0 for bytes <= 0. */
+GEODE_API int        geode_dsp_process_bytes(geode_dsp*, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels);
 /* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
  * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
  * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
@@ -1601,6 +1607,18 @@ GEODE_API void            geode_cast_audio_step(int64_t* state, int64_t gained_f
 GEODE_API int             geode_cast_audio_feed_start(int64_t* state, int rate_hz);
 GEODE_API int64_t         geode_cast_audio_feed_add(int64_t* state, int64_t frames);
 GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us);
+/* Cast's sound (output/CastAudioPump): the player's ring `music` (NULL: silence throughout) read through its
+ * own cursor, resampled to out_rate_hz (audio/dsp/PcmResampler), held and padded to each frame's audio cut by
+ * the rule above. Create returns NULL for a rate or channel count <= 0. A pump is one video frame: `current`
+ * is the ring the visuals hear now, only compared with `music` and never read (another ring or NULL takes
+ * nothing and the cut is padded with silence); until_us is geode_frame_clock_audio_until_us. It returns the
+ * frames of the block to queue (0: none this frame). Read copies that block into out (capacity int16s) and
+ * returns its frames, 0 when out is too small. One thread; nothing allocates per frame. */
+typedef struct geode_cast_audio geode_cast_audio;
+GEODE_API geode_cast_audio* geode_cast_audio_create(const geode_pcm_ring* music, int out_rate_hz, int channels);
+GEODE_API void            geode_cast_audio_destroy(geode_cast_audio*);
+GEODE_API int             geode_cast_audio_pump(geode_cast_audio*, const geode_pcm_ring* current, int64_t until_us);
+GEODE_API int             geode_cast_audio_read(const geode_cast_audio*, int16_t* out, int capacity);
 
 /* Show on a computer (viz/frame/LinkShare, LinkPage): the browser link's routes, headers, page, master playlist
  * and state; core/cast/LiveServer owns only the socket and the bytes. Every path sits under a token of

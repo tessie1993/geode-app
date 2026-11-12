@@ -77,6 +77,16 @@ out vec4 fragColor;
 // - Spectrum (sndSpectrum): rings of latitude on the membrane, each lit by its
 //   own slice of the log spectrum, bass at the south pole, air at the north.
 // - Energy trend (SND_ENERGY_TREND): overall brightness, gently.
+// - The mid band (SND_MIDDLE): turns the whole scene about its vertical while
+//   the mids climb and eases it back as they fall: lib_flame's gFlameTurn, 0.6
+//   x sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence), spent on the
+//   orbit so the eye goes the other way. Mid gain scales it.
+//
+// Knobs (Flame's, Opal's and Hollow's roles, each read as its offset from 0.5
+// so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the spectrum
+// rings' width, k2 FLOW added to the writhe (gLip follows it), k3 TONE the
+// palette position, k4 BUILD the glow gathered along the ray, k5 SPACE the
+// eye's distance (4.3..5.3) and the depth fog's reach.
 //
 // Every motion runs on a clock (the SND_*_TIME clocks and uFlowPhase), so it
 // slows and speeds with the music and never runs backwards. Quiet music: the
@@ -253,6 +263,9 @@ vec3 normalOuter(vec3 p, float eps) {
 
 // ---- shading --------------------------------------------------------------------
 
+/** k1 TEXTURE: the spectrum rings' half-width, a fraction of a cell (0.07 at rest). */
+float gRingW = 0.07;
+
 /** 1 on the integer lines of x, 0 between them; `w` is the half-width as a fraction of a cell. */
 float lineAt(float x, float w) {
     return smoothstep(0.5 - w, 0.5, abs(fract(x) - 0.5));
@@ -289,7 +302,7 @@ vec3 membrane(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float trebC, float h
 
     // Spectrum rings: each latitude line lit by its own slice of the log spectrum.
     float spec = sndSpectrum(0.06 + 0.86 * lat01);
-    col += pal(hue + 0.25 + 0.4 * lat01) * lineAt(lat01 * NP, 0.07) * spec * spec * 0.9;
+    col += pal(hue + 0.25 + 0.4 * lat01) * lineAt(lat01 * NP, gRingW) * spec * spec * 0.9;
 
     // The onset's rolling ring.
     float dl = ang.y - gWaveLat;
@@ -387,6 +400,12 @@ void main() {
     float bassA = clamp(sndLevel(SND_BASS_ATT), 0.0, 1.0);
     float trebA = clamp(sndLevel(SND_TREBLE_ATT), 0.0, 1.0);
     float pitchHue = 0.18 * clamp(SND_PITCH_CLASS, 0.0, 1.0) * clamp(SND_PITCH_CONFIDENCE, 0.0, 1.0);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float reach = 1.0 + 0.2 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    gRingW = 0.07 * (1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5));
 
     // The section: at a hard cut the held envelope is 1 (the old section shows) and
     // falls to 0 over 2.5 s, so `fresh` carries everything from the old seed to the new.
@@ -397,7 +416,7 @@ void main() {
     float hs = mix(hsB, hsA, fresh);
     float hs2 = mix(hash11((sec - 1.0) * 1.37 + 9.0), hash11(sec * 1.37 + 9.0), fresh);
 
-    float hue = 0.60 + 0.004 * midC + 0.25 * hs;
+    float hue = 0.60 + 0.004 * midC + 0.25 * hs + 0.6 * kTone;
 
     // ---- the body ----
     // Note clock: floor is the note being left, the fraction its eased arrival at the next.
@@ -411,7 +430,7 @@ void main() {
     gNe = vec3(mix(0.9, 2.6, hs2), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
     gNormE = sfNorm(gNe);
     gR = 1.0 * (1.0 + 0.05 * kick + 0.16 * surgeBump);
-    gWrithe = 0.85 * flux;
+    gWrithe = max(0.85 * flux + 0.3 * kFlow, 0.0);
     gWritheP = midC * 1.7;
     gSnap = 1.0 - snare * snare;
     gWave = 0.10 * onset;
@@ -445,7 +464,11 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, SS_CAM_R, 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, SS_CAM_R * reach, 2.0 * CAM_SPIN_UNIT, ro, rd);
+    // The mids turn the scene about its vertical (see the header): the eye and its ray turn the other way.
+    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
+    ro.xz = midTurn * ro.xz;
+    rd.xz = midTurn * rd.xz;
     vec3 L = normalize(uCamBasis * vec3(0.55, 0.65, -0.5));
 
     vec3 voidCol = pal(hue + 0.1) * 0.02 + vec3(0.002, 0.003, 0.008);
@@ -537,11 +560,11 @@ void main() {
             col = satShade(n, rd, L, ang, hue + 0.2, hash11(mat * 3.7 + sec)) * ao;
         }
         // Depth fog past the body's near face.
-        col = mix(col, bg, 1.0 - exp(-max(hitT - 2.5, 0.0) * 0.12));
+        col = mix(col, bg, 1.0 - exp(-max(hitT - 2.5, 0.0) * 0.12 / reach));
     }
-    col += glow * (0.8 + 1.5 * surgeBump);
+    col += glow * (0.8 + 1.5 * surgeBump) * (1.0 + kBuild);
 
     col *= 0.82 + 0.28 * trend;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

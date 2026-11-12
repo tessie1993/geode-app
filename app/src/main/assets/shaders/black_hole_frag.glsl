@@ -41,6 +41,9 @@ out vec4 fragColor;
 //   drop (SND_HELD_SURGE) blazes it and pulls the eye in toward the hole.
 // - reach: in silence (neonQuiet) the eye drifts back, wider and calmer.
 // - SND_HAT_ENV twinkles the stars. Intensity (neonGlow) is the emission.
+// - mids (SND_MIDDLE) turn the hole and its sky about the vertical while they
+//   climb and ease them back as they fall: lib_flame's gFlameTurn, 0.6 x
+//   sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence). Mid gain scales it.
 //
 // Provenance: written from scratch for BeatRealms from textbook techniques - the
 // photon geodesic in Cartesian form (a = -3/2 h^2 x / r^5, units where the
@@ -199,6 +202,10 @@ void main() {
     gArms = 6.0 + 2.0 * mod(floor(SND_CUT_COUNT + 0.5), 3.0);
 
     camAround(uv, mix(16.0, 23.0, kSpace), CAM_SPIN_UNIT * 3.0, ro, rd);
+    // The mids turn the hole about the vertical (see the header): the eye and its ray turn the other way.
+    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
+    ro.xz = midTurn * ro.xz;
+    rd.xz = midTurn * rd.xz;
     // Look down on the disc a little: tilt the world about the eye's own
     // horizontal axis, so the slant is the same from every orbit angle.
     // Turbulence sets it precessing.

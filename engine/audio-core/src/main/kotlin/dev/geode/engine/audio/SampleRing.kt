@@ -12,7 +12,7 @@ import java.nio.ByteBuffer
  *
  * Lifetime: the native ring lives as long as this object is reachable and is freed once it is collected,
  * so a writer thread or a renderer that holds the ring can never reach a freed one, and nobody has to
- * close it at the right moment. Native readers (a renderer's feed, a [SoundCursor]) share the ring and
+ * close it at the right moment. Native readers (a renderer's feed, Cast's audio pump) share the ring and
  * keep it alive on their own. One writer at a time; [beginEpoch] and the getters from any thread.
  */
 class SampleRing(

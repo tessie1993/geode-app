@@ -85,6 +85,11 @@ size_t PcmResampler::maxOutFrames(size_t frames) const {
     return static_cast<size_t>(static_cast<int64_t>(frames) * outRate_ / inRate_ + 2);
 }
 
+void PcmResampler::reserve(size_t frames) {
+    if (inRate_ == outRate_ || half_ <= 0) return;
+    work_.reserve((static_cast<size_t>(2 * half_) + frames) * static_cast<size_t>(channels_));
+}
+
 size_t PcmResampler::process(const int16_t* in, size_t frames, int16_t* out) {
     if (inRate_ == outRate_) {
         std::copy(in, in + frames * static_cast<size_t>(channels_), out);

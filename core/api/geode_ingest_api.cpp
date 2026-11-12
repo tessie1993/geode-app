@@ -7,6 +7,7 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "audio/dsp/PcmConvert.hpp"
 #include "audio/ingest/AiffReader.hpp"
 #include "audio/ingest/PcmRing.hpp"
 #include "audio/ingest/TrackFeed.hpp"
@@ -40,14 +41,6 @@ PcmRing::Written stitched(geode_pcm_ring* r, const void* data, size_t bytes, int
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
     const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
     return r->snapshots->write(*r->ring, data, bytes, encoding, channels, rate, nowNs);
-}
-
-// Float to 16-bit for Cast's encoder: clamped, scaled by 32767 and rounded, as the Kotlin it replaces
-// did (the export's floatToS16 truncates); NaN becomes 0.
-int16_t roundToS16(float v) {
-    if (std::isnan(v)) return 0;
-    const float clamped = v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
-    return static_cast<int16_t>(std::lrintf(clamped * 32767.0f));
 }
 
 }  // namespace
@@ -206,7 +199,7 @@ int geode_pcm_cursor_take_s16(geode_pcm_cursor* c, int16_t* out, int capacity_fr
     if (sample_rate) *sample_rate = take.sampleRateHz;
     const size_t samples = static_cast<size_t>(take.frames) * static_cast<size_t>(c->cursor.channels());
     const float* in = c->cursor.interleaved();
-    for (size_t i = 0; i < samples; ++i) out[i] = roundToS16(in[i]);
+    for (size_t i = 0; i < samples; ++i) out[i] = geode::audio::roundToS16(in[i]);
     return take.frames;
 }
 

@@ -82,6 +82,15 @@ out vec4 fragColor;
 // touched, so an untouched frame is bit-identical to one from a build without
 // the touch uniforms.
 
+// ---- the knobs -------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the struts' width
+// (0.75..1.25, still under half a cell, so the lattice stays exact), k2 FLOW
+// added to the fold planes' turn (the mids' steer), k3 TONE the palette
+// position, k4 BUILD the glow integrated along the ray, k5 SPACE the haze's
+// reach.
+
 // ---- caps ------------------------------------------------------------------
 //
 // Compile-time bounds, in the shape lib_sdf3's RAYMARCH note requires: the
@@ -282,6 +291,9 @@ mat3 gFoldRot;
 vec3 gFoldOff;
 mat3 gWorldRot;
 float gBead;
+/** k1 TEXTURE: the struts' radius (CELL_STRUT at rest); k3 TONE: the palette offset. */
+float gStrut = CELL_STRUT;
+float gTone = 0.0;
 /**
  * The orbit traps: the closest the folded point ever came to the origin and to
  * the y axis, both kept SQUARED so the loop never pays a sqrt. A fractal
@@ -313,7 +325,7 @@ float gEpsPerT;
 float lattice(vec3 p) {
     vec3 c = (fract(p / CELL + 0.5) - 0.5) * CELL;
     float bead = length(c) - gBead;
-    float struts = min(length(c.yz), min(length(c.xz), length(c.xy))) - CELL_STRUT;
+    float struts = min(length(c.yz), min(length(c.xz), length(c.xy))) - gStrut;
     return smin(bead, struts, CELL_WELD);
 }
 
@@ -470,7 +482,7 @@ float occlusion(vec3 p, vec3 n, float h) {
  */
 vec3 sky(vec3 rd, vec2 poleScreen) {
     vec2 sp = rd.xy / max(rd.z, 0.2) - poleScreen;
-    return dmtChrysanthemum(vec3(sp, 1.0), 0.62, clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
+    return dmtChrysanthemum(vec3(sp, 1.0), 0.62 + gTone, clamp(sndShaped(SND_LEVEL), 0.0, 1.5));
 }
 
 void main() {
@@ -491,6 +503,12 @@ void main() {
     float midN = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) / 1.5;
     float trebN = clamp(sndShaped(SND_HIGH), 0.0, 1.5) / 1.5;
     float energyN = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) / 1.5;
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float fogRate = FOG_RATE / (1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
+    gStrut = CELL_STRUT * (1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5));
+    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
 
 
     // ---- touch -----------------------------------------------------------
@@ -569,7 +587,7 @@ void main() {
 
     // The chain. Mids steer the fold planes: same argument as above about
     // gain, and mids are the steering band by convention.
-    float foldAngle = uTime * 0.041 + midN * 0.45 + spin;
+    float foldAngle = uTime * 0.041 + midN * 0.45 + spin + 0.45 * kFlow;
     gFoldRot = rotAxis(vec3(0.37, 0.78, -0.51), foldAngle);
     // The offset breathes slowly, so the group is never the same group twice
     // and the structure keeps reorganising with the audio at zero.
@@ -670,8 +688,8 @@ void main() {
     vec3 col;
 
     if (satWins) {
-        col = dmtSatelliteColor(ro + rd * satT - gCenter, rd, 0.10 + 0.15 * energyN, trebN, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
-        col = mix(col, background, 1.0 - exp(-satT * FOG_RATE));
+        col = dmtSatelliteColor(ro + rd * satT - gCenter, rd, 0.10 + 0.15 * energyN + gTone, trebN, satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
+        col = mix(col, background, 1.0 - exp(-satT * fogRate));
     } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         // Sampled slightly wider than the surface epsilon: the epsilon is
@@ -709,7 +727,7 @@ void main() {
         // that read as a target rather than as a structure.
         float trapO = sqrt(hitTrapO);
         float trapA = sqrt(hitTrapA);
-        float hue = 0.10 + trapO * 0.62 + trapA * 0.30;
+        float hue = 0.10 + trapO * 0.62 + trapA * 0.30 + gTone;
         // Where the surface is finer than the screen, the traps are as noisy
         // as the normal was - two neighbouring pixels stop on two unrelated
         // fragments of the group and pick two unrelated hues, which is the
@@ -717,7 +735,7 @@ void main() {
         // where the point is in the ball, which is smooth by construction:
         // the region keeps a colour that belongs to it and loses the per-pixel
         // scatter. Not toward a constant - a flat patch reads as a hole.
-        hue = mix(hue, 0.10 + 0.62 * clamp(length(p - gCenter) / BALL_R, 0.0, 1.0),
+        hue = mix(hue, 0.10 + gTone + 0.62 * clamp(length(p - gCenter) / BALL_R, 0.0, 1.0),
             rough * 0.9);
 
         // The material: lib_dmt's jewel, banded by the origin trap so the
@@ -738,7 +756,7 @@ void main() {
 
         // Into the void with distance, so the far side of the ball sits behind
         // the near side rather than beside it.
-        col = mix(col, background, 1.0 - exp(-hitT * FOG_RATE));
+        col = mix(col, background, 1.0 - exp(-hitT * fogRate));
         // Dissolve the clip. The bounding ball is a hard intersection, so
         // without this the silhouette is a perfect circle and the whole style
         // reads as a disc with a picture on it rather than as a body with a
@@ -761,8 +779,8 @@ void main() {
     // fullscreen additive term is exactly the shape of thing the flash budget
     // exists to keep out, quite apart from looking like dirt on the lens.
     float norm = max(glowSum, 1e-6);
-    float glowHue = 0.10 + sqrt(glowTrapO / norm) * 0.62 + sqrt(glowTrapA / norm) * 0.30;
-    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN);
+    float glowHue = 0.10 + gTone + sqrt(glowTrapO / norm) * 0.62 + sqrt(glowTrapA / norm) * 0.30;
+    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN) * (1.0 + kBuild);
 
     // The wake: a soft lift under every finger, live and still fading.
     // touchWake() is unbounded above by design (five fingers sum to five), so
@@ -771,13 +789,13 @@ void main() {
     // by five times. Local and gradual, which is what keeps it out of the
     // flash budget. Exactly zero when nothing is touching.
     float wake = 1.0 - exp(-touchWake(uv));
-    col += pal(0.30 + 0.25 * energyN) * wake * 0.16;
+    col += pal(0.30 + 0.25 * energyN + gTone) * wake * 0.16;
 
     // Three additive layers, so this is HDR by construction. Clipping would
     // flatten every rim and every filament into the same white; the tone map
     // keeps them apart and, more to the point, bounds the whole frame's
     // luminance whatever the music does.
-    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE);
+    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE * (1.0 + 0.5 * kPulse));
 
     // Vignette in SCREEN space, off vUv rather than off view()'s uv. Off uv it
     // would be a function of the Zoom control: zoomed out far enough, dot(uv,

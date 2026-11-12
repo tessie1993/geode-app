@@ -263,6 +263,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
 - `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
+- `ParamEdit` reads and edits a scene param by its schema name (`get`, `int`, `flag`, `with`) through the wire codec, so Customize's controls take a name, not a Kotlin property (#1150).
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
 - `OpenedAudio` is the id an audio file opened from another app plays under.
 
@@ -366,6 +367,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
+- Cast's sound (the ring read, the resample to 48 kHz, the hold and the silence pad) is native in `core/output/CastAudioPump`; `CastStream`'s `AudioPump` hands each block to `CastEncoder` and `OpusFeed`.
 - `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
 - `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.

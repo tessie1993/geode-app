@@ -35,6 +35,12 @@ out vec4 fragColor;
 // Hat (SND_HAT_ENV)        the seed cores on the end faces sparkle.
 // Pitch (SND_HELD_NOTE_CHANGE) slides the palette.
 // SND_ENERGY_TREND         overall level.
+// Mids (SND_MIDDLE)        turn the eye's look aside while the mids climb and
+//                          ease it back as they fall, as lib_terra's terraTurn
+//                          and lib_truchet's truchetTurn do: 0.1 x sndShaped x
+//                          SND_DRIVE screen units (0.15 at most, 0 in silence),
+//                          the gFlameTurn band on a structure that holds still.
+//                          Mid gain scales it.
 //
 // ---- controls ---------------------------------------------------------------
 //
@@ -225,7 +231,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     // The cells repeat every 1024 along z (512 cells of 2), so this rebase is
     // exact and invisible, and keeps z precise for the cells and the normals.
     ro.z = mod(ro.z, VC_ZWRAP);

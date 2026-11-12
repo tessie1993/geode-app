@@ -28,6 +28,8 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
+    api/geode_cast_audio_api.cpp
+    output/CastAudioPump.cpp
     api/geode_link_api.cpp
     viz/frame/LinkShare.cpp
     api/geode_link_pair_api.cpp

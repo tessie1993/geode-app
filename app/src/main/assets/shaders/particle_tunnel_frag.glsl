@@ -31,6 +31,13 @@ out vec4 fragColor;
 // the wall as its envelope falls, coloured by SND_ONSET_COUNT so each one differs.
 // A section change (SND_HELD_HARD_CUT) steps the whole tunnel's hue by a third and
 // glides it back over the event's 1.5 s. Overall level rides SND_LEVEL.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the particles' size, k2
+// FLOW the tube's bend, k3 TONE the palette position, k4 BUILD the far end's
+// glow and haze, k5 SPACE how far the walk reaches.
 
 /** Cells walked per ray: the compile-time ceiling. uSteps is the runtime budget. */
 #define PT_MAX_CELLS 96
@@ -42,12 +49,23 @@ out vec4 fragColor;
 /** Cells along z before the hash repeats: 1024 world units, which divides 8192. */
 #define PT_ZWRAP 1024.0
 
+/** k2 FLOW: the bend of the tube's centre line, 0.75..1.25 (1 at rest), so the shell keeps clear of the rig. */
+float gBend = 1.0;
+
 vec2 tubeCentre(float z) {
-    return vec2(0.8 * sin(z * (PT_TAU / 128.0)), 0.6 * sin(z * (PT_TAU / 64.0) + 1.3));
+    return gBend * vec2(0.8 * sin(z * (PT_TAU / 128.0)), 0.6 * sin(z * (PT_TAU / 64.0) + 1.3));
 }
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gBend = 1.0 + 0.5 * kFlow;
+    float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -60,7 +78,7 @@ void main() {
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float hueStep = 0.33 * smoothstep(0.0, 0.3, clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
+    float hueStep = 0.33 * smoothstep(0.0, 0.3, clamp(SND_HELD_HARD_CUT, 0.0, 1.0)) + 0.6 * kTone;
 
     // DDA setup. A zero direction component is nudged so its crossing is
     // effectively never reached instead of dividing by zero.
@@ -78,7 +96,7 @@ void main() {
         vec3 m = step(tMax.xyz, tMax.yzx) * step(tMax.xyz, tMax.zxy);
         tMax += m * inv;
         cell += m * dirSign;
-        if (tExit > PT_FAR) break;
+        if (tExit > PT_FAR * reach) break;
 
         vec3 cc = c + 0.5;
         vec2 rel = cc.xy - tubeCentre(cc.z);
@@ -114,12 +132,12 @@ void main() {
         float spark = step(0.5, s2);
         float tw = 0.5 + 0.5 * sin(uTime * (7.0 + 11.0 * s1) + s2 * 61.0);
         float pop = hats * spark * tw;
-        float size = (0.03 + 0.035 * s1) * (1.0 + 1.3 * pop);
+        float size = (0.03 + 0.035 * s1) * (1.0 + 1.3 * pop) * (1.0 + kTexture);
         float k = size * size;
         float g = k / (d2 + k);
         float glow = g * g + 0.05 * g;
         // Fade with depth, and out right at the eye so nothing blows up.
-        float fade = exp(-tc * 0.05) * smoothstep(0.2, 1.4, tc);
+        float fade = exp(-tc * 0.05 / reach) * smoothstep(0.2, 1.4, tc);
         float hue = hueStep + 0.25 * jit.x + 0.18 * sin(cc.z * (PT_TAU / 64.0)) + 0.10 * rel.y / max(rr, 1e-3);
         vec3 pc = mix(pal(hue), vec3(1.0), 0.15 * spark * tw + 0.5 * pop);
         col += pc * glow * fade * (0.9 + 1.6 * pop) * mix(1.0, 0.7, streak);
@@ -143,9 +161,9 @@ void main() {
     // The far end of the tube and a faint haze, so the black has depth.
     vec3 axis = normalize(vec3(tubeCentre(ro.z + 40.0) - ro.xy, 40.0));
     float endGlow = pow(max(dot(rd, axis), 0.0), 18.0);
-    col += pal(0.62 + hueStep) * (0.03 + 0.25 * endGlow) + pal(0.80 + hueStep) * 0.015;
+    col += (pal(0.62 + hueStep) * (0.03 + 0.25 * endGlow) + pal(0.80 + hueStep) * 0.015) * (1.0 + kBuild);
 
     col *= 0.85 + 0.35 * swell + 0.10 * energy;
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

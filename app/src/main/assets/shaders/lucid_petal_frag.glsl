@@ -120,13 +120,6 @@ float gRw;
 float gTurn;
 float gTurnW;
 float gOpenFar;
-/** Set by map(): which material won (1 = petal), the corolla's index mod 16, its angle, rose, sector offset, opening. */
-float gMat;
-float gId;
-float gThL;
-float gRl;
-float gFa;
-float gOpen;
 
 float roseAt(float th, float amp) {
     return 1.0 - amp * (0.5 - 0.5 * cos(gP * th));
@@ -140,7 +133,7 @@ float radialGap(float r, float R, float rose, float rmn, float rpm) {
     return (R * rose - r) / sqrt(1.0 + s * s);
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     float r = length(p.xy);
     float th = atan(p.y, p.x);
 
@@ -170,36 +163,37 @@ float map(vec3 p) {
     // more than the gap every corolla keeps from it.
     dP = min(dP, 0.5 * LP_CELL - abs(lzc) + 0.45);
 
-    gMat = dP < dW ? 1.0 : 0.0;
-    gId = id;
-    gThL = thL;
-    gRl = rl;
-    gFa = fa;
-    gOpen = open;
+    found.mat = dP < dW ? 1.0 : 0.0;
+    found.a.x = id;
+    found.a.y = thL;
+    found.a.z = rl;
+    found.a.w = fa;
+    found.b.x = open;
     float d = min(dP, dW);
     return max(d, LP_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     // The kaleidoscope is read as the petal count below, so the view is not folded.
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = uKnob[0] - 0.5;
-    float kTex = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
-    float sub = clamp(sndSpectrum(0.10), 0.0, 1.0) * uIntensity * (1.0 + kPulse);
+    float sub = clamp(sndSpectrum(0.10), 0.0, 1.0) * uIntensity * lucidSpan(N.emit, 1.0, 0.5, 1.5);
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) * uIntensity;
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
 
@@ -207,7 +201,7 @@ void main() {
     int oct = lucidDetail(3, 2);
 
     gP = (uKaleido > 0.5 && uSymmetry >= 2.0) ? clamp(floor(uSymmetry + 0.5), 3.0, 12.0)
-                                              : 5.0 + floor(clamp(uMorph, 0.0, 0.999) * 3.0);
+                                              : 5.0 + floor(min(N.depth, 0.999) * 3.0);
     float subC = clamp(sub, 0.0, 1.5);
     gAmp = clamp(0.12 + 0.24 * subC, 0.0, 0.45);
     gRmn = 1.0 - gAmp;
@@ -217,13 +211,13 @@ void main() {
     gRpmW = gAmpW * gP * 0.5;
     // Past half a swell the petals split into separate blades.
     gW = 0.5 - 0.36 * smoothstep(0.5, 1.2, subC);
-    float space = 1.0 + 0.5 * kSpace;
+    float space = lucidSpan(N.reach, 1.0, 0.75, 1.25);
     gRin = 2.6 * space;
     gRtip = 5.0 * space;
     gRw = 6.0 * space;
     gTurn = t * 0.03 + flow * 0.05;
     gTurnW = -t * 0.02;
-    gOpenFar = clamp(24.0 * (1.0 + 0.8 * kFlow), 8.0, 38.0);
+    gOpenFar = clamp(24.0 * lucidSpan(N.flow, 1.0, 0.6, 1.4), 8.0, 38.0);
 
     vec3 ro;
     vec3 rd;
@@ -240,7 +234,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LP_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0006;
         if (d < eps) {
             hitT = tm;
@@ -249,7 +244,7 @@ void main() {
         tm += max(d * 0.85, eps);
     }
 
-    float hue = 0.4 * kTone;
+    float hue = lucidSpan(N.tone, 0.0, -0.2, 0.2);
     // The dark eye: the far end of the corridor is fog that falls to black,
     // with a faint warm haze round it.
     float ahead = max(rd.z, 0.0);
@@ -258,9 +253,9 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0012, 0.001 * hitT));
+        vec3 n = lucidNormal(p, max(0.0012, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        fld = lucidField(p);
         float r = length(p.xy);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
@@ -272,18 +267,18 @@ void main() {
         float spec = pow(max(dot(reflect(rd, n), Lh), 0.0), 36.0);
 
         vec2 q;
-        float id = gId;
-        if (gMat > 0.5) {
+        float id = fld.a.x;
+        if (fld.mat > 0.5) {
             // Where on its own petal this point is: across the blade and along it.
-            float rho = r / gRl;
-            q = lucidRot(id * 0.77) * vec2(cos(gThL), sin(gThL)) * rho * 0.42 * (1.0 + 0.8 * kTex)
+            float rho = r / fld.a.z;
+            q = lucidRot(id * 0.77) * vec2(cos(fld.a.y), sin(fld.a.y)) * rho * 0.42 * lucidSpan(N.scale, 1.0, 0.6, 1.4)
               + vec2(id * 3.1, id * 1.7);
         } else {
             // The wall's opal is read round two circles: the angle, and z once per 64.
             float tz = p.z * (LP_TAU / LP_ZWRAP);
             q = vec2(cos(atan(p.y, p.x)), sin(atan(p.y, p.x))) * 1.4
               + vec2(cos(tz), sin(tz)) * 4.0 + vec2(11.0, 3.0);
-            q *= 1.0 + 0.8 * kTex;
+            q *= lucidSpan(N.scale, 1.0, 0.6, 1.4);
         }
         q += lucidJitter(q, t);
         vec4 nz = lucidNest(q, depth, 1.2 * lucidChaos(), t * 0.18, LUCID_VALUE, oct);
@@ -291,19 +286,19 @@ void main() {
         // Opal body: warm, shaded darker toward the petal's edge.
         float body = 0.5 + 0.5 * nz.z;
         vec3 albedo = pal(hue + 0.02 + 0.14 * body + 0.06 * id) * (0.3 + 0.75 * body);
-        if (gMat > 0.5) {
-            float along = clamp((r / gRl - gRin) / max(gRtip - gRin, 0.1), 0.0, 1.0);
-            float across = clamp(abs(gFa) / max(gW, 0.05), 0.0, 1.0);
+        if (fld.mat > 0.5) {
+            float along = clamp((r / fld.a.z - gRin) / max(gRtip - gRin, 0.1), 0.0, 1.0);
+            float across = clamp(abs(fld.a.w) / max(gW, 0.05), 0.0, 1.0);
             float edge = (1.0 - 0.65 * across * across) * smoothstep(1.0, 0.7, along) * (0.55 + 0.45 * smoothstep(0.0, 0.2, along));
             vec3 surf = albedo * (0.10 + 0.55 * dif) * ao;
             surf *= 0.3 + 0.7 * edge;
             // Light from down the corridor through the thin petal, strongest at its base.
-            surf += albedo * (0.12 + 0.12 * gOpen) * (1.0 - along) * (1.0 - 0.5 * across);
+            surf += albedo * (0.12 + 0.12 * fld.b.x) * (1.0 - along) * (1.0 - 0.5 * across);
 
             // Play of colour: small saturated cells fixed to the petal.
             vec3 c = lucidCells(q * 3.0 + nz.xy, 0.9);
             float fleck = smoothstep(0.35, 0.05, c.x) * step(0.55, c.z);
-            surf += pal(c.z * 2.0 + nz.w + hue) * fleck * (0.3 + 0.35 * clamp(mid, 0.0, 1.0)) * (1.0 + 1.2 * kBuild) * edge;
+            surf += pal(c.z * 2.0 + nz.w + hue) * fleck * (0.3 + 0.35 * clamp(mid, 0.0, 1.0)) * lucidSpan(N.glow, 1.0, 0.4, 1.6) * edge;
             surf += pal(hue + 0.5 + 0.3 * nz.w) * fres * 0.15 + vec3(spec) * 0.18 * ao;
 
             surf = lucidChannelTurn(surf, mod(id, 2.0) * 0.5);

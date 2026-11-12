@@ -706,6 +706,40 @@ GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* Customize's rows (core/viz/CustomizeRows): what each control in keys (one CustomizeMap key a line, a section's order)
+ * draws as on the look params (the geode_viz_set_params wire) and style_id: the widget, field, words, value, range,
+ * default, unit, steps, or nothing where it does not draw. query is the panel's search text, transition 1 while a style
+ * transition is chosen, liquid_mode the renderer's Liquid mode. Rows in CustomizeRows.hpp. Valid until this thread's
+ * next customize rows call. */
+GEODE_API const char* geode_customize_rows(const char* style_id, const char* keys, const char* query, int transition, int liquid_mode,
+                                           const float* params);
+/* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
+GEODE_API const char* geode_panel_text(const char* id);
+/* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
+GEODE_API const char* geode_style_label(const char* style_id);
+GEODE_API const char* geode_style_family_label(const char* family);
+/* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
+ * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
+ * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
+ * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
+ * palette panel call. */
+GEODE_API const char* geode_palette_maker_start(const float* params);
+GEODE_API const char* geode_palette_maker_from_look(const float* params);
+GEODE_API const char* geode_palette_maker_open(const int* stops, int count, float base, float span);
+GEODE_API const char* geode_palette_maker_edit(const char* state, int op, int arg);
+GEODE_API int         geode_palette_maker_stops(const char* state, int* out, int capacity);
+GEODE_API const char* geode_palette_maker_view(const char* state);
+/* A saved palette's colours as a stack layer (its stops, else its ramp) into out; returns how many. */
+GEODE_API int         geode_palette_saved_colours(const int* stops, int count, float base, float span, int* out, int capacity);
+/* A saved palette's strip in Your palettes: "RRGGBB" joined by ','. */
+GEODE_API const char* geode_palette_saved_swatch(const int* stops, int count, float base, float span);
+/* Look's palette list on a style the stack does not draw: saved_ids and saved_names one a line, the shell's order. */
+GEODE_API const char* geode_palette_list_view(const float* params, const char* custom_id, const char* saved_ids,
+                                              const char* saved_names);
+/* The palette stack card on the look params: its rows (core/viz/PalettePanel.hpp). saved_count is how many palettes
+ * the user has saved. */
+GEODE_API const char* geode_palette_stack_card(const char* stack, const float* params, int saved_count);
 /* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
  * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
  * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement

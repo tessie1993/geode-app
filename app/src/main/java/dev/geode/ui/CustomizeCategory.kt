@@ -1,47 +1,33 @@
 package dev.geode.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AllOut
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Waves
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.runtime.Immutable
 import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 
 /**
- * Customize's eleven categories, in panel order, by what their controls do. The names are
- * core/viz/CustomizeMap's; everything about a category but its words and icon is native: which
- * sections and controls it has, which are free (Basics), which styles it shows on, what its
- * Randomize rolls and what its Reset puts back. Kotlin draws it.
+ * One of Customize's categories, in panel order: its name and its tab title, both core/viz/CustomizeMap's.
+ * Everything about a category is native (its sections and controls, which are free, which styles it shows
+ * on, what its Randomize rolls and its Reset puts back); Kotlin holds what the map said and draws it.
  */
-enum class CustomizeCategory(
+@Immutable
+data class CustomizeCategory(
+    val name: String,
     val title: String,
-    val summary: String,
-    val icon: ImageVector,
 ) {
-    QUICK_KNOBS("Quick knobs", "Your knobs, each moving several controls at once", Icons.Filled.Tune),
-    LOOK("Look", "Palette, brightness, colour and glow", Icons.Filled.Palette),
-    SHAPE("Shape", "Morph, symmetry and the style's own form", Icons.Filled.Category),
-    MOTION("Motion", "Speed, zoom, spin and drift", Icons.Filled.Speed),
-    DIVE("Dive", "The endless zoom: its tunnel, spiral, aim and depth", Icons.Filled.AllOut),
-    CAMERA("Camera", "How the camera flies through the 3D world", Icons.Filled.Videocam),
-    MUSIC("Music", "How the music moves the picture: personality, moments, reactions", Icons.Filled.MusicNote),
-    EFFECTS("Effects", "Trails, lens and film looks, transitions", Icons.Filled.AutoAwesome),
-    LIQUID("Liquid", "Turn the style into a flowing liquid", Icons.Filled.Waves),
-    ENGINE("Engine", "This style's own engine: its flow, plate or presets", Icons.Filled.Memory),
-    EXPERT("Expert", "Waves, envelopes, layers and shader code", Icons.Filled.Code),
-    ;
-
     companion object {
+        /** Every category, in panel order. */
+        val entries: List<CustomizeCategory> get() = CustomizeMapTable.categories
+
         fun named(name: String?): CustomizeCategory? = entries.firstOrNull { it.name == name }
+
+        // The categories the shell names: the knob tab, the one the reactions open on, and the tour's tabs.
+        val QUICK_KNOBS: CustomizeCategory get() = of("QUICK_KNOBS")
+        val LOOK: CustomizeCategory get() = of("LOOK")
+        val SHAPE: CustomizeCategory get() = of("SHAPE")
+        val MUSIC: CustomizeCategory get() = of("MUSIC")
+        val ENGINE: CustomizeCategory get() = of("ENGINE")
+
+        private fun of(name: String): CustomizeCategory = entries.first { it.name == name }
     }
 }
 
@@ -51,74 +37,39 @@ internal data class CustomizeSection(
     /** Unique inside its category; the open ones are saved by [path]. */
     val id: String,
     val basics: Boolean,
-    /** ParamKeys strings, or `@id` for a panel piece that is not one parameter. */
+    /** Customize map keys, or `@id` for a panel piece that is not one parameter. */
     val controls: List<String>,
+    /** The words on the group's header. */
+    val title: String,
 ) {
     val path: String get() = "${category.name}/$id"
-
-    /** The words on the group's header. */
-    val title: String get() = SECTION_TITLES[id] ?: id.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
-/** Section headers, by the native section id (UI words only; the sections themselves are native). */
-private val SECTION_TITLES =
-    mapOf(
-        "basics" to "Basics",
-        "knob_editor" to "Edit knobs",
-        "colour_detail" to "Colour detail",
-        "light_detail" to "Light detail",
-        "palette_maker" to "Your colours",
-        "form" to "Form",
-        "symmetry" to "Symmetry",
-        "particles" to "Particles",
-        "journey" to "Journey",
-        "emitters" to "Emitters",
-        "stirrers" to "Stirrers",
-        "fluid_quality" to "Quality",
-        "drift" to "Drift",
-        "tunnel" to "Tunnel",
-        "spiral_aim" to "Spiral & aim",
-        "travel" to "Travel",
-        "inner_motion" to "Inner motion",
-        "framing" to "Framing",
-        "feel" to "Feel",
-        "moments" to "Moments",
-        "listening" to "Listening",
-        "notes_key" to "Notes & key",
-        "trail_detail" to "Trail detail",
-        "lens" to "Lens",
-        "film" to "Film",
-        "push_swirl" to "Push & swirl",
-        "surface" to "Surface",
-        "transition_detail" to "Transition detail",
-        "reactions" to "Reactions",
-        "envelopes" to "Envelopes",
-        "waves" to "Waves",
-        "fluid_flow" to "Fluid: flow",
-        "fluid_look" to "Fluid: glow",
-        "fluid_layers" to "Fluid: layers",
-        "plate" to "Plate",
-        "plate_look" to "Plate: look",
-        "milkdrop" to "MilkDrop",
-        "layers" to "Layers",
-        "shader_code" to "Shader code",
-    )
-
 /**
- * The native map's rows as the panel draws them (core/viz/CustomizeMap's `text()`). This splits
- * lines into rows and nothing more: no rule about a control is decided here.
+ * The native map's rows as the panel draws them (core/viz/CustomizeMap's `text()`). This splits lines into
+ * rows and nothing more: no rule about a category, a section or a control is decided here.
  *
- * JVM unit tests cannot load libgeode; the build points [TEXT_FILE_PROPERTY] at
- * `core/tests/customize.txt`, which core/tests/customize_test proves byte-equal to what C++ emits.
+ * JVM unit tests cannot load libgeode; the build points [TEXT_FILE_PROPERTY] at `core/tests/customize.txt`,
+ * which core/tests/customize_test proves byte-equal to what C++ emits.
  */
 internal object CustomizeMapTable {
     /** core/viz/CustomizeMap.hpp's `kTextVersion`. */
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     const val TEXT_FILE_PROPERTY: String = "geode.customize"
 
+    private val text: String by lazy {
+        System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.customizeText()
+    }
+
+    val categories: List<CustomizeCategory> by lazy { fields("category").map { CustomizeCategory(it[1], it[3]) } }
+
     val sections: List<CustomizeSection> by lazy {
-        rows(System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.customizeText())
+        val byName = categories.associateBy { it.name }
+        fields("section").mapNotNull { f ->
+            val controls = f[5].split(',').filter(String::isNotEmpty)
+            byName[f[1]]?.let { CustomizeSection(it, f[2], basics = f[3] == "BASICS", controls = controls, title = f[6]) }
+        }
     }
 
     fun sectionsOf(category: CustomizeCategory): List<CustomizeSection> = sections.filter { it.category == category }
@@ -133,24 +84,14 @@ internal object CustomizeMapTable {
             .lines()
             .filterTo(mutableSetOf()) { it.isNotBlank() }
 
-    fun rows(text: String): List<CustomizeSection> {
-        val out = mutableListOf<CustomizeSection>()
-        text
-            .lineSequence()
-            .map { it.trimEnd('\r') }
-            .filter { it.isNotBlank() }
-            .forEach { line ->
-                val f = line.split('|')
-                when (f[0]) {
-                    "customize" -> check(f.getOrNull(1)?.toIntOrNull() == VERSION) { "Customize map version ${f.getOrNull(1)}" }
-                    "section" -> {
-                        val category = CustomizeCategory.named(f[1]) ?: return@forEach
-                        val controls = f[5].split(',').filter { it.isNotEmpty() }
-                        out += CustomizeSection(category, f[2], basics = f[3] == "BASICS", controls = controls)
-                    }
-                    else -> Unit
-                }
-            }
-        return out
+    private fun fields(type: String): List<List<String>> {
+        val rows = text.lineSequence().map { it.trimEnd('\r').split('|') }.toList()
+        check(rows.firstOrNull()?.getOrNull(1)?.toIntOrNull() == VERSION) { "Customize map version ${rows.firstOrNull()}" }
+        return rows.filter { it[0] == type }
     }
 }
+
+/** A word the Customize panel draws, by its id (core/viz/PanelText), asked of native once. */
+internal fun panelText(id: String): String = panelWords.getOrPut(id) { GeodeNative.panelText(id) }
+
+private val panelWords = java.util.concurrent.ConcurrentHashMap<String, String>()

@@ -69,6 +69,9 @@
 // nearest skin, either sign, 1.0e3 for none; w the strand's palette
 // position), and after it includes lib_loom_march, which calls it.
 
+// The shading pass's rules (soft shadows, step glow, escape colour); lib_layers, at the end, reads them too.
+//#include lib_shade
+
 #define LOOM_TAU 6.2831853
 #define LOOM_PI 3.1415927
 #define LOOM_MAX_STEPS 90

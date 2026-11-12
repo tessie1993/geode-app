@@ -376,6 +376,10 @@ const std::vector<Carrier>& shaderCarriers() {
         {"formula", {"uFormula"}},
         // Shapes: shown only on the styles that melt the shape graph in (Catalogue.cpp's kShapeStyles, lib_shapes).
         {"shapes", {"uShapeMix"}},
+        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (Catalogue.cpp's kShadowStyles),
+        // Escape colour on the families whose folds feed it (kEscapeFamilies).
+        {"shadow", {"uShadow"}},
+        {"escapeColor", {"uEscapeColor"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},

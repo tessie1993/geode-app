@@ -184,6 +184,8 @@ const SHADER_VALUES = {
   // Shapes (lib_scene_uniforms) at its default: off, every style its own form, and the graph as a renderer
   // that never ticked it uploads it (ShaderScene::uploadShapes: nothing present).
   uShapeMix: 0, uShapes: [0, 0, 0, 0], uShapeCount: 0, uShapeFold: [0, 0, 0, 0], uShapeMelt: 0,
+  // The shading pass (lib_shade) at its defaults: Soft shadows 0.6, Escape colour 0.5.
+  uShadow: 0.6, uEscapeColor: 0.5,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

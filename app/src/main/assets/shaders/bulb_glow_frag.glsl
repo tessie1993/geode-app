@@ -112,7 +112,8 @@ void main() {
             float d = h.d;
             float dens = exp(-max(d, 0.0) * BG_GLOW_K);
             float stepLen = clamp(abs(d) * 0.7, 0.012, 0.11);
-            vec3 em = tone(hue + spread * (sqrt(h.trap.x) + 0.5 * h.trap.y));
+            // Escape colour (lib_shade): the smoothed escape count moves the light along the ramp.
+            vec3 em = tone(hue + spread * (sqrt(h.trap.x) + 0.5 * h.trap.y) + shadeEscape(h.trap.w));
             // The interior burns hotter and whiter than the halo around it.
             float core = step(d, 0.0);
             em = mix(em, mix(em, vec3(1.0), 0.35), core);

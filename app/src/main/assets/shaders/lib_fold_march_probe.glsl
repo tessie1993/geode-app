@@ -6,9 +6,13 @@
 // crossing five times. A part thinner than a stride can be stepped over; the
 // strides are sized so the styles' fractals have none at the scale it shows.
 //
+// The shading pass (lib_shade): the key's soft shadow (lib_fold_shade) on the lit surface. No step glow: the
+// strides are paced by distance, not by how near the surface is, so their count says nothing of a skim.
+//
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
 //#include lib_fold_at
+//#include lib_fold_shade
 
 /** The field's gradient at p, unit length; straight back along the ray where the field is flat. */
 vec3 foldProbeNormal(vec3 p, vec3 rd, float eps) {
@@ -64,8 +68,9 @@ vec3 foldProbe(vec3 ro, vec3 rd) {
         vec3 p = ro + rd * t;
         vec3 nor = foldProbeNormal(p, rd, 0.002 * (1.0 + t));
         float occ = clamp(FOLD_AT((p + nor * 0.1)).x / 0.1, 0.0, 1.0);
+        float key = foldShadow(p, nor, 0.002 * (1.0 + t));
         // Nothing lights right at the eye: flying into the crust must not fill the frame.
-        col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
+        col = foldLit(nor, rd, t, m, occ, key) * smoothstep(0.02, 0.3, t);
     }
     // The haze in front of the surface, the far layer where nothing was hit (lib_layers).
     return layerCompose(foldAir(col, min(t, gFoldFar), near), ro, rd, min(t, gFoldFar), gFoldFar, hit ? 0.0 : 1.0);

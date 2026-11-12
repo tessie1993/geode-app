@@ -129,14 +129,17 @@ void main() {
     if (hitT > 0.0) {
         float heat = clamp(1.6 * sqrt(trap.x) + 0.8 * trap.y, 0.0, 3.0);
         if (cutW > 0.5) {
-            // The scan: the trap as heat, in hard flat bands.
-            float band = floor(heat * BS_BANDS / 3.0) / BS_BANDS;
+            // The scan: the trap as heat, in hard flat bands; Escape colour (lib_shade) adds the smoothed
+            // escape count to the heat, so the bands follow the escape too and stay flat.
+            float band = floor((heat + 3.0 * shadeEscape(trap.w)) * BS_BANDS / 3.0) / BS_BANDS;
             col = tone(hue + 0.9 * band) * 0.95;
         } else {
             // The far half's skin, seen past the plane: flat and dark.
-            col = tone(hue + 0.3 * heat) * 0.16 * bulbStepAO(used);
+            col = tone(hue + 0.3 * heat + shadeEscape(trap.w)) * 0.16 * bulbStepAO(used);
         }
     }
+    // The step glow (lib_shade): a halo where a ray crept along the skin, by Bloom.
+    col += tone(hue + 0.5) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     fragColor = vec4(grade(col), 1.0);

@@ -95,6 +95,9 @@ uniform vec4 uShapes[32];
 uniform int uShapeCount;
 uniform vec4 uShapeFold;
 uniform float uShapeMelt;
+// uShadow 0..1, uEscapeColor 0..1: Soft shadows and Escape colour (ParamTable.inc shadow, escapeColor), lib_shade's.
+uniform float uShadow;
+uniform float uEscapeColor;
 // The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
 //#include lib_grow
 

@@ -46,11 +46,16 @@
 //               band's shaped swell (gLayerSwell, motion only) the warp's reach
 //   background  k5 SPACE its scale, k3 TONE its hue
 //
+// ESCAPE COLOUR (lib_shade, which the family library includes first). Wherever a layer's fractal folds, its
+// orbit trap (how near the fold's orbit came to its centre or its plane) moves that layer's hue along the
+// palette by Escape colour (uEscapeColor): the midground's IFS cloud and apollonian foam, and all three far
+// fractals. The gyroid sheets fold nothing and keep their hue.
+//
 // COST. LAYER_MID_SAMPLES (6) haze samples of at most 4 fold iterations and
 // one far evaluation of at most 4, twice each inside a crossfade band; the far
 // layer is skipped where nothing of it shows.
 //
-// INCLUDE ORDER: after lib_scene_uniforms, lib_palette and lib_neon; the
+// INCLUDE ORDER: after lib_scene_uniforms, lib_palette, lib_neon and lib_shade; the
 // family library includes it at its end, and its march calls layerSetup()
 // before the first map and layerCompose() on the way out.
 
@@ -237,13 +242,15 @@ float layerMidField(vec3 p, out float hue) {
             trap = min(trap, abs(length(k) - 0.9) / s);
         }
         dens += gLayerPick.y * exp(-8.0 * trap);
-        hue += gLayerPick.y * 0.3 * clamp(trap, 0.0, 1.0);
+        hue += gLayerPick.y * (0.3 * clamp(trap, 0.0, 1.0) + shadeEscape(shadeTrapPoint(64.0 * trap * trap)));
     }
     if (gLayerPick.z > 0.0) {
         // An apollonian foam: fold into a cell, invert in its sphere, again; the shells' walls are the cloud.
         vec3 k = q * 0.4;
         float s = 1.0;
         float n = layerIters(2.0, 4.0);
+        // The orbit trap: the least |f|^2 the cells' inversions saw, each iteration's share by its fraction.
+        float orbit = 3.0;
         for (int i = 0; i < 4; i++) {
             float a = layerShare(n, i);
             if (a <= 0.0) break;
@@ -251,10 +258,11 @@ float layerMidField(vec3 p, out float hue) {
             float inv = 1.15 / max(dot(f, f), 0.08);
             k = mix(k, f * inv, a);
             s *= mix(1.0, inv, a);
+            orbit = mix(orbit, min(orbit, dot(f, f)), a);
         }
         float wall = 0.3 * abs(k.y) / s;
         dens += gLayerPick.z * exp(-30.0 * wall);
-        hue += gLayerPick.z * (0.25 + 0.15 * k.x / s);
+        hue += gLayerPick.z * (0.25 + 0.15 * k.x / s + shadeEscape(shadeTrapPoint(orbit)));
     }
     return dens;
 }
@@ -296,6 +304,8 @@ vec3 layerFar(vec3 rd) {
         vec3 q = p * 0.7;
         float d = -1.0e3;
         float s = 1.0;
+        // The orbit trap: the least |m|^2 the folded cells came to, each scale's share by its fraction.
+        float orbit = 3.0;
         for (int i = 0; i < 3; i++) {
             float a = layerShare(n, i);
             if (a <= 0.0) break;
@@ -304,9 +314,10 @@ vec3 layerFar(vec3 rd) {
             vec3 r = abs(1.0 - 3.0 * abs(m));
             float c = (min(max(r.x, r.y), min(max(r.y, r.z), max(r.z, r.x))) - 1.0) / s;
             d = i == 0 ? c : mix(d, max(d, c), a);
+            orbit = mix(orbit, min(orbit, dot(m, m)), a);
         }
         glow += gLayerPick.x * exp(-60.0 * abs(d));
-        hue += gLayerPick.x * 0.1 * q.z;
+        hue += gLayerPick.x * (0.1 * q.z + shadeEscape(shadeTrapPoint(orbit)));
     }
     if (gLayerPick.y > 0.0) {
         // A Mandelbox-like slice: box fold, ball fold, scale and add; the orbit's nearness to a plane is lit.
@@ -324,12 +335,14 @@ vec3 layerFar(vec3 rd) {
             trap = min(trap, abs(q.y) / (1.0 + 0.4 * float(i)));
         }
         glow += gLayerPick.y * exp(-14.0 * trap);
-        hue += gLayerPick.y * 0.25 * clamp(length(q) * 0.1, 0.0, 1.0);
+        hue += gLayerPick.y * (0.25 * clamp(length(q) * 0.1, 0.0, 1.0) + shadeEscape(shadeTrapPoint(16.0 * trap * trap)));
     }
     if (gLayerPick.z > 0.0) {
         // An apollonian web: the walls between inverted spheres.
         vec3 q = p * 1.35 + vec3(0.3, 0.7, 0.1);
         float s = 1.0;
+        // The orbit trap: the least |f|^2 the cells' inversions saw, each iteration's share by its fraction.
+        float orbit = 3.0;
         for (int i = 0; i < 4; i++) {
             float a = layerShare(n + 1.0, i);
             if (a <= 0.0) break;
@@ -337,9 +350,10 @@ vec3 layerFar(vec3 rd) {
             float inv = 1.2 / max(dot(f, f), 0.08);
             q = mix(q, f * inv, a);
             s *= mix(1.0, inv, a);
+            orbit = mix(orbit, min(orbit, dot(f, f)), a);
         }
         glow += gLayerPick.z * exp(-90.0 * abs(0.25 * q.y / s));
-        hue += gLayerPick.z * 0.4;
+        hue += gLayerPick.z * (0.4 + shadeEscape(shadeTrapPoint(orbit)));
     }
     return layerCol(gLayerTone + 0.6 + hue) * (0.012 + 0.11 * glow);
 }

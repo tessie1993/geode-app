@@ -268,6 +268,12 @@ The renderer runs these in order each frame.
 - Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
 - `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
 - `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
+- `lib_shade` is the shading pass's rules (soft shadows, step glow, escape colour), included once by `lib_strata`, `lib_loom`, `lib_petal`, `lib_fold` and `lib_bulb`.
+- Each family's shadow loop reads its own field after the map: in `lib_<family>_march`, in `lib_fold_shade` (Fold's cone, pair and probe marches) and in `lib_bulb_shade` (after `lib_bulb_field`).
+- Soft shadows (`shadow`, wire slot 199, LfoTarget 80, default 0.6) is uploaded as `uShadow` and scoped to `Scope::Shadow` (`kShadowStyles`, the 59 styles with a key-lit surface).
+- Escape colour (`escapeColor`, wire slot 200, LfoTarget 81, default 0.5) is uploaded as `uEscapeColor` and scoped to `Scope::Escape` (`kEscapeFamilies`: Shard, Prism, Fluor, Loom, Petal, Fold, Bulb).
+- The step glow follows Bloom (`uBloom`) and adds nothing at Bloom 0.
+- The shadow ray runs only at `uSteps` 80 and over (so low Detail and the hot-phone march cut skip it), in a loop bounded by an int from `uSteps` with one field call, so the compiler never unrolls it.
 - Fractal (`uFractal`) also grows `gLayerIter` into its headroom (never past 1) and adds up to two folds to `gStrataIters` and one and a half to `gStrataFarIters`; at 0 both are unchanged.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.

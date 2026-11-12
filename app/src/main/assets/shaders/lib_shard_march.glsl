@@ -7,7 +7,20 @@
 //
 // Around the pieces it draws lib_strata's two other layers: the warped haze and the far fractal.
 //
+// THE SHADING PASS (lib_shade). The first face a ray meets is shadowed softly from the key light: a shadow
+// ray through the pieces (shardShadow), its darkness Soft shadows (uShadow), at most SHARD_SHADOW_DEEP since
+// glass lets light through; the edge lines are light of their own and stay lit. The steps a ray spent before
+// its first face glow as a halo in the palette by Bloom (shadeStepGlow). The far fractal's escape colour is
+// lib_strata's.
+//
 // INCLUDE ORDER: after lib_strata, lib_shard and the style's shardMap.
+
+/** The key light the faces mirror (shardFace's highlight) and are shadowed from. */
+#define SHARD_KEY normalize(vec3(0.45, 0.8, -0.35))
+/** How far a shadow ray looks for a piece, world units. */
+#define SHARD_SHADOW_REACH 2.5
+/** The deepest a glass shadow goes at Soft shadows 1: glass lets the rest through. */
+#define SHARD_SHADOW_DEEP 0.6
 
 vec3 shardField(vec3 p) {
     float k = growOpen(p, 0.18);
@@ -53,11 +66,34 @@ vec3 shardNormal(vec3 p, vec3 rd, float eps) {
     return l > 1.0e-9 ? g / l : -rd;
 }
 
-/** One face, seen along rd at p, t from the eye; m is shardMap there. */
-vec3 shardFace(vec3 p, vec3 rd, vec3 m, float t, float eps) {
+/**
+ * The key's light at p on a face of normal n (lib_shade): a shadow ray from just off the face toward
+ * SHARD_KEY through the pieces, kept as its closest pass over the distance gone. 1 where nothing stands in the
+ * way, and without a ray at Soft shadows 0.
+ */
+float shardShadow(vec3 p, vec3 n) {
+    if (!shadeShadowOn()) return 1.0;
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
+    vec3 o = p + n * 0.01;
+    float res = 1.0;
+    float t = 0.03;
+    for (int i = 0; i < count; i++) {
+        if (t > SHARD_SHADOW_REACH) break;
+        float h = abs(shardField(o + SHARD_KEY * t).x);
+        res = shadePenumbra(res, h, t);
+        if (res < 0.01) break;
+        t += shadeShadowStep(h * gShardStride, SHARD_SHADOW_REACH);
+    }
+    return shadeLight(res, SHARD_SHADOW_DEEP);
+}
+
+/** One face, seen along rd at p, t from the eye; m is shardMap there. `first`: the ray's first face, which is shadowed. */
+vec3 shardFace(vec3 p, vec3 rd, vec3 m, float t, float eps, bool first) {
     vec3 n = shardNormal(p, rd, eps);
     // The side of the face that looks at the eye.
     if (dot(n, rd) > 0.0) n = -n;
+    float key = first ? shardShadow(p, n) : 1.0;
     // Turbulence shivers the face, not its outline: under 0.6 off a unit normal, so never zero.
     vec3 s = sin(p * 9.0 + uTime * SHARD_RATE(1600) + vec3(0.0, 2.1, 4.2));
     n = normalize(n + gShardChaos * 0.3 * s);
@@ -73,8 +109,10 @@ vec3 shardFace(vec3 p, vec3 rd, vec3 m, float t, float eps) {
     float fres = 0.04 + 0.96 * rim2 * rim2 * rim;
     float sky = 0.5 + 0.5 * r.y;
     vec3 col = shardCol(film) * (0.04 + (0.3 + 0.7 * sky) * (0.12 + 1.5 * fres));
-    float spec = pow(clamp(dot(r, normalize(vec3(0.45, 0.8, -0.35))), 0.0, 1.0), 40.0);
+    float spec = pow(clamp(dot(r, SHARD_KEY), 0.0, 1.0), 40.0);
     col += mix(vec3(1.0), shardCol(film + 0.2), 0.4) * 1.4 * spec;
+    // The face's own light, under the key's soft shadow; the split edges below are not shadowed.
+    col *= key;
     // The edge splits the light: three fine lines a little apart, each its own place in the palette.
     float w = gShardEdge * (1.0 + 0.4 * t);
     float w2 = w * w;
@@ -96,8 +134,11 @@ vec3 shardTrace(vec3 ro, vec3 rd) {
     float glowId = 0.0;
     float t = 0.05 + 0.1 * shardDither();
     int hits = 0;
+    // The steps spent before the first face (the step glow's measure).
+    float used = 0.0;
     for (int i = 0; i < SHARD_MAX_STEPS; i++) {
         if (float(i) >= n || t > gShardFar) break;
+        if (hits == 0) used = float(i);
         vec3 p = ro + rd * t;
         vec3 m = shardField(p);
         float d = abs(m.x);
@@ -110,7 +151,7 @@ vec3 shardTrace(vec3 ro, vec3 rd) {
         glow += g;
         glowId += g * m.y;
         if (d < eps) {
-            acc += shardFace(p, rd, m, t, eps) * through * air * near;
+            acc += shardFace(p, rd, m, t, eps, hits == 0) * through * air * near;
             through *= 0.55;
             hits++;
             if (hits >= SHARD_HITS) break;
@@ -120,6 +161,8 @@ vec3 shardTrace(vec3 ro, vec3 rd) {
         }
     }
     vec3 col = acc + shardCol(gShardTone + 0.5 + 0.7 * glowId / max(glow, 1.0e-6)) * glow;
+    // The step glow (lib_shade): a halo where the ray crept past the glass before its first face, by Bloom.
+    col += shardCol(gShardTone + 0.4) * 0.4 * shadeStepGlow(used, n);
     // The middle layer (lib_strata): the warped haze between the eye and the reach, through the glass.
     float dz = shardDither();
     vec2 haze = strataHaze(ro, rd, 0.3, gShardFar, dz);

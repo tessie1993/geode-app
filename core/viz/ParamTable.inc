@@ -604,6 +604,26 @@ GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
 GEODE_PARAM(Float, shapes, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(shapes, "Shapes", Shapes, kMod, 0, 0)
 
+// Soft shadows (Customize › Look › Light detail): how dark the key light's soft shadows fall on a raymarched
+// style's lit surface (lib_shade: a shadow ray toward the key keeps min(k d / t), so the penumbra widens with
+// distance from what casts it). 0 lights everything as if nothing stood in the way and traces no shadow ray; 1
+// lets a shadow take all of the key's light (a glass or a petal lets some through). It runs at Detail's full
+// path only (uSteps 80 and over, so low Detail and the hot-phone cut skip it) and its steps follow uSteps. The default, 0.6, is the new look the owner chose: soft shadows on by default, a
+// family's emission (edges, paint, seams, fibres) untouched. A luminance target (LfoTarget::Shadow: held to the
+// flash rate). It reaches the styles listed in Catalogue.cpp's kShadowStyles (Scope::Shadow), the ones with a
+// key-lit surface. No roll deals it. Appended at wire slot 199 so every wire index survives.
+GEODE_PARAM(Float, shadow, 0.6f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(shadow, "Soft shadows", Shadow, kMod, 0, 0)
+
+// Escape colour (Customize › Look › Colour detail): how far a fractal fold's escape (the iteration its orbit
+// left at, smoothed) or its orbit trap moves the colour along the style's own palette (lib_shade's shadeEscape):
+// 0 none, 1 a whole sweep from the lowest value to the highest. Always the palette's colours, never a hue of its
+// own, so no narrowing. The default, 0.5, is the new look the owner chose. A luminance target like Palette
+// position (LfoTarget::EscapeColor: held to the flash rate). It reaches the families whose folds feed it
+// (Catalogue.cpp's kEscapeFamilies, Scope::Escape). No roll deals it. Appended at wire slot 200.
+GEODE_PARAM(Float, escapeColor, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(escapeColor, "Escape colour", Escape, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

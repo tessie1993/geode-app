@@ -214,6 +214,9 @@ void ShaderScene::uploadParams() {
     set1f("uFormula", p.formula);
     // How far the shape graph melts into the style's form, 0 the style untouched (the styles in Scope::Shapes read it).
     set1f("uShapeMix", p.shapes);
+    // The shading pass (lib_shade): the soft shadows' darkness (Scope::Shadow) and the escape colour's reach (Scope::Escape).
+    set1f("uShadow", p.shadow);
+    set1f("uEscapeColor", p.escapeColor);
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);

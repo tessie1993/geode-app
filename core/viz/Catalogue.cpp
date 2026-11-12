@@ -270,6 +270,34 @@ static_assert(kFormulaStyles.size() == 60, "the six formula families' sixty styl
 // subject at the origin, where the graph stands: the sun, the chrome blobs and the vectorscope's beam.
 constexpr std::array kShapeStyles = {"chrome_nebula", "liss", "solar"};
 
+// The raymarched styles whose lit surface casts the key light's soft shadows (lib_shade, by Soft shadows: uShadow,
+// Scope::Shadow), by id: every Shard, Prism, Fluor, Loom and Petal style (their marches shadow the first surface a
+// ray meets), the Fold styles that draw a surface (the cone, pair and probe marches, through lib_fold_shade; the
+// glow and slice marches draw threads and sections, which have no lit surface), and the Bulb members lit by a key
+// or a lamp (Classic, Ink, and Shell's sun, through lib_bulb_shade). style_reads_test holds each to reading uShadow.
+constexpr std::array kShadowStyles = {
+    "shard_burst",    "shard_needles",   "shard_panes",   "shard_ring",     "shard_rods",
+    "shard_spires",   "shard_splinter",  "shard_stair",   "shard_tunnel",   "shard_wall",
+    "prism_arcade",   "prism_braid",     "prism_crown",   "prism_facet",    "prism_fan",
+    "prism_jewel",    "prism_mercury",   "prism_nest",    "prism_portal",   "prism_rosette",
+    "fluor_coffer",   "fluor_coil",      "fluor_column",  "fluor_filigree", "fluor_honeycomb",
+    "fluor_lattice",  "fluor_orb",       "fluor_scales",  "fluor_weave",    "fluor_whorl",
+    "loom_basket",    "loom_braid",      "loom_cloth",    "loom_cocoon",    "loom_curtain",
+    "loom_net",       "loom_rope",       "loom_sail",     "loom_spokes",    "loom_spool",
+    "petal_bells",    "petal_buds",      "petal_drift",   "petal_fern",     "petal_garland",
+    "petal_gates",    "petal_rose",      "petal_scales",  "petal_seed",     "petal_stair",
+    "fold_spire",     "fold_vault",      "fold_twin",     "fold_scaffold",  "fold_thorn",
+    "fold_quartz",
+    "bulb_classic",   "bulb_ink",        "bulb_shell",
+};
+static_assert(kShadowStyles.size() == 59, "fifty surface styles, six Fold surfaces and three lit Bulbs");
+
+// The families whose fractal folds colour by escape (lib_shade, by Escape colour: uEscapeColor, Scope::Escape), by
+// name: Shard, Prism and Fluor through lib_strata's far fractal, Loom, Petal and Fold through lib_layers' haze and
+// far layer (and Fold's own orbit traps), Bulb through its smoothed escape count. A family joins here once every
+// one of its styles reads uEscapeColor; style_reads_test holds it to that.
+constexpr std::array kEscapeFamilies = {"shard", "prism", "fluor", "loom", "petal", "fold", "bulb"};
+
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
 // creeps, tunnels counter. The user's Spin control scales the rate, and at 0 these hold still too.
@@ -301,7 +329,7 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
     "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
     "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",   "FORMULA",
-    "SHAPES",
+    "SHAPES",          "SHADOW",          "ESCAPE",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -358,8 +386,8 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
-// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula and Shapes are per style,
-// so no kind has them.
+// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
+// are per style, so no kind has them.
 bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
@@ -389,7 +417,9 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::Spin:
         case Scope::FamilyForm:
         case Scope::Formula:
-        case Scope::Shapes: return false;
+        case Scope::Shapes:
+        case Scope::Shadow:
+        case Scope::Escape: return false;
     }
     return false;
 }
@@ -440,6 +470,8 @@ std::string build() {
         if (drawsFamilyForm(id)) out += "|FAMILY_FORM";
         if (hasFormulas(id)) out += "|FORMULA";
         if (drawsShapes(id)) out += "|SHAPES";
+        if (castsShadows(id)) out += "|SHADOW";
+        if (colorsByEscape(id)) out += "|ESCAPE";
         out += '\n';
     }
     for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
@@ -650,6 +682,15 @@ bool hasFormulas(const std::string& id) { return listed(kFormulaStyles, id); }
 
 bool drawsShapes(const std::string& id) { return listed(kShapeStyles, id); }
 
+bool castsShadows(const std::string& id) { return listed(kShadowStyles, id); }
+
+bool colorsByEscape(const std::string& id) {
+    for (const auto& family : kFamilies) {
+        if (listed(kEscapeFamilies, family.name) && listed(family.ids, id)) return true;
+    }
+    return false;
+}
+
 std::span<const Family> families() { return kFamilies; }
 
 Look lookOf(const std::string& id) {
@@ -678,6 +719,8 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::FamilyForm) return drawsFamilyForm(styleId);
     if (scope == Scope::Formula) return hasFormulas(styleId);
     if (scope == Scope::Shapes) return drawsShapes(styleId);
+    if (scope == Scope::Shadow) return castsShadows(styleId);
+    if (scope == Scope::Escape) return colorsByEscape(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
 

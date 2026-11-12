@@ -8,6 +8,7 @@
 #include "output/PreRoll.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
+#include "viz/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -694,8 +695,7 @@ Scene* Renderer::readyScene(const std::string& id) {
                 stager_.step(now);
                 return nullptr;
             case ScenePrep::Step::GiveUp:
-                fail(id + ": its shaders did not finish compiling; keeping the last style");
-                prep_.fail(id);
+                failBuild(id, build_report::text(id, build_report::Stage::Stall, ""));
                 break;
             case ScenePrep::Step::Attempt:
                 scene = attemptScene(id);
@@ -742,15 +742,35 @@ Scene* Renderer::attemptScene(const std::string& id) {
         prober::drainErrors();
         return nullptr;
     }
-    for (const auto& message : errors) fail(message);
-    return admitBuilt(id, std::move(scene));
+    return admitReported(id, std::move(scene), errors);
 }
 
 Scene* Renderer::sceneFor(const std::string& id) {
     if (Scene* scene = builtScene(id)) return scene;
+    holdingErrors_ = true;
+    heldErrors_.clear();
     auto built = buildScene(id);
     if (built) built->prepare();
-    return admitBuilt(id, std::move(built));
+    holdingErrors_ = false;
+    std::vector<std::string> errors;
+    errors.swap(heldErrors_);
+    return admitReported(id, std::move(built), errors);
+}
+
+// A build's held errors: a scene that built says them as they came, one that did not gets one
+// report naming the style and the stage (viz/BuildReport), which the stage shows.
+Scene* Renderer::admitReported(const std::string& id, std::unique_ptr<Scene> scene, const std::vector<std::string>& errors) {
+    if (!scene || scene->buildFailed()) {
+        failBuild(id, build_report::of(id, errors));
+    } else {
+        for (const auto& message : errors) fail(message);
+    }
+    return admitBuilt(id, std::move(scene));
+}
+
+void Renderer::failBuild(const std::string& id, const std::string& report) {
+    prep_.fail(id, report);
+    fail(report);
 }
 
 // A scene that did not build (no scene, or its program failed: the error is already reported) is

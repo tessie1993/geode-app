@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 // The pure half of staged scene builds (ProgramStager is the GL half). No GL here, so the host
@@ -106,11 +107,21 @@ public:
         stallSinceS_ = -1.0;
     }
 
-    // `id` did not build: not asked for again until forgive().
-    void fail(const std::string& id) {
-        if (!failed(id)) failed_.push_back(id);
+    // `id` did not build: not asked for again until forgive(). `report` is what the stage says about it.
+    void fail(const std::string& id, const std::string& report = {}) {
+        if (!failed(id)) failed_.emplace_back(id, report);
     }
-    bool failed(const std::string& id) const { return std::find(failed_.begin(), failed_.end(), id) != failed_.end(); }
+    bool failed(const std::string& id) const { return find(id) != nullptr; }
+    // What fail() was told about `id`, said again when the style is picked again; empty for none.
+    std::string report(const std::string& id) const {
+        const auto* entry = find(id);
+        return entry ? entry->second : std::string();
+    }
+    // True when `text` is the report of a failed style, so it can be taken down for another style.
+    bool reported(const std::string& text) const {
+        if (text.empty()) return false;
+        return std::any_of(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.second == text; });
+    }
     // A new context or a changed shader source may build what failed before.
     void forgive() { failed_.clear(); }
 
@@ -133,7 +144,12 @@ private:
     int attempts_ = 0;
     double stallSinceS_ = -1.0;
     int progress_ = 0;
-    std::vector<std::string> failed_;
+    const std::pair<std::string, std::string>* find(const std::string& id) const {
+        const auto it = std::find_if(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.first == id; });
+        return it == failed_.end() ? nullptr : &*it;
+    }
+
+    std::vector<std::pair<std::string, std::string>> failed_;
 };
 
 }  // namespace geode::viz

@@ -256,6 +256,11 @@ GEODE_API void        geode_viz_trim_spares(geode_viz*);
 #define GEODE_DSP_BANDS 10
 #define GEODE_DSP_MIN_MILLIBELS (-1500)
 #define GEODE_DSP_MAX_MILLIBELS 1500
+/* The sound effects a range is asked for (audio/dsp/FxRanges): a band level in millibels, the bass boost in
+ * permille, the loudness makeup in millibels. */
+#define GEODE_DSP_FX_BAND 0
+#define GEODE_DSP_FX_BASS_BOOST 1
+#define GEODE_DSP_FX_LOUDNESS 2
 
 GEODE_API geode_dsp* geode_dsp_create(void);
 GEODE_API void       geode_dsp_destroy(geode_dsp*);
@@ -269,6 +274,15 @@ GEODE_API float      geode_dsp_band_center_hz(int band);
  * writing nothing, for no such curve or a capacity below GEODE_DSP_BANDS. */
 GEODE_API int        geode_dsp_eq_preset_count(void);
 GEODE_API int        geode_dsp_eq_preset_levels(int preset, int32_t* out, int capacity);
+/* Pure, any thread. A control's range and a value held to it (0 for a control that is not one); and the band
+ * levels a session starts on: the saved curve's when `preset` names one, else the `stored_count` saved levels
+ * (NULL for none), a band with neither at 0, each held to the band range. _restore_bands writes
+ * GEODE_DSP_BANDS levels and returns that count; 0, writing nothing, for a capacity below it. */
+GEODE_API int        geode_dsp_band_count(void);
+GEODE_API int        geode_dsp_fx_min(int control);
+GEODE_API int        geode_dsp_fx_max(int control);
+GEODE_API int        geode_dsp_fx_clamp(int control, int value);
+GEODE_API int        geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count, int32_t* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */

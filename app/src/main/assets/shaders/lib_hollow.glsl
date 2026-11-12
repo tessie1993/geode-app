@@ -82,7 +82,11 @@ float gHollowTone;
 float gHollowStride;
 /** How far from the axis the eye may ride. */
 float gHollowBore;
-vec3 gHollowPal[5];
+vec3 gHollowPal0;
+vec3 gHollowPal1;
+vec3 gHollowPal2;
+vec3 gHollowPal3;
+vec3 gHollowPal4;
 
 mat2 hollowRot(float a) {
     float c = cos(a);
@@ -103,8 +107,10 @@ float hollowSmax(float a, float b, float k) {
 /** The user's palette at t, from the five reads of hollowSetup(): there and back, so no seam. */
 vec3 hollowCol(float t) {
     float x = 4.0 * abs(2.0 * fract(0.5 * t) - 1.0);
-    int i = int(min(floor(x), 3.0));
-    return mix(gHollowPal[i], gHollowPal[i + 1], smoothstep(0.0, 1.0, x - float(i)));
+    vec3 c = mix(gHollowPal0, gHollowPal1, smoothstep(0.0, 1.0, clamp(x, 0.0, 1.0)));
+    c = mix(c, gHollowPal2, smoothstep(0.0, 1.0, clamp(x - 1.0, 0.0, 1.0)));
+    c = mix(c, gHollowPal3, smoothstep(0.0, 1.0, clamp(x - 2.0, 0.0, 1.0)));
+    return mix(c, gHollowPal4, smoothstep(0.0, 1.0, clamp(x - 3.0, 0.0, 1.0)));
 }
 
 void hollowSetup() {
@@ -121,7 +127,11 @@ void hollowSetup() {
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
     gHollowTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gHollowSwell = sndShaped(SND_LOW) * drive;
-    for (int i = 0; i < 5; i++) gHollowPal[i] = pal(0.25 * float(i));
+    gHollowPal0 = pal(0.0);
+    gHollowPal1 = pal(0.25);
+    gHollowPal2 = pal(0.5);
+    gHollowPal3 = pal(0.75);
+    gHollowPal4 = pal(1.0);
 }
 
 /** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes (and the mids' push), and a swell and pinch (and the lows'). */

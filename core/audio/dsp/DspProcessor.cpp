@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "audio/dsp/FxRanges.hpp"
+
 namespace geode::audio {
 
 bool DspProcessor::configure(int sampleRate, int channels) {
@@ -137,7 +139,7 @@ void DspProcessor::setBassBoost(int permille) {
 }
 
 void DspProcessor::setLoudnessMb(int millibels) {
-    const int clamped = std::clamp(millibels, 0, 1000);
+    const int clamped = fx::clamp(fx::kLoudness, millibels);
     std::lock_guard<std::mutex> lock(mutex_);
     settings_.loudnessMb = clamped;
     forEachChain([&](DspChain& c) { c.loudness().setTargetDb(static_cast<float>(clamped) / 100.0f); });

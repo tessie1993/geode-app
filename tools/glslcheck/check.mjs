@@ -185,6 +185,8 @@ const SHADER_VALUES = {
   uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
+  // Your colours (lib_palette): none picked, so the cosine ramp draws.
+  uPalStops: new Array(15).fill(0), uPalStopCount: 0,
   uMoveDir: [0.8, 0.6], uSpawnSeed: 0.37, uSpawnAge: 4.0, uFormPhase: 0.62, uFlowPhase: 12.5,
   uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
   uKeyHue: 0.3, uKeyStrength: 0.5, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
@@ -445,6 +447,13 @@ function soundSlots() {
   return out;
 }
 
+/** The sound frame `dt` seconds on: only its accumulated clocks (SND_*_TIME) move. */
+function soundLater(sound, dt) {
+  const out = [...sound];
+  for (const [name, s] of Object.entries(soundSlots())) if (s.uniform === 'uSound' && name.endsWith('_TIME')) out[s.slot] += dt;
+  return out;
+}
+
 function applyOverrides(values, args) {
   if (args.sound.length) {
     const slots = soundSlots();
@@ -654,9 +663,32 @@ function report(name, r) {
   const stats = r.error
     ? r.error
     : `mean ${r.meanLuma.toFixed(3)} max ${r.maxLuma.toFixed(3)} black ${r.fracBlack.toFixed(3)} blown ${r.fracBlown.toFixed(3)}` +
-      (r.glError ? ` glError ${r.glError}` : '') + (r.dropped.length ? ` dropped[${r.dropped.join(',')}]` : '');
+      (r.glError ? ` glError ${r.glError}` : '') + (r.dropped.length ? ` dropped[${r.dropped.join(',')}]` : '') +
+      ` link ${r.linkMs.toFixed(0)} ms first ${r.firstDrawMs.toFixed(0)} ms draw ${r.drawMs.toFixed(1)} ms` +
+      (r.moved === undefined ? '' : ` moved ${r.moved.toFixed(4)}`);
   console.log(`${status} ${name.padEnd(28)} ${stats}`);
   return !r.error;
+}
+
+// --all: what each style costs here, dearest first, then each family's medians. A report, never a verdict.
+function costTable(rows) {
+  const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+  const line = (name, n, r) =>
+    `${name.padEnd(28)} ${String(n).padStart(4)} ${r.link.toFixed(0).padStart(8)} ${r.first.toFixed(0).padStart(9)} ${r.draw.toFixed(1).padStart(8)} ${String(r.bytes).padStart(8)} ${r.moved.toFixed(4).padStart(8)}`;
+  const head = `${'style'.padEnd(28)} ${'n'.padStart(4)} ${'link ms'.padStart(8)} ${'first ms'.padStart(9)} ${'draw ms'.padStart(8)} ${'bytes'.padStart(8)} ${'moved/s'.padStart(8)}`;
+  console.log(`\ncost per style, by link + first draw\n${head}`);
+  for (const r of [...rows].sort((a, b) => b.link + b.first - a.link - a.first)) console.log(line(r.name, 1, r));
+  const groups = new Map();
+  for (const r of rows) {
+    const key = r.name.split('_')[0];
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const families = [...groups].filter(([, g]) => g.length >= 5).map(([key, g]) => ({
+    name: key, n: g.length, link: median(g.map((r) => r.link)), first: median(g.map((r) => r.first)),
+    draw: median(g.map((r) => r.draw)), bytes: median(g.map((r) => r.bytes)), moved: median(g.map((r) => r.moved)),
+  }));
+  console.log(`\nfamily medians, by draw\n${head}`);
+  for (const f of families.sort((a, b) => b.draw - a.draw)) console.log(line(f.name, f.n, f));
 }
 
 async function main() {
@@ -724,7 +756,16 @@ async function main() {
     applyOverrides(values, args);
     const uniforms = plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size);
     const assets = uniforms.some((u) => u.texture && u.texture.startsWith('world_')) ? worldAssets() : undefined;
-    jobs.push({ name: id, vert: quadVert, frag, uniforms, assets });
+    // One second of music later at the default Speed (1) and Fly speed (0.5 x CameraRig's 1.6 units a second).
+    const dt = 1, fly = 0.8;
+    const later = args.all
+      ? plan(parseUniforms(frag), {
+          ...values, uTime: values.uTime + dt, uFlowPhase: values.uFlowPhase + 0.5 * dt, uFlowTime: values.uFlowTime + 0.5 * dt,
+          uSoundTimeSped: values.uSoundTimeSped.map((v) => v + dt), uSound: soundLater(values.uSound, dt),
+          uCamPos: [values.uCamPos[0], values.uCamPos[1], values.uCamPos[2] + fly], uCamTravel: values.uCamTravel + fly,
+        }, SHADER_TEXTURES, args.size, args.height ?? args.size).filter((u) => !u.texture)
+      : undefined;
+    jobs.push({ name: id, vert: quadVert, frag, uniforms, assets, later });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');
@@ -751,11 +792,13 @@ async function main() {
 
   const browser = await launch();
   let allOk = true;
+  const costs = [];
   try {
     const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
     for (const job of jobs) {
       const r = await page.call('__render', { ...job, width: args.size, height: args.height ?? args.size });
       allOk = report(job.name, r) && allOk;
+      if (!r.error) costs.push({ name: job.name, link: r.linkMs, first: r.firstDrawMs, draw: r.drawMs, bytes: job.frag.length, moved: r.moved ?? 0 });
       if (args.out && r.png) {
         const dest = jobs.length === 1 ? args.out : path.join(args.out, `${job.name.replace(/[^\w]+/g, '_')}.png`);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -766,6 +809,7 @@ async function main() {
   } finally {
     await browser.close();
   }
+  if (args.all) costTable(costs);
   process.exit(allOk ? 0 : 1);
 }
 

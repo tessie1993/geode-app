@@ -49,6 +49,38 @@ Java_dev_geode_engine_bridge_GeodeNative_dspEqPresetLevels(JNIEnv* env, jobject,
     return n;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspBandCount(JNIEnv*, jobject) {
+    return geode_dsp_band_count();
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspFxMin(JNIEnv*, jobject, jint control) {
+    return geode_dsp_fx_min(control);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspFxMax(JNIEnv*, jobject, jint control) {
+    return geode_dsp_fx_max(control);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspFxClamp(JNIEnv*, jobject, jint control, jint value) {
+    return geode_dsp_fx_clamp(control, value);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBands(JNIEnv* env, jobject, jint preset, jintArray stored, jintArray out) {
+    if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
+    jint* saved = stored ? env->GetIntArrayElements(stored, nullptr) : nullptr;
+    int32_t levels[GEODE_DSP_BANDS] = {};
+    const int n = geode_dsp_restore_bands(preset, static_cast<const int32_t*>(saved), saved ? env->GetArrayLength(stored) : 0, levels,
+                                          GEODE_DSP_BANDS);
+    if (saved) env->ReleaseIntArrayElements(stored, saved, JNI_ABORT);
+    env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
+    return n;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetEnabled(JNIEnv*, jobject, jlong handle, jboolean enabled) {
     geode_dsp_set_enabled(dspOf(handle), enabled == JNI_TRUE);

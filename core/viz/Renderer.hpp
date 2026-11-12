@@ -203,6 +203,8 @@ private:
     Scene* readySecondary(const std::string& id, const std::string& other);
     Scene* attemptScene(const std::string& id);
     Scene* admitBuilt(const std::string& id, std::unique_ptr<Scene> scene);
+    Scene* admitReported(const std::string& id, std::unique_ptr<Scene> scene, const std::vector<std::string>& errors);
+    void failBuild(const std::string& id, const std::string& report);
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
     void dropScene(const std::string& id);
@@ -282,6 +284,8 @@ private:
     // placeholders and are dropped; a whole one's are reported as an inline build would have.
     bool holdingErrors_ = false;
     std::vector<std::string> heldErrors_;
+    // The style last asked for, so a failed one's report is said again when it is picked again.
+    std::string reportedRequestId_;
     // The requested scene is still being staged this frame, so the layer scene waits its turn.
     bool requestedPending_ = false;
     SceneRegistry registry_;

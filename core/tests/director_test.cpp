@@ -132,11 +132,33 @@ void testLiveFeeling() {
     const auto& h = happy.state();
     const auto& s = sad.state();
     std::printf("happy v %.2f e %.2f t %.2f | sad v %.2f e %.2f t %.2f\n", h.valence, h.energy, h.tension, s.valence, s.energy, s.tension);
-    check(h.valence > 0.2f, "a loud fast major song reads happy");
-    check(s.valence < -0.2f, "a quiet slow minor song reads sad");
+    check(h.valence > 0.2f, "a loud, busy, bright major song reads happy");
+    check(s.valence < -0.2f, "a quiet, sparse, dark minor song reads sad");
     check(h.energy > s.energy + 0.2f, "and more energetic");
     check(h.gems[Emotion::kJoy] > s.gems[Emotion::kJoy] && s.gems[Emotion::kSadness] > h.gems[Emotion::kSadness], "joy against sadness");
     check(h.degree == 0 && s.degree == 0, "the leading note is the tonic");
+}
+
+// Owner's rule: the tempo never steers or weighs a visual choice. The feeling drives the director's axes, so the
+// same song heard at 77, 93, 141 or 174 BPM (the same onsets, loudness and key) feels exactly the same.
+void testFeelingIgnoresTheTempo() {
+    Song base = kHappy;
+    Emotion first;
+    base.bpm = 77.0f;
+    for (float t = 0.0f; t < 12.0f; t += kDt) first.step(frame(base, t, kDt), kDt);
+    for (const float bpm : {93.0f, 141.0f, 174.0f}) {
+        Song other = kHappy;
+        other.bpm = bpm;
+        Emotion e;
+        for (float t = 0.0f; t < 12.0f; t += kDt) {
+            GeodeSoundFrame f = frame(other, t, kDt);
+            f.downbeat = frame(base, t, kDt).downbeat;  // only the tempo fields differ
+            e.step(f, kDt);
+        }
+        check(e.state().energy == first.state().energy && e.state().valence == first.state().valence &&
+                  e.state().tension == first.state().tension,
+              "the feeling is the same at " + std::to_string(static_cast<int>(bpm)) + " BPM");
+    }
 }
 
 void testPacing() {
@@ -469,6 +491,9 @@ void testAxesTurnTowardTheEnds() {
     check(dir::applyAxes(wild, axis(Axis::Energy, 1.0f)).bloom == wild.bloom, "an axis never pushes a field further past its slider");
     check(dir::applyAxes(p, axis(Axis::Chaos, 1.0f)).speed == p.speed, "an axis only moves its own fields");
     check(dir::applyAxes(p, axis(Axis::Energy, 1.0f)).saturation == p.saturation, "no axis moves the colour: the palette is the look's");
+    check(dir::applyAxes(p, axis(Axis::Energy, -1.0f)).reactAmount == p.reactAmount &&
+              dir::applyAxes(p, axis(Axis::Energy, 1.0f)).reactAmount == p.reactAmount,
+          "no axis turns the reaction matrix up or down: the routes are the user's");
 }
 
 // The value it is given is the base and the axis adds to it, so a slider still moves the picture under Auto.
@@ -697,6 +722,7 @@ void testAxesNeverHoldThePictureTwisted() {
 int main() {
     testTable();
     testLiveFeeling();
+    testFeelingIgnoresTheTempo();
     testPacing();
     testWeakEventsDecide();
     testNeverTouchesColour();

@@ -54,8 +54,9 @@ struct AxisField {
 // middle of its range: an axis turned up pulled it toward +1 and one turned down toward -1, so
 // Complexity twisted the picture whichever way it went, on every look ("almost all visuals have a
 // yin-yang curve"). Twist stays the user's slider and the style's own reactions.
-constexpr std::array<AxisField, 23> kAxisFields = {{
-    {Axis::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
+// Nor is the reaction matrix's amount (reactAmount): a calm look turned it toward 0, so Auto muted every
+// route the user sees, and its Energy reading once leaned on the tempo. The matrix is the user's to turn.
+constexpr std::array<AxisField, 22> kAxisFields = {{
     {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
     {Axis::Energy, &SceneParams::bloom, 0.0f, 0.25f, false},

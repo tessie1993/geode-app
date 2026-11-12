@@ -10,7 +10,6 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
-import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort

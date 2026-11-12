@@ -47,6 +47,7 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
@@ -57,7 +58,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue

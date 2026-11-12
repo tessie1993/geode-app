@@ -132,6 +132,11 @@ Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring 
     geode_layer_set(id.get() ? id.get() : "", mix, blendMode);
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerBlendNames(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_layer_blend_names());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetTransition(JNIEnv* env, jobject, jlong handle, jstring id, jlong durationMs) {
     Utf8Chars name(env, id);

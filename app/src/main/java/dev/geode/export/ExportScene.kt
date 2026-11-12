@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort

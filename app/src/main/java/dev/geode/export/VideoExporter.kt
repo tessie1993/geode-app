@@ -23,7 +23,6 @@ import dev.geode.model.LoudnessAdvice
 import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
-import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec

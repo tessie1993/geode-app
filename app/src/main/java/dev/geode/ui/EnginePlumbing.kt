@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.BlendMode
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
 import dev.geode.stage.StageView
@@ -27,7 +26,8 @@ data class LayersUiState(
     val enabled: Boolean = false,
     val sceneId: String? = null,
     val mix: Float = 0.5f,
-    val blend: BlendMode = BlendMode.SCREEN,
+    /** An index into native's [GeodeNative.layerBlendNames]. */
+    val blend: Int = GeodeNative.LAYER_BLEND_DEFAULT,
 )
 
 object LayersBus {

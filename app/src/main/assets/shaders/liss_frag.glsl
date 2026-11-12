@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 
@@ -65,6 +66,15 @@ out vec4 fragColor;
 // figure about its vertical axis, Turbulence shivers the vertices, Intensity
 // and the rest of the grade through lib_scene_grade.
 //
+// Every one of these, and the tube's radius, the embedding's lag and the
+// graticule's density, is one normalized input (lib_shell) set in one block at
+// the top of main and mapped there to its range; at rest each is the constant
+// the figure was tuned with. The beam is the field the grow hooks act on
+// (SHELL_FIELD3, about the origin): Spawn sets a twin figure beside it, Fractal
+// grows figures a third the size along the tube, the layers swell the figure
+// and what lies past it. A hook that is on turns the ray cull off (a copy is
+// read away from the ray) and widens the bounding sphere.
+//
 // ---- why the distance estimate is safe --------------------------------------
 //
 // Every deformation (embedding, knot, swell, twist, shiver) moves the
@@ -88,8 +98,7 @@ out vec4 fragColor;
 /** Vertices of the beam (LS_N - 1 capsules). */
 #define LS_N 40
 #define LS_SEGS 39
-/** Window of the waveform the beam spans; s + 2 lag stays inside 0..1, so no wrap jumps. */
-#define LS_SPAN 0.6
+/** The embedding's lag at rest (TEXTURE moves it); the beam spans 1 - 2 lag of the waveform (0.6 at rest), so s + 2 lag stays inside 0..1 and no wrap jumps. */
 #define LS_LAG 0.2
 /** Any segment farther than this from the ray line is dropped (tube plus halo reach). */
 #define LS_CULL 0.42
@@ -107,8 +116,6 @@ float gRad;
 /** Set by map(): the beam parameter 0..1 of the nearest point. */
 float gS;
 
-float kn(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
-
 vec3 knotRatios() {
     // A count, so it moves only on a hard cut.
     float k = mod(floor(SND_CUT_COUNT + 0.5), 4.0);
@@ -125,7 +132,8 @@ float capsule(vec3 p, vec3 a, vec3 b, out float h) {
     return length(pa - ba * h);
 }
 
-float map(vec3 p) {
+/** The beam: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+float lissField(vec3 p) {
     float d = LS_CULL;
     gS = 0.0;
     for (int i = 0; i < LS_SEGS; i++) {
@@ -138,6 +146,10 @@ float map(vec3 p) {
         }
     }
     return d;
+}
+
+float map(vec3 p) {
+    return SHELL_FIELD3(p, lissField);
 }
 
 vec3 normalAt(vec3 p) {
@@ -164,9 +176,42 @@ float axisGlow(vec3 ro, vec3 rd, vec3 a, float halfLen, float tMax, float pix) {
 
 void main() {
     vec2 uv = view();
+
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's thickening
+    float nTexture = shellKnob(1);                                 // TEXTURE  graticule density, tube radius, lag
+    float nFlow = shellKnob(2);                                    // FLOW     the knot's tumble rate
+    float nTone = shellKnob(3);                                    // TONE     tall and slim or flat and wide, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the halo, knot to portrait
+    float nSpace = shellKnob(5);                                   // SPACE    the orbit radius
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    the beam toward the waveform
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the figure's twist
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the vertices' shiver
+    float kickGain = shellMap(nPulse, 0.0, 1.0, 2.0);
+    float dens = shellMap(nTexture, 1.4, 2.3, 3.2);
+    gRad = shellMap(nTexture, 0.026, 0.035, 0.045);
+    float lag = shellMap(nTexture, 0.15, LS_LAG, 0.25);
+    float tumble = shellMap(nFlow, 0.4, 1.0, 1.6);
+    float hueTone = shellMap(nTone, -0.25, 0.0, 0.25);
+    // TONE: tall and slim for a high melody, flat and wide for a low one. Each
+    // factor is at most 1, so the vertex bound in the header still holds.
+    float slim = shellMap(nTone, 1.0, 1.0, 0.4);
+    float wide = shellMap(nTone, 0.4, 1.0, 1.0);
+    float haloK = shellMap(nBuild, 0.6, 1.0, 1.4);
+    float traceBuild = shellMap(nBuild, -0.35, 0.0, 0.35);
+    float camR = shellMap(nSpace, 5.4, 6.5, 7.6);
+    float traceMorph = shellMap(nMorph, 0.3, 0.3, 1.0);
+    float twist = shellMap(nWarp, 0.0, 0.0, 0.9);
+    float shiver = shellMap(nTurb, 0.0, 0.0, 0.12);
+    // The beam's window: s + 2 lag stays inside 0..1 (span 0.6 at rest), so no wrap jumps.
+    float span = 1.0 - 2.0 * lag;
+
     vec3 ro;
     vec3 rd;
-    camAround(uv, mix(5.4, 7.6, clamp(0.5 + kn(5), 0.0, 1.0)), 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, camR, 2.0 * CAM_SPIN_UNIT, ro, rd);
+    // The hooks grow about the figure at the origin; a twin stands 0.6 aside at full Spawn.
+    shellSetup3(vec3(0.0), 2.0, 1.2, true);
+    bool shellRest = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 
     float level = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
     float middle = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5);
@@ -175,19 +220,15 @@ void main() {
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float surge = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float hueBase = 0.18 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.5 * kn(3);
+    float hueBase = 0.18 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + hueTone;
 
     // ---- the beam: knot blended toward the waveform's portrait ---------------
-    float trace = clamp((0.3 + 0.7 * clamp(uMorph, 0.0, 1.0)) * (0.25 + 1.2 * level) + 0.7 * kn(4), 0.0, 1.0);
-    // TONE: tall and slim for a high melody, flat and wide for a low one. Each
-    // factor is at most 1, so the vertex bound in the header still holds.
-    vec3 build = vec3(1.0 - 1.2 * max(kn(3), 0.0), 1.0 + 1.2 * min(kn(3), 0.0), 1.0 - 1.2 * max(kn(3), 0.0));
+    float trace = clamp(traceMorph * (0.25 + 1.2 * level) + traceBuild, 0.0, 1.0);
+    vec3 build = vec3(slim, wide, slim);
     vec3 ratio = knotRatios();
-    float phase = uTime * 0.15 + SND_MID_TIME * 0.25 * (1.0 + 1.2 * kn(2));
+    float phase = uTime * 0.15 + SND_MID_TIME * 0.25 * tumble;
     float scale = 1.15 * (1.0 + 0.1 * bass + 0.15 * surge);
-    float twist = 0.9 * clamp(uWarp, 0.0, 2.0);
-    float shiver = 0.08 * clamp(uTurbulence, 0.0, 2.0);
-    gRad = 0.035 + 0.05 * kick * (1.0 + 2.0 * kn(0));
+    gRad += 0.05 * kick * kickGain;
 
     // Ray line cull (see the header); one pass builds and compacts the beam.
     gCount = 0;
@@ -195,8 +236,8 @@ void main() {
     for (int i = 0; i < LS_N; i++) {
         float fi = float(i);
         float u = fi / float(LS_SEGS);
-        float s = u * LS_SPAN;
-        vec3 wave = vec3(sndWave01(s), sndWave01(s + LS_LAG), sndWave01(s + 2.0 * LS_LAG)) * 2.0 - 1.0;
+        float s = u * span;
+        vec3 wave = vec3(sndWave01(s), sndWave01(s + lag), sndWave01(s + 2.0 * lag)) * 2.0 - 1.0;
         float th = u * LS_TAU;
         vec3 knot = vec3(sin(ratio.x * th + phase), sin(ratio.y * th), sin(ratio.z * th + phase * 0.7)) * 0.8;
         vec3 v = mix(knot, wave * 1.1, trace);
@@ -209,7 +250,7 @@ void main() {
             float hl = 0.5 * length(v - prev);
             vec3 q = m - ro;
             float tm = dot(q, rd);
-            if (length(q - rd * tm) < hl + LS_CULL && tm > -hl - LS_CULL) {
+            if (!shellRest || (length(q - rd * tm) < hl + LS_CULL && tm > -hl - LS_CULL)) {
                 gA[gCount] = vec4(prev, fi - 1.0);
                 gB[gCount] = v;
                 gCount++;
@@ -220,7 +261,9 @@ void main() {
 
     // ---- march, only inside the bounding sphere ------------------------------
     float bt = dot(-ro, rd);
-    float bh = bt * bt - (dot(ro, ro) - LS_BOUND * LS_BOUND);
+    // A hook that is on may reach past the figure: a twin 0.6 aside, a layer opened 18%.
+    float bound = shellRest ? LS_BOUND : 1.2 * LS_BOUND + 0.6;
+    float bh = bt * bt - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;
     float md = LS_CULL;
     float mdS = 0.0;
@@ -254,7 +297,6 @@ void main() {
         float tf = (LS_FLOOR - ro.y) / rd.y;
         if (tf > 0.0 && tf < surfT) {
             vec2 fp = (ro + rd * tf).xz;
-            float dens = mix(1.4, 3.2, clamp(0.5 + kn(1), 0.0, 1.0));
             vec2 gq = abs(fract(fp * dens - 0.5) - 0.5) / dens;
             float w = pix * tf * 1.2;
             float lines = max(w / (gq.x + w), w / (gq.y + w)) * 0.35;
@@ -277,7 +319,7 @@ void main() {
     // The newest samples (s near 1) burn brightest, like a phosphor's head.
     float headAt = mdS;
     float hueAt = hueBase + md * 2.0 + level * 0.5 + 0.35 * headAt;
-    float halo = (0.5 + 0.8 * middle) * (1.0 + 0.8 * kn(4));
+    float halo = (0.5 + 0.8 * middle) * haloK;
     float persist = 0.45 + 0.55 * headAt + 0.6 * hat * smoothstep(0.7, 1.0, headAt);
     col += pal(hueAt) * (exp(-max(md, 0.0) * 18.0) * 0.35 + haze * 0.5) * halo * persist;
 

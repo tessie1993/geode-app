@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -49,6 +50,13 @@ out vec4 fragColor;
 // k1 TEXTURE adds to the fast ripple (Turbulence), k2 FLOW the halo, k4 BUILD
 // the amplitude, k5 SPACE the lane spacing. Morph twists the bands about
 // their length, Warp bends the lanes sideways, Turbulence adds a fast ripple.
+// Every one of these, and the bands' width and thickness, the lanes' height
+// and the fog, is one normalized input (lib_shell) set in one block at the top
+// of main and mapped there to its range; at rest each is the constant the hall
+// was tuned with. The ribbons are the field the grow hooks act on
+// (SHELL_FIELD3): Spawn slides a second set of ribbons in between the lanes,
+// Fractal grows ribbons a third the size on them, the layers open the near and
+// far hall.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -67,10 +75,10 @@ out vec4 fragColor;
 #define WV_FAR 44.0
 #define WV_TAU 6.2831853
 #define WV_ZWRAP 64.0
-/** Height of the centre lane's rest line; the outer lanes rise on an arc. */
+/** Height of the centre lane's rest line at rest (gBase: SPACE); the outer lanes rise on an arc. */
 #define WV_BASE -2.7
 #define WV_FLOOR -4.6
-/** Half thickness of a band. */
+/** Half thickness of a band at rest (gTh: TEXTURE). */
 #define WV_TH 0.035
 #define WV_BUBBLE 0.7
 /** uSoundTex width (core/viz/SoundUniforms kTexWidth): one texel of the trace. */
@@ -86,6 +94,9 @@ float gRoll;
 float gWarp;
 float gArc;
 float gArcLift;
+float gBase;
+float gTh;
+float gHalfW0;
 vec3 gEye;
 
 /** Set by map(): the nearest band's distance, lane (-2..2), trace position and cross-section. */
@@ -105,7 +116,8 @@ float box2(vec2 q, vec2 b) {
     return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
 
-float map(vec3 p) {
+/** The ribbons and the floor: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+float wavesField(vec3 p) {
     // The lanes bend sideways together (Warp).
     float zw = p.z * (WV_TAU / 32.0);
     float xo = gWarp * sin(zw);
@@ -115,7 +127,7 @@ float map(vec3 p) {
     float fi = clamp(floor(lx / gSpace + 2.5), 0.0, 4.0);
     float lane = fi - 2.0;
     float u = lx - lane * gSpace;
-    float baseY = WV_BASE + gArc * lane * lane + gArcLift;
+    float baseY = gBase + gArc * lane * lane + gArcLift;
 
     // The trace, read along the band: two adjacent texels give the height
     // (their mean) and the local slope (their difference).
@@ -140,7 +152,7 @@ float map(vec3 p) {
     float roll = gRoll * sin(zt);
     float rollSlope = abs(gRoll * (WV_TAU / 16.0) * cos(zt));
     vec2 q = rot2(roll) * vec2(u, p.y - cy);
-    float db = box2(q, vec2(gHalfW, WV_TH)) - 0.015;
+    float db = box2(q, vec2(gHalfW, gTh)) - 0.015;
     float zs = xoSlope + cySlope + rollSlope * length(q);
     float dRib = db / sqrt(1.0 + zs * zs);
 
@@ -148,7 +160,7 @@ float map(vec3 p) {
     // is farther from the others, never inside them.
     float toRight = fi < 3.5 ? gSpace - u : 1e3;
     float toLeft = fi > 0.5 ? gSpace + u : 1e3;
-    float dOther = (min(toRight, toLeft) - (gHalfW + WV_TH + 0.015)) / sqrt(1.0 + xoSlope * xoSlope);
+    float dOther = (min(toRight, toLeft) - (gHalfW + gTh + 0.015)) / sqrt(1.0 + xoSlope * xoSlope);
     float dFloor = p.y - WV_FLOOR;
 
     gRib = db;
@@ -157,8 +169,11 @@ float map(vec3 p) {
     gQ = q;
     gMat = dFloor < dRib ? 1.0 : 0.0;
 
-    float d = min(min(dRib, dOther), dFloor);
-    return max(d, WV_BUBBLE - length(p - gEye));
+    return min(min(dRib, dOther), dFloor);
+}
+
+float map(vec3 p) {
+    return max(SHELL_FIELD3(p, wavesField), WV_BUBBLE - length(p - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -184,12 +199,34 @@ void main() {
     ro.z = mod(ro.z, WV_ZWRAP);
     gEye = ro;
 
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick swell
+    float nTexture = shellKnob(1);                                 // TEXTURE  the ripple, the bands' width and thickness
+    float nFlow = shellKnob(2);                                    // FLOW     the halo
+    float nTone = shellKnob(3);                                    // TONE     the hall's bend, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the amplitude
+    float nSpace = shellKnob(5);                                   // SPACE    lane spacing, height, fog
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    the bands' roll
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the lanes' sideways bend
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the fast ripple
+    float kickK = shellMap(nPulse, 0.2, 1.0, 1.8);
+    float ripTex = shellMap(nTexture, 0.0, 0.0, 0.15);
+    gHalfW0 = shellMap(nTexture, 0.4, 0.5, 0.56);
+    gTh = shellMap(nTexture, 0.025, WV_TH, 0.05);
+    float haloK = shellMap(nFlow, 0.5, 1.0, 1.5);
+    gArc = shellMap(nTone, 0.1, 0.35, 0.6);
+    gArcLift = shellMap(nTone, -0.25, 0.0, 0.25);
+    float hueTone = shellMap(nTone, -0.15, 0.0, 0.15);
+    float ampK = shellMap(nBuild, 0.7, 1.0, 1.3);
+    gSpace = shellMap(nSpace, 1.95, 2.6, 3.25);
+    gBase = shellMap(nSpace, -3.1, WV_BASE, -2.3);
+    float fogK = shellMap(nSpace, 0.06, 0.045, 0.03);
+    gRoll = shellMap(nMorph, 0.0, 0.0, 0.9);
+    gWarp = shellMap(nWarp, 0.0, 0.0, 1.4);
+    float ripTurb = shellMap(nTurb, 0.0, 0.0, 0.45);
+    // The layers are measured from the eye; a spawned set of ribbons slides half a lane across.
+    shellSetup3(ro, 3.0, 0.5 * gSpace, false);
+    shellAxis3(vec3(1.0, 0.0, 0.0));
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float vol = clamp(sndLevel(SND_VOL), 0.0, 1.5);
@@ -197,19 +234,14 @@ void main() {
     float treble = clamp(sndLevel(SND_TREBLE_ATT), 0.0, 1.0);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
 
-    gSpace = 2.6 * (1.0 + 0.5 * k5);
-    gHalfW = 0.5 + 0.22 * bass;
-    gAmp = (0.35 + 0.65 * vol) * (1.0 + 0.6 * k4);
-    gKick = kick * clamp(1.0 + 1.6 * k0, 0.0, 2.0);
+    gHalfW = gHalfW0 + 0.22 * bass;
+    gAmp = (0.35 + 0.65 * vol) * ampK;
+    gKick = kick * kickK;
     // As the envelope falls the swell runs out ahead of the eye.
     gPulseZ = ro.z + 2.0 + 30.0 * (1.0 - kick);
-    gTurb = clamp(uTurbulence, 0.0, 2.0) * 0.3 + max(k1, 0.0) * 0.3;
-    gRoll = clamp(uMorph, 0.0, 2.0) * 0.9;
-    gWarp = clamp(uWarp, 0.0, 2.0) * 1.4;
-    gArc = 0.35 + 0.5 * k3;
-    gArcLift = 0.5 * k3;
+    gTurb = ripTurb + ripTex;
 
-    float hue = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.3 * k3;
+    float hue = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + hueTone;
 
     float t = 0.05;
     float hitT = -1.0;
@@ -237,7 +269,6 @@ void main() {
 
     vec3 sky = skyColour(rd, hue);
     vec3 col = sky;
-    float fogK = 0.045;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
@@ -283,7 +314,7 @@ void main() {
     // The halo, faded by the fog at the ray's mean depth.
     float gp = glow > 1e-4 ? glowPos / glow : 0.0;
     float sceneT = hitT > 0.0 ? hitT : WV_FAR;
-    col += pal(hue + gp) * glow * (0.07 + 0.05 * vol) * (1.0 + k2) * exp(-sceneT * fogK * 0.5);
+    col += pal(hue + gp) * glow * (0.07 + 0.05 * vol) * haloK * exp(-sceneT * fogK * 0.5);
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));

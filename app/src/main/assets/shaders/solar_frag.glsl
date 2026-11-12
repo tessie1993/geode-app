@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -52,6 +53,15 @@ out vec4 fragColor;
 // streamers stand (a high melody lifts them off the equator into plumes at the
 // poles, a low one gathers them into a tight equatorial belt; plus a small hue
 // offset), k4 BUILD the prominence height, k5 SPACE the corona's reach.
+// Every one of these, and Morph's streamer count, Warp's twist, Turbulence's
+// granulation depth, the sun's radius (SPACE), the loops' size (BUILD) and the
+// streamers' sharpness (TEXTURE), is one normalized input (lib_shell) set in
+// one block at the top of main and mapped there to its range; at rest each is
+// the constant the sun was tuned with. The photosphere is the field the grow
+// hooks act on (SHELL_FIELD3, about the sun's centre): Spawn sets a twin sun
+// beside it, Fractal grows suns a third the size on the surface, Front layer
+// swells the sun and Back layer what lies past it. A hook that is on widens
+// the bounding shell the march is clipped to.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -84,11 +94,16 @@ vec3 gBoil;
 /** fbm value at the last map() point: 0..1, granule height. */
 float gGran;
 
-float sunMap(vec3 p) {
+/** The photosphere: the field the grow hooks act on (sunMap() hands it to SHELL_FIELD3). */
+float sunField(vec3 p) {
     vec3 q = gSpin * p;
     float h = fbm3(q * gFreq + gBoil, 3);
     gGran = h;
     return (length(p) - gR - gA * h) * gStepK;
+}
+
+float sunMap(vec3 p) {
+    return SHELL_FIELD3(p, sunField);
 }
 
 vec3 sunNormal(vec3 p) {
@@ -131,6 +146,34 @@ void main() {
     vec3 rd;
     camAround(uv, SO_CAM_R, 1.0 * CAM_SPIN_UNIT, ro, rd);
 
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick swell
+    float nTexture = shellKnob(1);                                 // TEXTURE  granule size, streamer sharpness
+    float nFlow = shellKnob(2);                                    // FLOW     the boil rate
+    float nTone = shellKnob(3);                                    // TONE     where the streamers stand, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the prominences' height and size
+    float nSpace = shellKnob(5);                                   // SPACE    the corona's reach, the sun's radius
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    the streamer count
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the streamers' twist
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the granulation's depth
+    float swellK = shellMap(nPulse, 0.4, 1.0, 1.6);
+    float grainF = shellMap(nTexture, 4.5, 6.0, 7.5);
+    float rayPow = shellMap(nTexture, 2.0, 3.0, 5.0);
+    float boilK = shellMap(nFlow, 0.5, 1.0, 1.5);
+    float hueTone = shellMap(nTone, -0.05, 0.0, 0.05);
+    float tonePush = shellMap(nTone, 0.0, 0.0, 0.7);
+    float tonePull = shellMap(nTone, 0.5, 0.0, 0.0);
+    float liftK = shellMap(nBuild, -0.15, 0.0, 0.15);
+    float loopK = shellMap(nBuild, 0.22, 0.28, 0.36);
+    float ext = shellMap(nSpace, 0.7, 1.0, 1.3);
+    // The dolly's closest eye (3.25) stays well outside the largest sun.
+    float sunR = shellMap(nSpace, 1.1, SO_R, 0.9);
+    float nRays = shellMap(nMorph, 8.0, 8.0, 18.0);
+    float twist = shellMap(nWarp, 0.0, 0.0, 1.5);
+    gA = shellMap(nTurb, 0.03, 0.03, 0.09);
+    // The hooks grow about the sun; a twin stands 0.45 aside at full Spawn.
+    shellSetup3(vec3(0.0), 1.5, 0.6, true);
+
     float low = sndShaped(SND_LOW);
     float high = sndShaped(SND_HIGH);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -139,24 +182,23 @@ void main() {
     float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
 
-    float hue = 0.06 + 0.1 * (uKnob[3] - 0.5) + 0.08 * pitch
+    float hue = 0.06 + hueTone + 0.08 * pitch
               + 0.05 * sin(SO_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
-    float ext = 1.0 + 0.6 * (uKnob[5] - 0.5);
-    float tonePush = clamp(1.4 * (uKnob[3] - 0.5), 0.0, 0.7);
-    float tonePull = clamp(0.5 - uKnob[3], 0.0, 0.5);
 
     // ---- the photosphere's shape for this frame -------------------------------
     gSpin = rotY(uTime * 0.04);
-    gR = SO_R + 0.05 * (0.4 + 1.2 * uKnob[0]) * kick;
-    gA = 0.03 + 0.04 * clamp(uTurbulence, 0.0, 1.5);
-    gFreq = 6.0 * (0.75 + 0.5 * uKnob[1]);
+    gR = sunR + 0.05 * swellK * kick;
+    gFreq = grainF;
     gStepK = 1.0 / (1.0 + 3.3 * gA * gFreq);
-    float boil = uTime * 0.12 * (0.5 + uKnob[2]);
+    float boil = uTime * 0.12 * boilK;
     gBoil = vec3(boil, -0.6 * boil, 0.35 * boil);
 
     // ---- march the photosphere inside its bounding shell ----------------------
     float hitT = -1.0;
-    vec2 shell = sphereSpan(ro, rd, gR + gA + 0.01);
+    // A hook that is on reaches past the sun: a twin aside, a layer opened, children on the surface.
+    float shellR = gR + gA + 0.01;
+    if (!shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK)) shellR = 1.2 * shellR + 0.8;
+    vec2 shell = sphereSpan(ro, rd, shellR);
     if (shell.y > 0.0) {
         float t = max(shell.x, 0.0);
         for (int i = 0; i < SO_MAX_STEPS; i++) {
@@ -200,13 +242,12 @@ void main() {
 
         // Ray count: Morph picks it as in the flat style, crossfaded between
         // whole counts so the longitude never seams and the slider never pops.
-        float nRays = 8.0 + uMorph * 10.0;
         float nLo = floor(nRays);
         float nMix = nRays - nLo;
 
         // Prominences: three loops riding the spin, raised by the drop and BUILD.
-        float lift = max(0.15 * dropBump + 0.3 * (uKnob[4] - 0.5) + 0.05 * low, -0.05);
-        float loopA = 0.28 + 0.3 * dropBump;
+        float lift = max(0.15 * dropBump + liftK + 0.05 * low, -0.05);
+        float loopA = loopK + 0.3 * dropBump;
         vec3 ln0 = normalize(vec3(0.8, 0.35, 0.3));
         vec3 ln1 = normalize(vec3(-0.5, -0.2, 0.85));
         vec3 ln2 = normalize(vec3(-0.3, 0.7, -0.6));
@@ -224,9 +265,9 @@ void main() {
             vec3 dir = q / r;
             float lon = atan(dir.z, dir.x);
             // Warp twists the streamers with latitude.
-            float ph = lon + uWarp * 1.5 * dir.y + uTime;
-            float rayLo = pow(max(0.0, sin(ph * nLo)), 3.0);
-            float rayHi = pow(max(0.0, sin(ph * (nLo + 1.0))), 3.0);
+            float ph = lon + twist * dir.y + uTime;
+            float rayLo = pow(max(0.0, sin(ph * nLo)), rayPow);
+            float rayHi = pow(max(0.0, sin(ph * (nLo + 1.0))), rayPow);
             // abs(lon) / pi runs 0..1..0 round the sun, so the EQ read has no seam.
             float rays = mix(rayLo, rayHi, nMix) * 0.5 * sndEq(abs(lon) / SO_PI);
             // TONE moves the streamers in latitude; at rest this is 1 - y^2.

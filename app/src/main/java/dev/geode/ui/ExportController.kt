@@ -7,8 +7,6 @@ import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.export.BatchOutcome
-import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -18,13 +16,12 @@ import dev.geode.export.LongFormAudio
 import dev.geode.export.LoopExtend
 import dev.geode.export.LoopRender
 import dev.geode.export.LoopSpec
-import dev.geode.export.LoudnessAdvice
-import dev.geode.export.LoudnessTarget
 import dev.geode.export.MixClip
-import dev.geode.export.RenderBatch
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.geodeContainer
+import dev.geode.model.LoudnessAdvice
+import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
@@ -576,4 +573,53 @@ internal class ExportController(
         const val RENDER_SPAN = 0.7f
         const val EXTEND_SPAN = 1f - RENDER_SPAN
     }
+}
+
+/** How one track of a batch ended. */
+sealed interface BatchOutcome {
+    /** [fileName] is null when the file went to a folder the user picked. */
+    data class Saved(
+        val uri: String,
+        val fileName: String?,
+    ) : BatchOutcome
+
+    data class Failed(
+        val message: String,
+    ) : BatchOutcome
+
+    /** The batch was cancelled before (or while) this track rendered. */
+    data object Cancelled : BatchOutcome
+}
+
+/**
+ * A batch render's queue: the tracks in order and how each finished so far. A failure is recorded
+ * and the next track starts (the user chose skip-and-continue over stopping), so a batch ends with
+ * every track accounted for, which is what the end-of-batch summary reads.
+ */
+data class RenderBatch(
+    val tracks: List<BatchTrack>,
+    val outcomes: List<BatchOutcome> = emptyList(),
+) {
+    val finished: Boolean get() = outcomes.size >= tracks.size
+
+    /** The track rendering now, or null once every track has an outcome. */
+    val current: BatchTrack? get() = tracks.getOrNull(outcomes.size)
+
+    val savedCount: Int get() = outcomes.count { it is BatchOutcome.Saved }
+
+    val failures: List<Pair<BatchTrack, String>>
+        get() =
+            outcomes.zip(tracks).mapNotNull { (outcome, track) ->
+                (outcome as? BatchOutcome.Failed)?.let { track to it.message }
+            }
+
+    val lastSaved: BatchOutcome.Saved? get() = outcomes.lastOrNull { it is BatchOutcome.Saved } as BatchOutcome.Saved?
+
+    /** The current track's outcome; a batch that has finished ignores late ones. */
+    fun record(outcome: BatchOutcome): RenderBatch = if (finished) this else copy(outcomes = outcomes + outcome)
+
+    fun cancelRest(): RenderBatch = copy(outcomes = outcomes + List(tracks.size - outcomes.size) { BatchOutcome.Cancelled })
+
+    /** The whole batch's progress, with [withinCurrent] the share of the current track done (native). */
+    fun progress(withinCurrent: Float): Float = GeodeNative.renderBatchProgress(outcomes.size, tracks.size, withinCurrent)
 }

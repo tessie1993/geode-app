@@ -1,12 +1,9 @@
-// The C ABI over what a render tells the shell before and while it runs (geode_api.h, "A render's range and
-// time left"): the segment a pick covers and the estimate of the time left. Only argument checks, the
-// handle's lock and copies live here; the rules are output/ExportRange and output/RenderEta, host-tested in
-// core/tests.
+// The C ABI over the estimate of a render's time left (geode_api.h, "A render's time left"). Only argument
+// checks, the handle's lock and copies live here; the rules are output/RenderEta, host-tested in core/tests.
 #include <memory>
 #include <mutex>
 
 #include "api/geode_api.h"
-#include "output/ExportRange.hpp"
 #include "output/RenderEta.hpp"
 
 namespace out = geode::output;
@@ -24,17 +21,6 @@ static_assert(GEODE_ETA_MINUTES == out::eta::kMinutes && GEODE_ETA_HOURS == out:
 }  // namespace
 
 extern "C" {
-
-int geode_export_range(int64_t start_ms, int64_t end_ms, int64_t track_ms, int64_t* out_start_ms,
-                       int64_t* out_duration_ms) {
-    out::ExportRange range;
-    if (!out::exportRangeOf(start_ms, end_ms, track_ms, &range)) return 0;
-    if (out_start_ms) *out_start_ms = range.startMs;
-    if (out_duration_ms) *out_duration_ms = range.durationMs;
-    return 1;
-}
-
-int64_t geode_export_range_min_ms(void) { return out::kMinRangeMs; }
 
 geode_render_eta* geode_render_eta_create(void) {
     try {

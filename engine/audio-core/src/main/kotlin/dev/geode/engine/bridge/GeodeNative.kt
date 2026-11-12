@@ -1270,42 +1270,6 @@ object GeodeNative {
         ceilings: IntArray,
     ): IntArray
 
-    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
-
-    external fun loudnessSupports(channels: Int): Boolean
-
-    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
-    external fun loudnessCreate(
-        sampleRate: Int,
-        channels: Int,
-    ): Long
-
-    external fun loudnessDestroy(handle: Long)
-
-    /**
-     * Feeds the decoder output [buffer]'s bytes [offset] until [offset] + [size] (BufferInfo's span) to the
-     * meter where they lie: native-order s16, or float in -1..1 when [isFloat]. [buffer] must be direct, as
-     * MediaCodec's are; false, feeding nothing, when it is not or the span does not fit.
-     */
-    external fun loudnessFeedDirect(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        offset: Int,
-        size: Int,
-        isFloat: Boolean,
-    ): Boolean
-
-    external fun loudnessHasBlock(handle: Long): Boolean
-
-    /**
-     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
-     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
-     */
-    external fun loudnessFinish(
-        handle: Long,
-        out: DoubleArray,
-    ): Boolean
-
     // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
     // thread; the Kotlin exporters only marshal through these.
 
@@ -1558,27 +1522,6 @@ object GeodeNative {
         loops: Int,
     ): LongArray
 
-    /**
-     * What an export's measured loudness asks of platform [target] (0 Leave as-is, 1 YouTube, 2 Shorts;
-     * core/output/LoudnessAdvice): returns the kind (0 nothing to measure, 1 as mixed, 2 on target,
-     * 3 normalise) and fills [out] (9 doubles): gain dB, gain the level alone needed, resulting LUFS and true
-     * peak, direction (1, -1, 0), ceiling limited (1/0), band (-1 under, 1 over, 0 in), LU under YouTube worth
-     * saying (else 0), peak over YouTube's ceiling (1/0). [gated] false: nothing above the meter's gate.
-     */
-    external fun loudnessAdvise(
-        target: Int,
-        gated: Boolean,
-        lufs: Double,
-        truePeakDbtp: Double,
-        out: DoubleArray,
-    ): Int
-
-    /** [target]'s window, aim, low, high LUFS and true-peak ceiling into [out]; false when it does not normalise. */
-    external fun loudnessWindow(
-        target: Int,
-        out: DoubleArray,
-    ): Boolean
-
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
         loopUs: Long,
@@ -1615,20 +1558,6 @@ object GeodeNative {
 
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
-
-    /**
-     * A picked segment held inside the track: [out] gets its start and length in ms. False, leaving [out]
-     * alone, when there is no segment to render (no track length, too short, or the whole track).
-     */
-    external fun exportRange(
-        startMs: Long,
-        endMs: Long,
-        trackMs: Long,
-        out: LongArray,
-    ): Boolean
-
-    /** The shortest segment [exportRange] accepts. */
-    external fun exportRangeMinMs(): Long
 
     /** What [renderEtaSample] answers while it has no estimate yet. */
     const val RENDER_ETA_UNKNOWN = -1L
@@ -1842,18 +1771,6 @@ object GeodeNative {
         videoBps: Int,
         lengthSec: Int,
     ): Boolean
-
-    /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
-    external fun chaptersFromClips(
-        startsMs: LongArray,
-        durationsMs: LongArray,
-    ): LongArray
-
-    /** Chapter spans from markers as triples; source -1 is the lead-in that makes the list start at 0:00. */
-    external fun chaptersFromMarkers(
-        markersMs: LongArray,
-        totalMs: Long,
-    ): LongArray
 
     /**
      * A Studio project's edit (timeline, markers, keyframes; core/studio) read from the JSON project.json keeps
@@ -2092,29 +2009,28 @@ object GeodeNative {
         use: Int,
     ): Int
 
-    /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
-    external fun exportWatermarkTextPx(
+    /**
+     * The wordmark's paint for a frame whose short side is [shortSide], into [out] (5 floats): text size px,
+     * alpha (0..255), letter spacing (em), shadow radius px, shadow alpha.
+     */
+    external fun exportWatermarkPaint(
         shortSide: Int,
         placement: Int,
-    ): Float
+        out: FloatArray,
+    )
 
-    /** The tile's rotation in degrees, and the text's alpha (0..255). */
-    external fun exportWatermarkAngle(placement: Int): Float
-
-    external fun exportWatermarkAlpha(placement: Int): Int
-
-    /** The tile width for the wordmark measured at [textWidth] pixels (a power of two for the tiled pattern). */
-    external fun exportWatermarkTileWidth(
+    /**
+     * The tile for the text measured with that paint ([textWidth], the font's [ascent] and [descent] at [textPx])
+     * into [out] (7 floats): width, height, rotation in degrees, its pivot x and y, where the text is drawn x and y.
+     */
+    external fun exportWatermarkRaster(
         textWidth: Float,
+        ascent: Float,
+        descent: Float,
         textPx: Float,
         placement: Int,
-    ): Int
-
-    external fun exportWatermarkTileHeight(
-        tileWidth: Int,
-        textPx: Float,
-        placement: Int,
-    ): Int
+        out: FloatArray,
+    )
 
     /**
      * [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer).
@@ -3033,6 +2949,54 @@ object GeodeNative {
         handle: Long,
         which: Int,
     ): String?
+
+    // A render's plan (core/api/geode_render_plan_api.h).
+
+    /** The part between slider fractions [start] and [end] of [trackMs] into [out] (start ms, duration ms); false: the whole track. */
+    external fun exportRangeOf(
+        start: Float,
+        end: Float,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** A range ([durationMs] 0: the whole track) under the free tier's [capMs] (<= 0: none) into [out]; out[1] 0 is still the whole track. */
+    external fun exportRangeCapped(
+        startMs: Long,
+        durationMs: Long,
+        capMs: Long,
+        out: LongArray,
+    )
+
+    /** The shortest part a render is offered. */
+    external fun exportRangeMinMs(): Long
+
+    /** The indices of [uris] a batch renders, in order, each URI once. */
+    external fun renderBatchOrder(uris: Array<String>): IntArray
+
+    /** A batch's whole progress, 0..1: [done] of [total] tracks plus the share [within] of the one rendering. */
+    external fun renderBatchProgress(
+        done: Int,
+        total: Int,
+        within: Float,
+    ): Float
+
+    // An export's platform audio work (core/api/geode_export_audio_api.h): blocking, on the caller's thread.
+
+    /**
+     * Decodes the finished render at [fd] (detached: native closes it; [offset] and [length] its span, length
+     * < 0: the whole descriptor) and reads its loudness for target [target] (0 Leave as-is, 1 YouTube, 2 Shorts).
+     * Returns the sentence to word it with (-1: nothing measured) and fills [out] (9 doubles): LUFS, true peak,
+     * gain, the gain the level alone needed, resulting LUFS and true peak, the target's ceiling, LU under
+     * YouTube worth saying (else 0), peak over YouTube's ceiling (1/0).
+     */
+    external fun exportLoudnessMeasure(
+        fd: Int,
+        offset: Long,
+        length: Long,
+        target: Int,
+        out: DoubleArray,
+    ): Int
 
     /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
     external fun castServerState(

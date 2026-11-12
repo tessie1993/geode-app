@@ -53,6 +53,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The fluid solver's pure maths is `FluidMath`.
 - `FlowField` is the velocity field Liquid mode reads, kicked by touch and drops.
 - The touch smear (`core/viz/TouchSmear`, Settings › Touch › Smear): touch play's fingers kick the shared `FlowField` and the composite bends the finished picture by it (`uFlow`).
+- The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
 - `liquid/LiquidMath` is Liquid mode's pure maths: thermal modes, inject weight, the random endless dive, gestures, born clock.
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).

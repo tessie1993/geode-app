@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <bitset>
 #include <compare>
 #include <cstdint>
@@ -195,12 +196,46 @@ std::string autoName(const Bank& bank, int id);
 
 // The params a link may move on styleId (the scope of the control that sets each): ask once per style.
 Reach reachMask(const std::string& styleId);
+
+// What the waves and the envelopes add to the knobs' turns this frame (a slot on LfoTarget::Macro names its knob by
+// id). Base plus modulation, MilkDrop's rule: the user's turn is never rewritten; a knob moves its links by its turn
+// plus this, held to -1..1 (effective). `sources` says who turns a knob and lo..hi how far they can, for the shell's
+// second arc (its still range under reduced motion).
+struct KnobMods {
+    static constexpr std::uint8_t kWave = 1;
+    static constexpr std::uint8_t kEnvelope = 2;
+    struct Mod {
+        int id = 0;
+        float add = 0.0f;
+        std::uint8_t sources = 0;
+        float lo = 0.0f;
+        float hi = 0.0f;
+        bool operator==(const Mod&) const = default;
+    };
+    std::array<Mod, kMaxKnobs> mods{};
+    int count = 0;
+    // Adds v (0 when not finite) to knob id's modulation from `source`, which can reach lo..hi; a knob past
+    // kMaxKnobs is dropped.
+    void add(int id, float v, std::uint8_t source, float lo = 0.0f, float hi = 0.0f);
+    const Mod* of(int id) const;
+    bool operator==(const KnobMods&) const = default;
+};
+// The knob's turn with its modulation: 0 while it is in the library, else turn + add held to -1..1.
+float effective(const Knob& knob, const KnobMods* mods);
+
 // p with every knob's offsets added: per link shape(curve, |value|) x (value >= 0 ? up : down) x the
 // target's range, summed per target over the whole bank, then held to that range (the hue, a
-// Circular field, adds unclamped). A link whose target is not in reach is skipped, and a field no
-// live link moves is returned untouched, so a bank at centre is the identity.
-SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach);
-SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId);
+// Circular field, adds unclamped). value is the knob's effective turn. A link whose target is not in reach is
+// skipped, and a field no live link moves is returned untouched, so a bank at centre is the identity.
+SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach, const KnobMods* mods = nullptr);
+SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId, const KnobMods* mods = nullptr);
+
+// The knobs' live modulation, for the knob's second arc: the on-screen renderer publishes each frame's mods (one
+// copy under a lock, no JNI on the GL thread), the shell polls the text. Any thread.
+void publishLive(const KnobMods& mods);
+// Rows, one per knob a wave or an envelope turns now:
+//   mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>|<lowest add>|<highest add>
+std::string liveModsText();
 
 // The process-wide bank every live renderer reads (geode_macro_bank_set). Any thread. A renderer takes
 // the shared copy once per frame (signal::EngineSettings), and an export keeps the one it pinned at

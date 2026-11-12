@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -10,7 +11,7 @@ namespace geode::viz {
 
 enum class EnvBand { Bass, Mid, Treble, Rms, Brightness, Width };
 
-// One envelope as geode_viz_set_adsr hands it over. Defaults are the adsr rows of viz/ConfigTable.inc
+// One envelope. Defaults are the adsr rows of viz/ConfigTable.inc
 // (#423), the same numbers the stores and the sliders read.
 struct AdsrConfig {
     bool enabled = false;
@@ -24,6 +25,10 @@ struct AdsrConfig {
     float gateThreshold = config::spec(config::Slot::adsr_gateThreshold).defaultValue;
     bool sustainTrack = config::spec(config::Slot::adsr_sustainTrack).defaultValue > 0.5f;
     bool retrigger = config::spec(config::Slot::adsr_retrigger).defaultValue > 0.5f;
+    // The macro knob's id a Macro target turns; 0 is none.
+    int knob = 0;
+    // -1 fires on a note start; a Moment ordinal (viz/Reactions) fires on that moment instead.
+    int moment = -1;
 };
 
 class AdsrEngine {
@@ -32,7 +37,8 @@ public:
 
     std::array<AdsrConfig, kCount> configs{};
 
-    const std::array<float, kCount>& tick(float dt, const GeodeSoundFrame& sound);
+    // `moments` is the bit per Moment that came this frame (MomentWatch).
+    const std::array<float, kCount>& tick(float dt, const GeodeSoundFrame& sound, std::uint32_t moments = 0);
     static void lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
                            std::array<float, LfoEngine::kSlots>& rate, std::array<float, LfoEngine::kSlots>& depth);
     static SceneParams apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);

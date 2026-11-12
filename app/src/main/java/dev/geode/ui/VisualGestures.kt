@@ -51,7 +51,6 @@ import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.FeatureGate
-import dev.geode.render.TouchField
 import dev.geode.ui.theme.StoneHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -197,7 +196,7 @@ internal fun Modifier.visualGestures(
     return this
         .windowPlacement(placement)
         .pointerInput(edges, direction, doubleSlop) {
-            val points = FloatArray(TouchField.MAX_POINTS * 2)
+            val points = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
             // Read per down, not once: the strips change with rotation and the navigation mode.
             val ours = { local: Offset ->
                 val safe =
@@ -458,7 +457,7 @@ private fun publish(
     val h = height.coerceAtLeast(1f)
     var live = 0
     for (change in event.changes) {
-        if (!change.pressed || live >= TouchField.MAX_POINTS) continue
+        if (!change.pressed || live * 2 >= points.size) continue
         points[live * 2] = change.position.x / w * 2f - 1f
         points[live * 2 + 1] = 1f - change.position.y / h * 2f
         live++
@@ -737,6 +736,7 @@ internal fun rememberVisualA11yActions(
     actionFor: (CanvasGesture) -> GestureAction,
     actions: VisualActions,
     recording: Boolean,
+    styleStepLabels: Pair<String, String>,
 ): List<CustomAccessibilityAction> {
     val labels =
         mapOf(
@@ -751,7 +751,7 @@ internal fun rememberVisualA11yActions(
         )
     val steps =
         mapOf(
-            GestureAction.STEP_STYLE to (stringResource(R.string.a11y_next_style) to stringResource(R.string.a11y_previous_style)),
+            GestureAction.STEP_STYLE to styleStepLabels,
             GestureAction.STEP_PRESET to
                 (stringResource(R.string.visuals_gesture_next_preset) to stringResource(R.string.visuals_gesture_previous_preset)),
             GestureAction.STEP_PLAYLIST to

@@ -21,6 +21,15 @@ static_assert(GEODE_PCM_S16 == geode::audio::ingest::kSigned16);
 static_assert(GEODE_PCM_U8 == geode::audio::ingest::kUnsigned8);
 static_assert(GEODE_PCM_FLOAT == geode::audio::ingest::kFloat32);
 
+using geode::audio::ingest::AiffHeader;
+using geode::audio::ingest::AiffHeaderScan;
+static_assert(GEODE_AIFF_SCAN_MORE == AiffHeaderScan::kMore && GEODE_AIFF_SCAN_DONE == AiffHeaderScan::kDone);
+static_assert(GEODE_AIFF_SCAN_INVALID == AiffHeaderScan::kInvalid);
+static_assert(GEODE_AIFF_SCAN_MAX_READ == AiffHeaderScan::kMaxRead);
+static_assert(GEODE_AIFF_PCM_NONE == AiffHeader::kNotPlayed && GEODE_AIFF_PCM_S16_LE == AiffHeader::kS16Le);
+static_assert(GEODE_AIFF_PCM_S16_BE == AiffHeader::kS16Be && GEODE_AIFF_PCM_S24_BE == AiffHeader::kS24Be);
+static_assert(GEODE_AIFF_PCM_S32_BE == AiffHeader::kS32Be);
+
 int report(const PcmRing::Written& written, float* peak_out) {
     if (peak_out) *peak_out = written.peak;
     return written.frames;
@@ -45,6 +54,10 @@ int16_t roundToS16(float v) {
 
 struct geode_aiff {
     std::unique_ptr<geode::audio::ingest::AiffReader> reader;
+};
+
+struct geode_aiff_scan {
+    geode::audio::ingest::AiffHeaderScan scan;
 };
 
 struct geode_track_feed {
@@ -230,6 +243,47 @@ int geode_aiff_read_s16(geode_aiff* a, int16_t* out, int capacity) {
     } catch (...) {
         return -1;
     }
+}
+
+geode_aiff_scan* geode_aiff_scan_create(void) {
+    try {
+        return new geode_aiff_scan{};
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void geode_aiff_scan_destroy(geode_aiff_scan* s) {
+    std::unique_ptr<geode_aiff_scan> owned(s);
+}
+
+int64_t geode_aiff_scan_skip(const geode_aiff_scan* s) { return s ? s->scan.skip() : 0; }
+
+int geode_aiff_scan_read(const geode_aiff_scan* s) { return s ? s->scan.read() : 0; }
+
+int geode_aiff_scan_step(geode_aiff_scan* s, const uint8_t* bytes, int n) {
+    return s ? s->scan.step(bytes, n) : GEODE_AIFF_SCAN_INVALID;
+}
+
+int geode_aiff_scan_header(const geode_aiff_scan* s, int64_t* out, int capacity) {
+    if (!s || !out || capacity < GEODE_AIFF_HEADER_COUNT || !s->scan.done()) return 0;
+    const geode::audio::ingest::AiffHeader& h = s->scan.header();
+    out[GEODE_AIFF_HEADER_CHANNELS] = h.channels;
+    out[GEODE_AIFF_HEADER_SAMPLE_RATE] = h.sampleRate;
+    out[GEODE_AIFF_HEADER_PCM] = h.pcm();
+    out[GEODE_AIFF_HEADER_BYTES_PER_FRAME] = h.bytesPerFrame();
+    out[GEODE_AIFF_HEADER_FRAMES] = h.frames;
+    out[GEODE_AIFF_HEADER_DATA_START] = h.dataStart;
+    out[GEODE_AIFF_HEADER_DATA_BYTES] = h.dataBytes;
+    return 1;
+}
+
+int64_t geode_aiff_time_us(int64_t bytes, int bytes_per_frame, int sample_rate) {
+    return geode::audio::ingest::aiffTimeUs(bytes, bytes_per_frame, sample_rate);
+}
+
+int64_t geode_aiff_seek_offset(int64_t time_us, int bytes_per_frame, int sample_rate, int64_t data_bytes) {
+    return geode::audio::ingest::aiffSeekOffset(time_us, bytes_per_frame, sample_rate, data_bytes);
 }
 
 geode_track_feed* geode_track_feed_create(int64_t start_ms) {

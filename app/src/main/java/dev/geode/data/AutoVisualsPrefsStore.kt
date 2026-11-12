@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.Catalogue
+import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -100,7 +100,7 @@ class AutoVisualsPrefsStore(
                         if (sceneId.isEmpty()) continue
                         add(
                             VizPlaylistEntry(
-                                sceneId = Catalogue.resolve(sceneId),
+                                sceneId = StyleCatalogue.resolve(sceneId),
                                 presetName = o.optString("presetName", "").takeIf { it.isNotEmpty() },
                                 milkPath = o.optString("milkPath", "").takeIf { it.isNotEmpty() },
                                 label = o.optString("label", "").ifEmpty { sceneId },

@@ -6,8 +6,8 @@ namespace geode::output {
 
 // A long-form render's loop (ADR 0006, core/output; fosfora's headless/loop_spec.rs): how long one loop
 // runs, how long its seam dissolves, at what rate it is drawn, and how the encoded loop is repeated to
-// fill the running time. Ported from the Kotlin LoopSpec (export/LoopRender.kt) and LoopExtendPlan
-// (export/LoopExtend.kt), which keep only the MediaCodec and MediaMuxer work once they call this.
+// fill the running time. The loop render job (output/LoopRender) draws by it; the shell's loop extend reads
+// the repeat plan and keeps only the MediaCodec and MediaMuxer work.
 struct LoopSpec {
     static constexpr int64_t kMinLoopMs = 30'000;
     static constexpr int64_t kMaxLoopMs = 300'000;
@@ -17,7 +17,7 @@ struct LoopSpec {
     static constexpr int kMinFps = 24;
     static constexpr int kMaxFps = 60;
     static constexpr int64_t kSeamPreviewLeadMs = 2'000;
-    // The seam stash keeps one full-resolution RGBA frame per crossfade frame (LoopRender.SeamStash).
+    // The seam stash keeps one full-resolution RGBA frame per crossfade frame (viz/frame SeamPass).
     static constexpr int64_t kSeamStashBudgetBytes = 192LL * 1024 * 1024;
     static constexpr int64_t kBytesPerPixel = 4;
 
@@ -29,7 +29,7 @@ struct LoopSpec {
     // never more than half the loop, 24..60 fps.
     static LoopSpec of(int64_t loopMs, int64_t crossfadeMs = kDefaultCrossfadeMs, int fps = kMaxFps);
 
-    // The Kotlin constructor's checks: positive lengths, a dissolve at most half the loop, fps in range.
+    // A spec that can be drawn: positive lengths, a dissolve at most half the loop, fps in range.
     bool valid() const;
 
     // Frames the viewer sees once per repeat, at least 2.
@@ -44,8 +44,8 @@ struct LoopSpec {
 
     // The dissolve shortened to what the seam stash can hold at width x height. The stash affords
     // `budget / (w * h * 4)` frames; the shortened dissolve is the shortest whole-ms length whose
-    // crossfadeFrames() is exactly that many. The Kotlin version truncated ms then frames, losing one frame
-    // (7 affordable frames at 60 fps gave 116 ms, which is 6 frames). It may fall under kMinCrossfadeMs:
+    // crossfadeFrames() is exactly that many. Truncating to ms and then to frames would lose one frame
+    // (7 affordable frames at 60 fps give 116 ms, which is 6 frames). It may fall under kMinCrossfadeMs:
     // the stash cannot hold more, and a shorter dissolve beats a render that runs out of memory.
     LoopSpec budgeted(int width, int height) const;
 };
@@ -56,8 +56,8 @@ struct LoopSpec {
 float seamWeight(int tail, int seamFrames);
 
 // Time-of-day drift: a slow palette movement across the finished video, quantised into
-// `stops` loop renders. Ported from the Kotlin TimeOfDayDrift.stopPhases and DriftStop.applyTo
-// (export/LoopRender.kt) with the same float arithmetic.
+// `stops` loop renders. Each stop is one render of the loop with its own palette offset, worked in float
+// like the params it moves.
 struct DriftStop {
     int index = 0;
     float hueOffset = 0.0f;

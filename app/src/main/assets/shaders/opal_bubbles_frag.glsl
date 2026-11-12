@@ -19,7 +19,7 @@ out vec4 fragColor;
 // the way ahead runs between them.
 //
 // Morph swells the bubbles until neighbours touch and their walls join into
-// one foam. Worst case 80 steps and 4 skins, no noise.
+// one foam. Worst case 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     vec3 c = floor((p + 1.0) * 0.5);
@@ -35,6 +35,8 @@ vec2 opalMap(vec3 p) {
     float d = mix(ball, max(ball, -wall), smoothstep(0.55, 1.0, gOpalForm));
     return vec2(d, 0.5);
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

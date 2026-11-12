@@ -18,8 +18,7 @@
 #
 # Usage: tools/no-bpm-bias-gate.sh [repo-root]. The first four shapes skip host tests (core/tests,
 # */src/test, androidTest) and tools/glslcheck, where a stimulus may set any tempo it plays. The
-# detector's search limits (Rhythm::kFastestBpm, kSlowestBpm) are limits, flat inside, and pass, as
-# does the sound frame's slot index (SoundFrameLayout.BPM).
+# detector's search limits (Rhythm::kFastestBpm, kSlowestBpm) are limits, flat inside, and pass.
 # There is deliberately no override. If the gate is wrong about a line, reword the line.
 set -euo pipefail
 
@@ -54,7 +53,7 @@ centre=$(grep -rnEi "${types[@]}" -e "$onetwenty" "${paths[@]}" 2>/dev/null || t
 
 hits=$(printf '%s\n%s\n' "$bias" "$centre" | sed '/^$/d' | sort -u \
     | grep -vE '^(tools/no-bpm-bias-gate\.sh|\.github/workflows/arch-map\.yml):' \
-    | grep -vE 'k(Fastest|Slowest)Bpm|/SoundFrameLayout\.kt:[0-9]+: *const val BPM = [0-9]+$' \
+    | grep -vE 'k(Fastest|Slowest)Bpm' \
     | grep -vE '^(AGENTS\.md|\.claude/skills/[^:]*):[0-9]+:.*no-bpm-bias-gate' || true)
 
 if [ -n "$hits" ]; then

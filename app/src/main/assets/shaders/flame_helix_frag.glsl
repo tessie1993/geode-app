@@ -19,7 +19,7 @@ out vec4 fragColor;
 // further round than the last: only the threads are lit.
 //
 // Morph shears the winding outward, so the threads lean from a plain braid
-// into a whirlpool. Worst case 72 samples, no folds, no noise.
+// into a whirlpool. Worst case 90 samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float r = length(p.xy);
@@ -29,6 +29,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     hue = vec2(0.16 * r + 0.04 * p.z, 0.5 + 0.2 * r);
     wt = vec2(0.85, 0.5) * smoothstep(0.1, 0.35, r);
 }
+
+//#include lib_flame_march
 
 void main() {
     vec2 uv = view();

@@ -18,7 +18,7 @@ out vec4 fragColor;
 // offset rows, each a mound with a mouth at its top, ringed like a target.
 //
 // Morph turns the reef inside out: the mounds sink and become pits. Worst
-// case 72 steps, no noise.
+// case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
@@ -32,6 +32,8 @@ vec2 hollowMap(vec3 p) {
     float d = 1.6 - r - mix(0.42, -0.42, gHollowForm) * mound;
     return vec2(d * 0.45, 3.0 * bump + 0.25);
 }
+
+//#include lib_hollow_march
 
 void main() {
     vec2 uv = view();

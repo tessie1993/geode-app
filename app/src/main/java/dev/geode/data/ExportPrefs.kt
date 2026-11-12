@@ -8,7 +8,7 @@ import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.export.LoudnessTarget
+import dev.geode.model.LoudnessTarget
 
 /**
  * The settings an export is encoded with. One copy lives in Settings › Export per [ExportDestination]
@@ -58,7 +58,7 @@ sealed interface SaveTarget {
 /**
  * Where a video is meant to go. Each destination has its own export defaults in Settings › Export,
  * which start from the platform's [preset] (or plain [ExportDefaults] for [CUSTOM]) and are then the
- * user's to change. A new project copies its destination's defaults; see `editor/StudioProject.create`.
+ * user's to change. A new project copies its destination's defaults; see `ui/EditorController`.
  *
  * Declared in [ExportPresets.ALL]'s order, which [preset] relies on.
  */

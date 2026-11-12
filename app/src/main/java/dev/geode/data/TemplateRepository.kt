@@ -26,8 +26,8 @@ import android.content.Context
 import androidx.annotation.WorkerThread
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +36,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
-import java.io.OutputStream
 
 /** Outcome of writing a template out. Failure is a value, not an exception. */
 sealed interface TemplateWrite {
@@ -180,7 +179,7 @@ object BundledTemplates {
             notes = "Vertical hook clip. Loud, loop-safe, thirty seconds around the biggest moment.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.FLUID,
+                    sceneId = "fluid",
                     attack = 0.85f,
                     decay = 0.24f,
                     params =
@@ -217,7 +216,7 @@ object BundledTemplates {
             notes = "Square, slow and soft. Made to sit under a study playlist without shouting.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.AURORA,
+                    sceneId = "aurora",
                     attack = 0.4f,
                     decay = 0.06f,
                     params =
@@ -278,7 +277,7 @@ object BundledTemplates {
             notes = "Round artwork, ring progress, whole track. The classic single-cover post.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.RING,
+                    sceneId = "ring",
                     attack = 0.55f,
                     decay = 0.1f,
                     params =
@@ -329,7 +328,7 @@ object BundledTemplates {
             notes = "Four-by-five feed post, fifteen seconds, album name front and centre.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.WAVES,
+                    sceneId = "waves",
                     attack = 0.7f,
                     decay = 0.15f,
                     params =
@@ -386,7 +385,7 @@ object BundledTemplates {
             notes = "Wide, calm spectrum for speech. Whole episode, readable title, no strobing.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.BARS,
+                    sceneId = "bars",
                     attack = 0.5f,
                     decay = 0.2f,
                     params =
@@ -443,7 +442,7 @@ object BundledTemplates {
             notes = "Archive render: 4K, sixty frames, no overlays. The one you keep.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.DEFAULT,
+                    sceneId = StyleCatalogue.DEFAULT_ID,
                     attack = 0.65f,
                     decay = 0.12f,
                     params =
@@ -543,12 +542,6 @@ interface TemplateRepository {
      */
     suspend fun importFrom(open: () -> InputStream?): TemplateImport
 
-    /** Writes the template to a destination the caller opens, such as a picked file. */
-    suspend fun exportTo(
-        template: VideoTemplate,
-        open: () -> OutputStream?,
-    ): TemplateWrite
-
     /** A nicely named copy in the cache, ready to hand to a share sheet. */
     suspend fun stageForShare(template: VideoTemplate): File?
 
@@ -606,21 +599,6 @@ class FileTemplateRepository(
         val text = withContext(Dispatchers.IO) { runCatching { open()?.use(::readBounded) }.getOrNull() }
         return if (text == null) TemplateImport.Unreadable("that file could not be read") else importText(text)
     }
-
-    override suspend fun exportTo(
-        template: VideoTemplate,
-        open: () -> OutputStream?,
-    ): TemplateWrite =
-        withContext(Dispatchers.IO) {
-            val bytes = TemplateFormat.encode(template).toByteArray(Charsets.UTF_8)
-            val written =
-                runCatching {
-                    val out = open() ?: return@runCatching false
-                    out.use { it.write(bytes) }
-                    true
-                }.getOrDefault(false)
-            if (written) TemplateWrite.Written else TemplateWrite.Failed("could not write the template file")
-        }
 
     override suspend fun stageForShare(template: VideoTemplate): File? =
         withContext(Dispatchers.IO) {

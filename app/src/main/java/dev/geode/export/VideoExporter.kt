@@ -2,6 +2,7 @@ package dev.geode.export
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
@@ -18,14 +19,12 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.LoudnessAdvice
+import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
-import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.offscreen.OffscreenRenderSpec
-import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
 import dev.geode.viz.BackgroundImage
@@ -49,11 +48,17 @@ enum class ExportCodec(
         requestedFps: Int,
         bitRate: Int,
     ): List<EncoderAttempt> {
-        val codecs = listOf(available(), H264).distinct()
-        val tops = codecs.map { c -> runCatching { videoCaps(c.mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper } }
-        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { tops[it].getOrNull()?.toInt() ?: 0 })
+        val codecs = candidates()
+        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { codecs[it].topFps(aspect) })
         return (rungs.indices step 3).map { EncoderAttempt(codecs[rungs[it]], rungs[it + 1], rungs[it + 2]) }
     }
+
+    /** The codecs to try, in order: this one if the device has it, then H.264. */
+    fun candidates(): List<ExportCodec> = listOf(available(), H264).distinct()
+
+    /** The top frame rate the device lists for this codec at [aspect]'s size, 0 when it does not say. */
+    fun topFps(aspect: ExportAspect): Int =
+        runCatching { videoCaps(mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper?.toInt() }.getOrNull() ?: 0
 
     companion object {
         fun hasEncoder(mimeType: String): Boolean = videoCaps(mimeType) != null
@@ -72,6 +77,12 @@ class EncoderAttempt(
     val codec: ExportCodec,
     val fps: Int,
     val bitRate: Int,
+)
+
+/** The part of a track a render covers, as native picked it (`GeodeNative.exportRangeOf`, `exportRangeCapped`). */
+data class ExportRange(
+    val startMs: Long,
+    val durationMs: Long,
 )
 
 enum class ExportQuality(
@@ -127,6 +138,9 @@ class VideoExporter(
 
         private const val FLUSH_ATTEMPT_LIMIT = 1_000
 
+        // The double[] exportLoudnessMeasure fills.
+        private const val LOUDNESS_DOUBLES = 9
+
         /**
          * Share of [export]'s progress spent transcoding the audio before the first frame. Public
          * so the caller can tell that quick lead-in from the frame loop when it estimates time left.
@@ -173,9 +187,6 @@ class VideoExporter(
         look: LookSnapshot,
         requestedFps: Int = FPS,
         range: ExportRange? = null,
-        paramsAt: ((Long) -> SceneParams)? = null,
-        // Studio 2D: the styles the range switches to; see OffscreenRenderSpec.styleSchedule.
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
@@ -198,14 +209,12 @@ class VideoExporter(
                     aspect,
                     withUnderlay,
                     requestedFps,
-                    paramsAt,
                     range,
                     codec,
                     loudnessTarget,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
-                    styleSchedule = styleSchedule,
                 )
             }
             val resolver = context.contentResolver
@@ -233,13 +242,11 @@ class VideoExporter(
                         aspect,
                         withUnderlay,
                         requestedFps,
-                        paramsAt,
                         range,
                         codec,
                         onProgress,
                         isCancelled,
                         watermark = watermark,
-                        styleSchedule = styleSchedule,
                     )
                 }
                 if (isCancelled()) {
@@ -265,14 +272,12 @@ class VideoExporter(
         aspect: ExportAspect,
         look: LookSnapshot,
         requestedFps: Int,
-        paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: WatermarkChoice,
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
@@ -287,13 +292,11 @@ class VideoExporter(
                     aspect,
                     look,
                     requestedFps,
-                    paramsAt,
                     range,
                     codec,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
-                    styleSchedule = styleSchedule,
                 )
             }
             if (isCancelled()) {
@@ -315,15 +318,12 @@ class VideoExporter(
      * Measures the audio Geode just muxed into [uri] and, if it decoded, turns that measurement
      * into advice for [target].
      *
-     * This deliberately re-decodes the finished file rather than the source: [LoudnessMeter] is
-     * built to measure "the thing that will actually be uploaded", and by the time [encodeInto]
-     * has run, the AAC track already lives inside a container [LoudnessMeter] can open directly —
-     * unlike [AudioTranscoder]'s intermediate `.bin`, which is a raw elementary stream with no
-     * container framing for [android.media.MediaExtractor] to parse. Geode does not yet have
-     * anywhere upstream to apply the resulting gain: [AudioTranscoder] owns the only PCM Geode
-     * ever holds for this file, and turning [LoudnessAdvice.gainDb] into an actual correction
-     * means scaling samples inside its decode loop, which this unit does not touch. So today this
-     * only reports what a platform would do to the file as exported.
+     * This deliberately re-decodes the finished file rather than the source: it measures "the thing
+     * that will actually be uploaded", and by the time [encodeInto] has run, the AAC track lives
+     * inside a container the platform extractor opens, unlike [AudioTranscoder]'s raw `.bin`. Geode
+     * does not yet apply the resulting gain: [AudioTranscoder] owns the only PCM Geode ever holds for
+     * this file, so today this only reports what a platform would do to the file as exported. The
+     * decode, the meter and the advice are native (`GeodeNative.exportLoudnessMeasure`).
      *
      * A file the encoder just finished writing successfully is not allowed to be reported as a
      * failed export over a problem in this purely-informational re-read, so any exception here is
@@ -333,18 +333,28 @@ class VideoExporter(
     private suspend fun measureLoudness(
         uri: Uri,
         target: LoudnessTarget,
-    ): LoudnessAdvice? {
-        val result =
-            try {
-                LoudnessMeter(context).measure(uri)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Post-export loudness measurement failed", e)
-                return null
+    ): LoudnessAdvice? =
+        try {
+            withContext(Dispatchers.IO) {
+                context.contentResolver.openAssetFileDescriptor(uri, "r")?.let { afd ->
+                    val length = afd.declaredLength
+                    val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
+                    val out = DoubleArray(LOUDNESS_DOUBLES)
+                    val fd = afd.parcelFileDescriptor.detachFd()
+                    val sentence = GeodeNative.exportLoudnessMeasure(fd, offset, length, target.nativeIndex, out)
+                    if (sentence < 0) {
+                        null
+                    } else {
+                        LoudnessAdvice(target, sentence, out[0], out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] != 0.0)
+                    }
+                }
             }
-        return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
-    }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Post-export loudness measurement failed", e)
+            null
+        }
 
     @Suppress("NestedBlockDepth", "LongParameterList")
     private fun encodeInto(
@@ -354,13 +364,11 @@ class VideoExporter(
         aspect: ExportAspect,
         look: LookSnapshot,
         requestedFps: Int,
-        paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: WatermarkChoice,
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ) {
         var encoderRef: MediaCodec? = null
         var watermarkRef: WatermarkOverlay? = null
@@ -368,7 +376,7 @@ class VideoExporter(
         var muxerRef: MediaMuxer? = null
         var aacRef: AudioTranscoder.Result? = null
         var eglRef: EncoderSurface? = null
-        var rendererRef: OffscreenSceneRenderer? = null
+        var sceneRef: ExportScene? = null
         var audioFeedRef: AudioFeed? = null
         var muxerStarted = false
         var muxerStopped = false
@@ -403,27 +411,24 @@ class VideoExporter(
             // its index alone, so nothing drifts over a long render.
             val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
-            val renderer =
-                OffscreenSceneRenderer(
+            val scene =
+                ExportScene(
                     context = context,
                     sceneFactory = sceneFactory,
                     spec =
-                        OffscreenRenderSpec(
+                        ExportScene.Spec(
                             width = aspect.width,
                             height = aspect.height,
                             fps = fps,
-                            totalFrames = totalFrames,
                             rangeStartMs = rangeStartMs,
                             look = look,
-                            paramsAt = paramsAt,
                             audioUri = audioUri,
                             // Pinned at prepare: live edits and the player moving on never reach the render.
-                            pinDurationMs = exportDurationUs / 1000L,
+                            durationMs = exportDurationUs / 1000L,
                             entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
-                            styleSchedule = styleSchedule,
                         ),
-                ).also { rendererRef = it }
-            renderer.prepare()
+                ).also { sceneRef = it }
+            scene.prepare()
             val mark = WatermarkOverlay(watermark, context).also { watermarkRef = it }
             mark.prepare(aspect.width, aspect.height, exportDurationUs / 1000L)
 
@@ -433,7 +438,7 @@ class VideoExporter(
 
             for (frame in 0 until totalFrames) {
                 if (isCancelled()) break
-                renderer.renderFrame(frame)
+                scene.renderFrame(frame)
                 val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
                 mark.draw(timeMs)
                 egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
@@ -512,7 +517,7 @@ class VideoExporter(
             }
         } finally {
             bestEffort(TAG, "watermarkRef?.release()") { watermarkRef?.release() }
-            bestEffort(TAG, "rendererRef?.release()") { rendererRef?.release() }
+            bestEffort(TAG, "sceneRef?.release()") { sceneRef?.release() }
             bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
             if (muxerStarted && !muxerStopped) {
                 val wroteSamples = sampleWritten || audioFeedRef?.wroteSample == true

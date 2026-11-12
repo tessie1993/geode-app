@@ -2,6 +2,7 @@
 #include "viz/frame/CastAudio.hpp"
 #include <cstring>
 
+#include "viz/frame/CastTeeRule.hpp"
 #include "viz/frame/FixedRateClock.hpp"
 #include "viz/frame/HlsSegments.hpp"
 
@@ -89,6 +90,10 @@ void geode_cast_format(int* out) {
     out[3] = CastFormat::kKeyframeIntervalSec;
     out[4] = CastFormat::kVideoBitrate;
     out[5] = CastFormat::kAudioBitrate;
+}
+
+int geode_cast_tee_await_stage(int stage_draws, int fallback_made, int64_t since_open_ns) {
+    return geode::viz::frame::tee::awaitStage(stage_draws != 0, fallback_made != 0, since_open_ns) ? 1 : 0;
 }
 
 int geode_hls_window(void) { return hls::kWindow; }

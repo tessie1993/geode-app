@@ -18,7 +18,7 @@ out vec4 fragColor;
 // every two the long way, and the whole folded into itself three times, so
 // the windings read as one tangled knot. Turned about.
 //
-// Morph turns the folds, and the tangle reties itself. Worst case 72 samples
+// Morph turns the folds, and the tangle reties itself. Worst case 90 samples
 // and 3 fold iterations, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
@@ -37,6 +37,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float reach = smoothstep(0.75, 0.4, lt) * smoothstep(3.6, 2.6, length(p));
     wt = reach * vec2(0.9, 0.6);
 }
+
+//#include lib_flame_march
 
 void main() {
     vec2 uv = view();

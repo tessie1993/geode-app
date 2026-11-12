@@ -17,7 +17,7 @@ out vec4 fragColor;
 // Opal Domes: a flight low over a plain of glass domes, one to a cell, each
 // ringed with fine level lines like the growth rings of a shell.
 //
-// Morph raises the domes from shallow blisters to tall spires. Worst case 80
+// Morph raises the domes from shallow blisters to tall spires. Worst case 100
 // steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
@@ -31,6 +31,8 @@ vec2 opalMap(vec3 p) {
     float d = opalSmin(y, dome, 0.3);
     return vec2(d, 7.0 * y / rise + 0.5);
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

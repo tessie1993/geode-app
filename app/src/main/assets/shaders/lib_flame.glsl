@@ -15,9 +15,9 @@
 // style may ask for threads instead (gFlameThread): one set of veils drawn
 // only where it meets the other.
 //
-// COST. One loop of min(uSteps, 72) samples (the Detail budget), each one
-// flameField: folds, logs and sines, at most three fold iterations, no noise
-// octaves and no texture. The palette is read five times per pixel before the
+// COST. One loop of FLAME_STEPS samples (the Detail budget: 72 at the default
+// Detail, 90 at most), each one flameField: folds, logs and sines, at most
+// three fold iterations, no noise octaves and no texture. The palette is read five times per pixel before the
 // loop (flameSetup) and mixed inside it. No distance estimate, so no step is
 // spent creeping up on a surface; no normals; no second march.
 //
@@ -54,12 +54,18 @@
 // The world repeats along z every FLAME_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (FLAME_RATE).
 //
-// INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
+// INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
-// The style defines flameField after it.
+// The style then defines void flameField(vec3 p, out vec2 f, out vec2 hue,
+// out vec2 wt), its two sets of veils at p (a veil of set i wherever f[i]
+// passes a whole number and a half; hue[i] its palette position, wt[i] its
+// weight 0..1, 0 for a set it does not use), and after it includes
+// lib_flame_march, which calls it.
 
 #define FLAME_TAU 6.2831853
-#define FLAME_MAX_STEPS 72
+#define FLAME_MAX_STEPS 90
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 72 left Detail and the hot-phone cut dead above it. */
+#define FLAME_STEPS (min(uSteps * 0.7, float(FLAME_MAX_STEPS)))
 #define FLAME_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene), so sin(uTime * FLAME_RATE(k)) never jumps. */
 #define FLAME_RATE(k) (FLAME_TAU * float(k) / 7100.0)
@@ -87,13 +93,6 @@ float gFlameTone;
 /** Veils whose weight is under this are not drawn (BUILD lowers it). */
 float gFlameGate;
 vec3 gFlamePal[5];
-
-/**
- * The style's field at p, two sets of veils. A veil of set i lies wherever f[i]
- * passes a whole number and a half; hue[i] is its palette position and wt[i]
- * its weight, 0..1 (0 for a set the style does not use).
- */
-void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt);
 
 mat2 flameRot(float a) {
     float c = cos(a);
@@ -160,51 +159,6 @@ vec2 flameLine(vec2 x, float w) {
 vec2 flameNear(vec2 x) {
     vec2 c = fract(x) - 0.5;
     return 0.004 / (c * c + 0.004);
-}
-
-/** The gathered light along one ray. */
-vec3 flameMarch(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(FLAME_MAX_STEPS));
-    float w = gFlameWidth;
-    vec3 acc = vec3(0.0);
-    float tPrev = 0.0;
-    vec2 fPrev = vec2(0.0);
-    vec2 aPrev = vec2(0.0);
-    float jitter = flameDither();
-    for (int i = 0; i < FLAME_MAX_STEPS; i++) {
-        if (float(i) >= n) break;
-        float x = (float(i) + jitter) / n;
-        float t = gFlameFar * x * sqrt(x);
-        vec2 f;
-        vec2 hue;
-        vec2 wt;
-        flameField(flameBend(ro + rd * t), f, hue, wt);
-        vec2 a = flameAnti(f, w);
-        if (i > 0) {
-            // Between two samples the field is taken as a straight line, so the light of every veil
-            // crossed on the way is exact: a coarse step loses no veil and none aliases.
-            // An angle's wrap is a jump by whole veils, not veils crossed.
-            vec2 jump = round(f - fPrev) * step(1.5, abs(f - fPrev));
-            fPrev += jump;
-            aPrev += jump;
-            vec2 df = abs(f - fPrev);
-            vec2 e = mix(abs(a - aPrev) / max(df, 1.0e-4), flameLine(f, w), step(df, vec2(2.0e-3)));
-            // A veil seen along its surface is the bright one: the silhouettes are the filaments.
-            vec2 rate = df / ((t - tPrev) * gFlameGraze);
-            e *= mix(vec2(1.0), 2.5 / (1.0 + rate * rate), gFlameEdge);
-            e = mix(e, e * flameNear(f.yx) * 4.0, gFlameThread) + gFlameHaze;
-            // Nothing lights right at the eye: flying through a veil must not fill the frame.
-            float fade = smoothstep(0.05, 1.0, t) * exp(-2.6 * t / gFlameFar) * (t - tPrev);
-            vec2 id = fract((mod(floor(0.5 * (f + fPrev)), gFlamePeriod) + 1.0) * 0.381966);
-            // Every veil has its own brightness, so the layers read apart.
-            vec2 amp = smoothstep(gFlameGate, gFlameGate + 0.3, wt) * (0.12 + 0.88 * id * id) * e * fade;
-            acc += flameCol(hue.x + id.x + gFlameTone) * amp.x + flameCol(hue.y + id.y + gFlameTone) * amp.y;
-        }
-        tPrev = t;
-        fPrev = f;
-        aPrev = a;
-    }
-    return acc;
 }
 
 /** `exposure` is the style's own; Intensity and PULSE scale the emission. */

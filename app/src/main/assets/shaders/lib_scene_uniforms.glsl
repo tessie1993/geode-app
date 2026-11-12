@@ -87,7 +87,7 @@ uniform float uKnob[6];
 
 // ---- where the fingers are ------------------------------------------------
 //
-// dev.geode.render.TouchField is the model; ShaderScene.uploadTouch() is the
+// core/viz/TouchField is the model; ShaderScene.uploadTouch() is the
 // upload. All of it is ZERO when nothing is being touched, so a style that
 // ignores these draws exactly what it drew before they existed.
 //
@@ -97,7 +97,7 @@ uniform float uKnob[6];
 // two lines, or a finger on a landscape phone lands somewhere the user did
 // not put it. lib_touch.glsl does that correction for you.
 
-/** Slots in uTouchPoints. Mirrors TouchField.MAX_POINTS; changing one alone breaks the upload. */
+/** Slots in uTouchPoints. Mirrors TouchField::kMaxPoints (core/viz); changing one alone breaks the upload. */
 #define TOUCH_MAX_POINTS 5
 
 /** xy = the primary point, z = strength 0..1, w = age in seconds. */

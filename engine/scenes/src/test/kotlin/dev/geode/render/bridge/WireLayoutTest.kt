@@ -1,9 +1,5 @@
 package dev.geode.render.bridge
 
-import dev.geode.render.LfoTarget
-import dev.geode.render.ReactMode
-import dev.geode.render.ReactSource
-import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
@@ -87,6 +83,8 @@ class WireLayoutTest {
                 paletteStop4 = 0xFFFFFF,
                 diveTwist = -0.5f,
                 diveFollow = 1.5f,
+                paletteAmount3 = 0.25f,
+                paletteShift = 0.75f,
             )
         val out = SceneParamsCodec.pack(p)
         assertEquals(1.25f, out[slot("camFly")])
@@ -99,69 +97,22 @@ class WireLayoutTest {
         assertEquals(16_777_215f, out[slot("paletteStop4")])
         assertEquals(-0.5f, out[slot("diveTwist")])
         assertEquals(1.5f, out[slot("diveFollow")])
+        assertEquals(0.25f, out[slot("paletteAmount3")])
+        assertEquals(0.75f, out[slot("paletteShift")])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 
     @Test
     fun appendedFieldsKeepTheirSlots() {
         // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
-        assertEquals(178, SceneParamsCodec.FIELDS)
+        assertEquals(187, SceneParamsCodec.FIELDS)
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
         assertEquals(163, slot("camFlat"))
         assertEquals(168, slot("paletteStop4"))
-        val tail = ParamSchema.params.takeLast(5).map { it.name }
-        assertEquals(listOf("diveShape", "diveBlend", "diveFog", "diveLens", "diveFollow"), tail)
-    }
-
-    @Test
-    fun reactionsPackEverySlotAndDisableTheRest() {
-        val route =
-            ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
-        val out = ModConfigCodec.packReactions(listOf(route))
-        assertEquals(ReactionRoute.MAX_ROUTES * ModConfigCodec.REACT_ROUTE_FLOATS, out.size)
-        assertEquals(1f, out[0])
-        assertEquals(ReactSource.HARD_CUT.ordinal.toFloat(), out[1])
-        assertEquals(LfoTarget.CAM_FLY.ordinal.toFloat(), out[2])
-        assertEquals(ReactMode.STEP.ordinal.toFloat(), out[3])
-        assertEquals(0.8f, out[4])
-        assertEquals(2f, out[7])
-        // The second slot was never written: native must see it disabled.
-        assertEquals(0f, out[ModConfigCodec.REACT_ROUTE_FLOATS])
-    }
-
-    @Test
-    fun styleDnaUnpacksWhatPackWrote() {
-        val routes =
-            listOf(
-                ReactionRoute(true, ReactSource.KICK, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.4f, attackSeconds = 0.08f),
-                ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.2f, releaseSeconds = 2.2f),
-            )
-        val packed = ModConfigCodec.packReactions(routes).copyOf(routes.size * ModConfigCodec.REACT_ROUTE_FLOATS)
-        assertEquals(routes, ModConfigCodec.unpackReactions(packed))
-    }
-
-    @Test
-    fun unknownOrdinalsFromNativeAreDropped() {
-        val packed = ModConfigCodec.packReactions(listOf(ReactionRoute(target = LfoTarget.ZOOM))).copyOf(ModConfigCodec.REACT_ROUTE_FLOATS)
-        packed[1] = 999f
-        assertEquals(emptyList<ReactionRoute>(), ModConfigCodec.unpackReactions(packed))
-    }
-
-    @Test
-    fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: DiveAimY is last.
-        assertEquals(118, ReactSource.entries.size)
-        assertEquals(72, ReactSource.EQ_25.ordinal)
-        assertEquals(46, ReactSource.KICK.ordinal)
-        assertEquals(55, ReactSource.HARD_CUT.ordinal)
-        assertEquals(5, ReactMode.entries.size)
-        assertEquals(3, ReactMode.JUMP.ordinal)
-        assertEquals(4, ReactMode.TOGGLE.ordinal)
-        assertEquals(LfoTarget.entries.last(), LfoTarget.DIVE_AIM_Y)
-        assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)
-        assertEquals(55, LfoTarget.DIVE_SPEED.ordinal)
-        assertEquals(58, LfoTarget.DIVE_AIM_Y.ordinal)
+        assertEquals(177, slot("diveFollow"))
+        val tail = ParamSchema.params.takeLast(3).map { it.name }
+        assertEquals(listOf("paletteAmount6", "paletteAmount7", "paletteShift"), tail)
     }
 }

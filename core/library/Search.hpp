@@ -97,4 +97,33 @@ std::vector<int> searchTracks(const std::vector<SearchRow>& rows, const SearchRe
 // True when `term` lands in any of `fields` as typed or, failing that, as a misspelling.
 bool termMatches(std::string_view term, const std::vector<std::string_view>& fields);
 
+// One track of the global search sheet: its tags, one more field searched after the album (a device
+// track's folder, a library track's genre), the key every copy of one song shares (its URI), and
+// whether this copy is the one to show when copies meet (the device's over the app library's).
+struct SheetTrack {
+    SearchRow tags;
+    std::string_view extra;
+    std::string_view key;
+    bool preferred;
+};
+
+// What the global search sheet shows for one query: rows of the tracks, playlists and presets it was
+// handed, best first.
+struct SheetHits {
+    std::vector<int> tracks;
+    std::vector<int> playlists;
+    std::vector<int> presets;
+};
+
+inline constexpr int kMaxSheetTracks = 30;
+
+// The global search sheet (tracks, playlists, presets), matched and ranked as `SearchIndex::search`
+// ranks tracks, with a track's extra field as a fourth after the album. The copies of one song (one
+// key; an empty key is never a copy) are one hit: ranked by its best copy, placed among equals by its
+// first, shown as its preferred copy. At most `kMaxSheetTracks` tracks. Playlists and presets match by
+// name, ties in the caller's order. A misspelling is only tried when nothing matches as typed; a blank
+// query finds nothing.
+SheetHits searchSheet(const std::vector<SheetTrack>& tracks, const std::vector<std::string_view>& playlists,
+                      const std::vector<std::string_view>& presets, std::string_view query);
+
 }  // namespace geode::library

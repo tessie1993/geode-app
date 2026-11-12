@@ -24,6 +24,12 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 
+/** One audio clip of a long-form soundtrack, in the order the user dropped it; [title] names it in a refusal. */
+data class MixClip(
+    val uri: Uri,
+    val title: String,
+)
+
 /** The soundtrack a long-form video is built around. Its length is the video's length. */
 sealed interface LongFormAudio {
     val clips: List<MixClip>
@@ -111,7 +117,6 @@ class LoopExtend(
         data class Saved(
             val uri: Uri,
             val durationMs: Long,
-            val chapters: ChapterMarkers,
             val plan: LoopExtendPlan,
         ) : Result
 
@@ -195,7 +200,7 @@ class LoopExtend(
             }
         return try {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
-            finish(target, completed, plan, soundtrack)
+            finish(target, completed, plan)
         } catch (e: IllegalStateException) {
             discard(target)
             Result.Failed(e.message ?: context.getString(R.string.export_error_extend_assemble))
@@ -212,7 +217,6 @@ class LoopExtend(
         target: Target.Opened,
         completed: Boolean,
         plan: LoopExtendPlan,
-        soundtrack: Soundtrack,
     ): Result =
         if (completed && !publish(target)) {
             Result.Failed(context.getString(R.string.export_error_library_publish))
@@ -220,7 +224,6 @@ class LoopExtend(
             Result.Saved(
                 uri = target.uri,
                 durationMs = plan.totalDurationUs / 1000,
-                chapters = ChapterMarkers.of(soundtrack.spans),
                 plan = plan,
             )
         } else {
@@ -442,9 +445,6 @@ class LoopExtend(
         val totalUs: Long get() = clips.lastOrNull()?.let { it.startUs + it.durationUs } ?: 0L
 
         val bytes: Long get() = clips.sumOf { it.audio.file.length() }
-
-        /** Where each clip landed — the only place chapter boundaries ever come from. */
-        val spans: List<MixClipSpan> get() = clips.map { MixClipSpan(it.clip, it.startUs / 1000, it.durationUs / 1000) }
 
         fun release() {
             clips.forEach { it.audio.release() }

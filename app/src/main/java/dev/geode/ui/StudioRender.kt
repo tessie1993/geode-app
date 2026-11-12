@@ -67,16 +67,14 @@ import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
-import dev.geode.export.BatchTrack
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
-import dev.geode.export.LoudnessTarget
-import dev.geode.export.RenderPlaylist
-import dev.geode.export.RenderScope
 import dev.geode.geodeContainer
+import dev.geode.model.LoudnessTarget
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
@@ -675,16 +673,10 @@ internal data class RenderLength(
     val start: Float = 0f,
     val end: Float = 1f,
 ) {
-    fun rangeFor(trackDurationMs: Long): ExportRange? =
-        if (!segment || trackDurationMs <= 0) {
-            null
-        } else {
-            ExportRange.of(
-                startMs = (start * trackDurationMs).toLong(),
-                endMs = (end * trackDurationMs).toLong(),
-                trackDurationMs = trackDurationMs,
-            )
-        }
+    fun rangeFor(trackDurationMs: Long): ExportRange? {
+        val out = LongArray(2)
+        return if (segment && GeodeNative.exportRangeOf(start, end, trackDurationMs, out)) ExportRange(out[0], out[1]) else null
+    }
 }
 
 private val RenderLengthSaver =
@@ -735,7 +727,7 @@ private fun RenderSoundOptions(
 ) {
     OptionLabel(stringResource(R.string.export_loudness_target))
     RenderChipRow {
-        LoudnessTarget.ALL.forEach { target ->
+        LoudnessTarget.entries.forEach { target ->
             RenderChip(stringResource(target.labelRes), options.loudnessTargetId == target.id) {
                 update(options.copy(loudnessTargetId = target.id))
             }
@@ -773,7 +765,7 @@ private fun RenderLengthGroup(
                 val range = length.rangeFor(trackDurationMs)
                 OptionHint(
                     if (range == null) {
-                        stringResource(R.string.export_segment_hint, (ExportRange.MIN_DURATION_MS / 1000).toInt())
+                        stringResource(R.string.export_segment_hint, (GeodeNative.exportRangeMinMs() / 1000).toInt())
                     } else {
                         stringResource(
                             R.string.export_segment_summary,

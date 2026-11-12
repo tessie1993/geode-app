@@ -2,6 +2,7 @@ package dev.geode.cast
 
 import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
+import android.os.SystemClock
 import androidx.annotation.MainThread
 import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
@@ -18,12 +19,15 @@ sealed interface LinkState {
     data object Starting : LinkState
 
     /**
-     * A browser on the same Wi-Fi can open [url] now: the link as shown, copied and shared, its host written as one
-     * number instead of the dotted address (native, `geode_link_share_url`); [label] is its short name for the sheet.
+     * A browser on the same Wi-Fi can open [url] now, the whole link with its token, which the sheet shows only as a
+     * QR code; [typedUrl] is the short link a computer types instead, with no token, whose page asks for the code
+     * the sheet shows ([ComputerLink.pairCode]). Both write the host as one number instead of the dotted address
+     * (native, `geode_link_share_url`, `geode_link_pair_url`); [label] is the link's short name for the sheet.
      */
     data class Live(
         val url: String,
         val label: String = "",
+        val typedUrl: String = "",
     ) : LinkState
 
     /** The share stopped by itself; [reason] is a GEODE_LINK_REASON_* the UI words. */
@@ -36,7 +40,7 @@ sealed interface LinkState {
  * "Show on a computer" (owner: "The connected display. Needs cast to pc option"): the Cast stream, without a
  * Chromecast, served to a browser on the same Wi-Fi through a link. Pro, like Cast to TV ([ProFeature.CAST]).
  *
- * The same pipeline as a TV cast ([CastService], [CastStream], [LiveHttpServer]), started without a Cast
+ * The same pipeline as a TV cast ([CastService], [CastStream], [LiveLink]), started without a Cast
  * session; with a TV casting too they share the one stream. The sound plays in the browser and the phone goes
  * silent, as for a TV: the stream runs a few seconds behind the phone, so both at once would echo.
  *
@@ -49,6 +53,7 @@ object ComputerLink {
     private val machine = IntArray(GeodeNative.LINK_STATE)
     private var url: String? = null
     private var label: String = ""
+    private var typedUrl: String = ""
     private val mutableState = MutableStateFlow<LinkState>(LinkState.Idle)
 
     val state: StateFlow<LinkState> = mutableState.asStateFlow()
@@ -85,15 +90,26 @@ object ComputerLink {
         step(GeodeNative.LINK_EVENT_SHOWN, 0)
     }
 
-    /** [CastService]: the stream is ready; the page's link as the user sees it is [shareUrl], named [shareLabel]. */
+    /**
+     * [CastService]: the stream is ready; the page's link as the user sees it is [shareUrl], named [shareLabel],
+     * and the short link a computer types is [pairUrl].
+     */
     internal fun onReady(
         shareUrl: String,
         shareLabel: String,
+        pairUrl: String,
     ) {
         url = shareUrl
         label = shareLabel
+        typedUrl = pairUrl
         step(GeodeNative.LINK_EVENT_READY, 0)
     }
+
+    /**
+     * The code a computer types after the short link ("ABC-DEF"), "" while nothing is shared: single-session,
+     * replaced once used or after a few minutes (native, `geode_link_pair_code`), so the sheet reads it again often.
+     */
+    fun pairCode(): String = GeodeNative.linkPairCode(SystemClock.elapsedRealtime())
 
     /** [CastService]: the stream ended by itself, for [reason] (GEODE_LINK_REASON_*). */
     internal fun onFailed(reason: Int) {
@@ -113,7 +129,7 @@ object ComputerLink {
         mutableState.value =
             when (machine[0]) {
                 GeodeNative.LINK_PHASE_STARTING -> LinkState.Starting
-                GeodeNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it, label) } ?: LinkState.Starting
+                GeodeNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it, label, typedUrl) } ?: LinkState.Starting
                 GeodeNative.LINK_PHASE_ENDED -> LinkState.Ended(machine[1])
                 else -> LinkState.Idle
             }

@@ -17,6 +17,14 @@ import androidx.compose.ui.unit.dp
  * variant and no dynamic colour.
  */
 object GeodeColors {
+    /**
+     * A macro knob's second arc: who turns it besides the user's hand, Serum's way. Hues apart from each other and
+     * from the blue fallback accent, each readable on black at the knob's stroke.
+     */
+    val ModWave = Color(0xFF6FE3C6)
+    val ModEnvelope = Color(0xFFFFB86B)
+    val ModBoth = Color(0xFFF08CF5)
+
     val Canvas = Color(0xFF000000)
     val CanvasRaised = Color(0xFF060607)
 

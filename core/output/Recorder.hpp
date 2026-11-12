@@ -14,8 +14,8 @@ namespace geode::output::record {
 // thread tees each finished composite into a hardware encoder and the PCM its sound engine just heard into
 // this; an encoder thread takes the audio back out. Everything that times the file is decided here and
 // tested on the host (core/tests/recorder_test.cpp): which stage frames are kept and their PTS, where each
-// heard sample sits on the file's timeline, when the recording ends and how long it is. Kotlin owns only
-// MediaCodec, MediaMuxer and MediaStore; the GL copy is core/viz/frame/RecordTap.
+// heard sample sits on the file's timeline, when the recording ends and how long it is. The encoders and
+// the muxer are output/RecordSession's, the GL copy is core/viz/frame/RecordTap; Kotlin owns only MediaStore.
 //
 // Picture. Time 0 is the first frame kept. The frame rate is a ceiling: one frame per 1/fps slot. A frame
 // up to half a stage frame before a slot's start already belongs to that slot, so vsync jitter never doubles

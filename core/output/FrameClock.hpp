@@ -28,8 +28,8 @@ public:
     // Programme time frame n shows, floor(n * 1e6 / fps) microseconds.
     int64_t frameStartUs(int64_t n) const;
 
-    // The same instant in whole milliseconds, floor(n * 1000 / fps): what the offscreen renderer reads
-    // keyframes and schedules at today (OffscreenSceneRenderer.renderFrame).
+    // The same instant in whole milliseconds, floor(n * 1000 / fps): what the export's watermark and its
+    // audio interleave read (VideoExporter); the picture draws at ptsNs (output/ExportFrame).
     int64_t frameTimeMs(int64_t n) const;
 
     // Source samples delivered once frame n is done: llround((n + 1) * rate / fps). Feeding the engine up

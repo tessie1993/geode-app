@@ -59,7 +59,6 @@ import dev.geode.data.MacroLibraryKnob
 import dev.geode.data.MacroLink
 import dev.geode.data.MacroStore
 import dev.geode.data.MacroTarget
-import dev.geode.render.LfoTarget
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -614,7 +613,8 @@ private fun targetLabel(
     wire: String,
     control: String?,
 ): String =
-    LfoTarget.entries
+    ModCatalog
+        .words("target")
         .firstOrNull { it.name == wire }
         ?.label
         ?.ifEmpty { null } ?: control?.ifEmpty { null } ?: wire

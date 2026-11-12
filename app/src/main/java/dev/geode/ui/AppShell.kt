@@ -106,19 +106,19 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
-import dev.geode.analysis.SearchMatcher
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
 import dev.geode.model.TabLabels
 import dev.geode.model.TourChapter
+import dev.geode.model.TourCover
 import dev.geode.model.TourPlace
 import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneIds
 import dev.geode.ui.cast.CastHost
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
@@ -280,7 +280,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
-            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+            val onMilk = viz.sceneId == GeodeNative.STYLE_MILKDROP
+            if (onMilk) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
     }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
@@ -555,19 +556,20 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     },
                 )
             }
-            // Held back while the boot intro, the notice, setup, the paywall or a PiP window is up.
+            // Held back while the boot intro, the notice, setup, the paywall or a PiP window is up;
+            // TourHost adds a permission rationale or a system dialog over the app.
             val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
             TourHost(
                 viewModel = tourViewModel,
                 state = tour,
                 place = appState.dest.tourPlace,
                 playing = state.isPlaying,
-                blocked =
-                    (bootAnimEnabled != false && !appState.bootDone) ||
-                        !onboarding.safetyAcknowledged ||
-                        !onboarding.setupDone ||
-                        paywall.visible ||
-                        inPip,
+                cover =
+                    TourCover(
+                        firstRun = overlayUp || (bootAnimEnabled != false && !appState.bootDone),
+                        paywall = paywall.visible,
+                        pip = inPip,
+                    ),
                 onNavigate = { showTourScreen(it, appState) },
                 onOfferPro = { paywallViewModel.open(PaywallTrigger.Onboarding) },
             )
@@ -1016,6 +1018,7 @@ private val GeodeDestination.tourPlace: TourPlace
             else -> TourPlace.ELSEWHERE
         }
 
+/** A track the search sheet offers; [fields] are title, artist, album and one more, the order native searches them in. */
 private data class SearchTrackRow(
     val uri: String,
     val title: String,
@@ -1023,6 +1026,34 @@ private data class SearchTrackRow(
     val fields: List<String>,
     val fromDevice: Boolean,
 )
+
+/**
+ * What the search sheet searches, as UTF-8 for native (`core/library/Search`, `searchSheet`): encoded once per
+ * change of the lists, so each query is one native call. Matching, ranking, one hit per song and the cap are native.
+ */
+private class SearchSheetRows(
+    tracks: List<SearchTrackRow>,
+    playlists: List<String>,
+    presets: List<String>,
+) {
+    private val cells: Array<ByteArray?> = utf8(tracks.flatMap { it.fields + it.uri })
+    private val preferred = BooleanArray(tracks.size) { tracks[it].fromDevice }
+    private val playlistNames = utf8(playlists)
+    private val presetNames = utf8(presets)
+
+    /** Three counts (tracks, playlists, presets), then those rows, best first. */
+    fun search(query: String): IntArray = GeodeNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
+
+    private fun utf8(texts: List<String>): Array<ByteArray?> = Array(texts.size) { texts[it].encodeToByteArray() }
+}
+
+/** The rows of list [list] (0 tracks, 1 playlists, 2 presets) in a [SearchSheetRows.search] answer. */
+private fun IntArray.sheetRows(list: Int): List<Int> {
+    val start = SHEET_LISTS + (0 until list).sumOf { this[it] }
+    return (start until start + this[list]).map { this[it] }
+}
+
+private const val SHEET_LISTS = 3
 
 @Composable
 fun SearchScreen(
@@ -1045,44 +1076,37 @@ fun SearchScreen(
     val searchFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { searchFocus.requestFocus() }
 
-    val terms = remember(debounced) { SearchMatcher.terms(debounced) }
-    val trackResults =
-        remember(terms, deviceTracks, library.tracks) {
-            val candidates =
-                deviceTracks.map { t ->
+    val candidates =
+        remember(deviceTracks, library.tracks) {
+            deviceTracks.map { t ->
+                SearchTrackRow(
+                    uri = t.uri,
+                    title = t.title,
+                    subtitle = listOf(t.artist, t.album).filter { it.isNotBlank() }.joinToString(" · "),
+                    fields = listOf(t.title, t.artist, t.album, t.folder),
+                    fromDevice = true,
+                )
+            } +
+                library.tracks.map { t ->
                     SearchTrackRow(
                         uri = t.uri,
                         title = t.title,
                         subtitle = listOf(t.artist, t.album).filter { it.isNotBlank() }.joinToString(" · "),
-                        fields = listOf(t.title, t.artist, t.album, t.folder),
-                        fromDevice = true,
+                        fields = listOf(t.title, t.artist, t.album, t.genre),
+                        fromDevice = false,
                     )
-                } +
-                    library.tracks.map { t ->
-                        SearchTrackRow(
-                            uri = t.uri,
-                            title = t.title,
-                            subtitle = listOf(t.artist, t.album).filter { it.isNotBlank() }.joinToString(" · "),
-                            fields = listOf(t.title, t.artist, t.album, t.genre),
-                            fromDevice = false,
-                        )
-                    }
-            SearchMatcher.filterTracks(
-                terms = terms,
-                items = candidates,
-                uriOf = { it.uri },
-                fieldsOf = { it.fields },
-                preferred = { it.fromDevice },
-            )
+                }
         }
-    val playlistResults =
-        remember(terms, library.playlists) {
-            library.playlists.filter { SearchMatcher.matches(terms, listOf(it.name)) }
+    val playlists = library.playlists
+    val presets = viz.presets
+    val sheet =
+        remember(candidates, playlists, presets) {
+            SearchSheetRows(candidates, playlists.map { it.name }, presets.map { it.name })
         }
-    val presetResults =
-        remember(terms, viz.presets) {
-            viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
-        }
+    val hits = remember(sheet, debounced) { sheet.search(debounced) }
+    val trackResults = remember(hits) { hits.sheetRows(0).map { candidates[it] } }
+    val playlistResults = remember(hits) { hits.sheetRows(1).map { playlists[it] } }
+    val presetResults = remember(hits) { hits.sheetRows(2).map { presets[it] } }
 
     Box(
         Modifier
@@ -1114,7 +1138,7 @@ fun SearchScreen(
                 IconButton(onClick = onClose) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.search_close)) }
             }
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (terms.isEmpty()) {
+                if (debounced.isBlank()) {
                     item {
                         Text(
                             stringResource(R.string.search_hint),

@@ -470,6 +470,34 @@ ReactSourceMask sources(std::uint32_t mask) {
 void setGlobal(std::uint32_t mask, bool hasUser) { gMask.store(hasUser ? mask & kAll : 0u, std::memory_order_relaxed); }
 std::uint32_t global() { return gMask.load(std::memory_order_relaxed); }
 
+ReactSource trigger(Moment m) {
+    const int i = static_cast<int>(m);
+    if (i < 0 || i >= kMomentCount) return ReactSource::Bass;
+    const MomentSources& ms = kMomentSources[static_cast<size_t>(i)];
+    for (int k = 0; k < ms.count; ++k) {
+        if (reactSourceInfo(ms.sources[static_cast<size_t>(k)]).event) return ms.sources[static_cast<size_t>(k)];
+    }
+    return ms.sources[0];
+}
+
 }  // namespace hand
+
+std::uint32_t MomentWatch::step(const std::array<float, kMomentCount>& triggers) {
+    std::uint32_t came = 0;
+    for (int m = 0; m < kMomentCount; ++m) {
+        const size_t k = static_cast<size_t>(m);
+        const float v = std::isfinite(triggers[k]) ? triggers[k] : 0.0f;
+        const bool high = v >= kRise;
+        if (high && !high_[k]) came |= 1u << m;
+        high_[k] = v >= kRearm && (high || high_[k]);
+    }
+    return came;
+}
+
+std::uint32_t MomentWatch::step(const ReactSignals& signals) {
+    std::array<float, kMomentCount> triggers{};
+    for (int m = 0; m < kMomentCount; ++m) triggers[static_cast<size_t>(m)] = signals.value(hand::trigger(static_cast<Moment>(m)));
+    return step(triggers);
+}
 
 }  // namespace geode::viz

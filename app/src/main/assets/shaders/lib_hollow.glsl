@@ -11,10 +11,10 @@
 // occlusion tap, the glowing grooves, and a depth haze whose hue runs through
 // the palette with distance, so far walls are a different colour to near ones.
 //
-// COST. One loop of min(uSteps, 72) steps, each one hollowMap; the hit adds
-// four for its normal and one for occlusion, so at most 77 hollowMap per
-// pixel. The maps are tubes, lattice terms and smooth unions; no noise octaves
-// and no texture. The palette is read five times per pixel before the loop
+// COST. One loop of HOLLOW_STEPS steps (72 at the default Detail, 90 at
+// most), each one hollowMap; the hit adds four for its normal and one for
+// occlusion, so at most 95 hollowMap per pixel. The maps are tubes, lattice
+// terms and smooth unions; no noise octaves and no texture. The palette is read five times per pixel before the loop
 // (hollowSetup) and mixed after.
 //
 // THE CONTROLS, read normalized through lib_neon:
@@ -51,12 +51,17 @@
 // and every clock phase is whole cycles per uTime wrap (HOLLOW_RATE). The eye
 // is held inside gHollowBore of the axis, where every style keeps open air.
 //
-// INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
+// INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
-// The style defines hollowMap after it.
+// The style then defines vec2 hollowMap(vec3 p), its walls at p (x the
+// distance to the nearest one, positive in the air, y the relief coordinate,
+// a groove at every whole number), and after it includes lib_hollow_march,
+// which calls it.
 
 #define HOLLOW_TAU 6.2831853
-#define HOLLOW_MAX_STEPS 72
+#define HOLLOW_MAX_STEPS 90
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 72 left Detail and the hot-phone cut dead above it. */
+#define HOLLOW_STEPS (min(uSteps * 0.7, float(HOLLOW_MAX_STEPS)))
 #define HOLLOW_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define HOLLOW_RATE(k) (HOLLOW_TAU * float(k) / 7100.0)
@@ -78,9 +83,6 @@ float gHollowStride;
 /** How far from the axis the eye may ride. */
 float gHollowBore;
 vec3 gHollowPal[5];
-
-/** The style's walls at p: x the distance to the nearest one (positive in the air), y the relief coordinate (a groove at every whole number). */
-vec2 hollowMap(vec3 p);
 
 mat2 hollowRot(float a) {
     float c = cos(a);
@@ -137,15 +139,6 @@ float hollowCut(float relief) {
     return smoothstep(0.1, 0.0, c);
 }
 
-vec2 hollowField(vec3 p) {
-    vec3 q = hollowBend(p);
-    vec2 m = hollowMap(q);
-    vec3 s = sin(q * 4.0 + uTime * HOLLOW_RATE(1500) + vec3(0.0, 2.1, 4.2));
-    m.x += gHollowChaos * 0.05 * (s.x * s.y + s.z);
-    m.x += gHollowGroove * hollowCut(m.y);
-    return m;
-}
-
 /** The eye, held where the air is. */
 vec3 hollowEye(vec3 ro) {
     ro.z = mod(ro.z, HOLLOW_PERIOD);
@@ -157,50 +150,6 @@ vec3 hollowEye(vec3 ro) {
 float hollowDither() {
     vec2 f = gl_FragCoord.xy;
     return fract(52.9829189 * fract(dot(f, vec2(0.06711056, 0.00583715))));
-}
-
-/** The light along one ray. */
-vec3 hollowTrace(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(HOLLOW_MAX_STEPS));
-    float t = 0.02 + 0.05 * hollowDither();
-    vec2 m = vec2(1.0, 0.0);
-    bool hit = false;
-    float near = 1.0e3;
-    for (int i = 0; i < HOLLOW_MAX_STEPS; i++) {
-        if (float(i) >= n || t > gHollowFar) break;
-        m = hollowField(ro + rd * t);
-        near = min(near, m.x / (0.4 + 0.25 * t));
-        if (m.x < 0.0015 * (1.0 + t)) {
-            hit = true;
-            break;
-        }
-        t += m.x * gHollowStride;
-    }
-    t = min(t, gHollowFar);
-    float depth = t / gHollowFar;
-    float hue = gHollowTone + 0.4 * depth;
-    vec3 col = vec3(0.0);
-    if (hit) {
-        vec3 p = ro + rd * t;
-        vec2 e = vec2(1.0, -1.0) * 0.003 * (1.0 + t);
-        vec3 nor = normalize(
-            e.xyy * hollowField(p + e.xyy).x + e.yyx * hollowField(p + e.yyx).x +
-            e.yxy * hollowField(p + e.yxy).x + e.xxx * hollowField(p + e.xxx).x
-        );
-        float ndv = max(dot(nor, -rd), 0.0);
-        float rim = pow(1.0 - ndv, 3.0);
-        float occ = clamp(hollowField(p + nor * 0.25).x / 0.25, 0.0, 1.0);
-        float lamp = ndv / (1.0 + 0.1 * t * t);
-        col = hollowCol(hue) * (0.03 + 0.55 * lamp) * (0.25 + 0.75 * occ);
-        col += hollowCol(hue + 0.45) * rim * (0.15 + 0.75 * occ);
-        float groove = hollowCut(m.y);
-        col += hollowCol(hue + 0.25 + 0.381966 * floor(m.y)) * groove * gHollowGlow * 1.5 * (0.5 + 0.5 * occ);
-        col += hollowCol(hue + 0.6) * pow(max(dot(reflect(rd, nor), normalize(vec3(0.3, 0.7, 0.6))), 0.0), 24.0) * 0.5;
-    }
-    float air = exp(-3.2 * depth);
-    // Light skims every wall the ray passes close to, and the far end of the way is never quite dark.
-    col = col * air + hollowCol(hue + 0.5) * (0.03 * (1.0 - air) + 0.02 * exp(-6.0 * max(near, 0.0)));
-    return col;
 }
 
 /** `exposure` is the style's own; Intensity and PULSE scale the emission. */

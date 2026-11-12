@@ -1,6 +1,7 @@
 #include "library/Search.hpp"
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <numeric>
 #include <string>
@@ -218,7 +219,7 @@ Landing landing(const std::u32string& term, const Field& field, bool typos) {
 int landingClass(Landing l) { return l >= kPrefix ? 3 : static_cast<int>(l); }
 
 struct Fields {
-    const Field* at[3];
+    const Field* at[4];
     int count;
 };
 
@@ -468,6 +469,68 @@ std::vector<int> searchTracks(const std::vector<SearchRow>& rows, const SearchRe
         if (!hits.empty()) return hits;
     }
     return {};
+}
+
+namespace {
+
+std::vector<Field> foldNames(const std::vector<std::string_view>& names) {
+    std::vector<Field> out;
+    out.reserve(names.size());
+    for (const auto name : names) out.push_back(foldField(name));
+    return out;
+}
+
+// Every name the query finds, best first, ties in the caller's order.
+std::vector<int> rankNames(const std::vector<Field>& names, const Query& query, bool typos) {
+    std::vector<Scored> scored;
+    for (size_t i = 0; i < names.size(); ++i) {
+        const int rank = rankOf(query, Fields{{&names[i]}, 1}, typos);
+        if (rank >= 0) scored.push_back({rank, static_cast<int>(i), static_cast<int>(i)});
+    }
+    return sortedRows(scored, scored.size());
+}
+
+}  // namespace
+
+SheetHits searchSheet(const std::vector<SheetTrack>& tracks, const std::vector<std::string_view>& playlists,
+                      const std::vector<std::string_view>& presets, std::string_view text) {
+    const Query query = queryOf(text);
+    SheetHits hits;
+    if (query.terms.empty()) return hits;
+    std::vector<std::array<Field, 4>> folded;
+    folded.reserve(tracks.size());
+    for (const SheetTrack& t : tracks) {
+        folded.push_back(std::array<Field, 4>{foldField(t.tags.title), foldField(t.tags.artist),
+                                              foldField(t.tags.album), foldField(t.extra)});
+    }
+    const std::vector<Field> playlistNames = foldNames(playlists);
+    const std::vector<Field> presetNames = foldNames(presets);
+    for (const bool typos : {false, true}) {
+        // One entry per song, at the place of its first copy; `tie` is that place.
+        std::vector<Scored> found;
+        std::unordered_map<std::string_view, size_t> byKey;
+        for (size_t i = 0; i < tracks.size(); ++i) {
+            const std::array<Field, 4>& f = folded[i];
+            const int rank = rankOf(query, Fields{{&f[0], &f[1], &f[2], &f[3]}, 4}, typos);
+            if (rank < 0) continue;
+            const int row = static_cast<int>(i);
+            if (!tracks[i].key.empty()) {
+                const auto [slot, fresh] = byKey.try_emplace(tracks[i].key, found.size());
+                if (!fresh) {
+                    Scored& kept = found[slot->second];
+                    kept.rank = std::min(kept.rank, rank);
+                    if (tracks[i].preferred && !tracks[static_cast<size_t>(kept.row)].preferred) kept.row = row;
+                    continue;
+                }
+            }
+            found.push_back({rank, static_cast<int>(found.size()), row});
+        }
+        hits.tracks = sortedRows(found, static_cast<size_t>(kMaxSheetTracks));
+        hits.playlists = rankNames(playlistNames, query, typos);
+        hits.presets = rankNames(presetNames, query, typos);
+        if (!hits.tracks.empty() || !hits.playlists.empty() || !hits.presets.empty()) break;
+    }
+    return hits;
 }
 
 }  // namespace geode::library

@@ -237,3 +237,33 @@ levitator: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 standing_chamber: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 rosensweig: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 kundt_tube: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+flame_veil: motionDrift
+flame_spiral: motionDrift
+flame_orb: motionDrift
+flame_star: motionDrift
+flame_lotus: motionDrift
+flame_helix: motionDrift
+flame_knot: motionDrift
+flame_web: motionDrift
+flame_aurora: motionDrift
+flame_nova: motionDrift
+opal_bubbles: motionDrift
+opal_nautilus: motionDrift
+opal_melt: motionDrift
+opal_domes: motionDrift
+opal_pearls: motionDrift
+opal_lava: motionDrift
+opal_ribbon: motionDrift
+opal_cells: motionDrift
+opal_rings: motionDrift
+opal_drop: motionDrift
+hollow_sinew: motionDrift
+hollow_cave: motionDrift
+hollow_ribs: motionDrift
+hollow_coral: motionDrift
+hollow_roots: motionDrift
+hollow_hive: motionDrift
+hollow_throat: motionDrift
+hollow_neuron: motionDrift
+hollow_bone: motionDrift
+hollow_shell: motionDrift

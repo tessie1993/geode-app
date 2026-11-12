@@ -40,8 +40,8 @@
 // Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
 // average, and the band only shapes the push. sndShaped scales both by Audio
-// drive (uSoundDrive). Spin drift turns the picture through uRotation in
-// view(): MotionField's drift at the catalogue's spin rate (catalogue::spinRate).
+// drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
+// (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.

@@ -61,6 +61,7 @@ BulbHit bulbMap(vec3 p) {
 }
 
 //#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -109,20 +110,25 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.55, 0.72, -0.42));
-        float dif = max(dot(n, key), 0.0);
+        // The key's soft shadow (lib_bulb_shade), on the key's light and its highlight, by Soft shadows.
+        float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
+        float dif = max(dot(n, key), 0.0) * shade;
         float sky = 0.5 + 0.5 * n.y;
         float ndv = max(dot(n, -rd), 0.0);
         float rim = pow(1.0 - ndv, 3.0);
-        float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0);
+        float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0) * shade;
         // Creases: the trap's closest approach plus the step count.
         float ao = bulbStepAO(used) * (0.4 + 0.6 * smoothstep(0.12, 0.95, trap.x));
-        vec3 base = tone(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y);
+        // Escape colour (lib_shade): the smoothed escape count moves the bronze along its ramp.
+        vec3 base = tone(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y + shadeEscape(trap.w));
         col = base * dif * vec3(1.0, 0.92, 0.80) * 0.95;
         col += base * sky * vec3(0.55, 0.65, 0.85) * 0.28;
         col += tone(hue + 0.5) * rim * 0.30;
         col += vec3(1.0, 0.95, 0.88) * spec * 0.25;
         col *= ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the body, by Bloom.
+    col += tone(hue + 0.1) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.3, 2.2, length(uv)));

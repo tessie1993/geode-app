@@ -68,6 +68,7 @@ BulbHit bulbMap(vec3 p) {
 }
 
 //#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -124,12 +125,15 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.6, 0.7, -0.4));
-        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x));
+        // The key's soft shadow (lib_bulb_shade), by Soft shadows: the cel steps below print it in three tones.
+        float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
+        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x)) * shade;
         // Three tones, hard steps, kept darker than the paper.
         float cel = lit > 0.55 ? 0.78 : (lit > 0.18 ? 0.48 : 0.22);
-        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0);
+        // Escape colour (lib_shade): the smoothed escape count moves the ink's tone along its ramp.
+        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0 + shadeEscape(trap.w));
         col = body * cel;
-        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0);
+        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0) * shade;
         col = mix(col, vec3(1.0, 0.98, 0.94), step(0.6, hl));
         // Ink: grazing silhouette from inside, and the creases.
         float ndv = dot(n, -rd);

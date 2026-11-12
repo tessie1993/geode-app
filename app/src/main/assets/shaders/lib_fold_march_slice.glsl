@@ -11,13 +11,16 @@
 //
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
+//#include lib_fold_at
+
 /** One section at p, seen from t: its light, and in a its opacity. */
 vec4 foldSection(vec3 p, float t) {
     vec4 m = FOLD_AT((p));
     float w = 2.0 * foldWidth(t);
     float fill = 1.0 - smoothstep(-w, w, m.x);
     float edge = w * w / (m.x * m.x + w * w);
-    float hue = gFoldTone + m.y + 0.2 * t / gFoldFar;
+    // Escape colour (lib_shade): the two traps as one value move the section's hue along the palette.
+    float hue = gFoldTone + m.y + 0.2 * t / gFoldFar + shadeEscape(shadeTrapPair(m.zw));
     vec3 col = foldCol(hue) * fill * 0.3 + foldCol(hue + 0.45) * edge;
     col += foldCol(hue + 0.25) * foldSeams(m.zw, w) * gFoldBuild * gFoldSeam * fill;
     // Nothing lights right at the eye: flying through a cut must not fill the frame.

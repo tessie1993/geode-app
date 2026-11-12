@@ -36,6 +36,8 @@
   "backLayer": 0.75,
   "formula": 0.5,
   "shapes": 0.25,
+  "shadow": 0.25,
+  "escapeColor": 0.75,
   "morph": 0.5,
   "pixelate": 0.5,
   "posterize": 0.5,

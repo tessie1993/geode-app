@@ -66,6 +66,9 @@
 // distance to the nearest sheet's middle, y how far toward that sheet's rim,
 // z its vein coordinate), and after it includes lib_petal_march, which calls it.
 
+// The shading pass's rules (soft shadows, step glow, escape colour); lib_layers, at the end, reads them too.
+//#include lib_shade
+
 #define PETAL_TAU 6.2831853
 /** The golden angle, radians: each layer, row or frond turned by it from the last never lines up with another. */
 #define PETAL_GOLD 2.3999632

@@ -163,9 +163,13 @@ void main() {
     if (hitT > 0.0) {
         vec3 glass = vec3(0.012, 0.010, 0.02);
         col = glass + tone(hue + 0.55) * rim * (0.25 + 0.2 * air);
-        col += tone(hue) * lA * (0.9 + 0.3 * air) * ao;
-        col += tone(hue + 0.33) * lB * 0.55 * ao;
+        // Escape colour (lib_shade): the smoothed escape count moves the lines along the ramp.
+        float esc = shadeEscape(trap.w);
+        col += tone(hue + esc) * lA * (0.9 + 0.3 * air) * ao;
+        col += tone(hue + 0.33 + esc) * lB * 0.55 * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the crust, by Bloom.
+    col += tone(hue + 0.55) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.85 + 0.15 * swell;
     fragColor = vec4(grade(col), 1.0);

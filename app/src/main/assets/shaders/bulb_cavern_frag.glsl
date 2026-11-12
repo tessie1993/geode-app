@@ -143,7 +143,8 @@ void main() {
         col += vec3(0.9, 0.95, 1.0) * wet * lamp * 0.5 * ao;
         // Veins: where the orbit hugged the equatorial plane, the rock glows.
         float vein = (1.0 - smoothstep(0.0, 0.05, trap.y)) * (0.6 + 0.4 * sin(sqrt(trap.x) * 9.0 + bulbTime() * 0.3));
-        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
+        // Escape colour (lib_shade): the smoothed escape count moves the veins along the ramp.
+        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x) + shadeEscape(trap.w)) * vein * (0.6 + 0.2 * swell);
         col = mix(col, fog, 1.0 - exp(-hitT * 0.22));
     }
 

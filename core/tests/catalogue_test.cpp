@@ -421,6 +421,8 @@ void textRoundTrips() {
             if (catalogue::drawsFamilyForm(f[1])) perStyle.emplace_back("FAMILY_FORM");
             if (catalogue::hasFormulas(f[1])) perStyle.emplace_back("FORMULA");
             if (catalogue::drawsShapes(f[1])) perStyle.emplace_back("SHAPES");
+            if (catalogue::castsShadows(f[1])) perStyle.emplace_back("SHADOW");
+            if (catalogue::colorsByEscape(f[1])) perStyle.emplace_back("ESCAPE");
             check(f.size() >= 4 && std::vector<std::string>(f.begin() + 4, f.end()) == perStyle, "per-style scopes of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
@@ -450,8 +452,8 @@ void textRoundTrips() {
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
     // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
     // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
-    // 89 with Formula on its own; 90 with Shapes on its own.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 90 && overrides == 8, "row counts");
+    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 92 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

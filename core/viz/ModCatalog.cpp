@@ -27,7 +27,7 @@ constexpr std::array<const char*, modtargets::kTargetCount> kTargetLabels{{
     "Palette 1 amount", "Palette 3 amount", "Palette 4 amount", "Palette 5 amount", "Palette 6 amount",
     "Palette 7 amount", "Palette 8 amount", "Palette position", "Kaleidoscope", "Layer mix",
     "Fluid layer", "Particle field", "Physics force", "Fluid in front", "Spawn", "Fractal", "Front layer", "Back layer",
-    "Formula", "Shapes",
+    "Formula", "Shapes", "Soft shadows", "Escape colour",
 }};
 
 constexpr std::array<const char*, kSourceCount> kSourceLabels{{

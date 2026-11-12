@@ -1,6 +1,5 @@
 // Host-side checks for core/viz/TouchTransform (#654): a pinch scales Zoom and a twist turns Rotation,
-// clamped to each field's range in the params schema (core/viz/ParamTable.inc). The assertions moved here
-// from the shell's CatalogueTest when the Kotlin copy went.
+// clamped to each field's range in the params schema (core/viz/ParamTable.inc).
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 #include <cmath>
 #include <cstdio>

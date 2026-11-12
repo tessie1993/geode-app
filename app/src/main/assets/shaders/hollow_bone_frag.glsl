@@ -19,7 +19,7 @@ out vec4 fragColor;
 // finer sponge of their own.
 //
 // Morph ages the bone: from thick walls with small windows down to thin
-// struts. Worst case 72 steps, no noise.
+// struts. Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     vec3 q = p * 1.5707963;

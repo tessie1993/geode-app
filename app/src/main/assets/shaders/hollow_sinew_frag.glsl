@@ -19,7 +19,7 @@ out vec4 fragColor;
 // from wall to wall beside the way, webbed into the wall where they land.
 //
 // Morph tightens the weave: the cords deepen and wind steeper, the tendons
-// thicken. Worst case 72 steps, no noise.
+// thicken. Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);

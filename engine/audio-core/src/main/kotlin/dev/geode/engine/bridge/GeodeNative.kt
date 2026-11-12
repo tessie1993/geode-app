@@ -819,11 +819,55 @@ object GeodeNative {
     )
 
     /**
-     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
-     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
-     * once (dev.geode.render.scene.Catalogue does).
+     * The scene and style catalogue (core/viz/Catalogue), one question per call (`geode_catalogue_*`). A
+     * list comes back as its items each followed by a newline. The answers never change in a process, so
+     * the shell asks once and keeps them (dev.geode.render.scene.StyleCatalogue).
+     *
+     * [catalogueStyleIds]: the styles with a trait ([STYLE_ANY] and the rest), in picker order.
      */
-    external fun catalogueText(): String
+    external fun catalogueStyleIds(trait: Int): String
+
+    /** The Styles page's families, in order. */
+    external fun cataloguePickerNames(): String
+
+    /** One Styles page family's styles, in order; none for an unknown family. */
+    external fun cataloguePickerIds(family: String): String
+
+    /** The style a saved id opens on: a retired id's replacement, any other id itself. */
+    external fun catalogueResolve(styleId: String): String
+
+    /** The style a saved look of this one is filed under: Fluid's and Cymatics' looks share one each. */
+    external fun cataloguePresetStyle(styleId: String): String
+
+    /** The scope name of a Customize control (its key); `UNIVERSAL` for a control no scope names. */
+    external fun catalogueScopeOf(paramKey: String): String
+
+    /** Whether a scope, by its name, moves the style. */
+    external fun catalogueReaches(
+        scope: String,
+        styleId: String,
+    ): Boolean
+
+    /** The value a style holds a control at; NaN when the control is the user's. */
+    external fun catalogueOverride(
+        styleId: String,
+        paramKey: String,
+    ): Float
+
+    /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
+    const val STYLE_ANY: Int = 0
+    const val STYLE_SHADER: Int = 1
+
+    /** In a shader family and not the style that opens it. */
+    const val STYLE_FAMILY_FOLLOWER: Int = 2
+
+    /** What Auto's random step draws from. */
+    const val STYLE_AUTO_DRAW: Int = 3
+    const val STYLE_FLUID: Int = 4
+    const val STYLE_CYMATICS: Int = 5
+
+    /** The MilkDrop renderer's one style id, which the shell names to open the preset browser. */
+    const val STYLE_MILKDROP: String = "milkdrop"
 
     /**
      * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
@@ -2560,6 +2604,40 @@ object GeodeNative {
     /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
     const val LINK_RTC = 10
 
+    /** The typed path, off the token: its page at "/", its script, and POST /pair with the typed code. */
+    const val LINK_PAIR_PAGE = 11
+    const val LINK_PAIR_SCRIPT = 12
+    const val LINK_PAIR = 13
+
+    /** Most bytes a POST on [LINK_PAIR] may carry (GEODE_LINK_PAIR_BODY_MAX). */
+    const val LINK_PAIR_BODY_MAX = 64L
+
+    /** The short link a computer types (host as one number, no token); null when it cannot be made. */
+    external fun linkPairUrl(
+        address: Int,
+        port: Int,
+    ): String?
+
+    /** Opens the typed path's pairing with a fresh code, or closes it. */
+    external fun linkPairOpen(
+        open: Boolean,
+        nowMs: Long,
+    )
+
+    /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
+    external fun linkPairCode(nowMs: Long): String
+
+    /**
+     * One typed try, [typed] as the POST carried it: returns the HTTP status (200, 403, 404, 429) and, on 200, puts
+     * the token's path in [path]`[0]`.
+     */
+    external fun linkPairTry(
+        typed: String,
+        nowMs: Long,
+        token: String,
+        path: Array<String?>,
+    ): Int
+
     /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
     const val LINK_NO_BODY = -1L
     const val LINK_BAD_BODY = -2L
@@ -2605,7 +2683,7 @@ object GeodeNative {
         token: String,
     ): String
 
-    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT] or [LINK_STYLE]); null for any other resource. */
+    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT], [LINK_STYLE], [LINK_PAIR_PAGE] or [LINK_PAIR_SCRIPT]). */
     external fun linkAsset(resource: Int): ByteArray?
 
     /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */

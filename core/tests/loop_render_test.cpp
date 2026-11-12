@@ -102,7 +102,7 @@ public:
     bool start() override { return true; }
     void stop() override {}
     bool endSurfaceInput() override {
-        if (!w_.neverEnd) w_.ready.push_back({sink::Out::Sample, {0, 0, 0, sink::kFlagEndOfStream}});
+        if (!w_.neverEnd) w_.ready.push_back({sink::Out::Sample, {0, 0, sink::kFlagEndOfStream}});
         return true;
     }
     int dequeueInput() override { return kNoInput; }
@@ -116,7 +116,10 @@ public:
         *info = out.info;
         return out.kind;
     }
-    const uint8_t* outputBuffer(int) override { return bytes_; }
+    const uint8_t* outputBuffer(int, size_t* capacity) override {
+        *capacity = sizeof(bytes_);
+        return bytes_;
+    }
     bool releaseOutput(int) override { return true; }
     std::unique_ptr<sink::TrackFormat> outputFormat() override { return std::make_unique<FakeFormat>(); }
 
@@ -239,13 +242,13 @@ public:
         if (!w_.announced && !w_.neverAnnounce) {
             w_.announced = true;
             w_.ready.push_back({sink::Out::FormatChanged, {}});
-            w_.ready.push_back({sink::Out::Sample, {0, 5, 0, sink::kFlagCodecConfig}});
+            w_.ready.push_back({sink::Out::Sample, {5, 0, sink::kFlagCodecConfig}});
         }
         if (static_cast<int>(w_.presented.size()) == w_.errorAfterPresents) {
             w_.ready.push_back({sink::Out::Error, {}});
             return nullptr;
         }
-        w_.ready.push_back({sink::Out::Sample, {0, 10, ptsNs / 1000, 0}});
+        w_.ready.push_back({sink::Out::Sample, {10, ptsNs / 1000, 0}});
         return nullptr;
     }
     void closeScene() override { w_.events.push_back("close-scene"); }

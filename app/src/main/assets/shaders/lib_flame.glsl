@@ -15,9 +15,9 @@
 // style may ask for threads instead (gFlameThread): one set of veils drawn
 // only where it meets the other.
 //
-// COST. One loop of min(uSteps, 72) samples (the Detail budget), each one
-// flameField: folds, logs and sines, at most three fold iterations, no noise
-// octaves and no texture. The palette is read five times per pixel before the
+// COST. One loop of FLAME_STEPS samples (the Detail budget: 72 at the default
+// Detail, 90 at most), each one flameField: folds, logs and sines, at most
+// three fold iterations, no noise octaves and no texture. The palette is read five times per pixel before the
 // loop (flameSetup) and mixed inside it. No distance estimate, so no step is
 // spent creeping up on a surface; no normals; no second march.
 //
@@ -63,7 +63,9 @@
 // lib_flame_march, which calls it.
 
 #define FLAME_TAU 6.2831853
-#define FLAME_MAX_STEPS 72
+#define FLAME_MAX_STEPS 90
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 72 left Detail and the hot-phone cut dead above it. */
+#define FLAME_STEPS (min(uSteps * 0.7, float(FLAME_MAX_STEPS)))
 #define FLAME_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene), so sin(uTime * FLAME_RATE(k)) never jumps. */
 #define FLAME_RATE(k) (FLAME_TAU * float(k) / 7100.0)

@@ -77,8 +77,11 @@ public:
                 case sink::Out::Sample: {
                     bool written = true;
                     if (muxing_ && track_ >= 0 && info.size > 0 && (info.flags & sink::kFlagCodecConfig) == 0) {
-                        const uint8_t* data = encoder_->outputBuffer(index);
-                        written = data != nullptr && muxer_->writeSample(track_, data, info);
+                        size_t capacity = 0;
+                        const uint8_t* data = encoder_->outputBuffer(index, &capacity);
+                        // A sample its buffer cannot hold is a broken codec: stop, never read past the buffer.
+                        written = data != nullptr && static_cast<size_t>(info.size) <= capacity &&
+                                  muxer_->writeSample(track_, data, info);
                         if (written) sampleWritten_ = true;
                     }
                     encoder_->releaseOutput(index);

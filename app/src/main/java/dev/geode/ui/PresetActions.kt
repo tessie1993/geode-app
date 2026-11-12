@@ -55,8 +55,7 @@ import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
 import dev.geode.model.PresetFiltering
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
@@ -351,18 +350,11 @@ internal fun presetReplaceTarget(
     return presets.firstOrNull { !BuiltInPresets.isBuiltIn(it.name) && it.name == name }?.name
 }
 
-/** Built-in presets are made for a style family's base id; every variant of the family shares them. */
-internal fun builtInPresetSceneFamily(activeSceneId: String): String =
-    when {
-        VisualStyleCatalog.isCymatics(activeSceneId) -> SceneIds.CYMATICS
-        VisualStyleCatalog.isFluid(activeSceneId) -> SceneIds.FLUID
-        else -> activeSceneId
-    }
-
+/** Built-in presets are made for the style the catalogue files a look under; every look of Fluid or Cymatics shares them. */
 internal fun builtInPresetMatchesScene(
     presetSceneId: String,
     activeSceneId: String,
-): Boolean = presetSceneId == activeSceneId || presetSceneId == builtInPresetSceneFamily(activeSceneId)
+): Boolean = presetSceneId == activeSceneId || presetSceneId == StyleCatalogue.presetStyle(activeSceneId)
 
 internal fun clipboardText(context: android.content.Context): String? =
     runCatching {

@@ -1,8 +1,8 @@
 // The shader include allow-list: every `//#include <name>` a shader may use.
 //
 // The one source of truth. core/viz/ShaderSource.cpp pastes this file into its
-// kIncludes array; tools/check_shaders.py, tools/glslcheck/check.mjs and
-// StyleFamiliesTest read it as text. Keep it to `"name",` entries and `//`
+// kIncludes array; tools/check_shaders.py and tools/glslcheck/check.mjs
+// read it as text. Keep it to `"name",` entries and `//`
 // line comments: the readers take every double-quoted name outside a comment.
 // A new lib_*.glsl in app/src/main/assets/shaders must be added here, or it
 // fails on the phone and in both checks as an unknown include.
@@ -24,7 +24,7 @@
 "lib_feedback",
 // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
 "lib_relief",
-// One library per style family (StyleFamilies.kt): the styles of a family share it.
+// One library per style family (core/viz/Catalogue.cpp): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",
 "lib_chrys",

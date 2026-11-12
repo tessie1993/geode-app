@@ -218,6 +218,15 @@ jobs:
           # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
           ./live_fps_test
+          # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp -o stage_lifecycle_test
+          ./stage_lifecycle_test
+          # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
+          ./command_queue_test
+          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp -o stage_pacing_test
+          ./stage_pacing_test
           # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
@@ -286,6 +295,9 @@ jobs:
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test
+          # Its typed path for a computer with no scanner: the code (random, case-free, constant-time compare), one per session, its lifetime, the tries, gap and lock-out, the routes off the token and the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_pair_test.cpp core/api/geode_link_api.cpp core/api/geode_link_pair_api.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp core/util/QrCode.cpp -o link_pair_test
+          ./link_pair_test
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test
@@ -304,8 +316,8 @@ jobs:
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
-      # meta rows, hence Params), ranges, and
-      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      # meta rows, hence Params), ranges, the answers the shell asks for one at a time, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the tools read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |

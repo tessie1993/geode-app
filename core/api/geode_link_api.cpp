@@ -16,7 +16,10 @@ static_assert(static_cast<int>(share::Resource::Segment) == GEODE_LINK_SEGMENT &
               static_cast<int>(share::Resource::Redirect) == GEODE_LINK_REDIRECT &&
               static_cast<int>(share::Resource::Page) == GEODE_LINK_PAGE &&
               static_cast<int>(share::Resource::Stream) == GEODE_LINK_STREAM && share::kMaxStreams == GEODE_LINK_MAX_STREAMS &&
-              static_cast<int>(share::Resource::Rtc) == GEODE_LINK_RTC);
+              static_cast<int>(share::Resource::Rtc) == GEODE_LINK_RTC &&
+              static_cast<int>(share::Resource::PairPage) == GEODE_LINK_PAIR_PAGE &&
+              static_cast<int>(share::Resource::PairScript) == GEODE_LINK_PAIR_SCRIPT &&
+              static_cast<int>(share::Resource::Pair) == GEODE_LINK_PAIR);
 static_assert(share::kNoBody == GEODE_LINK_NO_BODY && share::kBadBody == GEODE_LINK_BAD_BODY);
 static_assert(GEODE_WEBRTC_REFUSED_FULL == -4 && GEODE_WEBRTC_REFUSED_NOT_READY == -5, "LinkShare::rtcStatus reads these");
 static_assert(share::kEnded == GEODE_LINK_PHASE_ENDED && share::kTrialEnded == GEODE_LINK_REASON_TRIAL &&
@@ -57,7 +60,7 @@ int geode_link_route(const char* method, const char* target, const char* token, 
 }
 
 int geode_link_response_head(int status, int resource, int64_t length, const char* token, char* out, int cap) {
-    const auto r = resource >= 0 && resource <= GEODE_LINK_RTC ? static_cast<share::Resource>(resource) : share::Resource::None;
+    const auto r = resource >= 0 && resource <= GEODE_LINK_PAIR ? static_cast<share::Resource>(resource) : share::Resource::None;
     return copyOut(share::responseHead(status, r, length, token ? token : ""), out, cap);
 }
 
@@ -67,6 +70,8 @@ const char* geode_link_asset(int resource, size_t* size) {
         case GEODE_LINK_PAGE: text = share::kPageHtml; break;
         case GEODE_LINK_SCRIPT: text = share::kPageJs; break;
         case GEODE_LINK_STYLE: text = share::kPageCss; break;
+        case GEODE_LINK_PAIR_PAGE: text = share::kPairHtml; break;
+        case GEODE_LINK_PAIR_SCRIPT: text = share::kPairJs; break;
         default: break;
     }
     if (size) *size = text.size();
@@ -89,6 +94,10 @@ int geode_link_rtc_status(int answer_result) { return share::rtcStatus(answer_re
 
 int geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap) {
     return copyOut(share::shareUrl(address, port, token ? token : ""), out, cap);
+}
+
+int geode_link_pair_url(uint32_t address, int port, char* out, int cap) {
+    return copyOut(share::pairUrl(address, port), out, cap);
 }
 
 int geode_link_label(const char* token, char* out, int cap) {

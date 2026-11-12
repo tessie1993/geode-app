@@ -41,7 +41,7 @@ vec3 opalSkin(vec3 p, vec3 rd, float skin, float eps) {
 
 /** The gathered light along one ray. */
 vec3 opalTrace(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(OPAL_MAX_STEPS));
+    float n = OPAL_STEPS;
     vec3 acc = vec3(0.0);
     float through = 1.0;
     float halo = 0.0;

@@ -41,7 +41,8 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 
 - `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/` and `compute/`.
 - `Catalogue` is the style catalogue: every style id, kind, family, param scope and control range.
-- Kotlin reads the catalogue as one text table, `geode_catalogue_text`.
+- Kotlin asks the catalogue one question at a time (`geode_catalogue_style_ids`, `_picker_names`, `_picker_ids`, `_resolve`, `_preset_style`, `_scope_of`, `_reaches`, `_override`).
+- `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack, the one colour source to be; no renderer reads it yet.
 - A stack holds up to 8 palettes of up to 16 colours, each Smooth or Steps, Mirror or Loop, RGB, hue or OKLab, a place per colour and one colour's Shades, Flat or To black; Share (Soft or Hard edges) or Mix by amount, full range off.
@@ -61,6 +62,11 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
+
+## Native stage
+
+- `core/stage` is the native stage: one render thread, EGL context and window surface per surface, and one process-wide vsync thread; its design is [native-stage.md](native-stage.md).
+- The stage's C ABI is `core/api/geode_stage_api.h`; no JNI calls it yet.
 
 ## Per-frame chain
 

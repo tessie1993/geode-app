@@ -770,7 +770,7 @@ private fun RenderLengthGroup(
                         stringResource(
                             R.string.export_segment_summary,
                             formatClock(range.startMs),
-                            formatClock(range.endMs),
+                            formatClock(range.startMs + range.durationMs),
                             formatClock(range.durationMs),
                         )
                     },

@@ -195,6 +195,7 @@ LFOs and ADSR envelopes that move scene params over time or on hits.
 
 **Layer**:
 A second scene drawn over the main one with a mix amount and blend mode.
+Its style comes from a layer source: the user's pick, Auto Director's pick at its style moments, or a macro knob's turn; native never draws the style on screen as its layer.
 _Avoid_: Overlay (overlay is a Studio lane)
 
 **Transition**:

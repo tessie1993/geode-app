@@ -203,6 +203,7 @@ class VisualizerDreamService : DreamService() {
         }
         // The stage outlives its view, so the dream that made it ends it.
         visualizerView?.stage?.close()
+        sound.release()
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         overlay = null

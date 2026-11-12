@@ -2501,17 +2501,23 @@ object GeodeNative {
     ): Long
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
-    // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
+    // carries its rate, and the int16 and 8-bit conversions to float happen inside it. Kinds and sizes are
+    // native (core/audio/ingest/RingKinds).
+    const val PCM_RING_PLAYER: Int = 0
+    const val PCM_RING_MIC: Int = 1
+    const val PCM_RING_OUTPUT_MIX: Int = 2
 
-    /** A ring of [capacityFrames] (a power of two) by [channels]; 0 for sizes it cannot take. Freed with [pcmRingDestroy]. */
-    external fun pcmRingCreate(
-        capacityFrames: Int,
-        channels: Int,
-        maxWriteFrames: Int,
-    ): Long
+    /** The process's ring of [kind] ([PCM_RING_PLAYER], or [PCM_RING_MIC] layered over it), never freed; 0 for another kind. */
+    external fun pcmRingShared(kind: Int): Long
 
-    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes. */
+    /** A new ring of [kind] ([PCM_RING_OUTPUT_MIX]), its owner's to free with [pcmRingDestroy]; 0 without memory. */
+    external fun pcmRingCreateKind(kind: Int): Long
+
+    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes or a stage holds it. */
     external fun pcmRingDestroy(handle: Long)
+
+    /** The most frames one write publishes (the runway). */
+    external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
      * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
@@ -2555,25 +2561,6 @@ object GeodeNative {
         channels: Int,
         sampleRate: Int,
     ): Int
-
-    /**
-     * Layers the ring at [layer] (0 for none) over the one at [handle]: every renderer fed [handle] hears
-     * the two mixed natively, and [layer] alone while [handle] gains nothing. The mic over the player.
-     */
-    external fun pcmRingSetLayer(
-        handle: Long,
-        layer: Long,
-    )
-
-    /**
-     * Marks the ring's writes as a capture's snapshots (the output mix's Visualizer), not a stream: each
-     * write is then stitched natively onto the capture clock. Writer thread, before its first write. False
-     * only when it could not allocate.
-     */
-    external fun pcmRingSetSnapshots(
-        handle: Long,
-        on: Boolean,
-    ): Boolean
 
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
@@ -2659,11 +2646,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Int
-
-    /** The player's ring: its capacity and runway, sized natively so a reader at the speaker is not overrun. */
-    external fun playoutRingFrames(): Int
-
-    external fun playoutRingRunway(): Int
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 
@@ -3217,7 +3199,7 @@ object GeodeNative {
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 
-    /** The ring frames hear (a `SampleRing` handle), or 0. Returns once no frame reads the ring it replaced. */
+    /** The ring frames hear (a `pcmRing*` handle), or 0. Returns once no frame reads the ring it replaced. */
     external fun stageSetSound(
         stage: Long,
         ring: Long,

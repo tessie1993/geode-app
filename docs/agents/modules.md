@@ -11,8 +11,9 @@ One fact per line. Add a fact as a new bullet under its module.
 
 - Packages: `dev.geode.engine.audio`, `dev.geode.engine.bridge`.
 - `GeodeNative` holds every JNI `external fun`.
-- `SampleRing` is the PCM ring's handle; the ring, its writers' int16 and 8-bit conversions and its readers are native (`core/audio/ingest/PcmRing`).
-- `SampleRing` is freed when the holder is collected.
+- The PCM rings are native (`core/audio/ingest/PcmRing`); the shell holds a ring as a `Long` handle and calls `GeodeNative.pcmRing*`.
+- Which rings exist, their sizes and lifetimes are native (`core/audio/ingest/RingKinds`): the player's and the mic's kept for the process (`pcmRingShared`), the output mix's made and freed by its owner.
+- `GeodeNative.kt` is the only file left in `engine/audio-core/src/main`.
 - `SoundTuning` is the user tuning (Settings › Audio, kept in `SoundInputSettings`): a float holder.
 - `SoundTuning`'s defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
 

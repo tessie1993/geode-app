@@ -8,7 +8,7 @@ import dev.geode.util.bestEffort
 import kotlin.concurrent.thread
 
 abstract class AudioCapturePump(
-    private val ring: dev.geode.engine.audio.SampleRing,
+    private val ring: Long,
     defaultRateHz: Int,
     protected val nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
@@ -106,9 +106,9 @@ abstract class AudioCapturePump(
                         // The ring converts 16-bit to float and measures the block: no sample is read here.
                         val peak =
                             if (asFloat) {
-                                ring.write(floats, frames, channels, rate)
+                                GeodeNative.pcmRingWriteFloats(ring, floats, frames, channels, rate)
                             } else {
-                                ring.write(shorts, frames, channels, rate)
+                                GeodeNative.pcmRingWriteShorts(ring, shorts, frames, channels, rate)
                             }
                         heardAtMs = GeodeNative.captureHeardAt(peak, nowMs(), heardAtMs)
                     } else if (n < 0) {

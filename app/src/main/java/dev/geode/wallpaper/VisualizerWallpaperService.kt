@@ -371,6 +371,7 @@ class VisualizerWallpaperService : WallpaperService() {
             // switches screens, so each one ends its stage (its thread, context and renderer) here.
             stage?.close()
             stage = null
+            sound.release()
             super.onDestroy()
         }
     }

@@ -16,7 +16,6 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
@@ -31,14 +30,11 @@ class PlaybackSession internal constructor(
     context: Context,
 ) {
     /**
-     * Where the tap or a capture writes, and what every surface's sound engine reads: the one native
-     * ring every renderer hears, MilkDrop's raw PCM included. Each block carries its source's rate. The
-     * ring is freed once nothing holds this object, so a surface still reading it after [release] is safe.
-     * Its size is native: a live renderer reads it at the speaker ([PlaybackEngine.playout]), a sink
-     * buffer and the output's latency behind the tap, and must not be overrun there.
+     * Where the tap or a capture writes, and what every surface's sound engine reads: the process's one
+     * native player ring, MilkDrop's raw PCM included. Each block carries its source's rate. Native keeps
+     * it for the process and sizes it, so a surface still reading it after [release] is safe.
      */
-    val sampleRing =
-        SampleRing(GeodeNative.playoutRingFrames(), channelCount = 2, maxWriteFrames = GeodeNative.playoutRingRunway())
+    val sampleRing: Long = GeodeNative.pcmRingShared(GeodeNative.PCM_RING_PLAYER)
 
     private val prefsFiles = context.geodeContainer.prefsFiles
 
@@ -57,10 +53,7 @@ class PlaybackSession internal constructor(
      * fed [sampleRing] hears the music and the room mixed, and the room alone while nothing plays. The
      * mic never writes the player's ring, so turning it on or off leaves playback alone.
      */
-    val micRing =
-        SampleRing(capacityFrames = 1 shl 15, channelCount = 1).also {
-            GeodeNative.pcmRingSetLayer(sampleRing.handle, it.handle)
-        }
+    val micRing: Long = GeodeNative.pcmRingShared(GeodeNative.PCM_RING_MIC)
 
     /**
      * Settings › Playback › Native audio output, as it applies now: on, and bit-perfect USB off (that
@@ -154,7 +147,7 @@ class PlaybackSession internal constructor(
         player.addListener(autoDirector)
         player.addListener(crossfade)
         player.addListener(recorder)
-        GeodeNative.pcmRingSetPlayout(sampleRing.handle, PlaybackEngine.playout)
+        GeodeNative.pcmRingSetPlayout(sampleRing, PlaybackEngine.playout)
         dev.geode.audio.AudioBus.soundInput = sampleRing
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
@@ -207,7 +200,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        if (dev.geode.audio.AudioBus.soundInput === sampleRing) dev.geode.audio.AudioBus.soundInput = null
+        if (dev.geode.audio.AudioBus.soundInput == sampleRing) dev.geode.audio.AudioBus.soundInput = 0L
         recorder.release()
         scope.cancel()
         audioFx.release()

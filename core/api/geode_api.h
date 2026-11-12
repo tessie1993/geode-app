@@ -559,12 +559,6 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
-/* Customize's Kaleidoscope control, its switch `on` at `symmetry` (viz/Params kaleidoscopeMenu): a first line
- * "<shown>|<selected>|<flipped>" (1 when the Folds menu shows; the menu row of `symmetry`, -1 for a count not on
- * it; the symmetry the switch leaves when flipped), then the menu's labels, one per line. The pointer stays valid
- * until this thread's next call. pick: the symmetry menu row `row` sets, held to the menu. Pure, any thread. */
-GEODE_API const char* geode_customize_kaleidoscope(int on, int symmetry);
-GEODE_API int         geode_params_kaleidoscope_pick(int row);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

@@ -85,11 +85,11 @@ const std::vector<Roll>& rolls() {
         {T::Shape, "Ripple", [](SceneParams& p, Rng& r) { p.ripple = maybe(r, 0.4f, ParamSlot::ripple); }},
         {T::Shape, "Morph", [](SceneParams& p, Rng& r) { p.morph = maybe(r, 0.5f, ParamSlot::morph); }},
         {T::Shape, "Twist", [](SceneParams& p, Rng& r) { p.twist = maybe(r, 0.4f, ParamSlot::twist); }},
+        // On three times in ten, at a count from kSymmetryFolds; else off (1): the old switch's odds and draws.
         {T::Shape, "Kaleidoscope",
          [](SceneParams& p, Rng& r) {
-             p.kaleidoscope = r.chance(0.3f);
              const auto& folds = SceneParams::kSymmetryFolds;
-             if (p.kaleidoscope) p.symmetry = folds[static_cast<size_t>(r.below(static_cast<int>(folds.size())))];
+             p.kaleidoFolds = r.chance(0.3f) ? static_cast<float>(folds[static_cast<size_t>(r.below(static_cast<int>(folds.size())))]) : 1.0f;
          }},
         {T::Shape, "Tile", [](SceneParams& p, Rng& r) { p.tile = r.chance(0.25f) ? drawn(r, ParamSlot::tile) : 1.0f; }},
         {T::Shape, "Pixelate", [](SceneParams& p, Rng& r) { p.pixelate = maybe(r, 0.15f, ParamSlot::pixelate); }},
@@ -331,6 +331,9 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"rippleOverlaySpecular", "retired"},
         {"formDrive", "retired"},
         {"motionOrbit", "retired"},
+        // The Kaleidoscope switch and its count, retired for kaleidoFolds (rolled under Kaleidoscope).
+        {"symmetry", "retired"},
+        {"kaleidoscope", "retired"},
     };
     return kNever;
 }

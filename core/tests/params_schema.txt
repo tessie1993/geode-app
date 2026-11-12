@@ -1,4 +1,4 @@
-params|4|187
+params|4|188
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -21,8 +21,8 @@ param|18|trailWarp|FLOAT|0|0|1|FADE|LIVE
 param|19|mirror|BOOL|0|0|1|HOLD|LIVE
 param|20|warp|FLOAT|0|0|1|FADE|LIVE
 param|21|ripple|FLOAT|0|0|1|FADE|LIVE
-param|22|symmetry|INT|6|0|16|HOLD|LIVE
-param|23|kaleidoscope|BOOL|0|0|1|HOLD|LIVE
+param|22|symmetry|INT|6|0|16|HOLD|RETIRED
+param|23|kaleidoscope|BOOL|0|0|1|HOLD|RETIRED
 param|24|morph|FLOAT|0|0|1|FADE|LIVE
 param|25|pixelate|FLOAT|0|0|1|FADE|LIVE
 param|26|posterize|FLOAT|0|0|1|FADE|LIVE
@@ -186,6 +186,7 @@ param|183|paletteAmount5|FLOAT|0.5|0|1|FADE|LIVE
 param|184|paletteAmount6|FLOAT|0.5|0|1|FADE|LIVE
 param|185|paletteAmount7|FLOAT|0.5|0|1|FADE|LIVE
 param|186|paletteShift|CIRCULAR|0|0|1|FADE|LIVE
+param|187|kaleidoFolds|FLOAT|1|1|16|FADE|LIVE
 palette|0|Spectrum
 palette|1|Neon
 palette|2|Fire

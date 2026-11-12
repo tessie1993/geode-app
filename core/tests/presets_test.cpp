@@ -101,7 +101,7 @@ void testChillPinned() {
     check(sameBits(s.saturation, 0.8f) && sameBits(s.brightness, 0.9f), "Chill grade");
     // What the Kotlin literal left out is SceneParams' default.
     const SceneParams d{};
-    check(sameBits(s.zoom, d.zoom) && s.palette2 == d.palette2 && s.kaleidoscope == d.kaleidoscope, "Chill leaves the rest at default");
+    check(sameBits(s.zoom, d.zoom) && s.palette2 == d.palette2 && sameBits(s.kaleidoFolds, d.kaleidoFolds), "Chill leaves the rest at default");
     // Every loose style's Chill is the same look.
     const auto* other = find("lava · Chill");
     check(other && sameParams(other->params, s) && sameBits(other->attack, 0.4f), "lava · Chill is julia's Chill");

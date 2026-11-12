@@ -107,12 +107,11 @@ GEODE_PARAM(Float, warp, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(warp, "Domain warp", Universal, kMod, 0.1f, 0.8f)
 GEODE_PARAM(Float, ripple, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(ripple, "Ripple", Universal, kMod, 0.1f, 0.8f)
-// Kaleidoscope folds, below 2 none. The Folds menu and a roll offer SceneParams::kSymmetryFolds; a saved look
-// may hold any count in range, which the shaders fold as it is.
+// Retired (SceneParams::retired): the old Kaleidoscope switch and its fold count, replaced by kaleidoFolds (one
+// slider a wave, an envelope, a route and a knob can move). A look saved with them still opens as it was: on
+// load, readParamsJson turns them into kaleidoFolds (SceneParams::kaleidoFoldsOf).
 GEODE_PARAM(Int, symmetry, SceneParams::kDefaultSymmetryFolds, 0, 16, Hold)
-GEODE_PARAM_META(symmetry, "Kaleidoscope", Universal, 0, 0, 0)
 GEODE_PARAM(Bool, kaleidoscope, false, 0, 1, Hold)
-GEODE_PARAM_META(kaleidoscope, "Kaleidoscope", Universal, 0, 0, 0)
 GEODE_PARAM(Float, morph, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(morph, "Morph", ShaderLook, kMod, 0.1f, 0.8f)
 GEODE_PARAM(Float, pixelate, 0.0f, 0.0f, 1.0f, Fade)
@@ -529,6 +528,14 @@ GEODE_PARAM_META(paletteAmount7, "Palette 8 amount", Universal, kMod, 0, 0)
 // drive, so colour moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
 GEODE_PARAM(Circular, paletteShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
+
+// The kaleidoscope as one slider (Customize › Shape): 1 is off, 2..16 the folds. Appended so every wire index
+// survives; it replaces the retired kaleidoscope switch and symmetry count. A float, so a wave, an envelope, a
+// reaction route and a macro knob can move it (LfoTarget::KaleidoFolds); the shaders fold by its nearest whole
+// count (SceneParams::kaleidoUniforms), so a slow wave steps from one count to the next without a seam. Its roll
+// keeps the old switch's odds and deals a count from kSymmetryFolds (ParamRandomizer), so no roll range here.
+GEODE_PARAM(Float, kaleidoFolds, 1.0f, 1.0f, 16.0f, Fade)
+GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM

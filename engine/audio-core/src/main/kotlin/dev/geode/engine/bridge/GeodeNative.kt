@@ -1074,15 +1074,6 @@ object GeodeNative {
         override: Float,
     ): Float
 
-    /** Customize's Kaleidoscope control: `shown|selected|flipped`, then the Folds labels (`geode_customize_kaleidoscope`). */
-    external fun customizeKaleidoscope(
-        on: Boolean,
-        symmetry: Int,
-    ): String
-
-    /** The `symmetry` Folds menu [row] sets (`geode_params_kaleidoscope_pick`). Pure. */
-    external fun paramsKaleidoscopePick(row: Int): Int
-
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON

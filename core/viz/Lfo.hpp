@@ -36,9 +36,11 @@ enum class LfoTarget {
     // the colours sit (viz/Palette.hpp).
     PaletteAmount1, PaletteAmount3, PaletteAmount4, PaletteAmount5, PaletteAmount6, PaletteAmount7, PaletteAmount8,
     PaletteShift,
+    // Appended: the kaleidoscope's folds (1 off .. 16), the one slider that replaced its switch and count.
+    KaleidoFolds,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::PaletteShift;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::KaleidoFolds;
 
 struct ModChain {
     int slot;

@@ -64,6 +64,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"PALETTE_AMOUNT_1", "UNIVERSAL"}, {"PALETTE_AMOUNT_3", "UNIVERSAL"}, {"PALETTE_AMOUNT_4", "UNIVERSAL"},
     {"PALETTE_AMOUNT_5", "UNIVERSAL"}, {"PALETTE_AMOUNT_6", "UNIVERSAL"}, {"PALETTE_AMOUNT_7", "UNIVERSAL"},
     {"PALETTE_AMOUNT_8", "UNIVERSAL"}, {"PALETTE_SHIFT", "UNIVERSAL"},
+    // The kaleidoscope's folds, the slider that replaced its switch: on Kaleidoscope's scope.
+    {"KALEIDO_FOLDS", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -77,8 +79,10 @@ void everyTargetKeepsItsNameAndScope() {
     check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
               static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59 &&
               static_cast<int>(LfoTarget::PaletteAmount1) == 60 && static_cast<int>(LfoTarget::PaletteShift) == 67 &&
-              kLastLfoTarget == LfoTarget::PaletteShift,
+              static_cast<int>(LfoTarget::KaleidoFolds) == 68 && kLastLfoTarget == LfoTarget::KaleidoFolds,
           "wire ordinals");
+    check(paramSlotOf(LfoTarget::KaleidoFolds) == static_cast<int>(ParamSlot::kaleidoFolds) && !isLuminanceTarget(LfoTarget::KaleidoFolds),
+          "the kaleidoscope's target writes its folds, a shape and no luminance target");
     check(paramSlotOf(LfoTarget::PaletteAmount1) == static_cast<int>(ParamSlot::paletteAmount0) &&
               paramSlotOf(LfoTarget::PaletteAmount3) == static_cast<int>(ParamSlot::paletteAmount2) &&
               paramSlotOf(LfoTarget::PaletteAmount8) == static_cast<int>(ParamSlot::paletteAmount7) &&
@@ -222,6 +226,8 @@ void offerMaskHasABitPerTarget() {
     check(modtargets::hex(m) == "11", "low bits, no leading zeros");
     m.reset().set(static_cast<size_t>(LfoTarget::PaletteShift));
     check(modtargets::hex(m) == "8" + std::string(16, '0'), "ordinal 67 is the top bit of the seventeenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::KaleidoFolds));
+    check(modtargets::hex(m) == "1" + std::string(17, '0'), "ordinal 68 opens an eighteenth digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
@@ -246,7 +252,7 @@ void textCarriesEveryRow() {
         for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) out += "|" + modtargets::hex(modtargets::offerMask(id, picker));
         return out;
     };
-    check(hasLine(t, "target|67|PALETTE_SHIFT|UNIVERSAL|-1|1"), "the last target row");
+    check(hasLine(t, "target|68|KALEIDO_FOLDS|UNIVERSAL|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

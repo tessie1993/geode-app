@@ -135,6 +135,8 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::PaletteAmount7: GEODE_DRIVE(paletteAmount6, 1.0f);
         case LfoTarget::PaletteAmount8: GEODE_DRIVE(paletteAmount7, 1.0f);
         case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
+        // Half the range per unit: a full wave from Off reaches 9 folds, from 8 sweeps the whole 1..16.
+        case LfoTarget::KaleidoFolds: GEODE_DRIVE(kaleidoFolds, 8.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

@@ -385,7 +385,7 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     p.speed = defaults.speed + 1.0f;
     check(customize::changedCount(p) == 1, "one moved float counts once");
     p.flowEnabled = true;
-    p.symmetry = defaults.symmetry + 1;
+    p.camPath = defaults.camPath + 1;
     check(customize::changedCount(p) == 3, "a flag and a pick count too");
     p.speed = defaults.speed;
     check(customize::changedCount(p) == 2, "a value put back stops counting");

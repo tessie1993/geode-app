@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 187;
+constexpr int kWireFloats = 188;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -71,7 +71,8 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::diveFollow) == 177, "diveFollow keeps its slot");
     check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
           "the palette amounts follow it, the primary first");
-    check(static_cast<int>(ParamSlot::paletteShift) == kWireFloats - 1, "paletteShift is the wire's last float");
+    check(static_cast<int>(ParamSlot::paletteShift) == 186, "paletteShift keeps its slot");
+    check(static_cast<int>(ParamSlot::kaleidoFolds) == kWireFloats - 1, "kaleidoFolds is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -139,7 +140,7 @@ void anOldLookWithRetiredNamesStillLoads() {
         {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
         {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
         {"motionDrift", 0.8f},  {"waterDamping", 0.95f}, {"rippleOverlayEnabled", 1.0f},
-        {"beatResponse", 1.9f},
+        {"beatResponse", 1.9f}, {"symmetry", 8.0f},  {"kaleidoscope", 1.0f},
     };
     const SceneParams fresh;
     SceneParams p;
@@ -200,12 +201,12 @@ void aBrokenWireKeepsTheDefaults() {
     std::vector<float> wire = defaults;
     wire[static_cast<size_t>(ParamSlot::speed)] = 2.5f;
     wire[static_cast<size_t>(ParamSlot::zoom)] = inf;
-    wire[static_cast<size_t>(ParamSlot::symmetry)] = 1e30f;
+    wire[static_cast<size_t>(ParamSlot::fluidBeatSplats)] = 1e30f;
     wire[static_cast<size_t>(ParamSlot::paletteLut)] = -1e30f;
     wire[static_cast<size_t>(ParamSlot::fluidIterations)] = 12.6f;
     const SceneParams p = SceneParams::fromWire(wire.data());
     check(p.speed == 2.5f && p.zoom == SceneParams{}.zoom, "one bad float leaves its neighbours alone");
-    check(p.symmetry == static_cast<int>(SceneParams::spec(ParamSlot::symmetry).max), "an int over its row is held to the row's max");
+    check(p.fluidBeatSplats == static_cast<int>(SceneParams::spec(ParamSlot::fluidBeatSplats).max), "an int over its row is held to the row's max");
     check(p.paletteLut == SceneParams::kNoPaletteLut, "an int under its row is held to the row's min");
     check(p.fluidIterations == 13, "an int in range still rounds");
 }
@@ -289,6 +290,11 @@ void theLfoClampsAreTheTablesRanges() {
     check(SceneParams::spec(ParamSlot::paletteShift).kind == ParamKind::Circular &&
               applyLfoTarget(base, LfoTarget::PaletteShift, 3.0f).paletteShift == base.paletteShift + 1.5f,
           "the palette position is never clamped");
+    // The kaleidoscope's folds: 8 per unit, held to Off (1) .. 16.
+    check(applyLfoTarget(base, LfoTarget::KaleidoFolds, 0.5f).kaleidoFolds == base.kaleidoFolds + 4.0f &&
+              applyLfoTarget(base, LfoTarget::KaleidoFolds, 1000.0f).kaleidoFolds == 16.0f &&
+              applyLfoTarget(base, LfoTarget::KaleidoFolds, -1000.0f).kaleidoFolds == 1.0f,
+          "a wave on the kaleidoscope moves 8 folds per unit, from off to 16");
     // The hue is Circular: it adds unclamped, at half a turn per unit, as it always did.
     check(SceneParams::spec(ParamSlot::colorShift).kind == ParamKind::Circular, "colorShift is circular");
     check(applyLfoTarget(base, LfoTarget::ColorShift, 3.0f).colorShift == base.colorShift + 1.5f, "the hue LFO is never clamped");
@@ -348,30 +354,31 @@ void everyPickerLabelsItsRange() {
     check(SceneParams::choices(ParamSlot::speed).empty() && SceneParams::choices(ParamSlot::kCount).empty(), "a slider or no slot has none");
 }
 
-// The Folds menu is real folds in symmetry's range, rising, the default among them. Switching the kaleidoscope on
-// without a fold (below 2) takes the default; nothing else moves symmetry.
-void theKaleidoscopeFoldsAreTheMenu() {
+// The kaleidoscope is one slider, kaleidoFolds: 1 is off, 2..16 the folds. The shaders fold by its nearest whole count,
+// a half up, so a wave steps from count to count; off they read the default count. A roll deals real folds in range,
+// and a look saved with the retired switch and count opens as it was.
+void theKaleidoscopeIsOneSlider() {
+    const ParamSpec& s = SceneParams::spec(ParamSlot::kaleidoFolds);
+    check(s.kind == ParamKind::Float && s.defaultValue == 1.0f && s.min == 1.0f && s.max == 16.0f, "kaleidoFolds runs 1 (off) .. 16, off by default");
+    check(SceneParams::retired(ParamSlot::symmetry) && SceneParams::retired(ParamSlot::kaleidoscope), "the old switch and count are retired");
     const auto& folds = SceneParams::kSymmetryFolds;
-    const ParamSpec& s = SceneParams::spec(ParamSlot::symmetry);
-    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "the menu runs from 2 to symmetry's max");
+    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "a roll deals from 2 to the slider's max");
     for (size_t i = 1; i < folds.size(); ++i) check(folds[i] > folds[i - 1], "the folds rise: " + std::to_string(folds[i]));
-    check(std::find(folds.begin(), folds.end(), SceneParams::kDefaultSymmetryFolds) != folds.end(), "the default is on the menu");
-    check(s.defaultValue == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "symmetry's default is the default folds");
-    for (int n = 0; n <= static_cast<int>(s.max); ++n) {
-        check(SceneParams::kaleidoscopeFolds(false, n) == n, "switching off keeps " + std::to_string(n));
-        const int on = n < 2 ? SceneParams::kDefaultSymmetryFolds : n;
-        check(SceneParams::kaleidoscopeFolds(true, n) == on, "switching on with " + std::to_string(n));
-    }
-    // The control's answer: the menu shows with the switch, the row of the folds (-1 off the menu), what a flip leaves.
-    const std::string labels = "\n2\n3\n4\n5\n6\n7\n8\n9\n12\n16";
-    check(SceneParams::kaleidoscopeMenu(true, 6) == "1|4|6" + labels, "on at 6: shown, row 4, a flip keeps 6");
-    check(SceneParams::kaleidoscopeMenu(false, 0) == "0|-1|6" + labels, "off at 0: hidden, a flip takes the default");
-    check(SceneParams::kaleidoscopeMenu(true, 10) == "1|-1|10" + labels, "an unlisted count selects no row");
-    check(SceneParams::kaleidoscopeMenu(false, 16) == "0|9|16" + labels, "off keeps its row");
-    for (size_t i = 0; i < folds.size(); ++i) {
-        check(SceneParams::kaleidoscopePick(static_cast<int>(i)) == folds[i], "row " + std::to_string(i) + " picks its folds");
-    }
-    check(SceneParams::kaleidoscopePick(-1) == folds.front() && SceneParams::kaleidoscopePick(99) == folds.back(), "off the menu, held to it");
+    check(SceneParams::kaleidoFoldCount(1.0f) == 1 && SceneParams::kaleidoFoldCount(1.49f) == 1 && SceneParams::kaleidoFoldCount(1.5f) == 2,
+          "below 1.5 the kaleidoscope is off; a half rounds up");
+    check(SceneParams::kaleidoFoldCount(7.4f) == 7 && SceneParams::kaleidoFoldCount(7.5f) == 8 && SceneParams::kaleidoFoldCount(16.0f) == 16,
+          "the nearest whole count");
+    check(SceneParams::kaleidoFoldCount(-3.0f) == 1 && SceneParams::kaleidoFoldCount(99.0f) == 16 &&
+              SceneParams::kaleidoFoldCount(std::numeric_limits<float>::quiet_NaN()) == 1,
+          "held to 1..16, NaN off");
+    const auto off = SceneParams::kaleidoUniforms(1.2f);
+    check(off.on == 0.0f && off.folds == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "off: no fold, the default count for styles that read one");
+    const auto on = SceneParams::kaleidoUniforms(5.6f);
+    check(on.on == 1.0f && on.folds == 6.0f, "on: the whole count");
+    check(SceneParams::kaleidoUniforms(SceneParams{}.kaleidoFolds).on == 0.0f, "a fresh look has no kaleidoscope");
+    check(SceneParams::kaleidoFoldsOf(false, 8) == 1.0f && SceneParams::kaleidoFoldsOf(false, 0) == 1.0f, "an old look switched off is off");
+    check(SceneParams::kaleidoFoldsOf(true, 8) == 8.0f && SceneParams::kaleidoFoldsOf(true, 0) == 2.0f && SceneParams::kaleidoFoldsOf(true, 40) == 16.0f,
+          "an old look switched on keeps its count, held to 2..16");
 }
 
 std::vector<std::string> split(const std::string& line) {
@@ -572,6 +579,10 @@ void everyLiveRowHasOneMeta() {
     }
     check((SceneParams::meta(ParamSlot::paletteMix).flags & kMod) == 0, "no target writes the old Palette blend");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
+    const ParamMeta& kaleido = SceneParams::meta(ParamSlot::kaleidoFolds);
+    check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&
+              !SceneParams::meta(ParamSlot::symmetry).live && !SceneParams::meta(ParamSlot::kaleidoscope).live,
+          "Kaleidoscope is kaleidoFolds alone, a modulation target on every style");
 }
 
 int main(int argc, char** argv) {
@@ -589,7 +600,7 @@ int main(int argc, char** argv) {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     everyPickerLabelsItsRange();
-    theKaleidoscopeFoldsAreTheMenu();
+    theKaleidoscopeIsOneSlider();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();

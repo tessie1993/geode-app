@@ -53,7 +53,10 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::rippleOverlayStrength,
                                                ParamSlot::rippleOverlaySpecular,
                                                ParamSlot::formDrive,
-                                               ParamSlot::motionOrbit};
+                                               ParamSlot::motionOrbit,
+                                               // The Kaleidoscope switch and its count: kaleidoFolds replaced both.
+                                               ParamSlot::symmetry,
+                                               ParamSlot::kaleidoscope};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
@@ -98,23 +101,34 @@ struct SceneParams {
     static constexpr float kUnsetOverride = -1.0f;
     static constexpr int kNoPaletteLut = -1;
     static constexpr int kNoStop = -1;
+    // The fold count a style designed around a count of its own reads (uSymmetry) while the kaleidoscope is off,
+    // and the retired symmetry row's default.
     static constexpr int kDefaultSymmetryFolds = 6;
-    // The kaleidoscope's folds, fewest first: its Folds menu and what a roll deals.
+    // The kaleidoscope's folds, fewest first: what a roll deals.
     static constexpr std::array<int, 10> kSymmetryFolds = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
-    // The folds once the kaleidoscope's switch is set to `on`: switched on with fewer than the fewest, the default.
-    static constexpr int kaleidoscopeFolds(bool on, int symmetry) {
-        return on && symmetry < kSymmetryFolds.front() ? kDefaultSymmetryFolds : symmetry;
+    // kaleidoFolds as the shaders fold it: the nearest whole count, a half up, held to 1..16 (NaN is 1, off).
+    // Rounded here, not in the shaders, so every style and the composite step together: a slow wave or a glide
+    // goes from one whole count to the next and never draws a fractional wedge, whose last wedge would seam.
+    static constexpr int kaleidoFoldCount(float folds) {
+        if (!(folds >= 1.0f)) return 1;
+        return folds >= 16.0f ? 16 : static_cast<int>(folds + 0.5f);
     }
-    // The folds the Folds menu's `row` sets; a row off either end is held to the menu.
-    static constexpr int kaleidoscopePick(int row) {
-        const int last = static_cast<int>(kSymmetryFolds.size()) - 1;
-        return kSymmetryFolds[static_cast<size_t>(row < 0 ? 0 : (row > last ? last : row))];
+    // What the shaders read for kaleidoFolds (ShaderScene's uKaleido/uSymmetry, the composite's uPostKaleido/
+    // uPostSymmetry): on from 2 whole folds, at that count. Off, the count is kDefaultSymmetryFolds, which the
+    // styles that build on a count of their own (Chrysanthemum's mirrors and glass) read as it always was.
+    struct KaleidoUniforms {
+        float on;
+        float folds;
+    };
+    static constexpr KaleidoUniforms kaleidoUniforms(float folds) {
+        const int n = kaleidoFoldCount(folds);
+        return n >= 2 ? KaleidoUniforms{1.0f, static_cast<float>(n)} : KaleidoUniforms{0.0f, static_cast<float>(kDefaultSymmetryFolds)};
     }
-    // What Customize's Kaleidoscope control draws, its switch `on` at `symmetry` (geode_customize_kaleidoscope):
-    //   <shown>|<selected>|<flipped>
-    // shown 1 when the Folds menu shows, selected the menu row of `symmetry` (-1 for a count not on the menu),
-    // flipped the folds the switch leaves when it is flipped; then one label per menu row, fewest folds first.
-    static std::string kaleidoscopeMenu(bool on, int symmetry);
+    // kaleidoFolds for a look saved with the retired switch and count: off is 1; on, its count held to 2..16.
+    static constexpr float kaleidoFoldsOf(bool on, int symmetry) {
+        if (!on) return 1.0f;
+        return static_cast<float>(symmetry < 2 ? 2 : (symmetry > 16 ? 16 : symmetry));
+    }
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
 #include "viz/ParamTable.inc"

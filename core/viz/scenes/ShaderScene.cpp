@@ -200,8 +200,12 @@ void ShaderScene::uploadParams() {
     set1f("uBloom", p.bloom);
     set1f("uWarp", p.warp);
     set1f("uRipple", p.ripple);
-    set1f("uSymmetry", static_cast<float>(p.symmetry));
-    set1f("uKaleido", flag(p.kaleidoscope));
+    {
+        // The resolved (modulated) folds, rounded natively to a whole count (SceneParams::kaleidoUniforms).
+        const SceneParams::KaleidoUniforms k = SceneParams::kaleidoUniforms(p.kaleidoFolds);
+        set1f("uSymmetry", k.folds);
+        set1f("uKaleido", k.on);
+    }
     set1f("uMorph", p.morph);
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);

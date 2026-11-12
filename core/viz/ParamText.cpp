@@ -15,7 +15,7 @@ constexpr std::string_view kTimes = "\xC3\x97";        // U+00D7
 constexpr std::string_view kDegrees = "\xC2\xB0";      // U+00B0
 
 using P = ParamUnit;
-constexpr std::array<std::pair<std::string_view, ParamUnit>, 21> kUnits{{
+constexpr std::array<std::pair<std::string_view, ParamUnit>, 22> kUnits{{
     {"Speed", P::Times},
     {"Zoom", P::Times},
     {"Rotation", P::Times},
@@ -37,6 +37,7 @@ constexpr std::array<std::pair<std::string_view, ParamUnit>, 21> kUnits{{
     {"Particle life (s)", P::Seconds},
     {"Fluid curl", P::Plain},
     {"Flow curl", P::Plain},
+    {"Kaleidoscope", P::Folds},
 }};
 
 // The nearest whole number, a half rounding up (toward +infinity); NaN is 0.
@@ -102,6 +103,11 @@ ParamUnit paramUnitFor(std::string_view key, float lo, float hi) {
 }
 
 std::string paramText(float value, ParamUnit unit, float def, bool bipolar) {
+    // The folds the shaders draw (SceneParams::kaleidoFoldCount, the same half-up rounding), its default "Off" too.
+    if (unit == ParamUnit::Folds) {
+        const long long folds = nearest(value);
+        return folds < 2 ? "Off" : std::to_string(folds);
+    }
     if (!std::isnan(def) && std::fabs(value - def) < kDefaultEpsilon) return "Default";
     switch (unit) {
         case ParamUnit::Percent:
@@ -116,6 +122,7 @@ std::string paramText(float value, ParamUnit unit, float def, bool bipolar) {
         case ParamUnit::TurnDegrees:
             return minusSigned(std::to_string(nearest(value * 360.0f))) + std::string(kDegrees);
         case ParamUnit::Plain:
+        case ParamUnit::Folds:
             break;
     }
     return minusSigned(trimmed(value));

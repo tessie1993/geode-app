@@ -108,10 +108,11 @@ The renderer runs these in order each frame.
 - The Camera path chips' labels are `camPath`'s `GEODE_PARAM_CHOICES` row in `core/viz/ParamTable.inc`, by index.
 - `CameraRig.cpp` static_asserts that row's count (`choiceCount`) against `CameraRig::kPathCount`.
 - Every picker's labels (`GEODE_PARAM_CHOICES`) reach the shell as `choice|name|index|label` rows of `geode_params_schema_text` (version 4), read by `ParamSchema.choices`.
-- The kaleidoscope's Folds menu is `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`), which the randomizer deals from.
-- Switching the kaleidoscope on below 2 folds takes the default folds: `SceneParams::kaleidoscopeFolds`.
-- Customize's Kaleidoscope control asks `geode_customize_kaleidoscope` once (`SceneParams::kaleidoscopeMenu`): whether Folds shows, its row, what a flip leaves, the labels.
-- A Folds row picked goes back through `geode_params_kaleidoscope_pick` (`SceneParams::kaleidoscopePick`).
+- Kaleidoscope is one Float param, `kaleidoFolds` (1 off, 2..16 folds; appended slot 187), a modulation target (`LfoTarget::KaleidoFolds`, `KALEIDO_FOLDS`, ordinal 68, 8 folds per unit) for waves, envelopes, reaction routes and macro knobs.
+- The old `kaleidoscope` switch and `symmetry` count are retired rows (`kRetiredParams`); `readParamsJson` turns a look that names them into `kaleidoFolds` (`SceneParams::kaleidoFoldsOf`: off is 1, on its count held to 2..16).
+- The shaders fold by the nearest whole count of the modulated `kaleidoFolds`: `SceneParams::kaleidoUniforms` sets `uKaleido`/`uSymmetry` (ShaderScene) and `uPostKaleido`/`uPostSymmetry` (CompositePass), on from 2, the count 6 (`kDefaultSymmetryFolds`) while off.
+- A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
+- Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.

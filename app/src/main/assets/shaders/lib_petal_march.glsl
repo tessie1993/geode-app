@@ -9,8 +9,11 @@
 // INCLUDE ORDER: after lib_petal and after the style's petalMap.
 
 vec3 petalField(vec3 p) {
-    vec3 q = petalBend(p);
+    // A domain warp over the breeze: always a little, more with Warp (and k2 FLOW) and Turbulence (lib_layers).
+    float amt = 0.04 + 0.12 * gPetalFlow + 0.06 * gPetalChaos;
+    vec3 q = layerWarp(petalBend(p), amt);
     vec3 m = petalMap(q);
+    m.x *= layerWarpSlack(amt);
     vec3 s = sin(q * 4.5 + uTime * PETAL_RATE(1600) + vec3(0.0, 2.1, 4.2));
     m.x += gPetalChaos * 0.04 * (s.x * s.y + s.z);
     return m;
@@ -60,7 +63,10 @@ vec3 petalSheet(vec3 p, vec3 rd, vec3 m, float eps, out float ndv) {
 
 /** The light along one ray: sphere traced to each sheet in turn and on through it, with the lamp's glow between. */
 vec3 petalTrace(vec3 ro, vec3 rd) {
+    layerSetup(gPetalPal0, gPetalPal1, gPetalPal2, gPetalPal3, gPetalPal4, gPetalTone, gPetalFlow, gPetalSwell);
     float n = PETAL_STEPS;
+    // Where the ray met its first sheet: the haze lies in front of it.
+    float first = gPetalFar;
     vec3 acc = vec3(0.0);
     float through = 1.0;
     float halo = 0.0;
@@ -78,6 +84,7 @@ vec3 petalTrace(vec3 ro, vec3 rd) {
         float air = exp(-2.0 * t / gPetalFar);
         halo += through * air * 0.01 / (1.0 + 80.0 * d * d);
         if (d < eps) {
+            if (hits == 0) first = t;
             // The lamp's light up to this sheet, at the share let through so far.
             glow += through * petalGlow(ro, rd, lit, t);
             float ndv;
@@ -95,5 +102,7 @@ vec3 petalTrace(vec3 ro, vec3 rd) {
         }
     }
     glow += through * petalGlow(ro, rd, lit, max(lit, gPetalFar));
-    return acc + petalCol(gPetalTone + 0.4) * halo + petalCol(gPetalTone + 0.05) * gPetalShine * glow;
+    vec3 col = acc + petalCol(gPetalTone + 0.4) * halo + petalCol(gPetalTone + 0.05) * gPetalShine * glow;
+    // The midground haze in front of the first sheet, the far layer through whatever light the sheets let by (lib_layers).
+    return layerCompose(col, ro, rd, first, gPetalFar, through);
 }

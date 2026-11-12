@@ -60,14 +60,18 @@ object GeodeNative {
     ): Int
 
     /**
-     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the
-     * [stored] levels, a band with neither at 0, each in range. The bands written.
+     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the saved
+     * text's ([csv]: millibels, comma separated, low band first; null for none), a band with neither at 0, each
+     * in range. An entry that is not a whole number is dropped and the rest move up. The bands written.
      */
-    external fun dspRestoreBands(
+    external fun dspRestoreBandsText(
         preset: Int,
-        stored: IntArray,
+        csv: String?,
         out: IntArray,
     ): Int
+
+    /** The saved text for [levels]: millibels, comma separated. */
+    external fun dspEncodeBands(levels: IntArray): String
 
     external fun dspSetEnabled(
         handle: Long,
@@ -630,6 +634,23 @@ object GeodeNative {
         value: Float,
     ): String
 
+    /** Which of the wave [slot]'s controls do anything as it stands (geode_mod_lfo_shows): [MOD_SHOWS_WAVE] and the rest. */
+    external fun modLfoShows(
+        lfos: String,
+        slot: Int,
+    ): Int
+
+    /** Which of the envelope [slot]'s controls do anything as it stands (geode_mod_adsr_shows). */
+    external fun modAdsrShows(
+        adsrs: String,
+        slot: Int,
+    ): Int
+
+    // Mirrors of GEODE_MOD_SHOWS_*: the bits [modLfoShows] and [modAdsrShows] return.
+    const val MOD_SHOWS_WAVE: Int = 1
+    const val MOD_SHOWS_RATE: Int = 2
+    const val MOD_SHOWS_KNOB: Int = 4
+
     /** The target ordinals a [picker] (a wave slot, or [MOD_PICKER_REACTION]) lists on [styleId]. */
     external fun modTargetsOffered(
         styleId: String,
@@ -995,6 +1016,16 @@ object GeodeNative {
         palette: Int,
         override: Float,
     ): Float
+
+    /**
+     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
+     * retired slots to their defaults, every row held to its schema range but a circular one
+     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     */
+    external fun paramsSanitize(
+        input: FloatArray,
+        output: FloatArray,
+    )
 
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(

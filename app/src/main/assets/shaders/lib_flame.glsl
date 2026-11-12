@@ -175,5 +175,8 @@ vec2 flameNear(vec2 x) {
 vec4 flameFinish(vec3 col, float exposure) {
     col *= 0.3 * exposure * neonGlow() * (1.0 + 0.5 * neonKnob(0));
     col = max(mix(vec3(dot(col, vec3(0.299, 0.587, 0.114))), col, 1.25), 0.0);
-    return vec4(grade(neonAces(col)), 1.0);
+    col = grade(neonAces(col));
+    // No pixel leaves as a NaN or an infinity: the feedback pass would carry it for good.
+    if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
+    return vec4(col, 1.0);
 }

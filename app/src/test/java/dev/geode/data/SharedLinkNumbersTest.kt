@@ -1,6 +1,5 @@
 package dev.geode.data
 
-import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -11,10 +10,12 @@ import org.junit.Test
  * are not finite as a Float (NaN, the infinities, `1e39`) used to reach `JSONObject.put` and throw,
  * crashing the app on open. The test org.json is the real one, whose `put` throws the same way.
  * It reads unquoted `NaN` as a string and falls back, so NaN is covered through [PresetStore.finiteOr].
+ * The scene params' own overflow cases are native's (`core/tests/params_test.cpp`); here the frame passes through.
  */
 class SharedLinkNumbersTest {
     init {
         TestCatalogue.install()
+        PresetStore.sanitize = { it }
     }
 
     @Test
@@ -36,15 +37,12 @@ class SharedLinkNumbersTest {
 
     @Test
     fun presetWithOverflowingNumbersDecodesToDefaultsAndSavesAgain() {
-        val json = """{"name":"x","sceneId":"silk","attack":1e39,"decay":-1e999,"zoom":1e39,"speed":1e999,"warp":-1e999}"""
+        val json = """{"name":"x","sceneId":"silk","attack":1e39,"decay":-1e999}"""
         val preset = PresetStore.fromJson(json)
-        assertEquals(SceneParams.DEFAULT.zoom, preset.params.zoom)
-        assertEquals(SceneParams.DEFAULT.speed, preset.params.speed)
-        assertEquals(SceneParams.DEFAULT.warp, preset.params.warp)
         assertEquals(PresetStore.ATTACK_RANGE.start, preset.attack)
         assertEquals(PresetStore.DECAY_RANGE.start, preset.decay)
         // Writing it back out is what threw before.
-        assertEquals(preset.params.zoom, PresetStore.fromJson(PresetStore.toJson(preset)).params.zoom)
+        assertEquals(preset.attack, PresetStore.fromJson(PresetStore.toJson(preset)).attack)
     }
 
     @Test
@@ -52,15 +50,13 @@ class SharedLinkNumbersTest {
         val json =
             """
             {"format":"${TemplateFormat.FORMAT}","name":"t",
-             "look":{"attack":1e39,"decay":1e999,"params":{"zoom":1e39,"bloom":-1e999}},
+             "look":{"attack":1e39,"decay":1e999},
              "layout":{"artworkScale":1e39,"safeArea":1e999},
              "text":{"slots":[{"sizeSp":1e39,"offsetX":-1e999}]}}
             """.trimIndent()
         val parsed = TemplateFormat.decode(json)
         assertTrue(parsed.toString(), parsed is TemplateParse.Parsed)
         val template = (parsed as TemplateParse.Parsed).template
-        assertEquals(SceneParams.DEFAULT.zoom, template.look.params.zoom)
-        assertEquals(SceneParams.DEFAULT.bloom, template.look.params.bloom)
         assertEquals(TemplateLook.DEFAULT_ATTACK, template.look.attack)
         assertEquals(TemplateLayout.DEFAULT_ARTWORK_SCALE, template.layout.artworkScale)
         assertEquals(

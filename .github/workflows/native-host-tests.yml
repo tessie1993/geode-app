@@ -413,6 +413,14 @@ jobs:
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp -o mod_document_test
           ./mod_document_test
+          # Which wave and envelope controls Customize shows (core/viz/ModControls).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/mod_controls_test.cpp \
+            core/viz/ModControls.cpp core/api/geode_mod_controls_api.cpp \
+            core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp \
+            core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o mod_controls_test
+          ./mod_controls_test
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
       # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests

@@ -582,6 +582,16 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, ji
     return geode_params_palette_range(palette, override);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsSanitize(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!in || !out || env->GetArrayLength(in) < count || env->GetArrayLength(out) < count) return;
+    std::vector<float> frame(static_cast<size_t>(count));
+    env->GetFloatArrayRegion(in, 0, count, frame.data());
+    geode_params_sanitize(frame.data(), frame.data());
+    env->SetFloatArrayRegion(out, 0, count, frame.data());
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_colourFromHsv(JNIEnv*, jobject, jfloat h, jfloat s, jfloat v) {
     return geode_colour_from_hsv(h, s, v);

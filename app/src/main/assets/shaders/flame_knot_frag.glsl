@@ -34,7 +34,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float lt = length(tor);
     f = vec2(3.2 * lt, (3.0 * atan(tor.y, tor.x) - 2.0 * atan(q.y, q.x)) / FLAME_TAU);
     hue = vec2(0.5 * lt + 0.1 * q.x, 0.5 + 0.3 * lt);
-    float reach = smoothstep(0.75, 0.4, lt) * smoothstep(3.6, 2.6, length(p));
+    float reach = (1.0 - smoothstep(0.4, 0.75, lt)) * (1.0 - smoothstep(2.6, 3.6, length(p)));
     wt = reach * vec2(0.9, 0.6);
 }
 

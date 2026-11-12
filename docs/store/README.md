@@ -108,7 +108,7 @@ read 2026-11-11:
 - `CONTACT_EMAIL` in `docs/privacy-policy.md`, `app/src/main/assets/privacy_policy.md` (the two
   must stay identical, `PrivacyPolicyTest`) and `docs/privacy-policy.html`: the address shown on
   the store page. Replace it in one commit before the policy URL goes into the Console.
-- `CONTACT_EMAIL` in `docs/site/index.html` too: the site's Contact link, the same address.
+- `CONTACT_EMAIL` in `docs/site/index.html` and `docs/site/features.html` too: the site's Contact links, the same address.
 - The store listing's contact email and website (Store settings).
 - The price of Pro.
 

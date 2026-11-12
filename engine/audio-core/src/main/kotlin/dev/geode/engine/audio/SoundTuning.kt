@@ -4,7 +4,7 @@ import dev.geode.engine.bridge.GeodeNative
 
 /**
  * The user's tuning of the sound engine (Settings › Audio): `GeodeSoundTuning` (`core/sound/SoundFrame.h`) as
- * [SoundFrameLayout.TUNING_FLOATS] floats, one per slot constant below; three-slot groups are low, middle,
+ * [FLOATS] floats, one per slot constant below; three-slot groups are low, middle,
  * high (or kick, snare, hat). Only a holder: defaults, ranges and the clamp are native (`core/sound/Tuning`).
  * With no saved floats it is "the engine's defaults" and stays unresolved until read, so storage and
  * equality never load the native library and JVM tests of the prefs can build one.
@@ -16,7 +16,7 @@ class SoundTuning private constructor(
 
     /** The saved floats clamped by native, or its defaults; resolved on first read, on a thread that has the library. */
     private val values: FloatArray by lazy {
-        saved?.copyOf()?.also(GeodeNative::soundTuningClamp) ?: Schema.floats.copyOf(SoundFrameLayout.TUNING_FLOATS)
+        saved?.copyOf()?.also(GeodeNative::soundTuningClamp) ?: Schema.floats.copyOf(FLOATS)
     }
 
     operator fun get(slot: Int): Float = values[slot]
@@ -44,6 +44,9 @@ class SoundTuning private constructor(
     }
 
     companion object {
+        /** `GEODE_SOUND_TUNING_FLOATS`: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 9 scalars. */
+        const val FLOATS = 30
+
         const val GAIN = 0
         const val THRESHOLD = 3
         const val OFFSET = 6
@@ -63,13 +66,13 @@ class SoundTuning private constructor(
 
         /** The slider range of [slot], native's. */
         fun range(slot: Int): ClosedFloatingPointRange<Float> {
-            val n = SoundFrameLayout.TUNING_FLOATS
+            val n = FLOATS
             return Schema.floats[n + slot]..Schema.floats[2 * n + slot]
         }
 
         /** Saved floats, clamped on first read; one slot short (before the input trim) gets 0 dB, any other length the defaults. */
         fun fromFloats(f: FloatArray): SoundTuning {
-            val n = SoundFrameLayout.TUNING_FLOATS
+            val n = FLOATS
             return if (f.size == n || f.size == n - 1) SoundTuning(f.copyOf(n)) else SoundTuning()
         }
     }

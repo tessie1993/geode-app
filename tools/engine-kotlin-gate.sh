@@ -48,7 +48,6 @@ allowed=(
     "engine/audio-android/src/main/kotlin/dev/geode/engine/audioandroid/PcmTap.kt"
     "$C/audio/SampleRing.kt"
     "$C/audio/SoundCursor.kt"
-    "$C/audio/SoundFrameLayout.kt"
     "$C/audio/SoundTuning.kt"
     "$C/bridge/GeodeNative.kt"
     "$S/analysis/PlaybackMath.kt"

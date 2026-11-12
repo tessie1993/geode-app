@@ -6,16 +6,21 @@
 #include <cstdint>
 #include <memory>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <numbers>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/Tuning.hpp"
+#include "tests/SoundFields.hpp"
 
 using geode::sound::SoundEngine;
 
@@ -644,6 +649,49 @@ void testEngineClampsTuning() {
           "out-of-range slots clamp in the engine");
 }
 
+// SND_BASS for bass, SND_MID_HIGH_ATT for midHighAtt, SND_KICK2 for kick2.
+std::string shaderName(const char* field) {
+    std::string out = "SND_";
+    for (const char* c = field; *c; ++c) {
+        const bool upper = *c >= 'A' && *c <= 'Z';
+        if (upper && c != field && !(c[-1] >= 'A' && c[-1] <= 'Z')) out += '_';
+        out += upper ? *c : static_cast<char>(*c >= 'a' && *c <= 'z' ? *c - 'a' + 'A' : *c);
+    }
+    return out;
+}
+
+// The cases of the old SoundFrameLayoutTest: the scalars sit in declaration order at the front of the
+// frame, and lib_sound.glsl names each one in its slot, four to a vec4.
+void testShaderLibraryNamesEveryScalarInItsSlot() {
+    using namespace geode::sound::test;
+    GeodeSoundFrame f{};
+    for (int k = 0; k < kFieldCount; k++) {
+        const auto at = &(f.*kFields[k].member) - reinterpret_cast<float*>(&f);
+        CHECK(at == k, "%s is float %d, listed as %d", kFields[k].name, static_cast<int>(at), k);
+    }
+    std::ifstream in("app/src/main/assets/shaders/lib_sound.glsl");
+    CHECK(in.good(), "lib_sound.glsl not found: run from the repository root");
+    const std::string uniform = "uniform vec4 uSound[";
+    std::string line;
+    int slot = 0;
+    int vec4s = -1;
+    while (std::getline(in, line)) {
+        if (line.rfind(uniform, 0) == 0) vec4s = std::atoi(line.c_str() + uniform.size());
+        if (line.rfind("#define SND_", 0) != 0) continue;
+        std::istringstream words(line);
+        std::string define, name, value;
+        words >> define >> name >> value;
+        if (value.rfind("uSound[", 0) != 0) continue;
+        const std::string want = slot < kFieldCount ? shaderName(kFields[slot].name) : "nothing";
+        const std::string at = "uSound[" + std::to_string(slot / 4) + "]." + "xyzw"[slot % 4];
+        CHECK(name == want && value == at, "slot %d: %s %s, want %s %s", slot, name.c_str(), value.c_str(), want.c_str(),
+              at.c_str());
+        slot++;
+    }
+    CHECK(slot == kFieldCount, "%d of %d scalars named", slot, kFieldCount);
+    CHECK(vec4s == (GEODE_SOUND_SCALARS + 3) / 4, "uSound[%d]", vec4s);
+}
+
 }  // namespace
 
 int main() {
@@ -668,6 +716,7 @@ int main() {
     testBoundaryEvent();
     testTuningSchema();
     testEngineClampsTuning();
+    testShaderLibraryNamesEveryScalarInItsSlot();
     if (failures == 0) std::printf("sound_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

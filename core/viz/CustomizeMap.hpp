@@ -38,7 +38,6 @@ enum class Show {
     Always,
     ThreeD,      // the styles on the camera rig (catalogue::fliesCamera)
     Particles,   // styles with a particle layer (Scope::ParticleSprite)
-    Water,       // the Water style (Kind::Water)
     Engine,      // a style with an engine of its own to tune: Fluid, Cymatics, MilkDrop
     ShaderCode,  // a style with shader code the user can edit in Customize: Fluid's force and dye
 };

@@ -132,7 +132,8 @@ void anOldLookWithRetiredNamesStillLoads() {
     const std::pair<const char*, float> kOldLook[] = {
         {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
         {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
-        {"motionDrift", 0.8f}, {"beatResponse", 1.9f},
+        {"motionDrift", 0.8f},  {"waterDamping", 0.95f}, {"rippleOverlayEnabled", 1.0f},
+        {"beatResponse", 1.9f},
     };
     const SceneParams fresh;
     SceneParams p;
@@ -251,7 +252,6 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::FluidForce, "fluidSplatForce", 0.0f, 3.0f}, {LfoTarget::FluidGlow, "fluidBloomIntensity", 0.1f, 2.0f},
     {LfoTarget::FluidFade, "fluidDensityDissipation", 0.0f, 4.0f}, {LfoTarget::FluidCatchPull, "fluidCatchPull", 0.0f, 3.0f},
     {LfoTarget::FluidCatchRadius, "fluidCatchRadius", 0.03f, 0.3f}, {LfoTarget::FlowStrength, "flowStrength", 0.0f, 1.0f},
-    {LfoTarget::WaterRipple, "waterRippleStrength", 0.0f, 2.0f}, {LfoTarget::RippleOverlay, "rippleOverlayStrength", 0.0f, 1.0f},
     {LfoTarget::CamFly, "camFly", -2.5f, 2.5f},          {LfoTarget::CamOrbit, "camOrbit", 0.0f, 1.0f},
     {LfoTarget::CamPush, "camPush", -1.0f, 1.0f},       {LfoTarget::CamYaw, "camYaw", -1.0f, 1.0f},
     {LfoTarget::CamPitch, "camPitch", -1.0f, 1.0f},     {LfoTarget::CamRoll, "camRoll", -1.0f, 1.0f},
@@ -287,7 +287,8 @@ void theLfoClampsAreTheTablesRanges() {
     std::vector<float> before(kWireFloats);
     std::vector<float> after(kWireFloats);
     base.toWire(before.data());
-    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
+    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38, LfoTarget::Lfo1Rate,
+                        LfoTarget::Lfo3Depth}) {
         applyLfoTarget(base, t, 1.0f).toWire(after.data());
         check(after == before, "a target with no scene field changes nothing");
     }
@@ -357,7 +358,7 @@ void theTextIsTheTable() {
     check(palette == SceneParams::palettes().size(), "one name per built-in palette");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
-    check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
+    check(SceneParams::schemaText().find("|fluidCatchRadius|FLOAT|0.12|0.03|0.3|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
 }
 
 std::string readFile(const char* path) {

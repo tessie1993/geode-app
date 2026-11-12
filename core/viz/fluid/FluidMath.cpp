@@ -148,20 +148,6 @@ GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive
     return out;
 }
 
-namespace water {
-
-bool isCatchWell(float r, float g, float b) { return std::max({r, g, b}) <= 0.0f; }
-
-float catchWellRadius(float catchRadius) { return std::clamp(catchRadius, kMinCatchRadius, kMaxCatchRadius); }
-
-float catchWellAmplitude(float speed, float catchRadius, float rippleStrength) {
-    const float r = catchWellRadius(catchRadius);
-    const float spread = std::clamp(kRefCatchRadius / r, 0.4f, 2.5f);
-    return -(0.06f + 0.5f * std::clamp(speed, 0.0f, 2.0f)) * spread * std::clamp(rippleStrength, 0.0f, 2.0f);
-}
-
-}  // namespace water
-
 namespace curl {
 
 float fieldAmp(float audioDrive) { return kBaseAmp * std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive); }

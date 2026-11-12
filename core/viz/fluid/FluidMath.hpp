@@ -181,18 +181,6 @@ void tracerStepRk2(float& px, float& py, float& vx, float& vy, float drag, float
 // The frame with its levels and bands scaled by the audio-drive control.
 GeodeSoundFrame scaledFeatures(const GeodeSoundFrame& features, float audioDrive);
 
-// Water: which dye texels are a catch well, and the well's radius and depth.
-namespace water {
-constexpr float kMinCatchRadius = 0.03f;
-constexpr float kMaxCatchRadius = 0.3f;
-constexpr float kRefCatchRadius = 0.12f;
-constexpr float kDisplayBrightness = 1.0f;
-
-bool isCatchWell(float r, float g, float b);
-float catchWellRadius(float catchRadius);
-float catchWellAmplitude(float speed, float catchRadius, float rippleStrength);
-}  // namespace water
-
 // Curl flow: field amplitude, trail retention and particle brightness. No hit reaches either: the swell
 // and flare on every hit (the hit times the retired beat-response slot) were hidden reactions, gone.
 namespace curl {

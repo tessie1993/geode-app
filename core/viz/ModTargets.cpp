@@ -53,8 +53,8 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "FLUID_CATCH_PULL",
     "FLUID_CATCH_RADIUS",
     "FLOW_STRENGTH",
-    "WATER_RIPPLE",
-    "RIPPLE_OVERLAY",
+    "RETIRED_37",  // was WATER_RIPPLE (Water is gone; Pool replaced it)
+    "RETIRED_38",  // was RIPPLE_OVERLAY
     "LFO1_RATE",
     "LFO1_DEPTH",
     "LFO2_RATE",
@@ -138,7 +138,7 @@ Scope scopeOf(LfoTarget target) {
 }
 
 // None and the chained targets always; a scene target while its field's meta row says kMod. A retired
-// field has no meta row, so its target (RETIRED_5, RETIRED_25) is never offered.
+// field has no meta row, so its target (RETIRED_5, RETIRED_25, RETIRED_37, RETIRED_38) is never offered.
 bool offered(LfoTarget target) {
     if (!known(target)) return false;
     if (target == LfoTarget::None) return true;

@@ -32,7 +32,7 @@ class ParamSchemaTest {
     fun rowsCarryKindDefaultRangeAndFade() {
         assertEquals(ParamSpec(0, "speed", ParamSpec.Kind.FLOAT, 1f, 0.05f..4f, fades = true), ParamSchema["speed"])
         assertEquals(ParamSpec(108, "flowCurl", ParamSpec.Kind.FLOAT, 25f, 0f..50f, fades = true), ParamSchema["flowCurl"])
-        assertEquals(ParamSpec(110, "waterDamping", ParamSpec.Kind.FLOAT, 0.985f, 0.9f..0.999f, fades = true), ParamSchema["waterDamping"])
+        assertEquals(ParamSpec(119, "cymaticsFundamental", ParamSpec.Kind.FLOAT, 110f, 40f..440f, true), ParamSchema["cymaticsFundamental"])
         assertEquals(ParamSpec(153, "reactSeed", ParamSpec.Kind.INT, 0f, 0f..16777215f, fades = false), ParamSchema["reactSeed"])
         assertEquals(ParamSpec.Kind.CIRCULAR, ParamSchema["colorShift"]?.kind)
         assertEquals(ParamSpec.Kind.BOOL, ParamSchema["fluidAutoQuality"]?.kind)
@@ -45,7 +45,31 @@ class ParamSchemaTest {
     @Test
     fun retiredRowsKeepTheirSlotAndHaveNoField() {
         val retired = ParamSchema.params.filter { it.retired }.map { it.name }
-        assertEquals(listOf("pulse", "shake", "beatResponse", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired)
+        assertEquals(
+            listOf(
+                "pulse",
+                "shake",
+                "beatResponse",
+                "flash",
+                "glitch",
+                "strobe",
+                "waterWaveSpeed",
+                "waterDamping",
+                "waterRippleStrength",
+                "waterDepth",
+                "waterSpecular",
+                "waterFlow",
+                "waterLiquid",
+                "waterLiquidFlow",
+                "waterLiquidFade",
+                "rippleOverlayEnabled",
+                "rippleOverlayStrength",
+                "rippleOverlaySpecular",
+                "formDrive",
+                "motionOrbit",
+            ),
+            retired,
+        )
         val declared = SceneParams::class.java.declaredFields
         val fields = declared.map { it.name }.toSet()
         ParamSchema.params.forEach { assertEquals(it.name, !it.retired, it.name in fields) }

@@ -478,7 +478,7 @@ void toggleFlipsBetweenZeroAndAmount() {
 // in three are shader styles.
 constexpr const char* kStyleIds[] = {
     "kaleido", "plasma", "julia", "tunnel", "aurora", "voronoi", "arbor_grove", "arbor_bolt", "bulb_julia", "bulb_ink",
-    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "water", "silk", "bars", "spiral", "kifs",
+    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "silk", "bars", "spiral", "kifs",
     "chrome_nebula", "crystal_canyon", "gyroid_cavern", "jelly_abyss", "fractal_dive", "aurora_ocean", "bead_vortex",
     "curl_bloom", "acid_show", "blacklight_bloom",
 };

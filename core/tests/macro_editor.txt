@@ -65,8 +65,6 @@ target|FLUID_FADE|0
 target|FLUID_CATCH_PULL|0
 target|FLUID_CATCH_RADIUS|0
 target|FLOW_STRENGTH|1
-target|WATER_RIPPLE|0
-target|RIPPLE_OVERLAY|1
 target|CAM_FLY|1
 target|CAM_ORBIT|1
 target|CAM_PUSH|1

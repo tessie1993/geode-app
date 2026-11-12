@@ -297,6 +297,9 @@ GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
 /* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
 GEODE_API float      geode_playback_snap(float value, float step);
+/* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
+ * in a row, checked first). */
+GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
 
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;

@@ -168,6 +168,12 @@ object GeodeNative {
         step: Float,
     ): Float
 
+    /** What a track that will not play leads to (audio/dsp/PlaybackControls): 0 skip, 1 stop at the end, 2 stop after 3 failures. */
+    external fun playbackErrorAction(
+        consecutiveFailures: Int,
+        hasNext: Boolean,
+    ): Int
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.

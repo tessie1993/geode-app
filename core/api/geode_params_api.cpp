@@ -69,6 +69,8 @@ void geode_params_reset_tab(const char* tab, const float* in, float* out) {
     (which ? randomizer::resetTab(current, *which) : current).toWire(out);
 }
 
+void geode_params_sanitize(const float* in, float* out) { SceneParams::sanitized(in).toWire(out); }
+
 const char* geode_params_schema_text(void) { return SceneParams::schemaText().c_str(); }
 
 float geode_params_palette_base(int palette, float base_override) {

@@ -143,6 +143,16 @@ SceneParams SceneParams::fromWire(const float* values) {
     return p;
 }
 
+SceneParams SceneParams::sanitized(const float* values) {
+    SceneParams p = fromWire(values);
+    const auto& rows = schema();
+    for (int i = 0; i < kFieldCount; ++i) {
+        const ParamSpec& row = rows[static_cast<size_t>(i)];
+        if (row.kind == ParamKind::Float) p.setSlot(i, std::clamp(p.getSlot(i), row.min, row.max));
+    }
+    return p;
+}
+
 void SceneParams::toWire(float* out) const {
     for (int i = 0; i < kFieldCount; ++i) out[i] = getSlot(i);
 }

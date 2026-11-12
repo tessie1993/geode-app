@@ -130,6 +130,10 @@ The categories the scene params are edited in, one tab each (Quick knobs, Look, 
 **Advanced section**:
 One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field, Shader code), opening its own page. All Pro.
 
+**Kaleidoscope**:
+The Customize › Shape slider that folds the picture into mirrored wedges: 1 is Off, 2 to 16 the folds (`kaleidoFolds`). Waves, envelopes, reaction routes and knobs move it; the picture steps by whole folds.
+_Avoid_: Symmetry, Folds menu (the retired switch and count)
+
 **Pool**:
 The style of a swimming pool's tiled floor seen through moving water, at a slant or from above: waves that stand taller with the level, ripple rings the bass raises, caustics the treble's chop gathers on the floor, a wake where a finger lands. Morph turns the view, Warp deepens the water, Turbulence raises the chop, Intensity brightens the caustics. It replaced the Water style, whose saved looks open on it. Still in silence.
 _Avoid_: Water (the removed style), Ripples (a different style)

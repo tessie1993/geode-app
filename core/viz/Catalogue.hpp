@@ -50,8 +50,9 @@ enum class Scope {
     Journey,        // spawn/catch choreography: Fluid, Curl Flow
     Cymatics,
     FlowFieldSim,   // Fluid drives its field from its own solver instead
+    Spin,           // per STYLE, like MarchDetail: only the styles spinRate turns
 };
-constexpr int kScopeCount = 22;
+constexpr int kScopeCount = 23;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside the
@@ -109,7 +110,8 @@ bool isMarched(const std::string& id);
 // Camera framing and feel controls move it. style_reads_test pins both facts to the shaders.
 bool fliesCamera(const std::string& id);
 // How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
-// style that holds still (bars, grids, landscapes and trees read as broken when they roll).
+// style that holds still (bars, grids, landscapes and trees read as broken when they roll). The
+// user's Spin control (Scope::Spin) scales it, and shows only where it is not 0.
 float spinRate(const std::string& id);
 std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
@@ -169,9 +171,9 @@ std::optional<Scope> scopeNamed(const std::string& name);
 // The whole catalogue as the shell reads it. Built once; the reference lives for the process.
 // Rows, '|'-separated, one per line, in this order:
 //   catalogue|<kTextVersion>
-//   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail never: it is per style)
+//   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail and Spin never: per style)
 //   retired|<id>|<id>                         resolveId(): a retired id, then the style that replaced it
-//   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]   allIds() order; the extra field lists per-style scopes
+//   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL][|SPIN]   allIds() order; the extra fields are its per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
 //   picker|<name>|<id>,<id>,...           pickerFamilies() order
 //   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value

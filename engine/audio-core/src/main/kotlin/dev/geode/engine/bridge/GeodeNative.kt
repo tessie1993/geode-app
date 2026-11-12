@@ -882,9 +882,6 @@ object GeodeNative {
         capFps: Float,
     ): Int
 
-    /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
-    const val FRAME_CLEAR_ONLY: Int = 0x1
-
     /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [stageLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
@@ -2865,11 +2862,6 @@ object GeodeNative {
 
     // Show on a computer over WebRTC (core/cast/WebRtcLink, rules in core/viz/frame/WebRtcRule): the browser's
     // low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream; 0 = none.
-
-    /** Largest offer a browser may send (GEODE_WEBRTC_OFFER_MAX). */
-    const val WEBRTC_OFFER_MAX = 16 * 1024
-    const val WEBRTC_REFUSED_FULL = -4
-    const val WEBRTC_REFUSED_NOT_READY = -5
 
     /** Opens the link bound to the server's address: [boundDotted], and [bound] (IPv4, host order) with its [prefix] length. */
     external fun webrtcOpen(

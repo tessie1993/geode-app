@@ -51,7 +51,6 @@ allowed=(
     "$S/render/PerformanceSettings.kt"
     "$S/render/bridge/NativeViz.kt"
     "$S/render/bridge/SceneParamsCodec.kt"
-    "$S/render/bridge/StyleSchedule.kt"
     "$S/render/look/LookSnapshot.kt"
     "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"

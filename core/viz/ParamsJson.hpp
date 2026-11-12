@@ -24,4 +24,11 @@ std::string writeParamsJson(const SceneParams& params, std::string_view customPa
 // a JSON object.
 bool readParamsJson(std::string_view text, SceneParams& out, std::string& customPaletteId, std::string& customPalette2Id);
 
+// The same, from the text org.json itself parsed, so nothing is printed again first (a double that org.json
+// printed whole would read as a long): the object at `path` (keys of nested objects, newline-separated; "" for
+// the top) of `document` when that is standard JSON (json::parseStandard), which org.json reads alike. Anything
+// else org.json took (comments, single quotes, octal) reads `fallback`, the object as org.json printed it.
+bool readParamsJson(std::string_view document, std::string_view path, std::string_view fallback, SceneParams& out,
+                    std::string& customPaletteId, std::string& customPalette2Id);
+
 }  // namespace geode::viz

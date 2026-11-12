@@ -16,7 +16,7 @@ class PresetGoldenTest {
     init {
         TestCatalogue.install()
         PresetStore.writeParams = { """{"speed":2.5,"customPaletteId":"p"}""" }
-        PresetStore.readParams = { SceneParams.DEFAULT }
+        PresetStore.readParams = { _, _, _ -> SceneParams.DEFAULT }
     }
 
     private fun fixture(name: String): String = checkNotNull(javaClass.getResource("/presets/$name")) { "missing fixture $name" }.readText()
@@ -34,15 +34,20 @@ class PresetGoldenTest {
     }
 
     @Test
-    fun theParamsObjectIsReadFromThePresetItself() {
-        var seen = ""
-        PresetStore.readParams = { text ->
-            seen = text
+    fun theParamsObjectIsReadFromTheStoredTextItself() {
+        var seen: String? = null
+        var printed: String? = null
+        PresetStore.readParams = { document, path, fallback ->
+            seen = document
+            printed = fallback
+            assertEquals("", path)
             SceneParams.DEFAULT
         }
-        PresetStore.fromJson(fixture("legacy.json"))
-        assertEquals(1.5, JSONObject(seen).getDouble("speed"), 0.0)
-        assertEquals("old-palette", JSONObject(seen).getString("customPaletteId"))
+        val stored = fixture("legacy.json")
+        PresetStore.fromJson(stored)
+        // Not printed again first: org.json would print a whole double as a long.
+        assertEquals(stored, seen)
+        assertEquals(1.5, JSONObject(printed).getDouble("speed"), 0.0)
     }
 
     @Test

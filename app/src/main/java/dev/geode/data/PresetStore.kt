@@ -199,7 +199,12 @@ class PresetStore(
 
         internal fun paramsToJson(params: SceneParams): JSONObject = JSONObject(writeParams(params))
 
-        internal fun paramsFromJson(o: JSONObject): SceneParams = readParams(o.toString())
+        /** [o]'s params, read from [document], the text [o] was parsed from, at [path] where it can be ([readParams]). */
+        internal fun paramsFromJson(
+            o: JSONObject,
+            document: String? = null,
+            path: String = "",
+        ): SceneParams = readParams(document, path, o.toString())
 
         /**
          * The envelope ranges the Customize sliders offer (attack 5 ms to 1 s, decay 10 ms to 1.5 s).
@@ -236,8 +241,10 @@ class PresetStore(
         /**
          * The params object, native's both ways (core/viz/ParamsJson, `geode_params_write_json` and `_read_json`) in
          * the text org.json always wrote: each live schema row under its name as its JSON type, then the two palette
-         * slot ids; read as org.json's opt* read, retired and unknown keys dropped, then sanitized. The ids are kept
-         * as written, not dropped by [SceneParamsCodec.unpack]. Seams for JVM tests, which have no libgeode.
+         * slot ids; read as org.json's opt* read, retired and unknown keys dropped, then sanitized. Read from the
+         * stored text where native can, since org.json prints a whole double as a long; else from the object as
+         * org.json prints it. The ids are kept as written, not dropped by [SceneParamsCodec.unpack]. Seams for JVM
+         * tests, which have no libgeode.
          */
         @VisibleForTesting
         internal var writeParams: (SceneParams) -> String = { p ->
@@ -245,10 +252,10 @@ class PresetStore(
         }
 
         @VisibleForTesting
-        internal var readParams: (String) -> SceneParams = { text ->
+        internal var readParams: (String?, String, String?) -> SceneParams = { document, path, fallback ->
             val frame = FloatArray(SceneParamsCodec.FIELDS)
             val ids = arrayOfNulls<String>(2)
-            check(GeodeNative.paramsReadJson(text, frame, ids)) { "not a params object" }
+            check(GeodeNative.paramsReadJson(document, path, fallback, frame, ids)) { "not a params object" }
             val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
             read.copy(
                 customPaletteId = ids[0] ?: SceneParams.NO_CUSTOM_PALETTE,
@@ -265,7 +272,7 @@ class PresetStore(
                 decay = finiteIn(o.getDouble("decay"), DECAY_RANGE),
                 customShader = if (o.has("customShader")) o.getString("customShader") else null,
                 milkPreset = if (o.has("milkPreset")) o.getString("milkPreset") else null,
-                params = paramsFromJson(o),
+                params = paramsFromJson(o, json),
             )
         }
     }

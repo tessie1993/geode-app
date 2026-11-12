@@ -102,6 +102,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place with PresetGoldenTest's checks.
+- `params_json_test.cpp` also pins the stored text read as org.json parsed it (a long literal's low 32 bits, a double saturating, the fallback for text that is not standard JSON) and object or array ids as org.json prints them.
 - `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.
 - `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, has no Kotlin field and is not saved, so an old look naming one still loads.
 - `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.

@@ -1,5 +1,6 @@
 #include "viz/ParamsJson.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -61,14 +62,15 @@ std::string writeParamsJson(const SceneParams& params, std::string_view customPa
     return writeParamsJson(wire, customPaletteId, customPalette2Id);
 }
 
-bool readParamsJson(std::string_view text, SceneParams& out, std::string& customPaletteId, std::string& customPalette2Id) {
-    const std::optional<json::Value> doc = json::parse(std::string(text));
-    if (!doc || doc->kind() != json::Value::Kind::Object) return false;
+namespace {
+
+bool readObject(const json::Value& doc, SceneParams& out, std::string& customPaletteId, std::string& customPalette2Id) {
+    if (doc.kind() != json::Value::Kind::Object) return false;
     float wire[SceneParams::kFieldCount] = {};
     const auto& rows = SceneParams::schema();
     for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
         const ParamSpec& row = rows[static_cast<size_t>(slot)];
-        const json::Value* v = doc->get(row.name);
+        const json::Value* v = doc.get(row.name);
         float& w = wire[slot];
         switch (row.kind) {
             case ParamKind::Bool: {
@@ -91,12 +93,33 @@ bool readParamsJson(std::string_view text, SceneParams& out, std::string& custom
     }
     out = SceneParams::sanitized(wire);
     const auto idOf = [&doc](const char* key) {
-        const json::Value* v = doc->get(key);
+        const json::Value* v = doc.get(key);
         return (v ? json::asString(*v) : std::nullopt).value_or(std::string());
     };
     customPaletteId = idOf(kCustomPaletteIdKey);
     customPalette2Id = idOf(kCustomPalette2IdKey);
     return true;
+}
+
+}  // namespace
+
+bool readParamsJson(std::string_view text, SceneParams& out, std::string& customPaletteId, std::string& customPalette2Id) {
+    const std::optional<json::Value> doc = json::parse(std::string(text));
+    return doc && readObject(*doc, out, customPaletteId, customPalette2Id);
+}
+
+bool readParamsJson(std::string_view document, std::string_view path, std::string_view fallback, SceneParams& out,
+                    std::string& customPaletteId, std::string& customPalette2Id) {
+    if (const std::optional<json::Value> doc = json::parseStandard(std::string(document))) {
+        const json::Value* at = &*doc;
+        for (size_t from = 0; at && !path.empty() && from <= path.size();) {
+            const size_t end = std::min(path.find('\n', from), path.size());
+            at = at->get(std::string(path.substr(from, end - from)));
+            from = end + 1;
+        }
+        if (at && readObject(*at, out, customPaletteId, customPalette2Id)) return true;
+    }
+    return readParamsJson(fallback, out, customPaletteId, customPalette2Id);
 }
 
 }  // namespace geode::viz

@@ -166,7 +166,7 @@ void valuesCoerceAsOrgJsonOptCoerces() {
     check(json::asString(val("\"a\"")) == "a" && json::asString(val("5")) == "5", "string: a string and an int");
     check(json::asString(val("2.5")) == "2.5" && json::asString(val("1e10")) == "1.0E10", "string: a double");
     check(json::asString(val("true")) == "true" && json::asString(val("null")) == "null", "string: a bool and null");
-    check(!json::asString(val("{}")) && !json::asString(val("[]")), "string: not an object or array");
+    check(json::asString(val("{}")) == "{}" && json::asString(val("[ ]")) == "[]", "string: an object or array as printed");
 }
 
 void defaultsAndARandomLookRoundTrip() {
@@ -246,7 +246,7 @@ void keysTypesRetiredUnknownAndSanitize() {
     viz::readParamsJson(R"({"customPaletteId":5,"customPalette2Id":null})", ids, a, b);
     check(a == "5" && b == "null", "ids read through optString");
     viz::readParamsJson(R"({"customPaletteId":{}})", ids, a, b);
-    check(a.empty() && b.empty(), "an object id and a missing one read as none");
+    check(a == "{}" && b.empty(), "an object id as printed, a missing one as none");
 
     SceneParams untouched;
     untouched.speed = 2.0f;
@@ -260,16 +260,75 @@ void theCApiMatches() {
     const char* text = geode_params_write_json(frame.data(), SceneParams::kFieldCount, "p", nullptr);
     check(text && viz::writeParamsJson(kDefaults, "p", "") == text, "write_json: the same text, NULL id as none");
     check(!geode_params_write_json(frame.data(), SceneParams::kFieldCount - 1, "", ""), "write_json: a short frame");
+    const int n = SceneParams::kFieldCount;
     std::vector<float> out(SceneParams::kFieldCount, 7.0f);
     const char* a = nullptr;
     const char* b = nullptr;
-    check(geode_params_read_json(R"({"speed":2,"customPalette2Id":"q"})", out.data(), SceneParams::kFieldCount, &a, &b) == 1,
+    check(geode_params_read_json(R"({"speed":2,"customPalette2Id":"q"})", nullptr, nullptr, out.data(), n, &a, &b) == 1,
           "read_json: reads");
     check(out[static_cast<size_t>(ParamSlot::speed)] == 2.0f && a && *a == '\0' && b && std::string(b) == "q", "read_json: frame and ids");
-    check(geode_params_read_json("{}", out.data(), SceneParams::kFieldCount, nullptr, nullptr) == 1, "read_json: ids may be NULL");
+    check(geode_params_read_json("{}", "", "", out.data(), n, nullptr, nullptr) == 1, "read_json: ids may be NULL");
+    check(geode_params_read_json(R"({"look":{"params":{"speed":3}}})", "look\nparams", nullptr, out.data(), n, &a, &b) == 1 &&
+              out[static_cast<size_t>(ParamSlot::speed)] == 3.0f,
+          "read_json: the object at a path");
+    check(geode_params_read_json("not json", nullptr, R"({"speed":1.5})", out.data(), n, &a, &b) == 1 &&
+              out[static_cast<size_t>(ParamSlot::speed)] == 1.5f,
+          "read_json: the fallback when the document is not standard JSON");
     std::vector<float> kept(SceneParams::kFieldCount, 7.0f);
-    check(geode_params_read_json("[1]", kept.data(), SceneParams::kFieldCount, &a, &b) == 0 && kept[0] == 7.0f,
-          "read_json: not an object writes nothing");
+    check(geode_params_read_json("[1]", nullptr, "1", kept.data(), n, &a, &b) == 0 && kept[0] == 7.0f,
+          "read_json: no object writes nothing");
+}
+
+// org.json's own text first: what it parsed a number as (an int or long literal against a double) decides optInt,
+// and a double it printed whole would read back as a long, so the stored text is read when it is standard JSON.
+void theStoredTextIsReadAsOrgJsonParsedIt() {
+    // Integer up to INT_MAX; a long literal past it keeps its low 32 bits (Long.intValue); a double saturates.
+    const std::pair<const char*, int> ints[] = {
+        {"2147483647", INT_MAX},          {"2147483648", INT_MIN},  {"3000000000", -1294967296},
+        {"-2147483648", INT_MIN},         {"-2147483649", INT_MAX}, {"-3000000000", 1294967296},
+        {"3e9", INT_MAX},                 {"3000000000.0", INT_MAX}, {"-3e9", INT_MIN},
+        {"2147483648.0", INT_MAX},        {"9223372036854775808", INT_MAX},
+    };
+    for (const auto& [text, want] : ints) {
+        const auto doc = json::parseStandard(std::string(R"({"v":)") + text + "}");
+        check(doc && json::asInt(*doc->get("v")) == want, std::string("optInt of ") + text);
+    }
+    // The same through the reader: reactSeed's range is 0..16777215, so a wrap and a saturation land apart.
+    const auto seed = [](const char* text) {
+        SceneParams p;
+        std::string a, b;
+        const std::string doc = std::string(R"({"reactSeed":)") + text + "}";
+        check(viz::readParamsJson(doc, "", "", p, a, b), std::string("reads reactSeed ") + text);
+        return p.reactSeed;
+    };
+    check(seed("3000000000") == 0 && seed("-3000000000") == 16777215, "a long reactSeed wraps, then is held to its range");
+    check(seed("3e9") == 16777215 && seed("-3e9") == 0, "a double reactSeed saturates, then is held to its range");
+    check(seed("2147483647") == 16777215 && seed("2147483648") == 0, "INT_MAX and one past it");
+
+    // A document that is not standard JSON reads the fallback, org.json's own print of the object.
+    SceneParams p;
+    std::string a, b;
+    for (const char* odd : {R"({"speed":2} trailing)", "{'speed':2}", R"({"speed":+2})", R"({"speed":02})", R"({"speed":.5})",
+                            R"({"speed":0x2})", R"({"speed":nan})", R"({"speed":TRUE})"}) {
+        check(viz::readParamsJson(odd, "", R"({"speed":1.25})", p, a, b) && p.speed == 1.25f, std::string("fallback for ") + odd);
+    }
+    check(viz::readParamsJson(R"({"look":{"params":{"speed":2}}})", "look\nparams", "{}", p, a, b) && p.speed == 2.0f,
+          "a nested params object by its path");
+    check(viz::readParamsJson(R"({"look":{"params":5}})", "look\nparams", R"({"speed":1.25})", p, a, b) && p.speed == 1.25f,
+          "no object at the path reads the fallback");
+    check(!viz::readParamsJson("{", "", "", p, a, b), "neither text an object");
+}
+
+// optString of an object or array id is String.valueOf: org.json's compact print, keys in the order stored.
+void anObjectOrArrayIdReadsAsOrgJsonPrintsIt() {
+    SceneParams p;
+    std::string a, b;
+    const char* doc = R"({"customPaletteId":{"b":1,"a":[true,null,"x/y",2.5,3.0,1e2],"b":4},"customPalette2Id":["q",{"k":-0.0}]})";
+    check(viz::readParamsJson(doc, "", "", p, a, b), "object and array ids read");
+    check(a == R"({"b":4,"a":[true,null,"x\/y",2.5,3,100]})", "an object id as org.json prints it, got " + a);
+    check(b == R"(["q",{"k":-0}])", "an array id as org.json prints it, got " + b);
+    check(viz::readParamsJson(R"({"customPaletteId":[1,NaN],"customPalette2Id":{}})", "", "", p, a, b) && a.empty() && b == "{}",
+          "an id org.json cannot print reads as none; an empty object as {}");
 }
 
 // The fixtures PresetGoldenTest held the format to, now read by native, the floats compared as floats.
@@ -284,6 +343,10 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
           "current.json: white and black survive the float wire");
     const auto got = wire(current);
     const auto defaults = wire(kDefaults);
+    SceneParams stored;
+    std::string storedA, storedB;
+    check(viz::readParamsJson(currentText, "", "", stored, storedA, storedB) && wire(stored) == got && storedA == a && storedB == b,
+          "current.json: its stored text, read as the document, reads the same");
     for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
         if (SceneParams::retired(static_cast<ParamSlot>(slot))) continue;
         check(got[static_cast<size_t>(slot)] != defaults[static_cast<size_t>(slot)],
@@ -356,6 +419,8 @@ int main(int argc, char** argv) {
     defaultsAndARandomLookRoundTrip();
     keysTypesRetiredUnknownAndSanitize();
     theCApiMatches();
+    theStoredTextIsReadAsOrgJsonParsedIt();
+    anObjectOrArrayIdReadsAsOrgJsonPrintsIt();
     thePresetFixturesReadAsBefore(argc > 1 ? argv[1] : "app/src/test/resources/presets");
     if (failures) {
         std::printf("%d failure(s)\n", failures);

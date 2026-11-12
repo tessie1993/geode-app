@@ -635,14 +635,19 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsWriteJson(JNIEnv* env, jobject, j
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsReadJson(JNIEnv* env, jobject, jstring text, jfloatArray out, jobjectArray ids) {
+Java_dev_geode_engine_bridge_GeodeNative_paramsReadJson(JNIEnv* env, jobject, jstring document, jstring path, jstring fallback,
+                                                        jfloatArray out, jobjectArray ids) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());
     if (!out || env->GetArrayLength(out) < count || !ids || env->GetArrayLength(ids) < 2) return JNI_FALSE;
-    Utf8Chars json(env, text);
+    Utf8Chars documentText(env, document);
+    Utf8Chars pathText(env, path);
+    Utf8Chars fallbackText(env, fallback);
     std::vector<float> frame(static_cast<size_t>(count));
     const char* idA = nullptr;
     const char* idB = nullptr;
-    if (!geode_params_read_json(json.get(), frame.data(), count, &idA, &idB)) return JNI_FALSE;
+    if (!geode_params_read_json(documentText.get(), pathText.get(), fallbackText.get(), frame.data(), count, &idA, &idB)) {
+        return JNI_FALSE;
+    }
     env->SetFloatArrayRegion(out, 0, count, frame.data());
     const char* read[2] = {idA, idB};
     for (jsize i = 0; i < 2; ++i) {

@@ -17,7 +17,7 @@ class SharedLinkNumbersTest {
     init {
         TestCatalogue.install()
         PresetStore.writeParams = { "{}" }
-        PresetStore.readParams = { SceneParams.DEFAULT }
+        PresetStore.readParams = { _, _, _ -> SceneParams.DEFAULT }
     }
 
     @Test

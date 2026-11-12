@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 #include <limits>
 
 namespace geode::json {
@@ -25,7 +26,7 @@ namespace {
 
 class Parser {
 public:
-    explicit Parser(const std::string& text) : text_(text) {}
+    Parser(const std::string& text, bool standard) : text_(text), standard_(standard) {}
 
     std::optional<Value> document() {
         skipSpace();
@@ -71,11 +72,42 @@ private:
         return number();
     }
 
+    // The length of a standard JSON number at p, or of org.json's NaN, Infinity or -Infinity; 0 for none.
+    static size_t standardLength(const char* p) {
+        const std::string_view rest(p);
+        for (const std::string_view word : {"NaN", "Infinity", "-Infinity"}) {
+            if (rest.substr(0, word.size()) == word) return word.size();
+        }
+        const auto digit = [](char c) { return c >= '0' && c <= '9'; };
+        const char* q = p;
+        if (*q == '-') ++q;
+        if (*q == '0') {
+            ++q;
+        } else if (digit(*q)) {
+            while (digit(*q)) ++q;
+        } else {
+            return 0;
+        }
+        if (*q == '.') {
+            if (!digit(*++q)) return 0;
+            while (digit(*q)) ++q;
+        }
+        if (*q == 'e' || *q == 'E') {
+            if (*++q == '+' || *q == '-') ++q;
+            if (!digit(*q)) return 0;
+            while (digit(*q)) ++q;
+        }
+        return static_cast<size_t>(q - p);
+    }
+
     std::optional<Value> number() {
         const char* start = text_.c_str() + pos_;
+        const size_t standard = standard_ ? standardLength(start) : 0;
+        if (standard_ && standard == 0) return std::nullopt;
         char* end = nullptr;
         const double d = std::strtod(start, &end);
         if (end == start) return std::nullopt;
+        if (standard_ && static_cast<size_t>(end - start) != standard) return std::nullopt;
         pos_ += static_cast<size_t>(end - start);
         const char* digits = *start == '-' ? start + 1 : start;
         bool whole = digits < end;
@@ -179,6 +211,7 @@ private:
     std::optional<Value> object() {
         if (!consume('{')) return std::nullopt;
         std::map<std::string, Value> members;
+        std::vector<std::string> keys;
         skipSpace();
         if (consume('}')) return Value::object(std::move(members));
         while (true) {
@@ -190,21 +223,27 @@ private:
             skipSpace();
             auto v = value();
             if (!v) return std::nullopt;
+            if (members.count(*key) == 0) keys.push_back(*key);
             members[*key] = std::move(*v);
             skipSpace();
-            if (consume('}')) return Value::object(std::move(members));
+            if (consume('}')) return Value::object(std::move(members), std::move(keys));
             if (!consume(',')) return std::nullopt;
         }
     }
 
     const std::string& text_;
+    const bool standard_;
     size_t pos_ = 0;
 };
 
 }  // namespace
 
 std::optional<Value> parse(const std::string& text) {
-    return Parser(text).document();
+    return Parser(text, false).document();
+}
+
+std::optional<Value> parseStandard(const std::string& text) {
+    return Parser(text, true).document();
 }
 
 namespace {
@@ -269,7 +308,38 @@ std::optional<std::string> asString(const Value& v) {
         case Value::Kind::Null: return std::string("null");
         case Value::Kind::Number: return v.integral() ? std::to_string(v.integer()) : javaDoubleText(v.number());
         case Value::Kind::Array:
-        case Value::Kind::Object: break;
+        case Value::Kind::Object: return orgJsonText(v);
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> orgJsonText(const Value& v) {
+    switch (v.kind()) {
+        case Value::Kind::Null: return std::string("null");
+        case Value::Kind::Bool: return std::string(v.boolValue() ? "true" : "false");
+        case Value::Kind::String: return quoted(v.string());
+        case Value::Kind::Number:
+            if (v.integral()) return std::to_string(v.integer());
+            if (!std::isfinite(v.number())) return std::nullopt;
+            return numberText(v.number());
+        case Value::Kind::Array: {
+            std::string out = "[";
+            for (const Value& item : v.array()) {
+                const auto text = orgJsonText(item);
+                if (!text) return std::nullopt;
+                out += (out.size() > 1 ? "," : "") + *text;
+            }
+            return out + "]";
+        }
+        case Value::Kind::Object: {
+            std::string out = "{";
+            for (const std::string& key : v.keys()) {
+                const auto text = orgJsonText(v.object().at(key));
+                if (!text) return std::nullopt;
+                out += (out.size() > 1 ? "," : "") + quoted(key) + ":" + *text;
+            }
+            return out + "}";
+        }
     }
     return std::nullopt;
 }

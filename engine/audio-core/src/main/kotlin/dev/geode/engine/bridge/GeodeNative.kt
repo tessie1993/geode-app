@@ -1080,12 +1080,15 @@ object GeodeNative {
     ): String?
 
     /**
-     * [text]'s params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two
-     * palette slot ids into [ids] (two slots; "" when missing) (`geode_params_read_json`). False, nothing written,
-     * when [text] is not a JSON object. Pure.
+     * A params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two palette slot
+     * ids into [ids] (two slots; "" when missing) (`geode_params_read_json`): the object at [path] (nested keys,
+     * newline-separated, "" for the top) of [document], the text org.json parsed, when that is standard JSON, else
+     * [fallback], the object as org.json printed it. False, nothing written, when neither holds an object. Pure.
      */
     external fun paramsReadJson(
-        text: String,
+        document: String?,
+        path: String,
+        fallback: String?,
         out: FloatArray,
         ids: Array<String?>,
     ): Boolean

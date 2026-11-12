@@ -602,7 +602,7 @@ void everyLiveRowHasOneMeta() {
     }
     // The physics layers (viz/physics): targets on every style, off (0) in every look, never rolled.
     for (const auto& [slot, label, def, hi] : {std::tuple{ParamSlot::simFluid, "Fluid layer", 0.0f, 1.0f},
-                                               std::tuple{ParamSlot::simParticles, "Particle layer", 0.0f, 1.0f},
+                                               std::tuple{ParamSlot::simParticles, "Particle field", 0.0f, 1.0f},
                                                std::tuple{ParamSlot::simForce, "Physics force", 1.0f, 2.0f},
                                                std::tuple{ParamSlot::simLayerOrder, "Fluid in front", 0.0f, 1.0f}}) {
         const ParamMeta& m = SceneParams::meta(slot);

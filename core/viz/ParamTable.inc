@@ -551,7 +551,7 @@ GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, simFluid, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(simFluid, "Fluid layer", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, simParticles, 0.0f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(simParticles, "Particle layer", Universal, kMod, 0, 0)
+GEODE_PARAM_META(simParticles, "Particle field", Universal, kMod, 0, 0)
 // How hard the picture stirs the fluid and how fast the particles drift: 1 as designed, 2 twice, 0 still.
 GEODE_PARAM(Float, simForce, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(simForce, "Physics force", Universal, kMod, 0, 0)

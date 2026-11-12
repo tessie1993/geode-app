@@ -95,7 +95,7 @@ target|PALETTE_SHIFT|1|Palette position
 target|KALEIDO_FOLDS|1|Kaleidoscope
 target|LAYER_MIX|1|Layer mix
 target|SIM_FLUID|1|Fluid layer
-target|SIM_PARTICLES|1|Particle layer
+target|SIM_PARTICLES|1|Particle field
 target|SIM_FORCE|1|Physics force
 target|SIM_LAYER_ORDER|1|Fluid in front
 target|SPAWN|0|Spawn

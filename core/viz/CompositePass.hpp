@@ -46,7 +46,6 @@ public:
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
         float postRotationAngle = 0.0f;
-        float postCyclePhase = 0.0f;
         GLuint quadVao = 0;
         SceneParams fx;
         std::array<float, 4> gateA{};

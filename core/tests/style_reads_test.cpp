@@ -254,9 +254,8 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
 // Customize › Look on a shader style is the style's own grade() and pal(): the composite leaves the shader
 // family ungraded (grade::gateFor), so a style that stops reading one of these uniforms leaves its control dead.
 void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
-    static const char* const kLook[] = {"uPalBase",    "uPalRange", "uPal2Base", "uPaletteMix", "uPalLutMix",
-                                        "uColorShift", "uHueRange", "uSat",      "uBright",     "uContrast",
-                                        "uGamma",      "uIntensity", "uTemperature", "uBloom"};
+    static const char* const kLook[] = {"uPalBase", "uPalRange",  "uPalLutMix", "uColorShift",  "uHueRange", "uSat", "uBright",
+                                        "uContrast", "uGamma", "uIntensity", "uTemperature", "uBloom"};
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     for (const std::string& id : catalogue::allIds()) {
@@ -380,14 +379,7 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop2", {"uPalStops"}},
         {"paletteStop3", {"uPalStops"}},
         {"paletteStop4", {"uPalStops"}},
-        {"palette2", {"uPal2Base"}},
-        {"palette2BaseOverride", {"uPal2Base"}},
-        {"palette2RangeOverride", {"uPal2Range"}},
-        {"paletteMix", {"uPaletteMix"}},
-        {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
-        {"colorCycle", {"uColorShift"}},
-        {"cycleSpeed", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},
         {"brightness", {"uBright"}},
@@ -556,7 +548,7 @@ bool compositeApplies(catalogue::Kind kind, const std::string& field) {
     static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
                                                "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
-                                                     "intensity", "contrast", "gamma", "colorShift", "colorCycle", "cycleSpeed"};
+                                                     "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;
     return kind != catalogue::Kind::Milkdrop && kFluidOnly.count(field) != 0;
 }

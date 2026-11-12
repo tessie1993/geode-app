@@ -18,7 +18,7 @@ struct Words {
 // One label per LfoTarget, in wire order; a retired target has none.
 constexpr std::array<const char*, modtargets::kTargetCount> kTargetLabels{{
     "None", "Speed", "Zoom", "Rotation", "Sway", "", "Drift X", "Drift Y", "Warp", "Ripple", "Morph", "Twist", "Tile",
-    "Pixelate", "Posterize", "Hue shift", "Palette blend", "Saturation", "Brightness", "Intensity", "Bloom",
+    "Pixelate", "Posterize", "Hue shift", "Palette 2 amount", "Saturation", "Brightness", "Intensity", "Bloom",
     "Temperature", "Turbulence", "Chroma AB", "Vignette", "", "Fisheye", "Particle size", "Trail length", "Fluid curl",
     "Fluid splat radius", "Fluid splat force", "Fluid glow", "Fluid fade", "Catch pull", "Catch radius", "Flow strength",
     "", "", "Wave 1 speed", "Wave 1 depth", "Wave 2 speed", "Wave 2 depth", "Wave 3 speed", "Wave 3 depth",

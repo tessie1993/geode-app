@@ -56,7 +56,7 @@ struct AxisField {
 // yin-yang curve"). Twist stays the user's slider and the style's own reactions.
 // Spin (motionDrift) is not here either: it is the user's turn of a turning style and the director never
 // reaches it (#1181); a Speed axis scaling it set every turning style spinning faster under Auto.
-constexpr std::array<AxisField, 22> kAxisFields = {{
+constexpr std::array<AxisField, 21> kAxisFields = {{
     {Axis::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
     {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
@@ -64,7 +64,6 @@ constexpr std::array<AxisField, 22> kAxisFields = {{
     {Axis::Energy, &SceneParams::intensity, 0.2f, 1.25f, false},
     {Axis::Speed, &SceneParams::speed, 0.05f, 4.0f, false},
     {Axis::Speed, &SceneParams::camFly, 0.0f, 2.0f, false},
-    {Axis::Speed, &SceneParams::cycleSpeed, 0.02f, 0.6f, false},
     {Axis::Complexity, &SceneParams::tile, 1.0f, 6.0f, false},
     {Axis::Complexity, &SceneParams::warp, 0.0f, 1.0f, false},
     {Axis::Complexity, &SceneParams::morph, 0.0f, 1.0f, false},

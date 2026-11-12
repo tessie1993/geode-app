@@ -105,7 +105,6 @@ private:
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
-    float cyclePhase_ = 0.0f;
     float shaderTime_ = 0.0f;
     // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
     // viz/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,

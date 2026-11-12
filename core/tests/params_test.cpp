@@ -185,7 +185,7 @@ void rollsStayInsideTheSchemasRanges() {
 // A choice roll picks from the whole schema range, so a value added to ParamTable.inc is rolled too
 // (the camera's drive, fall and rise paths were left out by a count kept beside the schema).
 void choiceRollsReachEverySchemaValue() {
-    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::palette2, ParamSlot::camPath}) {
+    for (const ParamSlot slot : {ParamSlot::camPath}) {
         const ParamSpec& spec = SceneParams::spec(slot);
         std::set<int> rolled;
         for (uint64_t seed = 0; seed < 2000; ++seed) {
@@ -197,6 +197,18 @@ void choiceRollsReachEverySchemaValue() {
         check(*rolled.begin() == static_cast<int>(spec.min) && *rolled.rbegin() == static_cast<int>(spec.max),
               std::string(spec.name) + " rolls from min to max");
     }
+}
+
+// The palette roll deals every listed built-in and never a retired one (rows 12..20 stay in the table only so
+// a saved index still draws).
+void thePaletteRollDealsTheListedPalettesOnly() {
+    std::set<int> rolled;
+    for (uint64_t seed = 0; seed < 2000; ++seed) rolled.insert(randomizer::randomize(kDefaults, seed, std::nullopt, "", {}).palette);
+    check(static_cast<int>(rolled.size()) == SceneParams::kListedPalettes && *rolled.begin() == 0 &&
+              *rolled.rbegin() == SceneParams::kListedPalettes - 1,
+          "palette rolls " + std::to_string(rolled.size()) + " of the " + std::to_string(SceneParams::kListedPalettes) + " listed");
+    check(SceneParams::spec(ParamSlot::palette).max == static_cast<float>(SceneParams::palettes().size() - 1),
+          "a saved retired index is still in the field's range");
 }
 
 void aPaletteRollDropsACustomPalette() {
@@ -238,7 +250,6 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
         {"palette", -3.0f},
         {"particleShape", 2.0f},
         {"reactSeed", 99999999.0f},
-        {"paletteLut", 9.0f},
         {"brightness", 1.875f},
         {"bloom", 0.625f},
         {"intensity", 3.0f},
@@ -252,7 +263,7 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
     check(p.endlessZoomSpeed == kDefaults.endlessZoomSpeed && p.camFov == kDefaults.camFov, "hostile: NaN reads as the default");
     check(p.trails, "hostile: a flag over 0.5 is on");
     check(p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
-    check(p.reactSeed == 16777215 && p.paletteLut == 4, "hostile: wide ints held to their ranges");
+    check(p.reactSeed == 16777215, "hostile: wide ints held to their ranges");
     check(p.brightness == 1.875f && p.bloom == 0.625f && p.intensity == 2.0f, "hostile: the schema's range, not the slider's");
     check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f && p.kaleidoFolds == 16.0f, "hostile: floats held to their ranges");
     check(p.colorShift == 1.5f, "hostile: a circular value wraps where it is drawn and is not clamped");
@@ -288,6 +299,7 @@ int main() {
     rollsStayUnderTheFlashClamp();
     rollsStayInsideTheSchemasRanges();
     choiceRollsReachEverySchemaValue();
+    thePaletteRollDealsTheListedPalettesOnly();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
     aHostilePresetIsClampedToTheSchemaRanges();

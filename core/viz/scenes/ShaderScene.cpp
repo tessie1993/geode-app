@@ -85,7 +85,6 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
@@ -137,10 +136,11 @@ void ShaderScene::draw(float timeSeconds) {
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
-    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t).
+    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t). Without a
+    // stack the look's own palette draws (Colour map, which once chose a row of the atlas here, is retired).
     const GLuint ramp = host_.paletteRamp ? host_.paletteRamp() : 0;
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
-    const bool lutSelected = ramp != 0 || (p.paletteLut >= 0 && paletteLutTex_ != 0);
+    const bool lutSelected = ramp != 0;
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
@@ -148,7 +148,7 @@ void ShaderScene::draw(float timeSeconds) {
         glActiveTexture(GL_TEXTURE0);
     }
     set1f("uPalLutMix", flag(lutSelected));
-    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(std::max(p.paletteLut, 0)));
+    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(0));
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
@@ -170,7 +170,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uColorShift", p.colorShift + cyclePhase_ + p.paletteShift);
+    set1f("uColorShift", p.colorShift + p.paletteShift);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);
@@ -180,9 +180,6 @@ void ShaderScene::uploadParams() {
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
-    set1f("uPal2Base", p.palette2Base());
-    set1f("uPal2Range", p.palette2Range());
-    set1f("uPaletteMix", p.paletteMix);
     {
         const auto stops = p.paletteStops();
         const int count = p.paletteStopCount();

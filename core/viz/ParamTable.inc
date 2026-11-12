@@ -131,23 +131,22 @@ GEODE_PARAM_META(twist, "Twist", Universal, kMod, -0.8f, 0.8f)
 // An index into SceneParams::palettes().
 GEODE_PARAM(Int, palette, 0, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
 GEODE_PARAM_META(palette, "Palette", Universal, 0, 0, 0)
+// Retired (SceneParams::retired): Palette 2 and Palette blend, the old second palette mixed over the first.
+// The palette stack (viz/Palette.hpp) is the one way to draw more than one palette.
 GEODE_PARAM(Int, palette2, 1, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
-GEODE_PARAM_META(palette2, "Palette 2", ShaderLook, 0, 0, 0)
 GEODE_PARAM(Float, paletteMix, 0.0f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(paletteMix, "Palette blend", ShaderLook, 0, 0.2f, 0.8f)
 // A custom palette's hue base and span, 0..1; kUnsetOverride (-1) = use the palette's own. Never
 // faded: a glide through the sentinel would flash the palette's own colours mid-fade.
 GEODE_PARAM(Float, paletteBaseOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
 GEODE_PARAM_META(paletteBaseOverride, "Palette", Universal, 0, 0, 0)
 GEODE_PARAM(Float, paletteRangeOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
 GEODE_PARAM_META(paletteRangeOverride, "Palette", Universal, 0, 0, 0)
+// Retired with Palette 2: its hue overrides.
 GEODE_PARAM(Float, palette2BaseOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
-GEODE_PARAM_META(palette2BaseOverride, "Palette 2", ShaderLook, 0, 0, 0)
 GEODE_PARAM(Float, palette2RangeOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
-GEODE_PARAM_META(palette2RangeOverride, "Palette 2", ShaderLook, 0, 0, 0)
-// A cyclic colour map row (five: CyclicPalettes.NAMES); kNoPaletteLut (-1) = off.
+// Retired (SceneParams::retired): Colour map, the five cyclic colour maps as a list of their own. They are
+// palettes of the stack's library now (PaletteTable.inc rows 21..25), so Look has one palette list.
 GEODE_PARAM(Int, paletteLut, SceneParams::kNoPaletteLut, SceneParams::kNoPaletteLut, 4, Hold)
-GEODE_PARAM_META(paletteLut, "Colour map", ShaderLook, 0, 0, 4)
 GEODE_PARAM(Float, milkdropPaletteTint, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(milkdropPaletteTint, "MilkDrop palette tint", Milkdrop, 0, 0.2f, 0.9f)
 GEODE_PARAM(Bool, milkdropBlendPresets, false, 0, 1, Hold)
@@ -166,10 +165,10 @@ GEODE_PARAM(Float, contrast, 1.0f, 0.3f, 1.25f, Fade)
 GEODE_PARAM_META(contrast, "Contrast", Universal, 0, 0.8f, 1.25f)
 GEODE_PARAM(Float, gamma, 1.0f, 0.3f, 2.5f, Fade)
 GEODE_PARAM_META(gamma, "Gamma", Universal, 0, 0.8f, 1.3f)
+// Retired (SceneParams::retired): Color cycle and Cycle speed, the old hue cycle that turned every colour round
+// the wheel. A wave or an envelope on Palette position walks the palette stack instead.
 GEODE_PARAM(Bool, colorCycle, false, 0, 1, Hold)
-GEODE_PARAM_META(colorCycle, "Color cycle", Universal, 0, 0, 0)
 GEODE_PARAM(Float, cycleSpeed, 0.1f, 0.02f, 0.6f, Fade)
-GEODE_PARAM_META(cycleSpeed, "Cycle speed", Universal, 0, 0.02f, 0.3f)
 GEODE_PARAM(Bool, invert, false, 0, 1, Hold)
 GEODE_PARAM_META(invert, "Invert", Universal, 0, 0, 0)
 // As brightness: the slider stops at 1.25, the LFO reaches 2.
@@ -506,8 +505,7 @@ GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
 // The palette stack's amounts (viz/Palette.hpp, Customize › Look): how much each layer is used, the primary
 // first, beside the stack the look keeps as text. The defaults are palette::defaultAmounts(). Appended so
 // every wire index survives. The stack's own roll deals them, never the param roll. Palette 2's amount is
-// what LfoTarget::PaletteMix writes, on the styles that draw a second palette today (shader styles); a look
-// without a stack carries its old Palette blend on it (palette::carryBlend).
+// what LfoTarget::PaletteMix writes (the old Palette blend's slot), on shader styles.
 GEODE_PARAM(Float, paletteAmount0, 1.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount0, "Palette 1 amount", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount1, 0.5f, 0.0f, 1.0f, Fade)
@@ -524,8 +522,8 @@ GEODE_PARAM(Float, paletteAmount6, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount6, "Palette 7 amount", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount7, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount7, "Palette 8 amount", Universal, kMod, 0, 0)
-// Where along the stack's ramp the colours sit: the walk Hue shift, the colour cycle and moment colours will
-// drive, so colour moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
+// Where along the stack's ramp the colours sit: the walk Hue shift and moment colours will drive, so colour
+// moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
 GEODE_PARAM(Circular, paletteShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 

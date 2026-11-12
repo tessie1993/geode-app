@@ -56,7 +56,17 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::motionOrbit,
                                                // The Kaleidoscope switch and its count: kaleidoFolds replaced both.
                                                ParamSlot::symmetry,
-                                               ParamSlot::kaleidoscope};
+                                               ParamSlot::kaleidoscope,
+                                               // Palette 2 and Palette blend: the palette stack draws more than one palette.
+                                               ParamSlot::palette2,
+                                               ParamSlot::paletteMix,
+                                               ParamSlot::palette2BaseOverride,
+                                               ParamSlot::palette2RangeOverride,
+                                               // Color cycle and Cycle speed: the old hue cycle.
+                                               ParamSlot::colorCycle,
+                                               ParamSlot::cycleSpeed,
+                                               // Colour map: the colour maps are palettes of the stack.
+                                               ParamSlot::paletteLut};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
@@ -140,11 +150,12 @@ struct SceneParams {
         float range;
     };
     static const std::array<Palette, 21>& palettes();
+    // The built-in palettes a picker lists and a roll deals: rows 0..11. Rows 12..20 (Royal .. Yellow) are
+    // retired: they stay in the table so a look saved on one still draws it, but nothing offers them again.
+    static constexpr int kListedPalettes = 12;
 
     float paletteBase() const;
     float paletteRange() const;
-    float palette2Base() const;
-    float palette2Range() const;
     // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
     std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
     int paletteStopCount() const;
@@ -172,7 +183,7 @@ struct SceneParams {
     //   params|<kSchemaTextVersion>|<kFieldCount>
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
+    // Then one row per listed built-in palette (0..kListedPalettes-1), in `palette` index order: palette|<index>|<name> (version 3).
     // Then one row per picker label, by field in slot order, each in index order: choice|<name>|<index>|<label> (version 4).
     static constexpr int kSchemaTextVersion = 4;
     static const std::string& schemaText();

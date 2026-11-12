@@ -176,7 +176,7 @@ const SHADER_VALUES = {
   uTime: 37.0, uResolution: [0, 0],
   uZoom: 1, uRotation: 0, uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
   uInvert: 0, uIntensity: 1, uMirrorX: 0, uTurbulence: 0, uPalBase: 0, uPalRange: 1,
-  uContrast: 1, uGamma: 1, uPal2Base: 0, uPal2Range: 1, uPaletteMix: 0, uDuotone: 0, uBloom: 0, uWarp: 0,
+  uContrast: 1, uGamma: 1, uDuotone: 0, uBloom: 0, uWarp: 0,
   uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0,
   uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],

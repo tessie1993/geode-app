@@ -102,7 +102,6 @@ target|milkdropPaletteTint|0|MilkDrop palette tint
 target|hueRange|1|Hue range
 target|contrast|1|Contrast
 target|gamma|1|Gamma
-target|cycleSpeed|1|Cycle speed
 target|bassGain|1|Bass gain
 target|midGain|1|Mid gain
 target|trebGain|1|Treble gain

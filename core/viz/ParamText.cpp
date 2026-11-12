@@ -15,7 +15,7 @@ constexpr std::string_view kTimes = "\xC3\x97";        // U+00D7
 constexpr std::string_view kDegrees = "\xC2\xB0";      // U+00B0
 
 using P = ParamUnit;
-constexpr std::array<std::pair<std::string_view, ParamUnit>, 22> kUnits{{
+constexpr std::array<std::pair<std::string_view, ParamUnit>, 21> kUnits{{
     {"Speed", P::Times},
     {"Zoom", P::Times},
     {"Rotation", P::Times},
@@ -26,7 +26,6 @@ constexpr std::array<std::pair<std::string_view, ParamUnit>, 22> kUnits{{
     {"Particle size", P::Times},
     {"Tile", P::Times},
     {"Detail", P::Times},
-    {"Cycle speed", P::Times},
     {"Fly speed", P::Times},
     {"Field of view", P::Times},
     {"Reaction strength", P::Times},

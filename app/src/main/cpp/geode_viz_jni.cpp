@@ -720,11 +720,6 @@ Java_dev_geode_engine_bridge_GeodeNative_widgetGlow(JNIEnv* env, jobject, jfloat
     return out;
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteColourMapName(JNIEnv* env, jobject, jint index) {
-    return env->NewStringUTF(geode_palette_colour_map_name(index));
-}
-
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paletteRamp(JNIEnv* env, jobject, jintArray stops, jint samples) {
     const jsize n = stops ? std::min<jsize>(env->GetArrayLength(stops), 5) : 0;
@@ -743,12 +738,12 @@ Java_dev_geode_engine_bridge_GeodeNative_paletteStopsFromHues(JNIEnv* env, jobje
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsPalettePreview(JNIEnv* env, jobject, jfloatArray params, jboolean second, jint samples) {
+Java_dev_geode_engine_bridge_GeodeNative_paramsPalettePreview(JNIEnv* env, jobject, jfloatArray params, jint samples) {
     std::vector<int> out(static_cast<size_t>(std::clamp<jint>(samples, 0, kMaxSwatch)));
     if (!params || env->GetArrayLength(params) < geode_viz_param_count()) return toJava(env, out);
     std::vector<float> wire(static_cast<size_t>(env->GetArrayLength(params)));
     env->GetFloatArrayRegion(params, 0, static_cast<jsize>(wire.size()), wire.data());
-    geode_params_palette_preview(wire.data(), second ? 1 : 0, static_cast<int>(out.size()), out.data());
+    geode_params_palette_preview(wire.data(), static_cast<int>(out.size()), out.data());
     return toJava(env, out);
 }
 

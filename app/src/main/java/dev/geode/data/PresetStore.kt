@@ -247,7 +247,7 @@ class PresetStore(
          */
         @VisibleForTesting
         internal var writeParams: (SceneParams) -> String = { p ->
-            checkNotNull(GeodeNative.paramsWriteJson(SceneParamsCodec.pack(p), p.customPaletteId, p.customPalette2Id))
+            checkNotNull(GeodeNative.paramsWriteJson(SceneParamsCodec.pack(p), p.customPaletteId, SceneParams.NO_CUSTOM_PALETTE))
         }
 
         @VisibleForTesting
@@ -256,10 +256,7 @@ class PresetStore(
             val ids = arrayOfNulls<String>(2)
             check(GeodeNative.paramsReadJson(document, path, fallback, frame, ids)) { "not a params object" }
             val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
-            read.copy(
-                customPaletteId = ids[0] ?: SceneParams.NO_CUSTOM_PALETTE,
-                customPalette2Id = ids[1] ?: SceneParams.NO_CUSTOM_PALETTE,
-            )
+            read.copy(customPaletteId = ids[0] ?: SceneParams.NO_CUSTOM_PALETTE)
         }
 
         internal fun fromJson(json: String): Preset {

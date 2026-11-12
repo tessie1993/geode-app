@@ -18,7 +18,7 @@ enum class ModChainField { Rate, Depth };
 
 enum class LfoTarget {
     None, Speed, Zoom, Rotation, Sway, Retired5 /* was Pulse */, DriftX, DriftY, Warp, Ripple, Morph, Twist, Tile, Pixelate, Posterize,
-    ColorShift, PaletteMix, Saturation, Brightness, Intensity, Bloom, Temperature, Turbulence, ChromaAb, Vignette,
+    ColorShift, PaletteMix /* was Palette blend: writes Palette 2's amount */, Saturation, Brightness, Intensity, Bloom, Temperature, Turbulence, ChromaAb, Vignette,
     Retired25 /* was Glitch: the slot keeps every later ordinal */, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
     FluidCatchPull, FluidCatchRadius, FlowStrength,
     Retired37 /* was WaterRipple */, Retired38 /* was RippleOverlay */,

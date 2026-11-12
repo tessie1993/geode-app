@@ -14,8 +14,7 @@ section|QUICK_KNOBS|basics|BASICS|ALWAYS|@macros
 section|QUICK_KNOBS|knob_editor|PRO|ALWAYS|@macro_editor
 section|LOOK|basics|BASICS|ALWAYS|Palette,Brightness,Saturation,Bloom
 section|LOOK|palette_maker|PRO|ALWAYS|@palette_maker
-section|LOOK|colour_detail|PRO|ALWAYS|Palette blend,Palette 2,Colour map,Hue shift,Hue range,Temperature
-section|LOOK|colour_cycle|PRO|ALWAYS|Color cycle,Cycle speed
+section|LOOK|colour_detail|PRO|ALWAYS|Hue shift,Hue range,Temperature
 section|LOOK|light_detail|PRO|ALWAYS|Contrast,Gamma,Intensity
 section|SHAPE|basics|BASICS|ALWAYS|Morph,Kaleidoscope,Detail
 section|SHAPE|form|PRO|ALWAYS|Domain warp,Twist,Ripple,Turbulence

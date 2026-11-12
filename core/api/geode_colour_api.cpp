@@ -64,16 +64,16 @@ void geode_palette_stops_from_hues(float base, float range, int count, int* out)
     if (out) colour::stopsFromHues(base, range, count, out);
 }
 
-void geode_params_palette_preview(const float* params, int second, int samples, int* out) {
+void geode_params_palette_preview(const float* params, int samples, int* out) {
     if (!params) return;
     const SceneParams p = SceneParams::fromWire(params);
     const auto stops = p.paletteStops();
-    if (!second && p.paletteStopCount() > 0) {
+    if (p.paletteStopCount() > 0) {
         geode_palette_ramp(stops.data(), p.paletteStopCount(), samples, out);
         return;
     }
-    const float base = second ? p.palette2Base() : p.paletteBase();
-    const float range = second ? p.palette2Range() : p.paletteRange();
+    const float base = p.paletteBase();
+    const float range = p.paletteRange();
     sampleRamp(samples, out, [&](float t) { return colour::procedural(base, range, t); });
 }
 

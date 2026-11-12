@@ -59,7 +59,7 @@ void oklabRoundTrips() {
 
 void theLibraryKeepsTheOldIndices() {
     const auto& lib = pl::library();
-    check(lib.size() == 34, "21 classic ramps, 5 colour maps, 8 newer palettes");
+    check(lib.size() == 35, "21 classic ramps, 5 colour maps, 9 newer palettes");
     for (int i = 0; i < pl::kClassicCount; ++i) {
         check(lib[static_cast<size_t>(i)].palette.name == SceneParams::palettes()[static_cast<size_t>(i)].name,
               "library row " + std::to_string(i) + " is old palette " + std::to_string(i));
@@ -74,6 +74,15 @@ void theLibraryKeepsTheOldIndices() {
         check(pl::libraryIndex(lib[i].id) == static_cast<int>(i), lib[i].id + ": one id, one row");
     }
     check(pl::libraryIndex("nothing") == -1, "an unknown id has no row");
+    // The Neon family's ramp, appended so no saved index moves: its five stops, looping as neon() does.
+    const int neonSet = pl::libraryIndex("neon_set");
+    check(neonSet == 34 && pl::offered(neonSet) && lib[34].palette.name == "Neon glow" && lib[34].palette.wrap == pl::Wrap::Loop &&
+              lib[34].palette.space == pl::Space::Rgb,
+          "Neon glow is row 34, offered, looped in RGB");
+    const int neonStops[] = {0x0D4CFF, 0x8014FF, 0xFF0F9E, 0xFF6B08, 0x4CFF2E};
+    bool sameStops = lib[34].palette.stops.size() == 5;
+    for (size_t i = 0; sameStops && i < 5; ++i) sameStops = lib[34].palette.stops[i].rgb == neonStops[i];
+    check(sameStops, "Neon glow's stops are the neon set's");
     check(lib[0].palette.wrap == pl::Wrap::Loop, "Spectrum comes round the whole wheel, so it loops");
     check(lib[2].palette.wrap == pl::Wrap::Mirror, "Fire runs once and mirrors, like a new palette");
     // A colour map row is the LUT's entry 16·i.
@@ -330,17 +339,16 @@ void anOldLookKeepsItsColours() {
     pl::Stack s = pl::fromLegacy(p, amounts);
     check(s.layers.size() == 1 && s.layers[0].ref == "spectrum" && s.layers[0].wrap == pl::Wrap::Loop, "the default look: Spectrum, looped");
 
+    // Palette 2 and Palette blend are retired: a look that saved a second palette draws its first alone.
     p.palette = 2;
     p.palette2 = 3;
     p.paletteMix = 0.3f;
     s = pl::fromLegacy(p, amounts);
-    check(s.layers.size() == 2 && s.blend == pl::Blend::Mix && s.edge == pl::Edge::Hard, "a second palette: two layers, mixed, hard edges");
-    check(std::fabs(amounts[0] - 0.7f) < 1e-6f && std::fabs(amounts[1] - 0.3f) < 1e-6f, "weighted 1 - mix and mix");
+    check(s.layers.size() == 1 && s.layers[0].ref == "fire" && s.edge == pl::Edge::Hard && amounts[0] == 1.0f,
+          "a retired second palette: the first palette alone");
     for (float t : {0.0f, 0.25f, 0.5f, 0.8f}) {
-        const colour::Rgb a = colour::procedural(p.paletteBase(), p.paletteRange(), t);
-        const colour::Rgb b = colour::procedural(p.palette2Base(), p.palette2Range(), t);
-        const colour::Rgb want{a.r + (b.r - a.r) * 0.3f, a.g + (b.g - a.g) * 0.3f, a.b + (b.b - a.b) * 0.3f};
-        check(near(pl::at(s, amounts, t), want, 4.0f / 255.0f), "mix(first, second, paletteMix) at " + std::to_string(t));
+        check(near(pl::at(s, amounts, t), colour::procedural(p.paletteBase(), p.paletteRange(), t), 4.0f / 255.0f),
+              "the first palette's own ramp at " + std::to_string(t));
     }
 
     SceneParams yours;
@@ -355,16 +363,17 @@ void anOldLookKeepsItsColours() {
     yours.paletteStop1 = -1;
     check(packed(pl::at(pl::fromLegacy(yours, amounts), amounts, 0.4f)) == 0xFF0000, "one of your colours was flat");
 
+    // Colour map is retired too: the colour maps are palettes of the stack, and a look that saved one reads its own.
     SceneParams mapped = p;
     mapped.paletteLut = 3;
     s = pl::fromLegacy(mapped, amounts);
-    check(s.layers.size() == 1 && s.layers[0].ref == "romao" && amounts[0] == 1.0f, "a colour map replaced the whole ramp");
+    check(s.layers.size() == 1 && s.layers[0].ref == "fire" && amounts[0] == 1.0f, "a retired colour map: the look's own palette");
 
     float wire[SceneParams::kFieldCount];
     p.toWire(wire);
     float out[pl::kMaxLayers] = {};
     const std::string text = geode_palette_stack_from_params(wire, out);
-    check(pl::decode(text).layers.size() == 2 && std::fabs(out[1] - 0.3f) < 1e-6f, "the ABI reads the params frame");
+    check(pl::decode(text).layers.size() == 1 && out[0] == 1.0f, "the ABI reads the params frame");
 }
 
 void recentColours() {
@@ -417,24 +426,19 @@ void theRampARendererUploads() {
     check(ramp.update(std::make_shared<const pl::Stack>(), moved) && !ramp.active(), "an unset stack hands the look back to its old colours");
 }
 
-void anOldBlendRidesPaletteTwosAmount() {
-    SceneParams look;
-    look.paletteMix = 0.3f;
-    look.paletteAmount1 = 0.8f;
-    SceneParams carried = pl::carryBlend(look);
-    check(carried.paletteAmount1 == 0.3f && carried.paletteMix == 0.3f, "the blend rides the row its target writes");
-    carried.paletteAmount1 = 0.65f;
-    const SceneParams settled = pl::settleBlend(carried, look.paletteAmount1);
-    check(settled.paletteMix == 0.65f && settled.paletteAmount1 == 0.8f, "what moved it lands on the blend; the row gets its own value back");
-}
-
 void theStackAsLookDrawsIt() {
     const std::string unset = geode_palette_stack_unset();
     std::string text = geode_palette_stack_editor(unset.c_str());
-    const int picks = static_cast<int>(pl::library().size());
+    int picks = 0;
+    for (int i = 0; i < static_cast<int>(pl::library().size()); ++i) picks += pl::offered(i) ? 1 : 0;
+    check(picks == static_cast<int>(pl::library().size()) - (pl::kClassicCount - SceneParams::kListedPalettes),
+          "every palette is listed but the retired classic rows");
     check(text.rfind("palettestack|1|0|8|SHARE\n", 0) == 0, "an unset stack: no layer, room for eight");
     check(text.find("layer|") == std::string::npos, "no layer row while unset");
-    check(std::count(text.begin(), text.end(), '\n') == picks + 1, "a pick row per library palette");
+    check(std::count(text.begin(), text.end(), '\n') == picks + 1, "a pick row per listed library palette");
+    check(text.find("pick|11|Toxic\n") != std::string::npos && text.find("|Royal\n") == std::string::npos &&
+              text.find("|Yellow\n") == std::string::npos && text.find("pick|21|bamO\n") != std::string::npos,
+          "classic rows 12..20 are retired from the picker; the rows after them keep their indices");
     const std::string one = geode_palette_stack_add_library(unset.c_str(), 2);
     const std::string twoLayers = geode_palette_stack_add_library(one.c_str(), 3);
     text = geode_palette_stack_editor(twoLayers.c_str());
@@ -443,7 +447,7 @@ void theStackAsLookDrawsIt() {
               text.find("layer|1|" + pl::library()[3].palette.name + "\n") != std::string::npos,
           "the layers by name, the primary first");
     check(std::string(geode_palette_stack_add_library(twoLayers.c_str(), -1)) == twoLayers &&
-              std::string(geode_palette_stack_add_library(twoLayers.c_str(), picks)) == twoLayers,
+              std::string(geode_palette_stack_add_library(twoLayers.c_str(), static_cast<int>(pl::library().size()))) == twoLayers,
           "a palette the library does not have adds nothing");
     std::string full = unset;
     for (int i = 0; i < 12; ++i) full = geode_palette_stack_add_library(full.c_str(), i);
@@ -484,7 +488,6 @@ int main(int argc, char** argv) {
     anOldLookKeepsItsColours();
     recentColours();
     theRampARendererUploads();
-    anOldBlendRidesPaletteTwosAmount();
     theStackAsLookDrawsIt();
     libraryTextEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/palettes.txt");
     if (failures) {

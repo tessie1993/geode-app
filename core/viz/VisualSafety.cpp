@@ -57,7 +57,6 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
         out.driftY *= kReducedMotionScale;
         out.rotation *= kReducedMotionScale;
         out.turbulence *= kReducedMotionScale;
-        out.cycleSpeed *= kReducedMotionScale;
         // The two forward speeds, the fly-through and the dive, are scaled here and only here:
         // CameraRig and the dive stage take them as they arrive, so the one scale reaches every
         // render path once.

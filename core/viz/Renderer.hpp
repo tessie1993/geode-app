@@ -461,7 +461,6 @@ private:
 
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
-    float postCyclePhase_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

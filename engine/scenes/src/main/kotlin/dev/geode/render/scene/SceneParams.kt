@@ -31,15 +31,9 @@ data class SceneParams(
     val tile: Float = 1f,
     val twist: Float = 0f,
     val palette: Int = 0,
-    val palette2: Int = 1,
-    val paletteMix: Float = 0f,
     val paletteBaseOverride: Float = UNSET_OVERRIDE,
     val paletteRangeOverride: Float = UNSET_OVERRIDE,
-    val palette2BaseOverride: Float = UNSET_OVERRIDE,
-    val palette2RangeOverride: Float = UNSET_OVERRIDE,
     val customPaletteId: String = NO_CUSTOM_PALETTE,
-    val paletteLut: Int = NO_PALETTE_LUT,
-    val customPalette2Id: String = NO_CUSTOM_PALETTE,
     val milkdropPaletteTint: Float = 0f,
     val milkdropBlendPresets: Boolean = false,
     val colorShift: Float = 0f,
@@ -48,8 +42,6 @@ data class SceneParams(
     val brightness: Float = 1f,
     val contrast: Float = 1f,
     val gamma: Float = 1f,
-    val colorCycle: Boolean = false,
-    val cycleSpeed: Float = 0.1f,
     val invert: Boolean = false,
     val intensity: Float = 1f,
     val duotone: Boolean = false,
@@ -205,16 +197,13 @@ data class SceneParams(
 
         const val NO_CUSTOM_PALETTE: String = ""
 
-        const val NO_PALETTE_LUT: Int = -1
-
         const val NO_STOP: Int = -1
 
         val DEFAULT: SceneParams = SceneParams()
 
         val NOT_RENDERED: Map<String, String> =
             mapOf(
-                "customPaletteId" to "which saved palette slot 1 uses; rendering reads the resolved hues",
-                "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
+                "customPaletteId" to "which saved palette the look's palette uses; rendering reads the resolved hues",
             )
     }
 
@@ -224,9 +213,6 @@ data class SceneParams(
     val paletteStops: List<Int>
         get() = listOf(paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4).takeWhile { it != NO_STOP }
 
-    val usesCustomPalette2: Boolean
-        get() = palette2BaseOverride >= 0f || palette2RangeOverride >= 0f
-
     // The override when set, else the built-in palette's: native `geode_params_palette_base`/`_range`, as the renderer draws.
     val paletteBase: Float
         get() = GeodeNative.paramsPaletteBase(palette, paletteBaseOverride)
@@ -234,17 +220,9 @@ data class SceneParams(
     val paletteRange: Float
         get() = GeodeNative.paramsPaletteRange(palette, paletteRangeOverride)
 
-    fun withoutCustomPalette(second: Boolean = false): SceneParams =
-        if (second) {
-            copy(
-                palette2BaseOverride = UNSET_OVERRIDE,
-                palette2RangeOverride = UNSET_OVERRIDE,
-                customPalette2Id = NO_CUSTOM_PALETTE,
-            )
-        } else {
-            copy(paletteBaseOverride = UNSET_OVERRIDE, paletteRangeOverride = UNSET_OVERRIDE, customPaletteId = NO_CUSTOM_PALETTE)
-                .withPaletteStops(emptyList())
-        }
+    fun withoutCustomPalette(): SceneParams =
+        copy(paletteBaseOverride = UNSET_OVERRIDE, paletteRangeOverride = UNSET_OVERRIDE, customPaletteId = NO_CUSTOM_PALETTE)
+            .withPaletteStops(emptyList())
 
     /** Your colours in the stop fields, the first [colours] in order (at most five), the rest unset. */
     fun withPaletteStops(colours: List<Int>): SceneParams {

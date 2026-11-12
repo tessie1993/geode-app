@@ -1142,9 +1142,6 @@ object GeodeNative {
         tick: Int,
     ): FloatArray
 
-    /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
-    external fun paletteColourMapName(index: Int): String
-
     /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
     external fun paletteRamp(
         stops: IntArray,
@@ -1158,10 +1155,9 @@ object GeodeNative {
         count: Int,
     ): IntArray
 
-    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    /** [samples] colours of what a params frame's own palette paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
     external fun paramsPalettePreview(
         params: FloatArray,
-        second: Boolean,
         samples: Int,
     ): IntArray
 

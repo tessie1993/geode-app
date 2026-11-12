@@ -848,9 +848,6 @@
     <string name="palette_none_yet">None yet: make one above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
-    <string name="palette_second">Second palette</string>
-    <string name="palette_second_previous">Previous second palette</string>
-    <string name="palette_second_next">Next second palette</string>
     <string name="palette_art_nothing_playing">Nothing is playing.</string>
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>

@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -18,6 +19,14 @@ size_t downmixS16(const int16_t* in, size_t frames, int srcChannels, int dstChan
 
 // Float PCM to s16: clamp to -1..1, scale by 32767, truncate toward zero; NaN becomes 0 (as Kotlin's toInt).
 void floatToS16(const float* in, size_t samples, int16_t* out);
+
+// One float sample to s16 for Cast's encoder: clamp to -1..1, scale by 32767 and round (floatToS16
+// truncates); NaN becomes 0. The ring's 16-bit reads (geode_pcm_cursor_take_s16) and Cast's pump share it.
+inline int16_t roundToS16(float v) {
+    if (std::isnan(v)) return 0;
+    const float clamped = v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
+    return static_cast<int16_t>(std::lrintf(clamped * 32767.0f));
+}
 
 // s16 to float by 1/32768, the loudness meter's scale.
 void s16ToFloat(const int16_t* in, size_t samples, float* out);

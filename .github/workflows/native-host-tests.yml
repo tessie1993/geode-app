@@ -329,8 +329,11 @@ jobs:
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
           ./loop_seam_test
-          # Cast's audio pump (#772): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp -o cast_audio_test
+          # Cast's audio pump (#772, #1150): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz;
+          # the whole pump (ring, resampler, hold, pad) sample for sample against the Kotlin one it replaced, 44.1 and 48 kHz, layouts.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp \
+            core/api/geode_cast_audio_api.cpp core/output/CastAudioPump.cpp $INGEST_SRCS core/audio/dsp/PcmResampler.cpp \
+            core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o cast_audio_test
           ./cast_audio_test
           # Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
           # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.

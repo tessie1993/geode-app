@@ -140,6 +140,7 @@ The renderer runs these in order each frame.
 - `core/audio/ingest/TrackPump` decodes an export's track as each frame asks; its platform decoder is `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, `mediandk`).
 - `core/output/ExportFrame` is an export's render order behind `geode_export_job_*` (`core/api/geode_export_job_api.h`): prepare, pre-roll, one call per frame.
 - `core/output/LoopRender` is a loop render's whole job behind `geode_loop_job_*` (`core/api/geode_loop_job_api.h`): the encoder ladder, each drift stop's frames, seam, PTS and scratch file.
+- `core/output/CastAudioPump` is Cast's sound per video frame behind `geode_cast_audio_*`: the player's ring through its own `Cursor`, the export's `PcmResampler`, the hold and pad of `viz/frame/CastAudio`.
 - Its phone host is `core/output/android/LoopRenderHost` (EGL on the encoder's surface, the renderer, the export job, the seam and watermark passes, `MediaCodecSink`'s codec and muxer).
 - The loop job runs on one caller thread; `cancel`, `progress` and `state` are safe from another, and native never calls back.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.

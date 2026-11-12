@@ -78,12 +78,9 @@ chrome_nebula: noteChords noteDrums noteIntervals notePitch noteTension
 fractal_dive: midGain noteChords noteDrums noteIntervals notePitch noteTension
 aurora_ocean: midGain noteChords noteDrums noteIntervals notePitch noteTension
 spectrum_terrain: noteChords noteDrums noteIntervals notePitch noteTension
-outrun_drive: noteChords noteDrums noteIntervals notePitch noteTension
 menger_core: midGain noteChords noteDrums noteIntervals notePitch noteTension
 gyroid_cavern: midGain noteChords noteDrums noteIntervals notePitch noteTension
-ringed_planet: midGain noteChords noteDrums noteIntervals notePitch noteTension
 jelly_abyss: noteChords noteDrums noteIntervals notePitch noteTension
-ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
 prism_rain: noteChords noteDrums noteIntervals notePitch noteTension
 supershape: midGain noteChords noteDrums noteIntervals notePitch noteTension
 fractal_tunnel: midGain noteChords noteDrums noteIntervals notePitch noteTension

@@ -106,16 +106,6 @@ flame_spiral: midGain
 flame_star: midGain
 flame_veil: midGain
 flame_web: midGain
-fluor_coffer: midGain
-fluor_coil: midGain
-fluor_column: midGain
-fluor_filigree: midGain
-fluor_honeycomb: midGain
-fluor_lattice: midGain
-fluor_orb: midGain
-fluor_scales: midGain
-fluor_weave: midGain
-fluor_whorl: midGain
 foam_chrome: midGain
 foam_coral: midGain
 foam_ember: midGain

@@ -192,3 +192,20 @@ vec4 fluorFinish(vec3 col, float exposure) {
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
 }
+
+/**
+ * A fractal ornament raised on the stone: u the place on the stone, h the height above it. u is
+ * folded gStrataIters times by lib_strata's fold `kind` (turned `turn` a fold) in units of `span`
+ * world units, and a raised frame runs along every outline the folds make, `top` high at the
+ * first scale and narrower and lower at each finer one: rings for kind 2 (the Apollonian),
+ * squares for the others, so a frame is nested in frames at every scale. x the distance, y a
+ * paint step for each scale. Needs lib_strata before this library.
+ */
+vec2 fluorOrnament(vec2 u, float h, float kind, vec2 c, float turn, float span, float top) {
+    float dr = 1.0 / span;
+    vec2 f = strataFold2(u * dr, kind, gStrataIters, c, fluorRot(turn), dr);
+    float outline = kind > 1.5 && kind < 2.5 ? abs(length(f) - 0.8) : abs(max(abs(f.x), abs(f.y)) - 0.6);
+    // A finer frame is narrower and lower, never under 0.01 wide, so its paint does not shimmer.
+    float fine = inversesqrt(max(dr * span, 1.0));
+    return vec2(fluorStrip(h, outline / dr, max(0.03 * fine, 0.01), top * fine), 0.381966 * floor(log2(max(dr * span, 1.0))));
+}

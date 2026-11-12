@@ -6,6 +6,7 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_colour_api.cpp
+    api/geode_palette_api.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
@@ -80,6 +81,7 @@ add_library(geode_core STATIC
     viz/Framebuffer.cpp
     viz/Quad.cpp
     viz/Params.cpp
+    viz/Palette.cpp
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp
     viz/Lfo.cpp

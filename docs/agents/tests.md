@@ -116,7 +116,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
 - `presets_test.cpp`: the bundled looks, pinned to the Kotlin literals they replaced.
 - `qr_code_test.cpp`: Show on a computer's QR code (`core/util/QrCode`) against the standard's vectors.
-- `quality_test.cpp`: `core/viz/frame/Quality`, Settings › Performance's tiers and the first-run pick.
+- `quality_test.cpp`: `core/viz/frame/Quality` and `geode_perf_*`, Settings › Performance's tiers, scale choices, preset match, Liquid policy and the first-run pick.
 - `randomize_all_test.cpp`: the two-circle gesture's Randomize everything: seeded, never a locked style, MilkDrop's .milk as its preset, every category rolled, Keep held through the preset.
 - `reaction_resolve_test.cpp`: the renderer's reaction resolve against the old Kotlin path, and when it re-resolves.
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.

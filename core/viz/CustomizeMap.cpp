@@ -64,7 +64,8 @@ const std::vector<Section>& table() {
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
-        {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin drift"}},
+        // Spin shows only on the styles that turn (catalogue::Scope::Spin); 0 holds them still.
+        {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin"}},
 
         // The endless zoom (viz/EndlessZoom.hpp): on, and how fast, then the tunnel it draws.
         {C::Dive, "basics", true, S::Always, {"Endless zoom", "Dive speed"}},
@@ -154,6 +155,8 @@ const std::vector<HeldControl>& held() {
         {"Colour age", {"liquidAge"}, std::nullopt},
         {"Surface", {"liquidSurface"}, std::nullopt},
         {"Glide time", {"paramFadeSec"}, std::nullopt},
+        // Whether a turning style spins is the user's alone: no roll moves it.
+        {"Spin", {"motionDrift"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
         {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},

@@ -103,7 +103,6 @@ const std::vector<Roll>& rolls() {
         {T::Reactivity, "Audio drive", [](SceneParams& p, Rng& r) { p.audioDrive = drawn(r, ParamSlot::audioDrive); }},
         {T::Reactivity, "Motion amount", [](SceneParams& p, Rng& r) { p.motionAmount = drawn(r, ParamSlot::motionAmount); }},
         {T::Reactivity, "Breath", [](SceneParams& p, Rng& r) { p.motionBreath = drawn(r, ParamSlot::motionBreath); }},
-        {T::Reactivity, "Spin drift", [](SceneParams& p, Rng& r) { p.motionDrift = drawn(r, ParamSlot::motionDrift); }},
         {T::Reactivity, "Key colour", [](SceneParams& p, Rng& r) { p.motionHue = drawn(r, ParamSlot::motionHue); }},
         // A new reaction personality for the style (core/viz/ReactionDna).
         {T::Reactivity, kReactionDna, [](SceneParams& p, Rng& r) { p.reactSeed = counted(r, ParamSlot::reactSeed); }},
@@ -300,6 +299,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camTouch", "an input preference, not a look"},
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
+        {"motionDrift", "Spin: whether a turning style spins is the user's choice"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},

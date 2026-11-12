@@ -1,6 +1,5 @@
 package dev.geode.render.look
 
-import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
 
 /**
@@ -32,8 +31,8 @@ data class LookSnapshot(
     val soundTuning: List<Float>? = null,
     /** Vestibular accessibility, and the dream's gentle flight; the flash clamp is native and unconditional. */
     val reducedMotion: Boolean = false,
-    /** A requested cut becomes a fade natively (core/viz/VisualSafety); an offscreen renderer cuts for real, natively. */
-    val transitionId: String = TransitionStyle.FADE.name.lowercase(),
+    /** Native's id (core/viz/Transition); a requested cut becomes a fade natively (core/viz/VisualSafety). */
+    val transitionId: String = "fade",
     val transitionMs: Long = DEFAULT_TRANSITION_MS,
     val underlay: LookUnderlay? = null,
 ) {

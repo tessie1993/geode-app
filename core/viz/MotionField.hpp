@@ -81,7 +81,8 @@ public:
     // (rotation, sway, turbulence) are left to it, so each is scaled once.
     // spin is the style's SceneRegistry::spinRate: it scales and signs the drift
     // spin, and 0 (a style that does not turn) adds no drift spin or sway, so
-    // rotation and sway stay what the user and the routes set.
+    // rotation and sway stay what the user and the routes set. The user's Spin
+    // control (motionDrift) scales the turn too: at 0 a turning style adds none.
     SceneParams apply(const SceneParams& p, bool reducedMotion, float spin = 1.0f) const;
 
     const State& state() const { return state_; }
@@ -113,7 +114,7 @@ private:
     static constexpr float kDriftBaseRadPerSec = 0.02f;
     static constexpr float kDriftMidRadPerSec = 0.08f;
     static constexpr float kDriftSignEaseSeconds = 3.0f;
-    // What apply() adds to rotation per rad/s of drift rate: at full Spin drift
+    // What apply() adds to rotation per rad/s of drift rate: at full Spin
     // and spin 1, about 0.5 rad/s on steady music (midRel 1) and at most 0.9 rad/s
     // (midRel 2), so a turning style spins steadily with the mids, never runs up
     // to the rotation clamp.

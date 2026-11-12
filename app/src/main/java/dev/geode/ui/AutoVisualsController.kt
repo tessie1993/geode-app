@@ -34,15 +34,22 @@ internal class AutoVisualsController(
             sceneId: String,
         )
 
-        fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit)
+        /**
+         * The session's one .milk list (MilkImportController.files), the MilkDrop page's: re-read after every
+         * import and removal, so Auto never draws from a list older than the page's.
+         */
+        val milkFiles: List<MilkFile>
+
+        /** The .milk on screen while MilkDrop is, else null. */
+        val activeMilkPath: String?
+
+        /** Reads [milkFiles] again (the first time Auto needs it before the MilkDrop page has). */
+        fun relistMilk()
     }
 
     private var vizPlaylistIndex = 0
-    private val randomRng = kotlin.random.Random(android.os.SystemClock.elapsedRealtime())
 
-    private var cachedMilkFiles: List<MilkFile> = emptyList()
-
-    /** Whether [cachedMilkFiles] was asked for; Auto's switches come back from the prefs, not a toggle. */
+    /** Whether [Host.relistMilk] was asked once; Auto's switches come back from the prefs, not a toggle. */
     private var milkListed = false
 
     /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
@@ -202,7 +209,7 @@ internal class AutoVisualsController(
 
     private fun refreshMilkCache() {
         milkListed = true
-        host.milkFilesAsync { cachedMilkFiles = it }
+        host.relistMilk()
     }
 
     /**
@@ -241,6 +248,8 @@ internal class AutoVisualsController(
         val s = host.vizState.value
         GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, android.os.SystemClock.elapsedRealtime())
         val choices = mutableListOf<VizPlaylistEntry>()
+        // The entry on screen, if it is in the pool: the native draw never brings it back while there is another.
+        var onScreen = -1
         val sceneIds =
             dev.geode.render.scene.VisualStyleCatalog.silkIds +
                 dev.geode.render.scene.VisualStyleCatalog.lifeIds +
@@ -249,24 +258,27 @@ internal class AutoVisualsController(
                 dev.geode.render.scene.SceneCapabilities.SHADER_SCENES.keys
         // Locked styles are left out of the draw: a pick the gate then refused was a moment with no change.
         if (s.randomIncludeStyles) {
-            sceneIds.filter(host::allowsStyle).forEach { choices += VizPlaylistEntry(sceneId = it, label = it) }
+            sceneIds.filter(host::allowsStyle).forEach {
+                if (it == s.sceneId && onScreen < 0) onScreen = choices.size
+                choices += VizPlaylistEntry(sceneId = it, label = it)
+            }
         }
         if (s.randomIncludePresets && !keepLook) {
             s.presets.filter { host.allowsStyle(it.sceneId) }.forEach {
+                if (it.sceneId == s.sceneId && it.params == s.params && onScreen < 0) onScreen = choices.size
                 choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name)
             }
         }
         if (s.randomIncludeMilk && MilkdropEngine.available && host.allowsStyle(SceneIds.MILKDROP)) {
-            cachedMilkFiles.forEach {
+            val playing = host.activeMilkPath.takeIf { s.sceneId == SceneIds.MILKDROP }
+            host.milkFiles.forEach {
+                if (it.path == playing && onScreen < 0) onScreen = choices.size
                 choices += VizPlaylistEntry(sceneId = SceneIds.MILKDROP, milkPath = it.path, label = it.name)
             }
         }
-        if (choices.isEmpty()) return
-        var pick = choices[randomRng.nextInt(choices.size)]
-        if (choices.size > 1 && pick.sceneId == s.sceneId && pick.presetName == null && pick.milkPath == null) {
-            pick = choices[randomRng.nextInt(choices.size)]
-        }
-        applyVizEntry(pick, automatic = true)
+        val pick = GeodeNative.autoPick(choices.size, onScreen)
+        if (pick < 0) return
+        applyVizEntry(choices[pick], automatic = true)
     }
 
     /** [automatic]: Auto's own change, which native fades for longer than one by hand. */

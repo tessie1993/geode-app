@@ -773,6 +773,9 @@ GEODE_API double          geode_auto_timer_hold_s(void);
 /* Auto is about to bring `key` on (a style id, or a .milk path): the renderer that switches to it, or the
  * MilkDrop scene that loads it, within a few seconds plays Auto's longer fade (core/viz/TransitionChoice). */
 GEODE_API void            geode_auto_mark_change(const char* key);
+/* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
+ * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
+GEODE_API int             geode_auto_pick(int count, int on_screen);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and
  * of Cast; the answer is GEODE_STAGE_DRAWS while somebody can see the stage (resumed, or started in a
@@ -801,6 +804,32 @@ GEODE_API unsigned        geode_stage_run(unsigned flags);
 GEODE_API int             geode_stage_display_eligible(unsigned flags);
 GEODE_API int             geode_stage_pick_display(const int* ids, const unsigned* flags, int count, int preferred_id);
 GEODE_API int             geode_stage_presents(unsigned flags);
+
+/* What the stage's "next / previous style" steps (core/viz/StageStep; owner 2026-11-12: it walks what the open
+ * Visuals tab lists). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
+ * milk_count the .milk presets listed and look_count the saved looks the user may apply; the answer is
+ * GEODE_STAGE_STEP_STYLES, _LOOKS or _MILK. index: the item step (+1 next, -1 previous) places from here among
+ * count items, wrapping, skipping here and every open[i] == 0 (open null: all open), from an end when here is
+ * outside the list; -1 when nothing else is open. milk: the index in paths (the MilkDrop page's order) to load,
+ * current the .milk on screen ("" or null when MilkDrop is not); previous retraces the process-wide history of
+ * steps while no hand pick broke it, else the list order. milk_reset drops that history. */
+#define GEODE_STAGE_STEP_PAGE_STYLES         0
+#define GEODE_STAGE_STEP_PAGE_CUSTOMIZE      1
+#define GEODE_STAGE_STEP_PAGE_PRESETS        2
+#define GEODE_STAGE_STEP_PAGE_MILKDROP       3
+#define GEODE_STAGE_STEP_PAGE_TEXTURES       4
+#define GEODE_STAGE_STEP_PAGE_SETTINGS       5
+#define GEODE_STAGE_STEP_SHEET_SHOWN         (1u << 0)
+#define GEODE_STAGE_STEP_ON_MILK             (1u << 1)
+#define GEODE_STAGE_STEP_ON_LOOK             (1u << 2)
+#define GEODE_STAGE_STEP_MILK_OPEN           (1u << 3)
+#define GEODE_STAGE_STEP_STYLES              0
+#define GEODE_STAGE_STEP_LOOKS               1
+#define GEODE_STAGE_STEP_MILK                2
+GEODE_API int             geode_stage_step_target(int page, unsigned flags, int milk_count, int look_count);
+GEODE_API int             geode_stage_step_index(const unsigned char* open, int count, int here, int step);
+GEODE_API int             geode_stage_step_milk(const char* const* paths, int count, const char* current, int step);
+GEODE_API void            geode_stage_step_milk_reset(void);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */

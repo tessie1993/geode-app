@@ -186,8 +186,14 @@ private fun VisualsHubContent(
         viewModel.setCustomizing(customizing)
         onDispose { viewModel.setCustomizing(false) }
     }
+    // The .milk list the MilkDrop page shows, read here too: the step walks it from that tab even with the sheet
+    // hidden, when the page is not composed.
+    val visualsViewModel: VisualsViewModel = geodeViewModel()
+    val milkFiles by visualsViewModel.milkFiles.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { visualsViewModel.relistMilk() }
+    // "Next / previous style" steps what the open tab lists (native core/viz/StageStep, owner 2026-11-12).
     val stepStyle: (Int) -> Unit = { step ->
-        nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
+        stepStage(viewModel, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles, step)
     }
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -205,7 +211,6 @@ private fun VisualsHubContent(
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
-    val visualsViewModel: VisualsViewModel = geodeViewModel()
     ShakeToScreenshot(enabled = !pip, visualizerView = visualizerView, viewModel = visualsViewModel)
     val tapAlong = rememberTapAlong(visualizerView, visualsViewModel)
     val studioViewModel: StudioViewModel = geodeViewModel()

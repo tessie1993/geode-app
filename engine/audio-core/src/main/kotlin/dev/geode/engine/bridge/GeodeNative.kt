@@ -24,6 +24,15 @@ object GeodeNative {
 
     external fun dspBandCenterHz(band: Int): Float
 
+    /** How many built-in equalizer curves there are. */
+    external fun dspEqPresetCount(): Int
+
+    /** Curve [preset]'s band levels in millibels into [out]; the bands written, 0 for no such curve. */
+    external fun dspEqPresetLevels(
+        preset: Int,
+        out: IntArray,
+    ): Int
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,

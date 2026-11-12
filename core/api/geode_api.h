@@ -312,6 +312,11 @@ GEODE_API void       geode_dsp_destroy(geode_dsp*);
 GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
+/* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
+ * is saved data. _levels writes GEODE_DSP_BANDS millibel levels, low band first, and returns that count; 0,
+ * writing nothing, for no such curve or a capacity below GEODE_DSP_BANDS. */
+GEODE_API int        geode_dsp_eq_preset_count(void);
+GEODE_API int        geode_dsp_eq_preset_levels(int preset, int32_t* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */

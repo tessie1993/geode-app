@@ -171,6 +171,17 @@ target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nati
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
 
+# The native stage's platform layer (docs/agents/native-stage.md): looper threads, AChoreographer, EGL on an
+# ANativeWindow, ANativeWindow_setFrameRate. Android only and in no host-test line; android, EGL and nativewindow
+# are linked above. Every call it makes is available at minSdk 33.
+if(ANDROID)
+    target_sources(geode_core PRIVATE
+        stage/android/EglWindow.cpp
+        stage/android/VsyncThread.cpp
+        stage/android/StageThread.cpp
+        api/geode_stage_api.cpp)
+endif()
+
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the
 # EXT_meshopt_compression decoders. Both are MIT submodules under third_party/, unmodified.

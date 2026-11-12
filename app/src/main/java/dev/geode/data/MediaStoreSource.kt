@@ -171,11 +171,11 @@ class MediaStoreSource(
         withContext(io) {
             runCatching {
                 val folder = DocumentFile.fromTreeUri(context, tree) ?: return@runCatching
-                for ((src, mime) in files) {
-                    if (!src.exists()) continue
+                for ((src, mime) in files.filter { it.first.exists() }) {
                     folder.findFile(src.name)?.delete()
-                    val dest = folder.createFile(mime, src.name) ?: continue
-                    resolver.openOutputStream(dest.uri)?.use { out -> src.inputStream().use { it.copyTo(out) } }
+                    folder.createFile(mime, src.name)?.let { dest ->
+                        resolver.openOutputStream(dest.uri)?.use { out -> src.inputStream().use { it.copyTo(out) } }
+                    }
                 }
             }
         }

@@ -261,7 +261,8 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     yaw_.step(lookYawTarget, dt, soft);
     pitch_.step(lookPitchTarget, dt, soft);
     roll_.step(rollTarget, dt, soft * 1.5f);
-    dolly_.step(dollyTarget, dt, soft * 0.6f);
+    // The dolly springs faster than the look, so a push lands on the beat it answers.
+    dolly_.step(dollyTarget, dt, soft * 0.25f);
     fov_.step(fovTarget, dt, soft);
     // Speed eases slower than the look: a surge should feel like thrust.
     speed_.step(speedTarget, dt, soft * 2.0f);
@@ -339,7 +340,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     pose_.roll = roll;
     // Flat projection: the path's lateral wander becomes a gentle pan, the
     // dolly and FOV become zoom, and the look tilts the image plane.
-    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
+    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.6f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
     pose_.tilt = {std::clamp(yaw, -1.0f, 1.0f) * kFlatTilt, std::clamp(pitch, -1.0f, 1.0f) * kFlatTilt};
 }
 

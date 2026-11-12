@@ -288,18 +288,20 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // above is what it was before it came; when the DNA is already full it takes the slot of the layer drawn
     // last (the style's least: a texture, accent, rise, cruise, lean or lift, never the pulse, big moment or
     // colour), so the cap holds and every style has one. Its source (the hit or its envelope) and its target, one
-    // the style does not already move, are drawn like any layer's; Camera shake is never taken above, so there
-    // is always one free.
+    // the style does not already move, are drawn like any layer's; when every one is taken it zooms beside
+    // whatever zooms already (a camera shake, the old last resort, was too small to see).
     {
         if (b.dna.count >= b.cap) b.dna.count = b.cap - 1;
         const ReactSource attack = pick(d, std::array{ReactSource::Transient, ReactSource::TransientEnv});
-        const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::CamShake};
-        switch (b.freeTarget(d, attacks, traits)) {
+        const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::Zoom};
+        LfoTarget hit = b.freeTarget(d, attacks, traits);
+        if (hit == LfoTarget::None) hit = LfoTarget::Zoom;
+        switch (hit) {
             case LfoTarget::Ripple: b.add(attack, LfoTarget::Ripple, ReactMode::Follow, d.range(0.25f, 0.45f), 0.01f, 0.25f); break;
             case LfoTarget::Warp: b.add(attack, LfoTarget::Warp, ReactMode::Follow, d.range(0.2f, 0.35f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::Twist: b.add(attack, LfoTarget::Twist, ReactMode::Follow, d.range(0.15f, 0.3f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::ChromaAb: b.add(attack, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.6f), 0.01f, 0.2f); break;
-            case LfoTarget::CamShake: b.add(attack, LfoTarget::CamShake, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
+            case LfoTarget::Zoom: b.add(attack, LfoTarget::Zoom, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
             default: break;
         }
     }

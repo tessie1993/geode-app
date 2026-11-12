@@ -48,8 +48,10 @@ out vec4 fragColor;
 //   SND_ENERGY_TREND             overall level
 //
 // Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the kick swell, k1
-// TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE the hue, k4 BUILD
-// the prominence height, k5 SPACE the corona's reach.
+// TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE where the
+// streamers stand (a high melody lifts them off the equator into plumes at the
+// poles, a low one gathers them into a tight equatorial belt; plus a small hue
+// offset), k4 BUILD the prominence height, k5 SPACE the corona's reach.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -140,6 +142,8 @@ void main() {
     float hue = 0.06 + 0.1 * (uKnob[3] - 0.5) + 0.08 * pitch
               + 0.05 * sin(SO_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
     float ext = 1.0 + 0.6 * (uKnob[5] - 0.5);
+    float tonePush = clamp(1.4 * (uKnob[3] - 0.5), 0.0, 0.7);
+    float tonePull = clamp(0.5 - uKnob[3], 0.0, 0.5);
 
     // ---- the photosphere's shape for this frame -------------------------------
     gSpin = rotY(uTime * 0.04);
@@ -225,7 +229,10 @@ void main() {
             float rayHi = pow(max(0.0, sin(ph * (nLo + 1.0))), 3.0);
             // abs(lon) / pi runs 0..1..0 round the sun, so the EQ read has no seam.
             float rays = mix(rayLo, rayHi, nMix) * 0.5 * sndEq(abs(lon) / SO_PI);
-            rays *= 0.45 + 0.55 * (1.0 - dir.y * dir.y);
+            // TONE moves the streamers in latitude; at rest this is 1 - y^2.
+            float lat = dir.y * dir.y;
+            float belt = mix(pow(1.0 - lat, 1.0 + 3.0 * tonePull), lat, tonePush);
+            rays *= 0.45 + 0.55 * belt;
             float x = (r - gR) / ext;
             float dens = exp(-x * 3.5) * (0.35 + rays + low);
 

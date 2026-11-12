@@ -58,7 +58,10 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the tentacles' width
 // (an exact radius scale), k2 FLOW added to the current's sway (+-0.1, inside
-// what the 0.6 step covers), k3 TONE the palette position, k4 BUILD the glow
+// what the 0.6 step covers), k3 TONE the palette position and how far the
+// tentacles trail (a high melody draws them out long, a low one curls them up
+// short under the bell; at their longest the tips stay inside the cell),
+// k4 BUILD the glow
 // integrated along the ray, k5 SPACE the reach (far plane and fog).
 
 /** Compile-time ceiling. uSteps is the runtime budget. */
@@ -80,6 +83,8 @@ float gZoneHue;
 float gOnsetProg;
 /** k1 TEXTURE: the tentacles' radius scale, 0.5..1.5 (1 at rest). */
 float gTentW = 1.0;
+/** k3 TONE: the tentacles' length scale (1 at rest). */
+float gTentL = 1.0;
 
 // What map() last found: the live cell's jelly, in jelly-local units.
 float gAlive;
@@ -106,7 +111,7 @@ void jellyParts(vec3 q, float seed) {
     float cut = -(q.y + 0.08 + 0.05 * sin(q.x * 9.0 + uTime) * sin(q.z * 9.0));
     gDB = max(abs(e) - 0.045, cut);
 
-    float len = 2.6 * (0.85 + 0.3 * fract(seed * 7.7));
+    float len = 2.6 * (0.85 + 0.3 * fract(seed * 7.7)) * gTentL;
     gLen = len;
     float s = clamp(-q.y / len, 0.0, 1.0);
     // The current drags the whole skirt one way, more toward the tips. Applied
@@ -209,6 +214,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
     gTentW = 1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5);
+    gTentL = 1.0 + 1.2 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);

@@ -48,7 +48,9 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width, k2
 // FLOW a corkscrew bend of the sheet along z (period 16, the rebase, so the
 // wrap holds; its slope is under 0.2, which the 0.85 step absorbs), k3 TONE the
-// palette position, k4 BUILD the glow ahead in the fog, k5 SPACE the reach
+// palette position and the cavern's scale (a high melody packs the lattice
+// into fine, close passages, a low one opens it into wide halls; scaled about
+// the eye, and gKMax follows it), k4 BUILD the glow ahead in the fog, k5 SPACE the reach
 // (far plane and fog).
 //
 // ---- why the morphs are wrap-safe ------------------------------------------
@@ -162,7 +164,7 @@ void main() {
     vec3 stretch = mix(gcOnsetStretch(mod(floor(SND_HIT_TIME) - 1.0, 4096.0)), gcOnsetStretch(floor(SND_HIT_TIME)), og);
     // A slow idle breath so silence still moves; the drop opens everything.
     vec3 idle = 1.0 + 0.04 * vec3(sin(uTime * 0.07), sin(uTime * 0.05 + 2.0), sin(uTime * 0.06 + 4.0));
-    gK = stretch * idle * mix(1.0, 0.62, dropBump);
+    gK = stretch * idle * mix(1.0, 0.62, dropBump) * (1.0 + 0.7 * kTone);
     gKMax = max(gK.x, max(gK.y, gK.z));
     gTh = (0.14 + 0.34 * kick) * (1.0 - 0.45 * dropBump);
     gTube = 1.9 + 1.4 * dropBump;

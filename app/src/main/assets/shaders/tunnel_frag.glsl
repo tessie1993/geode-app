@@ -51,8 +51,10 @@ out vec4 fragColor;
 // the spectrum spiral and bends the bore, Turbulence wobbles the cross-section,
 // Intensity and the palette reach through lib_scene_grade and pal().
 // Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the ripple's
-// strength, k1 TEXTURE the groove wave, k2 FLOW the rib light, k3 TONE the hue,
-// k4 BUILD the far glow, k5 SPACE the bore radius.
+// strength, k1 TEXTURE the groove wave, k2 FLOW the rib light, k3 TONE the
+// ribs' depth (a high melody carves them into deep fins, a low one smooths the
+// bore toward a plain pipe; and a small hue offset), k4 BUILD the far glow,
+// k5 SPACE the bore radius.
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -62,7 +64,8 @@ out vec4 fragColor;
 // the kick ripple at full PULSE, so the 0.3-high ribs slope at most ~1.6 along
 // z. The kick squeeze (0.36), the wobble (0.08) and the bend (0.14) add theirs,
 // ~2.2 along z in all, and the band swell and the wobble ~0.6 around the wall:
-// sqrt(1 + 2.2^2 + 0.6^2) < 2.5. The spectrum lookup is
+// sqrt(1 + 2.2^2 + 0.6^2) < 2.5; when TONE deepens the ribs past 0.3 the
+// bound grows in proportion (gLip). The spectrum lookup is
 // mirrored, so the band height has no seam to cliff on. A sphere around the
 // eye is carved out of the shell, so the eye is never inside it. The march
 // starts where the ray leaves the inner cylinder no part of the shell can
@@ -95,6 +98,8 @@ float gTwist;
 float gBend;
 float gWobble;
 float gRadius;
+/** The radial field's gradient bound: TN_LIP, scaled up when TONE deepens the ribs. */
+float gLip;
 /** Set by map(): the rib cosine (1 on a crest), the band under the point, its angle 0..1. */
 float gC;
 float gBand;
@@ -133,7 +138,7 @@ float map(vec3 p) {
                  + gKickAmp * 0.4 * env
                  + gWobble * (0.5 + 0.5 * sin(ang * TN_TAU * 3.0 + p.z * (TN_TAU / 16.0) + uTime * 0.3));
     float wall = gRadius - inward;
-    float d = (abs(wall - r) - TN_SHELL) / TN_LIP;
+    float d = (abs(wall - r) - TN_SHELL) / gLip;
     return max(d, TN_BUBBLE - length(p - gEye));
 }
 
@@ -165,7 +170,8 @@ void main() {
     gTwist = 0.25 * warp;
     gBend = 0.7 * warp;
     gWobble = 0.4 * clamp(uTurbulence, 0.0, 1.0);
-    gRibAmp = 0.18;
+    gRibAmp = 0.18 * (1.0 + 1.6 * kTone);
+    gLip = TN_LIP * max(1.0, (gRibAmp + 0.12) / 0.3);
     gRadius = TN_RADIUS + 1.2 * kSpace;
 
     vec3 ro;

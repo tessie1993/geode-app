@@ -20,7 +20,8 @@ out vec4 fragColor;
 // and a wandering one that circles it, and their rings cross and interfere
 // wherever two pools meet. As in the flat style, the light is the wave
 // itself: crests and troughs glow in the palette, read at the wave's height,
-// and the still water between them stays dark. The ripples also mirror a dim
+// and the still water between them stays dark. The glow's hue runs on with
+// distance, so the near water and the far water read as different depths. The ripples also mirror a dim
 // horizon glow, so every ring catches a line of light as it rolls.
 //
 // Flown with camFly. The lake sits at RP_WATER, below the rig's y wander, and
@@ -43,8 +44,10 @@ out vec4 fragColor;
 // Morph tightens every ring, Warp bends the lake's grid of pools, Turbulence
 // adds a fine chop. Knobs, each read as an offset from 0.5 (exactly this
 // picture while Note & key reactions are off): k0 PULSE the kick ring's
-// height, k1 TEXTURE the chop, k2 FLOW the wandering rings, k3 TONE the hue,
-// k4 BUILD the glow, k5 SPACE how far you see (less fog).
+// height, k1 TEXTURE the chop, k2 FLOW the wandering rings, k3 TONE the
+// rings' wavelength (a high melody crowds them into fine close rings, a low
+// one spreads them into long slow rollers; plus a small hue offset), k4 BUILD
+// the glow, k5 SPACE how far you see (less fog).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -161,9 +164,11 @@ void main() {
     float morph = clamp(uMorph, 0.0, 2.0);
 
     gAb = 0.05 + 0.09 * vol;
-    gKb = (2.4 + 1.3 * bass) * (1.0 + 0.5 * morph);
+    // TONE: the rings' wavelength (gLip below follows both wavenumbers).
+    float toneK = 1.0 + 1.1 * (k3 - 0.5);
+    gKb = (2.4 + 1.3 * bass) * (1.0 + 0.5 * morph) * toneK;
     gAm = 0.08 * mid * (0.5 + k2);
-    gKm = 3.1 * (1.0 + 0.5 * morph);
+    gKm = 3.1 * (1.0 + 0.5 * morph) * toneK;
     gAk = 0.16 * kick * (0.5 + k0);
     // The ring runs out from the source as the envelope falls.
     gRk = 0.5 + 7.0 * (1.0 - kick);
@@ -235,9 +240,14 @@ void main() {
 
         // The flat style's light: the wave glows by its own height, crests and
         // troughs in the palette's two sides, still water black.
-        float v = clamp(h0 / max(amp, 0.05), -1.0, 1.0);
+        // amp is the sum of every term's peak, which the waves almost never
+        // reach together, so the height is read against half of it.
+        float v = clamp(h0 / max(0.5 * amp, 0.05), -1.0, 1.0);
         float glow = (0.30 + 0.8 * vol) * (0.5 + k4) * exp(-hitT * 0.025);
-        col += pal(hue + v * 0.4) * abs(v) * glow;
+        // Depth: the glow's hue runs on through the palette with distance, so
+        // near rings and far ones read as different water, and the lake has depth.
+        float far = hitT / RP_FAR;
+        col += pal(hue + v * 0.4 + 0.3 * far) * abs(v) * glow;
         // The kick ring flares white-hot along its crest as it runs out.
         col += mix(pal(hue + 0.15), vec3(1.0), 0.4) * kick * smoothstep(0.35, 0.9, v) * 0.5 * glow;
 

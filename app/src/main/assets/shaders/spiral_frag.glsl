@@ -56,8 +56,11 @@ out vec4 fragColor;
 // ---- knobs -----------------------------------------------------------------
 //
 // k0 PULSE the kick's thickening; k1 TEXTURE the ring density on the blades;
-// k2 FLOW extra radial winding; k3 TONE the hue; k4 BUILD the eye's glow;
-// k5 SPACE the width of the open core. All read as continuous offsets around
+// k2 FLOW extra radial winding; k3 TONE how the arms curl (a high melody
+// winds them into tight whorls round the eye, a low one straightens them into
+// long rifling; plus a small hue offset); k4 BUILD the eye's glow and the
+// blades' own thickness, so tension closes the vortex walls in around the
+// flight; k5 SPACE the width of the open core. All read as continuous offsets around
 // 0.5, never multiplying a clock, so a knob move never jumps the picture.
 //
 // ---- why the distance estimate is safe --------------------------------------
@@ -151,8 +154,9 @@ void main() {
     gSpArmsA = 2.0 + mf;
     gSpArmsB = gSpArmsA + 1.0;
     gSpArmMix = smoothstep(0.8, 1.0, m - mf);
-    gSpWind = 2.5 + 3.0 * clamp(bass, 0.0, 1.2) + 3.0 * clamp(uWarp, 0.0, 2.0) + 2.0 * (uKnob[2] - 0.5);
-    gSpTh = 0.42 + (0.45 + 0.5 * (uKnob[0] - 0.5)) * kick;
+    gSpWind = max(2.5 + 3.0 * clamp(bass, 0.0, 1.2) + 3.0 * clamp(uWarp, 0.0, 2.0) + 2.0 * (uKnob[2] - 0.5)
+                  + 4.0 * (uKnob[3] - 0.5), 0.3);
+    gSpTh = 0.42 * (1.0 + 1.1 * (uKnob[4] - 0.5)) + (0.45 + 0.5 * (uKnob[0] - 0.5)) * kick;
     gSpIn = 2.8 + 0.8 * (uKnob[5] - 0.5) + 0.9 * dropBump;
     gSpTurb = clamp(uTurbulence, 0.0, 2.0);
     // The 2D arms' own spin, a plain multiple of uTime.

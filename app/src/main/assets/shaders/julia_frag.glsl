@@ -60,8 +60,12 @@ out vec4 fragColor;
 // and the colour controls are grade(); Space is the rig. The six knobs are read
 // as offsets from 0.5, so with Note & key reactions off the style is exactly
 // as tuned: k0 PULSE the kick's growth, k1 TEXTURE the trap bands' density,
-// k2 FLOW the orbit's width, k3 TONE the hue, k4 BUILD the halo, k5 SPACE the
-// camera's distance.
+// k2 FLOW the orbit's width, k3 TONE where the slice sits in the fourth
+// dimension (on top of Warp's drift: the melody's height carries the body
+// through k, so a rising line folds it into a new sculpture; plus a small hue
+// offset), k4 BUILD the glow the crust gives off into the air around it, on
+// hit and missed rays alike, so tension wraps the body in a luminous shell,
+// k5 SPACE the camera's distance.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -172,7 +176,8 @@ void main() {
     // The imaginary part's direction wanders through i, j and k.
     vec3 dir = normalize(vec3(cos(t * 0.37), sin(t * 0.37), 0.35 + 0.55 * sin(t * 0.23)));
     gC = vec4(c2.x, c2.y * dir);
-    gSlice = 0.35 * clamp(uWarp, 0.0, 1.0) * sin(uTime * 0.05 + 1.0);
+    // Every slice of the 4D set lies inside JQ_BOUND, so TONE can move it freely.
+    gSlice = 0.35 * clamp(uWarp, 0.0, 1.0) * sin(uTime * 0.05 + 1.0) + 0.5 * k3;
     gScale = 1.0 + 0.06 * clamp(1.0 + 1.2 * k0, 0.0, 2.0) * kick;
     gIters = uSteps < 80.0 ? 8 : JQ_ITERS;
 
@@ -187,6 +192,9 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     float closest = 1e9;
+    // The crust's glow gathered along the ray in front of whatever it hits,
+    // weighted by step length so Detail does not change it (BUILD; 0 at rest).
+    float air = 0.0;
     float trap = 1.0;
     float esc = 0.0;
     if (h > 0.0) {
@@ -200,6 +208,7 @@ void main() {
             used = float(i);
             float d = map(ro + rd * tt);
             closest = min(closest, d);
+            air += exp(-max(d, 0.0) * 14.0) * max(d * 0.8, 0.002);
             float eps = (uSteps < 80.0 ? 0.0014 : 0.0007) * tt + 0.0003;
             if (d < eps) {
                 hitT = tt;
@@ -239,6 +248,7 @@ void main() {
         float halo = exp(-closest * 9.0) * 0.35 * clamp(1.0 + 1.5 * k4, 0.0, 2.0);
         col += pal(hue + 0.1) * halo * (0.6 + 0.6 * swell);
     }
+    col += pal(hue + 0.2) * air * 1.6 * max(k4, 0.0);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

@@ -56,7 +56,9 @@ out vec4 fragColor;
 // k0 PULSE  how far the kick stretches the near streaks.
 // k1 TEXTURE  streak thickness.
 // k2 FLOW   streak length on top of the throttle.
-// k3 TONE   the field's hue.
+// k3 TONE   which way the field rakes, and its hue: a high melody stretches
+//           the streaks above the corridor long and shortens those below, so
+//           the jump climbs; a low one the reverse, so it dives.
 // k4 BUILD  how many cells hold a streak (each fades in on its own hash).
 // k5 SPACE  the corridor's width.
 //
@@ -108,6 +110,9 @@ float gBright;
 
 float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
+/** TONE: how far the streaks above the corridor outgrow those below (0 at rest). */
+float gRake;
+
 /** The corridor's curve. Periods 256 and 128 divide 1024; slope at most 0.17 * |uWarp|. */
 vec2 bend(float z) {
     return uWarp * 3.0 * vec2(sin(z * (WP_TAU / 256.0)), 0.6 * sin(z * (WP_TAU / 128.0) + 1.3));
@@ -144,7 +149,9 @@ float map(vec3 p) {
     // Only the streaks just ahead of the eye answer the kick.
     float ahead = (cz + 0.5) * WP_ZCELL - s - gEye.z;
     float kick = gKick * exp(-abs(ahead - 6.0) * 0.15);
-    float hl = min(gLen * (0.55 + 0.45 * hv2) + kick, WP_MAX_HALF);
+    // TONE rakes the field: one factor per column, from its centre's height.
+    float rake = max(1.0 + gRake * clamp((cell.y + 0.5) * WP_CELL / 6.0, -1.0, 1.0), 0.2);
+    float hl = min(gLen * (0.55 + 0.45 * hv2) * rake + kick, WP_MAX_HALF);
     float r = gRad * (0.7 + 0.3 * hv) * w;
 
     float own = 1e3;
@@ -186,6 +193,7 @@ void main() {
     gRad = 0.05 + 0.04 * (knob(1) + 0.5);
     gDens = clamp(0.42 + 0.4 * knob(4), 0.1, 0.9);
     gCorr = 1.3 + 1.0 * knob(5);
+    gRake = 1.8 * knob(3);
     gTurb = 0.2 * clamp(uTurbulence, 0.0, 1.0);
     gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * (0.6 + 1.2 * (knob(0) + 0.5));
     gBendL = 1.0 + 0.17 * abs(uWarp);

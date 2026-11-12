@@ -37,7 +37,10 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the neon edges' and
 // street lines' width, k2 FLOW bends the avenues (a sideways shear of the whole
 // city along z, period 64 so the 1024 tile holds), k3 TONE the palette
-// position, k4 BUILD the horizon's glow, k5 SPACE the reach (far plane, haze).
+// position and the skyline (a high melody raises more towers out of the
+// blocks, a low one cuts them down to a low-rise sprawl; no roof passes the
+// tallest one the bound allows), k4 BUILD the horizon's glow, k5 SPACE the
+// reach (far plane, haze).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -104,7 +107,10 @@ float map(vec3 w) {
     float hw = uhashUnit(uhash(u2));
 
     float band = clamp(bandPick(hb), 0.0, 1.0);
+    // TONE: more towers for a high melody (each fades in on its own hash), shorter for a low one.
     float tower = step(0.88, h);
+    if (gTone > 0.0) tower = max(tower, smoothstep(0.88 - 1.2 * gTone, 0.92 - 1.2 * gTone, h));
+    tower *= 1.0 + 2.6 * min(gTone, 0.0);
     float height = ((0.8 + 3.2 * h) * (0.45 + 0.7 * band) + 2.5 * tower) * gStretch;
     float top = min(NC_GROUND + height, gCap);
     // Footprint at most 0.8 of the 1.0 half-cell: the rest is street.

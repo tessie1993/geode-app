@@ -27,17 +27,21 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `BlendMode` | 24 | pending |
 | `StyleSchedule` | 31 | pending |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
+| `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
+| `SceneCapabilities` (`SceneKind`) | 37 | **ported**: `core/viz/Catalogue` (`Trait`); the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
+| `StyleFamilies` | 37 | **ported**: `core/viz/Catalogue` (`Trait::FamilyFollower`); `pro/FreeTier` asks for the followers. |
+| `ThermalGovernor` | 38 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |
 | `StyleFamilies` | 37 | pending |
-| `ThermalGovernor` | 38 | pending |
+| `ThermalGovernor` | 38 | **ported**: `core/viz/frame/ThermalSource` reads the NDK's `AThermal_*` (status listener, 30 s headroom on the won slot) into `ThermalState`; `geode_thermal_push` is gone. |
 | `SoundCursor` | 39 | pending |
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending |
 | `BuildStyleReactionsUseCase` | 51 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `PcmTap` | 55 | pending |
-| `AiffPcm` | 57 | pending |
+| `AiffPcm` | 57 | **deleted**: a handle over `geode_aiff_*` whose last caller is `export/AudioTranscoder`, which now opens the descriptor and holds the handle itself; the export's track opens AIFF natively (`core/audio/ingest/TrackPump`). |
 | `LookSnapshot` | 70 | pending |
-| `SceneIds` | 70 | pending |
+| `SceneIds` | 70 | **deleted**: the id list is native; the shell names an id as text where a rule is about one style. |
 | `SoundTuning` | 76 | pending |
 | `TransitionCatalog` | 79 | pending |
 | `SceneParamsCodec` | 80 | pending |
@@ -45,20 +49,21 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `ParamSchema` | 90 | pending |
 | `PerformanceSettings` | 94 | pending |
-| `ParamScope` | 94 | pending |
+| `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
 | `SampleRing` | 95 | pending |
-| `LookApplier` | 97 | pending |
+| `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |
+| `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
-| `OffscreenSceneRenderer` | 128 | pending |
+| `OffscreenSceneRenderer` | 128 | **ported**: `core/output/ExportFrame` (the prepare order, the pre-roll, each frame's audio and draw), `geode_export_job_*` (`core/api/geode_export_job_api.h`), test `core/tests/export_frame_test.cpp`. `export/ExportScene` opens the renderer and the track's descriptor and applies the look between the job's two prepare calls. The unused `paramsAt` and `styleSchedule` export parameters are gone. |
 | `SearchMatcher` | 131 | pending |
-| `Catalogue` | 131 | pending |
+| `Catalogue` | 131 | **ported**: the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `ParamFormat` | 153 | pending |
-| `TrackAudio` | 158 | pending |
+| `TrackAudio` | 158 | **ported**: `core/audio/ingest/TrackPump` (the decode and hand-out order, AIFF first) over `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, linked `mediandk`), test `core/tests/track_pump_test.cpp`. Needs a device for the codec path. |
 | `ParamKeys` | 158 | pending |
 | `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `VisualizerView` | 220 | pending |
-| `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). `HandMask`, the process-wide push of the mask, is in `render/look/LookApplier.kt`. |
+| `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). The process-wide push of the hand mask is `LfoStore.pushHand`. |
 | `FramePacer` | 248 | pending |
 | `SceneParams` | 272 | pending |
 | `VisualizerRenderer` | 313 | pending |

@@ -21,7 +21,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -42,7 +41,7 @@ class ReactivityTabTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val sceneId = SceneIds.KIFS
+    private val sceneId = "kifs"
 
     private var params by mutableStateOf(SceneParams.DEFAULT)
     private var reactions by mutableStateOf<String?>(null)

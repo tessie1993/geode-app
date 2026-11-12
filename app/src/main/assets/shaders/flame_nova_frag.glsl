@@ -19,7 +19,7 @@ out vec4 fragColor;
 // about. The lobes are whole veils, brightest where a meridian meets them.
 //
 // Morph pinches the lobes from near-spheres to deep-waisted rings. Worst case
-// 72 samples, no folds, no noise.
+// 90 samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float l = max(length(p), 1.0e-3);

@@ -7,7 +7,8 @@ import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.PacedRate
-import dev.geode.render.look.LookTarget
+import dev.geode.render.PerformanceSettings
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
@@ -18,11 +19,12 @@ import java.nio.ByteBuffer
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
  *
  * Every call is a no-op until [create] (or [surfaceCreated]) has run; the GL-thread rules of the
- * C API apply unchanged.
+ * C API apply unchanged. The look and Settings › Performance are pushed when they change, from any
+ * thread, into the handle's own latches; a live frame is then one [frame] call.
  */
 class NativeViz(
     context: Context,
-) : LookTarget {
+) {
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
@@ -34,6 +36,9 @@ class NativeViz(
     // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
     private var handle = 0L
+
+    /** The `geode_viz` handle for the native export job, which drives this renderer itself; 0 before [create]. */
+    val nativeHandle: Long get() = handle
 
     // The handle again, for the Cleaner (#999). A teardown queues the release on the GL thread and waits
     // 200 ms (VisualizerView, the wallpaper engine); when the wait runs out, the queued job dies with the
@@ -48,8 +53,12 @@ class NativeViz(
     }
 
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
-    private val sent = LastSent()
     private var reportedError = ""
+
+    // What the owner last set, kept for the next handle: a handle is destroyed on every detach, and the new
+    // renderer knows none of it. Guarded by this object's monitor, like the handle's create and destroy.
+    private var look: LookSnapshot? = null
+    private var quality: PerformanceSettings? = null
 
     // Shake to screenshot's waiting request: set from any thread, answered on the GL thread after a frame.
     @Volatile
@@ -67,7 +76,6 @@ class NativeViz(
         if (handle == 0L) {
             handle = GeodeNative.vizCreate(assets, cacheDir)
             owned.handle = handle
-            sent.clear()
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 applyUiBlur()
@@ -75,6 +83,8 @@ class NativeViz(
                 if (stillThen != null) GeodeNative.vizStillRequest(handle)
                 if (castSource) GeodeNative.vizSetCastSource(handle, true)
                 if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
+                quality?.let(::pushQuality)
+                look?.let { pushLook(it, was = null) }
                 onCreated()
             }
         }
@@ -105,21 +115,63 @@ class NativeViz(
 
     fun sceneIds(): List<String> = if (handle == 0L) emptyList() else GeodeNative.vizSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
-    override fun setParams(p: SceneParams) {
+    /**
+     * What this renderer draws, from any thread, kept for the next handle ([create] gives it the whole look).
+     * Only the parts that are new objects cross JNI, each into one of the handle's any-thread latches: the
+     * stores make a new instance for a change, so an unrelated edit costs nothing. The scene is a request the
+     * next live frame applies once the renderer can draw it.
+     */
+    @Synchronized
+    fun setLook(next: LookSnapshot) {
+        val was = look
+        look = next
+        if (handle != 0L) pushLook(next, was)
+    }
+
+    private fun pushLook(
+        l: LookSnapshot,
+        was: LookSnapshot?,
+    ) {
+        if (l.sceneId != was?.sceneId) GeodeNative.vizRequestScene(handle, l.sceneId)
+        if (l.params !== was?.params) setParams(l.params)
+        if (l.lfos != was?.lfos) setLfoConfigs(l.lfos)
+        if (l.adsrs != was?.adsrs) setAdsrConfigs(l.adsrs)
+        if (l.soundTuning !== was?.soundTuning) setSoundTuning(l.soundTuning)
+        if (was == null || l.reactions != was.reactions) setUserReactions(l.reactions)
+        if (l.reducedMotion != was?.reducedMotion) setReducedMotion(l.reducedMotion)
+        if (l.transitionId != was?.transitionId || l.transitionMs != was?.transitionMs) setTransition(l.transitionId, l.transitionMs)
+        if (was == null || l.underlay !== was.underlay) {
+            val u = l.underlay
+            setUnderlay(u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+        }
+    }
+
+    /** Settings › Performance for a live surface, from any thread; kept for the next handle. An export never sets it. */
+    @Synchronized
+    fun setQuality(settings: PerformanceSettings) {
+        quality = settings
+        if (handle != 0L) pushQuality(settings)
+    }
+
+    private fun pushQuality(s: PerformanceSettings) =
+        GeodeNative.vizSetQuality(handle, s.renderScale, s.marchScale, s.postFx, s.adaptive, s.liquidHot.native)
+
+    @Synchronized
+    fun setParams(p: SceneParams) {
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
     }
 
-    override fun setReducedMotion(on: Boolean) {
-        if (handle != 0L && sent.reducedMotion(on)) GeodeNative.vizSetReducedMotion(handle, on)
+    fun setReducedMotion(on: Boolean) {
+        if (handle != 0L) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
-    override fun setTransition(
+    fun setTransition(
         id: String,
         durationMs: Long,
     ) {
-        if (handle != 0L && sent.transition(id, durationMs)) GeodeNative.vizSetTransition(handle, id, durationMs)
+        if (handle != 0L) GeodeNative.vizSetTransition(handle, id, durationMs)
     }
 
     fun beginParamMorph(seconds: Float) {
@@ -185,81 +237,59 @@ class NativeViz(
     fun endPreRoll(rangeStartMs: Long): Boolean = GeodeNative.vizEndPreRoll(handle, rangeStartMs)
 
     /**
-     * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
-     * each sample once, and starts over on a new epoch or another ring. Null: it hears nothing and lets
-     * the last ring go.
+     * One live frame into framebuffer 0 ([GeodeNative.vizFrame]): the renderer hears what [ring] gained, natively,
+     * each sample once (null: nothing, and the last ring goes), and [paced] hands over the rate the surface last
+     * drew at and its own cap, which native keeps apart for the thermal step. The `FRAME_*` events; 0 before the
+     * handle exists. GL thread.
      */
-    fun feedRing(ring: SampleRing?) {
-        if (handle != 0L) GeodeNative.vizFeedRing(handle, ring?.handle ?: 0L)
+    fun frame(
+        ring: SampleRing?,
+        paced: PacedRate,
+    ): Int {
+        if (handle == 0L) return 0
+        val events = GeodeNative.vizFrame(handle, ring?.handle ?: 0L, paced.fps(), paced.capFps())
         // The ring's handle is only valid while the ring is held: hold it past the call.
         Reference.reachabilityFence(ring)
+        return events
     }
 
+    /** What Liquid mode ran when a frame last said `FRAME_LIQUID_CHANGED` (`liquid::Mode`). */
+    fun liquidMode(): Int = if (handle == 0L) 0 else GeodeNative.vizLiquidMode(handle)
+
     /** Settings › Audio. The floats are read here, not by the caller: the defaults are native. */
-    override fun setSoundTuning(tuning: SoundTuning) {
+    fun setSoundTuning(tuning: SoundTuning) {
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, tuning.toFloats())
     }
 
-    override fun setLfoConfigs(lfos: String) {
+    fun setLfoConfigs(lfos: String) {
         if (handle == 0L) return
         GeodeNative.vizSetLfos(handle, lfos)
     }
 
-    override fun setAdsrConfigs(adsrs: String) {
+    fun setAdsrConfigs(adsrs: String) {
         if (handle == 0L) return
         GeodeNative.vizSetAdsrs(handle, adsrs)
     }
 
-    /** The user's routes and hand mask, sent only when [routes] or [mask] changes; native resolves what plays. */
-    override fun setUserReactions(
-        routes: String?,
-        mask: Int,
+    /** The user's saved routes (null: the style's DNA); native merges them under the hand mask it reads itself. */
+    fun setUserReactions(routes: String?) {
+        if (handle != 0L) GeodeNative.vizSetReactions(handle, routes)
+    }
+
+    /** [dev.geode.render.GyroLook]'s reading: the rotation vector's x, y, z, w and the display rotation. Any thread. */
+    fun gyroPush(
+        x: Float,
+        y: Float,
+        z: Float,
+        w: Float,
+        displayRotation: Int,
     ) {
-        if (handle != 0L && sent.userReactions(routes, mask)) {
-            GeodeNative.vizSetReactions(handle, routes, mask)
-        }
+        if (handle != 0L) GeodeNative.vizGyroPush(handle, x, y, z, w, displayRotation)
     }
 
-    /** [reading] is [dev.geode.render.GyroLook]'s: the rotation vector's x, y, z, w and the display rotation. */
-    fun gyroSample(reading: FloatArray) {
-        if (handle != 0L) GeodeNative.vizGyroSample(handle, reading[0], reading[1], reading[2], reading[3], reading[4].toInt())
-    }
-
-    fun gyroReset() {
-        if (handle != 0L) GeodeNative.vizGyroReset(handle)
-    }
-
-    /**
-     * One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. [paced] hands over
-     * both the rate the surface last drew at and its own cap, which native keeps apart for the thermal step.
-     */
-    fun frameBegin(
-        paced: PacedRate,
-        renderScale: Float,
-        marchScale: Float,
-        postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
-        paramsVersion: Long,
-        lfoVersion: Long,
-        adsrVersion: Long,
-        tuningVersion: Long,
-    ): Int {
-        if (handle == 0L) return 0
-        return GeodeNative.vizFrameBegin(
-            handle,
-            paced.fps(),
-            paced.capFps(),
-            renderScale,
-            marchScale,
-            postFx,
-            adaptive,
-            liquidHotPolicy,
-            paramsVersion,
-            lfoVersion,
-            adsrVersion,
-            tuningVersion,
-        )
+    /** The sensor stopped: the next frame recentres the look. Any thread. */
+    fun gyroOff() {
+        if (handle != 0L) GeodeNative.vizGyroOff(handle)
     }
 
     /** Pins an export's engine settings and returns the pinned hand mask; see [GeodeNative.vizPinEngineSettings]. */
@@ -333,22 +363,18 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
     }
 
-    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    /** GL thread. Record's tee into [session]'s encoder; see [GeodeNative.recordSessionTeeStart]. */
     fun recordStart(
-        recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        session: Long,
         watermark: Long,
-    ): Boolean = handle != 0L && GeodeNative.vizRecordStart(handle, recorder, surface, width, height, watermark)
+    ): Boolean = handle != 0L && GeodeNative.recordSessionTeeStart(session, handle, watermark)
 
     fun recordStop() {
         if (handle != 0L) GeodeNative.vizRecordStop(handle)
     }
 
+    /** A new surface keeps what was pushed: the native handle holds it, so nothing is sent again here. */
     fun surfaceCreated() {
-        // A new surface may be a new GL context: send every value once more, as the renderer does.
-        sent.clear()
         if (create()) GeodeNative.vizSurfaceCreated(handle)
     }
 
@@ -359,7 +385,8 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSurfaceChanged(handle, width, height)
     }
 
-    override fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
+    /** GL thread, at once: an export's (and a test's) scene. A live surface's goes with its look. */
+    fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
 
     /** An export segment's style switches; see [GeodeNative.vizSetStyleSchedule]. */
     fun setStyleSchedule(schedule: StyleSchedule) {
@@ -389,7 +416,6 @@ class NativeViz(
     ) {
         if (handle == 0L) return
         GeodeNative.vizRender(handle, timeSeconds, targetFbo)
-        stillThen?.let(::deliverStill)
     }
 
     /** The next finished visual (no app UI), handed to [then] on the GL thread. Any thread. */
@@ -401,12 +427,16 @@ class NativeViz(
     /** Tap along: true on the tap that completes a streak on the beat this renderer heard ([GeodeNative.vizTapAlong]). Any thread. */
     fun tapAlong(uptimeNs: Long): Boolean = handle != 0L && GeodeNative.vizTapAlong(handle, uptimeNs)
 
-    private fun deliverStill(then: (Bitmap) -> Unit) {
+    /** On a frame's `FRAME_STILL_READY`, GL thread: the still to whoever asked; one that cannot be read is asked for again. */
+    fun deliverStill() {
+        val then = stillThen ?: return
         val size = IntArray(2)
-        if (!GeodeNative.vizStillSize(handle, size)) return
+        val pixels = if (GeodeNative.vizStillSize(handle, size)) ByteBuffer.allocateDirect(size[0] * size[1] * 4) else null
+        if (pixels == null || !GeodeNative.vizStillRead(handle, pixels)) {
+            GeodeNative.vizStillRequest(handle)
+            return
+        }
         stillThen = null
-        val pixels = ByteBuffer.allocateDirect(size[0] * size[1] * 4)
-        if (!GeodeNative.vizStillRead(handle, pixels)) return
         then(Bitmap.createBitmap(size[0], size[1], Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(pixels) })
     }
 
@@ -423,7 +453,7 @@ class NativeViz(
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
      * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.
      */
-    override fun setUnderlay(
+    fun setUnderlay(
         pixels: IntArray?,
         width: Int,
         height: Int,
@@ -447,70 +477,5 @@ class NativeViz(
 
         /** One daemon thread for every renderer in the process. */
         val CLEANER: Cleaner = Cleaner.create()
-    }
-}
-
-/**
- * What a handle was last sent of the values the live renderer hands over every frame (the look,
- * reduced motion, the transition, the paced rate), so each crosses JNI only when it changes, as
- * the renderer's params, LFOs and quality already do. Each check records the value it lets
- * through; [clear] makes the next of each go through again (a new handle or surface). GL thread.
- */
-internal class LastSent {
-    private var yaw = Float.NaN
-    private var pitch = Float.NaN
-    private var reduced: Boolean? = null
-    private var transitionId: String? = null
-    private var transitionMs = -1L
-    private var fps = Float.NaN
-    private var routes: String? = null
-    private var routesMask = 0
-    private var routesSent = false
-
-    fun look(
-        y: Float,
-        p: Float,
-    ): Boolean {
-        if (y == yaw && p == pitch) return false
-        yaw = y
-        pitch = p
-        return true
-    }
-
-    fun reducedMotion(on: Boolean): Boolean = (on != reduced).also { if (it) reduced = on }
-
-    fun transition(
-        id: String,
-        ms: Long,
-    ): Boolean {
-        if (id == transitionId && ms == transitionMs) return false
-        transitionId = id
-        transitionMs = ms
-        return true
-    }
-
-    fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
-
-    fun userReactions(
-        r: String?,
-        mask: Int,
-    ): Boolean {
-        if (routesSent && r == routes && mask == routesMask) return false
-        routes = r
-        routesMask = mask
-        routesSent = true
-        return true
-    }
-
-    fun clear() {
-        yaw = Float.NaN
-        pitch = Float.NaN
-        reduced = null
-        transitionId = null
-        transitionMs = -1L
-        fps = Float.NaN
-        routes = null
-        routesMask = 0
-        routesSent = false
     }
 }

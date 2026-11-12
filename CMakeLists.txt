@@ -14,6 +14,10 @@ set(GEODE_COMPILE_OPTIONS
     -fvisibility=hidden
     -Wall
     -Wextra
+    # A value-returning function that falls off its end is undefined; a call to an NDK API newer than
+    # minSdk crashes on the phones below it. Neither may reach an APK as a warning.
+    -Werror=return-type
+    -Werror=unguarded-availability
     $<$<CONFIG:Release>:-O2>
     $<$<CONFIG:Release>:-flto>)
 set(GEODE_LINK_OPTIONS

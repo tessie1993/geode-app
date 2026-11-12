@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.util.bestEffort
 
 /**
  * The waves, the envelopes and the reaction routes, each as the text native wrote (core/viz/ModDocument).
@@ -59,6 +60,16 @@ class LfoStore(
         }
         edit.apply()
     }
+
+    /**
+     * Pushes the hand mask process-wide ([GeodeNative.handSet]): every renderer merges the user's routes under
+     * it and every native director keeps off those moments. Native counts it only while [hasUser] says a list
+     * exists (#355). Called where the shell loads or edits the user's routes.
+     */
+    fun pushHand(
+        mask: Int,
+        hasUser: Boolean,
+    ) = bestEffort("LfoStore", "push hand mask") { GeodeNative.handSet(mask, hasUser) }
 
     internal companion object {
         const val KEY = "lfos"

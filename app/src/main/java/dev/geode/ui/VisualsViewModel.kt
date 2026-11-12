@@ -21,9 +21,9 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.PresetLink
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -250,9 +250,9 @@ class VisualsViewModel
             onDone: (Boolean) -> Unit,
         ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
             if (path != null) {
-                session.selectScene(SceneIds.MILKDROP)
-                if (session.allowsStyle(SceneIds.MILKDROP)) {
-                    session.visual.emitApply(VizApply(milkPath = path, sceneId = SceneIds.MILKDROP))
+                session.selectScene(GeodeNative.STYLE_MILKDROP)
+                if (session.allowsStyle(GeodeNative.STYLE_MILKDROP)) {
+                    session.visual.emitApply(VizApply(milkPath = path, sceneId = GeodeNative.STYLE_MILKDROP))
                 }
             }
             onDone(path != null)

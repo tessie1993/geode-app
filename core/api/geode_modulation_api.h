@@ -137,11 +137,13 @@ GEODE_API int geode_mod_waves_randomize(const char* style_id, const char* locked
 
 /* A renderer's modulation, as the saved texts. May come from any thread; latched for the next frame.
    geode_viz_set_reactions takes NULL for Auto. What the matrix plays is resolved natively
-   (core/viz/ReactionResolve) from the scene playing, the params' reactSeed and this, and worked out again
-   before a render only when one of them changed, so the shell sends it only when it changes. */
+   (core/viz/ReactionResolve) from the scene playing, the params' reactSeed and these routes under the hand
+   mask the renderer reads itself (geode_hand_set, or the one an export pinned), and worked out again before
+   a render only when one of them changed: the shell sends the routes only when they change, and a new hand
+   mask reaches every renderer without the shell. */
 GEODE_API void geode_viz_set_lfos(geode_viz*, const char* lfos);
 GEODE_API void geode_viz_set_adsrs(geode_viz*, const char* adsrs);
-GEODE_API void geode_viz_set_reactions(geode_viz*, const char* reactions, unsigned mask);
+GEODE_API void geode_viz_set_reactions(geode_viz*, const char* reactions);
 
 #ifdef __cplusplus
 }

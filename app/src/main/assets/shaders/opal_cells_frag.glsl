@@ -18,7 +18,7 @@ out vec4 fragColor;
 // rooms and the passages between them, the way ahead running down a passage.
 //
 // Morph moves the membrane through its lattice: closed rooms open into pipes
-// and close again the other way round. Worst case 80 steps and 4 skins, no
+// and close again the other way round. Worst case 100 steps and 4 skins, no
 // noise.
 
 vec2 opalMap(vec3 p) {

@@ -32,7 +32,8 @@ One fact per line. Add a fact as a new bullet under its module.
 - `LookSnapshot` is the one value every host draws: style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
 - `LookSource.pin` freezes the snapshot for a render.
 - `gentleFlight` is the dream's override.
-- `LookApplier` pushes through `LookTarget`, which `NativeViz` implements: the live renderer on the frame bits native asks for, an export on what changed.
+- `NativeViz.setLook` pushes the parts of a look that changed, from any thread, into the native handle's latches; a new handle gets the whole look once.
+- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
 - `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).
@@ -44,6 +45,9 @@ One fact per line. Add a fact as a new bullet under its module.
 - `core/viz/ModCatalog` publishes what the editors list (`geode_mod_catalog_text`): every source, target, wave shape, curve, band, mode, group and recipe, the slider ranges and the slot counts.
 - The C ABI is `core/api/geode_modulation_api.h` (`geode_mod_*`, `geode_viz_set_lfos`, `geode_viz_set_adsrs`, `geode_viz_set_reactions`); the module holds no wave, envelope or route type.
 - The Customize event recipes are native: titles and sentences in `core/viz/ModCatalog`, routes, toggle and merge in `core/viz/ReactionDna` (`geode_mod_recipe_state`, `geode_mod_reactions_edit`).
+- The style catalogue is not in this module: `:app`'s `render/scene/StyleCatalogue` asks native (`GeodeNative.catalogue*`).
+- `render/ModTable` (in `Lfo.kt`) is the shell's read of the native modulation-target table (`core/viz/ModTargets`: each target's scope and chained slot, slot defaults, each source's natural polarity; the offer masks are hex wider than 64 bits).
+- `render/EventRecipe` holds the Customize event recipes' titles; their routes, toggle and merge are native in `core/viz/ReactionDna` (`geode_event_recipe_*`, pinned by `viz_math_test`).
 - `render/scene/ParamFormat` holds the value units.
 - `render/PerformanceSettings` holds the live quality presets.
 - Two pure helpers are left in `dev.geode.analysis`: `PlaybackMath`, `SearchMatcher`.

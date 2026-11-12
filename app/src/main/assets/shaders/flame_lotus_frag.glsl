@@ -19,7 +19,7 @@ out vec4 fragColor;
 // meridian sheets spiral out through them.
 //
 // Morph opens the bud: the petals deepen from a near-sphere to a full bloom.
-// Worst case 72 samples, no folds, no noise.
+// Worst case 90 samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float l = max(length(p), 1.0e-3);

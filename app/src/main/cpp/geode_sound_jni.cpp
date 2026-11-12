@@ -49,6 +49,7 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStep(JNIEnv* env, jobject, j
     const int out = geode_sound_source_step(s, nowMs, ringPresent ? 1 : 0, ringId, ringWritten,
                                             capturePermitted ? 1 : 0, captureRunning ? 1 : 0);
     env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
+    return out;
 }
 
 // The tuning schema in one array: every slot's default, then every minimum, then every maximum.

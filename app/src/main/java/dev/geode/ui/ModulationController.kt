@@ -8,7 +8,6 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
-import dev.geode.render.look.HandMask
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +55,7 @@ internal class ModulationController(
 
     // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
     // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
-    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { HandMask.set(it, _reactions.value != null) })
+    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { lfoStore.pushHand(it, _reactions.value != null) })
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
@@ -248,7 +247,7 @@ internal class ModulationController(
         val mask = if (routes == null) 0 else outMask[0]
         _reactions.value = routes
         _handMask.value = mask
-        HandMask.set(mask, routes != null)
+        lfoStore.pushHand(mask, routes != null)
         lfoStore.saveReactions(routes, mask)
     }
 

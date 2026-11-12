@@ -18,7 +18,7 @@ out vec4 fragColor;
 // sheets that wind about the way ahead and turn with depth; rings of the same
 // logarithmic spacing cross them, so the web is the same at every scale.
 //
-// Morph winds the arms tighter. Worst case 72 samples, no folds, no noise.
+// Morph winds the arms tighter. Worst case 90 samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float r = max(length(p.xy), 1.0e-3);

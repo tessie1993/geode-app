@@ -3,7 +3,6 @@ package dev.geode.data
 import android.content.ContentResolver
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.render.look.HandMask
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookSource
 
@@ -52,7 +51,7 @@ class LookStore(
      */
     fun pushProcessWide() {
         val modulation = LfoStore(prefsFiles.general)
-        HandMask.set(modulation.loadHandMask(), modulation.loadReactions() != null)
+        modulation.pushHand(modulation.loadHandMask(), modulation.loadReactions() != null)
         // Seam: once #602 lands, push the saved Customize › Layers layer here (GeodeNative.layerSet);
         // once #498 lands, the saved custom shader code (geode_shader_override_set). Both are process-wide
         // native stores that nothing pushes from the stores when the process starts without UI.

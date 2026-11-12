@@ -21,11 +21,7 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
-import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.offscreen.OffscreenRenderSpec
-import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
 import dev.geode.viz.BackgroundImage
@@ -173,9 +169,6 @@ class VideoExporter(
         look: LookSnapshot,
         requestedFps: Int = FPS,
         range: ExportRange? = null,
-        paramsAt: ((Long) -> SceneParams)? = null,
-        // Studio 2D: the styles the range switches to; see OffscreenRenderSpec.styleSchedule.
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
         destination: Uri? = null,
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
@@ -198,14 +191,12 @@ class VideoExporter(
                     aspect,
                     withUnderlay,
                     requestedFps,
-                    paramsAt,
                     range,
                     codec,
                     loudnessTarget,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
-                    styleSchedule = styleSchedule,
                 )
             }
             val resolver = context.contentResolver
@@ -233,13 +224,11 @@ class VideoExporter(
                         aspect,
                         withUnderlay,
                         requestedFps,
-                        paramsAt,
                         range,
                         codec,
                         onProgress,
                         isCancelled,
                         watermark = watermark,
-                        styleSchedule = styleSchedule,
                     )
                 }
                 if (isCancelled()) {
@@ -265,14 +254,12 @@ class VideoExporter(
         aspect: ExportAspect,
         look: LookSnapshot,
         requestedFps: Int,
-        paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: WatermarkChoice,
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
@@ -287,13 +274,11 @@ class VideoExporter(
                     aspect,
                     look,
                     requestedFps,
-                    paramsAt,
                     range,
                     codec,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
-                    styleSchedule = styleSchedule,
                 )
             }
             if (isCancelled()) {
@@ -354,13 +339,11 @@ class VideoExporter(
         aspect: ExportAspect,
         look: LookSnapshot,
         requestedFps: Int,
-        paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: WatermarkChoice,
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ) {
         var encoderRef: MediaCodec? = null
         var watermarkRef: WatermarkOverlay? = null
@@ -368,7 +351,7 @@ class VideoExporter(
         var muxerRef: MediaMuxer? = null
         var aacRef: AudioTranscoder.Result? = null
         var eglRef: EncoderSurface? = null
-        var rendererRef: OffscreenSceneRenderer? = null
+        var sceneRef: ExportScene? = null
         var audioFeedRef: AudioFeed? = null
         var muxerStarted = false
         var muxerStopped = false
@@ -403,27 +386,24 @@ class VideoExporter(
             // its index alone, so nothing drifts over a long render.
             val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
-            val renderer =
-                OffscreenSceneRenderer(
+            val scene =
+                ExportScene(
                     context = context,
                     sceneFactory = sceneFactory,
                     spec =
-                        OffscreenRenderSpec(
+                        ExportScene.Spec(
                             width = aspect.width,
                             height = aspect.height,
                             fps = fps,
-                            totalFrames = totalFrames,
                             rangeStartMs = rangeStartMs,
                             look = look,
-                            paramsAt = paramsAt,
                             audioUri = audioUri,
                             // Pinned at prepare: live edits and the player moving on never reach the render.
-                            pinDurationMs = exportDurationUs / 1000L,
+                            durationMs = exportDurationUs / 1000L,
                             entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
-                            styleSchedule = styleSchedule,
                         ),
-                ).also { rendererRef = it }
-            renderer.prepare()
+                ).also { sceneRef = it }
+            scene.prepare()
             val mark = WatermarkOverlay(watermark, context).also { watermarkRef = it }
             mark.prepare(aspect.width, aspect.height, exportDurationUs / 1000L)
 
@@ -433,7 +413,7 @@ class VideoExporter(
 
             for (frame in 0 until totalFrames) {
                 if (isCancelled()) break
-                renderer.renderFrame(frame)
+                scene.renderFrame(frame)
                 val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
                 mark.draw(timeMs)
                 egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
@@ -512,7 +492,7 @@ class VideoExporter(
             }
         } finally {
             bestEffort(TAG, "watermarkRef?.release()") { watermarkRef?.release() }
-            bestEffort(TAG, "rendererRef?.release()") { rendererRef?.release() }
+            bestEffort(TAG, "sceneRef?.release()") { sceneRef?.release() }
             bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
             if (muxerStarted && !muxerStopped) {
                 val wroteSamples = sampleWritten || audioFeedRef?.wroteSample == true

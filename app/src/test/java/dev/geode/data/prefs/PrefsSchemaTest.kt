@@ -60,6 +60,7 @@ import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestCatalogue
 import dev.geode.ui.ModulationController
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
@@ -77,6 +78,10 @@ import java.io.File
  * that is known to be wrong, the key is in [misclassified], which later PRs shrink.
  */
 class PrefsSchemaTest {
+    init {
+        TestCatalogue.install()
+    }
+
     /** One owner of keys: its source file, its list, and how to make it write every key (null: see [sourcePinned]). */
     private class Owner(
         val source: String,

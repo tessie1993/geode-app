@@ -54,11 +54,10 @@ tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configure
     jvmTarget = "17"
 }
 
-// JVM unit tests cannot load libgeode, so dev.geode.render.scene.Catalogue and ParamSchema read the
-// checked-in copies of the native catalogue and params schema tables instead. core/tests/catalogue_test
-// and core/tests/params_schema_test prove those copies equal to what C++ emits.
+// JVM unit tests cannot load libgeode, so dev.geode.render.scene.ParamSchema reads the checked-in copy
+// of the native params schema table instead. core/tests/params_schema_test proves that copy equal to
+// what C++ emits.
 tasks.withType<Test>().configureEach {
-    systemProperty("geode.catalogue", rootProject.file("core/tests/catalogue.txt").absolutePath)
     // The same for Customize's map (core/viz/CustomizeMap), which core/tests/customize_test proves equal.
     systemProperty("geode.customize", rootProject.file("core/tests/customize.txt").absolutePath)
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)

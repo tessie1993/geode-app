@@ -121,6 +121,12 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
+          # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
+            core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp \
+            core/output/FrameClock.cpp -o track_pump_test
+          ./track_pump_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
@@ -212,6 +218,15 @@ jobs:
           # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
           ./live_fps_test
+          # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp -o stage_lifecycle_test
+          ./stage_lifecycle_test
+          # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
+          ./command_queue_test
+          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp -o stage_pacing_test
+          ./stage_pacing_test
           # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
@@ -255,9 +270,9 @@ jobs:
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
-          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
-          ./push_versions_test
+          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/live_frame_test.cpp -o live_frame_test
+          ./live_frame_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
           ./loop_seam_test
@@ -280,6 +295,9 @@ jobs:
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test
+          # Its typed path for a computer with no scanner: the code (random, case-free, constant-time compare), one per session, its lifetime, the tries, gap and lock-out, the routes off the token and the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_pair_test.cpp core/api/geode_link_api.cpp core/api/geode_link_pair_api.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp core/util/QrCode.cpp -o link_pair_test
+          ./link_pair_test
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test
@@ -298,8 +316,8 @@ jobs:
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
-      # meta rows, hence Params), ranges, and
-      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      # meta rows, hence Params), ranges, the answers the shell asks for one at a time, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the tools read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -412,6 +430,17 @@ jobs:
             core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o recorder_test
           ./recorder_test
 
+      # The encode sink (core/output/EncodeSink) and Record's session on it (core/output/RecordSession), on a fake
+      # codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, the end of stream,
+      # errors, no sample written twice or dropped, and the stop through the stage's tee.
+      - name: Encode sink host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub \
+            core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
+            core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
+          ./encode_sink_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -464,6 +493,12 @@ jobs:
             core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/StyleSchedule.cpp \
             -o export_preroll_test
           ./export_preroll_test
+          # The render order (core/output/ExportFrame): prepare up to the look, the pre-roll's plan, each frame's audio to
+          # its exact end and its draw at its exact time, the failures (no track, nothing heard, a track that ends).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_frame_test.cpp \
+            core/output/ExportFrame.cpp core/output/FrameClock.cpp core/audio/ingest/TrackPump.cpp \
+            core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_frame_test
+          ./export_frame_test
 
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
       - name: Sound golden vector

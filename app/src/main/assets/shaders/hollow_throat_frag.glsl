@@ -18,7 +18,7 @@ out vec4 fragColor;
 // rings of muscle that close the passage almost shut and pass on down it.
 //
 // Morph works the muscle: the rings squeeze tighter and the folds deepen.
-// Worst case 72 steps, no noise.
+// Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);

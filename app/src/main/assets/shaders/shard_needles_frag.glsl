@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_strata
 //#include lib_shard
 
 // Shard Needles: a burst of twenty-six glass needles from one cut core, turned
@@ -20,7 +21,17 @@ out vec4 fragColor;
 // each breathing on its own clock.
 //
 // Morph draws the needles out, from short buds on the core to long spines.
-// Worst case 100 steps and 3 faces, no noise.
+//
+// Formula, three bursts (lib_strata's folds, the last fold blended in, so a
+// cluster grows out of the one burst as Detail or k1 TEXTURE rise): 0 the one
+// burst, as it always was; 0.5 a kaleidoscope, the burst mirrored into a
+// ring of smaller bursts and those into smaller still; 1 a Menger fold,
+// twenty bursts a third the size on the corners and edges of a cube, and
+// twenty more inside each. The far fractal follows: a Menger cube, a
+// Mandelbox, a kaleidoscope dust.
+//
+// Worst case 100 steps and 3 faces, one burst and at most 2 folds a step, no
+// noise; then the layers.
 
 /** A needle along u from the middle, its sides square to v and w, `len` long and `wid` wide at its root: x the distance, y the edge's. */
 vec2 needle(vec3 q, vec3 u, vec3 v, vec3 w, float len, float wid) {
@@ -38,9 +49,8 @@ vec3 nearer(vec3 best, vec2 n, float id) {
     return mix(best, vec3(n.x, id, n.y), 1.0 - step(best.x, n.x));
 }
 
-vec3 shardMap(vec3 p) {
-    p.xz = shardRot(uTime * SHARD_RATE(50)) * p.xz;
-    p.xy = shardRot(uTime * SHARD_RATE(31)) * p.xy;
+/** The burst of needles in its own turned frame: x the distance, y the piece's number, z the edge's. */
+vec3 urchin(vec3 p) {
     vec3 q = abs(p);
     // Which of the eight mirrored copies p is in, so a needle and its mirror differ.
     float side = dot(step(vec3(0.0), p), vec3(0.13, 0.29, 0.53));
@@ -76,11 +86,32 @@ vec3 shardMap(vec3 p) {
     return best;
 }
 
+/** The burst seen through fold k (lib_strata), `iters` folds in units of `span`. */
+vec3 urchinFolded(vec3 p, float k, float iters, float span, vec3 c) {
+    float dr = 1.0 / span;
+    vec3 q = strataFold(p * dr, k, iters, c, shardRot(0.6), dr);
+    vec3 m = urchin(q);
+    return vec3(m.x / dr, m.y, m.z / dr);
+}
+
+vec3 shardMap(vec3 p) {
+    p.xz = shardRot(uTime * SHARD_RATE(50)) * p.xz;
+    p.xy = shardRot(uTime * SHARD_RATE(31)) * p.xy;
+    vec3 a = vec3(1.0e3);
+    vec3 b = a;
+    vec3 c = a;
+    if (strataUses(0)) a = urchin(p);
+    if (strataUses(1)) b = urchinFolded(p, 0.0, gStrataIters - 1.0, 1.4, vec3(2.6, 1.2, 0.0));
+    if (strataUses(2)) c = urchinFolded(p, 3.0, gStrataIters - 1.0, 1.3, vec3(1.0));
+    return strataBlend(a, b, c);
+}
+
 //#include lib_shard_march
 
 void main() {
     vec2 uv = view();
     shardSetup();
+    strataSetup(vec3(3.0, 1.0, 0.0), 2.0, 0.5, 0.7);
     gShardStride = 0.7;
     vec3 ro;
     vec3 rd;

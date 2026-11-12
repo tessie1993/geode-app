@@ -244,9 +244,25 @@ constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fl
 constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold"};
 
 // The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
-// (uFormula, Scope::Formula), by id. Empty until a style reads uFormula: a style joins here in the commit that gives
-// it its formulas, and style_reads_test then holds it to reading uFormula.
-constexpr std::array<const char*, 0> kFormulaStyles{};
+// (uFormula, Scope::Formula), by id. A style joins here in the commit that gives it its formulas, and
+// style_reads_test then holds it to reading uFormula. Shard, Prism and Fluor pick theirs through lib_strata
+// (strataSetup's strataFormula), Loom, Petal and Fold through lib_layers (layerSetup's layerPickOf): three each.
+// prism_rain is a loose style, not one of the Prism family, and keeps one formula.
+constexpr std::array kFormulaStyles = {
+    "shard_burst",    "shard_needles",   "shard_panes",   "shard_ring",     "shard_rods",
+    "shard_spires",   "shard_splinter",  "shard_stair",   "shard_tunnel",   "shard_wall",
+    "prism_arcade",   "prism_braid",     "prism_crown",   "prism_facet",    "prism_fan",
+    "prism_jewel",    "prism_mercury",   "prism_nest",    "prism_portal",   "prism_rosette",
+    "fluor_coffer",   "fluor_coil",      "fluor_column",  "fluor_filigree", "fluor_honeycomb",
+    "fluor_lattice",  "fluor_orb",       "fluor_scales",  "fluor_weave",    "fluor_whorl",
+    "loom_basket",    "loom_braid",      "loom_cloth",    "loom_cocoon",    "loom_curtain",
+    "loom_net",       "loom_rope",       "loom_sail",     "loom_spokes",    "loom_spool",
+    "petal_bells",    "petal_buds",      "petal_drift",   "petal_fern",     "petal_garland",
+    "petal_gates",    "petal_rose",      "petal_scales",  "petal_seed",     "petal_stair",
+    "fold_lace",      "fold_nerve",      "fold_onion",    "fold_quartz",    "fold_scaffold",
+    "fold_spire",     "fold_strata",     "fold_thorn",    "fold_twin",      "fold_vault",
+};
+static_assert(kFormulaStyles.size() == 60, "the six formula families' sixty styles");
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely

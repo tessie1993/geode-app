@@ -15,6 +15,7 @@
 
 /** The light gathered along one ray. */
 vec3 foldGlow(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = FOLD_GLOW_STEPS;
     // The step that reaches gFoldFar in n steps.
     float pace = gFoldFar / n;
@@ -38,5 +39,6 @@ vec3 foldGlow(vec3 ro, vec3 rd) {
         through *= exp(-gFoldDense * near * span);
         t += span;
     }
-    return acc;
+    // The haze in front, the far layer through what the threads' haze lets by (lib_layers).
+    return layerCompose(acc, ro, rd, gFoldFar, gFoldFar, through);
 }

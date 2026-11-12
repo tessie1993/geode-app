@@ -589,7 +589,7 @@ GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
 // rule) crossfades or steps between them along 0..1 as uFormula, so the music can change the shader's formula as
 // well as its shape (owner: "music changes shape but also shader formula"). A structural target like Morph:
 // LfoTarget::Formula, no luminance limit. It reaches the styles listed in Catalogue.cpp's kFormulaStyles
-// (Scope::Formula), none until a style reads uFormula; at 0 every style draws its first formula, as before.
+// (Scope::Formula): the Shard, Prism, Fluor, Loom, Petal and Fold styles; at 0 every style draws its first formula, as before.
 GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
 

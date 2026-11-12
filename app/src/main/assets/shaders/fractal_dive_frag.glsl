@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Fractal Dive: a fly-through corridor bored through a space-filling fold
 // fractal (box fold by fract() then sphere inversion, the Apollonian /
@@ -38,9 +39,26 @@ out vec4 fragColor;
 // spins the walls out into finer filigree, a low one thickens them into heavy
 // arches), k4 BUILD the light threaded past the walls,
 // k5 SPACE the reach (the far plane and the fog).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// The fractal's tunables as normalized inputs, mapped once at the top of main;
+// 0.5 is the look as tuned (the knobs rest there exactly while Note & key is
+// off), and none reads the sound:
+//
+//   sIters      k1 TEXTURE       fold iterations 4 .. 7 .. 10 (whole)
+//   gBendA      k2 FLOW          the corkscrew's radius -0.25 .. 0 .. 0.25
+//   sInv        k3 TONE          the inversion's resting scale 1.16 .. 1.22 .. 1.28
+//   sBox        k4 BUILD         the inner folds' resting size 0.85 .. 1 .. 1.15
+//   sHole       k5 SPACE         the corridor's radius 2.8 .. 3.4 .. 4.2
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The world fold (period 4) stays: it is the tile the rebase relies on. The
+// fractal goes through SHELL_FIELD3, so the shell's hooks reach it.
 
 #define FD_MAX_STEPS 96
-#define FD_ITERS 7
+/** The most fold iterations TEXTURE can ask for (7 at rest, sIters). */
+#define FD_ITERS 10
 /** World to fractal space. The first fract() has period 2 in fractal space, so 4 in the world. */
 #define FD_WSCALE 0.5
 #define FD_HOLE 3.4
@@ -55,14 +73,18 @@ float gTrap;
 /** k2 FLOW: the corkscrew's radius, world units (0 at rest), and the estimate's divisor for its slope. */
 float gBendA = 0.0;
 float gBendL = 1.0;
+/** Shape inputs (see the header). */
+float sIters;
+float sHole;
 
-float map(vec3 w) {
+float mapField(vec3 w) {
     // FLOW's corkscrew: period 4 along z, the world tile, so the rebase stays exact.
     w.xy += gBendA * vec2(sin(w.z * 1.5707963), cos(w.z * 1.5707963));
     vec3 p = w * FD_WSCALE;
     float scale = 1.0;
     float trap = 1e9;
     for (int i = 0; i < FD_ITERS; i++) {
+        if (float(i) >= sIters) break;
         // Box fold, then sphere inversion. The first fold is the world tile,
         // so it stays size 1 and untwisted (the twists come after the
         // inversion) and the z period holds; the inner folds take gBox.
@@ -80,7 +102,12 @@ float map(vec3 w) {
     float de = 0.25 * abs(p.y) / scale / FD_WSCALE;
     // Bore the corridor. smax overestimates inside the cavity a little, which
     // the 0.75 step scale below absorbs.
-    return smax(de, FD_HOLE - length(w.xy), 0.35) / gBendL;
+    return smax(de, sHole - length(w.xy), 0.35) / gBendL;
+}
+
+/** The fractal as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -90,17 +117,21 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sIters = floor(shellMap(shellKnob(1), 4.0, 7.0, 10.0) + 0.5);
+    gBendA = shellMap(shellKnob(2), -0.25, 0.0, 0.25);
+    float sInv = shellMap(shellKnob(3), 1.16, 1.22, 1.28);
+    float sBox = shellMap(shellKnob(4), 0.85, 1.0, 1.15);
+    sHole = shellMap(shellKnob(5), 2.8, FD_HOLE, 4.2);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gBendA = 0.5 * kFlow;
     // The offset's slope along z is gBendA * pi / 2.
     gBendL = sqrt(1.0 + gBendA * gBendA * 2.4674011);
-    float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
@@ -111,8 +142,8 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float sectBump = sin(3.14159 * sect);
 
-    gS = 1.22 + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick + 0.12 * kTone;
-    gBox = 1.0 + 0.10 * uOrbit.y + 0.04 * sin(uTime * 0.07 + 0.8) + 0.10 * sectBump;
+    gS = sInv + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick;
+    gBox = sBox + 0.10 * uOrbit.y + 0.04 * sin(uTime * 0.07 + 0.8) + 0.10 * sectBump;
     // Untwisted at rest: any standing rotation compounds over the folds into
     // noise, so only the drop turns them.
     float twA = 0.30 * dropBump;

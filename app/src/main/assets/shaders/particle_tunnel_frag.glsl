@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Particle Tunnel: a curving tube of glowing points and streaks, flown down.
 //
@@ -41,6 +42,30 @@ out vec4 fragColor;
 // wide; at its tightest the shell's inner face stays clear of the rig's
 // wander), k4 BUILD the far end's
 // glow and haze, k5 SPACE how far the walk reaches.
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the tube is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Only knobs drive them here:
+// this style leaves Morph, Warp and Turbulence to view(), which already bends
+// its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gBend       k2 FLOW          the centre line's bend 0.75 .. 1 .. 1.25
+//   sStreak     k2 FLOW          a particle's chance to be a streak, as a cut 0.9 .. 0.72 .. 0.45
+//   sStreakL    k2 FLOW          a streak's length 0.6 .. 1 .. 1.5
+//   gRadius     k3 TONE          the shell's radius 5.75 .. 5 .. 4.25
+//   sShell      k4 BUILD         the shell's half-thickness 0.6 .. 1.05 .. 1.4
+//   sEmpty      k4 BUILD         the share of shell cells left empty 0.8 .. 0.6 .. 0.35
+//   reach       k5 SPACE         how far the walk reaches 0.8 .. 1 .. 1.2
+//
+// The cell (1) and its hash wrap (1024) stay constants: the walk is a unit
+// DDA and the wrap is the power of two the eye's rebase relies on. Which
+// cells hold particles is a 3D field (the shell, ptShell) routed through
+// SHELL_FIELD3, so the shell's spawn, fractal, front and back hooks reshape
+// the swarm; the walk's early exit holds only while those hooks rest.
 
 /** Cells walked per ray: the compile-time ceiling. uSteps is the runtime budget. */
 #define PT_MAX_CELLS 96
@@ -56,22 +81,35 @@ out vec4 fragColor;
 float gBend = 1.0;
 /** k3 TONE: the shell's radius (PT_RADIUS at rest). */
 float gRadius = PT_RADIUS;
+/** k4 BUILD: the shell's half-thickness (PT_SHELL at rest). */
+float sShell = PT_SHELL;
 
 vec2 tubeCentre(float z) {
     return gBend * vec2(0.8 * sin(z * (PT_TAU / 128.0)), 0.6 * sin(z * (PT_TAU / 64.0) + 1.3));
 }
 
+/** The particle shell as a field: at or below 0 a cell centre may hold a particle. */
+float ptShell(vec3 cc) {
+    vec2 rel = cc.xy - tubeCentre(cc.z);
+    return abs(length(rel) - gRadius) - sShell;
+}
+
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gBend = shellMap(shellKnob(2), 0.75, 1.0, 1.25);
+    float sStreak = shellMap(shellKnob(2), 0.9, 0.72, 0.45);
+    float sStreakL = shellMap(shellKnob(2), 0.6, 1.0, 1.5);
+    gRadius = shellMap(shellKnob(3), PT_RADIUS * 1.15, PT_RADIUS, PT_RADIUS * 0.85);
+    sShell = shellMap(shellKnob(4), 0.6, PT_SHELL, 1.4);
+    float sEmpty = shellMap(shellKnob(4), 0.8, 0.6, 0.35);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+    bool shellAtRest = abs(SHELL_SPAWN) + abs(SHELL_FRACTAL) + abs(SHELL_FRONT) + abs(SHELL_BACK) == 0.0;
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gBend = 1.0 + 0.5 * kFlow;
-    gRadius = PT_RADIUS * (1.0 - 0.3 * kTone);
-    float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -107,12 +145,13 @@ void main() {
         vec3 cc = c + 0.5;
         vec2 rel = cc.xy - tubeCentre(cc.z);
         float rr = length(rel);
-        // Outside the shell and heading further out: this ray is done.
-        if (rr > gRadius + PT_SHELL + 0.9 && dot(rel, rd.xy) > 0.0) break;
-        if (abs(rr - gRadius) > PT_SHELL) continue;
+        // Outside the shell and heading further out: this ray is done (unless
+        // the shell's hooks have spawned or folded copies beyond it).
+        if (shellAtRest && rr > gRadius + sShell + 0.9 && dot(rel, rd.xy) > 0.0) break;
+        if (SHELL_FIELD3(cc, ptShell) > 0.0) continue;
 
         uint u = uhash3(uvec3(ivec3(int(c.x), int(c.y), int(mod(c.z, PT_ZWRAP)))));
-        if (uhashUnit(u) < 0.6) continue;
+        if (uhashUnit(u) < sEmpty) continue;
         uint u2 = uhash(u);
         vec3 jit = vec3(float(u2 & 1023u), float((u2 >> 10u) & 1023u), float((u2 >> 20u) & 1023u)) * (1.0 / 1023.0);
         uint u3 = uhash(u2);
@@ -122,10 +161,10 @@ void main() {
         // Kept inside 0.1..0.9 of the cell so the glow is not cut at its edge.
         vec3 pt = c + 0.2 + 0.6 * jit;
         pt += 0.1 * sin(vec3(uTime * 0.7, uTime * 0.53, uTime * 0.37) + jit * 6.0);
-        float streak = s1 > 0.72 ? 1.0 : 0.0;
+        float streak = s1 > sStreak ? 1.0 : 0.0;
         // Streaks sit mid-cell along z so their length has room.
         pt.z = mix(pt.z, c.z + 0.5, streak);
-        float stretch = mix(1.0, 2.0 + 1.8 * s2, streak);
+        float stretch = mix(1.0, (2.0 + 1.8 * s2) * sStreakL, streak);
 
         vec3 o = ro - pt;
         o.z /= stretch;

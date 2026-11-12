@@ -31,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
@@ -46,7 +46,7 @@ import dev.geode.ui.theme.performStoneHaptic
 @Composable
 internal fun TexturesHubTab(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val textures by visualsViewModel.textures.collectAsStateWithLifecycle()
@@ -54,7 +54,7 @@ internal fun TexturesHubTab(
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
-                visualsViewModel.importTextures(uris) { visualizerView.visualizerRenderer.reloadCurrentMilkPreset() }
+                visualsViewModel.importTextures(uris) { visualizerView.stage.reloadCurrentMilkPreset() }
             }
         }
     LazyColumn(

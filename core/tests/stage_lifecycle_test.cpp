@@ -143,6 +143,7 @@ Outcome execute(Model& m, const Action& a) {
             break;
         case Act::ClientContextLost:
             if (!m.clientBuilt) m.violate("contextLost for a client never built");
+            if (m.glCurrent()) m.violate("contextLost with the lost context still current");
             m.clientBuilt = false;
             break;
         case Act::ReleaseCurrent:
@@ -222,6 +223,10 @@ void viewPaths() {
     lc.setMode(viewMode(kViewAttached | kViewWindowVisible | kViewShown | kViewOpaque), 0);
     same(settle(lc, m), {Act::StartVsync}, "a watched view paces");
     check(lc.canDraw() && lc.vsyncOn(), "and draws");
+    constexpr uint32_t watched = kViewAttached | kViewWindowVisible | kViewShown | kViewOpaque;
+    check(gyroListens(watched, false, true), "the tilt sensor runs for a watched, resumed view that wants it");
+    check(!gyroListens(watched, false, false) && !gyroListens(watched, true, true) && !gyroListens(watched & ~kViewOpaque, false, true),
+          "and not when it is off, the host is paused or nobody can see the view");
 
     lc.pause();
     same(settle(lc, m), {Act::StopVsync, Act::ClientTrimSpares, Act::DestroySurface}, "a pause stops, trims, then lets the surface go");
@@ -241,9 +246,9 @@ void viewPaths() {
 
     lc.contextLost();
     same(settle(lc, m),
-         {Act::ClientContextLost, Act::DestroySurface, Act::DestroyContext, Act::CreateContext, Act::CreateSurface, Act::MakeCurrent,
-          Act::ClientSurfaceCreated, Act::ClientSurfaceChanged},
-         "a lost context is forgotten, freed and rebuilt, the vsync kept");
+         {Act::ReleaseCurrent, Act::ClientContextLost, Act::DestroySurface, Act::DestroyContext, Act::CreateContext, Act::CreateSurface,
+          Act::MakeCurrent, Act::ClientSurfaceCreated, Act::ClientSurfaceChanged},
+         "a lost context is let go, forgotten, freed and rebuilt, the vsync kept");
 
     lc.redrawNeeded();
     same(settle(lc, m), {}, "a redraw while pacing is the next vsync's");

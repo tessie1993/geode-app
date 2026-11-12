@@ -59,8 +59,8 @@ fun LoopRenderSheet(
     val scope = rememberCoroutineScope()
     val defaults = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general).load() }
 
-    var loopSeconds by rememberSaveable { mutableStateOf(LoopSpec.MIN_LOOP_MS / 1000f) }
-    var crossfadeSeconds by rememberSaveable { mutableStateOf(LoopSpec.DEFAULT_CROSSFADE_MS / 1000f) }
+    var loopSeconds by rememberSaveable { mutableStateOf(LoopSpec.minLoopMs / 1000f) }
+    var crossfadeSeconds by rememberSaveable { mutableStateOf(LoopSpec.defaultCrossfadeMs / 1000f) }
     var driftEnabled by rememberSaveable { mutableStateOf(false) }
     var driftHueTurns by rememberSaveable { mutableStateOf(0.15f) }
     var driftStops by rememberSaveable { mutableStateOf(4f) }
@@ -202,13 +202,13 @@ private fun LoopRenderControls(
         label = stringResource(R.string.export_loop_length, loopSeconds.roundToInt()),
         value = loopSeconds,
         onValueChange = onLoopSecondsChange,
-        valueRange = (LoopSpec.MIN_LOOP_MS / 1000f)..(LoopSpec.MAX_LOOP_MS / 1000f),
+        valueRange = (LoopSpec.minLoopMs / 1000f)..(LoopSpec.maxLoopMs / 1000f),
     )
     CrystalSlider(
         label = stringResource(R.string.export_loop_crossfade, crossfadeSeconds),
         value = crossfadeSeconds,
         onValueChange = onCrossfadeSecondsChange,
-        valueRange = (LoopSpec.MIN_CROSSFADE_MS / 1000f)..(LoopSpec.MAX_CROSSFADE_MS / 1000f),
+        valueRange = (LoopSpec.minCrossfadeMs / 1000f)..(LoopSpec.maxCrossfadeMs / 1000f),
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.export_loop_drift_toggle), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -225,8 +225,8 @@ private fun LoopRenderControls(
             label = stringResource(R.string.export_loop_drift_stops, driftStops.roundToInt()),
             value = driftStops,
             onValueChange = onDriftStopsChange,
-            valueRange = 2f..TimeOfDayDrift.MAX_STOPS.toFloat(),
-            steps = TimeOfDayDrift.MAX_STOPS - 3,
+            valueRange = 2f..LoopSpec.maxDriftStops.toFloat(),
+            steps = LoopSpec.maxDriftStops - 3,
         )
     }
     Text(stringResource(R.string.export_loop_soundtrack_title), style = MaterialTheme.typography.labelMedium)

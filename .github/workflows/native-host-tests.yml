@@ -51,6 +51,9 @@ jobs:
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp -o touch_gesture_test
+          ./touch_gesture_test
           # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
           ./touch_smear_test
@@ -125,6 +128,11 @@ jobs:
           # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
           ./aiff_header_test
+          # A capture's format plan (CapturePlan): the mic's and other apps' rate, channel and encoding order and the
+          # AudioRecord buffer, pinned to the Kotlin ladders they replaced; the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/capture_plan_test.cpp \
+            core/audio/ingest/CapturePlan.cpp core/api/geode_capture_api.cpp -o capture_plan_test
+          ./capture_plan_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
@@ -147,6 +155,9 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/output_fifo_test.cpp core/audio/output/OutputFifo.cpp \
             -o output_fifo_test
           ./output_fifo_test
+          # The playback output's retry back-off: no failure opens at once, a failure closes it for 60 s, a second restarts it.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/retry_backoff_test.cpp -o retry_backoff_test
+          ./retry_backoff_test
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
@@ -231,6 +242,12 @@ jobs:
           # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp -o stage_lifecycle_test
           ./stage_lifecycle_test
+          # What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate restated, the client's service, a thread ending out of turn.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp core/stage/StagePacing.cpp -o stage_core_test
+          ./stage_core_test
+          # A live stage's client: only the changed parts of a look, the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/live_client_test.cpp core/stage/LiveClient.cpp -o live_client_test
+          ./live_client_test
           # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
           ./command_queue_test
@@ -246,6 +263,9 @@ jobs:
           # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # A picked playlist file (core/library/Playlist): M3U, PLS and XSPF, names, durations, the DOCTYPE refusal.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playlist_test.cpp core/library/Playlist.cpp core/api/geode_playlist_api.cpp -o playlist_test
+          ./playlist_test
           # A Studio project's kind and edit (core/studio): saved edits read back the same, in order, with old
           # defaults; newer or unknown files are refused; a new project holds its song and its look.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_edit_test.cpp core/studio/StudioEdit.cpp \
@@ -421,6 +441,10 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
+          # Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_runs_test
+          ./dsp_runs_test
           # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
           # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
@@ -497,6 +521,9 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
           ./params_test
+          # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
+          ./param_text_test
 
       # The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
       - name: Customize map host tests
@@ -525,6 +552,13 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/art_palette_test.cpp core/viz/ArtPalette.cpp core/api/geode_art_palette_api.cpp -o art_palette_test
           ./art_palette_test
+
+      # The widget's generated glow (core/viz/WidgetGlow): light positions and hues per tick.
+      - name: Widget glow
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/widget_glow_test.cpp core/viz/WidgetGlow.cpp core/api/geode_widget_glow_api.cpp -o widget_glow_test
+          ./widget_glow_test
 
       # The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
       - name: Sound across frame rates

@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.performStoneHaptic
 
@@ -30,14 +30,14 @@ import dev.geode.ui.theme.performStoneHaptic
 @Composable
 internal fun ShakeToScreenshot(
     enabled: Boolean,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     viewModel: VisualsViewModel,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
     val shot by rememberUpdatedState {
         view.performStoneHaptic(StoneHapticCue.TAP)
-        visualizerView.visualizerRenderer.nativeViz.requestStill { still ->
+        visualizerView.stage.requestStill { still ->
             view.post {
                 viewModel.saveStill(still) { saved ->
                     val text = if (saved) R.string.visuals_screenshot_saved else R.string.visuals_screenshot_failed
@@ -80,7 +80,7 @@ internal fun ShakeToScreenshot(
  */
 @Composable
 internal fun rememberTapAlong(
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     viewModel: VisualsViewModel,
 ): (Long) -> Unit {
     val view = LocalView.current
@@ -88,7 +88,7 @@ internal fun rememberTapAlong(
         view.performStoneHaptic(StoneHapticCue.TAP)
         viewModel.tapAlongRoll()
     }
-    return { uptimeMs -> if (visualizerView.visualizerRenderer.nativeViz.tapAlong(uptimeMs * NANOS_PER_MILLI)) roll() }
+    return { uptimeMs -> if (visualizerView.stage.tapAlong(uptimeMs * NANOS_PER_MILLI)) roll() }
 }
 
 private const val NANOS_PER_MILLI = 1_000_000L

@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.ControlRange
-import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
@@ -497,7 +496,7 @@ internal fun ParamChips(
  * (Compose › API defaults › "Minimum touch target sizes": at least 48 dp, so touch areas cannot
  * overlap). The row grows by 16 dp; nothing is drawn differently.
  *
- * The value goes through [ParamFormat] (a % for amounts, × for multipliers, s/ms, Hz, °) and reads
+ * The value's text is native's (`GeodeNative.paramText`: a % for amounts, × for multipliers, s/ms, Hz, °) and reads
  * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
  * shown name, since the value now carries it.
  *
@@ -519,7 +518,7 @@ internal fun LabeledSlider(
     if (!visible(label, scope, name)) return
     val shown =
         remember(value, default, unit, range) {
-            ParamFormat.format(value, unit ?: ParamFormat.unitFor(label, range), default, bipolar = range.start < 0f)
+            GeodeNative.paramText(label, unit?.ordinal ?: -1, value, range.start, range.endInclusive, default ?: Float.NaN)
         }
     val lock = LocalProLock.current
     val locked = !lock.allows(label)

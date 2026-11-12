@@ -6,7 +6,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 
 - JVM unit tests live in `app/src/test` and `engine/*/src/test`; CI runs every module's.
 - Instrumented tests live in `app/src/androidTest`.
-- `engine/scenes/src/test/` covers wire layouts, the saved-reactions codec, the catalogue, the params schema and the modulation-target table as Kotlin reads them, and the gyro look's on/off rule.
+- `engine/scenes/src/test/` covers wire layouts, the saved-reactions codec, the catalogue, the params schema and the modulation-target table as Kotlin reads them.
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
@@ -111,6 +111,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `sound_test.cpp`: the sound engine.
 - `sound_test.cpp` and `musical_test.cpp` also play click tracks from 60 to 190 BPM, each read as itself and treated alike, and an ambiguous beat read at the same level at every tempo.
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
+- `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: only the changed parts of a look, the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
 - `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
 - `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.

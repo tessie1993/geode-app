@@ -26,7 +26,7 @@ One fact per line. Add a fact as a new bullet under its module.
 ## `:engine:scenes`
 
 - Packages: `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util`.
-- The GL adapter: `VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`.
+- `render/bridge/NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`:app` `stage/`).
 - `MilkPresetMemory` is the one MilkDrop preset every new native renderer starts on: process-wide, saved across restarts, a bundled preset on first launch.
 - The look snapshot is `render/look` (#345).
 - `LookSnapshot` is the one value every host draws: style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.

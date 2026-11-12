@@ -112,7 +112,7 @@ Quat mul(const Quat& a, const Quat& b) {
             a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
 }
 
-// SensorManager.getRotationMatrixFromVector then getOrientation, unremapped, as GyroLook.kt read it before.
+// SensorManager.getRotationMatrixFromVector then getOrientation, unremapped: the platform's own reading.
 GyroLook::Angles androidOrientation(const Quat& q) {
     const float r1 = 2.0f * (q.x * q.y - q.z * q.w);
     const float r4 = 1.0f - 2.0f * (q.x * q.x + q.z * q.z);

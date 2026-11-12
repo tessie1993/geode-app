@@ -13,7 +13,7 @@
 // last-wins frame request in the stage's inbox; a moved cap becomes a frame-rate hint there.
 //
 // Started on first use and never quit: an idle looper costs nothing, and a thread torn down on every pause would
-// race the next start. Named and prioritised like the thread it replaces ("GeodeFramePacer", display priority).
+// race the next start. Named "GeodeFramePacer", at display priority.
 namespace geode::stage::platform {
 
 class VsyncThread {

@@ -1,19 +1,20 @@
 # Native stage (`core/stage`): render thread, EGL, vsync
 
-One fact per line. The design of the native host every live surface draws through: the app's view, the live wallpaper, the dream and, later, Cast. Not yet wired to Kotlin: the wiring change adds the JNI and deletes the Kotlin drivers.
+One fact per line. The design of the native host every live surface draws through: the app's view, the live wallpaper, the dream and, later, Cast. The app's view, the wallpaper and the dream draw through it; Cast's fallback still drives its own renderer on the encoder's thread.
 
 ## Why
 
 - `core/` has one renderer but no loop, no thread, no EGL context and no vsync source of its own.
-- So each Kotlin driver repeats the frame protocol: `VisualizerView` + `VisualizerRenderer` + `FramePacer` on a `GLSurfaceView`, the wallpaper's own `GLSurfaceView` and `FramePacer`, the dream (through `VisualizerView`), and Cast's `cast-render` thread with its own EGL.
-- The run rule exists three times in Kotlin: `VisualizerView.syncPacer` and the two near-identical `syncRunState` machines in `VisualizerWallpaperService` and `VisualizerDreamService`.
-- The stage replaces all of them with one native implementation that a later change binds to `geode_viz`.
+- Before the stage each surface had its own Kotlin driver on a `GLSurfaceView`, repeating the frame protocol: the app's view, the wallpaper, the dream.
+- Cast's `cast-render` thread still drives a renderer by hand in the encoder's EGL context (`cast/CastFallback`).
+- The run rule existed three times: in the view and in the wallpaper's and the dream's `syncRunState`.
+- The stage is one native implementation of the loop, the context and the run rule, bound to `geode_viz` by `core/stage/LiveClient`.
 
 ## Thread model
 
 - Two kinds of thread, as today: one process-wide vsync thread, and one stage thread per surface.
-- The vsync thread is named `GeodeFramePacer` and runs at nice -4 (`THREAD_PRIORITY_DISPLAY`), the name and priority of the Kotlin `PacerThread` it replaces.
-- It is started on first use and never quit, like the Kotlin one: an idle looper costs nothing, and a thread torn down on every pause would race the next start.
+- The vsync thread is named `GeodeFramePacer` and runs at nice -4 (`THREAD_PRIORITY_DISPLAY`).
+- It is started on first use and never quit: an idle looper costs nothing, and a thread torn down on every pause would race the next start.
 - Its object is allocated once and never freed, so the thread never runs on an object a static destructor took down at exit.
 - It owns an `ALooper` and the `AChoreographer` of that looper, and serves every stage's pacer, so a preview wallpaper beside the app costs no second clock thread.
 - It never draws, so a slow frame on one surface never delays another surface's vsync and never stops the pacer from hearing every vsync.
@@ -25,7 +26,7 @@ One fact per line. The design of the native host every live surface draws throug
 
 ## What the shell hands over
 
-- A window: an `ANativeWindow` (from `ANativeWindow_fromSurface` in the later JNI) with its size; the stage takes its own reference with `ANativeWindow_acquire`.
+- A window: an `ANativeWindow` (from `ANativeWindow_fromSurface` in `geode_stage_jni.cpp`) with its size; the stage takes its own reference with `ANativeWindow_acquire`.
 - Size changes, as `surfaceChanged` reports them.
 - Visibility, two ways by kind: the view's four observations (attached, window visible, shown, alpha above 0), or the wallpaper's and dream's `GEODE_SURFACE_*` flags.
 - The host's pause and resume (the view's `onPause`/`onResume`), a redraw request (`surfaceRedrawNeeded`), and the surface's own fps cap.
@@ -42,7 +43,7 @@ One fact per line. The design of the native host every live surface draws throug
 
 - The wallpaper and the dream reuse the native rule as it is: `geode_stage_set_surface` runs `viz::surface::mode` (`core/viz/SurfaceRun.hpp`) and hands the mode to the stage.
 - The view's rule is `stage::viewMode` (`core/stage/StageLifecycle.hpp`): moving while attached, its window visible, shown and not transparent, else stopped; the host's pause is a separate input.
-- A surface stage pauses when the rule says Stopped, as both services call `onPause` there; a view stage keeps its surface while hidden, as `VisualizerView` did at alpha 0.
+- A surface stage pauses when the rule says Stopped, as both services call `onPause` there; a view stage keeps its surface while hidden, so alpha 0 costs no surface rebuild.
 - Dark keeps the context and surface and draws nothing, as the dream did.
 - Still paces for `viz::surface::settleMs` on the way in and then stops; a restated Still with no settle running draws one frame.
 - Leaving a drawing state trims the spare scenes with the context current, before the surface goes (#854), and only then: Dark does not trim.
@@ -84,21 +85,21 @@ One fact per line. The design of the native host every live surface draws throug
 ## Vsync and pacing (`core/stage/StagePacing`)
 
 - `AChoreographer_postFrameCallback64` (API 29) on the vsync thread's own choreographer, re-posted from each callback.
-- The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback` the Kotlin pacer used, so pacing stays exactly as it is.
+- The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback`, so pacing stays exactly as it was.
 - `AChoreographer_postVsyncCallback` (API 33) adds frame timelines and an expected presentation time; feeding that instead would change the dt the pacer sees, so any switch is a separate, later decision.
-- `StagePacing` owns the nine-int64 `PacerState` natively instead of a Kotlin `LongArray`, and applies the process thermal step as `geode_pacer_on_vsync` does (`frame::pacerCapFps`).
+- `StagePacing` owns the nine-int64 `PacerState` and applies the process thermal step as `geode_pacer_on_vsync` does (`frame::pacerCapFps`).
 - A callback re-posts first, before the pacer runs, so the cadence survives a slow frame and a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
 - A start while a callback is still pending posts nothing, so two starts never double the callback and halve every dt.
 - A start resumes the pacer, so a resume never inherits the gap it was paused across; the period estimate survives.
 - A drawn vsync hands the stage thread one last-wins frame request carrying the paced rate and the surface's cap; requests coalesce like `requestRender` did.
-- The rate handed to the frame is the pacer's paced rate, or the cap until the first vsync after a cap change, as `FramePacer.fps()` was.
+- The rate handed to the frame is the pacer's paced rate, or the cap until the first vsync after a cap change.
 
 ## Frame-rate hint
 
-- `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate` the Kotlin used.
+- `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate`.
 - The rate is the effective cap (`StagePacing::frameRateFor`): the surface's cap under the thermal step, 0 for Follow device; 0 is the platform's no preference.
-- It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (the thermal step moved), as `FramePacer.applyTo` did.
+- It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (the thermal step moved).
 - It is called on the stage thread, which holds the window; a hint from a vsync reaches it as a last-wins command.
 
 ## EGL
@@ -127,34 +128,40 @@ One fact per line. The design of the native host every live surface draws throug
 - `geode_stage_destroy` sends quit and waits at most 200 ms in all, the push included, for the thread to finish.
 - A stage thread that ends on an exception still runs the lifecycle's quit (`StageCore::abandon`): the client is released and the EGL objects freed on that thread.
 - Within the bound the thread is joined; past it the thread is detached and finishes on its own, freeing everything it owns.
-- Either way the client is released on the stage thread with the context current where possible, never on the caller's thread and never contextless when a context exists, which the Kotlin release (run after `GLSurfaceView` had unbound its context) could not promise.
+- Either way the client is released on the stage thread with the context current where possible, never on the caller's thread and never contextless when a context exists.
 - The client is owned by the stage from create: release is its last call, after which the stage never touches it.
 
 ## C ABI (`core/api/geode_stage_api.h`)
 
 - `geode_stage_create(kind, client, cap_fps)`, `geode_stage_set_window`, `_set_size`, `_set_view`, `_set_surface`, `_pause`, `_resume`, `_redraw`, `_set_cap`, `_state`, `_paced_fps`, `_take_events`, `geode_stage_destroy`.
-- The client is a C struct of function pointers (`geode_stage_client`), so the wiring change binds it to `geode_viz` inside native code; Kotlin never sees it.
-- No JNI function and no `external fun` exist for it yet: the parity gate wants both sides and there is no Kotlin caller.
+- The client is a C struct of function pointers (`geode_stage_client`); Kotlin never sees it.
+- `geode_stage_create_live` makes a stage that owns its `geode_viz` (`core/stage/LiveClient`).
+- A live stage's commands: `geode_stage_set_look`, `_set_sound`, `_warm_transition`, `_record_start`, `_record_stop`, `_viz_lock`, `_viz_unlock`.
+- A live stage's reads: `_take_milk_loaded`, `_take_director_moments`, `_liquid_mode`, `_error`, `_still_size`, `_still_read`, `_record_closed`, `_gyro_listens`.
+- `LiveClient` sends only the parts of a look that changed, and keeps what a frame reported until the shell polls it.
+- `LiveClient` closes every record tee when the stage releases it; `geode_stage_record_closed` is what Record waits for, so a finish never depends on a thread that may be gone.
+- JNI: `app/src/main/cpp/geode_stage_jni.cpp`, the `stage*` `external fun`s of `GeodeNative`; it only marshals.
+- The Kotlin shell is `app/src/main/java/dev/geode/stage/` (`Stage`, `StageView`): one handle, the surface callbacks, raw touch and tilt values in, a poll of the events on the main thread.
 - No exception leaves the ABI or the threads: each entry point and each thread body catches at its edge.
 
 ## Files
 
-- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.{hpp,cpp}`, `core/stage/StageClient.hpp`: pure, host-tested.
+- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.{hpp,cpp}`, `core/stage/StageClient.hpp`, `core/stage/LiveClient.{hpp,cpp}`: pure, host-tested.
 - `core/stage/android/EglWindow.{hpp,cpp}`, `core/stage/android/VsyncThread.{hpp,cpp}`, `core/stage/android/StageThread.{hpp,cpp}`: the platform layer, Android only, in no host-test line, and deciding nothing.
-- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`.
+- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`, `live_client_test.cpp`.
 
 ## What cannot be host-tested
 
 - Looper wake-ups, choreographer timing, EGL creation and loss, the frame-rate hint and the thread bounds need a device.
 
-## Phone checklist (before the wiring change lands)
+## Phone checklist
 
 - Rotation and fold: one surfaceChanged, no black flash, the rate hint restated.
 - Picture-in-picture: the stage draws while paused-but-started, at the PiP size.
 - Second screen (Presentation): a second stage on the external window, both pacing independently.
 - Wallpaper preview beside the home-screen wallpaper: two surface stages and the app view at once, one `GeodeFramePacer` thread.
 - Lock screen: the lock look, Stopped when covered, Still with the settle burst and then no frames.
-- 60, 90 and 120 Hz panels: the same divides and paced rates as the Kotlin pacer (60 cap on 90 Hz draws 45), and the panel mode follows the hint where it can switch seamlessly.
+- 60, 90 and 120 Hz panels: the same divides and paced rates as before the stage (60 cap on 90 Hz draws 45), and the panel mode follows the hint where it can switch seamlessly.
 - Screen off and on: vsync stops, the context survives, the first frame after is not a 600 s step.
 - Low-memory trim: `geode_memory_trim` still reaches the renderer while the stage is stopped, and spares trim on the way out.
 - Context loss (force with a GPU reset or a driver that drops contexts on sleep): surfaces rebuild and keep drawing.

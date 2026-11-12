@@ -31,28 +31,14 @@ import dev.geode.data.PaletteStackStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
+import dev.geode.model.get
+import dev.geode.model.with
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
-import kotlin.reflect.KProperty1
 
-/** A stack layer's amount: the look's field, and the look with it changed. */
-private class LayerAmount(
-    val param: KProperty1<SceneParams, Float>,
-    val with: (SceneParams, Float) -> SceneParams,
-)
-
-private val LAYER_AMOUNTS =
-    listOf(
-        LayerAmount(SceneParams::paletteAmount0) { p, v -> p.copy(paletteAmount0 = v) },
-        LayerAmount(SceneParams::paletteAmount1) { p, v -> p.copy(paletteAmount1 = v) },
-        LayerAmount(SceneParams::paletteAmount2) { p, v -> p.copy(paletteAmount2 = v) },
-        LayerAmount(SceneParams::paletteAmount3) { p, v -> p.copy(paletteAmount3 = v) },
-        LayerAmount(SceneParams::paletteAmount4) { p, v -> p.copy(paletteAmount4 = v) },
-        LayerAmount(SceneParams::paletteAmount5) { p, v -> p.copy(paletteAmount5 = v) },
-        LayerAmount(SceneParams::paletteAmount6) { p, v -> p.copy(paletteAmount6 = v) },
-        LayerAmount(SceneParams::paletteAmount7) { p, v -> p.copy(paletteAmount7 = v) },
-    )
+/** Each stack layer's amount: the scene param it reads and writes, by layer. */
+internal val LAYER_AMOUNTS = List(8) { "paletteAmount$it" }
 
 private const val SWATCH_SAMPLES = 24
 private val BLENDS = listOf("SHARE", "MIX")
@@ -146,9 +132,9 @@ private fun StackLayerRow(
         }
         if (swatch.isNotEmpty()) PaletteSwatch(swatch, Modifier.fillMaxWidth())
         Slider(
-            value = amount.param.get(p),
-            onValueChange = { onChange(amount.with(p, it)) },
-            valueRange = ControlRange.of(amount.param),
+            value = p[amount],
+            onValueChange = { onChange(p.with(amount, it)) },
+            valueRange = ControlRange.of(amount),
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = amountLabel },
         )
     }

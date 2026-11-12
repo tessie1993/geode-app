@@ -11,6 +11,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
 - `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
+- `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name Customize's screens pass as text to a live row of the params schema fixture.
 - `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
 - Put new pure tests in a JVM module where you can.
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).

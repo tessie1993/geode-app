@@ -57,13 +57,15 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.ControlRange
+import dev.geode.model.get
+import dev.geode.model.int
+import dev.geode.model.with
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
-import kotlin.reflect.KProperty1
 
 val LocalParamLocks =
     compositionLocalOf<Pair<Set<String>, (String) -> Unit>> { emptySet<String>() to {} }
@@ -591,44 +593,46 @@ internal fun LabeledSlider(
 }
 
 /**
- * A [LabeledSlider] for one scene param: the value is [params]'s, the range the schema's
- * ([ControlRange.of], with its few UI caps), and Reset goes to [SceneParams.DEFAULT]'s. The
- * row keeps only what is UI, its label and where it sits; no slider writes a range of its own (#346).
+ * A [LabeledSlider] for the scene param named [name]: the value is [params]'s, the range the schema's
+ * ([ControlRange.of], with its few UI caps), Reset goes to [SceneParams.DEFAULT]'s, and a move hands
+ * [onChange] the params with that one changed. The row keeps only what is UI, its label and where
+ * it sits; no slider writes a range of its own (#346).
  */
 @Composable
 internal fun LabeledSlider(
     label: String,
     params: SceneParams,
-    param: KProperty1<SceneParams, Float>,
+    name: String,
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
     unit: ParamUnit? = null,
-    onChange: (Float) -> Unit,
+    onChange: (SceneParams) -> Unit,
 ) {
     LabeledSlider(
         label = label,
-        value = param.get(params),
-        range = ControlRange.of(param),
+        value = params[name],
+        range = ControlRange.of(name),
         display = display,
         scope = scope,
-        default = param.get(SceneParams.DEFAULT),
+        default = SceneParams.DEFAULT[name],
         unit = unit,
-        onChange = onChange,
-    )
+    ) { onChange(params.with(name, it)) }
 }
 
-/** A [LabeledIntSlider] for one whole-number scene param: its value from [params], its range the schema's. */
+/** A [LabeledIntSlider] for the whole-number scene param named [name], as the [LabeledSlider] above. */
 @Composable
 internal fun LabeledIntSlider(
     label: String,
     params: SceneParams,
-    param: KProperty1<SceneParams, Int>,
+    name: String,
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
-    onChange: (Int) -> Unit,
+    onChange: (SceneParams) -> Unit,
 ) {
-    val range = ControlRange.of(param)
-    LabeledIntSlider(label, param.get(params), range.start.toInt()..range.endInclusive.toInt(), display, scope, onChange)
+    val range = ControlRange.of(name)
+    LabeledIntSlider(label, params.int(name), range.start.toInt()..range.endInclusive.toInt(), display, scope) {
+        onChange(params.with(name, it.toFloat()))
+    }
 }
 
 @Composable

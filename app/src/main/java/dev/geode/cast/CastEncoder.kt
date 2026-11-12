@@ -29,10 +29,15 @@ import java.nio.ByteOrder
  *
  * A keyframe a second ([KEYFRAME_INTERVAL_SEC]) and one-second fragments make one-second HLS
  * segments: the shortest the receiver handles well, so the TV runs as little behind as it can.
+ *
+ * [videoTap] gets every H.264 buffer as it leaves the codec, the codec config (SPS and PPS) included, on the
+ * drain thread: "Show on a computer" over WebRTC sends these same bytes to the browser (core/cast/WebRtcLink),
+ * so there is no second encode. Its arguments: the bytes, how many, the PTS, keyframe, codec config.
  */
 @OptIn(UnstableApi::class)
 internal class CastEncoder(
     segments: LiveSegments,
+    private val videoTap: ((ByteArray, Int, Long, Boolean, Boolean) -> Unit)? = null,
     val width: Int = castFormat[0],
     val height: Int = castFormat[1],
 ) {
@@ -57,10 +62,8 @@ internal class CastEncoder(
     private val pendingFormats = arrayOfNulls<Format>(2)
     private val held = ArrayList<Triple<Boolean, ByteArray, BufferInfo>>()
 
-    /** PCM queued but not yet taken by an input buffer, and its native counts. */
-    private val feed = LongArray(GeodeNative.CAST_AUDIO_FEED_STATE)
-    private val backlog = ShortArray(GeodeNative.castAudioFeedStart(feed, AUDIO_RATE_HZ) * CHANNELS)
-    private val ptsUs = LongArray(1)
+    /** The audio codec's PCM input. */
+    private val pcmFeed: CodecPcmFeed
 
     init {
         val videoFormat =
@@ -80,6 +83,7 @@ internal class CastEncoder(
         audio.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         video.start()
         audio.start()
+        pcmFeed = CodecPcmFeed(audio, AUDIO_RATE_HZ, CHANNELS)
         drainThread =
             Thread({ drainLoop() }, "cast-encoder").apply {
                 isDaemon = true
@@ -89,34 +93,12 @@ internal class CastEncoder(
 
     /**
      * Queues [frames] interleaved stereo frames at [AUDIO_RATE_HZ], the next block on the stream's
-     * sample clock. Called from the render loop, never waiting on the codec: what its free input
-     * buffers can't take now waits in [backlog] for the next call. How many each buffer takes, its PTS
-     * and what a stalled codec drops are native (core/viz/frame/CastAudio, CastAudioFeed).
+     * sample clock. Called from the render loop, never waiting on the codec ([CodecPcmFeed]).
      */
     fun queueAudio(
         pcm: ShortArray,
         frames: Int,
-    ) {
-        val pending = feed[PENDING].toInt()
-        val drop = GeodeNative.castAudioFeedAdd(feed, frames)
-        val fromBacklog = minOf(drop, pending)
-        System.arraycopy(backlog, fromBacklog * CHANNELS, backlog, 0, (pending - fromBacklog) * CHANNELS)
-        val skip = drop - fromBacklog
-        System.arraycopy(pcm, skip * CHANNELS, backlog, (pending - fromBacklog) * CHANNELS, (frames - skip) * CHANNELS)
-        while (feed[PENDING] > 0) {
-            val index = audio.dequeueInputBuffer(0)
-            if (index < 0) return
-            val buffer = audio.getInputBuffer(index) ?: return
-            buffer.clear()
-            buffer.order(ByteOrder.nativeOrder())
-            val waiting = feed[PENDING].toInt()
-            val n = GeodeNative.castAudioFeedTake(feed, buffer.capacity() / (CHANNELS * BYTES_PER_SAMPLE), ptsUs)
-            buffer.asShortBuffer().put(backlog, 0, n * CHANNELS)
-            audio.queueInputBuffer(index, 0, n * CHANNELS * BYTES_PER_SAMPLE, ptsUs[0], 0)
-            if (n <= 0) return
-            System.arraycopy(backlog, n * CHANNELS, backlog, 0, (waiting - n) * CHANNELS)
-        }
-    }
+    ) = pcmFeed.queue(pcm, frames)
 
     private fun drainLoop() {
         val info = MediaCodec.BufferInfo()
@@ -148,12 +130,14 @@ internal class CastEncoder(
         }
         val buffer = codec.getOutputBuffer(index)
         val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
-        if (buffer != null && info.size > 0 && !isConfig) {
+        val wanted = !isConfig || (isVideo && videoTap != null)
+        if (buffer != null && info.size > 0 && wanted) {
             val bytes = ByteArray(info.size)
             buffer.position(info.offset)
             buffer.get(bytes, 0, info.size)
-            val flags = if (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0) C.BUFFER_FLAG_KEY_FRAME else 0
-            write(isVideo, bytes, BufferInfo(info.presentationTimeUs, info.size, flags))
+            val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
+            if (!isConfig) write(isVideo, bytes, BufferInfo(info.presentationTimeUs, info.size, if (key) C.BUFFER_FLAG_KEY_FRAME else 0))
+            if (isVideo) videoTap?.let { tap -> runCatching { tap(bytes, info.size, info.presentationTimeUs, key, isConfig) } }
         }
         codec.releaseOutputBuffer(index, false)
         return true
@@ -210,16 +194,60 @@ internal class CastEncoder(
         const val AUDIO_RATE_HZ = 48_000
         const val CHANNELS = 2
         private val VIDEO_BITRATE = castFormat[4]
-        private val AUDIO_BITRATE = castFormat[5]
+        val AUDIO_BITRATE = castFormat[5]
         private val KEYFRAME_INTERVAL_SEC = castFormat[3]
         private val FRAGMENT_MS = KEYFRAME_INTERVAL_SEC * 1_000L
-        private const val BYTES_PER_SAMPLE = 2
-        private const val PENDING = 1
         private const val IDLE_MS = 5L
         private const val JOIN_MS = 1_000L
 
         /** Samples kept while waiting for the second track's format: a few seconds at most. */
         private const val MAX_HELD = 512
         private const val TAG = "CastEncoder"
+    }
+}
+
+/**
+ * A codec's 16-bit PCM input, for the cast's AAC and, while a browser listens over WebRTC, its Opus
+ * ([OpusFeed]). Called from the render loop, never waiting on the codec: what its free input buffers can't take
+ * now waits in [backlog] for the next call. How many each buffer takes, its PTS and what a stalled codec drops
+ * are native (core/viz/frame/CastAudio, CastAudioFeed).
+ */
+internal class CodecPcmFeed(
+    private val codec: MediaCodec,
+    rateHz: Int,
+    private val channels: Int,
+) {
+    private val feed = LongArray(GeodeNative.CAST_AUDIO_FEED_STATE)
+    private val backlog = ShortArray(GeodeNative.castAudioFeedStart(feed, rateHz) * channels)
+    private val ptsUs = LongArray(1)
+
+    fun queue(
+        pcm: ShortArray,
+        frames: Int,
+    ) {
+        val pending = feed[PENDING].toInt()
+        val drop = GeodeNative.castAudioFeedAdd(feed, frames)
+        val fromBacklog = minOf(drop, pending)
+        System.arraycopy(backlog, fromBacklog * channels, backlog, 0, (pending - fromBacklog) * channels)
+        val skip = drop - fromBacklog
+        System.arraycopy(pcm, skip * channels, backlog, (pending - fromBacklog) * channels, (frames - skip) * channels)
+        while (feed[PENDING] > 0) {
+            val index = codec.dequeueInputBuffer(0)
+            if (index < 0) return
+            val buffer = codec.getInputBuffer(index) ?: return
+            buffer.clear()
+            buffer.order(ByteOrder.nativeOrder())
+            val waiting = feed[PENDING].toInt()
+            val n = GeodeNative.castAudioFeedTake(feed, buffer.capacity() / (channels * BYTES_PER_SAMPLE), ptsUs)
+            buffer.asShortBuffer().put(backlog, 0, n * channels)
+            codec.queueInputBuffer(index, 0, n * channels * BYTES_PER_SAMPLE, ptsUs[0], 0)
+            if (n <= 0) return
+            System.arraycopy(backlog, n * channels, backlog, 0, (waiting - n) * channels)
+        }
+    }
+
+    private companion object {
+        const val BYTES_PER_SAMPLE = 2
+        const val PENDING = 1
     }
 }

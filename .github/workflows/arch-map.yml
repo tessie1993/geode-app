@@ -1,6 +1,7 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule and the notices copy. No path
+# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule and the
+# notices copy. No path
 # filter, so the check reports on every PR.
 
 on:
@@ -102,6 +103,39 @@ jobs:
       - name: Every action is pinned to a commit SHA
         shell: bash
         run: bash tools/actions-pin-gate.sh
+
+      # Pins the network gate: a socket in Kotlin outside cast/, a socket header in native code outside
+      # core/cast/, and a networking submodule must each fail it; core/cast/'s own use must pass.
+      - name: Self-test the network gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/app/src/main/java/dev/geode/cast" "$t/app/src/main/java/dev/geode/ui" "$t/app/src/main/cpp" \
+            "$t/core/cast" "$t/core/viz" "$t/engine/x/src/main"
+          echo 'import java.net.ServerSocket' > "$t/app/src/main/java/dev/geode/cast/Server.kt"
+          echo '#include <rtc/rtc.hpp>' > "$t/core/cast/WebRtcLink.cpp"
+          printf '[submodule "a"]\n\turl = https://example.invalid/paullouisageneau/libdatachannel\n' > "$t/.gitmodules"
+          bash tools/network-gate.sh "$t" >/dev/null || { echo "::error::network gate self-test: clean tree failed"; exit 1; }
+          plant() {
+            printf '%s\n' "$2" > "$t/$1"
+            if bash tools/network-gate.sh "$t" >/dev/null; then echo "::error::network gate self-test: passed: $1: $2"; exit 1; fi
+            rm "$t/$1"
+          }
+          plant app/src/main/java/dev/geode/ui/Leak.kt 'val s = java.net.Socket("h", 1)'
+          plant app/src/main/java/dev/geode/ui/Leak.kt 'val c = java.net.URL(u).openConnection()'
+          plant core/viz/Leak.cpp '#include <sys/socket.h>'
+          plant core/viz/Leak.hpp '#include <rtc/rtc.hpp>'
+          plant app/src/main/cpp/leak_jni.cpp '#include <netdb.h>'
+          cp "$t/.gitmodules" "$t/keep"
+          printf '[submodule "b"]\n\turl = https://example.invalid/curl/curl\n' >> "$t/.gitmodules"
+          if bash tools/network-gate.sh "$t" >/dev/null; then echo "::error::network gate self-test: a curl submodule passed"; exit 1; fi
+          mv "$t/keep" "$t/.gitmodules"
+          echo "network gate self-test passed"
+
+      - name: Only cast/ reaches the network
+        shell: bash
+        run: bash tools/network-gate.sh
 
       # The repository's notices and the copy the app ships are one text (LGPL-2.1 2a: the
       # projectM modification notice must not differ between them).

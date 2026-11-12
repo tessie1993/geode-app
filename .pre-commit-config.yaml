@@ -24,6 +24,11 @@ repos:
         language: system
         pass_filenames: false
         files: '^\.github/workflows/'
+      - id: network-gate
+        name: Sockets and network headers only in cast/ and core/cast/
+        entry: bash tools/network-gate.sh
+        language: system
+        pass_filenames: false
       - id: notices-copy
         name: The notices file equals the shipped asset
         entry: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt

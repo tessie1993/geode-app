@@ -33,6 +33,11 @@ vec2 needle(vec3 q, vec3 u, vec3 v, vec3 w, float len, float wid) {
     return vec2(top.x, length(top));
 }
 
+/** best, or the needle n (x its distance, y its edge's) as piece `id` where it is nearer: the branch-free `if (n.x < best.x)`. */
+vec3 nearer(vec3 best, vec2 n, float id) {
+    return mix(best, vec3(n.x, id, n.y), 1.0 - step(best.x, n.x));
+}
+
 vec3 shardMap(vec3 p) {
     p.xz = shardRot(uTime * SHARD_RATE(50)) * p.xz;
     p.xy = shardRot(uTime * SHARD_RATE(31)) * p.xy;
@@ -49,25 +54,25 @@ vec3 shardMap(vec3 p) {
     vec3 best = vec3(core.x, side, length(core));
     vec2 n = needle(q, vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0),
         grow * (1.0 + 0.08 * sin(uTime * SHARD_RATE(300))), 0.1);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.11), n.y);
+    best = nearer(best, n, fract(side + 0.11));
     n = needle(q, vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0),
         grow * (1.0 + 0.08 * sin(uTime * SHARD_RATE(340) + 1.0)), 0.1);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.23), n.y);
+    best = nearer(best, n, fract(side + 0.23));
     n = needle(q, vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0),
         grow * (1.0 + 0.08 * sin(uTime * SHARD_RATE(380) + 2.0)), 0.1);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.37), n.y);
+    best = nearer(best, n, fract(side + 0.37));
     n = needle(q, vec3(0.7071068, 0.7071068, 0.0), vec3(-0.7071068, 0.7071068, 0.0), vec3(0.0, 0.0, 1.0),
         0.75 * grow * (1.0 + 0.1 * sin(uTime * SHARD_RATE(420) + 3.0)), 0.08);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.49), n.y);
+    best = nearer(best, n, fract(side + 0.49));
     n = needle(q, vec3(0.7071068, 0.0, 0.7071068), vec3(-0.7071068, 0.0, 0.7071068), vec3(0.0, 1.0, 0.0),
         0.75 * grow * (1.0 + 0.1 * sin(uTime * SHARD_RATE(460) + 4.0)), 0.08);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.61), n.y);
+    best = nearer(best, n, fract(side + 0.61));
     n = needle(q, vec3(0.0, 0.7071068, 0.7071068), vec3(0.0, -0.7071068, 0.7071068), vec3(1.0, 0.0, 0.0),
         0.75 * grow * (1.0 + 0.1 * sin(uTime * SHARD_RATE(500) + 5.0)), 0.08);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.73), n.y);
+    best = nearer(best, n, fract(side + 0.73));
     n = needle(q, vec3(0.5773503), vec3(0.7071068, -0.7071068, 0.0), vec3(0.4082483, 0.4082483, -0.8164966),
         0.9 * grow * (1.0 + 0.12 * sin(uTime * SHARD_RATE(540) + 6.0)), 0.12);
-    if (n.x < best.x) best = vec3(n.x, fract(side + 0.87), n.y);
+    best = nearer(best, n, fract(side + 0.87));
     return best;
 }
 

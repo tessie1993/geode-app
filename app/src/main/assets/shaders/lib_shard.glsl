@@ -108,10 +108,13 @@ float shardHash(vec2 c) {
 /**
  * Keeps the two largest plane values seen in top (x the largest). A convex piece is
  * the largest of its planes' values; where the two largest are both near 0 two faces
- * meet, so length(top) is the distance to the nearest edge.
+ * meet, so length(top) is the distance to the nearest edge. Written with max and min, not a
+ * choice between two vectors, so the trace's loop (a piece takes six of these, a field several
+ * pieces, a step five fields) holds no branch per plane: CI's software GPU stalled on the first
+ * Shard style while this was a choice (glslcheck, 2026-11-12).
  */
 void shardTop(inout vec2 top, float v) {
-    top = v > top.x ? vec2(v, top.x) : vec2(top.x, max(top.y, v));
+    top = vec2(max(top.x, v), max(top.y, min(top.x, v)));
 }
 
 /**

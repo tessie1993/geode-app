@@ -125,8 +125,7 @@ object StyleCatalogue {
         paramKey: String,
     ): Float? = answers.reads.held(styleId, paramKey).takeUnless { it.isNaN() }
 
-    internal fun scopeOf(paramKey: String): String =
-        answers.let { a -> a.scopes.getOrPut(paramKey) { a.reads.scopeOf(paramKey) } }
+    internal fun scopeOf(paramKey: String): String = answers.let { a -> a.scopes.getOrPut(paramKey) { a.reads.scopeOf(paramKey) } }
 
     internal fun reaches(
         scope: String,

@@ -25,9 +25,9 @@ object FreeTier {
      * app's first style for everyone ([FIRST_STYLE_ID]), so the first thing a new listener sees is a
      * showpiece they keep. Hex Hive, the opener before it, went Pro in the swap.
      */
-    val neonOpener: String = "neon_chrome_sea"
+    const val NEON_OPENER: String = "neon_chrome_sea"
 
-    /** The four neon showcase styles behind Pro: every one but [neonOpener]. */
+    /** The four neon showcase styles behind Pro: every one but [NEON_OPENER]. */
     val neonProIds: Set<String> =
         setOf("glow_vortex", "hex_hive", "black_hole", "mandelbox_cathedral")
 

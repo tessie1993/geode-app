@@ -121,10 +121,10 @@ class FeatureGateTest {
 
     @Test
     fun `the neon set gives away one opener and keeps four for Pro`() {
-        assertTrue(FreeTier.neonOpener in FreeTier.freeStyleIds)
+        assertTrue(FreeTier.NEON_OPENER in FreeTier.freeStyleIds)
         assertEquals(4, FreeTier.neonProIds.size)
         FreeTier.neonProIds.forEach { assertFalse(it, it in FreeTier.freeStyleIds) }
-        assertFalse(FreeTier.neonOpener in FreeTier.neonProIds)
+        assertFalse(FreeTier.NEON_OPENER in FreeTier.neonProIds)
     }
 
     @Test

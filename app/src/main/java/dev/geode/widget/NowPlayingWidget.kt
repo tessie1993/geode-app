@@ -310,7 +310,7 @@ private fun LargeLayout(snapshot: WidgetSnapshot) {
                 snapshot.state,
                 titleSize = 15.sp,
                 artistSize = 12.sp,
-                styleLabel = snapshot.state.styleId?.let(WidgetVisual::label),
+                styleLabel = snapshot.state.styleId?.let { styleLabel(LocalContext.current.resources, it) },
                 modifier = GlanceModifier.defaultWeight().padding(start = GAP),
             )
         }

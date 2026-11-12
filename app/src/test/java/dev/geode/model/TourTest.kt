@@ -172,6 +172,45 @@ class TourTest {
         assertNull(Tour.due(old, visualsShown))
     }
 
+    @Test
+    fun `anything over the app holds every step and tip back`() {
+        val covers =
+            listOf(
+                TourCover(firstRun = true),
+                TourCover(paywall = true),
+                TourCover(pip = true),
+                TourCover(permissionRationale = true),
+                TourCover(away = true),
+            )
+        val replay = Tour.replay(listOf(TourChapter.VISUALS))
+        for (cover in covers) {
+            assertTrue(cover.toString(), Tour.held(cover))
+            assertFalse(cover.toString(), Tour.shows(TourRun(listOf(TourChapter.START)), TourProgress(), cover))
+            assertFalse(cover.toString(), Tour.shows(replay, TourProgress(), cover))
+            assertFalse(cover.toString(), Tour.mayTip(GestureTip.DOUBLE_TAP_SHEET, TourProgress.Finished, cover, run = null))
+        }
+        assertFalse(Tour.held(TourCover()))
+        assertTrue(Tour.shows(TourRun(listOf(TourChapter.START)), TourProgress(), TourCover()))
+        assertTrue(Tour.mayTip(GestureTip.DOUBLE_TAP_SHEET, TourProgress.Finished, TourCover(), run = null))
+    }
+
+    @Test
+    fun `tips off says no tip and starts no chapter, but a replay still plays`() {
+        val off = TourProgress(off = true)
+        assertNull(Tour.due(off, visualsShown))
+        assertFalse(Tour.mayTip(GestureTip.SWIPE_STYLES, off, TourCover(), run = null))
+        assertFalse(Tour.shows(TourRun(listOf(TourChapter.VISUALS)), off, TourCover()))
+        assertTrue(Tour.shows(Tour.replay(listOf(TourChapter.VISUALS)), off, TourCover()))
+        assertEquals(off, TourProgress.decode(off.encodeDone(), off.encodeResume(), off.encodeTips(), off = true))
+    }
+
+    @Test
+    fun `a tip is said once, and never over a run`() {
+        val said = TourProgress.Finished.copy(tips = setOf(GestureTip.SWIPE_STYLES))
+        assertFalse(Tour.mayTip(GestureTip.SWIPE_STYLES, said, TourCover(), run = null))
+        assertFalse(Tour.mayTip(GestureTip.HOLD_TO_RECORD, said, TourCover(), TourRun(listOf(TourChapter.VISUALS))))
+    }
+
     private val safe = TourRect(16, 60, 344, 700)
 
     @Test

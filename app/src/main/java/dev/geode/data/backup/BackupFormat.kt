@@ -157,6 +157,7 @@ object BackupFormat {
                     "gui_tutorial_done",
                     "gui_tutorial_resume",
                     "gui_tutorial_tips",
+                    "gui_tutorial_off",
                     "preset_mirror_uri",
                 ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS + CustomizeGroupsCodec.KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),

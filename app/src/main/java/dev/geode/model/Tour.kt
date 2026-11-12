@@ -47,8 +47,24 @@ data class TourFacts(
 )
 
 /**
+ * What can be over the app. Each one holds every pointer and tip back ([Tour.held]): the tour
+ * waits and shows after, so it never lands on something that asked for the user first.
+ */
+data class TourCover(
+    /** The boot intro, the safety notice or first-run setup. */
+    val firstRun: Boolean = false,
+    val paywall: Boolean = false,
+    val pip: Boolean = false,
+    /** A screen's own words on why it needs a permission, before or after the system asks. */
+    val permissionRationale: Boolean = false,
+    /** The app is not in front: a system window (a permission dialog, screen capture consent) is over it. */
+    val away: Boolean = false,
+)
+
+/**
  * Everything the tour remembers between launches: the chapters seen or skipped, the step an
- * unfinished chapter picks up at, and the gesture tips already said.
+ * unfinished chapter picks up at, the gesture tips already said, and whether the user turned
+ * tips off ([off]: no gesture tip and no chapter of its own accord; a replay still plays).
  *
  * Plain strings, read leniently: a name a later build dropped is ignored.
  */
@@ -56,6 +72,7 @@ data class TourProgress(
     val done: Set<TourChapter> = emptySet(),
     val resume: TourSpot? = null,
     val tips: Set<GestureTip> = emptySet(),
+    val off: Boolean = false,
 ) {
     fun encodeDone(): String = done.joinToString(",") { it.name }
 
@@ -77,6 +94,7 @@ data class TourProgress(
             resume: String?,
             tips: String?,
             legacySeen: Boolean = false,
+            off: Boolean = false,
         ): TourProgress =
             TourProgress(
                 done =
@@ -87,6 +105,7 @@ data class TourProgress(
                     },
                 resume = TourSpot.entries.firstOrNull { it.name == resume },
                 tips = names(tips).mapNotNull { n -> GestureTip.entries.firstOrNull { it.name == n } }.toSet(),
+                off = off,
             )
 
         private fun names(joined: String?) = joined.orEmpty().split(',')
@@ -176,18 +195,37 @@ object Tour {
         return if (rest.isEmpty()) null else TourRun(rest, replay = run.replay)
     }
 
+    /** Whether [cover] holds the tour back: anything over the app does. */
+    fun held(cover: TourCover): Boolean = cover.firstRun || cover.paywall || cover.pip || cover.permissionRationale || cover.away
+
+    /** Whether [run] may show a step now: nothing covers the app, and tips are on unless it is a replay. */
+    fun shows(
+        run: TourRun?,
+        progress: TourProgress,
+        cover: TourCover,
+    ): Boolean = !held(cover) && (run?.replay == true || !progress.off)
+
+    /** Whether [tip] may be said now: not said before, tips on, no run and nothing over the app. */
+    fun mayTip(
+        tip: GestureTip,
+        progress: TourProgress,
+        cover: TourCover,
+        run: TourRun?,
+    ): Boolean = tip !in progress.tips && !progress.off && run == null && !held(cover)
+
     /**
      * The chapter that should start by itself, if any. START leads once, on a new install. Each
      * other chapter plays the first time one of its controls is on screen, once START is done.
+     * None while tips are off.
      */
     fun due(
         progress: TourProgress,
         facts: TourFacts,
     ): TourChapter? =
-        if (TourChapter.START !in progress.done) {
-            TourChapter.START
-        } else {
-            TourChapter.entries.firstOrNull { ch -> ch !in progress.done && ch.spots.any { it in facts.shown } }
+        when {
+            progress.off -> null
+            TourChapter.START !in progress.done -> TourChapter.START
+            else -> TourChapter.entries.firstOrNull { ch -> ch !in progress.done && ch.spots.any { it in facts.shown } }
         }
 
     /** A run of [chapter] started by [due], picking up where it was left. */

@@ -367,12 +367,6 @@ Java_dev_geode_engine_bridge_GeodeNative_macroBankControls(JNIEnv* env, jobject,
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
-    Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_roll(text.get(), knobId, static_cast<long long>(seed)));
-}
-
-JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankLiveMods(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_macro_bank_live_mods());
 }

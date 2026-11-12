@@ -385,13 +385,6 @@ object GeodeNative {
     /** Every Customize control a knob can move, its category, and the knobs that move it now. */
     external fun macroBankControls(bank: String): String
 
-    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
-    external fun macroBankRoll(
-        bank: String,
-        knobId: Int,
-        seed: Long,
-    ): String
-
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
      * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.

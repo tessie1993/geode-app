@@ -375,6 +375,14 @@ void aWaveOnAKnobStaysUnderTheFlashRate() {
           "a knob is held like a luminance target");
 }
 
+// A palette's amount or position swaps the picture's colours: every wave on one runs at the flash rate at most.
+void aWaveOnThePalettesStaysUnderTheFlashRate() {
+    for (LfoTarget t : {LfoTarget::PaletteAmount1, LfoTarget::PaletteAmount3, LfoTarget::PaletteAmount4, LfoTarget::PaletteAmount5,
+                        LfoTarget::PaletteAmount6, LfoTarget::PaletteAmount7, LfoTarget::PaletteAmount8, LfoTarget::PaletteShift}) {
+        check(safety::limitLfoRate(20.0f, t) <= 3.0f, "a palette target is held to the flash rate");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -392,6 +400,7 @@ int main() {
     liquidTargetsOnlyWhenLiquidIsOn();
     theWireRoundTrips();
     aWaveOnAKnobStaysUnderTheFlashRate();
+    aWaveOnThePalettesStaysUnderTheFlashRate();
     if (failures == 0) std::printf("lfo_random_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

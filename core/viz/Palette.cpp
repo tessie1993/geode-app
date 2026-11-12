@@ -243,12 +243,14 @@ float amountOf(const Amounts& amounts, size_t i) {
 
 }  // namespace
 
-Amounts defaultAmounts() {
-    Amounts a{};
-    a.fill(0.5f);
-    a[0] = 1.0f;
-    return a;
+static_assert(kMaxLayers == 8, "one paletteAmount row per layer (viz/ParamTable.inc)");
+
+Amounts amountsOf(const SceneParams& p) {
+    return {p.paletteAmount0, p.paletteAmount1, p.paletteAmount2, p.paletteAmount3,
+            p.paletteAmount4, p.paletteAmount5, p.paletteAmount6, p.paletteAmount7};
 }
+
+Amounts defaultAmounts() { return amountsOf(SceneParams{}); }
 
 const char* name(Interp v) { return nameIn(kInterpNames, v); }
 const char* name(Wrap v) { return nameIn(kWrapNames, v); }

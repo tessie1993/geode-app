@@ -477,6 +477,31 @@ GEODE_PARAM_META(diveLens, "Dive lens", EndlessZoom, 0, -0.3f, 0.8f)
 GEODE_PARAM(Float, diveFollow, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
 
+// The palette stack's amounts (viz/Palette.hpp, Customize › Look): how much each layer is used, the primary
+// first, beside the stack the look keeps as text. The defaults are palette::defaultAmounts(). Appended so
+// every wire index survives. The stack's own roll deals them, never the param roll. Palette 2's amount takes
+// LfoTarget::PaletteMix (and kMod) once the renderer draws the stack.
+GEODE_PARAM(Float, paletteAmount0, 1.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount0, "Palette 1 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount1, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount1, "Palette 2 amount", Universal, 0, 0, 0)
+GEODE_PARAM(Float, paletteAmount2, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount2, "Palette 3 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount3, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount3, "Palette 4 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount4, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount4, "Palette 5 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount5, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount5, "Palette 6 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount6, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount6, "Palette 7 amount", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, paletteAmount7, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteAmount7, "Palette 8 amount", Universal, kMod, 0, 0)
+// Where along the stack's ramp the colours sit: the walk Hue shift, the colour cycle and moment colours will
+// drive, so colour moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
+GEODE_PARAM(Circular, paletteShift, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

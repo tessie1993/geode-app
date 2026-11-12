@@ -101,13 +101,6 @@ chrys_fall: midGain
 lucid_weave: midGain
 lucid_hive: midGain
 lucid_bulge: midGain
-truchet_weave: midGain
-truchet_maze: midGain
-truchet_quad: midGain
-truchet_tubes: midGain
-truchet_knot: midGain
-truchet_tunnel: midGain
-truchet_relief: midGain noteChords noteDrums noteIntervals notePitch noteTension
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension

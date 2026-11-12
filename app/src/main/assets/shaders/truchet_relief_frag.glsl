@@ -48,7 +48,12 @@ out vec4 fragColor;
 // plan before it is tiled, so the channels meander (that bend is not periodic
 // in z, so with Chaos up the rig's 8192-unit travel wrap can show once). Energy: uIntensity scales
 // the bass deepening. Colour: stone, terrace and light are pal(). Space: the
-// camera rig.
+// camera rig. Knobs (lib_truchet's roles for this style, offsets from 0.5 so
+// off is the tuned look): k0 PULSE the emission, k1 TEXTURE the grooves' width
+// (the step bound follows it), k2 FLOW added to Chaos's bend (gTruchetFlow;
+// the bound follows it too), k3 TONE the palette position, k4 BUILD the
+// hanging light's glow, k5 SPACE the reach. The mids turn the look aside
+// (truchetTurn).
 
 #define TR_MAX_STEPS 96
 #define TR_TOP 0.05
@@ -61,15 +66,17 @@ float gHits;
 float gScale;
 float gT;
 float gTone;
+/** The grooves' half-width, TR_W times k1 TEXTURE's factor. */
+float gW;
 
 float floorHeight(vec2 xz) {
     vec2 p = truchetWarp(xz * gScale, gT);
     vec2 id = floor(p);
     id.y = mod(id.y, 64.0);
     TruchetArc a = truchetSquareAt(id, fract(p) - 0.5, gHits, SND_ONSET_ENV, 3.0);
-    float g = clamp(abs(a.d) / TR_W, 0.0, 1.0);
+    float g = clamp(abs(a.d) / gW, 0.0, 1.0);
     float groove = 0.5 + 0.5 * cos(TRUCHET_PI * g);
-    gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-TR_W * 0.8, TR_W * 0.8, a.d));
+    gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-gW * 0.8, gW * 0.8, a.d));
     return TR_TOP * gTone - gDepth * groove;
 }
 
@@ -88,26 +95,35 @@ void main() {
     float t = truchetTime();
     float e = truchetEnergy();
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gTruchetFlow = kFlow;
+    gW = TR_W * (1.0 + 0.4 * kTexture);
+    float reach = 1.0 + 0.4 * kSpace;
     gT = t;
     gHits = floor(SND_ONSET_COUNT);
     // 1 or 1.5 cells per world unit: either way 8192 * scale is a multiple
     // of the 64-cell id wrap, so the rig's travel wrap stays invisible.
     gScale = truchetMorph() >= 0.5 ? 1.5 : 1.0;
     gDepth = (0.14 + 0.07 * clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.5) * e) / gScale;
-    // Slope bound in world units: the groove is TR_W / gScale wide.
-    float slope = gDepth * TRUCHET_PI * gScale / (2.0 * TR_W) + TR_TOP * gScale / (1.6 * TR_W);
+    // Slope bound in world units: the groove is gW / gScale wide.
+    float slope = gDepth * TRUCHET_PI * gScale / (2.0 * gW) + TR_TOP * gScale / (1.6 * gW);
     // Chaos bends the plan first; its stretch multiplies the slope.
-    slope *= 1.0 + 0.25 * clamp(uWarp, 0.0, 2.0) + 0.21 * clamp(uTurbulence, 0.0, 2.0);
+    slope *= 1.0 + 0.25 * truchetWarpShare() + 0.21 * clamp(uTurbulence, 0.0, 2.0);
     float lip = 1.0 / sqrt(1.0 + slope * slope);
 
     vec3 ro = vec3(uCamPos.x, TR_EYE, uCamPos.z);
     // The rig's view, pitched down toward the floor.
-    vec3 v = vec3(uv, uCamFocal);
+    vec3 v = vec3(uv - vec2(truchetTurn(), 0.0), uCamFocal);
     const float pitch = 0.42;
     v = vec3(v.x, v.y * cos(pitch) - v.z * sin(pitch), v.y * sin(pitch) + v.z * cos(pitch));
     vec3 rd = normalize(uCamBasis * v);
 
-    float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue);
+    float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.6 * kTone;
     vec3 fwd = normalize(vec3(uCamBasis[2].x, 0.0, uCamBasis[2].z) + vec3(0.0, 0.0, 1e-4));
     vec3 side = vec3(fwd.z, 0.0, -fwd.x);
     vec3 lightPos = ro + fwd * 3.2 + side * (1.8 * sin(t * 0.37)) + vec3(0.0, -0.55, 0.0);
@@ -121,7 +137,7 @@ void main() {
     if (rd.y < -0.002) {
         // Enter the slab at its top, give up past its bottom.
         float t0 = (ro.y - TR_TOP) / -rd.y;
-        float t1 = min((ro.y + gDepth + 0.02) / -rd.y, TR_FAR);
+        float t1 = min((ro.y + gDepth + 0.02) / -rd.y, TR_FAR * reach);
         float tm = t0;
         for (int i = 0; i < TR_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
@@ -136,7 +152,7 @@ void main() {
             tm += max(d * lip, eps * 0.5);
         }
         // Below the deepest groove a ray must already be in the floor.
-        if (hitT < 0.0 && tm >= t1 && t1 < TR_FAR) hitT = t1;
+        if (hitT < 0.0 && tm >= t1 && t1 < TR_FAR * reach) hitT = t1;
     }
 
     if (hitT > 0.0) {
@@ -159,15 +175,16 @@ void main() {
         col = stone * (0.06 + 1.6 * dif * atten) * ao * lightC;
         col += lightC * spec * atten * 0.6 * ao;
         col += stone * sky * 0.4 * max(n.y, 0.0);
-        col = mix(col, sky, 1.0 - exp(-hitT * 0.12));
+        col = mix(col, sky, 1.0 - exp(-hitT * 0.12 / reach));
     }
     // The light itself, a soft glow hanging over the floor.
     vec3 toLight = lightPos - ro;
     float along = max(dot(toLight, rd), 0.0);
     float miss = length(toLight - rd * along);
-    if (hitT < 0.0 || along < hitT) col += pal(hue + 0.15) * 0.06 / (1.0 + miss * miss * 60.0);
+    if (hitT < 0.0 || along < hitT) col += pal(hue + 0.15) * 0.06 / (1.0 + miss * miss * 60.0) * (1.0 + kBuild);
 
     col *= 0.85 + 0.12 * swell;
     col *= 0.78 + 0.22 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

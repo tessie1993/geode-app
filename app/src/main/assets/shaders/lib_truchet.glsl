@@ -66,6 +66,18 @@
 // Space: view() (zoom, rotation, drift) or the camera rig. At their defaults
 // every one of these is the identity.
 //
+// The style knobs are read in each style as offsets from 0.5. Relief gives
+// them lib_flame's, lib_opal's and lib_hollow's roles (k0 PULSE the emission,
+// k1 TEXTURE the grooves' width, k2 FLOW added to Warp's bend through
+// gTruchetFlow, which truchetWarp and truchetChaos read and which stays 0 in
+// the other eleven, k3 TONE the palette position, k4 BUILD the glow, k5 SPACE
+// the reach); the other eleven still spend them their own way.
+//
+// The mid band (truchetTurn): sndShaped(SND_MIDDLE), times SND_DRIVE, turns
+// the eye's look aside while the mids climb and eases it back as they fall, in
+// a style that hears no mids of its own. The look turns, never the tiling:
+// grids hold still. One screen offset per pixel. Mid gain scales it.
+//
 // ANTI-ALIASING
 //
 // Lines are drawn against a pixel footprint measured in cell units:
@@ -77,9 +89,10 @@
 // INCLUDE ORDER
 //
 // After lib_scene_uniforms (reads uTime, uIntensity, uMorph, uWarp,
-// uTurbulence). It reads no audio uniform itself - styles hand in floor(
-// floor(SND_HIT_TIME)), SND_ONSET_ENV and their own band levels - and it includes nothing,
-// because the include resolver does not de-duplicate.
+// uTurbulence). It reads no audio uniform itself but the mid band in
+// truchetTurn - styles hand in floor(SND_HIT_TIME), SND_ONSET_ENV and their own
+// band levels - and it includes nothing, because the include resolver does not
+// de-duplicate.
 
 #define TRUCHET_PI 3.14159265
 #define TRUCHET_TAU 6.2831853
@@ -143,13 +156,24 @@ float truchetMorph() {
 }
 
 /**
+ * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles; 0 in
+ * every other style, where the bend is what it always was.
+ */
+float gTruchetFlow = 0.0;
+
+/** Warp's share of the bend, 0..2.25: the slider, FLOW added, never below none. */
+float truchetWarpShare() {
+    return max(clamp(uWarp, 0.0, 2.0) + 0.5 * gTruchetFlow, 0.0);
+}
+
+/**
  * Chaos: a slow, low-frequency bend of the plane in CELL units, applied before
- * tiling so the paths meander but stay joined. The largest slope is about 0.9
- * at the top of both sliders (0.8 * 2 * 0.31 + 0.18 * 2 * 1.13), under 1, so
- * the map never folds. Identity at default.
+ * tiling so the paths meander but stay joined. The largest slope is about 0.97
+ * at the top of both sliders and FLOW (0.8 * 2.25 * 0.31 + 0.18 * 2 * 1.13),
+ * under 1, so the map never folds. Identity at default.
  */
 vec2 truchetWarp(vec2 p, float t) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
+    float a = 0.8 * truchetWarpShare();
     float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
     if (a + b <= 1e-4) return p;
     p += a * vec2(sin(p.y * 0.31 + t * 0.21), sin(p.x * 0.29 - t * 0.17 + 1.3));
@@ -162,7 +186,12 @@ vec2 truchetWarp(vec2 p, float t) {
  * is periodic (a tunnel's angle) and must build its own wrap-safe bend.
  */
 float truchetChaos() {
-    return 0.8 * clamp(uWarp, 0.0, 2.0) + 0.3 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.8 * truchetWarpShare() + 0.3 * clamp(uTurbulence, 0.0, 2.0);
+}
+
+/** The mid band's turn of the look, in screen units (about radians / focal), 0.15 at most (see the header). */
+float truchetTurn() {
+    return 0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 /**

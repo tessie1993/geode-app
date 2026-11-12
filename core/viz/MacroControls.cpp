@@ -42,34 +42,20 @@ std::string unique(const Bank& bank, const std::string& stem, int except) {
     return chosen;
 }
 
-// The first Customize control, in panel order, that writes target's param.
-std::string_view controlOf(LfoTarget target) {
-    for (const customize::Section& section : customize::sections()) {
-        for (const char* key : section.controls) {
-            if (key[0] != '@' && targetOfControl(key) == target) return key;
-        }
+}  // namespace
+
+Target targetOfControl(std::string_view key) {
+    for (const char* field : customize::fieldsOf(key)) {
+        const Target target = Target::ofSlot(SceneParams::slotOf(field));
+        if (linkable(target)) return target;
     }
     return {};
 }
 
-}  // namespace
-
-LfoTarget targetOfControl(std::string_view key) {
-    for (const char* field : customize::fieldsOf(key)) {
-        const int slot = SceneParams::slotOf(field);
-        if (slot < 0) continue;
-        for (int i = 0; i < modtargets::kTargetCount; ++i) {
-            const auto target = static_cast<LfoTarget>(i);
-            if (linkable(target) && paramSlotOf(target) == slot) return target;
-        }
-    }
-    return LfoTarget::None;
-}
-
 Bank addKnobFor(const Bank& bank, std::string_view key) {
     Bank out = normalized(bank);
-    const LfoTarget target = targetOfControl(key);
-    if (target == LfoTarget::None || !roomForNew(out)) return out;
+    const Target target = targetOfControl(key);
+    if (!linkable(target) || !roomForNew(out)) return out;
     out = addKnob(out, unique(out, std::string(stemOf(key)), 0));
     return addLink(out, out.knobs.back().id, target);
 }
@@ -80,7 +66,7 @@ std::string autoName(const Bank& bank, int id) {
     if (at == valid.knobs.end()) return {};
     for (const Link& link : at->links) {
         const std::string_view control = controlOf(link.target);
-        if (!control.empty()) return unique(valid, std::string(stemOf(control)), id);
+        if (!control.empty() && control.front() != '@') return unique(valid, std::string(stemOf(control)), id);
     }
     return unique(valid, "Knob " + std::to_string(id), id);
 }
@@ -94,8 +80,8 @@ std::string controlsText(const Bank& bank) {
             const std::string_view k(key);
             if (k.empty() || k.front() == '@' || std::find(seen.begin(), seen.end(), k) != seen.end()) continue;
             seen.push_back(k);
-            const LfoTarget target = targetOfControl(k);
-            if (target == LfoTarget::None) continue;
+            const Target target = targetOfControl(k);
+            if (!linkable(target)) continue;
             std::string ids;
             for (const Knob& knob : valid.knobs) {
                 if (!knob.shown) continue;
@@ -103,7 +89,7 @@ std::string controlsText(const Bank& bank) {
                 if (!ids.empty()) ids += ",";
                 ids += std::to_string(knob.id);
             }
-            out += std::string("control|") + key + "|" + modtargets::name(target) + "|" + customize::name(section.category) + "|" + ids + "\n";
+            out += std::string("control|") + key + "|" + name(target) + "|" + customize::name(section.category) + "|" + ids + "\n";
         }
     }
     return out;

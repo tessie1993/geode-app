@@ -20,8 +20,6 @@ using customize::Category;
 using Reason = Director::Reason;
 
 std::atomic<int> gReach{0};
-std::mutex gKeptLock;
-std::shared_ptr<const director::Kept> gKept;
 
 const std::string kNoStyle;
 
@@ -155,27 +153,9 @@ void setReach(int level) {
 
 Reach reach() { return static_cast<Reach>(gReach.load(std::memory_order_relaxed)); }
 
-void setKept(std::string_view lines) {
-    Kept keys;
-    size_t start = 0;
-    while (start <= lines.size()) {
-        const size_t end = std::min(lines.find('\n', start), lines.size());
-        if (end > start) keys.emplace(lines.substr(start, end - start));
-        start = end + 1;
-    }
-    auto next = std::make_shared<const Kept>(customize::expandLocks(keys));
-    std::lock_guard<std::mutex> guard(gKeptLock);
-    gKept = std::move(next);
-}
+void setKept(std::string_view lines) { customize::setKept(lines); }
 
-std::shared_ptr<const Kept> kept() {
-    {
-        std::lock_guard<std::mutex> guard(gKeptLock);
-        if (gKept) return gKept;
-    }
-    static const std::shared_ptr<const Kept> kNone = std::make_shared<const Kept>();
-    return kNone;
-}
+std::shared_ptr<const Kept> kept() { return customize::kept(); }
 
 }  // namespace director
 

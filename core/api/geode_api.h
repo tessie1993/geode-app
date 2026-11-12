@@ -444,6 +444,10 @@ GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
 GEODE_API int         geode_colour_parse_hex(const char* text);
 GEODE_API const char* geode_colour_hex(int rgb);
 GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+/* The artwork palette (viz/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
+ * Returns 1 and writes out[3] = base hue (0..1), span (0.06..1 of a turn) and confidence (the share of coloured
+ * pixels); 0, out untouched, when no pixel is coloured (greys, near-blacks, blown highlights) or n <= 0. */
+GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, float* out);
 /* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
  * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
  * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the
@@ -518,7 +522,7 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * target, a non-finite number, a full bank, removing a built-in knob, resetting one that is not). geode_macro_bank_default (the four built-in knobs, also Reset) and
  * geode_macro_bank_targets_text (what a link may name: target, param, range, default, scope, and the caps) are
  * static; every other pointer stays valid until this thread's next macro bank call.
- * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
+ * target is a link's wire name (a ModTargets name, or the schema name of a param no modulation target writes); up and down are the offsets at a full turn each way, as signed fractions of
  * the target's range; geode_macro_bank_add_link links a target the knob does not move yet at the starting weights. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
  * that way moves anything on style_id. geode_macro_bank_editor is the knob editor's one read (MacroBank.hpp's
  * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
@@ -528,6 +532,9 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
  * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_roll_values
  * gives every knob on screen that moves something on style_id a new turn (the same seed, the same turns).
+ * geode_macro_bank_roll_ranges gives the knob's links a new direction, range and curve each, keeping their params;
+ * geode_macro_bank_add_random links up to count more params, picked at random among those style_id reaches that
+ * Customize does not keep (the process-wide keep set, geode_director_keep_set), each at a random range.
  * geode_macro_bank_hide_knob takes a knob off screen into the bank's library and geode_macro_bank_show_knob puts one
  * back (a built-in knob too, as built, when the bank lacks it). geode_macro_bank_auto_name
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
@@ -551,6 +558,8 @@ GEODE_API const char* geode_macro_bank_add_knob_for(const char* bank, const char
 GEODE_API const char* geode_macro_bank_controls(const char* bank);
 GEODE_API const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed);
 GEODE_API const char* geode_macro_bank_roll_values(const char* bank, const char* style_id, long long seed);
+GEODE_API const char* geode_macro_bank_roll_ranges(const char* bank, int knob_id, long long seed);
+GEODE_API const char* geode_macro_bank_add_random(const char* bank, int knob_id, const char* style_id, int count, long long seed);
 GEODE_API const char* geode_macro_bank_hide_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);

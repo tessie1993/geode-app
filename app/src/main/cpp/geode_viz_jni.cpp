@@ -376,6 +376,20 @@ Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jst
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRollRanges(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_roll_ranges(text.get(), knobId, static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAddRandom(JNIEnv* env, jobject, jstring bank, jint knobId, jstring styleId, jint count,
+                                                           jlong seed) {
+    Utf8Chars text(env, bank);
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_macro_bank_add_random(text.get(), knobId, style.get(), count, static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankRollValues(JNIEnv* env, jobject, jstring bank, jstring styleId, jlong seed) {
     Utf8Chars text(env, bank);
     Utf8Chars style(env, styleId);
@@ -805,6 +819,19 @@ Java_dev_geode_engine_bridge_GeodeNative_colourAverageArgb(JNIEnv* env, jobject,
     std::vector<int32_t> px(static_cast<size_t>(n));
     env->GetIntArrayRegion(argb, 0, n, reinterpret_cast<jint*>(px.data()));
     return geode_colour_average_argb(px.data(), n);
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_artPaletteExtract(JNIEnv* env, jobject, jintArray argb) {
+    if (!argb) return nullptr;
+    const jsize n = env->GetArrayLength(argb);
+    std::vector<int32_t> px(static_cast<size_t>(n));
+    env->GetIntArrayRegion(argb, 0, n, reinterpret_cast<jint*>(px.data()));
+    float got[3];
+    if (!geode_art_palette_extract(px.data(), n, got)) return nullptr;
+    jfloatArray out = env->NewFloatArray(3);
+    if (out) env->SetFloatArrayRegion(out, 0, 3, got);
+    return out;
 }
 
 JNIEXPORT jintArray JNICALL

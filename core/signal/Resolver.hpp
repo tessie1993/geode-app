@@ -111,7 +111,7 @@ private:
     float morphRemainSec_ = 0.0f;
     // Which targets the macro bank may move on the style on screen, worked out when the style changes.
     std::string reachStyle_;
-    std::uint64_t reach_ = 0;
+    viz::macrobank::Reach reach_;
     bool reachKnown_ = false;
     std::array<float, viz::LfoEngine::kSlots> envRate_{};
     std::array<float, viz::LfoEngine::kSlots> envDepth_{};

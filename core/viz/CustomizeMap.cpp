@@ -44,7 +44,7 @@ const std::vector<Section>& table() {
          S::Particles,
          {"Particle shape", "Particle size", "Density", "Particle life (s)", "Particle drag"}},
         // The style's own scene controls from the old Style page: where the particles and colour of
-        // a Fluid, Curl Flow or Water style are born, and what the hits throw into it.
+        // a Fluid or Curl Flow style are born, and what the hits throw into it.
         {C::Shape,
          "journey",
          false,
@@ -90,18 +90,6 @@ const std::vector<Section>& table() {
         {C::Liquid, "basics", true, S::Always, {"Flow field on", "Flow strength"}},
         {C::Liquid, "push_swirl", false, S::Always, {"Flow force", "Flow curl"}},
         {C::Liquid, "surface", false, S::Always, {"Born inside", "Colour age", "Surface"}},
-        // Wave speed and Damping shape the ripple overlay on any style and the Water style's own
-        // surface alike, so they sit here, where every style finds them.
-        {C::Liquid,
-         "ripples",
-         false,
-         S::Always,
-         {"Water ripples on", "Ripple overlay strength", "Ripple glint", "Wave speed", "Damping"}},
-        {C::Liquid,
-         "water",
-         false,
-         S::Water,
-         {"Ripple strength", "Depth", "Specular", "Flow drift", "Liquid", "Liquid flow", "Liquid fade"}},
 
         // The style's own engine (Fluid, Cymatics, MilkDrop): one section each, split so no list runs
         // past a dozen rows; each shows only where its controls reach, and the category only with one.
@@ -159,7 +147,6 @@ const std::vector<HeldControl>& held() {
         {"Born inside", {"liquidBorn"}, std::nullopt},
         {"Colour age", {"liquidAge"}, std::nullopt},
         {"Surface", {"liquidSurface"}, std::nullopt},
-        {"Water ripples on", {"rippleOverlayEnabled"}, Scope::RippleOverlay},
         {"Glide time", {"paramFadeSec"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
@@ -189,7 +176,7 @@ const std::vector<HeldControl>& held() {
 constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "DIVE",  "CAMERA",
                                           "MUSIC",       "EFFECTS", "LIQUID", "ENGINE", "EXPERT"};
 static_assert(std::size(kCategoryNames) == kCategoryCount, "one name per category");
-constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
+constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "ENGINE", "SHADER_CODE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
     for (const auto& roll : randomizer::rolledKeys()) {
@@ -212,7 +199,6 @@ bool rule(Show show, const std::string& styleId) {
         case Show::Always: return true;
         case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
-        case Show::Water: return kind == Kind::Water;
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
         // Fluid's force and dye editors only: the owner took the style's own shader box out of
         // Customize (2026-11-11), so a shader style has no Shader code section to show.
@@ -235,7 +221,6 @@ const std::vector<Gate>& gates() {
          {"Dive speed", "Ring spacing", "Tunnel shape", "Dive blend", "Depth fade", "Dive twist", "Dive aim X", "Dive aim Y",
           "Dive lens"}},
         {"Flow field on", "flowEnabled", {"Flow strength", "Flow force", "Flow curl", "Born inside", "Colour age", "Surface"}},
-        {"Water ripples on", "rippleOverlayEnabled", {"Ripple overlay strength", "Ripple glint", "Wave speed", "Damping"}},
         {"Trails", "trails", {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
         {"Color cycle", "colorCycle", {"Cycle speed"}},
     };
@@ -255,7 +240,7 @@ const Gate* gateOf(std::string_view key) {
 std::vector<const char*> masters(Category category) {
     switch (category) {
         case Category::Dive: return {"Endless zoom"};
-        case Category::Liquid: return {"Flow field on", "Water ripples on"};
+        case Category::Liquid: return {"Flow field on"};
         default: return {};
     }
 }
@@ -353,7 +338,7 @@ bool offered(std::string_view key, const std::string& styleId) {
 
 bool live(std::string_view key, const SceneParams& params, const std::string& styleId) {
     const Gate* gate = gateOf(key);
-    // A switch the style does not have gates nothing there: Water's own surface reads Wave speed.
+    // A switch the style does not have gates nothing there.
     if (!gate || !reaches(gate->opener, styleId)) return true;
     return params.get(gate->field) != 0.0f;
 }

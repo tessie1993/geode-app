@@ -74,7 +74,6 @@ object ParamFormat {
             ParamKeys.CAM_FOV to ParamUnit.TIMES,
             ParamKeys.REACT_AMOUNT to ParamUnit.TIMES,
             ParamKeys.FIELD_SCALE to ParamUnit.TIMES,
-            ParamKeys.WAVE_SPEED to ParamUnit.TIMES,
             ParamKeys.STIRRER_SPEED to ParamUnit.TIMES,
             ParamKeys.HUE_SHIFT to ParamUnit.TURN_DEGREES,
             ParamKeys.FUNDAMENTAL_HZ to ParamUnit.HERTZ,

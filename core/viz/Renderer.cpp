@@ -8,6 +8,7 @@
 #include "output/PreRoll.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
+#include "viz/Catalogue.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
@@ -134,10 +135,6 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
 
 double Renderer::monotonicSeconds() {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-}
-
-void Renderer::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
-    overlays_.queueTouchStroke(nx, ny, ndx, ndy, dt, strength, monotonicSeconds());
 }
 
 void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) {
@@ -378,7 +375,6 @@ void Renderer::onSurfaceCreated() {
         quadVao_ = 0;
     }
     touchField_.reset();
-    smearTrail_.reset();
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
@@ -521,10 +517,12 @@ float Renderer::supersampleFactor(int width, int height) {
 }
 
 bool Renderer::setScene(const std::string& sceneId) {
-    if (!registry_.knows(sceneId)) return false;
+    // A look saved on a retired style draws the style that replaced it.
+    const std::string& id = catalogue::resolveId(sceneId);
+    if (!registry_.knows(id)) return false;
     std::lock_guard<std::mutex> lock(stateLock_);
-    requestedSceneId_ = sceneId;
-    sceneSpin_.store(SceneRegistry::spinRate(sceneId), std::memory_order_relaxed);
+    requestedSceneId_ = id;
+    sceneSpin_.store(SceneRegistry::spinRate(id), std::memory_order_relaxed);
     return true;
 }
 
@@ -555,9 +553,10 @@ void Renderer::applyStyleSchedule() {
         requestedMilk = lastMilkPreset_;
     }
     // The segment's first look is already requested (prepare()); asking again would only reload it.
-    if (cue->sceneId != requestedScene) {
-        setScene(cue->sceneId);
-        if (scheduledSceneHook_) scheduledSceneHook_(cue->sceneId);
+    const std::string& cueScene = catalogue::resolveId(cue->sceneId);
+    if (cueScene != requestedScene) {
+        setScene(cueScene);
+        if (scheduledSceneHook_) scheduledSceneHook_(cueScene);
     }
     if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }

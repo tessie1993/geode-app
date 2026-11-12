@@ -125,14 +125,13 @@ add_library(geode_core STATIC
     viz/compute/SimPass.cpp
     viz/fluid/FluidBuffers.cpp
     viz/fluid/FluidMath.cpp
-    viz/fluid/RippleMath.cpp
     viz/fluid/FluidChoreography.cpp
     viz/fluid/FluidEmitters.cpp
     viz/fluid/FluidSim.cpp
     viz/fluid/FluidParticles.cpp
     viz/fluid/FluidLook.cpp
-    viz/fluid/RippleSim.cpp
     viz/fluid/FlowField.cpp
+    viz/pool/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
     viz/world/WorldGenome.cpp
@@ -148,7 +147,6 @@ add_library(geode_core STATIC
     viz/scenes/FluidSceneBase.cpp
     viz/scenes/FluidScene.cpp
     viz/scenes/CurlFlowScene.cpp
-    viz/scenes/WaterScene.cpp
     viz/scenes/MilkdropScene.cpp
     util/Json.cpp
 )

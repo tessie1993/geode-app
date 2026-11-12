@@ -1294,10 +1294,9 @@ object GeodeNative {
     const val RECORD_STOP_FILE_FULL = 4
     const val RECORD_STOP_FAILED = 5
 
-    /** The recording's audio: 48 kHz stereo, 16-bit. */
-    const val RECORD_AUDIO_RATE_HZ = 48_000
-    const val RECORD_AUDIO_CHANNELS = 2
-    const val RECORD_AUDIO_BPS = 192_000
+    /** A record session's state ([recordSessionState]): stopped, the tee should close; then finished, saved or (3) not. */
+    const val RECORD_SESSION_CLOSING = 1
+    const val RECORD_SESSION_SAVED = 2
 
     /** The monotonic clock every `nowNs` of a recorder is read from, in ns. */
     external fun recordNowNs(): Long
@@ -1316,28 +1315,6 @@ object GeodeNative {
     ): Long
 
     external fun recorderDestroy(handle: Long)
-
-    /** The video encoder put one frame out. */
-    external fun recorderVideoEncoded(handle: Long)
-
-    /** The muxer wrote [bytes] more. */
-    external fun recorderWrote(
-        handle: Long,
-        bytes: Long,
-        nowNs: Long,
-    )
-
-    /**
-     * Up to [capacityFrames] of the recording's audio into [out] (direct, native order), stamped
-     * `ptsUs[0]`. Returns the frames written; 0 once [recorderStopped] means the audio is complete.
-     */
-    external fun recorderTakeAudio(
-        handle: Long,
-        nowNs: Long,
-        out: java.nio.ByteBuffer,
-        capacityFrames: Int,
-        ptsUs: LongArray,
-    ): Int
 
     /** Ends the recording for [why], one of `RECORD_STOP_*`; the first reason wins. */
     external fun recorderStop(
@@ -1361,35 +1338,46 @@ object GeodeNative {
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
 
-    /**
-     * What to ask the video encoder for on try [attempt] (0 first) into [out]: width, height, bit rate.
-     * The chosen [shortSide] held to the stage, then each smaller size; false past the last.
-     */
-    external fun recordEncoderAttempt(
-        stageWidth: Int,
-        stageHeight: Int,
-        shortSide: Int,
-        fps: Int,
-        limitMs: Long,
-        attempt: Int,
-        out: IntArray,
-    ): Boolean
-
     /** Whether a recording [recordedMs] long is kept (a shorter one is a mis-tap). */
     external fun recordWorthKeeping(recordedMs: Long): Boolean
 
     /**
-     * GL thread. From the next [vizRender] on, the frames [recorder]'s clock keeps are copied into
-     * [surface] (the video encoder's input `Surface`, [width] x [height]) and the sound the renderer hears
-     * goes to the recorder. [watermark] is an `exportWatermarkCreate` handle built on this thread, or 0.
-     * False when the driver would not open the surface.
+     * A recording's encoders and file (`geode_record_session_open`): H.264 at the first size the device takes, AAC,
+     * and the MP4 muxer on [fd] (read-write; the muxer keeps its own duplicate), on [recorder]'s clock and the
+     * session's own encoder thread. 0 when no encoder would start.
      */
-    external fun vizRecordStart(
-        handle: Long,
+    external fun recordSessionOpen(
         recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        fd: Int,
+        stageWidth: Int,
+        stageHeight: Int,
+        shortSide: Int,
+        fps: Int,
+    ): Long
+
+    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and the GL thread's [recordSessionTeeClosed] ran. */
+    external fun recordSessionDestroy(session: Long)
+
+    /** The encoder's frame into [out]: width, height. */
+    external fun recordSessionSize(
+        session: Long,
+        out: IntArray,
+    )
+
+    /** One of `RECORD_SESSION_*`, polled. */
+    external fun recordSessionState(session: Long): Int
+
+    /** GL thread, after [vizRecordStop]: the stage no longer draws into the encoder, so its stream may end. */
+    external fun recordSessionTeeClosed(session: Long)
+
+    /**
+     * GL thread. From the next [vizRender] on, the frames the session's clock keeps are copied into its encoder
+     * and the sound the renderer hears goes to the clock. [watermark] is an `exportWatermarkCreate` handle built on
+     * this thread, or 0. False when the driver would not open the encoder's surface or the session already ended.
+     */
+    external fun recordSessionTeeStart(
+        session: Long,
+        handle: Long,
         watermark: Long,
     ): Boolean
 

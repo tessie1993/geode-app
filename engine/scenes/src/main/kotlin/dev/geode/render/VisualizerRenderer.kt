@@ -223,14 +223,11 @@ class VisualizerRenderer(
     var surfaceHeight = 0
         private set
 
-    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    /** GL thread. Record's tee into [session]'s encoder; see [GeodeNative.recordSessionTeeStart]. */
     fun recordStart(
-        recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        session: Long,
         watermark: Long,
-    ): Boolean = nativeViz.recordStart(recorder, surface, width, height, watermark)
+    ): Boolean = nativeViz.recordStart(session, watermark)
 
     fun recordStop() = nativeViz.recordStop()
 

@@ -1,6 +1,5 @@
 #include <jni.h>
 #include <android/asset_manager_jni.h>
-#include <android/native_window_jni.h>
 
 #include <algorithm>
 #include <cstring>
@@ -1543,29 +1542,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderDestroy(
     geode_recorder_destroy(reinterpret_cast<geode_recorder*>(handle));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderVideoEncoded(JNIEnv*, jobject, jlong handle) {
-    geode_recorder_video_encoded(reinterpret_cast<geode_recorder*>(handle));
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderWrote(JNIEnv*, jobject, jlong handle, jlong bytes,
-                                                                               jlong nowNs) {
-    geode_recorder_wrote(reinterpret_cast<geode_recorder*>(handle), bytes, nowNs);
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderTakeAudio(JNIEnv* env, jobject, jlong handle,
-                                                                                   jlong nowNs, jobject out,
-                                                                                   jint capacityFrames, jlongArray ptsUs) {
-    auto* samples = out ? static_cast<int16_t*>(env->GetDirectBufferAddress(out)) : nullptr;
-    const jlong room = out ? env->GetDirectBufferCapacity(out) / (GEODE_RECORD_AUDIO_CHANNELS * 2) : 0;
-    if (!samples || !ptsUs || env->GetArrayLength(ptsUs) < 1) return 0;
-    int64_t pts = 0;
-    const jint frames = geode_recorder_take_audio(reinterpret_cast<geode_recorder*>(handle), nowNs, samples,
-                                                  static_cast<int>(std::min<jlong>(capacityFrames, room)), &pts);
-    const jlong stamped = pts;
-    env->SetLongArrayRegion(ptsUs, 0, 1, &stamped);
-    return frames;
-}
-
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderStop(JNIEnv*, jobject, jlong handle, jint why,
                                                                               jlong nowNs) {
     geode_recorder_stop(reinterpret_cast<geode_recorder*>(handle), why, nowNs);
@@ -1588,39 +1564,48 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderLimitMs
     return geode_recorder_limit_ms(reinterpret_cast<const geode_recorder*>(handle));
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordEncoderAttempt(JNIEnv* env, jobject,
-                                                                                          jint stageWidth,
-                                                                                          jint stageHeight, jint shortSide,
-                                                                                          jint fps, jlong limitMs,
-                                                                                          jint attempt, jintArray out) {
-    if (!out || env->GetArrayLength(out) < 3) return JNI_FALSE;
-    int width = 0;
-    int height = 0;
-    int videoBps = 0;
-    if (!geode_record_encoder_attempt(stageWidth, stageHeight, shortSide, fps, limitMs, attempt, &width, &height,
-                                      &videoBps)) {
-        return JNI_FALSE;
-    }
-    const jint ask[3] = {width, height, videoBps};
-    env->SetIntArrayRegion(out, 0, 3, ask);
-    return JNI_TRUE;
-}
-
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordWorthKeeping(JNIEnv*, jobject, jlong recordedMs) {
     return geode_record_worth_keeping(recordedMs) ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordStart(JNIEnv* env, jobject, jlong handle,
-                                                                                    jlong recorder, jobject surface,
-                                                                                    jint width, jint height,
-                                                                                    jlong watermark) {
-    ANativeWindow* window = surface ? ANativeWindow_fromSurface(env, surface) : nullptr;
-    if (!window) return JNI_FALSE;
-    const int started = geode_viz_record_start(vizOf(handle), reinterpret_cast<const geode_recorder*>(recorder), window,
-                                               width, height, passOf(watermark));
-    // The EGL surface holds the window from here; this reference was only for the call.
-    ANativeWindow_release(window);
-    return started ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionOpen(JNIEnv*, jobject, jlong recorder,
+                                                                                   jint fd, jint stageWidth,
+                                                                                   jint stageHeight, jint shortSide,
+                                                                                   jint fps) {
+    return reinterpret_cast<jlong>(geode_record_session_open(reinterpret_cast<const geode_recorder*>(recorder), fd,
+                                                             stageWidth, stageHeight, shortSide, fps));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionDestroy(JNIEnv*, jobject, jlong session) {
+    geode_record_session_destroy(reinterpret_cast<geode_record_session*>(session));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionSize(JNIEnv* env, jobject, jlong session,
+                                                                                  jintArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return;
+    int width = 0;
+    int height = 0;
+    geode_record_session_size(reinterpret_cast<const geode_record_session*>(session), &width, &height);
+    const jint size[2] = {width, height};
+    env->SetIntArrayRegion(out, 0, 2, size);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionState(JNIEnv*, jobject, jlong session) {
+    return geode_record_session_state(reinterpret_cast<const geode_record_session*>(session));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionTeeClosed(JNIEnv*, jobject,
+                                                                                       jlong session) {
+    geode_record_session_tee_closed(reinterpret_cast<geode_record_session*>(session));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSessionTeeStart(JNIEnv*, jobject, jlong session,
+                                                                                         jlong handle,
+                                                                                         jlong watermark) {
+    return geode_record_session_tee_start(reinterpret_cast<geode_record_session*>(session), vizOf(handle),
+                                          passOf(watermark))
+               ? JNI_TRUE
+               : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordStop(JNIEnv*, jobject, jlong handle) {

@@ -52,7 +52,6 @@ Risk: H = A/V sync, pacing or saved output can change; M = behaviour edge cases;
 | `cast/WebRtcLink.kt` (145) | `OpusFeed` 82–140: thread `cast-opus` 101, drain loop 113–125 | Same encode sink | Handle | `AMediaCodec` | M | None |
 | `cast/LiveSegments.kt` (190) | MP4 box walk `drainBoxes` 76–, `onBox` 90–, `boxSize` 180, window trim 125. Rewrite and playlist are native (121, 123, 163) | `core/viz/frame/HlsSegments` (exists): take the byte stream whole | Byte hand-over | None | L | None |
 | `cast/CastMirror.kt` (100) | Process-wide copy of the stage look, milk path and stage flags; `directorMoment` 76–79; scope on `Dispatchers.Default` 81 | The one native look latch (below) | Nothing | None | M | None |
-| `record/RecordEncoder.kt` (268) | Thread `record-encoder` 93–103; `pump` 110–125; `feedAudio` 132–150; `drain` 153–175; hold until muxer 178–207; encoder ladder loop 238–266 | `core/output/Recorder` (exists: owns the clock) gains the encode sink | Output fd from `data/RecordFiles` | `AMediaCodec` + `AMediaMuxer` | M | None |
 | `ui/RecordController.kt` (314) | Opens and closes the record tee on the stage GL thread through `queueEvent` 191–213; 250 ms ticker 139–145; recorder refcount 86–94 | `core/output/Recorder` | UI state, Pro gate, save sheet | None | L | None |
 | `wallpaper/VisualizerWallpaperService.kt` (472) | Own GL view 126–134, own `VisualizerRenderer` 141, own `FramePacer` 45–46. Acts on the native run mode in `syncRunState` 210–269 (pacer start/stop, settle timer 249–252). `currentLook` 286–300 picks lock vs home look. `onZoomChanged` 321–327 holds a zoom rule (`COVER_ZOOM` 470). Touch to NDC 395–416. `restoreLook` 190–195. `applyFps` 184–187 | One native surface driver: `core/viz/SurfaceRun` (rule exists) plus the frame driver from the `engine/` port | `WallpaperService.Engine` callbacks, the `Surface`, the condition flags (`WallpaperRunState.kt`) | `WallpaperService` is Java only. Hand over: `Surface`, size, visibility, flags | H | None |
 | `wallpaper/VisualizerDreamService.kt` (352) | `syncRunState` 243–307 is a near copy of the wallpaper's; `settling` 284–298; `showDark` 313–320; look 137–139 | Same surface driver | `DreamService` shell, `DreamOverlay`, `DreamCover` | `DreamService` is Java only | M | None |
@@ -111,7 +110,7 @@ CAST            cast/CastStream.kt:127 thread "cast-render", own EGL (:191), nat
 EXPORT          export/VideoExporter.kt:434 loop on Dispatchers.Default, EncoderSurface, OffscreenSceneRenderer (:407)
                 look: host.look.pin() (ui/ExportController.kt:392)   sound: TrackAudio (engine/)
 LOOP RENDER     export/LoopRender.kt:430 loop, EncoderSurface (:386), OffscreenSceneRenderer (:475)
-RECORD          ui/RecordController.kt:191 tee on the stage GL thread; record/RecordEncoder.kt:93 thread
+RECORD          ui/RecordController.kt:191 tee on the stage GL thread; core/output/RecordSession thread (native)
 WIDGET          no frames: a thumbnail or a drawn glow (widget/WidgetVisual.kt:68)
 ```
 
@@ -119,8 +118,8 @@ What is duplicated:
 
 - **Frame loops:** live, wallpaper, cast, export, loop render. Five places decide "draw now, stamp this time".
 - **EGL owners:** `GLSurfaceView` (live, wallpaper, dream) and `EncoderSurface` (export, loop, cast).
-- **Encoder drain and mux loops:** `VideoExporter.kt:442–500`, `LoopRender.kt:608–666`, `CastEncoder.kt:103–175`, `RecordEncoder.kt:110–207`, `WebRtcLink.kt:113–125`.
-- **Encoder ladders:** `VideoExporter.kt:551`, `LoopRender.kt:512`, `RecordEncoder.kt:238` (rungs are native; the try-loop is written three times).
+- **Encoder drain and mux loops:** `VideoExporter.kt:442–500`, `LoopRender.kt:608–666`, `CastEncoder.kt:103–175`, `WebRtcLink.kt:113–125`.
+- **Encoder ladders:** `VideoExporter.kt:551`, `LoopRender.kt:512` (rungs are native; Record's try-loop is native in `core/output/EncodeSink`, these two are still Kotlin).
 - **AAC interleave by PTS:** `VideoExporter.kt:585`, `LoopExtend.kt:462`, `LoopExtend.kt:560`.
 - **Decode loops:** `AudioTranscoder.kt` (two), `LoudnessMeter.kt:138`, `TrackAudio` in `engine/`. **AIFF parsers:** `audio/AiffExtractor.kt` and native `AiffReader`.
 - **Sound feeds:** live `feedRing`; cast `AudioPump`; wallpaper and dream `SoundSource` + `OutputMixCapture`; record (native take); export `TrackAudio`.
@@ -138,7 +137,6 @@ What is duplicated:
 | `cast-encoder` | `CastEncoder.kt:87` | every 5 ms or sample |
 | `cast-opus` | `WebRtcLink.kt:101` | every block |
 | `cast-http`, pool, `cast-http-deadline`, `cast-stop` | `LiveHttpServer.kt:72,74,138`, `CastService.kt:304` | network only |
-| `record-encoder` | `RecordEncoder.kt:93` | every 5 ms or sample |
 | `ExportRun.scope` (`Dispatchers.Default`) | `export/ExportRun.kt:12` | every frame: `VideoExporter.kt:434`, `LoopRender.kt:447`; every block: `AudioTranscoder` |
 | `Dispatchers.IO` | `LoudnessMeter.kt:88`, `BackgroundImage.kt:62` | every decoded block (meter) |
 | `geode-mic`, `geode-playback-capture` | `MicCapture.kt:24`, `PlaybackCapture.kt:24` | every read: `AudioCapturePump.kt:64–90` |
@@ -170,7 +168,7 @@ Engine path first, leaf first, one PR each. Steps 1–9 are the audio-to-visual 
 | # | PR | Removes | Host test that pins it |
 |---|---|---|---|
 | 1 | Link `mediandk`; native encode sink (ladder try-loop, drain, hold, PTS interleave) with a fake codec seam | Nothing yet (leaf) | new `encode_sink_test.cpp`; `encoder_ladder_test.cpp` |
-| 2 | Record uses the sink | `record/RecordEncoder.kt` loops | `recorder_test.cpp` |
+| 2 | Record uses the sink (landed: `core/output/RecordSession`) | `record/RecordEncoder.kt` (deleted) | `recorder_test.cpp`, `encode_sink_test.cpp` |
 | 3 | Cast audio pump and Opus feed native | `CastStream.AudioPump`, `OpusFeed`, `CodecPcmFeed` | `cast_clock_test.cpp` (audio cut) |
 | 4 | Native EGL target on `ANativeWindow` | `export/EncoderSurface.kt` | `tools/hostlink` link check; device checklist |
 | 5 | Export job native (frame loop, interleave, progress) | `VideoExporter.encodeInto`, `AudioFeed` | `offline_step_test.cpp`, `track_feed_test.cpp`, new `export_job_test.cpp` |

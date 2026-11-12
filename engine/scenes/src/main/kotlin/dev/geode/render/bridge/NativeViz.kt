@@ -339,14 +339,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
     }
 
-    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    /** GL thread. Record's tee into [session]'s encoder; see [GeodeNative.recordSessionTeeStart]. */
     fun recordStart(
-        recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        session: Long,
         watermark: Long,
-    ): Boolean = handle != 0L && GeodeNative.vizRecordStart(handle, recorder, surface, width, height, watermark)
+    ): Boolean = handle != 0L && GeodeNative.recordSessionTeeStart(session, handle, watermark)
 
     fun recordStop() {
         if (handle != 0L) GeodeNative.vizRecordStop(handle)

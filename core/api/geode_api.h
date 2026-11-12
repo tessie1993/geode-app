@@ -48,9 +48,6 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 /* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
 GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
-/* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
- * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
-GEODE_API int         geode_react_source_catalog(char* out, int capacity);
 /* The auto-director (core/viz/Director): the music's feeling deciding behaviour (its axes, camera moves,
  * motion dials) over every style; never a colour, never a route. on is the user's switch as set (1/0), which
  * an export directs by (geode_viz_pin_engine_settings);
@@ -83,62 +80,20 @@ GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTun
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
 /* The style's override; returns its full length, 0 when it draws the built-in style. */
 GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
-GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
-GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
-/* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively
-   (core/viz/ReactionResolve, #750) from the scene playing (geode_viz_set_scene, and each switch of an export's style schedule, #352), the params' reactSeed, and
-   the user's routes under the hand mask set here: the style's DNA with no user list (has_user 0, routes and
-   mask ignored), else geode_style_reactions_hand's merge. It is worked out again before a render only when one
-   of those changed, so the shell pushes the user's side only when it changes. */
-GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* routes, int count, int has_user, unsigned mask);
-/* A style's DNA (core/viz/ReactionDna): the routes it plays until the user edits them, in the
-   routes layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
-   out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
-GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
 /* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
-   mask). `user` is the user's routes in the routes layout, NULL (or has_user 0) for none.
+   mask). The routes themselves, and every read and edit of them, are api/geode_modulation_api.h's.
    geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
    has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
 #define GEODE_MUSIC_ACTIONS 6
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
-#define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
 GEODE_API void        geode_hand_set(unsigned mask, int has_user);
-/* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
-GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
-                                                 unsigned mask, float* out, int capacity);
-/* Every moment's row, GEODE_MUSIC_STATE_FLOATS each, into out (capacity floats); returns the moments written. */
-GEODE_API int         geode_music_state(const char* style_id, int seed, const float* user, int user_floats, int has_user,
-                                        unsigned mask, float* out, int capacity);
-/* One tap: op 0 toggles `action` on `moment`, 1 sets its strength to `value`, 2 resets it to Auto. Writes the
-   user's new routes into out and the new mask and has_user (0: all Auto) into out_mask / out_has_user; returns
-   the route count. */
-GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
-                                       unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
-                                       unsigned* out_mask, int* out_has_user);
-/* Customize › Music's ready-made recipes (core/viz ReactionDna.hpp EventRecipe), GEODE_EVENT_RECIPES in the
-   menu's order. `current` is what plays, in the routes layout. Pure: no viz handle. */
-#define GEODE_EVENT_RECIPES 30
-#define GEODE_RECIPE_ON 1u    /* every route it would add to the style is in current */
-#define GEODE_RECIPE_FITS 2u  /* turning it on stays within GEODE_REACT_ROUTES */
-/* The recipe's routes the style can show (every route for a NULL style_id) into out; returns how many. */
-GEODE_API int         geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity);
-/* GEODE_RECIPE_* flags for the recipe on the style over current; 0 for an unknown recipe or a NULL style. */
-GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats);
-/* current with the recipe turned off if on, else on if it fits (replacing a route on the same source and
-   target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
-GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
-                                                float* out, int capacity);
 /* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
-   shell hides a chip the style ignores; and the whole target, source and curve table (scopes, chained slots,
-   slot defaults and rate range, each source's natural polarity, and per style what a reaction, an envelope and
-   each wave may move) as the line table ModTargets.hpp documents.
-   Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
+   shell hides a chip the style ignores. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
-GEODE_API const char* geode_mod_targets_text(void);
 /* One game rotation vector reading (quaternion x, y, z, w) on a screen at display_rotation (Surface.ROTATION_*, 0..3).
    viz/GyroLook reads it as the screen's azimuth and pitch; the first after a reset or a new rotation is the baseline,
    and the tilt from it is the -1..1 look per axis the camera reads only while camGyro is on. GL thread. */
@@ -157,7 +112,7 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
    PushVersions, #751): native sets GEODE_FRAME_PUSH_* for each one it has not applied yet (an equal or older
    version is skipped; a new surface wants all four again), and the shell pushes exactly those, through
-   geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
+   geode_viz_set_params / _set_lfos / _set_adsrs / _set_sound_tuning, before geode_viz_render. A clear-only
    frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
 #define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
@@ -166,8 +121,8 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 #define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
-#define GEODE_FRAME_PUSH_LFO       0x20 /* push every LFO slot (geode_viz_set_lfo) */
-#define GEODE_FRAME_PUSH_ADSR      0x40 /* push every ADSR slot (geode_viz_set_adsr) */
+#define GEODE_FRAME_PUSH_LFO       0x20 /* push the waves (geode_viz_set_lfos) */
+#define GEODE_FRAME_PUSH_ADSR      0x40 /* push the envelopes (geode_viz_set_adsrs) */
 #define GEODE_FRAME_PUSH_TUNING    0x80 /* push the sound tuning (geode_viz_set_sound_tuning) */
 GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float cap_fps, float render_scale,
                                             float march_scale, int post_fx, int adaptive, int liquid_hot_policy,
@@ -207,7 +162,7 @@ GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
  * and the hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
  * whole export when entitled (Pro or the trial, 1/0) or when duration_ms fits the free taste, else off
  * (director::forExport); the note entropy is 0, so an export is deterministic. Returns the pinned hand mask,
- * for the export's route merge (geode_style_reactions_hand); 0 for a null handle. */
+ * for the export's reactions (geode_viz_set_reactions); 0 for a null handle. */
 GEODE_API unsigned    geode_viz_pin_engine_settings(geode_viz*, int entitled, long long duration_ms);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
 GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */
@@ -519,7 +474,7 @@ GEODE_API int         geode_colour_recent_read(const char* recent, int* out, int
  * the preset morph), one row each, as a versioned '|'-separated line table:
  *   configs|<version>|<count>
  *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
- * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+ * index = the row's place in its group (for lfo and adsr the field's place in the slot's wire, viz/Config.hpp). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
 /* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
@@ -546,12 +501,6 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
-/* Randomize for the waves (core/viz/WaveRandomizer): in and out are GEODE_LFO_SLOTS slots of GEODE_LFO_CONFIG_FLOATS
- * each, as geode_viz_set_lfo reads one; params is the look on screen (the geode_viz_set_params wire). running_only 0
- * is the wave editor's button: every slot switched on and rolled. 1 is a category roll: only the steady waves already
- * on, and none when locked keeps "@waves" or "#MUSIC". 1 when it changed something. */
-GEODE_API int         geode_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only,
-                                            const float* params, const float* in, float* out);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);

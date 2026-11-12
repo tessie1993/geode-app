@@ -49,7 +49,7 @@ struct ModChain {
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
 
-// One slot as geode_viz_set_lfo hands it over. Defaults and the period's range are the lfo rows of
+// One slot. Defaults and the period's range are the lfo rows of
 // viz/ConfigTable.inc (#423), the same numbers the stores and the sliders read.
 struct LfoConfig {
     static constexpr float kDefaultRateSeconds = config::spec(config::Slot::lfo_rateSeconds).defaultValue;

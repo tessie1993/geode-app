@@ -43,7 +43,7 @@ EngineSettings exportSettings(bool entitled, long long durationMs);
 class SettingsLatch {
 public:
     // Pins exportSettings(entitled, durationMs) for the rest of this latch's life. Any thread. Returns the
-    // pinned hand mask, so the shell's route merge (geode_style_reactions_hand) plays the same moments.
+    // pinned hand mask, so the export's reactions (geode_viz_set_reactions) play the same moments.
     std::uint32_t pinForExport(bool entitled, long long durationMs);
     bool pinned() const;
     // The director's play seed as the renderer sees it now: the pinned one, else the live one. Any thread.

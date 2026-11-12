@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "api/geode_modulation_api.h"
 #include "jni_util.hpp"
 
 namespace {
@@ -255,14 +256,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject,
     geode_viz_set_sound_tuning(vizOf(handle), &t);
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject) {
-    const int need = geode_react_source_catalog(nullptr, 0);
-    std::vector<char> text(static_cast<size_t>(need) + 1);
-    geode_react_source_catalog(text.data(), need + 1);
-    return env->NewStringUTF(text.data());
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankSet(JNIEnv* env, jobject, jstring bank) {
     Utf8Chars text(env, bank);
@@ -464,26 +457,23 @@ Java_dev_geode_engine_bridge_GeodeNative_shaderOverride(JNIEnv* env, jobject, js
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLfo(JNIEnv* env, jobject, jlong handle, jint slot, jfloatArray config) {
-    FloatElements data(env, config);
-    if (data.get()) geode_viz_set_lfo(vizOf(handle), slot, data.get(), data.length());
+Java_dev_geode_engine_bridge_GeodeNative_vizSetLfos(JNIEnv* env, jobject, jlong handle, jstring lfos) {
+    Utf8Chars text(env, lfos);
+    if (text.get()) geode_viz_set_lfos(vizOf(handle), text.get());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray routes, jint mask) {
-    FloatElements data(env, routes);
-    if (routes && !data.get()) return;  // could not read the list: keep the last one
-    geode_viz_set_user_reactions(vizOf(handle), data.get(), data.length(), routes ? 1 : 0, static_cast<unsigned>(mask));
+Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsrs(JNIEnv* env, jobject, jlong handle, jstring adsrs) {
+    Utf8Chars text(env, adsrs);
+    if (text.get()) geode_viz_set_adsrs(vizOf(handle), text.get());
 }
 
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_styleReactions(JNIEnv* env, jobject, jstring styleId, jint seed) {
-    Utf8Chars id(env, styleId);
-    float routes[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
-    const int n = id.get() ? geode_style_reactions(id.get(), seed, routes, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS) : 0;
-    jfloatArray out = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
-    if (out && n > 0) env->SetFloatArrayRegion(out, 0, n * GEODE_REACT_ROUTE_FLOATS, routes);
-    return out;
+// A null text is Auto: the style's own routes play.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetReactions(JNIEnv* env, jobject, jlong handle, jstring reactions, jint mask) {
+    Utf8Chars text(env, reactions);
+    if (reactions && !text.get()) return;  // could not read the text: keep the last one
+    geode_viz_set_reactions(vizOf(handle), text.get(), static_cast<unsigned>(mask));
 }
 
 JNIEXPORT void JNICALL
@@ -491,92 +481,10 @@ Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask, jb
     geode_hand_set(static_cast<unsigned>(mask), hasUser ? 1 : 0);
 }
 
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_styleReactionsHand(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask) {
-    Utf8Chars id(env, styleId);
-    FloatElements routes(env, user);
-    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
-    const int n = id.get() ? geode_style_reactions_hand(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0,
-                                                        static_cast<unsigned>(mask), out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS)
-                           : 0;
-    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
-    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
-    return result;
-}
-
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_musicState(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask) {
-    Utf8Chars id(env, styleId);
-    FloatElements routes(env, user);
-    float out[GEODE_MUSIC_MOMENTS * GEODE_MUSIC_STATE_FLOATS] = {};
-    const int n = id.get() ? geode_music_state(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0,
-                                               static_cast<unsigned>(mask), out, GEODE_MUSIC_MOMENTS * GEODE_MUSIC_STATE_FLOATS)
-                           : 0;
-    jfloatArray result = env->NewFloatArray(n * GEODE_MUSIC_STATE_FLOATS);
-    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_MUSIC_STATE_FLOATS, out);
-    return result;
-}
-
-// outHand[0] is the new mask, outHand[1] 1 while the user has a list (0: all Auto); returns the user's routes.
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_musicEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jfloatArray user, jint mask, jint op,
-                                                   jint moment, jint action, jfloat value, jintArray outHand) {
-    Utf8Chars id(env, styleId);
-    FloatElements routes(env, user);
-    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
-    unsigned nextMask = 0;
-    int hasUser = 0;
-    // A null id leaves the user's side as it was (geode_music_edit's own rule), never "all Auto" by accident.
-    const int n = geode_music_edit(id.get(), seed, routes.get(), routes.length(), user ? 1 : 0, static_cast<unsigned>(mask), op,
-                                   moment, action, value, out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS, &nextMask, &hasUser);
-    if (outHand && env->GetArrayLength(outHand) >= 2) {
-        const jint hand[2] = {static_cast<jint>(nextMask), hasUser};
-        env->SetIntArrayRegion(outHand, 0, 2, hand);
-    }
-    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
-    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
-    return result;
-}
-
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_musicActionsFor(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars id(env, styleId);
     return static_cast<jint>(geode_music_actions_for(id.get()));
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modTargetsText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_mod_targets_text());
-}
-
-// A null styleId gives every route of the recipe (geode_event_recipe_routes' own rule).
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_eventRecipeRoutes(JNIEnv* env, jobject, jint recipe, jstring styleId) {
-    Utf8Chars id(env, styleId);
-    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
-    const int n = geode_event_recipe_routes(recipe, id.get(), out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS);
-    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
-    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
-    return result;
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_eventRecipeState(JNIEnv* env, jobject, jint recipe, jstring styleId, jfloatArray current) {
-    Utf8Chars id(env, styleId);
-    FloatElements routes(env, current);
-    return static_cast<jint>(geode_event_recipe_state(recipe, id.get(), routes.get(), routes.length()));
-}
-
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject, jint recipe, jstring styleId, jfloatArray current) {
-    Utf8Chars id(env, styleId);
-    FloatElements routes(env, current);
-    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
-    const int n = geode_event_recipe_toggle(recipe, id.get(), routes.get(), routes.length(), out,
-                                            GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS);
-    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
-    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
-    return result;
 }
 
 JNIEXPORT void JNICALL
@@ -588,12 +496,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong h
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizGyroReset(JNIEnv*, jobject, jlong handle) {
     geode_viz_gyro_reset(vizOf(handle));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong handle, jint slot, jfloatArray config) {
-    FloatElements data(env, config);
-    if (data.get()) geode_viz_set_adsr(vizOf(handle), slot, data.get(), data.length());
 }
 
 JNIEXPORT jint JNICALL
@@ -1013,27 +915,6 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     const int changed = geode_params_randomize(style.get(), tabName.get(), lockedKeys.get(), static_cast<uint64_t>(seed),
                                                input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
-    return changed ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_wavesRandomize(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
-                                                        jboolean runningOnly, jfloatArray params, jfloatArray in, jfloatArray out) {
-    constexpr jsize kWaves = GEODE_LFO_SLOTS * GEODE_LFO_CONFIG_FLOATS;
-    if (!params || !in || !out || env->GetArrayLength(params) < geode_viz_param_count() || env->GetArrayLength(in) < kWaves ||
-        env->GetArrayLength(out) < kWaves) {
-        return JNI_FALSE;
-    }
-    Utf8Chars style(env, styleId);
-    Utf8Chars lockedKeys(env, locked);
-    std::vector<float> look(static_cast<size_t>(geode_viz_param_count()));
-    float input[kWaves];
-    float output[kWaves];
-    env->GetFloatArrayRegion(params, 0, static_cast<jsize>(look.size()), look.data());
-    env->GetFloatArrayRegion(in, 0, kWaves, input);
-    const int changed = geode_waves_randomize(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), runningOnly ? 1 : 0,
-                                              look.data(), input, output);
-    env->SetFloatArrayRegion(out, 0, kWaves, output);
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 

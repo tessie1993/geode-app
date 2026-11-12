@@ -134,6 +134,21 @@ std::string build() {
 
 const char* name(LfoTarget target) { return known(target) ? kTargetNames[static_cast<size_t>(target)] : ""; }
 
+namespace {
+
+template <typename Names, typename E>
+const char* nameIn(const Names& names, E value) {
+    const int i = static_cast<int>(value);
+    return i >= 0 && i < static_cast<int>(names.size()) ? names[static_cast<size_t>(i)] : "";
+}
+
+}  // namespace
+
+const char* sourceName(ModSource source) { return nameIn(kSourceNames, source); }
+const char* polarityName(ModPolarity polarity) { return nameIn(kPolarityNames, polarity); }
+const char* curveName(ModCurve curve) { return nameIn(kCurveNames, curve); }
+const char* waveName(LfoWave wave) { return nameIn(kWaveNames, wave); }
+
 // The scope of the field the target writes; None and the chained targets (a wave's speed or depth)
 // write none and are Universal.
 Scope scopeOf(LfoTarget target) {

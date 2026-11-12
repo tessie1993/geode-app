@@ -16,7 +16,7 @@
 //            Turns (a fraction of a hue turn), Degrees, Points (percentage points), Times (a multiplier).
 //
 // Inside a group the row order is the order the engine takes the values: the lfo rows are the
-// geode_viz_set_lfo floats, the adsr rows the geode_viz_set_adsr floats before the target list.
+// floats of a slot's wire (waves::toWire), the adsr rows the envelope's before its target list.
 // Append within a group; never reorder.
 // core/tests/config_schema_test.cpp checks the table; geode_config_schema_text publishes it.
 //
@@ -44,7 +44,7 @@ GEODE_CONFIG(lfo, polarity, Int, 0, 0, 2, None)
 // ModCurve: Linear, Exponential, Logarithmic, Smooth.
 GEODE_CONFIG(lfo, curve, Int, 0, 0, 3, None)
 // Beat timing (Lfo.hpp LfoConfig::beats): 0 is free (rateSeconds), else 1, 2, 4, 8, 16 or 32 beats a cycle;
-// geode_viz_set_lfo reads any other value as free.
+// any other value reads as free.
 GEODE_CONFIG(lfo, beats, Float, 0.0f, 0.0f, 32.0f, None)
 // The macro knob a wave on LfoTarget::Macro turns, by its id (viz/MacroBank); 0 is none.
 GEODE_CONFIG(lfo, knob, Int, 0, 0, 999999, None)

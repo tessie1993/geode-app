@@ -124,7 +124,13 @@ class SettingsMapTest {
         assertRowsOn(SettingsGroupKey.VISUAL_PLAYBACK, SettingsRowKey.AUTO_DIRECTOR, SettingsRowKey.STYLE_TIMER)
         assertRowsOn(SettingsGroupKey.SAFETY, SettingsRowKey.FLASH_LIMITS, SettingsRowKey.REDUCED_MOTION)
         assertRowsOn(SettingsGroupKey.DISPLAYS, SettingsRowKey.CONNECTED_DISPLAY, SettingsRowKey.PIP_AUTO_ENTER)
-        assertRowsOn(SettingsGroupKey.PREFERENCES, SettingsRowKey.WATERMARK)
+        assertRowsOn(
+            SettingsGroupKey.PREFERENCES,
+            SettingsRowKey.WATERMARK,
+            SettingsRowKey.LIBRARY_PREFS,
+            SettingsRowKey.PLAYER_PREFS,
+            SettingsRowKey.STAGE_PREFS,
+        )
     }
 
     private fun assertRowsOn(

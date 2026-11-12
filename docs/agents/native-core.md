@@ -220,6 +220,7 @@ The renderer runs these in order each frame.
 - `ShaderScene::uploadParams` takes the knobs from `NoteResponse` (exactly 0.5 while it is off).
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
+- `lib_shell` maps a style's normalized inputs (0..1, 0.5 = the tuned constant) to their ranges (`shellMap`) and applies Spawn, Fractal and the two layers to a style's own field (`SHELL_FIELD3`, `SHELL_DENSITY3`, `SHELL_FIELD2`); the hooks are 0.0 until the engine uploads them.
 - Silk and Morphing (ids `acid_*`, `AcidScene`) present their field as a lit relief through `lib_relief`.
 - Life presents its field in 3D through `core/viz/present/FieldPresent` (`life_show_frag`): seven styles a terrain on the rig, Gyre a torus, Pulsar and Mitosis a sphere.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.

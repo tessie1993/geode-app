@@ -925,15 +925,8 @@
     <string name="customize_card_expand">Expand</string>
     <string name="customize_card_collapse">Collapse</string>
     <!-- Customize TalkBack labels (content descriptions, states, click and custom actions), issue #554's audit -->
-    <string name="customize_a11y_open">Open</string>
-    <string name="customize_a11y_close">Close</string>
-    <string name="customize_a11y_state_open">Open</string>
-    <string name="customize_a11y_state_closed">Closed</string>
-    <string name="customize_a11y_back">Back to Customize</string>
-    <string name="customize_a11y_previous">Previous</string>
-    <string name="customize_a11y_previous_named">Previous: %1$s</string>
-    <string name="customize_a11y_next">Next</string>
-    <string name="customize_a11y_next_named">Next: %1$s</string>
+    <string name="customize_collapse_all">Collapse all</string>
+    <string name="customize_collapse_all_in">Collapse all groups in %1$s</string>
     <string name="customize_a11y_pro">Pro</string>
     <string name="customize_a11y_unlock_pro">Unlock with Pro</string>
     <string name="customize_a11y_part_of_pro">%1$s, part of Pro</string>

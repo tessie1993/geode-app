@@ -45,7 +45,7 @@ enum class CustomizeCategory(
     }
 }
 
-/** One row of the native map: a category's Basics (always open, free) or a Pro section that drops open. */
+/** One row of the native map, one collapsible group in its tab: a category's Basics (free) or a Pro section. */
 internal data class CustomizeSection(
     val category: CustomizeCategory,
     /** Unique inside its category; the open ones are saved by [path]. */
@@ -56,7 +56,7 @@ internal data class CustomizeSection(
 ) {
     val path: String get() = "${category.name}/$id"
 
-    /** The words on the section's header. Basics has none: it is the top of the category. */
+    /** The words on the group's header. */
     val title: String get() = SECTION_TITLES[id] ?: id.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
@@ -74,6 +74,8 @@ private val SECTION_TITLES =
         "particles" to "Particles",
         "journey" to "Journey",
         "emitters" to "Emitters",
+        "stirrers" to "Stirrers",
+        "fluid_quality" to "Quality",
         "drift" to "Drift",
         "tunnel" to "Tunnel",
         "spiral_aim" to "Spiral & aim",
@@ -94,7 +96,8 @@ private val SECTION_TITLES =
         "envelopes" to "Envelopes",
         "waves" to "Waves",
         "fluid_flow" to "Fluid: flow",
-        "fluid_look" to "Fluid: glow and layers",
+        "fluid_look" to "Fluid: glow",
+        "fluid_layers" to "Fluid: layers",
         "plate" to "Plate",
         "plate_look" to "Plate: look",
         "milkdrop" to "MilkDrop",

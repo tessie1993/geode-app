@@ -32,10 +32,10 @@
     <!-- Customize. -->
     <string name="tour_customize_knobs_title">Quick knobs</string>
     <string name="tour_customize_knobs_body">A few knobs that move the whole look at once.</string>
-    <string name="tour_customize_list_title">A group for each part</string>
-    <string name="tour_customize_list_body">Look, Shape, Motion, Music and more. Each opens on the basics, with more below.</string>
+    <string name="tour_customize_list_title">A tab for each part</string>
+    <string name="tour_customize_list_body">Look, Shape, Motion, Music and more. Tap a group to open it; it stays open until you close it.</string>
     <string name="tour_customize_randomize_title">Roll the dice</string>
-    <string name="tour_customize_randomize_body">The dice rolls new settings: for every group here, or for the one you open. Undo, next to it, takes them back.</string>
+    <string name="tour_customize_randomize_body">The dice rolls new settings for the tab you are on; the menu beside it rolls every tab. Undo takes them back.</string>
 
     <!-- Studio. -->
     <string name="tour_studio_render_title">Make a video</string>

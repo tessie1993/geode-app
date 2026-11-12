@@ -348,8 +348,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
-    // Settings › Visuals › Touch › Smear drew its strokes into the ripple overlay or Water's pool; both went
-    // with Pool (#1036), so smearTrail_ is not stepped until the smear has a new target.
     stepLiquid(scene, p, dt);
 }
 

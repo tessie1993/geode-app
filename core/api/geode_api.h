@@ -33,10 +33,6 @@ GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
-/* Settings › Visuals › Touch › Smear (core/viz/TouchSmear): the switch and its strength 0.2..2 (clamped; a broken
- * value is 1). Any thread. Its strokes went into the ripple overlay and Water's pool, both gone with Pool
- * (#1036): the renderer keeps the values and draws no stroke until the smear has a new target. */
-GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float strength);
 /* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
 GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 GEODE_API void        geode_viz_load_milk_preset(geode_viz*, const char* path);

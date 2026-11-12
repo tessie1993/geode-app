@@ -61,9 +61,6 @@ data class GuiPrefs(
     /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
     val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
-    /** Settings › Gestures & controls › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
-    val touchSmear: Boolean = false,
-    val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
     /** Settings › Gestures & controls › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
     val touchTransform: Boolean = true,
@@ -155,8 +152,6 @@ class ThemeStore(
                     tips = prefs.getString(KEY_TUTORIAL_TIPS, null),
                     legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
                 ),
-            touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
-            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
@@ -235,8 +230,9 @@ class ThemeStore(
             // Reduced motion follows Android's "Remove animations" alone now (data/SystemMotion,
             // #336); the app's own switch is gone, so its old answer is dropped on the next save.
             remove(KEY_REDUCED_MOTION)
-            putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
-            putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
+            // Touch › Smear drew nothing once Pool replaced Water (#1036) and was removed.
+            remove(KEY_TOUCH_SMEAR)
+            remove(KEY_TOUCH_SMEAR_STRENGTH)
             putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
@@ -307,8 +303,11 @@ class ThemeStore(
 
         /** Retired with the app's own reduced-motion switch (#336); removed on the next save. */
         const val KEY_REDUCED_MOTION = "gui_reduced_motion"
+
+        /** Retired with Touch › Smear (#1036); removed on the next save. */
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
+
         const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"
         const val KEY_SECOND_SCREEN = "gui_second_screen"
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
@@ -332,9 +331,8 @@ class ThemeStore(
             prefKeys(GeodePrefsFiles.GENERAL) {
                 portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING, KEY_TAB_LABELS, KEY_SCREEN_ROTATION, KEY_KNOB_SIZE)
                 portable(PrefType.FLOAT, KEY_OPACITY, KEY_PRESET_MORPH_SEC, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
-                portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
                 portable(PrefType.INT, KEY_FONT_COLOR)
-                portable(PrefType.BOOLEAN, KEY_TOUCH_SMEAR, KEY_TOUCH_TRANSFORM, KEY_SECOND_SCREEN, KEY_MIC_REACTIVE)
+                portable(PrefType.BOOLEAN, KEY_TOUCH_TRANSFORM, KEY_SECOND_SCREEN, KEY_MIC_REACTIVE)
                 portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
                 portable(PrefType.BOOLEAN, KEY_ACCENT_FOLLOWS_VISUAL, KEY_HAPTICS, KEY_SHOW_TIME_LEFT)
                 portable(PrefType.STRING, KEY_LIBRARY_START_TAB, KEY_LIBRARY_SORT, KEY_TRACK_TAP)
@@ -349,6 +347,7 @@ class ThemeStore(
                 // The morph length in beats: no longer read (the tempo is not a setting), still in old installs' files.
                 retired(PrefType.INT, "morph_beats")
                 retired(null, KEY, KEY_DIM, KEY_FOLLOW_DARK, KEY_CLEAR_VIZ_MENU, KEY_TUTORIAL_ON_FIRST_RUN, KEY_REDUCED_MOTION)
+                retired(null, KEY_TOUCH_SMEAR, KEY_TOUCH_SMEAR_STRENGTH)
             }
     }
 }

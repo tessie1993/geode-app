@@ -78,7 +78,6 @@ class NativeViz(
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
                 if (stillThen != null) GeodeNative.vizStillRequest(handle)
-                if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
                 onCreated()
             }
         }
@@ -135,16 +134,6 @@ class NativeViz(
         n: Int,
     ) {
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
-    }
-
-    /** Kept for a new handle, like the edge glow: the user's smear switch outlives a detach. */
-    fun setTouchSmear(
-        on: Boolean,
-        strength: Float,
-    ) {
-        smearOn = on
-        smearStrength = strength
-        if (handle != 0L) GeodeNative.vizSetTouchSmear(handle, on, strength)
     }
 
     fun setFluidInjectionShaders(
@@ -279,8 +268,6 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
-    private var smearOn = false
-    private var smearStrength = 1f
 
     /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
     fun prepareOffscreen() {

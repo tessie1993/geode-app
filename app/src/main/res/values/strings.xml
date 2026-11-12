@@ -728,9 +728,6 @@
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
-    <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
-    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless Behaviour &amp; gestures says otherwise), they also push the picture around. In Liquid mode the fingers move the liquid instead.</string>
-    <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
     <string name="behavior_touch_transform_hint">Two fingers on the visual: pinch moves the Zoom slider, twist moves Rotation. They are the same controls Customize shows, so a gesture is saved into presets, and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>

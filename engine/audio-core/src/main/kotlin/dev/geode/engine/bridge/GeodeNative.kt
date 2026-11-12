@@ -244,13 +244,6 @@ object GeodeNative {
         points: Int,
     )
 
-    /** Settings › Visuals › Touch › Smear: on, the fingers touching the visual drag it too (core/viz/TouchSmear). */
-    external fun vizSetTouchSmear(
-        handle: Long,
-        on: Boolean,
-        strength: Float,
-    )
-
     external fun vizSetFluidInjection(
         handle: Long,
         force: String?,

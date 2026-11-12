@@ -193,6 +193,9 @@ jobs:
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
+          # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
+          ./live_fps_test
           # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test

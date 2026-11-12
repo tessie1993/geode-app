@@ -10,6 +10,7 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
+import dev.geode.render.PacedRate
 import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookTarget
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -234,9 +235,12 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizGyroReset(handle)
     }
 
-    /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */
+    /**
+     * One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. [paced] hands over
+     * both the rate the surface last drew at and its own cap, which native keeps apart for the thermal step.
+     */
     fun frameBegin(
-        pacedFps: Float,
+        paced: PacedRate,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
@@ -250,7 +254,8 @@ class NativeViz(
         if (handle == 0L) return 0
         return GeodeNative.vizFrameBegin(
             handle,
-            pacedFps,
+            paced.fps(),
+            paced.capFps(),
             renderScale,
             marchScale,
             postFx,

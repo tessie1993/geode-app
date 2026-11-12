@@ -53,12 +53,17 @@ struct PacerState {
     // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate, so the measured
     // fallback never reads a rate the pacer chose as a phone that cannot keep up.
     int64_t pacedMilliHz = 0;
+    // Settings › Performance's "Follow device" (frame::followCapFps in LiveFps.hpp): the panel rate last seen
+    // while the phone was cool, in millihertz (0 = none yet). A hot tier steps down from it, not from the panel
+    // as it is then, which a lower draw rate may itself have lowered (Android 15's adaptive refresh rate).
+    int64_t followedMilliHz = 0;
 };
 
-// The wire layout for the ABI: eight int64s in this order.
-inline constexpr int kPacerStateLongs = 8;
+// The wire layout for the ABI: nine int64s in this order.
+inline constexpr int kPacerStateLongs = 9;
 inline constexpr int kPacerCapSlot = 6;
 inline constexpr int kPacerPacedSlot = 7;
+inline constexpr int kPacerFollowedSlot = 8;
 
 class Pacer {
 public:
@@ -161,7 +166,8 @@ private:
 // Wire helpers for the ABI. Copied as bytes: the shell's array is jlong / long long, which is not the
 // same type as int64_t (long on LP64), so reading it through int64_t would break strict aliasing.
 static_assert(std::is_trivially_copyable_v<PacerState> && sizeof(PacerState) == kPacerStateLongs * sizeof(int64_t));
-static_assert(kPacerCapSlot == kPacerStateLongs - 2 && kPacerPacedSlot == kPacerStateLongs - 1, "the cap, then the paced rate, are the last wire slots");
+static_assert(kPacerCapSlot == 6 && kPacerPacedSlot == 7 && kPacerFollowedSlot == kPacerStateLongs - 1,
+              "the cap and the paced rate keep their slots; the followed rate is the last");
 // One slot at a time, each a memcpy of one int64_t, in the wire order.
 inline int64_t loadSlot(const int64_t* w, int i) {
     int64_t v;
@@ -171,7 +177,8 @@ inline int64_t loadSlot(const int64_t* w, int i) {
 inline void storeSlot(int64_t* w, int i, int64_t v) { std::memcpy(w + i, &v, sizeof v); }
 inline PacerState unpack(const int64_t* w) {
     return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3),
-                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot), loadSlot(w, kPacerPacedSlot)};
+                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot), loadSlot(w, kPacerPacedSlot),
+                      loadSlot(w, kPacerFollowedSlot)};
 }
 inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 0, s.lastDrawnNs);
@@ -182,6 +189,7 @@ inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 5, s.divisor);
     storeSlot(w, kPacerCapSlot, s.capMilliHz);
     storeSlot(w, kPacerPacedSlot, s.pacedMilliHz);
+    storeSlot(w, kPacerFollowedSlot, s.followedMilliHz);
 }
 
 }  // namespace geode::viz::frame

@@ -14,9 +14,4 @@ enum class UnderlayBlend {
     SCREEN,
     MULTIPLY,
     ADD,
-    ;
-
-    companion object {
-        fun fromOrdinal(i: Int): UnderlayBlend = entries.getOrElse(i) { SCREEN }
-    }
 }

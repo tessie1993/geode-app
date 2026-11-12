@@ -114,6 +114,7 @@ The renderer runs these in order each frame.
 - A reaction route on a luminance target gets an attack of at least 0.08 s and a release of at least 0.35 s (`Reactions`).
 - A cut transition becomes a fade.
 - An Add or Difference layer mixes at 0.25 at most.
+- Customize › Layers' blends and their labels are `BlendMode` (`core/viz/VisualSafety`, `geode_layer_blend_names`); the shell holds an index.
 - These limit the params only; no pass measures the finished frame: the output flash limiter and its readback are gone.
 
 ## Thermal and settling

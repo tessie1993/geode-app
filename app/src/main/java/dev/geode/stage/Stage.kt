@@ -10,10 +10,9 @@ import android.view.Surface
 import dev.geode.data.MilkPathPrefs
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
-import dev.geode.render.BlendMode
 import dev.geode.render.PerformanceSettings
-import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
@@ -160,8 +159,8 @@ class Stage(
     fun submitLayer(
         sceneId: String?,
         mix: Float,
-        blend: BlendMode,
-    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
+        blend: Int,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend)
 
     fun submitFluidInjectionShaders(
         force: String?,

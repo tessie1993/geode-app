@@ -40,6 +40,7 @@
 #include "viz/Transition.hpp"
 #include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
+#include "viz/VisualSafety.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
 #include "viz/frame/Pacer.hpp"
@@ -191,6 +192,7 @@ static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
+static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
 // between calls matter, and steady_clock never jumps with the wall clock.
@@ -603,6 +605,14 @@ void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 
 
 void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
     layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+}
+
+const char* geode_layer_blend_names(void) {
+    try {
+        return blendModeLabels().c_str();
+    } catch (...) {
+        return "";
+    }
 }
 
 void geode_viz_gyro_push(geode_viz* v, float x, float y, float z, float w, int display_rotation) {

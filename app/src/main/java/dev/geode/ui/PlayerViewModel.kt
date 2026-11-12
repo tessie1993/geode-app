@@ -17,6 +17,7 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.SceneFactory
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
 import dev.geode.model.VizPlaylistEntry
@@ -25,7 +26,6 @@ import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.SceneFactory
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted

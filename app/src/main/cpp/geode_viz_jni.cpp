@@ -1390,6 +1390,45 @@ Java_dev_geode_engine_bridge_GeodeNative_linkAdmit(JNIEnv*, jobject, jint peer, 
     return geode_link_admit(static_cast<uint32_t>(peer), static_cast<uint32_t>(bound), prefix, static_cast<uint32_t>(tv), wants);
 }
 
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkBodyLength(JNIEnv* env, jobject, jobjectArray headers, jlong max) {
+    const jsize n = headers ? env->GetArrayLength(headers) : 0;
+    std::vector<std::string> lines;
+    lines.reserve(static_cast<size_t>(n));
+    for (jsize i = 0; i < n; ++i) {
+        auto line = static_cast<jstring>(env->GetObjectArrayElement(headers, i));
+        geode::jni::Utf8Chars c(env, line);
+        lines.emplace_back(c.get() ? c.get() : "");
+        if (line) env->DeleteLocalRef(line);
+    }
+    std::vector<const char*> pointers;
+    pointers.reserve(lines.size());
+    for (const std::string& l : lines) pointers.push_back(l.c_str());
+    return geode_link_body_length(pointers.data(), static_cast<int>(pointers.size()), max);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkRtcStatus(JNIEnv*, jobject, jint answerResult) {
+    return geode_link_rtc_status(answerResult);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkShareUrl(JNIEnv* env, jobject, jint address, jint port, jstring token) {
+    geode::jni::Utf8Chars k(env, token);
+    std::vector<char> text(static_cast<size_t>(geode_link_share_url(static_cast<uint32_t>(address), port, k.get(), nullptr, 0)) + 1);
+    return geode_link_share_url(static_cast<uint32_t>(address), port, k.get(), text.data(), static_cast<int>(text.size())) > 0
+               ? geode::jni::utf8String(env, text.data())
+               : nullptr;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkLabel(JNIEnv* env, jobject, jstring token) {
+    geode::jni::Utf8Chars k(env, token);
+    std::vector<char> text(static_cast<size_t>(geode_link_label(k.get(), nullptr, 0)) + 1);
+    geode_link_label(k.get(), text.data(), static_cast<int>(text.size()));
+    return geode::jni::utf8String(env, text.data());
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_linkReceiverHealth(JNIEnv*, jobject, jlong nowMs, jlong loadMs, jlong lastFetchMs,
                                                             jint playerState, jint idleReason) {

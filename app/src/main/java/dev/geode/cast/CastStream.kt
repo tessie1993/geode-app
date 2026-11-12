@@ -49,6 +49,11 @@ import java.util.concurrent.locks.LockSupport
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
  *
+ * A browser on "Show on a computer" gets the same picture over WebRTC when it can ([WebRtcLink]): the encoder's
+ * own H.264 buffers, copied as they leave the codec (no second render, no second encode), and the same PCM as
+ * Opus ([OpusFeed], run only while a browser is connected); its media is encrypted (DTLS-SRTP). Where WebRTC
+ * fails the page plays the fMP4 feed as before. The TV keeps HLS.
+ *
  * The sound goes to the TV inside the stream (the phone is a silent remote, see [CastController]).
  * Pacing is native (core/viz/frame/FixedRateClock, #572): when a frame is due, its PTS and the audio cut; a stall
  * drops frames, never bursts them. Each frame queues 48 kHz audio up to that cut, from what the ring gained, padded
@@ -69,7 +74,9 @@ internal class CastStream(
 
     /** The Wi-Fi or Ethernet address the stream is served from. */
     val address: InetAddress = link.address
-    private val server = LiveHttpServer(segments, address, link.prefixLength)
+    /** WebRTC for browsers, bound to the same address; closed after the server and the encoder stop. */
+    private val webrtc = WebRtcLink(address, link.prefixLength)
+    private val server = LiveHttpServer(segments, address, link.prefixLength, webrtc::answer)
 
     /** Who may connect: the Cast device at [tv] while [forTv], the Wi-Fi's subnet while [forLink] (native rule). */
     fun admit(
@@ -95,8 +102,11 @@ internal class CastStream(
     /** The URL the receiver loads; valid after [start]. */
     val playlistUrl: String get() = server.playlistUrl
 
-    /** The page a browser opens ("Show on a computer"); valid after [start]. */
-    val pageUrl: String get() = server.pageUrl
+    /** The page a browser opens ("Show on a computer"), as the user is shown it (no dotted address); valid after [start]. */
+    val shareUrl: String get() = server.shareUrl
+
+    /** The link's short name, shown beside its QR code. */
+    val shareLabel: String get() = server.label
 
     /** True once the playlist lists enough segments for the receiver to start on. */
     val isReady: Boolean get() = segments.playlist() != null
@@ -106,6 +116,7 @@ internal class CastStream(
             server.start()
         } catch (e: java.io.IOException) {
             server.stop()
+            webrtc.close()
             throw e
         }
         prefsFiles.viz.registerOnSharedPreferenceChangeListener(lookListener)
@@ -126,6 +137,8 @@ internal class CastStream(
         prefsFiles.general.unregisterOnSharedPreferenceChangeListener(lookListener)
         lookReader.shutdownNow()
         server.stop()
+        // After the server (no new offer) and the render thread (the encoder and Opus feed are released).
+        webrtc.close()
     }
 
     /**
@@ -173,9 +186,9 @@ internal class CastStream(
     val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
 
     private fun renderLoop() {
-        val encoder = CastEncoder(segments)
+        val encoder = CastEncoder(segments, webrtc::video)
         val egl = EncoderSurface(encoder.surface)
-        val audio = AudioPump(encoder, musicInput)
+        val audio = AudioPump(encoder, musicInput, webrtc)
         var fallback: VisualizerRenderer? = null
         var fallbackDrewNs = 0L
         var tee = 0L
@@ -280,7 +293,15 @@ internal class CastStream(
     private class AudioPump(
         private val encoder: CastEncoder,
         private val musicInput: SampleRing?,
+        private val webrtc: WebRtcLink,
     ) : AutoCloseable {
+        /** The Opus encoder for WebRTC browsers, while one is connected; made and freed here, on the render thread. */
+        private var opus: OpusFeed? = null
+        private var opusIdleSinceNs = 0L
+
+        /** No Opus encoder could be made: the browser gets the picture alone; not tried again this stream. */
+        private var opusMissing = false
+
         private var input: SampleRing? = null
         private var cursor: SoundCursor? = null
         private var resampler: PcmResampler? = null
@@ -305,6 +326,31 @@ internal class CastStream(
             block.fill(SILENCE, take * CH, need * CH)
             System.arraycopy(hold, take * CH, hold, 0, state[HELD].toInt() * CH)
             encoder.queueAudio(block, need)
+            opusFor(System.nanoTime())?.let { feed -> runCatching { feed.queue(block, need) } }
+        }
+
+        /** The Opus feed while a browser is on WebRTC; freed once none has been for [OPUS_IDLE_NS]. */
+        private fun opusFor(nowNs: Long): OpusFeed? {
+            if (webrtc.peers > 0) {
+                opusIdleSinceNs = 0L
+                if (opus == null && !opusMissing) {
+                    opus =
+                        runCatching { OpusFeed(webrtc) }
+                            .onFailure {
+                                opusMissing = true
+                                RingLog.note(TAG, "no Opus encoder: ${it.javaClass.simpleName}")
+                            }.getOrNull()
+                }
+                return opus
+            }
+            val feed = opus ?: return null
+            if (opusIdleSinceNs == 0L) opusIdleSinceNs = nowNs
+            if (nowNs - opusIdleSinceNs > OPUS_IDLE_NS) {
+                feed.close()
+                opus = null
+                return null
+            }
+            return feed
         }
 
         /** What the ring gained since the last call, resampled to the stream's rate; null for none. */
@@ -335,6 +381,8 @@ internal class CastStream(
         }
 
         override fun close() {
+            opus?.close()
+            opus = null
             cursor?.close()
             cursor = null
             resampler?.close()
@@ -352,6 +400,9 @@ internal class CastStream(
             const val TAKE = 3
             const val PAD = 4
             const val SILENCE: Short = 0
+
+            /** A browser that left may come back (a reload): the Opus encoder waits this long (10 s) before it goes. */
+            const val OPUS_IDLE_NS = 10_000_000_000L
         }
     }
 

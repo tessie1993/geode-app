@@ -255,9 +255,12 @@ jobs:
           # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the fitted rectangle.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_tee_test.cpp -o cast_tee_test
           ./cast_tee_test
-          # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed.
+          # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test
+          # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
+          ./webrtc_rule_test
           # Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
           ./qr_code_test

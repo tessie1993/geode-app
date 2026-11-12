@@ -1,6 +1,6 @@
 # BeatRealms 3D — Privacy Policy
 
-*Last updated: 11 November 2026*
+*Last updated: 12 November 2026*
 
 BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
@@ -86,10 +86,15 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
 *Show on a computer* streams the same picture and sound to a web browser on a computer on
 the same Wi-Fi, without a Chromecast. The app shows an address and a QR code; the browser
 plays the stream straight from your phone, and the page it opens loads nothing from the
-internet. As for the TV, the stream is plain HTTP on your local network with a random secret
-in its address (no browser can trust a certificate for a phone's local address), so anyone
-on the same Wi-Fi who learns that address could watch. The app answers only on your Wi-Fi
-address, and stops serving the moment you stop sharing, the Wi-Fi changes or Pro ends.
+internet. Where the browser supports it, the picture and sound travel over WebRTC, encrypted
+between your phone and that browser (DTLS-SRTP), with no server in between and nothing asked
+of the internet. The page, the address and the messages that set that connection up are
+plain HTTP on your local network with a random secret in the address (no browser can trust a
+certificate for a phone's local address), and a browser that cannot use WebRTC gets the
+stream unencrypted, so anyone on the same Wi-Fi who learns that address could watch. The
+address shows your phone's Wi-Fi address written as one number; that hides it from a glance,
+not from your network. The app answers only on your Wi-Fi address, and stops serving the
+moment you stop sharing, the Wi-Fi changes or Pro ends.
 
 ## Permissions
 

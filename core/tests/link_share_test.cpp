@@ -8,11 +8,15 @@
 // built like the encoder's (avcC profile, flags, level; esds object type and AAC audio object type) and the
 // master playlist around them; the page's files (no inline script, style or handler, nothing off the phone);
 // the share's state machine; who may connect by address (a TV cast: the Cast device alone; a live link: the
-// bound subnet's site-local peers); whether the TV plays after the LOAD; and the Private Network Access answer.
+// bound subnet's site-local peers); whether the TV plays after the LOAD; the Private Network Access answer; and
+// WebRTC's signalling (POST rtc only, its body length read from the headers, the status of each answer), the
+// page trying WebRTC first with a half-second receive buffer, and the link maker (the host as one number).
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -295,6 +299,93 @@ void testPage() {
     check(geode_link_asset(GEODE_LINK_SEGMENT, &size) == nullptr && size == 0, "abi: no other asset");
 }
 
+void testRtc() {
+    const std::string t = "/" + kToken;
+    const share::Route post = get(t + "/rtc", "POST");
+    check(post.status == 200 && post.resource == Resource::Rtc, "POST rtc: the offer");
+    check(get(t + "/rtc").status == 405 && get(t + "/rtc", "OPTIONS").status == 405, "rtc takes POST alone, no preflight");
+    check(get(t + "/index.html", "POST").status == 405 && get(t + "/stream.mp4", "POST").status == 405, "nothing else takes POST");
+    check(get("/ffffffffffffffffffffffffffffffff/rtc", "POST").status == 404, "a wrong token: 404 for POST too");
+    check(has(share::responseHead(405, Resource::Rtc, 0, kToken), "Allow: POST\r\n"), "405 on rtc says POST");
+    const std::string ok = share::responseHead(200, Resource::Rtc, 1200, kToken);
+    check(has(ok, "Content-Type: application/sdp\r\n") && has(ok, "Content-Length: 1200\r\n") && has(ok, "no-store"),
+          "the answer: application/sdp, its length, no-store");
+    check(!has(ok, "Access-Control"), "no CORS on rtc: only the page, same-origin, posts");
+    check(has(share::responseHead(413, Resource::Rtc, 0, kToken), "413 Content Too Large"), "413 has its phrase");
+    check(has(share::responseHead(411, Resource::Rtc, 0, kToken), "411 Length Required"), "411 has its phrase");
+
+    // The body's length, from the header lines.
+    const auto len = [](std::initializer_list<std::string_view> lines, int64_t max = 16384) {
+        std::vector<std::string_view> v(lines);
+        return share::bodyLength(v.data(), v.size(), max);
+    };
+    check(len({"Host: x", "Content-Length: 1234"}) == 1234, "Content-Length read");
+    check(len({"content-length:  77 "}) == 77, "any case, spaces around the value");
+    check(len({"Host: x"}) == share::kNoBody, "no length: no body");
+    check(len({"Content-Length: 16385"}) == share::kBadBody, "over the cap: refused");
+    check(len({"Content-Length: 16384"}) == 16384, "at the cap: taken");
+    check(len({"Content-Length: 5", "Content-Length: 5"}) == share::kBadBody, "two lengths: refused");
+    check(len({"Content-Length: -5"}) == share::kBadBody && len({"Content-Length: 1e3"}) == share::kBadBody &&
+              len({"Content-Length:"}) == share::kBadBody,
+          "a length that is not a plain decimal: refused");
+    check(len({"Transfer-Encoding: chunked", "Content-Length: 5"}) == share::kBadBody, "no chunked bodies");
+    check(len({"X-Content-Length: 5"}) == share::kNoBody, "only the header itself counts");
+    const char* lines[] = {"Host: x", "Content-Length: 42"};
+    check(geode_link_body_length(lines, 2, 100) == 42 && geode_link_body_length(lines, 2, 10) == GEODE_LINK_BAD_BODY &&
+              geode_link_body_length(nullptr, 0, 10) == GEODE_LINK_NO_BODY,
+          "abi: the body length");
+
+    // The answer's status.
+    check(share::rtcStatus(900) == 200 && share::rtcStatus(0) == 200, "an answer: 200");
+    check(share::rtcStatus(GEODE_WEBRTC_REFUSED_FULL) == 503 && share::rtcStatus(GEODE_WEBRTC_REFUSED_NOT_READY) == 503,
+          "full or no picture yet: 503");
+    check(share::rtcStatus(GEODE_WEBRTC_REFUSED_MALFORMED) == 400 && share::rtcStatus(GEODE_WEBRTC_REFUSED_NO_H264) == 400 &&
+              share::rtcStatus(GEODE_WEBRTC_REFUSED_FAILED) == 400,
+          "any other refusal: 400");
+    check(geode_link_rtc_status(GEODE_WEBRTC_REFUSED_FULL) == 503, "abi: the rtc status");
+
+    // The page: WebRTC first, half a second in hand, the feed behind it.
+    const std::string js(share::kPageJs);
+    check(has(js, "new RTCPeerConnection({ iceServers: []"), "WebRTC with no ICE server: nothing off the LAN");
+    check(has(js, "direction: 'recvonly'") && has(js, "method: 'POST'") && has(js, "'application/sdp'") && has(js, "const RTC = 'rtc'"),
+          "a receive-only offer POSTed to rtc");
+    check(has(js, "JITTER_MS = 500") && has(js, "jitterBufferTarget = JITTER_MS") && has(js, "playoutDelayHint = JITTER_MS / 1000"),
+          "the browser holds half a second: jitterBufferTarget in ms, playoutDelayHint in s as the fallback");
+    check(has(js, "useFeed()") && has(js, "if (await viaRtc(media))"), "any WebRTC failure falls back to the feed");
+    const size_t begin = js.find("async function begin()");
+    check(begin != std::string::npos && js.find("viaRtc(media)", begin) < js.find("useFeed();", begin),
+          "WebRTC is tried before the feed");
+}
+
+void testShareUrl() {
+    // 192.168.1.100 = 3232235876.
+    const uint32_t a = (192u << 24) | (168u << 16) | (1u << 8) | 100u;
+    const std::string url = share::shareUrl(a, 41237, kToken);
+    check(url == "http://3232235876:41237/" + kToken + "/", "the host as one decimal number");
+    check(!has(url, "192.168") && !has(url, "192."), "no dotted address in the link");
+    check(share::shareUrl((10u << 24) | 1u, 80, kToken) == "http://167772161:80/" + kToken + "/", "10.0.0.1");
+    check(share::shareUrl(0, 41237, kToken).empty() && share::shareUrl(a, 0, kToken).empty() &&
+              share::shareUrl(a, 65536, kToken).empty() && share::shareUrl(a, 80, "short").empty(),
+          "no address, a bad port or a bad token: no link");
+    char out[128];
+    check(geode_link_share_url(a, 41237, kToken.c_str(), out, sizeof out) == static_cast<int>(url.size()) && url == out,
+          "abi: the share url");
+    check(geode_link_share_url(a, 41237, kToken.c_str(), nullptr, 0) == static_cast<int>(url.size()), "abi: size query");
+
+    const std::string label = share::friendlyLabel(kToken);
+    check(!label.empty() && label.find(' ') != std::string::npos, "two words");
+    check(label == share::friendlyLabel(kToken), "the same token, the same label");
+    check(!has(label, "0123"), "no piece of the token");
+    int differ = 0;
+    for (int i = 0; i < 16; ++i) {
+        std::string other = kToken;
+        other[0] = "0123456789abcdef"[i];
+        if (share::friendlyLabel(other) != label) ++differ;
+    }
+    check(differ >= 8, "other tokens mostly get other labels");
+    check(geode_link_label(kToken.c_str(), out, sizeof out) == static_cast<int>(label.size()) && label == out, "abi: the label");
+}
+
 void testState() {
     int s[GEODE_LINK_STATE] = {};
     check(geode_link_step(s, GEODE_LINK_EVENT_START, 0) == GEODE_LINK_DO_PAYWALL && s[0] == GEODE_LINK_PHASE_IDLE,
@@ -444,6 +535,8 @@ int main() {
     testPage();
     testState();
     testAbiRoute();
+    testRtc();
+    testShareUrl();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

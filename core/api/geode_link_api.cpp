@@ -1,5 +1,7 @@
 #include <cstring>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "api/geode_api.h"
 #include "util/QrCode.hpp"
@@ -13,7 +15,10 @@ static_assert(share::kTokenChars == GEODE_LINK_TOKEN_CHARS && share::kStateInts 
 static_assert(static_cast<int>(share::Resource::Segment) == GEODE_LINK_SEGMENT &&
               static_cast<int>(share::Resource::Redirect) == GEODE_LINK_REDIRECT &&
               static_cast<int>(share::Resource::Page) == GEODE_LINK_PAGE &&
-              static_cast<int>(share::Resource::Stream) == GEODE_LINK_STREAM && share::kMaxStreams == GEODE_LINK_MAX_STREAMS);
+              static_cast<int>(share::Resource::Stream) == GEODE_LINK_STREAM && share::kMaxStreams == GEODE_LINK_MAX_STREAMS &&
+              static_cast<int>(share::Resource::Rtc) == GEODE_LINK_RTC);
+static_assert(share::kNoBody == GEODE_LINK_NO_BODY && share::kBadBody == GEODE_LINK_BAD_BODY);
+static_assert(GEODE_WEBRTC_REFUSED_FULL == -4 && GEODE_WEBRTC_REFUSED_NOT_READY == -5, "LinkShare::rtcStatus reads these");
 static_assert(share::kEnded == GEODE_LINK_PHASE_ENDED && share::kTrialEnded == GEODE_LINK_REASON_TRIAL &&
               share::kNetwork == GEODE_LINK_REASON_NETWORK && share::kShown == GEODE_LINK_EVENT_SHOWN);
 static_assert(share::kStartStream == GEODE_LINK_DO_START_STREAM && share::kStopStream == GEODE_LINK_DO_STOP_STREAM &&
@@ -52,7 +57,7 @@ int geode_link_route(const char* method, const char* target, const char* token, 
 }
 
 int geode_link_response_head(int status, int resource, int64_t length, const char* token, char* out, int cap) {
-    const auto r = resource >= 0 && resource <= GEODE_LINK_STREAM ? static_cast<share::Resource>(resource) : share::Resource::None;
+    const auto r = resource >= 0 && resource <= GEODE_LINK_RTC ? static_cast<share::Resource>(resource) : share::Resource::None;
     return copyOut(share::responseHead(status, r, length, token ? token : ""), out, cap);
 }
 
@@ -73,6 +78,22 @@ int geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out,
 }
 
 int geode_link_step(int* state, int event, int arg) { return share::step(state, event, arg); }
+
+int64_t geode_link_body_length(const char* const* headers, int count, int64_t max) {
+    std::vector<std::string_view> lines;
+    for (int i = 0; headers && i < count; ++i) lines.emplace_back(headers[i] ? headers[i] : "");
+    return share::bodyLength(lines.data(), lines.size(), max);
+}
+
+int geode_link_rtc_status(int answer_result) { return share::rtcStatus(answer_result); }
+
+int geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap) {
+    return copyOut(share::shareUrl(address, port, token ? token : ""), out, cap);
+}
+
+int geode_link_label(const char* token, char* out, int cap) {
+    return copyOut(share::friendlyLabel(token ? token : ""), out, cap);
+}
 
 int geode_link_admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants) {
     return share::admit(peer, bound, prefix, tv, wants);

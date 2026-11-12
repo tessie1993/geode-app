@@ -52,9 +52,7 @@ out vec4 fragColor;
 // - Flux (sndLevel(SND_FLUX)): the WRITHE. A latitude wave twists the azimuth,
 //   so a changing spectrum sets the whole membrane squirming while a held
 //   chord lets it hang still. The wave travels on the mid clock.
-// - Snare (SND_SNARE_ENV): snaps every lobe pattern one full period round and
-//   lets it settle. A period is the curve's own symmetry, so the snap starts
-//   from a pose identical to the last.
+
 // - Onset (SND_ONSET_ENV): a bulge rolls over the membrane pole to pole as the
 //   envelope falls, lighting a ring as it goes.
 // - Surge (SND_HELD_SURGE): the body and core swell on the envelope's bump and
@@ -62,14 +60,16 @@ out vec4 fragColor;
 // - Hard cut (SND_HELD_HARD_CUT with SND_CUT_COUNT): re-seeds the section: the
 //   elevation curve's m and exponents, the core's lobe count, the satellites'
 //   orbits and lobe counts, and the hue, all crossfaded over the held cut.
-// - Mid clock (SND_MID_TIME): the body's spin and the writhe wave's phase.
-// - Bass clock (SND_BASS_TIME): the satellites' orbits.
-// - Treble clock (SND_TREBLE_TIME): the core's counter-spin, the motes flowing
-//   along the membrane's parameter lines, their twinkle.
+// - Mid clock (SND_MID_TIME): the writhe wave's phase.
+// - Treble clock (SND_TREBLE_TIME): the motes' twinkle and the core's veins.
+// - Nothing turns on the sound (owner 2026-11-12, no style spins to the
+//   music): the body's spin, the core's counter-spin, the satellites' orbits
+//   and spins, the motes' flow round the membrane and the star shells turn on
+//   time alone; the snare's lobe snap, the pan's lean of the pole and the
+//   density's twist of the core are gone.
 // - Hats (SND_HAT_ENV): some membrane motes flare white.
 // - Stereo width (SND_STEREO_WIDTH): how far out the satellites orbit.
-// - Stereo pan (SND_STEREO_PAN): leans the body's pole toward the louder side.
-// - Fast density (SND_DENSITY_FAST): twists the core about its pole.
+
 // - Attenuated bass / treble (SND_BASS_ATT, SND_TREBLE_ATT): the core's own
 //   n2 / n3, so the core breathes with the low and high bands separately.
 // - Pitch class (SND_PITCH_CLASS, gated by SND_PITCH_CONFIDENCE): the core's
@@ -77,21 +77,19 @@ out vec4 fragColor;
 // - Spectrum (sndSpectrum): rings of latitude on the membrane, each lit by its
 //   own slice of the log spectrum, bass at the south pole, air at the north.
 // - Energy trend (SND_ENERGY_TREND): overall brightness, gently.
-// - The mid band (SND_MIDDLE): turns the whole scene about its vertical while
-//   the mids climb and eases it back as they fall: lib_flame's gFlameTurn, 0.6
-//   x sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence), spent on the
-//   orbit so the eye goes the other way. Mid gain scales it.
 //
 // Knobs (Flame's, Opal's and Hollow's roles, each read as its offset from 0.5
 // so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the spectrum
 // rings' width, k2 FLOW added to the writhe (gLip follows it), k3 TONE the
-// palette position, k4 BUILD the glow gathered along the ray, k5 SPACE the
+// palette position and the poles' sharpness (a high melody draws the body up
+// into spires at its poles, a low one rounds it into a squat bloom; gLip
+// follows it too), k4 BUILD the glow gathered along the ray, k5 SPACE the
 // eye's distance (4.3..5.3) and the depth fog's reach.
 //
-// Every motion runs on a clock (the SND_*_TIME clocks and uFlowPhase), so it
-// slows and speeds with the music and never runs backwards. Quiet music: the
-// clocks barely advance and the flux writhe is near zero, so the body hangs
-// still. Busy music: everything squirms.
+// Every motion runs on a clock, so it never runs backwards: the turns on time
+// (uTime), the writhe and the motes' twinkle on the sound clocks. Quiet music:
+// the sound clocks barely advance and the flux writhe is near zero, so the body
+// only turns. Busy music: everything squirms.
 //
 // ---- the march ----------------------------------------------------------------
 //
@@ -134,7 +132,7 @@ mat3 gCoreRot;
 vec3 gNc;
 float gNormC;
 vec4 gCoreM;
-float gCoreTwist;
+
 float gLipC;
 
 vec3 gSatPos[SS_SATS];
@@ -209,10 +207,7 @@ float bodyField(vec3 p, out vec2 ang) {
 
 float coreField(vec3 p, out vec2 ang) {
     vec3 q = gCoreRot * p;
-    q.xy = rot2(gCoreTwist * q.z) * q.xy;
-    // The twist stretches space by up to |k| * radius; divide it back out.
-    return formField(q, gRc, gNc, gNormC, gCoreM, vec3(1.4, 1.4, 1.4), 1.0, 0.0, 0.0, gLipC, ang)
-           / (1.0 + abs(gCoreTwist) * gRc * 1.2);
+    return formField(q, gRc, gNc, gNormC, gCoreM, vec3(1.4, 1.4, 1.4), 1.0, 0.0, 0.0, gLipC, ang);
 }
 
 /** The outside: membrane, core where it presses through, satellites. Materials 0, 1, 2+i. */
@@ -286,11 +281,11 @@ vec3 membrane(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float trebC, float h
     col += vec3(1.0, 0.96, 0.92) * pow(max(dot(reflect(rd, n), L), 0.0), 48.0) * 0.55;
 
     // Motes on the parameter lines, hashed per cell so the lattice never reads as a grid,
-    // flowing round on the treble clock. The cell index rides with the flow, so a mote keeps
+    // flowing round on time alone. The cell index rides with the flow, so a mote keeps
     // its identity as it travels.
     const float NT = 36.0;
     const float NP = 18.0;
-    vec2 g = vec2(ang.x / SS_TAU * NT + trebC * 0.35, lat01 * NP);
+    vec2 g = vec2(ang.x / SS_TAU * NT + uTime * 0.35, lat01 * NP);
     vec2 c = floor(g);
     float h = hashCell(ivec3(int(mod(c.x, NT)), int(c.y), int(seed)));
     vec2 f = fract(g) - 0.5 - (vec2(fract(h * 17.3), fract(h * 29.1)) - 0.5) * 0.45;
@@ -345,7 +340,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
         float fs = float(s);
         float R = 7.0 + 4.5 * fs;
         float t = -b + sqrt(max(b * b - (c0 - R * R), 0.0));
-        vec3 d = rotY(uFlowPhase * 0.004 * (1.0 + fs)) * ((ro + rd * t) / R);
+        vec3 d = rotY(uTime * 0.0012 * (1.0 + fs)) * ((ro + rd * t) / R);
         vec2 a = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0)));
         float N = 44.0 + 28.0 * fs;
         vec2 g = vec2(a.x / SS_TAU * N, a.y / SS_PI * N * 0.5);
@@ -361,7 +356,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
 }
 
 /** One satellite's orbit for section `sec`: position, size factor and lobe count. */
-vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out float m) {
+vec3 satOrbit(int i, float sec, float clock, float width, out float sizeH, out float m) {
     float fi = float(i);
     float h0 = hash11(fi * 7.13 + sec * 1.71 + 0.3);
     float h1 = hash11(fi * 3.31 + sec * 2.97 + 5.0);
@@ -370,7 +365,7 @@ vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out f
     m = evenM(h2);
     // The rate is the satellite's own, not the section's: a rate that changed with
     // the section would jump the angle by (rate change) * the whole clock.
-    float a = bassC * (0.30 + 0.11 * fi) + h0 * SS_TAU;
+    float a = clock * (0.30 + 0.11 * fi) + h0 * SS_TAU;
     float rad = 1.75 + 0.55 * width + 0.35 * h1;
     vec3 o = vec3(cos(a), 0.0, sin(a)) * rad;
     return rotZ((h2 - 0.5) * 1.4) * rotX((h0 - 0.5) * 0.9) * o;
@@ -380,20 +375,19 @@ void main() {
     vec2 uv = view();
     // The band clocks at Speed's rate, integrated natively (uSoundTimeSped), not
     // SND_*_TIME * Speed: that jumped the whole shape whenever Speed moved.
-    float bassC = uSoundTimeSped.x;
     float midC = uSoundTimeSped.y;
     float trebC = uSoundTimeSped.z;
 
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0);
     float flatn = smoothstep(0.05, 0.6, clamp(SND_FLATNESS, 0.0, 1.0));
     float cent = smoothstep(0.25, 0.7, clamp(SND_CENTROID, 0.0, 1.0));
-    float dens = clamp(SND_DENSITY_FAST, 0.0, 1.0);
+
     float width = clamp(SND_STEREO_WIDTH, 0.0, 1.0);
-    float pan = clamp(SND_STEREO_PAN, -1.0, 1.0);
+
     float surge = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float surgeBump = 4.0 * surge * (1.0 - surge);
     float trend = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -427,26 +421,26 @@ void main() {
     float n1 = mix(2.3, 0.5, flatn) * (1.0 - 0.5 * kick);
     gN = vec3(clamp(n1, 0.3, 3.0), mix(5.0, 1.3, cent), mix(1.3, 5.0, cent));
     gNorm = sfNorm(gN);
-    gNe = vec3(mix(0.9, 2.6, hs2), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
+    gNe = vec3(clamp(mix(0.9, 2.6, hs2) * (1.0 - 1.2 * kTone), 0.4, 3.4), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
     gNormE = sfNorm(gNe);
     gR = 1.0 * (1.0 + 0.05 * kick + 0.16 * surgeBump);
     gWrithe = max(0.85 * flux + 0.3 * kFlow, 0.0);
     gWritheP = midC * 1.7;
-    gSnap = 1.0 - snare * snare;
+    gSnap = 1.0;
     gWave = 0.10 * onset;
     gWaveLat = mix(-0.5 * SS_PI, 0.5 * SS_PI, onset);
     gLip = 0.85 / (1.0 + 0.6 / min(gN.x, gNe.x) + 1.5 * gWrithe);
-    // The pole leans toward the louder channel; the body turns on the mid clock.
-    gBodyRot = rotZ(midC * 0.35) * rotX(-1.15 + 0.3 * pan) * rotZ(0.25 * pan);
+    // The body turns on time alone.
+    gBodyRot = rotZ(uTime * 0.35) * rotX(-1.15);
 
     // ---- the core ----
     gRc = gR * 0.45 * (1.0 + 0.2 * surgeBump);
     gNc = vec3(0.9 + 0.6 * hs2, mix(1.2, 4.0, bassA), mix(1.2, 4.0, trebA));
     gNormC = sfNorm(gNc);
     gCoreM = vec4(evenM(hash11((sec - 1.0) * 2.31 + 1.0)), evenM(hash11(sec * 2.31 + 1.0)), fresh, 3.0 + 3.0 * hs2);
-    gCoreTwist = 1.6 * dens;
+
     gLipC = 0.85 / (1.0 + 0.6 / min(gNc.x, 1.4));
-    gCoreRot = rotY(-trebC * 0.45) * rotX(0.7);
+    gCoreRot = rotY(-uTime * 0.45) * rotX(0.7);
 
     // ---- the satellites ----
     for (int i = 0; i < SS_SATS; i++) {
@@ -454,21 +448,17 @@ void main() {
         float szB;
         float mA;
         float mB;
-        vec3 pA = satOrbit(i, sec, bassC, width, szA, mA);
-        vec3 pB = satOrbit(i, sec - 1.0, bassC, width, szB, mB);
+        vec3 pA = satOrbit(i, sec, uTime, width, szA, mA);
+        vec3 pB = satOrbit(i, sec - 1.0, uTime, width, szB, mB);
         gSatPos[i] = gR * mix(pB, pA, fresh);
         gSatSize[i] = gR * 0.24 * (0.75 + 0.5 * mix(szB, szA, fresh));
         gSatM[i] = vec4(mB, mA, fresh, 2.0 + 4.0 * fract(szA * 7.0));
-        gSatRot[i] = rotY(trebC * (0.5 + 0.2 * float(i)) + float(i) * 2.1) * rotX(0.9 * float(i) + 0.4);
+        gSatRot[i] = rotY(uTime * (0.5 + 0.2 * float(i)) + float(i) * 2.1) * rotX(0.9 * float(i) + 0.4);
     }
 
     vec3 ro;
     vec3 rd;
     camAround(uv, SS_CAM_R * reach, 2.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the scene about its vertical (see the header): the eye and its ray turn the other way.
-    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
     vec3 L = normalize(uCamBasis * vec3(0.55, 0.65, -0.5));
 
     vec3 voidCol = pal(hue + 0.1) * 0.02 + vec3(0.002, 0.003, 0.008);

@@ -36,17 +36,16 @@
 // lib_sound's shaped reads, in loomSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gLoomTurn   the mid band, sndShaped(SND_MIDDLE), pushes the work round
-//   about the way ahead while the mids climb and eases back as they fall, as
-//   lib_dive's gDiveSpin does. Mid gain scales it.
 //   gLoomSwell  the low band, sndShaped(SND_LOW), deepens the Warp's swell,
 //   never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -55,6 +54,12 @@
 // and every clock phase is whole cycles per uTime wrap (LOOM_RATE). The eye
 // is held inside gLoomBore of the axis, where every flown style keeps open
 // air.
+//
+// GROW AND LAYERS (lib_grow, loomField): Spawn slides a second weave off the
+// first along the way, Fractal spins strands a third the size round every
+// strand, Front layer opens the weave round the eye and Back layer the weave
+// down the way, and billows the skins, the loom's own backdrop. Each costs
+// nothing at 0.
 //
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
@@ -77,8 +82,7 @@
 float gLoomForm;
 float gLoomFlow;
 float gLoomChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gLoomTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gLoomSwell;
 /** How far the trace reaches, world units. */
 float gLoomFar;
@@ -167,7 +171,6 @@ void loomSetup() {
     gLoomBore = 0.3;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gLoomTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gLoomSwell = sndShaped(SND_LOW) * drive;
     gLoomPal0 = pal(0.0);
     gLoomPal1 = pal(0.25);
@@ -178,13 +181,13 @@ void loomSetup() {
 
 /**
  * Warp and Turbulence on space, about the axis so the way ahead stays open: a twist that comes and
- * goes (and the mids' push), a swell and a drawing in (and the lows'), a tremble that is nothing at
+ * goes, a swell and a drawing in (and the lows'), a tremble that is nothing at
  * the axis.
  */
 vec3 loomBend(vec3 p) {
     float zc = p.z * (LOOM_TAU / LOOM_PERIOD);
     float r = length(p.xy);
-    p.xy = loomRot(gLoomFlow * 1.2 * sin(zc + 0.5 * r + uTime * LOOM_RATE(160)) + gLoomTurn) * p.xy;
+    p.xy = loomRot(gLoomFlow * 1.2 * sin(zc + 0.5 * r + uTime * LOOM_RATE(160))) * p.xy;
     p.xy *= 1.0 + 0.3 * min(gLoomFlow + 0.3 * gLoomSwell, 1.0) * sin(2.0 * zc + 1.5 * p.y + uTime * LOOM_RATE(220));
     p.xy += gLoomChaos * 0.07 * min(r, 1.0) * sin(p.yx * 3.1 + 3.0 * zc + uTime * LOOM_RATE(1800) + vec2(0.0, 2.1));
     return p;
@@ -201,6 +204,8 @@ vec3 loomEye(vec3 ro) {
     ro.z = mod(ro.z, LOOM_PERIOD);
     float r = length(ro.xy);
     if (r > gLoomBore) ro.xy *= gLoomBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

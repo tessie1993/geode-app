@@ -35,9 +35,10 @@ out vec4 fragColor;
 //   bass         thickens the tube;
 //   centroid     dispersion through the tube;
 //   flatness     frost on the coating;
-//   pan, pitch   the key light's bearing and height (glassLook);
-//   hat          glints on the coating;
-//   pan          turns the kaleidoscope; the music's clock turns it continually.
+//   pitch        the key light's height (glassLook);
+//   hat          glints on the coating.
+// No sound turns the kaleidoscope: it turns on time alone (owner 2026-11-12, no
+// style spins to the music).
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -130,11 +131,11 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The kaleidoscope: fold the view into mirrored wedges that turn on the music's clock.
+    // The kaleidoscope: fold the view into mirrored wedges that turn on time alone.
     // Six wedges, eight with Complexity; each wedge looks at the knot from its centre, so
     // the knot repeats round the frame as a ring of glass.
     float wedges = glassComplexity() >= 0.5 ? 8.0 : 6.0;
-    vec2 kv = uv * glassRot(0.05 * SND_CURVED_TIME + 0.3 * ear.pan);
+    vec2 kv = uv * glassRot(0.05 * t);
     float ka = atan(kv.y, kv.x);
     float seg = GLASS_TAU / wedges;
     ka = abs(mod(ka, seg) - seg * 0.5);

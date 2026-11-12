@@ -9,8 +9,25 @@
 // INCLUDE ORDER: after lib_petal and after the style's petalMap.
 
 vec3 petalField(vec3 p) {
-    vec3 q = petalBend(p);
+    float k = growOpen(p, 0.2);
+    vec3 q = growOpened(petalBend(p), k);
     vec3 m = petalMap(q);
+    // Grow and layers (lib_grow), each off at its default: Spawn slides a second bloom off the first along the
+    // way, so the petals double; Fractal grows petals a third the size out of every sheet; the layers open
+    // the bloom round the eye (front) and down the way (back), k at 1 while they rest.
+    if (uSpawn > 0.0) {
+        vec3 c = petalMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
+        c.x = growClearEye(abs(c.x), p, 0.6);
+        if (c.x < abs(m.x)) m = c;
+    }
+    float reach = growFractalReach(0.2);
+    if (reach > 0.0) {
+        vec3 c = petalMap(growChildSpace(q, 3.0, 2.0));
+        // Sheets are crossed by their unsigned distance: the child's, kept within the shell, if it is nearer.
+        float d = growClearEye(growFractalChild(abs(c.x) / 3.0, abs(m.x), reach), p, 0.6);
+        if (d < abs(m.x)) m = vec3(d, c.y, c.z);
+    }
+    m.x *= k;
     vec3 s = sin(q * 4.5 + uTime * PETAL_RATE(1600) + vec3(0.0, 2.1, 4.2));
     m.x += gPetalChaos * 0.04 * (s.x * s.y + s.z);
     return m;

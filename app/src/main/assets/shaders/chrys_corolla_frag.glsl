@@ -52,7 +52,7 @@ out vec4 fragColor;
 // roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission,
 // k1 TEXTURE the petals' width, k2 FLOW added to Warp's share of the shag, k3
 // TONE the palette position, k4 BUILD the near-miss glow, k5 SPACE the reach
-// of the orbit. The mids turn the head on its axis (chrysMidTurn).
+// of the orbit.
 
 #define CO_MAX_STEPS 112
 #define CO_BOUND 1.8
@@ -154,7 +154,7 @@ void main() {
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     gBass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);
-    gSpin = t * 0.04 + uDrift * 0.1 + chrysMidTurn();
+    gSpin = t * 0.04 + uDrift * 0.1;
     gLowQ = uSteps < 72.0;
     gChaos = clamp(uTurbulence + max(uWarp + 0.5 * kFlow, 0.0), 0.0, 2.0);
     gRings = 3.0 + step(0.5, uMorph);

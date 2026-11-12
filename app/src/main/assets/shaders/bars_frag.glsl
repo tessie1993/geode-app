@@ -58,7 +58,10 @@ out vec4 fragColor;
 //   k0 PULSE    how far the beat throws the caps
 //   k1 TEXTURE  how many window bands a tower has
 //   k2 FLOW     a slow standing swell of the snare's wave, with or without snare
-//   k3 TONE     the city's hue
+//   k3 TONE     the skyline's tilt across the spectrum: a high melody lifts
+//               the treble towers by the kerb and lowers the bass walls at the
+//               edges, a low one the reverse, so the city leans with the tune
+//               (and a small hue offset, as before)
 //   k4 BUILD    the tower height per unit of band level
 //   k5 SPACE    the fog: the far end of the avenue clears or closes in
 //
@@ -118,6 +121,7 @@ float gGain;
 float gScatter;
 float gRound;
 float gTurn;
+float gTilt;
 
 float barsKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
@@ -162,7 +166,9 @@ float map(vec3 p) {
         float seg = 1.0 - (lane + 0.5) / BARS_LANES;
         float lvl = clamp(0.5 * sndEq(seg), 0.0, 1.5);
         float wave = gWaveAmp * sin(lane * 0.7 + cc.y * (BARS_TAU / 16.0) - uTime * 3.0);
-        float top = BARS_FLOOR + 0.15 + gGain * lvl * (1.0 + gScatter * (2.0 * h - 1.0)) + wave;
+        // TONE leans the skyline: seg 1 is the kerb (treble), 0 the outer bass lane.
+        float lean = max(1.0 + gTilt * (2.0 * seg - 1.0), 0.15);
+        float top = BARS_FLOOR + 0.15 + gGain * lvl * lean * (1.0 + gScatter * (2.0 * h - 1.0)) + wave;
         top = clamp(top, BARS_FLOOR + 0.05, BARS_HMAX - BARS_CAP_GAP - BARS_CAP_H - 0.3);
         // The cap: thrown up on the beat and falling back with gravity's shape.
         float capY = min(top + BARS_CAP_GAP + gThrow * gBeatFall * barsRegion(seg), BARS_HMAX - BARS_CAP_H);
@@ -249,6 +255,7 @@ void main() {
     gScatter = 0.12 + 0.35 * clamp(uTurbulence, 0.0, 1.0);
     gRound = clamp(uMorph, 0.0, 1.0);
     gTurn = 1.6 * clamp(uWarp, 0.0, 2.0);
+    gTilt = 1.6 * barsKnob(3);
     float hue = 0.15 * barsKnob(3);
     float bands = 3.0 * (1.0 + 0.9 * barsKnob(1));
     float fog = 0.035 * (1.0 - 1.4 * barsKnob(5));
@@ -257,6 +264,8 @@ void main() {
     float hitT = -1.0;
     float glow = 0.0;
     float glowSeg = 0.0;
+    // The halo's depth, weighted like the halo, to colour it by how far off it hangs.
+    float glowT = 0.0;
     for (int i = 0; i < BARS_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -271,6 +280,7 @@ void main() {
         float w = exp(-max(d, 0.0) * 5.0) * gLvl * 0.02;
         glow += w;
         glowSeg += w * gSeg;
+        glowT += w * t;
         t += d * 0.9;
         if (t > BARS_FAR) break;
     }
@@ -316,11 +326,17 @@ void main() {
             vec3 e = emissive(p, n, hue, bands);
             vec3 facade = pal(gSeg + hue + 0.5) * (0.02 + 0.05 * dif);
             float spec = pow(max(dot(reflect(rd, n), L), 0.0), 32.0);
-            col = e + facade + pal(gSeg + hue) * spec * 0.2;
+            // A rim light on every edge that turns away from the eye, so each
+            // tower stands off the one behind it (the Hollows' edge light).
+            float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+            col = e + facade + pal(gSeg + hue) * spec * 0.2 + pal(gSeg + hue + 0.5) * rim * 0.22;
         }
-        col = mix(col, sky, 1.0 - exp(-hitT * max(fog, 0.004)));
+        // Depth haze: the air's colour runs on round the palette with distance,
+        // so the near blocks and the far end of the avenue read as layers.
+        col = mix(col, skyColour(rd, hue + 0.3 * hitT / BARS_FAR), 1.0 - exp(-hitT * max(fog, 0.004)));
     }
-    col += pal(glowSeg / max(glow, 1e-4) + hue) * glow * (0.6 + 0.3 * swell);
+    float glowFar = glowT / max(glow * BARS_FAR, 1e-4);
+    col += pal(glowSeg / max(glow, 1e-4) + hue + 0.25 * glowFar) * glow * (0.6 + 0.3 * swell);
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));

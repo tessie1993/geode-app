@@ -91,6 +91,8 @@ void CompositePass::draw(const Inputs& inputs) {
     glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
     glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
     glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
+    glUniform4fv(program.loc("uGateL"), 1, inputs.gateL.data());
+    glUniform1f(program.loc("uCamGateL"), inputs.camGateL);
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -118,14 +120,18 @@ void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
     glUniform1i(p.loc("uUnderlay"), 5);
     glUniform1i(p.loc("uUnderlayBlend"), inputs.underlayBlend);
     glUniform1f(p.loc("uUnderlayAmount"), inputs.underlayAmount);
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, inputs.texL != 0 ? inputs.texL : zeroTex_);
+    glUniform1i(p.loc("uTexL"), 6);
 }
 
 void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, const TransitionCatalog::Def* definition) {
     glUniform1f(p.loc("uProgress"), inputs.progress);
     glUniform1f(p.loc("uLayerMix"), inputs.layerMix);
     glUniform1i(p.loc("uBlendMode"), inputs.blendOrdinal);
-    const int styleValue = inputs.hasLayer ? kStyleLayer
-                           : !inputs.hasOutgoing ? static_cast<int>(TransitionStyle::Cut)
+    // The layer goes over whatever the transition shows, so a style change runs under a layer as it does without.
+    glUniform1i(p.loc("uHasLayer"), inputs.hasLayer ? 1 : 0);
+    const int styleValue = !inputs.hasOutgoing ? static_cast<int>(TransitionStyle::Cut)
                            : definition ? TransitionCatalog::kStyleLibrary
                                         : static_cast<int>(inputs.transitionStyle);
     glUniform1i(p.loc("uStyle"), styleValue);
@@ -142,8 +148,9 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uFisheye"), fx.fisheye);
     glUniform1f(p.loc("uPostWarp"), fx.warp);
     glUniform1f(p.loc("uPostRipple"), fx.ripple);
-    glUniform1f(p.loc("uPostSymmetry"), static_cast<float>(fx.symmetry));
-    glUniform1f(p.loc("uPostKaleido"), fx.kaleidoscope ? 1.0f : 0.0f);
+    const SceneParams::KaleidoUniforms kaleido = SceneParams::kaleidoUniforms(fx.kaleidoFolds);
+    glUniform1f(p.loc("uPostSymmetry"), kaleido.folds);
+    glUniform1f(p.loc("uPostKaleido"), kaleido.on);
     glUniform1f(p.loc("uPostPixelate"), fx.pixelate);
     glUniform1f(p.loc("uPostTile"), fx.tile);
     glUniform1f(p.loc("uPostTwist"), fx.twist);
@@ -162,7 +169,7 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uPostBright"), grade::brightness(fx.brightness, fx.intensity));
     glUniform1f(p.loc("uPostContrast"), fx.contrast);
     glUniform1f(p.loc("uPostGamma"), fx.gamma);
-    glUniform1f(p.loc("uPostHue"), fx.colorShift + inputs.postCyclePhase);
+    glUniform1f(p.loc("uPostHue"), fx.colorShift);
 }
 
 }  // namespace geode::viz

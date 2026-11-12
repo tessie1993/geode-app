@@ -80,13 +80,16 @@ class ProcessStoresRepositoryTest {
     @Test
     fun theDirectorsSwitchAndReachRoundTripUnderTodaysKeys() {
         assertEquals(AutoDirectorSettings(enabled = true, reach = AutoDirectorStore.DEFAULT_REACH), AutoDirectorCodec.read(file.prefs))
-        val chosen = AutoDirectorSettings(enabled = false, reach = 2)
+        val chosen = AutoDirectorSettings(enabled = false, reach = 2, tuning = "lean_speed=0.5\n")
         file.prefs
             .edit()
             .also { AutoDirectorCodec.write(it, chosen) }
             .apply()
         assertEquals(chosen, AutoDirectorCodec.read(file.prefs))
-        assertEquals(mapOf("auto_director_enabled" to false, "auto_director_reach" to 2), file.values.toMap())
+        assertEquals(
+            mapOf("auto_director_enabled" to false, "auto_director_reach" to 2, "auto_director_tuning" to "lean_speed=0.5\n"),
+            file.values.toMap(),
+        )
     }
 
     @Test

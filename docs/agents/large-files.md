@@ -9,14 +9,12 @@ Kotlin files over 640 lines under `app/src/main/java/dev/geode/`, largest first,
 - `ui/StudioRender.kt` 872
 - `ui/pro/PaywallScreen.kt` 856
 - `ui/VisualGestures.kt` 827
-- `ui/VisualsQuickSettings.kt` 765
+- `ui/VisualsQuickSettings.kt` 784
 - `ui/MacroEditor.kt` 759
-- `ui/CustomizeControls.kt` 752
 - `export/LoopRender.kt` 753
+- `ui/CustomizeAdvanced.kt` 724
 - `data/TemplateRepository.kt` 723
 - `ui/CustomizeTabs.kt` 719
-- `ui/CustomizeControls.kt` 718
 - `ui/PresetsPage.kt` 714
 - `ui/ShellChrome.kt` 661
-- `ui/CustomizeAdvanced.kt` 671
 - `export/LoopExtend.kt` 642

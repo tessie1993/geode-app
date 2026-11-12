@@ -27,10 +27,6 @@ out vec4 fragColor;
 // which the CPU re-targets on a section boundary and eases over 3 s: there is
 // no section counter to hash, so that is the held step. The section envelope
 // (SND_HELD_HARD_CUT) swells the inner folds on the same bump shape while it lands. Brightness follows SND_ENERGY_TREND only.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -38,7 +34,9 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the
 // filigree's trap glow, k2 FLOW a bend of the whole world along the way (a
 // corkscrew of period 4, so the wrap holds; its slope divides the estimate),
-// k3 TONE the palette position, k4 BUILD the light threaded past the walls,
+// k3 TONE the palette position and the inversion's scale (a high melody
+// spins the walls out into finer filigree, a low one thickens them into heavy
+// arches), k4 BUILD the light threaded past the walls,
 // k5 SPACE the reach (the far plane and the fog).
 
 #define FD_MAX_STEPS 96
@@ -113,7 +111,7 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float sectBump = sin(3.14159 * sect);
 
-    gS = 1.22 + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick;
+    gS = 1.22 + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick + 0.12 * kTone;
     gBox = 1.0 + 0.10 * uOrbit.y + 0.04 * sin(uTime * 0.07 + 0.8) + 0.10 * sectBump;
     // Untwisted at rest: any standing rotation compounds over the folds into
     // noise, so only the drop turns them.
@@ -124,8 +122,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The world tiles every 4 along z, so this shift is invisible and exact
     // (power of two). Without it, far down the 8192 travel a highp z has only
     // ~0.001 of fraction left, which quantises every sample and the normals.
@@ -135,6 +132,8 @@ void main() {
     float hitT = -1.0;
     float trap = 1.0;
     float glow = 0.0;
+    // The glow's depth, weighted like the glow, to colour it by how far off it hangs.
+    float glowT = 0.0;
     float used = 0.0;
     for (int i = 0; i < FD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
@@ -147,7 +146,9 @@ void main() {
             trap = gTrap;
             break;
         }
-        glow += exp(-d * 18.0) * 0.012;
+        float g = exp(-d * 18.0) * 0.012;
+        glow += g;
+        glowT += g * t;
         t += max(d * 0.75, eps);
     }
 
@@ -161,20 +162,28 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0015 * hitT + 0.0006);
         float band = log(max(trap, 1e-4)) * 0.16;
-        vec3 base = pal(hue + 0.25 + band);
+        // Depth, as the Hollows read it: the walls' colour runs on round the
+        // palette with distance, the headlamp falls off, and every edge that
+        // turns away from the eye catches a rim light, so the nested arches
+        // separate into layers instead of one flat screen of filigree.
+        float depth = hitT / (FD_FAR * reach);
+        vec3 base = pal(hue + 0.25 + band + 0.35 * depth);
         // A headlamp at the eye, plus a cool fill from the corridor axis.
-        float diff = max(dot(n, -rd), 0.0);
+        float diff = max(dot(n, -rd), 0.0) / (1.0 + 0.03 * hitT * hitT);
         vec3 axisDir = normalize(vec3(-p.xy, 0.0) + 1e-4);
         float fill = 0.5 + 0.5 * dot(n, axisDir);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 24.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
-        col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao;
+        float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+        col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao
+            + pal(hue + 0.55 + 0.35 * depth) * rim * 0.3 * ao;
         // Trap glow on the thinnest shells: the filigree lights up.
         col += pal(hue + 0.1) * (1.0 - smoothstep(0.0, 0.06 * (1.0 + kTexture), trap)) * 0.25;
         col = mix(col, fogCol, 1.0 - exp(-hitT * FD_FOG / reach));
     }
     // Light threaded past the walls, coloured off the corridor's hue.
-    col += pal(hue + 0.15) * glow * (0.6 + 0.3 * swell) * (1.0 + kBuild);
+    float glowFar = glow > 1e-5 ? glowT / (glow * FD_FAR * reach) : 0.0;
+    col += pal(hue + 0.15 + 0.3 * glowFar) * glow * (0.6 + 0.3 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

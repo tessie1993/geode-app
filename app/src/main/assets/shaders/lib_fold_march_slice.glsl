@@ -13,7 +13,7 @@
 
 /** One section at p, seen from t: its light, and in a its opacity. */
 vec4 foldSection(vec3 p, float t) {
-    vec4 m = foldMap(foldBend(p));
+    vec4 m = FOLD_AT((p));
     float w = 2.0 * foldWidth(t);
     float fill = 1.0 - smoothstep(-w, w, m.x);
     float edge = w * w / (m.x * m.x + w * w);

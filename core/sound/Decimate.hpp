@@ -9,10 +9,9 @@ namespace geode::sound {
 // Halves a sample rate: a 47-tap half-band low-pass (windowed sinc, Blackman), then every second sample.
 // The sound engine runs it once per halving on rates of 88.2 kHz and up, so 88.2/96 kHz and 176.4/192 kHz
 // are heard at 44.1/48 kHz: the same window, filter bank and hop as the common rates, at a half or a
-// quarter of the cost, instead of an FFT twice or four times as long over content no detector reads
-// (fosfora's audio/decimate.rs). Flat to within 0.1 dB up to 0.2 of the input rate (19.2 kHz at 96 kHz),
-// 50 dB down at 0.3 (28.8 kHz) and 79 dB from 0.32, so what folds back lands above 19 kHz. Delay: 23
-// input samples.
+// quarter of the cost, instead of an FFT twice or four times as long over content no detector reads.
+// Flat to within 0.1 dB up to 0.2 of the input rate (19.2 kHz at 96 kHz), 50 dB down at 0.3 (28.8 kHz)
+// and 79 dB from 0.32, so what folds back lands above 19 kHz. Delay: 23 input samples.
 class HalfBand {
 public:
     static constexpr int kTaps = 47;

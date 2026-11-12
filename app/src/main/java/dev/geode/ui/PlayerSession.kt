@@ -15,7 +15,6 @@ import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
-import dev.geode.data.FileTemplateRepository
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryState
 import dev.geode.data.LookSource
@@ -161,7 +160,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    private val templateRepository: TemplateRepository = FileTemplateRepository.from(application)
+    private val templateRepository: TemplateRepository = TemplateRepository.from(application)
 
     internal val templateLibrary: TemplateController =
         TemplateController(
@@ -253,6 +252,7 @@ class PlayerSession internal constructor(
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
             },
+            container.autoDirector::setKept,
         )
 
     val adsrs: StateFlow<String> get() = modulation.adsrs

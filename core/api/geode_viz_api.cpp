@@ -23,13 +23,17 @@
 #include "sound/Tuning.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
+#include "viz/AutoDraw.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/LookSnapshot.hpp"
+#include "viz/MacroBank.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -198,6 +202,17 @@ static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
+static_assert(layer_state::kBlends == kBlendModes && layer_state::kDefaultBlend == GEODE_LAYER_BLEND_DEFAULT);
+static_assert(static_cast<int>(layer_state::Field::On) == GEODE_LAYER_ON);
+static_assert(static_cast<int>(layer_state::Field::Source) == GEODE_LAYER_SOURCE);
+static_assert(static_cast<int>(layer_state::Field::Knob) == GEODE_LAYER_KNOB);
+static_assert(static_cast<int>(layer_state::Field::Blend) == GEODE_LAYER_BLEND);
+static_assert(static_cast<int>(layer_state::Field::Mix) == GEODE_LAYER_MIX);
+static_assert(static_cast<int>(layer_state::Field::Style) == GEODE_LAYER_STYLE);
+static_assert(static_cast<int>(layer_state::Source::User) == GEODE_LAYER_SOURCE_USER);
+static_assert(static_cast<int>(layer_state::Source::Director) == GEODE_LAYER_SOURCE_DIRECTOR);
+static_assert(static_cast<int>(layer_state::Source::Macro) == GEODE_LAYER_SOURCE_MACRO);
+static_assert(layer_state::kSources == 3);
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
 // between calls matter, and steady_clock never jumps with the wall clock.
@@ -214,6 +229,39 @@ double bootSeconds() {
 }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
+
+// Customize › Layers' texts: valid until this thread's next layer call, like the macro bank's.
+const char* layerOut(std::string out) {
+    thread_local std::string held;
+    held = std::move(out);
+    return held.c_str();
+}
+
+// The Macro source's choice: the knobs on screen, as the bank every live renderer reads has them.
+std::vector<std::pair<int, std::string>> layerKnobs() {
+    std::vector<std::pair<int, std::string>> knobs;
+    if (const auto bank = macrobank::global()) {
+        for (const macrobank::Knob& knob : bank->knobs) {
+            if (knob.shown) knobs.emplace_back(knob.id, knob.name);
+        }
+    }
+    return knobs;
+}
+
+// Customize › Layers' page over the style on screen, for the layer native keeps.
+layer_pick::Editor layerPage(const char* active_style, int family) {
+    std::vector<int> ids;
+    for (const auto& knob : layerKnobs()) ids.push_back(knob.first);
+    return layer_pick::editor(layer_state::get(), text(active_style), layer_state::shown(), family, ids);
+}
+
+// One entry of a list that crosses the ABI a line each: no line break gets in from a name.
+void addLine(std::string& out, std::string entry) {
+    std::replace(entry.begin(), entry.end(), '\n', ' ');
+    std::replace(entry.begin(), entry.end(), '\r', ' ');
+    out += entry;
+    out += '\n';
+}
 
 }  // namespace
 
@@ -606,15 +654,126 @@ void geode_director_reach_set(int level) { director::setReach(level); }
 
 void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }
 
-void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
+void geode_director_tuning_set(const char* tuning) { director::setTuning(text(tuning)); }
 
-void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
-    layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+int geode_director_tuning_count(void) { return director::kTunes; }
+
+const char* geode_director_tuning_label(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].label : "";
 }
 
-const char* geode_layer_blend_names(void) {
+const char* geode_director_tuning_help(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].help : "";
+}
+
+int geode_director_tuning_range(int index, float* out4) {
+    if (index < 0 || index >= director::kTunes || !out4) return 0;
+    const director::TuneSpec& s = director::tuneSpecs()[static_cast<size_t>(index)];
+    out4[0] = s.min;
+    out4[1] = s.max;
+    out4[2] = s.step;
+    out4[3] = director::isSwitch(s) ? 1.0f : 0.0f;
+    return 1;
+}
+
+float geode_director_tuning_value(const char* tuning, int index) {
+    if (index < 0 || index >= director::kTunes) return 0.0f;
+    return director::parseTuning(text(tuning)).v[static_cast<size_t>(index)];
+}
+
+const char* geode_director_tuning_value_text(const char* tuning, int index) {
+    return layerOut(director::valueText(director::parseTuning(text(tuning)), index));
+}
+
+const char* geode_director_tuning_with(const char* tuning, int index, float value) {
+    return layerOut(director::tuningWith(text(tuning), index, value));
+}
+
+int geode_auto_pick_among(const char* ids, int on_screen, int director_moment) {
+    const std::string pool = text(ids);
+    if (director_moment != 0) {
+        const int pick = director::pickStyle(pool, on_screen);
+        if (pick != director::kNoIntent) return pick;
+    }
+    const int count = pool.empty() ? 0 : static_cast<int>(std::count(pool.begin(), pool.end(), '\n')) + 1;
+    return auto_draw::pick(count, on_screen);
+}
+
+void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
+
+void geode_layer_set(const char* layer) { layer_state::set(layer_state::decode(text(layer))); }
+
+const char* geode_layer_edit(int field, float value, const char* style_id) {
     try {
-        return blendModeLabels().c_str();
+        if (field < GEODE_LAYER_ON || field > GEODE_LAYER_STYLE) return "";
+        if (field == GEODE_LAYER_KNOB) {
+            // The page hands back a place among the knobs it was shown; the layer keeps that knob's id.
+            const auto knobs = layerKnobs();
+            if (!std::isfinite(value) || value < 0.0f || value >= static_cast<float>(knobs.size())) return "";
+            value = static_cast<float>(knobs[static_cast<size_t>(value)].first);
+        }
+        if (!layer_state::change(static_cast<layer_state::Field>(field), value, text(style_id))) return "";
+        return layerOut(layer_state::encode(layer_state::get()));
+    } catch (...) {
+        return "";
+    }
+}
+
+int geode_layer_values(const char* active_style, int family, float* out, int capacity) {
+    if (!out || capacity < GEODE_LAYER_VALUES) return 0;
+    try {
+        const layer_pick::Editor page = layerPage(active_style, family);
+        out[GEODE_LAYER_ON] = page.layer.on ? 1.0f : 0.0f;
+        out[GEODE_LAYER_SOURCE] = static_cast<float>(page.layer.source);
+        out[GEODE_LAYER_KNOB] = static_cast<float>(page.knob);
+        out[GEODE_LAYER_BLEND] = static_cast<float>(page.layer.blend);
+        out[GEODE_LAYER_MIX] = page.layer.mix;
+        out[GEODE_LAYER_STYLE] = static_cast<float>(page.style);
+        out[GEODE_LAYER_FAMILY] = static_cast<float>(page.family);
+        out[GEODE_LAYER_PICKED] = page.layer.sceneId.empty() ? 0.0f : 1.0f;
+        return GEODE_LAYER_VALUES;
+    } catch (...) {
+        return 0;
+    }
+}
+
+const char* geode_layer_list(int list, const char* active_style, int family) {
+    try {
+        std::string out;
+        switch (list) {
+            case GEODE_LAYER_LIST_SOURCES:
+                for (int i = 0; i < layer_state::kSources; ++i) addLine(out, layer_pick::sourceLabel(static_cast<layer_state::Source>(i)));
+                break;
+            case GEODE_LAYER_LIST_BLENDS:
+                for (int i = 0; i < kBlendModes; ++i) addLine(out, blendModeLabel(static_cast<BlendMode>(i)));
+                break;
+            case GEODE_LAYER_LIST_FAMILIES: {
+                const layer_pick::Editor page = layerPage(active_style, family);
+                for (const std::string& name : page.families) addLine(out, name);
+                break;
+            }
+            case GEODE_LAYER_LIST_STYLES: {
+                const layer_pick::Editor page = layerPage(active_style, family);
+                for (const std::string& id : page.styles) addLine(out, id);
+                break;
+            }
+            case GEODE_LAYER_LIST_KNOBS: {
+                const auto knobs = layerKnobs();
+                for (const auto& knob : knobs) addLine(out, knob.second);
+                break;
+            }
+            default:
+                break;
+        }
+        return layerOut(std::move(out));
+    } catch (...) {
+        return "";
+    }
+}
+
+const char* geode_layer_shown(const char* active_style) {
+    try {
+        return layerOut(layerPage(active_style, -1).shown);
     } catch (...) {
         return "";
     }

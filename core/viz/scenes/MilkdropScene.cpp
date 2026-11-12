@@ -187,7 +187,6 @@ void MilkdropScene::armLastPreset() {
 void MilkdropScene::update(const GeodeSoundFrame& /*features*/, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     if (!engine_) return;
     const bool offscreen = host_.offscreen && host_.offscreen();
     // Presets read the real rate: the paced one live (30 on the wallpaper, less on a hot phone), an
@@ -347,7 +346,7 @@ void MilkdropScene::draw(float timeSeconds) {
     set1f("uPalBase", p.paletteBase());
     set1f("uPalSpan", grade::paletteSpan(p.hueRange, p.paletteRange()));
     set1f("uPalTint", grade::paletteTintAmount(p.milkdropPaletteTint));
-    set1f("uHue", p.colorShift + cyclePhase_);
+    set1f("uHue", p.colorShift);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);
     set1f("uContrast", p.contrast);

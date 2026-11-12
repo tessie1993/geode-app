@@ -52,7 +52,6 @@ import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
@@ -190,7 +189,7 @@ internal fun CustomizePanel(
     }
 }
 
-private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(SceneParamsCodec.pack(params))
+private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(params.frame())
 
 /**
  * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo

@@ -54,7 +54,10 @@ out vec4 fragColor;
 //
 // Knobs (offsets from 0.5): k0 PULSE kick depth, k1 TEXTURE pattern density,
 // k2 FLOW pattern speed (a crossfade of two fixed rates, so it never jumps),
-// k3 TONE hue, k4 BUILD gem glow, k5 SPACE tube width.
+// k3 TONE where the gems hang (a high melody draws them in off the mirrors
+// toward the flight axis, so the eye threads between them; a low one presses
+// them back against the glass; plus a small hue offset), k4 BUILD gem glow,
+// k5 SPACE tube width.
 // Params: Morph melts the gems from octahedra to cubes, Warp waves the folds'
 // angle along the tube, Turbulence ripples the mirror faces, Symmetry and the
 // Kaleidoscope switch still fold the screen in view() on top.
@@ -97,6 +100,7 @@ float gGem;
 float gMorph;
 float gTurb;
 float gWarp;
+float gGemReach;
 float gSpin;
 float gLip;
 float gMat;
@@ -146,7 +150,7 @@ float kalTube(vec3 p, float seg, out float mat) {
     float h1 = uhashUnit(h);
     float h2 = uhashUnit(uhash(h));
     float ang = seg * (0.1 + 0.3 * h1);
-    float rad = gR * (0.42 + 0.26 * h2);
+    float rad = gR * (0.42 + 0.26 * h2) * gGemReach;
     vec3 s = vec3(q.x - rad * cos(ang), q.y - rad * sin(ang), lz);
     float sa = gSpin + h1 * KA_TAU;
     s.xz = mat2(cos(sa), -sin(sa), sin(sa), cos(sa)) * s.xz;
@@ -214,6 +218,8 @@ void main() {
     gTurb = 0.22 * clamp(uTurbulence, 0.0, 1.0);
     gWarp = 0.25 * clamp(uWarp, 0.0, 1.0);
     gSpin = uTime * 0.35;
+    // TONE: how far out from the axis the gems hang (1 at rest).
+    gGemReach = clamp(1.0 - 1.0 * kalKnob(3), 0.55, 1.3);
     // dtheta/dz of the twist plus the warp wave, times the largest radius met
     // inside the tube (its corner, at most apothem / cos(pi / 4)).
     float dth = KA_TWIST + gWarp * (KA_TAU / 16.0);

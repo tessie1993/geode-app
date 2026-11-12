@@ -20,16 +20,15 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mids (SND_MID_PRESENCE) drive the rings: they push every gimbal ahead while the
-// mids climb, on top of a base rate that loudness sets (uFlowPhase, which
-// only ever advances, so the rings never stutter backwards). Palette switching
+// The rings turn on time alone, never on the sound (owner 2026-11-12, no
+// style spins to the music). Palette switching
 // as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the clock and the rings. Complexity: uMorph adds a
 // fourth ring and grows the core. Chaos: uWarp/uTurbulence bend the rings.
-// Energy: uIntensity scales the mids' push. Colour: diveColor. Space: the rig.
+// Colour: diveColor. Space: the rig.
 
 void main() {
     vec2 uv = view();

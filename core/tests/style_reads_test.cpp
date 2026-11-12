@@ -254,9 +254,8 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
 // Customize › Look on a shader style is the style's own grade() and pal(): the composite leaves the shader
 // family ungraded (grade::gateFor), so a style that stops reading one of these uniforms leaves its control dead.
 void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
-    static const char* const kLook[] = {"uPalBase",    "uPalRange", "uPal2Base", "uPaletteMix", "uPalLutMix",
-                                        "uColorShift", "uHueRange", "uSat",      "uBright",     "uContrast",
-                                        "uGamma",      "uIntensity", "uTemperature", "uBloom"};
+    static const char* const kLook[] = {"uPalBase", "uPalRange",  "uPalLutMix", "uColorShift",  "uHueRange", "uSat", "uBright",
+                                        "uContrast", "uGamma", "uIntensity", "uTemperature", "uBloom"};
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     for (const std::string& id : catalogue::allIds()) {
@@ -366,8 +365,15 @@ const std::vector<Carrier>& shaderCarriers() {
         {"ripple", {"uRipple"}},
         {"morph", {"uMorph"}},
         {"twist", {"uTwist"}},
-        {"kaleidoscope", {"uKaleido"}},
-        {"symmetry", {"uSymmetry"}},
+        // Kaleidoscope's one slider: on from 2 folds (uKaleido) at its count (uSymmetry), SceneParams::kaleidoUniforms.
+        {"kaleidoFolds", {"uKaleido", "uSymmetry"}},
+        // Grow and layers (Customize › Shape › Grow), shown only on the family styles whose library draws them.
+        {"spawn", {"uSpawn"}},
+        {"fractal", {"uFractal"}},
+        {"frontLayer", {"uFrontLayer"}},
+        {"backLayer", {"uBackLayer"}},
+        // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
+        {"formula", {"uFormula"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},
@@ -380,14 +386,7 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop2", {"uPalStops"}},
         {"paletteStop3", {"uPalStops"}},
         {"paletteStop4", {"uPalStops"}},
-        {"palette2", {"uPal2Base"}},
-        {"palette2BaseOverride", {"uPal2Base"}},
-        {"palette2RangeOverride", {"uPal2Range"}},
-        {"paletteMix", {"uPaletteMix"}},
-        {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
-        {"colorCycle", {"uColorShift"}},
-        {"cycleSpeed", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},
         {"brightness", {"uBright"}},
@@ -402,7 +401,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"invert", {"uInvert"}},
         // Audio drive is lib_sound's uSoundDrive (SoundUniforms::upload). The band trims scale the frame's
         // band fields (viz/BandTrim) before the style, its MotionField (uBassRel ..) and the
-        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence, mids turn the drift.
+        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence. The mids no longer
+        // turn the drift (owner 2026-11-12, no style spins to the music).
         {"audioDrive", {"uSoundDrive"}},
         {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW", "uBassRel", "uZoom"}},
         {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID", "uMidRel"}},
@@ -504,10 +504,9 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
-    // MotionField's spin only turns a style the catalogue gives a spin rate; mids turn it too.
+    // MotionField's spin only turns a style the catalogue gives a spin rate; no sound turns it.
     const bool spins = catalogue::spinRate(styleId) != 0.0f;
     if (field == "motionDrift") return spins && words.count("uRotation") != 0;
-    if (field == "midGain" && spins && words.count("uRotation") != 0) return true;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
@@ -553,10 +552,10 @@ std::string readFile(const std::string& path) {
 // the geometry and stylize group to MilkDrop and the fluid family alike, mirror, invert and the colour grade
 // (zoom and rotation with it) to the fluid family only; MilkDrop's own post pass does those.
 bool compositeApplies(catalogue::Kind kind, const std::string& field) {
-    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoscope", "symmetry", "pixelate", "tile",        "twist",
+    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
                                                "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
-                                                     "intensity", "contrast", "gamma", "colorShift", "colorCycle", "cycleSpeed"};
+                                                     "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;
     return kind != catalogue::Kind::Milkdrop && kFluidOnly.count(field) != 0;
 }

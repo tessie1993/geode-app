@@ -55,7 +55,7 @@ const std::map<std::string, const char*> kAllowed = {
     {"Adsr.cpp", "an envelope the user set, triggered on the onset"},
     {"NoteResponse.cpp", "Note & key reactions, the user's switch (Settings > Behaviour) and drum amount"},
     {"MotionField.cpp", "the Motion dials the user sets; at 0 nothing hears the sound (resolver_test)"},
-    {"CameraRig.cpp", "the camera's music moves (Shake, Reframe), the user's dials"},
+    {"CameraRig.cpp", "the camera's music moves (Shake), the user's dials"},
     {"fluid/FluidEmitters.cpp", "Customize > Hit splats and Radius on hit, the user's (0 is off)"},
     {"fluid/FluidEmitters.hpp", "Customize > Hit splats: its hit edge"},
     {"scenes/FluidScene.cpp", "uBeat for the user's own injection shader (Customize's editor)"},
@@ -63,7 +63,7 @@ const std::map<std::string, const char*> kAllowed = {
 
 // Scenes that still read the drums on their own. May only shrink.
 const std::map<std::string, const char*> kGaps = {
-    {"scenes/AcidScene.cpp", "the kick toggle turns the vortex, the kick random re-aims the centre, kick16 swaps the source and nudges the hue"},
+    {"scenes/AcidScene.cpp", "the kick random re-aims the centre, kick16 swaps the source and nudges the hue"},
     {"scenes/SilkScene.cpp", "kick4 re-seeds the strokes, kick8 jumps the damping, kick16 steps the folds, an onset ends the hush"},
     {"scenes/LifeScene.cpp", "the onset envelope in the solver's rate, kick8 turns the drift, kick16 steps the rule, snare and hat feed it"},
     {"fluid/FluidMath.cpp", "drives(): kick, hat, snare and onset envelopes blended into heat, stir and streak"},

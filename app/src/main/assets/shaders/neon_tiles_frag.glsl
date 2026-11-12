@@ -34,13 +34,8 @@ out vec4 fragColor;
 // Treble (SND_HIGH)           neon line width, as in the flat style.
 // Bass (SND_BASS_PRESENCE)    the orb's refraction: its index rises, the hall
 //                              behind it bends harder.
-// Mid (uFlowPhase)            the hall's spin, integrated so it never snaps.
-// Mids (SND_MIDDLE)           push the hall round on top of that spin while
-//                              they climb and ease it back as they fall:
-//                              lib_flame's gFlameTurn, 0.6 x sndShaped x
-//                              SND_DRIVE (0.9 rad at most, 0 in silence). A
-//                              level, not a rate, so it never runs away. Mid
-//                              gain scales it.
+// (no sound spins the hall: it turns on time alone, owner 2026-11-12, no style
+//                              spins to the music)
 // Kick (SND_KICK_ENV)         the tiles just ahead of the eye push out of the
 //                              wall (geometry, not brightness).
 // Section (SND_CUT_COUNT)     re-tiles the hall: 4, 6 or 8 faces, the prism
@@ -49,7 +44,10 @@ out vec4 fragColor;
 //                              uSymmetry still pins the face count.
 // Level (SND_LEVEL)           the neon bloom (col += k col^2).
 // Knobs: k0 PULSE kick push, k1 TEXTURE line width, k2 FLOW wall wave,
-// k3 TONE hue, k4 BUILD bloom, k5 SPACE hall width (all exactly neutral at 0.5).
+// k3 TONE the tiles' relief and a small hue offset (a high melody raises the
+// stars and crosses out of the wall in deep relief, a low one presses them
+// nearly flat; the step bound follows the height), k4 BUILD bloom, k5 SPACE
+// hall width (all exactly neutral at 0.5).
 // Morph raises the tiles, Warp waves the walls, Turbulence lights the fine lattice.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -292,11 +290,10 @@ void main() {
         gRelight = gFoldA == gFoldB ? 1.0 : 0.25 + 0.75 * abs(2.0 * sw - 1.0);
     }
 
-    // Integrated spin: `uTime * rate(mid)` would jump the hall round whenever
-    // the mid band moved.
-    gSpin = uFlowPhase * 1.6 + uTime * 0.03 + 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.51;
     gR = 2.2 * (1.0 + 0.3 * k5);
-    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0));
+    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 1.6 * k3);
     gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);
     gKick = 1.2 * kick * clamp(1.0 + 2.0 * k0, 0.0, 2.0);
     float liftMax = gH * (1.0 + gKick);

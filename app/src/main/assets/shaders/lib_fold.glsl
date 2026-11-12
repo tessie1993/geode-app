@@ -53,17 +53,16 @@
 // lib_sound's shaped reads, in foldSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gFoldTurn   the mid band, sndShaped(SND_MIDDLE), pushes space round about
-//   the way ahead while the mids climb and eases back as they fall, as
-//   lib_dive's gDiveSpin does. Mid gain scales it.
 //   gFoldSwell  the low band, sndShaped(SND_LOW), widens the Warp's sway (or a
 //   corridor's swell), never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -74,6 +73,12 @@
 // SAFE MATHS. Every inversion clamps its radius from below, every running
 // scale is clamped, no root or log sees a negative number or zero, and every
 // iterated fold keeps a fixed point, so its fractal is never empty.
+//
+// GROW AND LAYERS (lib_grow, foldGrow): every march reads the map through
+// FOLD_AT. Spawn slides a second fractal off the first along the way, Fractal
+// grows the fractal again a third the size within a shell round its surface,
+// Front layer opens the fractal round the eye and Back layer down the way.
+// Each costs nothing at 0.
 //
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
@@ -99,8 +104,7 @@
 float gFoldForm;
 float gFoldFlow;
 float gFoldChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gFoldTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gFoldSwell;
 /** How far a march reaches, world units. */
 float gFoldFar;
@@ -214,7 +218,6 @@ void foldSetup() {
     gFoldDense = 0.5;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gFoldTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFoldSwell = sndShaped(SND_LOW) * drive;
     gFoldPal0 = pal(0.0);
     gFoldPal1 = pal(0.25);
@@ -224,14 +227,14 @@ void foldSetup() {
 }
 
 /**
- * Warp and Turbulence on space: a twist about z that comes and goes along the way (and the mids' push),
+ * Warp and Turbulence on space: a twist about z that comes and goes along the way,
  * a sideways sway (and the lows' swell), or for a corridor a swell and pinch about the axis, and a ripple.
  */
 vec3 foldBend(vec3 p) {
     float zc = p.z * (FOLD_TAU / FOLD_PERIOD);
     float reach = min(gFoldFlow + 0.3 * gFoldSwell, 1.0);
     float side = 1.0 - gFoldAxial;
-    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160)) + gFoldTurn) * p.xy;
+    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160))) * p.xy;
     p.xy *= 1.0 + gFoldAxial * 0.3 * reach * sin(3.0 * zc + uTime * FOLD_RATE(200));
     p.x += side * 0.5 * reach * sin(2.0 * zc + 0.9 * p.y + uTime * FOLD_RATE(230));
     p.y += side * gFoldFlow * 0.4 * cos(zc - 0.7 * p.x);
@@ -239,11 +242,46 @@ vec3 foldBend(vec3 p) {
     return p;
 }
 
+/**
+ * Grow and layers (lib_grow) on one foldMap reading m at p: `spawn` is the map a slid copy reads and
+ * `child` the map in Fractal's child space (FOLD_AT reads each only while its param is on, else passes
+ * 1.0e9). Spawn's copy is the nearer where it is; Fractal's child, a third the size, grows within its
+ * shell round the fractal; the layers open the fractal round the eye (front) and down the way (back), the
+ * distance taken back to world units by the same scale foldQ read the map at. At the defaults m comes back
+ * as it went in.
+ */
+vec4 foldGrow(vec3 p, vec4 m, vec4 spawn, vec4 child) {
+    spawn.x = growClearEye(spawn.x, p, 0.5);
+    if (spawn.x < m.x) m = spawn;
+    float reach = growFractalReach(0.15);
+    if (reach > 0.0) {
+        child.x = growClearEye(growFractalChild(child.x / 3.0, m.x, reach), p, 0.5);
+        child.zw /= 3.0;
+        if (child.x < m.x) m = child;
+    }
+    m.x *= growOpen(p, 0.18);
+    return m;
+}
+
+/** Where the style's map is read for world point p: bent, and opened by the layers (q itself at rest). */
+vec3 foldQ(vec3 p) {
+    return growOpened(foldBend(p), growOpen(p, 0.18));
+}
+
+/**
+ * The style's foldMap at world point p, bent, and grown (foldGrow). A macro, so the marches (which come
+ * after the style's map) call the map through it without a prototype; a ternary reads only the side it
+ * takes, so the off params cost no map. One line: a macro here never continues onto the next.
+ */
+#define FOLD_AT(p) foldGrow((p), foldMap(foldQ(p)), uSpawn > 0.0 ? foldMap(foldQ(p) + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0)) : vec4(1.0e9), uFractal > 0.0 ? foldMap(growChildSpace(foldQ(p), 3.0, 2.0)) : vec4(1.0e9))
+
 /** A corridor's eye, held where the air is. */
 vec3 foldEye(vec3 ro) {
     ro.z = mod(ro.z, FOLD_PERIOD);
     float r = length(ro.xy);
     if (r > gFoldBore) ro.xy *= gFoldBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

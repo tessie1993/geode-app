@@ -46,15 +46,12 @@ out vec4 fragColor;
 //                                0-1-0 bump so they glide instead of snapping
 //   pitch (SND_HELD_NOTE_CHANGE) nudges the hue, and the key hue tints it
 //   SND_ENERGY_TREND             overall level
-//   mids (SND_MIDDLE)            turn the sun about its vertical axis while
-//                                they climb, easing back as they fall:
-//                                lib_flame's gFlameTurn, 0.6 x sndShaped x
-//                                SND_DRIVE (0.9 rad at most, 0 in silence).
-//                                Mid gain scales it.
 //
 // Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the kick swell, k1
-// TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE the hue, k4 BUILD
-// the prominence height, k5 SPACE the corona's reach.
+// TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE where the
+// streamers stand (a high melody lifts them off the equator into plumes at the
+// poles, a low one gathers them into a tight equatorial belt; plus a small hue
+// offset), k4 BUILD the prominence height, k5 SPACE the corona's reach.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -133,10 +130,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, SO_CAM_R, 1.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the sun about its vertical axis (see the header): the eye and its ray turn the other way.
-    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
 
     float low = sndShaped(SND_LOW);
     float high = sndShaped(SND_HIGH);
@@ -149,6 +142,8 @@ void main() {
     float hue = 0.06 + 0.1 * (uKnob[3] - 0.5) + 0.08 * pitch
               + 0.05 * sin(SO_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
     float ext = 1.0 + 0.6 * (uKnob[5] - 0.5);
+    float tonePush = clamp(1.4 * (uKnob[3] - 0.5), 0.0, 0.7);
+    float tonePull = clamp(0.5 - uKnob[3], 0.0, 0.5);
 
     // ---- the photosphere's shape for this frame -------------------------------
     gSpin = rotY(uTime * 0.04);
@@ -234,7 +229,10 @@ void main() {
             float rayHi = pow(max(0.0, sin(ph * (nLo + 1.0))), 3.0);
             // abs(lon) / pi runs 0..1..0 round the sun, so the EQ read has no seam.
             float rays = mix(rayLo, rayHi, nMix) * 0.5 * sndEq(abs(lon) / SO_PI);
-            rays *= 0.45 + 0.55 * (1.0 - dir.y * dir.y);
+            // TONE moves the streamers in latitude; at rest this is 1 - y^2.
+            float lat = dir.y * dir.y;
+            float belt = mix(pow(1.0 - lat, 1.0 + 3.0 * tonePull), lat, tonePush);
+            rays *= 0.45 + 0.55 * belt;
             float x = (r - gR) / ext;
             float dens = exp(-x * 3.5) * (0.35 + rays + low);
 

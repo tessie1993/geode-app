@@ -19,6 +19,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -41,10 +42,9 @@ void check(bool ok, const std::string& what) {
         ++failures;
     }
 }
-
-// The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
+// The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 187;
+constexpr int kWireFloats = 198;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -66,12 +66,24 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
+    check(static_cast<int>(ParamSlot::flowCurl) == 108, "flowCurl keeps its slot");
+    check(static_cast<int>(ParamSlot::reactSeed) == 153, "reactSeed keeps its slot");
     check(static_cast<int>(ParamSlot::camFlat) == 163, "camFlat keeps its slot");
     check(static_cast<int>(ParamSlot::paletteStop4) == 168, "paletteStop4 keeps its slot");
     check(static_cast<int>(ParamSlot::diveFollow) == 177, "diveFollow keeps its slot");
     check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
           "the palette amounts follow it, the primary first");
-    check(static_cast<int>(ParamSlot::paletteShift) == kWireFloats - 1, "paletteShift is the wire's last float");
+    check(static_cast<int>(ParamSlot::paletteShift) == 186, "paletteShift keeps its slot");
+    check(static_cast<int>(ParamSlot::kaleidoFolds) == 187, "kaleidoFolds keeps its slot");
+    check(static_cast<int>(ParamSlot::layerMix) == 188, "layerMix keeps its slot");
+    check(static_cast<int>(ParamSlot::simFluid) == 189 && static_cast<int>(ParamSlot::simParticles) == 190 &&
+              static_cast<int>(ParamSlot::simForce) == 191 && static_cast<int>(ParamSlot::simLayerOrder) == 192,
+          "the physics layers follow it");
+    check(static_cast<int>(ParamSlot::spawn) == 193 && static_cast<int>(ParamSlot::fractal) == 194 &&
+              static_cast<int>(ParamSlot::frontLayer) == 195,
+          "Grow and layers follow them");
+    check(static_cast<int>(ParamSlot::backLayer) == 196, "backLayer keeps its slot");
+    check(static_cast<int>(ParamSlot::formula) == kWireFloats - 1, "formula is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -139,7 +151,7 @@ void anOldLookWithRetiredNamesStillLoads() {
         {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
         {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
         {"motionDrift", 0.8f},  {"waterDamping", 0.95f}, {"rippleOverlayEnabled", 1.0f},
-        {"beatResponse", 1.9f},
+        {"beatResponse", 1.9f}, {"symmetry", 8.0f},  {"kaleidoscope", 1.0f},
     };
     const SceneParams fresh;
     SceneParams p;
@@ -200,13 +212,13 @@ void aBrokenWireKeepsTheDefaults() {
     std::vector<float> wire = defaults;
     wire[static_cast<size_t>(ParamSlot::speed)] = 2.5f;
     wire[static_cast<size_t>(ParamSlot::zoom)] = inf;
-    wire[static_cast<size_t>(ParamSlot::symmetry)] = 1e30f;
-    wire[static_cast<size_t>(ParamSlot::paletteLut)] = -1e30f;
+    wire[static_cast<size_t>(ParamSlot::fluidBeatSplats)] = 1e30f;
+    wire[static_cast<size_t>(ParamSlot::fluidQuality)] = -1e30f;
     wire[static_cast<size_t>(ParamSlot::fluidIterations)] = 12.6f;
     const SceneParams p = SceneParams::fromWire(wire.data());
     check(p.speed == 2.5f && p.zoom == SceneParams{}.zoom, "one bad float leaves its neighbours alone");
-    check(p.symmetry == static_cast<int>(SceneParams::spec(ParamSlot::symmetry).max), "an int over its row is held to the row's max");
-    check(p.paletteLut == SceneParams::kNoPaletteLut, "an int under its row is held to the row's min");
+    check(p.fluidBeatSplats == static_cast<int>(SceneParams::spec(ParamSlot::fluidBeatSplats).max), "an int over its row is held to the row's max");
+    check(p.fluidQuality == static_cast<int>(SceneParams::spec(ParamSlot::fluidQuality).min), "an int under its row is held to the row's min");
     check(p.fluidIterations == 13, "an int in range still rounds");
 }
 
@@ -266,6 +278,10 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
     {LfoTarget::DiveTwist, "diveTwist", -1.0f, 1.0f},   {LfoTarget::DiveAimX, "diveAimX", -0.6f, 0.6f},
     {LfoTarget::DiveAimY, "diveAimY", -0.6f, 0.6f},
+    // Grow and layers: Spawn and Fractal 0..1, the two layers -1..1 about their 0.
+    {LfoTarget::Spawn, "spawn", 0.0f, 1.0f},            {LfoTarget::Fractal, "fractal", 0.0f, 1.0f},
+    {LfoTarget::FrontLayer, "frontLayer", -1.0f, 1.0f}, {LfoTarget::BackLayer, "backLayer", -1.0f, 1.0f},
+    {LfoTarget::Formula, "formula", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -289,6 +305,18 @@ void theLfoClampsAreTheTablesRanges() {
     check(SceneParams::spec(ParamSlot::paletteShift).kind == ParamKind::Circular &&
               applyLfoTarget(base, LfoTarget::PaletteShift, 3.0f).paletteShift == base.paletteShift + 1.5f,
           "the palette position is never clamped");
+    // The kaleidoscope's folds: 8 per unit, held to Off (1) .. 16.
+    check(applyLfoTarget(base, LfoTarget::KaleidoFolds, 0.5f).kaleidoFolds == base.kaleidoFolds + 4.0f &&
+              applyLfoTarget(base, LfoTarget::KaleidoFolds, 1000.0f).kaleidoFolds == 16.0f &&
+              applyLfoTarget(base, LfoTarget::KaleidoFolds, -1000.0f).kaleidoFolds == 1.0f,
+          "a wave on the kaleidoscope moves 8 folds per unit, from off to 16");
+    // The physics layers: one unit per unit, held to their ranges (off .. full; force 0 .. 2).
+    check(applyLfoTarget(base, LfoTarget::SimFluid, 0.5f).simFluid == 0.5f && applyLfoTarget(base, LfoTarget::SimFluid, -1.0f).simFluid == 0.0f &&
+              applyLfoTarget(base, LfoTarget::SimParticles, 1000.0f).simParticles == 1.0f &&
+              applyLfoTarget(base, LfoTarget::SimForce, 1000.0f).simForce == 2.0f &&
+              applyLfoTarget(base, LfoTarget::SimForce, -0.25f).simForce == 0.75f &&
+              applyLfoTarget(base, LfoTarget::SimLayerOrder, 0.25f).simLayerOrder == 0.25f,
+          "a wave on a physics layer moves it a unit per unit, inside its range");
     // The hue is Circular: it adds unclamped, at half a turn per unit, as it always did.
     check(SceneParams::spec(ParamSlot::colorShift).kind == ParamKind::Circular, "colorShift is circular");
     check(applyLfoTarget(base, LfoTarget::ColorShift, 3.0f).colorShift == base.colorShift + 1.5f, "the hue LFO is never clamped");
@@ -348,30 +376,31 @@ void everyPickerLabelsItsRange() {
     check(SceneParams::choices(ParamSlot::speed).empty() && SceneParams::choices(ParamSlot::kCount).empty(), "a slider or no slot has none");
 }
 
-// The Folds menu is real folds in symmetry's range, rising, the default among them. Switching the kaleidoscope on
-// without a fold (below 2) takes the default; nothing else moves symmetry.
-void theKaleidoscopeFoldsAreTheMenu() {
+// The kaleidoscope is one slider, kaleidoFolds: 1 is off, 2..16 the folds. The shaders fold by its nearest whole count,
+// a half up, so a wave steps from count to count; off they read the default count. A roll deals real folds in range,
+// and a look saved with the retired switch and count opens as it was.
+void theKaleidoscopeIsOneSlider() {
+    const ParamSpec& s = SceneParams::spec(ParamSlot::kaleidoFolds);
+    check(s.kind == ParamKind::Float && s.defaultValue == 1.0f && s.min == 1.0f && s.max == 16.0f, "kaleidoFolds runs 1 (off) .. 16, off by default");
+    check(SceneParams::retired(ParamSlot::symmetry) && SceneParams::retired(ParamSlot::kaleidoscope), "the old switch and count are retired");
     const auto& folds = SceneParams::kSymmetryFolds;
-    const ParamSpec& s = SceneParams::spec(ParamSlot::symmetry);
-    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "the menu runs from 2 to symmetry's max");
+    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "a roll deals from 2 to the slider's max");
     for (size_t i = 1; i < folds.size(); ++i) check(folds[i] > folds[i - 1], "the folds rise: " + std::to_string(folds[i]));
-    check(std::find(folds.begin(), folds.end(), SceneParams::kDefaultSymmetryFolds) != folds.end(), "the default is on the menu");
-    check(s.defaultValue == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "symmetry's default is the default folds");
-    for (int n = 0; n <= static_cast<int>(s.max); ++n) {
-        check(SceneParams::kaleidoscopeFolds(false, n) == n, "switching off keeps " + std::to_string(n));
-        const int on = n < 2 ? SceneParams::kDefaultSymmetryFolds : n;
-        check(SceneParams::kaleidoscopeFolds(true, n) == on, "switching on with " + std::to_string(n));
-    }
-    // The control's answer: the menu shows with the switch, the row of the folds (-1 off the menu), what a flip leaves.
-    const std::string labels = "\n2\n3\n4\n5\n6\n7\n8\n9\n12\n16";
-    check(SceneParams::kaleidoscopeMenu(true, 6) == "1|4|6" + labels, "on at 6: shown, row 4, a flip keeps 6");
-    check(SceneParams::kaleidoscopeMenu(false, 0) == "0|-1|6" + labels, "off at 0: hidden, a flip takes the default");
-    check(SceneParams::kaleidoscopeMenu(true, 10) == "1|-1|10" + labels, "an unlisted count selects no row");
-    check(SceneParams::kaleidoscopeMenu(false, 16) == "0|9|16" + labels, "off keeps its row");
-    for (size_t i = 0; i < folds.size(); ++i) {
-        check(SceneParams::kaleidoscopePick(static_cast<int>(i)) == folds[i], "row " + std::to_string(i) + " picks its folds");
-    }
-    check(SceneParams::kaleidoscopePick(-1) == folds.front() && SceneParams::kaleidoscopePick(99) == folds.back(), "off the menu, held to it");
+    check(SceneParams::kaleidoFoldCount(1.0f) == 1 && SceneParams::kaleidoFoldCount(1.49f) == 1 && SceneParams::kaleidoFoldCount(1.5f) == 2,
+          "below 1.5 the kaleidoscope is off; a half rounds up");
+    check(SceneParams::kaleidoFoldCount(7.4f) == 7 && SceneParams::kaleidoFoldCount(7.5f) == 8 && SceneParams::kaleidoFoldCount(16.0f) == 16,
+          "the nearest whole count");
+    check(SceneParams::kaleidoFoldCount(-3.0f) == 1 && SceneParams::kaleidoFoldCount(99.0f) == 16 &&
+              SceneParams::kaleidoFoldCount(std::numeric_limits<float>::quiet_NaN()) == 1,
+          "held to 1..16, NaN off");
+    const auto off = SceneParams::kaleidoUniforms(1.2f);
+    check(off.on == 0.0f && off.folds == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "off: no fold, the default count for styles that read one");
+    const auto on = SceneParams::kaleidoUniforms(5.6f);
+    check(on.on == 1.0f && on.folds == 6.0f, "on: the whole count");
+    check(SceneParams::kaleidoUniforms(SceneParams{}.kaleidoFolds).on == 0.0f, "a fresh look has no kaleidoscope");
+    check(SceneParams::kaleidoFoldsOf(false, 8) == 1.0f && SceneParams::kaleidoFoldsOf(false, 0) == 1.0f, "an old look switched off is off");
+    check(SceneParams::kaleidoFoldsOf(true, 8) == 8.0f && SceneParams::kaleidoFoldsOf(true, 0) == 2.0f && SceneParams::kaleidoFoldsOf(true, 40) == 16.0f,
+          "an old look switched on keeps its count, held to 2..16");
 }
 
 std::vector<std::string> split(const std::string& line) {
@@ -397,7 +426,7 @@ void theTextIsTheTable() {
             const int at = f.size() == 4 ? SceneParams::slotOf(f[1]) : -1;
             const auto& labels = SceneParams::choices(static_cast<ParamSlot>(at < 0 ? SceneParams::kFieldCount : at));
             const size_t index = f.size() == 4 ? std::strtoul(f[2].c_str(), nullptr, 10) : labels.size();
-            check(palette == SceneParams::palettes().size(), "the choice rows follow the palette names: " + line);
+            check(palette == static_cast<size_t>(SceneParams::kListedPalettes), "the choice rows follow the palette names: " + line);
             check(index < labels.size() && f[3] == labels[index], "a choice row names the picker's label at its index: " + line);
             ++choiceRows;
             continue;
@@ -433,7 +462,7 @@ void theTextIsTheTable() {
         ++slot;
     }
     check(slot == kWireFloats, "one row per slot");
-    check(palette == SceneParams::palettes().size(), "one name per built-in palette");
+    check(palette == static_cast<size_t>(SceneParams::kListedPalettes), "one name per listed built-in palette, none for a retired one");
     size_t labels = 0;
     for (int s = 0; s < SceneParams::kFieldCount; ++s) labels += SceneParams::choices(static_cast<ParamSlot>(s)).size();
     check(choiceRows == labels, "one choice row per picker label");
@@ -492,31 +521,22 @@ void palettesAreTheShellsOldTable() {
     const ParamSpec& palette = SceneParams::spec(ParamSlot::palette);
     check(static_cast<int>(palette.max) == kRows - 1 && static_cast<int>(palette.min) == 0,
           "the palette field's range is the table's rows");
-    auto at = [&](int palette, float baseOverride, float rangeOverride, bool second) {
+    auto at = [&](int palette, float baseOverride, float rangeOverride) {
         SceneParams p;
-        if (second) {
-            p.palette2 = palette;
-            p.palette2BaseOverride = baseOverride;
-            p.palette2RangeOverride = rangeOverride;
-            return Row{p.palette2Base(), p.palette2Range()};
-        }
         p.palette = palette;
         p.paletteBaseOverride = baseOverride;
         p.paletteRangeOverride = rangeOverride;
         return Row{p.paletteBase(), p.paletteRange()};
     };
-    for (int second = 0; second < 2; ++second) {
-        for (int i = -3; i < kRows + 3; ++i) {
-            const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
-            const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, second != 0);
-            check(got.base == want.base && got.range == want.range,
-                  "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
-        }
-        const Row custom = at(4, 0.31f, 0.0f, second != 0);
-        check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
-        const Row half = at(4, 0.31f, -1.0f, second != 0);
-        check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
+    for (int i = -3; i < kRows + 3; ++i) {
+        const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
+        const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride);
+        check(got.base == want.base && got.range == want.range, "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
     }
+    const Row custom = at(4, 0.31f, 0.0f);
+    check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
+    const Row half = at(4, 0.31f, -1.0f);
+    check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
 }
 
 // The meta rows (#1005 PR 4a): every live row has one, a retired row none (ParamsFields.cpp also asserts
@@ -570,8 +590,47 @@ void everyLiveRowHasOneMeta() {
         check(m.scope == scope && m.rollLo == 0.0f && m.rollHi == 0.0f && (m.flags & kMod) != 0,
               std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": a target, never dealt by the param roll");
     }
-    check((SceneParams::meta(ParamSlot::paletteMix).flags & kMod) == 0, "no target writes the old Palette blend");
+    check(!SceneParams::meta(ParamSlot::paletteMix).live && !SceneParams::meta(ParamSlot::palette2).live &&
+              !SceneParams::meta(ParamSlot::paletteLut).live,
+          "Palette blend, Palette 2 and Colour map are retired: the stack draws more than one palette and the colour maps");
+    {
+        const ParamMeta& m = SceneParams::meta(ParamSlot::layerMix);
+        const ParamSpec& s = SceneParams::spec(ParamSlot::layerMix);
+        check(std::string(m.label) == "Layer mix" && m.scope == catalogue::Scope::Universal && (m.flags & kMod) != 0 &&
+                  m.rollLo == 0.0f && m.rollHi == 0.0f && s.defaultValue == 0.0f && s.min == -1.0f && s.max == 1.0f,
+              "the layer's mix is an offset a target writes on every style, 0 in every look, never rolled");
+    }
+    // The physics layers (viz/physics): targets on every style, off (0) in every look, never rolled.
+    for (const auto& [slot, label, def, hi] : {std::tuple{ParamSlot::simFluid, "Fluid layer", 0.0f, 1.0f},
+                                               std::tuple{ParamSlot::simParticles, "Particle field", 0.0f, 1.0f},
+                                               std::tuple{ParamSlot::simForce, "Physics force", 1.0f, 2.0f},
+                                               std::tuple{ParamSlot::simLayerOrder, "Fluid in front", 0.0f, 1.0f}}) {
+        const ParamMeta& m = SceneParams::meta(slot);
+        const ParamSpec& s = SceneParams::spec(slot);
+        check(std::string(m.label) == label && m.scope == catalogue::Scope::Universal && (m.flags & kMod) != 0 && m.rollLo == 0.0f &&
+                  m.rollHi == 0.0f && s.defaultValue == def && s.min == 0.0f && s.max == hi && s.fade == ParamFade::Fade,
+              std::string(s.name) + ": a physics layer target on every style, never rolled");
+    }
+    check(SceneParams{}.simFluid == 0.0f && SceneParams{}.simParticles == 0.0f, "both physics layers are off in every look");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
+    const ParamMeta& kaleido = SceneParams::meta(ParamSlot::kaleidoFolds);
+    check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&
+              !SceneParams::meta(ParamSlot::symmetry).live && !SceneParams::meta(ParamSlot::kaleidoscope).live,
+          "Kaleidoscope is kaleidoFolds alone, a modulation target on every style");
+    // Grow and layers: a modulation target each, on the family libraries' scope, never rolled, and at its default
+    // the picture as designed (0, the libraries' old path).
+    for (const char* name : {"spawn", "fractal", "frontLayer", "backLayer"}) {
+        const auto slot = static_cast<ParamSlot>(SceneParams::slotOf(name));
+        const ParamMeta& m = SceneParams::meta(slot);
+        check(m.live && m.scope == catalogue::Scope::FamilyForm && (m.flags & kMod) != 0 && m.rollLo == 0.0f && m.rollHi == 0.0f &&
+                  SceneParams::spec(slot).defaultValue == 0.0f,
+              std::string(name) + ": a target on the family scope, 0 by default, never dealt by the param roll");
+    }
+    // Formula: a target on its own scope (the styles that keep formulas), the first formula by default, never rolled.
+    const ParamMeta& formula = SceneParams::meta(ParamSlot::formula);
+    check(std::string(formula.label) == "Formula" && formula.scope == catalogue::Scope::Formula && (formula.flags & kMod) != 0 &&
+              formula.rollLo == 0.0f && formula.rollHi == 0.0f && SceneParams::spec(ParamSlot::formula).defaultValue == 0.0f,
+          "Formula: a target on its own scope, 0 by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {
@@ -589,7 +648,7 @@ int main(int argc, char** argv) {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     everyPickerLabelsItsRange();
-    theKaleidoscopeFoldsAreTheMenu();
+    theKaleidoscopeIsOneSlider();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();

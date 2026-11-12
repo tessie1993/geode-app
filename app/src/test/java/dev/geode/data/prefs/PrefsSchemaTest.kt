@@ -177,7 +177,7 @@ class PrefsSchemaTest {
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
                 val lfos = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
-                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
+                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host, pushKept = {}).toggleParamLock("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)

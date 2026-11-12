@@ -9,7 +9,28 @@
 // INCLUDE ORDER: after lib_loom and after the style's loomMap.
 
 vec4 loomField(vec3 p) {
-    return loomMap(loomBend(p));
+    float k = growOpen(p, 0.18);
+    vec3 q = growOpened(loomBend(p), k);
+    vec4 m = loomMap(q);
+    // Grow and layers (lib_grow), each off at its default. Spawn slides a second weave off the first along the
+    // way, so the strands and skins double; Fractal spins thinner strands a third the size round every strand.
+    // The layers: Front layer opens the weave round the eye, Back layer the weave down the way, and it
+    // billows the skins, the loom's own backdrop.
+    if (uSpawn > 0.0) {
+        vec4 c = loomMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
+        c.x = growClearEye(c.x, p, 0.5);
+        if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
+        if (abs(c.z) < abs(m.z)) m.z = c.z;
+    }
+    float reach = growFractalReach(0.15);
+    if (reach > 0.0) {
+        vec4 c = loomMap(growChildSpace(q, 3.0, 2.0));
+        c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.5);
+        if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
+    }
+    m.x *= k;
+    m.z -= growSwellOf(uBackLayer, p, 0.3);
+    return m;
 }
 
 /** The strand's normal at p, unit length; straight back along the ray where the field is flat. */

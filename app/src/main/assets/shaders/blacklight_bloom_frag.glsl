@@ -39,14 +39,13 @@ out vec4 fragColor;
 // lights the tetrahedra's wire. SND_HELD_NOTE_CHANGE slides the ink hue on a
 // hump. A new section (SND_CUT_COUNT) picks a new kaleidoscope fold count,
 // held for the section, unless the user has set Kaleido's arms. Nothing keys
-// brightness off a raw envelope. The mid band (SND_MIDDLE) turns the eye's
-// look aside while the mids climb and eases it back as they fall, as
-// lib_terra's terraTurn and lib_truchet's truchetTurn do: 0.1 x sndShaped x
-// SND_DRIVE screen units (0.15 at most, 0 in silence); the hall holds still.
-// Mid gain scales it.
+// brightness off a raw envelope.
 //
-// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight, k2 FLOW
-// how fast the floaters tumble, k3 TONE the ink hue, k4 BUILD how many
+// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight (k2 FLOW
+// no longer sets how fast the floaters tumble: a knob is the notes', and no
+// sound turns a style; they tumble on time alone), k3 TONE the fold's own offsets and a small ink
+// hue offset (the melody's height re-cuts the tapestry: each fold steps its
+// copies apart differently, so a rising line grows a different lattice), k4 BUILD how many
 // floaters there are, k5 SPACE the hall's width. Morph turns the folds (a
 // different tapestry), Turbulence skews the second fold rotation.
 //
@@ -273,21 +272,22 @@ void main() {
     // Kept inside 1.80..1.98: past it the strokes outrun the trap and the
     // tapestry turns to grit.
     gScale = 1.82 + 0.10 * min(swell, 1.0) + 0.06 * uMorph;
-    gOff = vec3(1.0, 0.82, 0.9);
+    // TONE re-cuts the fold (offsets are isometries, so the estimate holds).
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    gOff = vec3(1.0 - 0.3 * kTone, 0.82 + 0.4 * kTone, 0.9 - 0.2 * kTone);
     float turn = 0.42 + 0.30 * uMorph + 0.06 * sin(uTime * 0.07);
     gRotA = rot2(turn);
     gRotB = rot2(0.27 + 0.25 * uTurbulence + 0.05 * sin(uTime * 0.05 + 1.0));
     gBar = (0.34 + 0.16 * min(bass, 1.0)) * (0.8 + 0.4 * uKnob[1]);
     gTube = 2.6 * (0.85 + 0.3 * uKnob[5]);
-    gSpin = uTime * (0.25 + 0.5 * uKnob[2]);
+    gSpin = uTime * 0.5;
     gDensity = 0.25 + 0.5 * uKnob[4];
     float split = (0.012 + 0.016 * treb);
     float hue = 0.12 * pitchBump + 0.2 * (uKnob[3] - 0.5);
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 256, so this rebase is exact
     // and invisible, and z keeps its precision far down the 8192 travel.
     ro.z = mod(ro.z, BB_ZWRAP);

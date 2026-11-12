@@ -69,16 +69,6 @@
 // Arithmetic hashes, no sin(): sin() of a large argument loses its fraction on
 // mediump-leaning mobile GPUs and the noise turns into visible stripes.
 
-/**
- * The mid band's turn, radians: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE, as
- * lib_flame's gFlameTurn, so 0.9 at most and 0 in silence. A style that hears
- * no mids of its own rolls its view about the way ahead by it while the mids
- * climb, and it eases back as they fall. Mid gain scales it.
- */
-float lucidMidTurn() {
-    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-}
-
 float lucidHash(vec2 p) {
     vec3 q = fract(p.xyx * vec3(0.1453, 0.1621, 0.1379));
     q += dot(q, q.yzx + 27.71);

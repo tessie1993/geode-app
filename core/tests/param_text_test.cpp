@@ -80,6 +80,15 @@ void theDefaultReadsDefault() {
     reads(1.00005f, ParamUnit::Times, "Default", false, 1.0f);
 }
 
+// The Kaleidoscope slider: "Off" below two whole folds (its default included), else the count the shaders fold by.
+void foldsReadOffOrTheirCount() {
+    reads(1.0f, ParamUnit::Folds, "Off", false, 1.0f);
+    reads(1.49f, ParamUnit::Folds, "Off");
+    reads(1.5f, ParamUnit::Folds, "2");
+    reads(8.0f, ParamUnit::Folds, "8", false, 1.0f);
+    reads(15.6f, ParamUnit::Folds, "16");
+}
+
 void unitsComeFromTheControlThenItsRange() {
     check(paramUnitFor("Speed", 0.05f, 4.0f) == ParamUnit::Times, "Speed is a multiplier");
     check(paramUnitFor("Hue shift", 0.0f, 1.0f) == ParamUnit::TurnDegrees, "Hue shift is a turn");
@@ -90,6 +99,7 @@ void unitsComeFromTheControlThenItsRange() {
     check(paramUnitFor("Twist", -1.0f, 1.0f) == ParamUnit::Percent, "-1..1 is a percentage");
     check(paramUnitFor("Unknown gain", 0.0f, 2.0f) == ParamUnit::Times, "0..2 is a multiplier");
     check(paramUnitFor("Unknown big", 0.0f, 50.0f) == ParamUnit::Plain, "a wider range is plain");
+    check(paramUnitFor("Kaleidoscope", 1.0f, 16.0f) == ParamUnit::Folds, "Kaleidoscope reads in folds");
 }
 
 std::string abi(const char* key, int unit, float value, float lo, float hi, float def) {
@@ -103,6 +113,8 @@ void theAbiPicksTheUnitAndTheSign() {
     check(abi("Twist", -1, -0.5f, -1.0f, 1.0f, 0.0f) == "\xE2\x88\x92" "50 %", "a control's own unit, signed below zero");
     check(abi("Twist", -1, 0.0f, -1.0f, 1.0f, 0.0f) == "Default", "the default by key");
     check(abi("Speed", -1, 1.8f, 0.05f, 4.0f, kNone) == "1.8\xC3\x97", "Speed by key");
+    check(abi("Kaleidoscope", -1, 1.0f, 1.0f, 16.0f, 1.0f) == "Off" && abi("Kaleidoscope", -1, 6.0f, 1.0f, 16.0f, 1.0f) == "6",
+          "Kaleidoscope by key: Off at its default, else the folds");
     check(abi("", 2, 0.035f, 0.0f, 0.0f, kNone) == "35 ms", "a named unit needs no key");
     check(abi(nullptr, 99, 0.5f, 0.0f, 1.0f, kNone) == "50 %", "an unknown unit falls to the range");
     char small[4];
@@ -119,6 +131,7 @@ int main() {
     halvesRoundAwayFromZero();
     timesAndFrequencies();
     theDefaultReadsDefault();
+    foldsReadOffOrTheirCount();
     unitsComeFromTheControlThenItsRange();
     theAbiPicksTheUnitAndTheSign();
     if (failures == 0) std::printf("param_text_test: all passed\n");

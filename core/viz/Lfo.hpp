@@ -18,7 +18,7 @@ enum class ModChainField { Rate, Depth };
 
 enum class LfoTarget {
     None, Speed, Zoom, Rotation, Sway, Retired5 /* was Pulse */, DriftX, DriftY, Warp, Ripple, Morph, Twist, Tile, Pixelate, Posterize,
-    ColorShift, PaletteMix, Saturation, Brightness, Intensity, Bloom, Temperature, Turbulence, ChromaAb, Vignette,
+    ColorShift, PaletteMix /* was Palette blend: writes Palette 2's amount */, Saturation, Brightness, Intensity, Bloom, Temperature, Turbulence, ChromaAb, Vignette,
     Retired25 /* was Glitch: the slot keeps every later ordinal */, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
     FluidCatchPull, FluidCatchRadius, FlowStrength,
     Retired37 /* was WaterRipple */, Retired38 /* was RippleOverlay */,
@@ -36,9 +36,20 @@ enum class LfoTarget {
     // the colours sit (viz/Palette.hpp).
     PaletteAmount1, PaletteAmount3, PaletteAmount4, PaletteAmount5, PaletteAmount6, PaletteAmount7, PaletteAmount8,
     PaletteShift,
+    // Appended: the kaleidoscope's folds (1 off .. 16), the one slider that replaced its switch and count.
+    KaleidoFolds,
+    // Appended: Customize › Layers' mix (the layerMix param, added to the Layers page's mix; viz/LayerState).
+    LayerMix,
+    // Appended: the physics layers (viz/physics): the fluid's mix, the particles' mix, the force that stirs them
+    // and where the fluid sits (the simFluid, simParticles, simForce and simLayerOrder params).
+    SimFluid, SimParticles, SimForce, SimLayerOrder,
+    // Appended: Grow and layers (viz/ParamTable.inc), drawn by the family libraries (ordinals 74..77).
+    Spawn, Fractal, FrontLayer, BackLayer,
+    // Appended: which of a style's own distance formulas draws it (viz/ParamTable.inc formula), ordinal 78.
+    Formula,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::PaletteShift;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Formula;
 
 struct ModChain {
     int slot;

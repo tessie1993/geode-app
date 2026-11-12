@@ -102,8 +102,8 @@ void stopsAreSceneParams() {
     check(SceneParams::spec(ParamSlot::paletteStop0).fade == ParamFade::Hold, "a stop never glides through other colours");
 
     int ramp[2] = {};
-    geode_params_palette_preview(wire, 0, 2, ramp);
-    check(ramp[0] == 0x00FF00 && ramp[1] == 0xFFFFFF, "the preview of slot 1 is its stops");
+    geode_params_palette_preview(wire, 2, ramp);
+    check(ramp[0] == 0x00FF00 && ramp[1] == 0xFFFFFF, "the preview of the look's palette is its stops");
 
     SceneParams rolled = p;
     for (const auto& roll : randomizer::rolledKeys()) {

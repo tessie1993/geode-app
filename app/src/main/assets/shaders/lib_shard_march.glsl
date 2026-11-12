@@ -8,7 +8,25 @@
 // INCLUDE ORDER: after lib_shard and after the style's shardMap.
 
 vec3 shardField(vec3 p) {
-    return shardMap(shardBend(p));
+    float k = growOpen(p, 0.18);
+    vec3 q = growOpened(shardBend(p), k);
+    vec3 m = shardMap(q);
+    // Grow and layers (lib_grow), each off at its default: Spawn slides a second hoard of glass off the first
+    // along the way, Fractal splinters glass a third the size off every face, and the layers open the
+    // glass round the eye (front) and down the way (back), k at 1 while they rest.
+    if (uSpawn > 0.0) {
+        vec3 c = shardMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.5));
+        c.x = growClearEye(c.x, p, 0.8);
+        if (c.x < m.x) m = c;
+    }
+    float reach = growFractalReach(0.15);
+    if (reach > 0.0) {
+        vec3 c = shardMap(growChildSpace(q, 3.0, 2.0));
+        c = vec3(growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.8), c.y, c.z / 3.0);
+        if (c.x < m.x) m = c;
+    }
+    m.xz *= k;
+    return m;
 }
 
 /** The field's gradient at p, unit length; straight back along the ray where the field is flat. */

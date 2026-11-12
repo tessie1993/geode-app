@@ -1,6 +1,6 @@
 # core/viz/frame
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). [ADR 0008](../../../docs/adr/0008-frame-pacing-heat-and-rest.md) sets the pacing, heat and rest rules.
+Part of the target in ADR 0006 (its file is no longer in the tree; `git log -- docs/adr` has it). [ADR 0008](../../../docs/adr/0008-frame-pacing-heat-and-rest.md) sets the pacing, heat and rest rules.
 
 **Here now:** `Pass.hpp` (the interface below, with `Surface`, `FrameCtx`, `PassInputs`, `PassTarget`) and its first pass, `EdgeGlowPass` (the wallpaper's edge look, once Kotlin GL; pure maths in `EdgeGlowMath.hpp`, pinned by `core/tests/edge_glow_test.cpp`, #439); `Renderer` still calls it directly, after the composite, and there is no `FrameGraph` yet. And `FixedRateClock` (Cast's frame clock: steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut; reached through `geode_frame_clock_*`, tested by `core/tests/cast_clock_test.cpp`) and `Pacer.hpp`, the frame clock every surface shares. It decides which vsyncs a surface draws on (a whole-number divide of the measured panel rate) and owns the one dt clamp, `clampDt`, which `Renderer::beginFrame` uses too. Android keeps the Choreographer callback (`render/FramePacer.kt`). It is reached through `geode_pacer_*` and tested by `core/tests/pacer_test.cpp`. It paces to the effective cap, the surface's cap under the thermal step (`ThermalState::capFor`), and records it in the state so `FramePacer` re-asks `Surface.setFrameRate` when the thermal cap moves.
 
@@ -28,7 +28,7 @@ Export post-passes: `ExportPasses` (watermark and loop seam; #442) with their pu
 
 **Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
 
-**fosfora:** `gpu/frame_prep.rs`, `gpu/frame_graph.rs` (`execute_and_composite`, "extracted … the headless scene renderer would have been a third copy"), `gpu/layer.rs` (`Layer`, `LayerStack`), `gpu/uniforms.rs` (append-only, layout-guarded).
+**The idea:** one frame preparation and one frame graph that executes and composites for every surface (a headless renderer would otherwise be a third copy), layers in a stack, and append-only, layout-guarded uniforms.
 
 **Here now:** `FixedRateClock.hpp`, the fixed-rate frame clock Cast paces by (#572; `core/tests/cast_clock_test.cpp`), and `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
 

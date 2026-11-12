@@ -25,10 +25,6 @@ out vec4 fragColor;
 // their tips shoot up and they thicken a little, and nothing gets brighter.
 // A pitch change (SND_HELD_NOTE_CHANGE) slides the crystal hue. Air (sndSpectrum(0.93)) thickens
 // and brightens the sparkle glints on the facets. Overall level rides SND_ENERGY_TREND.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -36,7 +32,9 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the height of the tips'
 // glowing band, k2 FLOW the canyon's bend (its width's wobble, 0.4..1.0, so a
 // neighbour one cell out stays inside hiN's 1.1), k3 TONE the palette
-// position, k4 BUILD the tips' glow, k5 SPACE the reach (far plane and haze).
+// position and how high the walls tower (a high melody raises them into tall
+// spires, a low one settles them into low mesas; hiN follows it), k4 BUILD
+// the tips' glow, k5 SPACE the reach (far plane and haze).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -70,6 +68,8 @@ float gMat;
 vec3 gEye;
 /** k2 FLOW: the width's wobble, world units (0.7 at rest). */
 float gBend = 0.7;
+/** k3 TONE: how far the wall pillars rise (CC_RISE at rest). */
+float gRise = CC_RISE;
 
 float canyonWidth(float z) {
     return CC_WIDTH + gBend * sin(z * (CC_TAU / 64.0));
@@ -93,7 +93,7 @@ float map(vec3 p) {
     float kickAll = clamp(SND_KICK_ENV, 0.0, 1.0);
     // Only the crystals just ahead of the eye answer the kick.
     float kick = kickAll * exp(-abs(cc.y - gEye.z - 4.0) * 0.14);
-    float top = CC_FLOOR + 0.25 + 0.7 * h + CC_RISE * wall * (0.62 + 0.38 * h2)
+    float top = CC_FLOOR + 0.25 + 0.7 * h + gRise * wall * (0.62 + 0.38 * h2)
               + CC_KICK * kick * (0.3 + 0.7 * wall);
     // Largest apothem 0.341 plus the 0.07 jitter stays inside the half-cell.
     float r = (0.23 + 0.08 * h2) * (1.0 + 0.1 * kick);
@@ -109,7 +109,7 @@ float map(vec3 p) {
 
     // A neighbour one cell further out (plus the width's z wobble) is the
     // tallest one could be.
-    float hiN = CC_FLOOR + 0.95 + CC_RISE * wallAt(ax + 1.1, cc.y) + CC_KICK * kickAll;
+    float hiN = CC_FLOOR + 0.95 + gRise * wallAt(ax + 1.1, cc.y) + CC_KICK * kickAll;
     vec2 af = abs(f);
     float toEdge = 0.5 - max(af.x, af.y);
     float d = min(dc, max(toEdge + 0.02, p.y - hiN));
@@ -154,11 +154,11 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
     gBend = 0.7 + 0.6 * kFlow;
+    gRise = CC_RISE * (1.0 + 0.8 * kTone);
     float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left: every sample and the

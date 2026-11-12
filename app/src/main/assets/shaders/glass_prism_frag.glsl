@@ -66,7 +66,7 @@ out vec4 fragColor;
 //   snare          fires a bright packet of light down the beam, through the glass
 //                  and out across the fan;
 //   bass           the beam's width;
-//   pan            rocks the prism on its axis;
+
 //   flatness       thickens the haze (frost): noise fills the room with light;
 //   hat            dust motes sparkle in the beams.
 //
@@ -356,7 +356,8 @@ void main() {
 
     // ---- the 2D optics in the plane z = 0 ----
     gC = vec2(-0.45, -0.05);
-    float rock = 0.42 + 0.07 * sin(t * 0.11) + 0.12 * ear.pan;
+    // Time alone rocks the prism: no sound turns it (owner 2026-11-12, no style spins to the music).
+    float rock = 0.42 + 0.07 * sin(t * 0.11);
     for (int i = 0; i < 3; i++) {
         float fi = float(i);
         float a = rock - 1.5707963 + fi * 2.0943951 + chaos * 0.05 * sin(t * 0.9 + fi * 2.3);

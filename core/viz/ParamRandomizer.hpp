@@ -13,7 +13,7 @@
 // The Customize panel's Randomize and Reset-tab buttons: what each control rolls to, which tab owns
 // it, and which fields it writes. Pure: no GL, no JNI, so the host tests build it.
 //
-// A control is named by its ParamKeys string (the label on screen, the key the user locks by).
+// A control is named by its Customize key (the label on screen, the key the user locks by).
 // A roll touches only what the style on screen can show (catalogue::reaches), so Randomize never
 // spends itself on a parameter the user cannot see.
 namespace geode::viz::randomizer {

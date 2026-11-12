@@ -65,19 +65,15 @@ out vec4 fragColor;
 //                          the old spike re-seed and form phase did.
 // Drop (SND_HELD_SURGE)    swings the palette to its far side, as a hump.
 // SND_ENERGY_TREND         overall level.
-// Mids (SND_MIDDLE)        turn the eye's look aside while the mids climb and
-//                          ease it back as they fall, as lib_terra's terraTurn
-//                          and lib_truchet's truchetTurn do: 0.1 x sndShaped x
-//                          SND_DRIVE screen units (0.15 at most, 0 in silence),
-//                          the gFlameTurn band on a structure that holds still.
-//                          Mid gain scales it.
 //
 // Params: Morph deepens the scallops between the spire tiers, Warp bends the
 // whole nave from side to side, Turbulence sways the spires, Intensity and the
 // palette reach through lib_scene_grade and pal(). Knobs (offsets from 0.5,
 // so off is the tuned look): k0 PULSE the kick's swell, k1 TEXTURE the lace
-// and filigree, k2 FLOW the lamps' chase, k3 TONE the hue, k4 BUILD the sky
-// and halo, k5 SPACE the dome's size.
+// and filigree, k2 FLOW the lamps' chase, k3 TONE the portals' span and a
+// small hue offset (a high melody throws the rings wide like open arches, a
+// low one draws them in tight round the causeway, still clear of it), k4 BUILD
+// the sky and halo, k5 SPACE the dome's size.
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -303,13 +299,12 @@ void main() {
     gLean = 0.03 * clamp(uTurbulence, 0.0, 1.0);
     gScal = 0.12 + 0.24 * clamp(uMorph, 0.0, 1.0);
     gRD = 20.0 + 3.0 * swell + 6.0 * kSpace;
-    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6));
+    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6)) * (1.0 + 0.4 * kTone);
     gTube = 0.13;
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64 (see the header), so this
     // rebase is exact and invisible, and z keeps its precision far down the
     // 8192 travel.

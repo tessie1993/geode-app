@@ -44,8 +44,8 @@ out vec4 fragColor;
 //                            and the caustic spot under the ball tightens;
 //   centroid (sharp)         widens the dispersion and the key highlight's bite;
 //   flatness (frost)         frosts the ball: the lookups roughen, grain appears;
-//   pan and pitch height     walk the key light round and up, so the crown
-//                            highlight, the shadow and the floor spot follow the mix;
+//   pitch height             raises the key light, so the crown highlight, the
+//                            shadow and the floor spot follow the melody;
 //   EQ bands (sndEq)         one band per pillar round the ring: each strip lights
 //                            up its pillar as far as its band reaches, a spectrum
 //                            meter you see in the room, through the ball and in the floor;
@@ -347,7 +347,7 @@ void main() {
         col = refr * (1.0 - fr) + refl * fr;
         col += pal(gHue + 0.15) * pow(1.0 - cosI, 3.0) * 0.08;
         col += glassRim(cosI, gHue, 0.35);
-        // The key's crown highlight: it walks with the pan and pitch.
+        // The key's crown highlight: it walks with the pitch.
         col += vec3(1.0) * pow(max(dot(reflect(rd, n), L), 0.0), 60.0 + 200.0 * ear.sharp) * (0.5 + 0.5 * ear.sharp) * (1.0 - frost * 0.6);
         col += vec3(1.0) * glassGlint(p - c, 9.0, ear.hat) * (0.3 + 0.7 * fr + 0.3 * cosI);
         col = mix(col, fogCol, 1.0 - exp(-tOrb * fogK));

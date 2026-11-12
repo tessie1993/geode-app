@@ -27,6 +27,8 @@
 // A simulation presented in 3D on the camera rig (core/viz/present/FieldPresent); its march comes after the present's colours.
 "lib_field3d",
 "lib_field3d_march",
+// Grow and layers (Spawn, Fractal, Front layer, Back layer) as the family libraries draw them; lib_scene_uniforms includes it.
+"lib_grow",
 // One library per style family (core/viz/Catalogue.cpp): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",

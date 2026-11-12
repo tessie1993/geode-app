@@ -270,7 +270,8 @@ internal class AutoVisualsController(
                 choices += VizPlaylistEntry(sceneId = GeodeNative.STYLE_MILKDROP, milkPath = it.path, label = it.name)
             }
         }
-        val pick = GeodeNative.autoPick(choices.size, onScreen)
+        // Native picks: at a director moment the style the Auto Director asks for (-1 keeps the one on screen).
+        val pick = GeodeNative.autoPickAmong(choices.joinToString("\n") { it.sceneId }, onScreen, directorMoment = keepLook)
         if (pick < 0) return
         applyVizEntry(choices[pick], automatic = true)
     }

@@ -36,7 +36,10 @@ out vec4 fragColor;
 //
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the particles' size, k2
-// FLOW the tube's bend, k3 TONE the palette position, k4 BUILD the far end's
+// FLOW the tube's bend, k3 TONE the palette position and the tube's girth (a
+// high melody draws the shell in tight round the flight, a low one opens it
+// wide; at its tightest the shell's inner face stays clear of the rig's
+// wander), k4 BUILD the far end's
 // glow and haze, k5 SPACE how far the walk reaches.
 
 /** Cells walked per ray: the compile-time ceiling. uSteps is the runtime budget. */
@@ -51,6 +54,8 @@ out vec4 fragColor;
 
 /** k2 FLOW: the bend of the tube's centre line, 0.75..1.25 (1 at rest), so the shell keeps clear of the rig. */
 float gBend = 1.0;
+/** k3 TONE: the shell's radius (PT_RADIUS at rest). */
+float gRadius = PT_RADIUS;
 
 vec2 tubeCentre(float z) {
     return gBend * vec2(0.8 * sin(z * (PT_TAU / 128.0)), 0.6 * sin(z * (PT_TAU / 64.0) + 1.3));
@@ -65,6 +70,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
     gBend = 1.0 + 0.5 * kFlow;
+    gRadius = PT_RADIUS * (1.0 - 0.3 * kTone);
     float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
@@ -102,8 +108,8 @@ void main() {
         vec2 rel = cc.xy - tubeCentre(cc.z);
         float rr = length(rel);
         // Outside the shell and heading further out: this ray is done.
-        if (rr > PT_RADIUS + PT_SHELL + 0.9 && dot(rel, rd.xy) > 0.0) break;
-        if (abs(rr - PT_RADIUS) > PT_SHELL) continue;
+        if (rr > gRadius + PT_SHELL + 0.9 && dot(rel, rd.xy) > 0.0) break;
+        if (abs(rr - gRadius) > PT_SHELL) continue;
 
         uint u = uhash3(uvec3(ivec3(int(c.x), int(c.y), int(mod(c.z, PT_ZWRAP)))));
         if (uhashUnit(u) < 0.6) continue;
@@ -151,7 +157,7 @@ void main() {
         float zr = ro.z + 6.0 + 8.0 * seed;
         float tr = (zr - ro.z) / rd.z;
         vec3 q = ro + rd * tr;
-        float ringR = PT_RADIUS * (1.0 - 0.8 * onset);
+        float ringR = gRadius * (1.0 - 0.8 * onset);
         float dr = length(q.xy - tubeCentre(zr)) - ringR;
         float w = 0.05 + 0.004 * tr;
         float ring = w * w / (dr * dr + w * w);

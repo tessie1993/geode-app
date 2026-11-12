@@ -39,7 +39,8 @@ out vec4 fragColor;
 // ---- audio: one sound, one property -----------------------------------------
 //
 // Flow (uFlowPhase) and the bass clock (uSoundTimeSped.x) stream the beads
-//                      along their strands into the core and turn the weave.
+//                      along their strands into the core. The weave turns on
+//                      time alone (owner 2026-11-12, no style spins to the music).
 // Kick (SND_KICK_ENV)  a swell runs down the tunnel: the beads it passes grow
 //                      and glow, and the ring recedes as the envelope falls.
 // Snare (SND_SNARE_ENV) the outer layer's rims light in the contrasting hue.
@@ -56,7 +57,11 @@ out vec4 fragColor;
 //
 // Knobs: k0 PULSE the kick swell, k1 TEXTURE the kernel ridges on each bead
 // (a cob of corn, as the flat style faked), k2 FLOW the haze density, k3 TONE
-// the hue, k4 BUILD the core and halo, k5 SPACE the tube's width.
+// the depth between the two bead layers (a high melody pulls the inner layer
+// in and pushes the outer one out, so the vortex opens into two shells you
+// see between; a low one presses them into one dense wall; plus a small hue
+// offset; the outer layer stays clear of the wall), k4 BUILD the core and
+// halo, k5 SPACE the tube's width.
 //
 // ---- why the estimate is safe -----------------------------------------------
 //
@@ -106,6 +111,8 @@ float gRipple;
 float gRingZ;
 float gRingAmt;
 float gTouch;
+/** k3 TONE: the inner and outer layers' radius scales (1, 1 at rest). */
+vec2 gSpread = vec2(1.0);
 
 // ---- reported back by map(): capture before the normal taps overwrite them --
 
@@ -178,8 +185,8 @@ float map(vec3 p) {
     gStrand = 0.0;
     gBeadPhase = 0.0;
     gAround = 0.0;
-    d = min(d, strandLayer(p, rr, a, BV_R2 * gScale, BV_N2, BV_T2, BV_RB2, 2.0, d, 1.0));
-    d = min(d, strandLayer(p, rr, a, BV_R1 * gScale, BV_N1, BV_T1, BV_RB1, 1.0, d, 0.0));
+    d = min(d, strandLayer(p, rr, a, BV_R2 * gScale * gSpread.y, BV_N2, BV_T2, BV_RB2, 2.0, d, 1.0));
+    d = min(d, strandLayer(p, rr, a, BV_R1 * gScale * gSpread.x, BV_N1, BV_T1, BV_RB1, 1.0, d, 0.0));
     d = max(d, BV_BUBBLE - length(p - gEye));
     return d;
 }
@@ -214,9 +221,11 @@ void main() {
 
     // Integrated clocks only, so a change of rate never slides the beads.
     float travel = uFlowPhase * 4.0 + uTime * 0.9;
-    gSpin = travel * 0.12;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.252;
     gFlow = travel * 1.2 + uSoundTimeSped.x * 0.8;
     gScale = (0.85 + 0.3 * uKnob[5]) * (1.0 + 0.25 * dropBump);
+    gSpread = vec2(1.0 - 0.6 * (uKnob[3] - 0.5), 1.0 + 0.3 * (uKnob[3] - 0.5));
     gCord = mix(0.32, 1.0, clamp(uMorph, 0.0, 1.0));
     gSway = 0.5 * clamp(uWarp, 0.0, 1.0);
     gRipple = 0.1 * clamp(uTurbulence, 0.0, 1.0);
@@ -318,7 +327,7 @@ void main() {
             float ti = (zi - ro.z) / rd.z;
             if (ti < 0.5 || ti > sceneT) continue;
             vec2 xy = ro.xy + rd.xy * ti;
-            if (length(xy - boreCentre(zi)) > BV_R1 * gScale - 0.25) continue;
+            if (length(xy - boreCentre(zi)) > BV_R1 * gScale * gSpread.x - 0.25) continue;
             vec2 cell = floor(xy / 0.6);
             int slice = int(mod(zi, BV_ZWRAP) * 0.5 + 0.5);
             float h = hashCell(ivec3(int(cell.x), int(cell.y), slice));

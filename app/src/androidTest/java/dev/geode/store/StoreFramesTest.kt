@@ -133,7 +133,7 @@ class StoreFramesTest {
             viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // The default look, as a new user first meets the style; native resolves its reaction DNA.
-            viz.setParams(SceneParams(fluidAutoQuality = false))
+            viz.setParams(SceneParams.DEFAULT.with("fluidAutoQuality", false))
 
             val groove = SyntheticGroove()
             val samplesPerFrame = groove.sampleRateHz / FPS

@@ -30,7 +30,7 @@ out vec4 fragColor;
 // colonies carry the colour of the line that grew them, by the age and by the
 // height; new births glow at the palette's far side (BUILD). TONE moves the
 // position, Intensity and PULSE the emission (lib_field3d). Nothing here hears
-// a hit: the lows lift the relief and the mids turn it, through lib_field3d.
+// a hit: the lows lift the relief, through lib_field3d.
 //
 // Cost: lib_field3d's march (up to 110 steps of up to three field reads) and
 // five distances at the hit.

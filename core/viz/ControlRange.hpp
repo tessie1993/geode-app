@@ -26,9 +26,9 @@ inline Range of(int slot) {
         case ParamSlot::intensity:
             r.max = 1.0f + safety::kMaxFlashDepth;
             break;
-        // More bloom than the flash clamp's depth is clamped away before it reaches the screen.
+        // More bloom than its safety cap is clamped away before it reaches the screen.
         case ParamSlot::bloom:
-            r.max = safety::kMaxFlashDepth;
+            r.max = safety::kMaxBloom;
             break;
         // Fly runs both ways on the slider; 2..2.5 each way is headroom for the LFO and the routes.
         case ParamSlot::camFly:

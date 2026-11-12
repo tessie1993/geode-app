@@ -66,6 +66,10 @@ jobs:
           # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
+          # The physics layers' pure maths: off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the params.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/physics_layers_test.cpp core/viz/physics/PhysicsPlan.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o physics_layers_test
+          ./physics_layers_test
           # The Pool style's surface: caustics within one safety step, nothing past 3 Hz, true derivatives, still in silence, 30/60/120 fps, wakes.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/pool_test.cpp core/viz/pool/PoolMath.cpp -o pool_test
           ./pool_test
@@ -74,7 +78,7 @@ jobs:
           ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o resolver_test
@@ -82,7 +86,7 @@ jobs:
           # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
           # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_reach_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o director_reach_test
@@ -111,7 +115,7 @@ jobs:
           ./meter_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
           ./director_test
           # Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
@@ -180,6 +184,14 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/layer_blend_test.cpp core/viz/VisualSafety.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp -o layer_blend_test
           ./layer_blend_test
+          # Customize › Layers' style: the user's pick, Auto Director's at its moments or a knob's, never the style on screen.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp core/viz/LayerState.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o layer_pick_test
+          ./layer_pick_test
+          # Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_style_test.cpp core/viz/DirectorStyle.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o director_style_test
+          ./director_style_test
           # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o sound_source_test
           ./sound_source_test
@@ -580,6 +592,11 @@ jobs:
             core/api/geode_params_json_api.cpp core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp \
             core/viz/VisualSafety.cpp -o params_json_test
           ./params_json_test app/src/test/resources/presets
+          # The look's own palette in its params, saved palettes, preset files and the template library (core/viz/ParamsPalette, LookFiles).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/look_files_test.cpp core/viz/ParamsPalette.cpp core/viz/LookFiles.cpp \
+            core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp \
+            core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o look_files_test
+          ./look_files_test app/src/test/resources/presets
           # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
           ./param_text_test
@@ -593,6 +610,19 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
           ./customize_test core/tests/customize.txt
+
+      # What Customize draws (core/viz/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
+      # range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
+      - name: Customize rows host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelText.cpp core/viz/StyleNames.cpp \
+            core/viz/PalettePanel.cpp core/viz/Palette.cpp core/api/geode_customize_rows_api.cpp core/api/geode_palette_api.cpp \
+            core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/customize_rows_test.cpp $ROWS_SRC -o customize_rows_test
+          ./customize_rows_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/palette_panel_test.cpp $ROWS_SRC -o palette_panel_test
+          ./palette_panel_test
 
       # The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
       - name: Randomize everything host tests

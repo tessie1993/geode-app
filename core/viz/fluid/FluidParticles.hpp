@@ -45,6 +45,12 @@ public:
               float timeSeconds = 0.0f);
     void invalidateSeed() { seeded_ = false; }
     void release();
+    // The state a caller's own render program reads (the physics layers colour each particle from the picture
+    // under it, viz/physics): positions and velocities, life and seed, the point VAO and the count.
+    GLuint stateTex() { return state_ ? state_->read().texA() : 0; }
+    GLuint metaTex() { return state_ ? state_->read().texB() : 0; }
+    GLuint pointsVao() const { return pointsVao_; }
+    int count() const { return count_; }
 
 private:
     void blitDiscarding(DoubleMrt::Side& target);

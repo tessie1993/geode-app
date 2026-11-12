@@ -44,19 +44,17 @@ out vec4 fragColor;
 // Treble (SND_TREBLE_ATT)       the graticule glows brighter.
 // Pitch (SND_HELD_NOTE_CHANGE)  slides the hue of the whole tube.
 // SND_ENERGY_TREND              the overall level, as everywhere.
-// Mids (SND_MIDDLE)             turn the eye's look aside while the mids climb
-//                               and ease it back as they fall, as lib_terra's
-//                               terraTurn and lib_truchet's truchetTurn do: 0.1
-//                               x sndShaped x SND_DRIVE screen units (0.15 at
-//                               most, 0 in silence), the gFlameTurn band on a
-//                               structure that holds still. Mid gain scales it.
 //
 // Controls: Morph bends each trace from the flat line into a ring scope (the
 // waveform as a radius around the corridor's axis, mirrored so it has no
 // seam); Warp twists the frames about the axis into a slow helix; Turbulence
 // jitters the beam. Knobs: k0 PULSE the kick's pinch, k1 TEXTURE the
-// graticule, k2 FLOW the helix, k3 TONE the hue, k4 BUILD the halo, k5 SPACE
-// the tube's width. Each is read as its offset from rest (0.5), so with Note &
+// graticule (k2 FLOW no longer twists the helix: a knob is the notes', and no
+// sound turns a style), k3 TONE where the beam rides (a high melody
+// lifts every trace toward the ceiling, the ring scope widens; a low one drops
+// them to the floor; plus a small hue offset), k4 BUILD the halo and how the
+// traces grow taller down the tube ahead (a build stacks rising frames),
+// k5 SPACE the tube's width. Each is read as its offset from rest (0.5), so with Note &
 // key reactions off the style is exactly its tuned look.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -154,8 +152,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64, so this shift is exact
     // and invisible, and z keeps its fraction far down the rig's travel.
     ro.z = mod(ro.z, SC_ZWRAP);
@@ -237,8 +234,12 @@ void main() {
         float base = rd.z > 0.0 ? floor(ro.z / SC_FRAME_SP) + 1.0 : ceil(ro.z / SC_FRAME_SP) - 1.0;
         int frames = uSteps < 80.0 ? 6 : SC_FRAMES;
         float morph = clamp(uMorph, 0.0, 1.0);
-        float helix = clamp(uWarp, 0.0, 2.0) * 0.9 + 0.8 * scKnob(2);
+        float helix = clamp(uWarp, 0.0, 2.0) * 0.9;
         float haloK = (0.30 + 0.55 * snare) * clamp(1.0 + 1.5 * scKnob(4), 0.2, 2.5);
+        // TONE: where the beam rides in the tube; BUILD: how much taller each frame
+        // ahead stands than the last, so a build reads as a rising stack in depth.
+        float lift = 2.2 * scKnob(3);
+        float rise = 0.12 * scKnob(4);
         for (int i = 0; i < SC_FRAMES; i++) {
             if (i >= frames) break;
             float zi = (base + dir * float(i)) * SC_FRAME_SP;
@@ -249,6 +250,8 @@ void main() {
             vec2 q = rot2(helix * sin(zw * (SC_TAU / 32.0) + uTime * 0.15)) * (ro.xy + rd.xy * ti);
 
             float px = ti * pxK;
+            // By distance, not frame index, so a frame grows smoothly as the eye nears it.
+            float ampI = amp * max(1.0 + rise * ti / SC_FRAME_SP, 0.3);
             float d = 1e3;
             float u = 0.5;
             float ends = 1.0;
@@ -256,8 +259,8 @@ void main() {
                 // The flat scope: y = wave(x), its distance corrected by the slope.
                 float ul = q.x / (2.0 * SC_TRACE_W) + 0.5;
                 float du = 1.0 / 512.0;
-                float f0 = traceY(ul, zw, amp);
-                float f1 = traceY(ul + du, zw, amp);
+                float f0 = traceY(ul, zw, ampI) + lift;
+                float f1 = traceY(ul + du, zw, ampI) + lift;
                 float slope = (f1 - f0) / (2.0 * SC_TRACE_W * du);
                 float dl = abs(q.y - f0) / sqrt(1.0 + slope * slope);
                 float el = smoothstep(0.0, 0.03, ul) * (1.0 - smoothstep(0.97, 1.0, ul));
@@ -271,7 +274,7 @@ void main() {
                 float r = length(q);
                 float a = r > 1e-4 ? atan(q.y, q.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
                 float ur = abs(a) / SC_PI;
-                float fr = 1.4 + 0.55 * (traceY(ur, zw, amp) / 0.9);
+                float fr = max(1.4 + 0.4 * lift + 0.55 * (traceY(ur, zw, ampI) / 0.9), 0.3);
                 float dr = abs(r - fr);
                 bool pure = morph >= 0.999;
                 d = pure ? dr : mix(d, dr, morph);

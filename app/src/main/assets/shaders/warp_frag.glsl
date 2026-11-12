@@ -45,11 +45,6 @@ out vec4 fragColor;
 // Per streak, sndEq at its hashed band sets the brightness, as in the 2D.
 // Pitch change (SND_HELD_NOTE_CHANGE) slides the field's hue.
 // SND_ENERGY_TREND sets the overall level.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-//   it back as they fall, as lib_terra's terraTurn and lib_truchet's
-//   truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0
-//   in silence), the gFlameTurn band on a structure that holds still. Mid gain
-//   scales it.
 //
 // ---- params and knobs -------------------------------------------------------
 //
@@ -61,7 +56,9 @@ out vec4 fragColor;
 // k0 PULSE  how far the kick stretches the near streaks.
 // k1 TEXTURE  streak thickness.
 // k2 FLOW   streak length on top of the throttle.
-// k3 TONE   the field's hue.
+// k3 TONE   which way the field rakes, and its hue: a high melody stretches
+//           the streaks above the corridor long and shortens those below, so
+//           the jump climbs; a low one the reverse, so it dives.
 // k4 BUILD  how many cells hold a streak (each fades in on its own hash).
 // k5 SPACE  the corridor's width.
 //
@@ -113,6 +110,9 @@ float gBright;
 
 float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
+/** TONE: how far the streaks above the corridor outgrow those below (0 at rest). */
+float gRake;
+
 /** The corridor's curve. Periods 256 and 128 divide 1024; slope at most 0.17 * |uWarp|. */
 vec2 bend(float z) {
     return uWarp * 3.0 * vec2(sin(z * (WP_TAU / 256.0)), 0.6 * sin(z * (WP_TAU / 128.0) + 1.3));
@@ -149,7 +149,9 @@ float map(vec3 p) {
     // Only the streaks just ahead of the eye answer the kick.
     float ahead = (cz + 0.5) * WP_ZCELL - s - gEye.z;
     float kick = gKick * exp(-abs(ahead - 6.0) * 0.15);
-    float hl = min(gLen * (0.55 + 0.45 * hv2) + kick, WP_MAX_HALF);
+    // TONE rakes the field: one factor per column, from its centre's height.
+    float rake = max(1.0 + gRake * clamp((cell.y + 0.5) * WP_CELL / 6.0, -1.0, 1.0), 0.2);
+    float hl = min(gLen * (0.55 + 0.45 * hv2) * rake + kick, WP_MAX_HALF);
     float r = gRad * (0.7 + 0.3 * hv) * w;
 
     float own = 1e3;
@@ -173,8 +175,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The world tiles every 1024 along z (a power of two), so this shift is
     // invisible and exact. Without it, far down the 8192 travel a highp z has
     // ~0.001 of fraction left and the thin streaks quantise into speckle.
@@ -192,6 +193,7 @@ void main() {
     gRad = 0.05 + 0.04 * (knob(1) + 0.5);
     gDens = clamp(0.42 + 0.4 * knob(4), 0.1, 0.9);
     gCorr = 1.3 + 1.0 * knob(5);
+    gRake = 1.8 * knob(3);
     gTurb = 0.2 * clamp(uTurbulence, 0.0, 1.0);
     gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * (0.6 + 1.2 * (knob(0) + 0.5));
     gBendL = 1.0 + 0.17 * abs(uWarp);

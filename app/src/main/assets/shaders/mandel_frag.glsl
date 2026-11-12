@@ -50,14 +50,11 @@ out vec4 fragColor;
 //   - sub bass (SND_SUB_ATT) shifts the escape bands, and each band is lit by
 //     its own analyser band (sndSpectrum of the band's iteration fraction).
 //   - overall level rides SND_ENERGY_TREND.
-//   - the mids (SND_MIDDLE) turn the eye's look aside while the
-//     mids climb and ease it back as they fall, as lib_terra's terraTurn and
-//     lib_truchet's truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units
-//     (0.15 at most, 0 in silence), the gFlameTurn band on a structure that
-//     holds still. Mid gain scales it.
 // Controls: Morph eases the cliffs from steep to gentle, Turbulence (+ k1
 // TEXTURE) cuts the escape-band terraces, Warp waves the c-plane. Knobs:
-// k2 FLOW band scroll, k3 TONE hue, k4 BUILD glow, k5 SPACE fog.
+// k2 FLOW band scroll, k3 TONE the relief (a high melody raises the cliffs
+// into steep spires and gorges, a low one lays them down as soft dunes; plus a
+// small hue offset), k4 BUILD glow, k5 SPACE fog.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -66,7 +63,8 @@ out vec4 fragColor;
 // h = MB_TOP - K dw + A sin(MB_TERR dw), dw = G / MB_CS; its slope is at most
 // L = K + A MB_TERR, so (y - h) / sqrt(1 + L^2) is 1-Lipschitz and a lower
 // bound, and the march still steps at 0.8 of it for the warp's stretch and the
-// estimate's own wobble. A <= K / MB_TERR keeps h <= MB_TOP, so y - MB_TOP is
+// estimate's own wobble. A <= K / MB_TERR (A is scaled down with K when TONE
+// takes K under 2) keeps h <= MB_TOP, so y - MB_TOP is
 // a second lower bound; above the mesa map() returns it without iterating.
 // The floor is a plane. A tile only measures its own island, so each tile
 // also ramps its cliffs down below the floor within MB_SEAM of its seams
@@ -225,17 +223,16 @@ void main() {
     // Morph eases the cliffs from steep to gentle; K stays >= 2, which the
     // terrace limit relies on. The kick only steepens.
     float morph = clamp(uMorph, 0.0, 1.0);
-    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0)));
+    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0))) * (1.0 + 0.9 * mbKnob(3));
     // A <= 2 / MB_TERR <= K / MB_TERR: the terraces never rise above the mesa.
-    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0);
+    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0) * min(gK * 0.5, 1.0);
     gWarp = clamp(uWarp, 0.0, 1.0);
     // 0.03 of c is 0.3 world units: a nudge on screen, as the flat glide was.
     gGlide = pitchGlide() * 0.03;
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The landscape tiles every 32 along z, so this shift is invisible and
     // exact (power of two). Without it, far down the 8192 travel a highp z
     // has ~0.001 of fraction left and every sample quantises.
@@ -249,6 +246,8 @@ void main() {
     }
     float hitT = -1.0;
     float glow = 0.0;
+    // The glow's depth, weighted like the glow, so it can be coloured by how far off it hangs.
+    float glowT = 0.0;
     float used = 0.0;
     for (int i = 0; i < MB_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
@@ -261,9 +260,16 @@ void main() {
             hitT = t;
             break;
         }
-        // The filaments' rims shine through the gaps between the cliffs.
-        if (gInside < 0.5 && gMat < 0.5) glow += exp(-d * 10.0) * gIter * 0.02;
-        t += max(d * 0.8, eps);
+        // The filaments' rims shine through the gaps between the cliffs: light
+        // gathered along the ray by step length (so Detail does not change it)
+        // and thinned by the air, the way the Flame family hangs its veils in depth.
+        float stepLen = max(d * 0.8, eps);
+        if (gInside < 0.5 && gMat < 0.5) {
+            float w = exp(-d * 6.0) * gIter * stepLen * exp(-t * 0.025);
+            glow += w;
+            glowT += w * t;
+        }
+        t += stepLen;
     }
     // Out of budget on a grazing ray over the mesa or the cliffs: the ray was
     // still closing in, so it lands where it stopped instead of showing sky
@@ -302,9 +308,12 @@ void main() {
             vec3 base = pal(smoothF * 2.0 + flow + hue) * (0.2 + f * 1.4 + sndSpectrum(f) * 0.7);
             col = base * (0.25 + 0.75 * dif) * ao + pal(hue + 0.3) * fres * 0.12 + vec3(spec) * 0.2 * ao;
         }
-        col = mix(col, sky, 1.0 - exp(-hitT * fogK));
+        // Depth haze: the air's colour runs on round the palette with distance,
+        // as the Hollows' does, so near cliffs and far islands read apart.
+        col = mix(col, skyColour(rd, hue + 0.3 * hitT / MB_FAR), 1.0 - exp(-hitT * fogK));
     }
-    col += pal(hue + 0.15) * glow * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
+    float glowFar = glow > 1e-5 ? glowT / (glow * MB_FAR) : 0.0;
+    col += pal(hue + 0.15 + 0.4 * glowFar) * glow * 0.12 * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

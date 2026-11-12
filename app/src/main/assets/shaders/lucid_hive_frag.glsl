@@ -42,8 +42,9 @@ out vec4 fragColor;
 // (r -> R^2 / r, the rim swaps with the heart), and the pocket's floor flips
 // from a dish to a dome, its heart rising toward the mouth. Both ride
 // lucidBump of the snare, zero on the hit, swelling as it decays and relaxing
-// back, so the inversion breathes rather than snapping. uHarmony slows the
-// worlds' turning on tonal passages. Brightness follows SND_LEVEL gently, and
+// back, so the inversion breathes rather than snapping. The worlds turn on
+// time alone (owner 2026-11-12, no style spins to the music: uHarmony and k2
+// FLOW no longer set their rate). Brightness follows SND_LEVEL gently, and
 // SND_ENERGY_TREND lights the far end of the bore.
 //
 // ---- macros and knobs -------------------------------------------------------
@@ -56,7 +57,7 @@ out vec4 fragColor;
 // at its own hash. Energy: uIntensity scales the snare inversion. Space:
 // uZoom, uRotation and the kaleidoscope through view(). Knobs (offsets from
 // 0.5, so off is the tuned look): k0 PULSE the inversion, k1 TEXTURE the nest
-// warp, k2 FLOW the worlds' turning, k3 TONE the hue, k4 BUILD the worlds'
+// warp, k3 TONE the hue, k4 BUILD the worlds'
 // glow, k5 SPACE the pocket depth.
 //
 // ---- why the distance estimate is safe --------------------------------------
@@ -165,7 +166,7 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 /** The flat style's cell world, at the pocket-local point l (0.5 at the edge midpoints). */
-vec3 cellWorld(vec2 l, float hc, float h2, float inv, float calm, float morph, float kFlow, float kTex, float hue0) {
+vec3 cellWorld(vec2 l, float hc, float h2, float inv, float morph, float kTex, float hue0) {
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);
@@ -174,7 +175,8 @@ vec3 cellWorld(vec2 l, float hc, float h2, float inv, float calm, float morph, f
     vec2 li = l * (0.2 / max(dot(l, l), 0.035));
     vec2 lc = mix(l, li, inv);
 
-    float spin = t * (0.15 + 0.35 * hc) * (1.0 - 0.6 * calm) * (1.0 + kFlow) + hc * LUCID_TAU;
+    // The rate a mid tonality set before (calm 0.5): no sound sets it now.
+    float spin = t * (0.15 + 0.35 * hc) * 0.7 + hc * LUCID_TAU;
     vec2 q = lucidRot(spin) * lc * (2.6 + 1.2 * morph) + vec2(hc, h2) * 37.0;
     q += lucidJitter(q, t);
     vec4 n = lucidNest(q, depth, 1.4 * lucidChaos() * (1.0 + 0.8 * kTex), t * 0.3, LUCID_SIMPLEX, oct);
@@ -195,7 +197,6 @@ void main() {
 
     float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float k2 = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float k3 = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
@@ -203,7 +204,7 @@ void main() {
     float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0);
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float trend = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float calm = clamp(uHarmony, 0.0, 1.0);
+
     float morph = clamp(uMorph, 0.0, 1.0);
 
     float inv = clamp(lucidBump(snare) * 0.85 * uIntensity * (1.0 + k0), 0.0, 0.95);
@@ -216,8 +217,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (lib_lucid's lucidMidTurn).
-    camFly(lucidRot(lucidMidTurn()) * uv, ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left and the cells speckle.
@@ -276,7 +276,7 @@ void main() {
             col = wax * (0.03 + 0.08 * dif) * fall + vec3(0.6) * spec * 0.15 * fall;
         } else if (inPocket && gRad > gFloorR - 0.03) {
             // The world behind the glass: emissive, with a glassy sheen.
-            vec3 world = cellWorld(gGv * (0.5 / LH_APO), gHc, gH2, inv, calm, morph, k2, k1, hue0);
+            vec3 world = cellWorld(gGv * (0.5 / LH_APO), gHc, gH2, inv, morph, k1, hue0);
             col = world * (1.0 + 0.9 * k4) + mix(vec3(1.0), wax, 0.4) * spec * 0.35 * fall;
         } else if (inPocket && gRad > LH_R + 0.03) {
             // The pocket's wax sides: lit from the world below, darker toward the mouth.

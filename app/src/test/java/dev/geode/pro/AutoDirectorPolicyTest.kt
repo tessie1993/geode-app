@@ -1,7 +1,6 @@
 package dev.geode.pro
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,7 +20,6 @@ class AutoDirectorPolicyTest {
     fun `pro and the trial direct the whole song`() {
         listOf(trial, pro).forEach { gate ->
             assertEquals(1f, AutoDirectorPolicy.amount(true, gate, 10L * 60_000L, playerPlaying = true), 0f)
-            assertFalse(AutoDirectorPolicy.isTaste(gate))
         }
     }
 
@@ -34,7 +32,6 @@ class AutoDirectorPolicyTest {
 
     @Test
     fun `free gets the first minute of each song`() {
-        assertTrue(AutoDirectorPolicy.isTaste(free))
         assertEquals(1f, AutoDirectorPolicy.amount(true, free, 0L, playerPlaying = true), 0f)
         val lastMs = FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS - 1
         assertEquals(1f, AutoDirectorPolicy.amount(true, free, lastMs, playerPlaying = true), 0f)

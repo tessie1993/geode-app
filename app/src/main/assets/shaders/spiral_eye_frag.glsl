@@ -42,9 +42,12 @@ out vec4 fragColor;
 // steep edges of the dye. A spike never brightens anything at once: it re-aims
 // the flow (uMoveDir, through the abcFlow drift) and the pupil, and moves the
 // arm count to a new plateau
-// (uFormPhase), crossfaded so no frame steps. The winding runs on uFlowPhase,
-// which only moves forward, so a loud passage spins the galaxy faster and
-// never backwards. Knobs: k0 density, k1 filament sharpness, k2 flow, k3 hue,
+// (uFormPhase), crossfaded so no frame steps. The galaxy, its cloud and the
+// mandala's spokes turn on time alone, at the rate the loudness clock
+// (uFlowPhase) used to add at a typical level: no sound spins them (owner
+// 2026-11-12, no style spins to the music). Knobs: k0 density, k1 filament sharpness, k2 flow, k3 the
+// arms' pitch and a small hue offset (a high melody winds them into tight
+// coils round the throat, a low one lets them run out in long open sweeps),
 // k4 the eye's halo, k5 the channel's width; each is an offset from 0.5.
 //
 // ---- why the march is safe ------------------------------------------------------
@@ -116,7 +119,7 @@ vec3 seWarp(vec3 p, float amount) {
 
 /** Gated arm mask for `n` arms (an integer, so the seam at atan's +-pi is closed). */
 float seArm(float n, float a, float lr, float tw, float pitch, float sharp) {
-    float phase = n * (a + pitch * lr - tw) + uFlowPhase * 1.6;
+    float phase = n * (a + pitch * lr - tw) + uTime * 0.48;
     float c = 0.5 + 0.5 * cos(phase);
     return smoothstep(0.5 - 0.42 * sharp, 0.5 + 0.42 * sharp, c);
 }
@@ -138,7 +141,7 @@ float dens(vec3 p, float armsA, float armsB, float armBlend, float pitch, float 
 
     // The cloud turns with the arms (the rotation's z period is 8) and is
     // folded by the flow; then it is read stretched 2:1 along z, the streak.
-    vec2 xy = rot2(tw + uFlowPhase * 0.4) * p.xy;
+    vec2 xy = rot2(tw + uTime * 0.12) * p.xy;
     vec3 q = seWarp(vec3(xy, p.z), flowAmt);
     float n1 = seNoise(q * vec3(0.9, 0.9, 0.5), 8);
     float n2 = seNoise(q * vec3(2.1, 2.1, 1.0) + vec3(5.1, 2.7, 0.0), 16);
@@ -175,7 +178,7 @@ vec3 seEye(vec3 rd, float swell, float halo) {
     float cr = r * 7.0;
     float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0);
     float spokesA = 8.0 + 4.0 * floor(uFormPhase * 3.0);
-    float spokes = 0.5 + 0.5 * cos(a * spokesA + uFlowPhase * 2.0);
+    float spokes = 0.5 + 0.5 * cos(a * spokesA + uTime * 0.6);
     float coreMask = exp(-cr * cr * 0.30);
     vec3 iris = pal(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
     vec3 col = iris * coreMask * (0.35 + 0.65 * rings * spokes) * 1.4;
@@ -210,7 +213,7 @@ void main() {
 
     // Bass tightens the wind; Warp leans it further. pitch multiplies log r,
     // never z, so it is free to move continuously.
-    float pitch = 1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0);
+    float pitch = max(1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0) + 1.6 * k3, 0.2);
     float sharp = clamp(1.0 - 0.45 * clamp(uMorph, 0.0, 1.5), 0.25, 1.0);
     float flowAmt = (0.18 + 0.22 * clamp(uTurbulence, 0.0, 1.5)) * (1.0 + 0.8 * k2) * (0.8 + 0.3 * swell);
     float filSharp = k1;

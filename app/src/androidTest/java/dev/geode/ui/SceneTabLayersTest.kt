@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,7 +16,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -30,13 +34,10 @@ class SceneTabLayersTest {
     val compose = createComposeRule()
 
     @Before
-    fun clean() {
-        LayersBus.state.value = LayersUiState()
-    }
-
     @After
-    fun restoreLayers() {
-        LayersBus.state.value = LayersUiState()
+    fun layerOff() {
+        val looks = ApplicationProvider.getApplicationContext<Context>().geodeContainer.looks
+        GeodeNative.layerEdit(GeodeNative.LAYER_ON, 0f, "").takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
     }
 
     @Test
@@ -54,7 +55,7 @@ class SceneTabLayersTest {
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Layers enabled").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
-        assertTrue(LayersBus.state.value.enabled)
+        assertTrue(GeodeNative.layerValues("kifs", -1)[GeodeNative.LAYER_ON] > 0f)
 
         query = "layer"
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()

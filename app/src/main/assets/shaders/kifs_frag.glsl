@@ -96,7 +96,10 @@ out vec4 fragColor;
 //  from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
 //  filigree's width (the edge trap's band), k2 FLOW added to the fold angle
 //  (+-0.04, the mids' own size; a fold is an isometry, so the march holds),
-//  k3 TONE the palette position, k4 BUILD the light through the arcades, k5
+//  k3 TONE the palette position and which seed the levels grow from (a high
+//  melody leans the crossfade toward spires, a low one toward piers, within
+//  the crossfade's own range, so the cathedral's architecture follows the
+//  tune), k4 BUILD the light through the arcades, k5
 //  SPACE the depth haze's reach.
 //
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
@@ -621,7 +624,8 @@ void main() {
     // Piers to spires and back, on its own slow clock. Squared-cosine rather
     // than a raw sine so it lingers at each end - the two shapes are the
     // interesting states and the crossfade is the transition between them.
-    gSeedMix = KIFS_SEED_MIX_MAX * pow(0.5 + 0.5 * sin(uTime * 0.0157), 2.0);
+    gSeedMix = clamp(KIFS_SEED_MIX_MAX * (pow(0.5 + 0.5 * sin(uTime * 0.0157), 2.0) + 1.2 * gTone),
+                     0.0, KIFS_SEED_MIX_MAX);
     gBound = KIFS_BOUND_K * length(gSeedB) + KIFS_BOUND_SLACK;
 
     // TOUCH, second gesture: two fingers set the axis the folds turn about.

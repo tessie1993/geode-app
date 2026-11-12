@@ -342,18 +342,51 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer; [blendMode] indexes [layerBlendNames]. */
-    external fun layerSet(
-        sceneId: String,
-        mix: Float,
-        blendMode: Int,
-    )
+    /** Customize › Layers, process-wide (core/viz/LayerState): native keeps the layer; [layer] is the line it last handed back. */
+    external fun layerSet(layer: String)
 
-    /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
-    external fun layerBlendNames(): String
+    /** One field of native's layer changed (`geode_layer_edit`, [field] a `LAYER_*` up to [LAYER_STYLE]); the line to save, or "". */
+    external fun layerEdit(
+        field: Int,
+        value: Float,
+        styleId: String,
+    ): String
 
-    /** Screen, the blend a new layer starts on (`GEODE_LAYER_BLEND_DEFAULT`). */
-    const val LAYER_BLEND_DEFAULT: Int = 1
+    /** What Customize › Layers draws over [activeStyle], by `LAYER_*` (`geode_layer_values`); [family] -1 is the drawn style's. */
+    external fun layerValues(
+        activeStyle: String,
+        family: Int,
+    ): FloatArray
+
+    /** One of the page's lists (`geode_layer_list`, [list] a `LAYER_LIST_*`); [family] as [layerValues] takes it. */
+    external fun layerList(
+        list: Int,
+        activeStyle: String,
+        family: Int,
+    ): Array<String>
+
+    /** The style the layer draws now over [activeStyle], "" for none. */
+    external fun layerShown(activeStyle: String): String
+
+    // Mirrors of GEODE_LAYER_*: a [layerValues] slot, and up to LAYER_STYLE what [layerEdit] changes.
+    const val LAYER_ON: Int = 0
+    const val LAYER_SOURCE: Int = 1
+    const val LAYER_KNOB: Int = 2
+    const val LAYER_BLEND: Int = 3
+    const val LAYER_MIX: Int = 4
+    const val LAYER_STYLE: Int = 5
+    const val LAYER_FAMILY: Int = 6
+    const val LAYER_PICKED: Int = 7
+
+    // Mirrors of GEODE_LAYER_SOURCE_* and GEODE_LAYER_LIST_*.
+    const val LAYER_SOURCE_USER: Int = 0
+    const val LAYER_SOURCE_DIRECTOR: Int = 1
+    const val LAYER_SOURCE_MACRO: Int = 2
+    const val LAYER_LIST_SOURCES: Int = 0
+    const val LAYER_LIST_BLENDS: Int = 1
+    const val LAYER_LIST_FAMILIES: Int = 2
+    const val LAYER_LIST_STYLES: Int = 3
+    const val LAYER_LIST_KNOBS: Int = 4
 
     external fun vizSetTransition(
         handle: Long,
@@ -509,7 +542,7 @@ object GeodeNative {
         curve: String,
     ): String
 
-    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    /** A new knob that moves the Customize control [control] (a control key); native names it. */
     external fun macroBankAddKnobFor(
         bank: String,
         control: String,
@@ -589,6 +622,43 @@ object GeodeNative {
      * line, the lock set [paramsRandomize] takes.
      */
     external fun directorKeepSet(keys: String)
+
+    /**
+     * The Auto Director's settings (core/viz/DirectorTuning), process-wide like [directorSet] and pinned with
+     * it by an export: [text] as [directorTuningWith] gave it ("" is every default).
+     */
+    external fun directorTuningSet(text: String)
+
+    /** How many rows the Auto Director's settings table has. */
+    external fun directorTuningCount(): Int
+
+    /** Row [index]'s label, as native names it. */
+    external fun directorTuningLabel(index: Int): String
+
+    /** Row [index]'s one line of help. */
+    external fun directorTuningHelp(index: Int): String
+
+    /** Row [index]'s min, max, step (0 continuous) and 1 when it is a switch (on/off), else 0. */
+    external fun directorTuningRange(index: Int): FloatArray
+
+    /** Row [index]'s value in the saved [text]. */
+    external fun directorTuningValue(
+        text: String,
+        index: Int,
+    ): Float
+
+    /** Row [index]'s value in the saved [text], as the page shows it. */
+    external fun directorTuningValueText(
+        text: String,
+        index: Int,
+    ): String
+
+    /** The saved [text] with row [index] set to [value], held to its range: what the store saves. */
+    external fun directorTuningWith(
+        text: String,
+        index: Int,
+        value: Float,
+    ): String
 
     /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
@@ -750,7 +820,7 @@ object GeodeNative {
 
     /**
      * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
-     * false is the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls
+     * false is the wave editor's button (every wave on and rolled); true is a roll of everything, which only re-rolls
      * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
      */
     external fun modWavesRandomize(
@@ -1074,14 +1144,141 @@ object GeodeNative {
         override: Float,
     ): Float
 
-    /** Customize's Kaleidoscope control: `shown|selected|flipped`, then the Folds labels (`geode_customize_kaleidoscope`). */
-    external fun customizeKaleidoscope(
-        on: Boolean,
-        symmetry: Int,
+    /** True when the params [frame] draws its own palette, a hue override or a first stop set (`geode_params_uses_custom_palette`). */
+    external fun paramsUsesCustomPalette(frame: FloatArray): Boolean
+
+    /** Your colours' stops set from the first in the params [frame] (`geode_params_palette_stops`). */
+    external fun paramsPaletteStops(frame: FloatArray): IntArray
+
+    /** [frame] with both hue overrides and every stop unset, as a new frame (`geode_params_clear_custom_palette`). */
+    external fun paramsClearCustomPalette(frame: FloatArray): FloatArray
+
+    /** [frame] cleared, then the first five of [stops] as your colours (`geode_params_apply_stops`). */
+    external fun paramsApplyStops(
+        frame: FloatArray,
+        stops: IntArray,
+    ): FloatArray
+
+    /** [frame] with no stops and the hue gradient [base], [span] (held to 0..1) as its overrides (`geode_params_apply_gradient`). */
+    external fun paramsApplyGradient(
+        frame: FloatArray,
+        base: Float,
+        span: Float,
+    ): FloatArray
+
+    /** A name as a file stem (core/viz/LookFiles, `geode_file_safe_name`). Pure. */
+    external fun fileSafeName(name: String): String
+
+    /** [fileSafeName] without the hash: a preset folder's name (`geode_file_safe_chars`). Pure. */
+    external fun fileSafeChars(name: String): String
+
+    /** The indices of [names] in list order, [caseless] or by code point, ties kept (`geode_looks_order`). Pure. */
+    external fun looksOrder(
+        names: Array<String>,
+        caseless: Boolean,
+    ): IntArray
+
+    /** A saved palette file's text as this build writes it, or null when it is no palette (`geode_saved_palette_read`). */
+    external fun savedPaletteRead(text: String): String?
+
+    /** [savedPaletteRead] with the id, name, hues and colours made safe (`geode_saved_palette_sanitize`). */
+    external fun savedPaletteSanitize(text: String): String?
+
+    /** A new saved palette's text: [stops] when not empty, else the hue gradient (`geode_saved_palette_create`). */
+    external fun savedPaletteCreate(
+        name: String,
+        base: Float,
+        span: Float,
+        stops: IntArray,
     ): String
 
-    /** The `symmetry` Folds menu [row] sets (`geode_params_kaleidoscope_pick`). Pure. */
-    external fun paramsKaleidoscopePick(row: Int): Int
+    /** The text a palette file should hold under its current id, or null for no palette (`geode_saved_palette_migrate`). */
+    external fun savedPaletteMigrate(text: String): String?
+
+    /** A palette name's id, its file stem (`geode_saved_palette_id_for`). */
+    external fun savedPaletteIdFor(name: String): String
+
+    /** A saved palette's "id" or "name" (`geode_saved_palette_string`). */
+    external fun savedPaletteString(
+        text: String,
+        key: String,
+    ): String
+
+    /** A saved palette's hue base and span (`geode_saved_palette_hues`). */
+    external fun savedPaletteHues(text: String): FloatArray
+
+    /** A saved palette's colours, packed 0xRRGGBB (`geode_saved_palette_stops`). */
+    external fun savedPaletteStops(text: String): IntArray
+
+    /** How many colours a saved palette holds at most (`geode_saved_palette_max_stops`). */
+    external fun savedPaletteMaxStops(): Int
+
+    /** The params [frame] with saved palette [text] as its own palette, as a new frame (`geode_saved_palette_apply`). */
+    external fun savedPaletteApply(
+        text: String,
+        frame: FloatArray,
+    ): FloatArray
+
+    /** The saved palette id a look naming [lookId] keeps once [deletedId] is deleted (`geode_saved_palette_kept_id`). */
+    external fun savedPaletteKeptId(
+        lookId: String,
+        deletedId: String,
+    ): String
+
+    /**
+     * A preset's text as org.json read it (core/viz/LookFiles, `geode_preset_read`): its params into [frame], into
+     * [strings] (five slots) the name, scene id, custom shader, milk preset (null when absent) and saved palette id,
+     * into [envelope] the attack and decay. False, nothing written, when it is no preset.
+     */
+    external fun presetRead(
+        text: String,
+        frame: FloatArray,
+        strings: Array<String?>,
+        envelope: FloatArray,
+    ): Boolean
+
+    /** A preset's file text, as org.json wrote it (`geode_preset_write`); null for a short frame. */
+    external fun presetWrite(
+        name: String,
+        sceneId: String,
+        attack: Float,
+        decay: Float,
+        customShader: String?,
+        milkPreset: String?,
+        frame: FloatArray,
+        customPaletteId: String,
+    ): String?
+
+    /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
+    external fun presetMilkFileName(presetName: String): String
+
+    /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
+    external fun templateFileName(
+        name: String,
+        id: String,
+        suffix: String,
+    ): String
+
+    /** What every library file of template [id] ends with (`geode_template_file_tail`). */
+    external fun templateFileTail(
+        id: String,
+        suffix: String,
+    ): String
+
+    /** The name a newly added template takes beside the [taken] ones (`geode_template_unique_name`). */
+    external fun templateUniqueName(
+        base: String,
+        taken: Array<String>,
+    ): String
+
+    /** How many bundled starter templates there are (`geode_template_starter_count`). */
+    external fun templateStarterCount(): Int
+
+    /** Bundled starter [index] as a whole template file (`geode_template_starter`). */
+    external fun templateStarter(index: Int): String
+
+    /** True for a bundled starter's template id (`geode_template_is_starter`). */
+    external fun templateIsStarter(id: String): Boolean
 
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
@@ -1151,9 +1348,6 @@ object GeodeNative {
         tick: Int,
     ): FloatArray
 
-    /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
-    external fun paletteColourMapName(index: Int): String
-
     /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
     external fun paletteRamp(
         stops: IntArray,
@@ -1167,10 +1361,9 @@ object GeodeNative {
         count: Int,
     ): IntArray
 
-    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    /** [samples] colours of what a params frame's own palette paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
     external fun paramsPalettePreview(
         params: FloatArray,
-        second: Boolean,
         samples: Int,
     ): IntArray
 
@@ -1219,9 +1412,9 @@ object GeodeNative {
     ): Int
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
     external fun paramsRandomize(
@@ -1240,7 +1433,7 @@ object GeodeNative {
      */
     external fun customizeText(): String
 
-    /** Every control a roll can move (ParamKeys strings, one per line), so the panel offers to keep it; ask once. */
+    /** Every control a roll can move (control keys, one per line), so the panel offers to keep it; ask once. */
     external fun customizeLockableKeys(): String
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
@@ -1249,7 +1442,7 @@ object GeodeNative {
     /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     * control keys in [locked]. Every other control holds. True when it changed something.
      */
     external fun customizeRandomize(
         styleId: String?,
@@ -1277,6 +1470,89 @@ object GeodeNative {
         from: FloatArray,
         output: FloatArray,
     )
+
+    /**
+     * What each control in [keys] (one Customize map key a line) draws as on the look [params] and [styleId]: rows of
+     * widget, field, words, value, range, default, unit and steps, or none where it hides (core/viz/CustomizeRows).
+     * [query] is the panel's search, [transition] whether a style transition is chosen, [liquidMode] the renderer's.
+     */
+    external fun customizeRows(
+        styleId: String,
+        keys: String,
+        query: String,
+        transition: Boolean,
+        liquidMode: Int,
+        params: FloatArray,
+    ): String
+
+    /** A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. */
+    external fun panelText(id: String): String
+
+    /** A style's display name (core/viz/StyleNames). */
+    external fun styleLabel(styleId: String): String
+
+    /** A Styles page family's display name (core/viz/StyleNames). */
+    external fun styleFamilyLabel(family: String): String
+
+    /** Your colours' editor state on the look [params]' own colours (core/viz/PalettePanel). */
+    external fun paletteMakerStart(params: FloatArray): String
+
+    /** Your colours' editor state on the look [params]' hue ramp alone. */
+    external fun paletteMakerFromLook(params: FloatArray): String
+
+    /** Your colours' editor state on a saved palette: its [stops], else its [base] and [span] as a ramp. */
+    external fun paletteMakerOpen(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** [state] after [op] (`PALETTE_MAKER_*`) with [arg]: the stop to select or the selected stop's new colour. */
+    external fun paletteMakerEdit(
+        state: String,
+        op: Int,
+        arg: Int,
+    ): String
+
+    /** The packed colours of an editor [state]. */
+    external fun paletteMakerStops(state: String): IntArray
+
+    /** An editor [state] as Your colours draws it (rows in core/viz/PalettePanel.hpp). */
+    external fun paletteMakerView(state: String): String
+
+    /** A saved palette's colours as a stack layer: its [stops], else its ramp. */
+    external fun paletteSavedColours(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): IntArray
+
+    /** A saved palette's strip: "RRGGBB" joined by ','. */
+    external fun paletteSavedSwatch(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** Look's palette list on a style the stack does not draw ([savedIds] and [savedNames] one a line). */
+    external fun paletteListView(
+        params: FloatArray,
+        customId: String,
+        savedIds: String,
+        savedNames: String,
+    ): String
+
+    /** The palette stack card on the look [params]; [savedCount] is how many palettes the user saved. */
+    external fun paletteStackCard(
+        stack: String,
+        params: FloatArray,
+        savedCount: Int,
+    ): String
+
+    const val PALETTE_MAKER_SELECT: Int = 0
+    const val PALETTE_MAKER_SET: Int = 1
+    const val PALETTE_MAKER_ADD: Int = 2
+    const val PALETTE_MAKER_REMOVE: Int = 3
 
     /**
      * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
@@ -2396,6 +2672,17 @@ object GeodeNative {
     external fun autoPick(
         count: Int,
         onScreen: Int,
+    ): Int
+
+    /**
+     * Auto's pick among [ids] (the pool's style ids, one a line, in its order). At a [directorMoment] the style
+     * the Auto Director asks for (core/viz/DirectorStyle: a returning section's family, else the next along
+     * the catalogue), -1 to keep the style on screen; otherwise, or with no such ask, [autoPick]'s draw.
+     */
+    external fun autoPickAmong(
+        ids: String,
+        onScreen: Int,
+        directorMoment: Boolean,
     ): Int
 
     /**

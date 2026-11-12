@@ -10,6 +10,7 @@
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
@@ -63,15 +64,15 @@ void Renderer::pinLayer(bool on) {
 
 // Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
 // the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
-// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene and
-// trimScenes read layerSceneId_ as before, and an export's blocking build makes the layer scene whole
-// on the first frame that asks for it, like the main scene.
+// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene turns
+// the setting into this renderer's style (viz/LayerPick), and an export's blocking build makes the layer
+// scene whole on the first frame that asks for it, like the main scene.
 void Renderer::syncLayerLocked() {
     layer_state::Layer layer;
     if (!layerFollower_.poll(layer)) return;
-    layerSceneId_ = std::move(layer.sceneId);
     layerMix_ = layer.mix;
     layerBlend_ = layer.blend;
+    layerSetting_ = std::move(layer);
 }
 
 void Renderer::setTransition(const std::string& id, int64_t durationMs) {
@@ -168,6 +169,15 @@ void Renderer::notePresetLoaded(const std::string& path) {
     lastMilkPreset_ = path;
     lastGoodMilkPreset_ = path;
     milkPresetLoaded_ = path;
+}
+
+int Renderer::takeDirectorStyleMoments() {
+    const int moments = directorStyleMoments_.exchange(0, std::memory_order_acq_rel);
+    if (moments > 0) {
+        std::lock_guard<std::mutex> guard(directorIntentLock_);
+        director::publishStyleIntent(directorIntent_);
+    }
+    return moments;
 }
 
 bool Renderer::milkPresetLoadedPending() const {
@@ -375,6 +385,7 @@ void Renderer::onSurfaceCreated() {
     uiBlurPass_.release();
     liquidPass_.release();
     divePass_.release();
+    physicsLayers_.release();
     overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -393,6 +404,7 @@ void Renderer::onSurfaceCreated() {
     smearLinger_.reset();
     fboA_.release();
     fboB_.release();
+    fboL_.release();
     bornFbo_.release();
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
@@ -627,12 +639,14 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
         divePass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
+        physicsLayers_.releaseTargets();
         bornFbo_.release();
     }
     if (shed.sceneTargets) {
         // ensureTargets builds them again on the next frame; a held scene or layer draws afresh into them.
         fboA_.release();
         fboB_.release();
+        fboL_.release();
         heldScene_ = nullptr;
         heldLayer_ = nullptr;
     }

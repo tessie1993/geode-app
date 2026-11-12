@@ -42,17 +42,15 @@ out vec4 fragColor;
 // of light that roll down the lanes away from the eye: their phase is the
 // Speed-scaled bass clock (uSoundTimeSped.x), so a heavy bass makes the floor
 // race the way the flat style's bass pumped its scroll, and the kick
-// (SND_KICK_ENV) flares them. Overall level rides SND_ENERGY_TREND. The mid
-// band (SND_MIDDLE) turns the eye's look aside while the mids climb and eases
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's
-// truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0
-// in silence); the corridor and its bars hold still. Mid gain scales it.
+// (SND_KICK_ENV) flares them. Overall level rides SND_ENERGY_TREND.
 //
 // ---- knobs ------------------------------------------------------------------
 //
 // k0 PULSE the rolling pulses' strength, k1 TEXTURE the half-unit minor grid,
-// k2 FLOW the pulses' trail length, k3 TONE the hue, k4 BUILD the bars'
-// height, k5 SPACE how far the fog lets you see.
+// k2 FLOW the pulses' trail length, k3 TONE which bank leads (a high melody
+// lets the ceiling's bars hang long while the floor's sink, a low one raises
+// the floor's bars and shortens the ceiling's; and a small hue offset), k4
+// BUILD the bars' height, k5 SPACE how far the fog lets you see.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -62,8 +60,10 @@ out vec4 fragColor;
 // still one), and the distance is clamped to the cell boundary unless the
 // point is above every bar's highest possible tip (GR_HMAX). A global bound
 // (the slab the bars live in) lets the ray cross the empty lane in one step.
-// The bars mirror across y = 0 through abs(p.y), which is exact because the
-// two halves are mirror images. Warp's bend shifts x by a slope of at most
+// The bars mirror across y = 0 through abs(p.y), which is exact while the
+// two halves are mirror images. When TONE makes them differ, a point measures
+// only its own half, so the other half's tips, never nearer than
+// GR_H - GR_HMAX to y = 0, bound it by |y| + 0.25 as well. Warp's bend shifts x by a slope of at most
 // 0.1, absorbed by the 0.85 step scale. A sphere around the eye is carved out
 // of the bars, so the eye never sits inside one.
 
@@ -89,6 +89,8 @@ float gBand;
 float gLevel;
 float gBarH;
 float gQy;
+/** TONE: the ceiling bank's share against the floor's (0 at rest). */
+float gTilt;
 
 float bendX(float z) {
     // Warp sways the corridor; period 64, a power of two.
@@ -113,7 +115,8 @@ float bars(vec3 p) {
         float s = gSpec[ci];
         float gain = 0.6 + 0.8 * uKnob[4];
         float jit = 1.0 + uTurbulence * 0.35 * sin(uTime * (1.5 + 2.0 * hh) + hh * 40.0);
-        float h = clamp((0.12 + 1.9 * s * gain) * (0.8 + 0.2 * hh) * jit, 0.06, GR_HMAX);
+        float lean = max(1.0 + gTilt * (p.y > 0.0 ? 1.0 : -1.0), 0.2);
+        float h = clamp((0.12 + 1.9 * s * gain) * (0.8 + 0.2 * hh) * jit * lean, 0.06, GR_HMAX);
         float r = 0.32;
         vec2 a = abs(f) - r;
         float box = length(max(a, 0.0)) + min(max(a.x, a.y), 0.0);
@@ -127,6 +130,8 @@ float bars(vec3 p) {
     vec2 af = abs(f);
     float toEdge = 0.5 - max(af.x, af.y);
     float d = min(dc, max(toEdge + 0.02, qy - GR_HMAX));
+    // The other half, once TONE has made the halves differ (see the header).
+    if (gTilt != 0.0) d = min(d, abs(p.y) + (GR_H - GR_HMAX));
     // The slab every bar lives in: GR_LANE + 0.5 - 0.36 out to the last column's outer face.
     float ax = abs(px);
     float slab = max(max(GR_LANE + 0.1 - ax, ax - (GR_LANE + float(GR_BANDS) + 0.4)), qy - GR_HMAX);
@@ -165,8 +170,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 256, so this shift is invisible
     // and exact (power of two). Without it, far down the 8192 travel a highp z
     // has ~0.001 of fraction left and the grid lines quantise into speckle.
@@ -181,6 +185,7 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     float hue = (uKnob[3] - 0.5) * 0.2;
+    gTilt = 1.4 * (uKnob[3] - 0.5);
     float fogK = mix(0.055, 0.018, uKnob[5]);
 
     // The floor or ceiling, exactly.

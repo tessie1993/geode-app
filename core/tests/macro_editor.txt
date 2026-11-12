@@ -22,7 +22,7 @@ link|COLOR_SHIFT|0.35|-0.35|1|LINEAR|0.35|-0.35
 link|TEMPERATURE|0.5|-0.5|1|LINEAR|1|-1
 link|SATURATION|0.25|0|1|LINEAR|0.375|0
 link|PALETTE_MIX|0.7|0|1|LINEAR|0.7|0
-link|BLOOM|1|0|1|LINEAR|0.25|0
+link|BLOOM|1|0|1|LINEAR|0.6|0
 link|INTENSITY|0.2|-0.3|1|LINEAR|0.21|-0.315
 addrandom|3|6
 knob|4|1|1|1|0|Depth|Down pulls in close, up opens a wide, deep view
@@ -92,6 +92,17 @@ target|PALETTE_AMOUNT_6|1|Palette 6 amount
 target|PALETTE_AMOUNT_7|1|Palette 7 amount
 target|PALETTE_AMOUNT_8|1|Palette 8 amount
 target|PALETTE_SHIFT|1|Palette position
+target|KALEIDO_FOLDS|1|Kaleidoscope
+target|LAYER_MIX|1|Layer mix
+target|SIM_FLUID|1|Fluid layer
+target|SIM_PARTICLES|1|Particle field
+target|SIM_FORCE|1|Physics force
+target|SIM_LAYER_ORDER|1|Fluid in front
+target|SPAWN|0|Spawn
+target|FRACTAL|0|Fractal
+target|FRONT_LAYER|0|Front layer
+target|BACK_LAYER|0|Back layer
+target|FORMULA|0|Formula
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail
@@ -101,7 +112,6 @@ target|milkdropPaletteTint|0|MilkDrop palette tint
 target|hueRange|1|Hue range
 target|contrast|1|Contrast
 target|gamma|1|Gamma
-target|cycleSpeed|1|Cycle speed
 target|bassGain|1|Bass gain
 target|midGain|1|Mid gain
 target|trebGain|1|Treble gain

@@ -30,16 +30,14 @@ out vec4 fragColor;
 // sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
 // sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
 // one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the curtains' ribbon
-// width, k2 FLOW how far the curtains bend, k3 TONE the palette position, k4
+// width, k2 FLOW how far the curtains bend, k3 TONE the palette position and
+// the curtains' stature (a high melody spaces their layers out so they tower
+// up the sky, a low one packs them into a low, dense band), k4
 // BUILD the curtains' glow, k5 SPACE the reach (the far plane and the haze).
 
 #define AO_MAX_STEPS 96
@@ -61,6 +59,8 @@ float gRibW = 1.0;
 float gBend = 1.0;
 /** k4 BUILD: the curtains' glow, 0.5..1.5 (1 at rest). */
 float gGlow = 1.0;
+/** k3 TONE: the spacing of the curtain layers, world units (0.45 at rest). */
+float gLayer = 0.45;
 
 /** Height of the sea above AO_SEA_Y at xz. Four crested octaves, each warped by the last. */
 float sea(vec2 xz) {
@@ -107,7 +107,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             // Each layer is a horizontal plane higher up the curtain. Projecting
             // the ray onto it makes one ribbon line on the ground plane into a
             // vertical streak on screen, which is what a curtain is.
-            float lh = 3.0 + fi * 0.45;
+            float lh = 3.0 + fi * gLayer;
             vec2 q = ro.xz * 0.15 + rd.xz * (lh / rd.y);
             q *= 0.12;
             // The drop leans the curtain: every layer slides further along x.
@@ -144,6 +144,7 @@ void main() {
     gRibW = 1.0 + kTexture;
     gBend = 1.0 + kFlow;
     gGlow = 1.0 + kBuild;
+    gLayer = 0.45 * (1.0 + 1.4 * kTone);
     float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
@@ -161,8 +162,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The sky parallaxes on the true eye; the sea is marched with z rebased
     // into one 64 tile (exact, power of two), since far down the 8192 travel
     // a highp z has ~0.001 of fraction left and the normals would speckle.

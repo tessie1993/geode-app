@@ -8,7 +8,7 @@ namespace geode::sound {
 
 namespace {
 
-// Noland's key profiles, as Essentia ships them ("noland"), tonic first. They replaced Krumhansl &
+// Noland's key profiles, tonic first. They replaced Krumhansl &
 // Kessler's probe-tone ratings (1982) after tools/sound_bench measured both on the same chroma: the key
 // at the end of a piece rose from MIREX 0.69-0.79 to 0.82-0.84 and the frames with the exact key from
 // 0.64-0.66 to 0.75-0.77 over three seeds of the bench's 48 pieces; Temperley's 2005 profiles came close.
@@ -224,8 +224,8 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             if (rawTop <= 0.0f) rawTop = 1.0f;
             for (float& v : raw) v /= rawTop;
             // Until a chroma has heard its own time constant of audio, it is the plain mean of every hop
-            // heard (Essentia's streaming Key averages all its HPCP frames the same way); after that the
-            // one-pole average takes over, where the two weights meet. Seeding with the first hop gave
+            // heard (a streaming key estimate commonly averages all its chroma frames the same way); after
+            // that the one-pole average takes over, where the two weights meet. Seeding with the first hop gave
             // one mostly empty window the weight of four seconds, and the key and scale read from it.
             constexpr float kFastTau = 0.1f;
             constexpr float kMediumTau = 0.5f;

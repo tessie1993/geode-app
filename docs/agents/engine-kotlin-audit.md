@@ -28,9 +28,8 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `PlaybackMath` | 18 | **ported**: the pitch rate and the slider step are `core/audio/dsp/PlaybackControls` (`geode_playback_pitch_ratio`, `geode_playback_snap`), test `core/tests/playback_controls_test.cpp`; the sleep timer's m:ss countdown is display text, now private to `ui/PlaybackSettings`. |
 | `BestEffort` | 18 | **moved to `:app`** (`util/BestEffort`, same package): shell glue that no engine file calls any more. |
 | `UnderlayBlend` | 22 | **moved to UI**: to `:app`, same package; its names are saved data (Background, Studio projects) and its ordinals the underlay's wire int, clamped natively. The unused `fromOrdinal` is gone. |
-| `BlendMode` | 24 | **deleted**: the blends and their labels are native (`core/viz/VisualSafety`, `geode_layer_blend_names`, test `core/tests/layer_blend_test.cpp`); the shell holds an index. |
+| `BlendMode` | 24 | **deleted**: the blends and their labels are native (`core/viz/VisualSafety`, `geode_layer_list`'s BLENDS, test `core/tests/layer_blend_test.cpp`); the shell holds an index. |
 | `StyleSchedule` | 31 | pending |
-| `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
 | `StyleSchedule` | 31 | **deleted**: nothing built one since the export frame driver went native; `core/viz/StyleSchedule` stays (test `core/tests/style_schedule_test.cpp`). |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
@@ -56,14 +55,14 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `TransitionCatalog` | 79 | **deleted**: native hands Customize's picker its lists (`geode_transition_picker`: the built-ins offered, from `TransitionCatalog::builtInIds` and `transition_choice::pickerIds`, then the library's names); `ui/CustomizeAdvanced` only splits them. The full-table read and its parser are gone, as is `VizUiState.transitionStyle`, which nothing read. Pinned in `transition_library_test.cpp` and `transition_choice_test.cpp`. |
 | `SceneIds` | 70 | **deleted**: the id list is native; the shell names an id as text where a rule is about one style. |
 | `TransitionCatalog` | 79 | pending |
-| `SceneParamsCodec` | 80 | pending |
+| `SceneParamsCodec` | 80 | **deleted**: `SceneParams` holds the native wire frame itself; nothing packs by reflection. |
 | `ModConfigCodec` | 81 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `ParamSchema` | 90 | pending |
 | `PerformanceSettings` | 94 | **moved to `:app`** (`data/PerformanceSettings`, beside `PerformanceStore`): a value holder; the preset match, the scale choices and the Liquid policy fallback are `core/viz/frame/Quality` and `liquid::hotPolicyFrom` through `core/api/geode_perf_api.cpp`, test `core/tests/quality_test.cpp`. `NativeViz.setQuality` takes the five values. |
 | `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
 | `SampleRing` | 95 | **deleted** (#1150): the rings' kinds, sizes, runway default, the mic's layer and the output mix's stitch are native (`core/audio/ingest/RingKinds`, `geode_pcm_ring_shared`, `geode_pcm_ring_create_kind`); the player's and the mic's live for the process, so no `Cleaner`. Callers hold the `Long` handle. Test `core/tests/pcm_ring_kinds_test.cpp`. |
-| `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |
+| `VisualStyleCatalog` | 106 | **moved to UI**: names are native (`core/viz/StyleNames`, `GeodeNative.styleLabel`); its id lists are native. |
 | `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
@@ -75,12 +74,12 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `Catalogue` | 131 | **ported**: the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `ParamFormat` | 153 | **ported**: `core/viz/ParamText` (the unit each control reads in, and its value text), `geode_param_text`, test `core/tests/param_text_test.cpp` (the JVM test's cases). The three units a row names itself are `ParamUnit` in `:app`. The unreachable tempo and count units are gone. |
 | `TrackAudio` | 158 | **ported**: `core/audio/ingest/TrackPump` (the decode and hand-out order, AIFF first) over `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, linked `mediandk`), test `core/tests/track_pump_test.cpp`. Needs a device for the codec path. |
-| `ParamKeys` | 158 | pending |
+| `ParamKeys` | 158 | **deleted**: a control's key is its meta row's label in `core/viz/ParamTable.inc`. |
 | `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `VisualizerView` | 220 | pending |
 | `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). The process-wide push of the hand mask is `LfoStore.pushHand`. |
 | `FramePacer` | 248 | pending |
-| `SceneParams` | 254 | **in progress** (#1150): its option label lists are gone; every picker's labels are `GEODE_PARAM_CHOICES` rows in `core/viz/ParamTable.inc`, read through `ParamSchema.choices` (test `core/tests/params_schema_test.cpp`). The Folds menu, its selection, its show rule and the kaleidoscope switch rule are native too (`SceneParams::kSymmetryFolds`, `kaleidoscopeMenu`, `kaleidoscopePick`; `GeodeNative.customizeKaleidoscope`, `paramsKaleidoscopePick`). The fields, defaults (the sentinel constants kept for them, pinned by `ParamSchemaTest`) and the palette slot rules remain. |
+| `SceneParams` | 254 | **deleted** as a field mirror: an opaque holder of the native frame in `ParamSchema.kt`; its palette rules are `core/viz/ParamsPalette` (test `core/tests/look_files_test.cpp`). |
 | `VisualizerRenderer` | 313 | pending |
 | `NativeViz` | 522 | **moved to `:app`** (`viz/NativeViz`, for Cast's fallback, the export scene and the render tests): the look crosses whole and native passes on only the parts that changed (`geode_viz_set_look`, `core/viz/LookSnapshot.hpp`'s `LookLatch`, test `core/tests/look_snapshot_test.cpp`; the stage's look takes the same latch); `pollError`'s change check is gone (`lastError`; a live frame reports the change). |
 | `GeodeNative` | 2,736 | declarations; its non-declaration members pending |

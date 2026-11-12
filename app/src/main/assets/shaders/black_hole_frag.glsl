@@ -32,18 +32,15 @@ out vec4 fragColor;
 //   ring out from the photon sphere, lensed like everything else.
 // - filaments (Morph, neonForm): the disc's threads sharpen and brighten.
 //   A hard cut (SND_CUT_COUNT) changes how many spiral arms there are.
-// - swirl (Warp, neonFlow, plus the bass weight): the disc winds on and the
-//   haze above it thickens. The disc turns on SND_BASS_TIME, so it races in
-//   a heavy passage and drifts in a thin one, never backwards.
+// - swirl (Warp, neonFlow): the disc winds on and the haze above it
+//   thickens; the bass weight thickens the haze too. The disc turns on time
+//   alone, never on the sound (owner 2026-11-12, no style spins to the music).
 // - Turbulence (neonChaos) sets the disc precessing: its tilt wobbles.
 // - hue: the key (neonKeyTurn) turns the ramp; SND_CHORD_HUE tints the disc.
 // - charge: SND_BUILD_UP brightens the disc and wakes the sky swirl; the
 //   drop (SND_HELD_SURGE) blazes it and pulls the eye in toward the hole.
 // - reach: in silence (neonQuiet) the eye drifts back, wider and calmer.
 // - SND_HAT_ENV twinkles the stars. Intensity (neonGlow) is the emission.
-// - mids (SND_MIDDLE) turn the hole and its sky about the vertical while they
-//   climb and ease them back as they fall: lib_flame's gFlameTurn, 0.6 x
-//   sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence). Mid gain scales it.
 //
 // Provenance: written from scratch for BeatRealms from textbook techniques - the
 // photon geodesic in Cartesian form (a = -3/2 h^2 x / r^5, units where the
@@ -202,10 +199,6 @@ void main() {
     gArms = 6.0 + 2.0 * mod(floor(SND_CUT_COUNT + 0.5), 3.0);
 
     camAround(uv, mix(16.0, 23.0, kSpace), CAM_SPIN_UNIT * 3.0, ro, rd);
-    // The mids turn the hole about the vertical (see the header): the eye and its ray turn the other way.
-    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
     // Look down on the disc a little: tilt the world about the eye's own
     // horizontal axis, so the slant is the same from every orbit angle.
     // Turbulence sets it precessing.
@@ -215,9 +208,10 @@ void main() {
     rd = tilt * rd;
     gAxis = normalize(-ro);
 
-    // The disc clock: a slow drift of its own plus the bass clock, so it
-    // races in a heavy passage and never runs backwards; Warp winds it on.
-    float spin = uTime * 0.12 + SND_BASS_TIME * 0.45 + kFlow * 3.0;
+    // The disc clock: time alone, at the rate the bass clock (SND_BASS_TIME) used to add
+    // at a typical level; Warp winds it on. No sound turns it: the bass weight and
+    // knob 2 in kFlow stay on the haze.
+    float spin = uTime * 0.57 + (0.5 + 0.5 * neonFlow()) * 3.0;
     float stepScale = clamp(96.0 / max(uSteps, 24.0), 0.75, 2.5);
 
     vec3 p = ro;

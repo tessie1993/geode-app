@@ -65,9 +65,10 @@ out vec4 fragColor;
 // disk (nebEnergy). Space: the rig.
 //
 // Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the photon ring's
-// glow, k1 TEXTURE the disk noise scale, k2 FLOW the disk's spin rate, k3 TONE
+// glow, k1 TEXTURE the disk noise scale, k3 TONE
 // the disk's hue, k4 BUILD the disk's brightness, k5 SPACE the disk's outer
-// radius.
+// radius. k2 FLOW no longer sets the disk's spin rate: a knob is the notes',
+// and no sound turns a style (owner 2026-11-12); the disk turns on time alone.
 //
 // ---- why the march is safe --------------------------------------------------
 //
@@ -198,17 +199,13 @@ void main() {
     gOct = nebOctaves(3.0);
     gKey = nebKeyShift(0.12) + 0.12 * (uKnob[3] - 0.5);
     gTex = 0.27 * (0.8 + 0.4 * uKnob[1]);
-    gSpin = 0.7 + 0.6 * uKnob[2];
+    gSpin = 1.0;
     gRout = HZ_ROUT * (0.85 + 0.3 * uKnob[5]);
     float feed = (0.45 + 0.6 * clamp(swell * e, 0.0, 1.6)) * (0.7 + 0.6 * uKnob[4]);
 
     vec3 ro;
     vec3 rd;
     camAround(uv, HZ_CAM_R, CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the object about its vertical axis (lib_nebula's nebMidTurn): the eye and its ray turn the other way.
-    mat2 midTurn = nebRot(nebMidTurn());
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
     // Lift the eye and its rays together over the disk plane.
     vec3 axis = cross(ro, vec3(0.0, 1.0, 0.0));
     float al = length(axis);

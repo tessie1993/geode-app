@@ -20,6 +20,7 @@ import dev.geode.data.GeneralSettingsRepository
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LibrarySettingsCodec
 import dev.geode.data.LibrarySettingsRepository
+import dev.geode.data.LookStore
 import dev.geode.data.MacroBankCodec
 import dev.geode.data.MacroStore
 import dev.geode.data.MediaStoreSource
@@ -73,6 +74,10 @@ class GeodeContainer(
     val macros = MacroStore(PrefsSettingsRepository(prefsFiles.general, MacroBankCodec(), appScope), appScope)
 
     val paletteStack = PaletteStackStore(PrefsSettingsRepository(prefsFiles.general, PaletteStackCodec(), appScope), appScope)
+
+    /** The saved look: native gets the saved Customize › Layers line once read, and keeps the layer (core/viz/LayerState). */
+    val looks =
+        LookStore(prefsFiles, context.applicationContext.contentResolver).also { appScope.launch(Dispatchers.IO) { it.pushLayer() } }
 
     val autoDirector =
         AutoDirectorStore(PrefsSettingsRepository(prefsFiles.general, AutoDirectorCodec, appScope), appScope) {

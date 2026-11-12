@@ -37,10 +37,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The hi-hat (SND_HAT_ENV) FLIPS the petals: each one rolls over about its
-// own length by up to a half turn on a hat, the direction its own (hashed),
-// so a run of hats sets the whole air flickering between top and underside,
-// and the petals roll back as the level falls. The air band (sndSpectrum(0.93))
+// No sound turns a petal: the hi-hat's flip is gone (owner 2026-11-12, no
+// style spins to the music), so the petals tumble on time alone. The air band (sndSpectrum(0.93))
 // runs a thin shimmer of light along the petal rims (an edge highlight, never
 // a full-frame lift). The fall rides uFlowPhase, each column of cells at its
 // own rate, so loudness sets the speed and never the direction. Brightness
@@ -52,10 +50,10 @@ out vec4 fragColor;
 // fills more cells, up to roughly twice the petals. Chaos: uTurbulence +
 // uWarp blow a gustier wind (a wider sway of the whole fall, a per-petal
 // gust) and tear the petal edges (chrysFray); uTwist curls every petal along
-// its length. Energy: uIntensity scales the hat flip and the air shimmer.
+// its length. Energy: uIntensity scales the air shimmer.
 // Colour: pal() for petals, bloom and sky. Space: uZoom via view().
-// Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the hat flip,
-// k1 TEXTURE the rim shimmer, k2 FLOW the wind sway, k3 TONE the hue, k4
+// Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE was the hat
+// flip and is spent nowhere now, k1 TEXTURE the rim shimmer, k2 FLOW the wind sway, k3 TONE the hue, k4
 // BUILD the bloom and its light through the petals, k5 SPACE the haze (more
 // space, thinner air).
 //
@@ -101,7 +99,7 @@ const vec3 PF_BLOOM = vec3(0.2812, 0.2062, 0.9372);
 
 vec3 gEye;
 float gT;
-float gHat;
+
 float gChaos;
 float gFill;
 float gSway;
@@ -143,11 +141,10 @@ float map(vec3 p0) {
     if (r > PF_BOUND + 0.1) return max(min(r - PF_BOUND, dEdge), dBubble);
 
     // Tumble: pitch and spin set the plane, then the roll about the petal's
-    // own length, which the hat pushes over by up to a half turn.
+    // own length, all on time alone.
     float pitch = h3 * PF_TAU + gT * (h3 - 0.5) * 0.5;
     float spin = h2 * PF_TAU + gT * (h - 0.5) * 1.2;
-    float flipDir = h2 > 0.5 ? 1.0 : -1.0;
-    float roll = gT * (0.4 + 0.8 * h) + h2 * 6.0 + flipDir * 1.6 * gHat;
+    float roll = gT * (0.4 + 0.8 * h) + h2 * 6.0;
     q.yz = rot2(pitch) * q.yz;
     q.xy = rot2(spin) * q.xy;
     q.xz = rot2(roll) * q.xz;
@@ -200,8 +197,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (lib_chrys's chrysMidTurn).
-    camFly(chrysTurn(chrysMidTurn()) * uv, ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 256 (power of two), so this
     // shift is exact and invisible, and highp keeps its fraction far down the
     // rig's 8192 travel.
@@ -210,7 +206,7 @@ void main() {
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    gHat = clamp(SND_HAT_ENV * uIntensity, 0.0, 1.5) * (0.5 + uKnob[0]);
+
     float air = clamp(sndSpectrum(0.93) * uIntensity, 0.0, 1.5) * (0.5 + uKnob[1]);
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     gFill = mix(0.5, 0.05, clamp(uMorph, 0.0, 1.0));

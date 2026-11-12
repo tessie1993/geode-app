@@ -79,8 +79,8 @@ struct Stack {
     std::vector<Palette> layers;
     Blend blend = Blend::Share;
     Edge edge = Edge::Soft;
-    // Off: colour cycles, hue shift and moment colours walk the stack's colours only. On (the user's
-    // opt-in): they may turn the whole hue wheel.
+    // Off: hue shift and moment colours walk the stack's colours only. On (the user's opt-in): they may
+    // turn the whole hue wheel.
     bool fullRange = false;
     bool operator==(const Stack&) const = default;
 };
@@ -172,6 +172,9 @@ int libraryIndex(std::string_view id);
 constexpr int kClassicCount = 21;
 constexpr int kColourMapFirst = 21;
 constexpr int kColourMapCount = 5;
+// Whether the stack's picker offers library row `index`. Classic rows SceneParams::kListedPalettes..kClassicCount - 1
+// are retired: they stay so a saved index resolves and an old look draws as it did, but are offered no more.
+bool offered(int index);
 // The library as the shell lists it (no colours: geode_palette_library_entry has those):
 //   library|<kTextVersion>|<count>
 //   entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stop count>
@@ -215,23 +218,10 @@ private:
     std::vector<std::uint8_t> bytes_;
 };
 
-// A look without a stack draws its old colours, and LfoTarget::PaletteMix writes Palette 2's amount. So
-// the old blend rides that row through the modulation stages (signal/Resolver): carryBlend ahead of them,
-// settleBlend on what comes out, which is the paletteMix the old path draws; the row gets its own value back.
-inline SceneParams carryBlend(SceneParams base) {
-    base.paletteAmount1 = base.paletteMix;
-    return base;
-}
-inline SceneParams settleBlend(SceneParams resolved, float ownAmount) {
-    resolved.paletteMix = resolved.paletteAmount1;
-    resolved.paletteAmount1 = ownAmount;
-    return resolved;
-}
-
-// An old look's colours as a stack, so it draws as it did: the first slot from its stops (your colours),
-// else its hue gradient (a saved override or built-in `palette`) sampled to stops; a second palette under
-// `paletteMix` as layer 2 with blend Mix; a colour map (`paletteLut`), which replaced both, as the only
-// layer. Every layer Loops, as the old ramps did, and palettes meet Hard. `amounts` gets the layers' amounts.
+// An old look's colours as a stack: its stops (your colours), else its hue gradient (a saved override or
+// built-in `palette`) sampled to stops, as the one layer. The old second palette (Palette 2 under Palette
+// blend) and colour map (`paletteLut`) are retired: a look that saved one reads its own palette alone. The
+// layer Loops, as the old ramps did, and palettes meet Hard. `amounts` gets the layers' amounts.
 Stack fromLegacy(const SceneParams& p, Amounts& amounts);
 // The old cosine ramp (base, range) as kMaxStops stops, in RGB, looped: at i/kMaxStops for a ramp of whole
 // turns, which meets itself; else from base to base + range inclusive, so t just short of 1 is the ramp's end.

@@ -64,7 +64,7 @@ struct Target {
 };
 // The wire name; "" for no param.
 std::string name(Target target);
-// The Customize control that sets the param (its ParamKeys key), the label the editor shows; "" for none.
+// The Customize control that sets the param (its Customize key), the label the editor shows; "" for none.
 const char* controlOf(Target target);
 
 // One param a knob moves. up is the offset at a full turn up and down the offset at a full turn
@@ -183,7 +183,7 @@ Bank rollValues(const Bank& bank, const std::string& styleId, std::uint64_t seed
 // Refused when the knob does not link the target.
 Bank setCurve(const Bank& bank, int id, Target target, Curve curve);
 
-// Customize's sliders, by their ParamKeys name (customize::fieldsOf): the target a knob links for one, no param
+// Customize's sliders, by their Customize key (customize::fieldsOf): the target a knob links for one, no param
 // when the control writes no linkable param.
 Target targetOfControl(std::string_view key);
 // A new knob, last, that moves the control's param at the starting weights. Native names it after the
@@ -285,7 +285,7 @@ std::string editorText(const Bank& bank, const std::string& styleId);
 // Which Customize sliders a knob can move, and which knobs move each now, so the shell marks a slider and
 // offers "Add to knob" by asking for none of it. Rows:
 //   macrocontrols|<kTextVersion>
-//   control|<ParamKeys name>|<TARGET>|<CATEGORY>|<knob id>,<knob id>...   every linkable control, panel order;
+//   control|<Customize key>|<TARGET>|<CATEGORY>|<knob id>,<knob id>...   every linkable control, panel order;
 //                                                                         its Customize category; on-screen knobs' ids in bank order
 std::string controlsText(const Bank& bank);
 

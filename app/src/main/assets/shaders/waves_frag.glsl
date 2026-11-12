@@ -41,14 +41,11 @@ out vec4 fragColor;
 //                               with only a little light in the band. k0 PULSE scales it.
 // Bass (SND_BASS_ATT)           the bands widen.
 // Treble (SND_TREBLE_ATT)       glints along the ribbons' edges twinkle up.
-// Pitch (SND_HELD_NOTE_CHANGE)  slides the hue. k3 TONE offsets it.
+// Pitch (SND_HELD_NOTE_CHANGE)  slides the hue.
+// k3 TONE bends the hall: a high melody curls the outer lanes up into a deep
+//         valley around the eye, a low one lays them out flat and low (and
+//         offsets the hue a little, as before).
 // SND_ENERGY_TREND              overall level, as everywhere.
-// Mids (SND_MIDDLE)             turn the eye's look aside while the mids climb
-//                               and ease it back as they fall, as lib_terra's
-//                               terraTurn and lib_truchet's truchetTurn do: 0.1
-//                               x sndShaped x SND_DRIVE screen units (0.15 at
-//                               most, 0 in silence), the gFlameTurn band on a
-//                               structure that holds still. Mid gain scales it.
 // k1 TEXTURE adds to the fast ripple (Turbulence), k2 FLOW the halo, k4 BUILD
 // the amplitude, k5 SPACE the lane spacing. Morph twists the bands about
 // their length, Warp bends the lanes sideways, Turbulence adds a fast ripple.
@@ -87,6 +84,8 @@ float gPulseZ;
 float gTurb;
 float gRoll;
 float gWarp;
+float gArc;
+float gArcLift;
 vec3 gEye;
 
 /** Set by map(): the nearest band's distance, lane (-2..2), trace position and cross-section. */
@@ -116,7 +115,7 @@ float map(vec3 p) {
     float fi = clamp(floor(lx / gSpace + 2.5), 0.0, 4.0);
     float lane = fi - 2.0;
     float u = lx - lane * gSpace;
-    float baseY = WV_BASE + 0.35 * lane * lane;
+    float baseY = WV_BASE + gArc * lane * lane + gArcLift;
 
     // The trace, read along the band: two adjacent texels give the height
     // (their mean) and the local slope (their difference).
@@ -181,8 +180,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     ro.z = mod(ro.z, WV_ZWRAP);
     gEye = ro;
 
@@ -208,6 +206,8 @@ void main() {
     gTurb = clamp(uTurbulence, 0.0, 2.0) * 0.3 + max(k1, 0.0) * 0.3;
     gRoll = clamp(uMorph, 0.0, 2.0) * 0.9;
     gWarp = clamp(uWarp, 0.0, 2.0) * 1.4;
+    gArc = 0.35 + 0.5 * k3;
+    gArcLift = 0.5 * k3;
 
     float hue = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.3 * k3;
 

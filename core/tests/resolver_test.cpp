@@ -275,7 +275,6 @@ void testNoColourNarrowingNoFixedReactions() {
     s.noteEntropy = 0xABCDull;
     SceneParams requested;
     requested.palette = 6;
-    requested.paletteMix = 0.4f;
     requested.hueRange = 0.7f;
     requested.saturation = 0.6f;
     requested.brightness = 1.1f;
@@ -290,7 +289,7 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.paletteAmount0 = 0.8f;
     requested.paletteAmount1 = 0.3f;
     requested.paletteShift = 0.2f;
-    static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "paletteMix", "hueRange", "saturation",
+    static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "hueRange", "saturation",
                                           "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint",
                                           "paletteStop0", "paletteStop1", "paletteStop2",
                                           "paletteAmount0", "paletteAmount1", "paletteAmount2", "paletteAmount3", "paletteAmount4",
@@ -582,7 +581,7 @@ void testSafetyLast() {
     for (int i = 0; i < 600; ++i, t += kDt) {
         const SceneParams& p = r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params;
         held = held && p.brightness <= top && p.intensity <= top && p.contrast <= top &&
-               p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
+               p.bloom <= safety::kMaxBloom + 1e-6f &&
                p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f;
     }
     check(held, "no stage pushes brightness, intensity, contrast or bloom past safety::apply");
@@ -614,7 +613,8 @@ struct Rng {
 // The per-frame chain as Renderer::resolveParams ran it before #344, the stages called in that order on
 // stages of its own, less what changed since: the owner's rules took out the director's palette and routes
 // and the note layer's params; the old macro knobs became the director's axes and then the user's bank
-// (step 2 of the macro bank); the camera's moves are director.moves(). The oracle takes the bank's reach per
+// (step 2 of the macro bank); the camera's moves are director.moves(); the matrix hears the feeling the director
+// heard. The oracle takes the bank's reach per
 // frame from the style id, where the resolver caches it per style, so the cache is held to it too. The
 // parity property below holds the resolver to it bit for bit.
 struct OldChain {
@@ -685,19 +685,14 @@ struct OldChain {
         AdsrEngine::lfoOffsets(adsr.configs, envValues, envRate, envDepth);
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
         SceneParams p = director.applyAxes(director.apply(displayedParams));
-        // The old chain's Palette blend target wrote paletteMix; it writes Palette 2's amount now, which a
-        // look without a stack carries the blend on.
-        const float ownAmount = p.paletteAmount1;
-        p = geode::viz::palette::carryBlend(p);
         if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
         p = lfo.apply(p, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
-        reactions.tick(soundFrame, dt);
+        reactions.tick(soundFrame, dt, &director.emotion());
         p = reactions.apply(p);
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);
-        p = geode::viz::palette::settleBlend(p, ownAmount);
         params = p;
         // Renderer::stepCamera, after the chain.
         cameraMoves = director.moves();
@@ -805,7 +800,7 @@ SceneParams randomRequested(Rng& g) {
     p.motionDrift = g.unit();
     p.motionHue = g.unit();
     p.reactAmount = g.range(0.0f, 2.0f);
-    p.paletteMix = g.unit();
+    g.unit();  // once the retired Palette blend's draw; drawn still, so the runs keep their sequence
     p.noteColor = g.range(0.0f, 2.0f);
     p.notePitch = g.range(0.0f, 2.0f);
     p.noteIntervals = g.range(0.0f, 2.0f);
@@ -921,7 +916,7 @@ void testParityWithTheOldChain() {
                    std::memcmp(&now->noteUniforms(), &old->notes.uniforms(), sizeof(viz::NoteUniforms)) == 0;
             const SceneParams& p = a.params;
             const bool capped = p.brightness <= top && p.intensity <= top && p.contrast <= top &&
-                                p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
+                                p.bloom <= safety::kMaxBloom + 1e-6f &&
                                 p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f &&
                                 (!s.reducedMotion || p.speed <= 4.0f * 0.4f + 1e-6f);
             if (!capped) ++capBreaks;
@@ -1051,8 +1046,9 @@ void testReducedMotionHasTheLastWordOnSpeed() {
 
 // Auto's style moments: one on the frame the director commits a look at a drop or a new section, none for
 // its first look and none on any other frame. A steady song: the first look by 12 s, a drop at 14 s and a
-// new section at 20 s (6 s after the drop, past the director's 4 s floor) give exactly two moments, on
-// those two frames.
+// new section reported at 20 s (6 s after the drop, past the director's 4 s floor) and named by Form on the
+// next frame give exactly two moments: at the drop, and where the named section is decided (a section waits
+// for its name, to know whether it is back).
 // Kills: Section || Drop -> && (no moments), a reason test inverted (the first look counts), the moment
 // count not reset each frame (a moment every frame after), commits() != seen -> == .
 void testStyleMomentsOnlyAtDropsAndSections() {
@@ -1062,6 +1058,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
     const SceneParams requested;
     constexpr int kDropFrame = 840;      // 14 s
     constexpr int kSectionFrame = 1200;  // 20 s
+    constexpr int kNamedFrame = kSectionFrame + 1;
     int total = 0;
     int firstLookMoments = 0;
     bool firstLookSeen = false;
@@ -1072,6 +1069,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
         GeodeSoundFrame f = frame(static_cast<float>(i) * kDt);
         if (i == kDropFrame) f.drop = 0.8f;
         if (i == kSectionFrame) f.sectionChange = 1.0f;
+        if (i >= kNamedFrame) f.sectionId = 1.0f;
         const int before = r->director().commits();
         const int m = r->step(requested, f, kDt, s, style(kStyle, i == 0)).styleMoments;
         if (i < kDropFrame && r->director().commits() > before) {
@@ -1081,7 +1079,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
         total += m;
         if (i == kDropFrame) {
             atDrop = m;
-        } else if (i == kSectionFrame) {
+        } else if (i == kNamedFrame) {
             atSection = m;
         } else {
             onlyThere = onlyThere && m == 0;
@@ -1364,7 +1362,7 @@ void testAWaveTurnsAKnob() {
         check(mod != nullptr && std::fabs(mod->add) <= 0.5f + 1e-5f, "by no more than the wave's depth");
         check(mod != nullptr && mod->lo == -0.5f && mod->hi == 0.5f, "and says the range it can reach, both ways");
         const SceneParams& p = waved->frame().params;
-        check(p.bloom <= safety::kMaxFlashDepth + 1e-6f && p.intensity <= 1.0f + safety::kMaxFlashDepth + 1e-6f,
+        check(p.bloom <= safety::kMaxBloom + 1e-6f && p.intensity <= 1.0f + safety::kMaxFlashDepth + 1e-6f,
               "safety still has the last word on what the knob moves");
         check(still->frame().knobMods.count == 0, "no slot on a knob, no modulation");
     }
@@ -1606,14 +1604,12 @@ void testEveryLookControlReachesTheResolvedParams() {
             for (float amount : {0.0f, 1.0f}) {
                 const SceneParams ra = resolved(a, amount);
                 const SceneParams rb = resolved(b, amount);
-                const bool moved = field == "palette"    ? ra.paletteBase() != rb.paletteBase()
-                                   : field == "palette2" ? ra.palette2Base() != rb.palette2Base()
-                                                         : ra.get(field) != rb.get(field);
+                const bool moved = field == "palette" ? ra.paletteBase() != rb.paletteBase() : ra.get(field) != rb.get(field);
                 check(moved, std::string(control) + " does not move " + field + (amount > 0.0f ? " with the director" : ""));
             }
         }
     }
-    check(controls >= 14, "Look has its controls");
+    check(controls >= 10, "Look has its controls");
 }
 
 int main() {

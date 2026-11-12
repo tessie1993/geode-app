@@ -28,7 +28,4 @@ object AutoDirectorPolicy {
             playerPlaying && positionMs in 0 until FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
             else -> 0f
         }
-
-    /** Whether the switch, as the user set it, is cut short for this entitlement. */
-    fun isTaste(gate: FeatureGate): Boolean = !gate.allows(ProFeature.AUTO_DIRECTOR)
 }

@@ -44,7 +44,8 @@ out vec4 fragColor;
 // outward along the floret index on uFlowPhase (louder passages run it faster,
 // never backwards). The sub band (sndSpectrum(0.10)) loosens the spiral's
 // spacing a few percent, so the disk breathes wider on the low end. uBreath
-// sways the ray petals: they turn a little about the axis and droop and lift.
+// droops and lifts the ray petals; it no longer turns them (owner 2026-11-12,
+// no style spins to the music).
 // Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -------------------------------------------------------------------
@@ -262,16 +263,12 @@ void main() {
     gSeed = floor(SND_ONSET_COUNT) * 1.618;
     float breath = clamp(uBreath - 1.0, -1.0, 1.0);
     gDroop = 0.25 + 0.15 * breath;
-    gPetRot = t * 0.01 + 0.06 * breath;
+    gPetRot = t * 0.01;
     float hue = 0.08 + 0.02 * sin(t * 0.05) + 0.12 * kTone;
 
     vec3 ro;
     vec3 rd;
     camAround(uv, 3.9 * (1.0 + 0.25 * kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the flower about the orbit's vertical (lib_chrys's chrysMidTurn): the eye and its ray turn the other way.
-    mat2 midTurn = chrysTurn(chrysMidTurn());
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
 
     float rUv = length(uv);
     vec3 bg = mix(pal(hue + 0.62) * 0.03, pal(hue + 0.5) * 0.08, exp(-rUv * 1.2));

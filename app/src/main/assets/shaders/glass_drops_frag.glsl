@@ -49,7 +49,7 @@ out vec4 fragColor;
 //   flatness   the mist: noise fogs the street and grains the veil, tones clear it;
 //   centroid   the drops' dispersion and the bokeh fringes;
 //   bass       swells the drops;
-//   pan        the city turns toward the louder side;
+
 //   pitch      raises the key light, which sets the crown highlights and the
 //              foot caustics (GlassLook, as in every glass style).
 //
@@ -107,7 +107,7 @@ float gFall;
 float gSwell;
 float gSplash;
 float gThresh;
-float gDrift;
+
 float gHue;
 float gFringe;
 float gTwinkle;
@@ -186,7 +186,7 @@ vec3 cityLights(vec3 o, vec3 d, float R, float N, float seed, float blur, out fl
     if (fade <= 0.0) return vec3(0.0);
     vec3 hp = o + d * t;
     // N is whole, so the fract seam of the angle falls on a cell wall.
-    float u = fract(atan(hp.y, hp.x) / GD_TAU + gDrift) * N;
+    float u = fract(atan(hp.y, hp.x) / GD_TAU) * N;
     vec2 x = vec2(u, hp.z * 0.5);
     vec2 id = floor(x);
     id.y = mod(id.y, 32.0);
@@ -274,7 +274,7 @@ void main() {
     gSwell = 0.2 * ear.bass * clamp(1.0 + 2.0 * kPulse, 0.0, 2.0);
     gSplash = glassBump(SND_SNARE_ENV) * glassEnergy();
     gThresh = 0.55 - 0.25 * glassComplexity();
-    gDrift = 0.012 * ear.pan;
+
     gFringe = 0.4 + 0.8 * ear.sharp;
     gTwinkle = ear.hat;
     gRadius = 22.0 * (1.0 + 0.6 * kSpace);

@@ -430,8 +430,8 @@ class UiTourTest {
         }
         tour.step("customize-free", "pro-group", "a Pro group opens, its ♛ control offers the paywall") {
             tour.tap(LOOK)
-            tour.tap(COLOUR_CYCLE)
-            tour.tap(LOCKED_CYCLE)
+            tour.tap(YOUR_COLOURS)
+            tour.tap(LOCKED_COLOURS)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
         }
         tour.tapIfPresent(UiTour.PAYWALL_CLOSE)
@@ -718,8 +718,8 @@ class UiTourTest {
         const val QUICK_KNOBS = "Quick knobs"
         const val LOOK = "Look"
         const val BASICS = "Basics"
-        const val COLOUR_CYCLE = "Colour cycle"
-        const val LOCKED_CYCLE = "Cycle the colours, part of Pro"
+        const val YOUR_COLOURS = "Your colours"
+        const val LOCKED_COLOURS = "Your colours, part of Pro"
         const val TOUR_NEXT = "Next"
         const val TOUR_DONE = "Done"
         const val TOUR_SKIP = "Skip"
@@ -773,7 +773,7 @@ class UiTourTest {
 
         /**
          * Customize's category tabs in order, each with the groups the walk opens: the native map's
-         * sections (core/viz/CustomizeMap) by their titles in `ui/CustomizeCategory.kt`. Engine is
+         * sections (core/viz/CustomizeMap) by their native titles (`sectionTitle`). Engine is
          * left out: it shows only on a style with an engine of its own.
          */
         val CUSTOMIZE_TABS =

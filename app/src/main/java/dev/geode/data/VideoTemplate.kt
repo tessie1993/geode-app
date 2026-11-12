@@ -24,15 +24,27 @@
 // The constructor defaults below ARE the documented defaults: a field missing from
 // a file takes the value written here, and nothing else.
 //
-// Nothing in this file touches the filesystem — TemplateFormat.kt serialises and
-// TemplateRepository.kt stores, imports and exports.
+// TemplateFormat.kt serialises. The library at the end of this file keeps the files
+// (bytes only: every file name, an import's new name and the starter set are native,
+// core/viz/LookFiles).
 
 package dev.geode.data
 
+import android.content.Context
+import dev.geode.RingLog
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
 import java.util.UUID
 
 /**
@@ -381,5 +393,194 @@ data class TemplateExport(
 
         const val DEFAULT_FPS: Int = 30
         const val DEFAULT_FILE_NAME_PATTERN: String = "{artist} - {title}"
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The library
+// ---------------------------------------------------------------------------
+
+/** Outcome of writing a template out. Failure is a value, not an exception. */
+sealed interface TemplateWrite {
+    data object Written : TemplateWrite
+
+    data class Failed(
+        val why: String,
+    ) : TemplateWrite
+}
+
+/** Outcome of bringing a template in from a file, a link or the starter set. */
+sealed interface TemplateImport {
+    data class Added(
+        val template: VideoTemplate,
+    ) : TemplateImport
+
+    /** Same id as one already in the library: the newer copy wins. */
+    data class Replaced(
+        val template: VideoTemplate,
+    ) : TemplateImport
+
+    data class Unreadable(
+        val why: String,
+    ) : TemplateImport
+
+    data class WriteFailed(
+        val why: String,
+    ) : TemplateImport
+}
+
+/**
+ * The template library under filesDir/templates, one `<name>--<id>.geode.json` per template, and the list the UI
+ * collects. Bytes and files only: a template's text is [TemplateFormat]'s, and every file name, the name an import
+ * takes and the starter set are native (core/viz/LookFiles). A file this build cannot read is skipped, never deleted
+ * or rewritten (a newer build's, or a good one this build misreads). An import matches on [TemplateId], so it updates
+ * the template already there instead of breeding copies. Every write goes through [AtomicWrite].
+ */
+class TemplateRepository(
+    private val dir: File,
+    private val shareDir: File,
+) {
+    private val _templates = MutableStateFlow<List<VideoTemplate>>(emptyList())
+    val templates: StateFlow<List<VideoTemplate>> = _templates.asStateFlow()
+
+    /** The bundled starter set, for browsing; not in [templates] until adopted ([adopt] copies one under a fresh id). */
+    val starters: List<VideoTemplate> by lazy {
+        List(GeodeNative.templateStarterCount()) { GeodeNative.templateStarter(it) }
+            .mapNotNull { (TemplateFormat.decode(it) as? TemplateParse.Parsed)?.template?.copy(origin = TemplateOrigin.BUNDLED) }
+    }
+
+    suspend fun refresh() {
+        _templates.value = list()
+    }
+
+    suspend fun list(): List<VideoTemplate> = withContext(Dispatchers.IO) { readAll() }
+
+    suspend fun find(id: TemplateId): VideoTemplate? = withContext(Dispatchers.IO) { fileOf(id)?.let(::readOrSkip) }
+
+    /** Saving a bundled starter saves a copy under a fresh id instead: the starter set is read-only. */
+    suspend fun save(template: VideoTemplate): TemplateWrite {
+        if (GeodeNative.templateIsStarter(template.id.value)) return writeResultOf(adopt(template))
+        val result = withContext(Dispatchers.IO) { write(template.copy(origin = TemplateOrigin.SAVED)) }
+        refresh()
+        return result
+    }
+
+    suspend fun delete(id: TemplateId): Boolean {
+        val deleted = withContext(Dispatchers.IO) { fileOf(id)?.delete() ?: false }
+        refresh()
+        return deleted
+    }
+
+    suspend fun adopt(
+        starter: VideoTemplate,
+        atMs: Long = System.currentTimeMillis(),
+    ): TemplateImport = persist(starter.asNewCopy(starter.name, atMs))
+
+    /** Imports from pasted text: a whole template file, or a geode://template link. */
+    suspend fun importText(text: String): TemplateImport =
+        when (val parse = withContext(Dispatchers.Default) { TemplateFormat.decode(text) }) {
+            is TemplateParse.Parsed -> persist(parse.template)
+            is TemplateParse.NotATemplate -> TemplateImport.Unreadable(parse.why)
+            is TemplateParse.Malformed -> TemplateImport.Unreadable(parse.why)
+        }
+
+    /** Imports from a stream the caller opens, so this layer never touches a ContentResolver. */
+    suspend fun importFrom(open: () -> InputStream?): TemplateImport {
+        val text = withContext(Dispatchers.IO) { runCatching { open()?.use(::readBounded) }.getOrNull() }
+        return if (text == null) TemplateImport.Unreadable("that file could not be read") else importText(text)
+    }
+
+    /** A nicely named copy in the cache, ready to hand to a share sheet. */
+    suspend fun stageForShare(template: VideoTemplate): File? =
+        withContext(Dispatchers.IO) {
+            File(shareDir, TemplateFormat.fileNameFor(template)).takeIf { AtomicWrite.text(it, TemplateFormat.encode(template)) }
+        }
+
+    /** The whole template as one pasteable link, or null when it is too long. */
+    fun shareLink(template: VideoTemplate): String? = TemplateFormat.toLink(template)
+
+    fun fileOf(id: TemplateId): File? {
+        val tail = GeodeNative.templateFileTail(id.value, TemplateFormat.FILE_SUFFIX)
+        return dir.listFiles().orEmpty().firstOrNull { it.isFile && it.name.endsWith(tail) }
+    }
+
+    private suspend fun persist(incoming: VideoTemplate): TemplateImport {
+        val outcome =
+            withContext(Dispatchers.IO) {
+                val existing = readAll()
+                val replaces = existing.any { it.id == incoming.id }
+                val taken = existing.map { it.name }.toTypedArray()
+                val stored =
+                    incoming.copy(
+                        name = if (replaces) incoming.name else GeodeNative.templateUniqueName(incoming.name, taken),
+                        origin = TemplateOrigin.SAVED,
+                    )
+                when (val write = write(stored)) {
+                    TemplateWrite.Written -> if (replaces) TemplateImport.Replaced(stored) else TemplateImport.Added(stored)
+                    is TemplateWrite.Failed -> TemplateImport.WriteFailed(write.why)
+                }
+            }
+        refresh()
+        return outcome
+    }
+
+    private fun write(template: VideoTemplate): TemplateWrite {
+        val destination = File(dir, GeodeNative.templateFileName(template.name, template.id.value, TemplateFormat.FILE_SUFFIX))
+        val previous = fileOf(template.id)?.takeIf { it.absolutePath != destination.absolutePath }
+        if (!AtomicWrite.text(destination, TemplateFormat.encode(template))) {
+            return TemplateWrite.Failed("could not save ${destination.name}")
+        }
+        previous?.delete()
+        return TemplateWrite.Written
+    }
+
+    private fun readAll(): List<VideoTemplate> {
+        val read =
+            dir
+                .listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.name.endsWith(TemplateFormat.FILE_SUFFIX) }
+                .mapNotNull(::readOrSkip)
+        return GeodeNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
+    }
+
+    private fun readOrSkip(file: File): VideoTemplate? {
+        val text = runCatching { file.readText() }.getOrNull() ?: return null
+        val why =
+            when (val parse = TemplateFormat.decode(text)) {
+                is TemplateParse.Parsed -> return parse.template.copy(origin = TemplateOrigin.SAVED)
+                is TemplateParse.NotATemplate -> parse.why
+                is TemplateParse.Malformed -> parse.why
+            }
+        RingLog.note(TAG, "template kept but not loaded: ${file.name} ($why)")
+        return null
+    }
+
+    private fun writeResultOf(outcome: TemplateImport): TemplateWrite =
+        when (outcome) {
+            is TemplateImport.Added, is TemplateImport.Replaced -> TemplateWrite.Written
+            is TemplateImport.Unreadable -> TemplateWrite.Failed(outcome.why)
+            is TemplateImport.WriteFailed -> TemplateWrite.Failed(outcome.why)
+        }
+
+    companion object {
+        private const val TAG = "TemplateStore"
+        private const val READ_BUFFER_BYTES = 16 * 1024
+
+        /** Share copies live in cacheDir: the OS can reclaim them once the chat app has what it needs. */
+        fun from(context: Context): TemplateRepository =
+            TemplateRepository(File(context.filesDir, "templates").apply { mkdirs() }, File(context.cacheDir, "share/templates"))
+
+        /** Reads at most [TemplateFormat.MAX_FILE_BYTES]; anything bigger is not a template. */
+        private fun readBounded(input: InputStream): String? {
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(READ_BUFFER_BYTES)
+            var read = input.read(buffer)
+            while (read >= 0 && out.size() <= TemplateFormat.MAX_FILE_BYTES) {
+                out.write(buffer, 0, read)
+                read = input.read(buffer)
+            }
+            return if (out.size() > TemplateFormat.MAX_FILE_BYTES) null else out.toByteArray().toString(Charsets.UTF_8)
+        }
     }
 }

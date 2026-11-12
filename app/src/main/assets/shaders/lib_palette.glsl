@@ -47,17 +47,17 @@ vec3 palStops(float t) {
     return mix(uPalStops[i], uPalStops[(i + 1) % n], x - float(i));
 }
 
+// The look's own palette when no stack or colour map draws: your colours, else the cosine ramp. The old
+// second palette blended over it here is retired; the palette stack draws more than one palette.
 vec3 palProcedural(float t) {
-    vec3 a = uPalStopCount > 0.5 ? palStops(t)
+    return uPalStopCount > 0.5 ? palStops(t)
         : 0.5 + 0.5 * cos(6.2831 * (uPalBase + uColorShift + t * uPalRange * uHueRange + vec3(0.0, 0.33, 0.67)));
-    vec3 b = 0.5 + 0.5 * cos(6.2831 * (uPal2Base + uColorShift + t * uPal2Range * uHueRange + vec3(0.0, 0.33, 0.67)));
-    return mix(a, b, uPaletteMix);
 }
 
 vec3 pal(float t) {
     vec3 procedural = palProcedural(t);
     if (uPalLutMix <= 0.001) return procedural;
-    // Hue shift and the colour cycle stay meaningful on a colour map: they
+    // Hue shift and Palette position stay meaningful on a colour map: they
     // rotate the position along the ramp rather than the hue wheel, which for
     // a CYCLIC map is the same gesture and lands back where it started.
     //

@@ -57,10 +57,6 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.ControlRange
-import dev.geode.model.get
-import dev.geode.model.int
-import dev.geode.model.with
-import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
@@ -76,7 +72,7 @@ val LocalParamLocks =
  * Every control asks [ParamScope] whether it can move THIS style and draws nothing if it cannot
  * (R4: hidden, never greyed out and lying). Keeping it in a composition local rather than in each
  * tab's signature is what makes that automatic — a new control is gated the moment it is given a
- * [ParamKeys] name, instead of when somebody remembers to thread another boolean through.
+ * control key (its native label), instead of when somebody remembers to thread another boolean through.
  */
 val LocalSceneId = compositionLocalOf { StyleCatalogue.DEFAULT_ID }
 
@@ -100,7 +96,7 @@ private const val LOCKED_ALPHA = 0.6f
  *
  * WHY a composition local, like [LocalSceneId]: the free tier is "one headline control per simple
  * page" (dev.geode.pro.FreeTier), and every slider, switch and chip row already knows its own
- * [ParamKeys] name, so each control can ask for itself. A free user still SEES a locked control
+ * control key (its native label), so each control can ask for itself. A free user still SEES a locked control
  * and its value (the point is to show what Pro adds), and a tap anywhere on it opens the paywall.
  * The default is unlocked, so screen tests and previews need no provider.
  */
@@ -503,6 +499,9 @@ internal fun ParamChips(
  *
  * A Pro control the user may not keep is try-then-pay: dimmed, but the slider still moves and the
  * picture follows while it is held; on release it springs back and the paywall offers to keep it.
+ *
+ * [steps] is Material's tick count between the ends (0, the default, slides freely): a param that moves in whole
+ * counts but stays a float, so a knob or a wave can still move it (Kaleidoscope), stops on each count by hand.
  */
 @Composable
 internal fun LabeledSlider(
@@ -513,6 +512,7 @@ internal fun LabeledSlider(
     scope: ParamScope = ParamScope.of(label),
     default: Float? = null,
     unit: ParamUnit? = null,
+    steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
     val name = display.removeSuffix(" (s)").removeSuffix(" (Hz)")
@@ -571,6 +571,7 @@ internal fun LabeledSlider(
                 onChange(v)
             },
             valueRange = range,
+            steps = steps,
             onValueChangeFinished =
                 if (locked) {
                     {
@@ -606,6 +607,7 @@ internal fun LabeledSlider(
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
     unit: ParamUnit? = null,
+    steps: Int = 0,
     onChange: (SceneParams) -> Unit,
 ) {
     LabeledSlider(
@@ -616,6 +618,7 @@ internal fun LabeledSlider(
         scope = scope,
         default = SceneParams.DEFAULT[name],
         unit = unit,
+        steps = steps,
     ) { onChange(params.with(name, it)) }
 }
 

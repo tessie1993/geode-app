@@ -1,7 +1,9 @@
-// An export's start (#999 F1, F2, F4): the pre-roll (core/output/PreRoll) before frame 0.
+// An export's start (#999 F1, F2, F4): the pre-roll (core/output/PreRoll) before frame 0; and a silent
+// stretch mid-song, which holds the export's frames like the live visual's (F3).
 // Built with the runner's own compiler in CI:
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp
-//     core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_preroll_test
+//     core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp
+//     core/viz/StyleSchedule.cpp -o export_preroll_test
 //
 // Each case runs the export's start the way the shell and the renderer run it, with no GL: the pre-roll's
 // TrackFeed (the shell's first TrackAudio) into a sound engine made at the first write (Renderer::writeAudio,
@@ -13,6 +15,7 @@
 // crawled for the first half second of every export (F2) and of every loop's head, which the seam dissolves
 // the full-speed tail into (F4). A track that gave no audio left no engine, so the render exported a frozen
 // picture (F1); now the shell fails it. The synthetic track plays 93 BPM, a tempo it measures, nothing assumed.
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -25,6 +28,7 @@
 #include "output/PreRoll.hpp"
 #include "sound/DriveGain.hpp"
 #include "sound/SoundEngine.hpp"
+#include "viz/StyleSchedule.hpp"
 
 using geode::audio::ingest::TrackFeed;
 using geode::output::FrameClock;
@@ -219,6 +223,66 @@ void unheard() {
     check(still, "no sound, no movement: a silent track's export stays still");
 }
 
+// #999 F3, "freeze, same as live" (owner, 2026-11-12): an export over a silent stretch holds its frames
+// like the live visual. Mid-song (warm, the tempo measured), 26 s from 30 s of a track whose 40 to 48 s
+// are digital silence, at 30 fps, stepped the way Renderer::beginFrame steps an export: the picture's
+// clock is the frame's step times sound::motionRate, and the style schedule (an export's beat cut, here
+// every beat) advances on that clock (StyleSchedule::advance). Slider glides and transitions keep render
+// time, as live; they are the shell's and the user's, not the music's, and are not modelled here.
+void silentStretchHolds() {
+    std::vector<float> pcm = track(60.0);
+    std::fill(pcm.begin() + 40 * kRate * 2, pcm.begin() + 48 * kRate * 2, 0.0f);
+    constexpr int kFps = 30;
+    constexpr int64_t kStartMs = 30000;
+    const Start s = exportStart(pcm, kStartMs, kFps, 26 * kFps);
+    check(s.heard, "the pre-roll heard the track");
+    if (!s.heard) return;
+    geode::viz::StyleSchedule schedule;
+    schedule.set({}, {"plasma", "glow_vortex"}, 1);
+    const float step = 1.0f / static_cast<float>(kFps);
+    double picture = 0.0;          // the picture's clock (Renderer::timeSeconds_)
+    double stillFrom = -1.0;       // the picture's clock where the stretch's still frames start
+    bool held = true;
+    int cutsBefore = 0;
+    int cutsInStretch = 0;
+    int cutsAfter = 0;
+    int stillFrames = 0;
+    float beatsAtStill = -1.0f;
+    float beatsAtEnd = -1.0f;
+    for (int n = 0; n < static_cast<int>(s.frames.size()); n++) {
+        const GeodeSoundFrame& f = s.frames[static_cast<size_t>(n)];
+        const double t = static_cast<double>(n) / kFps;  // seconds into the range; the stretch is 10..18
+        const float rate = geode::sound::motionRate(f);
+        const bool cut = schedule.advance(step, rate, f.beatCount) != nullptr;
+        // Three seconds into the silence presence has faded below the still point; to its end, nothing moves.
+        if (t >= 13.0 && t < 18.0) {
+            if (stillFrom < 0.0) {
+                stillFrom = picture;
+                beatsAtStill = f.beatCount;
+            }
+            held = held && rate == 0.0f && picture == stillFrom;
+            stillFrames++;
+            beatsAtEnd = f.beatCount;
+        }
+        if (cut) {
+            if (t < 10.0) cutsBefore++;
+            else if (t >= 13.0 && t < 18.0) cutsInStretch++;
+            else if (t >= 18.0) cutsAfter++;
+        }
+        picture += static_cast<double>(step) * rate;
+    }
+    check(stillFrames == 5 * kFps, "the stretch's last five seconds were rendered");
+    check(held, "no sound, no movement: an export's frames hold through a silent stretch (#999 F3)");
+    check(cutsInStretch == 0, "the export's beat cut holds with the picture: no style switch on a frozen frame");
+    check(cutsBefore > 0, "the beat cut cuts while the music plays");
+    check(cutsAfter > 0, "and again once the music is back");
+    const double moving = picture - stillFrom;
+    check(moving > 5.0, "the picture's clock runs again after the stretch");
+    // Not a check: whether the tracker's flywheel ticked beats through the silence, which the schedule
+    // no longer counts (the old render-time step would have cut on them, on frozen frames).
+    std::printf("  silent stretch: %d still frames, beat count %.0f -> %.0f\n", stillFrames, beatsAtStill, beatsAtEnd);
+}
+
 }  // namespace
 
 int main() {
@@ -226,6 +290,7 @@ int main() {
     warmStart();
     loopSeam();
     unheard();
+    silentStretchHolds();
     if (failures == 0) std::printf("export_preroll_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -20,6 +20,7 @@
   "glitch": 0.75,
   "pulse": 0.6,
   "shake": 0.4,
+  "beatResponse": 1.9,
   "flash": 0.6,
   "strobe": 0.5,
   "formDrive": 0.2,

@@ -123,7 +123,6 @@ void LifeScene::update(const GeodeSoundFrame& features, float dt) {
 void LifeScene::steer(const GeodeSoundFrame& f, float dt) {
     const SceneParams& p = params_;
     const float drive = safeAudioDrive(p.audioDrive);
-    const float beat = std::clamp(p.beatResponse, 0.0f, 2.0f);
     const float surge = clamp01(sound_.signals().value(ReactSource::Surge));
 
     // Quiet = still, busy = squirming: the solver's time rate follows presence (which fades out over
@@ -132,20 +131,8 @@ void LifeScene::steer(const GeodeSoundFrame& f, float dt) {
     const float rateTarget = kStillRate + (1.0f - kStillRate) * clamp01(f.presence) * clamp01(0.3f + 0.7f * busy + 0.3f * surge);
     rate_ = ease(rate_, rateTarget, dt, kRateSeconds);
 
-    // Drums. Each kick steps the birth site round a golden spiral, kick4 throws it across the field,
-    // the kick toggle mirrors it left/right and the kick random sets its reach and blob size. The
-    // matter lands in one lump at the envelope's peak: Lenia eats a lump spread over frames before it
-    // can grow into an organism.
-    if (f.kick > 0.0f) {
-        kickAngle_ = std::fmod(kickAngle_ + kGoldenAngle * (f.kick4 > 0.0f ? 3.0f : 1.0f), kTwoPi);
-        const float reach = 0.14f + 0.24f * clamp01(f.kickRandom);
-        const float side = f.kickToggle > 0.5f ? -1.0f : 1.0f;
-        kickX_ = 0.5f + side * reach * std::cos(kickAngle_);
-        kickY_ = 0.5f + reach * std::sin(kickAngle_);
-        kickSize_ = 0.7f + 0.8f * clamp01(f.kickRandom);
-        const float punch = std::max(clamp01(f.kick), clamp01(f.kickEnv));
-        kickFeed_ = std::max(kickFeed_, (0.4f + 0.6f * punch) * drive * beat);
-    }
+    // No lump on every kick: that birth (the kick times the retired beat-response slot) was a hidden hit
+    // reaction and is gone; matter is born from the seeds, the melody's buds, the hats' spores and touch.
     // Every 8th kick the drift turns a quarter; every 16th the rule steps to the next preset.
     if (f.kick8 > 0.0f) headingTarget_ += 0.25f * kTwoPi;
     if (f.kick16 > 0.0f) preset_ = (preset_ + 1) % kPresets;
@@ -327,8 +314,6 @@ void LifeScene::draw(float timeSeconds) {
     glUniform1f(stepLocs_.loc("uSeedJitter"), style_.seedJitter);
     glUniform1f(stepLocs_.loc("uSeedSalt"), seedSalt_);
     glUniform1f(stepLocs_.loc("uTime"), time_);
-    glUniform2f(stepLocs_.loc("uKickPos"), kickX_, kickY_);
-    glUniform1f(stepLocs_.loc("uKickSize"), kickSize_);
     glUniform2f(stepLocs_.loc("uBudPos"), budX_, budY_);
     glUniform1f(stepLocs_.loc("uInk"), ink_);
     for (int pass = 0; pass < substeps; ++pass) {
@@ -340,14 +325,12 @@ void LifeScene::draw(float timeSeconds) {
         const bool first = pass == 0;
         glUniform2f(stepLocs_.loc("uShift"), first ? shiftX : 0.0f, first ? shiftY : 0.0f);
         glUniform1f(stepLocs_.loc("uSeed"), first ? seedRemain_ / kSeedSeconds : 0.0f);
-        glUniform1f(stepLocs_.loc("uKick"), first ? std::min(kickFeed_, 1.5f) : 0.0f);
         glUniform1f(stepLocs_.loc("uBud"), first ? std::min(budFeed_, 1.0f) : 0.0f);
         glUniform1f(stepLocs_.loc("uSprinkle"), first ? sprinkle_ : 0.0f);
         uploadSceneTouch(stepLocs_, touch_, first);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         field->swap();
     }
-    kickFeed_ = 0.0f;
     budFeed_ = 0.0f;
     sprinkle_ = 0.0f;
 

@@ -70,9 +70,10 @@ GEODE_PARAM_META(driftY, "Drift Y", Universal, kMod, -0.5f, 0.5f)
 GEODE_PARAM(Float, shake, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, audioDrive, 1.0f, 0.2f, 2.5f, Fade)
 GEODE_PARAM_META(audioDrive, "Audio drive", AudioDrive, 0, 0.6f, 1.8f)
-// Inert since wave three; removed with the next format bump.
+// Retired (SceneParams::retired): it only scaled the hidden hit reactions some scenes played on their own
+// (MilkDrop's zoom kick, the simulations' beat pulses), which are gone: what moves on a hit is the
+// reaction matrix alone (owner, 2026-11-12).
 GEODE_PARAM(Float, beatResponse, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(beatResponse, "", Universal, 0, 0, 0)
 GEODE_PARAM(Float, turbulence, 0.0f, 0.0f, 1.5f, Fade)
 GEODE_PARAM_META(turbulence, "Turbulence", Turbulence, kMod, 0.1f, 1.0f)
 GEODE_PARAM(Float, density, 1.0f, 0.1f, 1.0f, Fade)

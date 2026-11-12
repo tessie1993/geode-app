@@ -9,8 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.AdsrConfig
@@ -51,7 +51,7 @@ internal fun liveLook(
     lfos: List<LfoConfig>,
     adsrs: List<AdsrConfig>,
     reactions: List<ReactionRoute>?,
-    gui: GuiPrefs,
+    soundTuning: SoundTuning,
     // Android's "Remove animations" (data/SystemMotion, #336), the only reduced-motion flag.
     reducedMotion: Boolean,
     underlay: LookUnderlay? = null,
@@ -62,7 +62,7 @@ internal fun liveLook(
         lfos = lfos,
         adsrs = adsrs,
         reactions = reactions,
-        soundTuning = gui.soundTuning,
+        soundTuning = soundTuning,
         reducedMotion = reducedMotion,
         transitionId = viz.transitionId,
         transitionMs = (viz.transitionDurationSec * MS_PER_SECOND).toLong(),
@@ -114,8 +114,9 @@ fun VisualizerEngineBindings(
             }
         val vm = visualsViewModel
         val modulation = combine(vm.lfos, vm.adsrs, vm.reactions) { l, a, r -> Triple(l, a, r) }
-        combine(viewModel.vizState, modulation, settingsViewModel.guiPrefs, underlay) { v, m, gui, u ->
-            liveLook(v, m.first, m.second, m.third, gui, reducedMotion, u)
+        val tuning = settingsViewModel.soundInput.map { it.soundTuning }
+        combine(viewModel.vizState, modulation, tuning, underlay) { v, m, t, u ->
+            liveLook(v, m.first, m.second, m.third, t, reducedMotion, u)
         }.collect { visualizerView.visualizerRenderer.look = it }
     }
     // Record copies this stage's frames; one leaving the screen ends a recording it was making.

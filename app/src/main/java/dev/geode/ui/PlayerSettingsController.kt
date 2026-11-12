@@ -3,17 +3,15 @@ package dev.geode.ui
 import androidx.media3.common.Player
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
-import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.data.UserDataRepository
+import dev.geode.data.prefs.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 internal class PlayerSettingsController(
-    private val userData: UserDataRepository,
     private val playerPrefsRepository: PlayerPrefsRepository,
     private val scope: CoroutineScope,
     private val player: Player,
@@ -27,8 +25,6 @@ internal class PlayerSettingsController(
         fun applyPlaybackPrefs(prefs: PlayerPrefs)
     }
 
-    val guiPrefs: StateFlow<GuiPrefs> = userData.guiPrefs
-
     val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.value
 
     suspend fun loadedPlayerPrefs(): PlayerPrefs = playerPrefsRepository.loaded()
@@ -36,8 +32,12 @@ internal class PlayerSettingsController(
     private val _audioFxState = MutableStateFlow(audioFx.snapshot())
     val audioFxState: StateFlow<AudioFxState> = _audioFxState
 
-    fun setGuiPrefs(prefs: GuiPrefs) {
-        scope.launch { userData.setGuiPrefs(prefs) }
+    /** Applies [transform] to one settings repository on the app's scope, so leaving a screen never cancels the write. */
+    fun <T> update(
+        repository: SettingsRepository<T>,
+        transform: (T) -> T,
+    ) {
+        scope.launch { repository.update(transform) }
     }
 
     fun setPlayerPrefs(prefs: PlayerPrefs) {

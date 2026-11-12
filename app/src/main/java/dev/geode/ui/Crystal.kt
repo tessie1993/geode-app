@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import dev.geode.data.GuiPrefs
+import dev.geode.data.GeneralSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeColors
@@ -53,37 +53,37 @@ import dev.geode.ui.theme.televisionRipple
  * is now plain Material with the [GeodeColors]/[GeodeGlass] tokens.
  *
  * [accentSource] is the current visual's main colour, which the accent follows
- * ([dev.geode.ui.theme.VisualAccent]) unless [GuiPrefs.accentFollowsVisual] is off; null keeps the
+ * ([dev.geode.ui.theme.VisualAccent]) unless [GeneralSettings.accentFollowsVisual] is off; null keeps the
  * fallback #9CC7FF. The motion scheme follows the system's "Remove animations" live, or the app's
  * own reduced-motion setting.
  */
 @Composable
 internal fun CrystalMaterialTheme(
-    gui: GuiPrefs,
+    general: GeneralSettings,
     accentSource: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    val fontColor = gui.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
+    val fontColor = general.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
     val scheme =
         geodeColorScheme(
-            accentIntensity = gui.accentIntensity,
+            accentIntensity = general.accentIntensity,
             fontColorOverride = fontColor,
-            accentSource = accentSource.takeIf { gui.accentFollowsVisual },
+            accentSource = accentSource.takeIf { general.accentFollowsVisual },
         )
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
-    SideEffect { StoneHaptics.enabled = gui.haptics }
+    SideEffect { StoneHaptics.enabled = general.haptics }
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,
         LocalReducedMotion provides reducedMotion,
         LocalGeodeMotion provides geodeMotionScheme(reducedMotion),
-        LocalUiSounds provides rememberUiSounds(gui.uiSounds),
+        LocalUiSounds provides rememberUiSounds(general.uiSounds),
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            shapes = gui.cornerStyle.shapes(),
-            typography = crystalTypography(gui.textScale),
+            shapes = general.cornerStyle.shapes(),
+            typography = crystalTypography(general.textScale),
         ) {
             // A remote's focus, lit in the accent on a TV (televisionRipple); a phone keeps Material's.
             if (LocalTelevision.current) {
@@ -97,7 +97,7 @@ internal fun CrystalMaterialTheme(
 
 fun crystalTypography(textScale: Float = 1f): Typography =
     geodeTypography(
-        textScale.coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
+        textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX),
     )
 
 fun crystalShardShape(

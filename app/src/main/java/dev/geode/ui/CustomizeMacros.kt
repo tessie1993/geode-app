@@ -77,8 +77,8 @@ internal fun MacrosTab(
     var editing by rememberSaveable { mutableIntStateOf(NO_KNOB) }
     val editAllowed = lock.allows(EDITOR_KEY)
     val settings: SettingsViewModel = geodeViewModel()
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
-    val dial = dialOf(gui.knobSize)
+    val general by settings.general.collectAsStateWithLifecycle()
+    val dial = dialOf(general.knobSize)
     val editor = remember(state, sceneId) { store.editor(sceneId) }
     val draftId = state.draft?.id
     Column {

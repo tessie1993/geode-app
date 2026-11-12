@@ -30,6 +30,13 @@ interface SettingsRepository<T> {
     /** The saved value, once the file has been read; returns at once after that. */
     suspend fun loaded(): T
 
+    /**
+     * For the few callers built synchronously on the main thread before the first load can have
+     * landed (a cold start's first screen, the playback session, the screen saver): the loaded
+     * value, else the file read on this thread, which blocks as a prefs getter would.
+     */
+    fun current(): T
+
     /** Applies [transform] to the latest value, publishes the result and writes it, atomically with any other update. */
     suspend fun update(transform: (T) -> T)
 }
@@ -53,6 +60,17 @@ interface PrefsCodec<T> {
         editor: SharedPreferences.Editor,
         value: T,
     )
+
+    /**
+     * Puts what changed from [previous] to [value]. By default every field, as [write]; a codec
+     * overrides it where a whole write would pin defaults the user never chose, such as a key
+     * written on every screen change beside others the user never touched.
+     */
+    fun writeChanges(
+        editor: SharedPreferences.Editor,
+        previous: T,
+        value: T,
+    ) = write(editor, value)
 
     /** Holds a value to its ranges; applied to every read and every update before it is published. */
     fun normalize(value: T): T = value
@@ -87,12 +105,15 @@ class PrefsSettingsRepository<T>(
 
     override suspend fun loaded(): T = firstLoad.await()
 
+    override fun current(): T = if (firstLoad.isCompleted) state.value else codec.normalize(codec.read(prefs))
+
     override suspend fun update(transform: (T) -> T) {
         firstLoad.await()
         writeLock.withLock {
-            val next = codec.normalize(transform(state.value))
+            val previous = state.value
+            val next = codec.normalize(transform(previous))
             state.value = next
-            withContext(io) { prefs.edit().also { codec.write(it, next) }.apply() }
+            withContext(io) { prefs.edit().also { codec.writeChanges(it, previous, next) }.apply() }
         }
     }
 }

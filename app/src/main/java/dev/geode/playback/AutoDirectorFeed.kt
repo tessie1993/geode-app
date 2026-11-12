@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
+import dev.geode.geodeContainer
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +26,7 @@ class AutoDirectorFeed(
     private val player: Player,
     private val scope: CoroutineScope,
 ) : Player.Listener {
-    private val store = AutoDirectorStore.get(context)
+    private val store = context.geodeContainer.autoDirector
     private var ticker: Job? = null
     private var gate: FeatureGate = ProSnapshot.gate(context)
 

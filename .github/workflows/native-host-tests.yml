@@ -263,6 +263,9 @@ jobs:
           # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # The lyrics parse and the line sung at a position (Player's Lyrics panel).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/lyrics_test.cpp core/library/Lyrics.cpp core/api/geode_lyrics_api.cpp -o lyrics_test
+          ./lyrics_test
           # A picked playlist file (core/library/Playlist): M3U, PLS and XSPF, names, durations, the DOCTYPE refusal.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playlist_test.cpp core/library/Playlist.cpp core/api/geode_playlist_api.cpp -o playlist_test
           ./playlist_test

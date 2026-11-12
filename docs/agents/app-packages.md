@@ -214,6 +214,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The track list is `TrackLibrary`.
 - The music library over it is `LibraryRepository`, implemented by `MusicLibraryRepository`: device tracks, folders, playlists, tags; what `LibraryViewModel` takes.
 - A track's lyrics: `Lyrics`, `LyricsLoader` (an attached .lrc, a sidecar or the tags).
+- `LyricsLoader` only finds and reads the text; the parse and `Lyrics.indexAt` are native (`core/library/Lyrics`, `geode_lyrics_*`).
 - `DocumentUris` is the one place a picked document's grant is kept and its display name asked (`persistGrant`, `displayNameOf`).
 - `DeviceTrackQuery` is the MediaStore query; it leaves out tracks under the user's minimum.
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.

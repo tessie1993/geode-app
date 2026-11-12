@@ -409,6 +409,14 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
+/* Lyrics (core/library/Lyrics). _parse reads UTF-8 .lrc or plain lyrics into the wire form: "S" (timed, sorted by
+ * time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
+ * lyrics. The text goes out as geode::api::textOut does (the return is the length needed). _index_at takes the
+ * ascending times of the lines and returns the line sung at `position_ms`: -1 before the first, with no lines,
+ * or when plain (first time -1). */
+GEODE_API int         geode_lyrics_parse(const char* text, char* out, int capacity);
+GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms);
+
 /* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
  * (a hint for the format, and the playlist's name when the file has none). Text goes into `out`, NUL-terminated;
  * the return is the length the whole text needs. Record 0 is "O", name or "E", reason; then one record per entry:

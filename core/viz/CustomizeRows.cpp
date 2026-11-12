@@ -48,6 +48,12 @@ const std::vector<Control>& table() {
         {"Mirror", W::Check, "mirror", nullptr, kOwn, R::Always, false},
         {"Tile", W::Slider, "tile", nullptr, kOwn, R::Always, false},
         {"Pixelate", W::Slider, "pixelate", nullptr, kOwn, R::Always, false},
+        // Grow & layers: shapes the family libraries draw (catalogue::Scope::FamilyForm), Formula the styles that keep formulas.
+        {"Spawn", W::Slider, "spawn", nullptr, kOwn, R::Always, false},
+        {"Fractal", W::Slider, "fractal", nullptr, kOwn, R::Always, false},
+        {"Front layer", W::Slider, "frontLayer", nullptr, kOwn, R::Always, false},
+        {"Back layer", W::Slider, "backLayer", nullptr, kOwn, R::Always, false},
+        {"Formula", W::Slider, "formula", nullptr, kOwn, R::Always, false},
         {"Particle shape", W::Chips, "particleShape", nullptr, kOwn, R::Always, false},
         {"Particle size", W::Slider, "particleSize", nullptr, kOwn, R::Always, false},
         {"Density", W::Slider, "density", nullptr, kOwn, R::Always, false},

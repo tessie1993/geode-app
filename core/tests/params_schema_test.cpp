@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 193;
+constexpr int kWireFloats = 198;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -77,9 +77,13 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::kaleidoFolds) == 187, "kaleidoFolds keeps its slot");
     check(static_cast<int>(ParamSlot::layerMix) == 188, "layerMix keeps its slot");
     check(static_cast<int>(ParamSlot::simFluid) == 189 && static_cast<int>(ParamSlot::simParticles) == 190 &&
-              static_cast<int>(ParamSlot::simForce) == 191,
+              static_cast<int>(ParamSlot::simForce) == 191 && static_cast<int>(ParamSlot::simLayerOrder) == 192,
           "the physics layers follow it");
-    check(static_cast<int>(ParamSlot::simLayerOrder) == kWireFloats - 1, "simLayerOrder is the wire's last float");
+    check(static_cast<int>(ParamSlot::spawn) == 193 && static_cast<int>(ParamSlot::fractal) == 194 &&
+              static_cast<int>(ParamSlot::frontLayer) == 195,
+          "Grow and layers follow them");
+    check(static_cast<int>(ParamSlot::backLayer) == 196, "backLayer keeps its slot");
+    check(static_cast<int>(ParamSlot::formula) == kWireFloats - 1, "formula is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -274,6 +278,10 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
     {LfoTarget::DiveTwist, "diveTwist", -1.0f, 1.0f},   {LfoTarget::DiveAimX, "diveAimX", -0.6f, 0.6f},
     {LfoTarget::DiveAimY, "diveAimY", -0.6f, 0.6f},
+    // Grow and layers: Spawn and Fractal 0..1, the two layers -1..1 about their 0.
+    {LfoTarget::Spawn, "spawn", 0.0f, 1.0f},            {LfoTarget::Fractal, "fractal", 0.0f, 1.0f},
+    {LfoTarget::FrontLayer, "frontLayer", -1.0f, 1.0f}, {LfoTarget::BackLayer, "backLayer", -1.0f, 1.0f},
+    {LfoTarget::Formula, "formula", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -609,6 +617,20 @@ void everyLiveRowHasOneMeta() {
     check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&
               !SceneParams::meta(ParamSlot::symmetry).live && !SceneParams::meta(ParamSlot::kaleidoscope).live,
           "Kaleidoscope is kaleidoFolds alone, a modulation target on every style");
+    // Grow and layers: a modulation target each, on the family libraries' scope, never rolled, and at its default
+    // the picture as designed (0, the libraries' old path).
+    for (const char* name : {"spawn", "fractal", "frontLayer", "backLayer"}) {
+        const auto slot = static_cast<ParamSlot>(SceneParams::slotOf(name));
+        const ParamMeta& m = SceneParams::meta(slot);
+        check(m.live && m.scope == catalogue::Scope::FamilyForm && (m.flags & kMod) != 0 && m.rollLo == 0.0f && m.rollHi == 0.0f &&
+                  SceneParams::spec(slot).defaultValue == 0.0f,
+              std::string(name) + ": a target on the family scope, 0 by default, never dealt by the param roll");
+    }
+    // Formula: a target on its own scope (the styles that keep formulas), the first formula by default, never rolled.
+    const ParamMeta& formula = SceneParams::meta(ParamSlot::formula);
+    check(std::string(formula.label) == "Formula" && formula.scope == catalogue::Scope::Formula && (formula.flags & kMod) != 0 &&
+              formula.rollLo == 0.0f && formula.rollHi == 0.0f && SceneParams::spec(ParamSlot::formula).defaultValue == 0.0f,
+          "Formula: a target on its own scope, 0 by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {

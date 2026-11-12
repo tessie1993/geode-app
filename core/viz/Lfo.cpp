@@ -146,6 +146,13 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::SimParticles: GEODE_DRIVE(simParticles, 1.0f);
         case LfoTarget::SimForce: GEODE_DRIVE(simForce, 1.0f);
         case LfoTarget::SimLayerOrder: GEODE_DRIVE(simLayerOrder, 1.0f);
+        // The whole of Spawn and Fractal per unit; the layers' half range, so a full wave from 0 reaches either end.
+        case LfoTarget::Spawn: GEODE_DRIVE(spawn, 1.0f);
+        case LfoTarget::Fractal: GEODE_DRIVE(fractal, 1.0f);
+        case LfoTarget::FrontLayer: GEODE_DRIVE(frontLayer, 1.0f);
+        case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
+        // The whole of Formula per unit, as Morph: a structural target, never a luminance one.
+        case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

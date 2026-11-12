@@ -294,6 +294,13 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
         {"motionDrift", "Spin: whether a turning style spins is the user's choice"},
+        // Grow and layers: shapes the music drives through the reaction routes, waves and knobs; a roll that set
+        // one would hold the subject swollen or doubled for good, so they start as designed.
+        {"spawn", "a shape the music drives through the routes"},
+        {"fractal", "a shape the music drives through the routes"},
+        {"frontLayer", "a shape the music drives through the routes"},
+        {"backLayer", "a shape the music drives through the routes"},
+        {"formula", "which of a style's formulas draws it: the music steps it through the routes"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},

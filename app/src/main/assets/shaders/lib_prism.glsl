@@ -32,6 +32,11 @@
 //   k2 FLOW the bend, k3 TONE the palette position, k4 BUILD the ribbons'
 //   glow, k5 SPACE the reach.
 //
+// GROW AND LAYERS (lib_grow, prismField): Spawn slides a second chrome world
+// off the first along the way, Fractal grows chrome a third the size out of
+// every surface, Front layer opens the chrome round the eye, Back layer the
+// chrome down the way and the bands the mirrors see. Each costs nothing at 0.
+//
 // THE SOUND, heard the way the older families hear it (lib_dive, lib_neon):
 // lib_sound's shaped reads, in prismSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
@@ -184,6 +189,8 @@ float prismLine(float away, float w) {
 
 /** What a mirror sees where it sees no solid: dark, crossed by thin bright bands in the palette. */
 vec3 prismSky(vec3 d, float hue) {
+    // Back layer: the bands the mirrors see open and draw in (lib_grow); d itself at its default.
+    d = growBackdrop(d, 0.3);
     float band = sin(5.0 * d.y + 2.0 * sin(3.0 * d.x + uTime * PRISM_RATE(260)) + 1.5 * d.z);
     band *= band;
     band *= band;
@@ -195,6 +202,8 @@ vec3 prismEye(vec3 ro) {
     ro.z = mod(ro.z, PRISM_PERIOD);
     float r = length(ro.xy);
     if (r > gPrismBore) ro.xy *= gPrismBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

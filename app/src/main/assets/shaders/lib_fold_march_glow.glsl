@@ -23,7 +23,7 @@ vec3 foldGlow(vec3 ro, vec3 rd) {
     float t = pace * (0.2 + 0.5 * foldDither());
     for (int i = 0; i < FOLD_GLOW_MAX; i++) {
         if (float(i) >= n || t > gFoldFar || through < 0.03) break;
-        vec4 m = foldMap(foldBend(ro + rd * t));
+        vec4 m = FOLD_AT((ro + rd * t));
         float span = clamp(m.x * gFoldStride * gFoldSlack, 0.35 * pace, 2.5 * pace);
         float w = foldWidth(t);
         float wide = max(w, 0.5 * span);

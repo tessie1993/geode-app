@@ -98,6 +98,11 @@ target|SIM_FLUID|1|Fluid layer
 target|SIM_PARTICLES|1|Particle layer
 target|SIM_FORCE|1|Physics force
 target|SIM_LAYER_ORDER|1|Fluid in front
+target|SPAWN|0|Spawn
+target|FRACTAL|0|Fractal
+target|FRONT_LAYER|0|Front layer
+target|BACK_LAYER|0|Back layer
+target|FORMULA|0|Formula
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail

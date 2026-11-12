@@ -34,6 +34,8 @@ const std::vector<Section>& table() {
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
         {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},
         {C::Shape, "symmetry", false, S::Always, {"Mirror", "Tile", "Pixelate"}},
+        // Grow and layers: what the family libraries draw (catalogue::Scope::FamilyForm), for the music to move.
+        {C::Shape, "grow", false, S::Always, {"Spawn", "Fractal", "Front layer", "Back layer", "Formula"}},
         {C::Shape,
          "particles",
          false,
@@ -154,6 +156,12 @@ const std::vector<HeldControl>& held() {
         {"Glide time", {"paramFadeSec"}, std::nullopt},
         // Whether a turning style spins is the user's alone: no roll moves it.
         {"Spin", {"motionDrift"}, std::nullopt},
+        // Grow and layers: no roll deals them (ParamRandomizer's neverRolled); their scope is their meta row's.
+        {"Spawn", {"spawn"}, std::nullopt},
+        {"Fractal", {"fractal"}, std::nullopt},
+        {"Front layer", {"frontLayer"}, std::nullopt},
+        {"Back layer", {"backLayer"}, std::nullopt},
+        {"Formula", {"formula"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
         {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},
@@ -201,6 +209,7 @@ constexpr SectionTitle kSectionTitles[] = {
     {"palette_maker", "Your colours"},
     {"form", "Form"},
     {"symmetry", "Symmetry"},
+    {"grow", "Grow & layers"},
     {"particles", "Particles"},
     {"journey", "Journey"},
     {"emitters", "Emitters"},

@@ -181,6 +181,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - The engine module's package, for the shell's own pieces of it.
 - `UnderlayBlend` is the background image's blend, saved by name; its ordinal is the underlay's wire int.
+- `fluid/FluidShaderTemplate` reads the fluid splat shader asset that Expert › Shader code starts from.
 
 ## `audio/dsp`
 

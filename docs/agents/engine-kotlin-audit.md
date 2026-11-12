@@ -20,9 +20,9 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `TouchField` | 13 | **deleted**: the finger slots are native's (`TouchField::kMaxPoints`), published as the catalogue's `touchPoints` value; the gestures and the wallpaper size their buffer by it. Pinned in `catalogue_test.cpp` and the fixture. |
 | `FluidQuality` | 13 | **moved to UI**: the chips' names are private to `ui/CustomizeControls`, shown for the catalogue's `fluidTiers`. |
 | `SceneFactory` | 14 | pending |
-| `FluidShaderTemplate` | 15 | pending |
+| `FluidShaderTemplate` | 15 | **moved to UI**: an asset read for Expert › Shader code, to `:app` under the same package; no engine module used it. |
 | `PlaybackMath` | 18 | **ported**: the pitch rate and the slider step are `core/audio/dsp/PlaybackControls` (`geode_playback_pitch_ratio`, `geode_playback_snap`), test `core/tests/playback_controls_test.cpp`; the sleep timer's m:ss countdown is display text, now private to `ui/PlaybackSettings`. |
-| `BestEffort` | 18 | pending |
+| `BestEffort` | 18 | pending: shell glue, but `VisualizerView`, `Reactions`, `OffscreenSceneRenderer` and `TrackAudio` in `:engine:scenes` still call it, so it moves when they do. |
 | `UnderlayBlend` | 22 | **moved to UI**: to `:app`, same package; its names are saved data (Background, Studio projects) and its ordinals the underlay's wire int, clamped natively. The unused `fromOrdinal` is gone. |
 | `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
 | `StyleSchedule` | 31 | pending |
@@ -32,7 +32,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ThermalGovernor` | 38 | pending |
 | `SoundCursor` | 39 | pending |
 | `GyroLook` | 50 | pending |
-| `MilkStarterPack` | 50 | pending |
+| `MilkStarterPack` | 50 | pending: shell glue (copies the bundled `.milk` assets once), but `MilkPresetMemory` in `:engine:scenes` installs it, so it moves when that does. |
 | `BuildStyleReactionsUseCase` | 51 | pending |
 | `PcmTap` | 55 | pending |
 | `AiffPcm` | 57 | pending |

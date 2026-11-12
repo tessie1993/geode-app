@@ -69,7 +69,6 @@ allowed=(
     "$S/render/bridge/NativeViz.kt"
     "$S/render/bridge/SceneParamsCodec.kt"
     "$S/render/bridge/StyleSchedule.kt"
-    "$S/render/fluid/FluidShaderTemplate.kt"
     "$S/render/look/LookApplier.kt"
     "$S/render/look/LookSnapshot.kt"
     "$S/render/offscreen/OffscreenSceneRenderer.kt"

@@ -42,10 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.render.EventRecipe
-import dev.geode.render.HandReactions
-import dev.geode.render.ReactionRoute
-import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
@@ -62,12 +59,12 @@ import dev.geode.ui.theme.LocalGeodeMotion
  * row at a time, so ten moments read as ten lines.
  *
  * The hand wins per moment: a tick, or a drag of the Strength, makes that moment the user's ("Mine",
- * kept in the hand mask beside their routes, [HandReactions]) with the actions it played copied in
+ * kept in the hand mask beside their routes) with the actions it played copied in
  * (native's merge); every other row stays Auto and keeps following the live DNA as the style or seed
  * changes, and the director keeps off the moments marked Mine. ⋮ › Reset to Auto hands it back.
  * Native decides all of it ([MusicMoments] only calls it); this page draws the rows and sends taps.
  *
- * The ready-made [EventRecipe]s stay below as one menu of one-tap bundles across moments. How
+ * The ready-made recipes native lists stay below as one menu of one-tap bundles across moments. How
  * strongly the music moves things overall is Music's Basics; each route on its own is Music ›
  * Reactions.
  *
@@ -77,18 +74,17 @@ import dev.geode.ui.theme.LocalGeodeMotion
 @Composable
 internal fun EventsTab(
     p: SceneParams,
-    hand: HandReactions,
-    onReactionsChange: (List<ReactionRoute>?) -> Unit,
-    onHandChange: (HandReactions) -> Unit,
+    reactions: String?,
+    handMask: Int,
+    onEdit: ReactionsEdit,
 ) {
     val sceneId = LocalSceneId.current
     val searching = LocalParamQuery.current.isNotBlank()
     Column {
         if (!searching) {
             val seed = p.reactSeed
-            // What plays now (the native merge of the user's routes and the live DNA) and each row's state.
-            val routes = remember(sceneId, seed, hand) { BuildStyleReactionsUseCase().playing(sceneId, seed, hand.routes, hand.mask) }
-            val rows = remember(sceneId, seed, hand) { MusicMoments.rows(sceneId, seed, hand) }
+            // Each row's state over what plays now (the native merge of the user's routes and the live DNA).
+            val rows = remember(sceneId, seed, reactions, handMask) { MusicMoments.rows(sceneId, seed, reactions, handMask) }
             val actions = remember(sceneId) { MusicMoments.actionsFor(sceneId) }
             var open by rememberSaveable { mutableIntStateOf(-1) }
             val reactTo = LocalReactTo.current
@@ -105,12 +101,19 @@ internal fun EventsTab(
                         expanded = open == moment.ordinal,
                         onExpand = { open = if (open == moment.ordinal) -1 else moment.ordinal },
                         reactTo = reactTo,
-                    ) { edit -> onHandChange(edit(sceneId, seed, hand)) }
+                        onEdit = onEdit,
+                    )
                 }
             }
             // One list for the menu and the room note, so the note only ever speaks of recipes on offer.
-            val shown = remember(sceneId) { EventRecipe.entries.filter { it.routesFor(sceneId).isNotEmpty() } }
-            val onCount = shown.count { it.isOn(routes, sceneId) }
+            val shown =
+                remember(sceneId, seed, reactions, handMask) {
+                    ModCatalog
+                        .words("recipe")
+                        .map { it to GeodeNative.modRecipeState(it.ordinal, sceneId, seed, reactions, handMask) }
+                        .filter { (_, state) -> state and GeodeNative.MOD_RECIPE_OFFERED != 0 }
+                }
+            val onCount = shown.count { (_, state) -> state and GeodeNative.MOD_RECIPE_ON != 0 }
             val recipesName = stringResource(R.string.music_moment_recipes)
             val recipesSummary = stringResource(R.string.music_recipes_summary, onCount)
             Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
@@ -120,24 +123,25 @@ internal fun EventsTab(
                         name = stringResource(R.string.music_recipes_button),
                         summary = recipesSummary,
                         picks =
-                            shown.map { r ->
-                                val on = r.isOn(routes, sceneId)
-                                MenuPick(r.title, checked = on, enabled = on || r.fits(routes, sceneId))
+                            shown.map { (recipe, state) ->
+                                val on = state and GeodeNative.MOD_RECIPE_ON != 0
+                                MenuPick(recipe.label, checked = on, enabled = on || state and GeodeNative.MOD_RECIPE_FITS != 0)
                             },
-                    ) { i -> onReactionsChange(shown[i].toggle(routes, sceneId)) }
+                    ) { i -> onEdit(GeodeNative.MOD_EDIT_RECIPE_TOGGLE, shown[i].first.ordinal, 0, 0f) }
                 }
             }
-            val recipeFull = shown.any { !it.isOn(routes, sceneId) && !it.fits(routes, sceneId) }
+            val recipeFull = shown.any { (_, state) -> state and (GeodeNative.MOD_RECIPE_ON or GeodeNative.MOD_RECIPE_FITS) == 0 }
             val momentFull = rows.any { row -> actions.any { a -> a !in row.on && a !in row.fits } }
             if (recipeFull || momentFull) {
-                ControlHint(stringResource(R.string.music_moment_full, routes.size, ReactionRoute.MAX_ROUTES))
+                val playing =
+                    remember(sceneId, seed, reactions, handMask) {
+                        GeodeNative.modRoutesPlaying(sceneId, seed, reactions, handMask).size / GeodeNative.MOD_ROUTE_VALUES
+                    }
+                ControlHint(stringResource(R.string.music_moment_full, playing, ModCatalog.count("routes")))
             }
         }
     }
 }
-
-/** One tap on the page, sent to native with the style, the seed and the user's side. */
-private typealias MomentEdit = (sceneId: String, seed: Int, hand: HandReactions) -> HandReactions
 
 /** The light actions first, then the ones that move the picture; a divider sits between the groups. */
 private val LIGHT_ACTIONS = listOf(MusicAction.FLASH, MusicAction.COLOUR)
@@ -157,7 +161,7 @@ private fun MomentRow(
     expanded: Boolean,
     onExpand: () -> Unit,
     reactTo: (() -> Unit)?,
-    onEdit: (MomentEdit) -> Unit,
+    onEdit: ReactionsEdit,
 ) {
     val name = stringResource(moment.label)
     val mine = row.mine
@@ -216,9 +220,9 @@ private fun MomentRow(
                     if (i == ordered.size) {
                         // None: every action this moment plays, off, one native edit after another.
                         val off = ordered.filter { it in row.on }
-                        onEdit { s, seed, hand -> off.fold(hand) { h, a -> MusicMoments.toggle(s, seed, h, moment, a) } }
+                        off.forEach { a -> onEdit(GeodeNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, a.ordinal, 0f) }
                     } else {
-                        onEdit { s, seed, hand -> MusicMoments.toggle(s, seed, hand, moment, ordered[i]) }
+                        onEdit(GeodeNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, ordered[i].ordinal, 0f)
                     }
                 }
             }
@@ -233,11 +237,11 @@ private fun MomentRow(
             LabeledSlider(
                 label = "Music ${moment.name.lowercase()} strength",
                 value = row.strength,
-                range = 0f..MusicMoments.MAX_STRENGTH,
+                range = ModCatalog.range("music.strength"),
                 display = stringResource(R.string.music_moment_strength, name),
                 scope = ParamScope.UNIVERSAL,
                 unit = ParamUnit.TIMES,
-            ) { v -> onEdit { s, seed, hand -> MusicMoments.withStrength(s, seed, hand, moment, v) } }
+            ) { v -> onEdit(GeodeNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, v) }
         }
     }
 }
@@ -271,13 +275,13 @@ private fun MomentMenu(
     row: MomentState,
     reactTo: (() -> Unit)?,
     moment: MusicMoment,
-    onEdit: (MomentEdit) -> Unit,
+    onEdit: ReactionsEdit,
 ) {
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
     val lock = LocalProLock.current
     val canEdit = lock.allows(MOMENTS_PIECE)
-    val edit: (MomentEdit) -> Unit = { e -> if (canEdit) onEdit(e) else lock.onLocked() }
+    val edit: ReactionsEdit = { op, a, b, v -> if (canEdit) onEdit(op, a, b, v) else lock.onLocked() }
     Box {
         IconButton(onClick = { open = true }) {
             Icon(
@@ -298,9 +302,9 @@ private fun MomentMenu(
                 onClick = {
                     open = false
                     if (row.mine) {
-                        edit { s, seed, hand -> MusicMoments.resetToAuto(s, seed, hand, moment) }
+                        edit(GeodeNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
                     } else {
-                        edit { s, seed, hand -> MusicMoments.withStrength(s, seed, hand, moment, row.strength) }
+                        edit(GeodeNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, row.strength)
                     }
                 },
             )
@@ -322,7 +326,7 @@ private fun MomentMenu(
             if (row.mine) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.music_moment_reset)) }, onClick = {
                     open = false
-                    edit { s, seed, hand -> MusicMoments.resetToAuto(s, seed, hand, moment) }
+                    edit(GeodeNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
                 })
             }
         }

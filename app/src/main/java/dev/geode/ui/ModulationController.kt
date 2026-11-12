@@ -7,19 +7,6 @@ import dev.geode.data.LfoStore
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.HandMask
-import dev.geode.render.HandReactions
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
-import dev.geode.render.LfoTarget
-import dev.geode.render.LfoWave
-import dev.geode.render.ModCurve
-import dev.geode.render.ModPolarity
-import dev.geode.render.ModSource
-import dev.geode.render.ReactionRoute
-import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
@@ -55,19 +42,20 @@ internal class ModulationController(
         fun setSceneParams(params: SceneParams)
     }
 
+    // The waves, the envelopes and the routes as saved: native reads and edits them (core/viz/ModDocument).
     private val _lfos = MutableStateFlow(lfoStore.load())
-    val lfos: StateFlow<List<LfoConfig>> = _lfos
+    val lfos: StateFlow<String> = _lfos
 
     private val _adsrs = MutableStateFlow(lfoStore.loadAdsrs())
-    val adsrs: StateFlow<List<AdsrConfig>> = _adsrs
+    val adsrs: StateFlow<String> = _adsrs
 
     // Null while the style's DNA plays; the first edit copies the DNA into a list of the user's own.
     private val _reactions = MutableStateFlow(lfoStore.loadReactions())
-    val reactions: StateFlow<List<ReactionRoute>?> = _reactions
+    val reactions: StateFlow<String?> = _reactions
 
     // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
     // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
-    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { HandMask.set(it, _reactions.value != null) })
+    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { lfoStore.pushHand(it, _reactions.value != null) })
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
@@ -184,33 +172,12 @@ internal class ModulationController(
     /**
      * Randomize for the waves. The roll is native (core/viz/WaveRandomizer): [all] is the wave editor's
      * button, every wave switched on and rolled; otherwise a category roll, which only re-rolls the
-     * steady waves already on and holds them when Music is kept. This only carries the slots there and back.
+     * steady waves already on and holds them when Music is kept. This only carries the waves there and back.
      */
     fun randomizeWaves(all: Boolean) {
-        val floats = ModConfigCodec.packLfo(LfoConfig()).size
-        val input = FloatArray(LfoEngine.SLOTS * floats)
-        _lfos.value.take(LfoEngine.SLOTS).forEachIndexed { i, c -> ModConfigCodec.packLfo(c).copyInto(input, i * floats) }
-        val out = FloatArray(input.size)
         val locked = _lockedParams.value.joinToString("\n")
         val params = SceneParamsCodec.pack(host.params)
-        if (!GeodeNative.wavesRandomize(host.sceneId, locked, Random.nextLong(), !all, params, input, out)) return
-        val rolled =
-            List(LfoEngine.SLOTS) { i ->
-                val o = i * floats
-                LfoConfig(
-                    enabled = out[o] > 0.5f,
-                    source = ModSource.entries[out[o + 1].toInt()],
-                    target = LfoTarget.entries[out[o + 2].toInt()],
-                    wave = LfoWave.entries[out[o + 3].toInt()],
-                    rateSeconds = out[o + 4],
-                    depth = out[o + 5],
-                    polarity = ModPolarity.entries[out[o + 6].toInt()],
-                    curve = ModCurve.entries[out[o + 7].toInt()],
-                    beats = out[o + 8].toInt(),
-                    knob = out[o + 9].toInt(),
-                    moment = out[o + 10].toInt(),
-                )
-            }
+        val rolled = GeodeNative.modWavesRandomize(host.sceneId, locked, Random.nextLong(), !all, params, _lfos.value) ?: return
         _lfos.value = rolled
         lfoStore.save(rolled)
     }
@@ -222,7 +189,7 @@ internal class ModulationController(
      */
     fun resetCategory(category: CustomizeCategory) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
-        if (category == CustomizeCategory.MUSIC) setReactions(null)
+        if (category == CustomizeCategory.MUSIC) editReactions(GeodeNative.MOD_EDIT_CLEAR)
         val out = FloatArray(SceneParamsCodec.FIELDS)
         GeodeNative.customizeReset(category.name, SceneParamsCodec.pack(host.params), out)
         commitSceneParams(SceneParamsCodec.unpack(out, host.params))
@@ -241,51 +208,52 @@ internal class ModulationController(
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
 
+    /** One [field] (a `GeodeNative.MOD_ADSR_*`) of the envelope at [index]; native sets it and keeps it in range. */
     fun setAdsr(
         index: Int,
-        config: AdsrConfig,
+        field: Int,
+        value: Float,
     ) {
-        val list = _adsrs.value.toMutableList()
-        while (list.size < AdsrEngine.COUNT) list.add(AdsrConfig())
-        if (index in list.indices) {
-            list[index] = config
-            _adsrs.value = list
-            lfoStore.saveAdsrs(list)
-        }
+        val next = GeodeNative.modAdsrEdit(_adsrs.value, index, field, value)
+        _adsrs.value = next
+        lfoStore.saveAdsrs(next)
     }
 
+    /** One [field] (a `GeodeNative.MOD_LFO_*`) of the wave at [index]; native sets it and keeps it in range. */
     fun setLfo(
         index: Int,
-        config: LfoConfig,
+        field: Int,
+        value: Float,
     ) {
-        val list = _lfos.value.toMutableList()
-        while (list.size < LfoEngine.SLOTS) list.add(LfoConfig())
-        if (index in 0 until LfoEngine.SLOTS) {
-            list[index] = config
-            _lfos.value = list
-            lfoStore.save(list)
-        }
+        val next = GeodeNative.modLfoEdit(_lfos.value, index, field, value)
+        _lfos.value = next
+        lfoStore.save(next)
     }
 
     /**
-     * [routes] null hands the matrix back to the style's DNA. A list from the route editor or a recipe is
-     * the whole matrix, so it owns every moment ([GeodeNative.HAND_ALL]).
+     * One edit of the reactions (a `GeodeNative.MOD_EDIT_*` [op] with its [a], [b] and [value]). Native works
+     * out the user's routes and the moments they own from what plays on this style; null hands the matrix
+     * back to the style's DNA.
      */
-    fun setReactions(routes: List<ReactionRoute>?) = setHandReactions(HandReactions(routes, GeodeNative.HAND_ALL))
-
-    /** Customize › Music's edit, as native worked it out: the user's routes and the moments they own. */
-    fun setHandReactions(edit: HandReactions) {
-        val list = edit.routes?.take(ReactionRoute.MAX_ROUTES)
-        val mask = if (list == null) 0 else edit.mask
-        _reactions.value = list
+    fun editReactions(
+        op: Int,
+        a: Int = 0,
+        b: Int = 0,
+        value: Float = 0f,
+    ) {
+        val outMask = IntArray(1)
+        val seed = host.params.reactSeed
+        val routes = GeodeNative.modReactionsEdit(host.sceneId, seed, _reactions.value, _handMask.value, op, a, b, value, outMask)
+        val mask = if (routes == null) 0 else outMask[0]
+        _reactions.value = routes
         _handMask.value = mask
-        HandMask.set(mask, list != null)
-        lfoStore.saveReactions(list, mask)
+        lfoStore.pushHand(mask, routes != null)
+        lfoStore.saveReactions(routes, mask)
     }
 
     /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */
     fun rerollReactions() {
-        setReactions(null)
+        editReactions(GeodeNative.MOD_EDIT_CLEAR)
         commitSceneParams(host.params.copy(reactSeed = host.params.reactSeed + 1))
     }
 

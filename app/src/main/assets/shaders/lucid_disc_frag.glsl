@@ -141,21 +141,15 @@ float gDome;
 float gHa;
 float gHb;
 float gHMax;
-/** Set by map(): 0 dish, 1 rim; on the dish the folded point, inversions, edge distance, |z|^2. */
-float gMat;
-vec2 gM;
-float gFlips;
-float gE;
-float gR2;
 
 vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
 vec2 cdiv(vec2 a, vec2 b) { return cmul(a, vec2(b.x, -b.y)) / max(dot(b, b), 1e-6); }
 
 /**
- * The tiled relief at disc point z (|z| < 1): glide, fold, profile. Sets gM,
- * gFlips, gE and returns the profile P (0 on a tile edge, about 1 on top).
+ * The tiled relief at disc point z (|z| < 1): glide, fold, profile. Hands the folded
+ * point, the inversions and the edge distance back in `found`; returns the profile P (0 on a tile edge, about 1 on top).
  */
-float ldTile(vec2 z) {
+float ldTile(vec2 z, inout LucidHit found) {
     vec2 m = cdiv(z - gB, vec2(1.0, 0.0) - cmul(vec2(gB.x, -gB.y), z));
     float flips = 0.0;
     float e = 0.0;
@@ -176,14 +170,14 @@ float ldTile(vec2 z) {
         m = vec2(LD_D, 0.0) + v * (LD_RR2 / max(l2, 1e-6));
         flips += 1.0;
     }
-    gM = m;
-    gFlips = flips;
-    gE = e;
+    found.b.xy = m;
+    found.a.x = flips;
+    found.a.y = e;
     float pillow = 1.0 - 1.5 * min(dot(m, m), 0.16);
     return smoothstep(0.0, LD_BEVEL, e) * pillow;
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     float rw = length(p.xz);
     float dRim = length(vec2(rw - LD_R, p.y + 0.01)) - LD_RIM;
     float r2 = min(rw * rw / (LD_R * LD_R), 1.0);
@@ -192,44 +186,45 @@ float map(vec3 p) {
     // The cheap envelope first: the dome plus the tallest tile, no fold.
     float env = max((p.y - (gDome + gHMax) * (1.0 - r2)) / LD_ENV_LIP, side);
     if (env > LD_NEAR) {
-        gMat = dRim < env ? 1.0 : 0.0;
+        found.mat = dRim < env ? 1.0 : 0.0;
         return min(env, dRim);
     }
 
     vec2 z = p.xz / LD_R;
     float zl = length(z);
     if (zl > 0.999) z *= 0.999 / zl;
-    float prof = ldTile(z);
-    gR2 = r2;
-    float h = (mod(gFlips, 2.0) < 0.5 ? gHa : gHb) * prof;
+    float prof = ldTile(z, found);
+    found.a.z = r2;
+    float h = (mod(found.a.x, 2.0) < 0.5 ? gHa : gHb) * prof;
     float top = (gDome + h) * (1.0 - r2);
     float d = max((p.y - top) / LD_LIP, side);
-    gMat = dRim < d ? 1.0 : 0.0;
+    found.mat = dRim < d ? 1.0 : 0.0;
     return min(d, dRim);
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * uIntensity;
     float seed = lucidSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);
-    float energy = clamp(uIntensity, 0.0, 1.5) * clamp(1.0 + 1.2 * kPulse, 0.3, 1.6);
+    float energy = clamp(uIntensity, 0.0, 1.5) * lucidSpan(N.emit, 1.0, 0.4, 1.6);
     float kickB = lucidBump(SND_KICK_ENV * uSoundDrive) * energy;
     float snareB = lucidBump(SND_SNARE_ENV * uSoundDrive) * energy;
     float dropB = lucidBump(SND_HELD_SURGE);
@@ -244,7 +239,7 @@ void main() {
 
     // The Mobius glide, the flat style's: b orbits inside the disc.
     float heading = seed * LUCID_TAU * uIntensity + t * 0.03;
-    float reach = 0.42 * clamp(1.0 + 0.6 * kFlow, 0.5, 1.3);
+    float reach = 0.42 * lucidSpan(N.flow, 1.0, 0.7, 1.3);
     gB = reach * vec2(cos(heading), sin(heading)) * (0.6 + 0.4 * sin(flow * 0.11));
 
     // Object-centred orbit from above: camAround's eye, pitched down LD_ELEV.
@@ -254,16 +249,16 @@ void main() {
     float se = sin(LD_ELEV);
     mat3 pitch = mat3(1.0, 0.0, 0.0, 0.0, ce, se, 0.0, -se, ce);
     mat3 basis = turn * pitch * uCamBasis;
-    float radius = 4.6 * (1.0 + 0.4 * kSpace) * (1.0 - 0.35 * uCamDolly);
+    float radius = 4.6 * lucidSpan(N.reach, 1.0, 0.8, 1.2) * (1.0 - 0.35 * uCamDolly);
     vec3 ro = -basis[2] * radius;
     vec3 rd = normalize(basis * vec3(uv, uCamFocal));
 
     // Outside the disc: near black, a faint warm halo the medallion sits in.
     float sr = length(uv);
     vec3 leaf = mix(vec3(0.86, 0.62, 0.24), pal(0.1) * vec3(1.0, 0.8, 0.45), 0.35);
-    vec3 bg = pal(seed + 0.5 + 0.12 * kTone) * 0.025 + leaf * 0.03 * exp(-sr * 1.4);
+    vec3 bg = pal(seed + 0.5 + lucidSpan(N.tone, 0.0, -0.06, 0.06)) * 0.025 + leaf * 0.03 * exp(-sr * 1.4);
     vec3 col = bg;
-    float buildK = clamp(1.0 + 1.2 * kBuild, 0.2, 2.2);
+    float buildK = lucidSpan(N.glow, 1.0, 0.4, 1.6);
 
     vec3 bc = vec3(0.0, 0.1, 0.0);
     vec3 oc = ro - bc;
@@ -280,7 +275,8 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            fld = lucidField(ro + rd * tm);
+            float d = fld.d;
             float eps = 0.0006 * tm + 0.0004;
             if (d < eps) {
                 hitT = tm;
@@ -291,7 +287,7 @@ void main() {
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0008 * hitT + 0.0008);
+            vec3 n = lucidNormal(p, 0.0008 * hitT + 0.0008);
             vec3 L = normalize(vec3(-0.45, 0.85, 0.3));
 
             // Soft shadow: raised tiles shade the grooves and the sunken tiles.
@@ -299,7 +295,8 @@ void main() {
             if (uSteps >= 48.0) {
                 float st = 0.015;
                 for (int j = 0; j < LD_SHADOW_STEPS; j++) {
-                    float d = map(p + L * st);
+                    fld = lucidField(p + L * st);
+                    float d = fld.d;
                     sh = min(sh, 10.0 * d / st);
                     if (sh < 0.05) break;
                     st += clamp(d, 0.01, 0.1);
@@ -308,7 +305,7 @@ void main() {
                 sh = 0.35 + 0.65 * sh * sh * (3.0 - 2.0 * sh);
             }
             // Restore the hit point's globals after the shading taps.
-            map(p);
+            fld = lucidField(p);
             float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.6, 0.5, 1.0);
 
             float dif = max(dot(n, L), 0.0);
@@ -318,7 +315,7 @@ void main() {
             // One world pixel at the hit, for fading detail finer than it.
             float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
 
-            if (gMat > 0.5) {
+            if (fld.mat > 0.5) {
                 // The gilt rim.
                 float spec = pow(max(dot(n, hv), 0.0), 30.0 + 40.0 * clamp(treb, 0.0, 1.0));
                 col = leaf * (0.12 + 0.7 * dif * sh) * ao
@@ -327,21 +324,21 @@ void main() {
             } else {
                 // How large the folded plane is here, in world units per unit of m:
                 // the inverse of the fold's stretch (see the header).
-                float mScale = LD_R * max(1.0 - gR2, 1e-4) / max(1.0 - dot(gM, gM), 1e-4);
+                float mScale = LD_R * max(1.0 - fld.a.z, 1e-4) / max(1.0 - dot(fld.b.xy, fld.b.xy), 1e-4);
                 // The craquelure: the flat style's nest, in the folded plane.
-                float cellDen = 7.0 + 3.0 * clamp(uMorph, 0.0, 1.0);
+                float cellDen = lucidSpan(N.depth, 7.0, 7.0, 10.0);
                 // Under a pixel the cracks fade to their average gold cover (0.3),
                 // so the rim's tiny tiles never shimmer; TEXTURE sets how much of
                 // the craquelure shows at all.
                 float vis = smoothstep(1.5, 4.0, mScale / cellDen / max(px, 1e-5))
-                          * clamp(1.0 + 1.4 * kTexture, 0.0, 1.0);
+                          * lucidSpan(N.scale, 1.0, 0.3, 1.0);
                 float crack = 0.3;
                 float cellZ = 0.5;
                 vec2 nxy = vec2(0.0);
                 float nz = 0.5;
                 if (vis > 0.01) {
                     int depth = lucidDetail(3, 2);
-                    vec2 q = gM * cellDen + vec2(seed * 31.0, seed * 17.0);
+                    vec2 q = fld.b.xy * cellDen + vec2(seed * 31.0, seed * 17.0);
                     q += lucidJitter(q, t);
                     vec4 nst = lucidNest(q, depth, 0.9 * lucidChaos(), t * 0.15, LUCID_CELLS, 1);
                     vec3 cell = lucidCells(q + 0.9 * nst.xy, 0.85);
@@ -354,18 +351,18 @@ void main() {
                 // The tile groove, gilded; faded to its average where under a pixel.
                 float grooveW = LD_BEVEL * 0.45;
                 float grooveVis = smoothstep(1.0, 3.0, grooveW * mScale / max(px, 1e-5));
-                float groove = 1.0 - smoothstep(grooveW * 0.6, grooveW, gE);
+                float groove = 1.0 - smoothstep(grooveW * 0.6, grooveW, fld.a.y);
                 groove = mix(0.35, groove, grooveVis);
                 float gold = max(crack, groove);
 
-                float parity = mod(gFlips, 2.0);
-                float hue = seed + 0.12 * kTone;
+                float parity = mod(fld.a.x, 2.0);
+                float hue = seed + lucidSpan(N.tone, 0.0, -0.06, 0.06);
                 vec3 lacquerA = pal(hue) * 0.32;
                 vec3 lacquerB = pal(hue + 0.5) * 0.18;
                 vec3 lacquer = mix(lacquerA, lacquerB, parity) * (0.7 + 0.5 * cellZ);
                 lacquer = lucidCubic(lacquer, 0.35);
                 // The bevel's foot sits in its own shade.
-                float bevelAo = 0.55 + 0.45 * smoothstep(0.0, LD_BEVEL, gE);
+                float bevelAo = 0.55 + 0.45 * smoothstep(0.0, LD_BEVEL, fld.a.y);
 
                 // Lacquer: a dark body under a clear coat.
                 float coat = pow(max(dot(n, hv), 0.0), 70.0);

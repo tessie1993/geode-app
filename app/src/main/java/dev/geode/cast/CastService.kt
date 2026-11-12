@@ -169,7 +169,7 @@ class CastService : Service() {
             tvLoadAtMs = SystemClock.elapsedRealtime()
             CastController.get(this).onStreamReady(s.playlistUrl)
         }
-        if (forLink) ComputerLink.onReady(s.shareUrl, s.shareLabel)
+        if (forLink) ComputerLink.onReady(s.shareUrl, s.shareLabel, s.pairUrl)
     }
 
     private fun startStream() {

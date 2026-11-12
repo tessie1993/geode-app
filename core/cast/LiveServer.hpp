@@ -58,7 +58,9 @@ public:
     // Stops accepting, ends every connection and joins the threads. Idempotent; the counts stay readable.
     void stop();
 
-    // Who the stream is for (share::kWant* bits) and the Cast device's IPv4 address (0 = none named).
+    // Who the stream is for (share::kWant* bits) and the Cast device's IPv4 address (0 = none named). Opens the
+    // typed path's pairing (geode_link_pair_open) while a browser link is wanted, closes it otherwise; stop()
+    // closes it too.
     void admit(uint32_t tv, int wants);
 
     LiveSegments& segments() { return segments_; }
@@ -71,6 +73,9 @@ public:
     std::string playlistUrl() const;
     // The link a user sees, copies and shares (share::shareUrl); the dotted page when that cannot be made.
     std::string shareUrl() const;
+    // The short link a computer types, with no token in it (share::pairUrl); the dotted address when that
+    // cannot be made, "" before start.
+    std::string pairUrl() const;
     // A short name for this link ("Blue Comet").
     std::string label() const;
     // When the TV last got a file, on the boot clock in ms (Android's elapsedRealtime); 0 = never.

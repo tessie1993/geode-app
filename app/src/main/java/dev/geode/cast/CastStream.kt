@@ -104,6 +104,9 @@ internal class CastStream(
     /** The page a browser opens ("Show on a computer"), as the user is shown it (no dotted address); valid after [start]. */
     val shareUrl: String get() = server.shareUrl
 
+    /** The short link a computer types (no token; the page asks for the code the sheet shows); valid after [start]. */
+    val pairUrl: String get() = server.pairUrl
+
     /** The link's short name, shown beside its QR code. */
     val shareLabel: String get() = server.label
 

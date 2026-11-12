@@ -13,12 +13,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -39,13 +39,13 @@ import kotlin.math.abs
  * job never pays for it; `.github/workflows/render-thumbs.yml` sets it, runs only this class and
  * turns the output into a bot PR.
  *
- * Each style gets a fresh [NativeViz], prepared the way [dev.geode.render.offscreen.OffscreenSceneRenderer]
+ * Each style gets a fresh [NativeViz], prepared the way the native export job (`core/output/ExportFrame`)
  * prepares an export (offscreen tier, cut transition, the style's own reaction DNA from
  * resolved natively), hears [SyntheticGroove] frame by frame and runs [WARMUP_SECONDS] of
  * frames before the one that is kept, so simulations have grown and reactions are mid-groove
  * rather than at their silent rest pose. NativeViz is driven directly rather than through
- * OffscreenSceneRenderer because that one only hears a decoded track (TrackAudio), and the
- * groove is generated in code.
+ * the export job because that one only hears a decoded track, and the groove is generated
+ * in code.
  *
  * The frame is drawn at [RENDER_SIZE] and filtered down to [THUMB_SIZE], which antialiases the
  * thin lines many styles draw, then saved as lossy WebP through [TestStorage]: files written
@@ -153,9 +153,7 @@ class StyleThumbnailRenderTest {
                 ?.toSet()
                 .orEmpty()
         val ids =
-            Catalogue.styles
-                .filter { it.kind != SceneKind.MILKDROP }
-                .map { it.id }
+            (StyleCatalogue.ids - GeodeNative.STYLE_MILKDROP)
                 .filter { only == null || it in only }
                 .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())

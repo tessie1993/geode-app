@@ -61,7 +61,10 @@ internal class LiveLink(
         if (port == 0) throw IOException("the cast server could not bind")
     }
 
-    /** Lets in the Cast device at [tv] while [forTv], and the bound subnet while [forLink]; nobody else. */
+    /**
+     * Lets in the Cast device at [tv] while [forTv], and the bound subnet while [forLink]; nobody else. Native
+     * opens the typed code's pairing with it while [forLink], and closes it otherwise and at [stop].
+     */
     fun admit(
         tv: InetAddress?,
         forTv: Boolean,
@@ -76,6 +79,9 @@ internal class LiveLink(
 
     /** "Show on a computer"'s link as the user sees, copies and shares it (the host as one number, not dotted). */
     val shareUrl: String get() = text(GeodeNative.CAST_TEXT_SHARE_URL)
+
+    /** The short link a computer types, with no token in it; its page asks for the code the sheet shows. */
+    val pairUrl: String get() = text(GeodeNative.CAST_TEXT_PAIR_URL)
 
     /** A short name for this link ("Blue Comet") to show beside its QR code. */
     val label: String get() = text(GeodeNative.CAST_TEXT_LABEL)

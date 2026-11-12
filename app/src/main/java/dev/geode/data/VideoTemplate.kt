@@ -31,8 +31,8 @@ package dev.geode.data
 
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import java.util.UUID
 
 /**
@@ -156,7 +156,7 @@ fun VideoTemplate.asNewCopy(
  * nested object; unknown *parameters* and unknown *look* keys are separate sets.
  */
 data class TemplateLook(
-    val sceneId: String = SceneIds.DEFAULT,
+    val sceneId: String = StyleCatalogue.DEFAULT_ID,
     val attack: Float = DEFAULT_ATTACK,
     val decay: Float = DEFAULT_DECAY,
     val params: SceneParams = SceneParams.DEFAULT,

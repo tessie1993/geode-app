@@ -3,12 +3,15 @@
 // of headers, the body only to the length announced), a slow, silent or closed client dropped, the cap on one
 // address's connections, every answer byte for byte (the head LinkShare gives, then the playlist, the init
 // segment, a segment, the page's files), HEAD, the browser's feed (its order, its viewer cap, its end when the
-// server stops or the browser goes), the WebRTC offer's path, and hostile input: oversize lines and headers,
-// lines with no spaces, NULs and high bytes, wrong tokens, bad, doubled or chunked lengths, a truncated body.
+// server stops or the browser goes), the WebRTC offer's path, the typed code's path (the short link's page, a
+// right code answered with the token's path, a wrong one, one tried too soon, a closed pairing), and hostile
+// input: oversize lines and headers, lines with no spaces, NULs and high bytes, wrong tokens, bad, doubled or
+// chunked lengths, a truncated body.
 //
 // Build & run:
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp \
-//       core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_http_test && ./live_http_test
+//       core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp \
+//       -o live_http_test && ./live_http_test
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +28,7 @@
 #include "cast/LiveHttp.hpp"
 #include "cast/LiveSegments.hpp"
 #include "viz/frame/LinkPage.hpp"
+#include "viz/frame/LinkPair.hpp"
 #include "viz/frame/LinkShare.hpp"
 
 namespace share = geode::viz::frame::link;
@@ -346,8 +350,10 @@ void testHostile() {
     int64_t strangers = 0;
     const std::string wrongToken = "0123456789abcdef0123456789abcdee";
     const std::string lines[] = {
-        "GET / HTTP/1.1",
         "GET /live.m3u8 HTTP/1.1",
+        "GET /pair/ HTTP/1.1",
+        "POST /pair/x HTTP/1.1",
+        "GET /pair.js/ HTTP/1.1",
         "GET /" + wrongToken + "/live.m3u8 HTTP/1.1",
         "GET /" + kToken.substr(0, 31) + "/live.m3u8 HTTP/1.1",
         "GET /" + kToken + "/../" + kToken + "/live.m3u8 HTTP/1.1",
@@ -574,6 +580,133 @@ void testOffer() {
     check(r.out == head(405, Resource::Rtc), "rtc takes POST alone");
 }
 
+// ---- The typed code ----
+
+std::string typedPost(const std::string& headers, const std::string& body) {
+    return "POST /pair HTTP/1.1\r\n" + headers + "\r\n" + body;
+}
+
+std::string lengthOf(const std::string& body) { return "Content-Length: " + std::to_string(body.size()) + "\r\n"; }
+
+void testPair() {
+    LiveSegments stream(zero);
+    int64_t now = 0;
+    uint8_t seed = 0;
+    share::pair::Pairing pairing([&seed](uint8_t* out, size_t size) {
+        for (size_t i = 0; i < size; ++i) {
+            seed = static_cast<uint8_t>(seed + 37);
+            out[i] = seed;
+        }
+        return true;
+    });
+    std::string heard;
+    int calls = 0;
+    LiveHttp http(stream, kToken, nullptr, [&now] { return now; },
+                  [&](std::string_view typed, int64_t at) {
+                      ++calls;
+                      heard = std::string(typed);
+                      return pairing.attempt(typed, at);
+                  });
+    const std::string path = "/" + kToken + "/";
+
+    // The short link's page and its files: fixed names off the token, served whether or not a pairing is open.
+    Served r = serve(http, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+    check(r.out == head(200, Resource::PairPage, share::kPairHtml.size()) + std::string(share::kPairHtml) && r.shut,
+          "the short link's page");
+    r = serve(http, "HEAD / HTTP/1.1\r\n\r\n");
+    check(r.out == head(200, Resource::PairPage, share::kPairHtml.size()), "HEAD: its head alone");
+    r = serve(http, "GET /pair.js HTTP/1.1\r\n\r\n");
+    check(r.out == head(200, Resource::PairScript, share::kPairJs.size()) + std::string(share::kPairJs), "its script");
+    r = serve(http, "GET /player.css HTTP/1.1\r\n\r\n");
+    check(r.out == head(200, Resource::Style, share::kPageCss.size()) + std::string(share::kPageCss), "its style");
+    r = serve(http, "POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\n");
+    check(r.out == head(405, Resource::PairPage), "the page is read, not posted to");
+    r = serve(http, "GET /pair HTTP/1.1\r\n\r\n");
+    check(r.out == head(405, Resource::Pair) && calls == 0, "pair takes POST alone");
+
+    // No pairing open: 404, whatever was typed.
+    std::string body = "ABC-DEF";
+    r = serve(http, typedPost(lengthOf(body), body));
+    check(calls == 1 && !r.counted && r.out == head(404, Resource::Pair) && r.shut, "no pairing open: 404");
+
+    pairing.open(now);
+    const std::string first = pairing.code(now);
+    check(first.size() == static_cast<size_t>(share::pair::kCodeChars), "an open pairing has a code");
+
+    // The right code: the token's path, and the code is spent.
+    body = share::pair::display(first);
+    for (size_t piece : {size_t{1}, SIZE_MAX}) {
+        calls = 0;
+        const std::string code = share::pair::display(pairing.code(now));
+        r = serve(http, typedPost("Content-Type: text/plain\r\n" + lengthOf(code), code), piece);
+        check(calls == 1 && heard == code, "what was typed, exactly, is the try");
+        check(!r.counted && r.out == head(200, Resource::Pair, path.size()) + path && r.shut, "the right code: the token's path");
+    }
+    check(pairing.code(now) != first, "a right code is spent");
+
+    // A wrong one, then one tried too soon, then the right one once the gap has passed.
+    r = serve(http, typedPost(lengthOf(body), body));
+    check(r.out == head(403, Resource::Pair), "a spent code is a wrong one: 403 and no path");
+    now = share::pair::kGapMs / 2;
+    std::string right = share::pair::display(pairing.code(now));
+    r = serve(http, typedPost(lengthOf(right), right));
+    check(r.out == head(429, Resource::Pair), "a try within a second of a wrong one: 429, even with the right code");
+    now = share::pair::kGapMs;
+    r = serve(http, typedPost(lengthOf(right), right + "trailing"));
+    check(r.out == head(200, Resource::Pair, path.size()) + path && heard == right, "after the gap the right code pairs");
+
+    // The body's bounds: nothing reaches the pairing.
+    calls = 0;
+    right = share::pair::display(pairing.code(now));
+    r = serve(http, typedPost("Host: x\r\n", right));
+    check(calls == 0 && r.out == head(411, Resource::Pair), "no length: 411");
+    const std::string big(static_cast<size_t>(share::pair::kBodyMax) + 1, ' ');
+    r = serve(http, typedPost(lengthOf(big), big));
+    check(calls == 0 && r.out == head(413, Resource::Pair), "a body over the cap: refused unread");
+    r = serve(http, typedPost("Content-Length: 99999999999999999999\r\n", std::string(4096, 'A')));
+    check(calls == 0 && r.out == head(413, Resource::Pair), "a length no number holds: refused");
+    r = serve(http, typedPost(lengthOf(right) + lengthOf(right), right));
+    check(calls == 0 && r.out == head(413, Resource::Pair), "two lengths: refused");
+    r = serve(http, typedPost("Transfer-Encoding: chunked\r\n", "7\r\n" + right + "\r\n0\r\n\r\n"));
+    check(calls == 0 && r.out == head(413, Resource::Pair), "a chunked body: refused");
+    r = serve(http, typedPost("Content-Length: 30\r\n", right));
+    check(calls == 0 && r.out.empty() && r.shut, "a body shorter than announced: dropped, nothing answered");
+    check(pairing.code(now) == right.substr(0, 3) + right.substr(4), "none of these spent the code");
+
+    // Hostile bodies are wrong tries, no more.
+    const std::string nul("ABC\0EF", 6);
+    r = serve(http, typedPost(lengthOf(nul), nul));
+    check(calls == 1 && heard == "ABC?EF" && r.out == head(403, Resource::Pair), "a NUL in the code: a wrong try");
+    now += share::pair::kGapMs;
+    r = serve(http, typedPost("Content-Length: 0\r\n", ""));
+    check(calls == 2 && r.out == head(403, Resource::Pair), "an empty body: a wrong try");
+    now += share::pair::kGapMs;
+    const std::string high = "\xff\xfe\x80<script>";
+    r = serve(http, typedPost(lengthOf(high), high));
+    check(r.out == head(403, Resource::Pair), "bytes that are no code: a wrong try");
+
+    // A code typed with spaces, to the cap exactly.
+    now += share::pair::kGapMs;
+    right = share::pair::display(pairing.code(now));
+    const std::string padded = right + std::string(static_cast<size_t>(share::pair::kBodyMax) - right.size(), ' ');
+    r = serve(http, typedPost(lengthOf(padded), padded), 5);
+    check(r.out == head(200, Resource::Pair, path.size()) + path, "a body of exactly the cap is taken");
+
+    pairing.close();
+    r = serve(http, typedPost(lengthOf(right), right));
+    check(r.out == head(404, Resource::Pair), "a closed pairing: 404");
+    check(http.notFound() == 0, "none of these is a stranger's 404");
+
+    // No pairing behind the server at all.
+    LiveHttp bare(stream, kToken, nullptr, zero);
+    r = serve(bare, typedPost(lengthOf(right), right));
+    check(r.out == head(404, Resource::Pair), "no pairing to ask: 404");
+
+    LiveHttp thrower(stream, kToken, nullptr, zero, [](std::string_view, int64_t) -> int { throw 1; });
+    Script s(typedPost(lengthOf(right), right));
+    check(!thrower.serve(s, kDeadline) && s.out.empty(), "a pairing that throws drops the connection, no more");
+}
+
 }  // namespace
 
 int main() {
@@ -585,6 +718,7 @@ int main() {
     testFeedEnds();
     testFeedCap();
     testOffer();
+    testPair();
     if (failures == 0) std::printf("live_http_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

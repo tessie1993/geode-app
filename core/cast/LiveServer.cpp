@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <utility>
 
+#include "api/geode_api.h"
 #include "viz/frame/LinkShare.hpp"
 
 namespace geode::cast {
@@ -148,7 +149,12 @@ LiveServer::LiveServer(std::string boundDotted, uint32_t bound, int prefix, Live
       bound_(bound),
       prefix_(prefix),
       segments_(&LiveServer::nowMs),
-      http_(segments_, randomToken(), std::move(answer), &LiveServer::nowMs) {}
+      http_(segments_, randomToken(), std::move(answer), &LiveServer::nowMs, [this](std::string_view typed, int64_t now) {
+          // The process's one pairing, the same the sheet reads its code from; the path it writes is LiveHttp's.
+          char path[GEODE_LINK_TOKEN_CHARS + 3];
+          return geode_link_pair_try(std::string(typed).c_str(), now, http_.token().c_str(), path,
+                                     static_cast<int>(sizeof path));
+      }) {}
 
 LiveServer::~LiveServer() { stop(); }
 
@@ -202,7 +208,8 @@ void LiveServer::stop() {
 void LiveServer::halt() {
     {
         std::lock_guard<std::mutex> hold(lock_);
-        stopping_.store(true);
+        // The typed path closes with the server, once: a later stop must not close a newer stream's pairing.
+        if (!stopping_.exchange(true)) geode_link_pair_open(0, 0);
     }
     http_.stop();
     if (!started_) return;
@@ -229,6 +236,10 @@ void LiveServer::halt() {
 void LiveServer::admit(uint32_t tv, int wants) {
     tv_.store(tv);
     wants_.store(wants);
+    // A code to type exists only while a browser link is wanted; a stopped server opens none (lock_: not
+    // while halt() closes it).
+    std::lock_guard<std::mutex> hold(lock_);
+    if (!stopping_.load()) geode_link_pair_open((wants & share::kWantLink) != 0 ? 1 : 0, nowMs());
 }
 
 void LiveServer::acceptLoop() {
@@ -335,6 +346,13 @@ std::string LiveServer::playlistUrl() const {
 std::string LiveServer::shareUrl() const {
     std::string url = share::shareUrl(bound_, port_.load(), http_.token());
     return url.empty() ? pageUrl() : url;
+}
+
+std::string LiveServer::pairUrl() const {
+    const int port = port_.load();
+    if (port == 0) return {};
+    std::string url = share::pairUrl(bound_, port);
+    return url.empty() ? "http://" + boundDotted_ + ":" + std::to_string(port) + "/" : url;
 }
 
 std::string LiveServer::label() const { return share::friendlyLabel(http_.token()); }

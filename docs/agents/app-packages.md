@@ -190,6 +190,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
 - The bundled looks: `BuiltInPresets`.
 - `MediaStoreSource`: the screens' consent requests and picked-folder grants; main-safe on IO.
+- `MediaStoreSource` also owns the controllers' picked-document I/O: the background image's grant and readability, preset, template and .milk reads, a .milk folder walk, the preset mirror folder's copies and deletes, a queued file's display name. No `*Controller` in `ui/` calls the `ContentResolver` (#896 step 1).
 - Template and preset formats.
 - What was `GuiPrefs`, split by subject: `GeneralSettings`, `SoundInputSettings`, `VisualsSettings`, `LibrarySettings`, and `AppState` (onboarding and the tour, not a preference); each a codec over `geode-prefs` under its old keys.
 - Track favourites: `FavouritesRepository` over `FavouritesStore`, file `geode-favourites`, keyed by the track's URI.
@@ -230,10 +231,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `model`
 
-- Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `StyleLook`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
+- Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
-- `StyleLook` holds the Styles look groups.
+- `render/scene/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
+- `render/scene/StyleLabels` maps a style or family id to its string resource (`style_<id>`, `style_family_<name>`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
@@ -260,6 +262,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
 - Visualizer export: MediaCodec + offscreen GL.
+- `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render and chapters.
 - Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
@@ -329,6 +332,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
 - Show on a computer (`ComputerLink`) serves the same picture, with or without a TV, to a browser on the Wi-Fi.
 - Its doors (`ComputerLinkDoor`) are Visuals › Settings' row, the stage's Share to PC icon beside Cast and the Player's tile.
+- Its sheet is `ui/cast/ComputerLinkSheet`: the whole link only as a QR code (`core/util/QrCode`), and for a computer, which has no scanner, the short link with no token as text, Copy, Share and the code its page asks for.
+- The typed path is native in `core/viz/frame/LinkPair` (`geode_link_pair_*`): a random 6-character code from the OS (Crockford base32, 30 bits), single-session, replaced after 5 minutes, a few tries per code with a gap and a lock-out, compared in constant time; only a right code gets the token's path.
 - Its sheet is `ui/cast/ComputerLinkSheet`: the link as text, a QR code from `core/util/QrCode`, Copy and Share.
 - The link it shows has the host as one number (`geode_link_share_url`, the WHATWG IPv4 parser; hides the dotted address from the eye only) and a two-word label.
 - The page (`core/viz/frame/LinkPage`, plain HTTP) tries WebRTC first: it POSTs a receive-only offer to `rtc` and plays the answer from `core/cast/WebRtcLink` with a 0.5 s `jitterBufferTarget`.

@@ -819,11 +819,55 @@ object GeodeNative {
     )
 
     /**
-     * The scene and style catalogue (core/viz/Catalogue) as its versioned line table: style ids and
-     * kinds, the style families, which controls reach which styles, the control ranges. Static; parse
-     * once (dev.geode.render.scene.Catalogue does).
+     * The scene and style catalogue (core/viz/Catalogue), one question per call (`geode_catalogue_*`). A
+     * list comes back as its items each followed by a newline. The answers never change in a process, so
+     * the shell asks once and keeps them (dev.geode.render.scene.StyleCatalogue).
+     *
+     * [catalogueStyleIds]: the styles with a trait ([STYLE_ANY] and the rest), in picker order.
      */
-    external fun catalogueText(): String
+    external fun catalogueStyleIds(trait: Int): String
+
+    /** The Styles page's families, in order. */
+    external fun cataloguePickerNames(): String
+
+    /** One Styles page family's styles, in order; none for an unknown family. */
+    external fun cataloguePickerIds(family: String): String
+
+    /** The style a saved id opens on: a retired id's replacement, any other id itself. */
+    external fun catalogueResolve(styleId: String): String
+
+    /** The style a saved look of this one is filed under: Fluid's and Cymatics' looks share one each. */
+    external fun cataloguePresetStyle(styleId: String): String
+
+    /** The scope name of a Customize control (its key); `UNIVERSAL` for a control no scope names. */
+    external fun catalogueScopeOf(paramKey: String): String
+
+    /** Whether a scope, by its name, moves the style. */
+    external fun catalogueReaches(
+        scope: String,
+        styleId: String,
+    ): Boolean
+
+    /** The value a style holds a control at; NaN when the control is the user's. */
+    external fun catalogueOverride(
+        styleId: String,
+        paramKey: String,
+    ): Float
+
+    /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
+    const val STYLE_ANY: Int = 0
+    const val STYLE_SHADER: Int = 1
+
+    /** In a shader family and not the style that opens it. */
+    const val STYLE_FAMILY_FOLLOWER: Int = 2
+
+    /** What Auto's random step draws from. */
+    const val STYLE_AUTO_DRAW: Int = 3
+    const val STYLE_FLUID: Int = 4
+    const val STYLE_CYMATICS: Int = 5
+
+    /** The MilkDrop renderer's one style id, which the shell names to open the preset browser. */
+    const val STYLE_MILKDROP: String = "milkdrop"
 
     /**
      * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
@@ -1145,11 +1189,50 @@ object GeodeNative {
         fps: Int,
     ): Long
 
-    /** The pre-roll before a range at [rangeStartMs] (core/output/PreRoll): [out] gets where its decode starts and how long the engine hears. */
-    external fun exportPreRoll(
+    // An export's render (core/output/ExportFrame, core/api/geode_export_job_api.h): the prepare order, the
+    // pre-roll and each frame's audio and draw are native; the shell hands over the renderer, the track's
+    // descriptor and the look. Every call on the thread holding the renderer's GL context.
+
+    /**
+     * A render over renderer [viz] (a `geode_viz` handle, borrowed: destroy the job first) of the track at [fd],
+     * which native takes and closes, also when it returns 0. [length] >= 0 is the span from [offset] an
+     * AssetFileDescriptor declares; < 0 the whole descriptor. Freed with [exportJobDestroy].
+     */
+    external fun exportJobCreate(
+        viz: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+        fps: Int,
         rangeStartMs: Long,
-        out: LongArray,
-    )
+    ): Long
+
+    external fun exportJobDestroy(job: Long)
+
+    /**
+     * The prepare order up to the look (offscreen pin, frame rate, surface, scene, [milkPath], engine settings
+     * pinned for [pinDurationMs]): the pinned hand mask the look's reactions go under, or -1 when the renderer
+     * cannot draw [sceneId].
+     */
+    external fun exportJobBegin(
+        job: Long,
+        width: Int,
+        height: Int,
+        sceneId: String,
+        milkPath: String?,
+        entitled: Boolean,
+        pinDurationMs: Long,
+    ): Long
+
+    /** Once the look is applied: the pre-roll and the range's decode; false when the track's audio was not heard. */
+    external fun exportJobWarm(job: Long): Boolean
+
+    /** Frame [frame] of the range into [targetFbo]: its audio, then its draw. False when the decoder failed. */
+    external fun exportJobFrame(
+        job: Long,
+        frame: Long,
+        targetFbo: Int,
+    ): Boolean
 
     /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
@@ -2065,7 +2148,7 @@ object GeodeNative {
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
 
-    // AIFF files and an export's track audio (core/audio/ingest/AiffReader, TrackFeed).
+    // AIFF files (core/audio/ingest/AiffReader), for the soundtrack transcoder.
 
     /**
      * An AIFF or AIFF-C (NONE, sowt) read as 16-bit PCM from [fd], which native takes and closes, also when it
@@ -2094,49 +2177,6 @@ object GeodeNative {
         handle: Long,
         out: ShortArray,
     ): Int
-
-    /** An export's track audio from [startMs] into the track; frames before it are dropped. Freed with [trackFeedDestroy]. */
-    external fun trackFeedCreate(startMs: Long): Long
-
-    external fun trackFeedDestroy(handle: Long)
-
-    /**
-     * A decoder's output: [size] bytes at [offset] in the direct [buffer], float when [isFloat] else 16-bit, its
-     * first frame at [ptsUs]. Read in place, never kept; false (nothing taken) for a heap buffer. Push only
-     * after [vizHearTrack] returned false: one chunk is held at a time.
-     */
-    external fun trackFeedPushDirect(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        offset: Int,
-        size: Int,
-        isFloat: Boolean,
-        channels: Int,
-        sampleRate: Int,
-        ptsUs: Long,
-    ): Boolean
-
-    /** One read of the AIFF at [aiff] into the feed; false once the file has run out. */
-    external fun trackFeedPushAiff(
-        handle: Long,
-        aiff: Long,
-    ): Boolean
-
-    /** Whether a chunk has told the rate yet. */
-    external fun trackFeedHasRate(handle: Long): Boolean
-
-    /** Aims the next [vizHearTrack] at [endMs] into the range. */
-    external fun trackFeedTargetMs(
-        handle: Long,
-        endMs: Long,
-    )
-
-    /** Aims the next [vizHearTrack] at the exact end of video [frame] (from the range start) at [fps]. */
-    external fun trackFeedTargetFrame(
-        handle: Long,
-        frame: Long,
-        fps: Int,
-    )
 
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(
@@ -2497,6 +2537,40 @@ object GeodeNative {
     /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
     const val LINK_RTC = 10
 
+    /** The typed path, off the token: its page at "/", its script, and POST /pair with the typed code. */
+    const val LINK_PAIR_PAGE = 11
+    const val LINK_PAIR_SCRIPT = 12
+    const val LINK_PAIR = 13
+
+    /** Most bytes a POST on [LINK_PAIR] may carry (GEODE_LINK_PAIR_BODY_MAX). */
+    const val LINK_PAIR_BODY_MAX = 64L
+
+    /** The short link a computer types (host as one number, no token); null when it cannot be made. */
+    external fun linkPairUrl(
+        address: Int,
+        port: Int,
+    ): String?
+
+    /** Opens the typed path's pairing with a fresh code, or closes it. */
+    external fun linkPairOpen(
+        open: Boolean,
+        nowMs: Long,
+    )
+
+    /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
+    external fun linkPairCode(nowMs: Long): String
+
+    /**
+     * One typed try, [typed] as the POST carried it: returns the HTTP status (200, 403, 404, 429) and, on 200, puts
+     * the token's path in [path]`[0]`.
+     */
+    external fun linkPairTry(
+        typed: String,
+        nowMs: Long,
+        token: String,
+        path: Array<String?>,
+    ): Int
+
     /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
     const val LINK_NO_BODY = -1L
     const val LINK_BAD_BODY = -2L
@@ -2542,7 +2616,7 @@ object GeodeNative {
         token: String,
     ): String
 
-    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT] or [LINK_STYLE]); null for any other resource. */
+    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT], [LINK_STYLE], [LINK_PAIR_PAGE] or [LINK_PAIR_SCRIPT]). */
     external fun linkAsset(resource: Int): ByteArray?
 
     /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */
@@ -2676,6 +2750,7 @@ object GeodeNative {
     const val CAST_TEXT_SHARE_URL = 1
     const val CAST_TEXT_LABEL = 2
     const val CAST_TEXT_REFUSALS = 3
+    const val CAST_TEXT_PAIR_URL = 4
 
     /** Size of [castServerState]'s array (GEODE_CAST_STATE) and what each long is. */
     const val CAST_STATE = 5

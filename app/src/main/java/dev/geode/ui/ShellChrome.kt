@@ -67,6 +67,7 @@ import dev.geode.model.TourSpot
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
+import dev.geode.ui.theme.LocalTextScale
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -609,7 +610,7 @@ internal fun DockSlab(
 
 /**
  * Whether the tab bar is short of room for five labels: a window under [COMPACT_TAB_WIDTH] wide,
- * or a font scale of [COMPACT_TAB_FONT_SCALE] or more. WHY the window and not the pill: the pill
+ * or a font scale (Android's times the app's text size) of [COMPACT_TAB_FONT_SCALE] or more. WHY the window and not the pill: the pill
  * is inset from the window's edges, so measuring it would put every common 360 dp phone into the
  * compact look at font scale 1.0, which keeps today's look there. WHY 1.5: Android's font
  * scaling is non-linear (accessibility/scalable-content) but small text such as `labelSmall`
@@ -631,10 +632,11 @@ internal fun DockSlab(
 private fun compactTabLabels(): Boolean {
     val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
-    val compact by remember(windowInfo, density) {
+    val textScale = LocalTextScale.current
+    val compact by remember(windowInfo, density, textScale) {
         derivedStateOf {
             with(density) { windowInfo.containerSize.width.toDp() } < COMPACT_TAB_WIDTH ||
-                density.fontScale >= COMPACT_TAB_FONT_SCALE
+                density.fontScale * textScale >= COMPACT_TAB_FONT_SCALE
         }
     }
     return compact

@@ -21,6 +21,7 @@ std::string text(const LiveServer& server, int which) {
         case GEODE_CAST_TEXT_SHARE_URL: return server.shareUrl();
         case GEODE_CAST_TEXT_LABEL: return server.label();
         case GEODE_CAST_TEXT_REFUSALS: return server.refusals();
+        case GEODE_CAST_TEXT_PAIR_URL: return server.pairUrl();
         default: return {};
     }
 }
@@ -74,7 +75,12 @@ void geode_cast_server_close(int64_t handle) {
 }
 
 void geode_cast_server_admit(int64_t handle, uint32_t tv, int wants) {
-    if (LiveServer* server = from(handle)) server->admit(tv, wants);
+    LiveServer* server = from(handle);
+    if (!server) return;
+    try {
+        server->admit(tv, wants);
+    } catch (...) {
+    }
 }
 
 void geode_cast_server_write(int64_t handle, const uint8_t* data, size_t size) {

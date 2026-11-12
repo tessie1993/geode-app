@@ -12,7 +12,7 @@
 // engine's feeling (Emotion).
 //
 // Determinism: the music is built in code from a fixed seed (no assets, no wall clock, no threads), and
-// written to the engine the way the export path feeds it (OffscreenSceneRenderer, TrackAudio): exactly the
+// written to the engine the way the export path feeds it (core/output/ExportFrame, TrackPump): exactly the
 // audio up to each frame's end, then step(1/fps).
 #include <algorithm>
 #include <cmath>

@@ -43,6 +43,9 @@ class NativeViz(
     @Volatile
     private var handle = 0L
 
+    /** The `geode_viz` handle for the native export job, which drives this renderer itself; 0 before [create]. */
+    val nativeHandle: Long get() = handle
+
     // The handle again, for the Cleaner (#999). A teardown queues the release on the GL thread and waits
     // 200 ms (VisualizerView, the wallpaper engine); when the wait runs out, the queued job dies with the
     // thread and nothing else destroyed the native renderer: its scenes, sound engine and projectM heap

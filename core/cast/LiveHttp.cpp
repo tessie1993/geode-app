@@ -5,6 +5,7 @@
 
 #include "api/geode_api.h"
 #include "viz/frame/LinkPage.hpp"
+#include "viz/frame/LinkPair.hpp"
 
 namespace geode::cast {
 
@@ -106,8 +107,12 @@ void PerAddressLimit::release(uint32_t address) {
 
 // ---- LiveHttp ----
 
-LiveHttp::LiveHttp(const LiveSegments& stream, std::string token, Answer answer, std::function<int64_t()> nowMs)
-    : stream_(stream), token_(std::move(token)), answer_(std::move(answer)), nowMs_(std::move(nowMs)) {}
+LiveHttp::LiveHttp(const LiveSegments& stream, std::string token, Answer answer, std::function<int64_t()> nowMs, Pair pair)
+    : stream_(stream),
+      token_(std::move(token)),
+      answer_(std::move(answer)),
+      nowMs_(std::move(nowMs)),
+      pair_(std::move(pair)) {}
 
 bool LiveHttp::serve(Connection& connection, int64_t deadlineMs) {
     try {
@@ -148,6 +153,7 @@ bool LiveHttp::answer(Connection& connection, int64_t deadlineMs) {
     const bool sendBody = method != "HEAD";
     if (route.resource == share::Resource::Stream) return feed(connection, sendBody, deadlineMs);
     if (route.resource == share::Resource::Rtc) return offer(connection, reader, request, deadlineMs);
+    if (route.resource == share::Resource::Pair) return pair(connection, reader, request, deadlineMs);
 
     Bytes held;
     std::string text;
@@ -156,6 +162,8 @@ bool LiveHttp::answer(Connection& connection, int64_t deadlineMs) {
         case share::Resource::Page: body = share::kPageHtml; break;
         case share::Resource::Script: body = share::kPageJs; break;
         case share::Resource::Style: body = share::kPageCss; break;
+        case share::Resource::PairPage: body = share::kPairHtml; break;
+        case share::Resource::PairScript: body = share::kPairJs; break;
         case share::Resource::Master:
             text = stream_.masterPlaylist();
             body = text;
@@ -220,14 +228,8 @@ bool LiveHttp::feed(Connection& connection, bool sendBody, int64_t deadlineMs) {
 // headers announce, answered with the phone's answer or the status a refusal maps to. The answer can take up
 // to two seconds (the phone gathers its own candidate first). Never true: no TV fetch.
 bool LiveHttp::offer(Connection& connection, RequestReader& reader, const Request& request, int64_t deadlineMs) {
-    const std::vector<std::string_view> headers(request.headers.begin(), request.headers.end());
-    const int64_t length = share::bodyLength(headers.data(), headers.size(), GEODE_WEBRTC_OFFER_MAX);
-    if (length == share::kNoBody) {
-        return respond(connection, kLengthRequired, share::Resource::Rtc, nullptr, 0, true, deadlineMs);
-    }
-    if (length < 0) return respond(connection, kTooLarge, share::Resource::Rtc, nullptr, 0, true, deadlineMs);
     std::string body;
-    if (!reader.readBody(deadlineMs, static_cast<size_t>(length), body)) return false;
+    if (!postBody(connection, reader, request, share::Resource::Rtc, GEODE_WEBRTC_OFFER_MAX, deadlineMs, body)) return false;
     std::string sdp;
     int result = GEODE_WEBRTC_REFUSED_MALFORMED;
     // An SDP is text: an empty one, or one with a NUL in it, is nobody's offer.
@@ -240,6 +242,37 @@ bool LiveHttp::offer(Connection& connection, RequestReader& reader, const Reques
     respond(connection, status, share::Resource::Rtc, withAnswer ? bytesOf(sdp) : nullptr, withAnswer ? sdp.size() : 0, true,
             deadlineMs);
     return false;
+}
+
+// The code a computer typed on the short link's page (POST /pair): its body, at most share::pair::kBodyMax
+// bytes, is one try. Only a right code is answered with the token's path, so the page can go to the stream;
+// every other status carries nothing. Never true: no TV fetch.
+bool LiveHttp::pair(Connection& connection, RequestReader& reader, const Request& request, int64_t deadlineMs) {
+    std::string typed;
+    if (!postBody(connection, reader, request, share::Resource::Pair, share::pair::kBodyMax, deadlineMs, typed)) return false;
+    // A NUL is no code symbol; as '?' it stays a wrong try and the text stays whole wherever it is handed on.
+    std::replace(typed.begin(), typed.end(), '\0', '?');
+    const std::string path = share::pairedPath(token_);
+    const int status = pair_ && !path.empty() ? pair_(typed, nowMs_()) : static_cast<int>(share::pair::kClosed);
+    const bool paired = status == kOk;
+    respond(connection, status, share::Resource::Pair, paired ? bytesOf(path) : nullptr, paired ? path.size() : 0, true,
+            deadlineMs);
+    return false;
+}
+
+bool LiveHttp::postBody(Connection& connection, RequestReader& reader, const Request& request, share::Resource resource,
+                        int64_t max, int64_t deadlineMs, std::string& body) {
+    const std::vector<std::string_view> headers(request.headers.begin(), request.headers.end());
+    const int64_t length = share::bodyLength(headers.data(), headers.size(), max);
+    if (length == share::kNoBody) {
+        respond(connection, kLengthRequired, resource, nullptr, 0, true, deadlineMs);
+        return false;
+    }
+    if (length < 0) {
+        respond(connection, kTooLarge, resource, nullptr, 0, true, deadlineMs);
+        return false;
+    }
+    return reader.readBody(deadlineMs, static_cast<size_t>(length), body);
 }
 
 bool LiveHttp::respond(Connection& connection, int status, share::Resource resource, const uint8_t* body, size_t size,

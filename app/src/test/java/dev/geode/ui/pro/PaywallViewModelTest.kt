@@ -16,6 +16,7 @@ import dev.geode.pro.ProductLoad
 import dev.geode.pro.PurchaseStatus
 import dev.geode.pro.RestoreResult
 import dev.geode.pro.TrialState
+import dev.geode.render.scene.TestCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -38,6 +39,10 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PaywallViewModelTest {
+    init {
+        TestCatalogue.install()
+    }
+
     private val dispatcher = StandardTestDispatcher()
 
     @Before

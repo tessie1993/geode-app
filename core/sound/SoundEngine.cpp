@@ -66,7 +66,7 @@ constexpr float GeodeSoundFrame::* kTriggerFields[] = {
 };
 static_assert(sizeof(kTriggerFields) / sizeof(kTriggerFields[0]) == SoundEngine::kTriggers, "every trigger, once");
 
-// TouchDesigner's Band EQ centres.
+// The Band EQ's centres: sixteen bands from 25 Hz to 22 kHz.
 constexpr std::array<float, GEODE_SOUND_EQ_BANDS> kEqCentres = {
     25, 40, 60, 90, 150, 240, 370, 590, 930, 1500, 2300, 3600, 5600, 8900, 14000, 22000};
 
@@ -328,7 +328,7 @@ void SoundEngine::analyse() {
     for (float v : mono_) squares += static_cast<double>(v) * v;
     out.rms = static_cast<float>(std::sqrt(squares / n_));
     // The one gate: closed until the momentary loudness reaches -55 LUFS, open until 250 ms under -60. Every
-    // detector and stage below reads this flag (fosfora's R8), so they all agree on what silence is.
+    // detector and stage below reads this flag, so they all agree on what silence is.
     const bool silent = !meter_.open();
     if (starved_) {
         // Nothing arrived (a pause, a stall): a transport event, not the music going quiet, so it never
@@ -416,7 +416,7 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.midHigh = s.band[kMidHigh].ratio();
     out.midHighAtt = s.band[kMidHigh].attRatio();
 
-    // The TouchDesigner layer: the filter bank's slice levels, made relative the same way, then Lag
+    // The shaped layer: the filter bank's slice levels, made relative the same way, then Lag
     // (attack/release), threshold, gain and offset into 0..1. Halving first puts "typical" (1.0) at 0.5
     // and a strong hit (2.0) at full scale.
     const GeodeSoundTuning& t = tuning_;
@@ -806,7 +806,7 @@ void SoundEngine::estimatePitch(float held, float& midi, float& confidence, floa
     const float delta = curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f;
     const float k0 = static_cast<float>(best) + delta;
     midi = 69.0f + 12.0f * std::log2(k0 * binHz / 440.0f);
-    // Evenness: the even harmonics' share of the first six (sigmund~'s measure). Square-ish, hollow
+    // Evenness: the even harmonics' share of the first six. Square-ish, hollow
     // tones (clarinet, square lead) read low; saw-like and vocal tones near half.
     float even = 0.0f;
     float all = 0.0f;
@@ -993,7 +993,7 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
     const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
     s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
     out.drive = clamp01(s.drive);
-    // How far the loudness has just risen (fosfora's trend), eased: a build or a drop reads as more than the
+    // How far the loudness has just risen (the meter's trend), eased: a build or a drop reads as more than the
     // steady level, a fade as less. Intensity is the drive with that rise on top.
     s.rise = follow(s.rise, open ? meter_.trend() : 0.0f, 1.0f, dt);
     out.intensity = clamp01(0.75f * out.drive + 0.25f * s.rise);

@@ -27,7 +27,7 @@ namespace geode::sound {
 //
 // The phase is Grosche & Müller's predominant local pulse (PLP) read only at the newest instant, so it
 // predicts rather than describes; the oscillator is the small PLL every real-time tracker puts on top
-// (Meier, Chiu & Müller, TISMIR 2024; aubio's beattracking).
+// (Meier, Chiu & Müller, TISMIR 2024).
 class Rhythm {
 public:
     // The filter bank bands it listens to, in SoundEngine::Slice order up to kHat.

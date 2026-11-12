@@ -44,7 +44,7 @@ One fact per line. Add a fact as a new bullet under its module.
 - `render/EventRecipe` holds the Customize event recipes' titles; their routes, toggle and merge are native in `core/viz/ReactionDna` (`geode_event_recipe_*`, pinned by `viz_math_test`).
 - `render/scene/ParamFormat` holds the value units.
 - `render/PerformanceSettings` holds the live quality presets.
-- Two pure helpers are left in `dev.geode.analysis`: `PlaybackMath`, `SearchMatcher`.
+- One pure helper is left in `dev.geode.analysis`: `PlaybackMath`.
 
 ## `:app`
 

@@ -51,7 +51,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
 | `OffscreenSceneRenderer` | 128 | pending |
-| `SearchMatcher` | 131 | pending |
+| `SearchMatcher` | 131 | **deleted**: a second search beside `core/library/Search`. The search sheet (`ui/AppShell`) asks native once per query (`geode_search_sheet`): a fourth field after the album, one hit per URI shown as the device's copy, at most 30 tracks, playlists and presets by name; pinned in `core/tests/library_search_test.cpp`. |
 | `Catalogue` | 131 | pending |
 | `ParamFormat` | 153 | pending |
 | `TrackAudio` | 158 | pending |

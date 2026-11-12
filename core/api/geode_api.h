@@ -410,6 +410,20 @@ GEODE_API void        geode_library_index_destroy(geode_library_index*);
 GEODE_API int         geode_library_index_order(const geode_library_index*, int sort, int* out, int max_out);
 GEODE_API int         geode_library_index_search(const geode_library_index*, const char* query, int* out, int max_out);
 
+/* The global search sheet (core/library/Search, searchSheet): tracks, playlists and presets for one query.
+ * `tracks` holds GEODE_SEARCH_SHEET_FIELDS UTF-8 strings per track: title, artist, album, one more field searched
+ * after them (a folder, a genre), and the key every copy of one song shares (its URI). `preferred` (NULL = none)
+ * holds one byte per track, nonzero for the copy shown when copies meet. `playlists` and `presets` are names.
+ * Writes three counts (tracks, playlists, presets) and then those rows, best first, at most
+ * GEODE_SEARCH_SHEET_TRACKS tracks; returns the ints in all, so a value above `max_out` means the buffer was
+ * short. A blank query, or a missing array with a count, finds nothing (three zero counts). */
+#define GEODE_SEARCH_SHEET_FIELDS 5
+#define GEODE_SEARCH_SHEET_TRACKS 30
+GEODE_API int         geode_search_sheet(const char* const* tracks, const unsigned char* preferred, int track_count,
+                                         const char* const* playlists, int playlist_count,
+                                         const char* const* presets, int preset_count, const char* query,
+                                         int* out, int max_out);
+
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the

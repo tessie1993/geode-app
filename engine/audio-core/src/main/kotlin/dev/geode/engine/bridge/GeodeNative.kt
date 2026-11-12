@@ -202,6 +202,20 @@ object GeodeNative {
         query: ByteArray,
     ): IntArray
 
+    /**
+     * The global search sheet (core/library/Search): [tracks] holds five UTF-8 cells per track (title, artist,
+     * album, one more field, and the URI every copy of a song shares), [preferred] marks the copy shown when
+     * copies meet, [playlists] and [presets] are names. Returns three counts (tracks, playlists, presets), then
+     * those rows, best first. A blank [query] finds nothing.
+     */
+    external fun searchSheet(
+        tracks: Array<ByteArray?>,
+        preferred: BooleanArray,
+        playlists: Array<ByteArray?>,
+        presets: Array<ByteArray?>,
+        query: ByteArray,
+    ): IntArray
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,

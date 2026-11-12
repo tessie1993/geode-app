@@ -7,6 +7,27 @@ namespace {
 
 std::string_view view(const char* s) { return s ? std::string_view(s) : std::string_view(); }
 
+static_assert(geode::library::kMaxSheetTracks == GEODE_SEARCH_SHEET_TRACKS);
+
+std::vector<std::string_view> names(const char* const* texts, int count) {
+    std::vector<std::string_view> out;
+    out.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) out.push_back(view(texts[i]));
+    return out;
+}
+
+// The packed answer: the counts of each list, then each list.
+int pack(const std::vector<std::vector<int>>& lists, int* out, int max_out) {
+    std::vector<int> packed;
+    for (const auto& list : lists) packed.push_back(static_cast<int>(list.size()));
+    for (const auto& list : lists) packed.insert(packed.end(), list.begin(), list.end());
+    const int n = static_cast<int>(packed.size());
+    if (out) {
+        for (int i = 0; i < n && i < max_out; ++i) out[i] = packed[static_cast<size_t>(i)];
+    }
+    return n;
+}
+
 }  // namespace
 
 extern "C" {
@@ -76,6 +97,27 @@ int geode_library_index_search(const geode_library_index* index, const char* que
         for (int i = 0; i < n && i < max_out; ++i) out[i] = packed[static_cast<size_t>(i)];
     }
     return n;
+}
+
+int geode_search_sheet(const char* const* tracks, const unsigned char* preferred, int track_count,
+                       const char* const* playlists, int playlist_count, const char* const* presets, int preset_count,
+                       const char* query, int* out, int max_out) {
+    using geode::library::SheetTrack;
+    const bool counted = track_count >= 0 && playlist_count >= 0 && preset_count >= 0;
+    const bool held = (track_count <= 0 || tracks) && (playlist_count <= 0 || playlists) && (preset_count <= 0 || presets);
+    geode::library::SheetHits hits;
+    if (counted && held) {
+        std::vector<SheetTrack> rows;
+        rows.reserve(static_cast<size_t>(track_count));
+        for (int i = 0; i < track_count; ++i) {
+            const char* const* cell = tracks + static_cast<size_t>(i) * GEODE_SEARCH_SHEET_FIELDS;
+            rows.push_back(SheetTrack{{view(cell[0]), view(cell[1]), view(cell[2])}, view(cell[3]), view(cell[4]),
+                                      preferred != nullptr && preferred[i] != 0});
+        }
+        hits = geode::library::searchSheet(rows, names(playlists, playlist_count), names(presets, preset_count),
+                                           view(query));
+    }
+    return pack({hits.tracks, hits.playlists, hits.presets}, out, max_out);
 }
 
 }  // extern "C"

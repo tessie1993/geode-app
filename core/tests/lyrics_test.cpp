@@ -53,6 +53,8 @@ void stamps() {
     check(many.lines.size() == 2, "a line with two stamps is two lines");
     check(many.lines[0].timeMs == 30000 && many.lines[1].timeMs == 101000, "each stamp keeps its time");
     check(many.lines[0].text == "Chorus" && many.lines[1].text == "Chorus", "the text is trimmed");
+    const auto wide = parseLyrics("[00:01.00]\xE3\x80\x80\n[00:02.00]\xE3\x80\x80Wide\xC2\xA0\n");
+    check(wide.lines.size() == 1 && wide.lines[0].text == "Wide", "ideographic and no-break spaces trim like blanks");
     const auto same = parseLyrics("[00:10.00]B\n[00:10.00]A\n");
     check(same.lines[0].text == "B" && same.lines[1].text == "A", "equal times keep their order");
     const auto inside = parseLyrics("[00:05.00]Sing [00:06.00]along\n");

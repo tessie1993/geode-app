@@ -9,11 +9,32 @@ namespace {
 
 bool isDigit(char c) { return c >= '0' && c <= '9'; }
 
-bool isSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f'; }
+// The bytes of the space that starts at s[i], 0 when none does: what Kotlin's trim took, so a line of
+// ideographic or no-break spaces is still blank (U+00A0, U+1680, U+2000..200A, U+2028, U+2029, U+202F, U+205F, U+3000).
+size_t spaceAt(std::string_view s, size_t i) {
+    const auto b = [&](size_t k) { return static_cast<unsigned char>(s[k]); };
+    if (b(i) == ' ' || (b(i) >= 0x09 && b(i) <= 0x0D) || (b(i) >= 0x1C && b(i) <= 0x1F)) return 1;
+    if (i + 1 < s.size() && b(i) == 0xC2 && b(i + 1) == 0xA0) return 2;
+    if (i + 2 >= s.size()) return 0;
+    const unsigned char c = b(i + 2);
+    if (b(i) == 0xE2 && b(i + 1) == 0x80 && ((c >= 0x80 && c <= 0x8A) || c == 0xA8 || c == 0xA9 || c == 0xAF)) return 3;
+    if (b(i) == 0xE2 && b(i + 1) == 0x81 && c == 0x9F) return 3;
+    if (b(i) == 0xE1 && b(i + 1) == 0x9A && c == 0x80) return 3;
+    if (b(i) == 0xE3 && b(i + 1) == 0x80 && c == 0x80) return 3;
+    return 0;
+}
+
+// The bytes of the space that ends s, 0 when none does.
+size_t spaceAtEnd(std::string_view s) {
+    for (size_t n = 1; n <= 3 && n <= s.size(); ++n) {
+        if (spaceAt(s, s.size() - n) == n) return n;
+    }
+    return 0;
+}
 
 std::string_view trimmed(std::string_view s) {
-    while (!s.empty() && isSpace(s.front())) s.remove_prefix(1);
-    while (!s.empty() && isSpace(s.back())) s.remove_suffix(1);
+    while (!s.empty() && spaceAt(s, 0) > 0) s.remove_prefix(spaceAt(s, 0));
+    while (spaceAtEnd(s) > 0) s.remove_suffix(spaceAtEnd(s));
     return s;
 }
 

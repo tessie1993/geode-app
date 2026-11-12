@@ -595,6 +595,8 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* How many fields of the look in (same wire) differ from the defaults: the Customize header's "changed" count. */
+GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);

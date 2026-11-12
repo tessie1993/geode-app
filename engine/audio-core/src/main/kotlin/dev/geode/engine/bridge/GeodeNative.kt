@@ -1145,6 +1145,9 @@ object GeodeNative {
         output: FloatArray,
     ): Boolean
 
+    /** How many fields of the wire frame [input] differ from the defaults (core/viz/CustomizeMap `changedCount`). */
+    external fun customizeChangedCount(input: FloatArray): Int
+
     /** [input] with every field [category]'s controls write put back to its default, into [output]. */
     external fun customizeReset(
         category: String,

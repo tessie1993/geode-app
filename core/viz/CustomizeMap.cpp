@@ -422,6 +422,18 @@ SceneParams borrow(const SceneParams& current, const SceneParams& from, Category
 
 SceneParams reset(const SceneParams& current, Category category) { return borrow(current, SceneParams{}, category); }
 
+int changedCount(const SceneParams& current) {
+    float now[SceneParams::kFieldCount];
+    float was[SceneParams::kFieldCount];
+    current.toWire(now);
+    SceneParams{}.toWire(was);
+    int changed = 0;
+    for (int i = 0; i < SceneParams::kFieldCount; ++i) {
+        if (now[i] != was[i]) ++changed;
+    }
+    return changed;
+}
+
 const std::string& text() {
     static const std::string kText = [] {
         std::string out = "customize|" + std::to_string(kTextVersion) + "\n";

@@ -157,4 +157,6 @@ void geode_customize_reset(const char* category, const float* in, float* out) {
     (which ? customize::reset(current, *which) : current).toWire(out);
 }
 
+int geode_customize_changed_count(const float* in) { return customize::changedCount(SceneParams::fromWire(in)); }
+
 }

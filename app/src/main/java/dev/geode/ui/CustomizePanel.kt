@@ -45,12 +45,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
@@ -188,6 +190,8 @@ internal fun CustomizePanel(
     }
 }
 
+private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(SceneParamsCodec.pack(params))
+
 /**
  * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo
  * and ⋯ (Redo, Randomize every group, Reset this category, Keep it, Take it from a preset, Reset
@@ -210,8 +214,8 @@ private fun CustomizeHeader(
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val changed by remember(viewModel) {
-        viewModel.vizState.map { CustomizeSummary.changedCount(it.params) }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(remember(viewModel) { CustomizeSummary.changedCount(viewModel.vizState.value.params) })
+        viewModel.vizState.map { changedCount(it.params) }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(remember(viewModel) { changedCount(viewModel.vizState.value.params) })
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }

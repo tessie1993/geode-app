@@ -141,7 +141,7 @@ class PrefsSchemaTest {
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
                 StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
             },
-            Owner("engine/scenes/src/main/kotlin/dev/geode/render/VisualizerRenderer.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
+            Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
                 PlayerPrefsStore(it[player]).save(PlayerPrefs())
                 BookmarkStore(it[player]).note("content://track", BookmarkStore.LONG_TRACK_MS, BookmarkStore.LONG_TRACK_MS * 2)
@@ -210,7 +210,7 @@ class PrefsSchemaTest {
             "$DATA/PerformanceStore.kt" to "its first load and its fallback read the native tier table",
             "$DATA/LookStore.kt" to "VizStateStore writes these, and builds on the native bundled presets",
             "$DATA/MusicLibraryRepository.kt" to "needs an Application, MediaStore and a folder scan",
-            "engine/scenes/src/main/kotlin/dev/geode/render/VisualizerRenderer.kt" to "the preset memory it saves for is native",
+            "$DATA/MilkPathPrefs.kt" to "the preset memory it saves for is native",
         )
 
     /**

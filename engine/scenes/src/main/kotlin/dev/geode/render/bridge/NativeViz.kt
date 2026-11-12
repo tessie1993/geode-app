@@ -9,7 +9,6 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
-import dev.geode.render.PacedRate
 import dev.geode.render.PerformanceSettings
 import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookSnapshot
@@ -243,16 +242,17 @@ class NativeViz(
 
     /**
      * One live frame into framebuffer 0 ([GeodeNative.vizFrame]): the renderer hears what [ring] gained, natively,
-     * each sample once (null: nothing, and the last ring goes), and [paced] hands over the rate the surface last
+     * each sample once (null: nothing, and the last ring goes), and [fps] and [capFps] are the rate the surface last
      * drew at and its own cap, which native keeps apart for the thermal step. The `FRAME_*` events; 0 before the
      * handle exists. GL thread.
      */
     fun frame(
         ring: SampleRing?,
-        paced: PacedRate,
+        fps: Float,
+        capFps: Float,
     ): Int {
         if (handle == 0L) return 0
-        val events = GeodeNative.vizFrame(handle, ring?.handle ?: 0L, paced.fps(), paced.capFps())
+        val events = GeodeNative.vizFrame(handle, ring?.handle ?: 0L, fps, capFps)
         // The ring's handle is only valid while the ring is held: hold it past the call.
         Reference.reachabilityFence(ring)
         return events

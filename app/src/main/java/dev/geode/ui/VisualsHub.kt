@@ -62,7 +62,7 @@ import dev.geode.data.GestureAction
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -105,7 +105,7 @@ import dev.geode.ui.tour.fits
 @Composable
 internal fun VisualsHub(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     chrome: ShellChromeState,
     bottomReserve: Dp,
     sheetOpacity: Float,
@@ -139,7 +139,7 @@ internal fun VisualsHub(
 @Composable
 private fun VisualsHubContent(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     chrome: ShellChromeState,
     bottomReserve: Dp,
     sheetOpacity: Float,

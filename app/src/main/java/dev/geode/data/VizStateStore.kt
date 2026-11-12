@@ -3,7 +3,6 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
-import dev.geode.render.VisualizerRenderer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -20,7 +19,7 @@ internal class VizStateStore(
     val state = MutableStateFlow(restore(autoVisualsPrefsStore))
 
     init {
-        VisualizerRenderer.seedMilkMemory(prefs)
+        MilkPathPrefs.seed(prefs)
     }
 
     // Starts on the preset the last run showed: the renderer restores that one itself (from the
@@ -99,7 +98,7 @@ internal class VizStateStore(
 
     fun dropRemovedMilkPaths(paths: List<String>) {
         if (_activeMilkPath.value in paths) _activeMilkPath.value = null
-        if (GeodeNative.milkMemoryForget(paths.toTypedArray())) VisualizerRenderer.saveMilkPath(prefs, null)
+        if (GeodeNative.milkMemoryForget(paths.toTypedArray())) MilkPathPrefs.save(prefs, null)
     }
 
     private companion object {

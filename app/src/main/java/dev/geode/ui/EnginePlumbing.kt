@@ -16,9 +16,9 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
-import dev.geode.render.VisualizerView
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -73,7 +73,7 @@ private const val MS_PER_SECOND = 1000
 @Composable
 fun VisualizerEngineBindings(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -91,20 +91,19 @@ fun VisualizerEngineBindings(
     val reducedMotion = rememberSystemReducedMotion()
 
     LaunchedEffect(Unit) {
-        visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
-        visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
+        visualizerView.stage.onShaderError = viewModel::reportShaderError
+        visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.soundInput }
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
-        // on the GL thread; BackgroundController's state is only ever touched from Main, so this
-        // hops back rather than calling straight through.
-        visualizerView.visualizerRenderer.onSurfaceSizeChanged = { w, h ->
+        // inside the view's surface callback, so the re-decode is launched rather than run there.
+        visualizerView.stage.onSurfaceSizeChanged = { w, h ->
             mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
         }
-        LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()
+        LayersBus.availableScenes.value = visualizerView.stage.availableSceneIds()
     }
     // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
     // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
-    // renderer pushes only the parts that changed (NativeViz.setLook), so an unrelated vizState change costs nothing.
+    // stage passes on only the parts that changed (`geode_stage_set_look`), so an unrelated vizState change costs nothing.
     // The underlay is mapped once per background push: a new instance would re-send the whole image.
     LaunchedEffect(reducedMotion) {
         val underlay =
@@ -116,11 +115,11 @@ fun VisualizerEngineBindings(
         val tuning = settingsViewModel.soundInput.map { it.soundTuning }
         combine(viewModel.vizState, modulation, tuning, underlay) { v, m, t, u ->
             liveLook(v, m.first, m.second, m.third, t, reducedMotion, u)
-        }.collect { visualizerView.visualizerRenderer.look = it }
+        }.collect { visualizerView.stage.look = it }
     }
     // Record copies this stage's frames; one leaving the screen ends a recording it was making.
     DisposableEffect(visualizerView) {
-        studioViewModel.attachRecordStage(visualizerView)
+        studioViewModel.attachRecordStage(visualizerView.stage)
         onDispose { studioViewModel.attachRecordStage(null) }
     }
     LaunchedEffect(Unit) {
@@ -135,23 +134,21 @@ fun VisualizerEngineBindings(
     LaunchedEffect(layers) {
         // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
         val sceneId = if (layers.enabled) layers.sceneId else null
-        visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
+        visualizerView.stage.submitLayer(sceneId, layers.mix, layers.blend)
     }
     LaunchedEffect(Unit) {
         // Settings › Gestures & controls › Touch › Smear: handed over as set; native bends the picture (core/viz/TouchSmear).
         settingsViewModel.visuals
             .map { it.touchSmear to it.touchSmearStrength }
             .distinctUntilChanged()
-            .collect { (on, strength) -> visualizerView.visualizerRenderer.nativeViz.setTouchSmear(on, strength) }
+            .collect { (on, strength) -> visualizerView.stage.setTouchSmear(on, strength) }
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }
     LaunchedEffect(activeTransitionId) {
         // The look carries the transition; this only compiles it ahead of the next style change.
-        val id = activeTransitionId
-        val renderer = visualizerView.visualizerRenderer
-        visualizerView.queueEvent { renderer.warmTransition(id) }
+        visualizerView.stage.warmTransition(activeTransitionId)
     }
     // The stored live cap as this window's display runs it (native, core/viz/frame/LiveFps): a 120 picked on a
     // fast panel is 60 on a 60 Hz one, so a hot phone's first thermal step still costs frames there.
@@ -160,20 +157,20 @@ fun VisualizerEngineBindings(
         visualizerView.applyPerformance(performance.copy(fpsCap = GeodeNative.liveFpsCap(performance.fpsCap, refreshRates)))
     }
     LaunchedEffect(Unit) {
-        visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }
+        visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }
     }
     LaunchedEffect(Unit) {
-        viewModel.morphFade.collect { visualizerView.visualizerRenderer.beginParamMorph(it) }
+        viewModel.morphFade.collect { visualizerView.stage.beginParamMorph(it) }
     }
     LaunchedEffect(Unit) {
-        visualizerView.visualizerRenderer.onMilkPresetLoaded = { visualsViewModel.noteMilkPreset(it) }
-        visualizerView.visualizerRenderer.onDirectorStyleMoment = { visualizerView.post { viewModel.onDirectorStyleMoment() } }
+        visualizerView.stage.onMilkPresetLoaded = { visualsViewModel.noteMilkPreset(it) }
+        visualizerView.stage.onDirectorStyleMoment = viewModel::onDirectorStyleMoment
         viewModel.vizApply.collect { apply ->
             apply.milkPath?.let {
-                visualizerView.visualizerRenderer.loadMilkPreset(it)
+                visualizerView.stage.loadMilkPreset(it)
             }
             apply.customShader?.let {
-                visualizerView.visualizerRenderer.submitShader(apply.sceneId ?: activeSceneId, it)
+                visualizerView.stage.submitShader(apply.sceneId ?: activeSceneId, it)
             }
         }
     }

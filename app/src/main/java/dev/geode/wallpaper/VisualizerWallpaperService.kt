@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
-import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -23,27 +22,23 @@ import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
-import dev.geode.render.FramePacer
-import dev.geode.render.FrameRatePolicy
 import dev.geode.render.TouchField
-import dev.geode.render.VisualizerRenderer
+import dev.geode.stage.Stage
 import dev.geode.util.bestEffort
 
 class VisualizerWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = VisualizerEngine()
 
     private inner class VisualizerEngine : Engine() {
-        private var glView: WallpaperGlSurfaceView? = null
-        private var renderer: VisualizerRenderer? = null
-        private var wallpaperRenderer: WallpaperRenderer? = null
-
         /**
          * Each engine instance — preview and home screen can both be live at once — owns its
-         * own pacer, so the two never share a cadence or a frame-time window. Its cap is the
+         * own stage, so the two never share a cadence or a frame-time window. Its cap is the
          * wallpaper's own fps choice ([WallpaperSettings.fps], see [applyFps]).
          */
-        private val pacer =
-            FramePacer(FrameRatePolicy.Capped(GeodeNative.SURFACE_DEFAULT_FPS.toFloat())) { glView?.requestRender() }
+        private var stage: Stage? = null
+
+        /** The edge look's glow as last handed to the stage (`core/viz/frame/EdgeGlowPass`, #439). */
+        private var glow = EdgeGlow()
 
         private var surfaceAvailable = false
         private var visible = false
@@ -62,7 +57,7 @@ class VisualizerWallpaperService : WallpaperService() {
          */
         private val performanceChanged =
             SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key in PerformanceStore.KEYS) renderer?.let(::applyPerformance)
+                if (key in PerformanceStore.KEYS) stage?.let(::applyPerformance)
             }
         private var settings = WallpaperSettings()
 
@@ -78,11 +73,7 @@ class VisualizerWallpaperService : WallpaperService() {
         /** Whether [sound] is running; it only restarts on a real change (see [syncListening]). */
         private var listening = false
 
-        private var runMode = WallpaperRunMode.STOPPED
         private val handler = Handler(Looper.getMainLooper())
-
-        /** Ends the settle burst of [WallpaperRunMode.STILL] (how long is native: [settleMsFrom]). */
-        private val endStillSettle = Runnable { if (runMode == WallpaperRunMode.STILL) pacer.stop() }
 
         /** Re-reads the gate when a running trial ends, so the wallpaper stills on time (#376). */
         private val trialEnded = Runnable { syncRunState() }
@@ -123,46 +114,18 @@ class VisualizerWallpaperService : WallpaperService() {
         private val offsets = FloatArray(6)
         private val window = FloatArray(4)
 
-        private inner class WallpaperGlSurfaceView(
-            context: Context,
-        ) : GLSurfaceView(context) {
-            override fun getHolder(): SurfaceHolder = surfaceHolder
-
-            fun destroy() {
-                super.onDetachedFromWindow()
-            }
-        }
-
         override fun onCreate(holder: SurfaceHolder) {
             super.onCreate(holder)
             // Off by default on a wallpaper engine, so onTouchEvent is never called without
             // this line — which is why the wallpaper had no touch at all.
             setTouchEventsEnabled(true)
-            val engine = VisualizerRenderer(this@VisualizerWallpaperService)
-            renderer = engine
+            val engine =
+                Stage(this@VisualizerWallpaperService, GeodeNative.STAGE_KIND_SURFACE, GeodeNative.SURFACE_DEFAULT_FPS.toFloat())
+            stage = engine
             restoreLook(engine)
             settings = prefsStore.load()
             applyFps()
-            // Its own pacer's rate, not the stage's: the app's pacer may be running beside this one.
-            engine.pacedRate = pacer
             engine.soundInput = { sound.input }
-            val wrapped = WallpaperRenderer(engine)
-            wallpaperRenderer = wrapped
-            glView =
-                WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
-                    setEGLContextClientVersion(3)
-                    // Before setRenderer, like VisualizerView: syncRunState pauses this view on every
-                    // trip off the home screen (an app opening, the screen locking), and without it
-                    // each return rebuilt the EGL context and with it every scene, shader and FBO,
-                    // a black flash and a stall on exactly the transition people watch. The driver
-                    // may still refuse to keep it; VisualizerRenderer.onSurfaceCreated is safe to run
-                    // again on a kept native renderer, so the lost-context path stays correct.
-                    preserveEGLContextOnPause = true
-                    setRenderer(wrapped)
-                    // The pacer asks for each frame; without a request the GL thread parks, which
-                    // is how "invisible costs nothing" is enforced rather than merely intended.
-                    renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                }
             ContextCompat.registerReceiver(
                 this@VisualizerWallpaperService,
                 systemReceiver,
@@ -178,16 +141,15 @@ class VisualizerWallpaperService : WallpaperService() {
         }
 
         /**
-         * Caps the pacer to the wallpaper's own fps choice, snapped to a listed rate natively, and
-         * restates the rate on the surface. Settings › Performance's cap is the live visual's, not this.
+         * Caps the stage to the wallpaper's own fps choice, snapped to a listed rate natively.
+         * Settings › Performance's cap is the live visual's, not this.
          */
         private fun applyFps() {
-            pacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(settings.fps).toFloat())
-            surfaceHolder.surface?.takeIf { it.isValid }?.let(pacer::applyTo)
+            stage?.capFps = GeodeNative.surfaceFpsChoice(settings.fps).toFloat()
         }
 
-        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (core/viz/MilkMemory). */
-        private fun restoreLook(engine: VisualizerRenderer) {
+        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the stage's own (core/viz/MilkMemory). */
+        private fun restoreLook(engine: Stage) {
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()
             engine.look = looks.current()
@@ -198,17 +160,18 @@ class VisualizerWallpaperService : WallpaperService() {
          * Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper paces
          * to its own choice instead (applyFps, ADR 0008). A new store reads the file afresh.
          */
-        private fun applyPerformance(engine: VisualizerRenderer) {
+        private fun applyPerformance(engine: Stage) {
             engine.performance = PerformanceStore(generalPrefs, this@VisualizerWallpaperService).settings.value
         }
 
         /**
-         * Restates the run mode from scratch (the native rule, [WallpaperConditions.runMode]). Called
+         * Restates what the engine sees to the stage, which applies the native run rule
+         * (core/viz/SurfaceRun): its pacing, a still frame's settle and what a stop sheds. Called
          * on every change that can move it: visibility, surface, cover, battery saver, unlock,
          * silence, Remove animations, and a trial's end.
          */
         private fun syncRunState() {
-            if (renderer == null) return
+            val active = stage ?: return
             // The rule is native (core/viz/SurfaceRun); this only gathers what the engine sees. The
             // entitlement is re-read on every change, so a purchase or a trial made in the app
             // animates the wallpaper the next time the home screen shows, and the native rule says
@@ -230,42 +193,14 @@ class VisualizerWallpaperService : WallpaperService() {
             handler.removeCallbacks(trialEnded)
             conditions.recheckInMs(now)?.let { handler.postDelayed(trialEnded, it) }
             syncListening(conditions.listening(now))
-            wallpaperRenderer?.edge = currentLook() == WallpaperLook.EDGE
-            val previous = runMode
-            runMode = conditions.runMode(now)
-            if (runMode != WallpaperRunMode.STILL) handler.removeCallbacks(endStillSettle)
-            when (runMode) {
-                WallpaperRunMode.ANIMATED -> {
-                    glView?.onResume()
-                    pacer.start()
-                }
-                WallpaperRunMode.STILL -> {
-                    // A still frame of the style and then no pacing, so it costs nothing while it
-                    // sits there: without Pro, in battery saver, resting in silence, or under reduced
-                    // motion. The native rule says how long to pace first (a new scene is built across
-                    // frames, ScenePrep, so one frame on a fresh engine would hold a black or
-                    // half-built picture); 0 means already still, and a restated look needs one frame.
-                    glView?.onResume()
-                    val settle = runMode.settleMsFrom(previous)
-                    if (settle > 0) {
-                        pacer.start()
-                        handler.postDelayed(endStillSettle, settle)
-                    } else {
-                        glView?.requestRender()
-                    }
-                }
-                // DARK is the dream's alone: the wallpaper never asks for it.
-                WallpaperRunMode.STOPPED, WallpaperRunMode.DARK -> {
-                    // Stopped first, and on this same main-thread callback: the vsync callback is gone
-                    // before onPause is even asked for, so no frame can be requested after the
-                    // wallpaper stops being visible. The spare scenes go on the way in (#854): an event
-                    // queued before the pause runs while the GL thread still has its context, and the
-                    // system's trim only arrives once no frame is left to read it.
-                    pacer.stop()
-                    if (previous != WallpaperRunMode.STOPPED) glView?.queueEvent { renderer?.trimSpares() }
-                    glView?.onPause()
-                }
-            }
+            pushGlow(glow.copy(enabled = currentLook() == WallpaperLook.EDGE))
+            active.setSurface(conditions.flags, until, now)
+        }
+
+        private fun pushGlow(next: EdgeGlow) {
+            if (next == glow) return
+            glow = next
+            stage?.setEdgeGlow(next.toFloatArray())
         }
 
         /**
@@ -304,7 +239,7 @@ class VisualizerWallpaperService : WallpaperService() {
             this.visible = visible
             // Going away with a finger still down is not guaranteed to come with a cancel,
             // and a pointer that is never retired stays pinned across the whole sleep.
-            if (!visible) renderer?.submitTouchPoints(touchPoints, 0)
+            if (!visible) stage?.submitTouchPoints(touchPoints, 0)
             // Re-read each time it shows: the options page, opened from the picker, covers it.
             if (visible) {
                 settings = prefsStore.load()
@@ -334,7 +269,8 @@ class VisualizerWallpaperService : WallpaperService() {
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
             surfaceAvailable = true
-            pacer.applyTo(holder.surface)
+            val frame = holder.surfaceFrame
+            stage?.setWindow(holder.surface, frame.width(), frame.height())
             syncRunState()
         }
 
@@ -347,10 +283,13 @@ class VisualizerWallpaperService : WallpaperService() {
             super.onSurfaceChanged(holder, format, width, height)
             surfaceWidth = width.toFloat().coerceAtLeast(1f)
             surfaceHeight = height.toFloat().coerceAtLeast(1f)
+            stage?.setSize(width, height)
             updateVisibleWindow()
-            // A rotation or a fold replaces the surface, and the rate preference lives on the
-            // surface, so it has to be restated rather than assumed to have survived.
-            pacer.applyTo(holder.surface)
+        }
+
+        override fun onSurfaceRedrawNeeded(holder: SurfaceHolder) {
+            super.onSurfaceRedrawNeeded(holder)
+            stage?.redraw()
         }
 
         /**
@@ -380,7 +319,7 @@ class VisualizerWallpaperService : WallpaperService() {
             val displayWidth = metrics.widthPixels.toFloat()
             val displayHeight = metrics.heightPixels.toFloat()
             GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
-            wallpaperRenderer?.setVisibleWindow(window[0], window[1], window[2], window[3])
+            pushGlow(glow.copy(left = window[0], top = window[1], width = window[2], height = window[3]))
         }
 
         /**
@@ -394,7 +333,7 @@ class VisualizerWallpaperService : WallpaperService() {
          */
         override fun onTouchEvent(event: MotionEvent) {
             super.onTouchEvent(event)
-            val engine = renderer ?: return
+            val engine = stage ?: return
             val action = event.actionMasked
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 engine.submitTouchPoints(touchPoints, 0)
@@ -418,53 +357,27 @@ class VisualizerWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             surfaceAvailable = false
             syncRunState()
+            // Returns once the stage has let go of the surface, which is gone after this callback.
+            stage?.setWindow(null, 0, 0)
             super.onSurfaceDestroyed(holder)
         }
 
         override fun onDestroy() {
-            handler.removeCallbacks(endStillSettle)
             handler.removeCallbacks(trialEnded)
-            pacer.stop()
             sound.stop()
             systemAnimations.stop()
             generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
-            releaseScenesOnGlThread()
-            glView?.destroy()
-            glView = null
-            renderer = null
-            wallpaperRenderer = null
+            // A wallpaper engine is made and destroyed every time the screen sleeps or the launcher
+            // switches screens, so each one ends its stage (its thread, context and renderer) here.
+            stage?.close()
+            stage = null
             super.onDestroy()
-        }
-
-        /**
-         * The engine is discarded here, and MilkdropScene's projectM instance lives in the native
-         * heap, where losing the GL context reclaims nothing. A wallpaper engine is created and
-         * destroyed every time the screen sleeps or the user switches launcher screens, so without
-         * this each of those leaks one engine into a process that keeps running.
-         *
-         * Queued before destroy() because GLSurfaceView's thread stops draining events once it is
-         * asked to exit, and waited on - briefly - because that thread is gone afterwards.
-         */
-        private fun releaseScenesOnGlThread() {
-            val view = glView ?: return
-            val active = renderer ?: return
-            val done = java.util.concurrent.CountDownLatch(1)
-            view.queueEvent {
-                bestEffort(TAG, "active.releaseScenes()") { active.releaseScenes() }
-                done.countDown()
-            }
-            bestEffort(TAG, "await scene release") {
-                done.await(GL_RELEASE_WAIT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
-            }
         }
     }
 
     private companion object {
         const val TAG = "VisualizerWallpaper"
-
-        /** Bounded on purpose: a wedged GL thread must not turn teardown into an ANR. */
-        const val GL_RELEASE_WAIT_MS = 200L
 
         /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
         const val COVER_ZOOM = 0.9f

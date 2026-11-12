@@ -157,43 +157,44 @@ float sheet(vec3 p, float sgn, out vec4 info) {
     return d;
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     vec4 i0;
     vec4 i1;
     float d = min(sheet(p, -1.0, i0), sheet(p, 1.0, i1)) / gLip;
     return max(d, LW_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(true);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = uKnob[0] - 0.5;
-    float kTex = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5) * uIntensity;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
 
     int depth = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);
-    float strength = (1.0 + 1.25 * bass * (1.0 + kPulse)) * lucidChaos();
+    float strength = (1.0 + 1.25 * bass * lucidSpan(N.emit, 1.0, 0.5, 1.5)) * lucidChaos();
 
     // The 2D style's finger push, kept in screen space: it moves the marbling.
     vec2 push = (uv - touchAnchor()) * 0.9 * touchFalloff(uv, 0.45);
 
-    gH = 3.0 * (1.0 + 0.35 * kSpace);
-    gB = clamp((0.28 + 0.2 * min(bass, 1.0)) * (1.0 + 0.9 * kFlow), 0.0, 0.6);
+    gH = 3.0 * lucidSpan(N.reach, 1.0, 0.825, 1.175);
+    gB = clamp((0.28 + 0.2 * min(bass, 1.0)) * lucidSpan(N.flow, 1.0, 0.55, 1.45), 0.0, 0.6);
     gPh = flow * 0.35 + t * 0.05;
     gLip = 1.0 + gB * 0.695 + LW_A * LW_PI;
 
@@ -212,7 +213,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LW_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -221,7 +223,7 @@ void main() {
         tm += max(d * 0.9, eps);
     }
 
-    float hue = 0.4 * kTone + 0.03 * sin(uTime * 0.021);
+    float hue = lucidSpan(N.tone, 0.0, -0.2, 0.2) + 0.03 * sin(uTime * 0.021);
     float fogK = 0.07;
     float ahead = pow(max(rd.z, 0.0), 6.0);
     vec3 fogCol = pal(hue + 0.6) * (0.03 + 0.10 * ahead) + vec3(0.004, 0.003, 0.007);
@@ -253,7 +255,7 @@ void main() {
               + vec2(19.0, 5.0) * (4.0 * lucidHash1(jm + 17.0 * sgn));
             hr = -info.w * sin(LW_PI * p.x);
         }
-        q *= 1.5 * (1.0 + 0.8 * kTex);
+        q *= 1.5 * lucidSpan(N.scale, 1.0, 0.6, 1.4);
         q += 2.0 * push;
         q += lucidJitter(q, t);
 
@@ -268,7 +270,7 @@ void main() {
         vec3 turned = lucidChannelTurn(albedo, t * 0.02 + 0.9 * n.w + 0.25 * uv.x + info.x);
         vec3 crest = lucidCube(lucidCubic(turned, 0.8) * 1.3);
 
-        vec3 nrm = normalAt(p, max(0.0012, 0.001 * hitT));
+        vec3 nrm = lucidNormal(p, max(0.0012, 0.001 * hitT));
         float ndv = clamp(dot(nrm, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);
@@ -282,7 +284,7 @@ void main() {
         float edge = 1.0 - 0.35 * across * across;
 
         vec3 surf = turned * (0.05 + 0.35 * dif) * occ * edge * ao
-                  + crest * (0.8 + 0.9 * kBuild + 0.25 * swell) * (0.5 + 0.5 * occ)
+                  + crest * (0.8 + lucidSpan(N.glow, 0.0, -0.45, 0.45) + 0.25 * swell) * (0.5 + 0.5 * occ)
                   + pal(hue + 0.5) * fres * 0.18 * occ
                   + vec3(spec) * 0.2 * occ * ao;
         col = mix(surf, fogCol, 1.0 - exp(-hitT * fogK));

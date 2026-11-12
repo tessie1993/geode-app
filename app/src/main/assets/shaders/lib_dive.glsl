@@ -65,10 +65,10 @@
 // WHY ONE MARCHER
 //
 // Unlike lib_bulb, all five maps live here, so the march, the normal and the
-// shading can too: diveMap() picks the scene from gDiveScene, a value that is
+// shading can too: diveField() picks the scene from gDiveScene, a value that is
 // the same for every pixel of a frame, so the branch is coherent and costs
 // one scene per step. The camera, the accordion remap and the Chaos warp are
-// applied in diveMap() so every style marches the same world.
+// applied in diveField() so every style marches the same world.
 //
 // THE CAMERA. diveCamera() builds the eye from its own path (straight,
 // serpent, helix, accordion, orbit) and looks along the path's tangent; the
@@ -102,6 +102,41 @@
 // offset of the estimate), k2 FLOW added to Warp's bend (diveChaos), k3 TONE
 // the palette position, k4 BUILD the glow at the far end of the dive, k5
 // SPACE the reach (the march's far and the fog in diveShade).
+//
+// ---- the normalization shell ----------------------------------------------------
+//
+// Every shape variable of the family is read once, normalized, in diveIn():
+// one field of DiveIn each, 0 at rest, -1..1 from a knob (its offset from 0.5,
+// doubled) and 0..1 from a param (0 its default). diveShape() then maps each
+// one to its own range, in that one place. The drivers are scene params and
+// style knobs only, every one a target of the reaction matrix, so the music
+// moves any variable through the matrix; nothing in the shell reads the sound
+// frame. At the defaults every variable is exactly the constant it was.
+//
+//   variable  driver               range (rest first)
+//   width     k1 TEXTURE           0, -0.02..0.02 world units on every surface
+//   beam      k1 TEXTURE           x1, x0.8..x1.25 the lattice beams' girth
+//   petal     k1 TEXTURE           x1, x0.8..x1.2 the mandala petals' fullness
+//   layers    Morph                0..1 the extra layer every scene grows
+//   folds     Morph                6..12 the mandala's wedges
+//   bend      Warp + k2 FLOW       0..0.06 world units of the sine bend
+//   stir      Turbulence           0..0.06 world units more of it
+//   reach     k5 SPACE             x1, x0.8..x1.2 the march's far and the fog
+//   sway      k5 SPACE             x1, x0.75..x1.2 the serpent path's sway
+//   helix     k5 SPACE             x1, x0.75..x1.2 the helix path's radius
+//   glow      k4 BUILD             1, 0.5..1.5 the far end's light
+//   emit      k0 PULSE             1, 0.75..1.25 diveColor's gain
+//   tone      k3 TONE              0, -0.3..0.3 diveColor's position
+//
+// A style calls diveSetup(scene), sets the rests it wants (gDiveBeam,
+// gDiveSway, gDiveHelixR, gDiveBreath...), then diveShape() once, before
+// diveCamera. Nothing here turns: the orbit's swing and the gyroscopes' spin
+// stay where they were (owner 2026-11-12, no style spins to the music).
+//
+// THE FIELD. diveField(p) is the family's one field, (distance, part, id), and
+// it writes no global. DIVE_GROW is the one line where Grow (lib_grow: Spawn,
+// Fractal, Front and Back layer) and Formula will wrap the scene once they
+// land; until then it is the scene itself.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion,
 // lib_camera, lib_palette and lib_scene_grade. It reads uSteps,
@@ -248,6 +283,60 @@ vec3 diveColor(float x) {
     return mix(max(c, 0.0), pal(x), 0.5) * gDiveEmit;
 }
 
+// ---- the normalization shell (see the header) -----------------------------------
+
+/** Every shape variable, normalized: 0 at rest, -1..1 from a knob, 0..1 from a param. */
+struct DiveIn {
+    float width;
+    float beam;
+    float petal;
+    float layers;
+    float folds;
+    float bend;
+    float stir;
+    float reach;
+    float sway;
+    float helix;
+    float glow;
+    float emit;
+    float tone;
+};
+
+/** Style knob i, normalized: its offset from 0.5 doubled, -1..1, exactly 0 while Note & key reactions are off. */
+float diveKnob(int i) {
+    return 2.0 * (clamp(uKnob[i], 0.0, 1.0) - 0.5);
+}
+
+/** Each variable from its driver (the header's table): params and knobs only, no sound. */
+DiveIn diveIn() {
+    float kTex = diveKnob(1);
+    float kSpace = diveKnob(5);
+    DiveIn n;
+    n.width = kTex;
+    n.beam = kTex;
+    n.petal = kTex;
+    n.layers = diveMorph();
+    n.folds = diveMorph();
+    // FLOW adds to Warp's share; a negative bend is floored at none in diveShape.
+    n.bend = clamp(clamp(uWarp, 0.0, 1.0) + 0.25 * diveKnob(2), -1.0, 1.0);
+    n.stir = clamp(uTurbulence / 1.5, 0.0, 1.0);
+    n.reach = kSpace;
+    n.sway = kSpace;
+    n.helix = kSpace;
+    n.glow = diveKnob(4);
+    n.emit = diveKnob(0);
+    n.tone = diveKnob(3);
+    return n;
+}
+
+/**
+ * A normalized n to its variable's range: `rest` at 0, `lo` at -1, `hi` at 1, straight between.
+ * Exactly `rest` at 0, so the rest look is the old one bit for bit.
+ */
+float diveSpan(float n, float rest, float lo, float hi) {
+    return rest + n * (n < 0.0 ? rest - lo : hi - rest);
+}
+
 // ---- per-frame scene state ----------------------------------------------------
 
 int gDiveScene;
@@ -266,38 +355,36 @@ float gDiveHelixR;
 float gDiveSwing;
 /** k1 TEXTURE: world units every surface thickens by (negative thins it). */
 float gDiveWidth;
+/** Morph: how far each scene's extra layer has grown, 0..1. */
+float gDiveLayers;
 /** k4 BUILD on the far end's light, about 1. */
 float gDiveBuild;
 /** k5 SPACE on the reach: the march's far and the fog's distance scale by it. */
 float gDiveReach;
 
-// What the last map() call found. Copy them right after the hit: the normal's
-// four taps overwrite them.
-/** Part: 0 the structure (beam, wall, ring 1), 1 a feature (node, crystal, cap, petal), 2 an accent (brace, stem, bead). */
-float gDiveMat;
-/** 0..1, a stable hash of the cell or part, for per-part colour. */
-float gDiveId;
+// What the march hit, from the field's part (0 the structure: beam, wall, ring 1;
+// 1 a feature: node, crystal, cap, petal; 2 an accent: brace, stem, bead) and id
+// (0..1, a stable hash of the cell or part, for per-part colour).
 float gDiveHitMat;
 float gDiveHitId;
 
+/** This frame's normalized variables (diveIn), read by diveShape. */
+DiveIn gDiveIn;
+
 /**
  * Sets every default for `scene` and picks the palette. Call once at the top
- * of main(), then override what the style wants (gDiveBreath, gDiveSway...).
+ * of main(), then override what the style wants (gDiveBreath, gDiveSway...),
+ * then diveShape().
  */
 void diveSetup(int scene) {
     float e = diveEnergy();
-    // The knobs as offsets from 0.5 (see the header): exactly 0 while Note & key reactions are off.
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTex = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gDiveEmit = 1.0 + 0.5 * kPulse;
-    gDiveWidth = 0.04 * kTex;
-    gDiveTone = 0.6 * kTone;
-    gDiveBuild = 1.0 + kBuild;
-    gDiveReach = 1.0 + 0.4 * kSpace;
+    gDiveIn = diveIn();
+    gDiveEmit = 1.0;
+    gDiveWidth = 0.0;
+    gDiveTone = 0.0;
+    gDiveBuild = 1.0;
+    gDiveReach = 1.0;
+    gDiveLayers = 0.0;
     dive_palInit();
     gDiveScene = scene;
     gDiveBreath = 1.0;
@@ -306,22 +393,42 @@ void diveSetup(int scene) {
     // Loudness sets the rate (uFlowPhase only ever advances). No sound band pushes the
     // rings round on top (owner 2026-11-12, no style spins to the music).
     gDiveSpin = diveTime() * 0.45 + uFlowPhase * 0.6;
-    gDiveFolds = 6.0 + 6.0 * diveMorph();
+    gDiveFolds = 6.0;
     gDivePetal = 1.0 + 0.3 * clamp(SND_KICK_TOGGLE * e, 0.0, 1.0);
-    // FLOW adds to Warp's share, floored at none: a negative amplitude would undo diveMap's stretch bound.
-    gDiveChaosAmp = 0.06 * max(clamp(uWarp, 0.0, 2.0) + 0.5 * kFlow, 0.0) + 0.04 * clamp(uTurbulence, 0.0, 2.0);
+    gDiveChaosAmp = 0.0;
     gDiveChaosT = diveTime() * 0.5;
     gDiveSway = 1.0;
     gDiveHelixR = 0.6;
     gDiveSwing = 0.7;
-    gDiveMat = 0.0;
-    gDiveId = 0.0;
+}
+
+/**
+ * The shell's one mapping (see the header's table): each normalized variable to its
+ * own range, on top of the rests diveSetup and the style set. Call once, after the
+ * style's own settings and before diveCamera. At rest every line leaves its variable
+ * exactly as it was.
+ */
+void diveShape() {
+    DiveIn n = gDiveIn;
+    gDiveWidth = diveSpan(n.width, 0.0, -0.02, 0.02);
+    gDiveBeam *= diveSpan(n.beam, 1.0, 0.8, 1.25);
+    gDivePetal *= diveSpan(n.petal, 1.0, 0.8, 1.2);
+    gDiveLayers = n.layers;
+    gDiveFolds = diveSpan(n.folds, 6.0, 6.0, 12.0);
+    // Floored at none: a negative amplitude would undo diveField's stretch bound.
+    gDiveChaosAmp = 0.06 * max(n.bend, 0.0) + 0.06 * n.stir;
+    gDiveReach = diveSpan(n.reach, 1.0, 0.8, 1.2);
+    gDiveSway *= diveSpan(n.sway, 1.0, 0.75, 1.2);
+    gDiveHelixR *= diveSpan(n.helix, 1.0, 0.75, 1.2);
+    gDiveBuild = diveSpan(n.glow, 1.0, 0.5, 1.5);
+    gDiveEmit = diveSpan(n.emit, 1.0, 0.75, 1.25);
+    gDiveTone = diveSpan(n.tone, 0.0, -0.3, 0.3);
 }
 
 // ---- the five scenes ------------------------------------------------------------
 
 /** Beam lattice: square beams along all three axes, an octahedral knuckle at every crossing. */
-float diveLattice(vec3 p) {
+vec3 diveLattice(vec3 p) {
     vec3 q = p + vec3(0.5 * DIVE_CELL, 0.5 * DIVE_CELL, 0.0);
     vec3 c = round(q / DIVE_CELL);
     vec3 r = q - DIVE_CELL * c;
@@ -333,27 +440,17 @@ float diveLattice(vec3 p) {
     float bz = dive_box2(a.xy, bw);
     float beams = min(bx, min(by, bz)) - 0.02;
     float node = (a.x + a.y + a.z - 4.2 * w) * 0.57735;
-    float d = beams;
-    gDiveMat = 0.0;
-    gDiveId = bx < min(by, bz) ? 0.1 : (by < bz ? 0.35 : 0.6);
-    if (node < d) {
-        d = node;
-        gDiveMat = 1.0;
-        gDiveId = dive_hash31(mod(c, 64.0));
-    }
+    vec3 h = vec3(beams, 0.0, bx < min(by, bz) ? 0.1 : (by < bz ? 0.35 : 0.6));
+    if (node < h.x) h = vec3(node, 1.0, dive_hash31(mod(c, 64.0)));
     // Complexity: X braces in the two faces that run along the dive. The
     // third face (the cross-section) would brace straight across the axis.
-    float m = diveMorph();
+    float m = gDiveLayers;
     if (m > 0.01) {
         float wb = 0.07 * m;
         float br = min(length(vec2(r.x, (a.y - a.z) * 0.7071)), length(vec2(r.y, (a.x - a.z) * 0.7071))) - wb;
-        if (br < d) {
-            d = br;
-            gDiveMat = 2.0;
-            gDiveId = 0.8;
-        }
+        if (br < h.x) h = vec3(br, 2.0, 0.8);
     }
-    return d;
+    return h;
 }
 
 /**
@@ -363,7 +460,7 @@ float diveLattice(vec3 p) {
  * wedge of the girdle. The 8-fold symmetry is folded with reflections
  * (abs and a swap), so there is no atan and no seam.
  */
-float diveJewel(vec3 p) {
+vec3 diveJewel(vec3 p) {
     float zc = round(p.z / DIVE_CELL);
     vec3 q = vec3(p.xy, p.z - DIVE_CELL * zc);
     float cid = mod(zc, 64.0);
@@ -378,7 +475,7 @@ float diveJewel(vec3 p) {
     }
     float z = abs(q.z);
     const vec2 G = vec2(0.9238795, 0.3826834);
-    float m = diveMorph();
+    float m = gDiveLayers;
     float cav = dot(f, G) - 2.2;
     float facet = 0.0;
     float crown = (dot(f, G) + 0.74 * z - 2.57) * inversesqrt(1.5476);
@@ -389,17 +486,11 @@ float diveJewel(vec3 p) {
     if (star45 > cav) { cav = star45; facet = 3.0; }
     float table = z - 1.85;
     if (table > cav) { cav = table; facet = 4.0; }
-    float d = max(-cav, 1.25 - length(q.xy));
-    gDiveMat = 0.0;
-    gDiveId = dive_hash11(cid * 61.0 + wedge * 7.0 + facet);
+    vec3 h = vec3(max(-cav, 1.25 - length(q.xy)), 0.0, dive_hash11(cid * 61.0 + wedge * 7.0 + facet));
     vec3 o = abs(vec3(f - G * 2.05, q.z));
     float crystal = (o.x + o.y + o.z - 0.42) * 0.57735;
-    if (crystal < d) {
-        d = crystal;
-        gDiveMat = 1.0;
-        gDiveId = dive_hash11(cid * 61.0 + wedge * 7.0 + 9.0);
-    }
-    return d;
+    if (crystal < h.x) h = vec3(crystal, 1.0, dive_hash11(cid * 61.0 + wedge * 7.0 + 9.0));
+    return h;
 }
 
 /**
@@ -409,7 +500,7 @@ float diveJewel(vec3 p) {
  * swells (gDiveKick). Sizes are kept inside the sector so a mushroom never
  * crosses into its neighbour's wedge.
  */
-float diveMushrooms(vec3 p) {
+vec3 diveMushrooms(vec3 p) {
     const float N = 8.0;
     const float RT = 2.6;
     float w = DIVE_TAU / N;
@@ -433,27 +524,19 @@ float diveMushrooms(vec3 p) {
     // The wall: integer multiples of the angle only, so no seam at atan's jump.
     float wall = RT - r + 0.05 * sin(3.0 * N * ang) * sin(p.z * 3.1415927);
     float d = dive_smin(wall, stem, 0.25);
-    gDiveMat = d < wall - 0.01 ? 2.0 : 0.0;
-    gDiveId = h;
-    if (cap < d) {
-        d = cap;
-        gDiveMat = 1.0;
-    }
+    vec3 res = vec3(d, d < wall - 0.01 ? 2.0 : 0.0, h);
+    if (cap < res.x) res.xy = vec2(cap, 1.0);
     // Complexity: a second, smaller mushroom between each pair along the ring.
-    float mo = diveMorph();
+    float mo = gDiveLayers;
     if (mo > 0.01) {
         vec3 m2 = vec3(m.x, m.y, 1.0 - abs(m.z));
         float y2 = clamp(m2.y, 0.0, 0.35);
         float st2 = length(vec3(m2.x, m2.y - y2, m2.z)) - 0.045;
         float cp2 = max((length(vec3(m2.x, (m2.y - 0.35) * 1.8, m2.z)) - 0.22 * mo) / 1.8, 0.33 - m2.y);
-        d = dive_smin(d, st2, 0.1);
-        if (cp2 < d) {
-            d = cp2;
-            gDiveMat = 1.0;
-            gDiveId = fract(h + 0.5);
-        }
+        res.x = dive_smin(res.x, st2, 0.1);
+        if (cp2 < res.x) res = vec3(cp2, 1.0, fract(h + 0.5));
     }
-    return d;
+    return res;
 }
 
 /** One band of a gyroscope: a flat ring of radius R in the xy plane. */
@@ -468,7 +551,7 @@ float dive_ring(vec3 v, float R, vec2 band) {
  * nearest one is 2.8 units from the eye and the outer ring (1.5) never
  * reaches the path. Rotations are rigid: the estimate stays exact.
  */
-float diveGyro(vec3 p) {
+vec3 diveGyro(vec3 p) {
     vec3 q = p + vec3(0.5 * DIVE_CELL, 0.5 * DIVE_CELL, 0.0);
     vec3 c = round(q / DIVE_CELL);
     vec3 r = q - DIVE_CELL * c;
@@ -476,26 +559,24 @@ float diveGyro(vec3 p) {
     float ph = gDiveSpin * (h > 0.5 ? 1.0 : -1.0) + h * DIVE_TAU;
     r.yz = dive_rot(h * 2.4 - 1.2) * r.yz;
     r.xz = dive_rot(ph) * r.xz;
-    float d = dive_ring(r, 1.45, vec2(0.035, 0.11));
-    gDiveMat = 0.0;
-    gDiveId = h;
+    vec3 res = vec3(dive_ring(r, 1.45, vec2(0.035, 0.11)), 0.0, h);
     r.yz = dive_rot(ph * 1.37) * r.yz;
     float d2 = dive_ring(r, 1.08, vec2(0.03, 0.09));
-    if (d2 < d) { d = d2; gDiveMat = 1.0; gDiveId = fract(h + 0.25); }
+    if (d2 < res.x) res = vec3(d2, 1.0, fract(h + 0.25));
     r.xz = dive_rot(ph * 1.83) * r.xz;
     float d3 = dive_ring(r, 0.72, vec2(0.028, 0.08));
-    if (d3 < d) { d = d3; gDiveMat = 1.0; gDiveId = fract(h + 0.5); }
-    float m = diveMorph();
+    if (d3 < res.x) res = vec3(d3, 1.0, fract(h + 0.5));
+    float m = gDiveLayers;
     r.yz = dive_rot(ph * 2.3) * r.yz;
     float d4 = dive_ring(r, 0.44, vec2(0.025, 0.07 * m + 0.001));
     float core = length(r) - 0.16 - 0.1 * m;
     d4 = min(d4, core);
-    if (d4 < d) { d = d4; gDiveMat = 2.0; gDiveId = fract(h + 0.75); }
-    return d;
+    if (d4 < res.x) res = vec3(d4, 2.0, fract(h + 0.75));
+    return res;
 }
 
 /** The mandala tunnel at a whole fold count n: wall, petals, beads, rays. */
-float dive_mandalaN(vec3 p, float n) {
+vec3 dive_mandalaN(vec3 p, float n) {
     const float R = 2.6;
     float w = DIVE_TAU / n;
     float r = length(p.xy);
@@ -514,33 +595,23 @@ float dive_mandalaN(vec3 p, float n) {
     float bead = length(vec3(f - E * (R - 0.6), 1.0 - az)) - 0.14;
     float along = clamp(dot(f, E), 1.55, R);
     float ray = length(vec3(f - E * along, lz)) - 0.03;
-    float d = dive_smin(wall, petal, 0.15);
-    gDiveMat = petal < wall ? 1.0 : 0.0;
-    gDiveId = clamp(0.5 + 0.4 * (f.x - 2.0) + 0.3 * az, 0.0, 1.0);
+    vec3 res = vec3(dive_smin(wall, petal, 0.15), petal < wall ? 1.0 : 0.0, clamp(0.5 + 0.4 * (f.x - 2.0) + 0.3 * az, 0.0, 1.0));
     float acc = min(bead, ray);
-    if (acc < d) {
-        d = acc;
-        gDiveMat = 2.0;
-        gDiveId = bead < ray ? 0.85 : 0.6;
-    }
-    return d;
+    if (acc < res.x) res = vec3(acc, 2.0, bead < ray ? 0.85 : 0.6);
+    return res;
 }
 
 /** The mandala at gDiveFolds: at a step the next fold count crossfades in over the last 15% of the step. */
-float diveMandala(vec3 p) {
+vec3 diveMandala(vec3 p) {
     float n = floor(gDiveFolds);
-    float d = dive_mandalaN(p, n);
+    vec3 res = dive_mandalaN(p, n);
     float bl = smoothstep(0.85, 1.0, fract(gDiveFolds));
     if (bl > 0.001) {
-        float mat = gDiveMat;
-        float id = gDiveId;
-        d = mix(d, dive_mandalaN(p, n + 1.0), bl);
-        if (bl < 0.5) {
-            gDiveMat = mat;
-            gDiveId = id;
-        }
+        vec3 next = dive_mandalaN(p, n + 1.0);
+        // The distance crossfades; the part and id are the nearer count's.
+        res = vec3(mix(res.x, next.x, bl), bl < 0.5 ? res.yz : next.yz);
     }
-    return d;
+    return res;
 }
 
 // ---- the world ----------------------------------------------------------------
@@ -554,20 +625,42 @@ vec3 diveChaos(vec3 p) {
     return p;
 }
 
-float diveMap(vec3 p) {
+/** This frame's scene at q (after the breath and the bend): (distance, part, id). */
+vec3 diveScene(vec3 q) {
+    if (gDiveScene == DIVE_LATTICE) return diveLattice(q);
+    if (gDiveScene == DIVE_JEWEL) return diveJewel(q);
+    if (gDiveScene == DIVE_MUSHROOM) return diveMushrooms(q);
+    if (gDiveScene == DIVE_GYRO) return diveGyro(q);
+    return diveMandala(q);
+}
+
+/**
+ * GROW AND FORMULA HOOK. Where lib_grow (Spawn, Fractal, Front and Back layer) and
+ * uFormula will wrap the scene F at q once they land (see the header): today the
+ * scene itself. Swap this one line at the merge.
+ */
+#define DIVE_GROW(p, F) F(p)
+
+/**
+ * The family's one field at world point p: (distance, part, id), the part and id as
+ * gDiveHitMat and gDiveHitId describe them. It writes no global, so a normal's taps
+ * leave the hit's part alone.
+ */
+vec3 diveField(vec3 p) {
     vec3 q = p;
     q.z = gDiveEye.z + (q.z - gDiveEye.z) * gDiveBreath;
     q = diveChaos(q);
-    float d;
-    if (gDiveScene == DIVE_LATTICE) d = diveLattice(q);
-    else if (gDiveScene == DIVE_JEWEL) d = diveJewel(q);
-    else if (gDiveScene == DIVE_MUSHROOM) d = diveMushrooms(q);
-    else if (gDiveScene == DIVE_GYRO) d = diveGyro(q);
-    else d = diveMandala(q);
+    vec3 m = DIVE_GROW(q, diveScene);
     // Both remaps stretch space; divide by their bound so the march never overshoots.
     // The width's offset after it: an offset of a bounded estimate stays bounded.
-    d = d / (max(gDiveBreath, 1.0) * (1.0 + gDiveChaosAmp * 2.83)) - gDiveWidth;
-    return max(d, DIVE_EYE_R - length(p - gDiveEye));
+    m.x = m.x / (max(gDiveBreath, 1.0) * (1.0 + gDiveChaosAmp * 2.83)) - gDiveWidth;
+    m.x = max(m.x, DIVE_EYE_R - length(p - gDiveEye));
+    return m;
+}
+
+/** The field's distance alone. */
+float diveMap(vec3 p) {
+    return diveField(p).x;
 }
 
 vec3 diveNormal(vec3 p, float e) {
@@ -583,7 +676,7 @@ float diveEps(float t) {
 
 /**
  * Marches from ro along rd. Returns the hit distance or -1, the steps spent in
- * `used`, and copies the hit's part into gDiveHitMat / gDiveHitId.
+ * `used`, and leaves the hit's part and id (diveField's y and z) in gDiveHitMat / gDiveHitId.
  */
 float diveMarch(vec3 ro, vec3 rd, out float used) {
     float stride = uSteps < 80.0 ? 0.9 : 0.8;
@@ -593,11 +686,12 @@ float diveMarch(vec3 ro, vec3 rd, out float used) {
         if (float(i) >= uSteps) break;
         if (t > DIVE_FAR * gDiveReach) break;
         used = float(i);
-        float d = diveMap(ro + rd * t);
+        vec3 m = diveField(ro + rd * t);
+        float d = m.x;
         float eps = diveEps(t);
         if (d < eps) {
-            gDiveHitMat = gDiveMat;
-            gDiveHitId = gDiveId;
+            gDiveHitMat = m.y;
+            gDiveHitId = m.z;
             return t;
         }
         t += max(d * stride, eps * 0.5);
@@ -629,7 +723,7 @@ vec3 divePathPoint(int mode, float s) {
  * looks along its tangent, and the rig's look is applied on top. Accordion
  * flies straight (the breathing is gDiveBreath, set by the style). Orbit flies
  * straight and swings the look side to side by up to gDiveSwing radians.
- * Also sets gDiveEye, which diveMap() needs.
+ * Also sets gDiveEye, which diveField() needs.
  */
 void diveCamera(int mode, vec2 uv, out vec3 ro, out vec3 rd) {
     float s = diveTravel();

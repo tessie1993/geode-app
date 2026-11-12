@@ -186,7 +186,6 @@ class PlayerSession internal constructor(
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
     internal val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore)
-    private val audioFxController = playback.audioFx
 
     internal val settings: PlayerSettingsController =
         PlayerSettingsController(
@@ -947,7 +946,6 @@ class PlayerSession internal constructor(
                 }
 
                 override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                    audioFxController.attach(audioSessionId)
                     settings.refreshAudioFx()
                 }
 
@@ -966,7 +964,6 @@ class PlayerSession internal constructor(
             }
         playerListener = listener
         player.addListener(listener)
-        audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

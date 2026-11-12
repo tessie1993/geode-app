@@ -84,10 +84,8 @@ interface AudioFxLimits {
 }
 
 /**
- * Drives the native equalizer chain and remembers its settings.
- *
- * The chain lives inside the player's processor list, so it is always "attached"; [attach] is
- * kept for the audio-session callers and only records the id.
+ * Drives the native equalizer chain and remembers its settings. The chain lives inside the player's
+ * processor list, so there is no audio session to attach to or release.
  */
 class AudioFxController(
     private val prefs: SharedPreferences,
@@ -95,22 +93,8 @@ class AudioFxController(
     private val dsp: NativeDspProcessor,
     private val limits: AudioFxLimits = AudioFxLimits.Native,
 ) {
-    private var sessionId: Int = 0
-
-    val available: Boolean get() = true
-
-    val attached: Boolean get() = true
-
     init {
         dsp.update(restored())
-    }
-
-    fun attach(sessionId: Int) {
-        this.sessionId = sessionId
-    }
-
-    fun release() {
-        sessionId = 0
     }
 
     fun setEnabled(enabled: Boolean) {

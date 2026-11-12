@@ -133,30 +133,31 @@ Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring 
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_layerNormalize(JNIEnv* env, jobject, jstring layer) {
-    Utf8Chars text(env, layer);
-    return geode::jni::utf8String(env, geode_layer_normalize(text.get() ? text.get() : ""));
+Java_dev_geode_engine_bridge_GeodeNative_layerEdit(JNIEnv* env, jobject, jint field, jfloat value, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    return geode::jni::utf8String(env, geode_layer_edit(field, value, id.get()));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_layerEdit(JNIEnv* env, jobject, jstring layer, jstring field, jstring value) {
-    Utf8Chars text(env, layer);
-    Utf8Chars name(env, field);
-    Utf8Chars to(env, value);
-    return geode::jni::utf8String(env, geode_layer_edit(text.get() ? text.get() : "", name.get() ? name.get() : "",
-                                                        to.get() ? to.get() : ""));
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_layerEditor(JNIEnv* env, jobject, jstring layer, jstring activeStyle) {
-    Utf8Chars text(env, layer);
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerValues(JNIEnv* env, jobject, jstring activeStyle, jint family) {
     Utf8Chars active(env, activeStyle);
-    return geode::jni::utf8String(env, geode_layer_editor(text.get() ? text.get() : "", active.get() ? active.get() : ""));
+    float values[GEODE_LAYER_VALUES] = {};
+    geode_layer_values(active.get(), family, values, GEODE_LAYER_VALUES);
+    jfloatArray out = env->NewFloatArray(GEODE_LAYER_VALUES);
+    if (out) env->SetFloatArrayRegion(out, 0, GEODE_LAYER_VALUES, values);
+    return out;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerList(JNIEnv* env, jobject, jint list, jstring activeStyle, jint family) {
+    Utf8Chars active(env, activeStyle);
+    return geode::jni::utf8Lines(env, geode_layer_list(list, active.get(), family));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_layerBlendNames(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_layer_blend_names());
+Java_dev_geode_engine_bridge_GeodeNative_layerShown(JNIEnv* env, jobject, jstring activeStyle) {
+    Utf8Chars active(env, activeStyle);
+    return geode::jni::utf8String(env, geode_layer_shown(active.get()));
 }
 
 JNIEXPORT void JNICALL

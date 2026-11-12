@@ -46,8 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.data.LayerStore
-import dev.geode.data.LayersEditor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.fluid.FluidShaderTemplate
@@ -455,65 +453,67 @@ private fun AdsrSlider(
 }
 
 /**
- * Expert › Layers: a second style drawn over the active one. The layer lives in [LayerStore] (saved, and drawn by
- * the wallpaper and the dream too); which style it draws and everything this page offers is native's
- * (core/viz/LayerPick), so the page only shows the rows and hands each choice back.
+ * Expert › Layers: a second style drawn over the active one. Native keeps the layer, process-wide, and decides which
+ * style it draws and everything this page offers (core/viz/LayerState, core/viz/LayerPick); the page draws the values
+ * and lists native hands it, hands each choice back, and saves the line native returns ([dev.geode.data.LookStore]).
  */
 @Composable
-internal fun LayersPage(store: LayerStore = LocalContext.current.geodeContainer.layers) {
-    val text by store.text.collectAsStateWithLifecycle()
-    val activeScene = LocalSceneId.current
+internal fun LayersPage() {
+    val looks = LocalContext.current.geodeContainer.looks
+    val active = LocalSceneId.current
+    var edits by remember { mutableIntStateOf(0) }
     // Read again now and then too: what Auto Director or a knob draws moves without an edit here.
-    val editor by produceState(store.editor(activeScene), text, activeScene) {
+    val shown by produceState(GeodeNative.layerShown(active), active, edits) {
         while (true) {
-            value = store.editor(activeScene)
+            value = GeodeNative.layerShown(active)
             delay(LAYER_SHOWN_POLL_MS)
         }
     }
-    ControlHint(stringResource(R.string.customize_layers_hint))
-    CheckRow(LAYERS_ENABLED, editor.on, scope = ParamScope.UNIVERSAL) { store.edit("on", if (it) "1" else "0") }
-    if (!editor.on || !sectionVisible()) return
-    val source = editor.sources.indexOfFirst { it.name == editor.source }
-    DropdownRow(stringResource(R.string.customize_layer_from), editor.sources.map { it.label }, source) {
-        store.edit("source", editor.sources[it].name)
+    // The style picker's family as the user browses it; -1 is native's, the one holding the style drawn now.
+    var family by remember(shown) { mutableIntStateOf(-1) }
+    val values = remember(active, family, edits, shown) { GeodeNative.layerValues(active, family) }
+    val edit = { field: Int, value: Float, styleId: String ->
+        GeodeNative.layerEdit(field, value, styleId).takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
+        edits += 1
     }
-    when (editor.source) {
-        LAYER_SOURCE_USER -> LayerStylePicker(editor) { store.edit("style", it) }
-        LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
-        LAYER_SOURCE_MACRO -> {
-            val knob = editor.knobs.indexOfFirst { it.name == editor.knob.toString() }.coerceAtLeast(0)
-            DropdownRow(stringResource(R.string.customize_layer_knob), editor.knobs.map { it.label }, knob) {
-                store.edit("knob", editor.knobs[it].name)
+    val list = { which: Int -> GeodeNative.layerList(which, active, values[GeodeNative.LAYER_FAMILY].toInt()).asList() }
+    ControlHint(stringResource(R.string.customize_layers_hint))
+    val on = values[GeodeNative.LAYER_ON] > 0f
+    CheckRow(LAYERS_ENABLED, on, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_ON, if (it) 1f else 0f, "") }
+    if (!on || !sectionVisible()) return
+    val source = values[GeodeNative.LAYER_SOURCE].toInt()
+    DropdownRow(stringResource(R.string.customize_layer_from), list(GeodeNative.LAYER_LIST_SOURCES), source) {
+        edit(GeodeNative.LAYER_SOURCE, it.toFloat(), "")
+    }
+    when (source) {
+        GeodeNative.LAYER_SOURCE_USER -> {
+            val resources = LocalResources.current
+            val families = list(GeodeNative.LAYER_LIST_FAMILIES).map { styleFamilyLabel(resources, it) }
+            val styles = list(GeodeNative.LAYER_LIST_STYLES)
+            DropdownRow(stringResource(R.string.customize_layer_family), families, values[GeodeNative.LAYER_FAMILY].toInt()) { family = it }
+            DropdownRow(
+                stringResource(R.string.customize_layer_pick),
+                styles.map { styleLabel(resources, it) },
+                values[GeodeNative.LAYER_STYLE].toInt(),
+                placeholder = stringResource(R.string.customize_layer_suits),
+            ) { edit(GeodeNative.LAYER_STYLE, 0f, styles[it]) }
+            if (values[GeodeNative.LAYER_PICKED] > 0f) {
+                TextButton(onClick = { edit(GeodeNative.LAYER_STYLE, 0f, "") }) { Text(stringResource(R.string.customize_layer_suits)) }
+            }
+        }
+        GeodeNative.LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
+        GeodeNative.LAYER_SOURCE_MACRO -> {
+            val knob = values[GeodeNative.LAYER_KNOB].toInt()
+            DropdownRow(stringResource(R.string.customize_layer_knob), list(GeodeNative.LAYER_LIST_KNOBS), knob) {
+                edit(GeodeNative.LAYER_KNOB, it.toFloat(), "")
             }
             ControlHint(stringResource(R.string.customize_layer_macro_hint))
         }
     }
-    if (editor.shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(editor.shown)))
-    DropdownRow("Blend", editor.blends, editor.blend) { store.edit("blend", it.toString()) }
-    LabeledSlider(LAYER_MIX, editor.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { store.edit("mix", it.toString()) }
-}
-
-/** The You source's style: a family, then a style in it, by name, as native lists them; or back to native's pick. */
-@Composable
-private fun LayerStylePicker(
-    editor: LayersEditor,
-    onPick: (String) -> Unit,
-) {
-    val resources = LocalResources.current
-    val shownFamily = editor.families.indexOfFirst { editor.shown in it.ids }.coerceAtLeast(0)
-    var familyIndex by remember(shownFamily) { mutableIntStateOf(shownFamily) }
-    val family = editor.families.getOrNull(familyIndex) ?: return
-    val familyLabels = editor.families.map { styleFamilyLabel(resources, it.name) }
-    DropdownRow(stringResource(R.string.customize_layer_family), familyLabels, familyIndex) { familyIndex = it }
-    DropdownRow(
-        stringResource(R.string.customize_layer_pick),
-        family.ids.map { styleLabel(resources, it) },
-        family.ids.indexOf(editor.styleId),
-        placeholder = stringResource(R.string.customize_layer_suits),
-    ) { onPick(family.ids[it]) }
-    if (editor.styleId.isNotEmpty()) {
-        TextButton(onClick = { onPick("") }) { Text(stringResource(R.string.customize_layer_suits)) }
-    }
+    if (shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(shown)))
+    val blend = values[GeodeNative.LAYER_BLEND].toInt()
+    DropdownRow("Blend", list(GeodeNative.LAYER_LIST_BLENDS), blend) { edit(GeodeNative.LAYER_BLEND, it.toFloat(), "") }
+    LabeledSlider(LAYER_MIX, values[GeodeNative.LAYER_MIX], 0f..1f, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_MIX, it, "") }
 }
 
 /**
@@ -729,9 +729,5 @@ private const val ENV_RETRIGGER = "Restart on every hit"
 private const val LAYERS_ENABLED = "Layers enabled"
 private const val LAYER_MIX = "Layer mix"
 
-// Customize › Layers' sources, as native names them (core/viz/LayerState), and how often the page reads again
-// what Auto Director or a knob draws.
-private const val LAYER_SOURCE_USER = "USER"
-private const val LAYER_SOURCE_DIRECTOR = "DIRECTOR"
-private const val LAYER_SOURCE_MACRO = "MACRO"
+// How often Customize › Layers reads again what Auto Director or a knob draws.
 private const val LAYER_SHOWN_POLL_MS = 1000L

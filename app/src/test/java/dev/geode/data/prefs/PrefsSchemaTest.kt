@@ -27,8 +27,6 @@ import dev.geode.data.FavouritesStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.LayerCodec
-import dev.geode.data.LayerStore
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.LibrarySettings
@@ -133,7 +131,6 @@ class PrefsSchemaTest {
             Owner("$DATA/PaletteStackStore.kt", PaletteStackStore.PREF_KEYS) {
                 PaletteStackCodec { stack -> stack }.save(it[general], "palettestack|1\n")
             },
-            Owner("$DATA/LayerStore.kt", LayerStore.PREF_KEYS) { LayerCodec { layer -> layer }.save(it[general], "layer|1|1|USER||0|1|0.5") },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
                 val store = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 store.save(store.load())

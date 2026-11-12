@@ -342,30 +342,51 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Customize › Layers, process-wide (core/viz/LayerState): every renderer draws [layer], the text native keeps it as. */
+    /** Customize › Layers, process-wide (core/viz/LayerState): native keeps the layer; [layer] is the line it last handed back. */
     external fun layerSet(layer: String)
 
-    /** [layer] made valid; any other text is the default layer, off. */
-    external fun layerNormalize(layer: String): String
-
-    /** [layer] with one field changed (`geode_layer_edit`: on, source, style, knob, blend, mix). */
+    /** One field of native's layer changed (`geode_layer_edit`, [field] a `LAYER_*` up to [LAYER_STYLE]); the line to save, or "". */
     external fun layerEdit(
-        layer: String,
-        field: String,
-        value: String,
+        field: Int,
+        value: Float,
+        styleId: String,
     ): String
 
-    /** What Customize › Layers draws and offers over [activeStyle] (core/viz/LayerPick editorText's rows). */
-    external fun layerEditor(
-        layer: String,
+    /** What Customize › Layers draws over [activeStyle], by `LAYER_*` (`geode_layer_values`); [family] -1 is the drawn style's. */
+    external fun layerValues(
         activeStyle: String,
-    ): String
+        family: Int,
+    ): FloatArray
 
-    /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
-    external fun layerBlendNames(): String
+    /** One of the page's lists (`geode_layer_list`, [list] a `LAYER_LIST_*`); [family] as [layerValues] takes it. */
+    external fun layerList(
+        list: Int,
+        activeStyle: String,
+        family: Int,
+    ): Array<String>
 
-    /** Screen, the blend a new layer starts on (`GEODE_LAYER_BLEND_DEFAULT`). */
-    const val LAYER_BLEND_DEFAULT: Int = 1
+    /** The style the layer draws now over [activeStyle], "" for none. */
+    external fun layerShown(activeStyle: String): String
+
+    // Mirrors of GEODE_LAYER_*: a [layerValues] slot, and up to LAYER_STYLE what [layerEdit] changes.
+    const val LAYER_ON: Int = 0
+    const val LAYER_SOURCE: Int = 1
+    const val LAYER_KNOB: Int = 2
+    const val LAYER_BLEND: Int = 3
+    const val LAYER_MIX: Int = 4
+    const val LAYER_STYLE: Int = 5
+    const val LAYER_FAMILY: Int = 6
+    const val LAYER_PICKED: Int = 7
+
+    // Mirrors of GEODE_LAYER_SOURCE_* and GEODE_LAYER_LIST_*.
+    const val LAYER_SOURCE_USER: Int = 0
+    const val LAYER_SOURCE_DIRECTOR: Int = 1
+    const val LAYER_SOURCE_MACRO: Int = 2
+    const val LAYER_LIST_SOURCES: Int = 0
+    const val LAYER_LIST_BLENDS: Int = 1
+    const val LAYER_LIST_FAMILIES: Int = 2
+    const val LAYER_LIST_STYLES: Int = 3
+    const val LAYER_LIST_KNOBS: Int = 4
 
     external fun vizSetTransition(
         handle: Long,

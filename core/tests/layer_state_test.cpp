@@ -5,7 +5,8 @@
 // what each of them draws; the generation moves on a real change and only then, so a renderer re-reads it
 // exactly when it changed; a renderer made after the set still sees it; and an export's pinned copy keeps
 // the layer it started with while the live one moves on. And the text the shell saves it as: it round trips,
-// any other text is the default layer (off), an edit changes one field, and nothing out of range gets through.
+// any other text is the default layer (off), an edit changes one field (of the stored layer too, moving the
+// generation only on a real change), and nothing out of range or not finite gets through.
 #include <cstdio>
 #include <limits>
 #include <string>
@@ -130,19 +131,38 @@ void theTextRoundTrips() {
 }
 
 void anEditChangesOneField() {
+    using F = ls::Field;
     const ls::Layer base{};
-    check(ls::edit(base, "on", "1").on, "on");
-    check(ls::edit(base, "source", "DIRECTOR").source == ls::Source::Director, "source");
-    check(ls::edit(base, "source", "nope") == base, "an unknown source changes nothing");
-    check(ls::edit(base, "style", "kifs").sceneId == "kifs" && ls::edit(ls::edit(base, "style", "kifs"), "style", "").sceneId.empty(),
+    check(ls::edit(base, F::On, 1.0f).on && !ls::edit(ls::edit(base, F::On, 1.0f), F::On, 0.0f).on, "on, and off");
+    check(ls::edit(base, F::Source, 1.0f).source == ls::Source::Director, "source");
+    check(ls::edit(base, F::Source, 3.0f) == base && ls::edit(base, F::Source, -1.0f) == base, "a source past the list changes nothing");
+    check(ls::edit(base, F::Style, 0.0f, "kifs").sceneId == "kifs" &&
+              ls::edit(ls::edit(base, F::Style, 0.0f, "kifs"), F::Style, 0.0f, "").sceneId.empty(),
           "style, and back to native's pick");
-    check(ls::edit(base, "style", "a|b").sceneId == "ab", "an id loses a separator");
-    check(ls::edit(base, "knob", "4").knob == 4 && ls::edit(base, "knob", "x") == base, "knob");
-    check(ls::edit(base, "blend", "3").blend == 3 && ls::edit(base, "blend", "8").blend == ls::kDefaultBlend, "blend");
-    check(ls::edit(base, "mix", "0.25").mix == 0.25f && ls::edit(base, "mix", "2").mix == 1.0f, "mix, held to 0..1");
-    check(ls::edit(base, "nothing", "1") == base, "an unknown field changes nothing");
-    const ls::Layer on = ls::edit(ls::edit(base, "on", "1"), "mix", "0.75");
+    check(ls::edit(base, F::Style, 0.0f, "a|b").sceneId == "ab", "an id loses a separator");
+    check(ls::edit(base, F::Knob, 4.0f).knob == 4 && ls::edit(base, F::Knob, -4.0f).knob == 0, "knob, never negative");
+    check(ls::edit(base, F::Blend, 3.0f).blend == 3 && ls::edit(base, F::Blend, 8.0f).blend == ls::kDefaultBlend, "blend");
+    check(ls::edit(base, F::Mix, 0.25f).mix == 0.25f && ls::edit(base, F::Mix, 2.0f).mix == 1.0f, "mix, held to 0..1");
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    for (const F field : {F::On, F::Source, F::Knob, F::Blend, F::Mix}) {
+        check(ls::edit(base, field, nan) == base && ls::edit(base, field, inf) == base, "a value that is not finite changes nothing");
+    }
+    check(ls::edit(base, F::Knob, 3.0e9f).knob == 1000000, "a wild knob is held, not overflowed");
+    const ls::Layer on = ls::edit(ls::edit(base, F::On, 1.0f), F::Mix, 0.75f);
     check(on.on && on.mix == 0.75f && on.blend == base.blend && on.source == base.source, "the rest is kept");
+}
+
+void aChangeEditsTheStoredLayer() {
+    ls::reset();
+    const uint64_t g0 = ls::generation();
+    check(ls::change(ls::Field::On, 1.0f) && ls::get().on, "a change edits the layer every renderer draws");
+    const uint64_t g1 = ls::generation();
+    check(g1 > g0, "and moves the generation");
+    check(!ls::change(ls::Field::On, 1.0f) && ls::generation() == g1, "the same value again is no change");
+    check(ls::change(ls::Field::Style, 0.0f, "kifs") && ls::get().sceneId == "kifs" && ls::get().on, "the rest is kept");
+    check(ls::decode(ls::encode(ls::get())) == ls::get(), "what the shell saves reads back as the layer");
+    ls::reset();
 }
 
 void theShownStyleIsShared() {
@@ -161,6 +181,7 @@ int main() {
     pinnedCopyIgnoresLaterSets();
     theTextRoundTrips();
     anEditChangesOneField();
+    aChangeEditsTheStoredLayer();
     theShownStyleIsShared();
     if (failures) {
         std::printf("%d layer state check(s) failed\n", failures);

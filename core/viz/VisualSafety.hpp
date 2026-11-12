@@ -13,9 +13,8 @@ constexpr int kBlendModes = static_cast<int>(BlendMode::Darken) + 1;
 
 const char* transitionStyleId(TransitionStyle style);
 BlendMode blendModeFromOrdinal(int i);
+// What Customize › Layers calls each blend (geode_layer_list's BLENDS, in ordinal order).
 const char* blendModeLabel(BlendMode mode);
-// Every label in ordinal order, each followed by '\n' (geode_layer_blend_names).
-const std::string& blendModeLabels();
 
 // The unconditional flash and luminance clamp on the params.
 namespace safety {

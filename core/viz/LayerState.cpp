@@ -161,22 +161,44 @@ Layer decode(std::string_view text) {
     return normalized(l);
 }
 
-Layer edit(const Layer& layer, std::string_view field, std::string_view value) {
+Layer edit(const Layer& layer, Field field, float value, std::string_view id) {
     Layer l = normalized(layer);
-    if (field == "on") {
-        if (const auto v = flagOf(value)) l.on = *v;
-    } else if (field == "source") {
-        if (const auto v = sourceNamed(value)) l.source = *v;
-    } else if (field == "style") {
-        l.sceneId = std::string(value);
-    } else if (field == "knob") {
-        if (const auto v = intOf(value)) l.knob = *v;
-    } else if (field == "blend") {
-        if (const auto v = intOf(value)) l.blend = *v;
-    } else if (field == "mix") {
-        if (const auto v = floatOf(value)) l.mix = *v;
+    if (field == Field::Style) {
+        l.sceneId = std::string(id);
+        return normalized(l);
+    }
+    if (!std::isfinite(value)) return l;
+    // Held well inside int's range before rounding, so a wild value reads as out of the list rather than overflowing.
+    const int whole = static_cast<int>(std::lround(std::clamp(value, -1.0e6f, 1.0e6f)));
+    switch (field) {
+        case Field::On:
+            l.on = value != 0.0f;
+            break;
+        case Field::Source:
+            if (whole >= 0 && whole < kSources) l.source = static_cast<Source>(whole);
+            break;
+        case Field::Knob:
+            l.knob = whole;
+            break;
+        case Field::Blend:
+            l.blend = whole;
+            break;
+        case Field::Mix:
+            l.mix = value;
+            break;
+        case Field::Style:
+            break;
     }
     return normalized(l);
+}
+
+bool change(Field field, float value, std::string_view id) {
+    std::lock_guard<std::mutex> guard(tableLock());
+    Layer next = edit(stored(), field, value, id);
+    if (stored() == next) return false;
+    stored() = std::move(next);
+    counter().fetch_add(1, std::memory_order_acq_rel);
+    return true;
 }
 
 bool Follower::poll(Layer& out) {

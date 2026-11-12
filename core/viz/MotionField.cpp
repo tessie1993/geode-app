@@ -13,7 +13,8 @@ MotionField::MotionField() { reset(); }
 
 void MotionField::reset() {
     rhythmLock_ = 0.0f;
-    keyHuePhase_ = 0.0f;
+    barOnBeat_ = 0.0f;
+    huePhase_ = 0.0f;
     orbitTargetX_ = 0.0f;
     orbitTargetY_ = 0.0f;
     orbitCurX_ = 0.0f;
@@ -87,7 +88,7 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     // ---- hue: no fixed driver. Each style follows one of the melody's pitch class (sure only
     // while there is a pitch), the timbre, the per-note random or the per-kick random; all of
     // them eased around the colour wheel over seconds, so a jump becomes a glide. ----
-    float hueTarget = keyHuePhase_;
+    float hueTarget = huePhase_;
     float hueStrength = 0.0f;
     switch (hueSource_) {
         case 0:
@@ -107,18 +108,23 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
             hueStrength = std::clamp(f.presence, 0.0f, 1.0f) * 0.6f;
             break;
     }
-    keyHuePhase_ = circular::mixHue(keyHuePhase_, hueTarget, 1.0f - std::exp(-dt / kKeyHueSeconds));
-    state_.keyHue = keyHuePhase_;
-    state_.keyStrength = oneOle(state_.keyStrength, hueStrength, dt, kKeyStrengthSeconds);
+    huePhase_ = circular::mixHue(huePhase_, hueTarget, 1.0f - std::exp(-dt / kHueSeconds));
+    state_.hue = huePhase_;
+    state_.hueStrength = oneOle(state_.hueStrength, hueStrength, dt, kHueStrengthSeconds);
 
-    // ---- oscillators on a clock: the engine has no tempo tracker, so the beat and bar waves run on
-    // a clock the music drives (per style: the hit count, the bass clock or the loudness clock).
-    // They only move while music plays, which is what the old confidence gate was for. ----
+    // ---- the bar wave: on the music's own bar (Rhythm's barPhase) while the tracker is sure of the beat, and
+    // on a clock the music drives (per style: the hit count, the bass clock or the loudness clock) while it is
+    // not, so no tempo is ever assumed. The two are blended as sines by how sure the beat is, eased over a
+    // second, so a beat found or lost never jumps the wave. It only moves while music plays (rhythmLock_). ----
     rhythmLock_ = oneOle(rhythmLock_, std::clamp(f.presence, 0.0f, 1.0f), dt, kRhythmLockSeconds);
     const float clock = oscClock_ == 0 ? f.hitTime : (oscClock_ == 1 ? 0.5f * f.bassTime : 0.5f * f.curvedTime);
     const float barClock = std::isfinite(clock) ? 0.25f * clock : 0.0f;
-    const float barPhase = barClock - std::floor(barClock);
-    const float barSin = std::sin(kTwoPi * barPhase);
+    const float clockPhase = barClock - std::floor(barClock);
+    const float conf = std::isfinite(f.beatConf) ? f.beatConf : 0.0f;
+    const float sure = std::clamp((conf - kBarBeatUnsure) / (kBarBeatSure - kBarBeatUnsure), 0.0f, 1.0f);
+    barOnBeat_ = oneOle(barOnBeat_, sure, dt, kBarOnBeatSeconds);
+    const float heardPhase = std::isfinite(f.barPhase) ? std::clamp(f.barPhase, 0.0f, 1.0f) : 0.0f;
+    const float barSin = (1.0f - barOnBeat_) * std::sin(kTwoPi * clockPhase) + barOnBeat_ * std::sin(kTwoPi * heardPhase);
     barSin_ = barSin;
     state_.barOsc = 0.5f + 0.5f * barSin * rhythmLock_;
 
@@ -198,10 +204,10 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
     // Under the Motion dial like every other term here: at 0 the music leaves Speed alone.
     o.speed = std::clamp(p.speed * (1.0f + amountDial * (0.5f * s.energyRel - 0.3f)), 0.05f, 4.0f);
-    // The key's hue, gated by how confident the key detector is, offset
+    // The style's hue driver, gated by how far it is trusted (a pitch's confidence, or the music playing), offset
     // slightly further by how bright the passage reads.
-    const float keyHueOffset = s.keyStrength * wrappedDelta01(0.5f, s.keyHue);
-    o.colorShift = p.colorShift + motionHue * (keyHueOffset + 0.1f * (s.bright - 0.5f));
+    const float hueOffset = s.hueStrength * wrappedDelta01(0.5f, s.hue);
+    o.colorShift = p.colorShift + motionHue * (hueOffset + 0.1f * (s.bright - 0.5f));
 
     o.turbulence = std::clamp(p.turbulence + amountDial * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
     o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * s.energySwing), 0.3f, 2.5f);

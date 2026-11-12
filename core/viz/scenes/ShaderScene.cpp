@@ -243,8 +243,8 @@ void ShaderScene::uploadMotion() {
     set1f("uTrebRel", m.trebRel);
     set1f("uMotionBright", m.bright);
     set1f("uHarmony", m.harmony);
-    set1f("uKeyHue", m.keyHue);
-    set1f("uKeyStrength", m.keyStrength);
+    set1f("uKeyHue", m.hue);  // the uniform keeps its old name: it carries the style's hue driver, not the key
+    set1f("uKeyStrength", m.hueStrength);
     set1f("uBarOsc", m.barOsc);
     glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
     set1f("uDrift", m.drift);

@@ -20,7 +20,7 @@ typedef struct geode_pcm_ring geode_pcm_ring;   /* the audio ring (declared agai
 #define GEODE_LFO_CONFIG_FLOATS 11  /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free),
                                        knob (the macro knob's id a MACRO target turns; 0 none), moment (-1 free, else the Moment that restarts it) */
 #define GEODE_ADSR_SLOTS 2
-#define GEODE_REACT_ROUTES 12
+#define GEODE_REACT_ROUTES 16
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
 #define GEODE_ADSR_CONFIG_FLOATS 12 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
                                        sustain_track, retrigger, knob (as the LFO's), moment (-1 a note start, else the

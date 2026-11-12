@@ -269,7 +269,8 @@ private:
     std::vector<float> tilted_;
     // The last fluxLag_ hops' log spectra, so flux compares against the one ~30 ms old.
     std::vector<float> logMag_;      // this hop's, n/2 + 1
-    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_
+    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_, each maximum-filtered (sound/OnsetFlux)
+    std::vector<int> fluxReach_;     // per bin, how far that filter reaches either way
     int fluxLag_ = 3;
     int fluxHead_ = 0;
     int fluxCount_ = 0;

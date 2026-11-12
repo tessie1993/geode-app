@@ -73,15 +73,24 @@ bool allowed(Personality p, const StyleTraits& t) {
 class Builder {
 public:
     StyleDna dna;
+    // How many routes the layers being drawn may fill: the groove's room, then the whole DNA's.
+    int cap = StyleDna::kGrooveRoutes;
 
     void add(ReactSource source, LfoTarget target, ReactMode mode, float amount, float attack, float release,
              ModCurve curve = ModCurve::Linear) {
-        if (dna.count >= StyleDna::kMaxRoutes) return;
+        if (dna.count >= cap) return;
         for (int i = 0; i < dna.count; ++i) {
             const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
             if (r.source == source && r.target == target) return;
         }
         dna.routes[static_cast<size_t>(dna.count++)] = {true, source, target, mode, amount, curve, attack, release};
+    }
+
+    // The zoom personalities (Pulse, Lens) also zoom on the beat they hear: a fixed amount, so it draws nothing
+    // and every other layer draws what it drew, and one more slot of room, so it takes no other layer's.
+    void addBeatZoom(ReactSource source) {
+        ++cap;
+        add(source, LfoTarget::Zoom, ReactMode::Follow, 0.2f, 0.02f, 0.25f);
     }
 
     bool uses(LfoTarget target) const {
@@ -107,19 +116,22 @@ public:
 
 // What the picture does on the beat, for one personality.
 void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTraits& t) {
+    // A hi-hat comes too often for a jump to land between hits: on the hats a jump waits for its glide.
+    const ReactMode jump = s == ReactSource::Hat ? ReactMode::JumpSettled : ReactMode::Jump;
     switch (p) {
         case Personality::Pulse:
             b.add(s, LfoTarget::CamPush, ReactMode::Follow, d.range(0.35f, 0.6f), 0.02f, 0.28f);
+            b.addBeatZoom(s);
             break;
         case Personality::Chroma:
-            b.add(s, LfoTarget::ColorShift, ReactMode::Jump, d.range(0.25f, 0.45f), 0.08f, 0.35f);
+            b.add(s, LfoTarget::ColorShift, jump, d.range(0.25f, 0.45f), 0.08f, 0.35f);
             break;
         case Personality::Flash:
             b.add(s, LfoTarget::Bloom, ReactMode::Follow, d.range(0.45f, 0.75f), 0.08f, 0.4f);
             b.add(s, LfoTarget::Brightness, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.45f);
             break;
         case Personality::Twist:
-            b.add(s, LfoTarget::Twist, ReactMode::Jump, d.range(0.3f, 0.6f), 0.04f, 0.4f);
+            b.add(s, LfoTarget::Twist, jump, d.range(0.3f, 0.6f), 0.04f, 0.4f);
             break;
         case Personality::Warp:
             b.add(s, LfoTarget::Warp, ReactMode::Follow, d.range(0.45f, 0.8f), 0.03f, 0.45f, ModCurve::Smooth);
@@ -131,10 +143,11 @@ void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTrait
             b.add(s, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.5f, 0.9f), 0.01f, 0.2f);
             break;
         case Personality::Swing:
-            b.add(s, LfoTarget::CamYaw, ReactMode::Jump, d.range(0.3f, 0.6f), 0.15f, 0.5f);
+            b.add(s, LfoTarget::CamYaw, jump, d.range(0.3f, 0.6f), 0.15f, 0.5f);
             break;
         case Personality::Lens:
             b.add(s, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.3f, 0.6f), 0.03f, 0.35f, ModCurve::Smooth);
+            b.addBeatZoom(s);
             break;
         case Personality::Spin:
             b.add(s, LfoTarget::Rotation, ReactMode::Step, (t.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.12f, 0.25f), 0.12f, 0.12f);
@@ -160,6 +173,26 @@ Personality pickPersonality(Draw& d, const StyleTraits& t, int avoidGroup) {
 template <size_t N>
 ReactSource pick(Draw& d, const std::array<ReactSource, N>& pool) {
     return pool[static_cast<size_t>(d.below(static_cast<int>(N)))];
+}
+
+// A musical layer's target: the first of `options` (from a drawn start) the style does not move yet, else the
+// first option, beside whatever moves it already (two sources on one target are allowed), so the layer always
+// lands. The first option must be one every style reaches.
+template <size_t N>
+LfoTarget landing(Builder& b, Draw& d, const std::array<LfoTarget, N>& options, const StyleTraits& t) {
+    const LfoTarget free = b.freeTarget(d, options, t);
+    return free != LfoTarget::None ? free : options[0];
+}
+
+// How far a musical layer moves a structural target at most: about what the groove's own layers move it.
+float structuralAmount(Draw& d, LfoTarget target) {
+    switch (target) {
+        case LfoTarget::Zoom: return d.range(0.1f, 0.2f);
+        case LfoTarget::CamFov: return d.range(0.2f, 0.35f);
+        case LfoTarget::Morph: return d.range(0.3f, 0.5f);
+        case LfoTarget::Turbulence: case LfoTarget::Warp: case LfoTarget::Ripple: return d.range(0.2f, 0.4f);
+        default: return d.range(0.15f, 0.3f);
+    }
 }
 
 }  // namespace
@@ -196,14 +229,15 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         b.add(clock, LfoTarget::Rotation, ReactMode::Spin, (traits.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.15f, 0.35f), 0.1f, 0.6f);
     }
 
-    // The body: a sustained level moves something continuous, not another hit thing.
+    // The body: a sustained level moves something continuous, not another hit thing. Each band against its own
+    // mean, or how many partials sound: never the absolute loudness (volume is not what the picture hears).
     {
-        const ReactSource body = pick(d, std::array{ReactSource::BassAtt, ReactSource::Low, ReactSource::SubAtt, ReactSource::VolAtt,
-                                                    ReactSource::Level, ReactSource::BassPresence, ReactSource::MidAtt});
+        const ReactSource body = pick(d, std::array{ReactSource::BassAtt, ReactSource::Low, ReactSource::SubAtt, ReactSource::DensitySlow,
+                                                    ReactSource::MidPresence, ReactSource::BassPresence, ReactSource::MidAtt});
         const std::array bodies = {LfoTarget::Zoom, LfoTarget::Saturation, LfoTarget::Ripple, LfoTarget::Bloom,
                                    LfoTarget::Fisheye, LfoTarget::CamOrbit};
         switch (b.freeTarget(d, bodies, traits)) {
-            case LfoTarget::Zoom: b.add(body, LfoTarget::Zoom, ReactMode::Follow, d.range(0.06f, 0.12f), 0.08f, 0.45f, ModCurve::Smooth); break;
+            case LfoTarget::Zoom: b.add(body, LfoTarget::Zoom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.45f, ModCurve::Smooth); break;
             case LfoTarget::Saturation: b.add(body, LfoTarget::Saturation, ReactMode::Follow, d.range(0.2f, 0.4f), 0.3f, 0.8f); break;
             case LfoTarget::Ripple: b.add(body, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), 0.1f, 0.5f, ModCurve::Smooth); break;
             case LfoTarget::Bloom: b.add(body, LfoTarget::Bloom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.2f, 0.6f); break;
@@ -263,8 +297,9 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         }
     }
 
-    // Some cruise faster the longer the song stays loud, lean with the stereo field, or rise with the melody.
-    if (d.coin()) b.add(ReactSource::Intensity, LfoTarget::CamFly, ReactMode::Follow, d.range(0.3f, 0.6f), 1.5f, 3.0f, ModCurve::Smooth);
+    // Some cruise faster the longer the bass keeps going (its activity against its own level, never the volume),
+    // lean with the stereo field, or rise with the melody.
+    if (d.coin()) b.add(ReactSource::BassPresence, LfoTarget::CamFly, ReactMode::Follow, d.range(0.3f, 0.6f), 1.5f, 3.0f, ModCurve::Smooth);
     if (d.coin() && !b.uses(LfoTarget::CamYaw)) {
         b.add(ReactSource::StereoPan, LfoTarget::CamYaw, ReactMode::Follow, d.range(0.2f, 0.45f), 0.3f, 0.6f);
     }
@@ -277,20 +312,132 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // above is what it was before it came; when the DNA is already full it takes the slot of the layer drawn
     // last (the style's least: a texture, accent, rise, cruise, lean or lift, never the pulse, big moment or
     // colour), so the cap holds and every style has one. Its source (the hit or its envelope) and its target, one
-    // the style does not already move, are drawn like any layer's; Camera shake is never taken above, so there
-    // is always one free.
+    // the style does not already move, are drawn like any layer's; when every one is taken it zooms beside
+    // whatever zooms already (a camera shake, the old last resort, was too small to see).
     {
-        if (b.dna.count >= StyleDna::kMaxRoutes) b.dna.count = StyleDna::kMaxRoutes - 1;
+        if (b.dna.count >= b.cap) b.dna.count = b.cap - 1;
         const ReactSource attack = pick(d, std::array{ReactSource::Transient, ReactSource::TransientEnv});
-        const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::CamShake};
-        switch (b.freeTarget(d, attacks, traits)) {
+        const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::Zoom};
+        LfoTarget hit = b.freeTarget(d, attacks, traits);
+        if (hit == LfoTarget::None) hit = LfoTarget::Zoom;
+        switch (hit) {
             case LfoTarget::Ripple: b.add(attack, LfoTarget::Ripple, ReactMode::Follow, d.range(0.25f, 0.45f), 0.01f, 0.25f); break;
             case LfoTarget::Warp: b.add(attack, LfoTarget::Warp, ReactMode::Follow, d.range(0.2f, 0.35f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::Twist: b.add(attack, LfoTarget::Twist, ReactMode::Follow, d.range(0.15f, 0.3f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::ChromaAb: b.add(attack, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.6f), 0.01f, 0.2f); break;
-            case LfoTarget::CamShake: b.add(attack, LfoTarget::CamShake, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
+            case LfoTarget::Zoom: b.add(attack, LfoTarget::Zoom, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
             default: break;
         }
+    }
+
+    // The owner: react to transients "but also to longer things like 8 beats or 16, or melody lines", and "respond
+    // in varied ways to musical content rather than volume". So after the groove every style has four more ordinary
+    // routes, drawn like any layer and seen and edited like any route: one on the music's bars, one on its tune, one
+    // on its harmony and form, one on its feel and timbre. They come after every draw above.
+    b.cap = StyleDna::kMaxRoutes;
+
+    // The song's long time: every 4 bars or every phrase (Rhythm's own bars, counted only while a beat is heard),
+    // the shape settles somewhere new and holds it. A hold followed, or a pulse jumping to a new value in the
+    // route's range, or a flip ping-ponging between two states every 2 bars or every phrase, glided over a second
+    // or more, onto something structural the style does not move yet: depth, field of view, the shape, the
+    // turbulence. Never a colour, never a turn, and no tempo is weighed: the bars come from the music or not at
+    // all. Turbulence is never taken above, so there is always one free.
+    {
+        ReactSource bars = ReactSource::Bar4Hold;
+        ReactMode mode = ReactMode::Follow;
+        switch (d.below(6)) {
+            case 0: break;
+            case 1: bars = ReactSource::PhraseHold; break;
+            case 2: bars = ReactSource::Bar4Pulse; mode = ReactMode::Jump; break;
+            case 3: bars = ReactSource::Phrase; mode = ReactMode::Jump; break;
+            case 4: bars = ReactSource::Bar2Flip; break;
+            default: bars = ReactSource::PhraseFlip; break;
+        }
+        const std::array longs = {LfoTarget::Zoom, LfoTarget::CamFov, LfoTarget::Morph, LfoTarget::Turbulence};
+        const float rise = d.range(1.0f, 2.0f);
+        const float fall = d.range(1.2f, 2.5f);
+        switch (b.freeTarget(d, longs, traits)) {
+            case LfoTarget::Zoom: b.add(bars, LfoTarget::Zoom, mode, d.range(0.08f, 0.15f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::CamFov: b.add(bars, LfoTarget::CamFov, mode, d.range(0.2f, 0.35f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Morph: b.add(bars, LfoTarget::Morph, mode, d.range(0.3f, 0.5f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Turbulence: b.add(bars, LfoTarget::Turbulence, mode, d.range(0.2f, 0.4f), rise, fall, ModCurve::Smooth); break;
+            default: break;
+        }
+    }
+
+    // The tune: the melody's line rising and falling, its height, each new note, or simply whether one sounds,
+    // onto a look the style does not move yet. Speed is never taken above, so there is always one free.
+    {
+        const ReactSource line = pick(d, std::array{ReactSource::MelodyContour, ReactSource::MelodyContour, ReactSource::PitchHeight,
+                                                    ReactSource::MelodyNote, ReactSource::MelodyPresence});
+        const bool note = line == ReactSource::MelodyNote;
+        const float rise = note ? 0.02f : d.range(0.25f, 0.5f);
+        const float fall = note ? d.range(0.3f, 0.5f) : d.range(0.6f, 1.2f);
+        const std::array tunes = {LfoTarget::CamPitch, LfoTarget::Warp, LfoTarget::Ripple, LfoTarget::Fisheye,
+                                  LfoTarget::Zoom, LfoTarget::CamFov, LfoTarget::Speed};
+        switch (b.freeTarget(d, tunes, traits)) {
+            case LfoTarget::CamPitch: b.add(line, LfoTarget::CamPitch, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Warp: b.add(line, LfoTarget::Warp, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Ripple: b.add(line, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Fisheye: b.add(line, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Zoom: b.add(line, LfoTarget::Zoom, ReactMode::Follow, d.range(0.05f, 0.1f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::CamFov: b.add(line, LfoTarget::CamFov, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Speed: b.add(line, LfoTarget::Speed, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            default: break;
+        }
+    }
+
+    // Harmony and form: a chord change, the leading scale degree moving, a new section or a drop (each a new
+    // value that holds, settled so a run of changes cannot flicker it, or a flip between two states); or the
+    // chord's tension, how clearly the key sounds, the tension rising or easing, a build-up or how new the bar
+    // is (followed, or for tension and build-up added up, so a tight passage carries the shape on rather than
+    // pushing it out and back). Onto the shape, depth, field of view, turbulence, warp or the camera's look;
+    // never a colour (the owner's rule: the palette is the style's and the user's) and never a turn.
+    {
+        const ReactSource heard = pick(d, std::array{ReactSource::HarmonicChange, ReactSource::DegreeAccent, ReactSource::SectionChange,
+                                                     ReactSource::Drop, ReactSource::Tension, ReactSource::KeyClarity,
+                                                     ReactSource::TensionRise, ReactSource::BuildUp, ReactSource::Novelty});
+        const bool event = reactSourceInfo(heard).event;
+        const LfoTarget target = landing(b, d,
+                                         std::array{LfoTarget::Warp, LfoTarget::Morph, LfoTarget::Zoom, LfoTarget::CamFov,
+                                                    LfoTarget::Turbulence, LfoTarget::CamPitch, LfoTarget::CamYaw},
+                                         traits);
+        ReactMode mode = ReactMode::Follow;
+        if (event) {
+            const int m = d.below(3);
+            mode = m == 0 ? ReactMode::JumpSettled : (m == 1 ? ReactMode::Jump : ReactMode::Toggle);
+        } else if ((heard == ReactSource::Tension || heard == ReactSource::BuildUp) && target != LfoTarget::CamPitch &&
+                   target != LfoTarget::CamYaw && d.coin()) {
+            mode = ReactMode::Spin;  // "Add up": a rate, so half the reach a second at most
+        }
+        const float amount = structuralAmount(d, target) * (mode == ReactMode::Spin ? 0.5f : 1.0f);
+        const float rise = event ? d.range(0.4f, 0.9f) : d.range(0.5f, 1.0f);
+        const float fall = event ? d.range(0.8f, 1.6f) : d.range(1.0f, 2.0f);
+        b.add(heard, target, mode, amount, rise, fall, ModCurve::Smooth);
+    }
+
+    // Feel and timbre, followed slowly with long glides: the mood, the felt tension or the scale's brightness; the
+    // noisiness, brightness, roll-off, hollowness or width of the sound; or how the tune is played (a busy run,
+    // vibrato, glides, slides, the size of its leaps). Onto a look the style does not move yet.
+    {
+        ReactSource feel = ReactSource::Valence;
+        switch (d.below(3)) {
+            case 0: feel = pick(d, std::array{ReactSource::Valence, ReactSource::FeltTension, ReactSource::ScaleBrightness}); break;
+            case 1:
+                feel = pick(d, std::array{ReactSource::Flatness, ReactSource::Centroid, ReactSource::Rolloff, ReactSource::Evenness,
+                                          ReactSource::StereoWidth});
+                break;
+            default:
+                feel = pick(d, std::array{ReactSource::RunDensity, ReactSource::Vibrato, ReactSource::Glide, ReactSource::Legato,
+                                          ReactSource::Interval});
+                break;
+        }
+        const LfoTarget target = landing(b, d,
+                                         std::array{LfoTarget::Turbulence, LfoTarget::Warp, LfoTarget::Morph, LfoTarget::CamFov,
+                                                    LfoTarget::Zoom, LfoTarget::CamPitch, LfoTarget::Fisheye, LfoTarget::Ripple,
+                                                    LfoTarget::Speed},
+                                         traits);
+        b.add(feel, target, ReactMode::Follow, structuralAmount(d, target), d.range(0.8f, 1.5f), d.range(1.5f, 3.0f), ModCurve::Smooth);
     }
 
     return b.dna;

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "api/geode_api.h"
+#include "sound/Emotion.hpp"
 #include "viz/Circular.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Params.hpp"
@@ -58,8 +59,21 @@ enum class ReactSource {
     FadeGain,
     // Transients (core/sound/Transient): the sharp start of any sound, its envelope, and how steep the last one was.
     Transient, TransientEnv, TransientSharpness,
+    // Counted on the music's own bars (Rhythm's downbeats, bar in the phrase, phrase): every bar, every 2, every 4
+    // (16 beats in 4/4, 12 in 3/4) and every phrase (8 bars). Hold steps to a new value on each count and keeps it
+    // until the next; Pulse is a trigger on the count (every bar's and every phrase's are Downbeat and Phrase above);
+    // Flip toggles 0/1 on each count. Only a locked beat counts: with none heard they stay still.
+    BarHold, BarFlip, Bar2Hold, Bar2Pulse, Bar2Flip, Bar4Hold, Bar4Pulse, Bar4Flip, PhraseHold, PhraseFlip,
+    // The melody line: its contour (-1 falling … 1 rising, over the last second or two), every new note (a change
+    // or the same one struck again), and whether a tune sounds at all.
+    MelodyContour /* -1..1 */, MelodyNote, MelodyPresence,
+    // The feeling (core/sound/Emotion, as the director heard it): the leading scale degree changed, the mood
+    // (-1 sad … 1 happy) and the felt tension.
+    DegreeAccent, Valence /* -1..1 */, FeltTension,
+    // How the chord tension is moving: -1 easing … 1 tightening, over the last few seconds.
+    TensionRise /* -1..1 */,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::TransientSharpness) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::TensionRise) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
@@ -80,18 +94,24 @@ const ReactSourceInfo& reactSourceInfo(ReactSource s);
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
 //   jump, a quarter turn, a new camera angle), glided by the route smoothing.
-// Spin: the accumulator integrates amount * source per second (keeps turning
-//   while the sound lasts).
+// Spin (shown as "Add up"): the accumulator integrates amount * source per
+//   second, so a held value moves the target on (a melody or a tension
+//   carries a path forward) instead of pushing it out and back.
 // Jump: each rising edge holds a new seeded random value in -amount..amount
 //   (sample and hold), glided by the route smoothing: a new hue, angle or
 //   warp per hit instead of the same push every time.
 // Toggle: each rising edge flips the target between 0 and amount (a palette
 //   swap, a mirror on or off), glided by the route smoothing. Step cannot do
 //   this: an amount of 2 folds back to 0 on every edge.
+// JumpSettled: a Jump that takes a rising edge only once its last value has
+//   had its glide (attack + release) to land, so a busy trigger (a hat, a
+//   chord change after chord change) cannot flicker it: the threshold's
+//   re-arm level is the hysteresis, the glide the minimum gap.
 // Step and Spin accumulators are folded through a triangle wave into -1..1, so
-// a target stepped forever stays bounded and never wraps with a pop.
-enum class ReactMode { Follow, Step, Spin, Jump, Toggle };
-constexpr int kReactModeCount = static_cast<int>(ReactMode::Toggle) + 1;
+// a target stepped forever stays bounded and never wraps with a pop: stepped on
+// a bar count, it zig-zags up and down the range.
+enum class ReactMode { Follow, Step, Spin, Jump, Toggle, JumpSettled };
+constexpr int kReactModeCount = static_cast<int>(ReactMode::JumpSettled) + 1;
 
 struct ReactRoute {
     bool enabled = false;
@@ -105,10 +125,15 @@ struct ReactRoute {
 };
 
 // Every source value for one frame, computed once and shared by all routes.
+//
+// Most sources read one GeodeSoundFrame field. The bar counts, the melody line and the feeling are derived
+// here from the frame's own fields (and the director's feeling, when the caller has one), so they need no
+// new wire field; they depend only on the frame sequence, so an export hears them as the screen does.
 class ReactSignals {
 public:
     void reset();
-    void step(const GeodeSoundFrame& f, float dt);
+    // `feeling` is the Emotion state the director heard this frame; without one the feeling's sources read 0.
+    void step(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
     float value(ReactSource s) const { return values_[static_cast<size_t>(s)]; }
     // Onsets seen so far, wrapping at kCountWrap: a per-hit seed for shaders.
     float onsetCount() const { return onsetCount_; }
@@ -117,10 +142,19 @@ public:
     static constexpr float kCountWrap = 4096.0f;
 
 private:
+    void stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling);
+
     std::array<float, kReactSourceCount> values_{};
     // The clocks' values last frame, for their rates.
     std::array<float, kReactSourceCount> lastClock_{};
     bool clocksPrimed_ = false;
+    // The melody line: its pitch (MIDI) through a fast and a slow follower while a note sounds.
+    float melodyFast_ = 0.0f;
+    float melodySlow_ = 0.0f;
+    bool melodyPrimed_ = false;
+    // The chord tension through a fast and a slow follower, for its rise.
+    float tensionFast_ = 0.0f;
+    float tensionSlow_ = 0.0f;
     float onsetCount_ = 0.0f;
     float cutCount_ = 0.0f;
 };
@@ -184,13 +218,15 @@ private:
 
 class ReactionEngine {
 public:
-    static constexpr int kRoutes = 12;
+    // Room for the style's DNA (its groove, its transient, its bar-count and its melody routes) with slots to spare
+    // for the user and the recipes (StyleDna::kMaxRoutes).
+    static constexpr int kRoutes = 16;
     static constexpr int kConfigFloats = 8; // enabled, source, target, mode, amount, curve, attack, release
 
     std::array<ReactRoute, kRoutes> routes{};
 
     void reset();
-    void tick(const GeodeSoundFrame& f, float dt);
+    void tick(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
     SceneParams apply(const SceneParams& p) const;
 
     const ReactSignals& signals() const { return signals_; }
@@ -212,6 +248,8 @@ private:
     float gain_ = 1.0f;
     std::array<bool, kRoutes> high_{};
     std::array<unsigned int, kRoutes> jumpSeed_{};
+    // A settled Jump's wait before its next edge counts, seconds (0: ready).
+    std::array<float, kRoutes> settle_{};
     // A Follow route on a circular source smooths the source on its circle, before the curve and the
     // amount; `circ_` is that smoothed value, `circSource_` the source it follows plus one (0: not primed, so a fresh engine needs no reset).
     std::array<float, kRoutes> circ_{};

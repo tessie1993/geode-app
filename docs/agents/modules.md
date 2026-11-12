@@ -16,7 +16,7 @@ One fact per line. Add a fact as a new bullet under its module.
 - `SampleRing` is freed when the holder is collected.
 - `SoundCursor` is Cast's 16-bit reader of the ring.
 - `SoundFrameLayout` is the sound frame layout.
-- `SoundTuning` is the user tuning (Settings › Audio, kept in `GuiPrefs`): a float holder.
+- `SoundTuning` is the user tuning (Settings › Audio, kept in `SoundInputSettings`): a float holder.
 - `SoundTuning`'s defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
 
 ## `:engine:audio-android`

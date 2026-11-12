@@ -24,46 +24,46 @@ class TouchAndDreamPrefsTest {
 
     @Test
     fun touchDefaultIsPinchOn() {
-        assertTrue(ThemeStore(prefs).loadGui().touchTransform)
+        assertTrue(VisualsSettingsCodec.read(prefs).touchTransform)
     }
 
     @Test
     fun touchSettingsRoundTripUnderTheirKeys() {
-        val store = ThemeStore(prefs)
-        store.saveGui(store.loadGui().copy(touchTransform = false))
-        assertFalse(ThemeStore(prefs).loadGui().touchTransform)
-        assertFalse(prefs.getBoolean(ThemeStore.KEY_TOUCH_TRANSFORM, true))
+        saveVisuals(VisualsSettingsCodec.read(prefs).copy(touchTransform = false))
+        assertFalse(VisualsSettingsCodec.read(prefs).touchTransform)
+        assertFalse(prefs.getBoolean(VisualsSettingsCodec.KEY_TOUCH_TRANSFORM, true))
     }
 
     @Test
     fun anOldInstallsSmearKeysGoOnTheNextSave() {
         prefs
             .edit()
-            .putBoolean(ThemeStore.KEY_TOUCH_SMEAR, true)
-            .putFloat(ThemeStore.KEY_TOUCH_SMEAR_STRENGTH, 1.6f)
+            .putBoolean(VisualsSettingsCodec.KEY_TOUCH_SMEAR, true)
+            .putFloat(VisualsSettingsCodec.KEY_TOUCH_SMEAR_STRENGTH, 1.6f)
             .commit()
-        val store = ThemeStore(prefs)
-        store.saveGui(store.loadGui())
-        assertFalse(prefs.contains(ThemeStore.KEY_TOUCH_SMEAR))
-        assertFalse(prefs.contains(ThemeStore.KEY_TOUCH_SMEAR_STRENGTH))
+        saveVisuals(VisualsSettingsCodec.read(prefs))
+        assertFalse(prefs.contains(VisualsSettingsCodec.KEY_TOUCH_SMEAR))
+        assertFalse(prefs.contains(VisualsSettingsCodec.KEY_TOUCH_SMEAR_STRENGTH))
     }
 
     @Test
     fun thePinchGestureKeyIsReadAndSaved() {
-        val store = BehaviourStore(prefs)
-        assertEquals(GestureAction.OFF, store.load().actionFor(CanvasGesture.PINCH_TWIST))
-        val b = store.load()
-        store.save(b.copy(gestures = b.gestures + (CanvasGesture.PINCH_TWIST to GestureAction.TOUCH_PLAY)))
-        assertEquals(GestureAction.TOUCH_PLAY, BehaviourStore(prefs).load().actionFor(CanvasGesture.PINCH_TWIST))
+        assertEquals(GestureAction.OFF, BehaviourCodec.read(prefs).actionFor(CanvasGesture.PINCH_TWIST))
+        val b = BehaviourCodec.read(prefs)
+        saveBehaviour(b.copy(gestures = b.gestures + (CanvasGesture.PINCH_TWIST to GestureAction.TOUCH_PLAY)))
+        assertEquals(GestureAction.TOUCH_PLAY, BehaviourCodec.read(prefs).actionFor(CanvasGesture.PINCH_TWIST))
         assertEquals("TOUCH_PLAY", prefs.getString("behaviour_gesture_PINCH_TWIST", null))
     }
 
     @Test
     fun theScreenSaverHearsOtherAppsOnlyWhenAsked() {
-        val store = BehaviourStore(prefs)
-        assertFalse(store.load().dreamHearOtherApps)
-        store.save(store.load().copy(dreamHearOtherApps = true))
-        assertTrue(BehaviourStore(prefs).load().dreamHearOtherApps)
+        assertFalse(BehaviourCodec.read(prefs).dreamHearOtherApps)
+        saveBehaviour(BehaviourCodec.read(prefs).copy(dreamHearOtherApps = true))
+        assertTrue(BehaviourCodec.read(prefs).dreamHearOtherApps)
         assertTrue(prefs.getBoolean("behaviour_dream_hear_other_apps", false))
     }
+
+    private fun saveVisuals(value: VisualsSettings) = prefs.edit().also { VisualsSettingsCodec.write(it, value) }.commit()
+
+    private fun saveBehaviour(value: BehaviourPrefs) = prefs.edit().also { BehaviourCodec.write(it, value) }.commit()
 }

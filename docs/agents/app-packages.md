@@ -104,7 +104,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `TourViewModel`, `TourHost`, `TourTargets`, `TourOverlay`.
 - `TourViewModel` is the one state holder: a `StateFlow<TourUiState>`, events as state handed back once.
-- Tour progress is kept in `GuiPrefs.tourProgress`.
+- Tour progress is kept in `AppState.tourProgress`.
 - The tour's rules are pure, in `model/Tour`.
 - `TourHost` draws the tour from `AppRoot` and reports the marked controls on screen, the screen and whether music plays.
 - `Modifier.tourTarget` registers a control with the `TourTargets` registry (screen pixels).
@@ -134,7 +134,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Its blur is `glassBlur` over a `glassBackdrop`: the recorded content under the glass, blurred; never the GL surface, which no view can sample.
 - `selectedGlow` is the soft accent glow on the selected thing: one shadow pass, fades through the motion scheme, nothing drawn when off.
 - The M3 colour scheme takes its accent from the visual (`VisualAccent`: its hue, readable on black, else #9CC7FF).
-- `GuiPrefs.accentFollowsVisual` off keeps #9CC7FF.
+- `GeneralSettings.accentFollowsVisual` off keeps #9CC7FF.
 - The compact type roles live here.
 - `Wordmark` draws the BeatRealms 3D wordmark from `res/drawable/splash_wordmark.xml`, which is the system splash's branding image too.
 - `tools/wordmark.py` outlines the wordmark from Pacifico and Orbitron.
@@ -184,13 +184,13 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `data`
 
-- Open first: `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `UserDataRepository`.
+- Open first: `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
 - Stores (SharedPreferences, JSON files) and their repositories.
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
 - The bundled looks: `BuiltInPresets`.
 - `MediaStoreSource`: the screens' consent requests and picked-folder grants; main-safe on IO.
 - Template and preset formats.
-- The GUI prefs: `ThemeStore`, `GuiPrefs`.
+- What was `GuiPrefs`, split by subject: `GeneralSettings`, `SoundInputSettings`, `VisualsSettings`, `LibrarySettings`, and `AppState` (onboarding and the tour, not a preference); each a codec over `geode-prefs` under its old keys.
 - Track favourites: `FavouritesRepository` over `FavouritesStore`, file `geode-favourites`, keyed by the track's URI.
 - Player's heart, Library's ⋮ menu and Playlists › Favourites, the notification's heart and Android Auto all read and write the favourites.
 - The track list is `TrackLibrary`.
@@ -201,14 +201,14 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
-- The app-wide choices and canvas gesture map are `BehaviourStore` in `BehaviourPrefs`, with rows on seven Settings tabs; the defaults are the owner's.
+- The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.
-- Quick knobs' macro bank is `MacroStore`: the native bank text, one key, pushed to native at app start and on every edit.
+- Quick knobs' macro bank is `MacroStore`: the native bank text, one key, pushed to native once its read at process start is back, and on every edit.
 - Each macro edit is saved as made; a new knob is a draft until saved.
 - A knob off screen is kept in the bank's library for Add macro to put back.
 - `MacroEditorTable` reads the knob editor's rows.
-- The dials' size is `GuiPrefs.knobSize`.
+- The dials' size is `GeneralSettings.knobSize`.
 - `AutoDirectorStore` keeps the auto-director's switch and reach (Visuals quick settings), play seed and Customize's keep set, pushed to native the same way.
 - Note & key reactions' switch is `NoteResponseStore` (`ui/NoteResponseSettings`).
 - Studio's project and template folders are `EditorProjectStore`: `files/projects/<id>/`; the old replayed takes are deleted at start.
@@ -220,11 +220,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
 - `PREF_KEYS` is read by nothing at run time yet; `PrefsSchemaTest` holds it to the stores and `BackupFormat`.
-- `data/prefs/SettingsRepository` is the one settings repository shape: `PrefsSettingsRepository` over a `PrefsCodec`, a `StateFlow`, `loaded()`, `update(transform)` under one lock, IO inside.
+- `data/prefs/SettingsRepository` is the one settings repository shape: `PrefsSettingsRepository` over a `PrefsCodec`, a `StateFlow`, `loaded()`, `update(transform)` under one lock, IO inside; `current()` for the few synchronous readers on main.
 - So far on it: Playback's (`PlayerPrefsRepository`).
 - So far on it: Settings › Preferences' watermark (`WatermarkPrefsRepository`, `WatermarkPrefsCodec`; general prefs, portable).
-- So far on it: the Behaviour choices (`GeodeContainer.behaviour`, `BehaviourCodec`), one per process.
-- Settings and the last screen shown write the Behaviour choices through its `update`; the playback service's queue-end and headphone listeners read its value.
+- On it too: the container's `behaviour`, `general`, `soundInput`, `visuals`, `library` and `appState`.
+- The four process-wide stores (`macros`, `autoDirector`, `noteResponse`, `styleShelf`) are the container's too, each over a repository, none built by a `get(context)`.
 
 ## `model`
 

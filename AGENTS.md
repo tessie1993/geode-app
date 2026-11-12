@@ -125,10 +125,10 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 ## DI
 
 - Hilt: `GeodeApp`, `MainActivity` and eight `@HiltViewModel`s, resolved through `geodeViewModel()` in `ui/GeodeViewModelFactory.kt`.
-- `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `UserDataRepository`, all taken from `GeodeContainer`, plus `@IoDispatcher`.
+- `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `AppStateRepository` (the tour's), all taken from `GeodeContainer`, plus `@IoDispatcher`.
 - `BackupRepository` is constructor-injected.
 - `PlayerSessionProvider` (`@Singleton`) builds one `PlayerSession` by hand.
-- That session builds its repositories and controllers itself, and the ViewModels get repositories from it: `session.playbackRepository`, `session.visualizerRepository`, `session.userDataRepository`.
+- That session builds its repositories and controllers itself, and the ViewModels get repositories from it: `session.playbackRepository`, `session.visualizerRepository`; the settings repositories are the container's (`SettingsViewModel` reads them through `session.container`).
 - Services, the wallpaper and the widget don't inject. They use `PlaybackEngine.acquireForService`, `AudioBus`, `context.geodeContainer` or construct stores directly.
 
 ## Build, test, CI

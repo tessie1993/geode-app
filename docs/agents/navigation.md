@@ -24,7 +24,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - `DockSlab` draws the one glass and shadow; `FloatingMiniPlayer` and `FloatingTabBar` draw none.
 - The mini player is a pill when the player is away (`MiniPlayerHandle`).
 - The rail shell's mini player is a card of its own.
-- `ShellChromeState` fades the mini player on every screen after `GuiPrefs.miniPlayerFadeSeconds` (6 s by default).
+- `ShellChromeState` fades the mini player on every screen after `GeneralSettings.miniPlayerFadeSeconds` (6 s by default).
 - A touch in the dock restarts the fade; a tap pins the mini player, swipe up opens Player, swipe down hides it.
 - Every start of the activity wakes the mini player, and the countdown waits under the boot intro and first-run pages.
 - On a phone's Visuals the mini player is docked under the options (`DockedMiniPlayer`: title, previous, play/pause, next, no art; `LocalDockedMiniPlayer`).
@@ -59,7 +59,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Visuals is `VisualsHub`, the root.
 - `ui/VisualsStage.kt` is the visual, its gestures and stage icons.
 - `ui/VisualsSheet.kt` is the options; `ui/MilkDropPage.kt` and `ui/TexturesPage.kt` are pages.
-- Visuals is the visual at full window size under translucent options (`VisualsOptions`, its glass `GuiPrefs.barOpacity`).
+- Visuals is the visual at full window size under translucent options (`VisualsOptions`, its glass `GeneralSettings.barOpacity`).
 - In portrait the options are a snap sheet (`SheetHeight`: hidden, peek, half, tall); a list at its top hands the drag to the sheet.
 - In landscape (wider than tall, from the medium width class) the options are a right-hand panel, full height, 30–50 % wide, resized or hidden by its leading edge.
 - One `VisualsNavState` drives both.

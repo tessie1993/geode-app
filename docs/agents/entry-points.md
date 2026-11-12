@@ -9,7 +9,7 @@ One fact per line. Add an entry point or an intent the app takes as a new bullet
 - `ui.MainActivity` is also the Android TV launcher (`LEANBACK_LAUNCHER` with `drawable/tv_banner`); PiP is never auto-entered on a TV.
 - `ui.MainActivity` handles `geode://preset`, `geode://template`, a `.milk` another app opens and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
 - A shared preset, template or `.milk` is imported only after the user's yes in `SharedLinkConfirm`; a `.milk` never goes over an existing preset.
-- `ui.MainActivity` sets `requestedOrientation` from `GuiPrefs.screenRotation` live (no recreation: `configChanges`); Android ignores it in multi-window and on screens 600 dp and wider.
+- `ui.MainActivity` sets `requestedOrientation` from `GeneralSettings.screenRotation` live (no recreation: `configChanges`); Android ignores it in multi-window and on screens 600 dp and wider.
 - `ui.wallpaper.WallpaperOptionsActivity`: the wallpaper picker's Settings button (`android:settingsActivity` in `res/xml/wallpaper.xml`), a plain `ComponentActivity` outside Hilt.
 - `tile.TileLongPressActivity` sits beside the tile and answers the tile's long press by opening the app.
 

@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.GuiPrefs
+import dev.geode.data.GeneralSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.LiquidHotPolicy
@@ -201,7 +201,7 @@ private fun Hint(text: String) {
 @Preview(name = "Performance · Balanced", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 internal fun PerformanceSettingsPreview() {
-    CrystalMaterialTheme(GuiPrefs()) {
+    CrystalMaterialTheme(GeneralSettings()) {
         PerformanceSettingsContent(PerformanceSettings.BALANCED) {}
     }
 }
@@ -209,7 +209,7 @@ internal fun PerformanceSettingsPreview() {
 @Preview(name = "Performance · Custom", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 internal fun PerformanceSettingsCustomPreview() {
-    CrystalMaterialTheme(GuiPrefs()) {
+    CrystalMaterialTheme(GeneralSettings()) {
         PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60)) {}
     }
 }

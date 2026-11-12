@@ -395,7 +395,7 @@ private fun SettingsGroupPage(
     onResetTutorials: () -> Unit,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
-    // BehaviourPrefs' rows sit on seven tabs now; one copy for the page, read once on IO.
+    // BehaviourPrefs' rows sit on seven tabs now, all on the container's one repository.
     val behaviour = rememberBehaviourPrefs()
     val deps = SettingsPageDeps(viewModel, settings, behaviour, onOpenStudioRender, onPlayTutorial, onResetTutorials)
     SettingsBasicsCard {

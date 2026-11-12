@@ -353,8 +353,9 @@ GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 // Travel speed along the path, negative backward: the slider stops at -2..2, the LFO and the routes reach 2.5.
 GEODE_PARAM(Float, camFly, 0.5f, -2.5f, 2.5f, Fade)
 GEODE_PARAM_META(camFly, "Fly speed", Universal, kMod, 0.2f, 1.4f)
-// 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise (CameraRig clamps to the same).
-GEODE_PARAM(Int, camPath, 0, 0, 6, Hold)
+// 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise, 7 weave, 8 corkscrew, 9 swoop, 10 strafe,
+// 11 pendulum (CameraRig clamps to the same).
+GEODE_PARAM(Int, camPath, 0, 0, 11, Hold)
 GEODE_PARAM_META(camPath, "Camera path", Universal, 0, 0, 0)
 // Sideways swing, or the orbit's radius.
 GEODE_PARAM(Float, camOrbit, 0.35f, 0.0f, 1.0f, Fade)

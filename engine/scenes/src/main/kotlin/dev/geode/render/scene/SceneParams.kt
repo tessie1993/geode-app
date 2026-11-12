@@ -232,8 +232,8 @@ data class SceneParams(
 
         val CYMATICS_GEOMETRIES: List<String> = listOf("Water dish", "Chladni plate")
 
-        /** camPath values, in order; mirrors CameraRig::pathPoint. */
-        val CAMERA_PATHS: List<String> = listOf("Glide", "Spiral", "Orbit", "Hover", "Drive", "Fall", "Rise")
+        /** camPath values, in order; mirrors CameraRig::pathPoint. Split from one string to stay on one line. */
+        val CAMERA_PATHS: List<String> = "Glide Spiral Orbit Hover Drive Fall Rise Weave Corkscrew Swoop Strafe Pendulum".split(' ')
     }
 
     val usesCustomPalette: Boolean

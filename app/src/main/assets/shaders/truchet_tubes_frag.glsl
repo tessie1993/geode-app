@@ -230,7 +230,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (lib_truchet's truchetTurn).
+    camFly(uv - vec2(truchetTurn(), 0.0), ro, rd);
     // Every z term tiles with a period dividing 128, so this shift is exact
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TT_ZWRAP);

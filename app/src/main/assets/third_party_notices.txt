@@ -1941,6 +1941,13 @@ lib_flame.glsl, lib_opal.glsl, lib_hollow.glsl and their flame_*, opal_* and
 hollow_* styles) are original code; no third-party shader code is used.
 
 
+The Prism, Fluor, Loom, Shard, Petal and Fold style families (app/src/main/
+assets/shaders/lib_prism*, lib_fluor*, lib_loom*, lib_shard*, lib_petal* and
+lib_fold* and their prism_*, fluor_*, loom_*, shard_*, petal_* and fold_*
+styles; prism_rain is not one of them) are original code; no third-party
+shader code is used.
+
+
 Apache License 2.0 (full text)
 ------------------------------
 Verbatim copy of https://www.apache.org/licenses/LICENSE-2.0.txt, shipped

@@ -61,7 +61,7 @@ constexpr float GeodeSoundFrame::* kTriggerFields[] = {
     &GeodeSoundFrame::returned,   &GeodeSoundFrame::surge,          &GeodeSoundFrame::noteChange,
     &GeodeSoundFrame::legato,     &GeodeSoundFrame::reattack,       &GeodeSoundFrame::beat,
     &GeodeSoundFrame::downbeat,   &GeodeSoundFrame::phrase,         &GeodeSoundFrame::harmonicChange,
-    &GeodeSoundFrame::sectionChange, &GeodeSoundFrame::drop,
+    &GeodeSoundFrame::sectionChange, &GeodeSoundFrame::drop,           &GeodeSoundFrame::transient,
 };
 static_assert(sizeof(kTriggerFields) / sizeof(kTriggerFields[0]) == SoundEngine::kTriggers, "every trigger, once");
 
@@ -153,6 +153,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
     static constexpr std::array<std::array<float, 2>, kSlices> kSliceHz = {{
         {0, 250}, {250, 4000}, {4000, 0}, {40, 120}, {150, 300}, {2500, 6000}, {7000, 16000}, {0, 0}}};
     for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_);
+    transient_.configure(sampleRateHz_);
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
@@ -237,6 +238,7 @@ void SoundEngine::feed(float l, float r) {
     written_++;
     const float m = 0.5f * (l + r);
     for (auto& band : bank_) band.process(m);
+    transient_.process({{bank_[kLow].out(), bank_[kMiddle].out(), bank_[kHigh].out(), bank_[kAll].out()}});
     meter_.process(l, r);
     if (++hopFill_ >= rhythm_.hopSamples()) {
         hopFill_ = 0;
@@ -356,6 +358,7 @@ void SoundEngine::analyse() {
     spectrumPoints(dt, silent, out.spectrum);
     descriptors(dt, warm, silent, out);
     drums(dt, silent, out);
+    transients(dt, silent, out);
     events(dt, warm, out);
     melody(dt, out);
     clocks(dt, out);
@@ -679,6 +682,21 @@ void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
         if (s.snareCount % 4 == 0) out.snare4 = hit[1];
         s.easedTarget[1] = 1.0f - s.easedTarget[1];
     }
+}
+
+// The transient detector has run on every sample of this hop (feed); here its report joins the frame. It hears
+// in relative terms (an attack over the sound just before it), so whether it counts is absolute, like a hit:
+// none behind the gate or under the hit floor, and its strength scales with the drive. Nothing else in the
+// frame reads it, so adding it moved no other value.
+void SoundEngine::transients(float dt, bool silent, GeodeSoundFrame& out) {
+    State& s = state_;
+    const Transient::Hit hit = transient_.hop();
+    const bool allowed = !silent && !starved_ && hitsAllowed();
+    const float worth = kHitDriveFloor + (1.0f - kHitDriveFloor) * clamp01(s.drive / kDriveFull);
+    out.transient = allowed ? hit.strength * worth : 0.0f;
+    if (out.transient > 0.0f) s.transientSharpness = hit.sharpness;
+    out.transientSharpness = s.transientSharpness;
+    out.transientEnv = s.transientEnv.step(out.transient, 0.005f, 0.2f, dt);
 }
 
 void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
@@ -1009,6 +1027,7 @@ void SoundEngine::reset() {
     accentHeld_ = 0.0f;
     std::fill(wavePrev_.begin(), wavePrev_.end(), 0.0f);
     for (auto& band : bank_) band.clear();
+    transient_.reset();
     sliceNow_ = {};
     punchNow_ = {};
     punchAt_ = {};

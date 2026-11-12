@@ -71,6 +71,7 @@ public:
     void process(float x) {
         if (hasLow_) x = hp_[1].process(hp_[0].process(x));
         if (hasHigh_) x = lp_[1].process(lp_[0].process(x));
+        out_ = x;
         samples_++;
         power_ += follow_ * (x * x - power_);
         if (power_ < 1e-20f) power_ = 0.0f;
@@ -96,6 +97,8 @@ public:
         peak_ = power_;
         return level;
     }
+    // The last sample as the band filtered it, for the transient detector's own followers (sound/Transient).
+    float out() const { return out_; }
     // The power envelope right now (15 ms), for the rhythm tracker's fixed-hop onset envelope.
     float power() const { return power_; }
     // When (in samples since clear) the slice's highest punch was; every band counts the same samples.
@@ -130,6 +133,7 @@ private:
     float refFollow_ = 0.0f;
     int warmSamples_ = 0;
     int settleSamples_ = 0;
+    float out_ = 0.0f;
     float power_ = 0.0f;
     float peak_ = 0.0f;
     float mean_ = 0.0f;

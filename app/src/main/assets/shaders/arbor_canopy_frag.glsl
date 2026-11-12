@@ -41,7 +41,10 @@ out vec4 fragColor;
 // each tree's twist and lean from its hash; uTwist adds a standing spiral to
 // every crown. Colour: bark, leaves, light and haze from pal(). Energy:
 // uIntensity scales the snare flex and the key's pull. Space: camFly, the
-// rig's path.
+// rig's path. Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned
+// look): k0 PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW added to
+// the Chaos bend, k3 TONE the palette position, k4 BUILD the sun shafts' glow,
+// k5 SPACE the reach through the haze. The mids bow the limbs (arbMidBow).
 
 #define CN_MAX_STEPS 112
 #define CN_FAR 30.0
@@ -89,23 +92,29 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
     float snare = clamp(SND_SNARE_ENV * uSoundDrive * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
-    gChaos = arbChaos();
+    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
     gStir = t * 1.3;
     gGrow = arbLevels(8.0, 1.0);
-    gF = ArborForm(2.0, 0.46 + 0.30 * snare, 0.04, 1.57 + 0.5 * uTwist, 0.74, 2.3, 0.075, 0.74);
+    gF = ArborForm(2.0, 0.46 + 0.30 * snare, 0.04 + arbMidBow(), 1.57 + 0.5 * uTwist, 0.74, 2.3, 0.075 * (1.0 + 0.5 * kTexture), 0.74);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.22 + 0.25 * key;
+    float hue = 0.22 + 0.25 * key + 0.6 * kTone;
     vec3 sunDir = normalize(vec3(0.25, 0.85, 0.45));
     vec3 haze = mix(pal(hue - 0.1) * 0.26, vec3(0.50, 0.46, 0.28), 0.4);
 
@@ -153,13 +162,15 @@ void main() {
             col += leaf * mat * pow(max(dot(rd, sunDir), 0.0), 3.0) * 0.35;
             col += haze * lit.y * 0.15;
         }
-        col = mix(col, haze, 1.0 - exp(-hitT * 0.045));
+        col = mix(col, haze, 1.0 - exp(-hitT * 0.045 / (1.0 + 0.4 * kSpace)));
     }
     // Sun shafts: soft bright streaks in the haze toward the sun.
     float shafts = pow(max(dot(rd, sunDir), 0.0), 3.0) * (0.55 + 0.45 * sin(rd.x * 37.0 + rd.z * 11.0 + t * 0.2));
-    col += haze * shafts * (0.12 + 0.1 * swell);
+    col += haze * shafts * (0.12 + 0.1 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

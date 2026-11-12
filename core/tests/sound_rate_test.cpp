@@ -46,7 +46,7 @@ bool isTrigger(const std::string& name) {
                                             "kick8",    "kick16",    "snare2",    "snare4",     "hardCut",
                                             "onset",    "silence",   "returned",  "surge",      "noteChange",
                                             "legato",   "reattack",  "beat",      "downbeat",   "phrase",
-                                            "harmonicChange", "sectionChange", "drop", "degreeAccent"};
+                                            "harmonicChange", "sectionChange", "drop", "degreeAccent", "transient"};
     for (const char* t : kTriggers) {
         if (name == t) return true;
     }

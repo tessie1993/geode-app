@@ -43,7 +43,10 @@ out vec4 fragColor;
 // and uWarp scatter each neuron's fork angle and twist from its cell hash;
 // uTwist adds a standing spiral. Colour: membranes, somas and sparks from
 // pal(). Energy: uIntensity scales the flux writhe and the drop swell. Space:
-// camFly, the rig's path.
+// camFly, the rig's path. Knobs (lib_arbor's roles, offsets from 0.5 so off is
+// the tuned look): k0 PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW
+// added to the Chaos bend, k3 TONE the palette position, k4 BUILD the glow, k5
+// SPACE the reach through the void. The mids bow the dendrites (arbMidBow).
 
 #define SY_MAX_STEPS 104
 #define SY_FAR 18.0
@@ -99,6 +102,12 @@ float spark(float level, float along, float path, float cellH, float phase) {
 
 void main() {
     vec2 uv = arbView();
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -107,17 +116,17 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
     float phase = uFlowTime * 0.6;
 
-    gChaos = arbChaos();
+    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
     gGrow = arbLevels(5.0, 1.0);
     gSoma = 0.26 + 0.10 * dropBump;
-    gF = ArborForm(3.0, 0.52, 0.0, 0.55 + 0.45 * flux + 0.6 * uTwist, 0.64, 0.70, 0.07, 0.64);
+    gF = ArborForm(3.0, 0.52, arbMidBow(), 0.55 + 0.45 * flux + 0.6 * uTwist, 0.64, 0.70, 0.07 * (1.0 + 0.5 * kTexture), 0.64);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.62 + 0.002 * t;
+    float hue = 0.62 + 0.002 * t + 0.6 * kTone;
     vec3 voidCol = pal(hue) * 0.025 + vec3(0.002, 0.003, 0.008);
 
     float tm = 0.05;
@@ -163,11 +172,13 @@ void main() {
         vec3 core = mix(pal(hue + 0.15), vec3(1.0, 0.9, 0.95), 0.3);
         col = mix(col, core * (0.35 + 0.5 * (1.0 - lit.y)), isSoma);
         col += sparkCol * spark(level, along, path, cellH, phase) * (1.0 - isSoma) * 1.2;
-        col = mix(col, voidCol, 1.0 - exp(-hitT * 0.14));
+        col = mix(col, voidCol, 1.0 - exp(-hitT * 0.14 / (1.0 + 0.4 * kSpace)));
     }
-    col += glow * (0.8 + 0.3 * swell);
+    col += glow * (0.8 + 0.3 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

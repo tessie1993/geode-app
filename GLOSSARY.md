@@ -60,7 +60,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Ten or twelve fragment-shader styles (a family carries its own count) built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet, Sphere Foam, Flame, Opal and Hollow.
+Ten or twelve fragment-shader styles (a family carries its own count) built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet, Sphere Foam, Flame, Opal, Hollow, Prism, Fluor, Loom, Shard, Petal and Fold.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -101,6 +101,24 @@ The oil-film style family (`opal_*`, `lib_opal`), ten styles: clear bubbles, she
 
 **Hollow**:
 The Hollows style family (`hollow_*`, `lib_hollow`), ten styles: flights through the inside of things (sinew, caves, ribs, bone), dark walls under blacklight with their carving cut as real relief and glowing.
+
+**Prism**:
+The kaleidoscope style family (`prism_*`, `lib_prism`), ten styles: portals in liquid chrome, space folded by mirrors into stars, rosettes, arches and fans, thin ribbons of light along every fold, dark between. Not Prism Rain (`prism_rain`), an older loose style.
+
+**Fluor**:
+The fluorescent-relief style family (`fluor_*`, `lib_fluor`), ten styles: carved and embossed ornament under blacklight, flown along or turned about, every raised edge glowing like fluorescent paint.
+
+**Loom**:
+The woven-light style family (`loom_*`, `lib_loom`), ten styles: threads, braids, nets and translucent skins strung across the dark, glowing along their fibres.
+
+**Shard**:
+The broken-glass style family (`shard_*`, `lib_shard`), ten styles: splinters, panes and spires in the dark with thin-film faces and edges that split the light.
+
+**Petal**:
+The translucent-petal style family (`petal_*`, `lib_petal`), ten styles: petals and blossoms lit from within, thin sheets that let the light through and gather it at their rims.
+
+**Fold**:
+The folded-space fractal family (`fold_*`, `lib_fold`), ten styles, each drawn by one of five marches (`lib_fold_march_*`): glowing threads, cone-traced crusts, 4D sections, alternating hybrids and sign-probed surfaces.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.
@@ -281,6 +299,10 @@ The player telling the engine a new track (or the same one again) has begun, wit
 
 **Fade gain**:
 The player's fades (pause, skip and sleep fades times the crossfade), 0..1, told to the engine because the tap sits before the volume and never hears them. A reaction source; 1 while the mic or another app's audio is the source, and always 1 in an export.
+
+**Transient**:
+The sharp start of any sound (a pluck, a click, a struck chord, a consonant, a drum), heard per sample within a few milliseconds by `core/sound/Transient`: a fast follower of a band's power jumping over a slow one, past a threshold the last second of the music sets. A trigger, its envelope and the attack's sharpness, all reaction sources; every style's DNA has a route from it. Nothing about it knows a tempo.
+_Avoid_: Onset (the frame's `onset` is the slower spectral-flux note start), hit (a hit is a drum's)
 
 **Section state**:
 The song part a section is read as: intro, verse, build, drop, breakdown or outro.

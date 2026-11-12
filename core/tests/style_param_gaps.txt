@@ -78,12 +78,9 @@ chrome_nebula: noteChords noteDrums noteIntervals notePitch noteTension
 fractal_dive: midGain noteChords noteDrums noteIntervals notePitch noteTension
 aurora_ocean: midGain noteChords noteDrums noteIntervals notePitch noteTension
 spectrum_terrain: noteChords noteDrums noteIntervals notePitch noteTension
-outrun_drive: noteChords noteDrums noteIntervals notePitch noteTension
 menger_core: midGain noteChords noteDrums noteIntervals notePitch noteTension
 gyroid_cavern: midGain noteChords noteDrums noteIntervals notePitch noteTension
-ringed_planet: midGain noteChords noteDrums noteIntervals notePitch noteTension
 jelly_abyss: noteChords noteDrums noteIntervals notePitch noteTension
-ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
 prism_rain: noteChords noteDrums noteIntervals notePitch noteTension
 supershape: midGain noteChords noteDrums noteIntervals notePitch noteTension
 fractal_tunnel: midGain noteChords noteDrums noteIntervals notePitch noteTension
@@ -92,102 +89,6 @@ black_hole: midGain
 mandelbox_cathedral: midGain
 morph_world: midGain
 pool: midGain
-arbor_grove: midGain
-arbor_willow: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_frost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_bolt: midGain
-arbor_bonsai: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_canopy: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_rosette: midGain
-arbor_spire: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_synapse: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_sakura: midGain
-bulb_classic: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_julia: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_slice: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_lotus: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_glow: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_cavern: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_shell: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_prism: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_contour: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_chrome: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_hybrid: midGain noteChords noteDrums noteIntervals notePitch noteTension
-chrys_phyllo: midGain
-chrys_lotus: midGain
-chrys_corolla: midGain noteChords noteDrums noteIntervals notePitch noteTension
-chrys_glass: midGain
-chrys_ink: midGain
-chrys_fall: midGain
-lucid_weave: midGain
-lucid_hive: midGain
-lucid_bulge: midGain
-dive_lattice: noteChords noteDrums noteIntervals notePitch noteTension
-dive_jewel: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mushroom: noteChords noteDrums noteIntervals notePitch noteTension
-dive_gyro: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mandala: noteChords noteDrums noteIntervals notePitch noteTension
-dive_serpent: noteChords noteDrums noteIntervals notePitch noteTension
-dive_helix: noteChords noteDrums noteIntervals notePitch noteTension
-dive_accordion: noteChords noteDrums noteIntervals notePitch noteTension
-dive_orbit: noteChords noteDrums noteIntervals notePitch noteTension
-dive_neon: noteChords noteDrums noteIntervals notePitch noteTension
-dive_cycle: noteChords noteDrums noteIntervals notePitch noteTension
-dive_show: noteChords noteDrums noteIntervals notePitch noteTension
-glass_orb: midGain
-glass_pool: midGain
-glass_prism: midGain
-glass_lens: midGain
-glass_drops: midGain
-glass_bubbles: midGain
-glass_marble: midGain
-glass_caustic: midGain
-glass_cubes: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_gem: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_knot: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_dust: midGain
-nebula_veil: midGain
-nebula_pulsar: midGain
-nebula_cluster: midGain
-nebula_horizon: midGain
-nebula_pillars: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_flight: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_storm: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_web: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_ridge: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_dunes: noteChords noteDrums noteIntervals notePitch noteTension
-terra_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_glacier: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_isles: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_mesa: noteChords noteDrums noteIntervals notePitch noteTension
-terra_volcano: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_terraces: noteChords noteDrums noteIntervals notePitch noteTension
-terra_moon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_night: noteChords noteDrums noteIntervals notePitch noteTension
-terra_topo: midGain
-terra_wire: midGain noteChords noteDrums noteIntervals notePitch noteTension
-truchet_weave: midGain
-truchet_maze: midGain
-truchet_quad: midGain
-truchet_tubes: midGain
-truchet_knot: midGain
-truchet_tunnel: midGain
-truchet_relief: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_fall: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_neon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_soap: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_chrome: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ember: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_orb: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_kaleido: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ghost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_show: midGain noteChords noteDrums noteIntervals notePitch noteTension
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension

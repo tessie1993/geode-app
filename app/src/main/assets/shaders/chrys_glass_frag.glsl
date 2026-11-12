@@ -310,7 +310,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids roll the view about the way ahead (lib_chrys's chrysMidTurn).
+    camFly(chrysTurn(chrysMidTurn()) * uv, ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two); see the header.
     ro.z = mod(ro.z, CG_ZWRAP);

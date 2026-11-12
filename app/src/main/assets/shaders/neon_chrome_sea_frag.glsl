@@ -59,7 +59,7 @@ out vec4 fragColor;
 //
 // The wave frequencies stay: each z wavenumber is rounded to OC_KZ, and a
 // slid frequency would jump at every rounding. The sea goes through
-// SHELL_FIELD2 as a height pattern and the mandala through SHELL_FIELD2 as a
+// its shell wrapper as a height pattern and the mandala through its shell wrapper as a
 // colour pattern, so the shell's spawn, fractal, front and back hooks reach both.
 //
 // Provenance: written from scratch for BeatRealms from general techniques - a sum
@@ -130,14 +130,26 @@ float ocWaves(vec2 p, int count) {
     return sumH / sumA;
 }
 
-/** The swell as a 2D pattern (SHELL_FIELD2): gCount waves, height 0..1. */
+/** The swell as a 2D pattern (its shell wrapper): gCount waves, height 0..1. */
 float ocSeaField(vec2 p) {
     return ocWaves(p, gCount);
 }
 
+/** The ground pattern ocSeaField through lib_shell's hooks: exactly ocSeaField(uv) at rest, and ocSeaField read once, in a loop the compiler cannot unroll. */
+float ocSeaFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = ocSeaField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
 float ocHeight(vec2 p, int count) {
     gCount = count;
-    return OC_SEA_Y + gAmp * SHELL_FIELD2W(p, ocSeaField);
+    return OC_SEA_Y + gAmp * ocSeaFieldGrownW(p);
 }
 
 vec3 ocNormal(vec2 p, float eps) {
@@ -204,6 +216,18 @@ vec3 ocMandala(vec2 p) {
     return col * smoothstep(0.75, 0.45, r);
 }
 
+/** The pattern ocMandala through lib_shell's hooks: exactly ocMandala(uv) at rest, and ocMandala read once, in a loop the compiler cannot unroll. */
+vec3 ocMandalaGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    vec3 r = vec3(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        vec3 v = ocMandala(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
 vec3 ocSky(vec3 d) {
     float up = max(d.y, 0.0);
     vec3 col = mix(vec3(0.07, 0.02, 0.16), vec3(0.008, 0.004, 0.03), pow(up, 0.5));
@@ -223,7 +247,7 @@ vec3 ocSky(vec3 d) {
     float md = dot(d, gMoonDir);
     if (md > 0.0) {
         vec2 mp = vec2(dot(d, tangent), dot(d, bitan)) / md / (gPortal * 0.7);
-        col += SHELL_FIELD2(mp, ocMandala) * (0.6 + 0.8 * gPortal) * smoothstep(0.015, 0.12, d.y);
+        col += ocMandalaGrown(mp) * (0.6 + 0.8 * gPortal) * smoothstep(0.015, 0.12, d.y);
     }
     col += neon(0.55) * pow(max(md, 0.0), 30.0) * 0.25 * gPortal;
     // Faint stars.
@@ -254,7 +278,7 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, 64.0);
-    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
     shellSetup2(ro.xz, 5.0);
 
     // The six looks the sea was drawn around, each 0..1 with 0.5 as tuned,

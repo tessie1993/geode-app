@@ -147,12 +147,22 @@ float rodField(vec3 p) {
     return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), r);
 }
 
+/** rodField through lib_shell's hooks: exactly rodField(p) at rest, and rodField read once, in a loop the compiler cannot unroll. */
+float rodFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, rodField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: rodField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, rodField);
+    return rodFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

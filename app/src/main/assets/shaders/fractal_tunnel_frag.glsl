@@ -209,12 +209,22 @@ float ftField(vec3 p) {
     return max(d, bore);
 }
 
+/** ftField through lib_shell's hooks: exactly ftField(p) at rest, and ftField read once, in a loop the compiler cannot unroll. */
+float ftFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ftField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: ftField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, ftField);
+    return ftFieldGrown(p);
 }
 
 vec3 foamNormal(vec3 p, float e, vec3 fallback) {

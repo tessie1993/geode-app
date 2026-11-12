@@ -75,7 +75,7 @@ out vec4 fragColor;
 // The cell (1), the grid periods (1, 0.5), the bend period (64) and the band
 // count (16, the spectrum array's size) stay constants: the first three keep
 // every z term a power of two for the 8192 wrap, the last sizes an array.
-// The bars go through SHELL_FIELD3 and the floor's lines through SHELL_FIELD2,
+// The bars go through its shell wrapper and the floor's lines through its shell wrapper,
 // so the shell's spawn, fractal, front and back hooks reach both.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -191,9 +191,19 @@ float barsField(vec3 p) {
     return d;
 }
 
+/** barsField through lib_shell's hooks: exactly barsField(p) at rest, and barsField read once, in a loop the compiler cannot unroll. */
+float barsFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, barsField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The bars as the shell sees them: spawn, fractal, front and back route through here (identity at rest). */
 float bars(vec3 p) {
-    return SHELL_FIELD3(p, barsField);
+    return barsFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -221,9 +231,21 @@ vec3 horizon(vec3 rd, float hue, float swell) {
     return col;
 }
 
-/** The floor and ceiling's lines as one 2D pattern, so the shell can route it (SHELL_FIELD2). */
+/** The floor and ceiling's lines as one 2D pattern, so the shell can route it (its shell wrapper). */
 float floorLines(vec2 w) {
     return gridLines(w, 1.0, gFp) + uKnob[1] * 0.45 * gridLines(w, 0.5, gFp);
+}
+
+/** The ground pattern floorLines through lib_shell's hooks: exactly floorLines(uv) at rest, and floorLines read once, in a loop the compiler cannot unroll. */
+float floorLinesGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = floorLines(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 void main() {
@@ -249,7 +271,7 @@ void main() {
     gEye = ro;
     // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
     shellSetup3(ro, 3.0, 0.5, false);
-    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
     shellSetup2(vec2(ro.x - bendX(ro.z), ro.z), 5.0);
 
     for (int i = 0; i < GR_BANDS; i++) {
@@ -307,7 +329,7 @@ void main() {
         vec3 p = ro + rd * tPlane;
         vec2 w = vec2(p.x - bendX(p.z), p.z);
         gFp = tPlane * pix / max(abs(rd.y), 0.03);
-        float line = SHELL_FIELD2W(w, floorLines);
+        float line = floorLinesGrownW(w);
         // The band under the line, as the flat style read it across x.
         int bi = int(mod(floor(abs(w.x) * 0.12 * float(GR_BANDS)), float(GR_BANDS)));
         float hb = gSpec[bi];

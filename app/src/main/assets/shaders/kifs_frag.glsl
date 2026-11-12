@@ -513,12 +513,22 @@ float kifsField(vec3 p) {
     return kifsSeed(p) / s;
 }
 
+/** kifsField through lib_shell's hooks: exactly kifsField(p) at rest, and kifsField read once, in a loop the compiler cannot unroll. */
+float kifsFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, kifsField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march and normal tap reads: kifsField, the style's own,
  * through lib_shell's hook (the identity until the shell drives it).
  */
 float kifsMap(vec3 p) {
-    return SHELL_FIELD3(p, kifsField);
+    return kifsFieldGrown(p);
 }
 
 /** Tetrahedral normal: four kifsMap evaluations rather than the six a central difference needs. */

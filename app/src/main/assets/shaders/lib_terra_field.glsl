@@ -22,19 +22,31 @@
  * colour; while all four rest TERRA_GROW reads the map alone, bit for bit.
  */
 float terraGrow(vec2 xz) {
-    growFrame();
-    vec2 c = gGrowAround ? vec2(0.0) : gGrowEye.xz;
-    float k = growOpen(vec3(xz.x, gGrowEye.y, xz.y), 0.18);
-    vec2 q = c + (xz - c) / k;
-    float h = terraMap(q);
-    if (uSpawn > 0.0) {
-        vec3 shift = growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0);
-        h = mix(h, max(h, terraMap(q - shift.xz)), clamp(uSpawn, 0.0, 1.0));
+    // At rest the one pass reads the height at xz, bit for bit.
+    bool idle = growIdle();
+    vec2 q = xz;
+    float reach = 0.0;
+    if (!idle) {
+        growFrame();
+        vec2 c = gGrowAround ? vec2(0.0) : gGrowEye.xz;
+        float k = growOpen(vec3(xz.x, gGrowEye.y, xz.y), 0.18);
+        q = c + (xz - c) / k;
+        reach = growFractalReach(0.3);
     }
-    float reach = growFractalReach(0.3);
-    if (reach > 0.0) {
-        // A third the size and a third the height: the same slopes, so the march's step holds.
-        h += min(max(terraMap(3.0 * q) / 3.0, 0.0), reach);
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first land, then
+    // Spawn's range and Fractal's third-size land while each is on.
+    float h = 0.0;
+    for (int i = min(int(uSpawn), 0); i < 3; i++) {
+        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
+        float c = terraMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0).xz : 3.0 * q));
+        if (i == 0) {
+            h = c;
+        } else if (i == 1) {
+            h = mix(h, max(h, c), clamp(uSpawn, 0.0, 1.0));
+        } else {
+            // A third the size and a third the height: the same slopes, so the march's step holds.
+            h += min(max(c / 3.0, 0.0), reach);
+        }
     }
     return h;
 }

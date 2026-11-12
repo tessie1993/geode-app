@@ -81,8 +81,8 @@ out vec4 fragColor;
 // The z periods (64, 32, 16, 2, 0.5, 1.6) stay constants: each divides the 64
 // the eye is rebased by. A steeper bank (sRise over sBank) or bigger bumps
 // shrink the height field's Lipschitz factor in proportion (gGlip). The banks
-// and pines go through SHELL_FIELD3, the lead's rings and the frost through
-// SHELL_FIELD2, so the shell's spawn, fractal, front and back hooks reach them.
+// and pines go through its shell wrapper, the lead's rings and the frost through
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach them.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -213,9 +213,19 @@ float mapField(vec3 p) {
     return max(d, WI_BUBBLE - length(p - gEye));
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The banks and pines as the shell sees them: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -263,7 +273,7 @@ float wiRipple(vec2 xz, float bassAtt, float mid, float treble) {
     return sum;
 }
 
-/** The lead's rings as one 2D pattern, so the shell can route it (SHELL_FIELD2). */
+/** The lead's rings as one 2D pattern, so the shell can route it (its shell wrapper). */
 float wiRippleField(vec2 xz) {
     return wiRipple(xz, gBassAtt, gMid, gTreble);
 }
@@ -307,7 +317,7 @@ vec2 wiFrost(vec2 xz, float scale) {
     return vec2(f1, f2 - f1);
 }
 
-/** The ice's frost as one 2D pattern (nearest feature, border, 0), so the shell can route it (SHELL_FIELD2). */
+/** The ice's frost as one 2D pattern (nearest feature, border, 0), so the shell can route it (its shell wrapper). */
 vec3 wiFrostField(vec2 xz) {
     return vec3(wiFrost(xz, sFrost), 0.0);
 }
@@ -355,6 +365,30 @@ float wiSnow(vec3 ro, vec3 rd, float sceneT, vec2 wind, float density, float tre
     return snow;
 }
 
+/** The ground pattern wiRippleField through lib_shell's hooks: exactly wiRippleField(uv) at rest, and wiRippleField read once, in a loop the compiler cannot unroll. */
+float wiRippleFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = wiRippleField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
+/** The ground pattern wiFrostField through lib_shell's hooks: exactly wiFrostField(uv) at rest, and wiFrostField read once, in a loop the compiler cannot unroll. */
+vec3 wiFrostFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    vec3 r = vec3(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        vec3 v = wiFrostField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
 void main() {
     // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
     sBump = shellMap(shellKnob(1), 0.15, WI_BUMP, 0.6);
@@ -383,7 +417,7 @@ void main() {
     gEye = ro;
     // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
     shellSetup3(ro, 3.0, 0.5 * WI_TC, false);
-    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
     shellSetup2(ro.xz, 5.0);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -451,9 +485,9 @@ void main() {
             // they never alias into sparkle near the horizon.
             float amp = 0.05 * (1.0 + 0.8 * kick + 2.0 * (uKnob[0] - 0.5)) * exp(-hitT * 0.05) * water;
             float e = 0.03;
-            float w0 = SHELL_FIELD2W(p.xz, wiRippleField);
-            float wx = SHELL_FIELD2W(p.xz + vec2(e, 0.0), wiRippleField);
-            float wz = SHELL_FIELD2W(p.xz + vec2(0.0, e), wiRippleField);
+            float w0 = wiRippleFieldGrownW(p.xz);
+            float wx = wiRippleFieldGrownW(p.xz + vec2(e, 0.0));
+            float wz = wiRippleFieldGrownW(p.xz + vec2(0.0, e));
             vec3 n = normalize(vec3(-(wx - w0) / e * amp, 1.0, -(wz - w0) / e * amp));
             float ndv = clamp(dot(n, -rd), 0.0, 1.0);
             vec3 rf = reflect(rd, n);
@@ -469,7 +503,7 @@ void main() {
             // Ice: frosted (a blurred, dimmer reflection), crazed with cracks
             // that glint on treble, brightest at the crystals' feature points.
             float density = sFrost;
-            vec2 fr = SHELL_FIELD2W(p.xz, wiFrostField).xy;
+            vec2 fr = wiFrostFieldGrownW(p.xz).xy;
             float pxw = 2.0 * hitT / (uResolution.y * uCamFocal * max(abs(rd.y), 0.08)) * density;
             float crack = 1.0 - smoothstep(0.0, 0.05 + pxw, fr.y);
             float glint = pow(1.0 - clamp(fr.x, 0.0, 1.0), 8.0);

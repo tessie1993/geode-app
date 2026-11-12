@@ -645,31 +645,41 @@ vec3 diveScene(vec3 q) {
  * all four rest, so the picture at rest is the old one, bit for bit.
  */
 vec3 diveGrow(vec3 p) {
-    growFrame();
-    float k = growOpen(p, 0.18);
-    vec3 c = growCentre();
-    vec3 q = c + growOpened(p - c, k);
-    vec3 h = diveScene(q);
-    if (uSpawn > 0.0) {
-        vec3 s = diveScene(q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
-        if (gGrowSet) s.x = growClearEye(s.x, p, 0.6);
-        if (s.x < h.x) h = s;
+    // At rest the one pass reads the map at p and hands back what it found, bit for bit.
+    bool idle = growIdle();
+    float k = 1.0;
+    vec3 q = p;
+    float reach = 0.0;
+    if (!idle) {
+        growFrame();
+        k = growOpen(p, 0.18);
+        vec3 c = growCentre();
+        q = c + growOpened(p - c, k);
+        reach = growFractalReach(0.2);
     }
-    float reach = growFractalReach(0.2);
-    if (reach > 0.0) {
-        vec3 ch = diveScene(growChildSpace(q, 3.0, 2.0));
-        ch.x = growFractalChild(ch.x / 3.0, h.x, reach);
-        if (gGrowSet) ch.x = growClearEye(ch.x, p, 0.6);
-        if (ch.x < h.x) h = ch;
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
+    // Spawn's copy and Fractal's child while each is on. Inlined copies put a style past the GPU's
+    // compile budget, and WebGL refuses ?: on a struct, so the nearer hit is chosen with an if.
+    vec3 h;
+    for (int i = min(int(uSpawn), 0); i < 3; i++) {
+        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
+        vec3 c = diveScene(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            h = c;
+            continue;
+        }
+        if (i == 2) c.x = growFractalChild(c.x / 3.0, h.x, reach);
+        if (gGrowSet) c.x = growClearEye(c.x, p, 0.6);
+        if (c.x < h.x) h = c;
     }
     // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
     // only across it, so min(k, 1) is the safe factor.
-    h.x *= gGrowAround ? k : min(k, 1.0);
+    if (!idle) h.x *= gGrowAround ? k : min(k, 1.0);
     return h;
 }
 
 /** The scene F at q, grown: exactly F(q) while Spawn, Fractal and both layers rest. */
-#define DIVE_GROW(p, F) (growIdle() ? F(p) : diveGrow(p))
+#define DIVE_GROW(p, F) diveGrow(p)
 
 /**
  * The family's one field at world point p: (distance, part, id), the part and id as

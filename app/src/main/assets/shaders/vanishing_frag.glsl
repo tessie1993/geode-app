@@ -544,12 +544,22 @@ float vanField(vec3 p) {
     return min(dIn, dOut) / gLip;
 }
 
+/** vanField through lib_shell's hooks: exactly vanField(p) at rest, and vanField read once, in a loop the compiler cannot unroll. */
+float vanFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, vanField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: vanField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, vanField);
+    return vanFieldGrown(p);
 }
 
 /**

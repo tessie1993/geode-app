@@ -81,7 +81,7 @@ out vec4 fragColor;
 // 16 of the rebase only at a whole ratio, and the drop's plunge is one level
 // of it. The fourth inner level is the drop's: it shows while a drop grows it
 // or sLevels asks for it, whichever is more. The sponge goes through
-// SHELL_FIELD3, so the shell's spawn, fractal, front and back hooks reach it.
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach it.
 
 #define MC_MAX_STEPS 112
 /** World to fractal space. Level 0 has period 2 in fractal space, so 16 in the world. */
@@ -169,9 +169,19 @@ float mapField(vec3 w) {
     return dw;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The sponge as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

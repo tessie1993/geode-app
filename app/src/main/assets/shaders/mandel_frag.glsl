@@ -60,7 +60,7 @@ out vec4 fragColor;
 // world unit holds) and the terraces' frequency (TEXTURE), is one normalized
 // input (lib_shell) set in one block at the top of main and mapped there to
 // its range; at rest each is the constant the landscape was tuned with. The
-// landscape is the field the grow hooks act on (SHELL_FIELD3): Spawn slides a
+// landscape is the field the grow hooks act on (its shell wrapper): Spawn slides a
 // second chain of islands down the flight, Fractal grows islands a third the
 // size on the cliffs, the layers open the near and far landscape. A hook that
 // is on starts the march at the eye instead of the slab above the mesa.
@@ -177,7 +177,7 @@ float setDistance(vec2 c) {
     return 0.5 * r * log(r) / max(length(dz), 1e-6) / gCs;
 }
 
-/** The landscape: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The landscape: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float mandelField(vec3 p) {
     gMat = 0.0;
     float above = p.y - MB_TOP;
@@ -207,8 +207,18 @@ float mandelField(vec3 p) {
     return min(min(dCliff, dFloor), dNbr);
 }
 
+/** mandelField through lib_shell's hooks: exactly mandelField(p) at rest, and mandelField read once, in a loop the compiler cannot unroll. */
+float mandelFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mandelField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mandelField);
+    return mandelFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

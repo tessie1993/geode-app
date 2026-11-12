@@ -74,8 +74,8 @@ out vec4 fragColor;
 //   sJit        Turbulence       each pillar's jitter 0 .. 0.18
 //
 // The cell (0.5) and the coils' pitch (8) stay: both tile the 8 the eye is
-// rebased by. The hive goes through SHELL_FIELD3 and the portal through
-// SHELL_FIELD2, so the shell's spawn, fractal, front and back hooks reach both.
+// rebased by. The hive goes through its shell wrapper and the portal through
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach both.
 
 #define HH_MAX_STEPS 110
 #define HH_TAU 6.2831853
@@ -181,9 +181,19 @@ float hhField(vec3 p) {
     return mapCore(p, gM);
 }
 
+/** hhField through lib_shell's hooks: exactly hhField(p) at rest, and hhField read once, in a loop the compiler cannot unroll. */
+float hhFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, hhField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The hive as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p, out vec4 m) {
-    float d = SHELL_FIELD3(p, hhField);
+    float d = hhFieldGrown(p);
     m = gM;
     return d;
 }
@@ -213,6 +223,18 @@ vec3 mandala(vec2 p) {
     }
     col += neon(0.55) * exp(-r * 25.0) * 2.0;
     return col * smoothstep(0.6, 0.3, r);
+}
+
+/** The pattern mandala through lib_shell's hooks: exactly mandala(uv) at rest, and mandala read once, in a loop the compiler cannot unroll. */
+vec3 mandalaGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    vec3 r = vec3(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        vec3 v = mandala(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 void main() {
@@ -283,7 +305,7 @@ void main() {
         vec2 pp = rd.xy / rd.z / mix(0.18, 0.4, kBuild);
         float keep = gTone;
         gTone += 0.4 * SND_CHORD_HUE;
-        bg += SHELL_FIELD2(pp, mandala) * (0.5 + 0.9 * kBuild) * glow;
+        bg += mandalaGrown(pp) * (0.5 + 0.9 * kBuild) * glow;
         gTone = keep;
     }
 

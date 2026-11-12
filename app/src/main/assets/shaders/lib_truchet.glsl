@@ -195,7 +195,7 @@ float truchetMorph() {
  * map F at p grown by truchetGrow (lib_truchet_field, defined after the style's
  * map, where this expands): exactly F(p) while all four rest.
  */
-#define TRUCHET_GROW(p, F) (growIdle() ? F(p) : truchetGrow(p))
+#define TRUCHET_GROW(p, F) truchetGrow(p)
 /**
  * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
  * alternatives yet, so none reads uFormula; a style that grows a second reads

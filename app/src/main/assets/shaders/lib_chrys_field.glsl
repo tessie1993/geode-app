@@ -27,31 +27,41 @@
  * reads no uFormula; a style that grows a second joins the formula styles.
  */
 ChrysHit chrysGrow(vec3 p) {
-    growFrame();
-    float k = growOpen(p, 0.18);
-    vec3 c = growCentre();
-    vec3 q = c + growOpened(p - c, k);
-    ChrysHit h = chrysMap(q);
-    if (uSpawn > 0.0) {
-        ChrysHit s = chrysMap(q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
-        if (gGrowSet) s.d = growClearEye(s.d, p, 0.6);
-        if (s.d < h.d) h = s;
+    // At rest the one pass reads the map at p and hands back what it found, bit for bit.
+    bool idle = growIdle();
+    float k = 1.0;
+    vec3 q = p;
+    float reach = 0.0;
+    if (!idle) {
+        growFrame();
+        k = growOpen(p, 0.18);
+        vec3 c = growCentre();
+        q = c + growOpened(p - c, k);
+        reach = growFractalReach(0.2);
     }
-    float reach = growFractalReach(0.2);
-    if (reach > 0.0) {
-        ChrysHit ch = chrysMap(growChildSpace(q, 3.0, 2.0));
-        ch.d = growFractalChild(ch.d / 3.0, h.d, reach);
-        if (gGrowSet) ch.d = growClearEye(ch.d, p, 0.6);
-        if (ch.d < h.d) h = ch;
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
+    // Spawn's copy and Fractal's child while each is on. Inlined copies put a style past the GPU's
+    // compile budget, and WebGL refuses ?: on a struct, so the nearer hit is chosen with an if.
+    ChrysHit h;
+    for (int i = min(int(uSpawn), 0); i < 3; i++) {
+        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
+        ChrysHit c = chrysMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            h = c;
+            continue;
+        }
+        if (i == 2) c.d = growFractalChild(c.d / 3.0, h.d, reach);
+        if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
+        if (c.d < h.d) h = c;
     }
     // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
     // only across it, so min(k, 1) is the safe factor.
-    h.d *= gGrowAround ? k : min(k, 1.0);
+    if (!idle) h.d *= gGrowAround ? k : min(k, 1.0);
     return h;
 }
 
 /** The style's map F at p, grown: exactly F(p) while Spawn, Fractal and both layers rest. */
-#define CHRYS_GROW(p, F) (growIdle() ? F(p) : chrysGrow(p))
+#define CHRYS_GROW(p, F) chrysGrow(p)
 
 /** The family's field at world point p: the style's flowers, the distance and what was found there. It writes no global. */
 ChrysHit chrysField(vec3 p) {

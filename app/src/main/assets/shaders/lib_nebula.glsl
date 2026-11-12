@@ -199,7 +199,7 @@ float nebEnergy() {
  * medium F at p grown by nebGrow (lib_nebula_field, defined after the style's
  * map, where this expands): exactly F(p, oct) while all four rest.
  */
-#define NEB_GROW(p, oct, F) (growIdle() ? F(p, oct) : nebGrow(p, oct))
+#define NEB_GROW(p, oct, F) nebGrow(p, oct)
 /**
  * Formula (uFormula): 0.0, each style's one formula. No Nebula style keeps
  * alternatives yet, so none reads uFormula; a style that grows a second reads

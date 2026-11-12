@@ -79,7 +79,7 @@ out vec4 fragColor;
 //
 // The rib spacing (2) and every other z period stay constants: each divides
 // the 64 the eye is rebased by. The lobes are a whole number, so the wobble
-// closes round the bore without a seam. The shell goes through SHELL_FIELD3,
+// closes round the bore without a seam. The shell goes through its shell wrapper,
 // so the shell's spawn, fractal, front and back hooks reach it; the empty-
 // middle skip holds only while those hooks are at rest.
 //
@@ -174,9 +174,19 @@ float mapField(vec3 p) {
     return max(d, TN_BUBBLE - length(p - gEye));
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The tube as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

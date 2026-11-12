@@ -159,7 +159,7 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
  * height F at xz grown by terraGrow (lib_terra_field, defined after the style's
  * map, where this expands): exactly F(xz) while all four rest.
  */
-#define TERRA_GROW(p, F) (growIdle() ? F(p) : terraGrow(p))
+#define TERRA_GROW(p, F) terraGrow(p)
 /**
  * Formula (uFormula): 0.0, each style's one formula. No Terrain style keeps
  * alternatives yet, so none reads uFormula; a style that grows a second reads

@@ -237,12 +237,22 @@ float bbField(vec3 w) {
     return max(d, BB_EYE - length(w - gEye));
 }
 
+/** bbField through lib_shell's hooks: exactly bbField(p) at rest, and bbField read once, in a loop the compiler cannot unroll. */
+float bbFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, bbField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: bbField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, bbField);
+    return bbFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

@@ -179,7 +179,7 @@
  * map F at p grown by glassGrow (lib_glass_field, defined after the style's
  * map, where this expands): exactly F(p) while all four rest.
  */
-#define GLASS_GROW(p, F) (growIdle() ? F(p) : glassGrow(p))
+#define GLASS_GROW(p, F) glassGrow(p)
 /**
  * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
  * alternatives yet, so none reads uFormula; a style that grows a second reads

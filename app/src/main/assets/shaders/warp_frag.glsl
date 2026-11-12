@@ -66,7 +66,7 @@ out vec4 fragColor;
 // and the haze toward the corridor's end (SPACE), is one normalized input
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range; at rest each is the constant the jump was tuned with. The streaks are
-// the field the grow hooks act on (SHELL_FIELD3): Spawn slides a second field
+// the field the grow hooks act on (its shell wrapper): Spawn slides a second field
 // of streaks half a cell along the flight, Fractal grows streaks a third the
 // size about the first, the layers open the near and far field.
 //
@@ -126,7 +126,7 @@ vec2 bend(float z) {
     return gBendA * vec2(sin(z * (WP_TAU / 256.0)), 0.6 * sin(z * (WP_TAU / 128.0) + 1.3));
 }
 
-/** The streaks and the corridor: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The streaks and the corridor: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float warpField(vec3 p) {
     // Bent so the corridor passes through the eye wherever the curve is.
     vec2 q = p.xy - (bend(p.z) - gBendEye);
@@ -179,8 +179,18 @@ float warpField(vec3 p) {
     return d;
 }
 
+/** warpField through lib_shell's hooks: exactly warpField(p) at rest, and warpField read once, in a loop the compiler cannot unroll. */
+float warpFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, warpField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return max(SHELL_FIELD3(p, warpField), WP_BUBBLE - length(p - gEye));
+    return max(warpFieldGrown(p), WP_BUBBLE - length(p - gEye));
 }
 
 void main() {

@@ -66,7 +66,7 @@ out vec4 fragColor;
 // The cell (2), its hash wrap (512 cells) and the window columns (3 per unit,
 // wrapping at 3072) stay constants: each is the 1024 tile the eye's rebase
 // relies on. The roof bound gHiMax grows with sBlockH. The city goes through
-// SHELL_FIELD3, so the shell's spawn, fractal, front and back hooks reach it.
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach it.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -168,9 +168,19 @@ float mapField(vec3 w) {
     return d;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The city as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

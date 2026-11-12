@@ -73,7 +73,7 @@ out vec4 fragColor;
 //
 // The noise lattices' z periods (128, 256, 512 cells) and the winding's 64
 // stay constants: each tiles the 1024 the eye is rebased by. The give-up
-// height rises with the hills. The land goes through SHELL_FIELD2 as one
+// height rises with the hills. The land goes through its shell wrapper as one
 // height pattern, so the shell's spawn, fractal, front and back hooks reach it.
 
 #define ST_MAX_STEPS 112
@@ -152,9 +152,21 @@ float terrainField(vec2 xz) {
     return h;
 }
 
+/** The ground pattern terrainField through lib_shell's hooks: exactly terrainField(uv) at rest, and terrainField read once, in a loop the compiler cannot unroll. */
+float terrainFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = terrainField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
 /** The land as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float terrain(vec2 xz) {
-    return SHELL_FIELD2W(xz, terrainField);
+    return terrainFieldGrownW(xz);
 }
 
 void main() {
@@ -213,7 +225,7 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, ST_ZWRAP);
-    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
     shellSetup2(ro.xz, 5.0);
     // The ring rises a few units ahead and spreads as the kick decays.
     gRipC = ro.xz + vec2(0.0, 4.0);

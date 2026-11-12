@@ -59,7 +59,7 @@ out vec4 fragColor;
 // streamers' sharpness (TEXTURE), is one normalized input (lib_shell) set in
 // one block at the top of main and mapped there to its range; at rest each is
 // the constant the sun was tuned with. The photosphere is the field the grow
-// hooks act on (SHELL_FIELD3, about the sun's centre): Spawn sets a twin sun
+// hooks act on (its shell wrapper, about the sun's centre): Spawn sets a twin sun
 // beside it, Fractal grows suns a third the size on the surface, Front layer
 // swells the sun and Back layer what lies past it. A hook that is on widens
 // the bounding shell the march is clipped to.
@@ -104,7 +104,7 @@ float gGran;
  */
 float gShapeHue;
 
-/** The photosphere: the field the grow hooks act on (sunMap() hands it to SHELL_FIELD3). */
+/** The photosphere: the field the grow hooks act on (sunMap() hands it to its shell wrapper). */
 float sunField(vec3 p) {
     vec3 q = gSpin * p;
     float h = fbm3(q * gFreq + gBoil, 3);
@@ -112,10 +112,20 @@ float sunField(vec3 p) {
     return (length(p) - gR - gA * h) * gStepK;
 }
 
+/** sunField through lib_shell's hooks: exactly sunField(p) at rest, and sunField read once, in a loop the compiler cannot unroll. */
+float sunFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, sunField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The photosphere through the grow hooks, the shape graph melted in by Shapes (lib_shapes; the sun alone at 0). */
 float sunMap(vec3 p) {
     gShapeHue = 0.0;
-    return shapesInto(SHELL_FIELD3(p, sunField), p, gShapeHue);
+    return shapesInto(sunFieldGrown(p), p, gShapeHue);
 }
 
 vec3 sunNormal(vec3 p) {

@@ -117,12 +117,22 @@ float nfField(vec3 p) {
     return density(p, gBend, gSquash, gSharp, gWarpScale, gWarpAmount);
 }
 
+/** The density nfField through lib_shell's hooks: exactly nfField(p) at rest, and nfField read once, in a loop the compiler cannot unroll. */
+float nfFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, nfField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The density the march reads: nfField through lib_shell's density hook (the identity at rest), so a
  * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
  */
 float nfDensity(vec3 p) {
-    return SHELL_DENSITY3(p, nfField);
+    return nfFieldGrown(p);
 }
 
 /**

@@ -542,9 +542,19 @@ float nebField(vec3 q) {
     return fbm3(q, gOct);
 }
 
+/** nebField through lib_shell's hooks: exactly nebField(p) at rest, and nebField read once, in a loop the compiler cannot unroll. */
+float nebFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, nebField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The pattern the march reads: nebField, through lib_shell's hook (the identity until the shell drives it). */
 float nebPattern(vec3 q) {
-    return SHELL_FIELD3(q, nebField);
+    return nebFieldGrown(q);
 }
 
 void main() {

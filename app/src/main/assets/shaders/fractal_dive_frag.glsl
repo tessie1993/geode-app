@@ -54,7 +54,7 @@ out vec4 fragColor;
 //   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
 //
 // The world fold (period 4) stays: it is the tile the rebase relies on. The
-// fractal goes through SHELL_FIELD3, so the shell's hooks reach it.
+// fractal goes through its shell wrapper, so the shell's hooks reach it.
 
 #define FD_MAX_STEPS 96
 /** The most fold iterations TEXTURE can ask for (7 at rest, sIters). */
@@ -105,9 +105,19 @@ float mapField(vec3 w) {
     return smax(de, sHole - length(w.xy), 0.35) / gBendL;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The fractal as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

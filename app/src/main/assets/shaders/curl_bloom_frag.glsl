@@ -110,12 +110,22 @@ float cbField(vec3 p) {
     return min(host, sat);
 }
 
+/** cbField through lib_shell's hooks: exactly cbField(p) at rest, and cbField read once, in a loop the compiler cannot unroll. */
+float cbFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, cbField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: cbField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, cbField);
+    return cbFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float e) {

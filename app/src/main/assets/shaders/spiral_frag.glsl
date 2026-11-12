@@ -67,7 +67,7 @@ out vec4 fragColor;
 // filament's width (BUILD), is one normalized input (lib_shell) set in one
 // block at the top of main and mapped there to its range; at rest each is the
 // constant the vortex was tuned with. The vanes are the field the grow hooks
-// act on (SHELL_FIELD3): Spawn slides a second set of vanes along the flight,
+// act on (its shell wrapper): Spawn slides a second set of vanes along the flight,
 // Fractal grows vanes a third the size on the blades, the layers open the near
 // and far vortex.
 //
@@ -118,7 +118,7 @@ float spSheet(float ang, float base, float arms, float r, float wobGrad) {
     return (u - gSpTh) / g;
 }
 
-/** The vanes and the wall: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The vanes and the wall: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float spiralField(vec3 w) {
     float r = max(length(w.xy), 1e-3);
     // atan(0, 0) is undefined in GLSL ES; the guard only matters on the axis,
@@ -137,8 +137,18 @@ float spiralField(vec3 w) {
     return min(d, gSpOut - r);
 }
 
+/** spiralField through lib_shell's hooks: exactly spiralField(p) at rest, and spiralField read once, in a loop the compiler cannot unroll. */
+float spiralFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, spiralField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 w) {
-    return max(SHELL_FIELD3(w, spiralField), SP_BUBBLE - length(w - gSpEye));
+    return max(spiralFieldGrown(w), SP_BUBBLE - length(w - gSpEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {

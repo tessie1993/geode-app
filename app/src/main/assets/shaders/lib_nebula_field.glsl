@@ -21,17 +21,30 @@
  * colour; while all four rest NEB_GROW reads the map alone, bit for bit.
  */
 NebHit nebGrow(vec3 p, float oct) {
-    growFrame();
-    float k = growOpen(p, 0.18);
-    vec3 c = growCentre();
-    vec3 q = c + growOpened(p - c, k);
-    NebHit h = nebMap(q, oct);
-    float first = h.dens;
-    if (uSpawn > 0.0) {
-        h.dens += clamp(uSpawn, 0.0, 1.0) * nebMap(q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0), oct).dens;
+    // At rest the one pass reads the medium at p and hands back what it found, bit for bit.
+    bool idle = growIdle();
+    vec3 q = p;
+    if (!idle) {
+        growFrame();
+        float k = growOpen(p, 0.18);
+        vec3 c = growCentre();
+        q = c + growOpened(p - c, k);
     }
-    if (uFractal > 0.0) {
-        h.dens += clamp(uFractal, 0.0, 1.0) * nebMap(growChildSpace(q, 3.0, 2.0), oct).dens * clamp(4.0 * first, 0.0, 1.0);
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first gas, then
+    // Spawn's and Fractal's while each is on (inlined copies put a style past the GPU's compile budget).
+    NebHit h;
+    float first = 0.0;
+    for (int i = min(int(uSpawn), 0); i < 3; i++) {
+        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(uFractal > 0.0))))) continue;
+        NebHit c = nebMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)), oct);
+        if (i == 0) {
+            h = c;
+            first = c.dens;
+        } else if (i == 1) {
+            h.dens += clamp(uSpawn, 0.0, 1.0) * c.dens;
+        } else {
+            h.dens += clamp(uFractal, 0.0, 1.0) * c.dens * clamp(4.0 * first, 0.0, 1.0);
+        }
     }
     return h;
 }

@@ -69,7 +69,7 @@ out vec4 fragColor;
 // wave's rest frequency (TEXTURE) and the fog (SPACE), is one normalized input
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range; at rest each is the constant the plasma was tuned with. The labyrinth
-// is the field the grow hooks act on (SHELL_FIELD3): Spawn slides a second
+// is the field the grow hooks act on (its shell wrapper): Spawn slides a second
 // labyrinth through the first, Fractal grows blobs a third the size on its
 // skins, the layers open the near and far labyrinth.
 //
@@ -133,7 +133,7 @@ float field(vec3 p) {
 /** TONE: the per-axis scale of the field (1 at rest; never above 1). */
 vec3 gGrain;
 
-/** The labyrinth and its channel: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The labyrinth and its channel: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float plasmaField(vec3 w) {
     // TONE's grain: each factor is at most 1, so gLip still bounds the gradient.
     vec3 p = warpP(w) * gGrain;
@@ -144,8 +144,18 @@ float plasmaField(vec3 w) {
     return smax(d, gTube - length(w.xy), 0.8);
 }
 
+/** plasmaField through lib_shell's hooks: exactly plasmaField(p) at rest, and plasmaField read once, in a loop the compiler cannot unroll. */
+float plasmaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, plasmaField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 w) {
-    return max(SHELL_FIELD3(w, plasmaField), PL_BUBBLE - length(w - gEye));
+    return max(plasmaFieldGrown(w), PL_BUBBLE - length(w - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {

@@ -61,9 +61,9 @@ out vec4 fragColor;
 // width and the beam's halo, is one normalized input (lib_shell) set in one
 // block at the top of main and mapped there to its range; at rest each is the
 // constant the tube was tuned with. The grow hooks act on two fields: the tube
-// (SHELL_FIELD3: Spawn slides a second tube along it, Fractal grows small
+// (its shell wrapper: Spawn slides a second tube along it, Fractal grows small
 // tubes in the walls, the layers open the near and far tube) and each frame's
-// trace (SHELL_FIELD2: a mirrored second trace, the trace folded into thirds,
+// trace (its shell wrapper: a mirrored second trace, the trace folded into thirds,
 // the layers zoom the middle and the edges of the frame).
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -136,15 +136,25 @@ float wallWp(float z) {
          + gPinch * SC_PINCH_FALL * exp(-abs(c) * SC_PINCH_FALL) * sign(c);
 }
 
-/** The tube: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The tube: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float scTube(vec3 p) {
     float dx = (wallW(p.z) - abs(p.x)) / gLip;
     float dy = gH - abs(p.y);
     return min(dx, dy);
 }
 
+/** scTube through lib_shell's hooks: exactly scTube(p) at rest, and scTube read once, in a loop the compiler cannot unroll. */
+float scTubeGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, scTube(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return max(SHELL_FIELD3(p, scTube), SC_BUBBLE - length(p - gEye));
+    return max(scTubeGrown(p), SC_BUBBLE - length(p - gEye));
 }
 
 /** A graticule of lines every `s` world units, `w` wide, on the wall coordinates g. */
@@ -199,6 +209,18 @@ float scBeam(vec2 qn) {
     float core = max(0.012, gTrPx * 1.1);
     float halo = core * 6.0 + gTrHalo0 + 0.1 * gTrSnare;
     return (exp(-d / core) + gTrHaloK * exp(-d / halo)) * ends;
+}
+
+/** The pattern scBeam through lib_shell's hooks: exactly scBeam(uv) at rest, and scBeam read once, in a loop the compiler cannot unroll. */
+float scBeamGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = scBeam(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 void main() {
@@ -357,7 +379,7 @@ void main() {
             gTrZw = zw;
             vec2 qn = q / gTrW;
             // The beam, its ends faded (scBeam), through the 2D grow hooks.
-            float beam = SHELL_FIELD2(qn, scBeam);
+            float beam = scBeamGrown(qn);
             float fade = smoothstep(0.2, 1.6, ti) * exp(-ti * fogK);
             col += pal(hue + gTrU * 0.5 + vol * 0.3) * beam * fade * 0.9;
         }

@@ -26,6 +26,8 @@ enum class LfoTarget {
     CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,
     // Appended: Liquid mode's Swirl, Push and Dive (viz/liquid), after the camera rig's.
     FlowCurl, FlowForce, EndlessZoomSpeed,
+    // Appended: the dive's spiral and where it points (viz/EndlessZoom.hpp).
+    DiveTwist, DiveAimX, DiveAimY,
 };
 
 struct ModChain {

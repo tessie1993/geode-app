@@ -88,10 +88,7 @@ enum class LfoTarget(
     TURBULENCE("Turbulence"),
     CHROMA_AB("Chroma AB"),
     VIGNETTE("Vignette"),
-
-    // RETIRED_5 was PULSE, this was GLITCH: each holds its slot so later ordinals match native. Never offered; a saved name loads as dropped.
-    RETIRED_25(""),
-
+    RETIRED_25(""), // RETIRED_5 was PULSE, this GLITCH: each holds its slot so later ordinals match native; a saved name loads as dropped.
     FISHEYE("Fisheye"),
     PARTICLE_SIZE("Particle size"),
     TRAIL_LENGTH("Trail length"),
@@ -112,8 +109,7 @@ enum class LfoTarget(
     LFO3_RATE("Wave 3 speed"),
     LFO3_DEPTH("Wave 3 depth"),
 
-    // The camera rig's offsets (core/viz/CameraRig). Every family is viewed through the rig,
-    // directly or through the composite's flat projection, so native gives them every style.
+    // The camera rig's offsets (core/viz/CameraRig); native gives them every style.
     CAM_FLY("Camera speed"),
     CAM_ORBIT("Camera swing"),
     CAM_PUSH("Camera push"),
@@ -127,6 +123,9 @@ enum class LfoTarget(
     FLOW_CURL("Swirl"),
     FLOW_FORCE("Push"),
     DIVE_SPEED("Dive"),
+    DIVE_TWIST("Dive twist"),
+    DIVE_AIM_X("Dive aim sideways"),
+    DIVE_AIM_Y("Dive aim up and down"),
 }
 
 /** One modulation slot; the rate is a period in seconds, or in beats of the music when [beats] is set. */

@@ -268,6 +268,10 @@ void geode_track_feed_target_ms(geode_track_feed* f, int64_t end_ms) {
     if (f) f->feed.setTargetMs(end_ms);
 }
 
+void geode_track_feed_target_frame(geode_track_feed* f, int64_t frame, int32_t fps) {
+    if (f) f->feed.setTargetFrame(frame, fps);
+}
+
 int geode_track_feed_deliver(geode_track_feed* f, geode_track_sink sink, void* context) {
     return f && f->feed.deliver(sink, context) ? 1 : 0;
 }

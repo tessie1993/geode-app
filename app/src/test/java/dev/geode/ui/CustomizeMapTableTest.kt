@@ -48,13 +48,13 @@ class CustomizeMapTableTest {
     }
 
     @Test
-    fun nineCategoriesInPanelOrderEachWithAtMostOneBasicsFirst() {
+    fun theCategoriesInPanelOrderEachWithAtMostOneBasicsFirst() {
         assertEquals(CustomizeCategory.entries, sections.map { it.category }.distinct())
         CustomizeCategory.entries.forEach { category ->
             val own = CustomizeMapTable.sectionsOf(category)
             val basics = own.filter { it.basics }
-            if (category == CustomizeCategory.EXPERT) {
-                assertTrue("Expert has no Basics", basics.isEmpty())
+            if (category == CustomizeCategory.EXPERT || category == CustomizeCategory.ENGINE) {
+                assertTrue("$category has no Basics", basics.isEmpty())
             } else {
                 assertEquals("$category has one Basics", 1, basics.size)
                 assertTrue("$category opens on its Basics", own.first().basics)

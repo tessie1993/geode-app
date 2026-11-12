@@ -1994,6 +1994,13 @@ object GeodeNative {
         endMs: Long,
     )
 
+    /** Aims the next [vizHearTrack] at the exact end of video [frame] (from the range start) at [fps]. */
+    external fun trackFeedTargetFrame(
+        handle: Long,
+        frame: Long,
+        fps: Int,
+    )
+
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(
         handle: Long,

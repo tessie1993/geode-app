@@ -7,7 +7,6 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.Player
-import dev.geode.data.BehaviourStore
 import dev.geode.geodeContainer
 
 /**
@@ -24,7 +23,7 @@ internal class HeadphoneAutoplay(
     private val player: Player,
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private val behaviour = BehaviourStore(context.geodeContainer.prefsFiles.general)
+    private val behaviour = context.geodeContainer.behaviour
     private val main = Handler(Looper.getMainLooper())
 
     /** The first callback lists the devices already connected at registration; only later ones are news. */
@@ -38,7 +37,7 @@ internal class HeadphoneAutoplay(
                     return
                 }
                 if (addedDevices.none { it.isSink && it.type in HEADPHONE_TYPES }) return
-                if (!behaviour.load().startOnHeadphones) return
+                if (!behaviour.value.value.startOnHeadphones) return
                 if (player.currentMediaItem == null || player.isPlaying) return
                 if (player.playbackState == Player.STATE_IDLE) player.prepare()
                 player.play()

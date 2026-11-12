@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.LyricLine
 
 data class Lyrics(
@@ -11,22 +12,9 @@ data class Lyrics(
     val synced: Boolean,
     val source: String,
 ) {
-    fun indexAt(positionMs: Long): Int {
-        if (!synced || lines.isEmpty()) return -1
-        var lo = 0
-        var hi = lines.size - 1
-        var found = -1
-        while (lo <= hi) {
-            val mid = (lo + hi) / 2
-            if (lines[mid].timeMs <= positionMs) {
-                found = mid
-                lo = mid + 1
-            } else {
-                hi = mid - 1
-            }
-        }
-        return found
-    }
+    private val timesMs = LongArray(lines.size) { lines[it].timeMs }
+
+    fun indexAt(positionMs: Long): Int = GeodeNative.lyricsIndexAt(timesMs, positionMs)
 }
 
 object LyricsLoader {
@@ -122,44 +110,19 @@ object LyricsLoader {
             raw?.takeIf { it.isNotBlank() }?.let { parse(it, context.getString(R.string.lyrics_source_tags)) }
         }.getOrNull()
 
+    /** The lines of [text] (an .lrc or plain lyrics), read by core/library/Lyrics; null when there is nothing to show. */
     fun parse(
         text: String,
         source: String,
     ): Lyrics? {
-        if (text.isBlank()) return null
-        val timed = ArrayList<LyricLine>()
-        val plain = ArrayList<LyricLine>()
-        for (raw in text.lines()) {
-            val stamps = TAG.findAll(raw).toList()
-            val body = raw.replace(TAG, "").trim()
-            if (stamps.isEmpty()) {
-                if (body.isNotBlank() && !METADATA.matches(raw.trim())) plain += LyricLine(-1, body)
-                continue
+        val wire = String(GeodeNative.lyricsParse(text.toByteArray()), Charsets.UTF_8)
+        if (wire.isEmpty()) return null
+        val rows = wire.split('\n')
+        val lines =
+            rows.drop(1).filter { it.isNotEmpty() }.map {
+                val tab = it.indexOf('\t')
+                LyricLine(it.substring(0, tab).toLong(), it.substring(tab + 1))
             }
-            if (body.isBlank()) continue
-            for (stamp in stamps) {
-                val minutes = stamp.groupValues[1].toLongOrNull() ?: continue
-                val seconds = stamp.groupValues[2].toLongOrNull() ?: continue
-                val fractionText = stamp.groupValues[3]
-                val fraction = fractionText.toLongOrNull() ?: 0L
-                val fractionMs =
-                    when (fractionText.length) {
-                        0 -> 0L
-                        1 -> fraction * 100
-                        2 -> fraction * 10
-                        else -> fraction
-                    }
-                timed += LyricLine(minutes * 60_000 + seconds * 1_000 + fractionMs, body)
-            }
-        }
-        return when {
-            timed.isNotEmpty() -> Lyrics(timed.sortedBy { it.timeMs }, synced = true, source = source)
-            plain.isNotEmpty() -> Lyrics(plain, synced = false, source = source)
-            else -> null
-        }
+        return Lyrics(lines, synced = rows[0] == "S", source = source)
     }
-
-    private val TAG = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
-
-    private val METADATA = Regex("""^\[[a-zA-Z]+:.*]$""")
 }

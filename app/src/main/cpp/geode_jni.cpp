@@ -1,5 +1,8 @@
 #include <jni.h>
 
+#include <string>
+#include <vector>
+
 #include "api/geode_api.h"
 
 namespace {
@@ -75,15 +78,24 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFxClamp(JNIEnv*, jobject, jint contr
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBands(JNIEnv* env, jobject, jint preset, jintArray stored, jintArray out) {
+Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBandsText(JNIEnv* env, jobject, jint preset, jstring csv, jintArray out) {
     if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
-    jint* saved = stored ? env->GetIntArrayElements(stored, nullptr) : nullptr;
+    const char* text = csv ? env->GetStringUTFChars(csv, nullptr) : nullptr;
     int32_t levels[GEODE_DSP_BANDS] = {};
-    const int n = geode_dsp_restore_bands(preset, static_cast<const int32_t*>(saved), saved ? env->GetArrayLength(stored) : 0, levels,
-                                          GEODE_DSP_BANDS);
-    if (saved) env->ReleaseIntArrayElements(stored, saved, JNI_ABORT);
+    const int n = geode_dsp_restore_bands_text(preset, text, levels, GEODE_DSP_BANDS);
+    if (text) env->ReleaseStringUTFChars(csv, text);
     env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
     return n;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, jintArray levels) {
+    const jsize count = levels ? env->GetArrayLength(levels) : 0;
+    std::vector<jint> values(static_cast<size_t>(count));
+    if (count > 0) env->GetIntArrayRegion(levels, 0, count, values.data());
+    std::string text(static_cast<size_t>(geode_dsp_encode_bands(values.data(), count, nullptr, 0)) + 1, '\0');
+    geode_dsp_encode_bands(values.data(), count, text.data(), static_cast<int>(text.size()));
+    return env->NewStringUTF(text.c_str());
 }
 
 JNIEXPORT void JNICALL
@@ -180,6 +192,16 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackPitchRatio(JNIEnv*, jobject, jf
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat value, jfloat step) {
     return geode_playback_snap(value, step);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_bookmarkVerdict(JNIEnv*, jobject, jlong positionMs, jlong durationMs) {
+    return geode_bookmark_verdict(positionMs, durationMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_bookmarkResumesFrom(JNIEnv*, jobject, jlong currentPositionMs) {
+    return geode_bookmark_resumes_from(currentPositionMs) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL

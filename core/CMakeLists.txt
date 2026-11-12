@@ -3,6 +3,7 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
+    api/geode_lyrics_api.cpp
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
@@ -12,6 +13,8 @@ add_library(geode_core STATIC
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
+    api/geode_mod_controls_api.cpp
+    viz/ModControls.cpp
     api/geode_studio_api.cpp
     studio/StudioEdit.cpp
     viz/ReactionText.cpp
@@ -53,6 +56,7 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    library/Lyrics.cpp
     library/Playlist.cpp
     audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
@@ -71,6 +75,8 @@ add_library(geode_core STATIC
     audio/dsp/Limiter.cpp
     audio/dsp/PlaybackControls.cpp
     api/geode_playback_api.cpp
+    audio/dsp/TrackBookmark.cpp
+    api/geode_bookmark_api.cpp
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp

@@ -3,7 +3,9 @@
 // on, which were the shell's too: the saved curve, else the saved levels, else 0, each in range.
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <initializer_list>
+#include <string>
 
 #include "api/geode_api.h"
 
@@ -89,12 +91,76 @@ void restore() {
     check(untouched, "a refused call writes nothing");
 }
 
+bool restoresText(int preset, const char* csv, const int32_t (&want)[GEODE_DSP_BANDS]) {
+    int32_t out[GEODE_DSP_BANDS + 1];
+    for (int32_t& v : out) v = kUntouched;
+    if (geode_dsp_restore_bands_text(preset, csv, out, GEODE_DSP_BANDS + 1) != GEODE_DSP_BANDS) return false;
+    for (int band = 0; band < GEODE_DSP_BANDS; ++band) {
+        if (out[band] != want[band]) return false;
+    }
+    return out[GEODE_DSP_BANDS] == kUntouched;
+}
+
+std::string encoded(const int32_t* levels, int count) {
+    char buf[256];
+    const int need = geode_dsp_encode_bands(levels, count, buf, static_cast<int>(sizeof buf));
+    return need == static_cast<int>(std::strlen(buf)) ? std::string(buf) : std::string("<length mismatch>");
+}
+
+void text() {
+    const int32_t stored[GEODE_DSP_BANDS] = {100, -200, 300, -400, 500, -600, 700, -800, 900, -1000};
+    const int32_t flat[GEODE_DSP_BANDS] = {};
+    check(restoresText(-1, "100,-200,300,-400,500,-600,700,-800,900,-1000", stored), "the saved text restores");
+    check(restoresText(-1, nullptr, flat) && restoresText(-1, "", flat), "no text, or empty: flat");
+    check(restoresText(-1, " 100 , -200,\t300\n,-400,+500,-600,700,-800,900,-1000 ", stored), "blanks and a plus sign are read");
+    const int32_t skipped[GEODE_DSP_BANDS] = {100, 300, 0, 0, 0, 0, 0, 0, 0, 0};
+    check(restoresText(-1, "100,abc,300", skipped), "an entry that is not a number is dropped and the rest move up");
+    check(restoresText(-1, "100,,1.5,-,+,0x10,300", skipped), "empty, fractional, bare sign and hex entries too");
+    const int32_t three[GEODE_DSP_BANDS] = {100, -200, 300, 0, 0, 0, 0, 0, 0, 0};
+    check(restoresText(-1, "100,-200,300", three), "a short list: the rest at 0");
+    check(restoresText(-1, "100,-200,300,-400,500,-600,700,-800,900,-1000,1100,1200", stored), "a long list: the first ten");
+    const int32_t wild[GEODE_DSP_BANDS] = {-1500, 1500, -1500, 1500, 0, 0, 0, 0, 0, 0};
+    check(restoresText(-1, "-2000,2000,-2147483648,2147483647", wild), "int extremes are numbers, held to the band range");
+    const int32_t one[GEODE_DSP_BANDS] = {100};
+    check(restoresText(-1, "2147483648,-2147483649,99999999999,100", one), "overflow entries are dropped, the rest move up");
+    int32_t curve[GEODE_DSP_BANDS];
+    for (int preset = 0; preset < geode_dsp_eq_preset_count(); ++preset) {
+        geode_dsp_eq_preset_levels(preset, curve, GEODE_DSP_BANDS);
+        check(restoresText(preset, "100,-200", curve), "a saved curve beats the text");
+    }
+    int32_t out[GEODE_DSP_BANDS];
+    for (int32_t& v : out) v = kUntouched;
+    check(geode_dsp_restore_bands_text(-1, "1", out, GEODE_DSP_BANDS - 1) == 0 && out[0] == kUntouched, "a short buffer is refused");
+    check(geode_dsp_restore_bands_text(-1, "1", nullptr, GEODE_DSP_BANDS) == 0, "no buffer is refused");
+}
+
+void encode() {
+    const int32_t levels[4] = {100, -200, 0, 1500};
+    check(encoded(levels, 4) == "100,-200,0,1500", "levels joined by commas");
+    check(encoded(levels, 1) == "100", "one level has no comma");
+    check(encoded(levels, 0).empty() && encoded(nullptr, 3).empty(), "none is empty text");
+    const int32_t extremes[2] = {INT32_MIN, INT32_MAX};
+    check(encoded(extremes, 2) == "-2147483648,2147483647", "int extremes");
+
+    char small[6];
+    std::memset(small, 'x', sizeof small);
+    check(geode_dsp_encode_bands(levels, 4, small, static_cast<int>(sizeof small)) == 15, "a short buffer gets the length needed");
+    check(std::strcmp(small, "100,-") == 0, "and as much as fits, NUL-terminated");
+    check(geode_dsp_encode_bands(levels, 4, nullptr, 0) == 15, "no buffer asks the length");
+
+    const int32_t stored[GEODE_DSP_BANDS] = {100, -200, 300, -400, 500, -600, 700, -800, 900, -1000};
+    const std::string saved = encoded(stored, GEODE_DSP_BANDS);
+    check(restoresText(-1, saved.c_str(), stored), "what is saved restores the same");
+}
+
 }  // namespace
 
 int main() {
     ranges();
     clamps();
     restore();
+    text();
+    encode();
     if (failures == 0) std::printf("fx_ranges_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

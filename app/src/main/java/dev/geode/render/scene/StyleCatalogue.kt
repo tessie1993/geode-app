@@ -106,8 +106,6 @@ object StyleCatalogue {
     /** The Styles page's families in order, each with its styles. */
     val picker: Map<String, List<String>> get() = answers.picker
 
-    fun isShader(id: String): Boolean = answers.has(GeodeNative.STYLE_SHADER, id)
-
     /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
     fun isFluid(id: String): Boolean = answers.has(GeodeNative.STYLE_FLUID, id)
 

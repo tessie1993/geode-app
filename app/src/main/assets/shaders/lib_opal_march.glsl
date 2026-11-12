@@ -17,29 +17,35 @@ vec2 opalField(vec3 p) {
     return m;
 }
 
+/** The field's gradient at p, unit length; straight back along the ray where the field is flat. */
+vec3 opalNormal(vec3 p, vec3 rd, float eps) {
+    vec2 e = vec2(1.0, -1.0) * eps;
+    vec3 g = e.xyy * opalField(p + e.xyy).x + e.yyx * opalField(p + e.yyx).x +
+        e.yxy * opalField(p + e.yxy).x + e.xxx * opalField(p + e.xxx).x;
+    float l = length(g);
+    return l > 1.0e-9 ? g / l : -rd;
+}
+
 /** One skin, seen along rd at p. */
 vec3 opalSkin(vec3 p, vec3 rd, float skin, float eps) {
-    vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 n = normalize(
-        e.xyy * opalField(p + e.xyy).x + e.yyx * opalField(p + e.yyx).x +
-        e.yxy * opalField(p + e.yxy).x + e.xxx * opalField(p + e.xxx).x
-    );
-    float facing = dot(n, rd);
-    n *= -sign(facing);
-    float ndv = abs(facing);
+    vec3 n = opalNormal(p, rd, eps);
+    // The side of the skin that faces the eye.
+    if (dot(n, rd) > 0.0) n = -n;
+    float ndv = clamp(-dot(n, rd), 0.0, 1.0);
     float rim = 1.0 - ndv;
     vec3 r = reflect(rd, n);
     float film = gOpalTone + gOpalBands * rim * rim + 0.3 * r.y + 0.15 * skin;
     vec3 col = opalCol(film) * (0.1 + 1.3 * rim * rim);
-    col += opalCol(film + 0.45) * 1.6 * pow(rim, 6.0);
-    float spec = pow(max(dot(r, normalize(vec3(0.45, 0.8, -0.35))), 0.0), 60.0);
+    float rim3 = rim * rim * rim;
+    col += opalCol(film + 0.45) * 1.6 * rim3 * rim3;
+    float spec = pow(clamp(dot(r, normalize(vec3(0.45, 0.8, -0.35))), 0.0, 1.0), 60.0);
     col += mix(vec3(1.0), opalCol(film + 0.2), 0.35) * spec;
     float c = fract(skin) - 0.5;
     col += opalCol(film + 0.3) * gOpalLines * 0.0025 / (c * c + 0.0025) * (0.25 + 0.75 * rim);
     return col;
 }
 
-/** The gathered light along one ray. */
+/** The light along one ray: sphere traced to each skin in turn, and on through it. */
 vec3 opalTrace(vec3 ro, vec3 rd) {
     float n = OPAL_STEPS;
     vec3 acc = vec3(0.0);
@@ -63,7 +69,7 @@ vec3 opalTrace(vec3 ro, vec3 rd) {
             if (hits >= OPAL_HITS) break;
             t += 6.0 * eps;
         } else {
-            t += d * gOpalStride;
+            t += max(d * gOpalStride, 0.25 * eps);
         }
     }
     return acc + opalCol(gOpalTone + 0.5) * halo;

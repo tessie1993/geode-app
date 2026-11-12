@@ -36,7 +36,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     }
     f = vec2(1.3 * q.y + 0.4 * q.x, 2.2 * (l - ORB_R) + 0.5);
     hue = vec2(0.25 * length(q.xz), 0.55 + 0.2 * p.y);
-    float inside = smoothstep(ORB_R, ORB_R - 0.12, l);
+    float inside = 1.0 - smoothstep(ORB_R - 0.12, ORB_R, l);
     wt = vec2(inside * (0.7 + 0.3 * sin(2.0 * q.z)), l < ORB_R + 0.2 ? 0.8 * step(ORB_R - 0.2, l) : 0.42 * exp(-0.7 * (l - ORB_R)));
 }
 

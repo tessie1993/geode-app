@@ -190,6 +190,7 @@ private:
     Scene* readyScene(const std::string& id);
     Scene* readySecondary(const std::string& id, const std::string& other);
     Scene* attemptScene(const std::string& id);
+    Scene* admitBuilt(const std::string& id, std::unique_ptr<Scene> scene);
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
     void dropScene(const std::string& id);

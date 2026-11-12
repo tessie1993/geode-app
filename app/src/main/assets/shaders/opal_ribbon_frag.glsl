@@ -36,6 +36,8 @@ vec2 opalMap(vec3 p) {
     return vec2(d, mix(6.0 * q.x, 12.0 * a / OPAL_TAU, smoothstep(0.5, 1.0, gOpalForm)) + 0.5);
 }
 
+//#include lib_opal_march
+
 void main() {
     vec2 uv = view();
     opalSetup();

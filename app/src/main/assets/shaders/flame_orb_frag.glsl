@@ -40,6 +40,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     wt = vec2(inside * (0.7 + 0.3 * sin(2.0 * q.z)), l < ORB_R + 0.2 ? 0.8 * step(ORB_R - 0.2, l) : 0.42 * exp(-0.7 * (l - ORB_R)));
 }
 
+//#include lib_flame_march
+
 void main() {
     vec2 uv = view();
     flameSetup();

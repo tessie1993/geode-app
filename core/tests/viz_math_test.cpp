@@ -1349,6 +1349,36 @@ void scenePrepRetargetsAndCaps() {
     check(!prep.active() && prep.retarget("fluid"), "a finished target is forgotten");
 }
 
+// A style whose program never builds (Flame, Opal and Hollows on the owner's phone, 2026-11-12) must
+// neither freeze the frame nor be rebuilt every frame: a stall gives up, a failure is remembered.
+void scenePrepGivesUpAndRemembersFailures() {
+    ScenePrep prep;
+    prep.retarget("flame_veil");
+    check(prep.next(false, 100.0, 3) == ScenePrep::Step::Wait, "a busy stager waits");
+    check(prep.next(false, 100.0 + ScenePrep::kStallSeconds * 0.9, 3) == ScenePrep::Step::Wait,
+          "under the stall time it still waits");
+    check(prep.next(false, 100.0 + ScenePrep::kStallSeconds * 0.95, 4) == ScenePrep::Step::Wait,
+          "finished work restarts the stall clock");
+    check(prep.next(false, 100.0 + ScenePrep::kStallSeconds * 1.5, 4) == ScenePrep::Step::Wait,
+          "the clock counts from the last finished work");
+    check(prep.next(false, 100.0 + ScenePrep::kStallSeconds * 2.0, 4) == ScenePrep::Step::GiveUp,
+          "no work finished for the stall time: give up instead of waiting for ever");
+    check(prep.attempts() == 0, "giving up is not an attempt");
+
+    check(!prep.failed("flame_veil"), "nothing has failed until the renderer says so");
+    prep.fail("flame_veil");
+    prep.fail("flame_veil");
+    prep.done();
+    check(prep.failed("flame_veil") && !prep.active(), "a failed target is remembered past done()");
+    check(!prep.failed("glass_orb"), "only the failed target is remembered");
+    prep.retarget("glass_orb");
+    check(prep.next(false, 500.0, 0) == ScenePrep::Step::Wait, "a new target starts its own stall clock");
+    check(prep.next(true, 500.0 + ScenePrep::kStallSeconds * 3.0, 0) == ScenePrep::Step::Attempt,
+          "an idle stager attempts however long ago the last wait was");
+    prep.forgive();
+    check(!prep.failed("flame_veil"), "forgive() lets a failed target build again");
+}
+
 // #369: a layer and Liquid's next style, each staged through the one ScenePrep, take turns.
 void scenePrepSecondariesTakeTurns() {
     ScenePrep prep;
@@ -1419,6 +1449,10 @@ void stagedBuildFinishesInBoundedFrames() {
                 }
                 break;
             case ScenePrep::Step::Block:
+                built = true;
+                break;
+            case ScenePrep::Step::GiveUp:
+                check(false, "a stager that compiles a program each frame never gives up");
                 built = true;
                 break;
         }
@@ -1852,6 +1886,7 @@ int main() {
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
     scenePrepSecondariesTakeTurns();
+    scenePrepGivesUpAndRemembersFailures();
     stagedBuildFinishesInBoundedFrames();
     everyRecipeHoldsItsOldRoutes();
     everyRecipeFitsTheMatrixAndListensToSomething();

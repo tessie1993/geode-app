@@ -32,6 +32,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     wt = vec2(0.62 + 0.38 * sin(q.x * 0.5 + q.y * 0.75 + 1.7 * s), 0.3 + 0.5 * sin(q.y * 0.5 - q.z * 0.25 + 1.0));
 }
 
+//#include lib_flame_march
+
 void main() {
     vec2 uv = view();
     flameSetup();

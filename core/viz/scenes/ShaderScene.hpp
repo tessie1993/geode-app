@@ -28,6 +28,7 @@ public:
     void init() override;
     // The style's program, which draw() would otherwise compile on the first frame.
     void prepare() override { compilePendingIfAny(); }
+    bool buildFailed() const override { return program_ == 0; }
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
     void update(const GeodeSoundFrame& features, float dt) override;

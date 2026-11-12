@@ -1,7 +1,9 @@
 package dev.geode.data
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.ParamSpec
@@ -268,27 +270,31 @@ class PresetStore(
         }
 
         /**
-         * Reads scene params from [o] by the schema: each row under its name, its default when the key
-         * is missing or not a finite number ([finiteOr]), then held to the row's range (the widest any
-         * control uses), so a shared link cannot hand the renderer a value no control can make. The ids
-         * are copied as written: an id whose overrides are unset is kept, as it always was, rather than
-         * dropped by [SceneParamsCodec.unpack].
+         * Native's reading of what a value may be ([GeodeNative.paramsSanitize], core/viz/Params
+         * `SceneParams::sanitized`), so a shared link cannot hand the renderer a value no control can make.
+         * A seam for JVM tests, which have no libgeode; a lambda, so naming it loads nothing.
+         */
+        @VisibleForTesting
+        internal var sanitize: (FloatArray) -> FloatArray = { frame -> FloatArray(frame.size).also { GeodeNative.paramsSanitize(frame, it) } }
+
+        /**
+         * Reads scene params from [o] by the schema: each row under its name as its JSON type, its default
+         * when the key is missing, then [sanitize]d by native (non-finite and retired to default, held to
+         * the row's range). The ids are copied as written: an id whose overrides are unset is kept, as it
+         * always was, rather than dropped by [SceneParamsCodec.unpack].
          */
         private fun readParams(o: JSONObject): SceneParams {
             val frame = FloatArray(SceneParamsCodec.FIELDS)
             for (spec in ParamSchema.params) {
                 val def = spec.default
-                val v =
-                    when {
-                        spec.retired -> def
-                        spec.kind == ParamSpec.Kind.BOOL -> if (o.optBoolean(spec.name, def > 0.5f)) 1f else 0f
-                        spec.kind == ParamSpec.Kind.INT -> o.optInt(spec.name, def.roundToInt()).toFloat()
-                        else -> finiteOr(o.optDouble(spec.name, def.toDouble()), def)
+                frame[spec.slot] =
+                    when (spec.kind) {
+                        ParamSpec.Kind.BOOL -> if (o.optBoolean(spec.name, def > 0.5f)) 1f else 0f
+                        ParamSpec.Kind.INT -> o.optInt(spec.name, def.roundToInt()).toFloat()
+                        ParamSpec.Kind.FLOAT, ParamSpec.Kind.CIRCULAR -> o.optDouble(spec.name, def.toDouble()).toFloat()
                     }
-                // A circular value wraps natively (1.5 is 0.5); clamping it would turn the hue.
-                frame[spec.slot] = if (spec.kind == ParamSpec.Kind.CIRCULAR) v else v.coerceIn(spec.range)
             }
-            val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
+            val read = SceneParamsCodec.unpack(sanitize(frame), SceneParams.DEFAULT)
             return read.copy(
                 customPaletteId = o.optString(KEY_CUSTOM_PALETTE_ID, SceneParams.NO_CUSTOM_PALETTE),
                 customPalette2Id = o.optString(KEY_CUSTOM_PALETTE2_ID, SceneParams.NO_CUSTOM_PALETTE),

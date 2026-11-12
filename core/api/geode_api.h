@@ -446,6 +446,10 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
+/* A frame read from a saved look or a shared link, made safe (viz/Params SceneParams::sanitized): a non-finite
+ * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
+ * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
+GEODE_API void        geode_params_sanitize(const float* in, float* out);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>

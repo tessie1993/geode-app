@@ -1080,6 +1080,16 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /**
+     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
+     * retired slots to their defaults, every row held to its schema range but a circular one
+     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     */
+    external fun paramsSanitize(
+        input: FloatArray,
+        output: FloatArray,
+    )
+
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(
         h: Float,

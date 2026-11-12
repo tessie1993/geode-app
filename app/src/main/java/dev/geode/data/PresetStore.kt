@@ -171,8 +171,7 @@ class PresetStore(
                 .also { o ->
                     val params = paramsToJson(p.params)
                     for (key in params.keys()) o.put(key, params.get(key))
-                }
-                .apply { if (p.customShader != null) put("customShader", p.customShader) }
+                }.apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
 

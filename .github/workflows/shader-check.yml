@@ -1,0 +1,48 @@
+name: Shader compile check
+
+# Every fragment and vertex shader, the Silk bodies and every fluid look through the NDK's glslc
+# (tools/check_shaders.py), on each pull request that touches them: a shader that fails here
+# freezes a phone. Uses the runner's preinstalled NDK 28.0.13004108 and installs it only if missing.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - app/src/main/assets/shaders/**
+      - core/viz/ShaderIncludes.inc
+      - core/viz/ShaderSource*
+      - core/viz/compute/SimGlsl*
+      - tools/check_shaders.py
+      - tools/glslcheck/**
+      - .github/workflows/shader-check.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shader-check-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  shaders:
+    name: Shader compile check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Find glslc
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          NDK="$SDK_ROOT/ndk/28.0.13004108"
+          if [ ! -x "$NDK/shader-tools/linux-x86_64/glslc" ]; then
+            yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"
+          fi
+          echo "GLSLC=$NDK/shader-tools/linux-x86_64/glslc" >> "$GITHUB_ENV"
+          "$NDK/shader-tools/linux-x86_64/glslc" --version
+
+      - name: Shader compile check
+        run: python3 tools/check_shaders.py "$GLSLC"

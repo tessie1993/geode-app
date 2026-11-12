@@ -11,10 +11,10 @@
 // occlusion tap, the glowing grooves, and a depth haze whose hue runs through
 // the palette with distance, so far walls are a different colour to near ones.
 //
-// COST. One loop of min(uSteps, 72) steps, each one hollowMap; the hit adds
-// four for its normal and one for occlusion, so at most 77 hollowMap per
-// pixel. The maps are tubes, lattice terms and smooth unions; no noise octaves
-// and no texture. The palette is read five times per pixel before the loop
+// COST. One loop of HOLLOW_STEPS steps (72 at the default Detail, 90 at
+// most), each one hollowMap; the hit adds four for its normal and one for
+// occlusion, so at most 95 hollowMap per pixel. The maps are tubes, lattice
+// terms and smooth unions; no noise octaves and no texture. The palette is read five times per pixel before the loop
 // (hollowSetup) and mixed after.
 //
 // THE CONTROLS, read normalized through lib_neon:
@@ -59,7 +59,9 @@
 // which calls it.
 
 #define HOLLOW_TAU 6.2831853
-#define HOLLOW_MAX_STEPS 72
+#define HOLLOW_MAX_STEPS 90
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 72 left Detail and the hot-phone cut dead above it. */
+#define HOLLOW_STEPS (min(uSteps * 0.7, float(HOLLOW_MAX_STEPS)))
 #define HOLLOW_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define HOLLOW_RATE(k) (HOLLOW_TAU * float(k) / 7100.0)

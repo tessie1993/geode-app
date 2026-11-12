@@ -84,6 +84,14 @@ target|DIVE_SPEED|1|Dive speed
 target|DIVE_TWIST|1|Dive twist
 target|DIVE_AIM_X|1|Dive aim X
 target|DIVE_AIM_Y|1|Dive aim Y
+target|PALETTE_AMOUNT_1|1|Palette 1 amount
+target|PALETTE_AMOUNT_3|1|Palette 3 amount
+target|PALETTE_AMOUNT_4|1|Palette 4 amount
+target|PALETTE_AMOUNT_5|1|Palette 5 amount
+target|PALETTE_AMOUNT_6|1|Palette 6 amount
+target|PALETTE_AMOUNT_7|1|Palette 7 amount
+target|PALETTE_AMOUNT_8|1|Palette 8 amount
+target|PALETTE_SHIFT|1|Palette position
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail
@@ -138,6 +146,7 @@ target|diveBlend|1|Dive blend
 target|diveFog|1|Depth fade
 target|diveLens|1|Dive lens
 target|diveFollow|1|Music follow
+target|paletteAmount1|1|Palette 2 amount
 curve|LINEAR
 curve|EASE_IN
 curve|EASE_OUT

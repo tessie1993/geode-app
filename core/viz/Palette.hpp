@@ -83,7 +83,9 @@ struct Stack {
 };
 
 using Amounts = std::array<float, kMaxLayers>;
-// The primary at 1, every added palette at 0.5: the amount rows' defaults.
+// A look's amounts: its paletteAmount0..7 rows, the primary first.
+Amounts amountsOf(const SceneParams& p);
+// The amount rows' defaults: the primary at 1, every added palette at 0.5.
 Amounts defaultAmounts();
 
 const char* name(Interp v);

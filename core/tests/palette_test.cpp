@@ -64,6 +64,9 @@ void theLibraryKeepsTheOldIndices() {
               "library row " + std::to_string(i) + " is old palette " + std::to_string(i));
     }
     check(lib[pl::kColourMapFirst].id == "bamo" && lib[pl::kColourMapFirst + 4].id == "viko", "the colour maps follow, in LUT row order");
+    check(std::string(geode_palette_colour_map_name(0)) == "bamO" && std::string(geode_palette_colour_map_name(4)) == "vikO" &&
+              std::string(geode_palette_colour_map_name(5)).empty() && std::string(geode_palette_colour_map_name(-1)).empty(),
+          "the shell's colour map names are the library's, in paletteLut order");
     for (size_t i = 0; i < lib.size(); ++i) {
         const auto& p = lib[i].palette;
         check(pl::valid(p) && static_cast<int>(p.stops.size()) <= pl::kMaxStops, lib[i].id + " is a palette of at most 16 colours");
@@ -184,6 +187,12 @@ void shareAndMix() {
     s.edge = pl::Edge::Hard;
     const pl::Amounts defaults = pl::defaultAmounts();
     check(defaults[0] == 1.0f && defaults[1] == 0.5f && defaults[7] == 0.5f, "the primary at 1, the rest at 0.5");
+    SceneParams look;
+    look.paletteAmount0 = 0.25f;
+    look.paletteAmount3 = 0.75f;
+    look.paletteAmount7 = 0.0f;
+    const pl::Amounts read = pl::amountsOf(look);
+    check(read[0] == 0.25f && read[3] == 0.75f && read[7] == 0.0f && read[1] == 0.5f, "a look's amounts are its paletteAmount rows, in layer order");
     // Share: red takes 1 / 1.5 of the ramp, blue the rest, both pure.
     check(packed(pl::at(s, defaults, 0.6f)) == 0xFF0000 && packed(pl::at(s, defaults, 0.7f)) == 0x0000FF, "share: each its part, pure");
     pl::Amounts zero{};

@@ -4,6 +4,8 @@ Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
 
 **Here now:** `EncoderLadder.hpp` (#607), the frame rate and bit rate an export asks the video encoder for, rung by rung, over each candidate codec (`geode_encoder_attempts`; Kotlin passes in only each codec's `MediaCodecInfo.VideoCapabilities` ceiling and iterates the list). Test: `core/tests/encoder_ladder_test.cpp`.
 
+**Here now:** `EncodeSink` (the encoder ladder's try-loop, the drain, samples held until the muxer starts, the end of stream) behind a codec seam, `android/MediaCodecSink` (AMediaCodec and AMediaMuxer, Android only), and `RecordSession`, Record's encoder thread on them (`geode_record_session_*`). Test: `core/tests/encode_sink_test.cpp`.
+
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
 - A frame clock from samples: for frame `n` at `fps`, deliver samples up to `llround((n + 1) · rate / fps)` and render at that sample position, with dt passed in rather than worked out from wall time (`RendererFrame.cpp:50-51` clamps and guesses it today; the first frame is always 1/60 s).
 - Pre-roll (landed, `PreRoll.hpp`): the analysis starts before the range, listening without drawing, so no render begins on a cold engine.

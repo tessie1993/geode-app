@@ -125,6 +125,14 @@ enum class LfoTarget(
     DIVE_AIM_X("Dive aim sideways"),
     DIVE_AIM_Y("Dive aim up and down"),
     MACRO("Macro knob"),
+    PALETTE_AMOUNT_1("Palette 1 amount"),
+    PALETTE_AMOUNT_3("Palette 3 amount"),
+    PALETTE_AMOUNT_4("Palette 4 amount"),
+    PALETTE_AMOUNT_5("Palette 5 amount"),
+    PALETTE_AMOUNT_6("Palette 6 amount"),
+    PALETTE_AMOUNT_7("Palette 7 amount"),
+    PALETTE_AMOUNT_8("Palette 8 amount"),
+    PALETTE_SHIFT("Palette position"),
 }
 
 /** One slot: a period in seconds, or [beats] of the music; [knob] is the id MACRO turns, [moment] a Moment ordinal or -1. */
@@ -162,11 +170,11 @@ object ModTable {
     private val rows: Map<String, List<List<String>>> by lazy {
         val text = System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.modTargetsText()
         val lines = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
-        check(lines.firstOrNull() == listOf("modulation", "2")) { "native mod table is ${lines.firstOrNull()}; this shell reads 2" }
+        check(lines.firstOrNull() == listOf("modulation", "3")) { "native mod table is ${lines.firstOrNull()}; this shell reads 3" }
         lines.drop(1).groupBy { it[0] }
     }
     private val offers by lazy { column("target", 5).map { it == "1" } }
-    private val offerMasks by lazy { rows["reach"].orEmpty().associate { r -> r[1] to LongArray(r.size - 2) { r[it + 2].toLong(16) } } }
+    private val offerMasks by lazy { rows["reach"].orEmpty().associate { r -> r[1] to r.drop(2).map { java.math.BigInteger(it, 16) } } }
     private val natural by lazy { column("source", 3).map { ModPolarity.valueOf(it) } }
     val defaultRateSeconds: Float get() = config(1)
     val minRateSeconds: Float get() = config(2)
@@ -190,7 +198,7 @@ object ModTable {
         target: LfoTarget,
         sceneId: String,
         picker: Int,
-    ): Boolean = (offerMasks[sceneId] ?: offerMasks.getValue("*")).getOrElse(picker - REACTION) { 0L } shr target.ordinal and 1L != 0L
+    ): Boolean = (offerMasks[sceneId] ?: offerMasks.getValue("*")).getOrNull(picker - REACTION)?.testBit(target.ordinal) == true
 
     fun offered(target: LfoTarget): Boolean = offers[target.ordinal]
 

@@ -286,9 +286,14 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.paletteStop0 = 0x2244FF;
     requested.paletteStop1 = 0xFF8800;
     requested.paletteStop2 = 0x10E0A0;
+    requested.paletteAmount0 = 0.8f;
+    requested.paletteAmount1 = 0.3f;
+    requested.paletteShift = 0.2f;
     static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "paletteMix", "hueRange", "saturation",
                                           "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint",
-                                          "paletteStop0", "paletteStop1", "paletteStop2"};
+                                          "paletteStop0", "paletteStop1", "paletteStop2",
+                                          "paletteAmount0", "paletteAmount1", "paletteAmount2", "paletteAmount3", "paletteAmount4",
+                                          "paletteAmount5", "paletteAmount6", "paletteAmount7", "paletteShift"};
     geode::sound::Emotion::State feeling;
     feeling.valence = 0.5f;
     feeling.energy = 0.8f;
@@ -489,11 +494,11 @@ void testLatchPinnedAgainstGlobals() {
         const bool reduced = i % 2 == 0;
         const EngineSettings p = pinned.latch(reduced);
         held = held && p.bank && *p.bank == knobs && p.notesOn && p.handMask == snare && p.director.amount == 1.0f &&
-               p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced;
+               p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced && pinned.handMask() == snare;
         const EngineSettings l = live.latch(reduced);
         followed = followed && l.bank && *l.bank == now && l.notesOn == (i % 2 == 0) && l.handMask == (i % 2 == 0 ? hand::kAll : 0u) &&
                    l.director.amount == (i % 2 == 0 ? 0.0f : 1.0f) && l.director.seed == static_cast<uint64_t>(i + 100) &&
-                   l.reducedMotion == reduced;
+                   l.reducedMotion == reduced && live.handMask() == (i % 2 == 0 ? hand::kAll : 0u);
     }
     macrobank::setGlobal(macrobank::defaultBank());
     geode::viz::note_response::setGlobal(false);

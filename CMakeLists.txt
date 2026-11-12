@@ -14,6 +14,10 @@ set(GEODE_COMPILE_OPTIONS
     -fvisibility=hidden
     -Wall
     -Wextra
+    # A value-returning function that falls off its end is undefined; a call to an NDK API newer than
+    # minSdk crashes on the phones below it. Neither may reach an APK as a warning.
+    -Werror=return-type
+    -Werror=unguarded-availability
     $<$<CONFIG:Release>:-O2>
     $<$<CONFIG:Release>:-flto>)
 set(GEODE_LINK_OPTIONS
@@ -134,7 +138,8 @@ add_library(geode SHARED
     app/src/main/cpp/geode_playout_jni.cpp
     app/src/main/cpp/geode_ingest_jni.cpp
     app/src/main/cpp/geode_audio_out_jni.cpp
-    app/src/main/cpp/geode_webrtc_jni.cpp)
+    app/src/main/cpp/geode_webrtc_jni.cpp
+    app/src/main/cpp/geode_shell_port_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

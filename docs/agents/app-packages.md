@@ -88,7 +88,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The stage's GL thread copies each frame its clock keeps into an H.264 surface (`core/viz/frame/RecordTap`).
 - Every block the stage's sound engine took goes into `core/output/Recorder`, which times the file: frame slots and PTS, A/V placement, the stop.
 - Record's capture fps drops first on a hot phone.
-- `record/RecordEncoder` only moves bytes to MediaMuxer.
+- Record's encoders and MP4 run native on their own thread (`core/output/RecordSession` on `core/output/EncodeSink`); `RecordController` opens the fd, starts, stops and polls.
 - `data/RecordFiles` writes into the place asked once (`RecordSaveSheet`), or a scratch file before that.
 - `EditorController` only keeps the project list My videos reads (recordings and kept renders).
 - Library (`LibraryScreen`) draws `LibraryViewModel.uiState`.
@@ -153,6 +153,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - That includes the native-output switch: on, and not bit-perfect, it lets `audio/TapRenderersFactory` hand the sink the Oboe output.
 - `BitPerfectOutput` is USB DAC bit-perfect via `setPreferredMixerAttributes`, API 34+.
 - `PlaybackService` is a MediaLibraryService.
+- Media browsers (Bluetooth, Assistant; Android Auto is not declared in 1.0) browse `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Android Auto browses `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Queue, sleep timer and ReplayGain live here.
 - `AutoDirectorFeed` is the auto-director's play feed: a seed per track, the position for the free taste.

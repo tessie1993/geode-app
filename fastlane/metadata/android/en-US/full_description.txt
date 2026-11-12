@@ -4,7 +4,7 @@ Play your music
 • Plays the music on your phone: tracks, albums, artists, folders and playlists, with search.
 • Queue, shuffle, repeat, sleep timer, ReplayGain, an equalizer and fades between tracks.
 • Lyrics from an .lrc file or the track's tags.
-• Android Auto, a home screen widget and a Quick Settings tile.
+• A home screen widget and a Quick Settings tile.
 • The visuals can also follow the microphone or the sound of another app, if you turn that on.
 
 Watch it

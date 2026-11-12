@@ -18,7 +18,7 @@ out vec4 fragColor;
 // ahead, each pearl a small bubble on a thread.
 //
 // Morph grows the pearls until each string runs together into one beaded
-// rope. Worst case 80 steps and 4 skins, no noise.
+// rope. Worst case 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     p.xy = opalRot(0.3926991 * p.z) * p.xy;

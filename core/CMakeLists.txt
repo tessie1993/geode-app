@@ -7,6 +7,8 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
+    api/geode_reaction_text_api.cpp
+    viz/ReactionText.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
@@ -64,6 +66,10 @@ add_library(geode_core STATIC
     output/EncodePlan.cpp
     output/RecordPlan.cpp
     output/Recorder.cpp
+    output/EncodeSink.cpp
+    output/RecordSession.cpp
+    output/android/MediaCodecSink.cpp
+    api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp
     viz/ShaderSource.cpp
@@ -99,6 +105,7 @@ add_library(geode_core STATIC
     viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
+    viz/frame/ThermalSource.cpp
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
@@ -163,7 +170,8 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # nativewindow: AHardwareBuffer, the GPU buffers Cast's tee hands the stage's picture over in (viz/frame/CastTee).
-target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow)
+# mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink).
+target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
 

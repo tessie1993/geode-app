@@ -62,7 +62,6 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSource
 import dev.geode.render.scene.Catalogue
-import dev.geode.render.scene.MilkdropEngine
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
@@ -719,7 +718,7 @@ class PlayerSession internal constructor(
      */
     fun randomizeEverything(basicsOnly: Boolean) {
         // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
-        if (MilkdropEngine.available && allowsStyle(SceneIds.MILKDROP)) {
+        if (allowsStyle(SceneIds.MILKDROP)) {
             milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
         } else {
             randomizeEverything(basicsOnly, emptyList())

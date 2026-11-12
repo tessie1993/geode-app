@@ -207,6 +207,8 @@ internal class ModulationController(
                     polarity = ModPolarity.entries[out[o + 6].toInt()],
                     curve = ModCurve.entries[out[o + 7].toInt()],
                     beats = out[o + 8].toInt(),
+                    knob = out[o + 9].toInt(),
+                    moment = out[o + 10].toInt(),
                 )
             }
         _lfos.value = rolled

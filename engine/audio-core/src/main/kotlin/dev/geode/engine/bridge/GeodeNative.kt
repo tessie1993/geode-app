@@ -394,6 +394,12 @@ object GeodeNative {
         seed: Long,
     ): String
 
+    /**
+     * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
+     * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
+     */
+    external fun macroBankLiveMods(): String
+
     /** New ranges and curves for the links the knob has, their params kept; the same [seed], the same ranges. */
     external fun macroBankRollRanges(
         bank: String,

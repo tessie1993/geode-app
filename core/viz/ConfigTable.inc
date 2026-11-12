@@ -29,8 +29,8 @@
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
-// LfoTarget: None .. DiveAimY (ordinal 25 is the retired Glitch).
-GEODE_CONFIG(lfo, target, Int, 0, 0, 58, None)
+// LfoTarget: None .. Macro (ordinal 25 is the retired Glitch).
+GEODE_CONFIG(lfo, target, Int, 0, 0, 59, None)
 // LfoWave: Sine .. RandomGlide.
 GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,
@@ -46,6 +46,10 @@ GEODE_CONFIG(lfo, curve, Int, 0, 0, 3, None)
 // Beat timing (Lfo.hpp LfoConfig::beats): 0 is free (rateSeconds), else 1, 2, 4, 8, 16 or 32 beats a cycle;
 // geode_viz_set_lfo reads any other value as free.
 GEODE_CONFIG(lfo, beats, Float, 0.0f, 0.0f, 32.0f, None)
+// The macro knob a wave on LfoTarget::Macro turns, by its id (viz/MacroBank); 0 is none.
+GEODE_CONFIG(lfo, knob, Int, 0, 0, 999999, None)
+// On a moment (viz/Reactions Moment: Kick .. Loudness): the wave restarts its cycle on it; -1 runs free.
+GEODE_CONFIG(lfo, moment, Int, -1, -1, 9, None)
 
 // ---- Envelopes (viz/Adsr, LfoStore.kt adsrFromJson) -----------------------------------------------
 // Defaults are Adsr.hpp's (and Adsr.kt's, LfoStore.kt:102-108); ranges are Customize's sliders
@@ -62,6 +66,10 @@ GEODE_CONFIG(adsr, band, Int, 0, 0, 5, None)
 GEODE_CONFIG(adsr, gateThreshold, Float, 0.25f, 0.05f, 1.0f, Fraction)
 GEODE_CONFIG(adsr, sustainTrack, Bool, 0, 0, 1, None)
 GEODE_CONFIG(adsr, retrigger, Bool, 1, 0, 1, None)
+// The macro knob the envelope turns when LfoTarget::Macro is among its targets, by id; 0 is none.
+GEODE_CONFIG(adsr, knob, Int, 0, 0, 999999, None)
+// On a moment (viz/Reactions Moment): the envelope fires on it instead of on a note start; -1 is a note start.
+GEODE_CONFIG(adsr, moment, Int, -1, -1, 9, None)
 
 // ---- Palette maker's gradient (PaletteStore.kt) ----------------------------------------------------
 // What applyGradient writes into the four palette overrides (PaletteStore.kt:77-78) and a saved palette

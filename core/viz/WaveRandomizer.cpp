@@ -114,7 +114,8 @@ Set randomize(const Set& current, const SceneParams& params, std::uint64_t seed,
     std::vector<T> taken;
     for (int i = 0; i < LfoEngine::kSlots; ++i) {
         const LfoConfig& c = current[static_cast<size_t>(i)];
-        const bool running = c.enabled && c.source == ModSource::Lfo && c.target != T::None;
+        // A wave on a knob is the user's link, not a look: no roll moves it.
+        const bool running = c.enabled && c.source == ModSource::Lfo && c.target != T::None && c.target != T::Macro;
         rolls[static_cast<size_t>(i)] = roll == Roll::All || running;
         if (rolls[static_cast<size_t>(i)] || !c.enabled) continue;
         // A wave that stays: the rolled ones keep off its target and its kind of control.
@@ -159,13 +160,15 @@ Set fromWire(const float* values) {
         LfoConfig& o = set[static_cast<size_t>(i)];
         o.enabled = c[0] > 0.5f;
         o.source = enumAt(c[1], ModSource::StereoPan);
-        o.target = enumAt(c[2], LfoTarget::DiveAimY);
+        o.target = enumAt(c[2], LfoTarget::Macro);
         o.wave = enumAt(c[3], LfoWave::RandomGlide);
         o.rateSeconds = c[4];
         o.depth = c[5];
         o.polarity = enumAt(c[6], ModPolarity::Negative);
         o.curve = enumAt(c[7], ModCurve::Smooth);
         o.beats = c[8];
+        o.knob = static_cast<int>(c[9]);
+        o.moment = static_cast<int>(c[10]);
     }
     return set;
 }
@@ -183,6 +186,8 @@ void toWire(const Set& set, float* out) {
         c[6] = static_cast<float>(o.polarity);
         c[7] = static_cast<float>(o.curve);
         c[8] = o.beats;
+        c[9] = static_cast<float>(o.knob);
+        c[10] = static_cast<float>(o.moment);
     }
 }
 

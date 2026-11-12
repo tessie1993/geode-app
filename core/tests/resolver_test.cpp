@@ -11,6 +11,9 @@
 // before the clamp, the style moments, disabled stages as exact identity, and live beside export.
 // Then the macro bank (viz/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
 // resolved params, an export's pin keeps the bank it was pinned with, and the director never touches it.
+// Then a wave and an envelope on a macro knob (LfoTarget::Macro): they turn the knob where the bank runs, so the
+// knob's links move, the user's turn is never rewritten, safety stays last, 30/60/120 fps agree, silence holds still;
+// and "On a moment" (MomentWatch): a moment restarts a wave's cycle and fires an envelope, the same at any frame rate.
 // Built by CI (.github/workflows/android.yml, "Native host tests") with core/signal/Resolver.cpp,
 // core/signal/EngineSettings.cpp, core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
 #include <algorithm>
@@ -1315,6 +1318,214 @@ void testExportPinKeepsItsBank() {
 
 // The director writes its axes on the params and never the user's bank: a full director run through a live
 // latch leaves the process-wide bank the very value that was set, and the frame's copy unchanged.
+// The music at a measured tempo (77, 93, 141 or 174: never a tempo the engine assumes), the happy song's levels.
+GeodeSoundFrame musicAt(float t, float bpm) {
+    GeodeSoundFrame f = frame(t);
+    f.bpm = bpm;
+    return f;
+}
+
+float maxOf(const std::vector<float>& v) { return *std::max_element(v.begin(), v.end()); }
+float minOf(const std::vector<float>& v) { return *std::min_element(v.begin(), v.end()); }
+
+// A wave on the Colour knob moves what the knob links (saturation among them), on top of the user's turn, which
+// stays where the user left it; the knob's live modulation says a wave turns it.
+void testAWaveTurnsAKnob() {
+    const int colour = knobId("Colour");
+    EngineSettings s;
+    s.bank = shared(macrobank::setValue(macrobank::defaultBank(), colour, 0.2f));
+    std::array<LfoConfig, LfoEngine::kSlots> configs{};
+    configs[0] = sineOn(LfoTarget::Macro, 0.5f, 2.0f);
+    configs[0].knob = colour;
+    auto waved = std::make_unique<Resolver>();
+    auto still = std::make_unique<Resolver>();
+    waved->setLfoConfigs(configs);
+    const SceneParams requested;
+    std::vector<float> sat;
+    std::vector<float> steady;
+    float t = 0.0f;
+    for (int i = 0; i < 240; ++i, t += kDt) {
+        const GeodeSoundFrame f = musicAt(t, 93.0f);
+        sat.push_back(waved->step(requested, f, kDt, s, style(kStyle, i == 0)).params.saturation);
+        steady.push_back(still->step(requested, f, kDt, s, style(kStyle, i == 0)).params.saturation);
+        const auto* mod = waved->frame().knobMods.of(colour);
+        check(mod != nullptr && mod->sources == macrobank::KnobMods::kWave, "the knob's modulation says a wave turns it");
+        check(mod != nullptr && std::fabs(mod->add) <= 0.5f + 1e-5f, "by no more than the wave's depth");
+        check(mod != nullptr && mod->lo == -0.5f && mod->hi == 0.5f, "and says the range it can reach, both ways");
+        const SceneParams& p = waved->frame().params;
+        check(p.bloom <= safety::kMaxFlashDepth + 1e-6f && p.intensity <= 1.0f + safety::kMaxFlashDepth + 1e-6f,
+              "safety still has the last word on what the knob moves");
+        check(still->frame().knobMods.count == 0, "no slot on a knob, no modulation");
+    }
+    check(maxOf(sat) - minOf(sat) > 0.05f, "the wave on the knob moves the knob's saturation link");
+    check(maxOf(steady) - minOf(steady) < 1e-6f, "without it the same turn holds still");
+    check(s.bank->knobs[static_cast<size_t>(colour - 1)].value == 0.2f, "the user's turn is never rewritten");
+    // A slot on a knob the bank does not have, or with no knob, moves nothing.
+    configs[0].knob = 4242;
+    auto lost = std::make_unique<Resolver>();
+    lost->setLfoConfigs(configs);
+    std::vector<float> none;
+    t = 0.0f;
+    for (int i = 0; i < 120; ++i, t += kDt) none.push_back(lost->step(requested, musicAt(t, 93.0f), kDt, s, style(kStyle, i == 0)).params.saturation);
+    check(maxOf(none) - minOf(none) < 1e-6f, "a wave on a knob that is gone moves nothing");
+}
+
+// A wave and an envelope on one knob: both sources show; the envelope alone on another.
+void testAnEnvelopeTurnsAKnob() {
+    const int depth = knobId("Depth");
+    const int colour = knobId("Colour");
+    EngineSettings s;
+    s.bank = shared(macrobank::defaultBank());
+    std::array<AdsrConfig, AdsrEngine::kCount> envs{};
+    envs[0].enabled = true;
+    envs[0].targets = {LfoTarget::Macro};
+    envs[0].knob = depth;
+    envs[0].amount = 1.0f;
+    envs[1] = envs[0];
+    envs[1].knob = colour;
+    std::array<LfoConfig, LfoEngine::kSlots> waves{};
+    waves[0] = sineOn(LfoTarget::Macro, 0.3f, 3.0f);
+    waves[0].knob = colour;
+    auto r = std::make_unique<Resolver>();
+    auto plain = std::make_unique<Resolver>();
+    r->setAdsrConfigs(envs);
+    r->setLfoConfigs(waves);
+    const SceneParams requested;
+    float moved = 0.0f;
+    float t = 0.0f;
+    for (int i = 0; i < 240; ++i, t += kDt) {
+        const GeodeSoundFrame f = musicAt(t, 141.0f);
+        const float zoom = r->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom;
+        moved = std::max(moved, std::fabs(zoom - plain->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom));
+        const auto* d = r->frame().knobMods.of(depth);
+        const auto* c = r->frame().knobMods.of(colour);
+        check(d != nullptr && d->sources == macrobank::KnobMods::kEnvelope && d->add >= 0.0f && d->lo == 0.0f && d->hi == 1.0f,
+              "an envelope turns its knob up, by up to its amount");
+        check(c != nullptr && c->sources == (macrobank::KnobMods::kWave | macrobank::KnobMods::kEnvelope), "a wave and an envelope on one knob");
+    }
+    check(moved > 0.01f, "the envelope on Depth moves its zoom link with the hits");
+}
+
+// The same knob turn at 30, 60 and 120 fps at the same moments of the song.
+void testKnobModulationAtAnyFrameRate() {
+    const int colour = knobId("Colour");
+    EngineSettings s;
+    s.bank = shared(macrobank::defaultBank());
+    std::array<LfoConfig, LfoEngine::kSlots> configs{};
+    configs[0] = sineOn(LfoTarget::Macro, 0.4f, 1.7f);
+    configs[0].knob = colour;
+    std::array<float, 3> at{};
+    const std::array<int, 3> rates = {30, 60, 120};
+    for (size_t k = 0; k < rates.size(); ++k) {
+        auto r = std::make_unique<Resolver>();
+        r->setLfoConfigs(configs);
+        const float dt = 1.0f / static_cast<float>(rates[k]);
+        const SceneParams requested;
+        const int frames = rates[k] * 3;
+        for (int i = 0; i < frames; ++i) r->step(requested, musicAt(static_cast<float>(i) * dt, 174.0f), dt, s, style(kStyle, i == 0));
+        at[k] = r->frame().knobMods.of(colour)->add;
+    }
+    check(std::fabs(at[0] - at[1]) < 2e-3f && std::fabs(at[2] - at[1]) < 2e-3f, "a wave turns a knob the same at 30, 60 and 120 fps");
+}
+
+// No sound, no movement: the renderer's step is 0 in silence, so a wave on a knob holds and so does the picture.
+void testSilenceHoldsAKnobStill() {
+    const int colour = knobId("Colour");
+    EngineSettings s;
+    s.bank = shared(macrobank::defaultBank());
+    std::array<LfoConfig, LfoEngine::kSlots> configs{};
+    configs[0] = sineOn(LfoTarget::Macro, 0.5f, 1.0f);
+    configs[0].knob = colour;
+    auto r = std::make_unique<Resolver>();
+    r->setLfoConfigs(configs);
+    const SceneParams requested;
+    for (int i = 0; i < 30; ++i) r->step(requested, musicAt(static_cast<float>(i) * kDt, 77.0f), kDt, s, style(kStyle, i == 0));
+    const GeodeSoundFrame silent{};
+    const float sat = r->step(requested, silent, 0.0f, s, style(kStyle, false), nullptr, 0.0f).params.saturation;
+    const float add = r->frame().knobMods.of(colour)->add;
+    bool still = true;
+    for (int i = 0; i < 120; ++i) {
+        still = still && r->step(requested, silent, 0.0f, s, style(kStyle, false), nullptr, 0.0f).params.saturation == sat;
+        still = still && r->frame().knobMods.of(colour)->add == add;
+    }
+    check(still, "in silence a wave on a knob moves nothing");
+}
+
+// Customize › Music's moments as triggers: each moment's trigger, the Step rule's edge, and the same count of moments
+// at 30, 60 and 120 fps from one pulse train (a kick at 93 bpm, 60 ms long).
+void testMomentWatch() {
+    using geode::viz::Moment;
+    using geode::viz::MomentWatch;
+    check(hand::trigger(Moment::Kick) == ReactSource::Kick && hand::trigger(Moment::Snare) == ReactSource::Snare &&
+              hand::trigger(Moment::Drop) == ReactSource::Drop && hand::trigger(Moment::NewSection) == ReactSource::SectionChange &&
+              hand::trigger(Moment::ChordChange) == ReactSource::HarmonicChange && hand::trigger(Moment::Note) == ReactSource::NoteChange,
+          "a moment is heard on its event");
+    check(hand::trigger(Moment::Bass) == ReactSource::Bass && hand::trigger(Moment::BuildUp) == ReactSource::BuildUp,
+          "a moment with no event on its first source");
+    MomentWatch w;
+    std::array<float, geode::viz::kMomentCount> v{};
+    const std::uint32_t kick = 1u << static_cast<int>(Moment::Kick);
+    check(w.step(v) == 0u, "silence brings no moment");
+    v[0] = 1.0f;
+    check(w.step(v) == kick, "a rise through 0.5 is a moment");
+    check(w.step(v) == 0u, "a held level is one moment");
+    v[0] = 0.4f;
+    w.step(v);
+    v[0] = 1.0f;
+    check(w.step(v) == 0u, "it comes again only after falling below 0.3");
+    v[0] = 0.1f;
+    w.step(v);
+    v[0] = 0.9f;
+    check(w.step(v) == kick, "and then it does");
+    std::array<int, 3> counts{};
+    const std::array<int, 3> rates = {30, 60, 120};
+    const float beat = 60.0f / 93.0f;
+    for (size_t k = 0; k < rates.size(); ++k) {
+        MomentWatch m;
+        const float dt = 1.0f / static_cast<float>(rates[k]);
+        for (int i = 0; i < rates[k] * 10; ++i) {
+            std::array<float, geode::viz::kMomentCount> trig{};
+            trig[0] = std::fmod(static_cast<float>(i) * dt, beat) < 0.06f ? 1.0f : 0.0f;
+            counts[k] += (m.step(trig) & kick) != 0 ? 1 : 0;
+        }
+    }
+    check(counts[0] == counts[1] && counts[1] == counts[2] && counts[1] >= 15, "the same moments at 30, 60 and 120 fps");
+}
+
+// A wave set "On a moment" starts its cycle over when the moment comes; one running free does not. An envelope on a
+// moment fires on it and not on a note start.
+void testAMomentRestartsAWaveAndFiresAnEnvelope() {
+    using geode::viz::Moment;
+    const std::uint32_t drop = 1u << static_cast<int>(Moment::Drop);
+    LfoEngine loose;
+    LfoEngine onDrop;
+    LfoConfig saw = sineOn(LfoTarget::Zoom, 1.0f, 4.0f);
+    saw.wave = geode::viz::LfoWave::Saw;
+    loose.configs[0] = saw;
+    saw.moment = static_cast<int>(Moment::Drop);
+    onDrop.configs[0] = saw;
+    const GeodeSoundFrame f = musicAt(0.0f, 141.0f);
+    for (int i = 0; i < 90; ++i) {
+        loose.tick(kDt, f);
+        onDrop.tick(kDt, f);
+    }
+    const float before = onDrop.tick(kDt, f)[0];
+    loose.tick(kDt, f);
+    const float restarted = onDrop.tick(kDt, f, nullptr, nullptr, drop)[0];
+    const float running = loose.tick(kDt, f, nullptr, nullptr, drop)[0];
+    check(restarted < before && std::fabs(restarted - (-1.0f + 2.0f * kDt / 4.0f)) < 1e-3f, "a drop starts the wave's cycle over");
+    check(std::fabs(running - (before + 2.0f * kDt / 4.0f)) < 1e-3f, "a free wave runs on through it");
+    AdsrEngine env;
+    env.configs[0].enabled = true;
+    env.configs[0].targets = {LfoTarget::Zoom};
+    env.configs[0].moment = static_cast<int>(Moment::Drop);
+    GeodeSoundFrame hit = f;
+    hit.onset = 1.0f;
+    for (int i = 0; i < 30; ++i) check(env.tick(kDt, hit)[0] == 0.0f, "an envelope on a moment ignores note starts");
+    env.tick(kDt, hit, drop);
+    check(env.tick(kDt, hit)[0] > 0.0f, "and fires on its moment");
+}
+
 void testDirectorLeavesTheBankAlone() {
     using geode::signal::SettingsLatch;
     const macrobank::Bank mine = turned({0.2f, -0.6f, 0.0f, 0.5f});
@@ -1416,6 +1627,12 @@ int main() {
     testBankReachesTheParams();
     testExportPinKeepsItsBank();
     testDirectorLeavesTheBankAlone();
+    testAWaveTurnsAKnob();
+    testAnEnvelopeTurnsAKnob();
+    testKnobModulationAtAnyFrameRate();
+    testSilenceHoldsAKnobStill();
+    testMomentWatch();
+    testAMomentRestartsAWaveAndFiresAnEnvelope();
     if (failures) {
         std::printf("resolver_test: %d failed\n", failures);
         return 1;

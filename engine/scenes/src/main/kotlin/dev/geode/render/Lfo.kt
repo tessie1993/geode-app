@@ -110,8 +110,6 @@ enum class LfoTarget(
     LFO2_DEPTH("Wave 2 depth"),
     LFO3_RATE("Wave 3 speed"),
     LFO3_DEPTH("Wave 3 depth"),
-
-    // The camera rig's offsets (core/viz/CameraRig); native gives them every style.
     CAM_FLY("Camera speed"),
     CAM_ORBIT("Camera swing"),
     CAM_PUSH("Camera push"),
@@ -120,17 +118,16 @@ enum class LfoTarget(
     CAM_ROLL("Camera roll"),
     CAM_FOV("Camera FOV"),
     CAM_SHAKE("Camera shake"),
-
-    // Liquid mode (core/viz/liquid), appended so every wire ordinal above survives.
     FLOW_CURL("Swirl"),
     FLOW_FORCE("Push"),
     DIVE_SPEED("Dive"),
     DIVE_TWIST("Dive twist"),
     DIVE_AIM_X("Dive aim sideways"),
     DIVE_AIM_Y("Dive aim up and down"),
+    MACRO("Macro knob"),
 }
 
-/** One modulation slot; the rate is a period in seconds, or in beats of the music when [beats] is set. */
+/** One slot: a period in seconds, or [beats] of the music; [knob] is the id MACRO turns, [moment] a Moment ordinal or -1. */
 data class LfoConfig(
     val enabled: Boolean = false,
     val source: ModSource = ModSource.LFO,
@@ -141,6 +138,8 @@ data class LfoConfig(
     val polarity: ModPolarity = ModPolarity.BIPOLAR,
     val curve: ModCurve = ModCurve.LINEAR,
     val beats: Int = 0,
+    val knob: Int = 0,
+    val moment: Int = -1,
 ) {
     companion object {
         /** Beat periods after "Free". */
@@ -206,9 +205,7 @@ object ModTable {
     private fun config(field: Int): Float = rows.getValue("config")[0][field].toFloat()
 }
 
-// Modulation runs natively every frame (core/viz/RendererFrame.cpp ticks its own LfoEngine against the
-// configs geode_viz_set_lfo pushes); the configs themselves ride in the LookSnapshot (render/look). Only the slot
-// count is Kotlin's, for the stores and the editor.
+// Modulation runs natively every frame (core/viz/Lfo, from geode_viz_set_lfo); the configs ride in the LookSnapshot.
 object LfoEngine {
     const val SLOTS: Int = 3
 }

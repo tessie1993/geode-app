@@ -159,7 +159,26 @@ int momentOf(ReactSource s);
 // director's routes. global() is then 0, whatever mask came with it.
 void setGlobal(std::uint32_t mask, bool hasUser);
 std::uint32_t global();
+// The source a moment is heard on as a trigger: the first event in its set (the kick's hit, a drop, a new section),
+// else its first source (bass, build-up, loudness have no event).
+ReactSource trigger(Moment m);
 }  // namespace hand
+
+// Customize › Music's moments as triggers, for a wave or an envelope the user set "On a moment" (viz/Lfo, viz/Adsr).
+// A moment comes when its trigger (hand::trigger) rises through 0.5, and comes again only after it fell below 0.3: the
+// reaction matrix's Step rule, so a held level is one moment, not one a frame. Silence brings none.
+class MomentWatch {
+public:
+    static constexpr float kRise = 0.5f;
+    static constexpr float kRearm = 0.3f;
+    // The bit per Moment that came this frame.
+    std::uint32_t step(const ReactSignals& signals);
+    std::uint32_t step(const std::array<float, kMomentCount>& triggers);
+    void reset() { high_.fill(false); }
+
+private:
+    std::array<bool, kMomentCount> high_{};
+};
 
 class ReactionEngine {
 public:

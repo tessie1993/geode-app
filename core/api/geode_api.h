@@ -16,12 +16,14 @@ typedef struct geode_tags     geode_tags;
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
 #define GEODE_LFO_SLOTS 3
-#define GEODE_LFO_CONFIG_FLOATS 9   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free) */
+#define GEODE_LFO_CONFIG_FLOATS 11  /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free),
+                                       knob (the macro knob's id a MACRO target turns; 0 none), moment (-1 free, else the Moment that restarts it) */
 #define GEODE_ADSR_SLOTS 2
 #define GEODE_REACT_ROUTES 12
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
-#define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
-                                       sustain_track, retrigger; followed by the target ordinals */
+#define GEODE_ADSR_CONFIG_FLOATS 12 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
+                                       sustain_track, retrigger, knob (as the LFO's), moment (-1 a note start, else the
+                                       Moment that fires it); followed by the target ordinals */
 
 GEODE_API geode_viz*  geode_viz_create(AAssetManager* assets, const char* cache_dir);
 GEODE_API void        geode_viz_destroy(geode_viz*);
@@ -538,7 +540,9 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * geode_macro_bank_hide_knob takes a knob off screen into the bank's library and geode_macro_bank_show_knob puts one
  * back (a built-in knob too, as built, when the bank lacks it). geode_macro_bank_auto_name
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
- * adds to its params each frame, after the director and the note layer and before the LFOs. */
+ * adds to its params each frame, after the director and the note layer and before the LFOs. geode_macro_bank_live_mods is
+ * what the waves and envelopes on a knob (LfoTarget MACRO) add to its turn on the on-screen surface's last frame, one row
+ * "mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>" per knob, for the knob's second arc; poll it from the UI. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
 GEODE_API const char* geode_macro_bank_targets_text(void);
@@ -565,6 +569,7 @@ GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
+GEODE_API const char* geode_macro_bank_live_mods(void);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish

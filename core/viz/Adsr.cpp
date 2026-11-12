@@ -6,7 +6,7 @@
 namespace geode::viz {
 
 static_assert(config::spec(config::Slot::adsr_band).max == static_cast<float>(EnvBand::Width), "adsr band row");
-static_assert(config::indexInGroup(config::Slot::adsr_retrigger) == GEODE_ADSR_CONFIG_FLOATS - 1,
+static_assert(config::indexInGroup(config::Slot::adsr_moment) == GEODE_ADSR_CONFIG_FLOATS - 1,
               "one adsr row per wire float before the targets");
 
 namespace {
@@ -18,7 +18,7 @@ bool hasLiveTarget(const AdsrConfig& c) {
 }
 }  // namespace
 
-const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeSoundFrame& sound) {
+const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeSoundFrame& sound, std::uint32_t moments) {
     for (int i = 0; i < kCount; i++) {
         const AdsrConfig& c = configs[i];
         if (!c.enabled || !hasLiveTarget(c)) {
@@ -42,8 +42,10 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         energy = std::isfinite(energy) ? std::clamp(energy, 0.0f, 1.5f) : 0.0f;
         const bool gateOpen = energy >= c.gateThreshold;
         const bool gateHolds = energy >= c.gateThreshold * 0.85f;
-        // A note start (the engine's flux-peak onset, one frame) triggers the envelope.
-        const float hit = std::isfinite(sound.onset) ? std::clamp(sound.onset, 0.0f, 1.0f) : 0.0f;
+        // A note start (the engine's flux-peak onset, one frame) triggers the envelope, or the moment the user picked.
+        const bool onMoment = c.moment >= 0 && c.moment < 32;
+        const float onset = std::isfinite(sound.onset) ? std::clamp(sound.onset, 0.0f, 1.0f) : 0.0f;
+        const float hit = onMoment ? (((moments >> c.moment) & 1u) != 0 ? 1.0f : 0.0f) : onset;
         if (hit > 0.0f && (c.retrigger || stage_[i] == 0 || stage_[i] == 4)) {
             const bool wasAttacking = stage_[i] == 1;
             stage_[i] = 1;

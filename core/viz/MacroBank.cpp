@@ -696,14 +696,43 @@ Reach reachMask(const std::string& styleId) {
     return bits;
 }
 
-SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach) {
+void KnobMods::add(int id, float v, std::uint8_t source, float lo, float hi) {
+    const auto finite = [](float x) { return std::isfinite(x) ? x : 0.0f; };
+    for (int i = 0; i < count; ++i) {
+        Mod& m = mods[static_cast<size_t>(i)];
+        if (m.id != id) continue;
+        m.add += finite(v);
+        m.sources = static_cast<std::uint8_t>(m.sources | source);
+        m.lo += finite(lo);
+        m.hi += finite(hi);
+        return;
+    }
+    if (count >= kMaxKnobs) return;
+    mods[static_cast<size_t>(count++)] = Mod{id, finite(v), source, finite(lo), finite(hi)};
+}
+
+const KnobMods::Mod* KnobMods::of(int id) const {
+    for (int i = 0; i < count; ++i) {
+        if (mods[static_cast<size_t>(i)].id == id) return &mods[static_cast<size_t>(i)];
+    }
+    return nullptr;
+}
+
+float effective(const Knob& knob, const KnobMods* mods) {
+    if (!knob.shown) return 0.0f;
+    const float turn = std::isfinite(knob.value) ? std::clamp(knob.value, -1.0f, 1.0f) : 0.0f;
+    const KnobMods::Mod* mod = mods ? mods->of(knob.id) : nullptr;
+    return mod ? std::clamp(turn + mod->add, -1.0f, 1.0f) : turn;
+}
+
+SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach, const KnobMods* mods) {
     std::array<float, kSlotCount> offset{};
     Reach moved;
     int knobs = 0;
     for (const Knob& knob : bank.knobs) {
         if (knobs++ >= kMaxKnobs) break;
-        if (!knob.shown || !std::isfinite(knob.value) || knob.value == 0.0f) continue;
-        const float value = std::clamp(knob.value, -1.0f, 1.0f);
+        const float value = effective(knob, mods);
+        if (value == 0.0f) continue;
         for (const Link& link : knob.links) {
             const TargetInfo* info = infoOf(link.target);
             if (!info || !inReach(reach, link.target)) continue;
@@ -741,8 +770,33 @@ std::shared_ptr<const Bank> global() {
     return kDefault;
 }
 
-SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId) {
-    return apply(p, bank, reachMask(styleId));
+SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId, const KnobMods* mods) {
+    return apply(p, bank, reachMask(styleId), mods);
+}
+
+namespace {
+std::mutex gLiveLock;
+KnobMods gLive;  // guarded by gLiveLock
+}  // namespace
+
+void publishLive(const KnobMods& mods) {
+    std::lock_guard<std::mutex> guard(gLiveLock);
+    gLive = mods;
+}
+
+std::string liveModsText() {
+    KnobMods mods;
+    {
+        std::lock_guard<std::mutex> guard(gLiveLock);
+        mods = gLive;
+    }
+    std::string out;
+    for (int i = 0; i < mods.count; ++i) {
+        const KnobMods::Mod& m = mods.mods[static_cast<size_t>(i)];
+        out += "mod|" + std::to_string(m.id) + "|" + tableNumber(m.add) + "|" + std::to_string(m.sources) + "|" + tableNumber(m.lo) + "|" +
+               tableNumber(m.hi) + "\n";
+    }
+    return out;
 }
 
 std::string encode(const Bank& bank) {

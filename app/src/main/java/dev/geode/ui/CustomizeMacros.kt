@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,7 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -51,8 +54,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroBankState
 import dev.geode.data.MacroEditorKnob
+import dev.geode.data.MacroLiveMod
 import dev.geode.data.MacroStore
 import dev.geode.model.KnobSize
+import dev.geode.ui.theme.GeodeColors
+import dev.geode.ui.theme.LocalReducedMotion
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -81,6 +88,15 @@ internal fun MacrosTab(
     val dial = dialOf(general.knobSize)
     val editor = remember(state, sceneId) { store.editor(sceneId) }
     val draftId = state.draft?.id
+    // The knobs' live modulation, polled while they are on screen; under reduced motion read once, for the still range.
+    val reduced = LocalReducedMotion.current
+    val live by produceState(emptyMap<Int, MacroLiveMod>(), reduced, state) {
+        value = store.liveMods()
+        while (!reduced) {
+            delay(LIVE_POLL_MS)
+            value = store.liveMods()
+        }
+    }
     Column {
         // No caption over the knobs (UI V2 rule 3): each knob's ⋮ › What is this says what it does.
         editor.knobs.filter { it.id != draftId }.chunked(dial.perRow).forEach { row ->
@@ -88,6 +104,8 @@ internal fun MacrosTab(
                 row.forEach { knob ->
                     MacroKnobDial(
                         knob = knob,
+                        live = live[knob.id],
+                        reduced = reduced,
                         dial = dial,
                         onChange = { store.setValue(knob.id, it, persist = false) },
                         onCommit = store::commit,
@@ -106,6 +124,7 @@ internal fun MacrosTab(
 }
 
 private const val NO_KNOB = -1
+private const val LIVE_POLL_MS = 33L
 
 /** Centre, or how far off it, for the label and TalkBack. */
 private fun knobText(v: Float): String = if (abs(v) < KNOB_EPSILON) "as styled" else "%+d%%".format((v * PERCENT).roundToInt())
@@ -124,9 +143,57 @@ private fun dialOf(size: KnobSize): Dial =
         KnobSize.LARGE -> Dial(KNOB_SIZE, KNOB_STROKE, KNOBS_PER_ROW)
     }
 
+/** The second arc's colour: who turns the knob besides the user's hand. */
+private fun modColour(sources: Int): Color =
+    when (sources) {
+        MacroLiveMod.WAVE -> GeodeColors.ModWave
+        MacroLiveMod.ENVELOPE -> GeodeColors.ModEnvelope
+        else -> GeodeColors.ModBoth
+    }
+
+@Composable
+private fun liveText(
+    live: MacroLiveMod?,
+    turn: Float,
+): String? {
+    live ?: return null
+    val now = knobText((turn + live.add).coerceIn(-1f, 1f))
+    return when (live.sources) {
+        MacroLiveMod.WAVE -> stringResource(R.string.macro_knob_moved_by_wave, now)
+        MacroLiveMod.ENVELOPE -> stringResource(R.string.macro_knob_moved_by_envelope, now)
+        else -> stringResource(R.string.macro_knob_moved_by_both, now)
+    }
+}
+
+/**
+ * A knob's modulation, Serum's way, inside the user's arc: the range the waves and envelopes can reach as a faint
+ * ring, and (unless reduced motion stills it) where they have it now as a bright arc from the user's turn.
+ */
+private fun DrawScope.drawModulation(
+    live: MacroLiveMod,
+    turn: Float,
+    reduced: Boolean,
+    stroke: Float,
+) {
+    val colour = modColour(live.sources)
+    val inset = stroke * MOD_INSET
+    val arcSize = Size(size.width - 2f * inset, size.height - 2f * inset)
+    val topLeft = Offset(inset, inset)
+    val line = Stroke(stroke * MOD_STROKE, cap = StrokeCap.Round)
+    val low = (turn + live.low).coerceIn(-1f, 1f)
+    val high = (turn + live.high).coerceIn(-1f, 1f)
+    val start = CENTRE_DEG + low * HALF_SWEEP_DEG
+    drawArc(colour.copy(alpha = MOD_RANGE_ALPHA), start, (high - low) * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
+    if (reduced) return
+    val now = (turn + live.add).coerceIn(-1f, 1f)
+    drawArc(colour, CENTRE_DEG + turn * HALF_SWEEP_DEG, (now - turn) * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
+}
+
 @Composable
 private fun MacroKnobDial(
     knob: MacroEditorKnob,
+    live: MacroLiveMod?,
+    reduced: Boolean,
     dial: Dial,
     onChange: (Float) -> Unit,
     onCommit: () -> Unit,
@@ -144,6 +211,7 @@ private fun MacroKnobDial(
     val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val arc = MaterialTheme.colorScheme.primary
     val text = knobText(knob.value)
+    val spoken = liveText(live, knob.value)?.let { "$text, $it" } ?: text
     Column(modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
@@ -158,7 +226,7 @@ private fun MacroKnobDial(
                 }.semantics {
                     contentDescription = knob.name
                     customActions = listOf(CustomAccessibilityAction(editLabel) { true.also { edit() } })
-                    stateDescription = text
+                    stateDescription = spoken
                     progressBarRangeInfo = ProgressBarRangeInfo(knob.value, -1f..1f, steps = KNOB_STEPS)
                     setProgress { target ->
                         onSet(target.coerceIn(-1f, 1f))
@@ -176,6 +244,7 @@ private fun MacroKnobDial(
                 drawArc(track, START_DEG, SWEEP_DEG, false, topLeft, arcSize, style = line)
                 // From the top (centre) toward the turn.
                 drawArc(arc, CENTRE_DEG, knob.value * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
+                if (live != null) drawModulation(live, knob.value, reduced, stroke)
             }
         }
         // Name and value, then the ⋮: no caption (UI V2 rule 3), and the knobs keep one height.
@@ -246,3 +315,6 @@ private const val START_DEG = 135f
 private const val SWEEP_DEG = 270f
 private const val CENTRE_DEG = 270f
 private const val HALF_SWEEP_DEG = 135f
+private const val MOD_INSET = 1.9f
+private const val MOD_STROKE = 0.6f
+private const val MOD_RANGE_ALPHA = 0.35f

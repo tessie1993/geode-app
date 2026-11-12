@@ -726,13 +726,29 @@ GEODE_API void                geode_export_pass_destroy(geode_export_pass*);
 /* Whether frames are marked (the entitlement requires it, or Pro adds it) and where: GEODE_WATERMARK_NONE, or
  * the placement asked for, an end card becoming a corner mark where the video's end is not known. Pure. */
 GEODE_API int                 geode_export_watermark_placement(int required, int pro_adds, int placement, int use);
-/* The raster the placement wants: the text size for a frame's short side, its rotation in degrees and alpha
- * (0..255), and the tile for the measured text width (the tiled pattern's is a power of two). Pure. */
-GEODE_API float               geode_export_watermark_text_px(int short_side, int placement);
-GEODE_API float               geode_export_watermark_angle(int placement);
-GEODE_API int                 geode_export_watermark_alpha(int placement);
-GEODE_API int                 geode_export_watermark_tile_width(float text_width, float text_px, int placement);
-GEODE_API int                 geode_export_watermark_tile_height(int tile_width, float text_px, int placement);
+/* The raster the placement wants. paint: the text size for a frame's short side, its alpha (0..255), letter
+ * spacing in ems and its shadow's radius and alpha. raster: for the text measured with that paint (its width, and
+ * the font's ascent and descent), the tile (the tiled pattern's a power of two), its rotation in degrees about
+ * the pivot, and where the text is drawn. Pure. */
+typedef struct geode_watermark_paint {
+    float text_px;
+    int   alpha;
+    float letter_spacing_em;
+    float shadow_radius_px;
+    int   shadow_alpha;
+} geode_watermark_paint;
+typedef struct geode_watermark_raster {
+    int   width;
+    int   height;
+    float angle_degrees;
+    float pivot_x;
+    float pivot_y;
+    float text_x;
+    float text_y;
+} geode_watermark_raster;
+GEODE_API void                geode_export_watermark_paint(int short_side, int placement, geode_watermark_paint* out);
+GEODE_API void                geode_export_watermark_raster(float text_width, float ascent, float descent, float text_px,
+                                                            int placement, geode_watermark_raster* out);
 /* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). length_ms
  * is the video's (an end card's last seconds), 0 when unknown. */
 GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h,

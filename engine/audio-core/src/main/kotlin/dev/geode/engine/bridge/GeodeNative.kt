@@ -1716,29 +1716,28 @@ object GeodeNative {
         use: Int,
     ): Int
 
-    /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
-    external fun exportWatermarkTextPx(
+    /**
+     * The wordmark's paint for a frame whose short side is [shortSide], into [out] (5 floats): text size px,
+     * alpha (0..255), letter spacing (em), shadow radius px, shadow alpha.
+     */
+    external fun exportWatermarkPaint(
         shortSide: Int,
         placement: Int,
-    ): Float
+        out: FloatArray,
+    )
 
-    /** The tile's rotation in degrees, and the text's alpha (0..255). */
-    external fun exportWatermarkAngle(placement: Int): Float
-
-    external fun exportWatermarkAlpha(placement: Int): Int
-
-    /** The tile width for the wordmark measured at [textWidth] pixels (a power of two for the tiled pattern). */
-    external fun exportWatermarkTileWidth(
+    /**
+     * The tile for the text measured with that paint ([textWidth], the font's [ascent] and [descent] at [textPx])
+     * into [out] (7 floats): width, height, rotation in degrees, its pivot x and y, where the text is drawn x and y.
+     */
+    external fun exportWatermarkRaster(
         textWidth: Float,
+        ascent: Float,
+        descent: Float,
         textPx: Float,
         placement: Int,
-    ): Int
-
-    external fun exportWatermarkTileHeight(
-        tileWidth: Int,
-        textPx: Float,
-        placement: Int,
-    ): Int
+        out: FloatArray,
+    )
 
     /**
      * [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer).

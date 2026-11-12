@@ -1131,29 +1131,31 @@ Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkPlacement(JNIEnv*, jobje
     return geode_export_watermark_placement(required ? 1 : 0, proAdds ? 1 : 0, placement, use);
 }
 
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTextPx(JNIEnv*, jobject, jint shortSide, jint placement) {
-    return geode_export_watermark_text_px(shortSide, placement);
+// The wordmark's paint as five floats: text px, alpha, letter spacing (em), shadow radius px, shadow alpha.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkPaint(JNIEnv* env, jobject, jint shortSide, jint placement,
+                                                             jfloatArray out) {
+    constexpr jsize kFloats = 5;
+    geode_watermark_paint p{};
+    geode_export_watermark_paint(shortSide, placement, &p);
+    if (!out || env->GetArrayLength(out) < kFloats) return;
+    const jfloat values[kFloats] = {p.text_px, static_cast<jfloat>(p.alpha), p.letter_spacing_em, p.shadow_radius_px,
+                                    static_cast<jfloat>(p.shadow_alpha)};
+    env->SetFloatArrayRegion(out, 0, kFloats, values);
 }
 
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkAngle(JNIEnv*, jobject, jint placement) {
-    return geode_export_watermark_angle(placement);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkAlpha(JNIEnv*, jobject, jint placement) {
-    return geode_export_watermark_alpha(placement);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileWidth(JNIEnv*, jobject, jfloat textWidth, jfloat textPx, jint placement) {
-    return geode_export_watermark_tile_width(textWidth, textPx, placement);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileHeight(JNIEnv*, jobject, jint tileWidth, jfloat textPx, jint placement) {
-    return geode_export_watermark_tile_height(tileWidth, textPx, placement);
+// The tile and the text's place in it as seven floats: width, height, angle, pivot x, y, text x, y.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkRaster(JNIEnv* env, jobject, jfloat textWidth, jfloat ascent,
+                                                              jfloat descent, jfloat textPx, jint placement,
+                                                              jfloatArray out) {
+    constexpr jsize kFloats = 7;
+    geode_watermark_raster r{};
+    geode_export_watermark_raster(textWidth, ascent, descent, textPx, placement, &r);
+    if (!out || env->GetArrayLength(out) < kFloats) return;
+    const jfloat values[kFloats] = {static_cast<jfloat>(r.width), static_cast<jfloat>(r.height), r.angle_degrees,
+                                    r.pivot_x, r.pivot_y, r.text_x, r.text_y};
+    env->SetFloatArrayRegion(out, 0, kFloats, values);
 }
 
 JNIEXPORT jlong JNICALL

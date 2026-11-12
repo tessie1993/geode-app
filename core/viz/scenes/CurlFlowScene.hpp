@@ -39,8 +39,6 @@ private:
     FullscreenTriangle quad_;
     float noiseTime_ = 0.0f;
     float wallTime_ = 0.0f;
-    float beatEnv_ = 0.0f;
-    float beatDrive_ = 0.0f;
     float pcmKick_ = 0.0f;
     float aspect_ = 1.0f;
     int particleCount_ = 0;

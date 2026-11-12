@@ -32,6 +32,12 @@ struct StyleCue {
 // render starts; this is every later style, gated where the schedule is built, on exactly the ids
 // that would be drawn.
 //
+// It runs on the picture's clock, like every other move (owner's rule: no sound, no movement; #999 F3):
+// the renderer calls advance() with the frame's step and the music's rate (sound::motionRate), so in a
+// silent stretch the schedule holds with the picture. The timed cues' clock stops, and the beats the
+// tracker's flywheel keeps ticking through the silence are not counted: a cut never lands on a frozen
+// frame, and the first cut after the silence comes on the music's own beats.
+//
 // Pure: no GL, no locks. The renderer owns one, steps it once per frame from beginFrame and
 // applies whatever change it returns through its own setScene / loadMilkPreset.
 class StyleSchedule {
@@ -48,6 +54,13 @@ public:
     // remembers the beat count and applies the cue in force at `timeMs`, if it differs from none.
     const StyleCue* step(double timeMs, float beatCount);
 
+    // The renderer's step: step() at the schedule's own clock (music ms since the segment began), then
+    // that clock moves on by frameStepS times motionRate. A still frame (motionRate 0, or not finite)
+    // returns nullptr, moves no clock and only remembers beatCount, so no beat of the silence counts.
+    const StyleCue* advance(float frameStepS, float motionRate, float beatCount);
+    // The schedule's clock: music time since the segment began, in ms.
+    double clockMs() const { return clockMs_; }
+
     // Beats between two beatCount readings, across the 4096 wrap.
     static int beatsBetween(float before, float after);
 
@@ -62,6 +75,7 @@ private:
     int beatsSinceCut_ = 0;
     bool started_ = false;
     float lastBeatCount_ = 0.0f;
+    double clockMs_ = 0.0;
     StyleCue current_;
     StyleCue pending_;
 };

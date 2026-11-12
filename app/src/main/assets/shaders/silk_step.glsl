@@ -53,10 +53,6 @@ uniform float uStrike;     // raw-PCM transient, 0..1.5
 
 // The sound engine's drums, melody and stereo, integrated on the CPU (SilkScene::stepSound), so this
 // body reads plain numbers on both the fragment and the compute path.
-uniform float uKick;       // kick envelope 0..1.5: a radial push out of the ring centre, fattens bass strokes
-uniform float uSnare;      // snare envelope: a vortex shear around the ring centre, fattens mid strokes
-uniform float uSnareSign;  // +-1, flips with each snare: the shear turns the other way
-uniform float uHat;        // hat envelope: fine shimmer in the flow, brightens treble strokes
 uniform float uBeatRing;   // expanding ring radius since the last kick or hard cut, <0 = none
 uniform vec2 uRingCenter;  // the ring's centre, uv (the kick picks it: toggled side, random offset)
 uniform vec3 uRingTint;    // the ring's dye per lane, fading as it grows (bass on a kick, white on a cut)
@@ -172,11 +168,11 @@ vec3 strokes(vec2 q, vec2 dir) {
             float g = exp(-(along * along) / (0.004 * elong) - (across * across) / 0.00025);
             float w = smoothstep(0.15, 0.9, h.y);
             if (lanePick < 0.34) {
-                acc.r += g * w * uBass * (1.0 + 1.2 * uKick);
+                acc.r += g * w * uBass;
             } else if (lanePick < 0.67) {
-                acc.g += g * w * uMid * (1.0 + 1.5 * uSnare);
+                acc.g += g * w * uMid;
             } else {
-                acc.b += g * w * (uTreble + 0.5 * uStrike) * (1.0 + 2.0 * uHat);
+                acc.b += g * w * (uTreble + 0.5 * uStrike);
             }
         }
     }
@@ -255,13 +251,11 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
         v = vec2(c * v.x - s * v.y, s * v.x + c * v.y);
     }
 
-    // The drums, as three forces from the ring centre the last kick picked.
+    // The distance from the ring centre the ring is drawn at. (The kick's push, the snare's shear and
+    // the hat's shimmer from there were hidden hit reactions and are gone.)
     float fieldUnits = 3.2 * uFieldScale;
     vec2 dr = q - (uRingCenter - 0.5) * vec2(aspect, 1.0) * fieldUnits;
     float rl = length(dr) + 1e-3;
-    v += dr / rl * uKick * 0.45 * exp(-rl * 0.35);                       // kick: a push outward
-    v += vec2(-dr.y, dr.x) / (rl + 0.35) * uSnare * uSnareSign * 0.9;     // snare: a shear vortex
-    v += uHat * 0.35 * vec2(sin(q.y * 23.0 + uDrift * 40.0), cos(q.x * 19.0 - uDrift * 37.0)); // hat: shimmer
 
     // The melody stirs the silk around its emitter, the turn set by the last interval's sign.
     vec2 de = q - (uEmitter - 0.5) * vec2(aspect, 1.0) * fieldUnits;
@@ -293,10 +287,10 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
         add += uRingTint * (ring * 0.8);
     }
 
-    // The melody emitter lays a ribbon of mid dye (with a treble edge on hats) that the flow and
-    // its own vortex then stretch into a trail of the tune.
+    // The melody emitter lays a ribbon of mid dye (with a treble edge) that the flow and its own
+    // vortex then stretch into a trail of the tune.
     if (uEmit > 0.001) {
-        add += vec3(0.12, 1.0, 0.3 + 0.7 * uHat) * (exp(-el2 / 0.012) * uEmit);
+        add += vec3(0.12, 1.0, 0.3) * (exp(-el2 / 0.012) * uEmit);
     }
 
     // Deliberately NOT scaled by uDrive: a finger is not audio, and a user who

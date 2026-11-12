@@ -19,7 +19,7 @@ namespace geode::viz {
 //
 // The sound engine plays the organism, it does not flash it. Every reading is folded in update() (so a
 // one-frame trigger is never lost between draws) into a few quantities the solver understands: matter
-// to inject (kick envelope births, melody buds, hat spores), a rule that breathes (snare and surge widen
+// to inject (melody buds, hat spores), a rule that breathes (snare and surge widen
 // the growth window, kick16 and hard cuts morph to another of the style's four rule presets), a time
 // rate (quiet music freezes the colonies into still forms, busy music sets them squirming) and a drift
 // on the curved sound clock, which only ever moves forward. The present pass reads the field as a lit
@@ -98,11 +98,6 @@ private:
 
     // Steering, folded from the sound frame in update() and consumed by draw().
     float rate_ = kStillRate;
-    float kickFeed_ = 0.0f;
-    float kickAngle_ = 0.0f;
-    float kickX_ = 0.5f;
-    float kickY_ = 0.5f;
-    float kickSize_ = 1.0f;
     float budFeed_ = 0.0f;
     float budX_ = 0.5f;
     float budY_ = 0.5f;

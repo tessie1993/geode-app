@@ -33,8 +33,6 @@ void Choreography::Anchor::snap() {
 
 void Choreography::tick(const GeodeSoundFrame& f, float dt, float aspect) {
     time_ = std::fmod(time_ + dt * (0.4f + 0.6f * speed), kTimeWrapSeconds);
-    if (hitEdge_.step(f)) hitCount_++;
-    beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-dt / 0.35f));
     const float bassTarget = std::clamp(live::bass(f) * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.45f, 1.0f);
 
@@ -54,7 +52,8 @@ void Choreography::tick(const GeodeSoundFrame& f, float dt, float aspect) {
         s.targetX = std::clamp(tx, -ax, ax);
         s.targetY = std::clamp(ty, -kDomainMargin, kDomainMargin);
         const float bandE = std::clamp(f.spectrum[std::clamp(i * GEODE_SOUND_SPECTRUM_POINTS / nS, 0, GEODE_SOUND_SPECTRUM_POINTS - 1)], 0.0f, 1.0f);
-        s.energy = std::clamp(0.5f * beatEnv_ + 0.5f * bandE, 0.0f, 1.0f);
+        // The band only: the hit's half was a hidden hit reaction and is gone.
+        s.energy = std::clamp(0.5f * bandE, 0.0f, 1.0f);
     }
     const int nC = std::clamp(catchCount, 0, kMaxCatch);
     for (int i = 0; i < nC; ++i) {
@@ -78,12 +77,9 @@ void Choreography::tick(const GeodeSoundFrame& f, float dt, float aspect) {
 void Choreography::reset() {
     initialized_ = false;
     time_ = 0.0f;
-    hitCount_ = 0;
     lastSection_ = -1;
     sectionPhase_ = 0.0f;
-    beatEnv_ = 0.0f;
     bassEnv_ = 0.0f;
-    hitEdge_.reset();
     traverse_.reset();
 }
 
@@ -104,7 +100,8 @@ std::pair<float, float> Choreography::spawnTarget(int i, int n, float progress, 
             return {std::cos(theta) * r * ax, cy + std::sin(theta) * r};
         }
         case kPathBloom: {
-            const float idx = static_cast<float>(hitCount_ + i);
+            // Seated by index, turned by the section: it no longer steps on every hit (a hidden hit reaction).
+            const float idx = static_cast<float>(i);
             const float a = idx * kGoldenAngle + sectionPhase_;
             const float r = journeyR * std::sqrt((std::fmod(idx, 24.0f) + 1.0f) / 24.0f);
             return {std::cos(a) * r * ax, cy + std::sin(a) * r};

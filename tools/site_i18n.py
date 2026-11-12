@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "docs" / "site"
 I18N = SITE / "i18n"
-BASE = "https://tessie1993.github.io/geode-app/"
+BASE = "https://beatrealms3d.pages.dev/"
 PAGES = ["index.html", "features.html"]
 # code, name in its own language, folder, Google Play badge locale, label of the switcher
 LANGS = [

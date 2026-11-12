@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Merkaba Grid: a flight down a cathedral of sacred geometry. The hall is a
 // barrel vault over a flat floor, and both are skinned in the same triangulated
@@ -38,9 +39,11 @@ out vec4 fragColor;
 //                            second (spawnGrow), never at once.
 // uFormPhase                 steps the web between three densities and the
 //                            spheres' ring count, and holds each plateau.
-// uMoveDir / uFlowPhase      drift the motes in the air and turn the burst.
+// uMoveDir / uFlowPhase      drift the motes in the air. The burst's spokes
+//                            turn on uTime alone: nothing turns to the music.
 // Knobs (uKnob, 0.5 = neutral): PULSE the bass breath, TEXTURE the web's line
-// weight, FLOW turns the merkabas, TONE how high they float (a high melody
+// weight, FLOW how far the merkabas bob (it used to turn them, which turned
+// them to the music), TONE how high they float (a high melody
 // lifts the stars up toward the vault, a low one lowers them to hang over the
 // floor's web; and a small hue offset), BUILD the column, SPACE the fog.
 // Morph eases each star toward an octahedron, Warp sways the web lines,
@@ -86,7 +89,6 @@ out vec4 fragColor;
 
 float gBass;
 /** FLOW's turn of every merkaba, radians (an offset, never a rate). */
-float gSpinRate;
 float gMorph;
 float gBob;
 /** k3 TONE: how far the merkabas are lifted (0 at rest). */
@@ -107,7 +109,7 @@ float tetra(vec3 q, float s) {
     return (m - s) * 0.57735027;
 }
 
-float map(vec3 p) {
+float mgField(vec3 p) {
     float side = p.x < 0.0 ? 1.0 : 0.0;
     vec3 a = vec3(abs(p.x), p.y, p.z);
 
@@ -150,7 +152,7 @@ float map(vec3 p) {
     vec3 q = a - mc;
     // A fixed rate times uTime, plus FLOW as a bounded offset: a rate that moved
     // with the knob would jump the angle by (rate change) * uTime.
-    float spin = uTime * 0.6 * (0.35 + 0.4 * k2) + k3 * MG_TAU + gSpinRate;
+    float spin = uTime * 0.6 * (0.35 + 0.4 * k2) + k3 * MG_TAU;
     q.xz = rot2(spin) * q.xz;
     q.yz = rot2(spin * 0.61 + k1 * 3.0) * q.yz;
     float dM = min(tetra(q, s), tetra(-q, s));
@@ -167,6 +169,14 @@ float map(vec3 p) {
 
     d = max(d, MG_BUBBLE - length(p - gEye));
     return d;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: mgField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mgField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -238,7 +248,7 @@ vec3 skyColour(vec3 rd, float hue, float swell, float build) {
     // The burst where it leaves the vault: a soft disc with turning spokes.
     vec2 b = sp - vec2(0.0, 0.55);
     float br = length(b);
-    float spokes = 0.55 + 0.45 * cos(atan(b.y, b.x) * 12.0 + uFlowPhase * 2.0);
+    float spokes = 0.55 + 0.45 * cos(atan(b.y, b.x) * 12.0 + uTime * 0.5);
     col += mix(vec3(1.0), pal(hue), 0.4) * exp(-br * 6.0) * spokes * 0.35 * build
          * smoothstep(0.2, 0.7, ahead);
     col += vec3(1.0) * exp(-br * br * 260.0) * 1.2 * build * smoothstep(0.3, 0.8, ahead);
@@ -248,14 +258,31 @@ vec3 skyColour(vec3 rd, float hue, float swell, float build) {
 void main() {
     vec2 uv = view();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTex = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nBreath = clamp(uKnob[0], 0.0, 1.0);
+    float nWeb = clamp(uKnob[1], 0.0, 1.0);
+    float nBob = clamp(uKnob[2], 0.0, 1.0);
+    float nFloat = clamp(uKnob[3], 0.0, 1.0);
+    float nColumn = clamp(uKnob[4], 0.0, 1.0);
+    float nFog = clamp(uKnob[5], 0.0, 1.0);
+    float nStar = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    // The bass breath's depth, the web's and the stars' line weights, how far
+    // the merkabas bob and how high they float, the column, the fog.
+    float breathK = shellMap(nBreath, 0.6, 1.0, 1.4);
+    float webW = shellMap(nWeb, 0.02, 0.035, 0.05);
+    float edgeW = shellMap(nWeb, 0.02, 0.03, 0.04);
+    float bobK = shellMap(nBob, 0.4, 1.0, 1.6);
+    float build = shellMap(nColumn, 0.4, 1.0, 1.6);
+    float hue = shellMap(nFloat, 0.455, 0.58, 0.705);
+    float fogK = shellMap(nFog, 0.063, 0.045, 0.027);
 
-    float bass = clamp(SND_BASS_PRESENCE * (1.0 + 0.8 * kPulse), 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE * breathK, 0.0, 1.5);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float intensity = clamp(uIntensity, 0.0, 2.0);
@@ -265,13 +292,11 @@ void main() {
     float plateau = floor(clamp(uFormPhase, 0.0, 0.999) * 3.0);
     float h = 2.0 / (1.0 + plateau);
     float rows = 512.0 * (1.0 + plateau);
-    float build = 1.0 + 1.2 * kBuild;
 
     gBass = bass;
-    gSpinRate = 2.0 * kFlow;
-    gMorph = 0.6 * clamp(uMorph, 0.0, 1.0);
-    gBob = 0.15 + 0.35 * turb;
-    gLift = 2.2 * kTone;
+    gMorph = shellMap(nStar, 0.0, 0.0, 0.6);
+    gBob = (0.15 + 0.35 * turb) * bobK;
+    gLift = shellMap(nFloat, -1.1, 0.0, 1.1);
 
     vec3 ro;
     vec3 rd;
@@ -281,8 +306,6 @@ void main() {
     ro.z = mod(ro.z, MG_ZWRAP);
     gEye = ro;
 
-    float hue = 0.58 + 0.25 * kTone;
-    float fogK = 0.045 * (1.0 - 0.8 * kSpace);
 
     float t = 0.05;
     float hitT = -1.0;
@@ -326,7 +349,7 @@ void main() {
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float spec = pow(max(dot(reflect(rd, n), L), 0.0), 40.0);
-        float width = (0.035 + 0.03 * kTex) * (1.0 + 0.25 * bass);
+        float width = webW * (1.0 + 0.25 * bass);
         float lit = spawnGrow(1.2);
         float seedOff = floor(uSpawnSeed * 97.0);
         // The column at the end of the hall lights the near side of everything.
@@ -374,7 +397,7 @@ void main() {
             float mb = max(max(vb.x, vb.y), max(vb.z, vb.w));
             // The surface belongs to the tetrahedron whose largest plane value is smaller.
             float gap = ma < mb ? ma - second4(va) : mb - second4(vb);
-            float edge = wire(gap * 0.57735027, 0.03 + 0.02 * kTex, px);
+            float edge = wire(gap * 0.57735027, edgeW, px);
             vec3 tint = mix(pal(hue - 0.28), pal(hue + 0.32), gSeed);
             float tip = 1.0 - smoothstep(0.0, gSize * 0.35, gVert);
             col = tint * (0.03 + 0.10 * dif) * ao + tint * fres * 0.4

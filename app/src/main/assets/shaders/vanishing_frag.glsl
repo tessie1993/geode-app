@@ -21,6 +21,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // ===========================================================================
 // VANISHING - the Droste effect, volumetric.
@@ -495,7 +496,7 @@ float shellProto(vec3 q, float qr, float relief) {
  * The stack. See the header for the mapping and for why there are exactly two
  * candidates.
  */
-float map(vec3 p) {
+float vanField(vec3 p) {
     float r = max(length(p), R_MIN);
     float k = log(r);
 
@@ -541,6 +542,14 @@ float map(vec3 p) {
 
     gShell = dOut < dIn ? n + 1.0 : n;
     return min(dIn, dOut) / gLip;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: vanField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, vanField);
 }
 
 /**
@@ -599,12 +608,29 @@ void main() {
     float midAmt = clamp(SND_MID_PRESENCE * 0.75, 0.0, 1.0);
     float trebAmt = clamp(SND_TREBLE_PRESENCE * 0.75, 0.0, 1.0);
     float energyAmt = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0) * 0.7, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float wallK = 1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5);
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float hb = HUE_BASE + 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nWall = clamp(uKnob[1], 0.0, 1.0);
+    float nFall = clamp(uKnob[2], 0.0, 1.0);
+    float nWindow = clamp(uKnob[3], 0.0, 1.0);
+    float nCore = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the shells' wall (the relief scales with it), FLOW's place
+    // in the fall, the palette position and the windows, the light at the
+    // end, and the reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float wallK = shellMap(nWall, 0.75, 1.0, 1.25);
+    float fallAdd = shellMap(nFall, -0.06, 0.0, 0.06);
+    float hb = shellMap(nWindow, HUE_BASE - 0.3, HUE_BASE, HUE_BASE + 0.3);
+    float windowAdd = shellMap(nWindow, -0.15, 0.0, 0.15);
+    float coreK = shellMap(nCore, 0.5, 1.0, 1.5);
+    float reach = shellMap(nReach, 0.8, 1.0, 1.2);
     float farT = FAR * reach;
     gWall = WALL * wallK;
 
@@ -616,7 +642,7 @@ void main() {
     // The mids and FLOW move the stack too, as a place in the fall (owner
     // rule: sound may move position and shape, never turn anything); they used
     // to steer the spiral's shear, which turned the corridor to the music.
-    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + FALL_SURGE * (0.3 * bassAmt + 0.3 * midAmt + 0.6 * kFlow),
+    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + (FALL_SURGE * (0.3 * bassAmt + 0.3 * midAmt) + fallAdd),
                 BAND_CYCLE) + pull;
     // The spiral's shear breathes on uTime alone; the fingers' twist rides on top.
     gSpiral = clamp(
@@ -626,7 +652,7 @@ void main() {
     );
     gSpin = uTime * SPIN_W + spin;
     // TONE moves the windows; the floor keeps the caps free (above sqrt 2).
-    gHole = clamp(HOLE_BASE + HOLE_SWING * energyAmt + 0.3 * (clamp(uKnob[3], 0.0, 1.0) - 0.5),
+    gHole = clamp(HOLE_BASE + HOLE_SWING * energyAmt + windowAdd,
                   min(1.44, HOLE_BASE + HOLE_SWING * energyAmt), 1.66);
     gReliefAmp = (RELIEF_IDLE + RELIEF_TREBLE * trebAmt) * wallK;
     gReliefPhase = uTime * RELIEF_PHASE_W;
@@ -679,7 +705,7 @@ void main() {
     float tight = exp(-ga * ga);
     float halo = exp(-ga * ga * 0.05);
     vec3 core = pal(hb + 0.42 + 0.10 * midAmt) *
-        (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo) * (1.0 + kBuild);
+        (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo) * coreK;
     // The light at the end is the chrysanthemum: the mandala on the shifted
     // screen direction, so it is centred on the vanishing point and travels
     // with the finger like the core does, and the regress is falling INTO
@@ -755,5 +781,5 @@ void main() {
     vec2 sv = (vUv - 0.5) * vec2(uResolution.x / max(uResolution.y, 1.0), 1.0) * 2.0;
     col *= mix(1.0, smoothstep(2.0, 0.30, length(sv)), 0.5);
 
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

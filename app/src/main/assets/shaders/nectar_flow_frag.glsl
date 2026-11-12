@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // Nectar Flow: a volume rather than a surface. Luminous dye is wrapped around a
 // folded skeleton and then stirred by the same incompressible flow Curl Bloom
@@ -104,6 +105,23 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
     return exp(-abs(trap) * sharp);
 }
 
+/** density()'s per-frame arguments, set once in main, so the field is a function of p alone. */
+float gBend;
+float gSquash;
+float gSharp;
+float gWarpScale;
+float gWarpAmount;
+
+/** The dye's density as a field of p alone. */
+float nfField(vec3 p) {
+    return density(p, gBend, gSquash, gSharp, gWarpScale, gWarpAmount);
+}
+
+/** The field the march reads: nfField, through lib_shell's hook (the identity until the shell drives it). */
+float nfDensity(vec3 p) {
+    return SHELL_FIELD3(p, nfField);
+}
+
 /**
  * lib_dmt's flight path (dmtTunnelPath) without its lean on uMoveDir, which
  * grew with depth and so turned the heading on every spike. The heading now
@@ -129,12 +147,27 @@ mat3 nfFlightBasis(float dist, float roll) {
 
 void main() {
     vec2 uv = view();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float tone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nShell = clamp(uKnob[1], 0.0, 1.0);
+    float nStir = clamp(uKnob[2], 0.0, 1.0);
+    float nTone = clamp(uKnob[3], 0.0, 1.0);
+    float nCore = clamp(uKnob[4], 0.0, 1.0);
+    float nDepth = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the filaments' softness, the stir's bend, the palette
+    // position (and the squash, below), the core's glow, the slab's depth.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float softK = shellMap(nShell, 0.5, 1.0, 1.5);
+    float stirAdd = shellMap(nStir, -0.05, 0.0, 0.05);
+    float tone = shellMap(nTone, -0.3, 0.0, 0.3);
+    float coreK = shellMap(nCore, 0.5, 1.0, 1.5);
+    float depthK = shellMap(nDepth, 0.8, 1.0, 1.2);
 
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
@@ -149,9 +182,14 @@ void main() {
     // the structure turns to noise.
     float squash = clamp(1.26 + 0.12 * clamp(bass, 0.0, 1.0) + 0.13 * tone, 1.22, 1.42);
     // TEXTURE widens the filaments (a softer shell), never past half or 1.5 times.
-    float sharp = (22.0 + 26.0 * clamp(treb, 0.0, 1.0)) / (1.0 + kTexture);
+    float sharp = (22.0 + 26.0 * clamp(treb, 0.0, 1.0)) / softK;
     float warpScale = 0.95 + 0.30 * swell;
-    float warpAmount = max(0.13 + 0.10 * bass + 0.06 * finger + 0.1 * kFlow, 0.0);
+    float warpAmount = max(0.13 + 0.10 * bass + 0.06 * finger + stirAdd, 0.0);
+    gBend = bend;
+    gSquash = squash;
+    gSharp = sharp;
+    gWarpScale = warpScale;
+    gWarpAmount = warpAmount;
 
     // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
     // the camera travels, never where it is - and the path banks the heading.
@@ -167,7 +205,7 @@ void main() {
     // boundaries scatter into grain instead of banding into visible shells,
     // and the jitter walks with the spawn so the grain is not a fixed screen
     // pattern.
-    float span = NF_FAR * (1.0 + 0.4 * kSpace) - NF_NEAR;
+    float span = NF_FAR * depthK - NF_NEAR;
     float dt = span / float(NF_MAX_STEPS);
     float jitter = hash13(vec3(uv * 811.0, uSpawnSeed * 37.0));
     float t = NF_NEAR + jitter * dt;
@@ -180,7 +218,7 @@ void main() {
         if (trans < NF_MIN_TRANSMITTANCE) break;
 
         vec3 p = ro + rd * t;
-        float d = density(p, bend, squash, sharp, warpScale, warpAmount);
+        float d = nfDensity(p);
         if (d > 0.004) {
             // Colour by depth into the volume and by how dense the sample is,
             // so the thin outskirts and the bright core are different hues
@@ -206,7 +244,7 @@ void main() {
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06 + tone) * axis * 0.16 * trans * (1.0 + kBuild);
+    col += pal(0.06 + tone) * axis * 0.16 * trans * coreK;
 
     // The particle layer, matching the rest of the family.
     col += mix(pal(0.50 + tone), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
@@ -215,5 +253,5 @@ void main() {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.70 + 0.30 * smoothstep(2.2, 0.4, length(uv));
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

@@ -21,6 +21,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // NONEUCLID - space turning inside-out through a point.
 //
@@ -339,7 +340,7 @@ float lattice(vec3 p) {
  * structure turns behind it - inverting after the rotation would drag the pole
  * around the screen once every world revolution.
  */
-float map(vec3 p) {
+float neField(vec3 p) {
     // Outside the ball the distance to the ball is already a valid lower bound
     // on the distance to anything in it, so the fold chain is never touched
     // and the empty half of the frame costs one length() per step.
@@ -413,6 +414,14 @@ float map(vec3 p) {
     // without the intersection the structure streaks off across the whole
     // frame and there is no silhouette and no space to see it in.
     return max(lattice(q) / s, bound);
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: neField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, neField);
 }
 
 /**
@@ -505,12 +514,29 @@ void main() {
     float midN = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) / 1.5;
     float trebN = clamp(sndShaped(SND_HIGH), 0.0, 1.5) / 1.5;
     float energyN = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) / 1.5;
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float fogRate = FOG_RATE / (1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
-    gStrut = CELL_STRUT * (1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5));
-    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nStrut = clamp(uKnob[1], 0.0, 1.0);
+    float nSlide = clamp(uKnob[2], 0.0, 1.0);
+    float nInvert = clamp(uKnob[3], 0.0, 1.0);
+    float nGlow = clamp(uKnob[4], 0.0, 1.0);
+    float nHaze = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the struts' radius (under half a cell, so the lattice
+    // stays exact), FLOW's slide of the fold offset, the palette position and
+    // the inversion radius, the glow along the ray, the haze's reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    gStrut = shellMap(nStrut, 0.75 * CELL_STRUT, CELL_STRUT, 1.25 * CELL_STRUT);
+    float slideAdd = shellMap(nSlide, -0.06, 0.0, 0.06);
+    gTone = shellMap(nInvert, -0.3, 0.0, 0.3);
+    float invertK = shellMap(nInvert, -0.125, 0.0, 0.125);
+    float glowK = shellMap(nGlow, 0.5, 1.0, 1.5);
+    float fogRate = FOG_RATE / shellMap(nHaze, 0.8, 1.0, 1.2);
 
 
     // ---- touch -----------------------------------------------------------
@@ -595,8 +621,8 @@ void main() {
     // The offset breathes slowly, so the group is never the same group twice
     // and the structure keeps reorganising with the audio at zero.
     gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029))
-             + (0.12 * midN + 0.12 * kFlow) * vec3(0.55, 0.62, -0.56);
-    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN + 0.25 * (clamp(uKnob[3], 0.0, 1.0) - 0.5));
+             + (0.12 * midN + slideAdd) * vec3(0.55, 0.62, -0.56);
+    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN + invertK);
     gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
     gBead = CELL_BEAD + 0.030 * bassN;
 
@@ -784,7 +810,7 @@ void main() {
     // exists to keep out, quite apart from looking like dirt on the lens.
     float norm = max(glowSum, 1e-6);
     float glowHue = 0.10 + gTone + sqrt(glowTrapO / norm) * 0.62 + sqrt(glowTrapA / norm) * 0.30;
-    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN) * (1.0 + kBuild);
+    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN) * glowK;
 
     // The wake: a soft lift under every finger, live and still fading.
     // touchWake() is unbounded above by design (five fingers sum to five), so
@@ -799,7 +825,7 @@ void main() {
     // flatten every rim and every filament into the same white; the tone map
     // keeps them apart and, more to the point, bounds the whole frame's
     // luminance whatever the music does.
-    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE * (1.0 + 0.5 * kPulse));
+    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE * emission);
 
     // Vignette in SCREEN space, off vUv rather than off view()'s uv. Off uv it
     // would be a function of the Zoom control: zoomed out far enough, dot(uv,

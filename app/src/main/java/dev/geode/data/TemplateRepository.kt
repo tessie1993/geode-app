@@ -36,7 +36,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
-import java.io.OutputStream
 
 /** Outcome of writing a template out. Failure is a value, not an exception. */
 sealed interface TemplateWrite {
@@ -543,12 +542,6 @@ interface TemplateRepository {
      */
     suspend fun importFrom(open: () -> InputStream?): TemplateImport
 
-    /** Writes the template to a destination the caller opens, such as a picked file. */
-    suspend fun exportTo(
-        template: VideoTemplate,
-        open: () -> OutputStream?,
-    ): TemplateWrite
-
     /** A nicely named copy in the cache, ready to hand to a share sheet. */
     suspend fun stageForShare(template: VideoTemplate): File?
 
@@ -606,21 +599,6 @@ class FileTemplateRepository(
         val text = withContext(Dispatchers.IO) { runCatching { open()?.use(::readBounded) }.getOrNull() }
         return if (text == null) TemplateImport.Unreadable("that file could not be read") else importText(text)
     }
-
-    override suspend fun exportTo(
-        template: VideoTemplate,
-        open: () -> OutputStream?,
-    ): TemplateWrite =
-        withContext(Dispatchers.IO) {
-            val bytes = TemplateFormat.encode(template).toByteArray(Charsets.UTF_8)
-            val written =
-                runCatching {
-                    val out = open() ?: return@runCatching false
-                    out.use { it.write(bytes) }
-                    true
-                }.getOrDefault(false)
-            if (written) TemplateWrite.Written else TemplateWrite.Failed("could not write the template file")
-        }
 
     override suspend fun stageForShare(template: VideoTemplate): File? =
         withContext(Dispatchers.IO) {

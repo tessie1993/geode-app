@@ -121,7 +121,7 @@ GEODE_PARAM_META(palette, "Palette", Universal, 0, 0, 0)
 GEODE_PARAM(Int, palette2, 1, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
 GEODE_PARAM_META(palette2, "Palette 2", ShaderLook, 0, 0, 0)
 GEODE_PARAM(Float, paletteMix, 0.0f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(paletteMix, "Palette blend", ShaderLook, kMod, 0.2f, 0.8f)
+GEODE_PARAM_META(paletteMix, "Palette blend", ShaderLook, 0, 0.2f, 0.8f)
 // A custom palette's hue base and span, 0..1; kUnsetOverride (-1) = use the palette's own. Never
 // faded: a glide through the sentinel would flash the palette's own colours mid-fade.
 GEODE_PARAM(Float, paletteBaseOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
@@ -479,12 +479,13 @@ GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
 
 // The palette stack's amounts (viz/Palette.hpp, Customize › Look): how much each layer is used, the primary
 // first, beside the stack the look keeps as text. The defaults are palette::defaultAmounts(). Appended so
-// every wire index survives. The stack's own roll deals them, never the param roll. Palette 2's amount takes
-// LfoTarget::PaletteMix (and kMod) once the renderer draws the stack.
+// every wire index survives. The stack's own roll deals them, never the param roll. Palette 2's amount is
+// what LfoTarget::PaletteMix writes, on the styles that draw a second palette today (shader styles); a look
+// without a stack carries its old Palette blend on it (palette::carryBlend).
 GEODE_PARAM(Float, paletteAmount0, 1.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount0, "Palette 1 amount", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount1, 0.5f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(paletteAmount1, "Palette 2 amount", Universal, 0, 0, 0)
+GEODE_PARAM_META(paletteAmount1, "Palette 2 amount", ShaderLook, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount2, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount2, "Palette 3 amount", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount3, 0.5f, 0.0f, 1.0f, Fade)

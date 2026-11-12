@@ -137,15 +137,18 @@ void ShaderScene::draw(float timeSeconds) {
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
-    const bool lutSelected = p.paletteLut >= 0 && paletteLutTex_ != 0;
-    if (paletteLutTex_ != 0) {
+    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t).
+    const GLuint ramp = host_.paletteRamp ? host_.paletteRamp() : 0;
+    const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
+    const bool lutSelected = ramp != 0 || (p.paletteLut >= 0 && paletteLutTex_ != 0);
+    if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, paletteLutTex_);
+        glBindTexture(GL_TEXTURE_2D, lut);
         glUniform1i(uniforms_.loc("uPalLut"), 2);
         glActiveTexture(GL_TEXTURE0);
     }
     set1f("uPalLutMix", flag(lutSelected));
-    set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
+    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(std::max(p.paletteLut, 0)));
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
@@ -166,7 +169,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uColorShift", p.colorShift + cyclePhase_);
+    set1f("uColorShift", p.colorShift + cyclePhase_ + p.paletteShift);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);

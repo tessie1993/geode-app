@@ -50,7 +50,7 @@ target|TILE|1|Tile
 target|PIXELATE|1|Pixelate
 target|POSTERIZE|1|Posterize
 target|COLOR_SHIFT|1|Hue shift
-target|PALETTE_MIX|1|Palette blend
+target|PALETTE_MIX|1|Palette 2 amount
 target|SATURATION|1|Saturation
 target|BRIGHTNESS|1|Brightness
 target|INTENSITY|1|Intensity
@@ -146,7 +146,6 @@ target|diveBlend|1|Dive blend
 target|diveFog|1|Depth fade
 target|diveLens|1|Dive lens
 target|diveFollow|1|Music follow
-target|paletteAmount1|1|Palette 2 amount
 curve|LINEAR
 curve|EASE_IN
 curve|EASE_OUT

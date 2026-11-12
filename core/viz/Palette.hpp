@@ -1,5 +1,8 @@
 #pragma once
 #include <array>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -173,6 +176,57 @@ constexpr int kColourMapCount = 5;
 //   library|<kTextVersion>|<count>
 //   entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stop count>
 const std::string& libraryText();
+
+// The look's stack as every renderer in the process reads it (signal/EngineSettings; an export pins its
+// copy). Null while the look keeps none: its old colour params draw. Any thread.
+namespace detail {
+inline std::mutex& globalLock() {
+    static std::mutex lock;
+    return lock;
+}
+inline std::shared_ptr<const Stack>& globalStack() {
+    static std::shared_ptr<const Stack> stack;
+    return stack;
+}
+}  // namespace detail
+inline void setGlobal(const Stack& s) {
+    std::shared_ptr<const Stack> next = s.layers.empty() ? nullptr : std::make_shared<const Stack>(s);
+    std::lock_guard<std::mutex> guard(detail::globalLock());
+    detail::globalStack() = std::move(next);
+}
+inline std::shared_ptr<const Stack> global() {
+    std::lock_guard<std::mutex> guard(detail::globalLock());
+    return detail::globalStack();
+}
+
+// What a renderer uploads for the stack: kRampSize RGB8 texels, composed again only when the stack or an
+// amount one of its layers reads changed. GL-free.
+class Ramp {
+public:
+    // False while there is no stack to draw: the look's old colour params draw.
+    bool active() const { return stack_ != nullptr; }
+    // True when bytes() or active() changed.
+    bool update(std::shared_ptr<const Stack> stack, const Amounts& amounts);
+    const std::vector<std::uint8_t>& bytes() const { return bytes_; }
+
+private:
+    std::shared_ptr<const Stack> stack_;
+    Amounts amounts_{};
+    std::vector<std::uint8_t> bytes_;
+};
+
+// A look without a stack draws its old colours, and LfoTarget::PaletteMix writes Palette 2's amount. So
+// the old blend rides that row through the modulation stages (signal/Resolver): carryBlend ahead of them,
+// settleBlend on what comes out, which is the paletteMix the old path draws; the row gets its own value back.
+inline SceneParams carryBlend(SceneParams base) {
+    base.paletteAmount1 = base.paletteMix;
+    return base;
+}
+inline SceneParams settleBlend(SceneParams resolved, float ownAmount) {
+    resolved.paletteMix = resolved.paletteAmount1;
+    resolved.paletteAmount1 = ownAmount;
+    return resolved;
+}
 
 // An old look's colours as a stack, so it draws as it did: the first slot from its stops (your colours),
 // else its hue gradient (a saved override or built-in `palette`) sampled to stops; a second palette under

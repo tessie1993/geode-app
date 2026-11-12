@@ -205,10 +205,28 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     liveLiquid_ = p.flowEnabled ? liquid::modeFor(thermal_.tier(), hot) : liquid::Mode::Off;
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
     if (!userPostFx) p.fluidBloom = false;
+    uploadPaletteRamp(p);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
     return p;
+}
+
+void Renderer::uploadPaletteRamp(const SceneParams& p) {
+    const bool changed = paletteRamp_.update(frameSettings_.palettes, palette::amountsOf(p));
+    // A still frame is drawn again with the new colours.
+    if (changed) redrawFrames_ = std::max(redrawFrames_, 1);
+    if (!paletteRamp_.active() || (!changed && paletteRampTex_ != 0)) return;
+    if (paletteRampTex_ == 0) glGenTextures(1, &paletteRampTex_);
+    glBindTexture(GL_TEXTURE_2D, paletteRampTex_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, palette::kRampSize, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Renderer::resolveLayerScene() {

@@ -112,6 +112,8 @@ const char* geode_palette_stack_set_edge(const char* stack, const char* edge) {
     return handOut(s);
 }
 
+void geode_palette_stack_set(const char* stack) { palette::setGlobal(stackOf(stack)); }
+
 const char* geode_palette_stack_set_full_range(const char* stack, int on) {
     palette::Stack s = stackOf(stack);
     s.fullRange = on != 0;

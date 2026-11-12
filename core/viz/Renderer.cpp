@@ -35,7 +35,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
-                          [this] { return thermal_.settling(); }}),
+                          [this] { return thermal_.settling(); },
+                          [this] { return paletteRamp_.active() ? paletteRampTex_ : GLuint{0}; }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
@@ -377,6 +378,10 @@ void Renderer::onSurfaceCreated() {
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
+    }
+    if (paletteRampTex_ != 0) {
+        glDeleteTextures(1, &paletteRampTex_);
+        paletteRampTex_ = 0;
     }
     if (quadVao_ != 0) {
         glDeleteVertexArrays(1, &quadVao_);

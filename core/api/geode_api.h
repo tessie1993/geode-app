@@ -483,7 +483,10 @@ GEODE_API void        geode_params_palette_preview(const float* params, int seco
  * at texel centres under amounts[8] (NULL: 1 for the primary, 0.5 for the rest). stack_from_params: an old
  * look's colours (the geode_viz_set_params frame's palette rows) as a stack that draws as it did, and its
  * amounts into amounts_out[8]. recent_push: the recent colours text with rgb first, no repeats, at most 24;
- * recent_read: its colours into out (at most max), the count; out NULL counts them all. */
+ * recent_read: its colours into out (at most max), the count; out NULL counts them all.
+ * stack_set: the look's stack for every renderer of the process (an export keeps the one it pinned,
+ * geode_viz_pin_engine_settings). While it is set, shader styles draw its ramp under the look's
+ * paletteAmount0..7 rows, moved along by paletteShift; unset or unreadable, the look's old colour params draw. */
 GEODE_API const char* geode_palette_library_text(void);
 GEODE_API const char* geode_palette_library_entry(int index);
 GEODE_API int         geode_palette_library_index(const char* id);
@@ -501,6 +504,7 @@ GEODE_API const char* geode_palette_stack_move(const char* stack, int layer, int
 GEODE_API const char* geode_palette_stack_set_blend(const char* stack, const char* blend);
 GEODE_API const char* geode_palette_stack_set_edge(const char* stack, const char* edge);
 GEODE_API const char* geode_palette_stack_set_full_range(const char* stack, int on);
+GEODE_API void        geode_palette_stack_set(const char* stack);
 GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);
 GEODE_API const char* geode_palette_set_stop(const char* palette_line, int stop, int rgb, float pos);
 GEODE_API const char* geode_palette_add_stop(const char* palette_line, int rgb, float pos);

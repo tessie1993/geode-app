@@ -8,6 +8,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -86,6 +87,16 @@ out vec4 fragColor;
 // follows it too), k4 BUILD the glow gathered along the ray, k5 SPACE the
 // eye's distance (4.3..5.3) and the depth fog's reach.
 //
+// Every one of these, and the core's share of the body (BUILD), the writhe
+// wave's frequency (FLOW), the background motes' density (TEXTURE) and their
+// shells' radius (SPACE), is one normalized input (lib_shell) set in one block
+// at the top of main and mapped there to its range; at rest each is the
+// constant the body was tuned with. The outside (membrane, core, satellites)
+// is the field the grow hooks act on (SHELL_FIELD3, about the origin): Spawn
+// sets a twin body beside it, Fractal grows bodies a third the size on the
+// membrane, Front layer swells the body and Back layer what lies past it. A
+// hook that is on widens the scene sphere the march is clipped to.
+//
 // Every motion runs on a clock (the SND_*_TIME clocks and uFlowPhase), so it
 // slows and speeds with the music and never runs backwards. Quiet music: the
 // clocks barely advance and the flux writhe is near zero, so the body hangs
@@ -126,6 +137,8 @@ float gWrithe;
 float gWritheP;
 float gWave;
 float gWaveLat;
+/** The writhe wave's latitude frequency (3 at rest: FLOW). */
+float gWritheK;
 
 float gRc;
 mat3 gCoreRot;
@@ -179,7 +192,7 @@ float formField(vec3 q, float R, vec3 n, float norm, vec4 m, vec3 ne, float norm
     vec3 d = q / max(r, 1e-5);
     float lat = asin(clamp(d.z, -1.0, 1.0));
     // atan(0, 0) is undefined; a pole hit straight on would be NaN on some GPUs.
-    float th = atan(d.y, abs(d.x) < 1e-6 ? 1e-6 : d.x) + writhe * sin(3.0 * lat + gWritheP);
+    float th = atan(d.y, abs(d.x) < 1e-6 ? 1e-6 : d.x) + writhe * sin(gWritheK * lat + gWritheP);
     float ua = m.x * 0.25 * th + gSnap * SS_PI;
     float ub = m.y * 0.25 * th + gSnap * SS_PI;
     float r1;
@@ -214,7 +227,7 @@ float coreField(vec3 p, out vec2 ang) {
 }
 
 /** The outside: membrane, core where it presses through, satellites. Materials 0, 1, 2+i. */
-float mapOuter(vec3 p) {
+float ssOuter(vec3 p) {
     vec2 a;
     float d = bodyField(p, a);
     gMat = 0.0;
@@ -235,6 +248,11 @@ float mapOuter(vec3 p) {
         }
     }
     return d;
+}
+
+/** The outside through the grow hooks (lib_shell). */
+float mapOuter(vec3 p) {
+    return SHELL_FIELD3(p, ssOuter);
 }
 
 /** The inside of the membrane: the core, or the far wall (the body's field, negated). */
@@ -334,6 +352,10 @@ vec3 satShade(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float h) {
     return col;
 }
 
+/** The background motes: the inner shell's radius (7 at rest: SPACE) and the share of cells left empty (0.8: TEXTURE). */
+float gShellR0 = 7.0;
+float gMoteBar = 0.80;
+
 /** Shells of hashed motes behind the scene, at three radii, so the orbiting eye sees parallax. */
 vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
     vec3 acc = vec3(0.0);
@@ -341,7 +363,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
     float c0 = dot(ro, ro);
     for (int s = 0; s < 3; s++) {
         float fs = float(s);
-        float R = 7.0 + 4.5 * fs;
+        float R = gShellR0 + 4.5 * fs;
         float t = -b + sqrt(max(b * b - (c0 - R * R), 0.0));
         vec3 d = rotY(uFlowPhase * 0.004 * (1.0 + fs)) * ((ro + rd * t) / R);
         vec2 a = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0)));
@@ -351,7 +373,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
         float h = hashCell(ivec3(int(mod(cell.x, N)), int(cell.y), s + 7));
         vec2 f = fract(g) - 0.5 - (vec2(fract(h * 13.7), fract(h * 23.9)) - 0.5) * 0.6;
         float sz = 0.05 + 0.12 * fract(h * 31.3);
-        float m = step(0.80, h) * (1.0 - smoothstep(sz * 0.2, sz, length(f)));
+        float m = step(gMoteBar, h) * (1.0 - smoothstep(sz * 0.2, sz, length(f)));
         float tw = 0.6 + 0.4 * sin(trebC * (1.0 + 3.0 * fract(h * 7.7)) + h * 40.0);
         acc += pal(hue + 0.5 + 0.35 * fract(h * 5.1)) * m * tw * (0.45 / (1.0 + 0.8 * fs));
     }
@@ -398,12 +420,26 @@ void main() {
     float bassA = clamp(sndLevel(SND_BASS_ATT), 0.0, 1.0);
     float trebA = clamp(sndLevel(SND_TREBLE_ATT), 0.0, 1.0);
     float pitchHue = 0.18 * clamp(SND_PITCH_CLASS, 0.0, 1.0) * clamp(SND_PITCH_CONFIDENCE, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.2 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
-    gRingW = 0.07 * (1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5));
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the emission
+    float nTexture = shellKnob(1);                                 // TEXTURE  ring width, the motes' density
+    float nFlow = shellKnob(2);                                    // FLOW     the writhe and its frequency
+    float nTone = shellKnob(3);                                    // TONE     the palette, the poles' sharpness
+    float nBuild = shellKnob(4);                                   // BUILD    the gathered glow, the core's size
+    float nSpace = shellKnob(5);                                   // SPACE    the eye's distance, the motes' shells
+    float emitK = shellMap(nPulse, 0.75, 1.0, 1.25);
+    gRingW = shellMap(nTexture, 0.035, 0.07, 0.105);
+    gMoteBar = shellMap(nTexture, 0.88, 0.80, 0.70);
+    float writheFlow = shellMap(nFlow, -0.15, 0.0, 0.15);
+    gWritheK = shellMap(nFlow, 2.0, 3.0, 4.0);
+    float hueTone = shellMap(nTone, -0.3, 0.0, 0.3);
+    float poleTone = shellMap(nTone, 1.6, 1.0, 0.4);
+    float glowK = shellMap(nBuild, 0.5, 1.0, 1.5);
+    float coreShare = shellMap(nBuild, 0.35, 0.45, 0.55);
+    float reach = shellMap(nSpace, 0.9, 1.0, 1.1);
+    gShellR0 = shellMap(nSpace, 6.0, 7.0, 8.0);
+    // The hooks grow about the body at the origin; a twin stands 0.6 aside at full Spawn.
+    shellSetup3(vec3(0.0), 2.0, 1.0, true);
 
     // The section: at a hard cut the held envelope is 1 (the old section shows) and
     // falls to 0 over 2.5 s, so `fresh` carries everything from the old seed to the new.
@@ -414,7 +450,7 @@ void main() {
     float hs = mix(hsB, hsA, fresh);
     float hs2 = mix(hash11((sec - 1.0) * 1.37 + 9.0), hash11(sec * 1.37 + 9.0), fresh);
 
-    float hue = 0.60 + 0.004 * midC + 0.25 * hs + 0.6 * kTone;
+    float hue = 0.60 + 0.004 * midC + 0.25 * hs + hueTone;
 
     // ---- the body ----
     // Note clock: floor is the note being left, the fraction its eased arrival at the next.
@@ -425,20 +461,21 @@ void main() {
     float n1 = mix(2.3, 0.5, flatn) * (1.0 - 0.5 * kick);
     gN = vec3(clamp(n1, 0.3, 3.0), mix(5.0, 1.3, cent), mix(1.3, 5.0, cent));
     gNorm = sfNorm(gN);
-    gNe = vec3(clamp(mix(0.9, 2.6, hs2) * (1.0 - 1.2 * kTone), 0.4, 3.4), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
+    gNe = vec3(clamp(mix(0.9, 2.6, hs2) * poleTone, 0.4, 3.4), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
     gNormE = sfNorm(gNe);
     gR = 1.0 * (1.0 + 0.05 * kick + 0.16 * surgeBump);
-    gWrithe = max(0.85 * flux + 0.3 * kFlow, 0.0);
+    gWrithe = max(0.85 * flux + writheFlow, 0.0);
     gWritheP = midC * 1.7;
     gSnap = 1.0 - snare * snare;
     gWave = 0.10 * onset;
     gWaveLat = mix(-0.5 * SS_PI, 0.5 * SS_PI, onset);
-    gLip = 0.85 / (1.0 + 0.6 / min(gN.x, gNe.x) + 1.5 * gWrithe);
+    // The writhe's term grows with its wave's frequency (1.5 at the rest frequency of 3).
+    gLip = 0.85 / (1.0 + 0.6 / min(gN.x, gNe.x) + 0.5 * gWritheK * gWrithe);
     // The pole leans toward the louder channel; the body turns on the mid clock.
     gBodyRot = rotZ(midC * 0.35) * rotX(-1.15 + 0.3 * pan) * rotZ(0.25 * pan);
 
     // ---- the core ----
-    gRc = gR * 0.45 * (1.0 + 0.2 * surgeBump);
+    gRc = gR * coreShare * (1.0 + 0.2 * surgeBump);
     gNc = vec3(0.9 + 0.6 * hs2, mix(1.2, 4.0, bassA), mix(1.2, 4.0, trebA));
     gNormC = sfNorm(gNc);
     gCoreM = vec4(evenM(hash11((sec - 1.0) * 2.31 + 1.0)), evenM(hash11(sec * 2.31 + 1.0)), fresh, 3.0 + 3.0 * hs2);
@@ -472,7 +509,9 @@ void main() {
 
     // ---- outside march, inside the scene sphere only ----
     float b = dot(ro, rd);
-    float disc = b * b - (dot(ro, ro) - SS_SCENE_R * SS_SCENE_R);
+    // A hook that is on reaches past the scene: a twin 0.6 aside, a layer opened 18%.
+    float sceneR = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? SS_SCENE_R : 1.2 * SS_SCENE_R + 0.6;
+    float disc = b * b - (dot(ro, ro) - sceneR * sceneR);
     float hitT = -1.0;
     float used = 0.0;
     vec3 glow = vec3(0.0);
@@ -556,9 +595,9 @@ void main() {
         // Depth fog past the body's near face.
         col = mix(col, bg, 1.0 - exp(-max(hitT - 2.5, 0.0) * 0.12 / reach));
     }
-    col += glow * (0.8 + 1.5 * surgeBump) * (1.0 + kBuild);
+    col += glow * (0.8 + 1.5 * surgeBump) * glowK;
 
     col *= 0.82 + 0.28 * trend;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emitK), 1.0);
 }

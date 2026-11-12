@@ -13,7 +13,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | Class (file) | Lines | Status |
 |---|---|---|
 | `ReactionRouteCodec` | 77 | **ported**: `core/viz/ReactionText`, `geode_reactions_text_encode/decode` (`core/api/geode_reaction_text_api.h`), test `core/tests/reaction_text_test.cpp` (the JVM test's cases, plus the text the Kotlin codec wrote). `LfoStore` hands the saved string across; the saved format is unchanged. |
-| `MilkdropEngine` | 12 | pending |
+| `MilkdropEngine` | 12 | **deleted**: `available` was "libgeode loaded", from when MilkDrop was a library of its own. `GeodeNative` loads the same library and each of its three callers calls native right beside the check, so it was always true where it was read; the three checks are gone. |
 | `ReactSourceCatalog` | 29 | pending |
 | `SoundFrameLayout` | 131 | pending |
 | `TransitionStyle` | 9 | pending |

@@ -85,7 +85,6 @@ allowed=(
     "$S/render/scene/BuildStyleReactionsUseCase.kt"
     "$S/render/scene/Catalogue.kt"
     "$S/render/scene/MilkStarterPack.kt"
-    "$S/render/scene/MilkdropEngine.kt"
     "$S/render/scene/ParamFormat.kt"
     "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"

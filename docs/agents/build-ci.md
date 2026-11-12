@@ -10,6 +10,7 @@ One fact per line. Add a fact as a new bullet in its group.
 - The manifest check fails on INTERNET without Cast, on AD_ID, and on the wrong targetSdk, against the debug build.
 - `native-host-tests.yml` (the `core/tests` host tests) runs on every PR too.
 - `shader-check.yml` (`tools/check_shaders.py` through NDK 28's glslc) runs on every PR that touches the shaders, `ShaderIncludes.inc`, `ShaderSource*`, `SimGlsl*`, the checker or `tools/glslcheck`.
+- Engine Kotlin only shrinks, by line and by file: `tools/engine-kotlin-gate.sh` fails a PR whose net Kotlin lines grow in the watched paths (only `GeodeNative.kt`, the declarations, is exempt), fails any Kotlin file under `engine/*/src/main/` that is not on the list in the script, fails a listed file that is gone, and fails a PR that adds an entry to the list. Remove the entry in the commit that deletes or moves the file; `docs/agents/engine-kotlin-audit.md` is the checklist.
 - `arch-map.yml` runs `tools/layer-gate.sh`, `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh`, `tools/network-gate.sh` (sockets and WebRTC headers only in `cast/` and `core/cast/`, no other networking submodule) and `tools/actions-pin-gate.sh` (every action pinned to a commit SHA) on every PR.
 - `arch-map.yml` also checks that `THIRD_PARTY_NOTICES` equals the shipped `assets/third_party_notices.txt`.
 - Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.

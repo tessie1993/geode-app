@@ -167,6 +167,19 @@ jobs:
           ok "40${T}0${T}$A/data/RecordFiles.kt" || { echo "::error::recording storage failed"; exit 1; }
           ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
           ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
+          if ok "12${T}0${T}engine/scenes/src/main/kotlin/dev/geode/render/bridge/NativeViz.kt"; then echo "::error::NativeViz growth passed"; exit 1; fi
+          # The list: a listed file passes, a new file in an engine module fails, and so does a new entry.
+          t=$(mktemp -d)
+          mkdir -p "$t/engine/scenes/src/main/kotlin/dev/geode/render" "$t/engine/scenes/src/test/kotlin"
+          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
+          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a listed file failed"; exit 1; }
+          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/NewEngine.kt"
+          if bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null; then echo "::error::an unlisted engine file passed"; exit 1; fi
+          grew() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh --list-grew >/dev/null; }
+          grew '--- a/tools/engine-kotlin-gate.sh' '+++ b/tools/engine-kotlin-gate.sh' '-    "$S/render/Lfo.kt"' '+# a comment' \
+            || { echo "::error::a shrinking list failed"; exit 1; }
+          if grew '+    "$S/render/NewEngine.kt"'; then echo "::error::a new entry passed"; exit 1; fi
+          if grew '+    "engine/audio-core/src/main/kotlin/dev/geode/engine/audio/New.kt"'; then echo "::error::a new full-path entry passed"; exit 1; fi
           echo "engine Kotlin gate self-test passed"
 
       - name: Engine Kotlin only shrinks
@@ -175,3 +188,16 @@ jobs:
           git diff --numstat -M \
             "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
             | bash tools/engine-kotlin-gate.sh
+
+      # Every Kotlin file left in the engine modules is on the gate's list, and the list never gains an entry
+      # (checked once the base has the list).
+      - name: Engine modules hold only the listed Kotlin
+        shell: bash
+        run: |
+          bash tools/engine-kotlin-gate.sh --files
+          base="${{ github.event.pull_request.base.sha }}"
+          git show "$base:tools/engine-kotlin-gate.sh" > "$RUNNER_TEMP/base-gate.sh"
+          if grep -q '^allowed=(' "$RUNNER_TEMP/base-gate.sh"; then
+            git diff "$base...${{ github.event.pull_request.head.sha }}" -- tools/engine-kotlin-gate.sh \
+              | bash tools/engine-kotlin-gate.sh --list-grew
+          fi

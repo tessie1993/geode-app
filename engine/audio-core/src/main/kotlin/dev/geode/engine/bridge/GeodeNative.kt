@@ -1977,6 +1977,30 @@ object GeodeNative {
         onScreen: Int,
     ): Int
 
+    /**
+     * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,
+     * [family] each one's family index and [open] whether the entitlement keeps it; never [onScreen], every family
+     * or with [familyOnly] the on-screen style's family alone, a kept style while there is one; -1 for none.
+     * With [familyOnly] in a family of one style, [STYLES_ROLL_INSIDE] when that style has a variation to roll
+     * ([innerCount], the .milk presets for MilkDrop, [innerOnScreen] the one showing or -1).
+     */
+    external fun stylesRandom(
+        family: IntArray,
+        open: BooleanArray,
+        onScreen: Int,
+        familyOnly: Boolean,
+        innerCount: Int,
+        innerOnScreen: Int,
+    ): Int
+
+    const val STYLES_ROLL_INSIDE = -2
+
+    /** The order a Styles list shows its [count] items: [lead] (what is on screen) first, the rest in order. */
+    external fun stylesLead(
+        count: Int,
+        lead: Int,
+    ): IntArray
+
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
 

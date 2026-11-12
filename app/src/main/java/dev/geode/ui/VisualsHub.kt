@@ -432,7 +432,7 @@ private fun VisualsHubContent(
                     entryProvider = { page ->
                         NavEntry(page) {
                             when (page) {
-                                VisualsPage.STYLES -> StylesTab(viewModel)
+                                VisualsPage.STYLES -> StylesTab(viewModel, visualizerView, milkFiles)
                                 VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                                 VisualsPage.MILKDROP ->

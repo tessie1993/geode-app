@@ -72,7 +72,12 @@ data class LayersEditor(
                     "source" -> sources += LayerChoice(f.getOrNull(1).orEmpty(), f.getOrNull(2).orEmpty())
                     "blend" -> blends += f.getOrNull(2).orEmpty()
                     "family" -> {
-                        val ids = f.getOrNull(2).orEmpty().split(',').filter { it.isNotEmpty() }
+                        val ids =
+                            f
+                                .getOrNull(2)
+                                .orEmpty()
+                                .split(',')
+                                .filter { it.isNotEmpty() }
                         families += LayerFamily(f.getOrNull(1).orEmpty(), ids)
                     }
                     "knob" -> knobs += LayerChoice(f.getOrNull(1).orEmpty(), f.getOrNull(2).orEmpty())

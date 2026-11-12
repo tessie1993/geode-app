@@ -91,9 +91,9 @@ private fun PerformanceDetailControls(
 ) {
     Choice(
         stringResource(R.string.perf_render_scale),
-        PerformanceSettings.RENDER_SCALES.map { "${(it * 100).toInt()}%" },
-        PerformanceSettings.RENDER_SCALES.indexOf(settings.renderScale),
-    ) { onChange(settings.copy(renderScale = PerformanceSettings.RENDER_SCALES[it])) }
+        PerformanceSettings.SCALES.map { "${(it * 100).toInt()}%" },
+        PerformanceSettings.SCALES.indexOf(settings.renderScale),
+    ) { onChange(settings.copy(renderScale = PerformanceSettings.SCALES[it])) }
     val refreshRates = rememberSeamlessRefreshRates()
     val fpsCaps = remember(refreshRates) { liveFpsCaps(refreshRates) }
     Column {
@@ -119,8 +119,8 @@ private fun PerformanceDetailControls(
             stringResource(R.string.perf_level_medium),
             stringResource(R.string.perf_level_high),
         ),
-        PerformanceSettings.MARCH_SCALES.indexOf(settings.marchScale),
-    ) { onChange(settings.copy(marchScale = PerformanceSettings.MARCH_SCALES[it])) }
+        PerformanceSettings.SCALES.indexOf(settings.marchScale),
+    ) { onChange(settings.copy(marchScale = PerformanceSettings.SCALES[it])) }
     Column {
         LabeledSwitch(
             stringResource(R.string.perf_post_fx),

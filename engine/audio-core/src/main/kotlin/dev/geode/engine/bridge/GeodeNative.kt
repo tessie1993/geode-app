@@ -2139,6 +2139,21 @@ object GeodeNative {
         mediaPerformanceClass: Int,
     ): Int
 
+    /** The mode these values are, or -1 when none is ("Custom"); the Liquid hot policy is not part of a mode. */
+    external fun perfModeOf(
+        renderScale: Float,
+        fpsCap: Int,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+    ): Int
+
+    /** The render and march scales Settings › Performance offers, ascending. */
+    external fun perfScaleChoices(): FloatArray
+
+    /** A stored Liquid hot-phone policy as the renderer reads it: 0..2, anything else 0. */
+    external fun perfLiquidHot(stored: Int): Int
+
     /**
      * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
      * [STAGE_DRAWS] while somebody can see the stage and [STAGE_CAST_LEADS_AUTO] while a cast's renderer

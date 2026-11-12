@@ -6,7 +6,7 @@
 // Live surfaces only (the view, the wallpaper, the dream); an export never reads them. Pure, so the
 // host can test it (core/tests/quality_test.cpp). Kotlin reads the tiers through geode_perf_tier
 // and passes in what Android says about the phone (RAM, the low-RAM flag, the media performance
-// class) for geode_perf_mode_for_device.
+// class) for geode_perf_mode_for_device; every geode_perf_* is core/api/geode_perf_api.cpp.
 namespace geode::viz::frame {
 
 enum class QualityMode : int { Saver = 0, Balanced = 1, High = 2 };
@@ -29,6 +29,21 @@ inline constexpr std::array<QualityTier, kQualityModes> kQualityTiers = {{
 }};
 
 inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[static_cast<int>(mode)]; }
+
+// The render scales and march scales the tab offers, ascending; the march row names them Low, Medium, High.
+inline constexpr std::array<float, 3> kScaleChoices = {0.5f, 0.75f, 1.0f};
+
+// The tier these values are, or -1 once the user changed one (the tab reads "Custom"). Liquid's hot-phone
+// policy is a taste, not a cost, so it is not compared.
+inline int modeOf(float renderScale, int fpsCap, float marchScale, bool postFx, bool adaptive) {
+    for (int m = 0; m < kQualityModes; ++m) {
+        const QualityTier& t = kQualityTiers[m];
+        if (t.renderScale == renderScale && t.fpsCap == static_cast<float>(fpsCap) && t.marchScale == marchScale &&
+            t.postFx == postFx && t.adaptive == adaptive)
+            return m;
+    }
+    return -1;
+}
 
 // The first-run pick. A low-RAM phone, or one under 3 GB, starts on Saver. Media performance class
 // 12 (Android S, 31) or better starts on High. Everything else starts on Balanced, however much RAM

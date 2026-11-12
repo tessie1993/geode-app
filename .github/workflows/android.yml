@@ -233,23 +233,21 @@ jobs:
       # LAN by cast/LiveHttpServer), so it may appear only with the Cast service; the
       # main manifest is the same for every build type, so the debug manifest is a fair proxy.
       # Cast to TV is the app's only internet use (owner, 2026-11-02). The manifest check below
-      # can only see the permission, so this one looks at the code and the dependencies: no
-      # socket or HTTP API outside dev.geode.cast, and no networking, analytics or ads SDK in
-      # the release build.
+      # can only see the permission, so this one looks at the code and the dependencies:
+      # tools/network-gate.sh (no socket or HTTP API outside dev.geode.cast, no socket or network
+      # header in native code outside core/cast/, no networking submodule but the one admitted),
+      # and no networking, analytics or ads SDK in the release build. The one exception (owner,
+      # 2026-11-12): libdatachannel and Mbed TLS, native submodules used by core/cast/WebRtcLink
+      # alone, for Show on a computer over WebRTC; no WebRTC SDK from Maven is admitted.
       - name: Check that only Cast uses the internet
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           set -euo pipefail
-          pattern='java\.net\.(Socket|ServerSocket|DatagramSocket|HttpURLConnection|URL)([^A-Za-z]|$)|\.openConnection\(|javax\.net\.ssl\.HttpsURLConnection'
-          hits=$(grep -rnE "$pattern" app/src/main engine/*/src/main --include=*.kt --include=*.java             | grep -v '/dev/geode/cast/' || true)
-          if [ -n "$hits" ]; then
-            echo "$hits"
-            echo "::error::Network APIs used outside dev.geode.cast; Cast (to a TV or a computer) is the only internet use."; exit 1
-          fi
+          bash tools/network-gate.sh
           deps=$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon -q)
           # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only
           # serialises its anonymous log records and opens no connection (Data safety declares it).
-          banned='okhttp|retrofit|ktor|cronet|volley|firebase-(analytics|crashlytics|messaging|perf|config|installations|auth|firestore|database|storage|appcheck|inappmessaging|dynamic-links|ml)|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust'
+          banned='okhttp|retrofit|ktor|cronet|volley|firebase-(analytics|crashlytics|messaging|perf|config|installations|auth|firestore|database|storage|appcheck|inappmessaging|dynamic-links|ml)|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust|webrtc|libjingle|io\.getstream|livekit|twilio|agora|org\.jitsi'
           if echo "$deps" | grep -iE "$banned"; then
             echo "::error::A networking, analytics or ads SDK is in the release build; Cast to TV is the only internet use."; exit 1
           fi

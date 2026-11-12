@@ -8,6 +8,8 @@ add_library(geode_core STATIC
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
     api/geode_reaction_text_api.cpp
+    api/geode_studio_api.cpp
+    studio/StudioEdit.cpp
     viz/ReactionText.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp

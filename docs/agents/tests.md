@@ -59,6 +59,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `hidden_hits_test.cpp`: no hidden hit reactions: nothing reads the retired `beatResponse`, and under `core/viz` a hit is read only behind a control the user sets.
 - `hidden_hits_test.cpp`'s gaps list is the scenes still reading drums on their own, which only shrinks; shaders are not covered.
 - `hls_segments_test.cpp`: Cast's HLS timing: media-time EXTINF, TARGETDURATION, the playlist, the fragment rewrite.
+- `capture_plan_test.cpp`: `core/audio/ingest/CapturePlan`, the mic's and other apps' capture formats in try order and the AudioRecord buffer, pinned to the Kotlin ladders it replaced.
 - `layer_mix_test.cpp`: `core/audio/ingest/LayerMix`, the mic layered over the player's ring, mixed at the reader.
 - `layer_state_test.cpp`: the process-wide Customize layer (`core/viz/LayerState`).
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.

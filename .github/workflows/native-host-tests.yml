@@ -125,6 +125,11 @@ jobs:
           # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
           ./aiff_header_test
+          # A capture's format plan (CapturePlan): the mic's and other apps' rate, channel and encoding order and the
+          # AudioRecord buffer, pinned to the Kotlin ladders they replaced; the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/capture_plan_test.cpp \
+            core/audio/ingest/CapturePlan.cpp core/api/geode_capture_api.cpp -o capture_plan_test
+          ./capture_plan_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \

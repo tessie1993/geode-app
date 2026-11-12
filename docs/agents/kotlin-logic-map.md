@@ -1144,7 +1144,7 @@ Other drivers that exist more than once:
 - PCM-to-codec feeds: `CodecPcmFeed` (cast AAC and Opus) beside the export's and Record's own feeds.
 - Look pushes: wallpaper `restoreLook` (190-195), dream (137-139), cast `syncLook` + `readSavedLook` (`cast/CastStream.kt:151-170`, `263-284`), all building a `LookStore` by hand.
 - Sound feeds: `renderer.soundInput = { sound.input }` in the wallpaper (148) and dream (142); `{ AudioBus.soundInput }` in the cast fallback (`cast/CastStream.kt:247`); the cast `AudioPump` has its own `SoundCursor` on the same ring (`:366`).
-- Capture format ladders: `audio/MicCapture.kt:42-44` and `audio/PlaybackCapture.kt:42-44` repeat the rate and encoding ladder.
+- Capture format ladders: ported; native `core/audio/ingest/CapturePlan` orders the formats for both, `AudioCapturePump.openFirst` iterates them.
 - Silence and freeze watchdogs: `wallpaper/SoundSource.kt` (250 ms), `cast/CastService.kt` `waitForStream`/`watchFreeze` (250 ms / 1 s), and `ui/CaptureController.kt:243-270` (500 ms, outside the scope).
 - EQ band constants: `audio/dsp/NativeDspProcessor.kt:161-163` and the native equalizer.
 - Transport through a `MediaController`: `widget/NowPlayingWidget.kt:544-584` and `tile/PlaybackTileService.kt:97-142` (shell, same rule twice).

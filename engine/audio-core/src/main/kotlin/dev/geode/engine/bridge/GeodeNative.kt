@@ -1905,6 +1905,30 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
+    const val CAPTURE_FORMAT_RATE = 0
+    const val CAPTURE_FORMAT_CHANNELS = 1
+    const val CAPTURE_FORMAT_FLOAT = 2
+    const val CAPTURE_FORMAT_INTS = 3
+
+    /**
+     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
+     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
+     */
+    external fun captureFormats(
+        deviceRateHz: Int,
+        stereo: Boolean,
+    ): IntArray
+
+    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
+    external fun captureBufferBytes(
+        minBufferBytes: Int,
+        channels: Int,
+    ): Int
+
+    /** The frames one capture read takes. */
+    external fun captureReadFrames(): Int
+
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
     /**

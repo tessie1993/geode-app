@@ -769,6 +769,15 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * capture's start. Pure, any thread. */
 GEODE_API long long       geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_at_ms);     /* 1 = quiet */
+/* A capture's format plan (audio/ingest/CapturePlan): the formats to ask AudioRecord for, first to try first.
+ * device_rate_hz <= 0 is unknown; stereo 0 plans mono only. Writes min(count, capacity) rows of
+ * GEODE_CAPTURE_FORMAT_INTS ints (rate Hz, channels, 1 = float / 0 = 16-bit) and returns the count.
+ * buffer_bytes: the AudioRecord buffer for a format whose platform minimum is min_buffer_bytes, 0 = skip
+ * the format. read_frames: the frames one read takes. Pure, any thread. */
+#define GEODE_CAPTURE_FORMAT_INTS 3
+GEODE_API int             geode_capture_plan(int device_rate_hz, int stereo, int* out, int capacity);
+GEODE_API int             geode_capture_buffer_bytes(int min_buffer_bytes, int channels);
+GEODE_API int             geode_capture_read_frames(void);
 
 /* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
  * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets

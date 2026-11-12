@@ -230,4 +230,27 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffSeekOffset(
     return geode_aiff_seek_offset(timeUs, bytesPerFrame, sampleRate, dataBytes);
 }
 
+// A capture's format plan (core/audio/ingest/CapturePlan): GEODE_CAPTURE_FORMAT_INTS ints a format.
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureFormats(JNIEnv* env, jobject,
+                                                                                   jint deviceRateHz, jboolean stereo) {
+    constexpr int kMaxRows = 16;
+    int rows[kMaxRows * GEODE_CAPTURE_FORMAT_INTS] = {};
+    const int count = geode_capture_plan(deviceRateHz, stereo ? 1 : 0, rows, kMaxRows);
+    const int n = (count < kMaxRows ? count : kMaxRows) * GEODE_CAPTURE_FORMAT_INTS;
+    jint values[kMaxRows * GEODE_CAPTURE_FORMAT_INTS];
+    for (int i = 0; i < n; ++i) values[i] = rows[i];
+    jintArray out = env->NewIntArray(n);
+    if (out) env->SetIntArrayRegion(out, 0, n, values);
+    return out;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureBufferBytes(JNIEnv*, jobject,
+                                                                                   jint minBufferBytes, jint channels) {
+    return geode_capture_buffer_bytes(minBufferBytes, channels);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureReadFrames(JNIEnv*, jobject) {
+    return geode_capture_read_frames();
+}
+
 }  // extern "C"

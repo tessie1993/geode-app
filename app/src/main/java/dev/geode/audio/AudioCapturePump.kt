@@ -35,6 +35,33 @@ abstract class AudioCapturePump(
 
     protected abstract val threadName: String
 
+    /**
+     * Opens the first format of native's plan (`core/audio/ingest/CapturePlan`) that [open] gets initialized,
+     * at the buffer native sizes, and keeps its rate. Returns the record and its channel count.
+     */
+    protected fun openFirst(
+        deviceRateHz: Int,
+        stereo: Boolean,
+        open: (rate: Int, mask: Int, encoding: Int, bufferBytes: Int) -> AudioRecord,
+    ): Pair<AudioRecord, Int>? {
+        val plan = GeodeNative.captureFormats(deviceRateHz, stereo)
+        for (at in plan.indices step GeodeNative.CAPTURE_FORMAT_INTS) {
+            val rate = plan[at + GeodeNative.CAPTURE_FORMAT_RATE]
+            val channels = plan[at + GeodeNative.CAPTURE_FORMAT_CHANNELS]
+            val mask = if (channels == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
+            val encoding =
+                if (plan[at + GeodeNative.CAPTURE_FORMAT_FLOAT] != 0) AudioFormat.ENCODING_PCM_FLOAT else AudioFormat.ENCODING_PCM_16BIT
+            val bytes = GeodeNative.captureBufferBytes(AudioRecord.getMinBufferSize(rate, mask, encoding), channels)
+            val rec = if (bytes > 0) runCatching { open(rate, mask, encoding, bytes) }.getOrNull() else null
+            if (rec != null && rec.state == AudioRecord.STATE_INITIALIZED) {
+                sampleRateHz = rate
+                return rec to channels
+            }
+            bestEffort(TAG, "rec?.release()") { rec?.release() }
+        }
+        return null
+    }
+
     @AnyThread
     @Synchronized
     protected fun startPump(
@@ -59,8 +86,9 @@ abstract class AudioCapturePump(
         worker =
             thread(name = threadName, isDaemon = true) {
                 val asFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
-                val floats = FloatArray(if (asFloat) READ_FRAMES * channels else 0)
-                val shorts = ShortArray(if (asFloat) 0 else READ_FRAMES * channels)
+                val samples = GeodeNative.captureReadFrames() * channels
+                val floats = FloatArray(if (asFloat) samples else 0)
+                val shorts = ShortArray(if (asFloat) 0 else samples)
                 while (running && runGeneration == generation) {
                     val n =
                         if (asFloat) {
@@ -109,12 +137,6 @@ abstract class AudioCapturePump(
         worker?.let { runCatching { it.join(500) } }
         worker = null
         record = null
-    }
-
-    protected companion object {
-        const val READ_FRAMES = 1024
-
-        const val BUFFER_MULTIPLIER = 4
     }
 }
 

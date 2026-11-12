@@ -10,11 +10,13 @@
 
 namespace {
 
-// (start ms, duration ms) into a long[] of at least two; a shorter array is left as it is.
-void putRange(JNIEnv* env, jlongArray out, int64_t startMs, int64_t durationMs) {
-    if (!out || env->GetArrayLength(out) < 2) return;
-    const jlong values[2] = {startMs, durationMs};
-    env->SetLongArrayRegion(out, 0, 2, values);
+// The leading `count` of (start ms, duration ms, end ms) into a long[]: as many as it has room for, none when it
+// holds fewer than two.
+void putRange(JNIEnv* env, jlongArray out, const jlong* values, jsize count) {
+    if (!out) return;
+    const jsize room = env->GetArrayLength(out);
+    if (room < 2) return;
+    env->SetLongArrayRegion(out, 0, room < count ? room : count, values);
 }
 
 }  // namespace
@@ -26,8 +28,10 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeO
                                                                                  jlongArray out) {
     int64_t startMs = 0;
     int64_t durationMs = 0;
-    if (!geode_export_range_of(start, end, trackMs, &startMs, &durationMs)) return JNI_FALSE;
-    putRange(env, out, startMs, durationMs);
+    int64_t endMs = 0;
+    if (!geode_export_range_of(start, end, trackMs, &startMs, &durationMs, &endMs)) return JNI_FALSE;
+    const jlong values[3] = {startMs, durationMs, endMs};
+    putRange(env, out, values, 3);
     return JNI_TRUE;
 }
 
@@ -37,7 +41,8 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeCappe
     int64_t start = 0;
     int64_t duration = 0;
     geode_export_range_capped(startMs, durationMs, capMs, &start, &duration);
-    putRange(env, out, start, duration);
+    const jlong values[2] = {start, duration};
+    putRange(env, out, values, 2);
 }
 
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinMs(JNIEnv*, jobject) {

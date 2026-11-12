@@ -81,6 +81,10 @@ spectrum of light".
 
 `beatrealms-icon-512.png` is `flow/icon-neon.jpg` resized to 512 and saved as RGBA by `tools/brand_raster.sh`. `flow/icon-art.jpg` is the earlier Flow render, kept for the record.
 
+## Flow tool
+
+`flow-tool/` is a Google Flow Tool, BeatRealms Studio, that makes brand assets with the palette, the no-text rule and slow, flash-free motion built into every prompt: a seamless Hero loop and a Logo reveal (Veo, the logo as first and/or last frame), Feature art for the website and Logo ideas. Paste `flow-tool/TOOL_BUILDER_MESSAGE.md` into Flow (Tools › Create new) once; the panel shows the exact prompt before a run spends credits. It is checked by reading only (no build here); `flow-sdk.d.ts` is for a local type-check.
+
 ## Flow prompts
 
 Model `nano-pro`, text-to-image only (this account's Flow composer takes no reference image).

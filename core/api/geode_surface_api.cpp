@@ -1,7 +1,6 @@
 #include "api/geode_api.h"
 #include "viz/StageRun.hpp"
 #include "viz/SurfaceRun.hpp"
-#include "viz/frame/FixedRateClock.hpp"
 
 namespace surface = geode::viz::surface;
 
@@ -56,11 +55,9 @@ int geode_surface_fps_choices(int* out, int capacity) {
 unsigned geode_stage_run(unsigned flags) { return geode::viz::stage::run(flags); }
 
 int geode_stage_host(unsigned flags, const int* bounds, int window_w, int window_h, int* rect_out) {
-    using geode::viz::frame::CastFormat;
     geode::viz::frame::tee::Rect b;
     if (bounds) b = {bounds[0], bounds[1], bounds[2], bounds[3]};
-    const geode::viz::stage::Host h =
-        geode::viz::stage::host(flags, b, window_w, window_h, CastFormat::kWidth, CastFormat::kHeight);
+    const geode::viz::stage::Host h = geode::viz::stage::host(flags, b, window_w, window_h);
     if (rect_out) {
         rect_out[0] = h.rect.x0;
         rect_out[1] = h.rect.y0;

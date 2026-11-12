@@ -823,8 +823,8 @@ GEODE_API unsigned        geode_stage_run(unsigned flags);
 
 /* Where the shell lays the stage's view out (viz/StageRun host): flags are GEODE_STAGE_HOST_*, bounds the Visuals
  * screen's rect in window pixels (left, top, right, bottom; empty before Visuals was laid out), window_w x window_h
- * the window. rect_out gets the view's rect (left, top, right, bottom; empty: 0 x 0); while casting it is the
- * stream's shape (geode_cast_format) fitted whole in the bounds, or in the window when there are none. Returns
+ * the window. rect_out gets the view's rect (left, top, right, bottom; empty: 0 x 0): the bounds, or while casting
+ * the window when there are none (the tee crops the picture to the stream's shape). Returns
  * GEODE_STAGE_HOST_HIDDEN, _FAINT (drawing under the other screens) or _OPAQUE. Pure. */
 #define GEODE_STAGE_HOST_SHOWN               (1u << 0)
 #define GEODE_STAGE_HOST_CASTING             (1u << 1)

@@ -7,7 +7,7 @@
 // does not take another, nothing blocks with the reader holding one and the writer mid-copy), the stage's
 // hand-over to the fallback renderer after kStaleNs and back on the next copy, the publish cadence (one copy per
 // cast frame from a 60, 90, 120 or 144 Hz stage, none faster than the cast's fps, a 30 Hz stage every frame), and
-// the fitted rectangle (aspect kept, centred, whole, portrait pillarboxed in 16:9, degenerate sizes empty).
+// the cropped rectangle (the frame's shape, centred, aspect kept, a portrait stage's middle band, degenerate sizes empty).
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -117,21 +117,21 @@ void testCadence() {
     check(tee::publishDue(true, 0, 30 * kMs, 0), "fps 0 reads as 30");
 }
 
-void testFit() {
-    const tee::Rect same = tee::fit(1280, 720, 1280, 720);
-    check(same.x0 == 0 && same.y0 == 0 && same.x1 == 1280 && same.y1 == 720, "same size: the whole frame");
-    const tee::Rect portrait = tee::fit(1080, 2400, 1280, 720);
-    check(portrait.y0 == 0 && portrait.y1 == 720, "a portrait stage fills the height");
-    const int w = portrait.x1 - portrait.x0;
-    check(std::abs(w - 324) <= 1 && std::abs(portrait.x0 - (1280 - w) / 2) <= 1, "and is pillarboxed, centred, aspect kept");
-    const tee::Rect wide = tee::fit(2400, 1080, 1280, 720);
-    check(wide.x0 == 0 && wide.x1 == 1280 && wide.y1 - wide.y0 == 576 && wide.y0 == 72, "a wider stage: bars above and below");
-    const tee::Rect tablet = tee::fit(2560, 1600, 1280, 720);
-    check(tablet.y0 == 0 && tablet.y1 == 720 && tablet.x1 - tablet.x0 == 1152 && tablet.x0 == 64, "16:10 in 16:9");
-    const tee::Rect empty = tee::fit(0, 100, 1280, 720);
-    check(empty.x1 == 0 && empty.y1 == 0 && tee::fit(100, 100, 0, 720).x1 == 0, "degenerate sizes: nothing");
-    const tee::Rect thin = tee::fit(1, 100000, 1280, 720);
-    check(thin.x1 - thin.x0 >= 1, "never zero wide");
+void testCover() {
+    const tee::Rect same = tee::cover(1280, 720, 1280, 720);
+    check(same.x0 == 0 && same.y0 == 0 && same.x1 == 1280 && same.y1 == 720, "same shape: the whole picture");
+    const tee::Rect portrait = tee::cover(1080, 2400, 1280, 720);
+    check(portrait.x0 == 0 && portrait.x1 == 1080, "a portrait stage: its full width");
+    const int h = portrait.y1 - portrait.y0;
+    check(h == 608 && portrait.y0 == (2400 - 608) / 2, "its middle band, centred, the frame's shape");
+    const tee::Rect wide = tee::cover(2400, 1080, 1280, 720);
+    check(wide.y0 == 0 && wide.y1 == 1080 && wide.x1 - wide.x0 == 1920 && wide.x0 == 240, "a wider stage: its middle columns");
+    const tee::Rect tablet = tee::cover(2560, 1600, 1280, 720);
+    check(tablet.x0 == 0 && tablet.x1 == 2560 && tablet.y1 - tablet.y0 == 1440 && tablet.y0 == 80, "16:10 to 16:9");
+    const tee::Rect empty = tee::cover(0, 100, 1280, 720);
+    check(empty.x1 == 0 && empty.y1 == 0 && tee::cover(100, 100, 0, 720).x1 == 0, "degenerate sizes: nothing");
+    const tee::Rect thin = tee::cover(1, 100000, 1280, 720);
+    check(thin.x1 - thin.x0 == 1 && thin.y1 - thin.y0 >= 1, "never zero, never past the picture");
 }
 
 }  // namespace
@@ -140,7 +140,7 @@ int main() {
     testMailbox();
     testStale();
     testCadence();
-    testFit();
+    testCover();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

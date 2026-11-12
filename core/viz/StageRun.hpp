@@ -51,8 +51,7 @@ inline uint32_t run(uint32_t flags) { return (draws(flags) ? kDraws : 0u) | (cas
 //   Player's Share to PC tile or the system's output switcher) there is no rect yet, so it takes the window: a
 //   0 x 0 view never drew, and the stream fell back to a second renderer that showed another visual until Visuals
 //   was opened.
-// - in the stream's shape, fitted whole and centred in its rect (black around it on the phone), so the receiver
-//   gets a full frame however the phone is held: a portrait stage reached the TV as a narrow strip.
+// - in its whole rect, no bars on the phone; the tee crops its picture to the stream's shape (tee::cover).
 enum HostFlag : uint32_t {
     kHostShown = 1u << 0,    // Visuals is the open screen
     kHostCasting = 1u << 1,  // a cast or a computer link streams
@@ -67,18 +66,13 @@ struct Host {
     frame::tee::Rect rect;  // window pixels; empty: the view is 0 x 0
 };
 
-inline Host host(uint32_t flags, frame::tee::Rect bounds, int windowW, int windowH, int streamW, int streamH) {
+inline Host host(uint32_t flags, frame::tee::Rect bounds, int windowW, int windowH) {
     const bool laidOut = bounds.x1 > bounds.x0 && bounds.y1 > bounds.y0;
     const bool casting = (flags & kHostCasting) != 0;
     Host h;
     if (!laidOut && !(casting && windowW > 0 && windowH > 0)) return h;
-    const frame::tee::Rect area = laidOut ? bounds : frame::tee::Rect{0, 0, windowW, windowH};
+    h.rect = laidOut ? bounds : frame::tee::Rect{0, 0, windowW, windowH};
     h.alpha = (flags & kHostShown) != 0 && laidOut ? kHostOpaque : casting ? kHostFaint : kHostHidden;
-    h.rect = area;
-    if (!casting) return h;
-    const frame::tee::Rect fitted = frame::tee::fit(streamW, streamH, area.x1 - area.x0, area.y1 - area.y0);
-    if (fitted.x1 <= fitted.x0 || fitted.y1 <= fitted.y0) return h;
-    h.rect = {area.x0 + fitted.x0, area.y0 + fitted.y0, area.x0 + fitted.x1, area.y0 + fitted.y1};
     return h;
 }
 

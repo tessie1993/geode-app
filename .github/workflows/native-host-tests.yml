@@ -258,10 +258,10 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
-          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the fitted rectangle.
+          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the centred crop to the stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_tee_test.cpp -o cast_tee_test
           ./cast_tee_test
-          # Cast shows the phone's own visual: the stage keeps drawing while a cast streams (before Visuals was ever laid out too), in the stream's shape, and a new stream waits for its first copy.
+          # Cast shows the phone's own visual: the stage keeps drawing while a cast streams (before Visuals was ever laid out too) in its whole rect, the tee's centred crop filling the stream with no bars, and a new stream waits for its first copy.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_same_visual_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp core/api/geode_frame_api.cpp -o cast_same_visual_test
           ./cast_same_visual_test
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.

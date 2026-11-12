@@ -16,7 +16,7 @@ namespace geode::viz::frame {
 //
 // The hand-off is through tee::kSlots AHardwareBuffers the size of the stream's frame, each an EGLImage that
 // both GL contexts (the stage's and the cast thread's) bind as a texture: the stage blits its composite into
-// one (scaled, its aspect kept, black around it) after the composite and before the UI blur, as Record's tap
+// one (its centred crop to the stream's shape, scaled, aspect kept: tee::cover) after the composite and before the UI blur, as Record's tap
 // does; the cast thread blits the newest into the encoder's surface. An EGL fence after each blit orders the
 // two GPUs' work: the reader waits on the writer's fence before it samples a slot, the writer on the reader's
 // before it overwrites one; neither waits long (the stage gives up after 2 ms and skips the copy).

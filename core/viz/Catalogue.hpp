@@ -51,9 +51,8 @@ enum class Scope {
 constexpr int kScopeCount = 22;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
-// (the owner's groups, 2026-11-02). Names and order match Kotlin's model/StyleLook, which keeps the
-// labels people read. Per-style metadata is engine data (ADR 0003), so the tags live here beside the
-// kind and family they mostly follow, and a style the engine moves between families moves group too.
+// (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside
+// the kind and family they mostly follow, and a style the engine moves between families moves group too.
 enum class Look { Flowing, Living, Psychedelic, Fractals, Space, FlyThrough, Glass, Patterns, Classic };
 constexpr int kLookCount = 9;
 

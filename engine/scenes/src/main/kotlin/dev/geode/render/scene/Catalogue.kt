@@ -10,7 +10,7 @@ import java.io.File
  * which renderer ([SceneKind]) builds each one, the Styles group each is shown in, the style families, which Customize
  * controls reach which styles ([ParamScope]), and the ranges a few controls quote. The shell asks once, through
  * [GeodeNative.catalogueText], and parses the line table it gets back; nothing in Kotlin keeps a second copy that could
- * drift. What stays Kotlin is not engine: display labels ([VisualStyleCatalog.label], `model/StyleLook`) and `pro/FreeTier`.
+ * drift. What stays Kotlin is not engine: display labels ([VisualStyleCatalog.label]) and `pro/FreeTier`.
  *
  * JVM unit tests cannot load libgeode. The build sets the [TEXT_FILE_PROPERTY] system property on
  * every unit-test task to `core/tests/catalogue.txt`, a checked-in copy of the table that the native
@@ -122,7 +122,7 @@ object Catalogue {
     }
 }
 
-/** One style id, its renderer, its Styles group by `model/StyleLook` name (that enum is `:app`'s), and its per-style scopes. */
+/** One style id, its renderer, its Styles group by name, and its per-style scopes. */
 data class CatalogueStyle(
     val id: String,
     val kind: SceneKind,

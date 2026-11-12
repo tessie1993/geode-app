@@ -347,7 +347,7 @@ void everyStyleKeepsItsOldLookGroup() {
                                          "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC"};
     std::set<std::string> used;
     for (int l = 0; l < catalogue::kLookCount; ++l) used.insert(catalogue::name(static_cast<catalogue::Look>(l)));
-    check(used == names, "look names are Kotlin's StyleLook entries");
+    check(used == names, "the look names are the nine Styles groups");
     std::map<std::string, std::string> familyOf;
     for (const auto& family : catalogue::families()) {
         for (const char* id : family.ids) familyOf[id] = family.name;

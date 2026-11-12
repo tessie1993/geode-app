@@ -113,15 +113,6 @@ glass_cubes: midGain noteChords noteDrums noteIntervals notePitch noteTension
 glass_gem: midGain noteChords noteDrums noteIntervals notePitch noteTension
 glass_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
 glass_knot: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_dust: midGain
-nebula_veil: midGain
-nebula_pulsar: midGain
-nebula_cluster: midGain
-nebula_horizon: midGain
-nebula_pillars: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_flight: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_storm: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_web: midGain noteChords noteDrums noteIntervals notePitch noteTension
 truchet_weave: midGain
 truchet_maze: midGain
 truchet_quad: midGain

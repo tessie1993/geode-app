@@ -71,6 +71,20 @@
 // is uIntensity as a gain on in-shader audio (nebEnergy); Colour is pal();
 // Space is view() for the flat styles and the rig for the marched ones.
 //
+// The style knobs are read in each style as offsets from 0.5 (nebKnob in the
+// newer ones), so off is the tuned look. Pillars, Web, Flight and Storm give
+// them lib_flame's, lib_opal's and lib_hollow's roles: k0 PULSE the emission,
+// k1 TEXTURE the width of a column, a band or a filament, k2 FLOW added to
+// Warp's bend (gNebFlow, which nebChaos reads), k3 TONE
+// the palette position, k4 BUILD the glow, k5 SPACE the reach. The older
+// eight still spend them their own way.
+//
+// The mid band (nebMidTurn): sndShaped(SND_MIDDLE), times SND_DRIVE, turns
+// an orbited cloud about its own vertical axis, or rolls a fly-through's view
+// about the way ahead, while the mids climb, easing back as they fall, as
+// lib_flame's gFlameTurn does. Mid gain scales it. A style applies it once
+// per pixel or as one 2x2 turn per sample, never as another noise tap.
+//
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion (nebFlow and
 // nebKeyShift read it) and lib_palette (the colour ramps call pal()). It
 // includes nothing itself: the native resolver pastes includes again rather
@@ -149,9 +163,15 @@ float nebEnergy() {
     return clamp(uIntensity, 0.0, 2.0);
 }
 
-/** Chaos as one amount, 0 at the defaults. */
+/**
+ * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles (its
+ * nebKnob(2)); 0 in every other style, where nebChaos is what it always was.
+ */
+float gNebFlow = 0.0;
+
+/** Chaos as one amount, 0 at the defaults: FLOW adds to Warp's share, never below none. */
 float nebChaos() {
-    return 0.5 * clamp(uWarp, 0.0, 2.0) + 0.35 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.5 * max(clamp(uWarp, 0.0, 2.0) + 0.5 * gNebFlow, 0.0) + 0.35 * clamp(uTurbulence, 0.0, 2.0);
 }
 
 /**
@@ -179,6 +199,16 @@ float nebVolOctaves(float full) {
  */
 float nebKeyShift(float amount) {
     return amount * uKeyStrength * sin(NEB_TAU * uKeyHue);
+}
+
+/** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
+float nebKnob(int i) {
+    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+}
+
+/** The mid band's turn, radians (see the header): lib_flame's 0.6, so 0.9 at most, 0 in silence. */
+float nebMidTurn() {
+    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 // ---- noise ---------------------------------------------------------------------

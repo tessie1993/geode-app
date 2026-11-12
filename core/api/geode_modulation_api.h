@@ -145,6 +145,12 @@ GEODE_API void geode_viz_set_lfos(geode_viz*, const char* lfos);
 GEODE_API void geode_viz_set_adsrs(geode_viz*, const char* adsrs);
 GEODE_API void geode_viz_set_reactions(geode_viz*, const char* reactions);
 
+/* The hand mask to push when the saved routes load. reactions is the saved route text (NULL: none saved);
+   has_mask says a mask was saved beside it, saved_mask is that mask. Routes saved before the mask existed
+   (has_mask 0) were a whole list of the user's: GEODE_HAND_ALL. No routes: 0. Returns -1 when the text is
+   saved but is no route list any more: the shell drops the saved routes and mask, and the mask is 0. */
+GEODE_API int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask);
+
 #ifdef __cplusplus
 }
 #endif

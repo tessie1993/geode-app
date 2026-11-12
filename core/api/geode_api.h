@@ -431,9 +431,6 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
-/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
- * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
-GEODE_API const char* geode_params_roll_keys(void);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>

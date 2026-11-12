@@ -906,9 +906,6 @@ object GeodeNative {
         degrees: Float,
     ): Float
 
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
-
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),

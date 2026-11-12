@@ -989,11 +989,6 @@ Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) 
     return env->NewStringUTF(geode_config_schema_text());
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_params_roll_keys());
-}
-
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, jstring styleId, jstring tab, jstring locked,
                                                          jlong seed, jfloatArray in, jfloatArray out) {

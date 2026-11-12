@@ -176,12 +176,11 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # nativewindow: AHardwareBuffer, the GPU buffers Cast's tee hands the stage's picture over in (viz/frame/CastTee).
-# mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink).
+# mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
+# AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
-# mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
-target_link_libraries(geode_core PUBLIC mediandk)
 
 # The native stage's platform layer (docs/agents/native-stage.md): looper threads, AChoreographer, EGL on an
 # ANativeWindow, ANativeWindow_setFrameRate. Android only and in no host-test line; android, EGL and nativewindow

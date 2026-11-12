@@ -67,4 +67,5 @@ jobs:
         working-directory: tools/glslcheck
         run: |
           export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          node check.mjs --all --size 64
+          # Ends with a cost table (link, first draw, draw; family medians): a report, never a failure.
+          node check.mjs --all --size 128

@@ -656,9 +656,31 @@ function report(name, r) {
   const stats = r.error
     ? r.error
     : `mean ${r.meanLuma.toFixed(3)} max ${r.maxLuma.toFixed(3)} black ${r.fracBlack.toFixed(3)} blown ${r.fracBlown.toFixed(3)}` +
-      (r.glError ? ` glError ${r.glError}` : '') + (r.dropped.length ? ` dropped[${r.dropped.join(',')}]` : '');
+      (r.glError ? ` glError ${r.glError}` : '') + (r.dropped.length ? ` dropped[${r.dropped.join(',')}]` : '') +
+      ` link ${r.linkMs.toFixed(0)} ms first ${r.firstDrawMs.toFixed(0)} ms draw ${r.drawMs.toFixed(1)} ms`;
   console.log(`${status} ${name.padEnd(28)} ${stats}`);
   return !r.error;
+}
+
+// --all: what each style costs here, dearest first, then each family's medians. A report, never a verdict.
+function costTable(rows) {
+  const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+  const line = (name, n, r) =>
+    `${name.padEnd(28)} ${String(n).padStart(4)} ${r.link.toFixed(0).padStart(8)} ${r.first.toFixed(0).padStart(9)} ${r.draw.toFixed(1).padStart(8)} ${String(r.bytes).padStart(8)}`;
+  const head = `${'style'.padEnd(28)} ${'n'.padStart(4)} ${'link ms'.padStart(8)} ${'first ms'.padStart(9)} ${'draw ms'.padStart(8)} ${'bytes'.padStart(8)}`;
+  console.log(`\ncost per style, by link + first draw\n${head}`);
+  for (const r of [...rows].sort((a, b) => b.link + b.first - a.link - a.first)) console.log(line(r.name, 1, r));
+  const groups = new Map();
+  for (const r of rows) {
+    const key = r.name.split('_')[0];
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const families = [...groups].filter(([, g]) => g.length >= 5).map(([key, g]) => ({
+    name: key, n: g.length, link: median(g.map((r) => r.link)), first: median(g.map((r) => r.first)),
+    draw: median(g.map((r) => r.draw)), bytes: median(g.map((r) => r.bytes)),
+  }));
+  console.log(`\nfamily medians, by draw\n${head}`);
+  for (const f of families.sort((a, b) => b.draw - a.draw)) console.log(line(f.name, f.n, f));
 }
 
 async function main() {
@@ -753,11 +775,13 @@ async function main() {
 
   const browser = await launch();
   let allOk = true;
+  const costs = [];
   try {
     const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
     for (const job of jobs) {
       const r = await page.call('__render', { ...job, width: args.size, height: args.height ?? args.size });
       allOk = report(job.name, r) && allOk;
+      if (!r.error) costs.push({ name: job.name, link: r.linkMs, first: r.firstDrawMs, draw: r.drawMs, bytes: job.frag.length });
       if (args.out && r.png) {
         const dest = jobs.length === 1 ? args.out : path.join(args.out, `${job.name.replace(/[^\w]+/g, '_')}.png`);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -768,6 +792,7 @@ async function main() {
   } finally {
     await browser.close();
   }
+  if (args.all) costTable(costs);
   process.exit(allOk ? 0 : 1);
 }
 

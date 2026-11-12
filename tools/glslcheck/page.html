@@ -161,7 +161,9 @@ window.__render = async function (job) {
     canvas.width = job.width;
     canvas.height = job.height;
     if (job.assets) for (const [name, a] of Object.entries(job.assets)) defineAsset(name, a);
+    const t0 = performance.now();
     program = link(job.vert, job.frag);
+    out.linkMs = performance.now() - t0;
     gl.useProgram(program);
     let unit = 0;
     for (const u of job.uniforms) {
@@ -179,12 +181,18 @@ window.__render = async function (job) {
     gl.disable(gl.BLEND);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    const px = new Uint8Array(job.width * job.height * 4);
+    // Timed twice: the first draw carries the backend's own compile of the program, the second is the frame alone.
+    const t1 = performance.now();
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.finish();
+    gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const t2 = performance.now();
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    out.firstDrawMs = t2 - t1;
+    out.drawMs = performance.now() - t2;
     const err = gl.getError();
     out.glError = err === gl.NO_ERROR ? 0 : err;
-    const px = new Uint8Array(job.width * job.height * 4);
-    gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
     Object.assign(out, frameStats(px, job.width * job.height));
     out.png = canvas.toDataURL('image/png').split(',')[1];
   } catch (e) {

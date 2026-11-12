@@ -15,7 +15,8 @@ import java.io.File
  * schema fixture (`geode.paramsSchema`), so the typo fails here instead.
  */
 class ParamNamesTest {
-    private val screens = listOf("CustomizeAdvanced", "CustomizeControls", "CustomizeTabs", "PaletteStack")
+    // Customize's controls and the palette stack name their params natively (core/tests/customize_rows_test holds them).
+    private val screens = listOf("CustomizeAdvanced", "CustomizeTabs")
 
     // The name argument of LabeledSlider(key, p, "name"), ChoiceChips(key, "name", p), NoteKeySlider(title, hint, p, "name"),
     // ControlRange.of("name") and ParamSchema.choices("name").
@@ -27,14 +28,13 @@ class ParamNamesTest {
 
     private fun names(): List<String> {
         val root = listOf(File("src/main/java/dev/geode/ui"), File("app/src/main/java/dev/geode/ui")).first { it.isDirectory }
-        val passed = screens.flatMap { screen -> call.findAll(File(root, "$screen.kt").readText()).map { it.groupValues[1] }.toList() }
-        return passed + LAYER_AMOUNTS
+        return screens.flatMap { screen -> call.findAll(File(root, "$screen.kt").readText()).map { it.groupValues[1] }.toList() }
     }
 
     @Test
     fun everyNameTheScreensPassIsALiveSchemaRow() {
         val names = names()
-        assertTrue("found only ${names.size} names; did the controls' call shapes change?", names.size > 100)
+        assertTrue("found no names; did the controls' call shapes change?", names.isNotEmpty())
         val missing = names.filterNot { ParamSchema[it]?.retired == false }
         assertEquals("names with no live params schema row", emptyList<String>(), missing)
     }

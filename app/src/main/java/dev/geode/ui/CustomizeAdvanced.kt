@@ -627,15 +627,6 @@ internal fun TransitionPicker(
     }
 }
 
-/** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
-@Composable
-internal fun liquidHotNote(liquidMode: Int): String? =
-    when (liquidMode) {
-        2, 3 -> stringResource(R.string.customize_liquid_hot_simplified)
-        4 -> stringResource(R.string.customize_liquid_hot_paused)
-        else -> null
-    }
-
 /**
  * Expert › Shader code: the custom fluid shaders (force and dye) on Fluid. The style's own shader box
  * is no longer offered here (the owner's call, 2026-11-11); native's map shows this section on Fluid

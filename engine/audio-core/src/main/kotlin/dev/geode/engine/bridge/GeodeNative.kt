@@ -2559,6 +2559,12 @@ object GeodeNative {
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 
+    /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
+    external fun audioOutNoteFailed(nowMs: Long)
+
+    /** Whether the output may be tried at [nowMs]: false for a minute after [audioOutNoteFailed]. */
+    external fun audioOutMayOpen(nowMs: Long): Boolean
+
     /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
     external fun audioOutSupports(
         encoding: Int,

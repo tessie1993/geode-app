@@ -1415,6 +1415,11 @@ typedef struct geode_audio_out geode_audio_out;
 #define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
                                          the output stalled, so the sink builds a new one */
 GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
+/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened and
+ * asks before each open; 1 = try the stream, 0 = the platform track plays for 60 s. now_ms is one monotonic
+ * clock for both calls. Process-wide. */
+GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
+GEODE_API int              geode_audio_out_may_open(int64_t now_ms);
 /* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
  * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
  * one). NULL when the format is not supported or the device gave no stream that is exactly it. */

@@ -1,14 +1,13 @@
 catalogue|3
-kind|SHADER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,SHADER_LOOK,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|SILK|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TRAIL_TOGGLE,TRAIL_LENGTH,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|LIFE|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|MYCELIUM|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|ACID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|MILKDROP|UNIVERSAL,ENDLESS_ZOOM,MILKDROP,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|FLUID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,DYE_DENSITY,PARTICLE_SPRITE,FLUID_SIM,EMITTERS,JOURNEY,RIPPLE_OVERLAY
-kind|CURL_FLOW|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,PARTICLE_SPRITE,JOURNEY,FLOW_FIELD_SIM,RIPPLE_OVERLAY
-kind|WATER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,EMITTERS,JOURNEY,WATER,FLOW_FIELD_SIM
-kind|CYMATICS|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,CYMATICS,FLOW_FIELD_SIM,RIPPLE_OVERLAY
+kind|SHADER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,SHADER_LOOK,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,FLOW_FIELD_SIM
+kind|SILK|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TRAIL_TOGGLE,TRAIL_LENGTH,FLOW_FIELD_SIM
+kind|LIFE|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,FLOW_FIELD_SIM
+kind|MYCELIUM|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM
+kind|ACID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM
+kind|MILKDROP|UNIVERSAL,ENDLESS_ZOOM,MILKDROP,FLOW_FIELD_SIM
+kind|FLUID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,DYE_DENSITY,PARTICLE_SPRITE,FLUID_SIM,EMITTERS,JOURNEY
+kind|CURL_FLOW|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,PARTICLE_SPRITE,JOURNEY,FLOW_FIELD_SIM
+kind|CYMATICS|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,CYMATICS,FLOW_FIELD_SIM
 style|silk_web|SILK|FLOWING
 style|silk_bloom|SILK|FLOWING
 style|silk_weave|SILK|FLOWING
@@ -110,6 +109,7 @@ style|black_hole|SHADER|SPACE|MARCH_DETAIL
 style|hex_hive|SHADER|PATTERNS|MARCH_DETAIL
 style|mandelbox_cathedral|SHADER|FRACTALS|MARCH_DETAIL
 style|morph_world|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|pool|SHADER|FLOWING
 style|arbor_grove|SHADER|FRACTALS|MARCH_DETAIL
 style|arbor_willow|SHADER|FRACTALS|MARCH_DETAIL
 style|arbor_coral|SHADER|FRACTALS|MARCH_DETAIL
@@ -271,7 +271,6 @@ style|fluid_lava|FLUID|FLOWING
 style|fluid_marble|FLUID|FLOWING
 style|fluid_aurora|FLUID|FLOWING
 style|curlflow|CURL_FLOW|FLOWING
-style|water|WATER|FLOWING
 style|cymatics|CYMATICS|PATTERNS
 style|chladni_sand|CYMATICS|PATTERNS
 style|bessel_drum|CYMATICS|PATTERNS
@@ -283,6 +282,7 @@ style|levitator|CYMATICS|PATTERNS
 style|standing_chamber|CYMATICS|PATTERNS
 style|rosensweig|CYMATICS|PATTERNS
 style|kundt_tube|CYMATICS|PATTERNS
+retired|water|pool
 family|arbor|arbor_|lib_arbor|arbor_grove,arbor_willow,arbor_coral,arbor_frost,arbor_bolt,arbor_roots,arbor_bonsai,arbor_canopy,arbor_rosette,arbor_spire,arbor_synapse,arbor_sakura
 family|bulb|bulb_|lib_bulb|bulb_classic,bulb_julia,bulb_slice,bulb_lotus,bulb_ink,bulb_glow,bulb_cavern,bulb_shell,bulb_prism,bulb_contour,bulb_chrome,bulb_hybrid
 family|chrysanthemum|chrys_|lib_chrys|chrys_bloom,chrys_phyllo,chrys_dahlia,chrys_lotus,chrys_meadow,chrys_corolla,chrys_glass,chrys_ink,chrys_neon,chrys_fall,chrys_kaleido,chrys_tunnel
@@ -300,7 +300,7 @@ picker|silk|silk_web,silk_bloom,silk_weave,silk_shell,silk_spiral,silk_fold,silk
 picker|life|life_orbium,life_gyre,life_helix,life_pulsar,life_hydro,life_bug,life_mitosis,life_coral,life_labyrinth,life_worms
 picker|mycelium|myco_polycephalum,myco_rivals,myco_symbiosis,myco_predator,myco_ghosts,myco_circuit,myco_silkroad,myco_sporestorm,myco_capillary,myco_frostvein
 picker|morphing|acid_tv,acid_well,acid_kaleid,acid_droste,acid_prism,acid_mosh,acid_scan,acid_solar,acid_mirror,acid_smear
-picker|shaders|julia,tunnel,mandel,kaleido,plasma,bars,ring,scope,liss,warp,grid,voronoi,metaballs,ripples,starfield,waves,hexgrid,spiral,aurora,solar,winter,lava,vanishing,morphogen,nebula,noneuclid,kifs,orb_lattice,rod_tunnel,neon_tiles,chroma_orb,mandala_dome,bead_vortex,merkaba_grid,spiral_eye,blacklight_bloom,fractal_temple,curl_bloom,nectar_flow,crystal_canyon,neon_city,particle_tunnel,chrome_nebula,fractal_dive,aurora_ocean,spectrum_terrain,outrun_drive,menger_core,gyroid_cavern,ringed_planet,jelly_abyss,ribbon_storm,prism_rain,supershape,fractal_tunnel,glow_vortex,neon_chrome_sea,black_hole,hex_hive,mandelbox_cathedral,morph_world
+picker|shaders|julia,tunnel,mandel,kaleido,plasma,bars,ring,scope,liss,warp,grid,voronoi,metaballs,ripples,starfield,waves,hexgrid,spiral,aurora,solar,winter,lava,vanishing,morphogen,nebula,noneuclid,kifs,orb_lattice,rod_tunnel,neon_tiles,chroma_orb,mandala_dome,bead_vortex,merkaba_grid,spiral_eye,blacklight_bloom,fractal_temple,curl_bloom,nectar_flow,crystal_canyon,neon_city,particle_tunnel,chrome_nebula,fractal_dive,aurora_ocean,spectrum_terrain,outrun_drive,menger_core,gyroid_cavern,ringed_planet,jelly_abyss,ribbon_storm,prism_rain,supershape,fractal_tunnel,glow_vortex,neon_chrome_sea,black_hole,hex_hive,mandelbox_cathedral,morph_world,pool
 picker|arbor|arbor_grove,arbor_willow,arbor_coral,arbor_frost,arbor_bolt,arbor_roots,arbor_bonsai,arbor_canopy,arbor_rosette,arbor_spire,arbor_synapse,arbor_sakura
 picker|bulb|bulb_classic,bulb_julia,bulb_slice,bulb_lotus,bulb_ink,bulb_glow,bulb_cavern,bulb_shell,bulb_prism,bulb_contour,bulb_chrome,bulb_hybrid
 picker|chrysanthemum|chrys_bloom,chrys_phyllo,chrys_dahlia,chrys_lotus,chrys_meadow,chrys_corolla,chrys_glass,chrys_ink,chrys_neon,chrys_fall,chrys_kaleido,chrys_tunnel
@@ -315,7 +315,7 @@ picker|flame|flame_veil,flame_spiral,flame_orb,flame_star,flame_lotus,flame_heli
 picker|opal|opal_bubbles,opal_nautilus,opal_melt,opal_domes,opal_pearls,opal_lava,opal_ribbon,opal_cells,opal_rings,opal_drop
 picker|hollow|hollow_sinew,hollow_cave,hollow_ribs,hollow_coral,hollow_roots,hollow_hive,hollow_throat,hollow_neuron,hollow_bone,hollow_shell
 picker|milkdrop|milkdrop
-picker|fluid|fluid,fluid_ink,fluid_oilslick,fluid_neon,fluid_chrome,fluid_smoke,fluid_lava,fluid_marble,fluid_aurora,curlflow,water
+picker|fluid|fluid,fluid_ink,fluid_oilslick,fluid_neon,fluid_chrome,fluid_smoke,fluid_lava,fluid_marble,fluid_aurora,curlflow
 picker|cymatics|cymatics,chladni_sand,bessel_drum,harmonograph,faraday,harmonic_shell,caustic_sheet,levitator,standing_chamber,rosensweig,kundt_tube
 override|chladni_sand|Geometry|1
 override|bessel_drum|Geometry|0
@@ -388,13 +388,6 @@ key|Fade when quiet|FLUID_SIM
 key|Radius on hit|EMITTERS
 key|Flow force|FLOW_FIELD_SIM
 key|Flow curl|FLOW_FIELD_SIM
-key|Ripple strength|WATER
-key|Depth|WATER
-key|Specular|WATER
-key|Flow drift|WATER
-key|Liquid|WATER
-key|Liquid flow|WATER
-key|Liquid fade|WATER
 key|Geometry|CYMATICS
 key|Fundamental (Hz)|CYMATICS
 key|Standing waves|CYMATICS
@@ -408,9 +401,6 @@ key|Iridescence|CYMATICS
 key|Caustic sheen|CYMATICS
 key|Wave flow|CYMATICS
 key|Field swirl|CYMATICS
-key|Water ripples on|RIPPLE_OVERLAY
-key|Ripple overlay strength|RIPPLE_OVERLAY
-key|Ripple glint|RIPPLE_OVERLAY
 key|Ring spacing|ENDLESS_ZOOM
 key|Dive twist|ENDLESS_ZOOM
 key|Dive aim X|ENDLESS_ZOOM

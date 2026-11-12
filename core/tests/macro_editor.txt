@@ -70,8 +70,6 @@ target|FLUID_FADE|0|Fluid fade
 target|FLUID_CATCH_PULL|0|Catch pull
 target|FLUID_CATCH_RADIUS|0|Catch radius
 target|FLOW_STRENGTH|1|Flow strength
-target|WATER_RIPPLE|0|Ripple strength
-target|RIPPLE_OVERLAY|1|Ripple overlay strength
 target|CAM_FLY|1|Fly speed
 target|CAM_ORBIT|1|Swing
 target|CAM_PUSH|1|Push in
@@ -116,14 +114,6 @@ target|fluidCurlAudio|0|Curl from mids
 target|fluidBloomAudio|0|Glow from loudness
 target|fluidFadeAudio|0|Fade when quiet
 target|fluidRadiusPulse|0|Radius on hit
-target|waterWaveSpeed|1|Wave speed
-target|waterDamping|1|Damping
-target|waterDepth|0|Depth
-target|waterSpecular|0|Specular
-target|waterFlow|0|Flow drift
-target|waterLiquid|0|Liquid
-target|waterLiquidFlow|0|Liquid flow
-target|waterLiquidFade|0|Liquid fade
 target|cymaticsFundamental|0|Fundamental (Hz)
 target|cymaticsRing|0|Plate ring
 target|cymaticsFocus|0|Tonal focus
@@ -135,7 +125,6 @@ target|cymaticsIridescence|0|Iridescence
 target|cymaticsCaustic|0|Caustic sheen
 target|cymaticsFlow|0|Wave flow
 target|cymaticsSwirl|0|Field swirl
-target|rippleOverlaySpecular|1|Ripple glint
 target|motionAmount|1|Motion amount
 target|motionBreath|1|Breath
 target|motionDrift|1|Spin drift

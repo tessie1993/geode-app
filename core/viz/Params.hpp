@@ -31,8 +31,26 @@ enum class ParamSlot : int {
 
 // Rows nothing reads any more. Each keeps its wire slot, so every later slot stays where it is, but it
 // is not a param: set() refuses it, the wire reads it as its default, and no look saves it.
-inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,  ParamSlot::shake,     ParamSlot::flash,      ParamSlot::glitch,
-                                               ParamSlot::strobe, ParamSlot::formDrive, ParamSlot::motionOrbit};
+inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
+                                               ParamSlot::shake,
+                                               ParamSlot::flash,
+                                               ParamSlot::glitch,
+                                               ParamSlot::strobe,
+                                               // Water's knobs and the ripple overlay: Pool replaced Water.
+                                               ParamSlot::waterWaveSpeed,
+                                               ParamSlot::waterDamping,
+                                               ParamSlot::waterRippleStrength,
+                                               ParamSlot::waterDepth,
+                                               ParamSlot::waterSpecular,
+                                               ParamSlot::waterFlow,
+                                               ParamSlot::waterLiquid,
+                                               ParamSlot::waterLiquidFlow,
+                                               ParamSlot::waterLiquidFade,
+                                               ParamSlot::rippleOverlayEnabled,
+                                               ParamSlot::rippleOverlayStrength,
+                                               ParamSlot::rippleOverlaySpecular,
+                                               ParamSlot::formDrive,
+                                               ParamSlot::motionOrbit};
 
 namespace catalogue {
 enum class Scope;

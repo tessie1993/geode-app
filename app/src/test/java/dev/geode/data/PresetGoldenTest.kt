@@ -86,7 +86,30 @@ class PresetGoldenTest {
         // Retired and unknown keys are not read: the frame carries each retired row's default.
         val frame = SceneParamsCodec.pack(p)
         val retired = ParamSchema.params.filter { it.retired }
-        assertEquals(setOf("pulse", "shake", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired.map { it.name }.toSet())
+        assertEquals(
+            setOf(
+                "pulse",
+                "shake",
+                "flash",
+                "glitch",
+                "strobe",
+                "waterWaveSpeed",
+                "waterDamping",
+                "waterRippleStrength",
+                "waterDepth",
+                "waterSpecular",
+                "waterFlow",
+                "waterLiquid",
+                "waterLiquidFlow",
+                "waterLiquidFade",
+                "rippleOverlayEnabled",
+                "rippleOverlayStrength",
+                "rippleOverlaySpecular",
+                "formDrive",
+                "motionOrbit",
+            ),
+            retired.map { it.name }.toSet(),
+        )
         for (spec in retired) assertEquals(spec.name, spec.default, frame[spec.slot])
         // Keys the old file never had come back as the schema's defaults.
         assertEquals(SceneParams.DEFAULT.flowCurl, p.flowCurl)
@@ -95,6 +118,10 @@ class PresetGoldenTest {
         assertEquals(SceneParams.DEFAULT.liquidBorn, p.liquidBorn)
         assertEquals(SceneParams.DEFAULT.noteDrums, p.noteDrums)
         val written = JSONObject(PresetStore.toJson(PresetStore.fromJson(fixture("legacy.json"))))
+        // A look saved on the retired Water style opens on Pool, which replaced it; its water fields are dropped.
+        val water = PresetStore.fromJson("""{"name":"w","sceneId":"water","attack":0.1,"decay":0.2,"waterDepth":0.7}""")
+        assertEquals("pool", water.sceneId)
+        assertFalse(JSONObject(PresetStore.toJson(water)).has("waterDepth"))
         for (spec in retired) assertFalse(spec.name, written.has(spec.name))
         assertFalse(written.has("beatFlash"))
     }
@@ -122,7 +149,6 @@ class PresetGoldenTest {
         assertEquals(0.625f, p.bloom)
         assertEquals(2f, p.intensity)
         assertEquals(40f, p.cymaticsFundamental)
-        assertEquals(0.9f, p.waterDamping)
         assertEquals(50f, p.flowCurl)
         // A circular param wraps natively and is not clamped.
         assertEquals(1.5f, p.colorShift)

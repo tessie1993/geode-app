@@ -24,6 +24,8 @@ class ModTableTest {
     fun readsTheColumns() {
         assertFalse(ModTable.offered(LfoTarget.RETIRED_25))
         assertFalse(ModTable.offered(LfoTarget.RETIRED_5))
+        assertFalse(ModTable.offered(LfoTarget.RETIRED_37))
+        assertFalse(ModTable.offered(LfoTarget.RETIRED_38))
         assertEquals(ModPolarity.POSITIVE, ModTable.naturalPolarity(ModSource.BASS))
         assertEquals(ModPolarity.BIPOLAR, ModTable.naturalPolarity(ModSource.STEREO_PAN))
         assertEquals(ModTable.defaultRateSeconds, LfoConfig().rateSeconds, 0f)

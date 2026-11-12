@@ -38,6 +38,9 @@ object Catalogue {
 
     fun style(id: String): CatalogueStyle? = table.byId[id]
 
+    /** [id], or the style that replaced it when it is retired (`catalogue::resolveId`): Water opens on Pool. */
+    fun resolve(id: String): String = table.retired[id] ?: id
+
     /**
      * The renderer [sceneId] builds. Unknown ids are [SceneKind.SILK]: the default style is a Silk
      * one and the native registry falls back to it, so the Customize panel describes what will
@@ -74,6 +77,7 @@ object Catalogue {
         val ranges: Map<String, ClosedFloatingPointRange<Float>>,
         val values: Map<String, Float>,
         val overrides: Map<Pair<String, String>, Float>,
+        val retired: Map<String, String>,
     ) {
         val byId: Map<String, CatalogueStyle> = styles.associateBy { it.id }
 
@@ -87,6 +91,7 @@ object Catalogue {
                 val ranges = mutableMapOf<String, ClosedFloatingPointRange<Float>>()
                 val values = mutableMapOf<String, Float>()
                 val overrides = mutableMapOf<Pair<String, String>, Float>()
+                val retired = mutableMapOf<String, String>()
                 val rows = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
                 check(rows.firstOrNull() == listOf("catalogue", VERSION.toString())) {
                     "native catalogue is ${rows.firstOrNull()}, this shell reads version $VERSION"
@@ -94,6 +99,7 @@ object Catalogue {
                 for (f in rows.drop(1)) {
                     when (f[0]) {
                         "kind" -> kindScopes[SceneKind.valueOf(f[1])] = scopes(f.getOrNull(2))
+                        "retired" -> retired[f[1]] = f[2]
                         "style" -> styles += CatalogueStyle(f[1], SceneKind.valueOf(f[2]), f[3], scopes(f.getOrNull(4)))
                         "family" -> families += StyleFamily(name = f[1], prefix = f[2], library = f[3], ids = f[4].split(','))
                         "picker" -> picker[f[1]] = f[2].split(',')
@@ -103,7 +109,7 @@ object Catalogue {
                         "value" -> values[f[1]] = f[2].toFloat()
                     }
                 }
-                return Table(styles, families, picker, kindScopes, keyScopes, ranges, values, overrides)
+                return Table(styles, families, picker, kindScopes, keyScopes, ranges, values, overrides, retired)
             }
 
             private fun scopes(field: String?): Set<ParamScope> =

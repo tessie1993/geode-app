@@ -11,7 +11,6 @@
 #include "viz/scenes/ShaderScene.hpp"
 #include "viz/scenes/SilkScene.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
-#include "viz/scenes/WaterScene.hpp"
 
 namespace geode::viz {
 
@@ -53,7 +52,6 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
     switch (catalogue::kindOf(id)) {
         case catalogue::Kind::Milkdrop: return std::make_unique<MilkdropScene>(loader_, host_);
         case catalogue::Kind::CurlFlow: return std::make_unique<CurlFlowScene>(loader_, host_);
-        case catalogue::Kind::Water: return std::make_unique<WaterScene>(loader_, host_);
         default: return nullptr;
     }
 }

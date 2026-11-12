@@ -36,7 +36,7 @@ struct ThermalTierInfo {
     int fpsRungsDown;     // how many live rungs (frame::kLiveFpsRungs) a cap above 60 steps down
     float renderScale;    // the scene targets' size
     float marchScale;     // ray-march steps (uSteps), on top of the user's Detail and march scale
-    bool optionalPasses;  // the post FX a cool phone can afford (ripple overlay)
+    bool optionalPasses;  // the post FX a cool phone can afford
 };
 
 // The owner's ladder (ADR 0008 point 2), cool to hot: fps drops first, then render scale, then march

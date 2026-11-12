@@ -237,11 +237,33 @@ constexpr std::array kFamilyMarched = {
 constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
 
 // The families whose library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm), by name: the
-// six whose library reads the style's map through one field of its own (prismField, fluorField, loomField,
-// shardField, petalField, Fold's FOLD_AT), where lib_grow's rules go in once. A family joins with one word here
-// once its lib_<family> reads all four (lib_scene_uniforms' uSpawn ..). Flame, Opal and Hollows stay as they are
-// (owner); the older families call their maps from each style, so they need a field of their own first.
-constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold"};
+// families whose library reads the style's map through one field of its own (prismField, fluorField, loomField,
+// shardField, petalField, Fold's FOLD_AT, and the older ten's <FAM>_GROW), where lib_grow's rules go in once. A
+// family joins with one word here once its lib_<family> reads all four (lib_scene_uniforms' uSpawn ..). Flame,
+// Opal and Hollows stay as they are (owner).
+constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold",
+                                      // The ten older families, once each grew a field of its own: their
+                                      // <FAM>_GROW hook (lib_<family>_field, lib_foam, lib_dive) applies
+                                      // lib_grow's rules.
+                                      "arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain",
+                                      "truchet", "foam"};
+
+// The family styles that draw no Grow although their family does: Glass Gem and Prism trace their bodies in
+// closed form (planes, a 2D prism), with no distance field for the hooks to grow.
+constexpr std::array kFormSkipped = {"glass_gem", "glass_prism"};
+
+// The loose styles that draw Grow (Scope::FamilyForm) through lib_shell: each hands its field to the shell's
+// hooks through a wrapper of its own, so Spawn, Fractal and the two layers reach it. Every loose style that
+// includes lib_shell, in picker order; style_reads_test holds each to reading the four uniforms.
+constexpr std::array<const char*, 56> kFormLoose = {
+    "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+    "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+    "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "orb_lattice", "rod_tunnel", "neon_tiles",
+    "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
+    "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
+    "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain", "supershape",
+    "fractal_tunnel", "glow_vortex", "neon_chrome_sea", "hex_hive", "mandelbox_cathedral",
+};
 
 // The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
 // (uFormula, Scope::Formula), by id. A style joins here in the commit that gives it its formulas, and
@@ -672,6 +694,8 @@ float spinRate(const std::string& id) {
 }
 
 bool drawsFamilyForm(const std::string& id) {
+    if (listed(kFormLoose, id)) return true;
+    if (listed(kFormSkipped, id)) return false;
     for (const auto& family : kFamilies) {
         if (listed(kFormFamilies, family.name) && listed(family.ids, id)) return true;
     }

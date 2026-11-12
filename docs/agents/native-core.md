@@ -163,7 +163,8 @@ The renderer runs these in order each frame.
 - A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
 - Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
 - Grow and layers (Customize › Shape › Grow): `spawn`, `fractal` (0..1) and `frontLayer`, `backLayer` (-1..1), appended slots 193..196 after the physics layers, default 0, each a modulation target (`SPAWN` .. `BACK_LAYER`, ordinals 74..77, one unit per unit).
-- Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold).
+- Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold, and the older ten through their `<FAM>_GROW` hooks), but for `kFormSkipped` (Glass Gem and Prism).
+- The loose styles on `lib_shell` reach it too (`kFormLoose`): each hands its field to the hooks through a wrapper of its own, one field read in a pass loop.
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
 - `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.

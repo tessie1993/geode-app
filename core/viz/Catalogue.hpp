@@ -118,8 +118,8 @@ bool fliesCamera(const std::string& id);
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll). The
 // user's Spin control (Scope::Spin) scales it, and shows only where it is not 0.
 float spinRate(const std::string& id);
-// Its family library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm); style_reads_test
-// holds every such style to reading their uniforms.
+// Its family library (or, for a loose style, lib_shell) draws Spawn, Fractal, Front layer and Back layer
+// (Scope::FamilyForm); style_reads_test holds every such style to reading their uniforms.
 bool drawsFamilyForm(const std::string& id);
 // It keeps alternative distance formulas and steps through them by Formula (Scope::Formula, uFormula).
 bool hasFormulas(const std::string& id);

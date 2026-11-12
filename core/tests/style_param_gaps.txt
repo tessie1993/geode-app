@@ -176,18 +176,6 @@ truchet_tubes: midGain
 truchet_knot: midGain
 truchet_tunnel: midGain
 truchet_relief: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_fall: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_neon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_soap: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_chrome: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ember: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_orb: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_kaleido: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ghost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_show: midGain noteChords noteDrums noteIntervals notePitch noteTension
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension

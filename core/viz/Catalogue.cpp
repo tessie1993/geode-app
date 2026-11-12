@@ -204,7 +204,8 @@ constexpr std::array kFamilyMarched = {
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
-// creeps, tunnels counter. Every other style holds still unless the user turns it.
+// creeps, tunnels counter. The user's Spin control scales the rate, and at 0 these hold still too.
+// Every other style holds still unless the user turns it.
 struct Spin {
     const char* id;
     float rate;
@@ -231,7 +232,7 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "UNIVERSAL",    "SCENE_CLOCK",     "AUDIO_DRIVE", "BASS_BAND", "MID_BAND",     "TREBLE_BAND", "BAND_GAINS", "SHADER_LOOK",
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
     "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
-    "FLOW_FIELD_SIM",
+    "FLOW_FIELD_SIM",  "SPIN",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -277,7 +278,7 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
-// Whether a scope reaches every style of a kind. MarchDetail is per style, so no kind has it.
+// Whether a scope reaches every style of a kind. MarchDetail and Spin are per style, so no kind has them.
 bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
@@ -303,6 +304,7 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::Journey: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Cymatics: return k == Kind::Cymatics;
         case Scope::FlowFieldSim: return k != Kind::Fluid;
+        case Scope::Spin: return false;
     }
     return false;
 }
@@ -349,6 +351,7 @@ std::string build() {
     for (const auto& id : allIds()) {
         out += "style|" + id + "|" + name(kindOf(id)) + "|" + name(lookOf(id));
         if (isMarched(id)) out += "|MARCH_DETAIL";
+        if (spinRate(id) != 0.0f) out += "|SPIN";
         out += '\n';
     }
     for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
@@ -571,6 +574,7 @@ Scope scopeOf(const std::string& paramKey) {
 
 bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::MarchDetail) return isMarched(styleId);
+    if (scope == Scope::Spin) return spinRate(styleId) != 0.0f;
     return reachesKind(scope, kindOf(styleId));
 }
 

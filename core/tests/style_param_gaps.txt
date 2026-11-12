@@ -92,15 +92,6 @@ black_hole: midGain
 mandelbox_cathedral: midGain
 morph_world: midGain
 pool: midGain
-chrys_phyllo: midGain
-chrys_lotus: midGain
-chrys_corolla: midGain noteChords noteDrums noteIntervals notePitch noteTension
-chrys_glass: midGain
-chrys_ink: midGain
-chrys_fall: midGain
-lucid_weave: midGain
-lucid_hive: midGain
-lucid_bulge: midGain
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension

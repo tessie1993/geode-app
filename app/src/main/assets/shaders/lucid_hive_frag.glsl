@@ -216,7 +216,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids roll the view about the way ahead (lib_lucid's lucidMidTurn).
+    camFly(lucidRot(lucidMidTurn()) * uv, ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left and the cells speckle.

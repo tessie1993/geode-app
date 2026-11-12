@@ -1479,7 +1479,6 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 | `data/GuiSettingsCodecsTest.kt` | legacy key migrations of `AppState` and `GeneralSettings` (intent, tour-seen, reduced motion, PiP, white font); the codecs share one file without overwriting each other |
 | `data/TouchAndDreamPrefsTest.kt` | touch and dream keys and defaults |
 | `data/WatermarkPrefsCodecTest.kt`, `data/StudioPrefsStoreTest.kt`, `data/RecordPrefsStoreTest.kt`, `data/RecordSaveStoreTest.kt`, `data/LibraryPrefsStoreTest.kt` | each store's keys, defaults and fallbacks |
-| `data/PlayerPrefsCrossfadeTest.kt` | `crossfadeMsFromSeconds` rounding and bounds |
 | `data/ExportFpsTest.kt` | `TemplateExport.resolvedFps` (the function's only caller) |
 | `data/ExportPresetFillTest.kt` | `filledFrom` sets only quality, fps, ratio, loop; every platform preset is an offered combination |
 | `data/backup/BackupArchiveTest.kt` | **saved format:** manifest round trip, pack/unpack, newer version, wrong format id, zip-slip, allowlist → section, checksum, caps, migration chain, typed prefs JSON, device-local keys, macro bank rides with Creative |

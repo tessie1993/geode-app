@@ -95,13 +95,13 @@
 // Colour controls always move the picture. Space: the rig.
 // At defaults (Speed 1, uMorph 0, chaos 0, uIntensity 1) each is identity.
 //
-// The six style knobs (uKnob), read in diveSetup() as offsets from 0.5, so
-// with Note & key reactions off every term is exactly zero: k0 PULSE swells
-// every surface a little (the drums through the user's own Notes & key
-// mapping), k1 TEXTURE sharpens the glints (and Neon's tubes), k2 FLOW adds to
-// the Chaos bend, k3 TONE the palette position, k4 BUILD the light at the far
-// end of the dive, k5 SPACE stretches the corridor about the eye, as the
-// accordion does, so the cells stand further apart.
+// The six style knobs (uKnob), with the roles lib_flame, lib_opal and
+// lib_hollow give them, read in diveSetup() as offsets from 0.5, so with Note
+// & key reactions off every term is exactly zero: k0 PULSE the emission
+// (diveColor's gain), k1 TEXTURE the width of every beam, ring and wall (an
+// offset of the estimate), k2 FLOW added to Warp's bend (diveChaos), k3 TONE
+// the palette position, k4 BUILD the glow at the far end of the dive, k5
+// SPACE the reach (the march's far and the fog in diveShade).
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion,
 // lib_camera, lib_palette and lib_scene_grade. It reads uSteps,
@@ -210,8 +210,9 @@ vec3 dive_cpal(float x, int i) {
 int gDivePalNew;
 int gDivePalOld;
 float gDivePalFade;
-/** k3 TONE's offset on every diveColor() position. */
+/** k3 TONE's offset on every diveColor() position, and k0 PULSE's gain on the colour it returns. */
 float gDiveTone;
+float gDiveEmit;
 
 /**
  * The palette slot for switch number c: c + 2 * (0 or 1, hashed), mod 6. Two
@@ -244,7 +245,7 @@ void dive_palInit() {
 vec3 diveColor(float x) {
     x += gDiveTone;
     vec3 c = mix(dive_cpal(x, gDivePalNew), dive_cpal(x, gDivePalOld), gDivePalFade);
-    return mix(max(c, 0.0), pal(x), 0.5);
+    return mix(max(c, 0.0), pal(x), 0.5) * gDiveEmit;
 }
 
 // ---- per-frame scene state ----------------------------------------------------
@@ -263,14 +264,12 @@ float gDiveChaosT;
 float gDiveSway;
 float gDiveHelixR;
 float gDiveSwing;
-/** k0 PULSE: world units every surface swells by (negative thins it). */
-float gDivePulse;
-/** k1 TEXTURE on the glints' and the tubes' sharpness, about 1. */
-float gDiveSharp;
+/** k1 TEXTURE: world units every surface thickens by (negative thins it). */
+float gDiveWidth;
 /** k4 BUILD on the far end's light, about 1. */
 float gDiveBuild;
-/** k5 SPACE: the corridor's z scale about the eye, like gDiveBreath (1 = off; under 1 stretches it). */
-float gDiveSpace;
+/** k5 SPACE on the reach: the march's far and the fog's distance scale by it. */
+float gDiveReach;
 
 // What the last map() call found. Copy them right after the hit: the normal's
 // four taps overwrite them.
@@ -294,11 +293,11 @@ void diveSetup(int scene) {
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gDivePulse = 0.04 * kPulse;
-    gDiveSharp = 1.0 + 0.6 * kTex;
-    gDiveTone = 0.25 * kTone;
+    gDiveEmit = 1.0 + 0.5 * kPulse;
+    gDiveWidth = 0.04 * kTex;
+    gDiveTone = 0.6 * kTone;
     gDiveBuild = 1.0 + kBuild;
-    gDiveSpace = 1.0 - 0.3 * kSpace;
+    gDiveReach = 1.0 + 0.4 * kSpace;
     dive_palInit();
     gDiveScene = scene;
     gDiveBreath = 1.0;
@@ -309,8 +308,8 @@ void diveSetup(int scene) {
     gDiveSpin = diveTime() * 0.45 + uFlowPhase * 0.6 + 1.6 * clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) * e;
     gDiveFolds = 6.0 + 6.0 * diveMorph();
     gDivePetal = 1.0 + 0.3 * clamp(SND_KICK_TOGGLE * e, 0.0, 1.0);
-    // FLOW adds to the bend, floored at none: a negative amplitude would undo diveMap's stretch bound.
-    gDiveChaosAmp = max(0.06 * clamp(uWarp, 0.0, 2.0) + 0.04 * clamp(uTurbulence, 0.0, 2.0) + 0.08 * kFlow, 0.0);
+    // FLOW adds to Warp's share, floored at none: a negative amplitude would undo diveMap's stretch bound.
+    gDiveChaosAmp = 0.06 * max(clamp(uWarp, 0.0, 2.0) + 0.5 * kFlow, 0.0) + 0.04 * clamp(uTurbulence, 0.0, 2.0);
     gDiveChaosT = diveTime() * 0.5;
     gDiveSway = 1.0;
     gDiveHelixR = 0.6;
@@ -557,8 +556,7 @@ vec3 diveChaos(vec3 p) {
 
 float diveMap(vec3 p) {
     vec3 q = p;
-    float zs = gDiveBreath * gDiveSpace;
-    q.z = gDiveEye.z + (q.z - gDiveEye.z) * zs;
+    q.z = gDiveEye.z + (q.z - gDiveEye.z) * gDiveBreath;
     q = diveChaos(q);
     float d;
     if (gDiveScene == DIVE_LATTICE) d = diveLattice(q);
@@ -567,8 +565,8 @@ float diveMap(vec3 p) {
     else if (gDiveScene == DIVE_GYRO) d = diveGyro(q);
     else d = diveMandala(q);
     // Both remaps stretch space; divide by their bound so the march never overshoots.
-    // The pulse's swell after it: an offset of a bounded estimate stays bounded.
-    d = d / (max(zs, 1.0) * (1.0 + gDiveChaosAmp * 2.83)) - gDivePulse;
+    // The width's offset after it: an offset of a bounded estimate stays bounded.
+    d = d / (max(gDiveBreath, 1.0) * (1.0 + gDiveChaosAmp * 2.83)) - gDiveWidth;
     return max(d, DIVE_EYE_R - length(p - gDiveEye));
 }
 
@@ -593,7 +591,7 @@ float diveMarch(vec3 ro, vec3 rd, out float used) {
     used = 0.0;
     for (int i = 0; i < DIVE_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (t > DIVE_FAR) break;
+        if (t > DIVE_FAR * gDiveReach) break;
         used = float(i);
         float d = diveMap(ro + rd * t);
         float eps = diveEps(t);
@@ -673,11 +671,11 @@ vec3 diveMaterial(float mat, float id, float depth) {
 vec3 diveShade(vec3 n, vec3 rd, float hitT, float used, vec3 base, float shine) {
     float lamp = max(dot(n, -rd), 0.0);
     float fall = 1.0 / (1.0 + 0.02 * hitT * hitT);
-    float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), shine * gDiveSharp);
+    float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), shine);
     float rim = pow(1.0 - lamp, 3.0);
     vec3 col = base * (0.08 + 0.92 * lamp * fall) + vec3(0.35 * spec * fall) + base * rim * 0.22;
     col *= diveStepAO(used);
-    return mix(diveBackdrop(rd), col, exp(-0.055 * hitT));
+    return mix(diveBackdrop(rd), col, exp(-0.055 * hitT / gDiveReach));
 }
 
 /** The show clock's segment: which scene (and in dive_show which path) is on. */

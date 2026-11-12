@@ -30,7 +30,7 @@ out vec4 fragColor;
 // Speed scales the clock. Complexity: uMorph adds X braces (more
 // tubes). Chaos: uWarp/uTurbulence bend them. Energy: uIntensity scales the
 // hue wave and the kick. Colour: diveColor. Space: the rig. Knobs as
-// lib_dive's, k1 TEXTURE also sharpening the tubes' bloom.
+// lib_dive's, k5 SPACE also carrying the tubes' light further.
 
 #define NE_MAX_STEPS 96
 #define NE_FAR 28.0
@@ -50,11 +50,11 @@ void main() {
     float tm = 0.05;
     for (int i = 0; i < NE_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (tm > NE_FAR) break;
+        if (tm > NE_FAR * gDiveReach) break;
         float d = diveMap(ro + rd * tm);
         vec3 c = diveColor(0.35 * gDiveId + 0.25 * gDiveMat + 0.03 * tm + 0.4 * wave * exp(-0.15 * tm));
-        float fade = exp(-0.07 * tm);
-        glow += c * exp(-max(d, 0.0) * 14.0 * gDiveSharp) * 0.06 * fade;
+        float fade = exp(-0.07 * tm / gDiveReach);
+        glow += c * exp(-max(d, 0.0) * 14.0) * 0.06 * fade;
         if (d < 0.004) {
             glow += c * 0.6 * fade;
             break;

@@ -224,6 +224,9 @@ The renderer runs these in order each frame.
 - A held simulation that draws the rig redraws its held field when the rig moves (`Scene::redrawHeld`); it is not stepped.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
 - Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Glass, Nebula, Terra and Truchet include `lib_<family>_field` after the style's pure map (`glassMap`, `nebMap`, `terraMap`, `truchetMap`); its `<family>Field` is the one entry the march, normal and shading read, and writes no global.
+- Foam's one field entry is `foamField` in `lib_foam`; it returns a `FoamSample` and writes no global.
+- Foam, Glass, Nebula, Terra and Truchet read the params and the six knobs once, normalized, in `<family>In()` (the normalization shell, at rest exactly the tuned constants); `<FAMILY>_GROW` and `<FAMILY>_FORMULA` are the one-line hooks for lib_grow and uFormula.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.

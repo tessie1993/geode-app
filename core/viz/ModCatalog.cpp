@@ -103,6 +103,38 @@ constexpr std::array<RecipeWords, kEventRecipeCount> kRecipes{{
     {"BUILD_AND_DROP", "Build and drop", "Speed up through the build, glow on the drop"},
 }};
 
+// Customize › Music's rows, one per Moment in wire order. The shell draws its own localised label.
+constexpr std::array<Words, kMomentCount> kMoments{{
+    {"KICK", "Kick"},
+    {"SNARE", "Snare"},
+    {"HAT", "Hi-hat"},
+    {"BASS", "Bass"},
+    {"DROP", "Drop"},
+    {"BUILD_UP", "Build-up"},
+    {"CHORD_CHANGE", "Chord change"},
+    {"NEW_SECTION", "New section"},
+    {"NOTE", "Note"},
+    {"LOUDNESS", "Loudness"},
+}};
+
+struct ActionWords {
+    MusicAction action;
+    const char* name;
+    const char* label;
+    const char* group;
+};
+
+// A moment's action menu in the page's order: what lights the picture, then what moves it; the shell
+// puts a divider where the group changes. Every MusicAction once (mod_document_test).
+constexpr std::array<ActionWords, kMusicActionCount> kActionMenu{{
+    {MusicAction::Flash, "FLASH", "Flash", "LIGHT"},
+    {MusicAction::Colour, "COLOUR", "Colour shift", "LIGHT"},
+    {MusicAction::Zoom, "ZOOM", "Zoom", "MOTION"},
+    {MusicAction::Shake, "SHAKE", "Shake", "MOTION"},
+    {MusicAction::Camera, "CAMERA", "Camera move", "MOTION"},
+    {MusicAction::Warp, "WARP", "Warp", "MOTION"},
+}};
+
 constexpr std::array<float, kBeatChoices> kBeats{{0.0f, 1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f}};
 
 // The ordinal whose name (by nameAt) is `wanted`; -1 when none is.
@@ -192,6 +224,13 @@ std::string build() {
     for (int i = 0; i < kEventRecipeCount; ++i) {
         const RecipeWords& r = kRecipes[static_cast<size_t>(i)];
         out += row("recipe", i, r.name, r.title) + "|" + r.sentence + "\n";
+    }
+    for (int i = 0; i < kMomentCount; ++i) {
+        const Words& w = kMoments[static_cast<size_t>(i)];
+        out += row("moment", i, w.name, w.label) + "\n";
+    }
+    for (const ActionWords& a : kActionMenu) {
+        out += row("music", static_cast<int>(a.action), a.name, a.label) + "|" + a.group + "\n";
     }
     return out;
 }

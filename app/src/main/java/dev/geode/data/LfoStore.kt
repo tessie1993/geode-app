@@ -10,11 +10,12 @@ import dev.geode.util.bestEffort
  * The waves, the envelopes and the reaction routes, each as the text native wrote (core/viz/ModDocument).
  * This keeps the texts and reads none of them: native reads a slot, a field or a route out of one, and an
  * older build's text too. [readReactions] is native's reading of the routes, which says whether they are
- * still a route list; a seam for JVM tests, which have no libgeode.
+ * still a route list, [handLoad] its reading of the mask; seams for JVM tests, which have no libgeode.
  */
 class LfoStore(
     private val prefs: SharedPreferences,
     private val readReactions: (String) -> String? = GeodeNative::modReactionsRead,
+    private val handLoad: (String?, Boolean, Int) -> Int = GeodeNative::modHandLoad,
 ) {
     /** The saved waves; empty when none are, which native reads as every slot off. */
     fun load(): String = prefs.getString(KEY, null).orEmpty()
@@ -30,21 +31,24 @@ class LfoStore(
     fun loadReactions(): String? = prefs.getString(KEY_REACTIONS, null)?.let(readReactions)
 
     /**
-     * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are):
-     * 0 with no routes, and [GeodeNative.HAND_ALL] for routes saved before the mask existed, which were a
-     * whole list of the user's. Routes that no longer read (a `reactions/1` list from before the sound
-     * engine's sources moved, or damaged text) are no list at all: the DNA plays, so they are dropped here
-     * and the mask is 0, or a leftover HAND_ALL would have switched off every director route (#355).
+     * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are); native
+     * decides it ([GeodeNative.modHandLoad]). Routes that no longer read (a `reactions/1` list from before the sound
+     * engine's sources moved, or damaged text) are no list at all: the DNA plays, so they are dropped here and the
+     * mask is 0, or a leftover HAND_ALL would have switched off every director route (#355).
      */
     fun loadHandMask(): Int {
-        if (loadReactions() != null) return prefs.getInt(KEY_REACTIONS_HAND, GeodeNative.HAND_ALL)
-        if (prefs.contains(KEY_REACTIONS)) {
-            prefs
-                .edit()
-                .remove(KEY_REACTIONS)
-                .remove(KEY_REACTIONS_HAND)
-                .apply()
-        }
+        val mask =
+            handLoad(
+                prefs.getString(KEY_REACTIONS, null),
+                prefs.contains(KEY_REACTIONS_HAND),
+                prefs.getInt(KEY_REACTIONS_HAND, 0),
+            )
+        if (mask >= 0) return mask
+        prefs
+            .edit()
+            .remove(KEY_REACTIONS)
+            .remove(KEY_REACTIONS_HAND)
+            .apply()
         return 0
     }
 

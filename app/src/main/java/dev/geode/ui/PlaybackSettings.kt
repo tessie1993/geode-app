@@ -98,6 +98,7 @@ private fun FadeSlider(
     prefs: PlayerPrefs,
     onChange: (PlayerPrefs) -> Unit,
 ) {
+    val fadeStep = PlayerPrefs.stepOf(GeodeNative.PLAYBACK_FADE_MS)
     Column {
         CrystalSlider(
             label =
@@ -107,9 +108,9 @@ private fun FadeSlider(
                     stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
                 },
             value = prefs.fadeMs.toFloat(),
-            onValueChange = { onChange(prefs.copy(fadeMs = (GeodeNative.playbackSnap(it, 250f)).toInt())) },
-            valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
-            accessibilityStep = 250f,
+            onValueChange = { onChange(prefs.copy(fadeMs = (GeodeNative.playbackSnap(it, fadeStep)).toInt())) },
+            valueRange = PlayerPrefs.rangeOf(GeodeNative.PLAYBACK_FADE_MS),
+            accessibilityStep = fadeStep,
         )
         Text(
             stringResource(R.string.playback_fade_explainer),
@@ -194,8 +195,9 @@ private fun CrossfadeSlider(
     prefs: PlayerPrefs,
     onChange: (PlayerPrefs) -> Unit,
 ) {
-    val seconds = prefs.crossfadeMs / PlayerPrefs.CROSSFADE_STEP_MS
-    val maxSeconds = PlayerPrefs.MAX_CROSSFADE_MS / PlayerPrefs.CROSSFADE_STEP_MS
+    val stepMs = PlayerPrefs.stepOf(GeodeNative.PLAYBACK_CROSSFADE_MS).toInt()
+    val seconds = prefs.crossfadeMs / stepMs
+    val maxSeconds = PlayerPrefs.rangeOf(GeodeNative.PLAYBACK_CROSSFADE_MS).endInclusive.toInt() / stepMs
     Column {
         CrystalSlider(
             label =
@@ -224,22 +226,24 @@ private fun SpeedPitch(
     prefs: PlayerPrefs,
     onChange: (PlayerPrefs) -> Unit,
 ) {
+    val speedStep = PlayerPrefs.stepOf(GeodeNative.PLAYBACK_SPEED)
+    val pitchStep = PlayerPrefs.stepOf(GeodeNative.PLAYBACK_PITCH_SEMITONES)
     Column {
         CrystalSlider(
             label = stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
             value = prefs.speed,
-            onValueChange = { onChange(prefs.copy(speed = GeodeNative.playbackSnap(it, 0.05f))) },
-            valueRange = 0.5f..2f,
-            accessibilityStep = 0.05f,
+            onValueChange = { onChange(prefs.copy(speed = GeodeNative.playbackSnap(it, speedStep))) },
+            valueRange = PlayerPrefs.rangeOf(GeodeNative.PLAYBACK_SPEED),
+            accessibilityStep = speedStep,
         )
     }
     Column {
         CrystalSlider(
             label = stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
             value = prefs.pitchSemitones,
-            onValueChange = { onChange(prefs.copy(pitchSemitones = GeodeNative.playbackSnap(it, 0.5f))) },
-            valueRange = -6f..6f,
-            accessibilityStep = 0.5f,
+            onValueChange = { onChange(prefs.copy(pitchSemitones = GeodeNative.playbackSnap(it, pitchStep))) },
+            valueRange = PlayerPrefs.rangeOf(GeodeNative.PLAYBACK_PITCH_SEMITONES),
+            accessibilityStep = pitchStep,
         )
     }
     Text(
@@ -287,12 +291,13 @@ private fun ReplayGainSettings(
             }
         }
         if (prefs.replayGainMode != ReplayGain.MODE_OFF) {
+            val preampStep = PlayerPrefs.stepOf(GeodeNative.PLAYBACK_REPLAYGAIN_PREAMP_DB)
             CrystalSlider(
                 label = stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
                 value = prefs.replayGainPreampDb,
-                onValueChange = { onChange(prefs.copy(replayGainPreampDb = GeodeNative.playbackSnap(it, 0.5f))) },
-                valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
-                accessibilityStep = 0.5f,
+                onValueChange = { onChange(prefs.copy(replayGainPreampDb = GeodeNative.playbackSnap(it, preampStep))) },
+                valueRange = PlayerPrefs.rangeOf(GeodeNative.PLAYBACK_REPLAYGAIN_PREAMP_DB),
+                accessibilityStep = preampStep,
             )
             PlaybackSwitchRow(stringResource(R.string.playback_replaygain_clip_guard), prefs.replayGainClipGuard) {
                 onChange(prefs.copy(replayGainClipGuard = it))

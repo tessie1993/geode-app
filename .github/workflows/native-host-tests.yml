@@ -51,6 +51,9 @@ jobs:
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/control_range_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o control_range_test
+          ./control_range_test
           # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp -o touch_gesture_test
           ./touch_gesture_test
@@ -400,7 +403,8 @@ jobs:
             core/viz/VisualSafety.cpp -o reaction_text_test
           ./reaction_text_test
       # The user's modulation (core/viz/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
-      # a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs.
+      # a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs,
+      # and Customize › Music's moment and action rows equal core/tests/mod_catalog_music.txt.
       - name: Modulation document host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -409,7 +413,7 @@ jobs:
             core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp -o mod_document_test
-          ./mod_document_test
+          ./mod_document_test core/tests/mod_catalog_music.txt
           # Which wave and envelope controls Customize shows (core/viz/ModControls).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/mod_controls_test.cpp \
             core/viz/ModControls.cpp core/api/geode_mod_controls_api.cpp \
@@ -537,6 +541,9 @@ jobs:
           # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
           ./param_text_test
+          # A Customize slider's Reset offer, whole-number snap and log track (core/viz/SliderMap).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/slider_map_test.cpp core/api/geode_slider_api.cpp -o slider_map_test
+          ./slider_map_test
 
       # The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
       - name: Customize map host tests

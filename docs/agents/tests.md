@@ -10,6 +10,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
+- `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
 - `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
 - Put new pure tests in a JVM module where you can.
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).
@@ -35,6 +36,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 - `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
+- `control_range_test.cpp`: the range a Customize slider offers for a scene param (`core/viz/ControlRange`): the schema's, cut short by the flash clamp's depth and Fly's stop; the old `ControlRangeTest` cases.
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
@@ -86,6 +88,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
 - `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
 - `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
+- `mod_document_test.cpp` also keeps the catalogue's `moment` and `music` rows equal to `core/tests/mod_catalog_music.txt`, read by the JVM through `geode.modCatalog`.
 - `mod_controls_test.cpp`: `core/viz/ModControls`: which wave and envelope controls Customize shows for each source, timing, moment and Macro target, and nothing for a slot out of range.
 - `musical_test.cpp`: the sound engine's musical layer.
 - `note_response_test.cpp`: Note & key reactions.
@@ -102,8 +105,10 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link; the JVM `PresetGoldenTest` and `SharedLinkNumbersTest` pass the frame through `PresetStore.sanitize` and hold the format only.
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
+- `slider_map_test.cpp`: a Customize slider's Reset offer, whole-number snap and log track, both ways (`core/viz/SliderMap`, `geode_slider_*`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
+- `playback_controls_test.cpp`: Settings › Playback's rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step, the saved options' ranges and defaults (`PlayerPrefs.coerced` reads them), the crossfade slider's rounding.
 - `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
 - `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.

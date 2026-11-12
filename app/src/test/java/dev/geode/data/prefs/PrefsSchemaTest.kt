@@ -132,7 +132,7 @@ class PrefsSchemaTest {
                 PaletteStackCodec { stack -> stack }.save(it[general], "palettestack|1\n")
             },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
-                val store = LfoStore(it[general], readReactions = { null })
+                val store = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions("reactions/2")
@@ -176,7 +176,7 @@ class PrefsSchemaTest {
 
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
-                val lfos = LfoStore(it[general], readReactions = { null })
+                val lfos = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {

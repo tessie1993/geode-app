@@ -169,6 +169,34 @@ object GeodeNative {
     /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
     external fun playbackPitchRatio(semitones: Float): Float
 
+    /** The saved playback options that have a range (`audio/dsp/PlaybackControls`), in `geode_playback_range` order. */
+    const val PLAYBACK_FADE_MS = 0
+    const val PLAYBACK_CROSSFADE_MS = 1
+    const val PLAYBACK_REPEAT_MODE = 2
+    const val PLAYBACK_SPEED = 3
+    const val PLAYBACK_PITCH_SEMITONES = 4
+    const val PLAYBACK_REPLAYGAIN_MODE = 5
+    const val PLAYBACK_REPLAYGAIN_PREAMP_DB = 6
+    const val PLAYBACK_CONTROLS = 7
+
+    /** Fields of the float[4] [playbackRange] returns. */
+    const val PLAYBACK_RANGE_MIN = 0
+    const val PLAYBACK_RANGE_MAX = 1
+    const val PLAYBACK_RANGE_STEP = 2
+    const val PLAYBACK_RANGE_DEFAULT = 3
+
+    /** Min, max, step (0: none) and default of playback option [control]; null for one that is not one. */
+    external fun playbackRange(control: Int): FloatArray?
+
+    /** [value] held to the option's range, a NaN to its default. */
+    external fun playbackClamp(
+        control: Int,
+        value: Float,
+    ): Float
+
+    /** A crossfade slider position in seconds as ms: whole seconds, Off below half a second, held to the range. */
+    external fun playbackCrossfadeMs(seconds: Float): Int
+
     /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
     external fun playbackSnap(
         value: Float,
@@ -3039,6 +3067,60 @@ object GeodeNative {
 
     /** The stack every renderer of the process draws; the unset stack draws the look's own colours (`geode_palette_stack_set`). */
     external fun paletteStackSet(stack: String)
+
+    // A Customize slider's maths (core/viz/SliderMap, `geode_slider_*`): pure, cheap, called per drag event.
+
+    /** True when Reset would move [value] to [default] (NaN for a control with none): more than 1e-4 off it. */
+    external fun sliderOffDefault(
+        value: Float,
+        default: Float,
+    ): Boolean
+
+    /** The ticks between [first] and [last] of a whole-number slider. */
+    external fun sliderIntSteps(
+        first: Int,
+        last: Int,
+    ): Int
+
+    /** The whole number a stepped slider's [position] means: rounded, clamped into [first]..[last]. */
+    external fun sliderIntValue(
+        position: Float,
+        first: Int,
+        last: Int,
+    ): Int
+
+    /** [value]'s 0..1 place on a log track over [lo]..[hi]. */
+    external fun sliderLogPosition(
+        value: Float,
+        lo: Float,
+        hi: Float,
+    ): Float
+
+    /** The value at 0..1 [position] on a log track over [lo]..[hi]: lo * (hi / lo)^position. */
+    external fun sliderLogValue(
+        position: Float,
+        lo: Float,
+        hi: Float,
+    ): Float
+
+    /**
+     * The hand mask for the saved routes [reactions] (null: none saved): 0 with none, [HAND_ALL] when no mask was saved
+     * beside them ([hasMask] false), else [savedMask]; -1 when the text is no route list any more (geode_mod_hand_load).
+     */
+    external fun modHandLoad(
+        reactions: String?,
+        hasMask: Boolean,
+        savedMask: Int,
+    ): Int
+
+    /**
+     * The range Customize's slider offers for the scene param [name] (core/viz/ControlRange): min and max into
+     * [out] (two floats). False, [out] untouched, for a name the schema lacks.
+     */
+    external fun paramsControlRange(
+        name: String,
+        out: FloatArray,
+    ): Boolean
 
     /** What to do with a track's bookmark at [positionMs] of [durationMs]: [BOOKMARK_IGNORE], [BOOKMARK_CLEAR] or [BOOKMARK_SAVE]. */
     external fun bookmarkVerdict(

@@ -69,6 +69,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `CustomizeControls` draws each control by name.
 - Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
 - `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
+- Customize › Music's action menu takes its order and dividers from `ModCatalog`'s `music` rows (`MusicMoments.chips`).
 - Expert › Shader code (`ShaderCodePage`) shows on Fluid only, with the custom force and dye editors.
 - Free users get every Basics (`pro/FreeTier`).
 - A Pro control is gated through `ProLock`: it can be tried, then springs back.
@@ -257,7 +258,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
-- `ControlRange` is every Customize slider's and scene keyframe track's range: the params schema's, with its few UI caps.
+- `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
 - `OpenedAudio` is the id an audio file opened from another app plays under.
 

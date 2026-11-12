@@ -303,6 +303,15 @@ GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
 /* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
 GEODE_API float      geode_playback_snap(float value, float step);
+/* The saved options that have a range. control: 0 fade ms, 1 crossfade ms, 2 repeat mode, 3 speed, 4 pitch
+ * semitones, 5 ReplayGain mode, 6 ReplayGain preamp dB (GEODE_PLAYBACK_CONTROLS of them). range writes
+ * min, max, step (0: none) and default into out4 and returns 1, or 0 for a control that is not one. clamp
+ * holds a value to the range, a NaN to the default; crossfade_ms is a slider position in seconds as ms. */
+#define GEODE_PLAYBACK_CONTROLS 7
+GEODE_API int        geode_playback_range(int control, float* out4);
+GEODE_API float      geode_playback_clamp(int control, float value);
+GEODE_API int        geode_playback_crossfade_ms(float seconds);
+
 /* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
@@ -600,6 +609,11 @@ GEODE_API const char* geode_config_schema_text(void);
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
+/* The range Customize's slider offers for the scene param `name` (core/viz/ControlRange): its schema range, cut
+ * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
+ * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
+GEODE_API int         geode_params_control_range(const char* name, float* out);
+
 /* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
  * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each
  * (ax, ay, bx, by) px, into out[6]: pan x, pan y and zoom since start, twist in radians since start, and the step
@@ -1720,6 +1734,18 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_SIDE 57
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
+
+/* A Customize slider's maths (viz/SliderMap). Pure, any thread.
+ * off_default: 1 when value is more than 1e-4 from def (NaN: no default, 0), so Reset would move it.
+ * int_steps: the ticks between first and last of a whole-number slider. int_value: the whole number a
+ * stepped position means, rounded to the nearest and clamped into first..last.
+ * log_position: value's 0..1 place on a log track over lo..hi (0 < lo < hi); log_value: its inverse,
+ * lo * (hi / lo)^position. A track that is not 0 < lo < hi pins to position 0 and value lo. */
+GEODE_API int             geode_slider_off_default(float value, float def);
+GEODE_API int             geode_slider_int_steps(int first, int last);
+GEODE_API int             geode_slider_int_value(float position, int first, int last);
+GEODE_API float           geode_slider_log_position(float value, float lo, float hi);
+GEODE_API float           geode_slider_log_value(float position, float lo, float hi);
 
 /* Which controls of one wave or envelope slot do anything as it stands (viz/ModControls), so Customize shows only
  * those: GEODE_MOD_SHOWS_* bits. lfos and adsrs are the saved texts (api/geode_modulation_api.h); 0 for a slot

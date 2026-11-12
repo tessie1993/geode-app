@@ -1,0 +1,16 @@
+moment|0|KICK|Kick
+moment|1|SNARE|Snare
+moment|2|HAT|Hi-hat
+moment|3|BASS|Bass
+moment|4|DROP|Drop
+moment|5|BUILD_UP|Build-up
+moment|6|CHORD_CHANGE|Chord change
+moment|7|NEW_SECTION|New section
+moment|8|NOTE|Note
+moment|9|LOUDNESS|Loudness
+music|0|FLASH|Flash|LIGHT
+music|3|COLOUR|Colour shift|LIGHT
+music|1|ZOOM|Zoom|MOTION
+music|2|SHAKE|Shake|MOTION
+music|4|CAMERA|Camera move|MOTION
+music|5|WARP|Warp|MOTION

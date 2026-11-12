@@ -7,7 +7,15 @@ namespace geode::viz::frame::link {
 // browser blocks sound until the viewer acts). Three static files, the same for every phone and stream, with no
 // user data in them, so the CSP can forbid inline script and style outright.
 //
-// How it plays: where Media Source Extensions take the stream's codecs (Chrome, Edge, Firefox, Safari on a Mac)
+// How it plays: WebRTC first (owner, 2026-11-12: "Use webrtc protocol. To have smooth play", "Let browser buffer
+// for 0.5 sec"). player.js offers to receive one video and one audio track, with no ICE server (nothing is asked
+// of the internet), POSTs the offer to rtc and plays the phone's answer (core/cast/WebRtcLink): the encoder's own
+// H.264 and the same sound as Opus, encrypted in transit (DTLS-SRTP). Each receiver is asked to hold half a
+// second (jitterBufferTarget, 500 ms; playoutDelayHint, in seconds, where only that exists). The offer and answer
+// themselves travel over this plain-http page. If WebRTC is missing, refused (503 or 400) or does not connect
+// within six seconds, or fails later, the page falls back to the feed below, which is not encrypted.
+//
+// The fallback: where Media Source Extensions take the stream's codecs (Chrome, Edge, Firefox, Safari on a Mac)
 // player.js is the player: it reads index.m3u8 for the CODECS the phone's encoder really wrote, then opens one
 // long-lived fetch of stream.mp4, which the phone writes the init segment into and then every fMP4 fragment the
 // moment the encoder cuts it (no playlist polling, no request per segment). Each chunk read is appended to one
@@ -63,6 +71,11 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
   const FAST = 1.04;
   const KEEP_S = 10;
   const GIVE_UP_MS = 8000;
+  const RTC = 'rtc';
+  // The browser's own receive buffer on WebRTC: half a second (owner), in ms.
+  const JITTER_MS = 500;
+  const GATHER_MS = 1500;
+  const RTC_CONNECT_MS = 6000;
   const CODECS = /^[A-Za-z0-9.,]+$/;
   let stream = null;
   let lastOk = Date.now();
@@ -71,6 +84,7 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
   let placed = false;
   let fragment = 1;
   let lastEdge = -1;
+  let pc = null;
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const say = (text) => { note.textContent = text; note.hidden = !text; };
@@ -188,6 +202,108 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
     }
   }
 
+  function hold(receiver) {
+    try {
+      if ('jitterBufferTarget' in receiver) receiver.jitterBufferTarget = JITTER_MS;
+      else if ('playoutDelayHint' in receiver) receiver.playoutDelayHint = JITTER_MS / 1000;
+    } catch (e) { /* the browser keeps its own buffer */ }
+  }
+
+  // Resolves once the browser has its candidates (or after GATHER_MS): one offer carries them all.
+  function gathered(conn) {
+    if (conn.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      conn.addEventListener('icegatheringstatechange', () => { if (conn.iceGatheringState === 'complete') resolve(); });
+      setTimeout(resolve, GATHER_MS);
+    });
+  }
+
+  function connected(conn) {
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        if (conn.connectionState === 'connected') resolve();
+        else if (conn.connectionState === 'failed' || conn.connectionState === 'closed') reject(new Error('rtc'));
+      };
+      conn.addEventListener('connectionstatechange', check);
+      setTimeout(() => reject(new Error('timeout')), RTC_CONNECT_MS);
+      check();
+    });
+  }
+
+  // WebRTC: true once the phone's picture is connected into media; false (and nothing left open) otherwise.
+  async function viaRtc(media) {
+    if (!('RTCPeerConnection' in window)) return false;
+    let conn = null;
+    try {
+      conn = new RTCPeerConnection({ iceServers: [], bundlePolicy: 'max-bundle' });
+      conn.addTransceiver('video', { direction: 'recvonly' });
+      conn.addTransceiver('audio', { direction: 'recvonly' });
+      conn.addEventListener('track', (e) => { hold(e.receiver); media.addTrack(e.track); });
+      await conn.setLocalDescription(await conn.createOffer());
+      await gathered(conn);
+      const r = await fetch(RTC, {
+        method: 'POST', cache: 'no-store', credentials: 'omit',
+        headers: { 'Content-Type': 'application/sdp' }, body: conn.localDescription.sdp,
+      });
+      if (!r.ok) throw new Error('status');
+      await conn.setRemoteDescription({ type: 'answer', sdp: await r.text() });
+      await connected(conn);
+      conn.getReceivers().forEach(hold);
+    } catch (e) {
+      if (conn) conn.close();
+      return false;
+    }
+    pc = conn;
+    lastOk = Date.now();
+    conn.addEventListener('connectionstatechange', () => {
+      if (pc !== conn || over) return;
+      if (conn.connectionState === 'failed' || conn.connectionState === 'closed') {
+        pc = null;
+        conn.close();
+        useFeed();
+      }
+    });
+    return true;
+  }
+
+  // A play() cut short by a new source (AbortError) is not a refusal; anything else asks for a click.
+  function resume() {
+    video.play().catch((e) => {
+      if (!over && (!e || e.name !== 'AbortError')) { play.hidden = false; play.disabled = false; }
+    });
+  }
+
+  // The fallback: the fMP4 feed through MSE, or the browser's own HLS.
+  function useFeed() {
+    if (over) return;
+    video.srcObject = null;
+    if (mse(stream.codecs)) {
+      const source = new MediaSource();
+      source.addEventListener('sourceopen', () => {
+        try { feed(feeder(source, source.addSourceBuffer(mime(stream.codecs)))).catch(end); } catch (e) { end(); }
+      }, { once: true });
+      video.src = URL.createObjectURL(source);
+    } else if (video.canPlayType('application/vnd.apple.mpegurl') !== '') {
+      video.src = MASTER;
+      watch();
+    } else {
+      play.hidden = true;
+      return say('This browser cannot play the stream. Try Chrome, Edge, Firefox or Safari.');
+    }
+    resume();
+  }
+
+  async function begin() {
+    // The element starts playing inside the click, on an empty stream the tracks join, so sound is allowed.
+    const media = 'MediaStream' in window ? new MediaStream() : null;
+    if (media) {
+      video.srcObject = media;
+      resume();
+      if (await viaRtc(media)) { watch(); return; }
+    }
+    useFeed();
+  }
+
   function start() {
     if (!stream || over) return;
     play.hidden = true;
@@ -195,18 +311,10 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
     video.muted = false;
     if (!begun) {
       begun = true;
-      if (mse(stream.codecs)) {
-        const source = new MediaSource();
-        source.addEventListener('sourceopen', () => {
-          try { feed(feeder(source, source.addSourceBuffer(mime(stream.codecs)))).catch(end); } catch (e) { end(); }
-        }, { once: true });
-        video.src = URL.createObjectURL(source);
-      } else {
-        video.src = MASTER;
-        watch();
-      }
+      begin();
+    } else {
+      resume();
     }
-    video.play().catch(() => { if (!over) { play.hidden = false; play.disabled = false; } });
   }
 
   async function wait() {
@@ -218,18 +326,19 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
     }
     if (over) return;
     const native = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-    if (!mse(stream.codecs) && !native) { play.hidden = true; return say('This browser cannot play the stream. Try Chrome, Edge, Firefox or Safari.'); }
+    if (!mse(stream.codecs) && !native && !('RTCPeerConnection' in window)) { play.hidden = true; return say('This browser cannot play the stream. Try Chrome, Edge, Firefox or Safari.'); }
     say('');
     play.disabled = false;
   }
 
   play.addEventListener('click', start);
+  video.addEventListener('playing', () => { play.hidden = true; });
   video.addEventListener('waiting', steer);
   video.addEventListener('dblclick', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen().catch(() => {});
   });
-  video.addEventListener('error', () => { if (video.src && !over) end(); });
+  video.addEventListener('error', () => { if (video.src && !video.srcObject && !over) end(); });
   wait();
 })();
 )JS";

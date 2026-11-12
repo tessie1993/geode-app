@@ -260,11 +260,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `export`
 
-- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
+- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`.
 - Visualizer export: MediaCodec + offscreen GL.
 - `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
-- Loop render and chapters.
-- Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
+- Loop render.
+- Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
 - The watermark: `WatermarkOverlay` rasterises the tile.
 - Whether there is a watermark, where (tiled, a corner, an end card), its size, its opacity and the end card's timing are native (`exportmath::watermark`).

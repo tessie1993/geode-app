@@ -542,6 +542,23 @@ GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, layerMix, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
 
+// The physics layers (viz/physics): a low-res fluid the finished picture seeds and stirs, drawn behind or over
+// it, and particles that ride that fluid (or a curl drift with the fluid off), drawn in front: back fluid | style
+// | front particles. A stage over the finished picture, so every style kind can carry them. Each mix is 0 in
+// every look, so every look draws as it did and nothing is allocated; waves, envelopes, reaction routes and macro
+// knobs move them (LfoTarget::SimFluid .. SimLayerOrder), the music's only way in. Appended so every wire index
+// survives; no roll deals them (they are the user's), and no style reads them.
+GEODE_PARAM(Float, simFluid, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simFluid, "Fluid layer", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, simParticles, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simParticles, "Particle layer", Universal, kMod, 0, 0)
+// How hard the picture stirs the fluid and how fast the particles drift: 1 as designed, 2 twice, 0 still.
+GEODE_PARAM(Float, simForce, 1.0f, 0.0f, 2.0f, Fade)
+GEODE_PARAM_META(simForce, "Physics force", Universal, kMod, 0, 0)
+// Where the fluid sits: 0 behind the style (it shows through the style's darks), 1 over it (screened on).
+GEODE_PARAM(Float, simLayerOrder, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simLayerOrder, "Fluid in front", Universal, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

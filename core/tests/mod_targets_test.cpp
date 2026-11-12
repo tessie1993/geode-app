@@ -68,6 +68,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"KALEIDO_FOLDS", "UNIVERSAL"},
     // Customize › Layers' mix (viz/LayerState): added to the Layers page's mix, on every style.
     {"LAYER_MIX", "UNIVERSAL"},
+    // The physics layers (viz/physics): a stage over the finished picture, on every style.
+    {"SIM_FLUID", "UNIVERSAL"}, {"SIM_PARTICLES", "UNIVERSAL"}, {"SIM_FORCE", "UNIVERSAL"}, {"SIM_LAYER_ORDER", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -82,12 +84,22 @@ void everyTargetKeepsItsNameAndScope() {
               static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59 &&
               static_cast<int>(LfoTarget::PaletteAmount1) == 60 && static_cast<int>(LfoTarget::PaletteShift) == 67 &&
               static_cast<int>(LfoTarget::KaleidoFolds) == 68 && static_cast<int>(LfoTarget::LayerMix) == 69 &&
-              kLastLfoTarget == LfoTarget::LayerMix,
+              static_cast<int>(LfoTarget::SimFluid) == 70 && static_cast<int>(LfoTarget::SimLayerOrder) == 73 &&
+              kLastLfoTarget == LfoTarget::SimLayerOrder,
           "wire ordinals");
     check(paramSlotOf(LfoTarget::KaleidoFolds) == static_cast<int>(ParamSlot::kaleidoFolds) && !isLuminanceTarget(LfoTarget::KaleidoFolds),
           "the kaleidoscope's target writes its folds, a shape and no luminance target");
     check(paramSlotOf(LfoTarget::LayerMix) == static_cast<int>(ParamSlot::layerMix) && isLuminanceTarget(LfoTarget::LayerMix),
           "the layer's mix writes its own row and is held to the flash rate and the route floors");
+    // The physics layers' mixes and the fluid's place change the picture's light; their force moves it.
+    check(paramSlotOf(LfoTarget::SimFluid) == static_cast<int>(ParamSlot::simFluid) &&
+              paramSlotOf(LfoTarget::SimParticles) == static_cast<int>(ParamSlot::simParticles) &&
+              paramSlotOf(LfoTarget::SimForce) == static_cast<int>(ParamSlot::simForce) &&
+              paramSlotOf(LfoTarget::SimLayerOrder) == static_cast<int>(ParamSlot::simLayerOrder),
+          "each physics target writes its own row");
+    check(isLuminanceTarget(LfoTarget::SimFluid) && isLuminanceTarget(LfoTarget::SimParticles) &&
+              isLuminanceTarget(LfoTarget::SimLayerOrder) && !isLuminanceTarget(LfoTarget::SimForce),
+          "the physics mixes and the fluid's place are held to the flash rate and the route floors, the force is not");
     check(paramSlotOf(LfoTarget::PaletteAmount1) == static_cast<int>(ParamSlot::paletteAmount0) &&
               paramSlotOf(LfoTarget::PaletteAmount3) == static_cast<int>(ParamSlot::paletteAmount2) &&
               paramSlotOf(LfoTarget::PaletteAmount8) == static_cast<int>(ParamSlot::paletteAmount7) &&
@@ -235,6 +247,8 @@ void offerMaskHasABitPerTarget() {
     check(modtargets::hex(m) == "1" + std::string(17, '0'), "ordinal 68 opens an eighteenth digit");
     m.reset().set(static_cast<size_t>(LfoTarget::LayerMix));
     check(modtargets::hex(m) == "2" + std::string(17, '0'), "ordinal 69 is the second bit of the eighteenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::SimLayerOrder));
+    check(modtargets::hex(m) == "2" + std::string(18, '0'), "ordinal 73 is the second bit of the nineteenth digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
@@ -260,7 +274,8 @@ void textCarriesEveryRow() {
         return out;
     };
     check(hasLine(t, "target|68|KALEIDO_FOLDS|UNIVERSAL|-1|1"), "the kaleidoscope's row");
-    check(hasLine(t, "target|69|LAYER_MIX|UNIVERSAL|-1|1"), "the last target row");
+    check(hasLine(t, "target|69|LAYER_MIX|UNIVERSAL|-1|1"), "the layer mix's row");
+    check(hasLine(t, "target|73|SIM_LAYER_ORDER|UNIVERSAL|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

@@ -280,6 +280,11 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"paletteAmount7", "a palette stack amount, rolled with the stack"},
         {"paletteShift", "where along the palette stack, rolled with the stack"},
         {"layerMix", "a modulation offset on Customize › Layers' mix, which is the user's"},
+        // The physics layers (viz/physics): off in every look; the user's modulation turns them on.
+        {"simFluid", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simParticles", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simForce", "how hard the user wants the physics layers stirred"},
+        {"simLayerOrder", "where the user wants the fluid layer, behind or over the style"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},

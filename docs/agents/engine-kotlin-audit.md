@@ -30,6 +30,9 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `SceneCapabilities` (`SceneKind`) | 37 | **ported**: `core/viz/Catalogue` (`Trait`); the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `StyleFamilies` | 37 | **ported**: `core/viz/Catalogue` (`Trait::FamilyFollower`); `pro/FreeTier` asks for the followers. |
 | `ThermalGovernor` | 38 | pending |
+| `SceneCapabilities` (`SceneKind`) | 37 | pending |
+| `StyleFamilies` | 37 | pending |
+| `ThermalGovernor` | 38 | **ported**: `core/viz/frame/ThermalSource` reads the NDK's `AThermal_*` (status listener, 30 s headroom on the won slot) into `ThermalState`; `geode_thermal_push` is gone. |
 | `SoundCursor` | 39 | pending |
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending |
@@ -49,6 +52,8 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `SampleRing` | 95 | pending |
 | `LookApplier` | 97 | pending |
 | `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |
+| `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
+| `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
 | `OffscreenSceneRenderer` | 128 | pending |
 | `SearchMatcher` | 131 | pending |

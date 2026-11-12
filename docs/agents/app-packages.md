@@ -88,7 +88,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The stage's GL thread copies each frame its clock keeps into an H.264 surface (`core/viz/frame/RecordTap`).
 - Every block the stage's sound engine took goes into `core/output/Recorder`, which times the file: frame slots and PTS, A/V placement, the stop.
 - Record's capture fps drops first on a hot phone.
-- `record/RecordEncoder` only moves bytes to MediaMuxer.
+- Record's encoders and MP4 run native on their own thread (`core/output/RecordSession` on `core/output/EncodeSink`); `RecordController` opens the fd, starts, stops and polls.
 - `data/RecordFiles` writes into the place asked once (`RecordSaveSheet`), or a scratch file before that.
 - `EditorController` only keeps the project list My videos reads (recordings and kept renders).
 - Library (`LibraryScreen`) draws `LibraryViewModel.uiState`.

@@ -48,6 +48,8 @@ public:
     bool pinned() const;
     // The director's play seed as the renderer sees it now: the pinned one, else the live one. Any thread.
     std::uint64_t directorSeed() const;
+    // The hand mask the renderer's reaction matrix merges under now: the pinned one, else hand::global(). Any thread.
+    std::uint32_t handMask() const;
     // This frame's settings. Live: the globals now, with a note entropy drawn fresh whenever the director's
     // play seed changes (so every live play varies on its own; NoteResponse's class comment). Pinned: the
     // pinned copy. `reducedMotion` is the renderer's own and is applied either way. The stepping thread only.

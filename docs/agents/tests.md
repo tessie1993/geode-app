@@ -60,6 +60,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
+- `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; `LoopRender` only presents.
 - `loudness_test.cpp`: export DSP, the BS.1770 meter.
 - `macro_bank_test.cpp`: `core/viz/MacroBank`: the user's knobs as weighted offsets on scene params, their edits and text, the process-wide bank, C ABI `geode_macro_bank_*`.
@@ -86,14 +87,14 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
 - `presets_test.cpp`: the bundled looks, pinned to the Kotlin literals they replaced.
-- `push_versions_test.cpp`: `core/viz/frame/PushVersions`, which pushed inputs a live frame still owes native.
 - `qr_code_test.cpp`: Show on a computer's QR code (`core/util/QrCode`) against the standard's vectors.
 - `quality_test.cpp`: `core/viz/frame/Quality`, Settings › Performance's tiers and the first-run pick.
 - `randomize_all_test.cpp`: the two-circle gesture's Randomize everything: seeded, never a locked style, MilkDrop's .milk as its preset, every category rolled, Keep held through the preset.
 - `reaction_resolve_test.cpp`: the renderer's reaction resolve against the old Kotlin path, and when it re-resolves.
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
+- `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
 - `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
-- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes the shell.
+- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
 - `resolver_test.cpp` also covers the bank's offset, an export's pinned bank, and the director leaving the bank alone.

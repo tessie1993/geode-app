@@ -105,7 +105,7 @@ fun VisualizerEngineBindings(
     }
     // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
     // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
-    // renderer's LookApplier pushes only what changed, so an unrelated vizState change costs nothing.
+    // renderer pushes only the parts that changed (NativeViz.setLook), so an unrelated vizState change costs nothing.
     // The underlay is mapped once per background push: a new instance would re-send the whole image.
     LaunchedEffect(reducedMotion) {
         val underlay =

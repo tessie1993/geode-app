@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
@@ -102,7 +102,7 @@ internal fun VisualsOptions(
     panelPx: Animatable<Float, AnimationVector1D>,
     panelRange: ClosedFloatingPointRange<Float>,
     opacity: Float,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     blurActive: Boolean,
     onSettle: (SheetHeight) -> Unit,
     onPanelSettle: (widthPx: Float?) -> Unit,
@@ -190,13 +190,13 @@ internal fun VisualsOptions(
 
 /**
  * Tells the native blur where the options surface is ([bounds], in the window) so the live visual
- * frosts under it. Only a change of the bounds or of [active] calls through (one small event on
- * the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or has no
+ * frosts under it. Only a change of the bounds or of [active] calls through (one small command
+ * to the stage each); strength is 1 while the surface is shown, 0 when it is hidden or has no
  * size, and 0 again on dispose so leaving Visuals clears it.
  */
 @Composable
 private fun UiBlurRegion(
-    view: VisualizerView,
+    view: StageView,
     bounds: () -> Rect?,
     active: Boolean,
 ) {

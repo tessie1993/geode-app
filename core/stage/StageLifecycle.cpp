@@ -169,11 +169,11 @@ Action Lifecycle::next() const {
     }
     if (vsync_ && !wantsVsync()) return {Act::StopVsync};
     if (lost_) {
-        // Every name in the context is gone: the client forgets them, then the surface and context go and are
-        // made again below.
+        // Every name in the context is gone. It is let go first, so the client forgets its names with no context
+        // current (StageClient::contextLost); then the surface and context go and are made again below.
+        if (glCurrent()) return {Act::ReleaseCurrent};
         if (clientCreated_) return {Act::ClientContextLost};
         if (surface_) return {Act::DestroySurface};
-        if (surfaceless_) return {Act::ReleaseCurrent};
         if (context_) return {Act::DestroyContext};
     }
     if (trimDue_) {

@@ -12,6 +12,14 @@ geode_audio_out* outOf(jlong handle) { return reinterpret_cast<geode_audio_out*>
 
 extern "C" {
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutNoteFailed(JNIEnv*, jobject, jlong nowMs) {
+    geode_audio_out_note_failed(nowMs);
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutMayOpen(JNIEnv*, jobject, jlong nowMs) {
+    return geode_audio_out_may_open(nowMs) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutSupports(JNIEnv*, jobject, jint encoding,
                                                                                      jint channels,
                                                                                      jint sampleRateHz) {

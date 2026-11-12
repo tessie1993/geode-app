@@ -3,12 +3,10 @@ package dev.geode.audio
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.content.ContextCompat
-import dev.geode.util.bestEffort
 
 class MicCapture(
     private val context: Context,
@@ -35,34 +33,13 @@ class MicCapture(
         return null
     }
 
+    // The device's own rate first (native's plan): any other rate is resampled by the audio HAL.
     private fun openRecord(): AudioRecord? {
         val source = preferredSource()
-        // The device's own rate first: any other rate is resampled by the audio HAL, which costs
-        // latency and, on some devices, the UNPROCESSED path. 44.1 kHz was tried first before.
-        val rates = (listOfNotNull(deviceRateHz()) + FALLBACK_RATES).distinct()
-        for (rate in rates) {
-            for (encoding in intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT)) {
-                val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, encoding)
-                if (min <= 0) continue
-                val rec =
-                    runCatching {
-                        @Suppress("MissingPermission")
-                        AudioRecord(
-                            source,
-                            rate,
-                            AudioFormat.CHANNEL_IN_MONO,
-                            encoding,
-                            (min * BUFFER_MULTIPLIER).coerceAtLeast(READ_FRAMES * 4),
-                        )
-                    }.getOrNull()
-                if (rec != null && rec.state == AudioRecord.STATE_INITIALIZED) {
-                    sampleRateHz = rate
-                    return rec
-                }
-                bestEffort(TAG, "rec?.release()") { rec?.release() }
-            }
-        }
-        return null
+        return openFirst(deviceRateHz() ?: 0, stereo = false) { rate, mask, encoding, bytes ->
+            @Suppress("MissingPermission")
+            AudioRecord(source, rate, mask, encoding, bytes)
+        }?.first
     }
 
     private fun deviceRateHz(): Int? =
@@ -89,10 +66,5 @@ class MicCapture(
     private companion object {
         /** Reported until [openRecord] has opened a stream and set the rate it actually got. */
         const val DEFAULT_RATE = 48_000
-
-        /** Tried after the device's rate, most common first; 22.05 kHz for very old hardware. */
-        val FALLBACK_RATES = listOf(48_000, 44_100, 22_050)
     }
 }
-
-private const val TAG = "MicCapture"

@@ -245,4 +245,25 @@ Java_dev_geode_engine_bridge_GeodeNative_lyricsIndexAt(JNIEnv* env, jobject, jlo
     return geode_lyrics_index_at(times.data(), static_cast<int>(count), positionMs);
 }
 
+// A picked playlist file (core/library/Playlist): the file's name and bytes in, the wire text out. Only marshalling
+// here; both cross as byte[] so a name or title outside the BMP survives.
+JNIEXPORT jbyteArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playlistParse(JNIEnv* env, jobject, jbyteArray fileName, jbyteArray data) {
+    const std::string name = textOf(env, fileName);
+    const std::string bytes = textOf(env, data);
+    const auto* raw = reinterpret_cast<const unsigned char*>(bytes.data());
+    std::string text(4096, '\0');
+    const int need = geode_playlist_parse(name.c_str(), raw, static_cast<int>(bytes.size()), text.data(),
+                                          static_cast<int>(text.size()));
+    if (static_cast<size_t>(need) >= text.size()) {
+        text.assign(static_cast<size_t>(need) + 1, '\0');
+        geode_playlist_parse(name.c_str(), raw, static_cast<int>(bytes.size()), text.data(), static_cast<int>(text.size()));
+    }
+    jbyteArray out = env->NewByteArray(static_cast<jsize>(need));
+    if (out && need > 0) {
+        env->SetByteArrayRegion(out, 0, static_cast<jsize>(need), reinterpret_cast<const jbyte*>(text.data()));
+    }
+    return out;
+}
+
 }  // extern "C"

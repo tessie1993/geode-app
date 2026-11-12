@@ -20,6 +20,9 @@ public:
     virtual void trimSpares() = 0;
     // The context is gone with every GL name in it: forget them, delete none. No context is current.
     virtual void contextLost() = 0;
+    // Work the client asked the stage thread for (a kStageService command), between frames. ready says a frame
+    // could be drawn now: the context is current on a sized window surface.
+    virtual void service(bool ready) { static_cast<void>(ready); }
     // The last call. glCurrent says whether a context is current, so GL names may be deleted.
     virtual void release(bool glCurrent) = 0;
 };

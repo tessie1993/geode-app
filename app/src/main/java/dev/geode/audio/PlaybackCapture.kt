@@ -5,7 +5,6 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
-import dev.geode.util.bestEffort
 
 enum class CaptureFailure {
     PERMISSION,
@@ -39,44 +38,27 @@ class PlaybackCapture(
                 .addMatchingUsage(AudioAttributes.USAGE_GAME)
                 .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                 .build()
-        for (rate in intArrayOf(DEFAULT_RATE, 44_100, 22_050)) {
-            for (mask in intArrayOf(AudioFormat.CHANNEL_IN_STEREO, AudioFormat.CHANNEL_IN_MONO)) {
-                for (encoding in intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT)) {
-                    val min = AudioRecord.getMinBufferSize(rate, mask, encoding)
-                    if (min <= 0) continue
-                    val channels = if (mask == AudioFormat.CHANNEL_IN_STEREO) 2 else 1
-                    val rec =
-                        runCatching {
-                            @Suppress("MissingPermission")
-                            AudioRecord
-                                .Builder()
-                                .setAudioPlaybackCaptureConfig(config)
-                                .setAudioFormat(
-                                    AudioFormat
-                                        .Builder()
-                                        .setEncoding(encoding)
-                                        .setSampleRate(rate)
-                                        .setChannelMask(mask)
-                                        .build(),
-                                ).setBufferSizeInBytes(
-                                    (min * BUFFER_MULTIPLIER).coerceAtLeast(READ_FRAMES * channels * 4),
-                                ).build()
-                        }.getOrNull()
-                    if (rec != null && rec.state == AudioRecord.STATE_INITIALIZED) {
-                        sampleRateHz = rate
-                        channelCount = channels
-                        return rec
-                    }
-                    bestEffort(TAG, "rec?.release()") { rec?.release() }
-                }
-            }
-        }
-        return null
+        val (rec, channels) =
+            openFirst(deviceRateHz = 0, stereo = true) { rate, mask, encoding, bytes ->
+                @Suppress("MissingPermission")
+                AudioRecord
+                    .Builder()
+                    .setAudioPlaybackCaptureConfig(config)
+                    .setAudioFormat(
+                        AudioFormat
+                            .Builder()
+                            .setEncoding(encoding)
+                            .setSampleRate(rate)
+                            .setChannelMask(mask)
+                            .build(),
+                    ).setBufferSizeInBytes(bytes)
+                    .build()
+            } ?: return null
+        channelCount = channels
+        return rec
     }
 
     private companion object {
         const val DEFAULT_RATE = 48_000
     }
 }
-
-private const val TAG = "PlaybackCapture"

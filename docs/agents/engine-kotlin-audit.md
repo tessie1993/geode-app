@@ -21,7 +21,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `FluidQuality` | 13 | pending |
 | `SceneFactory` | 14 | pending |
 | `FluidShaderTemplate` | 15 | pending |
-| `PlaybackMath` | 18 | pending |
+| `PlaybackMath` | 18 | **ported**: the pitch rate and the slider step are `core/audio/dsp/PlaybackControls` (`geode_playback_pitch_ratio`, `geode_playback_snap`), test `core/tests/playback_controls_test.cpp`; the sleep timer's m:ss countdown is display text, now private to `ui/PlaybackSettings`. |
 | `BestEffort` | 18 | pending |
 | `UnderlayBlend` | 22 | pending |
 | `BlendMode` | 24 | pending |

@@ -50,7 +50,6 @@ allowed=(
     "$C/audio/SoundCursor.kt"
     "$C/audio/SoundTuning.kt"
     "$C/bridge/GeodeNative.kt"
-    "$S/analysis/PlaybackMath.kt"
     "$S/audio/AiffPcm.kt"
     "$S/render/Adsr.kt"
     "$S/render/BlendMode.kt"

@@ -316,6 +316,11 @@ GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /*
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 
+/* Settings › Playback's speed and pitch rows (audio/dsp/PlaybackControls). Pure, any thread. */
+GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
+/* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
+GEODE_API float      geode_playback_snap(float value, float step);
+
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
  * the curves, the dB maths and when each applies are here. "Silence" is GEODE_DSP_SILENCE_DB or below (-inf

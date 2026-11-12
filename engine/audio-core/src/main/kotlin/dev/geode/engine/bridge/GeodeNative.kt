@@ -117,6 +117,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
+    /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
+    external fun playbackPitchRatio(semitones: Float): Float
+
+    /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.

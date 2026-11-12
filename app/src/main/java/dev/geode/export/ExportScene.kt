@@ -6,7 +6,6 @@ import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.look.LookApplier
 import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 
@@ -14,8 +13,8 @@ import dev.geode.util.bestEffort
  * One export's picture: a native renderer driven by the native export job (`core/output/ExportFrame`), which
  * owns the prepare order, the pre-roll, the track's decode (`core/audio/ingest`: AIFF natively, anything else
  * through AMediaExtractor and AMediaCodec) and each frame's audio and draw. This opens the renderer and the
- * track's descriptor and hands the look over between the job's two prepare steps, because the look's reactions
- * go under the hand mask the job's settings pin returns. It decides nothing.
+ * track's descriptor and hands the look over between the job's two prepare steps, because native merges the look's
+ * reactions under the hand mask the job's settings pin sets. It decides nothing.
  *
  * Callers own the EGL context and the surface and present what each [renderFrame] drew. Not thread-safe: every
  * call on the thread holding the GL context.
@@ -63,7 +62,7 @@ internal class ExportScene(
                 spec.durationMs,
             )
         check(handMask >= 0) { "native renderer cannot draw \"$sceneId\"" }
-        LookApplier().apply(spec.look.copy(sceneId = sceneId), viz, handMask = handMask.toInt())
+        viz.setLook(spec.look.copy(sceneId = sceneId))
         // A track it cannot hear fails the render; it used to export a picture the silence rule froze (#999 F1).
         check(GeodeNative.exportJobWarm(job)) { "the track's audio could not be heard" }
     }

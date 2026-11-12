@@ -15,7 +15,7 @@ import dev.geode.render.scene.SceneParams
  * (#345). Not the auto-director's Look (GLOSSARY), which is one decision made inside the engine.
  *
  * Every renderer host (live Visuals, the wallpaper, the dream, Cast, an export) only says where its look
- * comes from ([LookSource]) and what it overrides ([gentleFlight]); one [LookApplier] pushes it into the
+ * comes from ([LookSource]) and what it overrides ([gentleFlight]); `NativeViz.setLook` pushes it into the
  * native renderer. Before this, each host rebuilt it field by field and they drifted: the wallpaper and
  * dream once drew with every LFO, envelope and custom reaction off.
  *

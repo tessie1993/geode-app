@@ -62,8 +62,6 @@ const float BS_SPIN = 3.0 * CAM_SPIN_UNIT;
 vec3 gN;
 float gH;
 int gIters;
-vec4 gTrap;
-float gBulbD;
 
 // Its own ramp: a geological survey's, from basalt blue through ochre to
 // a hot vermilion.
@@ -71,13 +69,14 @@ vec3 tone(float t) {
     return bulbRamp(t, vec3(0.55, 0.45, 0.40), vec3(0.45, 0.35, 0.35), vec3(0.8, 0.8, 0.8), vec3(0.55, 0.65, 0.80));
 }
 
-float map(vec3 p) {
+/** The style's body: the bulb cut by the plane, its orbit trap, and in mat the bulb's own distance. */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float db = bulbDE(bulbChaos(p), 10.0, 10.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    gBulbD = db;
-    return max(db, dot(p, gN) - gH);
+    return BulbHit(max(db, dot(p, gN) - gH), tr, db);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -111,12 +110,13 @@ void main() {
             if (t > tb.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float d = map(p);
+            BulbHit h = bulbField(p);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
-                cutW = step(gBulbD, dot(p, gN) - gH);
+                trap = h.trap;
+                cutW = step(h.mat, dot(p, gN) - gH);
                 break;
             }
             t += max(d * 0.9, eps * 0.5);

@@ -52,20 +52,15 @@ vec3 tone(float t) {
 
 float gPow;
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = bulbDE(bulbChaos(p), gPow, 8.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -76,7 +71,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BC_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BC_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BC_CAM_R), BC_SPIN, ro, rd);
 
     float hue = 0.04 * sin(bulbTime() * 0.021) + 0.12 * uKeyStrength * sin(BULB_TAU * uKeyHue);
 
@@ -91,12 +86,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             near = min(near, d);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -109,7 +105,7 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.55, 0.72, -0.42));
         float dif = max(dot(n, key), 0.0);
         float sky = 0.5 + 0.5 * n.y;

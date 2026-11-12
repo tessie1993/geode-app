@@ -26,7 +26,7 @@ out vec4 fragColor;
 // Both rings are still arborTree2 in the frame of one mirror wedge (dihedral,
 // so a tree crossing the wedge edge meets its own reflection). Each fold level
 // keeps its own jewel colour, a step along the palette: the depth record
-// gArbLevel IS the colour index, as before.
+// the hit's level IS the colour index, as before.
 //
 // ---- camera ------------------------------------------------------------------
 //
@@ -110,11 +110,6 @@ float gTurn;
 float gCellBase;
 float gJewel;
 vec3 gEye;
-/** Set by map(): which part (0 outward glass, 1 inward glass, 2 jewel, 3 hoop, 4 rim), its fold level, the 2D distance to the glass silhouette (world), the window id. */
-float gPart;
-float gLvl;
-float gD2;
-float gId;
 
 vec2 wedge(vec2 p) {
     float w = ARB_TAU / RS_FOLDS;
@@ -129,17 +124,23 @@ float slab(float d2, float z, float h) {
     return min(max(e.x, e.y), 0.0) + length(max(e, 0.0)) - RS_ROUND;
 }
 
-float map(vec3 p) {
+/**
+ * The world: one window every RS_PERIOD. level is the glass piece's fold level; mat.x which part (0 outward
+ * glass, 1 inward glass, 2 jewel, 3 hoop, 4 rim), mat.y the 2D distance to the glass silhouette (world),
+ * mat.z the window id.
+ */
+ArborHit arborMap(vec3 p) {
     float zc = p.z + 0.5 * RS_PERIOD;
     float cell = floor(zc / RS_PERIOD);
     float zl = zc - cell * RS_PERIOD - 0.5 * RS_PERIOD;
     float id = gCellBase + cell;
-    gId = id;
     float carve = RS_BUBBLE - length(p - gEye);
-    gPart = 4.0;
-    gLvl = 0.0;
-    gD2 = 0.0;
-    if (abs(zl) > RS_SKIP) return max(abs(zl) - RS_REACH, carve);
+    ArborHit h = arbHit(0.0);
+    h.mat = vec4(4.0, 0.0, id, 0.0);
+    if (abs(zl) > RS_SKIP) {
+        h.d = max(abs(zl) - RS_REACH, carve);
+        return h;
+    }
 
     float rw = length(p.xy);
     float hoop = length(vec2(rw - RS_INNER * RS_SCALE, zl)) - RS_HOOP;
@@ -151,15 +152,17 @@ float map(vec3 p) {
 
     // Outward ring, from the hoop.
     vec2 q = wedge(w);
-    float dOut = arborTree2(vec2(q.y, q.x - RS_INNER), gFo, gGrowOut, seed) * RS_SCALE;
-    float lOut = gArbLevel;
-    float tOut = gArbTip * RS_SCALE;
+    ArborHit hOut = arborTree2(vec2(q.y, q.x - RS_INNER), gFo, gGrowOut, seed);
+    float dOut = hOut.d * RS_SCALE;
+    float lOut = hOut.level;
+    float tOut = hOut.tip * RS_SCALE;
 
     // Inward ring, half a wedge round, from the rim.
     vec2 q2 = wedge(rot2(ARB_TAU / RS_FOLDS * 0.5) * w);
-    float dIn = arborTree2(vec2(q2.y, RS_OUTER - q2.x), gFi, gGrowIn, seed + 2.0) * RS_SCALE;
-    float lIn = gArbLevel;
-    float tIn = gArbTip * RS_SCALE;
+    ArborHit hIn = arborTree2(vec2(q2.y, RS_OUTER - q2.x), gFi, gGrowIn, seed + 2.0);
+    float dIn = hIn.d * RS_SCALE;
+    float lIn = hIn.level;
+    float tIn = hIn.tip * RS_SCALE;
 
     float gOut = slab(dOut, zl, RS_THICK);
     float gIn = slab(dIn, zl, RS_THICK);
@@ -168,61 +171,60 @@ float map(vec3 p) {
     float d = rim;
     if (hoop < d) {
         d = hoop;
-        gPart = 3.0;
+        h.mat.x = 3.0;
     }
     if (gIn < d) {
         d = gIn;
-        gPart = 1.0;
-        gLvl = lIn;
-        gD2 = dIn;
+        h.mat.x = 1.0;
+        h.level = lIn;
+        h.mat.y = dIn;
     }
     if (gOut < d) {
         d = gOut;
-        gPart = 0.0;
-        gLvl = lOut;
-        gD2 = dOut;
+        h.mat.x = 0.0;
+        h.level = lOut;
+        h.mat.y = dOut;
     }
     if (jewel < d) {
         d = jewel;
-        gPart = 2.0;
+        h.mat.x = 2.0;
     }
-    return max(d, carve);
+    h.d = max(d, carve);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 void main() {
     vec2 uv = arbView();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = arbChaos();
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float pitch = clamp(SND_HELD_NOTE_CHANGE * energy, 0.0, 1.0);
     float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float jewelK = arbSpan(N.emit, 1.0, 0.2, 1.8);
+    float flow = arbSpan(N.flow, 1.0, 0.3, 1.7);
+    float back = arbSpan(N.glow, 1.0, 0.4, 1.6) * (0.9 + 0.2 * swell);
+    float fog = arbSpan(N.reach, 0.035, 0.0105, 0.0595);
+    float leadW = arbSpan(N.density, 0.04, 0.016, 0.064);
+    float hueShift = arbSpan(N.tone, 0.0, -0.15, 0.15);
 
-    float hue = key + 0.01 * t + 0.3 * kTone;
+    float hue = key + 0.01 * t + hueShift;
     float stepHue = 0.05 + 0.16 * pitch;
 
     float jitter = 0.08 + 0.45 * chaos;
     float bow = arbMidBow();
-    gFo = ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), 0.18 * uTwist + bow, jitter, 0.12, 0.10, 0.72);
-    gFi = ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), 0.18 * uTwist + bow, jitter, 0.12, 0.09, 0.70);
+    gFo = arborShape2(ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), bow, jitter, 0.12, 0.10, 0.72), N);
+    gFi = arborShape2(ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), bow, jitter, 0.12, 0.09, 0.70), N);
     gGrowOut = arbLevels(7.0, 1.0);
     gGrowIn = arbLevels(6.0, 1.0);
     gTurn = t * 0.04;
-    gJewel = (0.005 + 0.008 * hat * (1.0 + 1.6 * kPulse)) * RS_SCALE;
+    gJewel = (0.005 + 0.008 * hat * jewelK) * RS_SCALE;
 
     vec3 ro;
     vec3 rd;
@@ -241,7 +243,6 @@ void main() {
     if (c < 0.0 && a > 1e-6) tWall = (-b + sqrt(max(b * b - a * c, 0.0))) / a;
     float tMax = min(RS_FAR, tWall);
 
-    float flow = 1.0 + 1.4 * kFlow;
     float tm = 0.05;
     float hitT = -1.0;
     float used = 0.0;
@@ -255,19 +256,20 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > tMax) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0007 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            part = gPart;
-            lvl = gLvl;
-            d2 = gD2;
-            id = gId;
+            part = h.mat.x;
+            lvl = h.level;
+            d2 = h.mat.y;
+            id = h.mat.z;
             break;
         }
         // Light through the glass bleeding into the haze round every limb.
-        if (gPart < 2.5) {
-            glow += pal(hue + 0.1 + gLvl * stepHue) * exp(-d * 9.0) * 0.010 * exp(-tm * 0.03);
+        if (h.mat.x < 2.5) {
+            glow += pal(hue + 0.1 + h.level * stepHue) * exp(-d * 9.0) * 0.010 * exp(-tm * 0.03);
         }
         tm += max(d * 0.75, eps);
     }
@@ -275,15 +277,13 @@ void main() {
     // The nave's haze, brightest straight ahead where the light comes down
     // through the open hearts of the windows.
     float ahead = pow(max(rd.z, 0.0), 10.0);
-    float back = (1.0 + 1.2 * kBuild) * (0.9 + 0.2 * swell);
     vec3 fogCol = pal(hue + 0.5) * (0.025 + 0.12 * ahead * back) + vec3(0.003, 0.003, 0.006);
-    float fog = 0.035 * (1.0 + 1.4 * kSpace);
     vec3 col = fogCol;
     vec3 lightDir = normalize(vec3(0.25, 0.6, 1.0));
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0008 * hitT + 0.0006);
+        vec3 n = arborNormal(p, 0.0008 * hitT + 0.0006);
         float ao = arbStepAO(used, uSteps);
         vec3 lit = arbLight(n, rd, lightDir, 0.3, 40.0);
         float r = length(p.xy) / RS_SCALE;
@@ -296,7 +296,6 @@ void main() {
             float core = smoothstep(0.0, -0.012 * RS_SCALE, d2);
             col = g * (0.35 + 0.65 * core) * bl * (0.7 + 0.3 * lit.x) + vec3(lit.z) * 0.25;
             // Lead came: a dark metal edge round every piece.
-            float leadW = 0.04 * (1.0 + 1.2 * kTexture);
             float lead = smoothstep(-leadW, -0.35 * leadW, d2);
             vec3 metal = vec3(0.012) + vec3(0.16) * lit.z + pal(winHue + 0.5) * 0.04 * lit.y;
             col = mix(col, metal, lead * 0.9);

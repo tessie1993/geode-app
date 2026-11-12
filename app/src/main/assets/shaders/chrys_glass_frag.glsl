@@ -118,6 +118,8 @@ float gPitch;
 float gHue;
 float gRipple;
 float gStreak;
+/** Twist's sweep of the window's petals. */
+float gCurl;
 
 // ---- the window ---------------------------------------------------------------
 
@@ -155,7 +157,7 @@ vec3 roseGlass(vec2 p, float wid, float aa) {
         float tipR = 0.2 + 0.124 * f;
         float len = 0.16 + 0.05 * f;
         vec2 q = chrysTurn(chrysRingOffset(k, count)) * pc;
-        vec4 pet = chrysPetal(q, count, tipR - len, len, 0.62, uTwist, 0.45, 0.7);
+        vec4 pet = chrysPetal(q, count, tipR - len, len, 0.62, gCurl, 0.45, 0.7);
         if (pet.x < 0.0) {
             pane = vec2(k + 1.0, mod(pet.w, count));
             paneT = k / (gRings - 1.0);
@@ -241,7 +243,8 @@ float vaultAir(vec3 p) {
     return length(vec2(ax + off, max(p.y, CG_SPRING) - CG_SPRING)) - CG_VAULT_R;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (the stone and the window's embrasure only: no slots). */
+float mapAt(vec3 p, inout ChrysHit found) {
     float ax = abs(p.x);
     float zb = mod(p.z, CG_BAY);
     // Distance along z to the nearest pier plane, and offset from the window centre.
@@ -263,11 +266,15 @@ float map(vec3 p) {
     return max(d, CG_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_chrys_field
 
 /** Window id on the side `side` (-1 left, +1 right) for the bay holding z. */
 float windowId(float z, float side) {
@@ -299,14 +306,20 @@ vec3 farColour(vec3 rd, vec3 fogCol, float light, float pxTan) {
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTex = clamp(uKnob[1], 0.0, 1.0);
-    float kFlow = clamp(uKnob[2], 0.0, 1.0);
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
-    gW = mix(3.7, 4.5, kSpace);
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    gW = chrysSpan(N.reach, mix(3.7, 4.5, 0.5), 3.7, 4.5);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gRings = 6.0 + floor(chrysSpan(N.rings, 0.0, 0.0, 2.0) + 0.5);
+    gCurl = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    float rippleK = chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    gStreak = chrysSpan(N.width, 0.18 * (0.4 + 1.2 * 0.5), 0.18 * 0.4, 0.18 * 1.6);
+    float sunK = chrysSpan(N.glow, 0.8 + 0.4 * 0.5, 0.8, 1.2);
+    float driftRate = chrysSpan(N.spin, 0.1 + 0.3 * 0.5, 0.1, 0.4);
+    float shaftK = chrysSpan(N.sway, 0.6 + 0.8 * 0.5, 0.6, 1.4);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.1, 0.1);
 
     vec3 ro;
     vec3 rd;
@@ -322,13 +335,9 @@ void main() {
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float light = 0.8 + 0.2 * swell;
     gPitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gRings = 6.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
     gBase = clamp(floor(uSymmetry + 0.5), 3.0, 12.0);
-    gHue = 0.6 + uKeyHue * clamp(uKeyStrength, 0.0, 1.0) + 0.2 * kTone;
-    gRipple = 0.22 * uIntensity * (0.5 + kPulse);
-    gStreak = 0.18 * (0.4 + 1.2 * kTex);
-    float sunK = 0.8 + 0.4 * kBuild;
+    gHue = 0.6 + uKeyHue * clamp(uKeyStrength, 0.0, 1.0) + hueShift;
+    gRipple = 0.22 * uIntensity * rippleK;
     // The sun outside the left wall, a little ahead; presence swings it.
     vec3 L = normalize(vec3(-0.78, 0.5, 0.3 + 0.15 * clamp(sndSpectrum(0.80), 0.0, 1.0)));
 
@@ -337,7 +346,8 @@ void main() {
     for (int i = 0; i < CG_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        float d = map(ro + rd * t);
+        fld = chrysField(ro + rd * t);
+        float d = fld.d;
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
             break;
@@ -355,8 +365,8 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
-        float ao = clamp(1.0 - 2.0 * (0.3 - map(p + n * 0.3)), 0.35, 1.0);
+        vec3 n = chrysNormal(p, max(0.0015, 0.001 * hitT));
+        float ao = clamp(1.0 - 2.0 * (0.3 - chrysField(p + n * 0.3).d), 0.35, 1.0);
         float ndv = clamp(dot(n, -rd), 0.05, 1.0);
         float ax = abs(p.x);
         float side = p.x < 0.0 ? -1.0 : 1.0;
@@ -422,7 +432,7 @@ void main() {
     vec3 shaft = vec3(0.0);
     float segT = min(sceneT, 26.0);
     float jit = chrysHash(gl_FragCoord.xy);
-    float drift = uTime * (0.1 + 0.3 * kFlow);
+    float drift = uTime * driftRate;
     for (int i = 0; i < CG_SHAFT_STEPS; i++) {
         float ts = (float(i) + jit) / float(CG_SHAFT_STEPS) * segT;
         vec3 s = ro + rd * ts;
@@ -436,7 +446,7 @@ void main() {
                    + 0.2 * sin(s.z * (CG_TAU * 5.0 / 16.0) + s.x * 2.1 + drift * 0.8);
         shaft += roseTint(sw.xy, sw.z) * max(dust, 0.0) * exp(-ts * 0.07);
     }
-    shaft *= segT / float(CG_SHAFT_STEPS) * 0.028 * sunK * light * (0.6 + 0.8 * kFlow);
+    shaft *= segT / float(CG_SHAFT_STEPS) * 0.028 * sunK * light * shaftK;
     col += shaft;
 
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));

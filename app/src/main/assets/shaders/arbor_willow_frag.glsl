@@ -62,7 +62,8 @@ float gHem;
 float gSway;
 float gTime;
 float gRings;
-float gIsLeaf;
+/** The curtain strands' radius (density). */
+float gStrand;
 
 /** Height of the crown's underside above radius r: the curtain's top. */
 float crownUnder(float r) {
@@ -86,22 +87,20 @@ float curtain(vec3 p) {
     float sway = gSway * drop * drop * sin(gTime * (0.6 + 0.3 * h) + h * 6.2831);
     vec2 q = vec2(r - R + 0.12 * h, r * sin(da) - sway);
     float vy = max(p.y - top, 0.0) + max(hem - p.y, 0.0);
-    float rad = 0.022 * (1.0 + 0.35 * sin(p.y * 22.0 + h * 9.0));
+    float rad = gStrand * (1.0 + 0.35 * sin(p.y * 22.0 + h * 9.0));
     return length(vec3(q, vy)) - rad;
 }
 
-float map(vec3 p) {
-    float tree = arborTree(p - vec3(0.0, WL_TRUNK_Y, 0.0), gF, gGrow);
+/** The world: the tree and the curtain, cut at the pond. mat.x is 1 on the curtain, 0 on the limbs. */
+ArborHit arborMap(vec3 p) {
+    ArborHit h = arborTree(p - vec3(0.0, WL_TRUNK_Y, 0.0), gF, gGrow);
     float c = curtain(p) * 0.8;
-    gIsLeaf = step(c, tree);
-    return max(min(tree, c), WL_WATER - p.y);
+    h.mat.x = step(c, h.d);
+    h.d = max(min(h.d, c), WL_WATER - p.y);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 vec3 skyCol(vec3 rd, vec3 moonDir, float hue) {
     float up = clamp(rd.y * 0.5 + 0.5, 0.0, 1.0);
@@ -115,16 +114,17 @@ vec3 skyCol(vec3 rd, vec3 moonDir, float hue) {
 
 void main() {
     vec2 uv = arbView();
-    float kPulse = arbKnob(0);
-    float kTexture = arbKnob(1);
-    float kFlow = arbKnob(2);
-    float kTone = arbKnob(3);
-    float kBuild = arbKnob(4);
-    float kSpace = arbKnob(5);
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float reach = arbSpan(N.reach, 1.0, 0.8, 1.2);
+    float glow = arbSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
+    gStrand = arbSpan(N.density, 0.022, 0.016, 0.03);
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = max(arbChaos() + 0.5 * kFlow, 0.0);
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float mid = clamp(SND_MID_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
@@ -132,10 +132,10 @@ void main() {
 
     gTime = t;
     gGrow = arbLevels(7.0, 1.0);
-    gRings = 3.0 + floor(arbMorph() + 0.5);
-    float twist = 2.4 + 0.05 * sin(t * 0.23) + chaos * 0.35 * sin(t * 1.7) + 0.6 * uTwist;
+    gRings = 3.0 + floor(N.levels + 0.5);
+    float twist = 2.4 + 0.05 * sin(t * 0.23) + chaos * 0.35 * sin(t * 1.7);
     float droop = 0.20 + 0.20 * mid + 0.03 * sin(t * 0.4) + chaos * 0.05 * sin(t * 2.3);
-    gF = ArborForm(2.0, 0.36, droop, twist, 0.78, 1.40, 0.065 * (1.0 + 0.5 * kTexture), 0.78);
+    gF = arborShape(ArborForm(2.0, 0.36, droop, twist, 0.78, 1.40, 0.065, 0.78), N);
     gHem = clamp(1.5 - 0.8 * mid, 0.2, 1.6);
     gSway = 0.10 + 0.25 * chaos;
 
@@ -144,7 +144,7 @@ void main() {
     camAround(uv, 10.5, 3.0 * CAM_SPIN_UNIT, ro, rd);
 
     vec3 moonDir = normalize(vec3(-0.45, 0.42, 0.78));
-    float hue = 0.48 + 0.05 * sin(t * 0.02) + 0.6 * kTone;
+    float hue = 0.48 + 0.05 * sin(t * 0.02) + hueShift;
 
     float tPlane = rd.y < -1e-4 ? (WL_WATER - ro.y) / rd.y : 1e9;
     float tMax = min(WL_FAR, tPlane);
@@ -158,12 +158,13 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > tMax) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            hitLevel = gArbLevel;
-            hitLeaf = gIsLeaf;
+            hitLevel = h.level;
+            hitLeaf = h.mat.x;
             break;
         }
         tm += d * 0.8;
@@ -172,7 +173,7 @@ void main() {
     vec3 col;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
+        vec3 n = arborNormal(p, 0.0012 * hitT + 0.0006);
         vec3 lit = arbLight(n, rd, moonDir, 0.6, 18.0);
         float ao = arbStepAO(used, uSteps);
         vec3 bark = vec3(0.13, 0.11, 0.10);
@@ -183,7 +184,7 @@ void main() {
         col += vec3(0.6, 0.7, 0.8) * lit.y * 0.25 * ao + vec3(lit.z) * 0.15;
         // The hem catches a little moonlight thrown back off the pond.
         col += leaf * 0.15 * smoothstep(WL_WATER + 1.5, WL_WATER, p.y) * leafy;
-        col = mix(col, skyCol(rd, moonDir, hue), 1.0 - exp(-hitT * 0.035 / (1.0 + 0.4 * kSpace)));
+        col = mix(col, skyCol(rd, moonDir, hue), 1.0 - exp(-hitT * 0.035 / reach));
     } else if (tPlane < WL_FAR) {
         vec3 p = ro + rd * tPlane;
         float r = length(p.xz);
@@ -217,12 +218,12 @@ void main() {
         if (along < 0.0 || along > tHit) continue;
         float dist = length(w - rd * along);
         float twinkle = 0.6 + 0.4 * sin(t * (2.0 + hash11(fk + 5.0) * 3.0) + fk);
-        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * 0.8 * (1.0 + kBuild);
+        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * 0.8 * glow;
     }
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
     // k0 PULSE: the emission, as lib_flame's finish.
-    col *= 1.0 + 0.5 * kPulse;
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

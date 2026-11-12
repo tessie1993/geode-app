@@ -54,6 +54,11 @@
 // The depth layers and formulas (midground haze, far fractal, uFormula) that lib_loom, lib_petal and lib_fold include at their end.
 "lib_layers",
 // Their second halves, included after the style's own map: the march that calls it (no prototypes).
+// The five older families' field (the style's map through one entry point, where Grow wraps it).
+"lib_arbor_field",
+"lib_bulb_field",
+"lib_chrys_field",
+"lib_lucid_field",
 "lib_flame_march",
 "lib_opal_march",
 "lib_hollow_march",

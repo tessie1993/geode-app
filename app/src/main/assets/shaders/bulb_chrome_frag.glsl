@@ -70,16 +70,13 @@ float gHue;
 float gStrip;
 int gIters;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
-    return bulbDE(bulbChaos(p), 7.0, 7.0, gPhase, gIters, tr) / bulbChaosLip();
+    return BulbHit(bulbDE(bulbChaos(p), 7.0, 7.0, gPhase, gIters, tr) / bulbChaosLip(), tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 // A HIGH-KEY studio: a white cyclorama that grades from a mid-grey floor up
 // to a bright ceiling, broad softboxes and the coloured strips. Chrome is only
@@ -103,7 +100,8 @@ void main() {
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float mid = clamp(0.35 * sndSpectrum(0.57) + 0.65 * SND_MID_PRESENCE / 1.5, 0.0, 1.0);
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float jitter = 0.15 * clamp(uTurbulence, 0.0, 1.0) * sin(bulbTime() * 1.7);
+    // The normalization shell (lib_bulb): Turbulence's jitter of the phase, mapped here, once.
+    float jitter = bulbSpan(bulbIn().stir, 0.0, 0.0, 0.15) * sin(bulbTime() * 1.7);
     gPhase = vec2(0.85 * mid * bulbEnergy(), jitter);
     gStudioTurn = 0.03 * bulbTime();
     gHue = 0.55 + 0.04 * sin(bulbTime() * 0.013);
@@ -131,7 +129,8 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
@@ -144,7 +143,7 @@ void main() {
     vec3 col = studio(rd) * 0.55;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         float ndv = max(dot(n, -rd), 0.0);
         float ao = bulbStepAO(used);
         vec3 metal = mix(vec3(0.9, 0.92, 0.95), tone(gHue + 0.1), 0.12);

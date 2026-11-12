@@ -94,14 +94,8 @@ float gVein;
 float gLip;
 float gGlow;
 
-/** Set by map(): the nearest surface's distance and what it is. */
-float gD;
-float gU;
-float gV;
-float gDim;
-float gHueOff;
-/** 0 petal, 1 seed pod, -1 nothing (outside the bound). */
-float gMat;
+/** Morph: how far the back ring and the second bud ring have grown, 0..1. */
+float gMorph;
 
 vec3 sunDir() {
     return normalize(vec3(-0.62, 0.22, -0.75));
@@ -111,7 +105,7 @@ vec3 sunDir() {
  * One petal at azimuth `a` about +y, its axis `tilt` radians from upright.
  * q is relative to the flower's base.
  */
-void petal(vec3 q, float a, float tilt, float len, float width, float cup, float curl, float dim, float hueOff) {
+void petal(vec3 q, float a, float tilt, float len, float width, float cup, float curl, float dim, float hueOff, inout ChrysHit found) {
     float ca = cos(a);
     float sa = sin(a);
     // Turn about y so the petal points along +z.
@@ -129,18 +123,18 @@ void petal(vec3 q, float a, float tilt, float len, float width, float cup, float
     leaf.x += chrysFray(lq * 0.5, gFray);
     float u = clamp(leaf.y, 0.0, 1.0);
     float d = max(leaf.x, abs(h) - LO_THICK * (1.4 - 0.8 * u));
-    if (d < gD) {
-        gD = d;
-        gU = u;
-        gV = clamp(leaf.z, -1.0, 1.0);
-        gDim = dim;
-        gHueOff = hueOff;
-        gMat = 0.0;
+    if (d < found.b.w) {
+        found.b.w = d;
+        found.a.x = u;
+        found.a.y = clamp(leaf.z, -1.0, 1.0);
+        found.a.z = dim;
+        found.a.w = hueOff;
+        found.mat = 0.0;
     }
 }
 
 /** A ring of `count` petals: the two nearest to q are measured, so neighbours overlap. */
-void ring(vec3 q, float count, float offset, float tilt, float len, float width, float cup, float curl, float dim, float hueOff, float seed) {
+void ring(vec3 q, float count, float offset, float tilt, float len, float width, float cup, float curl, float dim, float hueOff, float seed, inout ChrysHit found) {
     if (len < 0.01) return;
     float stepA = CHRYS_TAU / count;
     // +1e-6: atan(0, 0) is undefined in GLSL ES, and the axis is inside the pod.
@@ -151,53 +145,58 @@ void ring(vec3 q, float count, float offset, float tilt, float len, float width,
     for (int s = 0; s < 2; s++) {
         float jj = s == 0 ? j : j2;
         float w = gChaos * chrysWobble(mod(jj, count) + seed, gT);
-        petal(q, offset + jj * stepA + 0.1 * w, tilt + 0.08 * w, len * (1.0 + 0.05 * w), width, cup, curl, dim, hueOff);
+        petal(q, offset + jj * stepA + 0.1 * w, tilt + 0.08 * w, len * (1.0 + 0.05 * w), width, cup, curl, dim, hueOff, found);
     }
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 petal, 1 seed pod, -1 nothing (outside the bound); a.x u, a.y v, a.z the ring's dimming, a.w its hue offset, b.w the nearest surface's distance). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = p - vec3(0.0, LO_BASE_Y, 0.0);
     float db = length(q - vec3(0.0, LO_BOUND_UP, 0.0)) - LO_BOUND_R;
     if (db > 0.3) {
-        gMat = -1.0;
+        found.mat = -1.0;
         return db;
     }
 
-    gD = 1e9;
-    gMat = -1.0;
+    found.b.w = 1e9;
+    found.mat = -1.0;
 
-    float morph = clamp(uMorph, 0.0, 1.0);
+    float morph = gMorph;
     // The back ring: only with Complexity, lying almost flat on the water.
     if (morph > 0.01) {
-        ring(q, 11.0, 0.17, 1.46 + 0.5 * gOpen, 1.3 * smoothstep(0.0, 0.5, morph), 0.42, 0.5, 0.18, 0.42, 0.04, 31.0);
+        ring(q, 11.0, 0.17, 1.46 + 0.5 * gOpen, 1.3 * smoothstep(0.0, 0.5, morph), 0.42, 0.5, 0.18, 0.42, 0.04, 31.0, found);
     }
     // The outer ring lies out over the water; the snare swings it up.
-    ring(q, 9.0, 0.0, mix(1.3, 0.78, gLift) + gOpen, 1.2, 0.48, 0.55, 0.22, 0.55, 0.02, 27.0);
-    ring(q, 8.0, 0.5, 0.92 + 0.7 * gOpen, 1.05, 0.5, 0.7, 0.28, 0.75, 0.0, 24.0);
-    ring(q, 6.0, 0.21, 0.46 + 0.4 * gOpen, 0.9, 0.52, 0.8, 0.34, 0.95, -0.03, 18.0);
+    ring(q, 9.0, 0.0, mix(1.3, 0.78, gLift) + gOpen, 1.2, 0.48, 0.55, 0.22, 0.55, 0.02, 27.0, found);
+    ring(q, 8.0, 0.5, 0.92 + 0.7 * gOpen, 1.05, 0.5, 0.7, 0.28, 0.75, 0.0, 24.0, found);
+    ring(q, 6.0, 0.21, 0.46 + 0.4 * gOpen, 0.9, 0.52, 0.8, 0.34, 0.95, -0.03, 18.0, found);
     // The bud ring: barely there at rest, standing up on a snare.
-    ring(q, 4.0, 0.9, 0.16, 0.72 * (0.25 + 0.75 * gLift), 0.55, 0.9, 0.4, 1.05, -0.06, 12.0);
+    ring(q, 4.0, 0.9, 0.16, 0.72 * (0.25 + 0.75 * gLift), 0.55, 0.9, 0.4, 1.05, -0.06, 12.0, found);
     if (morph > 0.5) {
-        ring(q, 5.0, 1.4, 0.3, 0.55 * smoothstep(0.5, 1.0, morph) * (0.3 + 0.7 * gLift), 0.6, 0.9, 0.4, 1.1, -0.09, 15.0);
+        ring(q, 5.0, 1.4, 0.3, 0.55 * smoothstep(0.5, 1.0, morph) * (0.3 + 0.7 * gLift), 0.6, 0.9, 0.4, 1.1, -0.09, 15.0, found);
     }
 
     // The seed pod: a short rounded drum in the heart.
     vec2 dd = abs(vec2(length(q.xz), q.y - 0.13)) - vec2(0.15, 0.13);
     float pod = min(max(dd.x, dd.y), 0.0) + length(max(dd, 0.0)) - 0.02;
-    if (pod < gD) {
-        gD = pod;
-        gMat = 1.0;
-        gU = q.y;
-        gV = length(q.xz);
+    if (pod < found.b.w) {
+        found.b.w = pod;
+        found.mat = 1.0;
+        found.a.x = q.y;
+        found.a.y = length(q.xz);
     }
-    return gD / gLip;
+    return found.b.w / gLip;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_chrys_field
 
 /** Where the ray enters and leaves the bounding sphere; x > y when it misses. */
 vec2 boundSpan(vec3 ro, vec3 rd) {
@@ -215,7 +214,7 @@ float marchFlower(vec3 ro, vec3 rd, float t0, float t1, float budget) {
     float t = t0;
     for (int i = 0; i < LO_MAX_STEPS; i++) {
         if (float(i) >= budget) break;
-        float d = map(ro + rd * t);
+        float d = chrysField(ro + rd * t).d;
         if (d < 0.0012 + 0.0006 * t) return t;
         t += d * 0.85;
         if (t > t1) break;
@@ -231,8 +230,8 @@ vec3 skyColour(vec3 rd) {
     return col;
 }
 
-/** The flower's colour at a hit; map(p) must have been the last call, so the globals are the hit's. */
-vec3 shadeFlower(vec3 p, vec3 rd, vec3 n, float swell) {
+/** The flower's colour at a hit, `hit` the field there. */
+vec3 shadeFlower(vec3 p, vec3 rd, vec3 n, float swell, ChrysHit hit) {
     // Petals are thin: light the side facing the eye, and let the low sun
     // shine through from behind.
     if (dot(n, rd) > 0.0) n = -n;
@@ -241,7 +240,7 @@ vec3 shadeFlower(vec3 p, vec3 rd, vec3 n, float swell) {
     float through = max(dot(-n, L), 0.0);
     float fres = pow(1.0 - clamp(-dot(n, rd), 0.0, 1.0), 3.0);
     float sky = 0.5 + 0.5 * n.y;
-    if (gMat > 0.5) {
+    if (hit.mat > 0.5) {
         // The pod: gold-green, its flat top pricked with darker seeds.
         vec3 pc = mix(vec3(0.72, 0.6, 0.24), pal(gHue + 0.15), 0.25);
         vec2 top = (p.xz) / 0.15;
@@ -251,16 +250,16 @@ vec3 shadeFlower(vec3 p, vec3 rd, vec3 n, float swell) {
         pc *= 1.0 - 0.6 * isTop * (1.0 - smoothstep(0.14, 0.22, min(seed, length(top))));
         return pc * (0.12 * sky + 0.7 * dif) + pal(gHue + 0.1) * 0.08 * (0.6 + 0.4 * swell);
     }
-    float u = gU;
-    float v = gV;
+    float u = hit.a.x;
+    float v = hit.a.y;
     // Cream at the base flushing to the palette at the tip, with fine
     // lengthwise veins and a crease down the middle, as the flat lotus had.
     vec3 cream = vec3(0.95, 0.9, 0.86);
-    vec3 pc = mix(cream, pal(gHue + gHueOff), smoothstep(0.25, 1.0, u));
+    vec3 pc = mix(cream, pal(gHue + hit.a.w), smoothstep(0.25, 1.0, u));
     float veins = (1.0 - gVein) + gVein * cos(v * 14.0);
     float crease = 1.0 - 0.25 * exp(-abs(v) * 10.0);
     float tuck = mix(0.45, 1.0, smoothstep(0.0, 0.4, u));
-    pc *= veins * crease * tuck * mix(1.0, gDim, 0.5);
+    pc *= veins * crease * tuck * mix(1.0, hit.a.z, 0.5);
     vec3 col = pc * (0.1 * sky + 0.62 * dif);
     // Backlit petals glow, more at their thin tips.
     col += pc * pal(gHue + 0.08) * through * (0.35 + 0.45 * u) * gGlow;
@@ -294,26 +293,27 @@ vec4 lilyPads(vec2 w) {
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    // This style's older knob roles: PULSE lifts the outer ring on the snare, SPACE opens the rings.
+    ChrysIn N = chrysIn();
+    float liftK = chrysSpan(N.emit, 1.0, 0.4, 1.6);
+    float rippleK = chrysSpan(N.sway, 1.0, 0.6, 1.4);
+    gMorph = chrysSpan(N.rings, 0.0, 0.0, 1.0);
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    gLift = clamp(chrysBumpLean(SND_SNARE_ENV, 2.0) * uIntensity * (1.0 + 1.2 * kPulse), 0.0, 1.2);
+    gLift = clamp(chrysBumpLean(SND_SNARE_ENV, 2.0) * uIntensity * liftK, 0.0, 1.2);
     float bass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gFray = gChaos + max(kTexture, 0.0) * 0.8;
-    gVein = 0.08 * (1.0 + 1.6 * kTexture);
-    gTwist = clamp(uTwist, -0.5, 0.5);
-    gOpen = 0.25 * kSpace;
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gFray = gChaos + chrysSpan(N.fray, 0.0, 0.0, 0.4);
+    gVein = chrysSpan(N.width, 0.08, 0.016, 0.144);
+    gTwist = clamp(chrysSpan(N.curl, 0.0, -1.0, 1.0), -0.5, 0.5);
+    gOpen = chrysSpan(N.reach, 0.0, -0.125, 0.125);
     gLip = 1.7 + 2.7 * abs(gTwist) + 0.6 * gFray;
-    gHue = 0.95 + 0.02 * sin(gT * 0.03) + 0.08 * kTone;
-    gGlow = (0.8 + 0.2 * swell) * (1.0 + 0.9 * kBuild);
+    gHue = 0.95 + 0.02 * sin(gT * 0.03) + chrysSpan(N.tone, 0.0, -0.04, 0.04);
+    gGlow = (0.8 + 0.2 * swell) * chrysSpan(N.glow, 1.0, 0.55, 1.45);
 
 
     vec3 ro;
@@ -331,9 +331,9 @@ void main() {
     vec3 col = sky;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.001 + 0.0006 * hitT);
-        map(p);
-        col = shadeFlower(p, rd, n, swell);
+        vec3 n = chrysNormal(p, 0.001 + 0.0006 * hitT);
+        fld = chrysField(p);
+        col = shadeFlower(p, rd, n, swell, fld);
         col = mix(col, sky, 1.0 - exp(-hitT * 0.03));
     } else if (tWater < LO_FAR) {
         vec3 w = ro + rd * tWater;
@@ -344,7 +344,7 @@ void main() {
         } else {
             // Rings spreading from the stem tilt the water; the bass sets how hard.
             float rr = max(length(w.xz), 1e-3);
-            float amp = (0.02 + 0.1 * bass) * (1.0 + 0.8 * kFlow);
+            float amp = (0.02 + 0.1 * bass) * rippleK;
             float wave = rr * 14.0 - gT * 2.2;
             float slope = amp * sin(wave) * exp(-0.25 * rr);
             vec3 n = normalize(vec3(w.x / rr * slope, 1.0, w.z / rr * slope));
@@ -357,9 +357,9 @@ void main() {
                 float rt = marchFlower(wo, rf, rs.x, rs.y, uSteps * 0.5);
                 if (rt > 0.0) {
                     vec3 rp = wo + rf * rt;
-                    vec3 rn = normalAt(rp, 0.0015 + 0.0006 * rt);
-                    map(rp);
-                    refl = shadeFlower(rp, rf, rn, swell);
+                    vec3 rn = chrysNormal(rp, 0.0015 + 0.0006 * rt);
+                    fld = chrysField(rp);
+                    refl = shadeFlower(rp, rf, rn, swell, fld);
                 }
             }
             float fres = 0.35 + 0.65 * pow(1.0 - clamp(-dot(rd, n), 0.0, 1.0), 4.0);

@@ -64,20 +64,15 @@ vec3 tone(float t) {
 }
 
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = bulbDE(bulbChaos(p), 9.0, 9.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 /** A thin line on every integer of f, `w` pixels wide, antialiased. */
 float lineOn(float f, float w) {
@@ -91,7 +86,8 @@ void main() {
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float air = clamp(clamp(sndSpectrum(0.93), 0.0, 1.0) * bulbEnergy(), 0.0, 1.5);
     float phase = sndPhase(SND_CURVED_TIME, 2.0);
-    float dense = 1.0 + clamp(uMorph, 0.0, 1.0);
+    // The normalization shell (lib_bulb): Morph doubles the contour lines' density, mapped here, once.
+    float dense = bulbSpan(bulbIn().iters, 1.0, 1.0, 2.0);
     gIters = bulbIters(6);
 
     // MACRO: a survey flight. The eye drifts low over the crust, slower than
@@ -118,11 +114,12 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -136,7 +133,7 @@ void main() {
     float ao = 1.0;
     vec3 p = ro + rd * max(hitT, 0.0);
     if (hitT > 0.0) {
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
         ao = bulbStepAO(used);
         fA = log2(max(trap.x, 1e-4)) * 2.2 - phase;

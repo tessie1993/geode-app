@@ -104,14 +104,9 @@ float gChaos;
 float gFill;
 float gSway;
 float gCurl;
-/** Set by map() at the last petal it measured: hash, 2D outline distance, u, v, and the side (sign = top/underside). */
-float gH;
-float gD2;
-float gU;
-float gV;
-float gSide;
 
-float map(vec3 p0) {
+/** The style's world at p: its distance, and in `found` what is there (at the last petal measured: a.x its hash, a.y its 2D outline distance, a.z its u, a.w its v, b.x its side (sign = top or underside)). */
+float mapAt(vec3 p0, inout ChrysHit found) {
     vec3 p = p0;
     // The wind: the whole fall sways sideways, a slow wave down z (period 64).
     p.x += gSway * sin(gT * 0.31 + p.z * (PF_TAU / 64.0));
@@ -162,19 +157,23 @@ float map(vec3 p0) {
     vec2 w = vec2(d2 / 1.75, (abs(zc) - PF_THICK) / 1.25);
     float dp = 0.85 * (min(max(w.x, w.y), 0.0) + length(max(w, 0.0)));
 
-    gH = h;
-    gD2 = d2;
-    gU = pet.y;
-    gV = pet.z;
-    gSide = zc;
+    found.a.x = h;
+    found.a.y = d2;
+    found.a.z = pet.y;
+    found.a.w = pet.z;
+    found.b.x = zc;
     return max(min(dp, dEdge), dBubble);
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_chrys_field
 
 /** Dusk sky and the bloom far out of focus, fixed at infinity. */
 vec3 skyColour(vec3 rd, float hue, float bloomK) {
@@ -194,6 +193,7 @@ vec3 skyColour(vec3 rd, float hue, float bloomK) {
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
@@ -206,22 +206,24 @@ void main() {
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-
-    float air = clamp(sndSpectrum(0.93) * uIntensity, 0.0, 1.5) * (0.5 + uKnob[1]);
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
-    gFill = mix(0.5, 0.05, clamp(uMorph, 0.0, 1.0));
-    gSway = (0.6 + 0.8 * gChaos) * (0.5 + uKnob[2]);
-    gCurl = clamp(0.15 + 0.35 * uTwist, -0.5, 0.5);
-    float hue = 0.9 + 0.02 * sin(gT * 0.02) + 0.3 * (uKnob[3] - 0.5);
-    float bloomK = 0.5 + uKnob[4];
-    float fogK = 0.06 * (1.5 - uKnob[5]);
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    float air = clamp(sndSpectrum(0.93) * uIntensity, 0.0, 1.5) * chrysSpan(N.width, 1.0, 0.5, 1.5);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0);
+    gFill = chrysSpan(N.rings, 0.5, 0.5, 0.05);
+    gSway = (0.6 + 0.8 * gChaos) * chrysSpan(N.sway, 1.0, 0.5, 1.5);
+    gCurl = chrysSpan(N.curl, 0.15, -0.2, 0.5);
+    float hue = 0.9 + 0.02 * sin(gT * 0.02) + chrysSpan(N.tone, 0.0, -0.15, 0.15);
+    float bloomK = chrysSpan(N.glow, 1.0, 0.5, 1.5);
+    float fogK = chrysSpan(N.reach, 0.06, 0.09, 0.03);
 
     float t = 0.05;
     float hitT = -1.0;
     for (int i = 0; i < PF_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        float d = map(ro + rd * t);
+        fld = chrysField(ro + rd * t);
+        float d = fld.d;
         if (d < 0.001 + 0.0006 * t) {
             hitT = t;
             break;
@@ -234,18 +236,18 @@ void main() {
     vec3 col = sky;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0008 * hitT));
-        // Restore the hit petal's globals after the normal taps.
-        map(p);
+        vec3 n = chrysNormal(p, max(0.0015, 0.0008 * hitT));
+        // The hit petal again for the shading, after the normal taps.
+        fld = chrysField(p);
         // A thin petal: light the face the eye sees.
         if (dot(n, rd) > 0.0) n = -n;
 
-        float u = clamp(gU, 0.0, 1.0);
-        bool under = gSide < 0.0;
-        vec3 top = pal(hue + 0.1 * gH) * mix(0.55, 1.0, u);
-        vec3 bottom = mix(pal(hue + 0.1 * gH), vec3(1.0, 0.95, 0.95), 0.45) * 0.7;
+        float u = clamp(fld.a.z, 0.0, 1.0);
+        bool under = fld.b.x < 0.0;
+        vec3 top = pal(hue + 0.1 * fld.a.x) * mix(0.55, 1.0, u);
+        vec3 bottom = mix(pal(hue + 0.1 * fld.a.x), vec3(1.0, 0.95, 0.95), 0.45) * 0.7;
         vec3 base = under ? bottom : top;
-        float shade = chrysPetalShade(vec4(gD2, gU, gV, 0.0), 0.5);
+        float shade = chrysPetalShade(vec4(fld.a.y, fld.a.z, fld.a.w, 0.0), 0.5);
 
         vec3 L = normalize(vec3(-0.3, 0.8, -0.4));
         float dif = 0.35 + 0.65 * max(dot(n, L), 0.0);
@@ -257,8 +259,8 @@ void main() {
             + pal(hue + 0.1) * fres * 0.12;
 
         // Air shimmer: a light running along the rim.
-        float rim = smoothstep(0.03, 0.0, abs(gD2));
-        float run = pow(0.5 + 0.5 * sin(u * 18.0 - gT * 6.0 + gH * 30.0), 6.0);
+        float rim = smoothstep(0.03, 0.0, abs(fld.a.y));
+        float run = pow(0.5 + 0.5 * sin(u * 18.0 - gT * 6.0 + fld.a.x * 30.0), 6.0);
         col += mix(col, vec3(1.0), 0.5) * rim * run * 0.6 * air;
 
         // Haze: far petals sink into the dusk.

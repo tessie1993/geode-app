@@ -177,6 +177,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
+- `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
 - `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
@@ -201,6 +202,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Open first: `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
 - Stores (SharedPreferences, JSON files) and their repositories.
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
+- `MilkPathPrefs`: the last MilkDrop preset's path (`geode-viz`, key `milk_path`).
 - The bundled looks: `BuiltInPresets`.
 - `MediaStoreSource`: the screens' consent requests and picked-folder grants; main-safe on IO.
 - `MediaStoreSource` also owns the controllers' picked-document I/O: the background image's grant and readability, preset, template and .milk reads, a .milk folder walk, the preset mirror folder's copies and deletes, a queued file's display name. No `*Controller` in `ui/` calls the `ContentResolver` (#896 step 1).
@@ -296,22 +298,31 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The artwork palette's shell (`ArtPalette`): a cover's pixels to native `core/viz/ArtPalette`, `geode_art_palette_extract`.
 - Customize › Look's "Take the colours from the artwork" and the widget's glow read it.
 
+## `stage`
+
+- Open first: `Stage`, `StageView`.
+- The Kotlin shell of the native stage (`core/stage`, [native-stage.md](native-stage.md)); it decides nothing.
+- `Stage` holds one opaque stage handle, hands it the look, sound, touch and tilt, and polls its events on the main thread (a `Choreographer` callback).
+- `StageView` is a `SurfaceView` with its `SurfaceHolder.Callback2`: window, size, redraw and visibility go to the stage as they arrive.
+- `RecordMark` rasterises the free tier's mark for Record's tee.
+- A `Cleaner` destroys a stage nobody closed.
+
 ## `wallpaper`
 
 - Open first: `VisualizerWallpaperService`, `WallpaperRunState`, `SoundSource`, `EdgeGlow`, `VisualizerDreamService`.
-- The live wallpaper and the dream; each builds its own `VisualizerView`.
+- The live wallpaper and the dream; each owns a surface stage (`stage/Stage`, `STAGE_KIND_SURFACE`).
 - The wallpaper's run rule is native (`core/viz/SurfaceRun`, `geode_surface_*`); `WallpaperConditions` only packs what the shell sees.
 - The wallpaper stops when hidden or covered by the shade or recents.
 - It holds a still frame without Pro or once a trial ends.
 - It holds a still frame under reduced motion: the in-app switch or the system's Remove animations (`SystemAnimations`, a `ContentObserver` on `ANIMATOR_DURATION_SCALE`).
 - It holds a still frame in battery saver or after 6 s of silence; the silence rule is native in `core/sound/Silence`.
-- The still frame's 2 s settle is native too (`geode_surface_settle_ms`).
+- The still frame's 2 s settle is native too (`geode_surface_settle_ms`, run inside `geode_stage_set_surface`).
 - Why it holds still, the rule's first reason, is named on the options page (`geode_surface_reason`).
 - The phone's refusal of the output mix is one such reason, kept as `mix_refused`.
 - Its fps is `WallpaperSettings.fps`, the dream's `BehaviourPrefs.dreamFps`, default 30, snapped by `geode_surface_fps_choice`; not Performance's cap.
 - Its sound is `SoundSource`: the app's ring while fed, else any app's audio through `OutputMixCapture`, a `Visualizer` on the output mix.
 - The edge glow look is the AOD-like look, since ambient mode is a system API.
-- The edge glow is native (`core/viz/frame/EdgeGlowPass`); `EdgeGlow` is only its options, which `WallpaperRenderer` hands over through `geode_viz_set_edge_glow`.
+- The edge glow is native (`core/viz/frame/EdgeGlowPass`); `EdgeGlow` is only its options, which the wallpaper hands to its stage (`geode_viz_set_edge_glow`).
 - The wallpaper's options are `WallpaperPrefs`, own file `geode-wallpaper`, backed up with Settings but `mix_refused`.
 - The dream runs by the same rule and sound, except that silence shows no visual (dark, `GEODE_SURFACE_DARK_WHEN_SILENT`) where the wallpaper keeps a still frame.
 - The dream is covered when the proximity sensor reads near (`DreamCover`).
@@ -324,6 +335,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+).
 - Progress moves on a slow tick while playing.
 - The style on screen shows as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette).
+- The glow's light positions and hues are native (`core/viz/WidgetGlow`, `geode_widget_glow`); `WidgetVisual` only paints the gradients.
 - Style buttons go to the session through `WidgetStyles` (it collects `steps`, calls `publish`); with no session they open the app.
 - Play/pause is Media3's button action, the tile's rule: nothing loaded opens the app.
 
@@ -336,7 +348,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - While a cast streams the stage keeps drawing on every tab, even before Visuals was laid out, in its whole rect with no bars (`CastMirror.streaming`, `ui/Crystal`'s `VisualizerCanvasHost`, the rule native: `geode_stage_host`).
 - The tee fills the 16:9 stream with no bars or stretch: a portrait stage turned a quarter turn counter-clockwise (its top on the receiver's left), both centre-cropped (`tee::place`).
 - A new stream waits up to 3 s for the stage's first copy (`geode_cast_tee_await_stage`).
-- Only while the stage draws nothing (the app in the background) does a fallback `VisualizerRenderer` draw the saved look and the stage's last style and .milk (`CastMirror`).
+- Only while the stage draws nothing (the app in the background) does a fallback renderer (`CastFallback`, a `NativeViz` in the encoder's context) draw the saved look and the stage's last style and .milk (`CastMirror`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
 - `LiveLink` is the shell's handle on the native server: it hands the muxer's fragmented MP4 over and reads back the URLs and the stream's health.
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.

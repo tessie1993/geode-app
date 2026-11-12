@@ -1,9 +1,12 @@
 #include "stage/android/VsyncThread.hpp"
 
+#include "stage/StageCore.hpp"
+
 #include <pthread.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include <mutex>
 #include <thread>
 
 #include "util/Log.hpp"
@@ -21,17 +24,18 @@ constexpr int kDisplayNice = -4;
 enum VsyncCommand : uint16_t {
     kVsyncRun = 1,     // LastWins: a = 1 on, 0 off
     kVsyncCap = 2,     // LastWins: f = cap fps
-    kVsyncDetach = 3,  // Ordered
 };
 
-// Ordered commands wait at most this long for room; the queue only fills under a burst of stages.
+// A command waits at most this long for room; the queue only fills under a burst of stages.
 constexpr std::chrono::milliseconds kPushWithin{200};
 
 }  // namespace
 
 VsyncThread& VsyncThread::process() {
-    static VsyncThread thread;
-    return thread;
+    // Leaked on purpose: its detached thread runs until the process dies, and a static object would be destroyed
+    // at exit under it.
+    static VsyncThread* const thread = new VsyncThread;
+    return *thread;
 }
 
 VsyncThread::VsyncThread() : inbox_(std::make_shared<Inbox>()) {
@@ -39,8 +43,7 @@ VsyncThread::VsyncThread() : inbox_(std::make_shared<Inbox>()) {
 }
 
 VsyncThread::Sink* VsyncThread::attach(std::shared_ptr<Inbox> stage, float capFps) {
-    auto* sink = new Sink{StagePacing(capFps), std::move(stage), false};
-    return sink;
+    return new Sink{StagePacing(capFps), std::move(stage), false, nullptr};
 }
 
 void VsyncThread::run(Sink* sink, bool on) {
@@ -63,11 +66,27 @@ void VsyncThread::setCap(Sink* sink, float capFps) {
 
 void VsyncThread::detach(Sink* sink) {
     if (!sink) return;
-    Command c;
-    c.kind = kVsyncDetach;
-    c.target = sink;
-    // Never queued: the sink is leaked rather than freed under a callback that may still name it.
-    if (!inbox_->pushWithin(c, Merge::Ordered, kPushWithin)) GEODE_LOGE(kTag, "vsync detach dropped; one sink leaks");
+    // Not a queued command: a full queue would drop it and leave the sink's callback re-posting for good.
+    {
+        std::lock_guard<std::mutex> lock(detachLock_);
+        sink->nextDetached = detached_;
+        detached_ = sink;
+    }
+    Inbox::wake(inbox_.get());
+}
+
+VsyncThread::Sink* VsyncThread::takeDetached() {
+    std::lock_guard<std::mutex> lock(detachLock_);
+    Sink* taken = detached_;
+    detached_ = nullptr;
+    return taken;
+}
+
+void VsyncThread::retire(Sink* sink) {
+    sink->detached = true;
+    sink->pacing.stop();
+    // A pending callback still names the sink: it frees it when it lapses.
+    if (!sink->pacing.posted()) delete sink;
 }
 
 void VsyncThread::loop() {
@@ -82,9 +101,17 @@ void VsyncThread::loop() {
     inbox_->bind(looper);
     Command batch[Inbox::kCapacity];
     for (;;) {
+        // Taken before the drain and retired after it: a detach is its sink's last call, so every command for the
+        // sink is already queued when it is taken, and none is applied to a freed sink.
+        Sink* gone = takeDetached();
         // Drained before every sleep, the first time included, so pushes made before bind are not lost.
         for (size_t n = inbox_->queue.drain(batch, Inbox::kCapacity); n > 0; n = inbox_->queue.drain(batch, Inbox::kCapacity)) {
             for (size_t i = 0; i < n; ++i) apply(batch[i]);
+        }
+        while (gone) {
+            Sink* next = gone->nextDetached;
+            retire(gone);
+            gone = next;
         }
         // Choreographer callbacks run inside this call; every return is treated as a wake.
         ALooper_pollOnce(-1, nullptr, nullptr, nullptr);
@@ -103,12 +130,6 @@ void VsyncThread::apply(const Command& command) {
             }
             break;
         case kVsyncCap: sink->pacing.setCap(command.f); break;
-        case kVsyncDetach:
-            sink->detached = true;
-            sink->pacing.stop();
-            // A pending callback still names the sink: it frees it when it lapses.
-            if (!sink->pacing.posted()) delete sink;
-            break;
         default: break;
     }
 }

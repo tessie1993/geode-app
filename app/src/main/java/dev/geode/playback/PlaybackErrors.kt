@@ -1,6 +1,7 @@
 package dev.geode.playback
 
 import androidx.media3.common.PlaybackException
+import dev.geode.engine.bridge.GeodeNative
 
 object PlaybackErrors {
     sealed interface Action {
@@ -11,16 +12,14 @@ object PlaybackErrors {
         data object StopSourceUnavailable : Action
     }
 
-    const val MAX_CONSECUTIVE_FAILURES: Int = 3
-
     fun decide(
         consecutiveFailures: Int,
         hasNext: Boolean,
     ): Action =
-        when {
-            consecutiveFailures >= MAX_CONSECUTIVE_FAILURES -> Action.StopSourceUnavailable
-            !hasNext -> Action.StopEndOfQueue
-            else -> Action.SkipToNext
+        when (GeodeNative.playbackErrorAction(consecutiveFailures, hasNext)) {
+            0 -> Action.SkipToNext
+            1 -> Action.StopEndOfQueue
+            else -> Action.StopSourceUnavailable
         }
 
     fun describe(

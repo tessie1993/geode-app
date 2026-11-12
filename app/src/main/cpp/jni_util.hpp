@@ -15,9 +15,11 @@ public:
         if (!str) return;
         jclass type = env->GetObjectClass(str);
         jmethodID getBytes = env->GetMethodID(type, "getBytes", "(Ljava/lang/String;)[B");
-        jstring charset = env->NewStringUTF("UTF-8");
-        auto* bytes = getBytes && charset ? static_cast<jbyteArray>(env->CallObjectMethod(str, getBytes, charset)) : nullptr;
-        if (bytes) {
+        jstring charset = getBytes ? env->NewStringUTF("UTF-8") : nullptr;
+        auto* bytes = charset ? static_cast<jbyteArray>(env->CallObjectMethod(str, getBytes, charset)) : nullptr;
+        // With an exception pending (out of memory) only the deletes below are legal: the text stays invalid and
+        // the caller's Java frame sees the exception on return.
+        if (bytes && !env->ExceptionCheck()) {
             const jsize n = env->GetArrayLength(bytes);
             text_.resize(static_cast<size_t>(n));
             if (n > 0) env->GetByteArrayRegion(bytes, 0, n, reinterpret_cast<jbyte*>(text_.data()));

@@ -32,6 +32,11 @@ inline RunMode viewMode(uint32_t flags) {
     return (flags & all) == all ? RunMode::Animated : RunMode::Stopped;
 }
 
+// The tilt sensor runs only for a view somebody can see, in a host that is not paused, with the setting on.
+inline bool gyroListens(uint32_t flags, bool paused, bool wanted) {
+    return wanted && !paused && viewMode(flags) == RunMode::Animated;
+}
+
 enum class Act : uint8_t {
     None,
     CreateContext,

@@ -613,7 +613,8 @@ struct Rng {
 // The per-frame chain as Renderer::resolveParams ran it before #344, the stages called in that order on
 // stages of its own, less what changed since: the owner's rules took out the director's palette and routes
 // and the note layer's params; the old macro knobs became the director's axes and then the user's bank
-// (step 2 of the macro bank); the camera's moves are director.moves(). The oracle takes the bank's reach per
+// (step 2 of the macro bank); the camera's moves are director.moves(); the matrix hears the feeling the director
+// heard. The oracle takes the bank's reach per
 // frame from the style id, where the resolver caches it per style, so the cache is held to it too. The
 // parity property below holds the resolver to it bit for bit.
 struct OldChain {

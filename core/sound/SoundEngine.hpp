@@ -17,17 +17,18 @@
 
 namespace geode::sound {
 
-// The sound engine: MilkDrop's architecture and TouchDesigner's side by side, both on one sample clock.
+// The sound engine: two analyses side by side, a windowed spectrum and a per-sample filter bank, both on one
+// sample clock.
 //
-// MilkDrop: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
+// The spectrum: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
 // window out of it, transforms it and sums the spectrum into bands measured against their own running means
-// (bass, mid, treble, their att envelopes, everything spectral).
+// (bass, mid, treble, their att envelopes, everything spectral: the levels MilkDrop presets read).
 //
-// TouchDesigner: every sample also runs through a filter bank as it is written (4-pole bands with a power
+// The filter bank: every sample also runs through a filter bank as it is written (4-pole bands with a power
 // envelope), and each hop reduces the slice since the last hop to one level per band, which then goes
 // through Lag and Trigger (low, middle, high and the drums).
 //
-// The clock is the samples, not the frame (fosfora's HopAnalyzer::process_hop model). write() counts
+// The clock is the samples, not the frame: one analysis per fixed hop of samples. write() counts
 // samples, and every kHop of them (Rhythm::kHopSeconds, 10 ms: 441 at 44.1 kHz, 480 at 48 kHz) it runs one
 // whole analysis hop with dt = hop / rate: the filter bank's slice, the window, the FFT, every level and
 // descriptor, the drums and events, the melody, then the musical layer (Rhythm, Harmony, Form) and the
@@ -43,10 +44,10 @@ namespace geode::sound {
 //               phrase phases moved on to the frame's own sample, and the waveform (a drawing, per frame)
 //
 // Why 10 ms: it is Rhythm's hop already (the onset envelope needs 100 Hz), so one clock serves everything
-// and a beat, its kick and the frame's levels come from the same instant; it is madmom's rate exactly (its
-// beat activations run at 100 fps, online on one 2048-sample frame, the window here), where librosa's
-// default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps ~78 %; and it is shorter than any
-// frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
+// and a beat, its kick and the frame's levels come from the same instant; it is the 100 frames a second
+// that online beat trackers in the literature run their activations at (on one 2048-sample frame, the window
+// here), where a common analysis default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps
+// ~78 %; and it is shorter than any frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
 // FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
 //
 // step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,

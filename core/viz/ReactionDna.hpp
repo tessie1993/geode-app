@@ -18,10 +18,11 @@ namespace geode::viz {
 // the top end, colour over the song, rises and the melody, then the
 // transients, which every style hears, and last the song's long time (every
 // 4 bars or every phrase, counted on the music's own bars) and its tune (the
-// melody's line, height, notes or presence), its harmony and form (chords,
-// tension, key, sections, builds, drops, novelty) and its feel and timbre
-// (mood, brightness, noisiness, how the tune is played), which every style
-// hears too. No continuous layer follows the absolute loudness: volume is not
+// melody's line, height, notes or presence), its harmony or its form (chords
+// and their motion, tension, key, scale; sections, their return and progress,
+// the song part, builds, drops, novelty) and its feel and timbre (mood, the
+// key's character, the kind of feeling, brightness, noisiness, how the tune is
+// played), which every style hears too. No continuous layer follows the absolute loudness: volume is not
 // what the picture hears. No layer has a
 // fixed source: each draws its own from a pool of GeodeSoundFrame sources
 // (which kick, which level, what drives hue), so styles that share a

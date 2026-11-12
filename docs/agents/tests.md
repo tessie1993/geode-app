@@ -178,6 +178,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).
 - `viz_math_test.cpp` also pins the bar counts, the melody line, the feeling sources, the settled Jump, the tension's rise and MotionField's bar wave.
 - `viz_math_test.cpp` checks every style's DNA has its bar, tune, harmony-and-form and feel-and-timbre routes, no loudness drive, and variety within each Styles family.
+- `viz_math_test.cpp` also pins the song part's states, a section's return and progress, the chords' motion and the feeling's energy, key character and kind, and that some style's DNA hears each of the newer musical sources.
 - `wallpaper_window_test.cpp`: the wallpaper's on-screen window and fps pick.
 - `webrtc_rule_test.cpp`: Show on a computer over WebRTC (`core/viz/frame/WebRtcRule`): the H.264 sent, the offer read, LAN-only candidates, the RTP clock.
 - `widget_glow_test.cpp`: the widget's generated glow (`core/viz/WidgetGlow`): light positions per tick, hues from the cover or the style hash, span clamps.

@@ -7,8 +7,8 @@
 namespace geode::sound {
 
 // How much of its reach the music gets to spend: the one gain every consumer multiplies the MAGNITUDE of
-// audio-driven motion by (fosfora's split: absolute loudness for "how much", relative ratios only for "what
-// is changing now"). It is the frame's drive (SoundFrame.h), absolute, so a quiet ambient pad moves the
+// audio-driven motion by (the split: absolute loudness for "how much", relative ratios only for "what is
+// changing now"). It is the frame's drive (SoundFrame.h), absolute, so a quiet ambient pad moves the
 // picture a little and a loud dense track moves it fully, on every song without a per-song normalizer.
 //
 //   gain = floor + (1 - floor) * min(1, drive / full)

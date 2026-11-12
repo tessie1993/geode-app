@@ -72,8 +72,23 @@ enum class ReactSource {
     DegreeAccent, Valence /* -1..1 */, FeltTension,
     // How the chord tension is moving: -1 easing … 1 tightening, over the last few seconds.
     TensionRise /* -1..1 */,
+    // The feeling's other sides (core/sound/Emotion, as the director heard it): how much it drives (the felt
+    // energy), the key's side of the circle of fifths (-1 mellow … 1 brilliant), and what kind of feeling it is:
+    // the leading GEMS kind as kind / 8 (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension,
+    // sadness, in Emotion::Gems order), held until another kind clearly leads; then five kinds' own shares, each
+    // reading 1 at three times its even share. Transcendence sits beside wonder, tenderness and nostalgia beside
+    // peace and sadness, and tension is FeltTension, so those four have no share of their own.
+    FeltEnergy, KeySharpness /* -1..1 */, FeelingKind, FeelWonder, FeelPeace, FeelPower, FeelJoy, FeelSadness,
+    // The song part as states (core/sound/Form's sectionState): 1 while Form calls this part an intro, a verse, a
+    // build, a drop, a breakdown or an outro, else 0.
+    InIntro, InVerse, InBuild, InDrop, InBreakdown, InOutro,
+    // A section heard before comes back (Form names a new section with an old section's number), and how far
+    // through its section the music is: 0 at the start … 1 at the length this song's sections have run so far.
+    SectionReturn, SectionProgress,
+    // How fast the chords move round the circle of fifths: 0 still … 1 at a quarter of the circle a second.
+    ChordMotion,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::TensionRise) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::ChordMotion) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
@@ -126,13 +141,15 @@ struct ReactRoute {
 
 // Every source value for one frame, computed once and shared by all routes.
 //
-// Most sources read one GeodeSoundFrame field. The bar counts, the melody line and the feeling are derived
-// here from the frame's own fields (and the director's feeling, when the caller has one), so they need no
-// new wire field; they depend only on the frame sequence, so an export hears them as the screen does.
+// Most sources read one GeodeSoundFrame field. The bar counts, the melody line, the feeling, the song part's
+// states, a section's return and progress and the chords' motion are derived here from the frame's own fields
+// (and the director's feeling, when the caller has one), so they need no new wire field; they depend only on
+// the frame sequence, so an export hears them as the screen does.
 class ReactSignals {
 public:
     void reset();
-    // `feeling` is the Emotion state the director heard this frame; without one the feeling's sources read 0.
+    // `feeling` is the Emotion state the director heard this frame; without one the feeling's levels read 0 (its
+    // kind keeps the last one heard).
     void step(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
     float value(ReactSource s) const { return values_[static_cast<size_t>(s)]; }
     // Onsets seen so far, wrapping at kCountWrap: a per-hit seed for shaders.
@@ -155,6 +172,24 @@ private:
     // The chord tension through a fast and a slow follower, for its rise.
     float tensionFast_ = 0.0f;
     float tensionSlow_ = 0.0f;
+    // The leading kind of feeling (Emotion::Gems), -1 before any feeling is heard.
+    int feelingKind_ = -1;
+    // The sections Form has named so far (a bit per sectionId), the last one (-1 before the first frame), and
+    // whether a section change waits for its name.
+    unsigned int seenSections_ = 0;
+    int lastSection_ = -1;
+    bool sectionPending_ = false;
+    // Section progress: the frame's sectionBars last frame, the bars since the section began, and how long this
+    // song's sections have run (bars, learned at each boundary; two phrases until the first boundary is heard).
+    static constexpr float kFirstSectionBars = 16.0f;
+    float lastSectionBars_ = 0.0f;
+    float barsInSection_ = 0.0f;
+    float sectionLength_ = kFirstSectionBars;
+    bool sectionPrimed_ = false;
+    // Chord motion: the chord's place on the circle of fifths last frame, and its speed round it (circles a second).
+    float lastChordHue_ = 0.0f;
+    float chordSpeed_ = 0.0f;
+    bool chordPrimed_ = false;
     float onsetCount_ = 0.0f;
     float cutCount_ = 0.0f;
 };

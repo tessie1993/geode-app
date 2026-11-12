@@ -112,6 +112,8 @@ The renderer runs these in order each frame.
 - All reach offsets sit over the user's params and keep off kept controls, the style's scope, a control the user just moved and the hand mask.
 - `NoteResponse` (Note & key reactions): notes, chords, key and mood read into the six style knobs only, drums weighted by measured percussiveness.
 - `NoteResponse` writes no scene param and no colour, so what moves on a note, chord or a drop is the reaction matrix alone.
+- `NoteResponse`'s PULSE follows the beat and bar phases while the beat is sure (beatConf 0.2 to 0.45 blends them in) and the drum envelopes while it is not.
+- `NoteResponse`'s FLOW follows the song part, the feeling and the phrase's arc (while the beat is sure), never the loudness fields.
 - Then the director's axes.
 - Then the macro bank (`core/viz/MacroBank`): the user's global knobs, each an offset on the params it links, `geode_macro_bank_set`.
 - A knob may link any float a Customize control sets; the knob editor's Add random and New ranges are native rolls.

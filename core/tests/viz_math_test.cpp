@@ -177,7 +177,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 138, "138 sources: append only, they are saved by name and ordinal");
+    static_assert(kReactSourceCount == 155, "155 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -349,6 +349,113 @@ void tensionRiseFollowsTheChords() {
     f.tension = 0.1f;
     for (int i = 0; i < 60; ++i) s.step(f, 1.0f / 60.0f);
     check(s.value(ReactSource::TensionRise) < -0.3f, "a chord resolving reads easing");
+}
+
+// The song part, a section coming back, how far through its section the music is and the chords' motion, all
+// derived from the frame's own Form and Harmony fields; and the feeling's energy, key character and kind as the
+// director heard them.
+void songFormSourcesRead() {
+    constexpr float kDt = 1.0f / 60.0f;
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.sectionState = GEODE_SECTION_DROP;
+    s.step(f, kDt);
+    check(s.value(ReactSource::InDrop) == 1.0f && s.value(ReactSource::InBuild) == 0.0f && s.value(ReactSource::InIntro) == 0.0f,
+          "in a drop: the drop's state alone reads 1");
+    f.sectionState = GEODE_SECTION_BREAKDOWN;
+    s.step(f, kDt);
+    check(s.value(ReactSource::InBreakdown) == 1.0f && s.value(ReactSource::InDrop) == 0.0f, "the state follows the song part");
+
+    // A song: section 0 for 8 bars, section 1 for 12, then section 0 again. Form says a section began a bar after
+    // the fact (sectionChange on the next downbeat) and names it a bar later still; its state never changes here,
+    // so sectionBars keeps counting through. Two seconds a bar (no tempo is meant: any bar length reads the same).
+    s.reset();
+    f = silence();
+    f.beatConf = 0.8f;
+    f.sectionState = GEODE_SECTION_VERSE;
+    bool returned = false;
+    float progressMid0 = 0.0f;
+    float progressMid1 = 0.0f;
+    float progressLast = 0.0f;
+    bool rising = true;
+    float last = -1.0f;
+    const auto bar = [&](int n, int id, bool change) {
+        f.sectionBars = static_cast<float>(n);
+        f.sectionId = static_cast<float>(id);
+        f.sectionChange = change ? 0.8f : 0.0f;
+        for (int i = 0; i < 120; ++i) {
+            f.barPhase = static_cast<float>(i) / 120.0f;
+            s.step(f, kDt);
+            f.sectionChange = 0.0f;
+            returned = returned || s.value(ReactSource::SectionReturn) >= 0.5f;
+            const float p = s.value(ReactSource::SectionProgress);
+            check(p >= 0.0f && p <= 1.0f, "progress stays in 0..1");
+            if (p < last) rising = false;
+            last = p;
+        }
+    };
+    for (int n = 0; n < 9; ++n) bar(n, 0, false);
+    progressMid0 = s.value(ReactSource::SectionProgress);
+    check(rising, "progress only rises through a section");
+    check(progressMid0 > 0.5f && progressMid0 < 0.7f, "nine bars into a song read against two phrases until a section has ended");
+    check(!returned, "no section has come back yet");
+    bar(9, 0, true);  // the new section began a bar ago
+    check(s.value(ReactSource::SectionProgress) < 0.25f, "a new section starts its progress again");
+    bar(10, 1, false);  // and is named
+    check(!returned, "a new section is not a return");
+    for (int n = 11; n < 15; ++n) bar(n, 1, false);
+    progressMid1 = s.value(ReactSource::SectionProgress);
+    check(progressMid1 > 6.0f / 16.0f, "the first section's length (8 bars) shortens what the next is measured against");
+    for (int n = 15; n < 40; ++n) bar(n, 1, false);
+    check(s.value(ReactSource::SectionProgress) == 1.0f, "past its expected length a section holds at 1");
+    bar(40, 1, true);
+    bar(41, 0, false);
+    check(returned, "section 0 coming back fires a return");
+    progressLast = s.value(ReactSource::SectionProgress);
+    check(progressLast < 0.3f, "and its progress starts again");
+    returned = false;
+    bar(42, 1, false);  // renamed with no section change before it: Form started over (a seek, a new track)
+    check(!returned, "a section renamed with no section change is not a return");
+
+    // The chords' motion: still on a held chord, moving with chord changes, the same across the circle's seam.
+    const auto motion = [&](float from, float to) {
+        ReactSignals m;
+        GeodeSoundFrame g = silence();
+        for (int i = 0; i < 300; ++i) {
+            g.chordHue = (i / 30) % 2 == 0 ? from : to;  // a change every half second
+            m.step(g, kDt);
+        }
+        return m.value(ReactSource::ChordMotion);
+    };
+    check(motion(0.25f, 0.25f) < 0.01f, "a held chord does not move");
+    const float moving = motion(0.0f, 1.0f / 12.0f);
+    check(moving > 0.4f, "a fifth up and back every half second reads moving");
+    check(std::fabs(motion(11.0f / 12.0f, 0.0f) - moving) < 0.05f, "a fifth across the circle's seam reads the same, not a whole turn");
+
+    // The feeling as heard: its energy, the key's character, its kind and five kinds' shares.
+    geode::sound::Emotion::State feel;
+    feel.energy = 0.7f;
+    feel.sharpness = -0.4f;
+    feel.gems.fill(0.075f);
+    feel.gems[geode::sound::Emotion::kJoy] = 0.4f;
+    ReactSignals k;
+    GeodeSoundFrame g = silence();
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeltEnergy) - 0.7f) < 1e-6f && std::fabs(k.value(ReactSource::KeySharpness) + 0.4f) < 1e-6f,
+          "the felt energy and the key's character read as heard");
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 6.0f / 8.0f) < 1e-6f, "joy leads: the kind reads joy's place, 6 of 8");
+    check(k.value(ReactSource::FeelJoy) == 1.0f && std::fabs(k.value(ReactSource::FeelPeace) - 0.225f) < 1e-5f,
+          "a kind's share reads 1 at three times its even share");
+    feel.gems[geode::sound::Emotion::kPeace] = 0.41f;
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 6.0f / 8.0f) < 1e-6f, "a kind barely ahead does not take the lead");
+    feel.gems[geode::sound::Emotion::kPeace] = 0.45f;
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 4.0f / 8.0f) < 1e-6f, "a kind clearly ahead does");
+    k.step(g, kDt);
+    check(k.value(ReactSource::FeltEnergy) == 0.0f && k.value(ReactSource::FeelPeace) == 0.0f &&
+              std::fabs(k.value(ReactSource::FeelingKind) - 4.0f / 8.0f) < 1e-6f,
+          "without a feeling heard its levels rest and its kind holds");
 }
 
 void deterministicForExport() {
@@ -952,14 +1059,17 @@ void everyStyleHearsTheMusicNotTheVolume() {
         }
         return false;
     };
-    const std::initializer_list<S> harmony = {S::HarmonicChange, S::Tension, S::KeyClarity, S::TensionRise, S::ScaleBrightness};
-    const std::initializer_list<S> form = {S::SectionChange, S::Drop, S::BuildUp, S::Novelty};
-    const std::initializer_list<S> feeling = {S::Valence, S::FeltTension, S::DegreeAccent};
+    const std::initializer_list<S> harmony = {S::HarmonicChange, S::Tension, S::KeyClarity, S::TensionRise, S::ScaleBrightness,
+                                              S::ScaleTension, S::ChordMotion};
+    const std::initializer_list<S> form = {S::SectionChange, S::SectionReturn, S::Drop, S::BuildUp, S::Novelty, S::SectionProgress,
+                                           S::InBuild, S::InDrop, S::InBreakdown};
+    const std::initializer_list<S> feeling = {S::Valence, S::FeltTension, S::DegreeAccent, S::KeySharpness, S::FeelingKind, S::FeelWonder};
     const std::initializer_list<S> timbre = {S::Flatness, S::Centroid, S::Rolloff, S::Evenness, S::StereoWidth};
     const std::initializer_list<S> bars = {S::Bar4Hold, S::PhraseHold, S::Bar4Pulse, S::Phrase, S::Bar2Flip, S::PhraseFlip};
     const std::initializer_list<S> melody = {S::MelodyContour, S::PitchHeight, S::MelodyNote, S::MelodyPresence, S::RunDensity,
                                              S::Vibrato, S::Glide, S::Legato, S::Interval};
-    const std::initializer_list<S> loudness = {S::Level, S::Loudness, S::Vol, S::VolAtt, S::Intensity};
+    // The felt energy is a feeling, but it carries the loudness, so it is held to the same rule.
+    const std::initializer_list<S> loudness = {S::Level, S::Loudness, S::Vol, S::VolAtt, S::Intensity, S::FeltEnergy};
     std::array<int, 6> heardBy{};
     int styles = 0;
     for (const catalogue::PickerFamily& fam : catalogue::pickerFamilies()) {
@@ -1004,6 +1114,20 @@ void everyStyleHearsTheMusicNotTheVolume() {
         check(heardBy[k] * 8 >= styles, (std::string("at least an eighth of the styles hear the ") + names[k]).c_str());
     }
     check(heardBy[4] == styles && heardBy[5] == styles, "every style hears the bars and the tune");
+
+    // The newer musical sources are each some styles' default: the song part, a section's return and progress,
+    // the chords' motion, the scale's tension, the key's character and the kind of feeling.
+    std::set<int> heard;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            for (int r = 0; r < dna.count; ++r) heard.insert(static_cast<int>(dna.routes[static_cast<size_t>(r)].source));
+        }
+    }
+    for (const S s : {S::ChordMotion, S::ScaleTension, S::SectionReturn, S::SectionProgress, S::InBuild, S::InDrop, S::InBreakdown,
+                      S::KeySharpness, S::FeelingKind, S::FeelWonder}) {
+        check(heard.count(static_cast<int>(s)) == 1, (std::string("some style hears ") + reactSourceInfo(s).name).c_str());
+    }
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -2306,6 +2430,7 @@ int main() {
     melodyLineAndFeelingRead();
     settledJumpWaitsForItsGlide();
     tensionRiseFollowsTheChords();
+    songFormSourcesRead();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
     toggleFlipsBetweenZeroAndAmount();

@@ -97,6 +97,8 @@ vec3 gShellEye = vec3(0.0);
 float gShellNear = 3.0;
 float gShellSize = 1.0;
 bool gShellAround = true;
+/** The way a flown world's spawned copy slides (unit): down the travel axis unless the style says otherwise. */
+vec3 gShellAxis = vec3(0.0, 0.0, 1.0);
 
 /** Tell the hooks where the layers are measured from (once per pixel, in main, before the march). */
 void shellSetup3(vec3 eye, float near, float size, bool around) {
@@ -104,6 +106,14 @@ void shellSetup3(vec3 eye, float near, float size, bool around) {
     gShellNear = near;
     gShellSize = size;
     gShellAround = around;
+}
+
+/**
+ * A flown world whose copies should slide some other way than down the travel axis (unit `axis`):
+ * across, for a world of lanes that run along it. Call after shellSetup3.
+ */
+void shellAxis3(vec3 axis) {
+    gShellAxis = axis;
 }
 
 // The evaluation in flight (SHELL_FIELD3 runs as one expression: GLSL has no
@@ -155,9 +165,9 @@ float shellFirst3(float d) {
     return 0.0;
 }
 
-/** Spawn's read point: a flown world's copy slides `size` down the travel axis at full Spawn, a subject's twin moves aside. */
+/** Spawn's read point: a flown world's copy slides `size` along its axis at full Spawn, a subject's twin moves aside. */
 vec3 shellSpawnAt(float spawn) {
-    vec3 shift = gShellAround ? vec3(0.3 * gShellNear * spawn, 0.0, 0.0) : vec3(0.0, 0.0, gShellSize * spawn);
+    vec3 shift = gShellAround ? vec3(0.3 * gShellNear * spawn, 0.0, 0.0) : gShellAxis * (gShellSize * spawn);
     return gShellQ - shift;
 }
 

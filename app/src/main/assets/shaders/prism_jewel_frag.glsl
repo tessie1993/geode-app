@@ -35,6 +35,8 @@ out vec4 fragColor;
 // Worst case 108 steps, at most three gems or 3 sponge folds a step, one fold
 // each, no noise; then the layers.
 
+#define JEWEL_N 5.0
+
 /** The star gem at s (already turned), `grow` its size (1 the full gem): x the distance, y the ribbon's. */
 vec2 gemAt(vec3 s, float grow) {
     s /= grow;

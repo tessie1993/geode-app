@@ -33,7 +33,6 @@ import dev.geode.R
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.SystemMotion
-import dev.geode.data.ThemeStore
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.ui.CrystalMaterialTheme
@@ -70,7 +69,7 @@ class WallpaperOptionsActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        val gui = ThemeStore(geodeContainer.prefsFiles.general).loadGui()
+        val general = geodeContainer.general.current()
         val store = WallpaperPrefsStore(geodeContainer.prefsFiles.wallpaper)
         // The home screen as it stands, so the page can say why the wallpaper would hold still there.
         val home =
@@ -86,7 +85,7 @@ class WallpaperOptionsActivity : ComponentActivity() {
                 animateUntilMs = ProSnapshot.animateUntilMs(this, ProFeature.LIVE_WALLPAPER),
             )
         setContent {
-            CrystalMaterialTheme(gui) {
+            CrystalMaterialTheme(general) {
                 WallpaperOptionsScreen(store, home, onClose = ::finish)
             }
         }

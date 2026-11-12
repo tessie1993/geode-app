@@ -10,7 +10,7 @@ import dev.geode.render.look.LookSource
 /**
  * The look as the app last saved it (#345), for the surfaces that run without the app's session: the
  * wallpaper, the dream and Cast. It reads the same keys the session writes (`data/VizStateStore` for the
- * style, params and transition; [ThemeStore] for Settings › Audio, [SystemMotion] for reduce motion; [LfoStore] for the
+ * style, params and transition; [SoundInputSettingsCodec] for Settings › Audio, [SystemMotion] for reduce motion; [LfoStore] for the
  * modulation and the user's reactions), so those surfaces can never draw a look the app does not.
  *
  * Here and not in `ui`, so `wallpaper/` and `cast/` read it without crossing the layer rule; that is
@@ -25,7 +25,7 @@ class LookStore(
     override fun current(): LookSnapshot {
         val viz = prefsFiles.viz
         val live = viz.getString(KEY_LIVE_STATE, null)?.let { runCatching { PresetStore.fromJson(it) }.getOrNull() }
-        val gui = ThemeStore(prefsFiles.general).loadGui()
+        val soundTuning = SoundInputSettingsCodec.readSoundTuning(prefsFiles.general)
         val modulation = LfoStore(prefsFiles.general)
         val defaults = LookSnapshot()
         return LookSnapshot(
@@ -34,7 +34,7 @@ class LookStore(
             lfos = modulation.load(),
             adsrs = modulation.loadAdsrs(),
             reactions = modulation.loadReactions(),
-            soundTuning = gui.soundTuning,
+            soundTuning = soundTuning,
             reducedMotion = SystemMotion.isReduced(resolver),
             transitionId = viz.getString(KEY_TRANSITION_ID, null) ?: defaults.transitionId,
             transitionMs =

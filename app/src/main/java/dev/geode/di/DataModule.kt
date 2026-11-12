@@ -7,8 +7,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.geode.data.AppStateRepository
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.UserDataRepository
 import dev.geode.geodeContainer
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -40,9 +40,9 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun provideUserDataRepository(
+    fun provideAppStateRepository(
         @ApplicationContext context: Context,
-    ): UserDataRepository = context.geodeContainer.userData
+    ): AppStateRepository = context.geodeContainer.appState
 
     @Provides
     @IoDispatcher

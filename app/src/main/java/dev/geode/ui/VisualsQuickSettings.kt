@@ -72,8 +72,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
-import dev.geode.data.GuiPrefs
+import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
+import dev.geode.geodeContainer
 import dev.geode.model.ScreenRotation
 import dev.geode.render.scene.MilkdropEngine
 import dev.geode.ui.cast.ComputerLinkRow
@@ -95,7 +96,7 @@ import kotlin.math.roundToInt
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
  * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
  * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), and the glass rows are
- * [GuiPrefs] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
+ * [GeneralSettings] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
  * may switch Auto on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
  *
  * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
@@ -112,7 +113,7 @@ internal fun VisualsSettingsPage(
     onOpenPlaylist: (() -> Unit)? = null,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val general by settings.general.collectAsStateWithLifecycle()
     BoxWithConstraints(modifier.fillMaxSize()) {
         val twoColumns = maxWidth >= TWO_COLUMN_WIDTH
         Column(
@@ -127,7 +128,7 @@ internal fun VisualsSettingsPage(
                 Modifier.padding(vertical = GeodeSpacing.S).semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
             )
-            QuickSettingsRows(viewModel, gui, settings::setGuiPrefs, onOpenPlaylist, twoColumns)
+            QuickSettingsRows(viewModel, general, settings::updateGeneral, onOpenPlaylist, twoColumns)
         }
     }
 }
@@ -236,8 +237,8 @@ private class RandomPick(
 @Composable
 private fun QuickSettingsRows(
     viewModel: PlayerViewModel,
-    gui: GuiPrefs,
-    onGuiChange: (GuiPrefs) -> Unit,
+    general: GeneralSettings,
+    onGeneralChange: ((GeneralSettings) -> GeneralSettings) -> Unit,
     onOpenPlaylist: (() -> Unit)?,
     twoColumns: Boolean,
 ) {
@@ -246,12 +247,12 @@ private fun QuickSettingsRows(
     val left: @Composable () -> Unit = {
         AutoDirectorRows()
         TimerRows(viewModel, viz, timer)
-        RotationRow(gui, onGuiChange)
+        RotationRow(general, onGeneralChange)
     }
     val right: @Composable () -> Unit = {
         ConnectedDisplayRows()
         TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist)
-        GlassRows(gui, onGuiChange)
+        GlassRows(general, onGeneralChange)
         // Beside the Cast icon's ⚙: the stream to a browser, for a computer without a Chromecast.
         ComputerLinkRow()
     }
@@ -283,7 +284,7 @@ internal fun StyleTimerRows(viewModel: PlayerViewModel) {
 @Composable
 internal fun AutoDirectorRows() {
     val context = LocalContext.current
-    val director = remember { AutoDirectorStore.get(context) }
+    val director = remember { context.geodeContainer.autoDirector }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
     SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
@@ -397,19 +398,19 @@ private fun ConnectedDisplayRows() {
 /** Settings › Look's screen rotation, the same key; where Android ignores it (600 dp and wider) the row says so. */
 @Composable
 private fun RotationRow(
-    gui: GuiPrefs,
-    onGuiChange: (GuiPrefs) -> Unit,
+    general: GeneralSettings,
+    onGeneralChange: ((GeneralSettings) -> GeneralSettings) -> Unit,
 ) {
     MenuRow(
         label = stringResource(R.string.look_screen_rotation),
-        value = stringResource(gui.screenRotation.labelRes()),
+        value = stringResource(general.screenRotation.labelRes()),
     ) { close ->
         ScreenRotation.entries.forEach { option ->
-            val isSelected = option == gui.screenRotation
+            val isSelected = option == general.screenRotation
             DropdownMenuItem(
                 text = { Text(stringResource(option.labelRes())) },
                 onClick = {
-                    onGuiChange(gui.copy(screenRotation = option))
+                    onGeneralChange { it.copy(screenRotation = option) }
                     close()
                 },
                 leadingIcon = { CheckSlot(isSelected) },
@@ -554,18 +555,18 @@ private fun PlaylistRow(
 /** The glass over the visual: the sheet's opacity and the mini player's fade. */
 @Composable
 private fun GlassRows(
-    gui: GuiPrefs,
-    onGuiChange: (GuiPrefs) -> Unit,
+    general: GeneralSettings,
+    onGeneralChange: ((GeneralSettings) -> GeneralSettings) -> Unit,
 ) {
     SliderRow(
         label = stringResource(R.string.visuals_qs_sheet_opacity),
         // The value the glass draws, so the % never names a fill outside the clamp (#559).
-        valueText = stringResource(R.string.visuals_qs_percent, (gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE) * 100).roundToInt()),
-        value = gui.barOpacity,
+        valueText = stringResource(R.string.visuals_qs_percent, (general.barOpacity.coerceIn(SHEET_OPACITY_RANGE) * 100).roundToInt()),
+        value = general.barOpacity,
         valueRange = SHEET_OPACITY_RANGE,
-        onValueChange = { onGuiChange(gui.copy(barOpacity = it)) },
+        onValueChange = { opacity -> onGeneralChange { it.copy(barOpacity = opacity) } },
     )
-    val fade = gui.miniPlayerFadeSeconds.roundToInt()
+    val fade = general.miniPlayerFadeSeconds.roundToInt()
     SliderRow(
         label = stringResource(R.string.visuals_qs_fade),
         valueText =
@@ -575,10 +576,10 @@ private fun GlassRows(
                 stringResource(R.string.visuals_qs_seconds, fade)
             },
         value = fade.toFloat(),
-        valueRange = 0f..GuiPrefs.MINI_PLAYER_FADE_MAX_SECONDS,
+        valueRange = 0f..GeneralSettings.MINI_PLAYER_FADE_MAX_SECONDS,
         // Whole seconds: 0 (never), 1 … 10.
-        steps = GuiPrefs.MINI_PLAYER_FADE_MAX_SECONDS.roundToInt() - 1,
-        onValueChange = { onGuiChange(gui.copy(miniPlayerFadeSeconds = it.roundToInt().toFloat())) },
+        steps = GeneralSettings.MINI_PLAYER_FADE_MAX_SECONDS.roundToInt() - 1,
+        onValueChange = { seconds -> onGeneralChange { it.copy(miniPlayerFadeSeconds = seconds.roundToInt().toFloat()) } },
     )
 }
 
@@ -755,7 +756,7 @@ private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()
 
 /**
- * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in: exactly the range
+ * The range the sheet-opacity setting ([GeneralSettings.barOpacity]) moves in: exactly the range
  * [floatingGlass] clamps its fill to, so every stop of the slider changes what is drawn and the %
  * shown is the fill drawn (#559).
  */

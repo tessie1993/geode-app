@@ -1,7 +1,7 @@
 package dev.geode.ui.tour
 
-import dev.geode.data.GuiPrefs
-import dev.geode.data.UserDataRepository
+import dev.geode.data.AppState
+import dev.geode.data.AppStateRepository
 import dev.geode.model.GestureTip
 import dev.geode.model.TourChapter
 import dev.geode.model.TourFacts
@@ -39,15 +39,18 @@ class TourViewModelTest {
 
     private class FakeUserData(
         progress: TourProgress,
-    ) : UserDataRepository {
-        override val guiPrefs = MutableStateFlow(GuiPrefs(tourProgress = progress))
-        override val loaded = MutableStateFlow(true)
+    ) : AppStateRepository {
+        override val value = MutableStateFlow(AppState(tourProgress = progress))
 
-        override suspend fun setGuiPrefs(prefs: GuiPrefs) {
-            guiPrefs.value = prefs
+        override suspend fun loaded() = value.value
+
+        override fun current() = value.value
+
+        override suspend fun update(transform: (AppState) -> AppState) {
+            value.value = transform(value.value)
         }
 
-        val progress: TourProgress get() = guiPrefs.value.tourProgress
+        val progress: TourProgress get() = value.value.tourProgress
     }
 
     private val tabs = setOf(TourSpot.NAV_LIBRARY, TourSpot.NAV_VISUALS)

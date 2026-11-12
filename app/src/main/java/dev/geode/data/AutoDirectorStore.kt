@@ -1,15 +1,20 @@
 package dev.geode.data
 
-import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
+import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
 import dev.geode.util.bestEffort
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 /**
@@ -19,8 +24,7 @@ import kotlin.random.Random
  * over every style, never colour or a reaction route. This store only tells the engine how much to
  * drive (the switch, cut to the free taste by [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
- * is process-wide, so the screen, the wallpaper and the dream all follow it; [GeodeApp] creates the store
- * at start, so a wallpaper that starts before the app does still sees the switch. The switch itself goes
+ * is process-wide, so the screen, the wallpaper and the dream all follow it. The switch itself goes
  * native too: an export's renderer pins its director from it once at prepare (geode_viz_pin_engine_settings,
  * director::forExport), so the player moving on (a new seed, or past the free taste) never reaches a render
  * in progress.
@@ -33,35 +37,50 @@ import kotlin.random.Random
  * does are native (core/viz/DirectorReach); this store keeps the choice and hands it over, with Customize's
  * keep set, which the reach never moves.
  *
- * Called on the main thread (the settings screen and [dev.geode.playback.AutoDirectorFeed]).
+ * One instance per process, built by `GeodeContainer`: the switch and the reach are kept by
+ * [AutoDirectorCodec] in a [SettingsRepository] (#1009, PR 6), read on IO, and nothing is pushed before
+ * that read is back, so a saved "off" is never preceded by the default. Called on the main thread (the
+ * settings screen and [dev.geode.playback.AutoDirectorFeed]).
  */
-class AutoDirectorStore private constructor(
-    private val prefs: SharedPreferences,
-    kept: Set<String>,
+class AutoDirectorStore internal constructor(
+    private val repository: SettingsRepository<AutoDirectorSettings>,
+    private val scope: CoroutineScope,
+    /** Customize's keep set as saved ([KEY_KEPT]), read once (on IO) when the store starts. */
+    keptAtStart: suspend () -> Set<String>,
 ) {
-    private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
-    val enabled: StateFlow<Boolean> = _enabled
+    val enabled: StateFlow<Boolean> =
+        repository.value
+            .map { it.enabled }
+            .stateIn(scope, SharingStarted.Eagerly, repository.value.value.enabled)
 
-    private val _reach = MutableStateFlow(prefs.getInt(KEY_REACH, DEFAULT_REACH))
-    val reach: StateFlow<Int> = _reach
+    val reach: StateFlow<Int> =
+        repository.value
+            .map { it.reach }
+            .stateIn(scope, SharingStarted.Eagerly, repository.value.value.reach)
 
     private var seed = Random.nextLong()
     private var gate = FeatureGate.FREE
     private var positionMs = 0L
     private var playing = false
+    private var loaded = false
     private var pushed: Triple<Boolean, Float, Long>? = null
+    private var pushedReach: Int? = null
 
     init {
-        push()
-        pushReach()
-        setKept(kept)
+        scope.launch {
+            setKept(keptAtStart())
+            repository.loaded()
+            loaded = true
+            repository.value.collect {
+                push()
+                pushReach()
+            }
+        }
     }
 
     /** The native level (GeodeNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
     fun setReach(level: Int) {
-        _reach.value = level
-        prefs.edit().putInt(KEY_REACH, level).apply()
-        pushReach()
+        scope.launch { repository.update { it.copy(reach = level) } }
     }
 
     /** Customize's locked controls and kept categories, as saved under [KEY_KEPT]. */
@@ -70,13 +89,14 @@ class AutoDirectorStore private constructor(
     }
 
     private fun pushReach() {
-        bestEffort(TAG, "push reach") { GeodeNative.directorReachSet(_reach.value) }
+        val level = repository.value.value.reach
+        if (level == pushedReach) return
+        pushedReach = level
+        bestEffort(TAG, "push reach") { GeodeNative.directorReachSet(level) }
     }
 
     fun setEnabled(on: Boolean) {
-        _enabled.value = on
-        prefs.edit().putBoolean(KEY_ENABLED, on).apply()
-        push()
+        scope.launch { repository.update { it.copy(enabled = on) } }
     }
 
     /**
@@ -116,38 +136,57 @@ class AutoDirectorStore private constructor(
         push()
     }
 
+    /** The saved switch only, never its default: until the read is back the engine keeps what it has. */
     private fun push() {
-        val amount = AutoDirectorPolicy.amount(_enabled.value, gate, positionMs, playing)
-        val next = Triple(_enabled.value, amount, seed)
+        if (!loaded) return
+        val on = repository.value.value.enabled
+        val amount = AutoDirectorPolicy.amount(on, gate, positionMs, playing)
+        val next = Triple(on, amount, seed)
         if (next == pushed) return
         pushed = next
-        bestEffort(TAG, "push director") { GeodeNative.directorSet(_enabled.value, amount, seed) }
+        bestEffort(TAG, "push director") { GeodeNative.directorSet(on, amount, seed) }
     }
 
     companion object {
         private const val TAG = "AutoDirectorStore"
-        private const val KEY_ENABLED = "auto_director_enabled"
         const val DEFAULT_ENABLED = true
-        private const val KEY_REACH = "auto_director_reach"
         const val DEFAULT_REACH = 0
 
         /** Customize's lock set in the modulation prefs, which `ModulationController` edits. */
         const val KEY_KEPT = "locked_params"
-
-        internal val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.BOOLEAN, KEY_ENABLED)
-                portable(PrefType.INT, KEY_REACH)
-            }
-
-        @Volatile private var instance: AutoDirectorStore? = null
-
-        fun get(context: Context): AutoDirectorStore =
-            instance ?: synchronized(this) {
-                instance ?: create(GeodePrefsFiles(context.applicationContext)).also { instance = it }
-            }
-
-        private fun create(files: GeodePrefsFiles): AutoDirectorStore =
-            AutoDirectorStore(files.general, files.modulation.getStringSet(KEY_KEPT, emptySet()) ?: emptySet())
     }
+}
+
+/** The director's switch and reach as the user set them. */
+data class AutoDirectorSettings(
+    val enabled: Boolean = AutoDirectorStore.DEFAULT_ENABLED,
+    val reach: Int = AutoDirectorStore.DEFAULT_REACH,
+)
+
+/** How [AutoDirectorSettings] sit in `geode-prefs`. */
+object AutoDirectorCodec : PrefsCodec<AutoDirectorSettings> {
+    private const val KEY_ENABLED = "auto_director_enabled"
+    private const val KEY_REACH = "auto_director_reach"
+
+    override val defaults = AutoDirectorSettings()
+
+    override val keys =
+        prefKeys(GeodePrefsFiles.GENERAL) {
+            portable(PrefType.BOOLEAN, KEY_ENABLED)
+            portable(PrefType.INT, KEY_REACH)
+        }
+
+    override fun read(prefs: SharedPreferences) =
+        AutoDirectorSettings(prefs.getBoolean(KEY_ENABLED, defaults.enabled), prefs.getInt(KEY_REACH, defaults.reach))
+
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: AutoDirectorSettings,
+    ) {
+        editor.putBoolean(KEY_ENABLED, value.enabled).putInt(KEY_REACH, value.reach)
+    }
+
+    /** Customize's keep set as `ModulationController` saved it in [modulation], for the store's start. */
+    fun readKept(modulation: SharedPreferences): Set<String> =
+        modulation.getStringSet(AutoDirectorStore.KEY_KEPT, emptySet()).orEmpty().toSet()
 }

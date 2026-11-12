@@ -41,6 +41,7 @@ import dev.geode.R
 import dev.geode.data.MacroBankState
 import dev.geode.data.MacroControl
 import dev.geode.data.MacroStore
+import dev.geode.geodeContainer
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -68,7 +69,7 @@ internal fun ProvideKnobLinks(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val store = remember { MacroStore.get(context) }
+    val store = remember { context.geodeContainer.macros }
     val bank by store.state.collectAsStateWithLifecycle()
     val controls = remember(bank) { store.controls() }
     val links = remember(bank, controls, lock, sceneId) { KnobLinks(bank, store, controls, lock, sceneId) }

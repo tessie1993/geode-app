@@ -56,8 +56,8 @@ internal fun TutorialSettingsTab(
     onPlay: (List<TourChapter>) -> Unit,
     onReset: () -> Unit,
 ) {
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val done = gui.tourProgress.done
+    val appState by settingsViewModel.appState.collectAsStateWithLifecycle()
+    val done = appState.tourProgress.done
     val chapters = TourChapter.entries
     var resetNote by rememberSaveable { mutableStateOf(false) }
     Column(

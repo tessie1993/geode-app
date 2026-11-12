@@ -31,6 +31,9 @@ data class MacroEditorKnob(
     val name: String,
     val hint: String,
     val links: List<MacroLink>,
+    /** Add random's stepper: the count it starts on and the most it can add on the style on screen. */
+    val addCount: Int = 0,
+    val addMax: Int = 0,
 )
 
 /** A knob in the bank's library, off screen: what Add macro offers to put back. */
@@ -41,10 +44,14 @@ data class MacroLibraryKnob(
     val hint: String,
 )
 
-/** A target a link may name, by its modulation wire name, and whether the style on screen shows it. */
+/**
+ * A target a link may name, by its wire name, whether the style on screen shows it, and the Customize control
+ * that sets it (its ParamKeys key), which labels a param no modulation target names.
+ */
 data class MacroTarget(
     val name: String,
     val reaches: Boolean,
+    val control: String = "",
 )
 
 data class MacroEditorState(
@@ -127,7 +134,8 @@ object MacroEditorTable {
                 "bank" -> if (f.size == BANK_FIELDS) state = state.copy(canAdd = f[1] == ON, isDefault = f[2] == ON)
                 "knob" -> knobOf(f)?.let(knobs::add)
                 "link" -> attach(knobs, linkOf(f))
-                "target" -> if (f.size == TARGET_FIELDS) targets += MacroTarget(f[1], f[2] == ON)
+                "addrandom" -> addRandom(knobs, f)
+                "target" -> if (f.size == TARGET_FIELDS) targets += MacroTarget(f[1], f[2] == ON, f[3])
                 "curve" -> if (f.size == CURVE_FIELDS) curves += f[1]
                 "screen" -> if (f.size == SCREEN_FIELDS) state = state.copy(canShow = f[1] == ON)
                 "library" -> libraryOf(f)?.let(library::add)
@@ -142,6 +150,15 @@ object MacroEditorTable {
     ) {
         val knob = knobs.lastOrNull() ?: return
         if (link != null) knobs[knobs.lastIndex] = knob.copy(links = knob.links + link)
+    }
+
+    private fun addRandom(
+        knobs: MutableList<MacroEditorKnob>,
+        f: List<String>,
+    ) {
+        val knob = knobs.lastOrNull() ?: return
+        if (f.size != ADD_RANDOM_FIELDS) return
+        knobs[knobs.lastIndex] = knob.copy(addCount = int(f[1]), addMax = int(f[2]))
     }
 
     private fun knobOf(f: List<String>): MacroEditorKnob? {
@@ -173,7 +190,8 @@ object MacroEditorTable {
     private const val BANK_FIELDS = 3
     private const val KNOB_FIELDS = 8
     private const val LINK_FIELDS = 8
-    private const val TARGET_FIELDS = 3
+    private const val TARGET_FIELDS = 4
+    private const val ADD_RANDOM_FIELDS = 3
     private const val CURVE_FIELDS = 2
     private const val SCREEN_FIELDS = 2
     private const val LIBRARY_FIELDS = 5

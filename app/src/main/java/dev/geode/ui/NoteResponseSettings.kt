@@ -9,7 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.NoteResponseStore
+import dev.geode.geodeContainer
 
 /**
  * Settings › Sound reaction › Note & key reactions: one switch, free and on by default. The store saves it and
@@ -19,7 +19,7 @@ import dev.geode.data.NoteResponseStore
 @Composable
 internal fun NoteResponseGroup() {
     val context = LocalContext.current
-    val store = remember { NoteResponseStore.get(context) }
+    val store = remember { context.geodeContainer.noteResponse }
     val enabled by store.enabled.collectAsStateWithLifecycle()
     Text(
         stringResource(R.string.notes_body),

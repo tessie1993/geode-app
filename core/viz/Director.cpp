@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstring>
 #include <initializer_list>
 
 #include "sound/Form.hpp"
@@ -89,13 +90,28 @@ constexpr std::array<AxisField, 20> kAxisFields = {{
 float axisOf(const Director::Axes& x, Axis a) { return x[static_cast<size_t>(a)]; }
 float& axisOf(Director::Axes& x, Axis a) { return x[static_cast<size_t>(a)]; }
 
+// The build's lean at full: faster, closer and rougher, the anticipation before a drop (Huron's ITPRA:
+// tension rises and attention narrows). It is the director's own behaviour over its axes, decided at
+// Form's state changes, never a reaction to a frame: the drums and the build's level move nothing here.
+constexpr Director::Axes kBuildLean = {0.0f, 0.3f, 0.0f, -0.4f, 0.25f};  // Energy, Speed, Complexity, Space, Chaos
+// How many bars the lean takes to come in (builds run 4–8 bars, and Form names one some way in), and to
+// let go when a build fades without a drop.
+constexpr float kLeanInBars = 4.0f;
+constexpr float kLeanOutBars = 1.0f;
+// A section event Form has not named after this many downbeats, or seconds, is let go unnamed: its look
+// lands as made and nothing is remembered. Form names one on the next downbeat, so this is a fallback.
+constexpr int kNamingBars = 2;
+constexpr float kNamingSeconds = 8.0f;
+
 Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float k) {
+    // Landed is the look itself, bit for bit (a + (b - a) can miss b by a rounding), so a remembered
+    // section's look comes back exactly as it was.
+    if (k >= 1.0f) return b;
     Director::Look o = b;
     for (int i = 0; i < Director::kAxes; ++i) o.axes[i] = lerp(a.axes[i], b.axes[i], k);
     o.energy = lerp(a.energy, b.energy, k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
-    o.motionDrift = lerp(a.motionDrift, b.motionDrift, k);
     o.moves.orbit = lerp(a.moves.orbit, b.moves.orbit, k);
     o.moves.lean = lerp(a.moves.lean, b.moves.lean, k);
     o.moves.dolly = lerp(a.moves.dolly, b.moves.dolly, k);
@@ -139,10 +155,14 @@ void Director::configure(const DirectorConfig& config) {
         const float amount = amount_;
         const float presence = presence_;
         const Look shown = now_;
+        const float lean = lean_;
         reset();
         amount_ = amount;
         presence_ = presence;
         from_ = to_ = now_ = shown;
+        // The lean lets go on the new play's frames, not in one jump. The remembered sections are not
+        // carried: they were the last song's.
+        lean_ = lean;
     }
     config_ = config;
     configured_ = true;
@@ -170,7 +190,8 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
         knob(1.4f * t - 0.7f + 0.4f * g[Emotion::kPower] - 0.5f * (g[Emotion::kTenderness] + g[Emotion::kPeace]));
     L.camSmooth = std::clamp(0.5f + 0.5f * calm - 0.6f * hard + 0.1f * rng.signedUnit(), 0.1f, 0.9f);
     L.motionBreath = clamp01(0.3f + 0.9f * (g[Emotion::kTenderness] + g[Emotion::kPeace] + g[Emotion::kSadness]));
-    L.motionDrift = clamp01(0.3f + 0.9f * (g[Emotion::kNostalgia] + g[Emotion::kPeace] + g[Emotion::kTranscendence]));
+    // No Spin (motionDrift): the look turned it up for nostalgia, peace and transcendence, which set every
+    // turning style spinning faster under Auto after #1181 made Spin the user's alone.
     auto move = [](float x) { return std::clamp(x, 0.0f, 2.5f); };
     L.moves.orbit = move(0.6f + 1.2f * (g[Emotion::kTranscendence] + g[Emotion::kWonder] + g[Emotion::kPeace]) - 0.4f * g[Emotion::kPower]);
     L.moves.lean = move(0.7f + 1.0f * (g[Emotion::kWonder] + g[Emotion::kTenderness]));
@@ -182,8 +203,21 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     return L;
 }
 
-void Director::commit(Reason reason, float glideSeconds) {
-    const Look best = make(feeling_, config_.seed, commits_, reason == Reason::Drop);
+float Director::changeBars(const Emotion::State& s) {
+    // make() lets the feeling choose what a look is; this lets it choose how the look arrives, the way a
+    // VJ fades a ballad's change and cuts a banger's. The GEMS sum to 1, so the balance is -1..1.
+    const auto& g = s.gems;
+    const float soft = g[Emotion::kPeace] + g[Emotion::kTenderness] + g[Emotion::kTranscendence] +
+                       0.5f * (g[Emotion::kNostalgia] + g[Emotion::kSadness]);
+    const float driven = g[Emotion::kPower] + g[Emotion::kJoy] + 0.5f * g[Emotion::kTension];
+    const float k = soft - driven;
+    if (!std::isfinite(k)) return 1.0f;
+    const float c = std::clamp(k, -1.0f, 1.0f);
+    return c >= 0.0f ? 1.0f + c : 1.0f + 0.75f * c;
+}
+
+void Director::commit(Reason reason, float glideSeconds, const Look* chosen) {
+    const Look best = chosen != nullptr ? *chosen : make(feeling_, config_.seed, commits_, reason == Reason::Drop);
 
     // Nothing on screen to glide from: the first look of the first play. A look carried over from the
     // last play (configure) is glided from like any other.
@@ -199,6 +233,28 @@ void Director::commit(Reason reason, float glideSeconds) {
     barsSinceCommit_ = 0;
     modulationSeconds_ = 0.0f;
     committedKey_ = key_;
+}
+
+void Director::named(int section, float glideSeconds) {
+    naming_ = false;
+    if (section < 0 || section >= kSectionSlots) return;
+    const auto i = static_cast<size_t>(section);
+    if (namingDrop_) lastDropSection_ = section;
+    if (known_[i]) {
+        // A section heard before: its look comes back. A drop already cut to the look the last drop
+        // opened; when this is that section, nothing moves.
+        returned_ = true;
+        if (std::memcmp(&remembered_[i], &to_, sizeof(Look)) == 0) return;
+        from_ = now_;
+        to_ = remembered_[i];
+        glide_ = 0.0f;
+        glideSeconds_ = std::max(glideSeconds, 0.05f);
+        return;
+    }
+    // A new section keeps the look it was given: the one held for it, or the drop's.
+    returned_ = false;
+    remembered_[i] = to_;
+    known_[i] = true;
 }
 
 void Director::step(const GeodeSoundFrame& f, float dt) {
@@ -221,40 +277,99 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     sinceCommit_ += dt;
     // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
     // or phrase the tracker fires counts, as with Form's events below.
-    if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
-    // A look glides in over one bar, held to 1..4 s. With no tempo known there is no bar: the glide is a
-    // plain time in seconds, the geometric middle of that range.
-    constexpr float kGlideMin = 1.0f;
-    constexpr float kGlideMax = 4.0f;
+    const bool downbeat = f.downbeat > 0.0f;
+    if (downbeat) barsSinceCommit_ += 1;
+    // The bar the tracker hears, held to 1..4 s. With no tempo known there is no bar: it is a plain time
+    // in seconds, the geometric middle of that range. A look lands over changeBars() of it.
+    constexpr float kBarMin = 1.0f;
+    constexpr float kBarMax = 4.0f;
     const bool barKnown = f.bpm > 0.0f && f.beatConf > 0.3f;
-    const float barGlide = barKnown ? std::clamp(240.0f / f.bpm, kGlideMin, kGlideMax) : std::sqrt(kGlideMin * kGlideMax);
+    const float bar = barKnown ? std::clamp(240.0f / f.bpm, kBarMin, kBarMax) : std::sqrt(kBarMin * kBarMax);
+    const float change = std::max(0.25f, changeBars(s) * bar);
+    // Where a look may land: on a downbeat, or anywhere when there is no beat to land on.
+    const bool onBar = downbeat || f.beatConf < 0.3f;
+    const int section = std::isfinite(f.sectionId) ? static_cast<int>(std::lround(f.sectionId)) : -1;
+
+    // A modulation counts once it has held six seconds.
+    const bool moved = key_ >= 0 && key_ != committedKey_ && f.keyClarity >= 0.3f;
+    modulationSeconds_ = moved ? modulationSeconds_ + dt : 0.0f;
+
+    // Form names a section on the downbeat after it reports one (once a whole bar of it is heard): the
+    // frame's sectionId moves off the one the event carried. Checked before the events below, so the
+    // event's own downbeat is not counted.
+    if (naming_) {
+        namingSeconds_ += dt;
+        if (downbeat) namingBars_ += 1;
+        if (section != namingFrom_) {
+            named(section, change);
+        } else if (namingBars_ >= kNamingBars || namingSeconds_ >= kNamingSeconds) {
+            naming_ = false;  // unnamed: the held look lands as made, and nothing is remembered
+        }
+    }
+    const auto awaitName = [&](bool drop) {
+        naming_ = true;
+        namingDrop_ = drop;
+        namingFrom_ = section;
+        namingBars_ = 0;
+        namingSeconds_ = 0.0f;
+    };
 
     if (commits_ == 0) {
         // The first look waits for a key it can trust, or twelve seconds of music, whichever comes first:
         // in the first seconds the key detector is still settling, and the first look should not be
-        // made for a key the song is not in.
-        if (heard_ >= 4.0f && (s.confidence > 0.5f || heard_ >= 12.0f)) commit(Reason::First, 2.0f);
+        // made for a key the song is not in. Then it lands on a downbeat; past sixteen seconds anywhere (a
+        // tracker that is not yet locked fires no downbeat while its confidence may read above 0.3).
+        if (heard_ >= 4.0f && (s.confidence > 0.5f || heard_ >= 12.0f) && (onBar || heard_ >= 16.0f)) {
+            commit(Reason::First, 2.0f);
+            // The section playing now (Form names the first from its first bars) keeps this look.
+            if (section >= 0 && section < kSectionSlots) {
+                remembered_[static_cast<size_t>(section)] = to_;
+                known_[static_cast<size_t>(section)] = true;
+            }
+        }
     } else if (sound::dropped(f)) {
         // Every event Form fires: it owns the floor (Form::kEventFloor), so a threshold here would only
-        // lose the weaker ones.
-        commit(Reason::Drop, 0.25f);
+        // lose the weaker ones. A drop cuts in at once. When it also opens a section (Form fires both),
+        // the best guess for that section is the one the last drop opened: a song's drops mostly return
+        // to one drop section. Form's name a bar later settles it.
+        const bool opens = sound::sectionChanged(f);
+        const bool guess = opens && lastDropSection_ >= 0 && known_[static_cast<size_t>(lastDropSection_)];
+        commit(Reason::Drop, 0.25f, guess ? &remembered_[static_cast<size_t>(lastDropSection_)] : nullptr);
+        returned_ = false;
+        naming_ = false;
+        if (opens) awaitName(true);
     } else if (sound::sectionChanged(f) && sinceCommit_ >= 4.0f) {
-        commit(Reason::Section, barGlide);
-    } else {
-        // A modulation counts once it has held six seconds and lands on a downbeat (or anywhere, when
-        // there is no beat to land on).
-        const bool moved = key_ >= 0 && key_ != committedKey_ && f.keyClarity >= 0.3f;
-        modulationSeconds_ = moved ? modulationSeconds_ + dt : 0.0f;
-        const bool onBar = f.downbeat > 0.0f || f.beatConf < 0.3f;
+        // The moment is now (Form fires it on a downbeat): the style steps and the reach rolls here. The
+        // look is made now but held still until Form names the section, a bar on; then it lands, or the
+        // section's remembered look lands in its place. Gliding toward one and then turning to the other
+        // would change the picture twice for one section.
+        commit(Reason::Section, change);
+        returned_ = false;
+        awaitName(false);
+    } else if (!naming_) {
         if (modulationSeconds_ >= 6.0f && onBar && sinceCommit_ >= 4.0f) {
-            commit(Reason::Modulation, barGlide);
-        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.0f) || sinceCommit_ >= 75.0f) {
-            commit(Reason::Long, barGlide);
+            commit(Reason::Modulation, change);
+        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.0f) || (sinceCommit_ >= 75.0f && onBar) || sinceCommit_ >= 90.0f) {
+            // At a phrase's start; past 75 s (32 bars of a slow song are longer) on a downbeat; past 90 s
+            // anywhere, for a beat the tracker has not locked.
+            commit(Reason::Long, change);
         }
     }
 
+    // The build's lean: in over four bars while Form's state is a build, out over one when it fades. A
+    // drop's cut takes it away with the cut. Form's state changes on a downbeat, so the lean starts there.
+    const bool building = std::isfinite(f.sectionState) && std::lround(f.sectionState) == GEODE_SECTION_BUILD;
+    if (sound::dropped(f)) {
+        lean_ = 0.0f;
+    } else if (building) {
+        lean_ = std::min(1.0f, lean_ + dt / (kLeanInBars * bar));
+    } else {
+        lean_ = std::max(0.0f, lean_ - dt / (kLeanOutBars * bar));
+    }
+
     if (commits_ > 0) presence_ += (1.0f - presence_) * (1.0f - std::exp(-dt / 1.0f));
-    glide_ = std::min(1.0f, glide_ + dt / glideSeconds_);
+    // A section's look holds still while it waits for the section's name.
+    if (!(naming_ && !namingDrop_)) glide_ = std::min(1.0f, glide_ + dt / glideSeconds_);
     now_ = lerpLook(from_, to_, smooth(glide_));
 }
 
@@ -278,7 +393,8 @@ SceneParams Director::apply(const SceneParams& p) const {
         return std::clamp(user * (1.0f + 2.0f * a * (look - base)), 0.0f, std::max(1.0f, user));
     };
     o.motionBreath = turned(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
-    o.motionDrift = turned(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
+    // Spin (motionDrift) is not here, on purpose: whether a turning style spins, and how fast, is the
+    // user's (#1181).
     return o;
 }
 
@@ -286,9 +402,11 @@ Director::Axes Director::axes() const {
     const float a = weight();
     if (a <= 0.0f) return {};
     // The look as decided, held until the next decision: nothing here follows the frame, so between
-    // decisions the picture moves only by the reaction matrix and the user's motion dials.
+    // decisions the picture moves only by the reaction matrix and the user's motion dials. The build's
+    // lean is the one exception, and it follows Form's section state, never a level or a hit.
     Axes d = now_.axes;
-    for (float& v : d) v = std::clamp(a * v, -1.0f, 1.0f);
+    const float lean = smooth(lean_);
+    for (int i = 0; i < kAxes; ++i) d[i] = std::clamp(a * (d[i] + lean * kBuildLean[i]), -1.0f, 1.0f);
     return d;
 }
 

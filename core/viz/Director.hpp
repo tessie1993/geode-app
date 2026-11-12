@@ -14,8 +14,9 @@ namespace geode::viz {
 //
 //   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
 //              set of scene params and a scale on the camera rig's music moves; the camera's spring
-//              softness, the motion field's breath, orbit and drift. The user's macro bank
-//              (viz/MacroBank) is never touched: it adds on top of whatever the director left
+//              softness and the motion field's breath. The user's macro bank (viz/MacroBank) is never
+//              touched: it adds on top of whatever the director left. Spin (motionDrift) is never the
+//              director's either (#1181): whether a turning style spins is the user's choice
 //
 // Two things it never does (owner's rule). It never touches colour: the palette, saturation,
 // brightness, temperature and contrast are the style's and the user's. And it plays no reaction of its
@@ -24,9 +25,23 @@ namespace geode::viz {
 // held; nothing in it follows the frame.
 //
 // It decides at musical moments only: the first confident key, a new section, a drop, a modulation that
-// holds, and after 32 bars without one. Each decision is a "look", glided in over a bar (a drop cuts in
-// a quarter second). The seed is set per play (setGlobal), so a replay is new and an export that uses
-// the play's seed is the same film.
+// holds, and after 32 bars without one. Each decision is a "look". It follows the song at three spans:
+//
+//   the bar     a look lands on a downbeat whenever a beat is heard (a drop cuts in at once, a quarter
+//               second, where Form has moved the downbeat). How it lands is the feeling's: peace,
+//               tenderness and transcendence glide in over up to two bars, power and joy cut in over a
+//               beat (changeBars). The bar is whatever the tracker hears; no tempo is preferred
+//   the build   while Form says the song is in a build, the look leans toward the drop over four bars:
+//               faster, closer, rougher (kBuildLean). The drop's cut takes it away; a build that fades
+//               without one lets go over a bar. It follows Form's state, never a level or a hit
+//   the form    each section Form names keeps the look first chosen for it, so a returning chorus brings
+//               back the chorus's look and the song's structure is visible. A new section gets a new
+//               look. Form names a section a bar after it reports the change, so a section's look waits
+//               for that downbeat (held still, never a look that is then undone); a drop cuts at once to
+//               the look of the section the last drop opened, and settles once Form names where it is
+//
+// The seed is set per play (setGlobal), so a replay is new and an export that uses the play's seed is
+// the same film.
 //
 // A pure function of (seed, sound frames, dt): no clock, no randomness of its own, state reset with the
 // renderer. Process-wide configuration, like the macro bank, so the screen, an export, the wallpaper and the
@@ -67,7 +82,6 @@ public:
         Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;
-        float motionDrift = 0.5f;
         CameraRig::Moves moves{};
     };
 
@@ -80,10 +94,11 @@ public:
     // way, so the feeling is the same at every frame rate and in an export.
     void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt);
 
-    // Before the macros: the camera's softness added by the amount, the motion dials turned by a factor
-    // (a dial at 0 stays off). Never a colour param.
+    // Before the macros: the camera's softness added by the amount, the breath dial turned by a factor
+    // (a dial at 0 stays off). Never a colour param, never Spin.
     SceneParams apply(const SceneParams& p) const;
-    // The look's axes times the weight, each -1..1; all 0 while off. Held between decisions.
+    // The look's axes, with the build's lean, times the weight, each -1..1; all 0 while off. Held
+    // between decisions, but for the lean, which moves only when Form's section state does.
     Axes axes() const;
     // Before the user's macro bank: each axis moves its fields toward an end of their range, added to
     // the value it is given (base plus modulation). A Motion dial given at 0 stays 0.
@@ -98,6 +113,14 @@ public:
     const Look& target() const { return to_; }
     int commits() const { return commits_; }
     Reason lastReason() const { return reason_; }
+    // How far the build's lean is in, 0..1 (before its ease and the weight).
+    float lean() const { return lean_; }
+    // Whether the last section Form named was one heard before, whose remembered look came back.
+    bool returned() const { return returned_; }
+    // Whether a section event waits for Form's name (a section's look holds still meanwhile).
+    bool naming() const { return naming_; }
+    // The glide the look on screen lands with, in seconds.
+    float glideSeconds() const { return glideSeconds_; }
     // Whether the last commit should change the style: a new section, a drop, or a long stretch with
     // neither (MilkDrop's timer: music with no clear sections still gets a new style now and then), and
     // only while the director drives (Auto on). It steps with Auto off too, for its feeling (Note & key
@@ -109,9 +132,19 @@ public:
 
     // Exposed for tests: the look this feeling would get on commit number `index`.
     Look make(const sound::Emotion::State& s, uint64_t seed, int index, bool drop) const;
+    // How many bars a look takes to land, from the kind of feeling: 2 for the calmest (peace, tenderness,
+    // transcendence), 1 between, a quarter (a beat) for the most driven (power, joy). Never the tempo's:
+    // the bar is whatever the tracker hears.
+    static float changeBars(const sound::Emotion::State& s);
+
+    // Form's section slots (sound/Form kSections): a sectionId is one of these.
+    static constexpr int kSectionSlots = 8;
 
 private:
-    void commit(Reason reason, float glideSeconds);
+    // `chosen`: a look already decided (a remembered one); else one is made for the feeling.
+    void commit(Reason reason, float glideSeconds, const Look* chosen = nullptr);
+    // Form named the section a section event opened: bring back its look, or remember the new one.
+    void named(int section, float glideSeconds);
 
     sound::Emotion emotion_;
     sound::Emotion::State feeling_{};  // what this step heard: its own emotion_'s, or the engine's
@@ -138,6 +171,23 @@ private:
     int committedKey_ = -1;
     int key_ = -1;
     float modulationSeconds_ = 0.0f;
+
+    // Section memory: the look first chosen for each section Form names, for this play.
+    std::array<Look, kSectionSlots> remembered_{};
+    std::array<bool, kSectionSlots> known_{};
+    // A section event waiting for Form's name: the id the frame carried at the event, the downbeats and
+    // seconds since, and whether the event was a drop (whose look is already in) or a section (whose look
+    // holds still until named).
+    bool naming_ = false;
+    bool namingDrop_ = false;
+    int namingFrom_ = -1;
+    int namingBars_ = 0;
+    float namingSeconds_ = 0.0f;
+    int lastDropSection_ = -1;
+    bool returned_ = false;
+
+    // The build's lean, 0..1, toward 1 while Form's state is a build.
+    float lean_ = 0.0f;
 };
 
 namespace director {

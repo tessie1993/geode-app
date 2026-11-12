@@ -97,10 +97,14 @@ The renderer runs these in order each frame.
 
 - `Director`, the auto-director: at sections and drops the feeling decides a behaviour look, held until the next.
 - The director's five axes are Energy, Speed, Complexity, Space and Chaos: offsets on scene params and the camera's music moves; never the user's macro bank.
-- The director also sets the camera's softness and the motion dials by a factor; a dial at 0 stays off.
+- The director also sets the camera's softness and the breath dial by a factor; a dial at 0 stays off; it never touches Spin (`motionDrift`).
 - The director is base plus modulation, MilkDrop's rule.
 - The director's axis push scales into the room a slider has left above its default, so a slider between its default and the end still moves the picture (`director::applyAxes`).
 - Owner's rule: the director never touches a colour param and plays no route of its own, and nothing in it follows the frame.
+- The director remembers the look it chose for each section Form names, so a returning section brings its look back.
+- A section's look is held until Form names the section (one downbeat on); a drop cuts at once to the look of the section the last drop opened.
+- Looks land on a downbeat when a beat is heard, over 2 bars for calm feelings down to a beat for driven ones (`Director::changeBars`).
+- While Form's state is a build the director's axes lean toward the drop over four bars; the drop takes the lean away.
 - `DirectorReach` is the director's reach past the look when Visuals › Settings asks.
 - Before the look, the reach shuffles, and the Customize randomizer rolls some categories at a section, drop or long stretch from the play seed; sliders glide and toggles flip on the moment.
 - After its axes, the reach adds three slow waves and three sound followers of its own.

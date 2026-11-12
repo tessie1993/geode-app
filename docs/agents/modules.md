@@ -4,7 +4,6 @@ One fact per line. Add a fact as a new bullet under its module.
 
 ```
 :app ──► :engine:scenes ──api──► :engine:audio-core (JVM, pure Kotlin)
-   └───► :engine:audio-android ──api──┘
 :app ──externalNativeBuild──► CMakeLists.txt ──► libgeode.so + libprojectM-4.so
 ```
 
@@ -17,11 +16,6 @@ One fact per line. Add a fact as a new bullet under its module.
 - `SoundCursor` is Cast's 16-bit reader of the ring.
 - `SoundTuning` is the user tuning (Settings › Audio, kept in `SoundInputSettings`): a float holder.
 - `SoundTuning`'s defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
-
-## `:engine:audio-android`
-
-- Package: `dev.geode.engine.audioandroid`.
-- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
 
 ## `:engine:scenes`
 

@@ -45,7 +45,6 @@ set -euo pipefail
 S='engine/scenes/src/main/kotlin/dev/geode'
 C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
-    "engine/audio-android/src/main/kotlin/dev/geode/engine/audioandroid/PcmTap.kt"
     "$C/audio/SampleRing.kt"
     "$C/audio/SoundCursor.kt"
     "$C/audio/SoundTuning.kt"

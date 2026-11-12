@@ -34,7 +34,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending: shell glue (copies the bundled `.milk` assets once), but `MilkPresetMemory` in `:engine:scenes` installs it, so it moves when that does. |
 | `BuildStyleReactionsUseCase` | 51 | pending |
-| `PcmTap` | 55 | pending |
+| `PcmTap` | 55 | **moved to the shell**: Media3's `TeeAudioProcessor.AudioBufferSink` has no NDK form, so it stays Kotlin, in `:app` under the same package; `:engine:audio-android` is gone. It decides nothing: `owns` is `CaptureController`'s answer (through `PlayerSession`), and a flush starting a ring epoch is the ring's contract (`core/audio/ingest/PcmRing`); no native owner of the source choice for the player exists yet. |
 | `AiffPcm` | 57 | pending |
 | `LookSnapshot` | 70 | pending |
 | `SceneIds` | 70 | pending |

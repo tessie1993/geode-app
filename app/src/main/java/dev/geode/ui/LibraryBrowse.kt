@@ -22,7 +22,7 @@ enum class LibrarySort(
     ;
 
     companion object {
-        /** An order by its stored name (`GuiPrefs.librarySort`, the saved screen state); null when it names none. */
+        /** An order by its stored name (`GeneralSettings.librarySort`, the saved screen state); null when it names none. */
         fun fromName(name: String?): LibrarySort? = entries.firstOrNull { it.name == name }
     }
 }

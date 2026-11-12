@@ -1,15 +1,18 @@
 package dev.geode.data
 
-import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.RingLog
 import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
+import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 /** One knob of the macro bank as the shell draws it, read off the bank text; [value] runs -1..1. */
@@ -44,22 +47,31 @@ data class MacroBankState(
  * writes. Every edit (a turn, a name, a link, a new or removed knob) is a native call that returns the
  * new bank; this keeps the text, reads the knobs off it for drawing, hands it to the engine at once and
  * saves it. A new knob is a draft ([newDraft]): it is live on the visual while it is edited, but saved only
- * by [saveDraft] under the name the user gives it, and [discardDraft] drops it. [GeodeApp] builds the store at start, so a
- * wallpaper or dream that starts before the app does still gets the bank.
+ * by [saveDraft] under the name the user gives it, and [discardDraft] drops it.
+ *
+ * One instance per process, built by `GeodeContainer`: the saved bank is a [SettingsRepository] over
+ * [MacroBankCodec] (#1009, PR 6), read and normalized on IO at process start and handed to the engine
+ * as soon as it is back; the bank is empty until then. Saves go through the repository in the order
+ * they were made.
  *
  * The six old knobs, their locks and saved sets are gone with no migration: their keys are dropped
- * the first time the store loads ([RETIRED_KEYS]).
+ * the first time the bank is read ([RETIRED_KEYS]).
  */
 class MacroStore internal constructor(
-    private val prefs: SharedPreferences,
-    private val normalize: (String) -> String = { GeodeNative.macroBankNormalize(it) },
+    private val repository: SettingsRepository<String>,
+    private val scope: CoroutineScope,
     private val push: (String) -> Unit = { text -> bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) } },
 ) {
-    private val _state = MutableStateFlow(load())
+    private val _state = MutableStateFlow(MacroBankState())
     val state: StateFlow<MacroBankState> = _state
 
     init {
-        push(_state.value.text)
+        scope.launch {
+            val saved = repository.loaded()
+            // Nothing can have edited the bank before its first read: every edit starts from it.
+            _state.value = stateOf(saved)
+            push(saved)
+        }
     }
 
     /** What the knob editor draws and offers on [styleId], as native lists it for the bank as it is now. */
@@ -222,22 +234,15 @@ class MacroStore internal constructor(
         if (persist) write()
     }
 
-    private fun load(): MacroBankState {
-        if (RETIRED_KEYS.any(prefs::contains)) {
-            prefs.edit().apply { RETIRED_KEYS.forEach(::remove) }.apply()
-        }
-        val stored = prefs.getString(KEY_BANK, null).orEmpty()
-        return stateOf(runCatching { normalize(stored) }.getOrDefault(stored))
-    }
-
     private fun write() {
         if (_state.value.draft != null) return
-        prefs.edit().putString(KEY_BANK, _state.value.text).apply()
+        val text = _state.value.text
+        scope.launch { repository.update { text } }
     }
 
     companion object {
         private const val TAG = "MacroStore"
-        private const val KEY_BANK = "macro_bank"
+        internal const val KEY_BANK = "macro_bank"
 
         /** Every key this store writes: a backup files them under Creative, with the presets they shape. */
         internal val KEYS: Set<String> = setOf(KEY_BANK)
@@ -251,13 +256,6 @@ class MacroStore internal constructor(
                 // Read once to drop them, never restored: BackupFormat files them device-local.
                 retired(PrefType.STRING, "macro_knobs", "macro_presets", backup = BackupClass.DEVICE)
                 retired(PrefType.INT, "macro_locks", backup = BackupClass.DEVICE)
-            }
-
-        @Volatile private var instance: MacroStore? = null
-
-        fun get(context: Context): MacroStore =
-            instance ?: synchronized(this) {
-                instance ?: MacroStore(GeodePrefsFiles(context.applicationContext).general).also { instance = it }
             }
 
         fun stateOf(text: String): MacroBankState = MacroBankState(text, knobsOf(text))
@@ -275,5 +273,32 @@ class MacroStore internal constructor(
                 }.toList()
 
         private const val KNOB_FIELDS = 5
+    }
+}
+
+/**
+ * The saved bank in `geode-prefs`: one string, normalized by native when it is read (an empty or old
+ * bank becomes the built-in one). Reading also drops the six old knobs' keys, as the store's load did.
+ */
+class MacroBankCodec(
+    private val normalizeBank: (String) -> String = { GeodeNative.macroBankNormalize(it) },
+) : PrefsCodec<String> {
+    override val defaults = ""
+
+    override val keys get() = MacroStore.PREF_KEYS
+
+    override fun read(prefs: SharedPreferences): String {
+        if (MacroStore.RETIRED_KEYS.any(prefs::contains)) {
+            prefs.edit().apply { MacroStore.RETIRED_KEYS.forEach { remove(it) } }.apply()
+        }
+        val stored = prefs.getString(MacroStore.KEY_BANK, null).orEmpty()
+        return runCatching { normalizeBank(stored) }.getOrDefault(stored)
+    }
+
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: String,
+    ) {
+        editor.putString(MacroStore.KEY_BANK, value)
     }
 }

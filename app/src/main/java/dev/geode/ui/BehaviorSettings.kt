@@ -16,11 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,42 +45,39 @@ import kotlinx.coroutines.launch
 // screen, the wallpaper button. Only options the app honours get a row (#337): a switch that does
 // nothing is worse than no switch.
 
+/** A change to [BehaviourPrefs], applied to the latest value by the repository. */
+internal typealias BehaviourEdit = ((BehaviourPrefs) -> BehaviourPrefs) -> Unit
+
 /** [BehaviourPrefs] as a page holds it: null until the first read (on IO) is back. */
 internal class BehaviourPrefsHolder(
     val prefs: BehaviourPrefs?,
-    val update: (BehaviourPrefs) -> Unit,
+    val update: BehaviourEdit,
 )
 
 /**
- * The process's one Behaviour repository (`GeodeContainer.behaviour`, #1009 PR 4) as the page holds it:
- * null until the file has been read, then its value. Each change shows at once and is written through
- * the repository's `update` on the app's scope, so leaving the page never drops it. The last screen
- * shown is not the page's to write: the update keeps whatever the repository holds for it.
+ * The container's one [dev.geode.data.BehaviourRepository]: null until its load is back, then its
+ * value, and each change applied to the latest value, so a row never writes back a stale copy over
+ * the last screen recorded meanwhile or another page's change. Edits run on the app's scope, so
+ * leaving the page never drops one.
  */
 @Composable
 internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
-    val container = LocalContext.current.geodeContainer
-    val repository = remember(container) { container.behaviour }
-    var prefs by remember { mutableStateOf<BehaviourPrefs?>(null) }
-    LaunchedEffect(repository) {
+    val ctx = LocalContext.current
+    val container = remember { ctx.geodeContainer }
+    val repository = container.behaviour
+    val prefs by produceState<BehaviourPrefs?>(null, repository) {
         repository.loaded()
-        repository.value.collect { prefs = it }
+        repository.value.collect { value = it }
     }
-    return BehaviourPrefsHolder(prefs) { next ->
-        prefs = next
-        container.appScope.launch { repository.update { next.copy(lastScreen = it.lastScreen) } }
-    }
+    return BehaviourPrefsHolder(prefs) { edit -> container.appScope.launch { repository.update(edit) } }
 }
 
-/**
- * One [BehaviourPrefs] row by its key, whichever tab holds it. Each change writes the whole prefs
- * through the page's [BehaviourPrefsHolder], so rows on one page never undo each other.
- */
+/** One [BehaviourPrefs] row by its key, whichever tab holds it. */
 @Composable
 internal fun BehaviourRow(
     row: SettingsRowKey,
     prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
+    update: BehaviourEdit,
 ) {
     when (row) {
         SettingsRowKey.START_SCREEN ->
@@ -91,21 +86,21 @@ internal fun BehaviourRow(
                 options = StartScreen.entries,
                 selected = prefs.startScreen,
                 label = { stringResource(startScreenLabel(it)) },
-                onSelect = { update(prefs.copy(startScreen = it)) },
+                onSelect = { screen -> update { it.copy(startScreen = screen) } },
             )
         SettingsRowKey.KEEP_SCREEN_ON_IN_VISUALS ->
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_beh_keep_screen_on),
                 summary = stringResource(R.string.settings_beh_keep_screen_on_summary),
                 checked = prefs.keepScreenOnVisuals,
-                onCheckedChange = { update(prefs.copy(keepScreenOnVisuals = it)) },
+                onCheckedChange = { on -> update { it.copy(keepScreenOnVisuals = on) } },
             )
         SettingsRowKey.HEADPHONES_AUTOPLAY ->
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_beh_headphones),
                 summary = stringResource(R.string.settings_beh_headphones_summary),
                 checked = prefs.startOnHeadphones,
-                onCheckedChange = { update(prefs.copy(startOnHeadphones = it)) },
+                onCheckedChange = { on -> update { it.copy(startOnHeadphones = on) } },
             )
         SettingsRowKey.QUEUE_END -> QueueEndRow(prefs, update)
         SettingsRowKey.REMEMBER_SHUFFLE ->
@@ -113,7 +108,7 @@ internal fun BehaviourRow(
                 title = stringResource(R.string.settings_beh_remember_shuffle),
                 summary = stringResource(R.string.settings_beh_remember_shuffle_summary),
                 checked = prefs.rememberShuffleRepeat,
-                onCheckedChange = { update(prefs.copy(rememberShuffleRepeat = it)) },
+                onCheckedChange = { on -> update { it.copy(rememberShuffleRepeat = on) } },
             )
         SettingsRowKey.GESTURE_MAP -> GestureMap(prefs, update)
         SettingsRowKey.NOTIFICATION_BUTTONS -> NotificationButtonsRow(prefs, update)
@@ -121,19 +116,19 @@ internal fun BehaviourRow(
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_dream_bright),
                 checked = prefs.dreamScreenBright,
-                onCheckedChange = { update(prefs.copy(dreamScreenBright = it)) },
+                onCheckedChange = { on -> update { it.copy(dreamScreenBright = on) } },
             )
         SettingsRowKey.DREAM_CLOCK ->
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_dream_clock),
                 checked = prefs.dreamShowClock,
-                onCheckedChange = { update(prefs.copy(dreamShowClock = it)) },
+                onCheckedChange = { on -> update { it.copy(dreamShowClock = on) } },
             )
         SettingsRowKey.DREAM_NOW_PLAYING ->
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_dream_now_playing),
                 checked = prefs.dreamShowNowPlaying,
-                onCheckedChange = { update(prefs.copy(dreamShowNowPlaying = it)) },
+                onCheckedChange = { on -> update { it.copy(dreamShowNowPlaying = on) } },
             )
         SettingsRowKey.DREAM_OTHER_APPS -> DreamOtherAppsRow(prefs, update)
         else -> Unit
@@ -144,7 +139,7 @@ internal fun BehaviourRow(
 @Composable
 private fun QueueEndRow(
     prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
+    update: BehaviourEdit,
 ) {
     SettingsChoiceRow(
         title = stringResource(R.string.settings_beh_queue_end),
@@ -159,7 +154,7 @@ private fun QueueEndRow(
                 },
             )
         },
-        onSelect = { update(prefs.copy(queueEnd = it)) },
+        onSelect = { action -> update { it.copy(queueEnd = action) } },
     )
 }
 
@@ -171,7 +166,7 @@ private fun QueueEndRow(
 @Composable
 private fun GestureMap(
     prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
+    update: BehaviourEdit,
 ) {
     SettingsHint(stringResource(R.string.settings_gestures_hint))
     CanvasGesture.entries.forEach { gesture ->
@@ -180,7 +175,7 @@ private fun GestureMap(
             options = gestureChoices(gesture, prefs.actionFor(gesture)),
             selected = prefs.actionFor(gesture),
             label = { stringResource(gestureActionLabel(it)) },
-            onSelect = { action -> update(prefs.copy(gestures = prefs.gestures + (gesture to action))) },
+            onSelect = { action -> update { it.copy(gestures = it.gestures + (gesture to action)) } },
         )
     }
 }
@@ -189,7 +184,7 @@ private fun GestureMap(
 @Composable
 private fun NotificationButtonsRow(
     prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
+    update: BehaviourEdit,
 ) {
     NotificationButton.entries.forEach { button ->
         SettingsSwitchRow(
@@ -203,7 +198,7 @@ private fun NotificationButtonsRow(
                 ),
             checked = button in prefs.notificationButtons,
             onCheckedChange = { on ->
-                update(prefs.copy(notificationButtons = NotificationButton.toggled(prefs.notificationButtons, button, on)))
+                update { it.copy(notificationButtons = NotificationButton.toggled(it.notificationButtons, button, on)) }
             },
         )
     }
@@ -217,11 +212,11 @@ private fun NotificationButtonsRow(
 /** Whether swiping home from the fullscreen visualizer during playback drops into PiP on its own. */
 @Composable
 internal fun PictureInPictureSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val general by viewModel.general.collectAsStateWithLifecycle()
     LabeledSwitch(
         stringResource(R.string.behavior_pip_auto_enter),
-        checked = gui.autoEnterPip,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
+        checked = general.autoEnterPip,
+        onCheckedChange = { viewModel.updateGeneral { s -> s.copy(autoEnterPip = it) } },
     )
     SettingsHint(stringResource(R.string.behavior_pip_auto_enter_hint))
 }
@@ -255,12 +250,12 @@ internal fun ReducedMotionRow() {
 /** Gestures & controls › Touch: pinch and twist moving Zoom and Rotation (`VisualsHub`). */
 @Composable
 internal fun TouchTransformRow(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visuals by viewModel.visuals.collectAsStateWithLifecycle()
     Column {
         LabeledSwitch(
             stringResource(R.string.behavior_touch_transform),
-            checked = gui.touchTransform,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
+            checked = visuals.touchTransform,
+            onCheckedChange = { viewModel.updateVisuals { s -> s.copy(touchTransform = it) } },
         )
         SettingsHint(stringResource(R.string.behavior_touch_transform_hint))
     }
@@ -320,7 +315,7 @@ internal fun LiveWallpaperRow() {
 @Composable
 private fun DreamOtherAppsRow(
     prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
+    update: BehaviourEdit,
 ) {
     val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
     SettingsSwitchRow(
@@ -328,7 +323,7 @@ private fun DreamOtherAppsRow(
         summary = stringResource(R.string.settings_dream_other_apps_hint),
         checked = prefs.dreamHearOtherApps,
         onCheckedChange = { on ->
-            update(prefs.copy(dreamHearOtherApps = on))
+            update { it.copy(dreamHearOtherApps = on) }
             if (on && !permission.granted) permission.request()
         },
     )

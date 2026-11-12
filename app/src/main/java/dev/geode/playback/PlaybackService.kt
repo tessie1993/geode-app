@@ -64,7 +64,7 @@ class PlaybackService : MediaLibraryService() {
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
         val tree = LibraryTree(this)
-        val notificationButtons = NotificationButtons(this, player).also { buttons = it }
+        val notificationButtons = NotificationButtons(this, player, scope).also { buttons = it }
         queueEnd = QueueEnd(this, player, tree, scope).also { player.addListener(it) }
         // Media3's default status-bar icon is a generic note; ours is the mark's silhouette.
         setMediaNotificationProvider(

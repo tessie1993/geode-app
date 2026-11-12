@@ -3,7 +3,7 @@ package dev.geode.ui.tour
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.geode.data.UserDataRepository
+import dev.geode.data.AppStateRepository
 import dev.geode.model.GestureTip
 import dev.geode.model.Tour
 import dev.geode.model.TourChapter
@@ -57,7 +57,7 @@ data class TourUiState(
 class TourViewModel
     @Inject
     constructor(
-        private val userData: UserDataRepository,
+        private val appState: AppStateRepository,
     ) : ViewModel() {
         private val run = MutableStateFlow<TourRun?>(null)
         private val facts = MutableStateFlow(TourFacts())
@@ -74,12 +74,12 @@ class TourViewModel
         private var tipCounts = mapOf<GestureTip, Int>()
         private var settle: Job? = null
 
-        private val _uiState = MutableStateFlow(TourUiState(progress = userData.guiPrefs.value.tourProgress))
+        private val _uiState = MutableStateFlow(TourUiState(progress = appState.value.value.tourProgress))
         val uiState: StateFlow<TourUiState> = _uiState.asStateFlow()
 
         init {
             viewModelScope.launch {
-                userData.guiPrefs
+                appState.value
                     .map { it.tourProgress }
                     .distinctUntilChanged()
                     .collect { p -> _uiState.update { it.copy(progress = p) } }
@@ -244,7 +244,7 @@ class TourViewModel
             val next = change(before)
             if (next == before) return
             _uiState.update { it.copy(progress = next) }
-            viewModelScope.launch { userData.setGuiPrefs(userData.guiPrefs.value.copy(tourProgress = next)) }
+            viewModelScope.launch { appState.update { it.copy(tourProgress = next) } }
         }
 
         private val TourSpot.ordinalInChapter: Int get() = chapter.spots.indexOf(this)

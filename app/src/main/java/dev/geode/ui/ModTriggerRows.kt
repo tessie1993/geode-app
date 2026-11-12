@@ -7,7 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.MacroStore
+import dev.geode.geodeContainer
 
 /**
  * Which Quick knob a wave or an envelope on "Macro knob" turns: the knobs on screen, by name, as native lists them
@@ -19,7 +19,7 @@ internal fun MacroKnobRow(
     onPick: (Int) -> Unit,
 ) {
     val context = LocalContext.current
-    val store = remember { MacroStore.get(context) }
+    val store = remember { context.geodeContainer.macros }
     val bank by store.state.collectAsStateWithLifecycle()
     val sceneId = LocalSceneId.current
     val knobs = remember(bank, sceneId) { store.editor(sceneId).knobs }

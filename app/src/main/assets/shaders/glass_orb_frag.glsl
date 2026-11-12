@@ -102,7 +102,7 @@ out vec4 fragColor;
 vec3 gEye;
 float gHue;
 
-float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
+float knob(int i) { return glassKnobIn(i) - 0.5; }
 
 /** Folds p into its pillar's wedge: q is (radial offset from the pillar axis, height above the floor, across). Returns the pillar's index 0..11. */
 float pillarLocal(vec3 p, out vec3 q) {
@@ -115,7 +115,7 @@ float pillarLocal(vec3 p, out vec3 q) {
     return mod(k + OR_PILLARS, OR_PILLARS);
 }
 
-float map(vec3 p) {
+float glassDist(vec3 p) {
     vec3 q;
     pillarLocal(p, q);
     vec2 aq = abs(q.xz);
@@ -128,11 +128,19 @@ float map(vec3 p) {
     return max(d, 0.5 - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
+/** What the field holds at a point (lib_glass_field): the distance alone. */
+struct GlassHit {
+    float d;
+};
+
+GlassHit glassMap(vec3 p) {
+    GlassHit h;
+    h.d = glassDist(p);
+    return h;
 }
+
+//#include lib_glass_field
+
 
 /** How far up its pillar a strip is lit, 0..1: that pillar's EQ band, with a floor so a quiet ring still reads. */
 float stripTop(float fi) {
@@ -237,12 +245,13 @@ vec3 seen(vec3 o, vec3 d, vec3 c, GlassLook lk, float focus, float rough) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
     GlassEar ear = glassListen();
     gHue = 0.04 * sin(t * 0.023) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.25 * knob(3);
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, gHue, ear);
-    float ior = 1.36 + 0.2 * clamp(ear.bass, 0.0, 1.2);
-    float spread = max(0.012 + 0.04 * ear.sharp + 0.03 * knob(4), 0.004);
+    float ior = glassIor(1.36 + 0.2 * clamp(ear.bass, 0.0, 1.2));
+    float spread = glassSpread(max(0.012 + 0.04 * ear.sharp + 0.03 * knob(4), 0.004));
     float frost = clamp(ear.frost * 0.6 + 0.3 * knob(1), 0.0, 1.0);
     // The caustic spot's width on the floor: a stronger lens focuses it tighter.
     float focus = mix(0.34, 0.2, (ior - 1.36) / 0.24);
@@ -271,7 +280,7 @@ void main() {
     for (int i = 0; i < OR_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * tm;
-        float d = map(p);
+        float d = glassField(p).d;
         float eps = glassEps(tm);
         if (d < eps) {
             hitT = tm;
@@ -288,7 +297,7 @@ void main() {
     if (hitT > 0.0) {
         // ---- a pillar ----
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(glassEps(hitT), 0.0015));
+        vec3 n = glassNormal(p, max(glassEps(hitT), 0.0015));
         vec3 q;
         float fi = pillarLocal(p, q);
         float ao = glassStepAO(used);

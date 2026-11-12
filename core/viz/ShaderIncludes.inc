@@ -65,6 +65,7 @@
 // The older families' fields, included after the style's own map: the one entry that calls it (no prototypes).
 "lib_terra_field",
 "lib_truchet_field",
+"lib_glass_field",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).

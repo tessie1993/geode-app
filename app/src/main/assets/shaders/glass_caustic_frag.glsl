@@ -98,9 +98,12 @@ out vec4 fragColor;
 #define SC_CELL 8.0
 #define SC_ZCELLS 128.0
 
-/** The ball hit by the last map(): centre xyz, radius w (w <= 0: the sand). */
-vec4 gBall;
-float gMat;
+/** What the field holds at a point (lib_glass_field): the distance, the cell's ball (centre xyz, radius w; w <= 0: none) and the material (1 ball, 0 sand). */
+struct GlassHit {
+    float d;
+    vec4 ball;
+    float mat;
+};
 
 /**
  * Long dunes across the current, slowly swelling, plus shorter ridges.
@@ -124,7 +127,7 @@ vec4 ballIn(vec2 cell) {
     return vec4(c.x, SC_FLOOR + duneH(c) + 0.3 * r, c.y, r);
 }
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
     float dSand = (p.y - SC_FLOOR - duneH(p.xz)) * SC_STEPK;
     vec2 cell = floor(p.xz / SC_CELL);
     vec4 b = ballIn(cell);
@@ -133,10 +136,14 @@ float map(vec3 p) {
     vec2 af = abs(f);
     float toEdge = 0.5 * SC_CELL - max(af.x, af.y);
     float d = min(dSand, max(toEdge + 1.5, p.y - SC_TOP));
-    gMat = dBall < d ? 1.0 : 0.0;
-    gBall = b;
-    return min(d, dBall);
+    GlassHit h;
+    h.mat = dBall < d ? 1.0 : 0.0;
+    h.ball = b;
+    h.d = min(d, dBall);
+    return h;
 }
+
+//#include lib_glass_field
 
 /**
  * The caustic waves: lib_glass's five golden-angle waves (glassWaves) with
@@ -190,15 +197,16 @@ float ripH(vec2 sp, float fine) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
     GlassEar ear = glassListen();
 
-    float k0 = uKnob[0];
-    float k1 = uKnob[1];
-    float k2 = uKnob[2];
-    float k3 = uKnob[3];
-    float k4 = uKnob[4];
-    float k5 = uKnob[5];
+    float k0 = gGlassIn.pulse;
+    float k1 = gGlassIn.texture;
+    float k2 = gGlassIn.flow;
+    float k3 = gGlassIn.tone;
+    float k4 = gGlassIn.build;
+    float k5 = gGlassIn.space;
 
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.25 * (k3 - 0.5);
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
@@ -227,7 +235,7 @@ void main() {
 
     float chop = 0.75 + 0.5 * ear.kick * (0.5 + k0) + 0.2 * clamp(ear.bass, 0.0, 1.2);
     float sharp = mix(0.06, 0.014, ear.sharp) * (1.0 + 1.5 * ear.frost);
-    float ior = 1.45 + 0.15 * clamp(ear.bass, 0.0, 1.0);
+    float ior = glassIor(1.45 + 0.15 * clamp(ear.bass, 0.0, 1.0));
     vec2 drift = vec2(0.05 * t, 0.0);
 
     if (rd.y < -0.001) {
@@ -239,11 +247,12 @@ void main() {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (tm > SC_FAR) break;
-            float d = map(ro + rd * tm);
+            GlassHit at = glassField(ro + rd * tm);
+            float d = at.d;
             if (d < glassEps(tm)) {
                 hit = tm;
-                mat = gMat;
-                ball = gBall;
+                mat = at.mat;
+                ball = at.ball;
                 break;
             }
             tm += d;
@@ -261,7 +270,7 @@ void main() {
             float cosI = max(dot(n, -rd), 0.0);
             float fr = glassFresnel(cosI, ior);
             vec3 tint = mix(vec3(1.0), water * 2.0, 0.3);
-            vec3 through = glassSphereTrace(p, n, rd, ball.xyz, ball.w, ior, 0.02 + 0.03 * ear.sharp, tint, 0.4, glassBounces(), lkSea);
+            vec3 through = glassSphereTrace(p, n, rd, ball.xyz, ball.w, ior, glassSpread(0.02 + 0.03 * ear.sharp), tint, 0.4, glassBounces(), lkSea);
             vec3 rr = reflect(rd, n);
             col = through * (1.0 - fr) * 1.3 + glassEnv(rr, lkSea) * fr;
             col += vec3(1.0, 0.97, 0.9) * 3.0 * pow(max(dot(rr, sunDir), 0.0), 180.0);

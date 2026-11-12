@@ -145,9 +145,18 @@ float gLon[3];
 float gLkale[3];
 float gLR[3];
 float gLo[3];
-/** The lens the last map() call found nearest (-1 none), and whether it was the glass (1) or the ring (2). */
-int gLane;
-int gPart;
+/**
+ * What the field holds at a point (lib_glass_field): the distance, the row it read, the lens it found
+ * nearest (-1 none) and whether that was the glass (1) or the ring (2). The row's lenses themselves stay
+ * in the gL* cache above, which fillRow keys by row: a read elsewhere refills it, never corrupts it, and
+ * the shading refills it for the hit's row before it reads it.
+ */
+struct GlassHit {
+    float d;
+    float row;
+    int lane;
+    int part;
+};
 
 // The shadow the green channel's floor read found, reused by red and blue.
 float gShMul;
@@ -222,12 +231,14 @@ void fillRow(float row) {
     }
 }
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
     float row = floor(p.z / LN_CELL);
     if (row != gRow) fillRow(row);
     float d = 1e3;
-    gLane = -1;
-    gPart = 0;
+    GlassHit h;
+    h.row = row;
+    h.lane = -1;
+    h.part = 0;
     for (int i = 0; i < 3; i++) {
         if (gLon[i] < 0.5) continue;
         vec3 pp = p - gLC[i];
@@ -244,8 +255,8 @@ float map(vec3 p) {
         float dl = min(glass, ring);
         if (dl < d) {
             d = dl;
-            gLane = i;
-            gPart = ring < glass ? 2 : 1;
+            h.lane = i;
+            h.part = ring < glass ? 2 : 1;
         }
     }
     float zl = p.z - gRow * LN_CELL;
@@ -253,8 +264,11 @@ float map(vec3 p) {
     d = max(d, p.y - LN_LENS_TOP);
     d = max(d, abs(p.x) - LN_LANE_MAX);
     d = max(d, LN_BUBBLE - length(p - gEye));
-    return d;
+    h.d = d;
+    return h;
 }
+
+//#include lib_glass_field
 
 vec3 fogColour() {
     return pal(gHue + 0.6) * 0.035;
@@ -375,6 +389,7 @@ vec3 seeBeyond(vec3 o, vec3 dir, float travelled, float fpk, float rough, float 
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -385,15 +400,15 @@ void main() {
 
     gEar = glassListen();
     gHue = 0.05 * sin(glassTime() * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue)
-         + 0.25 * (uKnob[3] - 0.5);
+         + 0.25 * (gGlassIn.tone - 0.5);
     gLk = glassLook(GLASS_ENV_FRACTAL, gHue, gEar);
     gL = glassKeyDir(gLk);
     gDrift = glassTime();
-    gFlow = clamp(1.0 + 1.2 * (uKnob[2] - 0.5), 0.4, 1.6);
-    gPulse = clamp(1.0 + 1.0 * (uKnob[0] - 0.5), 0.5, 1.5);
-    gTexture = clamp(1.0 + 1.2 * (uKnob[1] - 0.5), 0.4, 1.6);
-    gBuild = clamp(1.0 + 0.6 * (uKnob[4] - 0.5), 0.7, 1.3);
-    gSpace = clamp(1.0 + 0.5 * (uKnob[5] - 0.5), 0.75, 1.25);
+    gFlow = clamp(1.0 + 1.2 * (gGlassIn.flow - 0.5), 0.4, 1.6);
+    gPulse = clamp(1.0 + 1.0 * (gGlassIn.pulse - 0.5), 0.5, 1.5);
+    gTexture = clamp(1.0 + 1.2 * (gGlassIn.texture - 0.5), 0.4, 1.6);
+    gBuild = clamp(1.0 + 0.6 * (gGlassIn.build - 0.5), 0.7, 1.3);
+    gSpace = clamp(1.0 + 0.5 * (gGlassIn.space - 0.5), 0.75, 1.25);
     gComplex = glassComplexity();
     float bass = clamp(gEar.bass, 0.0, 1.0);
     gThick = 0.31 + 0.25 * bass;
@@ -412,14 +427,21 @@ void main() {
     float tMax = min(tFloor, LN_FAR);
     float t = 0.02;
     float hitT = -1.0;
+    // The field where the ray met a lens.
+    GlassHit hit;
+    hit.lane = -1;
+    hit.part = 0;
+    hit.row = gRow;
     for (int i = 0; i < LN_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
         if (p.y > LN_LENS_TOP && rd.y >= 0.0) break;
-        float d = map(p);
+        GlassHit at = glassField(p);
+        float d = at.d;
         if (d < 0.001 + 0.0008 * t) {
             hitT = t;
+            hit = at;
             break;
         }
         t += d * 0.95;
@@ -428,7 +450,9 @@ void main() {
 
     vec3 col;
     vec3 p = ro + rd * max(hitT, 0.0);
-    if (hitT > 0.0 && gLane >= 0 && length(p - gEye) > LN_BUBBLE + 0.02) {
+    if (hitT > 0.0 && hit.lane >= 0 && length(p - gEye) > LN_BUBBLE + 0.02) {
+        // The hit row's lenses (the cache holds the last row the field read).
+        if (gRow != hit.row) fillRow(hit.row);
         vec3 C = gLC[0];
         vec3 A = gLA[0];
         float ap = gLap[0];
@@ -436,7 +460,7 @@ void main() {
         float R = gLR[0];
         float o = gLo[0];
         for (int i = 1; i < 3; i++) {
-            if (i == gLane) {
+            if (i == hit.lane) {
                 C = gLC[i];
                 A = gLA[i];
                 ap = gLap[i];
@@ -451,7 +475,7 @@ void main() {
         float rr = length(radial);
         vec3 rdir = rr > 1e-4 ? radial / rr : vec3(0.0);
         float fog = 1.0 - exp(-hitT * LN_FOG);
-        if (gPart == 2) {
+        if (hit.part == 2) {
             // The brass ring: a mirror of the dome, warmed toward the palette.
             vec3 n = normalize(pp - rdir * ap);
             vec3 rf = reflect(rd, n);
@@ -466,10 +490,10 @@ void main() {
             vec3 S2 = C + A * o;
             vec3 n = (length(p - S1) - R) > (length(p - S2) - R) ? normalize(p - S1) : normalize(p - S2);
             if (dot(n, rd) > 0.0) n = -n;
-            vec3 local = pp + vec3(mod(gRow, LN_ROWS) * 3.1, float(gLane) * 5.3, 0.0);
+            vec3 local = pp + vec3(mod(gRow, LN_ROWS) * 3.1, float(hit.lane) * 5.3, 0.0);
             n = glassWobble(n, pp * 2.0, glassChaos());
             n = glassGrain(n, local, clamp(frost * gTexture, 0.0, 1.0));
-            vec3 iors = glassIors(GLASS_IOR, 0.012 + 0.045 * gEar.sharp);
+            vec3 iors = glassIors(glassIor(GLASS_IOR), glassSpread(0.012 + 0.045 * gEar.sharp));
             vec2 kc = C.xz;
             float chord = 0.0;
             vec3 seen = vec3(0.0);
@@ -497,7 +521,7 @@ void main() {
                 }
             }
             float cosI = clamp(dot(-rd, n), 0.0, 1.0);
-            float fr = glassFresnel(cosI, GLASS_IOR);
+            float fr = glassFresnel(cosI, glassIor(GLASS_IOR));
             vec3 refl = glassEnvRough(reflect(rd, n), gLk, frost * 0.05) * 0.8;
             vec3 beer = glassBeer(mix(vec3(1.0), pal(gHue + 0.5), 0.15), chord, 0.6);
             float rl = rr / ap;

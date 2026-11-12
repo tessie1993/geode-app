@@ -179,12 +179,6 @@ class VisualizerRenderer(
 
     fun warmTransition(id: String) = nativeViz.warmTransition(id)
 
-    /** Settings › Visuals › Touch › Smear, handed to native as set; the rule is core/viz/TouchSmear. */
-    fun setTouchSmear(
-        on: Boolean,
-        strength: Float,
-    ) = nativeViz.setTouchSmear(on, strength)
-
     /** The pointers that are down right now, in y-up NDC; `n = 0` says every finger has lifted. */
     fun submitTouchPoints(
         xy: FloatArray,

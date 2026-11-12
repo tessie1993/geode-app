@@ -45,7 +45,7 @@ constexpr LfoTarget kModTargets[] = {
     LfoTarget::Zoom,        LfoTarget::Rotation,   LfoTarget::Sway,         LfoTarget::Warp,         LfoTarget::Ripple,
     LfoTarget::Morph,       LfoTarget::Twist,      LfoTarget::Turbulence,   LfoTarget::Bloom,        LfoTarget::ChromaAb,
     LfoTarget::Vignette,    LfoTarget::Fisheye,    LfoTarget::TrailLength,  LfoTarget::ParticleSize, LfoTarget::FluidCurl,
-    LfoTarget::FluidForce,  LfoTarget::FlowStrength, LfoTarget::FlowCurl,   LfoTarget::WaterRipple,  LfoTarget::RippleOverlay,
+    LfoTarget::FluidForce,  LfoTarget::FlowStrength, LfoTarget::FlowCurl,
     LfoTarget::CamOrbit,    LfoTarget::CamFov,     LfoTarget::CamRoll,      LfoTarget::EndlessZoomSpeed,
 };
 constexpr int kModTargetCount = static_cast<int>(std::size(kModTargets));

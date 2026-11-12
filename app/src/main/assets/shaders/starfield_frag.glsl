@@ -44,7 +44,10 @@ out vec4 fragColor;
 // Bass (SND_LOW)          the core glow itself, slew-limited.
 // Drop (SND_HELD_SURGE)   the nebula parts (its cover falls) and its palette
 //                         swings to the far side; on a hump, so it glides back.
-// Knobs                   k1 TEXTURE fine filament weight, k3 TONE gas hue,
+// Knobs                   k1 TEXTURE fine filament weight, k3 TONE where the
+//                         gas gathers (a high melody banks it into a ceiling of
+//                         cloud above the flight, a low one into a floor below;
+//                         and the gas hue),
 //                         k4 BUILD gas glow, k5 SPACE thinner gas. All amplitudes,
 //                         never rates, so a moving knob never jumps the picture.
 // Params                  Warp bends the gas, Turbulence adds fine filaments,
@@ -108,6 +111,9 @@ vec3 gEye;
 
 float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
+/** TONE: how far the gas banks above (+) or below (-) the flight line; 0 at rest. */
+float gBank;
+
 /** Gas density at `p` (nebula space), 0..gCover. */
 float nebula(vec3 p) {
     // Each warp component reads another axis: z enters only through sin(p.z * NB_FW).
@@ -119,6 +125,8 @@ float nebula(vec3 p) {
     float d = clamp(1.0 - abs(g) / gThick, 0.0, 1.0);
     d *= d;
     d *= smoothstep(NB_BUBBLE, NB_BUBBLE + 1.6, length(p - gEye));
+    // TONE banks the gas above or below the flight line (1 at rest).
+    d *= max(1.0 + gBank * clamp((p.y - gEye.y) * 0.35, -1.0, 1.0), 0.0);
     return d * gCover;
 }
 
@@ -144,6 +152,7 @@ void main() {
     // Plain multiples of uTime: the drift speeds with Speed and never jumps.
     gDrift = vec3(uTime * 0.05, uTime * 0.037, uTime * 0.029);
     gEye = vec3(ro.xy, mod(ro.z, NB_ZWRAP));
+    gBank = 2.0 * knob(3);
 
     float pixAngle = 2.0 / (max(uResolution.y, 1.0) * uCamFocal);
     // The core star sits on the world's +z, the direction of travel on the

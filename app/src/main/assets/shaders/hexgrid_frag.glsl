@@ -39,7 +39,9 @@ out vec4 fragColor;
 // SND_ENERGY_TREND.
 //
 // Knobs: k0 PULSE the kick lift, k1 TEXTURE the rim width, k2 FLOW the side
-// glow band, k3 TONE a hue offset, k4 BUILD the cap glow, k5 SPACE the hall's
+// glow band, k3 TONE the hall's width (a high melody draws the walls in close
+// round the flight into a canyon, a low one pushes them out over a wide open
+// floor; and a hue offset), k4 BUILD the cap glow, k5 SPACE the hall's
 // height. Morph thins the columns and bevels their caps, Warp twists the hall
 // about its axis along z, Turbulence lets every column bob on its own.
 //
@@ -96,8 +98,12 @@ float hexDist(vec2 p) {
     return max(dot(p, vec2(0.5, 0.8660254)), p.x);
 }
 
+/** TONE: the scale of the hall's width, 1 at rest. */
+float gWide;
+
 float wallAt(float ax) {
-    return smoothstep(1.2, 5.5, ax);
+    // Monotone in ax at every width, which maxTop's neighbour bound relies on.
+    return smoothstep(1.2 * gWide, 5.5 * gWide, ax);
 }
 
 /** The tallest a column centred at |x| = ax could stand, everything maxed. */
@@ -194,6 +200,7 @@ void main() {
 
     float morph = clamp(uMorph, 0.0, 1.0);
     gFloor = -(2.5 + 0.9 * k5);
+    gWide = 1.0 - 0.5 * k3;
     gWarp = 0.35 * clamp(uWarp, 0.0, 2.0);
     gKickGain = 1.0 + 0.8 * k0;
     gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * gKickGain;

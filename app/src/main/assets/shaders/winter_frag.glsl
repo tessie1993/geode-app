@@ -49,8 +49,11 @@ out vec4 fragColor;
 // Morph thaws the pond (a wider lead), Warp lets the ripple sources wander,
 // Sway and Turbulence steer the wind. Knobs, each read as an offset from 0.5
 // so the style looks as tuned while Note & key reactions are off: k0 PULSE
-// ripple height, k1 TEXTURE frost crack density, k2 FLOW wind, k3 TONE hue,
-// k4 BUILD snowfall, k5 SPACE fog distance.
+// ripple height, k1 TEXTURE frost crack density, k2 FLOW wind, k3 TONE how
+// high the moon stands (a high melody lifts it up the sky and shortens the
+// shadows, a low one sets it on the horizon so the light rakes long across
+// the snow and the ice; and a small hue offset), k4 BUILD snowfall, k5 SPACE
+// fog distance.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -307,7 +310,7 @@ void main() {
         sin(t0 * 0.23) * (0.35 + uSway) + uTurbulence * 0.5 * sin(t0 * 0.61) + 1.2 * (uKnob[2] - 0.5),
         cos(t0 * 0.17) * 0.18 * (0.3 + mid)
     );
-    vec3 moon = normalize(vec3(-0.3, 0.32, 1.0));
+    vec3 moon = normalize(vec3(-0.3, 0.32 + 0.55 * (uKnob[3] - 0.5), 1.0));
 
     // The pond, analytically: the lowest surface there is.
     float tPlane = rd.y < -1e-4 ? (WI_ICE - ro.y) / rd.y : 1e5;

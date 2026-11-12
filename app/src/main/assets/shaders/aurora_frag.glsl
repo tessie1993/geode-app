@@ -47,7 +47,9 @@ out vec4 fragColor;
 // Energy (SND_ENERGY_TREND) the tails grow taller over a building passage.
 // Pitch (SND_HELD_NOTE_CHANGE) slides the curtain hue.
 // Knobs: k0 PULSE glow, k1 TEXTURE ray contrast, k2 FLOW fold amplitude,
-// k3 TONE hue, k4 BUILD tail height, k5 SPACE curtain spacing; each is read as
+// k3 TONE how high the curtains hang (a high melody lifts their rims up into
+// the sky, a low one lets them down to graze the snow; and a hue offset),
+// k4 BUILD tail height, k5 SPACE curtain spacing; each is read as
 // its offset from 0.5, so with Note & key reactions off nothing changes.
 //
 // ---- why the march is safe --------------------------------------------------
@@ -84,6 +86,8 @@ float gHue;
 float gRayClock;
 float gYLo;
 float gYHi;
+/** TONE: how far the curtains' rims are lifted (0 at rest). */
+float gLift;
 
 /** The x of sheet `i` at height y, depth z: three folds along its length. */
 float sheetX(int i, float y, float z) {
@@ -100,7 +104,7 @@ float sheetX(int i, float y, float z) {
 /** The lower rim of sheet `i` at depth z. */
 float sheetBase(int i, float z) {
     float fi = float(i);
-    return AU_BASE + 0.45 * sin(float(2 + i) * AU_KZ * z + uTime * 0.13 + fi * 2.1) - gReach;
+    return AU_BASE + 0.45 * sin(float(2 + i) * AU_KZ * z + uTime * 0.13 + fi * 2.1) - gReach + gLift;
 }
 
 /** Vertical rays along sheet `i`: 0..~1.6, mean ~1. */
@@ -149,8 +153,9 @@ void main() {
     // Both clocks only ever advance, so a treble change speeds the shimmer
     // without jumping it.
     gRayClock = uSoundTimeSped.z * 0.6 + uTime * 0.15;
-    gYLo = AU_BASE - 0.45 - gReach - 0.4;
-    gYHi = AU_BASE + 0.45 + 4.0 * gH;
+    gLift = 2.6 * (uKnob[3] - 0.5);
+    gYLo = AU_BASE - 0.45 - gReach - 0.4 + gLift;
+    gYHi = AU_BASE + 0.45 + 4.0 * gH + gLift;
     float gain = (0.45 + 0.9 * level) * (1.0 + 0.5 * (uKnob[0] - 0.5));
 
     vec3 ro;

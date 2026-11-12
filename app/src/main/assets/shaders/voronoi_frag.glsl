@@ -43,7 +43,11 @@ out vec4 fragColor;
 // cells breathe and reshape as the flat ones did. Intensity and the rest of
 // the grade are lib_scene_grade's. Knobs (each neutral at 0.5): PULSE how far
 // a band lifts its column, TEXTURE the crack width, FLOW the seeds' wander,
-// TONE the hue, BUILD the walls' rise, SPACE the width of the open valley.
+// TONE which way the columns reach (a high melody lets the ceiling's columns
+// hang long and the floor's shrink, a low one grows the floor's up toward the
+// ceiling; and a small hue offset), BUILD the walls' rise, SPACE the width of
+// the open valley. The neighbour bound takes the longer side's factor, so it
+// holds either way.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -83,6 +87,8 @@ float gRise;
 float gWidth;
 float gDome;
 float gRough;
+/** TONE: the ceiling columns' share against the floor's (0 at rest). */
+float gLean;
 vec3 gEye;
 
 // Per map() call: the nearest cell.
@@ -172,15 +178,16 @@ float map(vec3 p) {
 
     float dome = gDome * min(b, VC_DOME_B);
     float slope = sqrt(1.0 + gDome * gDome);
-    float top = VC_FLOOR + columnLen(h3, h2, wall) + gLift * e;
-    float bot = VC_CEIL - columnLen(h4, h3, wall) - 0.6 * gLift * e;
+    float top = VC_FLOOR + columnLen(h3, h2, wall) * (1.0 - gLean) + gLift * e;
+    float bot = VC_CEIL - columnLen(h4, h3, wall) * (1.0 + gLean) - 0.6 * gLift * e;
     float side = gGap - b;
     float colF = max(side, (p.y - top - dome) / slope);
     float colC = max(side, (bot - dome - p.y) / slope);
 
     // The tallest (lowest) a neighbour could reach: a full rough base, a full
     // band, a full dome, one wall-step further out.
-    float reach = 0.35 + 0.6 * gRough + gRise * wallAt(ax + 2.0 * VC_CELL) + gLift * VC_EQ_MAX + gDome * VC_DOME_B;
+    float reach = (0.35 + 0.6 * gRough + gRise * wallAt(ax + 2.0 * VC_CELL)) * (1.0 + abs(gLean))
+                + gLift * VC_EQ_MAX + gDome * VC_DOME_B;
     float hiN = VC_FLOOR + reach;
     float loN = VC_CEIL - reach;
     float dN = max(b + gGap, min(p.y - hiN, loN - p.y));
@@ -222,6 +229,7 @@ void main() {
     gWidth = 4.4 * (1.0 + 0.4 * kSpace);
     gDome = 0.6 * clamp(uMorph, 0.0, 1.0);
     gRough = 1.0 + clamp(uTurbulence, 0.0, 2.0);
+    gLean = 1.2 * kTone;
 
     vec3 ro;
     vec3 rd;

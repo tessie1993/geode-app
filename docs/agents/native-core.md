@@ -177,7 +177,8 @@ The renderer runs these in order each frame.
 - `ShaderScene::uploadParams` takes the knobs from `NoteResponse` (exactly 0.5 while it is off).
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
-- The simulation scenes (Silk, Fluid, Life, Morphing (ids `acid_*`, `AcidScene`), Cymatics) present their field as a lit 3D surface through `lib_relief`.
+- Silk and Morphing (ids `acid_*`, `AcidScene`) present their field as a lit relief through `lib_relief`.
+- Life presents its field in 3D through `core/viz/present/FieldPresent` (`life_show_frag`): seven styles a terrain on the rig, Gyre a torus, Pulsar and Mitosis a sphere.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.
 - `core/viz/present/FieldPresent` presents a simulation in 3D: `field_prep_frag` writes its state into a mipmapped field (height, tint, age), and a `ShaderScene` fed that field (`ShaderScene::Field`) draws it, so the present reads the whole shared block like a style.
 - That present shader includes `lib_field3d`, defines its colours, then `lib_field3d_march`: the field marched as a terrain on `camFly` or a torus or sphere on `camAround`, with finer copies of the field as fractal detail.

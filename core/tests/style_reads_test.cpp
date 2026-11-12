@@ -12,7 +12,8 @@
 // counts as read when a function reachable from main() names it, comments and #ifdef'd-out code
 // stripped, macros followed: the nearest a host test gets to the driver's active-uniform list.
 // A dedicated renderer (Silk .. Cymatics, MilkDrop) counts a field as read when its scene sources
-// name it or the composite applies it to that renderer's picture.
+// name it or the composite applies it to that renderer's picture; one presented in 3D (core/viz/present:
+// Life) draws through a style-like shader on the shared block, and is held to that shader as a style is.
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -219,17 +220,23 @@ void theReaderFollowsCallsNotDeclarations() {
     check(read.count("uWarp") == 0 && read.count("uTwist") == 1, "#ifndef on a name the source defines drops its branch");
 }
 
+// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/present/FieldPresent
+// draws it as a ShaderScene); "" for one that draws flat.
+std::string presentShader(catalogue::Kind kind) { return kind == catalogue::Kind::Life ? "life_show_frag.glsl" : ""; }
+
 void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     int shaders = 0;
     for (const std::string& id : catalogue::allIds()) {
-        if (!catalogue::isShaderStyle(id)) {
-            check(!catalogue::fliesCamera(id), id + ": only a shader style flies the camera rig");
+        const std::string present = presentShader(catalogue::kindOf(id));
+        if (!catalogue::isShaderStyle(id) && present.empty()) {
+            check(!catalogue::fliesCamera(id) && !catalogue::isMarched(id),
+                  id + ": only a shader style or a 3D present flies the camera rig and marches");
             continue;
         }
         std::string error;
-        const auto src = source.load(id + "_frag.glsl", &error);
+        const auto src = source.load(present.empty() ? id + "_frag.glsl" : present, &error);
         check(src.has_value(), id + ": " + error);
         if (!src) continue;
         ++shaders;
@@ -607,11 +614,13 @@ void everyShownControlReachesItsStyle(const std::string& assetsRoot, const std::
     int gaps = 0;
     for (const std::string& id : catalogue::allIds()) {
         const catalogue::Kind kind = catalogue::kindOf(id);
-        const bool shader = kind == catalogue::Kind::Shader;
+        const std::string present = presentShader(kind);
+        // A 3D present is a style-like shader on the shared block: held to the shader carriers.
+        const bool shader = kind == catalogue::Kind::Shader || !present.empty();
         std::set<std::string> words;
         std::set<std::string> heard;
         if (shader) {
-            const auto src = source.load(id + "_frag.glsl", nullptr);
+            const auto src = source.load(present.empty() ? id + "_frag.glsl" : present, nullptr);
             if (!src) continue;
             words = wordsReachedFromMain(*src);
             heard = wordsReachedFromMain(*src, kViews);

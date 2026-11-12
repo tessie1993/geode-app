@@ -9,6 +9,7 @@
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
+#include "viz/present/FieldPresent.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
@@ -22,8 +23,10 @@ namespace geode::viz {
 // to inject (melody buds, hat spores), a rule that breathes (snare and surge widen
 // the growth window, kick16 and hard cuts morph to another of the style's four rule presets), a time
 // rate (quiet music freezes the colonies into still forms, busy music sets them squirming) and a drift
-// on the curved sound clock, which only ever moves forward. The present pass reads the field as a lit
-// relief (lib_relief) with two materials picked by cell age, swapped on each hard cut.
+// on the curved sound clock, which only ever moves forward. The field is presented in 3D (FieldPresent,
+// life_show_frag on lib_field3d): the living matter is the relief of a terrain the rig flies over, or of a
+// torus or sphere it circles, each style its own, with two materials picked by cell age. A finger seeds the
+// field where its ray meets the surface.
 class LifeScene : public Scene {
 public:
     LifeScene(const styles::LifeStyle& style, ProgramLoader loader, SceneHost host)
@@ -33,13 +36,22 @@ public:
     const std::string& id() const override { return id_; }
     SceneFamily family() const override { return SceneFamily::Fluid; }
     void init() override;
-    void setParams(const SceneParams& params) override { params_ = params; }
+    void setParams(const SceneParams& params) override {
+        params_ = params;
+        present_.setParams(params);
+    }
     void resize(int width, int height) override;
     void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
     void setTouchField(const TouchField* field) override { touch_ = field; }
+    void prepare() override { present_.prepare(); }
+    bool buildFailed() const override { return !programOk_ || present_.buildFailed(); }
+    void setPaletteLut(GLuint texture) override { present_.setPaletteLut(texture); }
+    void setCamera(const CameraPose* pose) override { present_.setCamera(pose); }
+    bool drawsCamera() const override { return present_.drawsCamera(); }
+    void redrawHeld() override { present_.redraw(); }
 
 private:
     static constexpr int kSimRes = 288;
@@ -69,6 +81,7 @@ private:
     void census(fluid::DoubleFbo& field, GLint restoreFbo);
     Rule preset(int index) const;
     void steer(const GeodeSoundFrame& f, float dt);
+    int mapTouch(const fluid::DoubleFbo& field, std::array<float, TouchField::kMaxPoints * TouchField::kPointStride>& out) const;
 
     std::string id_;
     styles::LifeStyle style_;
@@ -81,9 +94,8 @@ private:
     float time_ = 0.0f;
     float lastDt_ = 1.0f / 60.0f;
     GLuint stepProgram_ = 0;
-    GLuint showProgram_ = 0;
     UniformCache stepLocs_{0};
-    UniformCache showLocs_{0};
+    present::FieldPresent present_;
     bool programOk_ = false;
     GLuint vao_ = 0;
     std::optional<fluid::Formats> formats_;

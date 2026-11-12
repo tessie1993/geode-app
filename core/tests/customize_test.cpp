@@ -423,6 +423,9 @@ void categoriesAndSectionsFollowTheStyle() {
     for (const char* id : {"outrun_drive", "ringed_planet", "ribbon_storm"}) {
         check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig without a march");
     }
+    check(shownSection("life_orbium", "CAMERA/framing") && shownSection("life_orbium", "CAMERA/feel") &&
+              shownSection("life_orbium", "SHAPE/basics"),
+          "life_orbium: presented in 3D on the rig, its Morph and Detail shown");
     for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
         check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
     }

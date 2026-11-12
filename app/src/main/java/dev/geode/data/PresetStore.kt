@@ -3,10 +3,10 @@ package dev.geode.data
 import android.content.Context
 import androidx.annotation.WorkerThread
 import dev.geode.render.bridge.SceneParamsCodec
-import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -299,7 +299,7 @@ class PresetStore(
             val o = JSONObject(json)
             return Preset(
                 name = o.getString("name"),
-                sceneId = Catalogue.resolve(o.getString("sceneId")),
+                sceneId = StyleCatalogue.resolve(o.getString("sceneId")),
                 attack = finiteIn(o.getDouble("attack"), ATTACK_RANGE),
                 decay = finiteIn(o.getDouble("decay"), DECAY_RANGE),
                 customShader = if (o.has("customShader")) o.getString("customShader") else null,

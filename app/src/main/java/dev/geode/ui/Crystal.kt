@@ -10,7 +10,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -29,12 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.geode.data.GeneralSettings
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalTelevision
+import dev.geode.ui.theme.LocalTextScale
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneHaptics
 import dev.geode.ui.theme.geodeColorScheme
@@ -71,6 +72,7 @@ internal fun CrystalMaterialTheme(
         )
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
+    val textScale = general.textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX)
     SideEffect { StoneHaptics.enabled = general.haptics }
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
@@ -78,11 +80,12 @@ internal fun CrystalMaterialTheme(
         LocalReducedMotion provides reducedMotion,
         LocalGeodeMotion provides geodeMotionScheme(reducedMotion),
         LocalUiSounds provides rememberUiSounds(general.uiSounds),
+        LocalTextScale provides textScale,
     ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = general.cornerStyle.shapes(),
-            typography = crystalTypography(general.textScale),
+            typography = geodeTypography(textScale),
         ) {
             // A remote's focus, lit in the accent on a TV (televisionRipple); a phone keeps Material's.
             if (LocalTelevision.current) {
@@ -93,11 +96,6 @@ internal fun CrystalMaterialTheme(
         }
     }
 }
-
-fun crystalTypography(textScale: Float = 1f): Typography =
-    geodeTypography(
-        textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX),
-    )
 
 fun crystalShardShape(
     cut: Dp = 12.dp,
@@ -196,9 +194,9 @@ fun Modifier.crystalPanel(
  * Presentation holds the view, and the factory takes it back from whatever parent it has.
  * Being drawn before the screens, the surface shows through wherever they draw nothing.
  *
- * While a cast streams ([keepDrawing]) the stream is this view's own frames (core/viz/frame/CastTee), so off
- * Visuals it stays at [KEEP_DRAWING_ALPHA] instead of 0: not seen under the screens, but above 0, which is what
- * keeps its pacer running (`VisualizerView.setAlpha`). The engine module stays as it is; this is the shell's choice.
+ * While a cast streams ([keepDrawing]) the stream is this view's own frames (core/viz/frame/CastTee), so it keeps
+ * drawing on every tab (above alpha 0 keeps its pacer running, `VisualizerView.setAlpha`), in its whole rect
+ * (the tee turns and crops it to the stream), even before Visuals was ever laid out. Where and how it shows is native (core/viz/StageRun host).
  */
 @Composable
 fun VisualizerCanvasHost(
@@ -208,33 +206,39 @@ fun VisualizerCanvasHost(
     modifier: Modifier = Modifier,
     keepDrawing: Boolean = false,
 ) {
-    val measured =
-        androidx.compose.runtime.remember(bounds) {
-            androidx.compose.runtime.derivedStateOf { !bounds.value.isEmpty }
-        }
-    val visible = shown && measured.value
-    val alpha =
-        when {
-            visible -> 1f
-            keepDrawing && measured.value -> KEEP_DRAWING_ALPHA
-            else -> 0f
-        }
+    val area = androidx.compose.runtime.remember { IntArray(4) }
+    val rect = androidx.compose.runtime.remember { IntArray(4) }
+    var flags = 0
+    if (shown) flags = flags or GeodeNative.STAGE_HOST_SHOWN
+    if (keepDrawing) flags = flags or GeodeNative.STAGE_HOST_CASTING
     AndroidView(
         factory = {
             (view.parent as? android.view.ViewGroup)?.removeView(view)
             view
         },
         // Bounds are read in the layout pass only, so a rotation or a PiP resize relays this out
-        // without recomposing the shell.
+        // without recomposing the shell; the alpha goes with the rect it was decided for.
         modifier =
             modifier.layout { measurable, constraints ->
                 val r = bounds.value
-                val w = r.width.coerceAtLeast(0)
-                val h = r.height.coerceAtLeast(0)
+                area[0] = r.left
+                area[1] = r.top
+                area[2] = r.right
+                area[3] = r.bottom
+                val windowW = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+                val windowH = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
+                val alpha =
+                    when (GeodeNative.stageHost(flags, area, windowW, windowH, rect)) {
+                        GeodeNative.STAGE_HOST_OPAQUE -> 1f
+                        GeodeNative.STAGE_HOST_FAINT -> KEEP_DRAWING_ALPHA
+                        else -> 0f
+                    }
+                if (view.alpha != alpha) view.alpha = alpha
+                val w = (rect[2] - rect[0]).coerceAtLeast(0)
+                val h = (rect[3] - rect[1]).coerceAtLeast(0)
                 val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w, minHeight = h, maxHeight = h))
-                layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(r.left, r.top) }
+                layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(rect[0], rect[1]) }
             },
-        update = { it.alpha = alpha },
     )
 }
 

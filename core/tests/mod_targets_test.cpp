@@ -6,10 +6,9 @@
 //   mod_targets_test core/tests/mod_targets.txt           checks, including text() against the fixture
 //   mod_targets_test --write core/tests/mod_targets.txt   rewrites the fixture after a deliberate change
 //
-// The fixture is what the shell's JVM tests read in place of geode_mod_targets_text (the geode.modTargets
-// property, dev.geode.render.ModTable). The expected scopes below are the Kotlin LfoTarget table this
-// replaced, so the port changed no target's reach; since the scopes are read from the params schema's meta
-// rows (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
+// The fixture pins the table's text. The expected scopes below are each target's reach as first shipped,
+// so no target's reach moves unseen; since the scopes are read from the params schema's meta rows
+// (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -38,7 +37,7 @@ void check(bool ok, const std::string& what) {
     }
 }
 
-// The old Kotlin LfoTarget rows (name, ParamScope), in wire order.
+// Every target as first shipped (name, scope), in wire order.
 const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"NONE", "UNIVERSAL"}, {"SPEED", "SCENE_CLOCK"}, {"ZOOM", "UNIVERSAL"}, {"ROTATION", "UNIVERSAL"},
     {"SWAY", "UNIVERSAL"}, {"RETIRED_5", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},
@@ -59,6 +58,12 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"FLOW_CURL", "FLOW_FIELD_SIM"}, {"FLOW_FORCE", "FLOW_FIELD_SIM"}, {"DIVE_SPEED", "ENDLESS_ZOOM"},
     // Appended after the port: the dive's spiral and aim, on Dive speed's scope.
     {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
+    // A macro knob (#owner 2026-11-12): a wave or an envelope turns the knob, which moves what it links.
+    {"MACRO", "UNIVERSAL"},
+    // The palette stack's amounts and position (viz/Palette.hpp), on their Look controls' scope.
+    {"PALETTE_AMOUNT_1", "UNIVERSAL"}, {"PALETTE_AMOUNT_3", "UNIVERSAL"}, {"PALETTE_AMOUNT_4", "UNIVERSAL"},
+    {"PALETTE_AMOUNT_5", "UNIVERSAL"}, {"PALETTE_AMOUNT_6", "UNIVERSAL"}, {"PALETTE_AMOUNT_7", "UNIVERSAL"},
+    {"PALETTE_AMOUNT_8", "UNIVERSAL"}, {"PALETTE_SHIFT", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -70,8 +75,18 @@ void everyTargetKeepsItsNameAndScope() {
               std::string("scope of ") + kOldTargets[i].first);
     }
     check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
-              static_cast<int>(LfoTarget::DiveAimY) == 58,
+              static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59 &&
+              static_cast<int>(LfoTarget::PaletteAmount1) == 60 && static_cast<int>(LfoTarget::PaletteShift) == 67 &&
+              kLastLfoTarget == LfoTarget::PaletteShift,
           "wire ordinals");
+    check(paramSlotOf(LfoTarget::PaletteAmount1) == static_cast<int>(ParamSlot::paletteAmount0) &&
+              paramSlotOf(LfoTarget::PaletteAmount3) == static_cast<int>(ParamSlot::paletteAmount2) &&
+              paramSlotOf(LfoTarget::PaletteAmount8) == static_cast<int>(ParamSlot::paletteAmount7) &&
+              paramSlotOf(LfoTarget::PaletteShift) == static_cast<int>(ParamSlot::paletteShift),
+          "each palette target writes its own row");
+    for (LfoTarget t : {LfoTarget::PaletteAmount1, LfoTarget::PaletteAmount3, LfoTarget::PaletteAmount8, LfoTarget::PaletteShift}) {
+        check(isLuminanceTarget(t), std::string(modtargets::name(t)) + " is held to the flash rate and the route floors");
+    }
 }
 
 bool retired(LfoTarget t) {
@@ -176,33 +191,43 @@ void pickersOfferWhatTheEngineRuns() {
     }
     check(!modtargets::offeredTo(LfoTarget::Zoom, "julia", 3) && !modtargets::offeredTo(LfoTarget::Zoom, "julia", -3),
           "an unknown picker is offered nothing");
+    // A knob is the waves' and the envelopes' on every style, never a reaction route's, and writes no param.
+    for (const auto& id : catalogue::allIds()) {
+        check(!modtargets::offeredTo(LfoTarget::Macro, id, kPickerReaction), "a reaction route turns no knob on " + id);
+        for (int picker : {kPickerEnvelope, 0, 1, 2}) check(modtargets::offeredTo(LfoTarget::Macro, id, picker), "a knob is offered on " + id);
+    }
+    check(paramSlotOf(LfoTarget::Macro) < 0 && modtargets::chainSlot(LfoTarget::Macro) < 0, "a knob is no param and steers no wave");
 }
 
 void offerMaskHasABitPerTarget() {
     for (const auto& id : catalogue::allIds()) {
         for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
-            std::uint64_t want = 0;
-            for (int i = 0; i < modtargets::kTargetCount; ++i) {
-                if (modtargets::offeredTo(static_cast<LfoTarget>(i), id, picker)) want |= std::uint64_t{1} << i;
-            }
+            modtargets::Mask want;
+            for (int i = 0; i < modtargets::kTargetCount; ++i) want[static_cast<size_t>(i)] = modtargets::offeredTo(static_cast<LfoTarget>(i), id, picker);
             check(modtargets::offerMask(id, picker) == want, "offer mask of " + id + " for picker " + std::to_string(picker));
         }
         check(modtargets::offerMask(id, modtargets::kPickerEnvelope) ==
                   [&] {
-                      std::uint64_t m = 0;
-                      for (int i = 0; i < modtargets::kTargetCount; ++i)
-                          if (modtargets::reaches(static_cast<LfoTarget>(i), id)) m |= std::uint64_t{1} << i;
+                      modtargets::Mask m;
+                      for (int i = 0; i < modtargets::kTargetCount; ++i) m[static_cast<size_t>(i)] = modtargets::reaches(static_cast<LfoTarget>(i), id);
                       return m;
                   }(),
               "an envelope is offered exactly what reaches " + id);
     }
+    // More targets than 64 bits: the hex the shell reads carries every one.
+    modtargets::Mask m;
+    check(modtargets::hex(m) == "0", "an empty mask is 0");
+    m.set(0).set(4);
+    check(modtargets::hex(m) == "11", "low bits, no leading zeros");
+    m.reset().set(static_cast<size_t>(LfoTarget::PaletteShift));
+    check(modtargets::hex(m) == "8" + std::string(16, '0'), "ordinal 67 is the top bit of the seventeenth digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
 
 void textCarriesEveryRow() {
     const std::string& t = modtargets::text();
-    check(t.rfind("modulation|2\n", 0) == 0, "header first");
+    check(t.rfind("modulation|3\n", 0) == 0, "header first");
     check(hasLine(t, "config|2|0.05|60|0.3|3"), "config row: default rate, rate range, default depth, slots");
     check(hasLine(t, "target|10|MORPH|SHADER_LOOK|-1|1"), "a scene target row");
     check(hasLine(t, "target|5|RETIRED_5|UNIVERSAL|-1|0") && hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"),
@@ -216,14 +241,11 @@ void textCarriesEveryRow() {
     // One reach row per style (and "*" for an id the catalogue does not know): the offer mask, in hex, for a
     // reaction, an envelope and each wave slot, so the shell reads the answer and never works it out.
     const auto row = [](const std::string& id) {
-        char buf[32];
         std::string out = "reach|" + id;
-        for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
-            std::snprintf(buf, sizeof buf, "|%llx", static_cast<unsigned long long>(modtargets::offerMask(id, picker)));
-            out += buf;
-        }
+        for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) out += "|" + modtargets::hex(modtargets::offerMask(id, picker));
         return out;
     };
+    check(hasLine(t, "target|67|PALETTE_SHIFT|UNIVERSAL|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

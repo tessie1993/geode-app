@@ -18,7 +18,7 @@ out vec4 fragColor;
 // each ruled round its tube. Turned about.
 //
 // Morph thickens the rings and tips them, from thin hoops to fat links that
-// press together. Worst case 80 steps and 4 skins, no noise.
+// press together. Worst case 100 steps and 4 skins, no noise.
 
 float ring(vec3 p, float big, float small, out float skin) {
     vec2 t = vec2(length(p.xy) - big, p.z);
@@ -45,6 +45,8 @@ vec2 opalMap(vec3 p) {
     float d = opalSmin(d0, opalSmin(d1, d2, 0.15), 0.15);
     return vec2(d, d0 < min(d1, d2) ? s0 : (d1 < d2 ? s1 : s2));
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

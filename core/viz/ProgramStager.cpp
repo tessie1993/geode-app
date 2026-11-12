@@ -120,6 +120,7 @@ ProgramStager::Job ProgramStager::kick(const Entry& entry) const {
 }
 
 void ProgramStager::finish(Entry& entry, Job job) {
+    ++progress_;
     std::string error;
     for (size_t i = 0; i < job.shaders.size() && error.empty(); ++i) {
         GLint status = 0;
@@ -165,6 +166,7 @@ void ProgramStager::step(double nowS) {
                 if (!entry.failed) {
                     finish(entry, job);
                 } else {
+                    ++progress_;
                     for (const GLuint shader : job.shaders) glDeleteShader(shader);
                     glDeleteProgram(job.program);
                 }
@@ -184,6 +186,7 @@ void ProgramStager::startQueued(double nowS) {
                 const GLuint cached = cache_->load(*entry.cacheKey);
                 budget.spend(false);
                 if (cached != 0) {
+                    ++progress_;
                     entry.ready.push_back(cached);
                     entry.queued--;
                     continue;

@@ -19,7 +19,7 @@ out vec4 fragColor;
 // their necks thinning as they fall.
 //
 // Morph stretches the drops until they meet in the middle and stand as
-// columns. Worst case 80 steps and 4 skins, no noise.
+// columns. Worst case 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     float side = p.y < 0.0 ? -1.0 : 1.0;
@@ -35,6 +35,8 @@ vec2 opalMap(vec3 p) {
     float d = opalSmin(slab, opalSmin(drop, neck, 0.35), 0.45);
     return vec2(d, 0.5);
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

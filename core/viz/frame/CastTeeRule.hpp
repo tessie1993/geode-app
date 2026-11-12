@@ -19,10 +19,14 @@ namespace geode::viz::frame::tee {
 // honest fallback, since then the phone shows nothing to copy. It starts drawing again as soon as a fresh copy
 // lands.
 //
-// Pure, no GL: the slot hand-off, the publish cadence and the fitted rectangle are tested on the host
+// Pure, no GL: the slot hand-off, the publish cadence and the placement (turn and crop) are tested on the host
 // (core/tests/cast_tee_test.cpp).
 
 inline constexpr int kSlots = 3;
+// How long a new stream holds its first frames for the stage's first copy while the shell says the stage draws.
+// A stage with no surface yet (Visuals never laid out) makes one and stages its first scene over several frames;
+// the old half second let the second renderer show another visual first.
+inline constexpr int64_t kStageFirstCopyNs = 3'000'000'000;
 // A copy older than this is not the stage's live picture any more: about seven cast frames at 30 fps, well past
 // one late stage frame or a scene build, short enough that a backgrounded app hands over before the TV notices.
 inline constexpr int64_t kStaleNs = 250'000'000;
@@ -91,8 +95,13 @@ inline bool publishDue(bool published, int64_t lastPublishNs, int64_t nowNs, int
     return nowNs - lastPublishNs >= period - slack;
 }
 
-// Where the stage's picture lands in the stream's frame: whole, centred, its own aspect kept (black bars), as
-// the phone shows it; a portrait stage is pillarboxed in the 16:9 stream rather than stretched or cropped.
+// Whether the cast leaves this frame slot empty to wait for the stage's first copy rather than draw on its own
+// renderer: only at the start, before that renderer exists, and only while the stage is meant to draw (with the app
+// in the background nothing will come, so the fallback draws at once).
+inline bool awaitStage(bool stageDraws, bool fallbackMade, int64_t sinceOpenNs) {
+    return stageDraws && !fallbackMade && sinceOpenNs >= 0 && sinceOpenNs < kStageFirstCopyNs;
+}
+
 struct Rect {
     int x0 = 0;
     int y0 = 0;
@@ -100,23 +109,62 @@ struct Rect {
     int y1 = 0;
 };
 
-inline Rect fit(int srcW, int srcH, int dstW, int dstH) {
+// The part of the stage's picture (srcW x srcH) the stream's whole frame (dstW x dstH) shows: the frame's shape,
+// centred, as large as fits, its aspect kept. The frame is filled with no bars and nothing is stretched; what
+// falls outside is cut (owner, 2026-11-12: "no stripes on either but cut to fit"). A portrait stage gives its
+// middle band, a wider one its middle columns.
+inline Rect cover(int srcW, int srcH, int dstW, int dstH) {
     if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return {};
-    int64_t w = dstW;
-    int64_t h = dstH;
+    int64_t w = srcW;
+    int64_t h = srcH;
     if (static_cast<int64_t>(dstW) * srcH > static_cast<int64_t>(dstH) * srcW) {
-        w = (static_cast<int64_t>(srcW) * dstH + srcH / 2) / srcH;   // taller than the stream: bars at the sides
+        h = (static_cast<int64_t>(srcW) * dstH + dstW / 2) / dstW;  // taller than the frame: cut top and bottom
     } else {
-        h = (static_cast<int64_t>(srcH) * dstW + srcW / 2) / srcW;   // wider: bars above and below
+        w = (static_cast<int64_t>(srcH) * dstW + dstH / 2) / dstH;  // wider: cut the sides
     }
     if (w < 1) w = 1;
     if (h < 1) h = 1;
+    if (w > srcW) w = srcW;
+    if (h > srcH) h = srcH;
     Rect r;
-    r.x0 = static_cast<int>((dstW - w) / 2);
-    r.y0 = static_cast<int>((dstH - h) / 2);
+    r.x0 = static_cast<int>((srcW - w) / 2);
+    r.y0 = static_cast<int>((srcH - h) / 2);
     r.x1 = r.x0 + static_cast<int>(w);
     r.y1 = r.y0 + static_cast<int>(h);
     return r;
+}
+
+// How the stage's picture becomes the stream's frame (owner, 2026-11-12: "Phone picture turned 90°"; landscape on
+// the TV and the PC, no bars, no stretch). A stage taller than wide is turned a quarter turn counter-clockwise, as
+// a phone held on its side with its top to the left, so its long side runs along the frame's; then the frame is
+// covered from it. Always the same direction, so turning the phone mid-cast only switches between turned and not.
+//
+// crop is the source rect read; the slot holds it unturned at slotW x slotH (the frame's size, or its transpose
+// when turned); the cast thread draws the slot over the whole frame, turned when `turned`.
+struct Placement {
+    bool turned = false;
+    Rect crop;
+    int slotW = 0;
+    int slotH = 0;
+};
+
+inline Placement place(int srcW, int srcH, int dstW, int dstH) {
+    Placement p;
+    if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return p;
+    // Only a frame wider than tall is turned into: a portrait stream would gain nothing from it.
+    p.turned = srcH > srcW && dstW > dstH;
+    p.slotW = p.turned ? dstH : dstW;
+    p.slotH = p.turned ? dstW : dstH;
+    p.crop = cover(srcW, srcH, p.slotW, p.slotH);
+    return p;
+}
+
+// Where frame pixel (u, v) of the turned picture reads the unturned slot, all in 0..1 with v up: the slot's top
+// (t = 1) lands on the frame's left (u = 0), its left (s = 0) on the frame's bottom. The cast thread's shader
+// does the same (CastTee.cpp, kTurnFrag).
+inline void turnedSource(float u, float v, float& s, float& t) {
+    s = v;
+    t = 1.0f - u;
 }
 
 }  // namespace geode::viz::frame::tee

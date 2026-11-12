@@ -80,6 +80,14 @@ internal fun TutorialSettingsTab(
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
         )
+        SettingsSwitchRow(
+            title = stringResource(R.string.tutorials_show_tips),
+            summary = stringResource(R.string.tutorials_show_tips_summary),
+            checked = !appState.tourProgress.off,
+            onCheckedChange = { on ->
+                settingsViewModel.updateAppState { s -> s.copy(tourProgress = s.tourProgress.copy(off = !on)) }
+            },
+        )
         Button(onClick = { onPlay(chapters) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.tutorials_play_all))
         }

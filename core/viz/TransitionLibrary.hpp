@@ -7,7 +7,7 @@
 
 // The GL Transitions library asset (gl_transitions.json): parsed once here, for the renderer's
 // composite (core/viz/Transition) and for the shell's one read of it (#438). The shell gets
-// `encodeTransitionTable` through geode_transitions_table, so Kotlin no longer re-parses the JSON.
+// `encodeTransitionPicker` through geode_transition_picker: the names it lists, nothing to parse.
 // Pure, with no GL and no assets, so the host can test it (core/tests/transition_library_test.cpp).
 namespace geode::viz {
 
@@ -25,16 +25,12 @@ struct TransitionDef {
     std::string glsl;
 };
 
-// The shell's table, split on the four ASCII control separators. GLSL holds newlines and tabs but
-// never these (outside a comment they do not compile), yet JSON can spell any of them as \u001c..\u001f,
-// so the encoder writes each one inside a field as a space: the table always splits back cleanly.
-//   defs  separated by RS (0x1e)
-//   def   name US author US license US params US glsl         (US = 0x1f)
-//   params separated by GS (0x1d), each name FS type FS values (FS = 0x1c), values comma-separated
-inline constexpr char kTableDef = '\x1e';
-inline constexpr char kTableField = '\x1f';
-inline constexpr char kTableParam = '\x1d';
-inline constexpr char kTableParamField = '\x1c';
+// The shell's picker table, split on two ASCII control separators: the built-in ids the picker offers,
+// RS (0x1e), then the library's names in library order, the entries of each list separated by US (0x1f).
+// JSON can spell any control separator as \u001c..\u001f, so the encoder writes each one inside a name as
+// a space: the table always splits back cleanly.
+inline constexpr char kTableList = '\x1e';
+inline constexpr char kTableEntry = '\x1f';
 
 // parseTransitionLibrary: an empty list for text that is not a JSON array. Entries that are not
 // objects are skipped. A param whose default is missing or not a number reads as one 0, and
@@ -89,33 +85,18 @@ inline std::vector<TransitionDef> parseTransitionLibrary(const std::string& text
     return library;
 }
 
-inline std::string encodeTransitionTable(const std::vector<TransitionDef>& defs) {
+// What the Customize transition picker lists: `builtIns` (the ids it offers above the library, as
+// transition_choice::pickerIds gives them), then every library transition's name.
+inline std::string encodeTransitionPicker(const std::vector<std::string>& builtIns, const std::vector<TransitionDef>& library) {
     std::string out;
-    char number[32];
-    for (size_t d = 0; d < defs.size(); ++d) {
-        const TransitionDef& def = defs[d];
-        if (d > 0) out += kTableDef;
-        transition_detail::appendField(out, def.name);
-        out += kTableField;
-        transition_detail::appendField(out, def.author);
-        out += kTableField;
-        transition_detail::appendField(out, def.license);
-        out += kTableField;
-        for (size_t p = 0; p < def.params.size(); ++p) {
-            const TransitionParam& param = def.params[p];
-            if (p > 0) out += kTableParam;
-            transition_detail::appendField(out, param.name);
-            out += kTableParamField;
-            transition_detail::appendField(out, param.type);
-            out += kTableParamField;
-            for (size_t v = 0; v < param.values.size(); ++v) {
-                if (v > 0) out += ',';
-                std::snprintf(number, sizeof number, "%.9g", static_cast<double>(param.values[v]));
-                out += number;
-            }
-        }
-        out += kTableField;
-        transition_detail::appendField(out, def.glsl);
+    for (size_t i = 0; i < builtIns.size(); ++i) {
+        if (i > 0) out += kTableEntry;
+        transition_detail::appendField(out, builtIns[i]);
+    }
+    out += kTableList;
+    for (size_t i = 0; i < library.size(); ++i) {
+        if (i > 0) out += kTableEntry;
+        transition_detail::appendField(out, library[i].name);
     }
     return out;
 }

@@ -1,17 +1,19 @@
 // Host-side checks for core/viz/TransitionLibrary (#438): the GL Transitions library parse the renderer
-// and the shell share, and the table the shell reads through geode_transitions_table. Built and run by CI
-// ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
+// uses, and the picker table the shell reads through geode_transition_picker. Built and run by CI
+// ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
 //
-// What is pinned: the parse rules the Kotlin parser had (missing default → one 0, booleans → 0/1, arrays
-// kept, non-objects skipped), and that the table splits back into exactly what was parsed, here and for
-// the shipped asset (app/src/main/assets/gl_transitions.json, read from the repo root as CI runs it).
+// What is pinned: the parse rules (missing default → one 0, booleans → 0/1, arrays kept, non-objects
+// skipped), and that the picker table splits back into the built-ins offered and every library name in
+// library order, here and for the shipped asset (app/src/main/assets/gl_transitions.json, read from the
+// repo root as CI runs it).
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
 
 using namespace geode::viz;
@@ -27,14 +29,10 @@ void check(bool ok, const char* what) {
     }
 }
 
-std::vector<std::string> split(const std::string& s, char sep, size_t limit = 0) {
+std::vector<std::string> split(const std::string& s, char sep) {
     std::vector<std::string> out;
     size_t start = 0;
     while (true) {
-        if (limit != 0 && out.size() + 1 == limit) {
-            out.push_back(s.substr(start));
-            return out;
-        }
         const size_t at = s.find(sep, start);
         if (at == std::string::npos) {
             out.push_back(s.substr(start));
@@ -45,48 +43,33 @@ std::vector<std::string> split(const std::string& s, char sep, size_t limit = 0)
     }
 }
 
-// The decode render/TransitionCatalog.kt parseTable does, in C++, so a round trip proves the shell sees
-// what the renderer parsed.
-std::vector<TransitionDef> decode(const std::string& table) {
-    std::vector<TransitionDef> defs;
-    if (table.empty()) return defs;
-    for (const std::string& d : split(table, kTableDef)) {
-        const auto f = split(d, kTableField, 5);
-        TransitionDef def;
-        if (f.size() != 5) return {};
-        def.name = f[0];
-        def.author = f[1];
-        def.license = f[2];
-        def.glsl = f[4];
-        if (!f[3].empty()) {
-            for (const std::string& p : split(f[3], kTableParam)) {
-                const auto pf = split(p, kTableParamField);
-                if (pf.size() != 3) return {};
-                TransitionParam param{pf[0], pf[1], {}};
-                if (!pf[2].empty()) {
-                    for (const std::string& v : split(pf[2], ',')) param.values.push_back(std::strtof(v.c_str(), nullptr));
-                }
-                def.params.push_back(std::move(param));
-            }
+// The split the shell does on the picker table (ui/CustomizeAdvanced): two lists on RS, entries on US,
+// empty entries dropped.
+struct Picker {
+    std::vector<std::string> builtIns;
+    std::vector<std::string> library;
+};
+
+Picker decode(const std::string& table) {
+    const auto lists = split(table, kTableList);
+    const auto entries = [&](size_t i) {
+        std::vector<std::string> out;
+        if (i >= lists.size()) return out;
+        for (std::string& entry : split(lists[i], kTableEntry)) {
+            if (!entry.empty()) out.push_back(std::move(entry));
         }
-        defs.push_back(std::move(def));
-    }
-    return defs;
+        return out;
+    };
+    return Picker{entries(0), entries(1)};
 }
 
-bool same(const std::vector<TransitionDef>& a, const std::vector<TransitionDef>& b) {
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (a[i].name != b[i].name || a[i].author != b[i].author || a[i].license != b[i].license || a[i].glsl != b[i].glsl) return false;
-        if (a[i].params.size() != b[i].params.size()) return false;
-        for (size_t p = 0; p < a[i].params.size(); ++p) {
-            const auto& x = a[i].params[p];
-            const auto& y = b[i].params[p];
-            if (x.name != y.name || x.type != y.type || x.values != y.values) return false;
-        }
-    }
-    return true;
+std::vector<std::string> namesOf(const std::vector<TransitionDef>& defs) {
+    std::vector<std::string> names;
+    for (const auto& d : defs) names.push_back(d.name);
+    return names;
 }
+
+const std::vector<std::string> kBuiltIns = {"cut", "fade", "melt", "slide", "zoom"};
 
 void parseRules() {
     const std::string json = R"([
@@ -114,28 +97,34 @@ void parseRules() {
     check(param("odd") && param("odd")->type == "float", "a type that is not a string reads float");
     check(defs[1].name == "bare" && defs[1].params.empty() && defs[1].author.empty(), "an entry without params");
     check(parseTransitionLibrary("{}").empty() && parseTransitionLibrary("not json").empty(), "text that is not an array parses empty");
-    check(same(decode(encodeTransitionTable(defs)), defs), "the table round-trips, tabs and newlines in the GLSL included");
-    check(encodeTransitionTable({}).empty() && decode("").empty(), "an empty library is an empty table");
 }
 
-// JSON can spell the table's separators (\u001c..\u001f) in any field; the encoder writes them as spaces,
-// so the table still splits into the same defs and params the shell's parseTable expects.
-void separatorsInFields() {
+// The picker lists what the shell offers: the built-ins without "cut" and with "random", then the library.
+void pickerListsBuiltInsThenTheLibrary() {
+    const auto builtIns = transition_choice::pickerIds(kBuiltIns);
+    check(builtIns == (std::vector<std::string>{"fade", "melt", "slide", "zoom", "random"}),
+          "\"cut\" is not offered (safety plays it as a fade) and \"random\" closes the list");
+    const auto defs = parseTransitionLibrary(R"([{"name": "doom", "glsl": "x"}, {"name": "ripple", "glsl": "y"}])");
+    const Picker picker = decode(encodeTransitionPicker(builtIns, defs));
+    check(picker.builtIns == builtIns, "the built-ins split back");
+    check(picker.library == (std::vector<std::string>{"doom", "ripple"}), "the library's names, in library order");
+    const Picker bare = decode(encodeTransitionPicker(builtIns, {}));
+    check(bare.builtIns == builtIns && bare.library.empty(), "no library is the built-ins alone");
+}
+
+// JSON can spell the table's separators (\u001e, \u001f) in a name; the encoder writes them as spaces, so the
+// table still splits into one entry per transition.
+void separatorsInNames() {
     const std::string json = R"([
-      {"name": "a\u001eb", "author": "c\u001fd", "license": "e\u001df", "glsl": "// g\u001ch\nvec4 transition(vec2 uv) { return vec4(1); }",
-       "paramsTypes": {"p\u001cq": "fl\u001doat", "r": "float"}, "defaultParams": {"p\u001cq": 1, "r": 2}},
-      {"name": "next", "glsl": "x"}
+      {"name": "a\u001eb", "glsl": "x"},
+      {"name": "c\u001fd", "glsl": "y"},
+      {"name": "next", "glsl": "z"}
     ])";
     const auto defs = parseTransitionLibrary(json);
-    check(defs.size() == 2 && defs[0].name == "a\x1e" "b", "the JSON escapes reach the parse");
-    const auto decoded = decode(encodeTransitionTable(defs));
-    check(decoded.size() == 2, "a separator in a field does not split the table");
-    if (decoded.size() != 2) return;
-    const TransitionDef& d = decoded[0];
-    check(d.name == "a b" && d.author == "c d" && d.license == "e f", "separators in name, author, license read as spaces");
-    check(d.glsl.find("// g h\n") == 0, "a separator in the GLSL reads as a space");
-    check(d.params.size() == 2 && d.params[0].type == "fl oat" && d.params[0].values == std::vector<float>{1.0f}, "a separator in a param reads as a space");
-    check(decoded[1].name == "next", "the next def is intact");
+    check(defs.size() == 3 && defs[0].name == "a\x1e" "b", "the JSON escapes reach the parse");
+    const Picker picker = decode(encodeTransitionPicker({"fade"}, defs));
+    check(picker.library == (std::vector<std::string>{"a b", "c d", "next"}), "a separator in a name reads as a space");
+    check(picker.builtIns == std::vector<std::string>{"fade"}, "and never spills into the built-ins");
 }
 
 void shippedAsset() {
@@ -149,7 +138,8 @@ void shippedAsset() {
     text << in.rdbuf();
     const auto defs = parseTransitionLibrary(text.str());
     check(defs.size() >= 100, "the shipped library parses (122 transitions as of #438)");
-    check(same(decode(encodeTransitionTable(defs)), defs), "the shipped library round-trips through the shell's table");
+    const Picker picker = decode(encodeTransitionPicker(transition_choice::pickerIds(kBuiltIns), defs));
+    check(picker.library == namesOf(defs), "every shipped name reaches the picker, in order");
     bool everyGlsl = true;
     for (const auto& d : defs) everyGlsl = everyGlsl && !d.name.empty() && d.glsl.find("transition") != std::string::npos;
     check(everyGlsl, "every shipped transition has a name and a transition() body");
@@ -159,7 +149,8 @@ void shippedAsset() {
 
 int main() {
     parseRules();
-    separatorsInFields();
+    pickerListsBuiltInsThenTheLibrary();
+    separatorsInNames();
     shippedAsset();
     if (failures == 0) std::printf("transition_library_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

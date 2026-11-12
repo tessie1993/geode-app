@@ -3,9 +3,6 @@ package dev.geode.ui
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.HandReactions
-import dev.geode.render.bridge.ModConfigCodec
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.util.bestEffort
 
 /**
@@ -47,7 +44,7 @@ internal enum class MusicAction(
     WARP(R.string.music_action_warp),
 }
 
-/** One row as native reads it from what plays now (geode_music_state). */
+/** One row as native reads it from what plays now (geode_mod_music_state). */
 internal data class MomentState(
     /** The hand's: the "Mine" mark and the ⋮ › Reset to Auto. */
     val mine: Boolean = false,
@@ -58,18 +55,14 @@ internal data class MomentState(
     val fits: Set<MusicAction> = MusicAction.entries.toSet(),
 )
 
+/** One edit of the reactions, as `ModulationController.editReactions` takes it: a `GeodeNative.MOD_EDIT_*` and its values. */
+internal typealias ReactionsEdit = (op: Int, a: Int, b: Int, value: Float) -> Unit
+
 /**
- * Customize › Music's calls into native. Each tap sends the moment, the action or the Strength, and the
- * user's side ([HandReactions]: their routes and the hand mask); native works the edit out and hands both
- * back, for the shell to save (LfoStore) and push (`HandMask`).
+ * Customize › Music's reads of native. Every tap goes back as a [ReactionsEdit]; native works the edit out
+ * from the user's saved routes and the hand mask, and hands both back for the shell to save and push.
  */
 internal object MusicMoments {
-    /** The top of each moment's Strength slider (core/viz `kMaxMomentStrength`). */
-    const val MAX_STRENGTH = 2f
-
-    private const val OP_TOGGLE = 0
-    private const val OP_STRENGTH = 1
-    private const val OP_RESET = 2
     private const val TAG = "MusicMoments"
 
     /** The actions whose target reaches [sceneId] (native decides; geode_music_actions_for): the page hides the rest. */
@@ -80,14 +73,15 @@ internal object MusicMoments {
         return MusicAction.entries.filter { bits and (1 shl it.ordinal) != 0 }
     }
 
-    /** Every row, in [MusicMoment] order. */
+    /** Every row, in [MusicMoment] order, over the user's saved [reactions] and the hand [mask]. */
     fun rows(
         sceneId: String,
         seed: Int,
-        hand: HandReactions,
+        reactions: String?,
+        mask: Int,
     ): List<MomentState> {
-        val f = runCatching { GeodeNative.musicState(sceneId, seed, pack(hand), hand.mask) }.getOrDefault(FloatArray(0))
-        val n = GeodeNative.MUSIC_STATE_FLOATS
+        val f = runCatching { GeodeNative.modMusicState(sceneId, seed, reactions, mask) }.getOrDefault(FloatArray(0))
+        val n = GeodeNative.MOD_MUSIC_VALUES
         return MusicMoment.entries.map { m ->
             val o = m.ordinal * n
             if (o + n > f.size) {
@@ -97,48 +91,6 @@ internal object MusicMoments {
             }
         }
     }
-
-    fun toggle(
-        sceneId: String,
-        seed: Int,
-        hand: HandReactions,
-        moment: MusicMoment,
-        action: MusicAction,
-    ): HandReactions = edit(sceneId, seed, hand, OP_TOGGLE, moment, action, 0f)
-
-    fun withStrength(
-        sceneId: String,
-        seed: Int,
-        hand: HandReactions,
-        moment: MusicMoment,
-        value: Float,
-    ): HandReactions = edit(sceneId, seed, hand, OP_STRENGTH, moment, null, value)
-
-    fun resetToAuto(
-        sceneId: String,
-        seed: Int,
-        hand: HandReactions,
-        moment: MusicMoment,
-    ): HandReactions = edit(sceneId, seed, hand, OP_RESET, moment, null, 0f)
-
-    private fun edit(
-        sceneId: String,
-        seed: Int,
-        hand: HandReactions,
-        op: Int,
-        moment: MusicMoment,
-        action: MusicAction?,
-        value: Float,
-    ): HandReactions {
-        val out = IntArray(2)
-        val floats =
-            runCatching {
-                GeodeNative.musicEdit(sceneId, seed, pack(hand), hand.mask, op, moment.ordinal, action?.ordinal ?: 0, value, out)
-            }.getOrNull() ?: return hand
-        return HandReactions(if (out[1] == 1) ModConfigCodec.unpackReactions(floats) else null, out[0])
-    }
-
-    private fun pack(hand: HandReactions): FloatArray? = hand.routes?.let { BuildStyleReactionsUseCase.packExact(it) }
 
     private fun actions(bits: Float): Set<MusicAction> {
         val b = bits.toInt()

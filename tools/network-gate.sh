@@ -5,7 +5,8 @@
 # code to that, on every pull request (arch-map.yml) and before an APK is built (android.yml):
 #   1. Kotlin and Java: no socket or HTTP API outside dev.geode.cast.
 #   2. Native (core/, app/src/main/cpp): no socket, address or resolver header, and no WebRTC, ICE or TLS-socket
-#      header, outside core/cast/ (WebRtcLink, the one file that drives libdatachannel).
+#      header, outside core/cast/ (WebRtcLink, the one file that drives libdatachannel, and LiveServer, the
+#      cast's HTTP server on plain sockets).
 #   3. Submodules: no other networking, TLS, analytics or crash-reporting library under third_party/.
 # The release build's Maven dependencies are checked by android.yml (it needs Gradle). Usage: network-gate.sh [root]
 set -uo pipefail
@@ -27,7 +28,7 @@ hits=$(grep -rnE "$native" "$root"/core "$root"/app/src/main/cpp \
   | grep -v "^$root/core/cast/" || true)
 if [ -n "$hits" ]; then
   echo "$hits"
-  echo "::error::A socket or network header outside core/cast/; only core/cast/WebRtcLink may reach the network natively."
+  echo "::error::A socket or network header outside core/cast/; only core/cast/ (WebRtcLink, LiveServer) may reach the network natively."
   fail=1
 fi
 

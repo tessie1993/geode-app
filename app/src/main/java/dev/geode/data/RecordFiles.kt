@@ -38,6 +38,9 @@ class RecordFiles(
     ) {
         val fd: FileDescriptor get() = pfd.fileDescriptor
 
+        /** The same file as a raw descriptor for the native muxer, which keeps its own duplicate; open until [finish]. */
+        val rawFd: Int get() = pfd.fd
+
         /** Closes the file; kept, the video's URI (the scratch file's for a scratch); else it is deleted and null comes back. */
         @WorkerThread
         fun finish(keep: Boolean): Uri? {

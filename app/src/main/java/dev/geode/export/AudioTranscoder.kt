@@ -1,6 +1,7 @@
 package dev.geode.export
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaExtractor
@@ -79,17 +80,20 @@ class AudioTranscoder(
     }
 
     private fun transcodeAiff(
-        aiff: dev.geode.audio.AiffPcm,
+        aiff: Long,
         maxDurationMs: Long,
         startMs: Long,
         outputRateHz: Int?,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ): Result {
-        val channels = aiff.channels.coerceAtMost(2)
+        // The native reader's channel count, rate and COMM frame count (core/audio/ingest/AiffReader).
+        val aiffInfo = LongArray(AIFF_INFO_LONGS).also { GeodeNative.aiffInfo(aiff, it) }
+        val aiffChannels = aiffInfo[0].toInt()
+        val channels = aiffChannels.coerceAtMost(2)
         // Two rates from here on: the AIFF's own (source frames: the start skip) and the
         // encoder's (resampled bytes: every presentation timestamp handed to the encoder).
-        val sourceRateHz = aiff.sampleRate
+        val sourceRateHz = aiffInfo[1].toInt()
         val encoderRateHz = outputRateHz ?: GeodeNative.aacRateFor(sourceRateHz)
         val encFormat =
             MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, encoderRateHz, channels).apply {
@@ -111,7 +115,7 @@ class AudioTranscoder(
         } catch (t: Throwable) {
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
             bestEffort(TAG, "outFileRef?.delete()") { outFileRef?.delete() }
-            bestEffort(TAG, "aiff.close()") { aiff.close() }
+            bestEffort(TAG, "aiffClose") { GeodeNative.aiffClose(aiff) }
             throw t
         }
         var outBytes = 0L
@@ -119,7 +123,7 @@ class AudioTranscoder(
         var outFormat: MediaFormat? = null
         val maxUs = maxDurationMs * 1000
         val encInfo = MediaCodec.BufferInfo()
-        val readBuf = ShortArray(16384 - (16384 % aiff.channels))
+        val readBuf = ShortArray(16384 - (16384 % aiffChannels))
         var srcDone = false
         var eosSent = false
         var encoderDone = false
@@ -129,10 +133,10 @@ class AudioTranscoder(
         var progressed = false
         var stallIterations = 0
         if (startMs > 0) {
-            var toSkip = GeodeNative.pcmSamplesBeforeUs(startMs * 1000, sourceRateHz, aiff.channels)
+            var toSkip = GeodeNative.pcmSamplesBeforeUs(startMs * 1000, sourceRateHz, aiffChannels)
             while (toSkip > 0) {
                 val want = minOf(toSkip, readBuf.size.toLong()).toInt()
-                val n = aiff.read(if (want == readBuf.size) readBuf else ShortArray(want))
+                val n = GeodeNative.aiffReadS16(aiff, if (want == readBuf.size) readBuf else ShortArray(want))
                 if (n <= 0) break
                 toSkip -= n
             }
@@ -145,19 +149,19 @@ class AudioTranscoder(
                 if (isCancelled()) throw kotlinx.coroutines.CancellationException("Export cancelled")
                 progressed = false
                 if (pcmCarry == null && !srcDone) {
-                    val n = aiff.read(readBuf)
+                    val n = GeodeNative.aiffReadS16(aiff, readBuf)
                     if (n <= 0 || (maxUs > 0 && carryTimeUs > maxUs)) {
                         srcDone = true
                     } else {
-                        val frames = n / aiff.channels
+                        val frames = n / aiffChannels
                         val bb =
-                            if (aiff.channels <= 2) {
+                            if (aiffChannels <= 2) {
                                 shortsToBuffer(readBuf.copyOf(n))
                             } else {
-                                shortsToBuffer(GeodeNative.pcmDownmixS16(readBuf, frames, aiff.channels, channels))
+                                shortsToBuffer(GeodeNative.pcmDownmixS16(readBuf, frames, aiffChannels, channels))
                             }
                         pcmCarry = resample(bb, resampler, channels)
-                        onProgress(aiff.progress)
+                        onProgress(GeodeNative.aiffProgress(aiff))
                     }
                     progressed = true
                 }
@@ -229,7 +233,7 @@ class AudioTranscoder(
             bestEffort(TAG, "out.close()") { out.close() }
             bestEffort(TAG, "encoder.stop()") { encoder.stop() }
             bestEffort(TAG, "encoder.release()") { encoder.release() }
-            bestEffort(TAG, "aiff.close()") { aiff.close() }
+            bestEffort(TAG, "aiffClose") { GeodeNative.aiffClose(aiff) }
             bestEffort(TAG, "resamplerRef?.close()") { resamplerRef?.close() }
         }
     }
@@ -247,7 +251,7 @@ class AudioTranscoder(
         isCancelled: () -> Boolean = { false },
         onProgress: (Float) -> Unit = {},
     ): Result {
-        dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
+        openAiff(uri)?.let { aiff ->
             return transcodeAiff(aiff, maxDurationMs, startMs, outputRateHz, isCancelled, onProgress)
         }
         val extractor = MediaExtractor()
@@ -502,8 +506,19 @@ class AudioTranscoder(
         }
     }
 
+    // The native AIFF reader over [uri] (MediaExtractor does not read AIFF), or null when it is not one. What
+    // openInputStream reads: the declared span, or the whole descriptor when none is declared; detached, native
+    // closes it. Freed with GeodeNative.aiffClose.
+    private fun openAiff(uri: Uri): Long? {
+        val afd = context.contentResolver.openAssetFileDescriptor(uri, "r") ?: return null
+        val length = afd.declaredLength
+        val start = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
+        return GeodeNative.aiffOpenFd(afd.parcelFileDescriptor.detachFd(), start, length).takeIf { it != 0L }
+    }
+
     private companion object {
         const val STALL_LIMIT = 1_000
+        const val AIFF_INFO_LONGS = 3
     }
 }
 

@@ -7,6 +7,7 @@ import dev.geode.data.AppStateRepository
 import dev.geode.model.GestureTip
 import dev.geode.model.Tour
 import dev.geode.model.TourChapter
+import dev.geode.model.TourCover
 import dev.geode.model.TourFacts
 import dev.geode.model.TourProgress
 import dev.geode.model.TourRun
@@ -61,7 +62,7 @@ class TourViewModel
     ) : ViewModel() {
         private val run = MutableStateFlow<TourRun?>(null)
         private val facts = MutableStateFlow(TourFacts())
-        private val blocked = MutableStateFlow(true)
+        private val cover = MutableStateFlow(TourCover(firstRun = true))
 
         /** False while a replay waits for the screen it asked for. */
         private val ready = MutableStateFlow(true)
@@ -82,12 +83,12 @@ class TourViewModel
                 appState.value
                     .map { it.tourProgress }
                     .distinctUntilChanged()
-                    .collect { p -> _uiState.update { it.copy(progress = p) } }
+                    .collect { p -> _uiState.update { it.copy(progress = p, tip = it.tip.takeUnless { p.off }) } }
             }
             viewModelScope.launch {
                 val saved = uiState.map { it.progress }.distinctUntilChanged()
-                combine(run, facts.debounce(SETTLE_MS), blocked, ready, saved) { run, facts, blocked, ready, progress ->
-                    Inputs(run, facts, blocked || !ready, progress)
+                combine(run, facts.debounce(SETTLE_MS), cover, ready, saved) { run, facts, cover, ready, progress ->
+                    Inputs(run, facts, !Tour.shows(run, progress, cover) || !ready, progress)
                 }.collectLatest(::resolve)
             }
         }
@@ -144,9 +145,9 @@ class TourViewModel
             facts.value = now
         }
 
-        /** Held back while the boot intro, the safety notice or the paywall is up. */
-        fun onBlocked(now: Boolean) {
-            blocked.value = now
+        /** What is over the app now; while anything is ([Tour.held]) no step or tip shows. */
+        fun onCover(now: TourCover) {
+            cover.value = now
         }
 
         /** Next, Done, or the step's own action. */
@@ -195,16 +196,23 @@ class TourViewModel
         /** A control used the long way round; its gesture is mentioned once, when no tour runs. */
         fun nudge(tip: GestureTip) {
             val state = _uiState.value
-            if (tip in state.progress.tips || blocked.value) return
+            if (!Tour.mayTip(tip, state.progress, cover.value, run.value)) return
             val n = (tipCounts[tip] ?: 0) + 1
             tipCounts = tipCounts + (tip to n)
-            if (n >= TIP_AFTER && state.tip == null && run.value == null) _uiState.update { it.copy(tip = tip) }
+            if (n >= TIP_AFTER && state.tip == null) _uiState.update { it.copy(tip = tip) }
         }
 
         fun onTipRead() {
             val tip = _uiState.value.tip ?: return
             _uiState.update { it.copy(tip = null) }
             save { it.copy(tips = it.tips + tip) }
+        }
+
+        /** The tip's "Don't show tips": no more gesture tips or chapters until Settings › Tutorials turns them on. */
+        fun onTipsOff() {
+            val tip = _uiState.value.tip
+            _uiState.update { it.copy(tip = null) }
+            save { it.copy(tips = it.tips + listOfNotNull(tip), off = true) }
         }
 
         private fun end(
@@ -244,7 +252,9 @@ class TourViewModel
             val next = change(before)
             if (next == before) return
             _uiState.update { it.copy(progress = next) }
-            viewModelScope.launch { appState.update { it.copy(tourProgress = next) } }
+            // Applied to the stored value, not [next]: Settings › Tutorials writes the tips switch
+            // straight to the repository, and a save racing it must not undo it.
+            viewModelScope.launch { appState.update { it.copy(tourProgress = change(it.tourProgress)) } }
         }
 
         private val TourSpot.ordinalInChapter: Int get() = chapter.spots.indexOf(this)

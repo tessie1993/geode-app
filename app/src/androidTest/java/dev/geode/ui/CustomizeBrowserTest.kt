@@ -3,12 +3,16 @@ package dev.geode.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -27,97 +31,110 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Customize's browser (issue #333) over the engine's own map (core/viz/CustomizeMap through
- * libgeode): a category opens on its Basics, sections drop open below them and several stay open
- * at once, › pages to the next category without a back entry, and back returns to the list where
- * it was scrolled. Each control is drawn as its name, so the test reads what the map put where.
+ * Customize's browser (owner, 2026-11-12) over the engine's own map (core/viz/CustomizeMap through
+ * libgeode): the categories are tabs, a tab is a list of groups that all start collapsed, an opened
+ * group stays open (several at once, and when its tab is left and come back to), and Collapse all
+ * closes the tab's groups and nobody else's. Each control is drawn as its name, so the test reads
+ * what the map put where. The state is hoisted here as CustomizePanel hoists it into
+ * CustomizeGroupsStore.
  */
 @RunWith(AndroidJUnit4::class)
 class CustomizeBrowserTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private lateinit var listState: LazyListState
-    private lateinit var nav: CustomizeNav
+    private var tab by mutableStateOf(CustomizeCategory.QUICK_KNOBS)
+    private var open by mutableStateOf(emptySet<String>())
 
     private fun setBrowser() {
         compose.setContent {
             MaterialTheme {
-                nav = rememberLocalCustomizeNav()
-                listState = rememberLazyListState()
-                val open = rememberOpenSections()
                 CustomizeBrowser(
                     categories = CustomizeCategory.entries,
+                    selected = tab,
+                    onSelect = { tab = it },
                     sectionsOf = CustomizeMapTable::sectionsOf,
-                    nav = nav,
-                    listState = listState,
-                    openSections = open.value,
-                    onToggleSection = { s -> open.value = if (s.path in open.value) open.value - s.path else open.value + s.path },
+                    openGroups = open,
+                    onToggleGroup = { s -> open = if (s.path in open) open - s.path else open + s.path },
+                    onCollapseAll = { c -> open = open.filterTo(mutableSetOf()) { !it.startsWith("${c.name}/") } },
                     sectionLocked = { false },
-                    // Shorter than the eleven rows, so the list scrolls on any emulator.
+                    // Short, so a tab of open groups scrolls on any emulator.
                     modifier = Modifier.fillMaxWidth().height(BROWSER_HEIGHT),
                 ) { section -> section.controls.forEach { Text(it) } }
             }
         }
     }
 
-    private fun back() {
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+    private fun openTab(category: CustomizeCategory) {
+        compose.onNode(isTab and hasText(category.title)).performClick()
         compose.waitForIdle()
     }
 
+    private fun scrollTo(text: String) {
+        compose.onNode(hasScrollToNodeAction() and !isTabRow).performScrollToNode(hasText(text))
+    }
+
     @Test
-    fun openingLookShowsItsBasicsAndNotItsSections() {
+    fun aTabOpensWithEveryGroupCollapsedBasicsIncluded() {
         setBrowser()
-        compose.onNodeWithText("Look").performClick()
-        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
-        compose.onNodeWithText(ParamKeys.BRIGHTNESS).assertIsDisplayed()
+        openTab(CustomizeCategory.LOOK)
+        assertEquals(CustomizeCategory.LOOK, tab)
+        compose.onNodeWithText("Basics").assertIsDisplayed()
+        compose.onNodeWithText("Colour detail").assertIsDisplayed()
+        compose.onNodeWithText(ParamKeys.PALETTE).assertDoesNotExist()
         compose.onNodeWithText(ParamKeys.HUE_SHIFT).assertDoesNotExist()
     }
 
     @Test
-    fun colourDetailRevealsHueShiftAndTwoSectionsStayOpen() {
+    fun groupsOpenTogetherAndStayOpenAcrossTabs() {
         setBrowser()
-        compose.onNodeWithText("Look").performClick()
+        openTab(CustomizeCategory.LOOK)
+        compose.onNodeWithText("Basics").performClick()
+        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
+        scrollTo("Colour detail")
         compose.onNodeWithText("Colour detail").performClick()
+        scrollTo(ParamKeys.HUE_SHIFT)
         compose.onNodeWithText(ParamKeys.HUE_SHIFT).assertIsDisplayed()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Colour cycle"))
-        compose.onNodeWithText("Colour cycle").performClick()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(ParamKeys.CYCLE_SPEED))
-        compose.onNodeWithText(ParamKeys.CYCLE_SPEED).assertIsDisplayed()
-        // The first section is still open.
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(ParamKeys.HUE_SHIFT))
-        compose.onNodeWithText(ParamKeys.HUE_SHIFT).assertIsDisplayed()
+        // Another tab and back: a tab is not a back step, and what was open is open again.
+        openTab(CustomizeCategory.SHAPE)
+        compose.onNodeWithText(ParamKeys.MORPH).assertDoesNotExist()
+        openTab(CustomizeCategory.LOOK)
+        scrollTo(ParamKeys.PALETTE)
+        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
+        assertEquals(setOf("LOOK/basics", "LOOK/colour_detail"), open)
     }
 
     @Test
-    fun nextStepsFromLookToShapeAndBackReturnsToTheList() {
+    fun collapseAllClosesThisTabOnly() {
         setBrowser()
-        compose.onNodeWithText("Look").performClick()
+        openTab(CustomizeCategory.SHAPE)
+        compose.onNodeWithText("Basics").performClick()
+        openTab(CustomizeCategory.LOOK)
+        compose.onNodeWithText("Basics").performClick()
+        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
         // The label is the app's own string, as TalkBack reads it, not a copy of its English.
-        val next = compose.activity.getString(R.string.customize_a11y_next_named, CustomizeCategory.SHAPE.title)
-        compose.onNodeWithContentDescription(next).performClick()
-        compose.onNodeWithText(ParamKeys.MORPH).assertIsDisplayed()
-        assertEquals(CustomizeCategory.SHAPE.name, nav.openCategory)
-        // Sideways, not forward: one back closes the category, whichever one it stepped to.
-        back()
-        assertEquals(null, nav.openCategory)
-        compose.onNodeWithText("Quick knobs").assertIsDisplayed()
+        val collapse = compose.activity.getString(R.string.customize_collapse_all_in, CustomizeCategory.LOOK.title)
+        compose.onNodeWithContentDescription(collapse).performClick()
+        compose.onNodeWithText(ParamKeys.PALETTE).assertDoesNotExist()
+        compose.onNodeWithContentDescription(collapse).assertIsNotEnabled()
+        assertEquals(setOf("SHAPE/basics"), open)
     }
 
     @Test
-    fun backReturnsToTheListAtTheSameScrollPosition() {
+    fun engineHasNoBasicsAndOpensOnItsGroups() {
         setBrowser()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Engine"))
-        compose.waitForIdle()
-        val before = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-        assertTrue("the list scrolled", before.first > 0 || before.second > 0)
-        compose.onNodeWithText("Engine").performClick()
-        // Engine has no Basics; its first section header is the top of the page.
+        compose.onNode(isTabRow).performScrollToNode(hasText(CustomizeCategory.ENGINE.title))
+        openTab(CustomizeCategory.ENGINE)
         compose.onNodeWithText("Fluid: flow").assertIsDisplayed()
-        back()
-        compose.onNodeWithText("Engine").assertIsDisplayed()
-        assertEquals(before, listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset)
+        compose.onNodeWithText("Basics").assertDoesNotExist()
+        assertTrue(open.isEmpty())
+    }
+
+    private companion object {
+        val isTab = SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
+
+        // The tab row is the horizontal scroller; the group list is the other one.
+        val isTabRow = SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange)
     }
 }
 

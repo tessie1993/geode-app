@@ -1,7 +1,8 @@
 package dev.geode.model
 
 /**
- * The user's own shelf on the Styles page: the styles they starred and the ones they chose last.
+ * The user's own shelf on the Styles page: the styles they starred, the ones they chose last, and
+ * whether Random stays in the family on screen ([randomFamilyOnly], off by default).
  *
  * Pure, so the rules (newest first, no repeats, a short memory) are tested off-device; the
  * prefs file that keeps it is `data/StyleShelfStore`.
@@ -9,6 +10,7 @@ package dev.geode.model
 data class StyleShelf(
     val favourites: Set<String> = emptySet(),
     val recents: List<String> = emptyList(),
+    val randomFamilyOnly: Boolean = false,
 ) {
     fun isFavourite(id: String): Boolean = id in favourites
 
@@ -16,6 +18,8 @@ data class StyleShelf(
 
     /** [id] moves to the front; the list never repeats a style and keeps [RECENT_LIMIT] of them. */
     fun pushRecent(id: String): StyleShelf = copy(recents = (listOf(id) + recents.filterNot { it == id }).take(RECENT_LIMIT))
+
+    fun withRandomFamilyOnly(on: Boolean): StyleShelf = copy(randomFamilyOnly = on)
 
     /** [id] leaves Recent (the row menu's "Remove from Recent"); favourites are untouched. */
     fun removeRecent(id: String): StyleShelf = copy(recents = recents - id)

@@ -13,7 +13,7 @@ namespace geode::viz {
 // The reaction matrix: many audio features routed to many targets, each route
 // with its own amount, curve, mode and smoothing. MotionField is one fixed
 // table every style shares; this is the data-driven layer on top of it, and
-// the Kotlin side seeds it per style (BuildStyleReactionsUseCase), so two
+// viz/ReactionDna seeds it per style, so two
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once
@@ -25,7 +25,7 @@ namespace geode::viz {
 //
 // One source per GeodeSoundFrame value (core/sound/SoundFrame.h), grouped as the Customize picker shows
 // them. This is the second numbering: the old analyser's 34 sources were replaced wholesale, and saved
-// routes from before it are dropped (ReactionRouteCodec's "reactions/2"), so each style restarts on its DNA.
+// routes from before it are dropped (ReactionText's "reactions/2"), so each style restarts on its DNA.
 // What a route reads for each source is a 0..1 (StereoPan and Interval -1..1) view of the field; see
 // kSourceTable in Reactions.cpp for how each kind is shaped.
 enum class ReactSource {
@@ -60,8 +60,8 @@ enum class ReactSource {
 constexpr int kReactSourceCount = static_cast<int>(ReactSource::FadeGain) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
-// source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
-// (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
+// source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
+// viz/ModCatalog's table and does not keep its own list. `name` is the stable saved name,
 // `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
 // held as an envelope rather than a level, `circle` a value on a circle (a hue, a pitch class, a phase):
 // the route smoothing follows it round the seam (viz/Circular.hpp) instead of sweeping back across the
@@ -136,7 +136,7 @@ private:
 // mids, the stereo pan, an EQ band) are the "unclaimed" part, which only the whole-list route editor
 // (Modulate › Reactions) takes over.
 
-// Wire ordinals, in the page's order; mirrored by ui/MusicMoments.kt's labels. Append only.
+// Wire ordinals, in the page's order; the shell labels them in that order. Append only.
 enum class Moment { Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness };
 constexpr int kMomentCount = static_cast<int>(Moment::Loudness) + 1;
 
@@ -159,7 +159,26 @@ int momentOf(ReactSource s);
 // director's routes. global() is then 0, whatever mask came with it.
 void setGlobal(std::uint32_t mask, bool hasUser);
 std::uint32_t global();
+// The source a moment is heard on as a trigger: the first event in its set (the kick's hit, a drop, a new section),
+// else its first source (bass, build-up, loudness have no event).
+ReactSource trigger(Moment m);
 }  // namespace hand
+
+// Customize › Music's moments as triggers, for a wave or an envelope the user set "On a moment" (viz/Lfo, viz/Adsr).
+// A moment comes when its trigger (hand::trigger) rises through 0.5, and comes again only after it fell below 0.3: the
+// reaction matrix's Step rule, so a held level is one moment, not one a frame. Silence brings none.
+class MomentWatch {
+public:
+    static constexpr float kRise = 0.5f;
+    static constexpr float kRearm = 0.3f;
+    // The bit per Moment that came this frame.
+    std::uint32_t step(const ReactSignals& signals);
+    std::uint32_t step(const std::array<float, kMomentCount>& triggers);
+    void reset() { high_.fill(false); }
+
+private:
+    std::array<bool, kMomentCount> high_{};
+};
 
 class ReactionEngine {
 public:

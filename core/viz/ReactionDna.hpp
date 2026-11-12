@@ -22,7 +22,7 @@ namespace geode::viz {
 //
 // Pure and deterministic: the same id, seed and traits always give the same
 // routes, on every platform, so the live view, the wallpaper, the dream and an
-// export all react alike. Kotlin only asks for it (geode_style_reactions).
+// export all react alike.
 
 enum class Personality {
     Pulse,   // the camera pushes in on the beat (the old behaviour, now one of many)
@@ -65,9 +65,9 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
 //
 // The moments and the hand mask are in viz/Reactions.hpp, where the director reads them. Here: how the
 // user's routes and the live DNA merge, and what each chip on the page does to the routes. Kotlin only
-// labels the rows and chips and calls these through geode_music_* and geode_style_reactions_hand.
+// labels the rows and chips and calls these through viz/ModDocument (api/geode_modulation_api.h).
 
-// What a moment can do to the picture, one chip each. The ordinal is the geode_music_* call value, never saved.
+// What a moment can do to the picture, one chip each. The ordinal is the edit call's value, never saved.
 enum class MusicAction { Flash, Zoom, Shake, Colour, Camera, Warp };
 constexpr int kMusicActionCount = static_cast<int>(MusicAction::Warp) + 1;
 
@@ -114,8 +114,8 @@ LfoTarget musicActionTarget(MusicAction action);
 // "When this happens in the music, do that": each recipe is only a bundle of routes, so it runs in the
 // same matrix as the DNA and the user's routes, and turning it off takes its routes back out. The amounts
 // and attack/release times come from docs/CUSTOMIZE_MACROS_RESEARCH.md § Event reactions; the flash-prone
-// ones (bloom, brightness, colour steps) still pass through safety::apply. Kotlin keeps only each one's
-// title and sentence (dev.geode.render.EventRecipe) and calls these through geode_event_recipe_*.
+// ones (bloom, brightness, colour steps) still pass through safety::apply. Each one's title and sentence are
+// viz/ModCatalog's; the shell toggles one through viz/ModDocument.
 
 // Wire ordinals, in the menu's order; append only.
 enum class EventRecipe {

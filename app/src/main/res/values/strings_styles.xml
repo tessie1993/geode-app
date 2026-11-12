@@ -8,6 +8,10 @@
     <string name="styles_playlist_add">Add to visuals playlist</string>
     <string name="styles_recent_remove">Remove from Recent</string>
     <string name="styles_random">Random style</string>
+    <string name="styles_random_family_only">Family only</string>
+    <string name="styles_random_family_only_description">Random picks only from the family of the style on screen</string>
+    <string name="styles_random_family_only_on">On</string>
+    <string name="styles_random_family_only_off">Off</string>
     <string name="styles_yours">Your styles</string>
     <string name="styles_family">Style family</string>
     <string name="styles_yours_empty">Tap the heart on a style to keep it here. Styles you use show up here too.</string>

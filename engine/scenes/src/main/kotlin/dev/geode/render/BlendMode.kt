@@ -16,9 +16,4 @@ enum class BlendMode {
     LIGHTEN,
 
     DARKEN,
-    ;
-
-    companion object {
-        fun fromOrdinal(i: Int): BlendMode = entries.getOrElse(i) { SCREEN }
-    }
 }

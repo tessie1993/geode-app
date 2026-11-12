@@ -18,7 +18,7 @@ out vec4 fragColor;
 // the last by the same share, with the chamber walls drawn as fine lines round
 // the tube. Turned about.
 //
-// Morph winds the spiral from a loose horn to a tight coil. Worst case 80
+// Morph winds the spiral from a loose horn to a tight coil. Worst case 100
 // steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
@@ -42,6 +42,8 @@ vec2 opalMap(vec3 p) {
     d = max(d, length(p) - 3.0);
     return vec2(d, 14.0 * coil);
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

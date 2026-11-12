@@ -5,8 +5,11 @@
 #include <string>
 
 #include "api/geode_api.h"
+#include "api/geode_modulation_api.h"
+#include "api/geode_text_out.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/Config.hpp"
+#include "viz/ModDocument.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchTransform.hpp"
@@ -87,15 +90,6 @@ float geode_touch_zoom(float current, float scale_factor) { return geode::viz::t
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }
 
-const char* geode_params_roll_keys(void) {
-    static const std::string kText = [] {
-        std::string out;
-        for (const auto& roll : randomizer::rolledKeys()) out += std::string(randomizer::name(roll.tab)) + "|" + roll.key + "\n";
-        return out;
-    }();
-    return kText.c_str();
-}
-
 const char* geode_customize_text(void) { return customize::text().c_str(); }
 
 int geode_customize_lockable(const char* key) {
@@ -126,21 +120,17 @@ int geode_customize_randomize(const char* style_id, const char* category, const 
     return copyOut(current, rolled, out);
 }
 
-int geode_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only, const float* params,
-                          const float* in, float* out) {
-    const waves::Set current = waves::fromWire(in);
-    waves::Set rolled = current;
+int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only,
+                              const float* params, const char* lfos, char* out, int capacity) {
+    geode::viz::ModDocument doc;
+    doc.readLfos(lfos ? lfos : "");
+    const std::string was = doc.lfosText();
     if (!running_only || lockedSet(locked).count(waves::kLockKey) == 0) {
-        rolled = waves::randomize(current, SceneParams::fromWire(params), seed, style_id ? style_id : "",
-                                  running_only ? waves::Roll::Running : waves::Roll::All);
+        doc.lfos = waves::randomize(doc.lfos, SceneParams::fromWire(params), seed, style_id ? style_id : "",
+                                    running_only ? waves::Roll::Running : waves::Roll::All);
     }
-    float was[waves::kWireFloats];
-    waves::toWire(current, was);
-    waves::toWire(rolled, out);
-    for (int i = 0; i < waves::kWireFloats; ++i) {
-        if (was[i] != out[i]) return 1;
-    }
-    return 0;
+    const std::string now = doc.lfosText();
+    return geode::api::textOut(now == was ? std::string() : now, out, capacity);
 }
 
 void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {

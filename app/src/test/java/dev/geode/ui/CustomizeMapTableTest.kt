@@ -75,6 +75,16 @@ class CustomizeMapTableTest {
     }
 
     @Test
+    fun everyGroupIsShortEnoughToScanOpen() {
+        // Each section is a collapsible group in its tab (owner, 2026-11-12); core/tests/customize_test holds the same bound.
+        sections.forEach { assertTrue("${it.path} holds ${it.controls.size}", it.controls.size <= GROUP_MAX) }
+
+        fun section(path: String) = sections.single { it.path == path }
+        assertEquals(listOf("Stirrers", "Stirrer speed"), section("SHAPE/stirrers").controls)
+        assertEquals("Fluid: layers", section("ENGINE/fluid_layers").title)
+    }
+
+    @Test
     fun theOwnersLayoutHolds() {
         fun section(path: String) = sections.single { it.path == path }
         assertEquals(
@@ -86,5 +96,9 @@ class CustomizeMapTableTest {
         assertEquals(listOf(ParamKeys.CAM_PATH, ParamKeys.CAM_FLY), section("CAMERA/basics").controls)
         assertNull(CustomizeMapTable.sectionsOf(CustomizeCategory.EXPERT).firstOrNull { it.basics })
         assertEquals("Colour detail", section("LOOK/colour_detail").title)
+    }
+
+    private companion object {
+        const val GROUP_MAX = 8
     }
 }

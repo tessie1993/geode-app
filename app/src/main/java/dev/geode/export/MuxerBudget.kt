@@ -15,9 +15,6 @@ import dev.geode.engine.bridge.GeodeNative
  * side by side in `core/output/EncodePlan` and tested by `core/tests/output_test.cpp`.
  */
 object MuxerBudget {
-    /** The AAC rate [AudioTranscoder] encodes at, for callers that have not transcoded yet. */
-    const val AAC_BPS: Int = 192_000
-
     /**
      * [requestedBps], or less when [durationUs] of video at that rate plus [audioBytes] would pass
      * the 3.8 GB target. Never above [requestedBps] and never below 2 Mbit/s (unless the request
@@ -28,10 +25,4 @@ object MuxerBudget {
         durationUs: Long,
         audioBytes: Long,
     ): Int = GeodeNative.exportCappedVideoBps(requestedBps, durationUs, audioBytes, limitBytes = 0L)
-
-    /** What [durationUs] of audio at [bps] takes, for estimating before the audio exists. */
-    fun audioBytes(
-        durationUs: Long,
-        bps: Int = AAC_BPS,
-    ): Long = GeodeNative.exportAudioBytes(durationUs, bps)
 }

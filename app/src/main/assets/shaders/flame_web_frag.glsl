@@ -19,7 +19,7 @@ out vec4 fragColor;
 // spokes that lean into a spiral; only where spoke meets trumpet is lit, so
 // each vortex is a web strung in the dark. Neighbours wind opposite ways.
 //
-// Morph winds the spokes from straight to a tight whirl. Worst case 72
+// Morph winds the spokes from straight to a tight whirl. Worst case 90
 // samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
@@ -34,6 +34,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float edge = smoothstep(2.0, 1.5, max(abs(c.x), abs(c.y))) * smoothstep(0.03, 0.2, r);
     wt = edge * vec2(0.9, 0.7);
 }
+
+//#include lib_flame_march
 
 void main() {
     vec2 uv = view();

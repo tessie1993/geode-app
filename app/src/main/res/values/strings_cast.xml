@@ -28,11 +28,13 @@
     <string name="link_row_starting">Starting…</string>
     <string name="link_row_live">On</string>
     <string name="link_row_locked">Show on a computer needs Pro</string>
-    <string name="link_sheet_how">On a computer on the same Wi-Fi, open this address in a browser, or scan the code with a phone camera to send it there.</string>
+    <string name="link_sheet_how">On a phone or tablet on the same Wi-Fi, scan the QR code. On a computer, type the short link below in a browser, then the code.</string>
+    <string name="link_sheet_typed">On a computer, open this in a browser:</string>
+    <string name="link_sheet_code">Then type this code. It works once and changes every few minutes.</string>
     <string name="link_sheet_starting">Starting the picture…</string>
     <string name="link_sheet_live">Live. Click Play in the browser to start the picture and sound.</string>
     <string name="link_sheet_sound">The sound plays on the computer; the phone stays silent.</string>
-    <string name="link_sheet_open">Anyone on this Wi-Fi with this link can watch.</string>
+    <string name="link_sheet_open">Anyone on this Wi-Fi with the QR code, or with the short link and its code, can watch.</string>
     <string name="link_sheet_plain">The picture and sound reach the browser encrypted (WebRTC). The link and the page are plain http, so anyone on this Wi-Fi who gets the link can open it, and a browser that can\'t use WebRTC gets an unencrypted stream. Share it only on a Wi-Fi you trust. Each start makes a new link.</string>
     <string name="link_sheet_address">The link writes the phone\'s Wi-Fi address as one number; the browser shows it the usual way once open.</string>
     <string name="link_sheet_label">Link: %1$s</string>

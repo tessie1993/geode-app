@@ -2,7 +2,6 @@
 #include <jni.h>
 
 #include <cstdint>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "jni_util.hpp"
@@ -18,15 +17,6 @@ Java_dev_geode_engine_bridge_GeodeNative_webrtcOpen(JNIEnv* env, jobject, jstrin
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_webrtcClose(JNIEnv*, jobject, jlong handle) {
     geode_webrtc_close(handle);
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_webrtcAnswer(JNIEnv* env, jobject, jlong handle, jstring offer, jintArray result) {
-    geode::jni::Utf8Chars o(env, offer);
-    std::vector<char> out(GEODE_WEBRTC_ANSWER_CAP);
-    const jint code = geode_webrtc_answer(handle, o.get(), out.data(), static_cast<int>(out.size()));
-    if (result && env->GetArrayLength(result) >= 1) env->SetIntArrayRegion(result, 0, 1, &code);
-    return code >= 0 ? geode::jni::utf8String(env, out.data()) : nullptr;
 }
 
 JNIEXPORT void JNICALL

@@ -4,7 +4,7 @@
 
 namespace geode::viz::styles {
 
-// Port of VisualStyleCatalog.kt: the per-family style tables the ids resolve through.
+// The per-family style tables the ids resolve through.
 struct CymaticsStyle {
     const char* id;
     int shaderStyle;

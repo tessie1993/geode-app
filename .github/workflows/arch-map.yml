@@ -1,7 +1,7 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule and the
-# notices copy. No path
+# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule, JNI
+# parity and the notices copy. No path
 # filter, so the check reports on every PR.
 
 on:
@@ -137,6 +137,41 @@ jobs:
         shell: bash
         run: bash tools/network-gate.sh
 
+      # Pins the JNI parity gate: a matching tree must pass (an underscore is _1, a companion's @JvmStatic is
+      # the outer class's); a declaration with no function, a function with no declaration and one that is not
+      # exported must each fail it.
+      - name: Self-test the JNI parity gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/engine/a/src/main/kotlin/p/q" "$t/app/src/main/cpp"
+          printf '%s\n' 'package p.q' '// external fun inComment()' 'object N {' '    external fun one(a: Int): Int' \
+            '    private external fun two_x()' '}' 'class C {' '    companion object {' \
+            '        @JvmStatic' '        external fun three(): Long' '    }' '}' \
+            > "$t/engine/a/src/main/kotlin/p/q/N.kt"
+          printf '%s\n' 'extern "C" {' 'JNIEXPORT jint JNICALL Java_p_q_N_one(JNIEnv*, jobject, jint a) { return a; }' \
+            'JNIEXPORT void JNICALL' 'Java_p_q_N_two_1x(JNIEnv*, jobject) {}' \
+            'JNIEXPORT jlong JNICALL Java_p_q_C_three(JNIEnv*, jclass) { return 0; }' '}' \
+            > "$t/app/src/main/cpp/n_jni.cpp"
+          bash tools/jni-parity-gate.sh "$t" >/dev/null || { echo "::error::JNI parity gate self-test: matching tree failed"; exit 1; }
+          plant() {
+            printf '%s\n' "$2" > "$t/$1"
+            if bash tools/jni-parity-gate.sh "$t" >/dev/null; then echo "::error::JNI parity gate self-test: passed: $1: $2"; exit 1; fi
+            rm "$t/$1"
+          }
+          plant engine/a/src/main/kotlin/p/q/M.kt 'package p.q; object M { external fun gone() }'
+          plant engine/a/src/main/kotlin/p/q/M.kt 'package p.q; class M { companion object { external fun three() } }'
+          plant app/src/main/cpp/m_jni.cpp 'extern "C" JNIEXPORT void JNICALL Java_p_q_N_orphan(JNIEnv*, jobject) {}'
+          plant app/src/main/cpp/m_jni.cpp 'extern "C" JNIEXPORT void JNICALL Java_p_q_N_two_x(JNIEnv*, jobject) {}'
+          sed -i 's/JNIEXPORT jint JNICALL/jint/' "$t/app/src/main/cpp/n_jni.cpp"
+          if bash tools/jni-parity-gate.sh "$t" >/dev/null; then echo "::error::JNI parity gate self-test: an unexported function passed"; exit 1; fi
+          echo "JNI parity gate self-test passed"
+
+      - name: Every external fun has its JNI function, and the reverse
+        shell: bash
+        run: bash tools/jni-parity-gate.sh
+
       # The repository's notices and the copy the app ships are one text (LGPL-2.1 2a: the
       # projectM modification notice must not differ between them).
       - name: The notices file equals the shipped asset
@@ -167,6 +202,19 @@ jobs:
           ok "40${T}0${T}$A/data/RecordFiles.kt" || { echo "::error::recording storage failed"; exit 1; }
           ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
           ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
+          if ok "12${T}0${T}engine/scenes/src/main/kotlin/dev/geode/render/bridge/NativeViz.kt"; then echo "::error::NativeViz growth passed"; exit 1; fi
+          # The list: a listed file passes, a new file in an engine module fails, and so does a new entry.
+          t=$(mktemp -d)
+          mkdir -p "$t/engine/scenes/src/main/kotlin/dev/geode/render/bridge" "$t/engine/scenes/src/test/kotlin"
+          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/bridge/NativeViz.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
+          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a listed file failed"; exit 1; }
+          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/NewEngine.kt"
+          if bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null; then echo "::error::an unlisted engine file passed"; exit 1; fi
+          grew() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh --list-grew >/dev/null; }
+          grew '--- a/tools/engine-kotlin-gate.sh' '+++ b/tools/engine-kotlin-gate.sh' '-    "$S/render/bridge/NativeViz.kt"' '+# a comment' \
+            || { echo "::error::a shrinking list failed"; exit 1; }
+          if grew '+    "$S/render/NewEngine.kt"'; then echo "::error::a new entry passed"; exit 1; fi
+          if grew '+    "engine/audio-core/src/main/kotlin/dev/geode/engine/audio/New.kt"'; then echo "::error::a new full-path entry passed"; exit 1; fi
           echo "engine Kotlin gate self-test passed"
 
       - name: Engine Kotlin only shrinks
@@ -175,3 +223,16 @@ jobs:
           git diff --numstat -M \
             "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
             | bash tools/engine-kotlin-gate.sh
+
+      # Every Kotlin file left in the engine modules is on the gate's list, and the list never gains an entry
+      # (checked once the base has the list).
+      - name: Engine modules hold only the listed Kotlin
+        shell: bash
+        run: |
+          bash tools/engine-kotlin-gate.sh --files
+          base="${{ github.event.pull_request.base.sha }}"
+          git show "$base:tools/engine-kotlin-gate.sh" > "$RUNNER_TEMP/base-gate.sh"
+          if grep -q '^allowed=(' "$RUNNER_TEMP/base-gate.sh"; then
+            git diff "$base...${{ github.event.pull_request.head.sha }}" -- tools/engine-kotlin-gate.sh \
+              | bash tools/engine-kotlin-gate.sh --list-grew
+          fi

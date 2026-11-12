@@ -1,13 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>ComplexCondition:Adsr.kt$AdsrEngine$hit &gt; 0f &amp;&amp; (c.retrigger || stage[i] == 0 || stage[i] == 4)</ID>
-    <ID>LoopWithTooManyJumpStatements:Adsr.kt$AdsrEngine.Companion$for</ID>
-    <ID>LoopWithTooManyJumpStatements:Lfo.kt$LfoEngine$for</ID>
-    <ID>LoopWithTooManyJumpStatements:Lfo.kt$LfoEngine.Companion$for</ID>
-    <ID>NestedBlockDepth:Adsr.kt$AdsrEngine$fun tick( dt: Float, features: AudioFeatures, ): FloatArray</ID>
-    <ID>SwallowedException:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
-    <ID>TooGenericExceptionCaught:MilkdropEngine.kt$MilkdropEngine$t: Throwable</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

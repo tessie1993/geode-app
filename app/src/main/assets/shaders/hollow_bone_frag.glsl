@@ -19,7 +19,7 @@ out vec4 fragColor;
 // finer sponge of their own.
 //
 // Morph ages the bone: from thick walls with small windows down to thin
-// struts. Worst case 72 steps, no noise.
+// struts. Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     vec3 q = p * 1.5707963;
@@ -30,6 +30,8 @@ vec2 hollowMap(vec3 p) {
     float pit = dot(sin(q2), cos(q2.yzx)) * 0.03 + 0.03;
     return vec2(room + pit, 2.5 * (c.x * c.y + c.y * c.z + c.z * c.x) + 0.5);
 }
+
+//#include lib_hollow_march
 
 void main() {
     vec2 uv = view();

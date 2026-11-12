@@ -91,6 +91,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `randomize_all_test.cpp`: the two-circle gesture's Randomize everything: seeded, never a locked style, MilkDrop's .milk as its preset, every category rolled, Keep held through the preset.
 - `reaction_resolve_test.cpp`: the renderer's reaction resolve against the old Kotlin path, and when it re-resolves.
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
+- `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
 - `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
 - `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.

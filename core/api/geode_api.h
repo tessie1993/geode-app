@@ -1072,8 +1072,8 @@ GEODE_API int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int
 /* Record (Visuals › Record; output/Recorder): a video of the visual plus the sound, captured live. The
  * recorder is the file's clock: which stage frames are kept and their PTS, where each sample the visual
  * heard sits beside them, and when the recording ends. The stage's renderer feeds it (geode_viz_record_start);
- * the shell's encoder thread takes the audio out and reports what the encoder and muxer did. Times are
- * CLOCK_MONOTONIC ns (System.nanoTime). max_sec is Settings › Export › Record's maximum length and cap_ms
+ * the session's encoder thread (geode_record_session_*) takes the audio out and reports what the encoder and
+ * muxer did. Times are CLOCK_MONOTONIC ns (System.nanoTime). max_sec is Settings › Export › Record's maximum length and cap_ms
  * the entitlement's cap, 0 for none; the shorter one ends the recording. */
 typedef struct geode_recorder geode_recorder;
 #define GEODE_RECORD_STOP_USER       1
@@ -1112,7 +1112,7 @@ GEODE_API int64_t geode_recorder_frames_dropped(const geode_recorder*);
  * file would pass the muxer's target. */
 GEODE_API void    geode_record_frame_size(int stage_w, int stage_h, int short_side, int* out_w, int* out_h);
 GEODE_API int     geode_record_video_bps(int width, int height, int fps, int64_t limit_ms);
-/* What the shell asks the video encoder for on its attempt-th try (0 first): the chosen short side, then
+/* What the video encoder is asked for on its attempt-th try (0 first): the chosen short side, then
  * each smaller rung the stage fills, with the bit rate for it. 0 past the last attempt. */
 GEODE_API int     geode_record_encoder_attempt(int stage_w, int stage_h, int short_side, int fps, int64_t limit_ms,
                                                int attempt, int* out_w, int* out_h, int* out_video_bps);
@@ -1120,6 +1120,31 @@ GEODE_API int     geode_record_encoder_attempt(int stage_w, int stage_h, int sho
 GEODE_API int     geode_record_worth_keeping(int64_t recorded_ms);
 /* The longest this recording may run, the shorter of its two limits; 0 for none. */
 GEODE_API int64_t geode_recorder_limit_ms(const geode_recorder*);
+
+/* A recording's encoders and file (output/RecordSession on output/EncodeSink; Android only, the phone's
+ * MediaCodec and MediaMuxer). open makes the H.264 encoder at the first size the device takes of the ones
+ * geode_record_encoder_attempt offers, the AAC encoder and an MP4 muxer on `fd` (open read-write; the muxer
+ * keeps its own duplicate, so the caller may close fd once open returns), and starts the session's own
+ * encoder thread, which drains both into the file on the recorder's clock; NULL when no encoder or muxer would
+ * start. The recorder handle may be destroyed before or after the session. size gives the encoder's frame.
+ * state is a GEODE_RECORD_SESSION_*, polled: CLOSING once the recorder stopped, when the stage's copy should
+ * close (geode_viz_record_stop, then tee_closed, on the GL thread: the video stream ends once nothing draws
+ * into it, or after a second without an answer); SAVED or FAILED once the file is finished. tee_start is
+ * geode_viz_record_start on the session's encoder surface (render thread, the stage's context current; 0 when
+ * the surface would not open or the encoders are already gone); the surface never crosses JNI. destroy joins
+ * the thread: call it once the state is SAVED or FAILED and after the GL thread's tee_closed. */
+typedef struct geode_record_session geode_record_session;
+#define GEODE_RECORD_SESSION_RUNNING 0
+#define GEODE_RECORD_SESSION_CLOSING 1
+#define GEODE_RECORD_SESSION_SAVED   2
+#define GEODE_RECORD_SESSION_FAILED  3
+GEODE_API geode_record_session* geode_record_session_open(const geode_recorder* recorder, int fd, int stage_w,
+                                                          int stage_h, int short_side, int fps);
+GEODE_API void    geode_record_session_destroy(geode_record_session*);
+GEODE_API void    geode_record_session_size(const geode_record_session*, int* out_w, int* out_h);
+GEODE_API int     geode_record_session_state(const geode_record_session*);
+GEODE_API void    geode_record_session_tee_closed(geode_record_session*);
+GEODE_API int     geode_record_session_tee_start(geode_record_session*, geode_viz* v, geode_export_pass* watermark);
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
  * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */

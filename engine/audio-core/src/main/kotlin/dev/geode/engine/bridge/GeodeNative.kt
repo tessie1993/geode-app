@@ -336,12 +336,18 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer. */
+    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer; [blendMode] indexes [layerBlendNames]. */
     external fun layerSet(
         sceneId: String,
         mix: Float,
         blendMode: Int,
     )
+
+    /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
+    external fun layerBlendNames(): String
+
+    /** Screen, the blend a new layer starts on (`GEODE_LAYER_BLEND_DEFAULT`). */
+    const val LAYER_BLEND_DEFAULT: Int = 1
 
     external fun vizSetTransition(
         handle: Long,
@@ -852,6 +858,26 @@ object GeodeNative {
         handle: Long,
         sceneId: String,
     )
+
+    /**
+     * The user's whole look (geode_viz_set_look): native passes on only the parts that differ from the look set last
+     * on this handle, all of them on a new one. [reactions] null means the style's own routes. Any thread.
+     */
+    external fun vizSetLook(
+        handle: Long,
+        sceneId: String,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    external fun vizLookDefaults(): String
 
     /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
     external fun vizSetQuality(

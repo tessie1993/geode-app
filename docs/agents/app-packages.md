@@ -222,6 +222,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
+- `PerformanceSettings` is the value it keeps, with `PerformanceMode` and `LiquidHotPolicy`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
 - The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.
@@ -238,6 +239,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - What recordings are encoded at and how long one may run is `RecordPrefsStore` (Settings › Export › Record): resolution and frame rate, which follow the Custom defaults until picked, and a maximum length.
 - The offered lengths and the size estimate are native (`core/output/RecordPlan`, `geode_record_*`).
 - `LookStore` is the saved look snapshot for the wallpaper, the dream and Cast (the session's keys, plus `pushProcessWide` for the hand mask).
+- `LookSnapshot` is the one value every host draws (#345): style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
+- `LookSource.pin` freezes the snapshot for a render; `gentleFlight` is the dream's override.
+- `LookSnapshot`'s first style and fade are native's (`geode_viz_look_defaults`).
 - Settings › Export's per-destination defaults are `ExportPrefsStore` and `ExportDestination`.
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
@@ -283,6 +287,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Visualizer export: MediaCodec + offscreen GL.
 - `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render.
+- `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
@@ -301,6 +306,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The background image layer.
 - The artwork palette's shell (`ArtPalette`): a cover's pixels to native `core/viz/ArtPalette`, `geode_art_palette_extract`.
 - Customize › Look's "Take the colours from the artwork" and the widget's glow read it.
+- `NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`stage/`).
+- `NativeViz.setLook` hands the whole look across; native passes on only the parts that changed (`geode_viz_set_look`), and a new handle gets the whole look.
+- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 
 ## `stage`
 

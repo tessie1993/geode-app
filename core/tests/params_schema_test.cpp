@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,6 +25,7 @@
 #include "viz/Lfo.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
+#include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 
 using namespace geode::viz;
@@ -316,6 +318,35 @@ void theCataloguesRangesAgree() {
     same(ParamSlot::cymaticsModes, 1.0f, static_cast<float>(cymatics::kMaxRenderedModes), "Standing waves");
 }
 
+// A picker's labels (its choices row) name every value of its range once, and travel in the text as they are.
+void everyPickerLabelsItsRange() {
+    int pickers = 0;
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const auto p = static_cast<ParamSlot>(slot);
+        const auto& labels = SceneParams::choices(p);
+        const std::string name = SceneParams::spec(p).name;
+        check(static_cast<int>(labels.size()) == choiceCount(p), name + ": choices() and choiceCount() agree");
+        if (labels.empty()) continue;
+        ++pickers;
+        const ParamSpec& s = SceneParams::spec(p);
+        check(!SceneParams::retired(p) && s.kind == ParamKind::Int, name + ": a live Int picker");
+        check(s.min == 0.0f && s.max == static_cast<float>(labels.size() - 1), name + ": one label per value of 0..max");
+        std::set<std::string_view> seen;
+        for (std::string_view l : labels) {
+            check(!l.empty() && l.find_first_of("|\n") == std::string_view::npos, name + ": a label the text can carry");
+            check(seen.insert(l).second, name + ": each label once");
+        }
+    }
+    check(pickers == 9, "nine pickers carry labels");
+    const auto& paths = SceneParams::choices(ParamSlot::camPath);
+    check(paths.size() == 12 && paths.front() == "Glide" && paths.back() == "Pendulum", "the camera paths in CameraRig's order");
+    const auto& tiers = SceneParams::choices(ParamSlot::fluidQuality);
+    for (size_t i = 0; i < tiers.size() && i < fluid::quality::kTiers.size(); ++i) {
+        check(tiers[i] == fluid::quality::kTiers[i].label, "fluid quality " + std::to_string(i) + " is its tier's label");
+    }
+    check(SceneParams::choices(ParamSlot::speed).empty() && SceneParams::choices(ParamSlot::kCount).empty(), "a slider or no slot has none");
+}
+
 std::vector<std::string> split(const std::string& line) {
     std::vector<std::string> out;
     std::string field;
@@ -332,8 +363,18 @@ void theTextIsTheTable() {
           "the text starts with its version and row count: " + line);
     int slot = 0;
     size_t palette = 0;
+    size_t choiceRows = 0;
     while (std::getline(lines, line)) {
         const auto f = split(line);
+        if (!f.empty() && f[0] == "choice") {
+            const int at = f.size() == 4 ? SceneParams::slotOf(f[1]) : -1;
+            const auto& labels = SceneParams::choices(static_cast<ParamSlot>(at < 0 ? SceneParams::kFieldCount : at));
+            const size_t index = f.size() == 4 ? std::strtoul(f[2].c_str(), nullptr, 10) : labels.size();
+            check(palette == SceneParams::palettes().size(), "the choice rows follow the palette names: " + line);
+            check(index < labels.size() && f[3] == labels[index], "a choice row names the picker's label at its index: " + line);
+            ++choiceRows;
+            continue;
+        }
         if (!f.empty() && f[0] == "palette") {
             const auto& names = SceneParams::palettes();
             check(slot == kWireFloats, "the palette names follow every param row: " + line);
@@ -366,6 +407,9 @@ void theTextIsTheTable() {
     }
     check(slot == kWireFloats, "one row per slot");
     check(palette == SceneParams::palettes().size(), "one name per built-in palette");
+    size_t labels = 0;
+    for (int s = 0; s < SceneParams::kFieldCount; ++s) labels += SceneParams::choices(static_cast<ParamSlot>(s)).size();
+    check(choiceRows == labels, "one choice row per picker label");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
     check(SceneParams::schemaText().find("|fluidCatchRadius|FLOAT|0.12|0.03|0.3|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
@@ -517,6 +561,7 @@ int main(int argc, char** argv) {
     fadeGlidesAndHoldSnaps();
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
+    everyPickerLabelsItsRange();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();

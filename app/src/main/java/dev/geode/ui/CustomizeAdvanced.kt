@@ -49,7 +49,6 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.BlendMode
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
@@ -487,10 +486,11 @@ internal fun LayersPage() {
     if (layers.sceneId != null && layers.sceneId == activeScene) {
         ControlHint(stringResource(R.string.customize_layer_idle_hint))
     }
-    val blendNames = BlendMode.entries.map { mode -> mode.name.lowercase().replaceFirstChar { it.uppercase() } }
-    DropdownRow("Blend", blendNames, BlendMode.entries.indexOf(layers.blend)) {
-        LayersBus.state.value = layers.copy(blend = BlendMode.entries[it])
-    }
+    val blendNames =
+        remember {
+            runCatching { GeodeNative.layerBlendNames().lines().filter { it.isNotEmpty() } }.getOrDefault(emptyList())
+        }
+    DropdownRow("Blend", blendNames, layers.blend) { LayersBus.state.value = layers.copy(blend = it) }
     LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
 }
 

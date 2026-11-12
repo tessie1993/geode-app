@@ -5,25 +5,6 @@
 
 namespace geode::stage {
 
-uint32_t LookLatch::take(Look next) {
-    uint32_t changed = 0;
-    if (!any_) {
-        changed = kLookAll;
-    } else {
-        if (next.sceneId != look_.sceneId) changed |= kLookScene;
-        if (next.params != look_.params) changed |= kLookParams;
-        if (next.lfos != look_.lfos) changed |= kLookLfos;
-        if (next.adsrs != look_.adsrs) changed |= kLookAdsrs;
-        if (next.tuning != look_.tuning) changed |= kLookTuning;
-        if (next.hasReactions != look_.hasReactions || next.reactions != look_.reactions) changed |= kLookReactions;
-        if (next.reducedMotion != look_.reducedMotion) changed |= kLookReducedMotion;
-        if (next.transitionId != look_.transitionId || next.transitionMs != look_.transitionMs) changed |= kLookTransition;
-    }
-    any_ = true;
-    look_ = std::move(next);
-    return changed;
-}
-
 LiveClient::LiveClient(std::unique_ptr<LiveViz> viz) : viz_(std::move(viz)) {}
 
 void LiveClient::surfaceCreated() {

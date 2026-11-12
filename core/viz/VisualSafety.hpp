@@ -7,10 +7,15 @@
 namespace geode::viz {
 
 enum class TransitionStyle { Cut, Fade, Melt, Slide, Zoom };
+// Customize › Layers' blends; the ordinal is the wire value and composite_frag.glsl's layerBlend case.
 enum class BlendMode { Normal, Screen, Add, Multiply, Difference, Overlay, Lighten, Darken };
+constexpr int kBlendModes = static_cast<int>(BlendMode::Darken) + 1;
 
 const char* transitionStyleId(TransitionStyle style);
 BlendMode blendModeFromOrdinal(int i);
+const char* blendModeLabel(BlendMode mode);
+// Every label in ordinal order, each followed by '\n' (geode_layer_blend_names).
+const std::string& blendModeLabels();
 
 // The unconditional flash and luminance clamp on the params.
 namespace safety {

@@ -3,11 +3,10 @@ package dev.geode.export
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.net.Uri
+import dev.geode.data.LookSnapshot
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.SceneFactory
-import dev.geode.render.bridge.NativeViz
-import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
+import dev.geode.viz.NativeViz
 
 /**
  * One export's picture: a native renderer driven by the native export job (`core/output/ExportFrame`), which

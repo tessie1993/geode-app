@@ -56,8 +56,10 @@ enum class ReactSource {
     Novelty, SectionChange, SectionState, SectionId, BuildUp, Drop,
     // The player (core/sound/PlayerSignals): its fades, which the tap before the volume never hears.
     FadeGain,
+    // Transients (core/sound/Transient): the sharp start of any sound, its envelope, and how steep the last one was.
+    Transient, TransientEnv, TransientSharpness,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::FadeGain) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::TransientSharpness) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in

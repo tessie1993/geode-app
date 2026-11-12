@@ -26,6 +26,7 @@ import dev.geode.BuildConfig
 import dev.geode.billing.CachedEntitlement
 import dev.geode.billing.PrefsEntitlementStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceMode
 import dev.geode.data.PerformanceStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetStore
@@ -42,7 +43,6 @@ import dev.geode.journey.onMain
 import dev.geode.journey.stopAndRelease
 import dev.geode.journey.tap
 import dev.geode.pro.FreeTier
-import dev.geode.render.PerformanceMode
 import dev.geode.ui.MainActivity
 import org.junit.Assume.assumeTrue
 import org.junit.rules.TestRule

@@ -1,7 +1,9 @@
 #pragma once
 #include <array>
+#include <initializer_list>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace geode::viz {
 
@@ -52,6 +54,17 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::rippleOverlaySpecular,
                                                ParamSlot::formDrive,
                                                ParamSlot::motionOrbit};
+
+// How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
+// an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
+constexpr int choiceCount(ParamSlot slot) {
+    int n = 0;
+#define GEODE_PARAM_CHOICES(name, ...) \
+    if (slot == ParamSlot::name) n = static_cast<int>(std::initializer_list<const char*>{__VA_ARGS__}.size());
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM_CHOICES
+    return n;
+}
 
 namespace catalogue {
 enum class Scope;
@@ -115,6 +128,8 @@ struct SceneParams {
     // The meta rows, one per wire slot (a retired slot's empty). Built once; the reference lives for the process.
     static const std::array<ParamMeta, kFieldCount>& metaTable();
     static const ParamMeta& meta(ParamSlot slot) { return metaTable()[static_cast<size_t>(slot)]; }
+    // A picker's labels in index order (its GEODE_PARAM_CHOICES row); empty for a field that is no picker.
+    static const std::vector<std::string_view>& choices(ParamSlot slot);
     // The wire slot of a field name, -1 for an unknown one.
     static int slotOf(std::string_view name);
     static constexpr bool retired(ParamSlot slot) {
@@ -128,7 +143,8 @@ struct SceneParams {
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
     // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
-    static constexpr int kSchemaTextVersion = 3;
+    // Then one row per picker label, by field in slot order, each in index order: choice|<name>|<index>|<label> (version 4).
+    static constexpr int kSchemaTextVersion = 4;
     static const std::string& schemaText();
 
     // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired

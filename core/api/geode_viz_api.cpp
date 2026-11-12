@@ -29,6 +29,7 @@
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/LayerState.hpp"
+#include "viz/LookSnapshot.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -40,6 +41,7 @@
 #include "viz/Transition.hpp"
 #include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
+#include "viz/VisualSafety.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
 #include "viz/frame/Pacer.hpp"
@@ -132,6 +134,10 @@ struct geode_viz {
     // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
     // shell never sends the look again for a new surface.
     geode::viz::frame::LiveFrame live;
+    // The shell's whole look as set last (geode_viz_set_look), so only the parts that differ reach the renderer; a new
+    // handle starts with none, so it gets the whole look. lookLock: the compare and its sets never interleave.
+    std::mutex lookLock;
+    geode::viz::LookLatch shellLook;
     // What the reaction matrix plays (#750): scene, reactSeed, the user's routes and the hand mask in,
     // resolved on the render thread only when one changed. The mask is read before each render (the
     // process's, or an export's pin), so a Customize › Music edit reaches every renderer with no push of its
@@ -191,6 +197,7 @@ static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
+static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
 // between calls matter, and steady_clock never jumps with the wall clock.
@@ -605,6 +612,14 @@ void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
     layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
 }
 
+const char* geode_layer_blend_names(void) {
+    try {
+        return blendModeLabels().c_str();
+    } catch (...) {
+        return "";
+    }
+}
+
 void geode_viz_gyro_push(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
     if (v) v->live.gyroPush(frame::GyroReading{x, y, z, w, display_rotation});
 }
@@ -620,6 +635,43 @@ void geode_viz_request_scene(geode_viz* v, const char* scene_id) {
     } catch (...) {
         // No memory for the id: the scene drawn stays until the next request.
     }
+}
+
+void geode_viz_set_look(geode_viz* v, const geode_viz_look* look) {
+    if (!v || !look) return;
+    try {
+        LookSnapshot next;
+        next.sceneId = text(look->scene_id);
+        if (look->params && look->param_count > 0) next.params.assign(look->params, look->params + look->param_count);
+        next.lfos = text(look->lfos);
+        next.adsrs = text(look->adsrs);
+        if (look->tuning && look->tuning_count > 0) next.tuning.assign(look->tuning, look->tuning + look->tuning_count);
+        next.hasReactions = look->reactions != nullptr;
+        next.reactions = text(look->reactions);
+        next.reducedMotion = look->reduced_motion != 0;
+        next.transitionId = text(look->transition_id);
+        next.transitionMs = look->transition_ms;
+        std::lock_guard<std::mutex> one(v->lookLock);
+        const uint32_t parts = v->shellLook.take(std::move(next));
+        const LookSnapshot& l = v->shellLook.look();
+        if ((parts & kLookScene) != 0) geode_viz_request_scene(v, l.sceneId.c_str());
+        if ((parts & kLookParams) != 0 && !l.params.empty()) geode_viz_set_params(v, l.params.data(), static_cast<int>(l.params.size()));
+        if ((parts & kLookLfos) != 0) geode_viz_set_lfos(v, l.lfos.c_str());
+        if ((parts & kLookAdsrs) != 0) geode_viz_set_adsrs(v, l.adsrs.c_str());
+        if ((parts & kLookTuning) != 0) {
+            geode_viz_set_sound_tuning(v, l.tuning.empty() ? nullptr : l.tuning.data(), static_cast<int>(l.tuning.size()));
+        }
+        if ((parts & kLookReactions) != 0) geode_viz_set_reactions(v, l.hasReactions ? l.reactions.c_str() : nullptr);
+        if ((parts & kLookReducedMotion) != 0) geode_viz_set_reduced_motion(v, l.reducedMotion ? 1 : 0);
+        if ((parts & kLookTransition) != 0) geode_viz_set_transition(v, l.transitionId.c_str(), l.transitionMs);
+    } catch (...) {
+        // No memory for the look: the renderer keeps the one it has.
+    }
+}
+
+const char* geode_viz_look_defaults(void) {
+    static const std::string defaults = lookDefaultsText();
+    return defaults.c_str();
 }
 
 void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive,

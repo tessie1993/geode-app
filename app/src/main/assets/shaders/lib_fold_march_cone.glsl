@@ -1,0 +1,47 @@
+// The Fold family: the cone march, which calls the style's foldMap, defined between
+// lib_fold and this file. The fractal's surface, sphere traced through folded
+// space. A pixel sees a cone, not a line: the hit distance is the cone's width
+// where the ray is (gFoldCone per unit from the eye), so near detail is traced
+// to the pixel and far detail, finer than a pixel, ends the ray early instead
+// of spending the budget creeping up on a crust nobody can see.
+//
+// INCLUDE ORDER: after lib_fold and after the style's foldMap.
+
+/** The surface's normal at p, unit length; straight back along the ray where the field is flat. */
+vec3 foldConeNormal(vec3 p, vec3 rd, float eps) {
+    vec2 e = vec2(1.0, -1.0) * eps;
+    vec3 g = e.xyy * foldMap(foldBend(p + e.xyy)).x + e.yyx * foldMap(foldBend(p + e.yyx)).x +
+        e.yxy * foldMap(foldBend(p + e.yxy)).x + e.xxx * foldMap(foldBend(p + e.xxx)).x;
+    float l = length(g);
+    return l > 1.0e-9 ? g / l : -rd;
+}
+
+/** The light along one ray: traced to the surface within the pixel's cone, then lit. */
+vec3 foldCone(vec3 ro, vec3 rd) {
+    float n = FOLD_CONE_STEPS;
+    float t = 0.02 + 0.05 * foldDither();
+    vec4 m = vec4(1.0, 0.0, 1.0, 1.0);
+    bool hit = false;
+    float near = 1.0e3;
+    for (int i = 0; i < FOLD_CONE_MAX; i++) {
+        if (float(i) >= n || t > gFoldFar) break;
+        m = foldMap(foldBend(ro + rd * t));
+        float eps = gFoldCone * t + 2.0e-4;
+        near = min(near, m.x / (0.4 + 0.25 * t));
+        if (m.x < eps) {
+            hit = true;
+            break;
+        }
+        t += max(m.x * gFoldStride * gFoldSlack, 0.5 * eps);
+    }
+    t = min(t, gFoldFar);
+    vec3 col = vec3(0.0);
+    if (hit) {
+        vec3 p = ro + rd * t;
+        vec3 nor = foldConeNormal(p, rd, 1.5 * (gFoldCone * t + 2.0e-4));
+        float occ = clamp(foldMap(foldBend(p + nor * 0.1)).x / 0.1, 0.0, 1.0);
+        // Nothing lights right at the eye: flying into the crust must not fill the frame.
+        col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
+    }
+    return foldAir(col, t, near);
+}

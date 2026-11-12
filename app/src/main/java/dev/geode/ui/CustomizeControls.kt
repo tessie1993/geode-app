@@ -19,12 +19,14 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
 import dev.geode.render.scene.ParamKeys
+import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
+import kotlin.reflect.KProperty1
 
 /**
  * Draws one Customize control by the name core/viz/CustomizeMap files it under: a ParamKeys
@@ -135,7 +137,7 @@ private fun ShapeControl(
         ParamKeys.MIRROR -> CheckRow(key, p.mirror) { onChange(p.copy(mirror = it)) }
         ParamKeys.TILE -> LabeledSlider(key, p, SceneParams::tile) { onChange(p.copy(tile = it)) }
         ParamKeys.PIXELATE -> LabeledSlider(key, p, SceneParams::pixelate) { onChange(p.copy(pixelate = it)) }
-        ParamKeys.PARTICLE_SHAPE -> ParamChips(key, SceneParams.PARTICLE_SHAPES, p.particleShape) { onChange(p.copy(particleShape = it)) }
+        ParamKeys.PARTICLE_SHAPE -> ChoiceChips(key, SceneParams::particleShape, p) { onChange(p.copy(particleShape = it)) }
         ParamKeys.PARTICLE_SIZE ->
             LabeledSlider(key, p, SceneParams::particleSize) { onChange(p.copy(particleSize = it)) }
         ParamKeys.DENSITY -> LabeledSlider(key, p, SceneParams::density) { onChange(p.copy(density = it)) }
@@ -143,10 +145,7 @@ private fun ShapeControl(
             LabeledSlider(key, p, SceneParams::fluidParticleLife) { onChange(p.copy(fluidParticleLife = it)) }
         ParamKeys.PARTICLE_DRAG ->
             LabeledSlider(key, p, SceneParams::fluidParticleDrag) { onChange(p.copy(fluidParticleDrag = it)) }
-        ParamKeys.PATH ->
-            ParamChips(key, SceneParams.FLUID_PATHS, p.fluidSpawnPath.coerceIn(0, SceneParams.FLUID_PATHS.size - 1)) {
-                onChange(p.copy(fluidSpawnPath = it))
-            }
+        ParamKeys.PATH -> ChoiceChips(key, SceneParams::fluidSpawnPath, p) { onChange(p.copy(fluidSpawnPath = it)) }
         ParamKeys.SPAWN_POINTS -> LabeledIntSlider(key, p, SceneParams::fluidSpawnPoints) { onChange(p.copy(fluidSpawnPoints = it)) }
         PROGRESSION ->
             LabeledSlider(key, p, SceneParams::fluidSpawnProgress, scope = ParamScope.JOURNEY) {
@@ -163,8 +162,7 @@ private fun ShapeControl(
                     onChange(p.copy(fluidCatchRadius = it))
                 }
             }
-        ParamKeys.BEAT_PATTERN ->
-            ParamChips(key, SceneParams.FLUID_PATTERNS, p.fluidBeatPattern.coerceIn(0, 3)) { onChange(p.copy(fluidBeatPattern = it)) }
+        ParamKeys.BEAT_PATTERN -> ChoiceChips(key, SceneParams::fluidBeatPattern, p) { onChange(p.copy(fluidBeatPattern = it)) }
         ParamKeys.BEAT_SPLATS -> LabeledIntSlider(key, p, SceneParams::fluidBeatSplats) { onChange(p.copy(fluidBeatSplats = it)) }
         ParamKeys.STIRRERS -> LabeledIntSlider(key, p, SceneParams::fluidStirrers) { onChange(p.copy(fluidStirrers = it)) }
         ParamKeys.STIRRER_SPEED ->
@@ -179,9 +177,11 @@ private fun ShapeControl(
         ParamKeys.TREBLE_SPARKLE -> CheckRow(key, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }
         FLUID_QUALITY ->
             if (visible(key, ParamScope.EMITTERS)) {
-                val labels = FLUID_QUALITY_LABELS.take(GeodeNative.catalogueValue("fluidTiers").toInt())
-                val quality = p.fluidQuality.coerceIn(0, labels.size - 1)
-                ProGated(key, value = labels[quality]) { DropdownRow(key, labels, quality) { onChange(p.copy(fluidQuality = it)) } }
+                val labels = ParamSchema.choices(SceneParams::fluidQuality.name)
+                val quality = p.fluidQuality.coerceIn(0, maxOf(labels.lastIndex, 0))
+                ProGated(key, value = labels.getOrNull(quality)) {
+                    DropdownRow(key, labels, quality) { onChange(p.copy(fluidQuality = it)) }
+                }
             }
         AUTO_QUALITY -> CheckRow(key, p.fluidAutoQuality, scope = ParamScope.EMITTERS) { onChange(p.copy(fluidAutoQuality = it)) }
         else -> Unit
@@ -227,10 +227,7 @@ private fun MotionControl(
         ParamKeys.MOTION_BREATH ->
             LabeledSlider(key, p, SceneParams::motionBreath) { onChange(p.copy(motionBreath = it)) }
         ParamKeys.SPIN -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
-        ParamKeys.CAM_PATH ->
-            ParamChips(key, SceneParams.CAMERA_PATHS, p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex), ParamScope.UNIVERSAL) {
-                onChange(p.copy(camPath = it))
-            }
+        ParamKeys.CAM_PATH -> ChoiceChips(key, SceneParams::camPath, p, ParamScope.UNIVERSAL) { onChange(p.copy(camPath = it)) }
         // Below zero the camera travels backward, and a flat style zooms out instead of in.
         ParamKeys.CAM_FLY -> LabeledSlider(key, p, SceneParams::camFly) { onChange(p.copy(camFly = it)) }
         ParamKeys.CAM_FLAT -> LabeledSlider(key, p, SceneParams::camFlat) { onChange(p.copy(camFlat = it)) }
@@ -319,18 +316,10 @@ private fun LiquidControl(
                     onChange(p.copy(flowCurl = it))
                 }
             }
-        ParamKeys.LIQUID_BORN ->
-            ParamChips(key, LIQUID_BORN_CHOICES, p.liquidBorn.coerceIn(0, 3), scope = ParamScope.UNIVERSAL) {
-                onChange(p.copy(liquidBorn = it))
-            }
-        ParamKeys.LIQUID_AGE ->
-            ParamChips(key, LIQUID_AGE_CHOICES, p.liquidAge.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
-                onChange(p.copy(liquidAge = it))
-            }
+        ParamKeys.LIQUID_BORN -> ChoiceChips(key, SceneParams::liquidBorn, p, ParamScope.UNIVERSAL) { onChange(p.copy(liquidBorn = it)) }
+        ParamKeys.LIQUID_AGE -> ChoiceChips(key, SceneParams::liquidAge, p, ParamScope.UNIVERSAL) { onChange(p.copy(liquidAge = it)) }
         ParamKeys.LIQUID_SURFACE ->
-            ParamChips(key, LIQUID_SURFACE_CHOICES, p.liquidSurface.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
-                onChange(p.copy(liquidSurface = it))
-            }
+            ChoiceChips(key, SceneParams::liquidSurface, p, ParamScope.UNIVERSAL) { onChange(p.copy(liquidSurface = it)) }
         REACTION_DNA -> PersonalityControl(host)
         GLIDE_TIME ->
             LabeledSlider(key, p, SceneParams::paramFadeSec, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
@@ -597,11 +586,12 @@ private fun CymaticsGeometry(
 ) {
     val sceneId = LocalSceneId.current
     if (!StyleCatalogue.isCymatics(sceneId)) return
-    val forced = StyleCatalogue.held(sceneId, ParamKeys.GEOMETRY)?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
+    val shapes = ParamSchema.choices(SceneParams::cymaticsGeometry.name)
+    val forced = StyleCatalogue.held(sceneId, ParamKeys.GEOMETRY)?.let { shapes.getOrNull(it.toInt()) }
     if (forced != null) {
         ControlHint("Shape set by this style: $forced.", ParamScope.CYMATICS)
     } else {
-        ParamChips(ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, p.cymaticsGeometry) { onChange(p.copy(cymaticsGeometry = it)) }
+        ChoiceChips(ParamKeys.GEOMETRY, SceneParams::cymaticsGeometry, p) { onChange(p.copy(cymaticsGeometry = it)) }
     }
 }
 
@@ -666,6 +656,19 @@ private fun DirectorSwitch() {
     LabeledSwitch(label, checked = on, onCheckedChange = store::setEnabled)
 }
 
+/** A picker as [ParamChips], its labels native's (the params schema's choice rows for [field]); none without them. */
+@Composable
+private fun ChoiceChips(
+    key: String,
+    field: KProperty1<SceneParams, Int>,
+    p: SceneParams,
+    scope: ParamScope = ParamScope.of(key),
+    onSelect: (Int) -> Unit,
+) {
+    val labels = ParamSchema.choices(field.name)
+    if (labels.isNotEmpty()) ParamChips(key, labels, field.get(p).coerceIn(0, labels.lastIndex), scope, onSelect)
+}
+
 /** Above this the second palette is in the picture, so its controls show. */
 private const val PALETTE_MIX_SHOWN = 0.001f
 
@@ -677,12 +680,6 @@ private fun colourMapNames(): List<String> =
 internal const val REACTION_DNA = "Reaction DNA"
 private const val PROGRESSION = "Progression"
 private const val FLUID_QUALITY = "Fluid quality"
-
-/**
- * The fluid quality chips' names, finest first; a stored quality is an index. The tiers behind them (and
- * how many there are, the catalogue's `fluidTiers`) are native's, `core/viz/fluid/FluidQuality`.
- */
-private val FLUID_QUALITY_LABELS = listOf("Ultra", "High", "Medium", "Low", "Min")
 private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"
@@ -700,7 +697,3 @@ private const val GLIDE_TIME = "Glide time"
 private const val TRANSITION_LENGTH = "Transition length"
 private const val RISE = "Rise"
 private const val FALL = "Fall"
-
-private val LIQUID_BORN_CHOICES = listOf("Live style", "Style re-rolled", "Next style", "Forms")
-private val LIQUID_AGE_CHOICES = listOf("Pure palette", "Fade deep", "Ink bleed")
-private val LIQUID_SURFACE_CHOICES = listOf("Ink", "Gloss", "Glass")

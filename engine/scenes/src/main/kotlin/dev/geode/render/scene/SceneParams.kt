@@ -217,23 +217,9 @@ data class SceneParams(
                 "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
             )
 
-        /** The built-in palettes' names, in `palette` index order: labels only, from the native params schema. */
-        val PALETTES: List<String> get() = ParamSchema.paletteNames
-
-        val PARTICLE_SHAPES: List<String> = listOf("Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
-
         val SYMMETRY_FOLDS: List<Int> = listOf(0, 2, 3, 4, 5, 6, 7, 8, 9, 12, 16)
 
         const val DEFAULT_SYMMETRY_FOLDS: Int = 6
-
-        val FLUID_PATTERNS: List<String> = listOf("Center", "Ring", "Random", "Spectrum")
-
-        val FLUID_PATHS: List<String> = listOf("Orbit", "Lissajous", "Rose", "Bloom", "Drift")
-
-        val CYMATICS_GEOMETRIES: List<String> = listOf("Water dish", "Chladni plate")
-
-        /** camPath values, in order; mirrors CameraRig::pathPoint. Split from one string to stay on one line. */
-        val CAMERA_PATHS: List<String> = "Glide Spiral Orbit Hover Drive Fall Rise Weave Corkscrew Swoop Strafe Pendulum".split(' ')
     }
 
     val usesCustomPalette: Boolean

@@ -49,9 +49,6 @@ acid_scan: noteChords noteDrums noteIntervals notePitch noteTension
 acid_solar: noteChords noteDrums noteIntervals notePitch noteTension
 acid_mirror: noteChords noteDrums noteIntervals notePitch noteTension
 acid_smear: noteChords noteDrums noteIntervals notePitch noteTension
-outrun_drive: noteChords noteDrums noteIntervals notePitch noteTension
-ringed_planet: midGain noteChords noteDrums noteIntervals notePitch noteTension
-ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
 morph_world: midGain
 pool: midGain
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension

@@ -20,10 +20,10 @@ import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
 import dev.geode.data.AppStateCodec
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.PerformanceSettings
 import dev.geode.data.PerformanceStore
 import dev.geode.data.StartScreen
 import dev.geode.geodeContainer
-import dev.geode.render.PerformanceSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
 

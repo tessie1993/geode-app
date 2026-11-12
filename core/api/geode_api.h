@@ -69,8 +69,12 @@ GEODE_API void        geode_director_keep_set(const char* keys);
 GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like
  * geode_director_set, so live, export, the wallpaper and the dream all draw it. "" (or null) = no layer; mix
- * 0..1; blend_mode is the BlendMode ordinal. An export pins the layer it started with (geode_viz_set_offscreen). */
+ * 0..1; blend_mode is an index into geode_layer_blend_names. An export pins the layer it started with
+ * (geode_viz_set_offscreen). */
 GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend_mode);
+/* The blends a layer takes (core/viz/VisualSafety), in blend_mode order, each label followed by '\n'. Static. */
+#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on */
+GEODE_API const char* geode_layer_blend_names(void);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
@@ -107,6 +111,27 @@ GEODE_API void        geode_viz_gyro_off(geode_viz*);
    request until the renderer can draw it, and then not again. Also what the reaction matrix deals the DNA
    of. An export, which never calls geode_viz_frame, sets its scene with geode_viz_set_scene. */
 GEODE_API void        geode_viz_request_scene(geode_viz*, const char* scene_id);
+/* The user's look as the shell hands it, whole (core/viz/LookSnapshot). lfos, adsrs and reactions are the saved
+   texts geode_viz_set_lfos, _set_adsrs and _set_reactions read (NULL lfos or adsrs: none saved; NULL reactions:
+   the style's own routes); tuning is the saved sound tuning, none for the engine's defaults. */
+typedef struct geode_viz_look {
+    const char*  scene_id;
+    const float* params;
+    int          param_count;
+    const char*  lfos;
+    const char*  adsrs;
+    const float* tuning;
+    int          tuning_count;
+    const char*  reactions;
+    int          reduced_motion;
+    const char*  transition_id;
+    long long    transition_ms;
+} geode_viz_look;
+/* Any thread. Only the parts that differ from the look set last on this renderer reach it (all of them on a new
+   renderer), so a transition or a scene set again restarts nothing. The scene is a request, as above. */
+GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
+/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
+GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
    simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */
@@ -497,8 +522,9 @@ GEODE_API void        geode_params_sanitize(const float* in, float* out);
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
- * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
- * process; the shell parses it once. Labels and page placement stay in Kotlin. */
+ * slots 0..count-1 in order; ints and bools as numbers, like the wire. Then palette|<index>|<name> per built-in
+ * palette and choice|<name>|<index>|<label> per picker label (Params.hpp). Static: the pointer stays valid for the
+ * process; the shell parses it once. Page placement stays in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,

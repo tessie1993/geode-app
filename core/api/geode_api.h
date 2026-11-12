@@ -501,8 +501,9 @@ GEODE_API void        geode_params_sanitize(const float* in, float* out);
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
- * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
- * process; the shell parses it once. Labels and page placement stay in Kotlin. */
+ * slots 0..count-1 in order; ints and bools as numbers, like the wire. Then palette|<index>|<name> per built-in
+ * palette and choice|<name>|<index>|<label> per picker label (Params.hpp). Static: the pointer stays valid for the
+ * process; the shell parses it once. Page placement stays in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,

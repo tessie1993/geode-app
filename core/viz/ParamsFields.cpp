@@ -63,7 +63,23 @@ constexpr bool everyLiveRowHasOneMeta() {
 }
 static_assert(everyLiveRowHasOneMeta(), "ParamTable.inc: every live row needs exactly one GEODE_PARAM_META row, a retired row none");
 
+// A tier added without a label (or the other way round) does not build; CameraRig.cpp holds camPath the same way.
+static_assert(choiceCount(ParamSlot::fluidQuality) == fluid::quality::kTierCount, "fluidQuality: one label per tier");
+
 }  // namespace
+
+const std::vector<std::string_view>& SceneParams::choices(ParamSlot slot) {
+    static const std::array<std::vector<std::string_view>, kFieldCount> kChoices = [] {
+        std::array<std::vector<std::string_view>, kFieldCount> out{};
+#define GEODE_PARAM_CHOICES(name, ...) out[static_cast<size_t>(ParamSlot::name)] = {__VA_ARGS__};
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM_CHOICES
+        return out;
+    }();
+    static const std::vector<std::string_view> kNone;
+    const auto i = static_cast<size_t>(slot);
+    return i < kChoices.size() ? kChoices[i] : kNone;
+}
 
 const std::array<ParamMeta, SceneParams::kFieldCount>& SceneParams::metaTable() {
     static const std::array<ParamMeta, kFieldCount> kMeta = [] {
@@ -92,6 +108,13 @@ const std::string& SceneParams::schemaText() {
         }
         // The built-in palettes' names: Customize's labels for the `palette` index, so Kotlin keeps no copy.
         for (size_t i = 0; i < palettes().size(); ++i) out += "palette|" + std::to_string(i) + "|" + palettes()[i].name + "\n";
+        // Every picker's labels, the same way.
+        for (int slot = 0; slot < kFieldCount; ++slot) {
+            const auto& labels = choices(static_cast<ParamSlot>(slot));
+            for (size_t i = 0; i < labels.size(); ++i) {
+                out += std::string("choice|") + rows[static_cast<size_t>(slot)].name + "|" + std::to_string(i) + "|" + std::string(labels[i]) + "\n";
+            }
+        }
         return out;
     }();
     return kText;

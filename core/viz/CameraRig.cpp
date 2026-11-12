@@ -8,6 +8,9 @@
 
 namespace geode::viz {
 
+// A path added here without its label in ParamTable.inc's camPath choices row (or the other way round) does not build.
+static_assert(choiceCount(ParamSlot::camPath) == CameraRig::kPathCount, "camPath: one label per camera path");
+
 namespace {
 
 constexpr float kTwoPi = 6.2831853f;

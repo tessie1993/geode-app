@@ -104,7 +104,9 @@ The renderer runs these in order each frame.
 - In an export the renderer also steps `StyleSchedule` (the segment's style switches, by time and by beat, on the picture's clock, so it holds in silence).
 - Then it steps `CameraRig`, the one camera every render path shares, which also reads the sound frame for its own cuts, trauma shake and clock-driven orbit.
 - `CameraRig` has twelve paths (`camPath` 0..11): glide, spiral, orbit, hover, drive, fall, rise, weave, corkscrew, swoop, strafe, pendulum.
-- The Camera path chips' labels are `SceneParams.CAMERA_PATHS` in `:engine:scenes`, by `camPath` index.
+- The Camera path chips' labels are `camPath`'s `GEODE_PARAM_CHOICES` row in `core/viz/ParamTable.inc`, by index.
+- `CameraRig.cpp` static_asserts that row's count (`choiceCount`) against `CameraRig::kPathCount`.
+- Every picker's labels (`GEODE_PARAM_CHOICES`) reach the shell as `choice|name|index|label` rows of `geode_params_schema_text` (version 4), read by `ParamSchema.choices`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.

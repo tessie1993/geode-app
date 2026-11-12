@@ -426,6 +426,10 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
+          # Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_runs_test
+          ./dsp_runs_test
           # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
           # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \

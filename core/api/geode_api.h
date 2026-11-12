@@ -267,6 +267,9 @@ GEODE_API void       geode_dsp_destroy(geode_dsp*);
 /* Stages the chain for the format queued after the next flush; 0 when it cannot run it (not 1 or 2
  * channels), and that format then passes through untouched. */
 GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channels);
+/* 1 when the chain runs a format: `encoding` 16-bit or float (numbered as Android's ENCODING_PCM_*, see
+ * GEODE_PCM_S16), 1 or 2 channels. 0 for any other; the shell then steps aside and the track passes through. */
+GEODE_API int        geode_dsp_runs(int encoding, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 /* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order

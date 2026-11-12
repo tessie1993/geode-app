@@ -17,6 +17,12 @@ object GeodeNative {
         channels: Int,
     ): Boolean
 
+    /** Whether the chain runs a format at all: [encoding] (`C.ENCODING_PCM_*`) 16-bit or float, 1 or 2 channels. */
+    external fun dspRuns(
+        encoding: Int,
+        channels: Int,
+    ): Boolean
+
     /** Makes the staged chain live, then clears its filter state. */
     external fun dspFlush(handle: Long)
 

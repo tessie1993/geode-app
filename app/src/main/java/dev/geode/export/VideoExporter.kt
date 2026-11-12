@@ -45,11 +45,17 @@ enum class ExportCodec(
         requestedFps: Int,
         bitRate: Int,
     ): List<EncoderAttempt> {
-        val codecs = listOf(available(), H264).distinct()
-        val tops = codecs.map { c -> runCatching { videoCaps(c.mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper } }
-        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { tops[it].getOrNull()?.toInt() ?: 0 })
+        val codecs = candidates()
+        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { codecs[it].topFps(aspect) })
         return (rungs.indices step 3).map { EncoderAttempt(codecs[rungs[it]], rungs[it + 1], rungs[it + 2]) }
     }
+
+    /** The codecs to try, in order: this one if the device has it, then H.264. */
+    fun candidates(): List<ExportCodec> = listOf(available(), H264).distinct()
+
+    /** The top frame rate the device lists for this codec at [aspect]'s size, 0 when it does not say. */
+    fun topFps(aspect: ExportAspect): Int =
+        runCatching { videoCaps(mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper?.toInt() }.getOrNull() ?: 0
 
     companion object {
         fun hasEncoder(mimeType: String): Boolean = videoCaps(mimeType) != null

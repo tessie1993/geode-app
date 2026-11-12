@@ -459,6 +459,17 @@ jobs:
             core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
           ./encode_sink_test
 
+      # The loop render job (core/output/LoopRender) on a fake host, encoder and muxer: the encoder it settles on,
+      # each stop's frame counts and presentation times, the seam the reel reports, the drift, and what a cancel
+      # and each failure leave behind.
+      - name: Loop render host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/loop_render_test.cpp core/output/LoopRender.cpp core/output/LoopPlan.cpp \
+            core/output/EncodePlan.cpp -o loop_render_test
+          ./loop_render_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

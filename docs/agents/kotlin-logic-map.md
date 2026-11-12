@@ -2363,7 +2363,7 @@ Per live frame, on the GL thread, in this order: `geode_pacer_on_vsync` (skip on
 
 Poll after frames: `geode_viz_take_director_style_moments`, `geode_viz_take_milk_preset_loaded`, `geode_macro_bank_live_mods`, `geode_thermal_take_warm_note`, `geode_viz_still_size/_read`.
 
-Export, on its own GL thread: `geode_viz_prepare_offscreen` (`core/api/geode_viz_api.cpp:969-978`) → `geode_viz_set_frame_rate(fps)` → `geode_viz_pin_engine_settings` → `geode_viz_set_style_schedule` → pre-roll (`geode_export_pre_roll`, `geode_viz_hear_track`, `geode_viz_end_pre_roll`) → per frame: `geode_track_feed_target_frame` + `geode_viz_hear_track` until 1, `geode_viz_render`, optional `geode_export_seam_frame`, `geode_export_watermark_draw`, caller stamps PTS and swaps. Export never calls `frame_begin` (`core/api/geode_api.h:161`).
+Export, on its own GL thread: `geode_viz_prepare_offscreen` (`core/api/geode_viz_api.cpp:969-978`) → `geode_viz_set_frame_rate(fps)` → `geode_viz_pin_engine_settings` → `geode_viz_set_style_schedule` → pre-roll (`geode_export_pre_roll`, `geode_viz_hear_track`, `geode_viz_end_pre_roll`) → per frame: `geode_track_feed_target_frame` + `geode_viz_hear_track` until 1, `geode_viz_render`, optional `geode_export_seam_capture` or `geode_export_seam_blend`, `geode_export_watermark_draw`, caller stamps PTS and swaps. Export never calls `frame_begin` (`core/api/geode_api.h:161`).
 
 Pause/teardown: `geode_viz_trim_spares` with the context current (`core/api/geode_viz_api.cpp:984-989`), `geode_viz_release_scenes`, `geode_viz_record_stop`, `geode_viz_destroy`.
 

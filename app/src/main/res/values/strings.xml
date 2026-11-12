@@ -20,12 +20,12 @@
     <string name="export_notification_text">BeatRealms is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
-         the flash rate is factual and must survive translation. This is an
+         what is and is not limited is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
     <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
     <string name="safety_warning">BeatRealms reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
-    <string name="safety_prompt">BeatRealms limits its own effects: strobe and flash depth are clamped, and brightness modulation is slowed, in the engine and in exported video alike. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited at all. There is no setting for this and nothing to switch off.</string>
+    <string name="safety_prompt">BeatRealms limits its own effects: brightness, contrast and glow are capped, and brightness modulation is slowed, on screen and in exported video alike. It does not measure the finished picture, so it cannot promise a flash rate. MilkDrop presets, built in or added by you, only get the brightness cap: the flashes they draw themselves are not limited, and neither are fluid shaders you write. There is no setting for this and nothing to switch off.</string>
     <string name="safety_acknowledge">I understand</string>
 
     <!-- First run, after the notice: where the music is, and what you came here to do. -->
@@ -73,7 +73,7 @@
     <string name="help_topic_touch">Touch on the visualizer</string>
     <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Drag with two fingers to play with the visual; Settings › Gestures &amp; controls sets what each gesture does.</string>
     <string name="help_topic_safety">Flashing and motion</string>
-    <string name="help_topic_safety_body">BeatRealms clamps how deep its strobe and flash effects go and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
+    <string name="help_topic_safety_body">BeatRealms caps brightness, contrast and glow and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate. MilkDrop presets only get the brightness cap, so the flashes they draw themselves are not limited, and neither are fluid shaders you write. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
     <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
@@ -415,8 +415,6 @@
     <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness and the limiter. The visuals still react.</string>
     <string name="playback_picture_delay">Picture delay: %1$+d ms</string>
     <string name="playback_picture_delay_explainer">If the visual runs ahead of or behind what you hear on a headset or car speaker, move this until the beats line up. Positive waits for the sound; negative shows the picture sooner.</string>
-    <string name="playback_native_output">Native output (Oboe)</string>
-    <string name="playback_native_output_explainer">Experimental. Plays through Oboe instead of Android\'s AudioTrack, and falls back automatically for anything it cannot play, such as surround files or bit-perfect USB.</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
 
     <!-- Settings › Audio › Equalizer. -->
@@ -744,7 +742,7 @@
     <string name="display_state_waiting">%1$s is connected but the visual could not be shown there yet.</string>
     <string name="display_state_ready">%1$s is connected. The visual stays on the phone.</string>
     <string name="display_state_locked">%1$s is connected. Showing the visual there is part of Pro, like Cast.</string>
-    <string name="behavior_flash_guidance">BeatRealms clamps how deep its strobe and flash effects go and slows its brightness modulation. These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets and imported shaders are not covered. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_flash_guidance">BeatRealms caps brightness, contrast and glow and slows its brightness modulation. These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets only get the brightness cap, so the flashes they draw themselves are not limited, and neither are fluid shaders you write. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>

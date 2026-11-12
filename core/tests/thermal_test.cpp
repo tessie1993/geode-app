@@ -5,7 +5,8 @@
 // FX), the thermal cap reaching the pacer as min(surface cap, thermal cap) for a cap of 60 and under and as a
 // walk down the rungs for a live 90 or 120 (core/viz/frame/LiveFps), the governor stepping the surface's own
 // cap and not the rate already paced, two renderers' governors
-// reading one state (#387: the second used to read NaN headroom and stay at Full), the once-a-second
+// reading one state (#387: the second used to read NaN headroom and stay at Full), the once-per-process
+// "Phone is warm" note (#994), the once-a-second
 // cadence across threads with a headroom asked every ten seconds, the NaN rule (a missed window keeps the
 // last real headroom a while), the dwell both ways, and the measured fallback raising the floor for every
 // surface.
@@ -717,6 +718,30 @@ void aHighCapThatCannotKeepUpStepsDownARung() {
     check(sixty.measuredFloor() == ThermalTier::Full, "a 60 cap's target is still 50");
 }
 
+// The Visuals stage's "Phone is warm" note (#994): once per process, only once heat has really cost frames.
+void theWarmNoteShowsOnceWhenHeatFirstDropsTheRate() {
+    ThermalState s;
+    check(s.takeWarmNote(60.0f, 60.0f) == 0, "a cool phone shows no note");
+    pushFor(s, 1, NAN, 100.0, 3);
+    check(s.fpsRungsDown() == 1, "three warm readings ease off");
+    check(s.takeWarmNote(60.0f, 60.0f) == 0, "not before the pacer has stepped down");
+    check(s.takeWarmNote(30.0f, 30.0f) == 0, "a cap already at the floor lost nothing");
+    check(s.takeWarmNote(60.0f, 0.0f) == 0, "nor while nothing has been paced");
+    check(s.takeWarmNote(60.0f, 30.0f) == 30, "the first drop names the rate it runs at");
+    check(s.takeWarmNote(60.0f, 30.0f) == 0, "and is said once");
+    pushFor(s, 3, NAN, 103.0, 3);
+    check(s.takeWarmNote(120.0f, 30.0f) == 0, "a hotter tier later says nothing more");
+
+    ThermalState fast;
+    pushFor(fast, 1, NAN, 100.0, 3);
+    check(fast.takeWarmNote(120.0f, 120.0f) == 0, "a 120 cap still at 120 has not dropped yet");
+    check(fast.takeWarmNote(120.0f, 90.0f) == 90, "120 stepped to 90 names 90");
+
+    ThermalState follow;
+    pushFor(follow, 1, NAN, 100.0, 3);
+    check(follow.takeWarmNote(static_cast<float>(frame::kLiveFpsFollow), 60.0f) == 60, "Follow device names its paced rate");
+}
+
 // Kills: a per-thread or per-renderer state behind ThermalState::process() (#387: the wallpaper read its
 // own copy and stayed at Full). Uses the real process state, so main runs it last.
 void everySurfaceInTheProcessReadsOneState() {
@@ -775,6 +800,7 @@ int main() {
     theGovernorStepsTheOwnCapNotThePacedRate();
     followDeviceReadsThePacedRate();
     aHighCapThatCannotKeepUpStepsDownARung();
+    theWarmNoteShowsOnceWhenHeatFirstDropsTheRate();
     everySurfaceInTheProcessReadsOneState();  // last: it uses the real process state
     if (failures == 0) std::printf("thermal_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

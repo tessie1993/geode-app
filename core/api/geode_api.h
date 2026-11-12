@@ -893,6 +893,9 @@ GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 /* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
    forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
+/* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
+   has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
+GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its

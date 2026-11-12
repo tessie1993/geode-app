@@ -502,6 +502,10 @@ void geode_thermal_push(int platform_status, float headroom) {
     geode::viz::ThermalState::process().push(platform_status, headroom, monotonicSeconds());
 }
 
+int geode_thermal_take_warm_note(float cap_fps, float paced_fps) {
+    return geode::viz::ThermalState::process().takeWarmNote(cap_fps, paced_fps);
+}
+
 void geode_memory_trim(int android_level) {
     geode::viz::SceneResidency::trimSignal().request(geode::viz::SceneResidency::trimForAndroidLevel(android_level));
 }

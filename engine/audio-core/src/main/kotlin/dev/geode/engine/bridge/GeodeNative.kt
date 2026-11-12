@@ -2373,6 +2373,12 @@ object GeodeNative {
         headroom: Float,
     )
 
+    /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
+    external fun thermalTakeWarmNote(
+        capFps: Float,
+        pacedFps: Float,
+    ): Int
+
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 

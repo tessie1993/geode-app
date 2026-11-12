@@ -33,6 +33,9 @@ internal class PresetLibraryController(
         val presetMirrorUri: String?
 
         val activeMilkPath: String?
+
+        /** A saved MilkDrop look writes its .milk beside the user's own; the session's .milk list reads again. */
+        fun onMilkFilesChanged()
     }
 
     val folders: StateFlow<PresetFolders> = presets.folders
@@ -59,16 +62,6 @@ internal class PresetLibraryController(
         }
     }
 
-    fun userMilkPresets(): List<java.io.File> {
-        val dir = java.io.File(application.filesDir, "milk")
-        dev.geode.render.scene.MilkStarterPack
-            .install(application, dir)
-        return dir
-            .listFiles { f -> f.isFile && f.extension == "milk" }
-            ?.sortedByDescending { it.lastModified() }
-            .orEmpty()
-    }
-
     fun refreshInitial() {
         scope.launch {
             val listed = presets.list()
@@ -82,6 +75,7 @@ internal class PresetLibraryController(
     private suspend fun relistPresets() {
         val listed = BuiltInPresets.ALL + presets.list()
         host.updatePresets { listed }
+        host.onMilkFilesChanged()
     }
 
     fun savePreset(

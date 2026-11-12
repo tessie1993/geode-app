@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -93,14 +94,11 @@ internal fun MilkDropTab(
     val pickerContext = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    // Off the main thread: userMilkPresets() runs MilkStarterPack.install() - a marker read, an
-    // assets.list, an exists() per asset and up to six asset->file copies on first run - then
-    // listFiles() plus a lastModified() stat per preset for the sort. Inside composition that
-    // measured 45-53 ms of main-thread disk I/O on every launch. Same key as before, so the
-    // refresh++ below still relists; the list simply arrives a frame later instead of stalling one.
-    val milkFiles by produceState(emptyList<File>(), refresh) {
-        value = withContext(Dispatchers.IO) { visualsViewModel.userMilkPresets() }
-    }
+    // The session's one list (MilkImportController.files, newest first), read off the main thread: the
+    // starter pack's install and a stat per preset measured 45-53 ms of main-thread disk I/O inside
+    // composition. Each import re-reads it, so the page, the stage's ‹ › and Auto list the same presets.
+    val milkFiles by visualsViewModel.milkFiles.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { visualsViewModel.relistMilk() }
     val loaded by viewModel.activeMilkPath.collectAsStateWithLifecycle()
     var packReport by remember { mutableStateOf<MilkPackImporter.Report?>(null) }
     val importedTextures by visualsViewModel.textures.collectAsStateWithLifecycle()
@@ -197,12 +195,12 @@ internal fun MilkDropTab(
                 )
             }
             milkFiles.forEach { f ->
-                val active = f.absolutePath == loaded
+                val active = f.path == loaded
                 PageRow(
-                    label = f.nameWithoutExtension,
+                    label = f.name,
                     selected = active,
                     onClick = {
-                        selectMilk(viewModel, visualizerView, f.absolutePath)
+                        selectMilk(viewModel, visualizerView, f.path)
                         refresh++
                     },
                 ) {

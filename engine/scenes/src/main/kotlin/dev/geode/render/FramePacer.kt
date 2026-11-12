@@ -22,12 +22,14 @@ fun interface FrameSink {
 }
 
 /**
- * The rate one surface's frames are asked for, 0 when it free-runs. Each renderer is handed its own
- * ([VisualizerRenderer.pacedRate]), so a deliberate cap is never mistaken for a device that cannot keep
- * up, and one surface's cap is never another's target: Cast draws a fixed 30 beside the stage's 60.
+ * The rate one surface's frames are asked for ([fps], 0 when it free-runs) and its own cap before the thermal
+ * step ([capFps]; a fixed rate is its own). Each renderer is handed its own ([VisualizerRenderer.pacedRate]), so a
+ * deliberate cap is never mistaken for a device that cannot keep up, nor one surface's for another's (Cast's 30).
  */
 fun interface PacedRate {
     fun fps(): Float
+
+    fun capFps(): Float = fps()
 }
 
 /**
@@ -77,7 +79,7 @@ sealed interface FrameRatePolicy {
  * `GLSurfaceView` and `WallpaperService.Engine`); they flip [running] at once, so the existing
  * idempotence stays synchronous, and hand the callback itself to the pacer thread in order.
  * Every frame-timing field below is confined to the pacer thread. [applyTo] is a Surface call
- * and runs anywhere. [dtSeconds] and [fps] are safe to read from any thread.
+ * and runs anywhere. [fps] and [capFps] are safe to read from any thread; the dt goes to the sink.
  */
 class FramePacer(
     initialPolicy: FrameRatePolicy = FrameRatePolicy.Capped(DEFAULT_TARGET_FPS),
@@ -96,15 +98,6 @@ class FramePacer(
             field = value
             pacedMilliHz = -1L
         }
-
-    /**
-     * Seconds between the last two drawn frames, under the one dt rule every clock shares
-     * (`frame::clampDt` in `core/viz/frame/Pacer.hpp`, the same clamp `Renderer::beginFrame` uses).
-     * The field sims still clamp their own integrator step to 1/15 s.
-     */
-    @Volatile
-    var dtSeconds: Float = DEFAULT_DT_SECONDS
-        private set
 
     private val callback = Choreographer.FrameCallback { frameTimeNanos -> onVsync(frameTimeNanos) }
 
@@ -170,14 +163,14 @@ class FramePacer(
     }
 
     /** [FrameRatePolicy.Capped] asks for its rate; anything else (free-running) for 0. */
-    private fun requestedFps(): Float =
+    override fun capFps(): Float =
         when (val current = policy) {
             FrameRatePolicy.Native -> 0f
             is FrameRatePolicy.Capped -> current.fps
         }
 
     /** This pacer's own rate, whichever others run: what native last paced it to, or its cap until a vsync says. */
-    override fun fps(): Float = pacedMilliHz.let { if (it < 0L) requestedFps() else it / MILLI_HZ }
+    override fun fps(): Float = pacedMilliHz.let { if (it < 0L) capFps() else it / MILLI_HZ }
 
     /**
      * Publishes the rate preference to the display. Call it from `surfaceCreated` and
@@ -196,7 +189,7 @@ class FramePacer(
             // the effective cap (this surface's under the thermal one), so a hot phone's 30 fps can
             // drop the panel to a 30/60 Hz mode rather than skipping vsyncs on a 120 Hz one.
             // The surface can be torn down between the lifecycle callback and this line.
-            val fps = GeodeNative.pacerEffectiveCap(requestedFps())
+            val fps = GeodeNative.pacerEffectiveCap(capFps())
             runCatching { surface.setFrameRate(fps, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT) }
         }
     }
@@ -207,7 +200,7 @@ class FramePacer(
         // wake us for the next one.
         PacerThread.choreographer.postFrameCallback(callback)
         // The policy is read here, on the pacer thread, each vsync, so a cap change lands next tick.
-        val dt = GeodeNative.pacerOnVsync(clock, frameTimeNanos, requestedFps()).toFloat()
+        val dt = GeodeNative.pacerOnVsync(clock, frameTimeNanos, capFps()).toFloat()
         // The thermal cap moves without a lifecycle callback; native records the cap it paced to.
         val cap = clock[GeodeNative.PACER_CAP_SLOT]
         if (cap != askedCapMilliHz) {
@@ -216,19 +209,17 @@ class FramePacer(
         }
         pacedMilliHz = clock[GeodeNative.PACER_PACED_SLOT]
         if (dt <= 0f) return
-        dtSeconds = dt
         sink.onFrame(dt)
     }
 
     companion object {
         /**
-         * The rate the scenes are authored and tuned at. Above it the fragment cost of a
-         * full-screen visualizer scales linearly for motion that is already smooth, and the
-         * phone reaches thermal throttling sooner — which costs more frames than it bought.
+         * The default cap, where the scenes are tuned. Above it the fragment cost of a full-screen visualizer
+         * scales linearly and the phone reaches thermal throttling sooner, so 90 or 120 is the user's own pick
+         * (Settings › Performance on a fast panel, `core/viz/frame/LiveFps`), stepped down first when hot.
          */
         const val DEFAULT_TARGET_FPS = 60f
 
-        private const val DEFAULT_DT_SECONDS = 1f / 60f
         private const val MILLI_HZ = 1000f
     }
 }

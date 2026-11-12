@@ -24,7 +24,7 @@ a music player and video tool, not a game, a social network or a news product).
 | Controlled substances (drugs, alcohol, tobacco) | No | None. One simulation style is named "Acid" (a reaction-diffusion look, `core/tests/catalogue.txt`, kind `ACID`); it depicts and references no drug use. If the owner would rather not explain a name to a reviewer, rename it |
 | Gambling, simulated gambling | No | None |
 | Fear, horror | No | None |
-| Users can interact or exchange content with each other | No | No accounts, chat, comments or feeds. Sharing is Android's share sheet to another app (`ui/RenderBar.kt:232`) |
+| Users can interact or exchange content with each other | No | No accounts, chat, comments or feeds. Record and screenshots save files on the device only. Sharing is Android's share sheet to another app (`ui/RenderBar.kt:234`) |
 | Shares the user's location with others | No | No location permission (`AndroidManifest.xml`) |
 | Allows purchases of digital goods | **Yes** | One in-app product, `beatrealms3d_pro`, a one-time unlock through Google Play Billing (`pro/BillingRepository.kt`, `PRO_PRODUCT_ID`) |
 | Unrestricted internet access, a browser | No | The app opens the system browser for a lyrics search the user taps (`ui/LyricsSettings.kt:91-92`); it has no browser of its own |
@@ -35,9 +35,8 @@ Expected result: the lowest band in each scheme (IARC 3+, ESRB Everyone, PEGI 3)
 
 Photosensitivity is not an IARC topic and does not change the rating; Play has no form field for
 it either. The warning lives in the full description (its last section), the first-run safety
-notice and Settings' help. It is covered by the
-warning in the listing, the first-run safety notice (`ui` › `SafetyConsent`) and the engine's
-limits (`core/viz/VisualSafety`).
+notice and Settings' help. The engine's limits are `core/viz/VisualSafety` (params only; no pass measures the finished
+picture).
 
 ## Target audience and content
 
@@ -58,7 +57,7 @@ Why the 9-12 band was dropped, and what it would take to add it later:
 | Advertising ID | **No**, the app does not use an advertising ID | No `AD_ID` permission; `tools/check-manifest.sh:14-15` fails if it appears |
 | Government app | No | |
 | Financial features | None | |
-| Health apps declaration | **"My app doesn't provide any health features"** | Required of every published app, on every track ([answer/14738291](https://support.google.com/googleplay/android-developer/answer/14738291), read 2026-11-11). The sensor use is the proximity sensor and the gyroscope (`wallpaper/DreamCover`, `GyroLook`). The photosensitivity warning is a safety notice, not a health feature: do not tick anything for it |
+| Health apps declaration | **"My app doesn't provide any health features"** | Required of every published app, on every track ([answer/14738291](https://support.google.com/googleplay/android-developer/answer/14738291), read 2026-11-11). The sensor use is the proximity sensor, the gyroscope and the accelerometer (`wallpaper/DreamCover`, `GyroLook`, `ui/EasterEggs`: cover, camera look, shake to screenshot), none of it about the body. The photosensitivity warning is a safety notice, not a health feature: do not tick anything for it |
 | News app | No | |
 | Data safety | See [data-safety.md](data-safety.md) | |
 | Foreground service permissions | See [permissions.md](permissions.md) | |

@@ -27,14 +27,15 @@ To do its job BeatRealms reads data that never leaves your device:
 |---|---|---|
 | Audio files and their tags (title, artist, album, genre, year, duration, artwork) | To list, play and analyse your music | Read from device storage; stays on the device |
 | Audio waveform data | Levels, spectrum, drum hits, note onsets and melody that drive the visuals | Analysed in memory, frame by frame, while it plays; nothing is stored |
-| Microphone audio — only while the optional *Live input* feature is on | So the visuals can react to the room | Analysed in memory only; never recorded, stored or transmitted |
-| Audio other apps are playing — only while the optional *Visualize other apps* feature is on | So the visuals can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
-| Audio any app is playing — only while the live wallpaper's optional *Hear other apps* setting is on (off by default) | So the wallpaper can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
+| Microphone audio — only while the optional *Live input* feature is on | So the visuals can react to the room | Analysed in memory only; never transmitted, and not stored unless you record a video while it is on (see *Record and screenshots*) |
+| Audio other apps are playing — only while the optional *Visualize other apps* feature is on | So the visuals can react to music from another app | Analysed in memory only; never transmitted, and not stored unless you record a video while it is on (see *Record and screenshots*) |
+| Audio any app is playing — only while the live wallpaper's or the screen saver's optional *Hear other apps* setting is on (off by default) | So the wallpaper or screen saver can react to music from another app | Analysed in memory only; never recorded, stored or transmitted |
 | The name of the app and track playing elsewhere — only with the optional notification access | To label what the visuals are reacting to | Shown on screen; not stored or transmitted |
 | Folders you pick | Optional music folders and preset folders | Granted by you through the Android file picker; revocable at any time |
 | Your presets, playlists, projects, track edits and settings | To remember your setup | The app's private storage |
 | Your listening history (which tracks you played, when, how often and for how long) | To show what you played recently and how often | The app's private storage |
 | Whether you own BeatRealms Pro, and when your free trial started | To unlock Pro features, including offline | The app's private storage |
+| Motion sensors (accelerometer, gyroscope, proximity) — no permission needed | A shake on the visual saves a screenshot, tilting the phone can turn the camera, and the screen saver goes dark when the phone is covered | Read while that screen shows; nothing is stored or transmitted |
 | Crash details | The in-app "last crash" report you can read and copy yourself | A file in the app's private storage; nothing is sent |
 
 ## Buying BeatRealms Pro (Google Play)
@@ -95,8 +96,8 @@ address, and stops serving the moment you stop sharing, the Wi-Fi changes or Pro
 
 - **`READ_MEDIA_AUDIO`**: to find and play the music on your device.
 - **`RECORD_AUDIO`**: only for the optional *Live input* and *Visualize other apps*
-  features and the live wallpaper's optional *Hear other apps* setting (Android requires it
-  for its playback-capture and audio-visualizer APIs). Requested when you turn one of them
+  features and the live wallpaper's and screen saver's optional *Hear other apps* setting
+  (Android requires it for its playback-capture and audio-visualizer APIs). Requested when you turn one of them
   on, never at launch.
 - **`POST_NOTIFICATIONS`** (Android 13+): playback controls, and the ongoing
   notifications Android requires while *Visualize other apps* or a video render runs.
@@ -120,7 +121,8 @@ BeatRealms requests no camera, contacts or location permission.
 
 If you turn this on, Android shows its own consent dialog first and an ongoing
 notification for as long as it runs. The device's audio output is read only to animate
-the visuals. It passes through an in-memory buffer and is never saved, recorded or sent.
+the visuals. It passes through an in-memory buffer and is never sent anywhere. It is saved only if you
+record a video while it is on (see *Record and screenshots*).
 
 ## Now playing (notification access)
 
@@ -141,6 +143,19 @@ policies, and only when you tap the button.
 Exported videos are MP4 files saved where you choose. They stay on your device unless
 *you* share them; the app you share to handles them under its own policy. Exports made
 without Pro are limited to one minute and carry a "BeatRealms 3D" watermark.
+
+## Record and screenshots
+
+*Record* (Pro) makes a live video of the visual and the sound the visual is reacting to,
+from when you start it until you stop it. That sound is the music BeatRealms plays and, only
+if you have turned them on, the microphone (*Live input*) or the other app's audio
+(*Visualize other apps*). So a recording made with *Live input* on contains what the
+microphone heard. The video is an MP4 file saved on your device, where you choose.
+Nothing is recorded unless you start it.
+
+A screenshot of the visual is a PNG picture saved to *Pictures/BeatRealms* on your device.
+
+Recordings and screenshots stay on your device unless *you* share them.
 
 ## Backups
 
@@ -164,7 +179,7 @@ BeatRealms keeps nothing about you off your device, so there is nothing for us t
 request. Everything the app stores lives in its private storage. Uninstalling the app, or
 *Settings → Apps → BeatRealms 3D → Storage → Clear data*, removes it. Your Pro
 purchase stays with your Google account and is restored automatically after reinstalling.
-Exported videos are ordinary files and are deleted like any other file.
+Exported videos, recordings and screenshots are ordinary files and are deleted like any other file.
 
 ## Third-party components
 

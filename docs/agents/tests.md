@@ -45,6 +45,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
 - `director_test.cpp` also plays one song at four tempos and checks the feeling is identical, and that no axis turns the reaction matrix's amount.
+- `director_test.cpp` also covers the musical spans: looks on the bar, the feeling's glide, the build's lean, sections that grow when they return, the song's arc, style intents and the settings table.
+- `director_style_test.cpp`: Auto's style at a director moment (`core/viz/DirectorStyle`): a return's own family stepped on, the next along the catalogue, a drop's leap, stay, the one-shot intent.
 - `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
 - `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `GeodeNative.AUDIO_OUT_*`, pinned.
 - `dsp_runs_test.cpp`: which formats the playback DSP runs (`geode_dsp_runs`: 16-bit or float, mono or stereo); `NativeDspProcessor` steps aside for the rest.

@@ -10,6 +10,7 @@
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
@@ -168,6 +169,15 @@ void Renderer::notePresetLoaded(const std::string& path) {
     lastMilkPreset_ = path;
     lastGoodMilkPreset_ = path;
     milkPresetLoaded_ = path;
+}
+
+int Renderer::takeDirectorStyleMoments() {
+    const int moments = directorStyleMoments_.exchange(0, std::memory_order_acq_rel);
+    if (moments > 0) {
+        std::lock_guard<std::mutex> guard(directorIntentLock_);
+        director::publishStyleIntent(directorIntent_);
+    }
+    return moments;
 }
 
 bool Renderer::milkPresetLoadedPending() const {

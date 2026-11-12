@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -86,6 +87,15 @@ constexpr float kDt = 1.0f / 60.0f;
 
 void run(Director& d, const Song& s, float seconds, float& t) {
     for (float end = t + seconds; t < end; t += kDt) d.step(frame(s, t, kDt), kDt);
+}
+
+// Form's name for the section a section event opened: one frame whose sectionId has moved on (Form names
+// it on the downbeat after the event; the director decides there).
+void name(Director& d, const Song& s, float& t, int section) {
+    GeodeSoundFrame f = frame(s, t, kDt);
+    f.sectionId = static_cast<float>(section);
+    d.step(f, kDt);
+    t += kDt;
 }
 
 void testTable() {
@@ -173,16 +183,20 @@ void testPacing() {
     run(d, kHappy, 30.0f, t);
     check(d.commits() == 1, "no decisions inside a steady section");
     check(d.weight() > 0.9f, "the director is fully in by now");
-    // A new section.
+    // A new section: decided once Form names it.
     GeodeSoundFrame f = frame(kHappy, t, kDt);
     f.sectionChange = 1.0f;
     d.step(f, kDt);
     t += kDt;
-    check(d.commits() == 2 && d.lastReason() == Director::Reason::Section, "a new section is a decision");
+    check(d.commits() == 1 && d.naming(), "a section event waits for Form's name");
+    name(d, kHappy, t, 1);
+    check(d.commits() == 2 && d.lastReason() == Director::Reason::Section && !d.naming(), "a new section is a decision once named");
+    f = frame(kHappy, t, kDt);
+    f.sectionId = 1.0f;
     f.sectionChange = 1.0f;
     d.step(f, kDt);
     t += kDt;
-    check(d.commits() == 2, "a section change right after a decision is not another");
+    check(d.commits() == 2 && !d.naming(), "a section change right after a decision is not another");
     run(d, kHappy, 1.0f, t);
     f = frame(kHappy, t, kDt);
     f.drop = 1.0f;
@@ -214,6 +228,8 @@ void testWeakEventsDecide() {
         GeodeSoundFrame f = frame(kHappy, t, kDt);
         f.sectionChange = weak;
         d.step(f, kDt);
+        t += kDt;
+        name(d, kHappy, t, 1);
         check(d.commits() == 2 && d.lastReason() == Director::Reason::Section, "a section change at 0.45 commits a look");
     }
     {
@@ -248,9 +264,12 @@ bool colourParam(const std::string& name) {
     return false;
 }
 
-// The two params a look may move. Everything else in SceneParams, every colour among it and Spin
+// The params a look may move. Everything else in SceneParams, every colour among it and Spin
 // (motionDrift, #1181), is the style's and the user's.
-bool lookParam(const std::string& name) { return name == "camSmooth" || name == "motionBreath"; }
+bool lookParam(const std::string& name) {
+    // The two dials, and the song's arc on Detail and the params it names (Director::apply, applyArc).
+    return name == "camSmooth" || name == "motionBreath" || name == "marchDetail" || name == "fractal" || name == "formula";
+}
 
 // The owner's rule, "no colour narrowing": the looks used to draw every style's palette from nine hue
 // anchors and one saturation curve, so under Auto every style wore the same few colours. Whatever the
@@ -372,10 +391,21 @@ void testNoTempoAssumed() {
         f.downbeat = 0.0f;
         f.sectionChange = 1.0f;
         d.step(f, kDt);
+        t += kDt;
+        // Form's name, on the next frame: the decision, which starts the glide.
+        f = frame(kHappy, t, kDt);
+        f.bpm = bpms[n];
+        f.beatConf = 0.0f;
+        f.downbeat = 0.0f;
+        f.sectionId = 1.0f;
+        const Director::Look before = d.look();
+        d.step(f, kDt);
+        glides[n] = kDt;
         expected[n] = std::max(0.25f, 2.0f * Director::changeBars(d.emotion()));
+        check(d.commits() == 2, "named, the section is decided");
         check(std::fabs(d.glideSeconds() - expected[n]) < 1e-5f, "the glide is the feeling's bars of a plain 2 s bar");
         const float goal = d.target().axes[kEnergy];
-        const float start = d.look().axes[kEnergy];
+        const float start = before.axes[kEnergy];
         for (int i = 0; i < 600 && std::fabs(d.look().axes[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
             t += kDt;
             f = frame(kHappy, t, kDt);
@@ -661,6 +691,8 @@ void testNoStyleMomentWhenOff() {
         f.sectionChange = 1.0f;
         const int before = d.commits();
         d.step(f, kDt);
+        t += kDt;
+        name(d, kHappy, t, 1);
         check(d.commits() == before + 1 && d.lastReason() == Director::Reason::Section, "a section commits either way");
         check(d.styleMoment() == (amount > 0.0f), amount > 0.0f ? "Auto on: a section steps the style" : "Auto off: a section leaves the style alone");
     }
@@ -721,12 +753,25 @@ void testAxesNeverHoldThePictureTwisted() {
     }
 }
 
-// ---- Musical spans: the bar, the build and the form ----
+// ---- Musical spans: the bar, the build, the form and the song ----
+
+namespace vd = geode::viz::director;
+using vd::Tune;
 
 bool sameLook(const Director::Look& a, const Director::Look& b) { return std::memcmp(&a, &b, sizeof(Director::Look)) == 0; }
 
-// A song as Form hears it: the frame of `song`, carrying Form's section id and state. Steps the director
-// with its own feeling, or with `heard` when set (the renderer's way).
+// How far apart two looks are on their axes and camera softness.
+float apart(const Director::Look& a, const Director::Look& b) {
+    float d = std::fabs(a.camSmooth - b.camSmooth);
+    for (int i = 0; i < Director::kAxes; ++i) d += std::fabs(a.axes[i] - b.axes[i]);
+    return d;
+}
+
+std::shared_ptr<const vd::Tuning> tuned(const char* text) { return std::make_shared<const vd::Tuning>(vd::parseTuning(text)); }
+
+// A song as Form hears it: the frame of `song`, carrying Form's section id and state (and, with `phrases`, a
+// phrase on every downbeat, for the arc's count). Steps the director with its own feeling, or with `heard`
+// when set; once directed, the renderer's way too: its settings and the style on screen, each frame.
 struct Player {
     Player(Director& director, const Song& s, const Emotion::State* feeling = nullptr) : d(director), song(s), heard(feeling) {}
 
@@ -736,14 +781,27 @@ struct Player {
     float t = 0.0f;
     int section = 0;
     int state = GEODE_SECTION_VERSE;
+    bool phrases = false;
+    bool styled = false;
+    DirectorConfig config;
+    std::shared_ptr<const vd::Tuning> tuning;
+    std::string style;
 
+    void direct(const DirectorConfig& c, std::shared_ptr<const vd::Tuning> settings, const std::string& shown) {
+        styled = true;
+        config = c;
+        tuning = std::move(settings);
+        style = shown;
+    }
     GeodeSoundFrame next() const {
         GeodeSoundFrame f = frame(song, t, kDt);
         f.sectionId = static_cast<float>(section);
         f.sectionState = static_cast<float>(state);
+        if (phrases && f.downbeat > 0.0f) f.phrase = 1.0f;
         return f;
     }
     void step(const GeodeSoundFrame& f) {
+        if (styled) d.configure(config, tuning, style);
         if (heard != nullptr) {
             d.step(f, *heard, kDt);
         } else {
@@ -762,23 +820,24 @@ struct Player {
 
 // Form's report of a new section and then its name: the change fires on a downbeat with the old id, and
 // the new id arrives on the next downbeat, once a whole bar of the section is heard. Returns whether the
-// look on screen held still from the report to the name.
+// look held still and nothing was decided from the report to the name, and one decision was made there.
 bool newSection(Player& p, int named) {
     p.toDownbeat();
+    const int commits = p.d.commits();
     GeodeSoundFrame f = p.next();
     f.sectionChange = 1.0f;
     p.step(f);
     const Director::Look held = p.d.look();
-    bool still = p.d.naming();
+    bool still = p.d.naming() && p.d.commits() == commits;
     p.step(p.next());
     while (p.next().downbeat <= 0.0f) {
-        still = still && sameLook(p.d.look(), held);
+        still = still && sameLook(p.d.look(), held) && p.d.commits() == commits;
         p.step(p.next());
     }
     still = still && sameLook(p.d.look(), held) && p.d.naming();
     p.section = named;
     p.step(p.next());
-    return still;
+    return still && p.d.commits() == commits + 1 && !p.d.naming();
 }
 
 // A drop that opens a section, as Form fires it: both events on one frame (Form moves the downbeat to the
@@ -796,11 +855,13 @@ void dropSection(Player& p, int named, Director::Look& cut) {
     p.step(p.next());
 }
 
-// Section memory: each section Form names keeps the look first chosen for it, so a returning section
-// brings its look back and the song's form shows; a new section gets a look of its own. Its look waits,
-// held still, for Form's name, so the picture never glides toward one look and then turns to another.
-void testSectionsKeepTheirLooks() {
+// Section memory, the owner's "make it morph and progress": a section Form names keeps the look first chosen
+// for it; when it comes back it brings that look back grown, never a copy and never a new draw; each return
+// grows on. The decision waits, the look held still, for Form's name, so the look and the style change once,
+// knowing whether the section is new.
+void testSectionsGrowWhenTheyReturn() {
     const Song song{"ionian", 0, 0.85f, 93.0f, 0.6f, 0.2f};
+    const float bar = 240.0f / 93.0f;
     const auto script = [&](Director& d, bool checks) {
         Player p{d, song};
         p.play(10.0f);
@@ -810,26 +871,29 @@ void testSectionsKeepTheirLooks() {
         const bool held1 = newSection(p, 1);
         const Director::Look chorus = d.target();
         if (checks) {
-            check(held1, "a new section's look holds still until Form names the section");
-            check(d.commits() == 2 && d.lastReason() == Director::Reason::Section && !d.returned(), "a new section is a new look");
+            check(held1, "a section's look holds still until Form names it, then one decision");
+            check(d.lastReason() == Director::Reason::Section && !d.returned() && d.styleMoment(), "a new section is a new look and a style moment");
             check(!sameLook(chorus, verse), "unlike the verse's");
         }
         p.play(8.0f);
-        if (checks) check(sameLook(d.look(), chorus), "and it lands once named");
+        if (checks) check(sameLook(d.look(), chorus), "and it lands");
         const bool held2 = newSection(p, 0);
+        const Director::Look verse1 = d.target();
         if (checks) {
-            check(held2, "a returning section holds still until named too");
-            check(d.commits() == 3 && d.returned() && sameLook(d.target(), verse), "the verse returns, and its look with it");
-            check(d.styleMoment(), "a returning section is still a section: Auto steps the style");
+            check(held2, "a returning section waits for its name too");
+            check(d.returned() && d.styleMoment(), "the verse returns, a style moment like any section");
+            check(!sameLook(verse1, verse), "grown on, not a copy");
+            check(d.glideSeconds() >= bar - 1e-4f, "a return morphs over a bar at least (" + std::to_string(d.glideSeconds()) + ")");
         }
         p.play(8.0f);
-        if (checks) check(sameLook(d.look(), verse), "the verse's look lands whole");
+        if (checks) check(sameLook(d.look(), verse1), "and lands whole");
         newSection(p, 2);
         const Director::Look bridge = d.target();
         if (checks) check(!d.returned() && !sameLook(bridge, verse) && !sameLook(bridge, chorus), "a third section is its own look");
         p.play(8.0f);
-        newSection(p, 1);
-        if (checks) check(d.returned() && sameLook(d.target(), chorus), "the chorus comes back as it was");
+        newSection(p, 0);
+        const Director::Look verse2 = d.target();
+        if (checks) check(d.returned() && !sameLook(verse2, verse1) && !sameLook(verse2, verse), "the second return grows on again");
         p.play(8.0f);
         return d.look();
     };
@@ -839,7 +903,7 @@ void testSectionsKeepTheirLooks() {
     b.configure({1.0f, 77});
     const Director::Look la = script(a, true);
     const Director::Look lb = script(b, false);
-    check(sameLook(la, lb), "same seed and song, same looks: the memory is deterministic");
+    check(sameLook(la, lb), "same seed and song, same looks: the memory and its growth are deterministic");
 
     // A new play forgets the last song's sections.
     a.configure({1.0f, 78});
@@ -849,8 +913,34 @@ void testSectionsKeepTheirLooks() {
     check(!a.returned(), "a new play starts with no section heard");
 }
 
-// A section Form never names (Form's name is a bar away; this is the fallback) still lands its look, after
-// two downbeats, and nothing is remembered for it.
+// Director::grow, pure: no return or no growth is the look itself; more returns go further the way the look
+// was heading; seeded; held to each dial's range.
+void testGrowth() {
+    Director::Look look;
+    look.camSmooth = 0.5f;
+    Director::Look heading;
+    heading.energy = 0.0f;
+    heading.camSmooth = 0.0f;
+    heading.motionBreath = 0.0f;
+    heading.moves = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    heading.axes.fill(0.6f);
+    check(sameLook(Director::grow(look, heading, 0, 0.35f, 7, 2), look), "no return: the look itself");
+    check(sameLook(Director::grow(look, heading, 2, 0.0f, 7, 2), look), "no growth: the look itself");
+    const Director::Look once = Director::grow(look, heading, 1, 0.35f, 7, 2);
+    const Director::Look thrice = Director::grow(look, heading, 3, 0.35f, 7, 2);
+    // Each axis moves g * (0.6 + 0.25 r), r in -1..1: at most 0.35 * 0.85 once, at least 1.05 * 0.35 three times.
+    check(apart(thrice, look) > apart(once, look), "each return grows further (" + std::to_string(apart(once, look)) + " then " + std::to_string(apart(thrice, look)) + ")");
+    for (float v : once.axes) check(v > 0.0f, "the way it was heading");
+    check(sameLook(Director::grow(look, heading, 1, 0.35f, 7, 2), once), "seeded: the same every time");
+    check(!sameLook(Director::grow(look, heading, 1, 0.35f, 8, 2), once) && !sameLook(Director::grow(look, heading, 1, 0.35f, 7, 3), once),
+          "its own per play and per section");
+    const Director::Look far = Director::grow(look, heading, 9, 1.0f, 7, 2);
+    for (float v : far.axes) check(v >= -1.0f && v <= 1.0f, "an axis stays in -1..1");
+    check(far.camSmooth >= 0.1f && far.camSmooth <= 0.9f && far.energy == look.energy, "the dials stay in range and the energy is the feeling's");
+}
+
+// A section Form never names (Form's name is a bar away; this is the fallback) is decided after two
+// downbeats as a new look, and nothing is remembered for it.
 void testUnnamedSectionStillLands() {
     Director d;
     d.configure({1.0f, 5});
@@ -860,49 +950,47 @@ void testUnnamedSectionStillLands() {
     GeodeSoundFrame f = p.next();
     f.sectionChange = 1.0f;
     p.step(f);
-    check(d.naming() && d.commits() == 2, "the section is a decision at once, its look held for the name");
+    check(d.naming() && d.commits() == 1, "the section waits for its name");
     p.step(p.next());
     p.toDownbeat();
     p.step(p.next());
-    check(d.naming(), "still waiting after one downbeat");
+    check(d.naming() && d.commits() == 1, "still waiting after one downbeat");
     p.toDownbeat();
     p.step(p.next());
-    check(!d.naming(), "let go after two");
+    check(!d.naming() && d.commits() == 2 && d.lastReason() == Director::Reason::Section, "decided after two");
     p.play(6.0f);
     check(sameLook(d.look(), d.target()) && !d.returned(), "and the look lands as made");
 }
 
 // A drop cuts at once. When it opens a section, the best guess is the section the last drop opened: the
-// second drop cuts straight to the first drop's look, and when Form names it so, nothing moves. A drop
-// Form names as another known section settles there.
+// second drop cuts straight to the first drop's look grown on, and when Form names it so, nothing moves. A
+// drop Form names as another known section morphs on into that one's grown look.
 void testDropsReturnToTheirSection() {
     Director d;
     d.configure({1.0f, 11});
     Player p{d, Song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f}};
-    p.play(10.0f);
-    p.play(5.0f);
+    p.play(15.0f);
     Director::Look drop1;
     dropSection(p, 3, drop1);
     check(d.lastReason() == Director::Reason::Drop && sameLook(d.target(), drop1) && !d.returned(),
           "the first drop cuts to a new look, and Form's name for it keeps it");
     p.play(8.0f);
     newSection(p, 1);
-    const Director::Look verse = d.target();
     p.play(8.0f);
     Director::Look drop2;
     dropSection(p, 3, drop2);
-    check(sameLook(drop2, drop1), "the second drop cuts straight to the first drop's look");
-    check(d.returned() && sameLook(d.target(), drop1), "and Form naming it the same section moves nothing");
+    check(!sameLook(drop2, drop1), "the second drop cuts to the first drop's look, grown");
+    check(d.returned() && sameLook(d.target(), drop2), "and Form naming it the same section moves nothing");
     p.play(8.0f);
     Director::Look drop3;
     dropSection(p, 1, drop3);
-    check(sameLook(drop3, drop1) && d.returned() && sameLook(d.target(), verse), "a drop named as another section heard before settles on that one's look");
+    check(!sameLook(drop3, drop2) && d.returned() && !sameLook(d.target(), drop3), "a drop named as another known section morphs on to that one's look");
     p.play(8.0f);
-    check(sameLook(d.look(), verse), "and lands there");
+    check(sameLook(d.look(), d.target()), "and lands there");
 }
 
 // The feeling picks how a look arrives: the calm kinds glide over up to two bars, the driven ones cut in
-// over a beat. The bar is the tracker's; no tempo is preferred.
+// over a beat. A return morphs, never cuts: at least a bar, even for driven music. The bar is the tracker's.
 void testFeelingPicksTheGlide() {
     Emotion::State calm;
     calm.confidence = 0.9f;
@@ -924,21 +1012,29 @@ void testFeelingPicksTheGlide() {
     between.gems[Emotion::kPeace] = 0.3f;
     between.gems[Emotion::kJoy] = 0.3f;
     check(Director::changeBars(between) < 2.0f && Director::changeBars(between) > 0.25f, "a mix lands between");
+    const vd::Tuning wide = vd::parseTuning("glide_calm_bars=4\nglide_driven_bars=0.5\n");
+    check(Director::changeBars(calm, wide) == 4.0f && Director::changeBars(driven, wide) == 0.5f, "the glide's two ends are settings");
 
     const float bar = 240.0f / 141.0f;
     float glides[2] = {};
+    float returns[2] = {};
     const Emotion::State* states[2] = {&calm, &driven};
     for (int n = 0; n < 2; ++n) {
         Director d;
         d.configure({1.0f, 3});
         Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}, states[n]};
-        p.play(10.0f);
-        p.play(5.0f);
+        p.play(15.0f);
         newSection(p, 1);
         glides[n] = d.glideSeconds();
+        p.play(8.0f);
+        newSection(p, 0);
+        returns[n] = d.glideSeconds();
+        check(d.returned(), "the first section came back");
     }
     check(std::fabs(glides[0] - 2.0f * bar) < 1e-4f, "a calm section's look glides over two of the bars heard (" + std::to_string(glides[0]) + ")");
     check(std::fabs(glides[1] - 0.25f * bar) < 1e-4f, "a driven one's cuts in over a beat (" + std::to_string(glides[1]) + ")");
+    check(std::fabs(returns[0] - 2.0f * bar) < 1e-4f, "a calm return glides as calm music does");
+    check(std::fabs(returns[1] - bar) < 1e-4f, "a driven return still morphs over a bar (" + std::to_string(returns[1]) + ")");
 }
 
 // The build leans toward its drop: while Form's state is a build the axes go faster, closer and rougher
@@ -948,6 +1044,7 @@ void testFeelingPicksTheGlide() {
 void testBuildLeansIn() {
     const Song song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f};
     const float bar = 240.0f / 174.0f;
+    const auto ax = [](const Director::Axes& x, Director::Axis a) { return x[static_cast<size_t>(a)]; };
     Director d;
     d.configure({1.0f, 9});
     Director twin;
@@ -976,7 +1073,6 @@ void testBuildLeansIn() {
     both(0.6f * 4.0f * bar, true);
     check(d.lean() == 1.0f, "in after four bars");
     const Director::Axes leant = d.axes();
-    const auto ax = [](const Director::Axes& x, Director::Axis a) { return x[static_cast<size_t>(a)]; };
     check(ax(leant, Director::Axis::Speed) >= ax(held, Director::Axis::Speed) && ax(leant, Director::Axis::Chaos) >= ax(held, Director::Axis::Chaos) &&
               ax(leant, Director::Axis::Space) <= ax(held, Director::Axis::Space),
           "faster, rougher and closer");
@@ -993,11 +1089,12 @@ void testBuildLeansIn() {
     p.step(f);
     check(d.lean() == 0.0f && d.lastReason() == Director::Reason::Drop, "the drop's cut takes the lean away");
 
-    // A build that fades without a drop lets go over a bar, back to the look as it was.
+    // A build that fades without a drop lets go over a bar, back to the look as it was. (Complexity is the
+    // song's arc's, which moves with Form's state on its own time.)
     Director fade;
     fade.configure({1.0f, 9});
     Player r{fade, song};
-    r.play(20.0f);  // long enough for the look to be fully in, so only the lean moves the axes
+    r.play(20.0f);  // long enough for the look to be fully in, so only the lean moves these axes
     const Director::Axes before = fade.axes();
     r.state = GEODE_SECTION_BUILD;
     r.play(4.0f * bar + 0.5f);
@@ -1006,8 +1103,25 @@ void testBuildLeansIn() {
     check(fade.lean() > 0.0f && fade.lean() < 1.0f, "letting go");
     r.play(0.6f * bar);
     float back = 0.0f;
-    for (int i = 0; i < Director::kAxes; ++i) back = std::max(back, std::fabs(fade.axes()[i] - before[i]));
+    for (Director::Axis a : {Director::Axis::Energy, Director::Axis::Speed, Director::Axis::Space, Director::Axis::Chaos}) {
+        back = std::max(back, std::fabs(ax(fade.axes(), a) - ax(before, a)));
+    }
     check(fade.lean() == 0.0f && back < 1e-3f, "a bar later the look is as it was");
+
+    // The lean's amounts and bars are settings: at 0 a build leans nowhere.
+    Director flat;
+    flat.configure({1.0f, 9});
+    Player s{flat, song};
+    s.direct({1.0f, 9}, tuned("lean_speed=0\nlean_closer=0\nlean_rough=0\n"), "");
+    s.play(20.0f);
+    const Director::Axes still = flat.axes();
+    s.state = GEODE_SECTION_BUILD;
+    s.play(4.0f * bar + 0.5f);
+    float leaned = 0.0f;
+    for (Director::Axis a : {Director::Axis::Energy, Director::Axis::Speed, Director::Axis::Space, Director::Axis::Chaos}) {
+        leaned = std::max(leaned, std::fabs(ax(flat.axes(), a) - ax(still, a)));
+    }
+    check(flat.lean() == 1.0f && leaned < 1e-3f, "a lean set to nothing moves nothing");
 
     // Auto off: no lean reaches the picture.
     Director off;
@@ -1017,6 +1131,172 @@ void testBuildLeansIn() {
     o.state = GEODE_SECTION_BUILD;
     o.play(8.0f);
     for (float v : off.axes()) check(v == 0.0f, "off, a build turns no axis");
+}
+
+// The song's arc: Complexity, Detail (and Fractal and Formula, by name) climb toward the song's peak and
+// relax in its breakdowns and outro, from Form's section state and the phrases heard, never a level or a hit.
+void testSongArc() {
+    const vd::Tuning& T = vd::defaultTuning();
+    for (int phrases : {0, 4, 32}) {
+        const auto at = [&](int state) { return vd::arcLevel(state, phrases, T); };
+        check(at(GEODE_SECTION_DROP) > at(GEODE_SECTION_BUILD) && at(GEODE_SECTION_BUILD) > at(GEODE_SECTION_VERSE) &&
+                  at(GEODE_SECTION_VERSE) > at(GEODE_SECTION_INTRO) && at(GEODE_SECTION_INTRO) > at(GEODE_SECTION_BREAKDOWN) &&
+                  at(GEODE_SECTION_BREAKDOWN) >= at(GEODE_SECTION_OUTRO),
+              "the peak at a drop, rest in a breakdown and an outro");
+    }
+    check(vd::arcLevel(GEODE_SECTION_DROP, 32, T) > vd::arcLevel(GEODE_SECTION_DROP, 4, T) &&
+              vd::arcLevel(GEODE_SECTION_DROP, 4, T) > vd::arcLevel(GEODE_SECTION_DROP, 0, T),
+          "the song climbs as its phrases go by");
+    check(vd::arcLevel(GEODE_SECTION_DROP, 100000, T) <= 1.0f && vd::arcLevel(-1, 8, T) == 0.0f, "held to 0..1; no state is rest");
+
+    // applyArc: base plus modulation on the params it names, nothing else.
+    SceneParams p;
+    const SceneParams up = vd::applyArc(p, 1.0f, T);
+    const SceneParams down = vd::applyArc(p, -1.0f, T);
+    check(up.marchDetail > p.marchDetail && down.marchDetail < p.marchDetail, "Detail climbs at the peak and relaxes at rest");
+    check(up.marchDetail <= SceneParams::spec(static_cast<geode::viz::ParamSlot>(SceneParams::slotOf("marchDetail"))).max, "never past its range");
+    const SceneParams none = vd::applyArc(p, 0.0f, T);
+    check(std::memcmp(&none, &p, sizeof(SceneParams)) == 0, "a turn of 0 moves nothing");
+    for (const auto& spec : SceneParams::schema()) {
+        const std::string n(spec.name);
+        if (n != "marchDetail" && n != "fractal" && n != "formula" && up.get(n) != p.get(n)) check(false, "the arc moved " + n);
+    }
+
+    // The director: the arc climbs in the drops and relaxes in a breakdown, without a decision.
+    const Song song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f};
+    const auto complexity = [](const Director& d) { return d.axes()[static_cast<size_t>(Director::Axis::Complexity)]; };
+    Director d;
+    d.configure({1.0f, 17});
+    Player s{d, song};
+    s.phrases = true;
+    s.play(12.0f);
+    const int commits = d.commits();
+    s.state = GEODE_SECTION_DROP;
+    s.play(16.0f);
+    const float peak = d.arc();
+    const float busy = complexity(d);
+    const float fine = d.apply(SceneParams{}).marchDetail;
+    s.state = GEODE_SECTION_BREAKDOWN;
+    s.play(12.0f);
+    check(peak > 0.6f && d.arc() < 0.2f, "up in the drop, down in the breakdown (" + std::to_string(peak) + ", " + std::to_string(d.arc()) + ")");
+    check(busy > complexity(d) && fine > d.apply(SceneParams{}).marchDetail, "busier and finer at the peak");
+    check(d.commits() == commits, "the arc is no decision");
+    // A new song climbs again from its first phrase.
+    d.configure({1.0f, 18});
+    s.state = GEODE_SECTION_DROP;
+    s.phrases = false;
+    s.play(20.0f);
+    check(d.arc() < peak - 0.1f, "a new song starts the climb again (" + std::to_string(d.arc()) + ")");
+
+    // At depth 0 the arc moves nothing.
+    Director level;
+    level.configure({1.0f, 17});
+    Player l{level, song};
+    l.direct({1.0f, 17}, tuned("arc_depth=0\n"), "");
+    l.play(12.0f);
+    l.state = GEODE_SECTION_DROP;
+    l.play(12.0f);
+    const float atPeak = complexity(level);
+    const float detailAtPeak = level.apply(SceneParams{}).marchDetail;
+    l.state = GEODE_SECTION_BREAKDOWN;
+    l.play(12.0f);
+    check(std::fabs(complexity(level) - atPeak) < 1e-3f && level.apply(SceneParams{}).marchDetail == detailAtPeak && level.apply(SceneParams{}).marchDetail == SceneParams{}.marchDetail,
+          "an arc set to nothing moves nothing");
+}
+
+// The style each moment asks for (Director::styleIntent): a new section the next along from the style on
+// screen; a returning section its own first style, stepped on by its returns; a drop into a new section a
+// leap; Styles progress off says so.
+void testStyleIntents() {
+    using Kind = vd::StyleIntent::Kind;
+    Director d;
+    d.configure({1.0f, 31});
+    Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+    p.direct({1.0f, 31}, nullptr, "first_style");
+    p.play(12.0f);
+    check(d.commits() == 1 && d.styleIntent().kind == Kind::None, "the first look asks for no style");
+    p.play(4.0f);
+    newSection(p, 1);
+    check(d.styleIntent().kind == Kind::Progress && d.styleIntent().from == "first_style" && d.styleIntent().progress, "a new section: the next along");
+    p.style = "second_style";  // the shell switched
+    p.play(8.0f);
+    newSection(p, 0);
+    check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "first_style" && d.styleIntent().step == 1 &&
+              d.styleIntent().from == "second_style",
+          "the first section returns: its own first style, one step on");
+    p.style = "third_style";
+    p.play(8.0f);
+    newSection(p, 1);
+    check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "second_style" && d.styleIntent().step == 1,
+          "the second section remembers the style it was first shown on");
+    p.play(8.0f);
+    newSection(p, 0);
+    check(d.styleIntent().remembered == "first_style" && d.styleIntent().step == 2, "and a section's returns count on");
+    p.play(8.0f);
+    Director::Look cut;
+    dropSection(p, 5, cut);
+    check(d.styleIntent().kind == Kind::Leap, "a first drop into a new section leaps");
+    p.style = "drop_style";
+    p.play(8.0f);
+    newSection(p, 1);
+    p.play(8.0f);
+    dropSection(p, 5, cut);
+    check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "drop_style" && d.styleIntent().step == 1,
+          "the next drop returns to the last drop's style, one step on");
+
+    Director stay;
+    stay.configure({1.0f, 31});
+    Player q{stay, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+    q.direct({1.0f, 31}, tuned("styles_progress=0\n"), "first_style");
+    q.play(16.0f);
+    newSection(q, 1);
+    check(stay.styleIntent().kind == Kind::Progress && !stay.styleIntent().progress, "Styles progress off is said with the intent");
+
+    // The long stretch, from its setting.
+    Director patient;
+    patient.configure({1.0f, 31});
+    Player r{patient, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+    r.direct({1.0f, 31}, tuned("long_seconds=30\n"), "first_style");
+    r.play(12.0f);
+    const int first = patient.commits();
+    r.play(32.0f);
+    check(patient.commits() == first + 1 && patient.lastReason() == Director::Reason::Long && patient.styleIntent().kind == Kind::Progress,
+          "a long stretch of 30 s, set so, steps on");
+}
+
+// The Auto Director's settings: a native table with each row's key, label, help, range and default; the
+// saved text is read leniently and held to the table.
+void testTuningTable() {
+    const auto specs = vd::tuneSpecs();
+    check(static_cast<int>(specs.size()) == vd::kTunes, "a row per setting");
+    std::set<std::string> keys;
+    for (const vd::TuneSpec& s : specs) {
+        keys.insert(s.key);
+        check(s.def >= s.min && s.def <= s.max && s.label[0] != '\0' && s.help[0] != '\0', std::string("a whole row: ") + s.key);
+    }
+    check(static_cast<int>(keys.size()) == vd::kTunes, "every key its own");
+    const vd::Tuning blank = vd::parseTuning("");
+    for (int i = 0; i < vd::kTunes; ++i) check(blank.v[static_cast<size_t>(i)] == specs[static_cast<size_t>(i)].def, "empty text is every default");
+    check(blank[Tune::LeanSpeed] == 0.3f && blank[Tune::LeanCloser] == 0.4f && blank[Tune::LeanRough] == 0.25f && blank[Tune::LeanInBars] == 4.0f &&
+              blank[Tune::LeanOutBars] == 1.0f && blank[Tune::GlideDrivenBars] == 0.25f && blank[Tune::GlideCalmBars] == 2.0f &&
+              blank[Tune::LongSeconds] == 75.0f,
+          "the defaults are the director's old numbers");
+    const vd::Tuning t = vd::parseTuning("lean_speed=0.5\nunknown_row=3\nlean_closer=abc\n long_seconds = 999 \r\nlean_in_bars=3.4\nno equals\n");
+    check(t[Tune::LeanSpeed] == 0.5f, "a row is read");
+    check(t[Tune::LeanCloser] == blank[Tune::LeanCloser], "a bad number keeps the default");
+    check(t[Tune::LongSeconds] == 240.0f, "held to its range");
+    check(t[Tune::LeanInBars] == 3.0f, "snapped to its step");
+    const vd::Tuning again = vd::parseTuning(vd::tuningText(t));
+    check(std::memcmp(&again, &t, sizeof(vd::Tuning)) == 0, "the saved text reads back the same");
+    const int speed = static_cast<int>(Tune::LeanSpeed);
+    check(vd::parseTuning(vd::tuningWith("", speed, 0.7f))[Tune::LeanSpeed] == 0.7f, "one row set, the rest kept");
+    check(vd::tuningWith("lean_rough=0.6", -1, 0.1f) == vd::tuningText(vd::parseTuning("lean_rough=0.6")), "a row outside the table changes nothing");
+    check(vd::valueText(blank, static_cast<int>(Tune::StylesProgress)) == "On" && vd::valueText(blank, static_cast<int>(Tune::LeanInBars)) == "4 bars",
+          "a switch reads On or Off; bars read as bars");
+    vd::setTuning("lean_speed=0.1");
+    check((*vd::tuning())[Tune::LeanSpeed] == 0.1f, "process-wide: set");
+    vd::setTuning("");
+    check((*vd::tuning())[Tune::LeanSpeed] == blank[Tune::LeanSpeed], "and back to the defaults");
 }
 
 // A look lands on the bar: the first look on a downbeat, and a long stretch's new look on one too (past
@@ -1086,11 +1366,15 @@ int main() {
     testAxesScaleTheCamera();
     testNoLookTwistsEveryStyle();
     testAxesNeverHoldThePictureTwisted();
-    testSectionsKeepTheirLooks();
+    testSectionsGrowWhenTheyReturn();
+    testGrowth();
     testUnnamedSectionStillLands();
     testDropsReturnToTheirSection();
     testFeelingPicksTheGlide();
     testBuildLeansIn();
+    testSongArc();
+    testStyleIntents();
+    testTuningTable();
     testLooksLandOnTheBar();
     testNeverSpins();
     if (failures) {

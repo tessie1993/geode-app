@@ -958,6 +958,8 @@
     <string name="visuals_qs_auto">Auto Director</string>
     <string name="visuals_qs_auto_about">Changes the look with the song\'s sections, drops and key changes</string>
     <string name="visuals_qs_reach">Director reach</string>
+    <string name="visuals_qs_auto_tuning">Director settings</string>
+    <string name="visuals_qs_auto_tuning_about">How the director leans, morphs, climbs and steps styles</string>
     <string name="visuals_qs_reach_look">Look only</string>
     <string name="visuals_qs_reach_shuffle">Shuffle controls</string>
     <string name="visuals_qs_reach_modulate">Shuffle and move sliders</string>

@@ -213,7 +213,14 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
         resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
-    if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    if (out.styleMoments > 0) {
+        // The intent first, so a take that sees the count finds the moment's intent with it.
+        {
+            std::lock_guard<std::mutex> guard(directorIntentLock_);
+            directorIntent_ = resolver_.director().styleIntent();
+        }
+        directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    }
     // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
     if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;

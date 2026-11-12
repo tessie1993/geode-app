@@ -101,10 +101,17 @@ The renderer runs these in order each frame.
 - The director is base plus modulation, MilkDrop's rule.
 - The director's axis push scales into the room a slider has left above its default, so a slider between its default and the end still moves the picture (`director::applyAxes`).
 - Owner's rule: the director never touches a colour param and plays no route of its own, and nothing in it follows the frame.
-- The director remembers the look it chose for each section Form names, so a returning section brings its look back.
-- A section's look is held until Form names the section (one downbeat on); a drop cuts at once to the look of the section the last drop opened.
+- The director remembers the look it first chose for each section Form names, the way it was heading and the style it was first shown on.
+- A section is decided when Form names it (one downbeat after the event), so the look and the style change together, knowing whether it is back.
 - Looks land on a downbeat when a beat is heard, over 2 bars for calm feelings down to a beat for driven ones (`Director::changeBars`).
 - While Form's state is a build the director's axes lean toward the drop over four bars; the drop takes the lean away.
+- A returning section morphs into its look grown on, further the way it was heading with each return, seeded (`Director::grow`); never a copy, never a cut.
+- A drop cuts at once; one that opens a section cuts to the grown look of the section the last drop opened, and settles when Form names it.
+- The song's arc moves Complexity, Detail, Fractal and Formula toward the peak with Form's section state and the phrases heard (`director::arcLevel`, `applyArc`).
+- `director::applyArc` is the one seam that names the arc's params; a name the param table lacks is skipped.
+- Every director number is an Auto Director setting in `core/viz/DirectorTuning` (key, label, help, range, default), pinned with an export in `EngineSettings`.
+- At a style moment the director names the next style (`StyleIntent`); `core/viz/DirectorStyle` picks it from Auto's pool: a return's family stepped on, else the next along the catalogue.
+- The renderer whose moments the shell takes publishes that intent (`Renderer::takeDirectorStyleMoments`); `geode_auto_pick_among` reads it once.
 - `DirectorReach` is the director's reach past the look when Visuals › Settings asks.
 - Before the look, the reach shuffles, and the Customize randomizer rolls some categories at a section, drop or long stretch from the play seed; sliders glide and toggles flip on the moment.
 - After its axes, the reach adds three slow waves and three sound followers of its own.

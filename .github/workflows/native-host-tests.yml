@@ -283,6 +283,12 @@ jobs:
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test
+          # Cast's live stream (core/cast/LiveSegments): the muxer's bytes cut into the init segment and fragments at any write size, the window of six, the playlist's exact text, the feed's order, the watchdog's clock, boxes no muxer writes.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_segments_test.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_segments_test
+          ./live_segments_test
+          # Cast's HTTP answers (core/cast/LiveHttp): the request reader's bounds, every file's exact response, hostile requests (oversize, malformed, wrong token, lying lengths), the browser's feed and its cap, the WebRTC offer's body.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_http_test
+          ./live_http_test
           # Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
           ./qr_code_test

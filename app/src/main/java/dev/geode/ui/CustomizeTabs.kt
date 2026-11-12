@@ -63,7 +63,6 @@ import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
-import kotlin.math.abs
 import kotlin.reflect.KProperty1
 
 val LocalParamLocks =
@@ -524,7 +523,7 @@ internal fun LabeledSlider(
     val locked = !lock.allows(label)
     // The value before a locked drag began, put back on release.
     var before by remember(label) { mutableStateOf<Float?>(null) }
-    val reset: (() -> Unit)? = default?.takeIf { abs(value - it) > RESET_EPSILON }?.let { d -> { onChange(d) } }
+    val reset: (() -> Unit)? = default?.takeIf { GeodeNative.sliderOffDefault(value, it) }?.let { d -> { onChange(d) } }
     val resetLabel = stringResource(R.string.customize_a11y_reset)
     val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
     // A slider a knob can move: long-press its name row (or TalkBack's action) to put it on a knob.
@@ -590,8 +589,6 @@ internal fun LabeledSlider(
     }
     knobSlot?.let { AddToKnobHost(it, name) }
 }
-
-private const val RESET_EPSILON = 1e-4f
 
 /**
  * A [LabeledSlider] for one scene param: the value is [params]'s, the range the schema's
@@ -680,9 +677,9 @@ internal fun LabeledIntSlider(
             ControlLabelRow("$display · $value", label)
             Slider(
                 value = value.toFloat(),
-                onValueChange = { onChange(it.toInt().coerceIn(range.first, range.last)) },
+                onValueChange = { onChange(GeodeNative.sliderIntValue(it, range.first, range.last)) },
                 valueRange = range.first.toFloat()..range.last.toFloat(),
-                steps = (range.last - range.first - 1).coerceAtLeast(0),
+                steps = GeodeNative.sliderIntSteps(range.first, range.last),
                 enabled = !LocalLockedByPro.current,
                 modifier =
                     Modifier.fillMaxWidth().systemGestureExclusion().semantics {

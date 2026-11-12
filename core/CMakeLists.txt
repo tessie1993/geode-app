@@ -19,6 +19,8 @@ add_library(geode_core STATIC
     api/geode_frame_api.cpp
     api/geode_link_api.cpp
     viz/frame/LinkShare.cpp
+    api/geode_link_pair_api.cpp
+    viz/frame/LinkPair.cpp
     viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp

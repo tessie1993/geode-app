@@ -27,8 +27,10 @@ import java.util.concurrent.atomic.AtomicLong
  * rule: Cast is the only internet use).
  *
  * Both fetch by plain HTTP GET from this phone's LAN address. A browser also POSTs its WebRTC offer once
- * ([WebRtcLink], the low-delay path whose media is encrypted), the one request with a body: native reads its
- * length from the headers and caps it, and the bytes are read under the same deadline. Every decision is native
+ * ([WebRtcLink], the low-delay path whose media is encrypted), and a computer that typed the short link
+ * ([pairUrl], no token in it) POSTs the code the sheet shows: the two requests with a body, whose length native
+ * reads from the headers and caps, the bytes read under the same deadline. Only a right code is answered with
+ * the token's path (native, core/viz/frame/LinkPair: the code, its tries and lock-out). Every decision is native
  * (core/viz/frame/LinkShare): which path is what under the random [token] (16 bytes from [SecureRandom], new
  * per stream, compared in constant time), the status, and every header (no-store, nosniff, no-referrer, the
  * page's CSP, CORS on the stream's files for the receiver, which fetches from its own https origin). Nothing
@@ -108,6 +110,7 @@ internal class LiveHttpServer(
     ) {
         tvAddress = ipv4(tv)
         wants = (if (forTv) GeodeNative.LINK_WANT_TV else 0) or (if (forLink) GeodeNative.LINK_WANT_LINK else 0)
+        GeodeNative.linkPairOpen(forLink, SystemClock.elapsedRealtime())
     }
 
     /** The port the OS gave the server; valid after [start]. */
@@ -129,6 +132,10 @@ internal class LiveHttpServer(
     val shareUrl: String
         get() = GeodeNative.linkShareUrl(ipv4(bindAddress), port, token) ?: pageUrl
 
+    /** The short link a computer types, with no token: its page asks for the code the sheet shows. */
+    val pairUrl: String
+        get() = GeodeNative.linkPairUrl(ipv4(bindAddress), port) ?: "http://${bindAddress.hostAddress}:$port/"
+
     /** A short name for this link ("Blue Comet") to show beside its QR code. */
     val label: String get() = GeodeNative.linkLabel(token)
 
@@ -144,6 +151,7 @@ internal class LiveHttpServer(
 
     fun stop() {
         stopped = true
+        GeodeNative.linkPairOpen(false, 0L)
         bestEffort(TAG, "socket.close()") { socket.close() }
         pool.shutdownNow()
         deadlines.shutdownNow()
@@ -246,11 +254,21 @@ internal class LiveHttpServer(
         val resource = route[0].toInt()
         if (status == STATUS_NOT_FOUND) notFound.incrementAndGet()
         if (status != STATUS_OK) return respond(out, status, resource, null)
-        if (resource == GeodeNative.LINK_STREAM) return feed(s, out, sendBody = parts[0] != "HEAD", keepOpen)
-        if (resource == GeodeNative.LINK_RTC) return offer(s, out, (head as RequestLine.Line).headers, deadlineNanos)
-        // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
-        val body = body(resource, route[1]) ?: return respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
-        return respond(out, STATUS_OK, resource, body, sendBody = parts[0] != "HEAD")
+        val sendBody = parts[0] != "HEAD"
+        return when (resource) {
+            GeodeNative.LINK_STREAM -> feed(s, out, sendBody, keepOpen)
+            GeodeNative.LINK_RTC -> offer(s, out, (head as RequestLine.Line).headers, deadlineNanos)
+            GeodeNative.LINK_PAIR -> pair(s, out, (head as RequestLine.Line).headers, deadlineNanos)
+            else -> {
+                // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
+                val body = body(resource, route[1])
+                if (body == null) {
+                    respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
+                } else {
+                    respond(out, STATUS_OK, resource, body, sendBody = sendBody)
+                }
+            }
+        }
     }
 
     /**
@@ -322,15 +340,50 @@ internal class LiveHttpServer(
         headers: List<String>,
         deadlineNanos: Long,
     ): Boolean {
-        val length = GeodeNative.linkBodyLength(headers.toTypedArray(), GeodeNative.WEBRTC_OFFER_MAX.toLong())
-        when (length) {
-            GeodeNative.LINK_NO_BODY -> return respond(out, STATUS_LENGTH_REQUIRED, GeodeNative.LINK_RTC, null)
-            GeodeNative.LINK_BAD_BODY -> return respond(out, STATUS_TOO_LARGE, GeodeNative.LINK_RTC, null)
-        }
-        val body = RequestLineReader.readBody(s, deadlineNanos, length.toInt()) ?: return false
+        val body = postBody(s, out, headers, deadlineNanos, GeodeNative.LINK_RTC, GeodeNative.WEBRTC_OFFER_MAX.toLong()) ?: return false
         val (status, answer) = answerOffer(String(body, Charsets.US_ASCII))
         respond(out, status, GeodeNative.LINK_RTC, answer?.toByteArray(Charsets.US_ASCII))
         return false
+    }
+
+    /**
+     * The typed code (POST pair): native compares it and, when right, gives the token's path, the 200's body; a
+     * wrong one is 403, too soon after one or locked out 429, no pairing open 404. Never true: no TV fetch.
+     */
+    private fun pair(
+        s: Socket,
+        out: OutputStream,
+        headers: List<String>,
+        deadlineNanos: Long,
+    ): Boolean {
+        val body = postBody(s, out, headers, deadlineNanos, GeodeNative.LINK_PAIR, GeodeNative.LINK_PAIR_BODY_MAX) ?: return false
+        val path = arrayOfNulls<String>(1)
+        val status = GeodeNative.linkPairTry(String(body, Charsets.US_ASCII), SystemClock.elapsedRealtime(), token, path)
+        respond(out, status, GeodeNative.LINK_PAIR, path[0]?.toByteArray(Charsets.US_ASCII))
+        return false
+    }
+
+    /**
+     * A POST's body on [resource], at most [max] bytes by the length its headers announce (native); null when it
+     * was refused (411 or 413, answered here) or the client stopped sending.
+     */
+    private fun postBody(
+        s: Socket,
+        out: OutputStream,
+        headers: List<String>,
+        deadlineNanos: Long,
+        resource: Int,
+        max: Long,
+    ): ByteArray? {
+        val length = GeodeNative.linkBodyLength(headers.toTypedArray(), max)
+        val refused =
+            when (length) {
+                GeodeNative.LINK_NO_BODY -> STATUS_LENGTH_REQUIRED
+                GeodeNative.LINK_BAD_BODY -> STATUS_TOO_LARGE
+                else -> return RequestLineReader.readBody(s, deadlineNanos, length.toInt())
+            }
+        respond(out, refused, resource, null)
+        return null
     }
 
     /** Runs [write], closing [s] if it has not finished within [FEED_WRITE_MS] (the write then throws). */
@@ -367,6 +420,7 @@ internal class LiveHttpServer(
     ): ByteArray? =
         when (resource) {
             GeodeNative.LINK_PAGE, GeodeNative.LINK_SCRIPT, GeodeNative.LINK_STYLE -> GeodeNative.linkAsset(resource)
+            GeodeNative.LINK_PAIR_PAGE, GeodeNative.LINK_PAIR_SCRIPT -> GeodeNative.linkAsset(resource)
             GeodeNative.LINK_MASTER -> stream.masterPlaylist()?.toByteArray(Charsets.UTF_8)
             GeodeNative.LINK_PLAYLIST -> stream.playlist()?.toByteArray(Charsets.UTF_8)
             GeodeNative.LINK_INIT -> stream.initSegment()

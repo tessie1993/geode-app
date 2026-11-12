@@ -237,16 +237,6 @@ prism_rosette: midGain
 ribbon_storm: midGain
 ringed_planet: midGain
 scope: midGain
-shard_burst: midGain
-shard_needles: midGain
-shard_panes: midGain
-shard_ring: midGain
-shard_rods: midGain
-shard_spires: midGain
-shard_splinter: midGain
-shard_stair: midGain
-shard_tunnel: midGain
-shard_wall: midGain
 solar: midGain
 starfield: midGain
 supershape: midGain

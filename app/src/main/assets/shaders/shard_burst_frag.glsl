@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_strata
 //#include lib_shard
 
 // Shard Burst: a ball of glass the moment it shatters, turned about. Its skin
@@ -19,14 +20,22 @@ out vec4 fragColor;
 // cracks between them wavering; each facet is its own piece.
 //
 // Morph bursts it: from a cracked whole ball to facets flung outward, each as
-// far as its own share and tipped out of true. Worst case 100 steps and 3
-// faces, no noise.
+// far as its own share and tipped out of true.
+//
+// Formula, three balls (lib_strata): 0 the one ball, as it always was; 0.5
+// shells within shells, the ball nested inside itself, each a little under
+// half the last, gStrataIters of them; 1 the ball pierced by a Menger
+// sponge, square holes at every scale through its facets. The far fractal
+// follows: an Apollonian ball, a kaleidoscope dust, a Menger cube; a warped
+// haze of folded sheets hangs between.
+//
+// Worst case 100 steps and 3 faces, one ball a step and at most 3 folds of
+// the sponge, no noise; then the layers.
 
 #define BURST_R 1.5
 
-vec3 shardMap(vec3 p) {
-    p.xz = shardRot(uTime * SHARD_RATE(60)) * p.xz;
-    p.yz = shardRot(uTime * SHARD_RATE(23)) * p.yz;
+/** The ball in its own turned frame: x the distance, y the facet's number, z the edge's. `fling` scales Morph's push. */
+vec3 burstBall(vec3 p, float fling) {
     vec3 a = abs(p);
     float l = length(p);
     // The cube face the direction falls on: e0 out through it, e1 and e2 across it.
@@ -62,7 +71,7 @@ vec3 shardMap(vec3 p) {
     vec2 uc = (cell + 0.5) / 1.5 - 1.0;
     // Under 0.31 off a vector at least 1 long, so never zero.
     vec3 dir = normalize(e0 + uc.x * e1 + uc.y * e2 + gShardForm * 0.35 * (vec3(h, fract(7.7 * h), fract(3.1 * h)) - 0.5));
-    float push = gShardForm * (0.25 + 1.1 * h);
+    float push = fling * gShardForm * (0.25 + 1.1 * h);
     float gap = 0.015 + 0.05 * gShardForm;
     float s = abs(dot(p, dir) - BURST_R - push) - 0.04;
     float k = gap - crack;
@@ -73,11 +82,38 @@ vec3 shardMap(vec3 p) {
     return vec3(d, h, length(vec2(s, k)));
 }
 
+vec3 shardMap(vec3 p) {
+    p.xz = shardRot(uTime * SHARD_RATE(60)) * p.xz;
+    p.yz = shardRot(uTime * SHARD_RATE(23)) * p.yz;
+    vec3 a = vec3(1.0e3);
+    vec3 b = a;
+    vec3 c = a;
+    if (strataUses(0)) a = burstBall(p, 1.0);
+    if (strataUses(1)) {
+        // Shells within shells: the inner balls fling less, so their facets keep to their own band.
+        float s;
+        float grow;
+        float bound;
+        vec3 q = strataNest(p, BURST_R, 2.2, gStrataIters, s, grow, bound);
+        b = burstBall(q, 0.35);
+        b.x = min((b.x + 0.5 * (1.0 - grow)) * s, bound);
+        b.z *= s;
+    }
+    if (strataUses(2)) {
+        c = burstBall(p, 1.0);
+        float sponge = strataSponge(p, 2.3, gStrataIters);
+        c.z = min(c.z, length(vec2(c.x, sponge)));
+        c.x = max(c.x, sponge);
+    }
+    return strataBlend(a, b, c);
+}
+
 //#include lib_shard_march
 
 void main() {
     vec2 uv = view();
     shardSetup();
+    strataSetup(vec3(2.0, 0.0, 3.0), 1.0, 0.5, 0.7);
     gShardStride = 0.6;
     vec3 ro;
     vec3 rd;

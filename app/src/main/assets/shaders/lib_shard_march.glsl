@@ -5,10 +5,16 @@
 // calls it before its body (style_reads_test: noStyleDeclaresAFunctionAhead), so the
 // march comes after the style's map, as lib_opal_march does.
 //
-// INCLUDE ORDER: after lib_shard and after the style's shardMap.
+// Around the pieces it draws lib_strata's two other layers: the warped haze and the far fractal.
+//
+// INCLUDE ORDER: after lib_strata, lib_shard and the style's shardMap.
 
 vec3 shardField(vec3 p) {
-    return shardMap(shardBend(p));
+    p = shardBend(p);
+    // A second, finer warp on the Warp's bend (lib_strata's gStrataWarp: Warp, k2 FLOW and the
+    // mids): the pieces drift and flex in place. Along the way a whole number of cycles per 16.
+    p += 0.05 * gStrataWarp * sin(p.yzx * vec3(1.7, 1.5708, 1.7) + vec3(0.0, 2.0, 4.0) + uTime * SHARD_RATE(110));
+    return shardMap(p);
 }
 
 /** The field's gradient at p, unit length; straight back along the ray where the field is flat. */
@@ -86,5 +92,15 @@ vec3 shardTrace(vec3 ro, vec3 rd) {
             t += max(d * gShardStride, 0.25 * eps);
         }
     }
-    return acc + shardCol(gShardTone + 0.5 + 0.7 * glowId / max(glow, 1.0e-6)) * glow;
+    vec3 col = acc + shardCol(gShardTone + 0.5 + 0.7 * glowId / max(glow, 1.0e-6)) * glow;
+    // The middle layer (lib_strata): the warped haze between the eye and the reach, through the glass.
+    float dz = shardDither();
+    vec2 haze = strataHaze(ro, rd, 0.3, gShardFar, dz);
+    col += shardCol(gShardTone + 0.3 + haze.y) * haze.x * gStrataHazeGlow;
+    // The far layer, beyond the pieces, dimmed by every face the ray passed through.
+    if (through > 0.05) {
+        vec3 far = strataFar(ro, rd, 0.6 * gShardFar, 1.8 * gShardFar, dz);
+        col += shardCol(gShardTone + 0.65 + far.y) * far.x * gStrataFarGlow * through;
+    }
+    return col;
 }

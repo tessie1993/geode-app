@@ -218,6 +218,9 @@ The renderer runs these in order each frame.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
 - Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
+- `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
+- `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.

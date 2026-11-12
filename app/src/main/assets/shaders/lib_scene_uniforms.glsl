@@ -120,6 +120,13 @@ uniform float uTouchSpin;
  */
 uniform float uSteps;
 
+/**
+ * Formula, 0..1: which of a style's alternative formulas builds its shape (another fold, primitive,
+ * combine op or warp), crossfaded between neighbours so a change never pops. The reaction matrix moves
+ * it with the music; a style that has no alternatives never reads it and the linker drops it.
+ */
+uniform float uFormula;
+
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
     uv.x *= uResolution.x / uResolution.y;

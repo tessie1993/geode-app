@@ -89,6 +89,18 @@ int64_t aiffTimeUs(int64_t bytes, int bytesPerFrame, int sampleRate);
 // The byte offset of the frame playing at timeUs, held to the whole frames in dataBytes.
 int64_t aiffSeekOffset(int64_t timeUs, int bytesPerFrame, int sampleRate, int64_t dataBytes);
 
+// The player's extractor between the header and the end of the samples, which start at dataStart and run
+// dataBytes; it hands Media3 at most kAiffMaxSampleBytes at once.
+inline constexpr int kAiffMaxSampleBytes = 32 * 1024;
+// The bytes to pass over at `position` to reach the first sample; 0 on or past it.
+int64_t aiffGapBytes(int64_t position, int64_t dataStart);
+// The most to read at `position`; 0 once the samples are done.
+int aiffReadBytes(int64_t position, int64_t dataStart, int64_t dataBytes);
+// Of `pending` bytes held, those in whole frames, which go out now; a part frame waits.
+int aiffWholeBytes(int pending, int bytesPerFrame);
+// The start time of the `pending` bytes held, which end at `position`.
+int64_t aiffPendingTimeUs(int64_t position, int64_t dataStart, int pending, int bytesPerFrame, int sampleRate);
+
 class ByteSource {
 public:
     virtual ~ByteSource() = default;

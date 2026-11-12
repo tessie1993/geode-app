@@ -11,6 +11,8 @@ namespace geode::audio {
 // The highest rate every Android AAC-LC encoder accepts, and the 44.1 kHz family's base.
 inline constexpr int kAacMaxRateHz = 48000;
 inline constexpr int kCdRateHz = 44100;
+// A mix's clips are all brought to this, so they can share one AAC track.
+inline constexpr int kMixRateHz = kAacMaxRateHz;
 
 // The AAC rate for a source: its own rate up to 48 kHz; above it 44.1 kHz for the 44.1k family (88.2,
 // 176.4 kHz) and 48 kHz for the rest, so the step down is a whole number and the resampler's box filter is

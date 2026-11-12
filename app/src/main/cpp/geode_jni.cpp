@@ -98,6 +98,20 @@ Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, ji
     return env->NewStringUTF(text.c_str());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspBandLabel(JNIEnv* env, jobject, jint band) {
+    char text[32] = {};
+    geode_dsp_band_label(band, text, static_cast<int>(sizeof text));
+    return env->NewStringUTF(text);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspDbLabel(JNIEnv* env, jobject, jint millibels) {
+    char text[32] = {};
+    geode_dsp_db_label(millibels, text, static_cast<int>(sizeof text));
+    return env->NewStringUTF(text);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetEnabled(JNIEnv*, jobject, jlong handle, jboolean enabled) {
     geode_dsp_set_enabled(dspOf(handle), enabled == JNI_TRUE);

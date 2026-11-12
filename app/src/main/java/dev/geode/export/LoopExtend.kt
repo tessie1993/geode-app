@@ -311,7 +311,7 @@ class LoopExtend(
                             maxDurationMs = 0L,
                             startMs = 0L,
                             // One AAC track carries one rate, so every clip is brought to the same one.
-                            outputRateHz = PcmResampler.MIX_RATE_HZ,
+                            outputRateHz = GeodeNative.mixRateHz(),
                             isCancelled = isCancelled,
                         ) { progress ->
                             onProgress(AUDIO_PROGRESS_SPAN * (index + progress) / clips.size)
@@ -331,7 +331,7 @@ class LoopExtend(
     /**
      * The clips become one AAC track, so they must agree on sample rate and channel count — a
      * track carries one codec configuration. [transcode] brings every clip to
-     * [PcmResampler.MIX_RATE_HZ], so in practice this now catches a mono clip among stereo ones.
+     * [GeodeNative.mixRateHz], so in practice this now catches a mono clip among stereo ones.
      * Rejecting the mix up front beats writing an hour of audio that plays at the wrong speed.
      */
     private fun joinable(clips: List<TranscodedClip>): AudioBuild {

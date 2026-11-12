@@ -26,6 +26,7 @@ void StyleSchedule::set(std::vector<StyleCue> cues, std::vector<std::string> bea
     beatsSinceCut_ = 0;
     started_ = false;
     lastBeatCount_ = 0.0f;
+    clockMs_ = 0.0;
     current_ = StyleCue{};
 }
 
@@ -73,6 +74,20 @@ const StyleCue* StyleSchedule::step(double timeMs, float beatCount) {
     cue.atMs = timeMs;
     cue.sceneId = cut_[cutIndex_];
     return change(cue);
+}
+
+const StyleCue* StyleSchedule::advance(float frameStepS, float motionRate, float beatCount) {
+    if (empty()) return nullptr;
+    if (!(motionRate > 0.0f) || !std::isfinite(motionRate)) {
+        // Still: the picture holds, so does the schedule. Only the beat count is followed, so the beats
+        // ticked through the silence are never counted when the music comes back.
+        if (started_) lastBeatCount_ = beatCount;
+        return nullptr;
+    }
+    const StyleCue* cue = step(clockMs_, beatCount);
+    const double stepMs = std::isfinite(frameStepS) && frameStepS > 0.0f ? static_cast<double>(frameStepS) * 1000.0 : 0.0;
+    clockMs_ += stepMs * static_cast<double>(std::min(motionRate, 1.0f));
+    return cue;
 }
 
 } // namespace geode::viz

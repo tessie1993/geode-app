@@ -18,7 +18,7 @@ out vec4 fragColor;
 // side chambers open off it wherever the rock gives way; the walls are cut
 // in level strata, each one a glowing line.
 //
-// Morph moves the rock: chambers open, join and close again. Worst case 72
+// Morph moves the rock: chambers open, join and close again. Worst case 90
 // steps, no noise.
 
 vec2 hollowMap(vec3 p) {
@@ -30,6 +30,8 @@ vec2 hollowMap(vec3 p) {
     float d = -hollowSmin(-chamber, -way, 0.5);
     return vec2(d, 4.5 * p.y + 0.8 * sin(q.x * 2.0 + q.z) + 0.5 * rock);
 }
+
+//#include lib_hollow_march
 
 void main() {
     vec2 uv = view();

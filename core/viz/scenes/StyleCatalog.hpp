@@ -4,7 +4,7 @@
 
 namespace geode::viz::styles {
 
-// Port of VisualStyleCatalog.kt: the per-family style tables the ids resolve through.
+// The per-family style tables the ids resolve through.
 struct CymaticsStyle {
     const char* id;
     int shaderStyle;
@@ -73,6 +73,8 @@ struct AcidStyle {
     float hueRate = 0.04f;
     float feedback = 0.955f;
     float modulate = 0.35f;
+    // Unread: the glitch it scaled fired on every hit, a hidden hit reaction, and is gone. Kept only so
+    // catalogue_test's old-table rows still line up; drop it with that test's columns.
     float glitch = 0.0f;
     float overdrive = 0.0f;
     float liquid = 0.0f;
@@ -99,6 +101,8 @@ struct MycoStyle {
     float crossBa = 0.0f;
     float selfB = 1.0f;
     float snap = 0.0f;
+    // Unread: the re-aim on every hit was a hidden hit reaction and is gone. Kept only so catalogue_test's
+    // old-table rows still line up; drop it with that test's columns.
     float reaim = 0.0f;
     float aniso = 0.0f;
     int look = 0;

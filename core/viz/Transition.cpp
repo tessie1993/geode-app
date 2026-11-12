@@ -26,9 +26,14 @@ const std::vector<TransitionCatalog::Def>& TransitionCatalog::library() {
     return library_;
 }
 
-std::vector<std::string> TransitionCatalog::allIds() {
+std::vector<std::string> TransitionCatalog::builtInIds() {
     std::vector<std::string> ids;
     for (int i = 0; i <= static_cast<int>(TransitionStyle::Zoom); i++) ids.emplace_back(transitionStyleId(static_cast<TransitionStyle>(i)));
+    return ids;
+}
+
+std::vector<std::string> TransitionCatalog::allIds() {
+    std::vector<std::string> ids = builtInIds();
     for (const auto& def : library()) ids.push_back(def.name);
     return ids;
 }

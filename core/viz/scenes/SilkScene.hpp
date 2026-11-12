@@ -73,15 +73,11 @@ private:
     SoundUniforms sound_;
     PcmPulse pcmPulse_;
     float pcmStrike_ = 0.0f;
-    // Band lanes and the three drum forces.
+    // Band lanes.
     float envBass_ = 0.0f;
     float envMid_ = 0.0f;
     float envTreble_ = 0.0f;
-    float kick_ = 0.0f;
-    float snare_ = 0.0f;
-    float hat_ = 0.0f;
-    float snareSign_ = 1.0f;
-    // The ring a kick (or a hard cut, or sound returning) throws out, from a centre the kick picks.
+    // The white ring a hard cut or sound returning throws out from the middle.
     float ringRadius_ = -1.0f;
     float ringCenterX_ = 0.5f;
     float ringCenterY_ = 0.5f;

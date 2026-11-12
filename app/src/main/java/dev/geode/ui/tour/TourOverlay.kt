@@ -8,24 +8,26 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +80,7 @@ import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
+import dev.geode.ui.theme.selectedGlow
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -303,20 +306,30 @@ private fun TourCard(
 }
 
 /**
- * A small glass line near the top while the tour waits on the user to do something in the app
- * itself (play a song), and for gesture tips. Not a dialog: the app underneath stays usable. It
- * sits inside the safe area and under a screen's top row of icons, so it covers none of them.
- * It eases in; the reduced-motion scheme drops the slide.
+ * A glass card near the top while the tour waits on the user to do something in the app itself
+ * (play a song), and for gesture tips. Not a dialog: the app underneath stays usable. Drawn last
+ * in the app's window, over every screen, sheet and the dock, inside the safe area and under a
+ * screen's top row of icons, so it covers none of them. The accent edge and glow set it apart
+ * from the app's own glass. It eases in; the reduced-motion scheme drops the slide.
+ *
+ * [onAction] is the main button (filled when [emphasized]); [secondaryLabel], when given, sits
+ * before it as a text button.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TourHint(
     text: String,
     actionLabel: String,
     onAction: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: () -> Unit = {},
+    emphasized: Boolean = true,
 ) {
     val motion = LocalGeodeMotion.current
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     val slide = with(LocalDensity.current) { HINT_SLIDE.roundToPx() }
+    val accent = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(GeodeRadius.Floating)
     Box(
         Modifier
             .fillMaxSize()
@@ -328,24 +341,38 @@ internal fun TourHint(
             visibleState = visible,
             enter = fadeIn(motion.defaultEffectsSpec()) + slideInVertically(motion.defaultSpatialSpec()) { -slide },
         ) {
-            Row(
+            Column(
                 Modifier
                     .padding(horizontal = GeodeSpacing.EdgeInset)
-                    .widthIn(max = CARD_MAX_WIDTH)
+                    .widthIn(max = HINT_MAX_WIDTH)
+                    .selectedGlow(selected = true, shape = shape)
                     // Denser than the pop-up's glass: there is no scrim under it, and the visual
                     // can be white.
-                    .floatingGlass(fillAlpha = HINT_FILL)
+                    .floatingGlass(shape = shape, fillAlpha = HINT_FILL, elevation = GeodeElevation.Overlay)
+                    .border(HINT_EDGE, accent.copy(alpha = HINT_EDGE_ALPHA), shape)
                     .semantics { liveRegion = LiveRegionMode.Polite }
-                    .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(start = GeodeSpacing.XL, end = GeodeSpacing.L, top = GeodeSpacing.L, bottom = GeodeSpacing.S),
             ) {
                 Text(
                     text,
-                    Modifier.weight(1f, fill = false).padding(vertical = GeodeSpacing.M),
-                    style = MaterialTheme.typography.bodyMedium,
+                    Modifier.padding(end = GeodeSpacing.S),
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                TextButton(onClick = onAction) { Text(actionLabel) }
+                Spacer(Modifier.height(GeodeSpacing.S))
+                // Wraps at large font sizes instead of squeezing the last button.
+                FlowRow(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S, Alignment.End),
+                ) {
+                    val target = Modifier.heightIn(min = GeodeSpacing.TouchTarget)
+                    if (secondaryLabel != null) TextButton(onClick = onSecondary, modifier = target) { Text(secondaryLabel) }
+                    if (emphasized) {
+                        Button(onClick = onAction, modifier = target) { Text(actionLabel) }
+                    } else {
+                        TextButton(onClick = onAction, modifier = target) { Text(actionLabel) }
+                    }
+                }
             }
         }
     }
@@ -353,7 +380,10 @@ internal fun TourHint(
 
 private const val SCRIM_ALPHA = 0.70f
 private const val ENTER_SCALE = 0.94f
-private const val HINT_FILL = 0.75f
+private const val HINT_FILL = 0.88f
+private const val HINT_EDGE_ALPHA = 0.7f
+private val HINT_EDGE = 1.5.dp
+private val HINT_MAX_WIDTH = 440.dp
 private val HOLE_PADDING = 8.dp
 private val MIN_HOLE = GeodeSpacing.TouchTarget
 private val CARD_MAX_WIDTH = 360.dp

@@ -76,7 +76,6 @@ import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
 import dev.geode.geodeContainer
 import dev.geode.model.ScreenRotation
-import dev.geode.render.scene.MilkdropEngine
 import dev.geode.ui.cast.ComputerLinkRow
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
@@ -478,7 +477,7 @@ private fun SourceRow(
 }
 
 /**
- * What Random picks from: styles, saved presets and, where the engine is built in, MilkDrop presets.
+ * What Random picks from: styles, saved presets and MilkDrop presets.
  * One row with the picks as its value; the menu stays open while they are ticked.
  */
 @Composable
@@ -490,9 +489,7 @@ private fun RandomPicksRow(
         buildList {
             add(RandomPick(R.string.autoviz_pick_styles, viz.randomIncludeStyles, viewModel::setRandomIncludeStyles))
             add(RandomPick(R.string.visuals_qs_pick_presets, viz.randomIncludePresets, viewModel::setRandomIncludePresets))
-            if (MilkdropEngine.available) {
-                add(RandomPick(R.string.visuals_qs_pick_milk, viz.randomIncludeMilk, viewModel::setRandomIncludeMilk))
-            }
+            add(RandomPick(R.string.visuals_qs_pick_milk, viz.randomIncludeMilk, viewModel::setRandomIncludeMilk))
         }
     val names = picks.filter { it.checked }.map { stringResource(it.labelRes) }
     MenuRow(

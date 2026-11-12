@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import dev.geode.data.MediaStoreSource
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
@@ -9,7 +10,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
-import dev.geode.render.scene.SceneIds
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import java.io.File
 internal class TemplateController(
     private val application: Application,
     private val templates: TemplateRepository,
+    private val mediaStore: MediaStoreSource,
     private val scope: CoroutineScope,
     private val storeScope: CoroutineScope,
     private val host: Host,
@@ -68,7 +70,7 @@ internal class TemplateController(
         val milkPath = host.activeMilkPath
         storeScope.launch {
             val milkSource =
-                if (s.sceneId == SceneIds.MILKDROP) {
+                if (s.sceneId == GeodeNative.STYLE_MILKDROP) {
                     milkPath?.let { src -> runCatching { File(src).readText() }.getOrNull() }
                 } else {
                     null
@@ -124,7 +126,7 @@ internal class TemplateController(
         onResult: (TemplateImport) -> Unit,
     ) {
         storeScope.launch {
-            val result = templates.importFrom { runCatching { application.contentResolver.openInputStream(uri) }.getOrNull() }
+            val result = templates.importFrom(mediaStore.opener(uri))
             withContext(Dispatchers.Main.immediate) { onResult(result) }
         }
     }

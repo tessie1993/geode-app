@@ -13,6 +13,8 @@ static_assert(geode::viz::stage::kCastLeadsAuto == GEODE_STAGE_CAST_LEADS_AUTO);
 static_assert(geode::viz::stage::kDisplayOn == GEODE_STAGE_DISPLAY_ON);
 static_assert(geode::viz::stage::kDisplayFailureShift == GEODE_STAGE_DISPLAY_FAILURE_SHIFT);
 static_assert(geode::viz::stage::kPresentFound == GEODE_STAGE_PRESENT_FOUND);
+static_assert(geode::viz::stage::kHostCasting == GEODE_STAGE_HOST_CASTING);
+static_assert(geode::viz::stage::kHostOpaque == GEODE_STAGE_HOST_OPAQUE && geode::viz::stage::kHostFaint == GEODE_STAGE_HOST_FAINT);
 
 extern "C" {
 
@@ -51,6 +53,19 @@ int geode_surface_fps_choices(int* out, int capacity) {
 }
 
 unsigned geode_stage_run(unsigned flags) { return geode::viz::stage::run(flags); }
+
+int geode_stage_host(unsigned flags, const int* bounds, int window_w, int window_h, int* rect_out) {
+    geode::viz::frame::tee::Rect b;
+    if (bounds) b = {bounds[0], bounds[1], bounds[2], bounds[3]};
+    const geode::viz::stage::Host h = geode::viz::stage::host(flags, b, window_w, window_h);
+    if (rect_out) {
+        rect_out[0] = h.rect.x0;
+        rect_out[1] = h.rect.y0;
+        rect_out[2] = h.rect.x1;
+        rect_out[3] = h.rect.y1;
+    }
+    return h.alpha;
+}
 
 int geode_stage_display_eligible(unsigned flags) { return geode::viz::stage::displayEligible(flags) ? 1 : 0; }
 

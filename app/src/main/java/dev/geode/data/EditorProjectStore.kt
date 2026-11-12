@@ -28,7 +28,7 @@ import java.util.UUID
  * left out of [list] rather than failing the whole list. All of it is plain `java.io.File`, so the
  * store runs the same off-device; only the [Context] constructor knows where `filesDir` is.
  *
- * [defaultsFor] is Settings › Export's per-destination defaults, which [StudioProject.create] copies
+ * [defaultsFor] is Settings › Export's per-destination defaults, which `ui/EditorController` copies
  * into each new project; it lives here so whoever creates a project needs only this store.
  */
 class EditorProjectStore(

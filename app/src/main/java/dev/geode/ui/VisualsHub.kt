@@ -63,7 +63,6 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -157,7 +156,6 @@ private fun VisualsHubContent(
     // A page asked for from outside (the tour's replay): the sheet comes up on it.
     LaunchedEffect(requestedPage) {
         val page = requestedPage ?: return@LaunchedEffect
-        nav.closeCustomizeCard()
         nav.openTab(page)
         nav.showSheet()
         onRequestedPageShown()
@@ -196,7 +194,7 @@ private fun VisualsHubContent(
     val view = LocalView.current
     // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
     // The MilkDrop page shows it itself.
-    val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
+    val milkError = viz.shaderError?.takeIf { viz.sceneId == GeodeNative.STYLE_MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
         if (milkError != null && !pip && !onMilkPage) {
@@ -204,6 +202,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
+    StageWarmNote(visualizerView, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
@@ -439,8 +438,8 @@ private fun VisualsHubContent(
                     entryProvider = { page ->
                         NavEntry(page) {
                             when (page) {
-                                VisualsPage.STYLES -> StylesTab(viewModel)
-                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView, nav = nav)
+                                VisualsPage.STYLES -> StylesTab(viewModel, visualizerView, milkFiles)
+                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                                 VisualsPage.MILKDROP ->
                                     MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
@@ -462,7 +461,11 @@ private fun VisualsHubContent(
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
-                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
+                // Customize on Quick knobs, its editor open: the groups start collapsed, and this asked for the editor.
+                context.geodeContainer.customizeGroups.run {
+                    selectTab(CustomizeCategory.QUICK_KNOBS.name)
+                    expand("${CustomizeCategory.QUICK_KNOBS.name}/knob_editor")
+                }
             },
             modifier = Modifier.fillMaxSize(),
         )

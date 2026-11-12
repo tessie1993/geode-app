@@ -261,6 +261,7 @@ private fun LibraryContent(
             LibraryHeader(onSearch = { searchOpen = true })
         }
         if (!granted) {
+            PermissionRationales.Shown()
             val canAskAgain = access.status != PermissionStatus.PERMANENTLY_DENIED
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(

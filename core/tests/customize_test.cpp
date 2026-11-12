@@ -25,6 +25,8 @@ namespace {
 
 int failures = 0;
 
+constexpr size_t kGroupMax = 8;
+
 void check(bool ok, const std::string& what) {
     if (!ok) {
         std::printf("FAIL: %s\n", what.c_str());
@@ -120,6 +122,8 @@ void basicsAreFirstFewAndExpertHasNone() {
             check(seen[section.category] == 0, "Basics come first: " + where);
             check(section.controls.size() >= 1 && section.controls.size() <= 4, "Basics hold one to four controls: " + where);
         }
+        // Each section is a collapsible group in its tab; a long one would hide a wall of rows behind one header.
+        check(section.controls.size() <= kGroupMax, "a group holds at most eight controls: " + where);
         ++seen[section.category];
     }
     for (int i = 0; i < customize::kCategoryCount; ++i) {
@@ -412,7 +416,12 @@ void categoriesAndSectionsFollowTheStyle() {
           "Pool is a shader style off the rig");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
-    check(shownSection("fluid", "ENGINE/fluid_flow") && shownSection("fluid", "ENGINE/fluid_look"), "Fluid's engine in Engine");
+    check(shownSection("fluid", "ENGINE/fluid_flow") && shownSection("fluid", "ENGINE/fluid_look") &&
+              shownSection("fluid", "ENGINE/fluid_layers"),
+          "Fluid's engine in Engine");
+    check(shownSection("fluid", "SHAPE/emitters") && shownSection("fluid", "SHAPE/stirrers") &&
+              shownSection("fluid", "SHAPE/fluid_quality"),
+          "Fluid's emitters, stirrers and quality in Shape");
     check(!shownSection("fluid", "ENGINE/plate") && !shownSection("fluid", "ENGINE/milkdrop"), "only its own engine on Fluid");
     check(shownSection("milkdrop", "ENGINE/milkdrop"), "MilkDrop's engine in Engine");
     check(customize::shows(Category::Engine, "cymatics") && !customize::shows(Category::Engine, "julia") &&

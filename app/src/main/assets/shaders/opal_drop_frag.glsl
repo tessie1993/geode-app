@@ -18,7 +18,7 @@ out vec4 fragColor;
 // droplets thrown out round it, each still on its neck. Turned about.
 //
 // Morph throws the crown: from buds on the body, out on thinning necks, to
-// free droplets. Worst case 80 steps and 4 skins, no noise.
+// free droplets. Worst case 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     p.xz = opalRot(uTime * OPAL_RATE(60)) * p.xz;
@@ -36,6 +36,8 @@ vec2 opalMap(vec3 p) {
     float d = opalSmin(body, opalSmin(bud, neck, 0.2), 0.3);
     return vec2(d, 5.0 * length(p) + 0.5);
 }
+
+//#include lib_opal_march
 
 void main() {
     vec2 uv = view();

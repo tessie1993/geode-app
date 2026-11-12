@@ -8,7 +8,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.TapRenderersFactory
@@ -182,7 +181,7 @@ class PlaybackSession internal constructor(
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
     fun applyPrefs(p: PlayerPrefs) {
-        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
+        player.playbackParameters = PlaybackParameters(p.speed, GeodeNative.playbackPitchRatio(p.pitchSemitones))
         player.skipSilenceEnabled = p.skipSilence
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)

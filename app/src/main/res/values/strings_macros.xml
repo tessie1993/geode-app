@@ -40,6 +40,14 @@
     <string name="macro_add_random_more">Add more</string>
     <string name="macro_add_random_count_a11y">How many random parameters to add</string>
     <string name="macro_add_random_none">Nothing left to add on this style.</string>
+    <string name="mod_macro_knob">Knob</string>
+    <string name="mod_macro_knob_none">Pick a knob</string>
+    <string name="mod_on_moment">On a moment</string>
+    <string name="mod_moment_free">Never, runs free</string>
+    <string name="mod_moment_note_start">A note start</string>
+    <string name="macro_knob_moved_by_wave">turned by a wave</string>
+    <string name="macro_knob_moved_by_envelope">turned by an envelope</string>
+    <string name="macro_knob_moved_by_both">turned by a wave and an envelope</string>
     <plurals name="macro_add_random_go">
         <item quantity="one">Add %1$d</item>
         <item quantity="other">Add %1$d</item>

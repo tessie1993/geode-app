@@ -13,7 +13,7 @@ namespace geode::viz::frame::hls {
 
 // The timing of Cast's live HLS stream (#656), beside the frame clock that stamps its PTS (#572).
 //
-// cast/LiveSegments (Kotlin) cuts the fragmented MP4 the encoder's muxer writes into an init segment
+// core/cast/LiveSegments cuts the fragmented MP4 the encoder's muxer writes into an init segment
 // (ftyp + moov) and one media segment per moof + mdat, keeps their bytes and serves them. What each
 // segment lasts, the playlist's TARGETDURATION and the playlist text are decided here. A segment's
 // duration is media time read from the fragment itself: the sum of the video track's sample durations in
@@ -227,7 +227,7 @@ inline int targetDuration(double nominalSec) {
 // kStartSegments of them: a playlist shorter than where the receiver starts stalls it. Only the newest
 // kWindow are listed. A duration of 0 (a fragment that could not be read) is listed as the nominal
 // segment, which is what the fragment really holds near enough, not as a 1 ms sliver. The URIs are the
-// server's (cast/LiveHttpServer routes them): the init segment's, and each segment's prefix + sequence +
+// server's (core/cast/LiveHttp routes them): the init segment's, and each segment's prefix + sequence +
 // suffix.
 inline std::string playlist(int64_t firstSequence, const double* durations, int count, const char* initUri,
                             const char* segmentPrefix, const char* segmentSuffix) {
@@ -390,7 +390,7 @@ inline bool rewriteTraf(const uint8_t* p, size_t n, Tracks& tracks, int64_t moof
 
 }  // namespace detail
 
-// Rewrites one fragment (its moof then its mdat, as cast/LiveSegments cuts them) into a self-contained
+// Rewrites one fragment (its moof then its mdat, as core/cast/LiveSegments cuts them) into a self-contained
 // HLS segment: see the top of this file. moofAt is the moof's position in the muxer's continuous output
 // (what its absolute base offsets count from). decodeTimes holds each init track's running decode time
 // (kMaxTracks of them, in init order, from 0): read for the tfdt written, then moved on by this

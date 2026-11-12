@@ -33,6 +33,7 @@ enum class ParamSlot : int {
 // is not a param: set() refuses it, the wire reads it as its default, and no look saves it.
 inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::shake,
+                                               ParamSlot::beatResponse,
                                                ParamSlot::flash,
                                                ParamSlot::glitch,
                                                ParamSlot::strobe,

@@ -39,11 +39,14 @@ public:
     float velScaleX() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridWidth(), 1)); }
     float velScaleY() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridHeight(), 1)); }
     void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
+    // The fingers' kicks alone (Settings › Touch › Smear, viz/TouchSmear): no sound, no curl, `dissipation` per second.
+    void stepTouch(float dt, float dissipation);
     void release() { sim_.release(); }
 
 private:
     static constexpr int kGridRes = 64;
     static constexpr float kKickForce = 0.22f;
+    static constexpr float kVelocityDissipation = 0.2f;
 
     FluidSim sim_;
     Emitters emitters_;

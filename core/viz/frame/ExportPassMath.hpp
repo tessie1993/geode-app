@@ -127,6 +127,45 @@ inline int tileHeight(int tileWidth, float textPx, int placement) {
     return std::clamp(truncate(std::ceil(textPx * kSingleHeight)), 1, kMaxTilePx);
 }
 
+// The paint the shell rasterises the wordmark with (white bold sans): its size and alpha, letter spacing in ems,
+// and a soft black shadow whose radius follows the text so it reads on a bright frame at any size.
+constexpr float kLetterSpacingEm = 0.04f;
+constexpr float kShadowFraction = 0.12f;
+constexpr int kShadowAlpha = 70;
+struct Paint {
+    float textPx = 0.0f;
+    int alpha = 0;
+    float letterSpacingEm = 0.0f;
+    float shadowRadiusPx = 0.0f;
+    int shadowAlpha = 0;
+};
+
+inline Paint paint(int shortSide, int placement) {
+    const float px = textPx(shortSide, placement);
+    return {px, textAlpha(placement), kLetterSpacingEm, px * kShadowFraction, kShadowAlpha};
+}
+
+// The tile for the text as that paint measured it (width, and the font's ascent and descent at textPx), and
+// where the text sits in it: the canvas turned by angleDegrees about the pivot, the text centred across, and
+// its ascent..descent centred on the tile's middle row.
+struct Raster {
+    int width = 0;
+    int height = 0;
+    float angleDegrees = 0.0f;
+    float pivotX = 0.0f;
+    float pivotY = 0.0f;
+    float textX = 0.0f;
+    float textY = 0.0f;
+};
+
+inline Raster raster(float textWidth, float ascent, float descent, float textPx, int placement) {
+    const int w = tileWidth(textWidth, textPx, placement);
+    const int h = tileHeight(w, textPx, placement);
+    const float fw = static_cast<float>(w);
+    const float fh = static_cast<float>(h);
+    return {w, h, angleDegrees(placement), fw / 2.0f, fh / 2.0f, (fw - textWidth) / 2.0f, fh / 2.0f - (ascent + descent) / 2.0f};
+}
+
 // Where the tile lands: texture coordinates are (frame fraction, top down - origin) × tiles, so the tiled
 // pattern is origin 0 and a single mark is its top-left corner in the frame with the tile drawn 1:1 and
 // nothing outside it (clip).

@@ -9,13 +9,13 @@
 namespace geode::viz {
 
 const std::array<SceneParams::Palette, 21>& SceneParams::palettes() {
+    // The classic rows of the palette library (viz/PaletteTable.inc), so the two cannot drift.
     static const std::array<Palette, 21> kPalettes = {{
-        {"Spectrum", 0.0f, 1.0f},   {"Neon", 0.5f, 0.45f},    {"Fire", 0.0f, 0.14f},    {"Ocean", 0.5f, 0.2f},
-        {"Mono", 0.6f, 0.02f},      {"Candy", 0.85f, 0.5f},   {"Forest", 0.33f, 0.18f}, {"Aurora", 0.45f, 0.7f},
-        {"Sunset", 0.05f, 0.3f},    {"Ice", 0.55f, 0.15f},    {"Vapor", 0.78f, 0.35f},  {"Toxic", 0.25f, 0.25f},
-        {"Royal", 0.7f, 0.25f},     {"Blush", 0.93f, 0.12f},  {"Copper", 0.07f, 0.1f},  {"Mint", 0.4f, 0.12f},
-        {"Galaxy", 0.65f, 0.5f},    {"Cherry", 0.97f, 0.08f}, {"Cyan", 0.5f, 0.08f},    {"Magenta", 0.833f, 0.08f},
-        {"Yellow", 0.167f, 0.08f},
+#define GEODE_CLASSIC(id, name, base, range) {name, base, range},
+#define GEODE_COLOURS(...)
+#include "viz/PaletteTable.inc"
+#undef GEODE_COLOURS
+#undef GEODE_CLASSIC
     }};
     return kPalettes;
 }
@@ -49,7 +49,7 @@ float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f 
 // The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
 // but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs
 // rewriting (params_schema_test --write): a row added to viz/ParamTable.inc fails here first, on purpose.
-static_assert(SceneParams::kFieldCount == 178, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
+static_assert(SceneParams::kFieldCount == 187, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
 
 namespace {
 

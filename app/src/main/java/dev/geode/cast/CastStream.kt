@@ -68,8 +68,6 @@ internal class CastStream(
 ) {
     private val appContext = context.applicationContext
     private val prefsFiles = appContext.geodeContainer.prefsFiles
-    private val segments = LiveSegments()
-
     private val link: LinkAddress = lanLinkAddress(appContext) ?: throw NoLanAddress()
 
     /** The Wi-Fi or Ethernet address the stream is served from. */
@@ -77,7 +75,7 @@ internal class CastStream(
 
     /** WebRTC for browsers, bound to the same address; closed after the server and the encoder stop. */
     private val webrtc = WebRtcLink(address, link.prefixLength)
-    private val server = LiveHttpServer(segments, address, link.prefixLength, webrtc::answer)
+    private val server = LiveLink(address, link.prefixLength, webrtc)
 
     /** Who may connect: the Cast device at [tv] while [forTv], the Wi-Fi's subnet while [forLink] (native rule). */
     fun admit(
@@ -106,11 +104,14 @@ internal class CastStream(
     /** The page a browser opens ("Show on a computer"), as the user is shown it (no dotted address); valid after [start]. */
     val shareUrl: String get() = server.shareUrl
 
+    /** The short link a computer types (no token; the page asks for the code the sheet shows); valid after [start]. */
+    val pairUrl: String get() = server.pairUrl
+
     /** The link's short name, shown beside its QR code. */
     val shareLabel: String get() = server.label
 
     /** True once the playlist lists enough segments for the receiver to start on. */
-    val isReady: Boolean get() = segments.playlist() != null
+    val isReady: Boolean get() = server.isReady
 
     fun start() {
         try {
@@ -184,10 +185,10 @@ internal class CastStream(
     private var mirroredMilk: String? = null
 
     /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
-    val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
+    val isFrozen: Boolean get() = server.msSinceLastSegment > FROZEN_MS
 
     private fun renderLoop() {
-        val encoder = CastEncoder(segments, webrtc::video)
+        val encoder = CastEncoder(server.sink, webrtc::video)
         val egl = EncoderSurface(encoder.surface)
         val audio = AudioPump(encoder, musicInput, webrtc)
         var fallback: VisualizerRenderer? = null
@@ -209,9 +210,10 @@ internal class CastStream(
                 val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 val now = System.nanoTime()
                 val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, encoder.width, encoder.height)
-                val stageDue = tee != 0L && fallback == null && now - teeOpenedNs < STAGE_FIRST_COPY_NS
-                if (!fromStage && stageDue) {
-                    // The stage's first copy is a frame away: wait for it rather than build a second renderer.
+                val stageDraws = GeodeNative.stageRun(CastMirror.stageFlags) and GeodeNative.STAGE_DRAWS != 0
+                if (!fromStage && tee != 0L && GeodeNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
+                    // The stage is on screen and its first copy is coming (a new surface stages its scene over
+                    // several frames): wait for it rather than have a second renderer show another visual first.
                     audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
                     continue
                 }
@@ -420,9 +422,6 @@ internal class CastStream(
 
         /** The fallback renderer is freed after the stage has led this long (30 s): it costs scenes and a sound engine. */
         const val FALLBACK_IDLE_NS = 30_000_000_000L
-
-        /** How long a new stream waits for the stage's first copy before the fallback draws (half a second). */
-        const val STAGE_FIRST_COPY_NS = 500_000_000L
 
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active

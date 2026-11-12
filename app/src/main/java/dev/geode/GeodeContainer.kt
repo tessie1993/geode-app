@@ -13,6 +13,8 @@ import dev.geode.data.AutoDirectorCodec
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourRepository
+import dev.geode.data.CustomizeGroupsCodec
+import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeneralSettingsRepository
 import dev.geode.data.GeodePrefsFiles
@@ -78,12 +80,15 @@ class GeodeContainer(
     /** The Styles grid's favourites and recents. */
     val styleShelf = StyleShelfStore(PrefsSettingsRepository(prefsFiles.viz, StyleShelfCodec, appScope), appScope)
 
+    /** Customize's tab and the groups the user opened. */
+    val customizeGroups = CustomizeGroupsStore(PrefsSettingsRepository(prefsFiles.general, CustomizeGroupsCodec, appScope), appScope)
+
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
-    /** The `ContentResolver` source the screens reach their consent requests and picked-folder grants through. */
+    /** The `ContentResolver` source the screens and controllers reach consent requests, grants and picked documents through. */
     val mediaStore: MediaStoreSource by lazy {
-        MediaStoreSource(context.applicationContext.contentResolver, Dispatchers.IO)
+        MediaStoreSource(context.applicationContext, Dispatchers.IO)
     }
 
     /** The checks an audio file another app opened passes before it plays ("Open with"). */

@@ -45,7 +45,7 @@ enum class CustomizeCategory(
     }
 }
 
-/** One row of the native map: a category's Basics (always open, free) or a Pro section that drops open. */
+/** One row of the native map, one collapsible group in its tab: a category's Basics (free) or a Pro section. */
 internal data class CustomizeSection(
     val category: CustomizeCategory,
     /** Unique inside its category; the open ones are saved by [path]. */
@@ -56,7 +56,7 @@ internal data class CustomizeSection(
 ) {
     val path: String get() = "${category.name}/$id"
 
-    /** The words on the section's header. Basics has none: it is the top of the category. */
+    /** The words on the group's header. */
     val title: String get() = SECTION_TITLES[id] ?: id.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
@@ -74,6 +74,8 @@ private val SECTION_TITLES =
         "particles" to "Particles",
         "journey" to "Journey",
         "emitters" to "Emitters",
+        "stirrers" to "Stirrers",
+        "fluid_quality" to "Quality",
         "drift" to "Drift",
         "tunnel" to "Tunnel",
         "spiral_aim" to "Spiral & aim",
@@ -94,7 +96,8 @@ private val SECTION_TITLES =
         "envelopes" to "Envelopes",
         "waves" to "Waves",
         "fluid_flow" to "Fluid: flow",
-        "fluid_look" to "Fluid: glow and layers",
+        "fluid_look" to "Fluid: glow",
+        "fluid_layers" to "Fluid: layers",
         "plate" to "Plate",
         "plate_look" to "Plate: look",
         "milkdrop" to "MilkDrop",
@@ -120,13 +123,6 @@ internal object CustomizeMapTable {
     }
 
     fun sectionsOf(category: CustomizeCategory): List<CustomizeSection> = sections.filter { it.category == category }
-
-    private val byControl: Map<String, CustomizeCategory> by lazy {
-        sections.flatMap { section -> section.controls.map { it to section.category } }.toMap()
-    }
-
-    /** The category the engine files [control] under, or null for a name the map does not have. */
-    fun categoryOf(control: String): CustomizeCategory? = byControl[control]
 
     /** Every control in a Basics section, as the engine says. */
     val basicControls: Set<String> by lazy { sections.filter { it.basics }.flatMapTo(mutableSetOf()) { it.controls } }

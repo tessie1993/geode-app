@@ -36,10 +36,60 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.export.BatchTrack
-import dev.geode.export.RenderPlaylist
-import dev.geode.export.RenderScope
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.ui.pro.ProBadge
+
+/** One track a render covers: its audio URI and its title. */
+data class BatchTrack(
+    val uri: String,
+    val title: String,
+)
+
+/** A playlist the Render tab can batch: saved or smart, already resolved to its tracks. */
+data class RenderPlaylist(
+    val name: String,
+    val tracks: List<BatchTrack>,
+)
+
+/**
+ * What Studio › Render's Render button covers. Only [CURRENT_TRACK] is a single render; every
+ * other scope is a batch, rendered one track after another, and batches are Pro. The name is saved.
+ */
+enum class RenderScope {
+    CURRENT_TRACK,
+
+    /** What is queued in the Player right now (the glossary's queue, not a saved playlist). */
+    PLAY_QUEUE,
+
+    /** One saved or smart playlist, picked on the Render tab. */
+    PLAYLIST,
+
+    /** Tracks ticked in the Render tab's track checklist. */
+    CHOSEN_TRACKS,
+    ;
+
+    val isBatch: Boolean get() = this != CURRENT_TRACK
+
+    companion object {
+        /** The tracks [scope] renders, in the order and with the repeats dropped as native picks them. */
+        fun tracksFor(
+            scope: RenderScope,
+            current: BatchTrack?,
+            queue: List<BatchTrack>,
+            playlist: List<BatchTrack>,
+            chosen: List<BatchTrack>,
+        ): List<BatchTrack> {
+            val tracks =
+                when (scope) {
+                    CURRENT_TRACK -> listOfNotNull(current)
+                    PLAY_QUEUE -> queue
+                    PLAYLIST -> playlist
+                    CHOSEN_TRACKS -> chosen
+                }
+            return GeodeNative.renderBatchOrder(Array(tracks.size) { tracks[it].uri }).map { tracks[it] }
+        }
+    }
+}
 
 @Composable
 internal fun renderScopeLabel(scope: RenderScope): String =

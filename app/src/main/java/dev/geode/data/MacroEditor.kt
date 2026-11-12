@@ -72,6 +72,41 @@ data class MacroEditorState(
     val curves: List<String> = emptyList(),
 )
 
+/**
+ * What the waves and envelopes on a knob add to its turn on the visual now ([add]), the most they can take it down and
+ * up ([low], [high]), and who turns it ([sources]: [WAVE], [ENVELOPE] or both).
+ */
+data class MacroLiveMod(
+    val add: Float,
+    val sources: Int,
+    val low: Float,
+    val high: Float,
+) {
+    companion object {
+        const val WAVE: Int = 1
+        const val ENVELOPE: Int = 2
+    }
+}
+
+/** The knobs' live modulation (core/viz/MacroBank's liveModsText, `geode_macro_bank_live_mods`), by knob id. */
+object MacroLiveTable {
+    private const val MOD_FIELDS = 6
+
+    fun parse(text: String): Map<Int, MacroLiveMod> =
+        text
+            .lineSequence()
+            .map { it.split('|') }
+            .filter { it.size == MOD_FIELDS && it[0] == "mod" }
+            .mapNotNull { f ->
+                val id = f[1].toIntOrNull() ?: return@mapNotNull null
+                val add = f[2].toFloatOrNull() ?: return@mapNotNull null
+                val sources = f[3].toIntOrNull() ?: return@mapNotNull null
+                val low = f[4].toFloatOrNull() ?: return@mapNotNull null
+                val high = f[5].toFloatOrNull() ?: return@mapNotNull null
+                id to MacroLiveMod(add, sources, low, high)
+            }.toMap()
+}
+
 /** A Customize slider a knob can move: its modulation [target], its Customize [category] and the knobs that move it now. */
 data class MacroControl(
     val target: String,

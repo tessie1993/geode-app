@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "viz/Params.hpp"
+#include "viz/TouchField.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
@@ -221,6 +222,8 @@ constexpr std::array<Spin, 22> kSpinning = {{
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
+// The Customize control a cymatics style can hold (its ParamKeys string).
+constexpr const char* kGeometryKey = "Geometry";
 
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",
                                                 "MILKDROP", "FLUID", "CURL_FLOW", "CYMATICS"};
@@ -368,7 +371,7 @@ std::string build() {
     // A cymatics style that draws on one plate geometry overrides the user's Geometry control.
     for (const auto& id : styles::cymaticsIds()) {
         const int geometry = styles::cymatics(id)->geometryOverride;
-        if (geometry >= 0) out += "override|" + id + "|Geometry|" + std::to_string(geometry) + "\n";
+        if (geometry >= 0) out += "override|" + id + "|" + kGeometryKey + "|" + std::to_string(geometry) + "\n";
     }
     // Every control that is NOT universal, by its key, from the params schema's meta rows in wire order
     // (a control of several fields once): the composite pass applies the rest to the finished frame.
@@ -387,9 +390,11 @@ std::string build() {
     range("Standing waves", 1.0f, static_cast<float>(cymatics::kMaxRenderedModes));
     range("Zoom", kTouchZoom.min, kTouchZoom.max);
     range("Rotation", kTouchRotation.min, kTouchRotation.max);
-    // The Fluid tab's quality chips are labelled in Kotlin; this says how many tiers they index.
+    // The Fluid tab's quality chips are labelled by the shell; this says how many tiers they index.
     out += "value|fluidTiers|" + std::to_string(fluid::quality::kTierCount) + "\n";
     out += "value|touchRotationPerDegree|" + number(kTouchRotationPerDegree) + "\n";
+    // The fingers the touch field takes (geode_viz_set_touch); the shell collects no more than this.
+    out += "value|touchPoints|" + std::to_string(TouchField::kMaxPoints) + "\n";
     return out;
 }
 
@@ -428,6 +433,74 @@ const std::vector<PickerFamily>& pickerFamilies() {
         return out;
     }();
     return kPicker;
+}
+
+const std::string& pickerNamesText() {
+    static const std::string kNames = [] {
+        std::string out;
+        for (const auto& picker : pickerFamilies()) out += picker.name + "\n";
+        return out;
+    }();
+    return kNames;
+}
+
+std::string pickerIdsText(const std::string& name) {
+    std::string out;
+    for (const auto& picker : pickerFamilies()) {
+        if (picker.name != name) continue;
+        for (const auto& id : picker.ids) out += id + "\n";
+    }
+    return out;
+}
+
+bool has(Trait trait, const std::string& id) {
+    switch (trait) {
+        case Trait::Any: return knows(id);
+        case Trait::Shader: return isShaderStyle(id);
+        case Trait::FamilyFollower:
+            for (const auto& family : kFamilies) {
+                if (listed(family.ids, id)) return id != family.opener();
+            }
+            return false;
+        case Trait::AutoDraw:
+            return isShaderStyle(id) || styles::silk(id) || styles::life(id) || styles::myco(id) || styles::acid(id);
+        case Trait::Fluid: return styles::fluid(id) != nullptr;
+        case Trait::Cymatics: return styles::cymatics(id) != nullptr;
+    }
+    return false;
+}
+
+const std::string& idsText(Trait trait) {
+    static const std::array<std::string, kTraitCount> kTexts = [] {
+        std::array<std::string, kTraitCount> out;
+        for (int t = 0; t < kTraitCount; ++t) {
+            for (const auto& id : allIds()) {
+                if (has(static_cast<Trait>(t), id)) out[static_cast<size_t>(t)] += id + "\n";
+            }
+        }
+        return out;
+    }();
+    return kTexts[static_cast<size_t>(trait)];
+}
+
+std::string presetStyle(const std::string& id) {
+    if (styles::fluid(id)) return styles::fluidIds().front();
+    if (styles::cymatics(id)) return styles::cymaticsIds().front();
+    return id;
+}
+
+std::optional<float> overrideOf(const std::string& styleId, const std::string& paramKey) {
+    if (paramKey != kGeometryKey) return std::nullopt;
+    const auto* style = styles::cymatics(styleId);
+    if (style == nullptr || style->geometryOverride < 0) return std::nullopt;
+    return static_cast<float>(style->geometryOverride);
+}
+
+std::optional<float> valueOf(const std::string& name) {
+    if (name == "fluidTiers") return static_cast<float>(fluid::quality::kTierCount);
+    if (name == "touchRotationPerDegree") return kTouchRotationPerDegree;
+    if (name == "touchPoints") return static_cast<float>(TouchField::kMaxPoints);
+    return std::nullopt;
 }
 
 bool isShaderStyle(const std::string& id) { return listed(kLooseShaders, id) || familyStyle(id); }
@@ -504,6 +577,13 @@ bool reaches(Scope scope, const std::string& styleId) {
 const char* name(Kind kind) { return kKindNames[static_cast<int>(kind)]; }
 const char* name(Scope scope) { return kScopeNames[static_cast<int>(scope)]; }
 const char* name(Look look) { return kLookNames[static_cast<int>(look)]; }
+
+std::optional<Scope> scopeNamed(const std::string& name) {
+    for (int s = 0; s < kScopeCount; ++s) {
+        if (name == kScopeNames[s]) return static_cast<Scope>(s);
+    }
+    return std::nullopt;
+}
 
 const std::string& text() {
     static const std::string kText = build();

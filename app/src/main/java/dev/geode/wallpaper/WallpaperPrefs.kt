@@ -57,7 +57,7 @@ data class WallpaperSettings(
  * Keeps [WallpaperSettings] in their own preference file, `GeodePrefsFiles.wallpaper`.
  *
  * Their own file, not `GeodePrefsFiles.general`, so the wallpaper's options never share a key
- * space with the app's stores and a future backup row can take or leave them as one piece.
+ * space with the app's stores; Settings › Backup carries the file with Settings (#994).
  * Read on the wallpaper engine's main thread on every visibility change: SharedPreferences
  * caches the file after the first read, so a re-read costs a map lookup.
  */
@@ -110,12 +110,12 @@ class WallpaperPrefsStore(
         const val KEY_FPS = "fps"
         const val KEY_MIX_REFUSED = "mix_refused"
 
-        /** No backup section holds this file, so its choices stay on this phone for now. */
+        /** The options ride with Settings in a backup; what this phone's output mix refused stays here. */
         val PREF_KEYS =
             prefKeys(FILE) {
-                device(PrefType.BOOLEAN, KEY_REST, KEY_SAVER, KEY_OTHER_APPS)
-                device(PrefType.STRING, KEY_HOME_LOOK, KEY_LOCK_LOOK)
-                device(PrefType.INT, KEY_FPS)
+                portable(PrefType.BOOLEAN, KEY_REST, KEY_SAVER, KEY_OTHER_APPS)
+                portable(PrefType.STRING, KEY_HOME_LOOK, KEY_LOCK_LOOK)
+                portable(PrefType.INT, KEY_FPS)
                 device(PrefType.BOOLEAN, KEY_MIX_REFUSED)
             }
     }

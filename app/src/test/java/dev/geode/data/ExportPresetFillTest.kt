@@ -4,7 +4,7 @@ import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.export.LoudnessTarget
+import dev.geode.model.LoudnessTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

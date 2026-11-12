@@ -20,6 +20,9 @@ data class VisualsSettings(
     val secondScreen: Boolean = true,
     /** Settings › Gestures & controls › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
     val touchTransform: Boolean = true,
+    /** Settings › Gestures & controls › Touch › Smear: the fingers bend the picture (core/viz/TouchSmear clamps the strength). */
+    val touchSmear: Boolean = false,
+    val touchSmearStrength: Float = 1f,
 )
 
 typealias VisualsSettingsRepository = SettingsRepository<VisualsSettings>
@@ -29,8 +32,6 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
     internal const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
     internal const val KEY_SECOND_SCREEN = "gui_second_screen"
     internal const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"
-
-    /** Retired with Touch › Smear (#1036); removed on write. */
     internal const val KEY_TOUCH_SMEAR = "gui_touch_smear"
     internal const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
 
@@ -41,10 +42,10 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
     override val keys =
         prefKeys(GeodePrefsFiles.GENERAL) {
             portable(PrefType.FLOAT, KEY_PRESET_MORPH_SEC)
-            portable(PrefType.BOOLEAN, KEY_SECOND_SCREEN, KEY_TOUCH_TRANSFORM)
+            portable(PrefType.BOOLEAN, KEY_SECOND_SCREEN, KEY_TOUCH_TRANSFORM, KEY_TOUCH_SMEAR)
+            portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
             // The morph length in beats: no longer read (the tempo is not a setting), still in old installs' files.
             retired(PrefType.INT, "morph_beats")
-            retired(null, KEY_TOUCH_SMEAR, KEY_TOUCH_SMEAR_STRENGTH)
         }
 
     override fun read(prefs: SharedPreferences): VisualsSettings {
@@ -53,6 +54,8 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
             presetMorphSeconds = prefs.getFloat(KEY_PRESET_MORPH_SEC, d.presetMorphSeconds),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, d.secondScreen),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, d.touchTransform),
+            touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, d.touchSmear),
+            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, d.touchSmearStrength),
         )
     }
 
@@ -67,7 +70,7 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
             .putFloat(KEY_PRESET_MORPH_SEC, value.presetMorphSeconds)
             .putBoolean(KEY_SECOND_SCREEN, value.secondScreen)
             .putBoolean(KEY_TOUCH_TRANSFORM, value.touchTransform)
-            .remove(KEY_TOUCH_SMEAR)
-            .remove(KEY_TOUCH_SMEAR_STRENGTH)
+            .putBoolean(KEY_TOUCH_SMEAR, value.touchSmear)
+            .putFloat(KEY_TOUCH_SMEAR_STRENGTH, value.touchSmearStrength)
     }
 }

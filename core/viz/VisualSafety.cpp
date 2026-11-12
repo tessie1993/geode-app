@@ -45,7 +45,8 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
 }
 
 float limitLfoRate(float rateHz, LfoTarget target) {
-    return isLuminanceTarget(target) ? std::min(rateHz, kWcagFlashesPerSecond) : rateHz;
+    // A wave on a macro knob may move a luminance param through the knob's links, so it is held like one.
+    return isLuminanceTarget(target) || target == LfoTarget::Macro ? std::min(rateHz, kWcagFlashesPerSecond) : rateHz;
 }
 
 TransitionStyle transitionStyle(TransitionStyle requested) {

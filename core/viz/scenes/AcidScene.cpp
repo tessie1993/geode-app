@@ -104,18 +104,12 @@ fluid::DoubleFbo* AcidScene::ensureState() {
 void AcidScene::conduct(const GeodeSoundFrame& f, float dt) {
     const SceneParams& p = params_;
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
-    const float beatResponse = std::clamp(p.beatResponse, 0.0f, 2.0f);
 
     envBass_ = slewEnvelope(envBass_, clampedBand(live::bass(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     envMid_ = slewEnvelope(envMid_, clampedBand(live::mid(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(live::treble(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * beatResponse, beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    if (hit * beatResponse > kGlitchThreshold) {
-        glitch_ = 1.0f;
-        glitchEpoch_ = std::fmod(glitchEpoch_ + 1.0f, 1024.0f);
-    }
-    glitch_ = std::max(glitch_ - dt * kGlitchDecay, 0.0f);
+    // No hit of its own: the beat pulse and the hit-fired glitch (the hit times the retired beat-response
+    // slot) are gone with the hidden hit reactions; what moves on a hit is the reaction matrix alone.
     fillSpokes(f.spectrum);
 
     // The sound clock. curvedTime runs at vol_att^2.5 (quiet barely moves it, loud races), so its
@@ -140,16 +134,12 @@ void AcidScene::conduct(const GeodeSoundFrame& f, float dt) {
     // whirlpool swings round over a third of a second instead of flipping in one frame.
     twistDir_ = ease(twistDir_, 2.0f * std::clamp(f.kickToggle, 0.0f, 1.0f) - 1.0f, 5.0f, dt);
 
-    // Counted kicks: every 4th lunges the zoom, every 8th surges the spin, every 16th swaps the
-    // source recipe and nudges the palette. Bar-sized moves on top of the per-kick punch.
-    if (f.kick4 > 0.0f) lunge4_ = 1.0f;
-    if (f.kick8 > 0.0f) lunge8_ = 1.0f;
+    // Counted kicks: every 16th swaps the source recipe and nudges the palette. (The 4th's zoom lunge and
+    // the 8th's spin surge were hidden hit reactions scaled by the retired beat-response slot, and are gone.)
     if (f.kick16 > 0.0f) {
         kick16Count_ = (kick16Count_ + 1) % 2;
         hueTarget_ += 0.12f;
     }
-    lunge4_ = std::max(lunge4_ - dt * 2.0f, 0.0f);
-    lunge8_ = std::max(lunge8_ - dt * 1.4f, 0.0f);
 
     // The vanishing point: each kick's random re-aims it sideways, the melody's height lifts it
     // (weighted by how sure the pitch is), and calm draws it home to the centre.
@@ -198,12 +188,8 @@ void AcidScene::draw(float timeSeconds) {
     const ReactSignals& sig = sound_.signals();
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
-    const float beatResponse = std::clamp(p.beatResponse, 0.0f, 2.0f);
     const float drive = safeAudioDrive(p.audioDrive);
     const float motion = 1.0f - 0.75f * calm_;
-    const float kickEnv = std::clamp(f.kickEnv, 0.0f, 1.0f) * beatResponse;
-    const float snareEnv = std::clamp(f.snareEnv, 0.0f, 1.0f) * beatResponse;
-    const float hatEnv = std::clamp(f.hatEnv, 0.0f, 1.0f) * beatResponse;
     const float surge = std::clamp(sig.value(ReactSource::Surge), 0.0f, 1.0f);
     const float cutHeld = std::clamp(sig.value(ReactSource::HardCut), 0.0f, 1.0f);
     // Odd sections run the recipe's alternate; the show pass's reliefLook reads the same parity.
@@ -211,19 +197,16 @@ void AcidScene::draw(float timeSeconds) {
     const int mode = altSection ? altMode(style_.mode) : style_.mode;
     const int source = (style_.source + (kick16Count_ != 0 ? 2 : 0)) % 4;
 
-    // Per-frame moves, scaled by frames so they hold at any refresh rate. The zoom punches on the
-    // kick and lunges on every 4th, a surge pushes the tunnel in and a hard cut throws it.
+    // Per-frame moves, scaled by frames so they hold at any refresh rate. A surge pushes the tunnel in
+    // and a hard cut throws it. (The kick's punch and the 4th kick's lunge, drum envelopes times the
+    // retired beat-response slot, are gone.)
     const float frames = dt * 60.0f;
-    const float zoomStep = 1.0f + (style_.zoom - 1.0f) * motion +
-        (0.03f * kickEnv + 0.025f * lunge4_ * beatResponse + 0.02f * surge + 0.012f * cutHeld) * motion;
+    const float zoomStep = 1.0f + (style_.zoom - 1.0f) * motion + (0.02f * surge + 0.012f * cutHeld) * motion;
     const float zoom = std::pow(std::clamp(zoomStep, 0.97f, 1.08f), frames);
-    // Spin: the style's rate times the sound clock's rate, plus the snare's kick and every 8th
-    // kick's surge, all in the style's own direction, so the frame never turns backwards.
-    const float spinSign = style_.rotate < 0.0f ? -1.0f : 1.0f;
-    const float rotate = (style_.rotate * speed * (0.35f + 0.65f * std::min(spinRate_, 2.0f)) +
-                          spinSign * (0.022f * snareEnv + 0.03f * lunge8_ * beatResponse)) *
-        motion * frames;
-    const float twist = twistDir_ * (0.004f + 0.03f * kickEnv) * motion * frames;
+    // Spin: the style's rate times the sound clock's rate, in the style's own direction, so the frame
+    // never turns backwards.
+    const float rotate = style_.rotate * speed * (0.35f + 0.65f * std::min(spinRate_, 2.0f)) * motion * frames;
+    const float twist = twistDir_ * 0.004f * motion * frames;
     const float hueShift = style_.hueRate * dt * speed * (0.5f + 0.5f * std::min(spinRate_, 2.0f));
     const float feedback = std::pow(std::min(style_.feedback + feedbackTrim_, kFeedbackCap), frames);
     const float flux = std::clamp(finiteOr(f.flux, 1.0f), 0.0f, 2.0f);
@@ -251,13 +234,10 @@ void AcidScene::draw(float timeSeconds) {
     glUniform1f(step_.loc("uHueShift"), hueShift);
     glUniform1f(step_.loc("uFeedback"), feedback);
     glUniform1f(step_.loc("uModulate"), modulate);
-    glUniform1f(step_.loc("uGlitch"), glitch_ * style_.glitch);
-    glUniform1f(step_.loc("uEpoch"), glitchEpoch_);
     glUniform1f(step_.loc("uClock"), clock_);
     glUniform1f(step_.loc("uBass"), envBass_);
     glUniform1f(step_.loc("uMid"), envMid_);
     glUniform1f(step_.loc("uTreble"), envTreble_);
-    glUniform1f(step_.loc("uBeat"), beatPulse_);
     glUniform1f(step_.loc("uStrike"), std::clamp(pcmStrike_, 0.0f, 1.5f));
     glUniform1f(step_.loc("uDrive"), drive);
     glUniform1fv(step_.loc("uSpokes"), kSpokes, spokes_.data());
@@ -266,15 +246,8 @@ void AcidScene::draw(float timeSeconds) {
     glUniform1f(step_.loc("uLiquid"), liquid);
     glUniform2f(step_.loc("uCentre"), centreX_, centreY_);
     glUniform1f(step_.loc("uTwist"), twist);
-    glUniform1f(step_.loc("uShimmer"), 0.004f * hatEnv * motion);
     glUniform2f(step_.loc("uDrift"), -drift_ * 0.0025f * frames * motion, 0.0f);
-    glUniform1f(step_.loc("uMirror"), std::clamp(0.75f * snareEnv, 0.0f, 1.0f));
-    glUniform1f(step_.loc("uMirrorSide"), f.snareToggle > 0.5f ? 1.0f : -1.0f);
     glUniform1f(step_.loc("uWobble"), wobble_);
-    glUniform1f(step_.loc("uKickEnv"), std::min(kickEnv, 1.0f));
-    glUniform1f(step_.loc("uSnareEnv"), std::min(snareEnv, 1.0f));
-    glUniform1f(step_.loc("uHatEnv"), std::min(hatEnv, 1.0f));
-    glUniform1f(step_.loc("uSeed"), sig.onsetCount());
     glUniform4f(step_.loc("uMelody"), pitchClass, std::clamp(f.pitchHeight, 0.0f, 1.0f), melodyAmt_ * 0.9f,
                 baseHue + pitchClass * hueSpan);
     uploadSceneTouch(step_, touch_);
@@ -296,8 +269,7 @@ void AcidScene::draw(float timeSeconds) {
     glUniform1f(show_.loc("uSat"), style_.saturation);
     glUniform1f(show_.loc("uFloorHue"), baseHue);
     glUniform1f(show_.loc("uOverdrive"), style_.overdrive);
-    glUniform1f(show_.loc("uHit"),
-                std::clamp(std::max(kickEnv, std::clamp(pcmStrike_, 0.0f, 1.5f) * 0.6f + 0.4f * beatPulse_), 0.0f, 1.0f));
+    glUniform1f(show_.loc("uHit"), std::clamp(std::clamp(pcmStrike_, 0.0f, 1.5f) * 0.6f, 0.0f, 1.0f));
     glUniform1f(show_.loc("uDepth"), reliefDepth(style_.mode));
     glUniform1i(show_.loc("uLookBase"), lookBase(style_.mode));
     glUniform1i(show_.loc("uLookAlt"), lookAlt(style_.mode));

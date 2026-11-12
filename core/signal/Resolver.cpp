@@ -116,8 +116,9 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         notes_.step(sound, director_.emotion(), in, dt);
     }
     // The reaction matrix hears the frame before the waves and envelopes, so a slot set "On a moment" restarts or
-    // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them.
-    reactions_.tick(sound, dt);
+    // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them. It hears
+    // the feeling the director heard too (the degree accent, the mood and its tension are sources like any other).
+    reactions_.tick(sound, dt, &director_.emotion());
     const std::uint32_t moments = momentWatch_.step(reactions_.signals());
     const auto& envValues = adsr_.tick(dt, sound, moments);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);

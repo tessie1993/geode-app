@@ -177,7 +177,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 121, "121 sources: append only, they are saved by name and ordinal");
+    static_assert(kReactSourceCount == 137, "137 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -211,6 +211,105 @@ void sourcesReadTheirFieldsInRange() {
         const float v = s.value(static_cast<ReactSource>(k));
         check(std::isfinite(v) && v >= -1.0f && v <= 1.0f, "every source stays finite and in range on a wild frame");
     }
+}
+
+// The bar counts (the owner: "react to transients but also to longer things like 8 beats or 16"): counted on the
+// music's own downbeats, the bar in the phrase read from the phrase phase, still while no beat is heard. Eight
+// bars of a locked beat at two seconds a bar (no tempo is meant: any bar length counts the same).
+void barCountsFollowTheMusicsBars() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.beatConf = 0.8f;
+    for (int i = 0; i < 120; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == 0.0f && s.value(ReactSource::BarFlip) == 0.0f && s.value(ReactSource::Bar2Pulse) == 0.0f,
+          "no downbeat, no count");
+    std::array<float, 8> barHolds{};
+    std::array<float, 8> bar4Holds{};
+    std::array<bool, 8> bar4Pulsed{};
+    std::array<bool, 8> bar2Pulsed{};
+    for (int bar = 0; bar < 8; ++bar) {
+        const float bar4Before = s.value(ReactSource::Bar4Pulse);
+        const float bar2Before = s.value(ReactSource::Bar2Pulse);
+        f.downbeat = 0.8f;
+        f.phrase = bar == 0 ? 0.8f : 0.0f;
+        f.phrasePhase = static_cast<float>(bar) / 8.0f + 0.002f;
+        f.barCount = static_cast<float>(37 + bar);
+        f.phraseIndex = 5.0f;
+        s.step(f, 1.0f / 60.0f);
+        barHolds[static_cast<size_t>(bar)] = s.value(ReactSource::BarHold);
+        bar4Holds[static_cast<size_t>(bar)] = s.value(ReactSource::Bar4Hold);
+        bar4Pulsed[static_cast<size_t>(bar)] = bar4Before < 0.5f && s.value(ReactSource::Bar4Pulse) >= 0.5f;
+        bar2Pulsed[static_cast<size_t>(bar)] = bar2Before < 0.5f && s.value(ReactSource::Bar2Pulse) >= 0.5f;
+        f.downbeat = 0.0f;
+        f.phrase = 0.0f;
+        for (int i = 0; i < 119; ++i) s.step(f, 1.0f / 60.0f);
+    }
+    for (int bar = 0; bar < 8; ++bar) {
+        const size_t b = static_cast<size_t>(bar);
+        check(bar4Pulsed[b] == (bar % 4 == 0), "every 4 bars pulses on bars 1 and 5 of the phrase");
+        check(bar2Pulsed[b] == (bar % 2 == 0), "every 2 bars pulses on the odd bars");
+        check(barHolds[b] >= 0.0f && barHolds[b] < 1.0f, "a hold stays in 0..1");
+        if (bar > 0) check(std::fabs(barHolds[b] - barHolds[b - 1]) > 0.2f, "every bar's hold lands somewhere new");
+        if (bar % 4 != 0) check(bar4Holds[b] == bar4Holds[b - 1], "every 4 bars' hold keeps its value in between");
+    }
+    check(bar4Holds[4] != bar4Holds[0], "every 4 bars' hold steps on the fifth bar");
+    check(s.value(ReactSource::BarFlip) == 0.0f && s.value(ReactSource::Bar2Flip) == 0.0f && s.value(ReactSource::Bar4Flip) == 0.0f &&
+              s.value(ReactSource::PhraseFlip) == 1.0f,
+          "flips toggle once per count: 8, 4 and 2 flips back to 0, one phrase to 1");
+    // A downbeat the tracker is not sure of, or no beat at all, counts nothing: the holds stay still.
+    const float held = s.value(ReactSource::Bar4Hold);
+    f.beatConf = 0.05f;
+    f.downbeat = 1.0f;
+    f.phrasePhase = 0.001f;
+    f.barCount = 45.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == held && s.value(ReactSource::PhraseFlip) == 1.0f, "an untrusted beat counts no bar");
+    f = silence();
+    for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == held && s.value(ReactSource::Bar4Pulse) < 0.01f, "silence: the counts stay still");
+}
+
+// The melody line: a rising tune reads a positive contour, a falling one negative, a note marks each new note,
+// presence follows whether a pitch sounds; the director's feeling reads through as it was heard.
+void melodyLineAndFeelingRead() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    for (int i = 0; i < 60; ++i) {
+        f.pitch = 60.0f + 7.0f * static_cast<float>(i) / 60.0f;  // up a fifth over a second
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::MelodyContour) > 0.3f, "a rising line reads a positive contour");
+    check(s.value(ReactSource::MelodyPresence) > 0.9f, "a sounding tune reads present");
+    for (int i = 0; i < 90; ++i) {
+        f.pitch = 67.0f - 7.0f * static_cast<float>(i) / 90.0f;
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::MelodyContour) < -0.2f, "a falling line reads a negative contour");
+    f.pitch = 0.0f;
+    for (int i = 0; i < 300; ++i) s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::MelodyContour)) < 0.01f && s.value(ReactSource::MelodyPresence) < 0.01f,
+          "no tune: the contour rests and presence falls");
+    f.pitch = 48.0f;  // a new line an octave below starts fresh, not as a fall
+    s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::MelodyContour)) < 0.01f, "a new line after a rest reads no leap");
+    f.noteChange = 0.3f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MelodyNote) >= 0.5f, "a new note is an event like a hit");
+    f.noteChange = 0.0f;
+    f.reattack = 0.4f;
+    for (int i = 0; i < 60; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MelodyNote) >= 0.5f, "the same note struck again is a new note too");
+
+    geode::sound::Emotion::State feel;
+    feel.valence = -0.6f;
+    feel.tension = 0.7f;
+    feel.degreeAccent = 0.5f;
+    s.step(f, 1.0f / 60.0f, &feel);
+    check(std::fabs(s.value(ReactSource::Valence) + 0.6f) < 1e-6f && std::fabs(s.value(ReactSource::FeltTension) - 0.7f) < 1e-6f,
+          "the mood and its tension read as heard");
+    check(s.value(ReactSource::DegreeAccent) >= 0.5f, "a scale step change is an event");
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Valence) == 0.0f && s.value(ReactSource::FeltTension) == 0.0f, "without a feeling heard they rest");
 }
 
 void deterministicForExport() {
@@ -2003,6 +2102,8 @@ int main() {
     luminanceRoutesAreSlewLimited();
     triggersHoldAndSilenceIsQuiet();
     sourcesReadTheirFieldsInRange();
+    barCountsFollowTheMusicsBars();
+    melodyLineAndFeelingRead();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
     toggleFlipsBetweenZeroAndAmount();

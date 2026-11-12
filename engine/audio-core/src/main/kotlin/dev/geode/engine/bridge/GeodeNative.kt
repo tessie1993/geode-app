@@ -60,14 +60,18 @@ object GeodeNative {
     ): Int
 
     /**
-     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the
-     * [stored] levels, a band with neither at 0, each in range. The bands written.
+     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the saved
+     * text's ([csv]: millibels, comma separated, low band first; null for none), a band with neither at 0, each
+     * in range. An entry that is not a whole number is dropped and the rest move up. The bands written.
      */
-    external fun dspRestoreBands(
+    external fun dspRestoreBandsText(
         preset: Int,
-        stored: IntArray,
+        csv: String?,
         out: IntArray,
     ): Int
+
+    /** The saved text for [levels]: millibels, comma separated. */
+    external fun dspEncodeBands(levels: IntArray): String
 
     external fun dspSetEnabled(
         handle: Long,

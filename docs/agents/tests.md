@@ -57,6 +57,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `live_segments_test.cpp`: Cast's segment window: the muxer's bytes cut at any write size, the window of six, the playlist's exact text.
+- `live_http_test.cpp`: Cast's HTTP answers: the request reader's bounds and deadlines, hostile requests, every response, the per-address limit.
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.

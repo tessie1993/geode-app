@@ -572,7 +572,7 @@ void testRewriteAbi() {
     check(times[0] == 90000 && times[1] == 47 * 1024, "and moves the caller's decode times");
 }
 
-// ---- The C ABI, as LiveSegments calls it ----
+// ---- The C ABI ----
 
 void testAbi() {
     const Bytes i = init(kCast);

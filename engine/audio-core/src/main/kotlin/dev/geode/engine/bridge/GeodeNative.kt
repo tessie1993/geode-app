@@ -2477,7 +2477,7 @@ object GeodeNative {
     ): Int
 
     // Show on a computer (core/viz/frame/LinkShare, LinkPage): the browser link's routes, heads, page, master
-    // playlist and state; and its QR code (core/util/QrCode). cast/LiveHttpServer only moves the bytes.
+    // playlist and state; and its QR code (core/util/QrCode). The server itself is native ([castServerOpen]).
 
     /** Resources [linkRoute] names (GEODE_LINK_*). */
     const val LINK_PAGE = 1
@@ -2507,7 +2507,7 @@ object GeodeNative {
         max: Long,
     ): Long
 
-    /** The HTTP status for the rtc POST from [webrtcAnswer]'s result: 200, 503 (busy) or 400. */
+    /** The HTTP status for the rtc POST from the WebRTC link's answer (a length or WEBRTC_REFUSED_*): 200, 503 (busy) or 400. */
     external fun linkRtcStatus(answerResult: Int): Int
 
     /**
@@ -2626,7 +2626,7 @@ object GeodeNative {
     // Show on a computer over WebRTC (core/cast/WebRtcLink, rules in core/viz/frame/WebRtcRule): the browser's
     // low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream; 0 = none.
 
-    /** Largest offer [webrtcAnswer] takes (GEODE_WEBRTC_OFFER_MAX). */
+    /** Largest offer a browser may send (GEODE_WEBRTC_OFFER_MAX). */
     const val WEBRTC_OFFER_MAX = 16 * 1024
     const val WEBRTC_REFUSED_FULL = -4
     const val WEBRTC_REFUSED_NOT_READY = -5
@@ -2639,13 +2639,6 @@ object GeodeNative {
     ): Long
 
     external fun webrtcClose(handle: Long)
-
-    /** The answer to a browser's [offer], or null; [result] (1 int) gets its length or a WEBRTC_REFUSED_* code. */
-    external fun webrtcAnswer(
-        handle: Long,
-        offer: String,
-        result: IntArray,
-    ): String?
 
     /** One encoded H.264 frame (the first [size] bytes of [data], Annex B) as the cast encoder wrote it. */
     external fun webrtcVideo(
@@ -2673,6 +2666,70 @@ object GeodeNative {
 
     /** Browsers connected over WebRTC now. */
     external fun webrtcPeers(handle: Long): Int
+
+    // The cast's HTTP server (core/cast/LiveServer, LiveHttp, LiveSegments): the live stream cut from the muxer's
+    // bytes and served on the LAN address under a random token, every request read and answered in native. One
+    // handle per cast stream; 0 = none.
+
+    /** [castServerText]'s texts (GEODE_CAST_TEXT_*). */
+    const val CAST_TEXT_PLAYLIST_URL = 0
+    const val CAST_TEXT_SHARE_URL = 1
+    const val CAST_TEXT_LABEL = 2
+    const val CAST_TEXT_REFUSALS = 3
+
+    /** Size of [castServerState]'s array (GEODE_CAST_STATE) and what each long is. */
+    const val CAST_STATE = 5
+    const val CAST_STATE_LAST_FETCH_MS = 0
+    const val CAST_STATE_SEGMENT_AGE_MS = 1
+    const val CAST_STATE_READY = 2
+    const val CAST_STATE_AS_MUXED = 3
+    const val CAST_STATE_BROKEN = 4
+
+    /**
+     * Makes the server for the address [boundDotted] ([bound]/[prefix] as [linkAdmit] reads them); [webrtc] is the
+     * stream's [webrtcOpen] handle, asked for the answer to a browser's offer, and must be closed after this one.
+     */
+    external fun castServerOpen(
+        boundDotted: String,
+        bound: Int,
+        prefix: Int,
+        webrtc: Long,
+    ): Long
+
+    /** Binds and serves; the port, or 0 when the address could not be bound. */
+    external fun castServerStart(handle: Long): Int
+
+    /** Ends every connection and the server's threads; the texts and state stay readable. */
+    external fun castServerStop(handle: Long)
+
+    /** Stops and frees. */
+    external fun castServerClose(handle: Long)
+
+    /** Who may connect: the Cast device at [tv] (IPv4, host order, 0 = none named) and [wants] LINK_WANT_* bits. */
+    external fun castServerAdmit(
+        handle: Long,
+        tv: Int,
+        wants: Int,
+    )
+
+    /** The next [size] bytes of the muxer's output, in whatever pieces they come. */
+    external fun castServerWrite(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+    )
+
+    /** One of the CAST_TEXT_* texts; "" when there is none. */
+    external fun castServerText(
+        handle: Long,
+        which: Int,
+    ): String?
+
+    /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
+    external fun castServerState(
+        handle: Long,
+        out: LongArray,
+    )
 
     // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
 

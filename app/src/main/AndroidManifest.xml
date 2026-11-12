@@ -54,7 +54,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Cast to TV (dev.geode.cast, Pro) is the app's only internet use (owner, 2026-11-02):
          the Google Cast SDK finds and talks to the TV, and the phone serves the TV its live
-         stream over the local network (cast/LiveHttpServer). ACCESS_NETWORK_STATE finds the
+         stream over the local network (core/cast/LiveServer). ACCESS_NETWORK_STATE finds the
          phone's Wi-Fi address for that. Nothing else in the app opens a connection; Play
          Billing still goes through the Play Store app. CI fails the build if AD_ID appears
          (android.yml, release.yml); Data safety and the privacy policy describe Cast. -->

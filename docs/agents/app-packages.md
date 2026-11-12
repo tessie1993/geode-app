@@ -319,10 +319,12 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A new stream waits up to 3 s for the stage's first copy (`geode_cast_tee_await_stage`).
 - Only while the stage draws nothing (the app in the background) does a fallback `VisualizerRenderer` draw the saved look and the stage's last style and .milk (`CastMirror`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
-- `LiveSegments` cuts the fragmented MP4 into live HLS.
+- `LiveLink` is the shell's handle on the native server: it hands the muxer's fragmented MP4 over and reads back the URLs and the stream's health.
+- `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
-- `LiveHttpServer` serves the stream on the LAN under a random token; it handles only the socket and bytes.
+- `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
+- `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
 - Show on a computer (`ComputerLink`) serves the same picture, with or without a TV, to a browser on the Wi-Fi.

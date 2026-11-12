@@ -31,6 +31,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `catalogue_test.cpp`: the catalogue against the old Kotlin tables, and its text against `core/tests/catalogue.txt`.
 - `core/tests/catalogue.txt` is the copy JVM tests read through the `geode.catalogue` property; regenerate it with `catalogue_test --write`.
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
+- `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
@@ -106,6 +107,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `sound_test.cpp`: the sound engine.
 - `sound_test.cpp` and `musical_test.cpp` also play click tracks from 60 to 190 BPM, each read as itself and treated alike, and an ambiguous beat read at the same level at every tempo.
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
+- `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
+- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.
 - `style_pick_test.cpp`: Styles' Random: every family or the on-screen family, never the style on screen, a kept style first, a family of one rolling inside its style; each list led by what is on screen.
 - `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.

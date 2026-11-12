@@ -231,8 +231,7 @@ void main() {
     gLip = 0.92 / (sqrt(eig) * gJ);
 
     vec3 ro = vec3(uCamPos.x, 0.3 * clamp(uCamPos.y, -1.0, 1.0), uCamPos.z);
-    // The mids turn the look aside (lib_truchet's truchetTurn).
-    vec3 rd = camRayDir(uv - vec2(truchetTurn(), 0.0));
+    vec3 rd = camRayDir(uv);
     // Every z term tiles with a period dividing 64 (see the header), so this
     // shift is exact and invisible, and z keeps its precision.
     ro.z = mod(ro.z, WV_ZWRAP);

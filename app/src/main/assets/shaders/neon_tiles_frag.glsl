@@ -35,12 +35,6 @@ out vec4 fragColor;
 // Bass (SND_BASS_PRESENCE)    the orb's refraction: its index rises, the hall
 //                              behind it bends harder.
 // Mid (uFlowPhase)            the hall's spin, integrated so it never snaps.
-// Mids (SND_MIDDLE)           push the hall round on top of that spin while
-//                              they climb and ease it back as they fall:
-//                              lib_flame's gFlameTurn, 0.6 x sndShaped x
-//                              SND_DRIVE (0.9 rad at most, 0 in silence). A
-//                              level, not a rate, so it never runs away. Mid
-//                              gain scales it.
 // Kick (SND_KICK_ENV)         the tiles just ahead of the eye push out of the
 //                              wall (geometry, not brightness).
 // Section (SND_CUT_COUNT)     re-tiles the hall: 4, 6 or 8 faces, the prism
@@ -294,7 +288,7 @@ void main() {
 
     // Integrated spin: `uTime * rate(mid)` would jump the hall round whenever
     // the mid band moved.
-    gSpin = uFlowPhase * 1.6 + uTime * 0.03 + 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    gSpin = uFlowPhase * 1.6 + uTime * 0.03;
     gR = 2.2 * (1.0 + 0.3 * k5);
     gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0));
     gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);

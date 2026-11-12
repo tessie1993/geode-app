@@ -49,10 +49,6 @@ out vec4 fragColor;
 // Pitch (SND_HELD_NOTE_CHANGE)   slides the hue, on a hump.
 // SND_INTENSITY                  the inner glow (the flat style's 0.5 + volume).
 // SND_LEVEL (shaped)             the halo between the blobs.
-// Mids (SND_MIDDLE)              roll the lamp about the way ahead while they
-//                                climb, easing back as they fall: lib_flame's
-//                                gFlameTurn, 0.6 x sndShaped x SND_DRIVE (0.9
-//                                rad at most, 0 in silence). Mid gain scales it.
 //
 // ---- params and knobs -------------------------------------------------------
 //
@@ -198,9 +194,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (see the header).
-    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-    camFly(rot2(midTurn) * uv, ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64, so this rebase is exact.
     ro.z = mod(ro.z, MB_ZWRAP);
     gEye = ro;

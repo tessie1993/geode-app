@@ -205,10 +205,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, HZ_CAM_R, CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the object about its vertical axis (lib_nebula's nebMidTurn): the eye and its ray turn the other way.
-    mat2 midTurn = nebRot(nebMidTurn());
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
     // Lift the eye and its rays together over the disk plane.
     vec3 axis = cross(ro, vec3(0.0, 1.0, 0.0));
     float al = length(axis);

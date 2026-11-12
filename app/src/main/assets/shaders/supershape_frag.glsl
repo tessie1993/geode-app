@@ -77,10 +77,6 @@ out vec4 fragColor;
 // - Spectrum (sndSpectrum): rings of latitude on the membrane, each lit by its
 //   own slice of the log spectrum, bass at the south pole, air at the north.
 // - Energy trend (SND_ENERGY_TREND): overall brightness, gently.
-// - The mid band (SND_MIDDLE): turns the whole scene about its vertical while
-//   the mids climb and eases it back as they fall: lib_flame's gFlameTurn, 0.6
-//   x sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence), spent on the
-//   orbit so the eye goes the other way. Mid gain scales it.
 //
 // Knobs (Flame's, Opal's and Hollow's roles, each read as its offset from 0.5
 // so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the spectrum
@@ -465,10 +461,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, SS_CAM_R * reach, 2.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the scene about its vertical (see the header): the eye and its ray turn the other way.
-    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
     vec3 L = normalize(uCamBasis * vec3(0.55, 0.65, -0.5));
 
     vec3 voidCol = pal(hue + 0.1) * 0.02 + vec3(0.002, 0.003, 0.008);

@@ -52,8 +52,7 @@ out vec4 fragColor;
 // off is the tuned look): k0 PULSE the emission, k1 TEXTURE the grooves' width
 // (the step bound follows it), k2 FLOW added to Chaos's bend (gTruchetFlow;
 // the bound follows it too), k3 TONE the palette position, k4 BUILD the
-// hanging light's glow, k5 SPACE the reach. The mids turn the look aside
-// (truchetTurn).
+// hanging light's glow, k5 SPACE the reach.
 
 #define TR_MAX_STEPS 96
 #define TR_TOP 0.05
@@ -118,7 +117,7 @@ void main() {
 
     vec3 ro = vec3(uCamPos.x, TR_EYE, uCamPos.z);
     // The rig's view, pitched down toward the floor.
-    vec3 v = vec3(uv - vec2(truchetTurn(), 0.0), uCamFocal);
+    vec3 v = vec3(uv, uCamFocal);
     const float pitch = 0.42;
     v = vec3(v.x, v.y * cos(pitch) - v.z * sin(pitch), v.y * sin(pitch) + v.z * cos(pitch));
     vec3 rd = normalize(uCamBasis * v);

@@ -52,14 +52,12 @@ out vec4 fragColor;
 // THE SOUND, heard the way the families hear it: lib_sound's shaped reads, in
 // rpSetup(), on the motion only, never on a colour, a brightness or a beat.
 //
-//   gRpTurn   the mid band, sndShaped(SND_MIDDLE), pushes the clouds and the
-//   moons round the spin axis while the mids climb and eases them back as
-//   they fall. Mid gain scales it.
 //   gRpSwell  the low band, sndShaped(SND_LOW), deepens the Warp's waves in
 //   the belts, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude: how MUCH moves
+// It is times SND_DRIVE, the music's absolute magnitude: how MUCH moves
 // follows how loud and dense the music is, and the band only shapes the push.
+// No sound band turns it (owner 2026-11-12, no style spins to the music).
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 // Every clock phase is whole cycles per uTime wrap (RP_RATE).
@@ -99,8 +97,7 @@ out vec4 fragColor;
 float gRpForm;
 float gRpFlow;
 float gRpChaos;
-/** The mid band's push round the spin axis, radians, and the low band's deepening of the belts' waves, 0..1.5. */
-float gRpTurn;
+/** The low band's deepening of the belts' waves, 0..1.5. */
 float gRpSwell;
 /** The ringlets' line width and the glow, both 1 at rest. */
 float gRpLine;
@@ -166,7 +163,6 @@ void rpSetup() {
     gRpTone = 0.6 * neonKnob(3);
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gRpTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gRpSwell = sndShaped(SND_LOW) * drive;
     gRpPal0 = pal(0.0);
     gRpPal1 = pal(0.25);
@@ -187,10 +183,10 @@ void rpSetup() {
 
     gMoonAH = 0.35;
     gMoonAR = 0.17 + 0.13 * gMoonAH;
-    gMoonA = moonAt(gMoonAH, uTime * RP_RATE(56) + 0.4 + gRpTurn);
+    gMoonA = moonAt(gMoonAH, uTime * RP_RATE(56) + 0.4);
     gMoonBH = 0.8;
     gMoonBR = 0.17 + 0.13 * gMoonBH;
-    gMoonB = moonAt(gMoonBH, 3.1 - uTime * RP_RATE(45) + gRpTurn);
+    gMoonB = moonAt(gMoonBH, 3.1 - uTime * RP_RATE(45));
     // The moonlets ride in the gaps, the inner one faster.
     gLetAngA = uTime * RP_RATE(121) + 1.3;
     gLetAngB = uTime * RP_RATE(95) + 4.1;
@@ -300,9 +296,9 @@ vec3 shadePlanet(vec3 P, vec3 n, vec3 rd) {
     vec3 lp = vec3(dot(P, gT), dot(P, gN), dot(P, gB));
     vec3 sp = lp / max(length(lp), 1.0e-4);
     float lat = sp.y;
-    // The belts slide past one another and back, and the mids push them all round.
+    // The belts slide past one another and back.
     // In 3D about the spin axis, so there is no longitude seam.
-    float rotA = uTime * RP_RATE(56) + 0.8 * sin(lat * 5.0) * sin(uTime * RP_RATE(20)) + gRpTurn;
+    float rotA = uTime * RP_RATE(56) + 0.8 * sin(lat * 5.0) * sin(uTime * RP_RATE(20));
     vec2 cs = rpRot(rotA) * sp.xz;
     vec3 q = vec3(cs.x, lat, cs.y);
 

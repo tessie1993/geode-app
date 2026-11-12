@@ -52,14 +52,12 @@ out vec4 fragColor;
 // THE SOUND, heard the way the families hear it: lib_sound's shaped reads, in
 // rsSetup(), on the motion only, never on a colour, a brightness or a beat.
 //
-//   gRsTurn   the mid band, sndShaped(SND_MIDDLE), pushes the whole storm round
-//   the vertical axis while the mids climb and eases it back as they fall.
-//   Mid gain scales it.
 //   gRsSwell  the low band, sndShaped(SND_LOW), deepens the Warp's pull toward
 //   the braid, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude: how MUCH moves
+// It is times SND_DRIVE, the music's absolute magnitude: how MUCH moves
 // follows how loud and dense the music is, and the band only shapes the push.
+// No sound band turns it (owner 2026-11-12, no style spins to the music).
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 // Every clock phase is whole cycles per uTime wrap (RS_RATE), and every curve
@@ -111,8 +109,7 @@ out vec4 fragColor;
 float gRsForm;
 float gRsFlow;
 float gRsChaos;
-/** The mid band's push round the vertical axis, radians, and the low band's deepening of the braid, 0..1.5. */
-float gRsTurn;
+/** The low band's deepening of the braid, 0..1.5. */
 float gRsSwell;
 /** The strands' and threads' line width, and the glow, both 1 at rest. */
 float gRsLine;
@@ -163,7 +160,6 @@ void rsSetup() {
     gRsTone = 0.6 * neonKnob(3);
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gRsTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gRsSwell = sndShaped(SND_LOW) * drive;
     gRsPal0 = pal(0.0);
     gRsPal1 = pal(0.25);
@@ -212,7 +208,6 @@ vec3 ribbonPoint(float th, float ph, float fi, int fam) {
     // Turbulence: a flutter riding the curve (by its parameter, so it travels with the ribbon).
     p += gFlutter * sin(vec3(3.0, 4.0, 5.0) * th + vec3(1.3, 2.9, 0.7) * fi
                         + uTime * vec3(RS_RATE(1921), RS_RATE(2599), RS_RATE(2147)));
-    p.xz = rsRot(gRsTurn) * p.xz;
     return p * RS_RADIUS;
 }
 

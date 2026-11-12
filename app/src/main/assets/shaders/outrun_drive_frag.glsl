@@ -51,14 +51,12 @@ out vec4 fragColor;
 // THE SOUND, heard the way the families hear it: lib_sound's shaped reads, in
 // orSetup(), on the motion only, never on a colour, a brightness or a beat.
 //
-//   gOrTurn   the mid band, sndShaped(SND_MIDDLE), banks the view about the
-//   way ahead while the mids climb and eases back as they fall. Mid gain
-//   scales it.
 //   gOrSwell  the low band, sndShaped(SND_LOW), deepens the Warp's winding,
 //   never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude: how MUCH moves
+// It is times SND_DRIVE, the music's absolute magnitude: how MUCH moves
 // follows how loud and dense the music is, and the band only shapes the push.
+// No sound band banks the view (owner 2026-11-12, no style spins to the music).
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 //
@@ -109,8 +107,7 @@ out vec4 fragColor;
 float gOrForm;
 float gOrFlow;
 float gOrChaos;
-/** The mid band's bank about the way ahead, radians, and the low band's deepening of the winding, 0..1.5. */
-float gOrTurn;
+/** The low band's deepening of the winding, 0..1.5. */
 float gOrSwell;
 /** How far the trace reaches, world units. */
 float gOrFar;
@@ -139,12 +136,6 @@ vec3 gBoxQ;
 vec3 gBoxH;
 float gTowerId;
 
-mat2 orRot(float a) {
-    float c = cos(a);
-    float s = sin(a);
-    return mat2(c, -s, s, c);
-}
-
 /** The user's palette at t, from the five reads of orSetup(): there and back, so no seam. */
 vec3 orCol(float t) {
     float x = 4.0 * abs(2.0 * fract(0.5 * t) - 1.0);
@@ -164,7 +155,6 @@ void orSetup() {
     gOrTone = 0.6 * neonKnob(3);
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gOrTurn = 0.25 * sndShaped(SND_MIDDLE) * drive;
     gOrSwell = sndShaped(SND_LOW) * drive;
     gOrPal0 = pal(0.0);
     gOrPal1 = pal(0.25);
@@ -497,8 +487,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
-    // The mids bank the view about the way ahead.
-    rd.xy = orRot(gOrTurn) * rd.xy;
     ro.z = mod(ro.z, OR_ZWRAP);
     ro.y = max(ro.y, OR_FLOOR + land(vec2(ro.x - orSway(ro.z), ro.z)) + 0.45);
     gEye = ro;

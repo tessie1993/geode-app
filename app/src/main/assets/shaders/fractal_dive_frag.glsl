@@ -27,10 +27,6 @@ out vec4 fragColor;
 // which the CPU re-targets on a section boundary and eases over 3 s: there is
 // no section counter to hash, so that is the held step. The section envelope
 // (SND_HELD_HARD_CUT) swells the inner folds on the same bump shape while it lands. Brightness follows SND_ENERGY_TREND only.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -124,8 +120,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The world tiles every 4 along z, so this shift is invisible and exact
     // (power of two). Without it, far down the 8192 travel a highp z has only
     // ~0.001 of fraction left, which quantises every sample and the normals.

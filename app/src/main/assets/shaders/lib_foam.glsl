@@ -64,9 +64,8 @@
 //   seat and the palette turns, all morphed across SND_HELD_HARD_CUT.
 // - Mid clock: the cross-section turns slowly about the bore.
 // - Key: uKeyHue, eased, slides the palette.
-// - Mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, pushes the cross-section
-//   round about the bore (or the ball about its axis) while the mids climb and
-//   eases back as they fall, as lib_flame's gFlameTurn does. Mid gain scales it.
+// - Mid band: no push round the bore (owner 2026-11-12, no style spins to the
+//   music); only the mid clock above turns it.
 //
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -146,8 +145,6 @@ float gFoamWedgeHold;
 float gFoamShell;
 /** Multiplier on the loudness fall: halves and whole numbers keep the clock wrap exact. */
 float gFoamFall;
-/** The mid band's push round the bore's axis, radians, on top of gFoamSpin (see the header). */
-float gFoamTurn;
 /** The knobs (see the header): k0's gain on the emission, k1's on the cut lines' width, k4's on the gathered glow, k5's on the reach (fog rates divide by it). */
 float gFoamEmit;
 float gFoamLineW;
@@ -272,8 +269,6 @@ void foamSetup() {
     float slide = 0.4 * (1.0 + 0.5 * chaos);
     gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
     gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
-    // The mid band's push (see the header): the absolute drive sets how much, the band only the shape.
-    gFoamTurn = 0.6 * sndShaped(SND_MIDDLE) * foamSat(SND_DRIVE);
     gFoamShell = 0.012 * (1.0 + 0.8 * gFoamKick);
     float detail = foamSat((uSteps - 64.0) / 64.0);
     // Detail only: it is a quality setting, not a live control. Complexity moving a whole
@@ -330,7 +325,7 @@ float foamMap(vec3 p) {
     vec3 q;
     if (gFoamShape == FOAM_BALL) {
         // The packing inside a ball, folded about the y axis, spun on the mid clock.
-        vec2 xz = rot2(gFoamSpin + gFoamTurn) * p.xz;
+        vec2 xz = rot2(gFoamSpin) * p.xz;
         cutD = length(p) - gFoamRadius;
         if (cutD > FOAM_BORE_MARGIN) {
             gFoamOrb = vec4(FOAM_TRAP_FAR);
@@ -345,7 +340,7 @@ float foamMap(vec3 p) {
     } else {
         vec2 c = p.xy - foamPath(p.z);
         float zw = FOAM_TAU / FOAM_PERIOD * p.z;
-        c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin + gFoamTurn) * c;
+        c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin) * c;
         float r = length(c);
         cutD = gFoamRadius - r;
         if (cutD > FOAM_BORE_MARGIN) {

@@ -346,10 +346,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, 3.8 * (1.0 - 0.3 * kSpace), 4.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the flower about the orbit's vertical (lib_chrys's chrysMidTurn): the eye and its ray turn the other way.
-    mat2 midTurn = chrysTurn(chrysMidTurn());
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
 
     // Paper: warm, with fibre and slow blotches.
     vec3 paper = vec3(0.93, 0.89, 0.81);

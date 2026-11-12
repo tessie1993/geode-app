@@ -73,10 +73,8 @@
 // the other eleven, k3 TONE the palette position, k4 BUILD the glow, k5 SPACE
 // the reach); the other eleven still spend them their own way.
 //
-// The mid band (truchetTurn): sndShaped(SND_MIDDLE), times SND_DRIVE, turns
-// the eye's look aside while the mids climb and eases it back as they fall, in
-// a style that hears no mids of its own. The look turns, never the tiling:
-// grids hold still. One screen offset per pixel. Mid gain scales it.
+// No sound band turns the eye's look (owner 2026-11-12, no style spins to the
+// music): grids hold still, and so does the look.
 //
 // ANTI-ALIASING
 //
@@ -89,10 +87,9 @@
 // INCLUDE ORDER
 //
 // After lib_scene_uniforms (reads uTime, uIntensity, uMorph, uWarp,
-// uTurbulence). It reads no audio uniform itself but the mid band in
-// truchetTurn - styles hand in floor(SND_HIT_TIME), SND_ONSET_ENV and their own
-// band levels - and it includes nothing, because the include resolver does not
-// de-duplicate.
+// uTurbulence). It reads no audio uniform itself - styles hand in
+// floor(SND_HIT_TIME), SND_ONSET_ENV and their own band levels - and it
+// includes nothing, because the include resolver does not de-duplicate.
 
 #define TRUCHET_PI 3.14159265
 #define TRUCHET_TAU 6.2831853
@@ -187,11 +184,6 @@ vec2 truchetWarp(vec2 p, float t) {
  */
 float truchetChaos() {
     return 0.8 * truchetWarpShare() + 0.3 * clamp(uTurbulence, 0.0, 2.0);
-}
-
-/** The mid band's turn of the look, in screen units (about radians / focal), 0.15 at most (see the header). */
-float truchetTurn() {
-    return 0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 /**

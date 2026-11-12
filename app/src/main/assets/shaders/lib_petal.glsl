@@ -38,17 +38,16 @@
 // lib_sound's shaped reads, in petalSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gPetalTurn   the mid band, sndShaped(SND_MIDDLE), pushes space
-//   round about the way ahead while the mids climb and eases back as they
-//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
 //   gPetalSwell  the low band, sndShaped(SND_LOW), widens the Warp's sway of
 //   the sheets, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -76,8 +75,7 @@
 float gPetalForm;
 float gPetalFlow;
 float gPetalChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the sway, 0..1.5 (see the header). */
-float gPetalTurn;
+/** The low band's swell of the sway, 0..1.5 (see the header). */
 float gPetalSwell;
 /** How far the trace reaches, world units. */
 float gPetalFar;
@@ -158,7 +156,6 @@ void petalSetup() {
     gPetalShine = 0.4;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gPetalTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gPetalSwell = sndShaped(SND_LOW) * drive;
     gPetalPal0 = pal(0.0);
     gPetalPal1 = pal(0.25);
@@ -167,11 +164,11 @@ void petalSetup() {
     gPetalPal4 = pal(1.0);
 }
 
-/** Warp on space, a breeze: a curl about z that grows outward and comes and goes along the way (and the mids' push), and a sway of the sheets (and the lows'). */
+/** Warp on space, a breeze: a curl about z that grows outward and comes and goes along the way, and a sway of the sheets (and the lows'). */
 vec3 petalBend(vec3 p) {
     float zc = p.z * (PETAL_TAU / PETAL_PERIOD);
     float r = length(p.xy);
-    p.xy = petalRot(gPetalFlow * 0.8 * sin(zc + 0.6 * r + uTime * PETAL_RATE(130)) + gPetalTurn) * p.xy;
+    p.xy = petalRot(gPetalFlow * 0.8 * sin(zc + 0.6 * r + uTime * PETAL_RATE(130))) * p.xy;
     float sway = 0.45 * min(gPetalFlow + 0.3 * gPetalSwell, 1.0);
     p.x += sway * sin(2.0 * zc + 1.2 * p.y + uTime * PETAL_RATE(200));
     p.y += 0.6 * sway * sin(zc + 1.4 * p.x + uTime * PETAL_RATE(170));

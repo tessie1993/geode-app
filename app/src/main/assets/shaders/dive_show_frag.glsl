@@ -24,7 +24,7 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Everything the single styles do, live: kick swells girders and pulses
-// caps, mids turn gyroscopes, the beat swells petals, bass works the
+// caps, the beat swells petals, bass works the
 // accordion and widens the serpent, a drop widens the helix, hats glint the
 // facets. A drop (SND_HELD_SURGE) also leans every hue along the palette while it
 // rings. Palette switching as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.

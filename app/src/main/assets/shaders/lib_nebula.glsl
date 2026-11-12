@@ -79,11 +79,8 @@
 // the palette position, k4 BUILD the glow, k5 SPACE the reach. The older
 // eight still spend them their own way.
 //
-// The mid band (nebMidTurn): sndShaped(SND_MIDDLE), times SND_DRIVE, turns
-// an orbited cloud about its own vertical axis, or rolls a fly-through's view
-// about the way ahead, while the mids climb, easing back as they fall, as
-// lib_flame's gFlameTurn does. Mid gain scales it. A style applies it once
-// per pixel or as one 2x2 turn per sample, never as another noise tap.
+// No sound band turns an orbited cloud or rolls a fly-through's view (owner
+// 2026-11-12, no style spins to the music).
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion (nebFlow and
 // nebKeyShift read it) and lib_palette (the colour ramps call pal()). It
@@ -204,11 +201,6 @@ float nebKeyShift(float amount) {
 /** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
 float nebKnob(int i) {
     return clamp(uKnob[i], 0.0, 1.0) - 0.5;
-}
-
-/** The mid band's turn, radians (see the header): lib_flame's 0.6, so 0.9 at most, 0 in silence. */
-float nebMidTurn() {
-    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 // ---- noise ---------------------------------------------------------------------

@@ -37,6 +37,7 @@ add_library(geode_core STATIC
     api/geode_style_pick_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
+    api/geode_capture_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
@@ -60,6 +61,7 @@ add_library(geode_core STATIC
     audio/ingest/android/TrackDecoder.cpp
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
+    audio/ingest/CapturePlan.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp

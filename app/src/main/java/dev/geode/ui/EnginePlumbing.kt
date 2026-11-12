@@ -106,7 +106,7 @@ fun VisualizerEngineBindings(
     LaunchedEffect(reducedMotion) {
         val underlay =
             visualsViewModel.backgroundPush.map { b ->
-                b.pixels?.let { LookUnderlay(it.pixels, it.width, it.height, b.blend.ordinal, b.amount) }
+                b.pixels?.let { LookUnderlay(it.pixels, it.width, it.height, b.blend, b.amount) }
             }
         val vm = visualsViewModel
         val modulation = combine(vm.lfos, vm.adsrs, vm.reactions) { l, a, r -> Triple(l, a, r) }

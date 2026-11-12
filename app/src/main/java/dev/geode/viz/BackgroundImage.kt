@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.UnderlayBlend
 import dev.geode.render.look.LookUnderlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +12,7 @@ import kotlinx.coroutines.withContext
 /** The user's background image choice, not yet decoded - an export decodes it at its own render size. */
 data class BackgroundExportSpec(
     val uri: Uri,
-    val blend: UnderlayBlend,
+    val blend: String,
     val amount: Float,
     val blurRadius: Int,
     val dim: Float,
@@ -48,7 +47,7 @@ object BackgroundImage {
         renderHeight: Int,
     ): LookUnderlay? =
         decode(context, spec.uri, renderWidth, renderHeight, spec.blurRadius, spec.dim)?.let {
-            LookUnderlay(it.pixels, it.width, it.height, spec.blend.ordinal, spec.amount)
+            LookUnderlay(it.pixels, it.width, it.height, GeodeNative.underlayBlendOf(spec.blend), spec.amount)
         }
 
     suspend fun decode(

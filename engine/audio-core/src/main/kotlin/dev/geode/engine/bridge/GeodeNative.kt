@@ -1236,6 +1236,14 @@ object GeodeNative {
 
     external fun underlayBlurMax(): Int
 
+    /** The background blends [vizSetUnderlay] takes, 0 until this count: 0 screen, 1 multiply, 2 add. */
+    external fun underlayBlendCount(): Int
+
+    /** The name a blend is saved under; [underlayBlendOf] reads it back (an unknown or null name is 0). */
+    external fun underlayBlendName(blend: Int): String
+
+    external fun underlayBlendOf(name: String?): Int
+
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */

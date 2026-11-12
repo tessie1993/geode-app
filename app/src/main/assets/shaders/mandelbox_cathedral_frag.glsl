@@ -77,10 +77,11 @@ out vec4 fragColor;
 //   (neonKeyTurn) slides the whole ramp; SND_TENSION pulls the ribs toward
 //   the ramp's hot end.
 // - In silence (neonQuiet) the ribs and the shafts dim to embers.
-// - The mids (SND_MIDDLE) turn the eye about the vertical while they climb and
-//   ease it back as they fall, as lib_flame's gFlameTurn turns its structure
-//   (0.6 x sndShaped x SND_DRIVE, 0.9 rad at most, 0 in silence); the nave
-//   holds still. Mid gain scales it.
+// - The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and
+//   ease it back as they fall, as lib_terra's terraTurn and lib_truchet's
+//   truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0
+//   in silence), the gFlameTurn band on a structure that holds still. Mid gain
+//   scales it.
 //
 // Provenance: written from scratch for BeatRealms from general techniques - the
 // Mandelbox distance estimator (box fold, sphere fold, scale, offset;
@@ -439,10 +440,8 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
-    // The mids turn the eye about the vertical (see the header).
-    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-    rd.xz = mat2(cos(midTurn), -sin(midTurn), sin(midTurn), cos(midTurn)) * rd.xz;
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     ro.z = mod(ro.z, MC_TILE);
 
     // Note & key reactions' style knobs ride on top (lib_neon): PULSE the

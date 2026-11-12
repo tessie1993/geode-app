@@ -43,11 +43,12 @@ out vec4 fragColor;
 // Treble (SND_TREBLE_ATT)       glints along the ribbons' edges twinkle up.
 // Pitch (SND_HELD_NOTE_CHANGE)  slides the hue. k3 TONE offsets it.
 // SND_ENERGY_TREND              overall level, as everywhere.
-// Mids (SND_MIDDLE)             turn the eye about the vertical while they climb,
-//                               easing back as they fall, as lib_flame's
-//                               gFlameTurn turns its structure (0.6 x sndShaped x
-//                               SND_DRIVE, 0.9 rad at most, 0 in silence); the
-//                               lanes hold still. Mid gain scales it.
+// Mids (SND_MIDDLE)             turn the eye's look aside while the mids climb
+//                               and ease it back as they fall, as lib_terra's
+//                               terraTurn and lib_truchet's truchetTurn do: 0.1
+//                               x sndShaped x SND_DRIVE screen units (0.15 at
+//                               most, 0 in silence), the gFlameTurn band on a
+//                               structure that holds still. Mid gain scales it.
 // k1 TEXTURE adds to the fast ripple (Turbulence), k2 FLOW the halo, k4 BUILD
 // the amplitude, k5 SPACE the lane spacing. Morph twists the bands about
 // their length, Warp bends the lanes sideways, Turbulence adds a fast ripple.
@@ -180,9 +181,8 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
-    // The mids turn the eye about the vertical (see the header).
-    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     ro.z = mod(ro.z, WV_ZWRAP);
     gEye = ro;
 

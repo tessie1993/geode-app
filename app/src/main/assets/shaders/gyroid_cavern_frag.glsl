@@ -41,10 +41,12 @@ out vec4 fragColor;
 // Section count        the surface itself: gyroid, Schwarz-P, diamond or a
 //                      gyroid-diamond blend, crossfaded over the section envelope.
 // SND_INTENSITY               overall level, as everywhere.
-// Mids (SND_MIDDLE)    roll the cavern about the way ahead while they climb,
-//                      easing back as they fall: lib_flame's gFlameTurn, 0.6 x
-//                      sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence).
-//                      Mid gain scales it.
+// Mids (SND_MIDDLE)    turn the eye's look aside while the mids climb and ease
+//                      it back as they fall, as lib_terra's terraTurn and
+//                      lib_truchet's truchetTurn do: 0.1 x sndShaped x
+//                      SND_DRIVE screen units (0.15 at most, 0 in silence), the
+//                      gFlameTurn band on a structure that holds still. Mid
+//                      gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -173,9 +175,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (see the header).
-    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-    camFly(rot2(midTurn) * uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     // The surface, the veins and the motes all tile with periods dividing 16
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);

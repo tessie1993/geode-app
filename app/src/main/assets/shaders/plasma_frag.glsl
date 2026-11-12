@@ -54,10 +54,12 @@ out vec4 fragColor;
 // Pitch (SND_HELD_NOTE_CHANGE) slides the hue, as a hump.
 // Drop (SND_HELD_SURGE)      the channel opens and the palette swings to its far
 //                            side, on a hump, so it glides in and out.
-// Mids (SND_MIDDLE)          roll the lamp about the way ahead while the mids
-//                            climb, easing back as they fall: lib_flame's
-//                            gFlameTurn, 0.6 x sndShaped x SND_DRIVE (0.9 rad
-//                            at most, 0 in silence). Mid gain scales it.
+// Mids (SND_MIDDLE)          turn the eye's look aside while the mids climb and
+//                            ease it back as they fall, as lib_terra's
+//                            terraTurn and lib_truchet's truchetTurn do: 0.1 x
+//                            sndShaped x SND_DRIVE screen units (0.15 at most,
+//                            0 in silence), the gFlameTurn band on a structure
+//                            that holds still. Mid gain scales it.
 //
 // ---- controls ---------------------------------------------------------------
 //
@@ -189,9 +191,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (see the header).
-    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-    camFly(rot2(midTurn) * uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     // Every z term repeats every 32 units (see the header): exact and invisible.
     ro.z = mod(ro.z, PL_ZWRAP);
     gEye = ro;

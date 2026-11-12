@@ -44,15 +44,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-//   snare        twists the vanes: each hit winds them a little further, and
-//                they ease back;
 //   bass         swells the vanes, the nebula hearts and (a little, weighted
 //                by k0 PULSE) the marbles themselves: geometry, not light;
-//   onsets       roll every marble one notch (glassGlide);
 //   flatness     fills the glass with seed bubbles (frost): noise clouds it;
 //   centroid     the dispersion at the rim;
-//   pitch, pan   the sun's height and bearing (glassLook), so the highlights
-//                and the vanes' backlight follow the melody;
+//   pitch        the sun's height (glassLook), so the highlights and the
+//                vanes' backlight follow the melody. No sound rolls a marble,
+//                twists its vanes or turns the sun (owner 2026-11-12, no style
+//                spins to the music);
 //   hat          glints on the surfaces.
 //
 // ---- macros and knobs --------------------------------------------------------
@@ -140,9 +139,8 @@ float map(vec3 p) {
 vec3 shadeMarble(vec3 p, vec3 rd, vec3 c, float R, float h, float t, float hue, float vanes, GlassEar ear, GlassLook lk) {
     float ior = 1.5;
     float spread = 0.015 + 0.035 * ear.sharp;
-    float twist = 1.4 + 1.6 * ear.snare + 0.3 * sin(t * 0.2 + h * 6.0);
-    float roll = t * (0.1 + 0.1 * h) + h * 9.0
-        + 0.35 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    float twist = 1.4 + 0.3 * sin(t * 0.2 + h * 6.0);
+    float roll = t * (0.1 + 0.1 * h) + h * 9.0;
     mat3 rot = glassEuler(vec3(0.35 * sin(t * 0.11 + h * 4.0) + h * 3.0, roll, 0.5 + 0.2 * sin(t * 0.07) + h * 5.0));
     mat3 inv = transpose(rot);
     float mh = hue + 0.25 * glassHash1(h * 97.0);

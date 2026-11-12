@@ -15,8 +15,8 @@ out vec4 fragColor;
 
 // Glass Cubes: an endless lattice of rounded glass blocks hanging in the
 // flowing AURORA light, and the eye flies through it on the rig's path. Every
-// block turns on its own axis; a snare sends a flip wave rolling down the
-// lattice ahead of you, block by block, each turning a quarter and settling.
+// block turns slowly on its own axis, on time alone (owner 2026-11-12, no
+// style spins to the music: the snare's flip wave and the kick's nod are gone).
 // Through every block the ribbons of light behind it bend and split into
 // rainbows, and on High the far wall's reflection sends a second image back
 // through. The lattice thins near the path so the flight never collides, and
@@ -29,11 +29,9 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-//   snare        the flip wave (SND_SNARE_TOGGLE, lagged by depth and cell);
-//   kick         every block nods toward you, eased;
 //   bass         the blocks breathe;
 //   onsets       recolour the lattice a notch (the tint hash slides per onset);
-//   centroid     dispersion; flatness frost; pan and pitch steer the light;
+//   centroid     dispersion; flatness frost; pitch steers the light;
 //   hat          glints. The world flows faster in loud passages.
 //
 // ---- macros -----------------------------------------------------------------
@@ -55,18 +53,13 @@ out vec4 fragColor;
 #define CB_FAR 24.0
 
 float gHalf;
-float gNod;
-float gFlip;
 float gT;
 vec3 gEye;
 
 mat3 cellRot(vec3 c) {
     float h1 = glassHash3(c + 1.7);
     float h2 = glassHash3(c + 5.3);
-    float lag = fract(c.z * 0.17 + h1 * 0.3);
-    float flip = clamp(gFlip * 1.6 - lag * 0.6, 0.0, 1.0);
-    flip = flip * flip * (3.0 - 2.0 * flip) * 1.5707963;
-    return glassEuler(vec3(h1 * 6.28 + flip + gNod * (h2 - 0.5), h2 * 6.28 + gT * (0.2 + 0.2 * h1), 0.3 * sin(gT * 0.3 + h2 * 6.0)));
+    return glassEuler(vec3(h1 * 6.28, h2 * 6.28 + gT * (0.2 + 0.2 * h1), 0.3 * sin(gT * 0.3 + h2 * 6.0)));
 }
 
 /** Cell id of p, whether it holds a block, its local point. */
@@ -128,9 +121,7 @@ void main() {
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     lk.glow *= 1.0 + kBuild;
     float reachFar = CB_FAR * (1.0 + 0.4 * kSpace);
-    gNod = ear.kick * 0.6;
     gHalf = (0.38 + 0.05 * clamp(ear.bass, 0.0, 1.2)) * (1.0 + 0.15 * kTexture);
-    gFlip = clamp(SND_SNARE_TOGGLE, 0.0, 1.0) * min(glassEnergy(), 1.0);
     float spread = 0.015 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.6;
     float tintSlide = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * 0.07;

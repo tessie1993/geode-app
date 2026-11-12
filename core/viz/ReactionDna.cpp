@@ -224,12 +224,8 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         default: break;
     }
 
-    // Styles that turn keep turning at a speed the music sets: a clock's rate, spun.
-    if (traits.spinRate != 0.0f) {
-        const ReactSource clock = pick(d, std::array{ReactSource::MidTime, ReactSource::BassTime, ReactSource::CurvedTime,
-                                                     ReactSource::TrebleTime, ReactSource::HitTime});
-        b.add(clock, LfoTarget::Rotation, ReactMode::Spin, (traits.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.15f, 0.35f), 0.1f, 0.6f);
-    }
+    // No layer turns a style on a music clock (owner 2026-11-12, no style spins to the music): a turning
+    // style turns at the user's Spin dial alone.
 
     // The body: a sustained level moves something continuous, not another hit thing. Each band against its own
     // mean, or how many partials sound: never the absolute loudness (volume is not what the picture hears).

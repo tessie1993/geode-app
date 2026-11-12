@@ -38,11 +38,14 @@ out vec4 fragColor;
 //                            second (spawnGrow), never at once.
 // uFormPhase                 steps the web between three densities and the
 //                            spheres' ring count, and holds each plateau.
-// uMoveDir / uFlowPhase      drift the motes in the air and turn the burst.
+// uMoveDir / uFlowPhase      drift the motes in the air. The burst and the
+//                            merkabas turn on time alone (owner 2026-11-12, no
+//                            style spins to the music).
 // Knobs (uKnob, 0.5 = neutral): PULSE the bass breath, TEXTURE the web's line
-// weight, FLOW turns the merkabas, TONE how high they float (a high melody
+// weight, TONE how high they float (a high melody
 // lifts the stars up toward the vault, a low one lowers them to hang over the
-// floor's web; and a small hue offset), BUILD the column, SPACE the fog.
+// floor's web; and a small hue offset), BUILD the column, SPACE the fog. FLOW
+// no longer turns the merkabas (a knob is the notes', and no sound turns a style).
 // Morph eases each star toward an octahedron, Warp sways the web lines,
 // Turbulence shakes the motes and bobs the merkabas, Intensity scales the light.
 // No term in this file can reach its peak inside one frame.
@@ -86,7 +89,7 @@ out vec4 fragColor;
 
 float gBass;
 /** FLOW's turn of every merkaba, radians (an offset, never a rate). */
-float gSpinRate;
+
 float gMorph;
 float gBob;
 /** k3 TONE: how far the merkabas are lifted (0 at rest). */
@@ -150,7 +153,7 @@ float map(vec3 p) {
     vec3 q = a - mc;
     // A fixed rate times uTime, plus FLOW as a bounded offset: a rate that moved
     // with the knob would jump the angle by (rate change) * uTime.
-    float spin = uTime * 0.6 * (0.35 + 0.4 * k2) + k3 * MG_TAU + gSpinRate;
+    float spin = uTime * 0.6 * (0.35 + 0.4 * k2) + k3 * MG_TAU;
     q.xz = rot2(spin) * q.xz;
     q.yz = rot2(spin * 0.61 + k1 * 3.0) * q.yz;
     float dM = min(tetra(q, s), tetra(-q, s));
@@ -238,7 +241,7 @@ vec3 skyColour(vec3 rd, float hue, float swell, float build) {
     // The burst where it leaves the vault: a soft disc with turning spokes.
     vec2 b = sp - vec2(0.0, 0.55);
     float br = length(b);
-    float spokes = 0.55 + 0.45 * cos(atan(b.y, b.x) * 12.0 + uFlowPhase * 2.0);
+    float spokes = 0.55 + 0.45 * cos(atan(b.y, b.x) * 12.0 + uTime * 0.6);
     col += mix(vec3(1.0), pal(hue), 0.4) * exp(-br * 6.0) * spokes * 0.35 * build
          * smoothstep(0.2, 0.7, ahead);
     col += vec3(1.0) * exp(-br * br * 260.0) * 1.2 * build * smoothstep(0.3, 0.8, ahead);
@@ -250,7 +253,7 @@ void main() {
 
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTex = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
@@ -268,7 +271,7 @@ void main() {
     float build = 1.0 + 1.2 * kBuild;
 
     gBass = bass;
-    gSpinRate = 2.0 * kFlow;
+
     gMorph = 0.6 * clamp(uMorph, 0.0, 1.0);
     gBob = 0.15 + 0.35 * turb;
     gLift = 2.2 * kTone;

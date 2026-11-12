@@ -32,11 +32,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The DROP twists the cave. On a drop (SND_HELD_SURGE) the whole room wrings about
-// the vertical axis - the twist grows with height, so floor and ceiling turn
-// opposite ways - on a bump envelope that rises and settles over the drop's
-// 2.5 s, and the march shortens its steps by the twist's stretch while it
-// lasts. The veins breathe gently with (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)). Nothing on a hit changes
+// No sound turns the cave: the drop's twist is gone (owner 2026-11-12, no style
+// spins to the music). The veins breathe gently with (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)). Nothing on a hit changes
 // brightness.
 //
 // ---- macros -----------------------------------------------------------------
@@ -44,7 +41,7 @@ out vec4 fragColor;
 // Speed scales the vein drift. Complexity (uMorph) adds up to two
 // fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the bulb before it is inverted (bulbChaos in q, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is tone(),
+// bulbChaosLip). Colour is tone(),
 // the grotto ramp pal() tints;
 // Space is the rig (travel and look drive the eye; its lateral wander offsets
 // the loop).
@@ -62,19 +59,18 @@ vec3 tone(float t) {
     return bulbRamp(t, vec3(0.32, 0.50, 0.52), vec3(0.30, 0.32, 0.30), vec3(1.0), vec3(0.55, 0.35, 0.25));
 }
 
-float gTwist;
-float gTwistLip;
+
 int gIters;
 vec4 gTrap;
 
 float map(vec3 p) {
-    p.xz = rot2(gTwist * p.y) * p.xz;
+
     float r2 = max(dot(p, p), 1e-4);
     vec3 q = p * (BV_K / r2);
     vec4 tr;
     float d = bulbDE(bulbChaos(q), 12.0, 12.0, vec2(0.0), gIters, tr) / bulbChaosLip();
     gTrap = tr;
-    return d * (r2 / BV_K) * 0.6 / gTwistLip;
+    return d * (r2 / BV_K) * 0.6;
 }
 
 vec3 normalAt(vec3 p, float e) {
@@ -86,11 +82,7 @@ vec3 normalAt(vec3 p, float e) {
 void main() {
     vec2 uv = view();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
-    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
-    float dropBump = 4.0 * drop * (1.0 - drop);
-    gTwist = 0.32 * dropBump * bulbEnergy();
-    // Twisting by k*y stretches by at most sqrt(1 + (k*rho)^2); rho stays under ~4 in the room.
-    gTwistLip = 1.0 + abs(gTwist) * 4.0;
+
     // Four iterations, not six: inverted, the finest crust lands as a fur of
     // pixel-sized stalactites the march crawls through and never resolves.
     // Fewer iterations leave wet, rounded stone the lantern can light.

@@ -47,8 +47,7 @@ out vec4 fragColor;
 //   bass         the swell's height;
 //   centroid     caustic sharpness: bright mixes cut thin, bright lines;
 //   flatness     turbidity: the water clouds, softening the floor and the net;
-//   pan          the sun's bearing (the look's yaw): the net leans, the glitter
-//                road and the sun walk with the mix;
+
 //   pitch        the sun's height;
 //   hat          the glitter sparkles, and glints on the floats.
 //

@@ -34,7 +34,8 @@ out vec4 fragColor;
 // Treble (SND_HIGH)           neon line width, as in the flat style.
 // Bass (SND_BASS_PRESENCE)    the orb's refraction: its index rises, the hall
 //                              behind it bends harder.
-// Mid (uFlowPhase)            the hall's spin, integrated so it never snaps.
+// (no sound spins the hall: it turns on time alone, owner 2026-11-12, no style
+//                              spins to the music)
 // Kick (SND_KICK_ENV)         the tiles just ahead of the eye push out of the
 //                              wall (geometry, not brightness).
 // Section (SND_CUT_COUNT)     re-tiles the hall: 4, 6 or 8 faces, the prism
@@ -289,9 +290,8 @@ void main() {
         gRelight = gFoldA == gFoldB ? 1.0 : 0.25 + 0.75 * abs(2.0 * sw - 1.0);
     }
 
-    // Integrated spin: `uTime * rate(mid)` would jump the hall round whenever
-    // the mid band moved.
-    gSpin = uFlowPhase * 1.6 + uTime * 0.03;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.51;
     gR = 2.2 * (1.0 + 0.3 * k5);
     gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 1.6 * k3);
     gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);

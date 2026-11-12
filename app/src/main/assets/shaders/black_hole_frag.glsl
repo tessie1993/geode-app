@@ -32,9 +32,9 @@ out vec4 fragColor;
 //   ring out from the photon sphere, lensed like everything else.
 // - filaments (Morph, neonForm): the disc's threads sharpen and brighten.
 //   A hard cut (SND_CUT_COUNT) changes how many spiral arms there are.
-// - swirl (Warp, neonFlow, plus the bass weight): the disc winds on and the
-//   haze above it thickens. The disc turns on SND_BASS_TIME, so it races in
-//   a heavy passage and drifts in a thin one, never backwards.
+// - swirl (Warp, neonFlow): the disc winds on and the haze above it
+//   thickens; the bass weight thickens the haze too. The disc turns on time
+//   alone, never on the sound (owner 2026-11-12, no style spins to the music).
 // - Turbulence (neonChaos) sets the disc precessing: its tilt wobbles.
 // - hue: the key (neonKeyTurn) turns the ramp; SND_CHORD_HUE tints the disc.
 // - charge: SND_BUILD_UP brightens the disc and wakes the sky swirl; the
@@ -208,9 +208,10 @@ void main() {
     rd = tilt * rd;
     gAxis = normalize(-ro);
 
-    // The disc clock: a slow drift of its own plus the bass clock, so it
-    // races in a heavy passage and never runs backwards; Warp winds it on.
-    float spin = uTime * 0.12 + SND_BASS_TIME * 0.45 + kFlow * 3.0;
+    // The disc clock: time alone, at the rate the bass clock (SND_BASS_TIME) used to add
+    // at a typical level; Warp winds it on. No sound turns it: the bass weight and
+    // knob 2 in kFlow stay on the haze.
+    float spin = uTime * 0.57 + (0.5 + 0.5 * neonFlow()) * 3.0;
     float stepScale = clamp(96.0 / max(uSteps, 24.0), 0.75, 2.5);
 
     vec3 p = ro;

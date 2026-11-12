@@ -7,7 +7,7 @@
 #                the marched families and the dedicated renderers. Fix: each style spends the knobs on its
 #                own look, as lib_neon does, or the Notes & key block hides where no knob is read.
 #   midGain      These shader styles hear no mid band field (SND_MID*, the mid presence or flux, uMidRel)
-#                and do not spin, so Mid gain reaches them only through a reaction route that picks a mid
+#                (the Spin drift no longer hears the mids), so Mid gain reaches them only through a reaction route that picks a mid
 #                source. Fix: hide it there (a per-style band scope, as Detail is per style), or hear mids.
 silk_web: noteChords noteDrums noteIntervals notePitch noteTension
 silk_bloom: noteChords noteDrums noteIntervals notePitch noteTension
@@ -268,3 +268,22 @@ truchet_weave: midGain
 voronoi: midGain
 warp: midGain
 waves: midGain
+# The mids no longer speed the Spin drift (owner 2026-11-12: no style spins to the music; MotionField turns
+# at one fixed rate), and these turning styles heard the mids only through it, so Mid gain no longer reaches
+# them. Fix: as midGain above.
+bead_vortex: midGain
+chrys_kaleido: midGain
+chrys_tunnel: midGain
+glow_vortex: midGain
+hex_hive: midGain
+kaleido: midGain
+lucid_disc: midGain
+lucid_mirror: midGain
+lucid_tunnel: midGain
+lucid_vortex: midGain
+mandala_dome: midGain
+merkaba_grid: midGain
+orb_lattice: midGain
+particle_tunnel: midGain
+spiral: midGain
+tunnel: midGain

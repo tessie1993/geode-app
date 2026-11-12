@@ -76,12 +76,14 @@ public:
 
     // How hard the music moves below play, from the auto-director (Director::moves); 1 everywhere is as styled.
     struct Moves {
-        float orbit = 1.0f;    // the mid-clock Lissajous look and the roll sway
-        float lean = 1.0f;     // stereo pan, melody height and the note look
+        // orbit, lean and reframe reach nothing since the music stopped turning the view (owner
+        // 2026-11-12, no style spins to the music); the director still writes them.
+        float orbit = 1.0f;    // was the mid-clock Lissajous look and the roll sway
+        float lean = 1.0f;     // was the stereo pan, melody height and note look
         float dolly = 1.0f;    // surge push, return pull, the rise creep
         float breath = 1.0f;   // the bass FOV breath
         float shake = 1.0f;    // kick/snare trauma
-        float reframe = 1.0f;  // the new framing every 16th kick: 0 never
+        float reframe = 1.0f;  // was the new framing every 16th kick
         float cut = 1.0f;      // hard cuts: 0 never, 2 twice as often
     };
     void setMoves(const Moves& m) { moves_ = m; }
@@ -100,9 +102,7 @@ public:
 
     // Hard cuts closer together than this are ignored; projectM's default minimum preset time is 20 s.
     static constexpr float kCutGapSeconds = 15.0f;
-    // After a cut, the counted reframe holds off, so two structural moves never land together.
-    static constexpr float kReframeHoldSeconds = 4.0f;
-    static constexpr float kReframeGapSeconds = 8.0f;
+
     static constexpr float kTraumaRadians = 0.04f;
     // Cuts so far: a test hook, and how a scene could tell the view jumped.
     int cuts() const { return cuts_; }
@@ -137,11 +137,7 @@ private:
     float trauma_ = 0.0f;
     float traumaClock_ = 0.0f;
     float sinceCut_ = kCutGapSeconds;
-    float sinceReframe_ = kReframeGapSeconds;
-    float sinceNoteLook_ = 1.0f;
-    float noteLook_ = 0.0f;
     float dollyKick_ = 0.0f;
-    float lissPhase_ = 0.0f;
     int cuts_ = 0;
     unsigned int seed_ = 0x2545F491u;
     float nextRandom();

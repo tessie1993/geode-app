@@ -58,10 +58,11 @@ out vec4 fragColor;
 // THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its offset
 // from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
 // seam line's width (FRONT_WIDTH 0.5..1.5 times, still under the 0.03 that
-// washed), k2 FLOW added to the wring's twist about the view axis (gLip
-// follows it), k3 TONE the palette position and the box-fold's scale (a high
+// washed), k3 TONE the palette position and the box-fold's scale (a high
 // melody carves the crystal finer, a low one chunkier), k4 BUILD the glow the body leaks
-// into the room, k5 SPACE how far that glow reaches.
+// into the room, k5 SPACE how far that glow reaches. k2 FLOW no longer adds to
+// the wring's twist: a knob is the notes', and no sound turns a style (owner
+// 2026-11-12); the wring is the touch's alone.
 
 // ---- framing --------------------------------------------------------------
 
@@ -803,7 +804,7 @@ void main() {
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
@@ -866,7 +867,7 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
-    gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0) + 0.3 * kFlow;
+    gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
 
     // The organism's own slow turn, on two unrelated rates so it never returns
     // to the same attitude. This is the motion that has to hold the screen

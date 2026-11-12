@@ -45,7 +45,7 @@ out vec4 fragColor;
 //   kick         a surge: the swell lifts and the net stretches, eased;
 //   centroid     caustic sharpness: bright mixes cut fine bright lines;
 //   flatness     turbidity: noise thickens the haze and softens the net;
-//   pan          the sun's bearing: the shafts lean and the spheres' spots swing;
+
 //   pitch height the sun's height: shafts steepen as the melody climbs;
 //   hat          the marine snow and the spheres glitter;
 //   bass         the spheres' IOR, so their spots tighten on low notes;

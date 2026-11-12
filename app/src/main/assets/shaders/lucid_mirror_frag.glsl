@@ -47,11 +47,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Every ONSET turns the barrel a step, as in the 2D style: the world rolls
-// about the tube's axis through the eye by (SND_ONSET_COUNT - SND_ONSET_ENV)
-// * 0.37 rad, continuous across the hit (the count steps up exactly as the
-// envelope jumps to 1) and easing into the new angle as the envelope decays:
-// a twist of the barrel per note, never a snap. The blobs lurch sideways with
+// No onset turns the barrel any more (owner 2026-11-12, no style spins to the
+// music): the world rolls about the tube's axis on time alone. The blobs lurch sideways with
 // lucidBump of the onset (geometry, never brightness). sndShaped(SND_HIGH)
 // sharpens the woven threads: they thin a little and their glow tightens and
 // brightens. Overall brightness follows SND_ENERGY_TREND gently.
@@ -63,8 +60,7 @@ out vec4 fragColor;
 // 0.5, adds a nest level and an octave (lucidDetail). Chaos: uTurbulence/uWarp
 // raise warp strength (lucidChaos) and jitter the nest (lucidJitter); uTwist,
 // uZoom and uRotation reach the view through lucidView. Color: the spectrum is
-// pal(). Energy: uIntensity scales the onset lurch (the barrel step itself is
-// fixed, so moving the slider never spins the tube). The user's kaleidoscope
+// pal(). Energy: uIntensity scales the onset lurch. The user's kaleidoscope
 // is skipped: the tube is its own. Knobs: k0 PULSE lurch, k1 TEXTURE marbling
 // scale, k2 FLOW thread winding width, k3 TONE hue, k4 BUILD thread glow,
 // k5 SPACE mirror size. All neutral at 0.5.
@@ -206,8 +202,8 @@ void main() {
     // The mirror triangle: smaller with Complexity, sized by SPACE.
     gSide = (1.5 - 0.6 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 0.5 * kSpace);
 
-    // The barrel: a step per onset, eased by the decaying envelope.
-    float barrel = mod((SND_ONSET_COUNT - onset) * 0.37, LUCID_TAU) + t * 0.015;
+    // The barrel: a slow roll on time alone.
+    float barrel = t * 0.015;
     gRoll = lucidRot(barrel);
 
     float lurch = lucidBump(onset) * 0.35 * uIntensity * (1.0 + kPulse);

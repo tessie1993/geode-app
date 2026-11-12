@@ -20,8 +20,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The rings turn at a rate that loudness sets (uFlowPhase, which only ever
-// advances, so the rings never stutter backwards). Palette switching
+// The rings turn on time alone, never on the sound (owner 2026-11-12, no
+// style spins to the music). Palette switching
 // as in lib_dive. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) mildly.
 //
 // ---- macros -----------------------------------------------------------------

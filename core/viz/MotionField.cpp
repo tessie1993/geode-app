@@ -22,9 +22,6 @@ void MotionField::reset() {
     orbitRetargetLockout_ = 0.0f;
     driftAngle_ = 0.0;
     driftRate_ = 0.0f;
-    driftSign_ = 1.0f;
-    driftSignTarget_ = 1.0f;
-    barSin_ = 0.0f;
     state_ = State{};
     seedState_ = 0x51ed270bu;
 }
@@ -125,7 +122,6 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     barOnBeat_ = oneOle(barOnBeat_, sure, dt, kBarOnBeatSeconds);
     const float heardPhase = std::isfinite(f.barPhase) ? std::clamp(f.barPhase, 0.0f, 1.0f) : 0.0f;
     const float barSin = (1.0f - barOnBeat_) * std::sin(kTwoPi * clockPhase) + barOnBeat_ * std::sin(kTwoPi * heardPhase);
-    barSin_ = barSin;
     state_.barOsc = 0.5f + 0.5f * barSin * rhythmLock_;
 
     // ---- orbit: a slow wander point, re-targeted by big moments (and, for some styles, every
@@ -145,15 +141,13 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     state_.orbitX = std::clamp(orbitCurX_ * orbitScale, -1.0f, 1.0f);
     state_.orbitY = std::clamp(orbitCurY_ * orbitScale, -1.0f, 1.0f);
 
-    // ---- drift: a rotation that eases its sign, never flips it outright -----
-    if (bigMoment) driftSignTarget_ = nextRandom() < 0.5f ? -1.0f : 1.0f;
-    driftSign_ = oneOle(driftSign_, driftSignTarget_, dt, kDriftSignEaseSeconds);
-    const float driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
-    // The rate is what apply() adds to rotation (a rate the scenes integrate),
-    // never the angle below: the angle grows without bound and wraps, so as a
-    // rate it would climb to the clamp and then reverse in one frame (#359).
-    // This one is bounded (the base plus the mid weight at midRel 2) and
-    // continuous: midRel is slewed and the sign eases.
+    // ---- drift: a rotation at one fixed rate --------------------------------
+    // No sound sets its speed or its direction (owner 2026-11-12, no style spins to the
+    // music): the mids used to speed it up and a hard cut to re-aim its sign. The rate is
+    // what apply() adds to rotation (a rate the scenes integrate), never the angle below:
+    // the angle grows without bound and wraps, so as a rate it would climb to the clamp
+    // and then reverse in one frame (#359).
+    const float driftRate = kDriftRadPerSec;
     driftRate_ = driftRate;
     // The angle is uDrift, which a few styles turn by (times a fixed 0.07 to 0.5).
     // Wrapped at kDriftWrap, where every such multiple lands on a whole turn, so
@@ -197,8 +191,8 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
+        // The bar wave no longer rocks the sway on top: no sound turns a style (owner 2026-11-12).
         o.rotation = std::clamp(p.rotation + driftRate_ * kDriftSpinGain * motionDrift * spin, -3.0f, 3.0f);
-        o.sway = std::clamp(p.sway + amountDial * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);

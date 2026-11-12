@@ -35,7 +35,7 @@ out vec4 fragColor;
 // lens shows an upright, magnified image, and it throws a soft shadow with a
 // focused hot spot on the floor below, toward the viewer, from the family's
 // back key light. Some lenses are kaleidoscopes: what they magnify folds into a
-// turning six-fold mandala, as the 2D second lens did.
+// six-fold mandala that turns on time, as the 2D second lens did.
 //
 // ---- the camera -------------------------------------------------------------
 //
@@ -55,9 +55,8 @@ out vec4 fragColor;
 //                  radius), so its focal length shortens and the image under it
 //                  swells from about 1.6x to 2.6x: the lenses lean in on low notes;
 //   centroid       the dispersion: brighter music splits the colours at the rims;
-//   snare          flips a third of the lenses (SND_SNARE_TOGGLE eases 0 <-> 1 per
-//                  hit) about their vertical diameter, edge-on and round again,
-//                  and their shadows and hot spots narrow and return with them;
+//   (no sound turns a lens or a mandala: the snare flip is gone, owner
+//                  2026-11-12, no style spins to the music);
 //   kick           jostles the lenses (an eased bump, never a jump);
 //   pan            the lanes lean toward the louder side;
 //   flatness       frosts the glass: grain on the faces, the magnified image milky;
@@ -130,8 +129,7 @@ float gSpace;
 float gComplex;
 float gThick;
 float gMag;
-float gFlipC;
-float gFlipS;
+
 float gPixAng;
 vec3 gEye;
 vec3 gL;
@@ -183,14 +181,6 @@ void lensParams(float row, int lane, out vec3 C, out vec3 A, out float ap, out f
     float s1 = sin(t * (0.06 + 0.03 * h3) + h1 * 5.0);
     float s2 = sin(t * (0.05 + 0.02 * h1) + h3 * 4.0);
     A = normalize(vec3(-side * 0.45 + w * s1, 1.0, -(lane == 2 ? 0.45 : 0.8) - w * s2));
-    if (h2 < 0.4) {
-        // The snare flip: about the lens's own diameter E, the travel axis
-        // projected into its plane, so at a quarter turn it stands edge-on to a
-        // viewer looking down +z. A biconvex lens is symmetric, so a half turn is
-        // the same lens again.
-        vec3 E = normalize(vec3(-A.x * A.z, -A.y * A.z, 1.0 - A.z * A.z));
-        A = A * gFlipC + cross(E, A) * gFlipS;
-    }
 }
 
 /** The two balls of a lens of aperture `ap`: their radius R and their centres' offset o along the axis. */
@@ -342,9 +332,9 @@ void lensShadows(vec3 P) {
     }
 }
 
-/** A kaleidoscope lens's fold: the floor about kc in six mirrored wedges, turning on the music's clock. */
+/** A kaleidoscope lens's fold: the floor about kc in six mirrored wedges, turning on time alone. */
 vec2 kaleFold(vec2 q, vec2 kc) {
-    vec2 kd = glassRot(0.1 * SND_CURVED_TIME) * (q - kc);
+    vec2 kd = glassRot(0.1 * glassTime()) * (q - kc);
     float len = length(kd);
     if (len < 1e-4) return q;
     float seg = GLASS_TAU / 6.0;
@@ -398,9 +388,7 @@ void main() {
     float bass = clamp(gEar.bass, 0.0, 1.0);
     gThick = 0.31 + 0.25 * bass;
     gMag = 1.6 + 1.0 * bass;
-    float flip = clamp(SND_SNARE_TOGGLE, 0.0, 1.0) * GLASS_PI * min(glassEnergy(), 1.0);
-    gFlipC = cos(flip);
-    gFlipS = sin(flip);
+
     gPixAng = 2.0 / (max(uResolution.y, 1.0) * uCamFocal);
     gRow = -1e9;
     gShMul = 1.0;

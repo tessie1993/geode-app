@@ -44,7 +44,8 @@ out vec4 fragColor;
 // outward along the floret index on uFlowPhase (louder passages run it faster,
 // never backwards). The sub band (sndSpectrum(0.10)) loosens the spiral's
 // spacing a few percent, so the disk breathes wider on the low end. uBreath
-// sways the ray petals: they turn a little about the axis and droop and lift.
+// droops and lifts the ray petals; it no longer turns them (owner 2026-11-12,
+// no style spins to the music).
 // Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -------------------------------------------------------------------
@@ -262,7 +263,7 @@ void main() {
     gSeed = floor(SND_ONSET_COUNT) * 1.618;
     float breath = clamp(uBreath - 1.0, -1.0, 1.0);
     gDroop = 0.25 + 0.15 * breath;
-    gPetRot = t * 0.01 + 0.06 * breath;
+    gPetRot = t * 0.01;
     float hue = 0.08 + 0.02 * sin(t * 0.05) + 0.12 * kTone;
 
     vec3 ro;

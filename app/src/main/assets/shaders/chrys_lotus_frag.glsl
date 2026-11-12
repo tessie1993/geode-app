@@ -40,8 +40,8 @@ out vec4 fragColor;
 // through chrysBumpLean, so the petals start from rest instead of snapping.
 // The bass band (sndLevel(SND_BASS_ATT)) sets how hard the water ripples:
 // rings spread from the stem and bend the reflection (a geometry, not a
-// light). uBarOsc rocks the flower a few degrees about its base, phase-locked
-// to the bar. Brightness follows SND_LEVEL only.
+// light). Nothing turns the flower on the bar any more (owner 2026-11-12, no
+// style spins to the music). Brightness follows SND_LEVEL only.
 //
 // ---- macros and knobs ---------------------------------------------------------
 //
@@ -93,7 +93,7 @@ float gOpen;
 float gVein;
 float gLip;
 float gGlow;
-mat2 gSway;
+
 /** Set by map(): the nearest surface's distance and what it is. */
 float gD;
 float gU;
@@ -162,8 +162,7 @@ float map(vec3 p) {
         gMat = -1.0;
         return db;
     }
-    // The bar rocks the flower about its base.
-    q.xy = gSway * q.xy;
+
     gD = 1e9;
     gMat = -1.0;
 
@@ -315,7 +314,7 @@ void main() {
     gLip = 1.7 + 2.7 * abs(gTwist) + 0.6 * gFray;
     gHue = 0.95 + 0.02 * sin(gT * 0.03) + 0.08 * kTone;
     gGlow = (0.8 + 0.2 * swell) * (1.0 + 0.9 * kBuild);
-    gSway = chrysTurn(0.06 * (uBarOsc - 0.5));
+
 
     vec3 ro;
     vec3 rd;

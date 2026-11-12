@@ -133,18 +133,6 @@ nebula_pillars: midGain noteChords noteDrums noteIntervals notePitch noteTension
 nebula_flight: noteChords noteDrums noteIntervals notePitch noteTension
 nebula_storm: noteChords noteDrums noteIntervals notePitch noteTension
 nebula_web: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_ridge: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_dunes: noteChords noteDrums noteIntervals notePitch noteTension
-terra_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_glacier: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_isles: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_mesa: noteChords noteDrums noteIntervals notePitch noteTension
-terra_volcano: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_terraces: noteChords noteDrums noteIntervals notePitch noteTension
-terra_moon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_night: noteChords noteDrums noteIntervals notePitch noteTension
-terra_topo: midGain
-terra_wire: midGain noteChords noteDrums noteIntervals notePitch noteTension
 truchet_weave: midGain
 truchet_maze: midGain
 truchet_quad: midGain

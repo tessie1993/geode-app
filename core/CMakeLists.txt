@@ -47,6 +47,8 @@ add_library(geode_core STATIC
     audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
+    audio/ingest/TrackPump.cpp
+    audio/ingest/android/TrackDecoder.cpp
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
     audio/output/OutputFifo.cpp
@@ -56,6 +58,8 @@ add_library(geode_core STATIC
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp
+    audio/dsp/PlaybackControls.cpp
+    api/geode_playback_api.cpp
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
@@ -63,10 +67,12 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_export_job_api.cpp
     api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
+    output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
@@ -166,6 +172,10 @@ add_library(geode_core STATIC
     viz/scenes/FluidScene.cpp
     viz/scenes/CurlFlowScene.cpp
     viz/scenes/MilkdropScene.cpp
+    viz/MilkMemory.cpp
+    viz/MilkStarterPack.cpp
+    viz/android/AssetStarterSource.cpp
+    api/geode_milk_api.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -176,7 +186,8 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # nativewindow: AHardwareBuffer, the GPU buffers Cast's tee hands the stage's picture over in (viz/frame/CastTee).
-# mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink).
+# mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
+# AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)

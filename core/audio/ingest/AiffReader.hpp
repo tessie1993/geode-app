@@ -6,8 +6,8 @@
 #include <vector>
 
 // An AIFF or AIFF-C (NONE or sowt) file read as 16-bit PCM, for the two readers MediaExtractor cannot
-// serve: the export's track audio (TrackFeed) and the soundtrack transcoder (export/AudioTranscoder).
-// Ported from the Kotlin dev.geode.audio.AiffPcm with the same header walk and the same sample rule: 8-bit
+// serve: the export's track audio (TrackPump) and the soundtrack transcoder (export/AudioTranscoder). The
+// header walk and the sample rule are those the transcoder has always read AIFF with: 8-bit
 // samples are shifted up a byte, 16-, 24- and 32-bit samples keep their top two bytes (no dither, no
 // rounding), whatever the byte order.
 //

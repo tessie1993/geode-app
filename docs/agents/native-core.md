@@ -117,8 +117,11 @@ The renderer runs these in order each frame.
 - `core/audio/ingest/PcmRing` is the lock-free ring each source writes, every block with its rate, int16 and 8-bit made float inside.
 - `Cursor` (in `core/audio/ingest/PcmRing`) reads each sample once per reader; a take ends where the rate changes.
 - The ingest ABI is `geode_pcm_ring_*`, `geode_pcm_cursor_*`, and `geode_viz_feed_ring` for a live renderer's own cursor.
+- `core/audio/ingest/TrackPump` decodes an export's track as each frame asks; its platform decoder is `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, `mediandk`).
+- `core/output/ExportFrame` is an export's render order behind `geode_export_job_*` (`core/api/geode_export_job_api.h`): prepare, pre-roll, one call per frame.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
+- `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.
 - Oboe is back as the output only (`core/audio/output`, off by default).
 - `OutputFifo` is the lock-free FIFO between Media3's sink and the device callback: 16-bit to float, underrun count, volume ramp, the position the sink reads.

@@ -30,9 +30,8 @@ data class EditorUiState(
  * stored (ADR 0005): a saved recording becomes one in [keepRecording], and a one-tap render the
  * user adds to My videos becomes one in [createWithLook].
  *
- * The render path records each finished file with [recordRender], so a render that finishes after
- * the user moved on still lands in its project. The store is touched only on [storeScope], one
- * write at a time, so a list read always follows the write before it.
+ * The store is touched only on [storeScope], one write at a time, so a list read always follows
+ * the write before it.
  */
 internal class EditorController(
     private val store: EditorProjectStore,
@@ -104,12 +103,6 @@ internal class EditorController(
             updatedAtMs = now,
         ).withRender(render)
     }
-
-    /** Adds a finished video to project [id]'s list. */
-    fun recordRender(
-        id: ProjectId,
-        render: ProjectRender,
-    ) = changeProject(id) { it.withRender(render) }
 
     /** Takes a video off project [id]'s list (My videos' delete); the file itself is the caller's. */
     fun removeRender(

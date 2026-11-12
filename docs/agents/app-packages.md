@@ -178,6 +178,17 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
+## `engine/audioandroid`
+
+- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
+- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
+
+## `render`
+
+- The engine module's package, for the shell's own pieces of it.
+- `UnderlayBlend` is the background image's blend, saved by name; its ordinal is the underlay's wire int.
+- `fluid/FluidShaderTemplate` reads the fluid splat shader asset that Expert › Shader code starts from.
+
 ## `audio/dsp`
 
 - Open first: `MvzAudioProcessorChain`.
@@ -262,6 +273,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
 - Visualizer export: MediaCodec + offscreen GL.
+- `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render and chapters.
 - Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.

@@ -8,14 +8,13 @@
 #include "output/FrameClock.hpp"
 
 // An export's track audio, handed to its renderer's sound engine exactly up to each video frame (ADR 0003:
-// export equals live). The shell decodes (MediaExtractor and MediaCodec, or an AiffReader for AIFF) and
-// pushes each decoded chunk here; this converts it to float, drops what lies before the range start, keeps
-// what the frame has not reached yet, and hands a sink exactly the frames up to the target. Ported from the
-// Kotlin render/offscreen/TrackAudio, whose per-sample loops and pre-roll cut these are, with the same
-// arithmetic: 16-bit / 32768, the codec's pre-roll cut at (start - pts) * rate / 1e6 frames, the AIFF one
-// at start * rate / 1000 frames, the target at endMs * rate / 1000 frames of the latest chunk's rate.
+// export equals live). TrackPump steps a decode (AMediaExtractor and AMediaCodec, or an AiffReader for AIFF)
+// and pushes each decoded chunk here; this converts it to float, drops what lies before the range start, keeps
+// what the frame has not reached yet, and hands a sink exactly the frames up to the target. The arithmetic:
+// 16-bit / 32768, the codec's pre-roll cut at (start - pts) * rate / 1e6 frames, the AIFF one at
+// start * rate / 1000 frames, the target at endMs * rate / 1000 frames of the latest chunk's rate.
 //
-// One chunk is held at a time, as in the Kotlin: push only once deliver() has emptied it. One thread.
+// One chunk is held at a time: push only once deliver() has emptied it. One thread.
 namespace geode::audio::ingest {
 
 class TrackFeed {

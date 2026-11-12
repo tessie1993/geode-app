@@ -20,7 +20,10 @@ using geode::library::SearchHits;
 using geode::library::SearchIndex;
 using geode::library::SearchRequest;
 using geode::library::SearchRow;
+using geode::library::searchSheet;
 using geode::library::searchTracks;
+using geode::library::SheetHits;
+using geode::library::SheetTrack;
 using geode::library::Sort;
 using geode::library::termMatches;
 
@@ -253,6 +256,120 @@ void indexCAbi() {
     geode_library_index_destroy(empty);
 }
 
+// The global search sheet (searchSheet, geode_search_sheet): tracks from the device and from the app's
+// library, playlists and presets, for one query.
+SheetTrack sheetTrack(const char* title, const char* artist, const char* album, const char* extra, const char* key,
+                      bool preferred = false) {
+    return SheetTrack{SearchRow{title, artist, album}, extra, key, preferred};
+}
+
+const std::vector<std::string_view> kNoNames;
+
+void sheetRanksTitleArtistAlbumThenTheExtraField() {
+    const std::vector<SheetTrack> tracks = {
+        sheetTrack("Nothing", "Nirvana", "Teen Spirit Live", "", "u0"),
+        sheetTrack("Smells Like Teen Spirit", "Nirvana", "Nevermind", "", "u1"),
+        sheetTrack("Teen", "Spirit Band", "A", "", "u2"),
+        sheetTrack("Song", "Band", "Album", "/music/teen spirit", "u3"),
+    };
+    const SheetHits hits = searchSheet(tracks, kNoNames, kNoNames, "teen spirit");
+    check(hits.tracks == std::vector<int>({1, 2, 0, 3}),
+          "a title holding every word, then one that needs the artist, the album, the folder or genre");
+    check(searchSheet(tracks, kNoNames, kNoNames, "   ").tracks.empty(), "a blank query finds nothing");
+}
+
+void sheetShowsOneHitPerSong() {
+    const std::vector<SheetTrack> tracks = {
+        sheetTrack("Halo", "Beyoncé", "I Am", "Pop", "content://1"),
+        sheetTrack("Halo", "Beyonce", "I Am", "/music", "content://1", true),
+        sheetTrack("Halo Remix", "DJ", "B", "", "content://2"),
+    };
+    check(searchSheet(tracks, kNoNames, kNoNames, "halo").tracks == std::vector<int>({1, 2}),
+          "two copies of a song are one hit, shown as the device's copy, placed by the first");
+
+    const std::vector<SheetTrack> later = {
+        sheetTrack("X", "Halo Band", "Y", "", "k"),
+        sheetTrack("Other", "Z", "W", "", "j"),
+        sheetTrack("Halo", "A", "B", "", "m"),
+        sheetTrack("Halo", "C", "D", "", "k", true),
+    };
+    check(searchSheet(later, kNoNames, kNoNames, "halo").tracks == std::vector<int>({3, 2}),
+          "a song ranks by its best copy");
+
+    const std::vector<SheetTrack> keyless = {sheetTrack("Halo", "A", "B", "", ""), sheetTrack("Halo", "C", "D", "", "")};
+    check(searchSheet(keyless, kNoNames, kNoNames, "halo").tracks == std::vector<int>({0, 1}),
+          "tracks without a key are never copies");
+}
+
+void sheetKeepsThirtyTracks() {
+    std::vector<std::string> titles;
+    std::vector<std::string> keys;
+    for (int i = 0; i < 40; ++i) {
+        titles.push_back("Love " + std::to_string(i));
+        keys.push_back("content://" + std::to_string(i));
+    }
+    std::vector<SheetTrack> tracks;
+    for (size_t i = 0; i < titles.size(); ++i) tracks.push_back(sheetTrack(titles[i].c_str(), "A", "B", "", keys[i].c_str()));
+    const SheetHits hits = searchSheet(tracks, kNoNames, kNoNames, "love");
+    check(hits.tracks.size() == static_cast<size_t>(geode::library::kMaxSheetTracks) && hits.tracks.front() == 0 &&
+              hits.tracks.back() == 29,
+          "at most thirty tracks, ties in the caller's order");
+}
+
+void sheetFindsPlaylistsAndPresetsByName() {
+    const std::vector<std::string_view> playlists = {"Road Trip", "Chill", "Trip Hop Mix"};
+    const std::vector<std::string_view> presets = {"Deep Trip", "Ember"};
+    const SheetHits hits = searchSheet({}, playlists, presets, "trip");
+    check(hits.playlists == std::vector<int>({2, 0}), "a name that starts with the query first");
+    check(hits.presets == std::vector<int>({0}), "presets by name");
+    check(searchSheet({}, playlists, presets, "trip chill").playlists.empty(), "every word must land in the name");
+
+    const std::vector<std::string_view> mixes = {"Radiohed Classics"};
+    const std::vector<SheetTrack> tracks = {sheetTrack("Creep", "Radiohead", "Pablo Honey", "", "a")};
+    const SheetHits typed = searchSheet(tracks, mixes, kNoNames, "radiohead");
+    check(typed.tracks == std::vector<int>({0}) && typed.playlists.empty(),
+          "a misspelling is not tried while something matches as typed");
+    check(searchSheet({}, mixes, kNoNames, "radiohead").playlists == std::vector<int>({0}),
+          "and is tried when nothing does");
+}
+
+void sheetFoldsLettersAsAPlainKeyboardTypesThem() {
+    const std::vector<SheetTrack> tracks = {
+        sheetTrack("Straße", "Røisin", "Łódź", "", "a"),
+        sheetTrack("Æther", "İstanbul", "INXS", "", "b"),
+    };
+    check(searchSheet(tracks, kNoNames, kNoNames, "strasse roisin lodz").tracks == std::vector<int>({0}),
+          "ß, ø and Ł with its accent");
+    check(searchSheet(tracks, kNoNames, kNoNames, "AETHER istanbul inxs").tracks == std::vector<int>({1}),
+          "Æ, a dotted capital I, and upper case");
+}
+
+void sheetCAbi() {
+    const char* tracks[] = {
+        "Halo", "Beyoncé", "I Am", "Pop", "content://1",     //
+        "Halo", "Beyonce", "I Am", "/music", "content://1",  //
+        "Run", "Adele", "25", "", "content://3",             //
+    };
+    const unsigned char preferred[] = {0, 1, 0};
+    const char* playlists[] = {"Halo nights"};
+    const char* presets[] = {"Ember"};
+    int out[16] = {};
+    check(geode_search_sheet(tracks, preferred, 3, playlists, 1, presets, 1, "halo", out, 16) == 5,
+          "three counts and two rows");
+    check(out[0] == 1 && out[1] == 1 && out[2] == 0 && out[3] == 1 && out[4] == 0,
+          "one track (the device's copy), one playlist, no preset");
+    check(geode_search_sheet(tracks, nullptr, 3, playlists, 1, presets, 1, "halo", out, 16) == 5 && out[3] == 0,
+          "no flags: the first copy");
+    check(geode_search_sheet(tracks, preferred, 3, playlists, 1, presets, 1, "halo", out, 2) == 5,
+          "the total even when the buffer is short");
+    int zeros[3] = {7, 7, 7};
+    check(geode_search_sheet(nullptr, nullptr, 3, nullptr, 0, nullptr, 0, "halo", zeros, 3) == 3 && zeros[0] == 0 &&
+              zeros[1] == 0 && zeros[2] == 0,
+          "a missing array with a count finds nothing");
+    check(geode_search_sheet(tracks, preferred, 3, playlists, 1, presets, 1, nullptr, zeros, 3) == 3 && zeros[0] == 0,
+          "no query finds nothing");
+}
+
 }  // namespace
 
 int main() {
@@ -272,6 +389,12 @@ int main() {
     orderListsTheLibrary();
     voiceAndTheLibraryAgree();
     indexCAbi();
+    sheetRanksTitleArtistAlbumThenTheExtraField();
+    sheetShowsOneHitPerSong();
+    sheetKeepsThirtyTracks();
+    sheetFindsPlaylistsAndPresetsByName();
+    sheetFoldsLettersAsAPlainKeyboardTypesThem();
+    sheetCAbi();
     if (failures == 0) std::printf("library_search_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

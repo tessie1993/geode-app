@@ -17,7 +17,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.BitPerfectOutput
@@ -79,7 +78,7 @@ private fun PictureDelaySlider(
         CrystalSlider(
             label = stringResource(R.string.playback_picture_delay, prefs.pictureDelayMs),
             value = prefs.pictureDelayMs.toFloat(),
-            onValueChange = { onChange(prefs.copy(pictureDelayMs = PlaybackMath.snap(it, PICTURE_DELAY_STEP_MS).toInt())) },
+            onValueChange = { onChange(prefs.copy(pictureDelayMs = GeodeNative.playbackSnap(it, PICTURE_DELAY_STEP_MS).toInt())) },
             valueRange = -max..max,
             accessibilityStep = PICTURE_DELAY_STEP_MS,
         )
@@ -108,7 +107,7 @@ private fun FadeSlider(
                     stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
                 },
             value = prefs.fadeMs.toFloat(),
-            onValueChange = { onChange(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt())) },
+            onValueChange = { onChange(prefs.copy(fadeMs = (GeodeNative.playbackSnap(it, 250f)).toInt())) },
             valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
             accessibilityStep = 250f,
         )
@@ -118,6 +117,12 @@ private fun FadeSlider(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** The sleep timer's time left as m:ss, a started second counting as a whole one so it never shows 0:00 early. */
+private fun formatCountdown(remainingMs: Long): String {
+    val totalSec = (remainingMs.coerceAtLeast(0L) + 999L) / 1000L
+    return "%d:%02d".format(totalSec / 60, totalSec % 60)
 }
 
 /** The sleep timer's choices, finishing the track first, and the countdown while it runs. */
@@ -170,7 +175,7 @@ private fun SleepTimerRow(
                     } else {
                         R.string.playback_sleep_pausing_in
                     },
-                    PlaybackMath.formatCountdown(remaining),
+                    formatCountdown(remaining),
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = accentTextColor(),
@@ -223,7 +228,7 @@ private fun SpeedPitch(
         CrystalSlider(
             label = stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
             value = prefs.speed,
-            onValueChange = { onChange(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
+            onValueChange = { onChange(prefs.copy(speed = GeodeNative.playbackSnap(it, 0.05f))) },
             valueRange = 0.5f..2f,
             accessibilityStep = 0.05f,
         )
@@ -232,7 +237,7 @@ private fun SpeedPitch(
         CrystalSlider(
             label = stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
             value = prefs.pitchSemitones,
-            onValueChange = { onChange(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
+            onValueChange = { onChange(prefs.copy(pitchSemitones = GeodeNative.playbackSnap(it, 0.5f))) },
             valueRange = -6f..6f,
             accessibilityStep = 0.5f,
         )
@@ -285,7 +290,7 @@ private fun ReplayGainSettings(
             CrystalSlider(
                 label = stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
                 value = prefs.replayGainPreampDb,
-                onValueChange = { onChange(prefs.copy(replayGainPreampDb = PlaybackMath.snap(it, 0.5f))) },
+                onValueChange = { onChange(prefs.copy(replayGainPreampDb = GeodeNative.playbackSnap(it, 0.5f))) },
                 valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
                 accessibilityStep = 0.5f,
             )

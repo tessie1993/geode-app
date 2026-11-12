@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "api/geode_export_job_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
@@ -62,15 +64,39 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameTime
     return geode_export_frame_time_ms(frame, fps);
 }
 
-// out[0] where the pre-roll's decode starts, out[1] how long the engine hears from there.
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportPreRoll(JNIEnv* env, jobject, jlong rangeStartMs,
-                                                                              jlongArray out) {
-    if (!out || env->GetArrayLength(out) < 2) return;
-    int64_t from = 0;
-    int64_t heard = 0;
-    geode_export_pre_roll(rangeStartMs, &from, &heard);
-    const jlong values[2] = {static_cast<jlong>(from), static_cast<jlong>(heard)};
-    env->SetLongArrayRegion(out, 0, 2, values);
+// An export's render (core/output/ExportFrame): handles and values only. `viz` is the renderer handle NativeViz
+// holds; the job borrows it and is destroyed first. The descriptor is detached by the shell and owned natively.
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobCreate(JNIEnv*, jobject, jlong viz, jint fd,
+                                                                                jlong offset, jlong length, jint fps,
+                                                                                jlong rangeStartMs) {
+    return reinterpret_cast<jlong>(
+        geode_export_job_create(reinterpret_cast<geode_viz*>(viz), fd, offset, length, fps, rangeStartMs));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobDestroy(JNIEnv*, jobject, jlong job) {
+    geode_export_job_destroy(reinterpret_cast<geode_export_job*>(job));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobBegin(JNIEnv* env, jobject, jlong job,
+                                                                               jint width, jint height, jstring sceneId,
+                                                                               jstring milkPath, jboolean entitled,
+                                                                               jlong pinDurationMs) {
+    geode::jni::Utf8Chars scene(env, sceneId);
+    geode::jni::Utf8Chars milk(env, milkPath);
+    return geode_export_job_begin(reinterpret_cast<geode_export_job*>(job), width, height, scene.get(), milk.get(),
+                                  entitled == JNI_TRUE ? 1 : 0, pinDurationMs);
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobWarm(JNIEnv*, jobject, jlong job) {
+    return geode_export_job_warm(reinterpret_cast<geode_export_job*>(job)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobFrame(JNIEnv*, jobject, jlong job,
+                                                                                  jlong frame, jint targetFbo) {
+    return geode_export_job_frame(reinterpret_cast<geode_export_job*>(job), frame, static_cast<uint32_t>(targetFbo))
+               ? JNI_TRUE
+               : JNI_FALSE;
 }
 
 // Loops (output/LoopPlan).

@@ -117,6 +117,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
+    /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
+    external fun playbackPitchRatio(semitones: Float): Float
+
+    /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -202,6 +211,20 @@ object GeodeNative {
         query: ByteArray,
     ): IntArray
 
+    /**
+     * The global search sheet (core/library/Search): [tracks] holds five UTF-8 cells per track (title, artist,
+     * album, one more field, and the URI every copy of a song shares), [preferred] marks the copy shown when
+     * copies meet, [playlists] and [presets] are names. Returns three counts (tracks, playlists, presets), then
+     * those rows, best first. A blank [query] finds nothing.
+     */
+    external fun searchSheet(
+        tracks: Array<ByteArray?>,
+        preferred: BooleanArray,
+        playlists: Array<ByteArray?>,
+        presets: Array<ByteArray?>,
+        query: ByteArray,
+    ): IntArray
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -271,6 +294,39 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    // The MilkDrop preset every surface restores (core/viz/MilkMemory), one per process. The shell seeds it
+    // with the path it saved and saves again when [milkMemoryLoaded] or [milkMemoryForget] says so.
+
+    /** The saved path, null for none; only a process's first seed counts. */
+    external fun milkMemorySeed(saved: String?)
+
+    /** The UI asked for [path]; any thread. */
+    external fun milkMemoryRequest(path: String)
+
+    /** A renderer reported [path] shown; true when it is new and must be saved. */
+    external fun milkMemoryLoaded(path: String): Boolean
+
+    /** [paths] were deleted; true when the saved path must be removed. */
+    external fun milkMemoryForget(paths: Array<String>): Boolean
+
+    /** The last preset shown, still on disk; null when none has been. */
+    external fun milkMemoryLastShown(): String?
+
+    /**
+     * What a new renderer starts on; null only when not even a bundled preset is there. With nothing shown or
+     * asked for, the starter pack goes into [milkDir] first. [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
+     */
+    external fun milkMemoryRestorePath(
+        assets: Any,
+        milkDir: String,
+    ): String?
+
+    /** Copies the bundled presets into [milkDir] once per pack version, never over a file; how many it wrote. */
+    external fun milkStarterInstall(
+        assets: Any,
+        milkDir: String,
+    ): Int
+
     external fun vizTakeDirectorStyleMoments(handle: Long): Int
 
     external fun vizWriteAudio(
@@ -281,9 +337,10 @@ object GeodeNative {
         sampleRate: Int,
     )
 
+    /** Settings › Audio's saved tuning (null: the engine's defaults), resolved natively as [soundTuningResolve]. */
     external fun vizSetSoundTuning(
         handle: Long,
-        tuning: FloatArray,
+        saved: FloatArray?,
     )
 
     /** The reaction source catalogue (core/viz/Reactions.cpp): a "NAME|Label|GROUP|0/1" line per source, in wire order. */
@@ -384,13 +441,6 @@ object GeodeNative {
 
     /** Every Customize control a knob can move, its category, and the knobs that move it now. */
     external fun macroBankControls(bank: String): String
-
-    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
-    external fun macroBankRoll(
-        bank: String,
-        knobId: Int,
-        seed: Long,
-    ): String
 
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
@@ -737,12 +787,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
-    external fun wallpaperFps(
-        targetFps: Float,
-        capFps: Float,
-    ): Float
-
     external fun vizKnows(
         handle: Long,
         sceneId: String,
@@ -854,6 +898,9 @@ object GeodeNative {
         paramKey: String,
     ): Float
 
+    /** A size the controls quote: `fluidTiers`, `touchPoints`, `touchRotationPerDegree`; NaN for any other name. */
+    external fun catalogueValue(name: String): Float
+
     /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
     const val STYLE_ANY: Int = 0
     const val STYLE_SHADER: Int = 1
@@ -962,9 +1009,6 @@ object GeodeNative {
         current: Float,
         degrees: Float,
     ): Float
-
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -1189,11 +1233,50 @@ object GeodeNative {
         fps: Int,
     ): Long
 
-    /** The pre-roll before a range at [rangeStartMs] (core/output/PreRoll): [out] gets where its decode starts and how long the engine hears. */
-    external fun exportPreRoll(
+    // An export's render (core/output/ExportFrame, core/api/geode_export_job_api.h): the prepare order, the
+    // pre-roll and each frame's audio and draw are native; the shell hands over the renderer, the track's
+    // descriptor and the look. Every call on the thread holding the renderer's GL context.
+
+    /**
+     * A render over renderer [viz] (a `geode_viz` handle, borrowed: destroy the job first) of the track at [fd],
+     * which native takes and closes, also when it returns 0. [length] >= 0 is the span from [offset] an
+     * AssetFileDescriptor declares; < 0 the whole descriptor. Freed with [exportJobDestroy].
+     */
+    external fun exportJobCreate(
+        viz: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+        fps: Int,
         rangeStartMs: Long,
-        out: LongArray,
-    )
+    ): Long
+
+    external fun exportJobDestroy(job: Long)
+
+    /**
+     * The prepare order up to the look (offscreen pin, frame rate, surface, scene, [milkPath], engine settings
+     * pinned for [pinDurationMs]): the pinned hand mask the look's reactions go under, or -1 when the renderer
+     * cannot draw [sceneId].
+     */
+    external fun exportJobBegin(
+        job: Long,
+        width: Int,
+        height: Int,
+        sceneId: String,
+        milkPath: String?,
+        entitled: Boolean,
+        pinDurationMs: Long,
+    ): Long
+
+    /** Once the look is applied: the pre-roll and the range's decode; false when the track's audio was not heard. */
+    external fun exportJobWarm(job: Long): Boolean
+
+    /** Frame [frame] of the range into [targetFbo]: its audio, then its draw. False when the decoder failed. */
+    external fun exportJobFrame(
+        job: Long,
+        frame: Long,
+        targetFbo: Int,
+    ): Boolean
 
     /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
@@ -1364,9 +1447,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
-
-    /** The stage frames left out because the encoder was behind. */
-    external fun recorderFramesDropped(handle: Long): Long
 
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
@@ -1675,13 +1755,33 @@ object GeodeNative {
         nowMs: Long,
     )
 
-    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+    // Settings › Audio's listening tuning (core/sound/Tuning). The shell keeps only the saved floats, null for
+    // the engine's defaults, so a reset follows the engine when they change.
+
+    /** `GEODE_SOUND_TUNING_FLOATS`, then each field's first slot (`core/sound/SoundFrame.h`); a band or drum field takes three. */
+    const val SOUND_TUNING_FLOATS = 30
+    const val SOUND_TUNING_GAIN = 0
+    const val SOUND_TUNING_THRESHOLD = 3
+    const val SOUND_TUNING_OFFSET = 6
+    const val SOUND_TUNING_ATTACK = 9
+    const val SOUND_TUNING_RELEASE = 12
+    const val SOUND_TUNING_DRUM = 15
+    const val SOUND_TUNING_DRUM_DECAY = 18
+    const val SOUND_TUNING_REACTIVITY = 21
+    const val SOUND_TUNING_SPEED = 22
+    const val SOUND_TUNING_ONSET_THRESHOLD = 23
+    const val SOUND_TUNING_HARD_CUT_LEVEL = 24
+    const val SOUND_TUNING_HARD_CUT_HALF_LIFE = 25
+    const val SOUND_TUNING_PITCH_THRESHOLD = 26
+    const val SOUND_TUNING_NOTE_HOLD = 27
+    const val SOUND_TUNING_SILENCE_DB = 28
+    const val SOUND_TUNING_INPUT_TRIM_DB = 29
 
     /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
     external fun soundTuningSchema(): FloatArray?
 
-    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
-    external fun soundTuningClamp(values: FloatArray)
+    /** Every slot as the engine hears [saved] (any length, null for none): clamped, or the defaults; null when out of memory. */
+    external fun soundTuningResolve(saved: FloatArray?): FloatArray?
     // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
     // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
 
@@ -1835,11 +1935,11 @@ object GeodeNative {
     ): Long
 
     /**
-     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
-     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
+     * GL Transitions library's names, each list's entries separated by US (U+001F); `core/viz/TransitionLibrary.hpp`.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
-    external fun transitionsTable(assets: Any): ByteArray
+    external fun transitionPicker(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
@@ -2134,7 +2234,7 @@ object GeodeNative {
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
 
-    // AIFF files and an export's track audio (core/audio/ingest/AiffReader, TrackFeed).
+    // AIFF files (core/audio/ingest/AiffReader), for the soundtrack transcoder.
 
     /**
      * An AIFF or AIFF-C (NONE, sowt) read as 16-bit PCM from [fd], which native takes and closes, also when it
@@ -2163,49 +2263,6 @@ object GeodeNative {
         handle: Long,
         out: ShortArray,
     ): Int
-
-    /** An export's track audio from [startMs] into the track; frames before it are dropped. Freed with [trackFeedDestroy]. */
-    external fun trackFeedCreate(startMs: Long): Long
-
-    external fun trackFeedDestroy(handle: Long)
-
-    /**
-     * A decoder's output: [size] bytes at [offset] in the direct [buffer], float when [isFloat] else 16-bit, its
-     * first frame at [ptsUs]. Read in place, never kept; false (nothing taken) for a heap buffer. Push only
-     * after [vizHearTrack] returned false: one chunk is held at a time.
-     */
-    external fun trackFeedPushDirect(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        offset: Int,
-        size: Int,
-        isFloat: Boolean,
-        channels: Int,
-        sampleRate: Int,
-        ptsUs: Long,
-    ): Boolean
-
-    /** One read of the AIFF at [aiff] into the feed; false once the file has run out. */
-    external fun trackFeedPushAiff(
-        handle: Long,
-        aiff: Long,
-    ): Boolean
-
-    /** Whether a chunk has told the rate yet. */
-    external fun trackFeedHasRate(handle: Long): Boolean
-
-    /** Aims the next [vizHearTrack] at [endMs] into the range. */
-    external fun trackFeedTargetMs(
-        handle: Long,
-        endMs: Long,
-    )
-
-    /** Aims the next [vizHearTrack] at the exact end of video [frame] (from the range start) at [fps]. */
-    external fun trackFeedTargetFrame(
-        handle: Long,
-        frame: Long,
-        fps: Int,
-    )
 
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(
@@ -2388,12 +2445,6 @@ object GeodeNative {
 
     /** The offset's bound in ms, for Settings' Picture delay slider. */
     external fun playoutMaxOffsetMs(): Int
-
-    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
-    external fun playoutSpeakerFrame(
-        handle: Long,
-        nowNs: Long,
-    ): Long
 
     /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
     external fun playoutSetBypass(

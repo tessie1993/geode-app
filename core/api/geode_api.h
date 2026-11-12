@@ -77,7 +77,7 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
@@ -194,16 +194,14 @@ GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float
  * frame. Off by default; an offscreen (export) renderer never draws it. */
 #define GEODE_EDGE_GLOW_FLOATS 5
 GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
-/* The live wallpaper's window and frame rate (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
+/* The live wallpaper's window (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
  * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
  * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
  * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
- * as geode_viz_set_edge_glow takes them) to out[4]. geode_wallpaper_fps: the wallpaper's target fps lowered
- * to the Performance cap (<= 0 or NaN = no cap); never 0 or NaN. Any thread. */
+ * as geode_viz_set_edge_glow takes them) to out[4]. Any thread. */
 #define GEODE_WALLPAPER_OFFSETS 6
 GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
                                              const float* offsets, int count, float* out);
-GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
  * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
  * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch
@@ -319,6 +317,11 @@ GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /*
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 
+/* Settings › Playback's speed and pitch rows (audio/dsp/PlaybackControls). Pure, any thread. */
+GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
+/* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
+GEODE_API float      geode_playback_snap(float value, float step);
+
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
  * the curves, the dB maths and when each applies are here. "Silence" is GEODE_DSP_SILENCE_DB or below (-inf
@@ -413,6 +416,20 @@ GEODE_API void        geode_library_index_destroy(geode_library_index*);
 GEODE_API int         geode_library_index_order(const geode_library_index*, int sort, int* out, int max_out);
 GEODE_API int         geode_library_index_search(const geode_library_index*, const char* query, int* out, int max_out);
 
+/* The global search sheet (core/library/Search, searchSheet): tracks, playlists and presets for one query.
+ * `tracks` holds GEODE_SEARCH_SHEET_FIELDS UTF-8 strings per track: title, artist, album, one more field searched
+ * after them (a folder, a genre), and the key every copy of one song shares (its URI). `preferred` (NULL = none)
+ * holds one byte per track, nonzero for the copy shown when copies meet. `playlists` and `presets` are names.
+ * Writes three counts (tracks, playlists, presets) and then those rows, best first, at most
+ * GEODE_SEARCH_SHEET_TRACKS tracks; returns the ints in all, so a value above `max_out` means the buffer was
+ * short. A blank query, or a missing array with a count, finds nothing (three zero counts). */
+#define GEODE_SEARCH_SHEET_FIELDS 5
+#define GEODE_SEARCH_SHEET_TRACKS 30
+GEODE_API int         geode_search_sheet(const char* const* tracks, const unsigned char* preferred, int track_count,
+                                         const char* const* playlists, int playlist_count,
+                                         const char* const* presets, int preset_count, const char* query,
+                                         int* out, int max_out);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro
@@ -423,7 +440,9 @@ GEODE_API int         geode_library_index_search(const geode_library_index*, con
  * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
  * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
  * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
- * _override: the value a style holds a control at, NaN when the control is the user's. */
+ * _override: the value a style holds a control at, NaN when the control is the user's.
+ * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
+ *   (the fingers geode_viz_set_touch takes), "touchRotationPerDegree"; NaN for any other name. */
 #define GEODE_STYLE_ANY 0
 #define GEODE_STYLE_SHADER 1
 #define GEODE_STYLE_FAMILY_FOLLOWER 2 /* in a shader family and not its opener */
@@ -438,6 +457,7 @@ GEODE_API const char* geode_catalogue_preset_style(const char* style_id);
 GEODE_API const char* geode_catalogue_scope_of(const char* param_key);
 GEODE_API int         geode_catalogue_reaches(const char* scope_name, const char* style_id);
 GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
+GEODE_API float       geode_catalogue_value(const char* name);
 
 /* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
  * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
@@ -453,9 +473,6 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
-/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
- * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
-GEODE_API const char* geode_params_roll_keys(void);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
@@ -792,13 +809,15 @@ GEODE_API int             geode_sound_source_step(long long* state, long long no
 GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
- * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
- * infinity into the slot's default. The engine clamps whatever it is given; the shell clamps too, so a
- * slider never shows a value the engine would not use. */
+ * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
+ * infinity becoming the slot's default. The shell keeps only the saved floats (NULL for the defaults) and
+ * resolves them here, so a slider never shows a value the engine would not use. Resolve writes every
+ * slot to out: a save of GEODE_SOUND_TUNING_FLOATS slots, or one short (from before the input trim, which
+ * then reads 0 dB), clamped; any other save the defaults. Returns 1 when the save was used. */
 GEODE_API int             geode_sound_tuning_slots(void);
 GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
 GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
-GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
+GEODE_API int             geode_sound_tuning_resolve(const float* saved, int count, float* out);
 
 /* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
  * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.
@@ -812,10 +831,11 @@ GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state)
  * video bit rate, out[5] the audio bit rate (bit/s). out holds GEODE_CAST_FORMAT_INTS ints. */
 #define GEODE_CAST_FORMAT_INTS 6
 GEODE_API void            geode_cast_format(int* out);
-/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
-   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
-   process; "" when the asset is missing. The pointer stays valid for the process. */
-GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
+/* What Customize's transition picker lists (core/viz/TransitionLibrary, encodeTransitionPicker): the built-in
+   ids it offers (TransitionChoice's pickerIds: no "cut", then "random"), RS, then the GL Transitions library's
+   names (gl_transitions.json, read from the APK once per process), each list's entries separated by US. UTF-8.
+   Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
 #define GEODE_PERF_TIER_FLOATS 5
 /* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */

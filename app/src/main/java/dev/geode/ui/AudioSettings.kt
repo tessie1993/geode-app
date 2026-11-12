@@ -10,6 +10,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
@@ -18,7 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.MicCapture
 import dev.geode.data.VisualsSettingsCodec
-import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import kotlin.math.roundToInt
 
 /** Sound reaction › Basics: the microphone, a layer over whatever plays. */
@@ -40,7 +41,7 @@ internal fun OtherAppsAudioRow(viewModel: PlayerViewModel) {
 internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
     val input by viewModel.soundInput.collectAsStateWithLifecycle()
     Column {
-        SoundTuningControls(input.soundTuning) { viewModel.updateSoundInput { s -> s.copy(soundTuning = it.clamped()) } }
+        SoundTuningControls(input.soundTuning) { viewModel.updateSoundInput { s -> s.copy(soundTuning = it) } }
     }
 }
 
@@ -137,20 +138,43 @@ private fun MicStatusNotice(
  */
 @Composable
 private fun SoundTuningControls(
-    tuning: SoundTuning,
-    onChange: (SoundTuning) -> Unit,
+    saved: List<Float>?,
+    onChange: (List<Float>?) -> Unit,
 ) {
     var advanced by rememberSaveable { mutableStateOf(false) }
+    val tuning = remember(saved) { TuningSlots(saved) }
     Column {
-        val reactivity = tuning[SoundTuning.REACTIVITY]
-        TuningSlot(stringResource(R.string.audio_reactivity, "%.2f".format(reactivity)), tuning, SoundTuning.REACTIVITY, onChange)
-        TuningSlot(stringResource(R.string.audio_speed, "%.2f".format(tuning[SoundTuning.SPEED])), tuning, SoundTuning.SPEED, onChange)
+        val reactivity = GeodeNative.SOUND_TUNING_REACTIVITY
+        TuningSlot(stringResource(R.string.audio_reactivity, "%.2f".format(tuning[reactivity])), tuning, reactivity, onChange)
+        val speed = GeodeNative.SOUND_TUNING_SPEED
+        TuningSlot(stringResource(R.string.audio_speed, "%.2f".format(tuning[speed])), tuning, speed, onChange)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
-            TextButton(onClick = { onChange(SoundTuning()) }) { Text(stringResource(R.string.audio_default)) }
+            TextButton(onClick = { onChange(null) }) { Text(stringResource(R.string.audio_default)) }
         }
         if (advanced) AdvancedTuning(tuning, onChange)
     }
+}
+
+/** A saved tuning as the sliders read it: every slot as the engine hears it, over native's ranges. */
+private class TuningSlots(
+    saved: List<Float>?,
+) {
+    private val schema = checkNotNull(GeodeNative.soundTuningSchema())
+    private val values = checkNotNull(GeodeNative.soundTuningResolve(saved?.toFloatArray()))
+
+    operator fun get(slot: Int): Float = values[slot]
+
+    fun range(slot: Int): ClosedFloatingPointRange<Float> {
+        val n = GeodeNative.SOUND_TUNING_FLOATS
+        return schema[n + slot]..schema[2 * n + slot]
+    }
+
+    /** What to save with [slot] moved to [value], clamped by native. */
+    fun with(
+        slot: Int,
+        value: Float,
+    ): List<Float> = checkNotNull(GeodeNative.soundTuningResolve(values.copyOf().also { it[slot] = value })).toList()
 }
 
 /** Seconds as whole milliseconds, for the attack, release, decay and hold labels. */
@@ -158,16 +182,16 @@ private fun ms(seconds: Float) = (seconds * 1000).roundToInt()
 
 @Composable
 private fun AdvancedTuning(
-    tuning: SoundTuning,
-    onChange: (SoundTuning) -> Unit,
+    tuning: TuningSlots,
+    onChange: (List<Float>?) -> Unit,
 ) {
     val bands = listOf(R.string.audio_band_low, R.string.audio_band_middle, R.string.audio_band_high)
     bands.forEachIndexed { i, name ->
         Text(stringResource(name), style = MaterialTheme.typography.titleSmall)
-        val gain = SoundTuning.GAIN + i
-        val threshold = SoundTuning.THRESHOLD + i
-        val attack = SoundTuning.ATTACK + i
-        val release = SoundTuning.RELEASE + i
+        val gain = GeodeNative.SOUND_TUNING_GAIN + i
+        val threshold = GeodeNative.SOUND_TUNING_THRESHOLD + i
+        val attack = GeodeNative.SOUND_TUNING_ATTACK + i
+        val release = GeodeNative.SOUND_TUNING_RELEASE + i
         TuningSlot(stringResource(R.string.audio_band_gain, "%.2f".format(tuning[gain])), tuning, gain, onChange)
         TuningSlot(stringResource(R.string.audio_band_threshold, "%.2f".format(tuning[threshold])), tuning, threshold, onChange)
         TuningSlot(stringResource(R.string.audio_band_attack, ms(tuning[attack])), tuning, attack, onChange)
@@ -175,31 +199,31 @@ private fun AdvancedTuning(
     }
     Text(stringResource(R.string.audio_drums), style = MaterialTheme.typography.titleSmall)
     listOf(R.string.audio_drum_kick, R.string.audio_drum_snare, R.string.audio_drum_hat).forEachIndexed { i, label ->
-        val drum = SoundTuning.DRUM + i
-        val decay = SoundTuning.DRUM_DECAY + i
+        val drum = GeodeNative.SOUND_TUNING_DRUM + i
+        val decay = GeodeNative.SOUND_TUNING_DRUM_DECAY + i
         val drumLine = stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay]))
         TuningSlot(drumLine, tuning, drum, onChange)
         CrystalSlider(
             valueDescription = drumLine,
             value = tuning[decay],
-            onValueChange = { onChange(tuning.withSlot(decay, it)) },
-            valueRange = SoundTuning.range(decay),
+            onValueChange = { onChange(tuning.with(decay, it)) },
+            valueRange = tuning.range(decay),
         )
     }
     Text(stringResource(R.string.audio_events), style = MaterialTheme.typography.titleSmall)
-    val onset = SoundTuning.ONSET_THRESHOLD
+    val onset = GeodeNative.SOUND_TUNING_ONSET_THRESHOLD
     TuningSlot(stringResource(R.string.audio_onset_threshold, "%.1f".format(tuning[onset])), tuning, onset, onChange)
-    val cut = SoundTuning.HARD_CUT_LEVEL
+    val cut = GeodeNative.SOUND_TUNING_HARD_CUT_LEVEL
     TuningSlot(stringResource(R.string.audio_hard_cut_level, "%.1f".format(tuning[cut])), tuning, cut, onChange)
-    val halfLife = SoundTuning.HARD_CUT_HALF_LIFE
+    val halfLife = GeodeNative.SOUND_TUNING_HARD_CUT_HALF_LIFE
     TuningSlot(stringResource(R.string.audio_hard_cut_half_life, tuning[halfLife].roundToInt()), tuning, halfLife, onChange)
-    val pitch = SoundTuning.PITCH_THRESHOLD
+    val pitch = GeodeNative.SOUND_TUNING_PITCH_THRESHOLD
     TuningSlot(stringResource(R.string.audio_pitch_threshold, "%.2f".format(tuning[pitch])), tuning, pitch, onChange)
-    val hold = SoundTuning.NOTE_HOLD
+    val hold = GeodeNative.SOUND_TUNING_NOTE_HOLD
     TuningSlot(stringResource(R.string.audio_note_hold, ms(tuning[hold])), tuning, hold, onChange)
-    val silence = SoundTuning.SILENCE_DB
+    val silence = GeodeNative.SOUND_TUNING_SILENCE_DB
     TuningSlot(stringResource(R.string.audio_silence, tuning[silence].roundToInt()), tuning, silence, onChange)
-    val trim = SoundTuning.INPUT_TRIM_DB
+    val trim = GeodeNative.SOUND_TUNING_INPUT_TRIM_DB
     TuningSlot(stringResource(R.string.audio_input_trim, "%+.0f".format(tuning[trim])), tuning, trim, onChange)
 }
 
@@ -207,10 +231,10 @@ private fun AdvancedTuning(
 @Composable
 private fun TuningSlot(
     label: String,
-    tuning: SoundTuning,
+    tuning: TuningSlots,
     slot: Int,
-    onChange: (SoundTuning) -> Unit,
-) = TuningSlider(label, tuning[slot], SoundTuning.range(slot)) { onChange(tuning.withSlot(slot, it)) }
+    onChange: (List<Float>?) -> Unit,
+) = TuningSlider(label, tuning[slot], tuning.range(slot)) { onChange(tuning.with(slot, it)) }
 
 @Composable
 private fun TuningSlider(

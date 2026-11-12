@@ -16,14 +16,4 @@ object ColorDerive {
         fun ch(c: Int): Int = (luma + (c - luma) * factor).roundToInt().coerceIn(0, 255)
         return (argb and 0xFF000000.toInt()) or (ch(r) shl 16) or (ch(g) shl 8) or ch(b)
     }
-
-    fun dim(
-        argb: Int,
-        amount: Float,
-    ): Int {
-        val k = 1f - amount.coerceIn(0f, 1f)
-
-        fun ch(shift: Int): Int = (((argb ushr shift) and 0xFF) * k).roundToInt().coerceIn(0, 255)
-        return (argb and 0xFF000000.toInt()) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
-    }
 }

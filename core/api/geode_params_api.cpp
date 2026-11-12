@@ -87,15 +87,6 @@ float geode_touch_zoom(float current, float scale_factor) { return geode::viz::t
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }
 
-const char* geode_params_roll_keys(void) {
-    static const std::string kText = [] {
-        std::string out;
-        for (const auto& roll : randomizer::rolledKeys()) out += std::string(randomizer::name(roll.tab)) + "|" + roll.key + "\n";
-        return out;
-    }();
-    return kText.c_str();
-}
-
 const char* geode_customize_text(void) { return customize::text().c_str(); }
 
 int geode_customize_lockable(const char* key) {

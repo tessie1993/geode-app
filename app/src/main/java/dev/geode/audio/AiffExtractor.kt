@@ -29,7 +29,7 @@ class AiffExtractor : Extractor {
     private var sampleRate = 0
     private var pcmEncoding = C.ENCODING_INVALID
     private var dataStart = 0L
-    private var dataEnd = 0L
+    private var dataBytes = 0L
     private var bytesPerFrame = 0
     private var pendingBytes = 0
     private var formatEmitted = false
@@ -61,12 +61,10 @@ class AiffExtractor : Extractor {
             emitFormat()
             formatEmitted = true
         }
-        if (input.position < dataStart) {
-            input.skipFully((dataStart - input.position).toInt())
-        }
-        if (input.position >= dataEnd) return Extractor.RESULT_END_OF_INPUT
-
-        val maxRead = minOf(MAX_SAMPLE_BYTES.toLong(), dataEnd - input.position).toInt()
+        val gap = GeodeNative.aiffGapBytes(input.position, dataStart)
+        if (gap > 0) input.skipFully(gap.toInt())
+        val maxRead = GeodeNative.aiffReadBytes(input.position, dataStart, dataBytes)
+        if (maxRead <= 0) return Extractor.RESULT_END_OF_INPUT
         val appended = track.sampleData(input, maxRead, true)
         if (appended == C.RESULT_END_OF_INPUT) {
             flushPending(input.position)
@@ -79,9 +77,9 @@ class AiffExtractor : Extractor {
 
     /** Hands on the whole frames held so far, timed by where their first byte lies; a part frame waits. */
     private fun flushPending(position: Long) {
-        val emit = (pendingBytes / bytesPerFrame) * bytesPerFrame
+        val emit = GeodeNative.aiffWholeBytes(pendingBytes, bytesPerFrame)
         if (emit <= 0) return
-        val timeUs = GeodeNative.aiffTimeUs(position - dataStart - pendingBytes, bytesPerFrame, sampleRate)
+        val timeUs = GeodeNative.aiffPendingTimeUs(position, dataStart, pendingBytes, bytesPerFrame, sampleRate)
         track.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, emit, pendingBytes - emit, null)
         pendingBytes -= emit
     }
@@ -113,7 +111,7 @@ class AiffExtractor : Extractor {
         bytesPerFrame = fields[GeodeNative.AIFF_HEADER_BYTES_PER_FRAME].toInt()
         // The scan leaves the input on the first sample byte.
         dataStart = input.position
-        dataEnd = dataStart + fields[GeodeNative.AIFF_HEADER_DATA_BYTES]
+        dataBytes = fields[GeodeNative.AIFF_HEADER_DATA_BYTES]
     }
 
     private fun emitFormat() {
@@ -124,14 +122,14 @@ class AiffExtractor : Extractor {
                 .setChannelCount(channels)
                 .setSampleRate(sampleRate)
                 .setPcmEncoding(pcmEncoding)
-                .setMaxInputSize(MAX_SAMPLE_BYTES)
+                .setMaxInputSize(GeodeNative.AIFF_MAX_SAMPLE_BYTES)
                 .build(),
         )
         val start = dataStart
-        val dataBytes = dataEnd - dataStart
+        val samples = dataBytes
         val frameBytes = bytesPerFrame
         val rate = sampleRate
-        val durationUs = GeodeNative.aiffTimeUs(dataBytes, frameBytes, rate)
+        val durationUs = GeodeNative.aiffTimeUs(samples, frameBytes, rate)
         output.seekMap(
             object : SeekMap {
                 override fun isSeekable() = true
@@ -139,7 +137,7 @@ class AiffExtractor : Extractor {
                 override fun getDurationUs() = durationUs
 
                 override fun getSeekPoints(timeUs: Long): SeekMap.SeekPoints {
-                    val offset = GeodeNative.aiffSeekOffset(timeUs, frameBytes, rate, dataBytes)
+                    val offset = GeodeNative.aiffSeekOffset(timeUs, frameBytes, rate, samples)
                     val clampedUs = GeodeNative.aiffTimeUs(offset, frameBytes, rate)
                     return SeekMap.SeekPoints(SeekPoint(clampedUs, start + offset))
                 }
@@ -157,8 +155,6 @@ class AiffExtractor : Extractor {
     override fun release() {}
 
     private companion object {
-        const val MAX_SAMPLE_BYTES = 32 * 1024
-
         /** Media3's name for each sample layout native reports; invalid for one the sink cannot take. */
         fun encodingOf(pcm: Int): Int =
             when (pcm) {

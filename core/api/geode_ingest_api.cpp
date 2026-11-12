@@ -32,6 +32,7 @@ static_assert(GEODE_AIFF_SCAN_MAX_READ == AiffHeaderScan::kMaxRead);
 static_assert(GEODE_AIFF_PCM_NONE == AiffHeader::kNotPlayed && GEODE_AIFF_PCM_S16_LE == AiffHeader::kS16Le);
 static_assert(GEODE_AIFF_PCM_S16_BE == AiffHeader::kS16Be && GEODE_AIFF_PCM_S24_BE == AiffHeader::kS24Be);
 static_assert(GEODE_AIFF_PCM_S32_BE == AiffHeader::kS32Be);
+static_assert(GEODE_AIFF_MAX_SAMPLE_BYTES == geode::audio::ingest::kAiffMaxSampleBytes);
 
 int report(const PcmRing::Written& written, float* peak_out) {
     if (peak_out) *peak_out = written.peak;
@@ -326,6 +327,23 @@ int64_t geode_aiff_time_us(int64_t bytes, int bytes_per_frame, int sample_rate) 
 
 int64_t geode_aiff_seek_offset(int64_t time_us, int bytes_per_frame, int sample_rate, int64_t data_bytes) {
     return geode::audio::ingest::aiffSeekOffset(time_us, bytes_per_frame, sample_rate, data_bytes);
+}
+
+int64_t geode_aiff_gap_bytes(int64_t position, int64_t data_start) {
+    return geode::audio::ingest::aiffGapBytes(position, data_start);
+}
+
+int geode_aiff_read_bytes(int64_t position, int64_t data_start, int64_t data_bytes) {
+    return geode::audio::ingest::aiffReadBytes(position, data_start, data_bytes);
+}
+
+int geode_aiff_whole_bytes(int pending, int bytes_per_frame) {
+    return geode::audio::ingest::aiffWholeBytes(pending, bytes_per_frame);
+}
+
+int64_t geode_aiff_pending_time_us(int64_t position, int64_t data_start, int pending, int bytes_per_frame,
+                                   int sample_rate) {
+    return geode::audio::ingest::aiffPendingTimeUs(position, data_start, pending, bytes_per_frame, sample_rate);
 }
 
 geode_track_feed* geode_track_feed_create(int64_t start_ms) {

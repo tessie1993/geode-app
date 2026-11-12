@@ -439,6 +439,26 @@ void seekMap() {
     check(lands, "every seek lands on the frame playing then");
 }
 
+// The player's extractor over samples 100 bytes in, 40 long, four bytes a frame at 44.1 kHz: the reads and
+// stamps its Kotlin made before (skip to the start, at most 32 KiB, whole frames, timed from their first byte).
+void extractorReads() {
+    check(kAiffMaxSampleBytes == 32 * 1024, "32 KiB at most a read");
+    check(aiffGapBytes(0, 100) == 100 && aiffGapBytes(99, 100) == 1, "a seek to the file's start passes the header");
+    check(aiffGapBytes(100, 100) == 0 && aiffGapBytes(500, 100) == 0, "on or past the samples, nothing to pass");
+    check(aiffReadBytes(100, 100, 40) == 40 && aiffReadBytes(130, 100, 40) == 10, "the rest of the samples");
+    check(aiffReadBytes(140, 100, 40) == 0 && aiffReadBytes(900, 100, 40) == 0, "none once they are done");
+    check(aiffReadBytes(100, 100, int64_t{1} << 33) == kAiffMaxSampleBytes, "a long file in 32 KiB reads");
+    check(aiffReadBytes(100, 100, 0) == 0, "no samples");
+    check(aiffWholeBytes(11, 4) == 8 && aiffWholeBytes(3, 4) == 0 && aiffWholeBytes(12, 4) == 12, "whole frames");
+    check(aiffWholeBytes(0, 4) == 0 && aiffWholeBytes(-4, 4) == 0 && aiffWholeBytes(8, 0) == 0, "none to give");
+    check(aiffPendingTimeUs(100 + 4 * 44100 + 12, 100, 12, 4, 44100) == 1'000'000, "timed from the first byte held");
+    check(aiffPendingTimeUs(112, 100, 12, 4, 44100) == 0, "the first frame is at 0");
+    check(geode_aiff_gap_bytes(0, 100) == 100 && geode_aiff_read_bytes(100, 100, 40) == 40, "ABI gap and read");
+    check(GEODE_AIFF_MAX_SAMPLE_BYTES == kAiffMaxSampleBytes, "ABI read size");
+    check(geode_aiff_whole_bytes(11, 4) == 8 && geode_aiff_pending_time_us(112, 100, 12, 4, 44100) == 0,
+          "ABI whole frames and time");
+}
+
 void abi() {
     const Bytes f = file("AIFC", comm(2, 10, 16, kRate, "sowt"), 0, Bytes(40, 0));
     geode_aiff_scan* s = geode_aiff_scan_create();
@@ -493,6 +513,7 @@ int main() {
     hostileSizes();
     rates();
     seekMap();
+    extractorReads();
     abi();
     if (failures) {
         std::printf("%d failure(s)\n", failures);

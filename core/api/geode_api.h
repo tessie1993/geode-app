@@ -317,6 +317,10 @@ GEODE_API int        geode_dsp_restore_bands(int preset, const int32_t* stored, 
  * whole text needs, so a short buffer asks again with room. */
 GEODE_API int        geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity);
 GEODE_API int        geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity);
+/* The equalizer's labels, written as _encode_bands writes its text: band `band`'s centre ("125 Hz", "1 kHz";
+ * "0 Hz" for no such band) and a level in millibels as dB to a tenth ("+3.5 dB", "-12 dB", "0 dB"). */
+GEODE_API int        geode_dsp_band_label(int band, char* out, int capacity);
+GEODE_API int        geode_dsp_db_label(int millibels, char* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
@@ -524,6 +528,18 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
+/* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
+ * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
+ * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling
+ * thread's next write_json; NULL for a short frame. read_json: the object at `path` (nested keys, newline-separated,
+ * NULL or "" for the top) of `document`, the text org.json parsed, when that is standard JSON, else `fallback`, the
+ * object as org.json printed it (either may be NULL), read as org.json's opt* read it and sanitized
+ * (geode_params_sanitize) into out_frame, and the ids into *id_a and *id_b ("" when missing; each may be NULL),
+ * valid until the calling thread's next read_json; 1, or 0 with nothing written when neither holds an object or
+ * the frame is short. Pure, any thread. */
+GEODE_API const char* geode_params_write_json(const float* frame, int n, const char* id_a, const char* id_b);
+GEODE_API int         geode_params_read_json(const char* document, const char* path, const char* fallback,
+                                             float* out_frame, int n, const char** id_a, const char** id_b);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
@@ -1325,6 +1341,7 @@ GEODE_API void    geode_pcm_float_to_s16(const float* in, size_t samples, int16_
 
 /* PCM timing (audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim. */
 GEODE_API int     geode_aac_rate_for(int source_rate);          /* own rate to 48k; above: 44.1k family -> 44.1k, else 48k */
+GEODE_API int     geode_mix_rate(void);                         /* the one rate a mix's clips share in its AAC track */
 GEODE_API int64_t geode_aac_end_us(int64_t last_pts_us, int sample_rate);   /* + one 1024-sample AAC frame */
 GEODE_API int64_t geode_pcm_s16_bytes_to_us(int64_t bytes, int rate, int channels);   /* floor; 0 on bad args */
 GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels);    /* floor(us*rate/1e6)*channels */
@@ -1505,6 +1522,15 @@ GEODE_API int               geode_aiff_scan_header(const geode_aiff_scan*, int64
 GEODE_API int64_t           geode_aiff_time_us(int64_t bytes, int bytes_per_frame, int sample_rate);
 GEODE_API int64_t           geode_aiff_seek_offset(int64_t time_us, int bytes_per_frame, int sample_rate,
                                                    int64_t data_bytes);
+/* The extractor's reads over the samples (data_start, data_bytes long): the bytes to pass over at `position`
+ * to reach them, the most to read there (at most GEODE_AIFF_MAX_SAMPLE_BYTES; 0 once they are done), the whole
+ * frames among `pending` bytes held, and the start time of those bytes, which end at `position`. */
+#define GEODE_AIFF_MAX_SAMPLE_BYTES 32768
+GEODE_API int64_t           geode_aiff_gap_bytes(int64_t position, int64_t data_start);
+GEODE_API int               geode_aiff_read_bytes(int64_t position, int64_t data_start, int64_t data_bytes);
+GEODE_API int               geode_aiff_whole_bytes(int pending, int bytes_per_frame);
+GEODE_API int64_t           geode_aiff_pending_time_us(int64_t position, int64_t data_start, int pending,
+                                                       int bytes_per_frame, int sample_rate);
 /* An export's track audio (audio/ingest/TrackFeed): the shell pushes each decoded chunk, and the renderer's
  * sound engine hears exactly the frames up to each video frame's end, counted from the range start.
  * Frames before start_ms are dropped. One chunk is held at a time: push only after a deliver returned 0.

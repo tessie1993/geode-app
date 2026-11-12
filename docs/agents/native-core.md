@@ -68,6 +68,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - A look's saved custom shader still applies (`core/viz/ShaderOverrides`, `geode_shader_override_*`).
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
 - The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
+- `core/viz/ParamsJson` (`geode_params_write_json`, `_read_json`) writes and reads the scene params object of presets, links, template looks and the saved look, in the text org.json wrote.
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
 

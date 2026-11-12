@@ -61,6 +61,8 @@ void pcmTiming() {
     check(aacRateFor(88200) == 44100 && aacRateFor(176400) == 44100, "the 44.1k family steps down to 44.1k");
     check(aacRateFor(96000) == 48000 && aacRateFor(192000) == 48000 && aacRateFor(64000) == 48000, "the rest to 48k");
     check(geode_aac_rate_for(96000) == 48000, "ABI AAC rate");
+    check(kMixRateHz == 48000 && geode_mix_rate() == kMixRateHz, "a mix is brought to 48k, the rate PcmResampler held");
+    check(aacRateFor(kMixRateHz) == kMixRateHz, "and the encoder keeps it");
 
     // One second of stereo s16 at each rate; bytes are timed at the rate they are at.
     check(s16BytesToUs(44100LL * 4, 44100, 2) == 1000000 && s16BytesToUs(48000LL * 4, 48000, 2) == 1000000 &&

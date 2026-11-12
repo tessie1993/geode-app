@@ -73,6 +73,12 @@ object GeodeNative {
     /** The saved text for [levels]: millibels, comma separated. */
     external fun dspEncodeBands(levels: IntArray): String
 
+    /** Band [band]'s centre as the settings show it ("125 Hz", "1 kHz"). */
+    external fun dspBandLabel(band: Int): String
+
+    /** A level in millibels as dB to a tenth ("+3.5 dB", "-12 dB", "0 dB"). */
+    external fun dspDbLabel(millibels: Int): String
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,
@@ -1078,14 +1084,29 @@ object GeodeNative {
     external fun paramsKaleidoscopePick(row: Int): Int
 
     /**
-     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
-     * retired slots to their defaults, every row held to its schema range but a circular one
-     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
+     * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
+     * (`geode_params_write_json`). Null for a short frame. Pure.
      */
-    external fun paramsSanitize(
-        input: FloatArray,
-        output: FloatArray,
-    )
+    external fun paramsWriteJson(
+        frame: FloatArray,
+        customPaletteId: String,
+        customPalette2Id: String,
+    ): String?
+
+    /**
+     * A params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two palette slot
+     * ids into [ids] (two slots; "" when missing) (`geode_params_read_json`): the object at [path] (nested keys,
+     * newline-separated, "" for the top) of [document], the text org.json parsed, when that is standard JSON, else
+     * [fallback], the object as org.json printed it. False, nothing written, when neither holds an object. Pure.
+     */
+    external fun paramsReadJson(
+        document: String?,
+        path: String,
+        fallback: String?,
+        out: FloatArray,
+        ids: Array<String?>,
+    ): Boolean
 
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(
@@ -1867,6 +1888,9 @@ object GeodeNative {
     /** The AAC rate for [sourceRateHz]: its own up to 48 kHz; above, 44.1 kHz for the 44.1k family, else 48 kHz. */
     external fun aacRateFor(sourceRateHz: Int): Int
 
+    /** The one rate a mix's clips are brought to, so they share one AAC track. */
+    external fun mixRateHz(): Int
+
     /** End of an AAC track: [lastPtsUs] plus one 1024-sample frame at [sampleRateHz]. */
     external fun aacEndUs(
         lastPtsUs: Long,
@@ -2513,6 +2537,37 @@ object GeodeNative {
         bytesPerFrame: Int,
         sampleRate: Int,
         dataBytes: Long,
+    ): Long
+
+    /** The most [aiffReadBytes] hands the player's extractor at once. */
+    const val AIFF_MAX_SAMPLE_BYTES = 32 * 1024
+
+    /** The bytes to pass over at [position] to reach the first sample at [dataStart]; 0 on or past it. */
+    external fun aiffGapBytes(
+        position: Long,
+        dataStart: Long,
+    ): Long
+
+    /** The most to read at [position]; 0 once the [dataBytes] of samples from [dataStart] are done. */
+    external fun aiffReadBytes(
+        position: Long,
+        dataStart: Long,
+        dataBytes: Long,
+    ): Int
+
+    /** Of [pending] bytes held, those in whole frames; a part frame waits. */
+    external fun aiffWholeBytes(
+        pending: Int,
+        bytesPerFrame: Int,
+    ): Int
+
+    /** The start time of the [pending] bytes held, which end at [position]. */
+    external fun aiffPendingTimeUs(
+        position: Long,
+        dataStart: Long,
+        pending: Int,
+        bytesPerFrame: Int,
+        sampleRate: Int,
     ): Long
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write

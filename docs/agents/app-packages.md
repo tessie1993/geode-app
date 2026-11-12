@@ -182,6 +182,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
 - `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- The extractor's read sizes, the gap to the samples and the whole-frame cut of what it holds are native too (`aiffReadBytes`, `aiffGapBytes`, `aiffWholeBytes`).
+- `AudioFxController`'s band and dB labels are native (`core/audio/dsp/FxRanges`, `geode_dsp_band_label`, `geode_dsp_db_label`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
@@ -291,6 +293,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
+- The rate a mix's clips share is native (`GeodeNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
 - A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.

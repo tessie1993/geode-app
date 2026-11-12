@@ -203,7 +203,6 @@ class PlaybackSession internal constructor(
         if (dev.geode.audio.AudioBus.soundInput == sampleRing) dev.geode.audio.AudioBus.soundInput = 0L
         recorder.release()
         scope.cancel()
-        audioFx.release()
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
         player.removeListener(crossfade)

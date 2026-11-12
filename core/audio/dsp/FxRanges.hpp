@@ -95,6 +95,25 @@ inline std::string encodeBandLevels(const int32_t* levels, int count) {
     return text;
 }
 
+// A band's centre as the settings show it: whole hertz under 1 kHz ("125 Hz"), else kHz to a tenth, cut
+// not rounded ("1 kHz", "1.5 kHz").
+inline std::string freqLabel(int milliHz) {
+    const int hz = milliHz / 1000;
+    if (hz < 1000) return std::to_string(hz) + " Hz";
+    const int tenth = hz % 1000 / 100;
+    return std::to_string(hz / 1000) + (tenth == 0 ? "" : "." + std::to_string(tenth)) + " kHz";
+}
+
+// A level in millibels as dB to a tenth, cut not rounded, signed unless 0 ("+3.5 dB", "-12 dB", "0 dB").
+inline std::string dbLabel(int millibels) {
+    const int64_t magnitude = millibels < 0 ? -int64_t{millibels} : int64_t{millibels};
+    const int64_t tenth = magnitude % 100 / 10;
+    const std::string num = std::to_string(magnitude / 100) + (tenth == 0 ? "" : "." + std::to_string(tenth));
+    if (millibels > 0) return "+" + num + " dB";
+    if (millibels < 0) return "-" + num + " dB";
+    return "0 dB";
+}
+
 // restoreBands from the saved text; no text (null) is nothing saved.
 inline void restoreBandsText(int preset, std::string_view csv, int32_t* out) {
     const std::vector<int32_t> stored = parseBandLevels(csv);

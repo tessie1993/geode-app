@@ -493,8 +493,9 @@ internal fun rememberStageActions(
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /**
- * Every style the stage swipes through, in the order the Styles page lists them (the native
- * picker's families one after another). MilkDrop is left out: its presets are a library of their
+ * Every style the stage swipes through, in the native picker's order (its families one after
+ * another; the Styles page shows the same order with the style on screen lifted to the top, which
+ * would make a swipe walk a list that moves under it). MilkDrop is left out: its presets are a library of their
  * own, which the step walks from the MilkDrop tab ([stepStage]).
  */
 internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP

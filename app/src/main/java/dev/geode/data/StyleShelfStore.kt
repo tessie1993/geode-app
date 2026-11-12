@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Keeps the Styles grid's favourites and recents in the `geode-viz` prefs file, so a manual
- * backup carries them with the rest of the visual settings.
+ * Keeps the Styles page's favourites, recents and Random's "This family only" in the `geode-viz`
+ * prefs file, so a manual backup carries them with the rest of the visual settings.
  *
  * Process-wide like [MacroStore]: the grid is the only writer, and a second instance would
  * hold a stale copy of the shelf.
@@ -28,6 +28,8 @@ class StyleShelfStore private constructor(
 
     fun removeRecent(id: String) = edit { it.removeRecent(id) }
 
+    fun setRandomFamilyOnly(on: Boolean) = edit { it.withRandomFamilyOnly(on) }
+
     private fun edit(change: (StyleShelf) -> StyleShelf) {
         _shelf.update(change)
         val s = _shelf.value
@@ -35,6 +37,7 @@ class StyleShelfStore private constructor(
             .edit()
             .putStringSet(KEY_FAVOURITES, s.favourites)
             .putString(KEY_RECENTS, s.recents.joinToString(SEPARATOR))
+            .putBoolean(KEY_RANDOM_FAMILY_ONLY, s.randomFamilyOnly)
             .apply()
     }
 
@@ -47,11 +50,13 @@ class StyleShelfStore private constructor(
                     .orEmpty()
                     .split(SEPARATOR)
                     .filter { it.isNotBlank() },
+            randomFamilyOnly = prefs.getBoolean(KEY_RANDOM_FAMILY_ONLY, false),
         )
 
     companion object {
         private const val KEY_FAVOURITES = "style_favourites"
         private const val KEY_RECENTS = "style_recents"
+        private const val KEY_RANDOM_FAMILY_ONLY = "style_random_family_only"
 
         // Style ids are lowercase words and underscores, never a comma.
         private const val SEPARATOR = ","
@@ -60,6 +65,7 @@ class StyleShelfStore private constructor(
             prefKeys(GeodePrefsFiles.VIZ) {
                 portable(PrefType.STRING_SET, KEY_FAVOURITES)
                 portable(PrefType.STRING, KEY_RECENTS)
+                portable(PrefType.BOOLEAN, KEY_RANDOM_FAMILY_ONLY)
             }
 
         @Volatile private var instance: StyleShelfStore? = null

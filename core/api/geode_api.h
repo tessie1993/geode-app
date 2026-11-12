@@ -803,6 +803,14 @@ GEODE_API void            geode_auto_mark_change(const char* key);
 /* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
  * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
+/* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
+ * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
+ * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
+ * none. lead: writes into out (count ints) the order a list shows, lead first (the item on screen, or the family
+ * holding it), the rest in order; lead outside the list keeps the order. */
+GEODE_API int             geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen,
+                                              int family_only);
+GEODE_API void            geode_styles_lead(int count, int lead, int* out);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and
  * of Cast; the answer is GEODE_STAGE_DRAWS while somebody can see the stage (resumed, or started in a

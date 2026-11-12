@@ -1952,6 +1952,24 @@ object GeodeNative {
         onScreen: Int,
     ): Int
 
+    /**
+     * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,
+     * [family] each one's family index and [open] whether the entitlement keeps it; never [onScreen], every family
+     * or with [familyOnly] the on-screen style's family alone, a kept style while there is one; -1 for none.
+     */
+    external fun stylesRandom(
+        family: IntArray,
+        open: BooleanArray,
+        onScreen: Int,
+        familyOnly: Boolean,
+    ): Int
+
+    /** The order a Styles list shows its [count] items: [lead] (what is on screen) first, the rest in order. */
+    external fun stylesLead(
+        count: Int,
+        lead: Int,
+    ): IntArray
+
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
 

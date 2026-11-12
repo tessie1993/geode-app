@@ -2427,6 +2427,35 @@ object GeodeNative {
     /** Browsers fed at once (GEODE_LINK_MAX_STREAMS); past it the feed answers 503 and the page retries. */
     const val LINK_MAX_STREAMS = 3
 
+    /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
+    const val LINK_RTC = 10
+
+    /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
+    const val LINK_NO_BODY = -1L
+    const val LINK_BAD_BODY = -2L
+
+    /** The body a request's [headers] (each line without its break) announce: its length, or LINK_NO_BODY / LINK_BAD_BODY. */
+    external fun linkBodyLength(
+        headers: Array<String>,
+        max: Long,
+    ): Long
+
+    /** The HTTP status for the rtc POST from [webrtcAnswer]'s result: 200, 503 (busy) or 400. */
+    external fun linkRtcStatus(answerResult: Int): Int
+
+    /**
+     * The link the user sees, copies and shares: the page's address with its IPv4 host ([address], host order)
+     * written as one decimal number, not the dotted address; null when it cannot be made.
+     */
+    external fun linkShareUrl(
+        address: Int,
+        port: Int,
+        token: String,
+    ): String?
+
+    /** A short friendly name for [token] ("Blue Comet"), shown beside the QR code. */
+    external fun linkLabel(token: String): String
+
     /**
      * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)
      * with the resource and, for a segment, its sequence.
@@ -2526,6 +2555,57 @@ object GeodeNative {
         text: String,
         out: ByteArray,
     ): Int
+
+    // Show on a computer over WebRTC (core/cast/WebRtcLink, rules in core/viz/frame/WebRtcRule): the browser's
+    // low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream; 0 = none.
+
+    /** Largest offer [webrtcAnswer] takes (GEODE_WEBRTC_OFFER_MAX). */
+    const val WEBRTC_OFFER_MAX = 16 * 1024
+    const val WEBRTC_REFUSED_FULL = -4
+    const val WEBRTC_REFUSED_NOT_READY = -5
+
+    /** Opens the link bound to the server's address: [boundDotted], and [bound]/[prefix] as [linkAdmit] reads them. */
+    external fun webrtcOpen(
+        boundDotted: String,
+        bound: Int,
+        prefix: Int,
+    ): Long
+
+    external fun webrtcClose(handle: Long)
+
+    /** The answer to a browser's [offer], or null; [result] (1 int) gets its length or a WEBRTC_REFUSED_* code. */
+    external fun webrtcAnswer(
+        handle: Long,
+        offer: String,
+        result: IntArray,
+    ): String?
+
+    /** One encoded H.264 frame (the first [size] bytes of [data], Annex B) as the cast encoder wrote it. */
+    external fun webrtcVideo(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+        ptsUs: Long,
+        key: Boolean,
+    )
+
+    /** The H.264 codec config (SPS and PPS) the encoder hands over before its first frame. */
+    external fun webrtcVideoConfig(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+    )
+
+    /** One Opus packet (48 kHz stereo) and its PTS. */
+    external fun webrtcAudio(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+        ptsUs: Long,
+    )
+
+    /** Browsers connected over WebRTC now. */
+    external fun webrtcPeers(handle: Long): Int
 
     // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
 

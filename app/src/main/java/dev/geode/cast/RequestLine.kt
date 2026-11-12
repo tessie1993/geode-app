@@ -8,9 +8,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** What reading a request line from a client came to. */
 internal sealed interface RequestLine {
-    /** A full line, without its line break. */
+    /** A full line, without its line break, and the header lines after it (each without its break). */
     data class Line(
         val text: String,
+        val headers: List<String> = emptyList(),
     ) : RequestLine
 
     /** The line passed its size cap before a line break. */
@@ -26,7 +27,8 @@ internal sealed interface RequestLine {
 /**
  * Reads the request line of [LiveHttpServer], then the header lines up to the blank line that ends
  * them, under two bounds a plain `readLine()` lacks: size caps, so a head that never ends can't grow
- * memory, and one deadline for the whole connection. The headers are read only so the request is
+ * memory, and one deadline for the whole connection. The headers are kept for the one request with a
+ * body (WebRTC's offer: native reads its length, `geode_link_body_length`) and read so the request is
  * consumed: closing a socket with unread input sends a reset, which can cut off the response the
  * client is still receiving. The socket timeout alone is per read, so a client sending a byte a second
  * would hold a pool thread for as long as it liked; here every read's timeout is cut to what is left
@@ -50,13 +52,47 @@ internal object RequestLineReader {
         val first = readLine(socket, deadlineNanos, maxBytes)
         if (first !is RequestLine.Line) return first
         var used = 0
+        val headers = ArrayList<String>()
         while (true) {
             when (val header = readLine(socket, deadlineNanos, MAX_HEADER_BYTES - used)) {
-                is RequestLine.Line -> if (header.text.isEmpty()) return first else used += header.text.length + CRLF
+                is RequestLine.Line ->
+                    if (header.text.isEmpty()) {
+                        return RequestLine.Line(first.text, headers)
+                    } else {
+                        used += header.text.length + CRLF
+                        headers += header.text
+                    }
                 RequestLine.TooLong -> return RequestLine.HeadersTooLarge
                 else -> return header
             }
         }
+    }
+
+    /**
+     * Reads exactly [length] body bytes after the head, under the same deadline; null when the client closes
+     * or goes quiet first.
+     */
+    fun readBody(
+        socket: Socket,
+        deadlineNanos: Long,
+        length: Int,
+    ): ByteArray? {
+        val input = socket.getInputStream()
+        val body = ByteArray(length)
+        var got = 0
+        try {
+            while (got < length) {
+                val leftMs = (deadlineNanos - System.nanoTime()) / NANOS_PER_MS
+                if (leftMs <= 0) return null
+                socket.soTimeout = leftMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                val n = input.read(body, got, length - got)
+                if (n < 0) return null
+                got += n
+            }
+        } catch (_: IOException) {
+            return null
+        }
+        return body
     }
 
     private fun readLine(

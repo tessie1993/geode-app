@@ -264,20 +264,20 @@ internal class ConnectedDisplayControl(
 @Composable
 internal fun rememberConnectedDisplayControl(): ConnectedDisplayControl {
     val settings: SettingsViewModel = geodeViewModel()
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val visuals by settings.visuals.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
     val locked = !gate.allows(ProFeature.CAST)
     return ConnectedDisplayControl(
         display = ConnectedDisplays.available,
-        on = gui.secondScreen && !locked,
+        on = visuals.secondScreen && !locked,
         showing = ConnectedDisplays.presenting,
         locked = locked,
     ) {
         if (locked) {
             paywall.open(PaywallTrigger.Feature(ProFeature.CAST))
         } else {
-            settings.setGuiPrefs(gui.copy(secondScreen = !gui.secondScreen))
+            settings.updateVisuals { s -> s.copy(secondScreen = !s.secondScreen) }
         }
     }
 }

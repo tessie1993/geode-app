@@ -267,7 +267,7 @@ internal class StoreStage(
         const val REEL_DIR = "/sdcard/store-assets/promo"
         const val REEL_BIT_RATE = 16_000_000
 
-        /** The mini player and stage icons fade 6 s after the last touch (GuiPrefs.miniPlayerFadeSeconds). */
+        /** The mini player and stage icons fade 6 s after the last touch (GeneralSettings.miniPlayerFadeSeconds). */
         const val CHROME_FADE_MS = 9_000L
         const val WARM_UP_MS = 6_000L
 

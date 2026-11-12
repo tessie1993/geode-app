@@ -16,3 +16,9 @@
 [submodule "third_party/kissfft"]
 	path = third_party/kissfft
 	url = https://github.com/mborgerding/kissfft
+[submodule "third_party/libdatachannel"]
+	path = third_party/libdatachannel
+	url = https://github.com/paullouisageneau/libdatachannel
+[submodule "third_party/mbedtls"]
+	path = third_party/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls

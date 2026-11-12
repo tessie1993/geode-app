@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComputerLinkUiTest {
-    private val live = LinkState.Live("http://192.168.1.23:41237/0123456789abcdef0123456789abcdef/")
+    private val live = LinkState.Live("http://3232235799:41237/0123456789abcdef0123456789abcdef/", "Blue Comet")
 
     @Test
     fun onlyStartingAndLiveRun() {

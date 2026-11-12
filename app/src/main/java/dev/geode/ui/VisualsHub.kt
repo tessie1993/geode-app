@@ -35,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,9 +57,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
-import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.GestureAction
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
@@ -77,8 +74,6 @@ import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.theme.rememberGlassBackdrop
 import dev.geode.ui.tour.LocalTourNudge
 import dev.geode.ui.tour.fits
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * Visuals: the visual fills the whole screen, and everything else floats over it (docs/ui-redesign;
@@ -120,11 +115,8 @@ internal fun VisualsHub(
     onRequestedPageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Read once per visit, off the main thread; Settings is another screen, so a change
-    // there is always read on the way back.
-    val behaviour by produceState(BehaviourPrefs()) {
-        value = withContext(Dispatchers.IO) { BehaviourStore(context.geodeContainer.prefsFiles.general).load() }
-    }
+    val behaviour by context.geodeContainer.behaviour.value
+        .collectAsStateWithLifecycle()
     // A gesture tip is said only while the user's gesture map still has that gesture do that thing.
     val nudge = LocalTourNudge.current
     val heard = remember(nudge, behaviour) { { tip: GestureTip -> if (tip.fits(behaviour)) nudge(tip) } }
@@ -216,7 +208,8 @@ private fun VisualsHubContent(
     val studioViewModel: StudioViewModel = geodeViewModel()
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
+    val general by settingsViewModel.general.collectAsStateWithLifecycle()
     // Why a recording ended or was not kept (too short, the maximum length, a failure).
     LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
@@ -331,7 +324,7 @@ private fun VisualsHubContent(
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onTapDown = tapAlong,
-            onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },
+            onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
             remote = if (television) StageRemote(stageFocus, optionsFocus, optionsShown = nav.sheetShown && !pip, side = side) else null,
         )
         // Here, beside the stage, so its requester is attached by the time the effect runs.
@@ -344,8 +337,8 @@ private fun VisualsHubContent(
                 chrome = chrome,
                 sheetShown = nav.sheetShown,
                 room = iconRoom,
-                showArrows = gui.stageArrows,
-                showRecord = gui.stageRecord,
+                showArrows = general.stageArrows,
+                showRecord = general.stageRecord,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
@@ -463,7 +456,7 @@ private fun VisualsHubContent(
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
                 // Customize on Quick knobs, its editor open: the groups start collapsed, and this asked for the editor.
-                CustomizeGroupsStore.get(context).run {
+                context.geodeContainer.customizeGroups.run {
                     selectTab(CustomizeCategory.QUICK_KNOBS.name)
                     expand("${CustomizeCategory.QUICK_KNOBS.name}/knob_editor")
                 }

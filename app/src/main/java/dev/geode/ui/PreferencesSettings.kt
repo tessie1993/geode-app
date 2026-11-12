@@ -75,28 +75,28 @@ private fun cornerLabel(corner: Int): Int =
  */
 @Composable
 internal fun LibraryChoiceRows(settings: SettingsViewModel) {
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val general by settings.general.collectAsStateWithLifecycle()
     SettingsChoiceRow(
         title = stringResource(R.string.prefs_library_start_tab),
         options = LibraryStartTab.entries,
-        selected = gui.libraryStartTab,
+        selected = general.libraryStartTab,
         label = { stringResource(it.labelRes()) },
-        onSelect = { settings.setGuiPrefs(gui.copy(libraryStartTab = it)) },
+        onSelect = { settings.updateGeneral { g -> g.copy(libraryStartTab = it) } },
     )
     SettingsChoiceRow(
         title = stringResource(R.string.prefs_library_sort),
         options = LibrarySort.entries,
-        selected = LibrarySort.fromName(gui.librarySort) ?: LibrarySort.TITLE,
+        selected = LibrarySort.fromName(general.librarySort) ?: LibrarySort.TITLE,
         label = { stringResource(it.labelRes) },
-        onSelect = { settings.setGuiPrefs(gui.copy(librarySort = it.name)) },
+        onSelect = { settings.updateGeneral { g -> g.copy(librarySort = it.name) } },
     )
     SettingsHint(stringResource(R.string.prefs_library_sort_hint))
     SettingsChoiceRow(
         title = stringResource(R.string.prefs_track_tap),
         options = TrackTap.entries,
-        selected = gui.trackTap,
+        selected = general.trackTap,
         label = { stringResource(it.labelRes()) },
-        onSelect = { settings.setGuiPrefs(gui.copy(trackTap = it)) },
+        onSelect = { settings.updateGeneral { g -> g.copy(trackTap = it) } },
     )
     SettingsHint(stringResource(R.string.prefs_track_tap_hint))
 }
@@ -104,18 +104,18 @@ internal fun LibraryChoiceRows(settings: SettingsViewModel) {
 /** Settings › Preferences › Player & mini player: the A–B loop button, and previous on the floating mini player. */
 @Composable
 internal fun PlayerButtonRows(settings: SettingsViewModel) {
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val general by settings.general.collectAsStateWithLifecycle()
     SettingsSwitchRow(
         title = stringResource(R.string.prefs_show_ab_loop),
         summary = stringResource(R.string.prefs_show_ab_loop_hint),
-        checked = gui.showAbLoop,
-        onCheckedChange = { settings.setGuiPrefs(gui.copy(showAbLoop = it)) },
+        checked = general.showAbLoop,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(showAbLoop = it) } },
     )
     SettingsSwitchRow(
         title = stringResource(R.string.prefs_mini_player_previous),
         summary = stringResource(R.string.prefs_mini_player_previous_hint),
-        checked = gui.miniPlayerPrevious,
-        onCheckedChange = { settings.setGuiPrefs(gui.copy(miniPlayerPrevious = it)) },
+        checked = general.miniPlayerPrevious,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(miniPlayerPrevious = it) } },
     )
 }
 
@@ -125,18 +125,18 @@ internal fun PlayerButtonRows(settings: SettingsViewModel) {
  */
 @Composable
 internal fun StageIconRows(settings: SettingsViewModel) {
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val general by settings.general.collectAsStateWithLifecycle()
     SettingsSwitchRow(
         title = stringResource(R.string.prefs_stage_arrows),
         summary = stringResource(R.string.prefs_stage_arrows_hint),
-        checked = gui.stageArrows,
-        onCheckedChange = { settings.setGuiPrefs(gui.copy(stageArrows = it)) },
+        checked = general.stageArrows,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(stageArrows = it) } },
     )
     SettingsSwitchRow(
         title = stringResource(R.string.prefs_stage_record),
         summary = stringResource(R.string.prefs_stage_record_hint),
-        checked = gui.stageRecord,
-        onCheckedChange = { settings.setGuiPrefs(gui.copy(stageRecord = it)) },
+        checked = general.stageRecord,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(stageRecord = it) } },
     )
 }
 

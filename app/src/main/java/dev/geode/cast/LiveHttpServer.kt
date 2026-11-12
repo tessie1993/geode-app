@@ -26,7 +26,9 @@ import java.util.concurrent.atomic.AtomicLong
  * computer": with the Cast SDK's own traffic, the one thing the app's INTERNET permission is for (the owner's
  * rule: Cast is the only internet use).
  *
- * Both fetch by plain HTTP GET from this phone's LAN address. Every decision is native
+ * Both fetch by plain HTTP GET from this phone's LAN address. A browser also POSTs its WebRTC offer once
+ * ([WebRtcLink], the low-delay path whose media is encrypted), the one request with a body: native reads its
+ * length from the headers and caps it, and the bytes are read under the same deadline. Every decision is native
  * (core/viz/frame/LinkShare): which path is what under the random [token] (16 bytes from [SecureRandom], new
  * per stream, compared in constant time), the status, and every header (no-store, nosniff, no-referrer, the
  * page's CSP, CORS on the stream's files for the receiver, which fetches from its own https origin). Nothing
@@ -61,6 +63,8 @@ internal class LiveHttpServer(
     private val bindAddress: InetAddress,
     /** [bindAddress]'s prefix length on its network: the subnet a live link admits. */
     private val bindPrefix: Int,
+    /** Answers a browser's WebRTC offer: the HTTP status and the answer (null unless 200). */
+    private val answerOffer: (String) -> Pair<Int, String?> = { STATUS_BAD_REQUEST to null },
 ) {
     val token: String = randomToken()
     private val socket = ServerSocket()
@@ -113,9 +117,20 @@ internal class LiveHttpServer(
     val playlistUrl: String
         get() = "${pageUrl}${LiveSegments.PLAYLIST_NAME}"
 
-    /** The page a browser opens: "Show on a computer"'s link. */
+    /** The page at the bound address, dotted; what the TV's receiver is handed ([playlistUrl]). */
     val pageUrl: String
         get() = "http://${bindAddress.hostAddress}:$port/$token/"
+
+    /**
+     * "Show on a computer"'s link as the user sees, copies and shares it: the same page with the host written as one
+     * number, not the dotted address (owner: "so link is not exact ip adress"; native, `geode_link_share_url`).
+     * It hides the address from the eye, not from the network.
+     */
+    val shareUrl: String
+        get() = GeodeNative.linkShareUrl(ipv4(bindAddress), port, token) ?: pageUrl
+
+    /** A short name for this link ("Blue Comet") to show beside its QR code. */
+    val label: String get() = GeodeNative.linkLabel(token)
 
     fun start() {
         socket.reuseAddress = true
@@ -217,9 +232,10 @@ internal class LiveHttpServer(
         keepOpen: () -> Unit,
     ): Boolean {
         val out = s.getOutputStream()
+        val head = RequestLineReader.read(s, deadlineNanos)
         val requestLine =
-            when (val r = RequestLineReader.read(s, deadlineNanos)) {
-                is RequestLine.Line -> r.text
+            when (head) {
+                is RequestLine.Line -> head.text
                 RequestLine.TooLong -> return respond(out, STATUS_URI_TOO_LONG, NO_RESOURCE, null)
                 RequestLine.HeadersTooLarge -> return respond(out, STATUS_HEADERS_TOO_LARGE, NO_RESOURCE, null)
                 RequestLine.Dropped -> return false
@@ -231,6 +247,7 @@ internal class LiveHttpServer(
         if (status == STATUS_NOT_FOUND) notFound.incrementAndGet()
         if (status != STATUS_OK) return respond(out, status, resource, null)
         if (resource == GeodeNative.LINK_STREAM) return feed(s, out, sendBody = parts[0] != "HEAD", keepOpen)
+        if (resource == GeodeNative.LINK_RTC) return offer(s, out, (head as RequestLine.Line).headers, deadlineNanos)
         // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
         val body = body(resource, route[1]) ?: return respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
         return respond(out, STATUS_OK, resource, body, sendBody = parts[0] != "HEAD")
@@ -294,6 +311,28 @@ internal class LiveHttpServer(
         return false
     }
 
+    /**
+     * The browser's WebRTC offer (POST rtc): its body, at most [GeodeNative.WEBRTC_OFFER_MAX] bytes by the length
+     * its headers announce (native), answered with the phone's answer or the status native gives a refusal. The
+     * answer can take up to two seconds (the phone gathers its own candidate first). Never true: no TV fetch.
+     */
+    private fun offer(
+        s: Socket,
+        out: OutputStream,
+        headers: List<String>,
+        deadlineNanos: Long,
+    ): Boolean {
+        val length = GeodeNative.linkBodyLength(headers.toTypedArray(), GeodeNative.WEBRTC_OFFER_MAX.toLong())
+        when (length) {
+            GeodeNative.LINK_NO_BODY -> return respond(out, STATUS_LENGTH_REQUIRED, GeodeNative.LINK_RTC, null)
+            GeodeNative.LINK_BAD_BODY -> return respond(out, STATUS_TOO_LARGE, GeodeNative.LINK_RTC, null)
+        }
+        val body = RequestLineReader.readBody(s, deadlineNanos, length.toInt()) ?: return false
+        val (status, answer) = answerOffer(String(body, Charsets.US_ASCII))
+        respond(out, status, GeodeNative.LINK_RTC, answer?.toByteArray(Charsets.US_ASCII))
+        return false
+    }
+
     /** Runs [write], closing [s] if it has not finished within [FEED_WRITE_MS] (the write then throws). */
     private inline fun writeWithin(
         s: Socket,
@@ -350,8 +389,8 @@ internal class LiveHttpServer(
         return status == STATUS_OK
     }
 
-    private companion object {
-        const val TAG = "CastHttp"
+    companion object {
+        private const val TAG = "CastHttp"
         const val POOL_SIZE = 8
 
         /** Connections waiting for a thread; a player has one or two in flight, a browser up to six. */
@@ -362,7 +401,10 @@ internal class LiveHttpServer(
         const val TOKEN_BYTES = 16
         const val NO_RESOURCE = 0
         const val STATUS_OK = 200
+        const val STATUS_BAD_REQUEST = 400
         const val STATUS_NOT_FOUND = 404
+        const val STATUS_LENGTH_REQUIRED = 411
+        const val STATUS_TOO_LARGE = 413
         const val STATUS_URI_TOO_LONG = 414
         const val STATUS_HEADERS_TOO_LARGE = 431
         const val STATUS_BUSY = 503
@@ -374,9 +416,9 @@ internal class LiveHttpServer(
         const val DRAIN_CHUNK = 1_024
 
         /** An IPv4 address as native reads it (host order); 0 for none or IPv6. */
-        fun ipv4(address: InetAddress?): Int = if (address is Inet4Address) ByteBuffer.wrap(address.address).int else 0
+        internal fun ipv4(address: InetAddress?): Int = if (address is Inet4Address) ByteBuffer.wrap(address.address).int else 0
 
-        fun randomToken(): String {
+        private fun randomToken(): String {
             val bytes = ByteArray(TOKEN_BYTES).also { SecureRandom().nextBytes(it) }
             return bytes.joinToString("") { "%02x".format(it) }
         }

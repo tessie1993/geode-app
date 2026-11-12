@@ -45,8 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.CustomizeGroupsStore
-import dev.geode.data.MacroStore
+import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
@@ -73,7 +72,7 @@ import kotlinx.coroutines.flow.map
  * Engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
  * This file wires that to the screen: the free tier through [ProLock] (a Pro control can be
  * tried, then springs back and the paywall offers it), the tab on screen and the groups open in
- * each ([CustomizeGroupsStore], kept across restarts: a tab is no back step, so back leaves
+ * each (`CustomizeGroupsStore`, kept across restarts: a tab is no back step, so back leaves
  * Customize), and the one row of tools above it all.
  */
 @Composable
@@ -111,11 +110,11 @@ internal fun CustomizePanel(
     val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = remember(sectionsByCategory) { { c -> sectionsByCategory.getValue(c) } }
 
     val context = LocalContext.current
-    val groups = remember { CustomizeGroupsStore.get(context) }
-    val openGroups by groups.open.collectAsStateWithLifecycle()
-    val savedTab by groups.tab.collectAsStateWithLifecycle()
+    val groups = remember { context.geodeContainer.customizeGroups }
+    val remembered by groups.groups.collectAsStateWithLifecycle()
+    val openGroups = remembered.open
     // A saved tab this style lacks (Engine after leaving Fluid) shows the first one, and comes back with the style.
-    val open = categories.firstOrNull { it.name == savedTab } ?: categories.firstOrNull() ?: CustomizeCategory.QUICK_KNOBS
+    val open = categories.firstOrNull { it.name == remembered.tab } ?: categories.firstOrNull() ?: CustomizeCategory.QUICK_KNOBS
     val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
 
     CompositionLocalProvider(
@@ -219,7 +218,7 @@ private fun CustomizeHeader(
     var savingPreset by remember { mutableStateOf(false) }
     var borrowing by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val macroStore = remember { MacroStore.get(context) }
+    val macroStore = remember { context.geodeContainer.macros }
     val target = category
     val onKnobs = target == CustomizeCategory.QUICK_KNOBS
     val nudge = LocalTourNudge.current

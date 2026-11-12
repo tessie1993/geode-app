@@ -582,7 +582,7 @@ const std::vector<Entry>& library() {
     return kLibrary;
 }
 
-bool listed(int index) {
+bool offered(int index) {
     return index >= 0 && index < static_cast<int>(library().size()) && (index < SceneParams::kListedPalettes || index >= kClassicCount);
 }
 

@@ -421,7 +421,7 @@ void theStackAsLookDrawsIt() {
     const std::string unset = geode_palette_stack_unset();
     std::string text = geode_palette_stack_editor(unset.c_str());
     int picks = 0;
-    for (int i = 0; i < static_cast<int>(pl::library().size()); ++i) picks += pl::listed(i) ? 1 : 0;
+    for (int i = 0; i < static_cast<int>(pl::library().size()); ++i) picks += pl::offered(i) ? 1 : 0;
     check(picks == static_cast<int>(pl::library().size()) - (pl::kClassicCount - SceneParams::kListedPalettes),
           "every palette is listed but the retired classic rows");
     check(text.rfind("palettestack|1|0|8|SHARE\n", 0) == 0, "an unset stack: no layer, room for eight");

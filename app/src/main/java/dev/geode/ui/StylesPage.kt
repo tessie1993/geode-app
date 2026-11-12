@@ -77,7 +77,7 @@ import dev.geode.ui.theme.performStoneHaptic
  *
  * - **Family**, the engine that draws it: Silk, Life, Mycelium, Morphing, Shaders, MilkDrop, Fluid,
  *   Cymatics, in catalogue order ([Catalogue]); a family of one style is a plain row.
- * - **Style**: a shader family (Arbor, Nebula, Truchet…) is one style whose twelve looks are its
+ * - **Style**: a shader family (Arbor, Nebula, Truchet…) is one style whose looks (ten or twelve) are its
  *   variations; every other style is its own row and loads on a tap.
  * - **Variation**: the shader family's styles, the opener first.
  *
@@ -227,7 +227,7 @@ private class StyleNode(
 /**
  * Family › style › variation from catalogue order. The family is the engine ([StyleEntry.kindLabel];
  * every shader style, loose or in a shader family, is "Shaders"); inside Shaders the shader
- * families come first, as styles whose variations are their twelve looks, then the loose styles.
+ * families come first, as styles whose variations are their own looks, then the loose styles.
  */
 private fun styleTree(entries: List<StyleEntry>): List<StyleNode> =
     entries

@@ -73,16 +73,16 @@ public:
     // A NaN between real readings is a missed window, not a cool phone: the last real headroom holds this
     // long, two missed asks, before the state stops trusting it.
     static constexpr double kHeadroomStaleSeconds = 2.5 * kHeadroomPeriodSeconds;
-    // Hotter waits three readings in a row, so a single spike does not drop the frame rate; cooler waits a
-    // minute per step, so a phone at the edge does not flap between two rates.
-    static constexpr double kEscalateDwellSeconds = 3.0;
+    // Hotter waits ten seconds of readings in a row, so a spike or a short burst does not drop the frame rate;
+    // cooler waits a minute per step, so a phone at the edge does not flap between two rates.
+    static constexpr double kEscalateDwellSeconds = 10.0;
     static constexpr double kRelaxDwellSeconds = 60.0;
     // The gap between readings counts toward a dwell, but a long pause (no renderer drawing) is not a
     // minute of watching the phone cool.
     static constexpr double kMaxStepSeconds = 2.0 * kSamplePeriodSeconds;
-    static constexpr float kHeadroomEased = 0.75f;
-    static constexpr float kHeadroomReduced = 0.85f;
-    static constexpr float kHeadroomMinimal = 0.95f;
+    static constexpr float kHeadroomEased = 0.85f;
+    static constexpr float kHeadroomReduced = 0.92f;
+    static constexpr float kHeadroomMinimal = 0.98f;
     // Measured frame time alone never forces Minimal: without a platform reading it cannot tell heat from
     // a heavy style, and Minimal drops the post FX.
     static constexpr ThermalTier kMeasuredCeiling = ThermalTier::Reduced;
@@ -190,14 +190,15 @@ public:
     }
 
     static ThermalTier statusTier(int status) {
-        // ATHERMAL_STATUS_* (PowerManager.THERMAL_STATUS_*'s values): NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
-        if (status <= 0) return ThermalTier::Full;
-        if (status == 1) return ThermalTier::Eased;
-        if (status == 2) return ThermalTier::Reduced;
+        // ATHERMAL_STATUS_* (PowerManager.THERMAL_STATUS_*'s values): NONE 0, LIGHT 1, MODERATE 2, SEVERE 3,
+        // CRITICAL 4 and up. LIGHT ("UX is not impacted") keeps Full; easing starts at MODERATE.
+        if (status <= 1) return ThermalTier::Full;
+        if (status == 2) return ThermalTier::Eased;
+        if (status == 3) return ThermalTier::Reduced;
         return ThermalTier::Minimal;
     }
 
-    // 1.0 is where the platform throttles at SEVERE; the tiers start easing well before it.
+    // 1.0 is where the platform throttles at SEVERE; the tiers ease off only close to it, from 0.85.
     static ThermalTier headroomTier(float headroom) {
         if (std::isnan(headroom)) return ThermalTier::Full;
         if (headroom >= kHeadroomMinimal) return ThermalTier::Minimal;

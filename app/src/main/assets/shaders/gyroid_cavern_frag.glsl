@@ -41,6 +41,21 @@ out vec4 fragColor;
 // Section count        the surface itself: gyroid, Schwarz-P, diamond or a
 //                      gyroid-diamond blend, crossfaded over the section envelope.
 // SND_INTENSITY               overall level, as everywhere.
+// Mids (SND_MIDDLE)    turn the eye's look aside while the mids climb and ease
+//                      it back as they fall, as lib_terra's terraTurn and
+//                      lib_truchet's truchetTurn do: 0.1 x sndShaped x
+//                      SND_DRIVE screen units (0.15 at most, 0 in silence), the
+//                      gFlameTurn band on a structure that holds still. Mid
+//                      gain scales it.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width, k2
+// FLOW a corkscrew bend of the sheet along z (period 16, the rebase, so the
+// wrap holds; its slope is under 0.2, which the 0.85 step absorbs), k3 TONE the
+// palette position, k4 BUILD the glow ahead in the fog, k5 SPACE the reach
+// (far plane and fog).
 //
 // ---- why the morphs are wrap-safe ------------------------------------------
 //
@@ -69,6 +84,8 @@ float gTube;
 vec3 gEye;
 /** Set by map(): the surface-space point, for the veins. */
 vec3 gQ;
+/** k2 FLOW: the corkscrew's radius, world units (0 at rest). */
+float gBendA = 0.0;
 
 float tpms(vec3 x) {
     vec3 s = sin(x);
@@ -81,7 +98,10 @@ float tpms(vec3 x) {
 }
 
 float map(vec3 w) {
-    vec3 q = gEye + (w - gEye) * gK;
+    // FLOW's corkscrew bends the sheet only; the flight tube and the eye's bubble stay put.
+    vec3 wb = w;
+    wb.xy += gBendA * vec2(sin(w.z * (GC_TAU / 16.0)), cos(w.z * (GC_TAU / 16.0)));
+    vec3 q = gEye + (wb - gEye) * gK;
     gQ = q;
     float g = tpms(q * GC_F);
     float d = (abs(g) - gTh) / (GC_F * GC_LIP * gKMax);
@@ -121,6 +141,12 @@ float vein(vec3 q, vec3 flow) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    gBendA = clamp(uKnob[2], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -149,7 +175,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     // The surface, the veins and the motes all tile with periods dividing 16
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);
@@ -162,7 +189,7 @@ void main() {
     for (int i = 0; i < GC_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        if (t > GC_FAR) break;
+        if (t > GC_FAR * reach) break;
         used = float(i);
         float d = map(ro + rd * t);
         float eps = 0.0008 * t + 0.0005;
@@ -174,13 +201,13 @@ void main() {
         t += max(d * 0.85, eps);
     }
 
-    float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump;
+    float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump + 0.6 * kTone;
     float iri = 0.28 * pitchBump + 0.04 * sin(uTime * 0.09);
-    float fogK = 0.055;
+    float fogK = 0.055 / reach;
     float ahead = pow(max(rd.z, 0.0), 8.0);
-    vec3 fogCol = pal(hue + 0.6) * (0.035 + 0.16 * ahead) + vec3(0.004, 0.003, 0.007);
+    vec3 fogCol = pal(hue + 0.6) * (0.035 + 0.16 * ahead) * (1.0 + kBuild) + vec3(0.004, 0.003, 0.007);
     vec3 col = fogCol;
-    float sceneT = hitT > 0.0 ? hitT : GC_FAR;
+    float sceneT = hitT > 0.0 ? hitT : GC_FAR * reach;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
@@ -208,7 +235,7 @@ void main() {
         float vf = vein(hitQ, vec3(uTime * 0.6, 0.0, uTime * 1.5));
         float v = mix(vs, vf, smoothstep(0.1, 0.8, high));
         float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
-        float vw = 0.07 + 0.12 * snare;
+        float vw = (0.07 + 0.12 * snare) * (1.0 + kTexture);
         // The vein field's gradient is ~3 * GC_F per world unit; widen by the pixel.
         float vline = 1.0 - smoothstep(vw, vw + px * GC_F * 3.0 * 1.5 + 0.02, v);
         vec3 veinCol = mix(pal(hue + 0.33), pal(hue + 0.83) * 1.25, snare);
@@ -247,5 +274,5 @@ void main() {
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

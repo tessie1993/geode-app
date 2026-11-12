@@ -46,6 +46,11 @@ out vec4 fragColor;
 //                                0-1-0 bump so they glide instead of snapping
 //   pitch (SND_HELD_NOTE_CHANGE) nudges the hue, and the key hue tints it
 //   SND_ENERGY_TREND             overall level
+//   mids (SND_MIDDLE)            turn the sun about its vertical axis while
+//                                they climb, easing back as they fall:
+//                                lib_flame's gFlameTurn, 0.6 x sndShaped x
+//                                SND_DRIVE (0.9 rad at most, 0 in silence).
+//                                Mid gain scales it.
 //
 // Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the kick swell, k1
 // TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE the hue, k4 BUILD
@@ -128,6 +133,10 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, SO_CAM_R, 1.0 * CAM_SPIN_UNIT, ro, rd);
+    // The mids turn the sun about its vertical axis (see the header): the eye and its ray turn the other way.
+    mat2 midTurn = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0));
+    ro.xz = midTurn * ro.xz;
+    rd.xz = midTurn * rd.xz;
 
     float low = sndShaped(SND_LOW);
     float high = sndShaped(SND_HIGH);

@@ -53,7 +53,19 @@ out vec4 fragColor;
 // SND_LEVEL inflates the body, SND_BASS_PRESENCE deepens the stir, sndShaped(SND_HIGH)
 // sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
 // the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
-// keys brightness off a raw envelope, so nothing here can flash.
+// keys brightness off a raw envelope, so nothing here can flash. The mid band
+// (SND_MIDDLE) turns the body about its vertical while the mids climb and eases
+// it back as they fall: lib_flame's gFlameTurn, 0.6 x sndShaped x SND_DRIVE
+// (0.9 rad at most, 0 in silence), spent on the orbit so the eye goes the
+// other way. Mid gain scales it.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the halo's edge width,
+// k2 FLOW added to the stir's bend (gWarpAmount; gLip follows it), k3 TONE the
+// palette position, k4 BUILD the halo's glow, k5 SPACE the eye's distance
+// (2.8..3.4, clear of the bank's 2.33).
 
 #define CB_MAX_STEPS 128
 #define CB_FAR 9.0
@@ -123,6 +135,12 @@ float occlusion(vec3 p, vec3 n) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float tone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
@@ -133,7 +151,7 @@ void main() {
     // is what pays for it, and a large amount makes every ray take tiny steps
     // and the body dissolve into banding at low Detail.
     gWarpScale = 1.15 + 0.25 * swell;
-    gWarpAmount = 0.10 + 0.11 * bass + 0.05 * finger;
+    gWarpAmount = max(0.10 + 0.11 * bass + 0.05 * finger + 0.08 * kFlow, 0.0);
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
     gRadius = 0.86 * (1.0 + 0.07 * swell);
     // Glides; never steps. See the morph note at the top.
@@ -144,8 +162,10 @@ void main() {
     // The camera orbits on two unrelated slow rates, so the body is seen from
     // a new angle every second even in silence, and a spike banks the orbit
     // toward the new travel direction.
-    vec3 ro = vec3(0.0, 0.0, -3.1);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    vec3 ro = vec3(0.0, 0.0, -3.1 * (1.0 - 0.2 * kSpace));
+    // The mids turn the body about its vertical (see the header): the orbit goes the other way.
+    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9 + midTurn) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 
@@ -171,7 +191,7 @@ void main() {
 
     // The room: the chrysanthemum on the camera-relative direction, so the
     // mandala sits behind the host and turns as the camera orbits.
-    vec3 fog = dmtChrysanthemum(transpose(cam) * rd, 0.66, swell);
+    vec3 fog = dmtChrysanthemum(transpose(cam) * rd, 0.66 + tone, swell);
     vec3 col = fog;
 
     if (hitT > 0.0) {
@@ -198,7 +218,7 @@ void main() {
         // palette; a satellite is banded by its distance from its own centre
         // (a shell coordinate) and takes its hue from its seed, so the bank
         // is a spread of related colours rather than copies of the host.
-        float hue = mix(0.58 + 0.32 * smoothstep(0.35, 0.72, vein), 0.15 + 0.7 * satHue, isSat);
+        float hue = mix(0.58 + 0.32 * smoothstep(0.35, 0.72, vein), 0.15 + 0.7 * satHue, isSat) + tone;
         float band = mix(vein * 0.7, satBand * 0.5, isSat);
         // Thin where the flow has stretched the host and where a satellite
         // is young or dying; both read as translucency.
@@ -212,16 +232,16 @@ void main() {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += dmtHalo(near, 0.50, 5.5, 0.30);
+        col += dmtHalo(near, 0.50 + tone, 5.5 / (1.0 + kTexture), 0.30 * (1.0 + kBuild));
     }
 
     // The particle layer, in screen space, riding the 2D half of the same
     // library so it matches the other styles in the family.
-    col += mix(pal(0.52), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
+    col += mix(pal(0.52 + tone), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
 
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.68 + 0.32 * smoothstep(2.2, 0.4, length(uv));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

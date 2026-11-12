@@ -31,12 +31,22 @@ out vec4 fragColor;
 // glow higher in the sky; they move, they do not brighten. Overall level
 // rides SND_INTENSITY.
 //
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the neon edges' and
+// street lines' width, k2 FLOW bends the avenues (a sideways shear of the whole
+// city along z, period 64 so the 1024 tile holds), k3 TONE the palette
+// position, k4 BUILD the horizon's glow, k5 SPACE the reach (far plane, haze).
+//
 // ---- why the estimate is safe ----------------------------------------------
 //
 // Each cell measures only its own box. Below the tallest possible roof the
 // distance is clamped to the cell boundary, so a taller neighbour is never
 // stepped over. Every roof is capped NC_CLEAR below the eye, and a sphere
-// around the eye is carved out as well.
+// around the eye is carved out as well. FLOW's shear slopes at most
+// 1 x 2pi / 64 = 0.098, which stretches a distance by under 0.5 %, inside the
+// 0.95 step.
 
 #define NC_MAX_STEPS 96
 #define NC_FAR 80.0
@@ -61,8 +71,18 @@ float gH;
 vec2 gCentre;
 vec2 gHalf;
 float gMat;
+/** k4 BUILD: the horizon band's glow, 0.5..1.5 (1 at rest). */
+float gGlow = 1.0;
 /** The eye, z rebased into 0..1024 (see main). */
 vec3 gEye;
+/** k2 FLOW: how far the avenues bend sideways, world units (0 at rest); k3 TONE's palette offset. */
+float gBend = 0.0;
+float gTone = 0.0;
+
+/** The city's own frame: the world sheared sideways along z by FLOW's bend. */
+vec3 cityP(vec3 p) {
+    return vec3(p.x - gBend * sin(p.z * (6.2831853 / 64.0)), p.y, p.z);
+}
 
 /** One of the eight band regions, picked by h in 0..1. */
 float bandPick(float h) {
@@ -72,7 +92,8 @@ float bandPick(float h) {
     return dot(lo, vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57))) + dot(hi, vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX)));
 }
 
-float map(vec3 p) {
+float map(vec3 w) {
+    vec3 p = cityP(w);
     vec2 cell = floor(p.xz / NC_CELL);
     vec2 centre = (cell + 0.5) * NC_CELL;
     vec2 f = p.xz - centre;
@@ -99,7 +120,7 @@ float map(vec3 p) {
     float dg = p.y - NC_GROUND;
     gMat = dg < db ? 1.0 : 0.0;
     d = min(d, dg);
-    d = max(d, NC_BUBBLE - length(p - gEye));
+    d = max(d, NC_BUBBLE - length(w - gEye));
 
     gTop = top;
     gBand = band;
@@ -120,10 +141,10 @@ vec3 skyColour(vec3 rd, float glowY) {
     float y = rd.y;
     // The gradient itself stays put, so a drop moves the glow without
     // brightening the sky as a whole. Deep blue night, the palette only tints.
-    vec3 night = mix(vec3(0.03, 0.05, 0.12), pal(0.6) * 0.08, 0.35);
+    vec3 night = mix(vec3(0.03, 0.05, 0.12), pal(0.6 + gTone) * 0.08, 0.35);
     vec3 col = mix(night * 2.2, night * 0.4, smoothstep(-0.03, 0.57, y));
     float by = (y - glowY) / 0.07;
-    col += mix(pal(0.55), vec3(0.4, 0.6, 1.0), 0.5) * 0.18 * exp(-by * by);
+    col += mix(pal(0.55 + gTone), vec3(0.4, 0.6, 1.0), 0.5) * 0.18 * exp(-by * by) * gGlow;
 
     // The moon: pale, unstriped, a little above the glow, mottled with maria.
     vec3 md = normalize(vec3(0.12, glowY + 0.26, 1.0));
@@ -143,6 +164,12 @@ vec3 skyColour(vec3 rd, float glowY) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    gBend = 2.0 * (clamp(uKnob[2], 0.0, 1.0) - 0.5);
+    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    gGlow = 1.0 + (clamp(uKnob[4], 0.0, 1.0) - 0.5);
+    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -177,25 +204,27 @@ void main() {
             break;
         }
         t += d * 0.95;
-        if (t > NC_FAR) break;
+        if (t > NC_FAR * reach) break;
     }
 
     vec3 sky = skyColour(rd, glowY);
     vec3 col = sky;
     if (hitT > 0.0) {
-        vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
-        map(p);
+        vec3 pw = ro + rd * hitT;
+        vec3 n = normalAt(pw, max(0.0015, 0.001 * hitT));
+        map(pw);
+        // The streets, edges and windows are drawn in the city's own (bent) frame.
+        vec3 p = cityP(pw);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
-        vec3 horizon = pal(0.92) * 0.30;
-        float hue = 0.55 + 0.35 * gH;
+        vec3 horizon = pal(0.92 + gTone) * 0.30;
+        float hue = 0.55 + 0.35 * gH + gTone;
 
         if (gMat > 0.5) {
             // Streets: neon grid lines on the cell boundaries.
             vec2 g = abs(fract(p.xz / NC_CELL + 0.5) - 0.5) * NC_CELL;
-            float w = 0.03 + 0.0025 * hitT;
+            float w = (0.03 + 0.0025 * hitT) * (1.0 + kTexture);
             float line = (1.0 - smoothstep(0.0, w, min(g.x, g.y)));
-            col = pal(0.70) * 0.02 + pal(0.85) * line * 0.8 + horizon * fres * 0.3;
+            col = pal(0.70 + gTone) * 0.02 + pal(0.85 + gTone) * line * 0.8 + horizon * fres * 0.3;
         } else {
             vec3 L = normalize(vec3(0.3, 0.7, -0.6));
             vec3 facade = pal(hue + 0.6) * (0.035 + 0.05 * max(dot(n, L), 0.0)) + horizon * fres * 0.25;
@@ -206,7 +235,7 @@ void main() {
             float ez = gHalf.y - abs(lp.z);
             float et = gTop - p.y;
             float second = max(min(ex, ez), min(max(ex, ez), et));
-            float ew = 0.025 + 0.002 * hitT;
+            float ew = (0.025 + 0.002 * hitT) * (1.0 + kTexture);
             float edge = (1.0 - smoothstep(0.0, ew, second));
 
             // Windows on the side faces.
@@ -219,7 +248,7 @@ void main() {
             float wid = hashCell(ivec3(int(mod(floor(wc.x), NC_WINWRAP)), int(floor(wc.y)), int(gH * 4096.0)));
             float lit = step(wid, 0.22 + 0.35 * gBand);
             // A slow sweep keeps the lights moving in silence.
-            float dist = length(p.xz - gEye.xz);
+            float dist = length(pw.xz - gEye.xz);
             float sweep = 0.5 + 0.5 * sin(dist * 0.35 - uTime * 1.2 + gH * 6.0);
             // The snare ring: it starts under the eye and runs outward as the
             // envelope falls, lighting nearly every window it passes.
@@ -231,10 +260,10 @@ void main() {
 
             col = facade + win * shape * sideFace + pal(hue) * edge * 1.1;
         }
-        col = mix(col, sky, 1.0 - exp(-hitT * 0.028));
+        col = mix(col, sky, 1.0 - exp(-hitT * 0.028 / reach));
     }
 
     col *= 0.80 + 0.30 * swell + 0.08 * energy;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

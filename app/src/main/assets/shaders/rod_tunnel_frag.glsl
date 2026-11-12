@@ -47,6 +47,12 @@ out vec4 fragColor;
 //     moves it off centre as it would the real end of a tube.
 //   - ONSETS (SND_ONSET_ENV) give the rods, the halo and the core a brief hue step.
 //     Hue only - nothing here brightens on a hit.
+//   - THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its
+//     offset from 0.5 so off is the tuned look: k0 PULSE the emission, k1
+//     TEXTURE the rods' width (an exact radius scale, 0.75..1.25), k2 FLOW
+//     added to the mids' twist (clamped to the twist's old range, so the step
+//     bound holds), k3 TONE the palette position, k4 BUILD the halo's glow, k5
+//     SPACE the reach (far plane and fog).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -99,6 +105,8 @@ float gCellA;
 float gCellZ;
 float gBeadDepth;
 float gLife;
+/** k1 TEXTURE: the rods' radius scale, 0.75..1.25 (1 at rest). */
+float gWidth = 1.0;
 
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     vec3 pa = p - a;
@@ -130,7 +138,7 @@ float map(vec3 p) {
     // bound for a cell that holds nothing.
     gLife = dmtLife(hash11(gCellA * 7.13 + gCellZ * 3.71), ROD_LIFE_PERIOD);
     float beads = gBeadDepth * ROD_BEAD_AMP * sin(q.z * ROD_BEAD_FREQ);
-    float r = (0.14 + beads) * gLife;
+    float r = (0.14 + beads) * gLife * gWidth;
     return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), r);
 }
 
@@ -147,8 +155,15 @@ void main() {
     float trebA = min(SND_TREBLE_PRESENCE, 1.3);
     float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
     float hit = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    gWidth = 1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5);
 
-    gTwist = 0.55 * midA;
+    // 0.715 is the mids' own top (0.55 x 1.3): FLOW never twists past it.
+    gTwist = clamp(0.55 * midA + 0.3 * kFlow, -0.15, 0.715);
     // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
     // in the middle of the ring and smooth at both ends, and glides because
     // uFormPhase does.
@@ -176,7 +191,7 @@ void main() {
     float near = 1e9;
     for (int i = 0; i < ROD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (t > ROD_FAR) break;
+        if (t > ROD_FAR * reach) break;
         vec3 p = ro + rd * t;
         float d = map(p);
         float eps = 0.0008 * t + 0.0004;
@@ -188,7 +203,7 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    float hueShift = 0.12 * hit;
+    float hueShift = 0.12 * hit + 0.6 * kTone;
     vec3 coreCol = pal(0.08 + hueShift);
     // The sky: the mandala on the flight direction. The flight frame has +z
     // along the path, so the direction is taken relative to it rather than to
@@ -216,11 +231,11 @@ void main() {
         col = dmtShade(n, rd, hue, band * 2.0 + cellZ * 0.15, 0.85 + 0.15 * life, thin, trebA);
         // Young rods glow as they arrive, dying ones as they leave.
         col += pal(hue + 0.4) * (1.0 - life) * 0.35;
-        col = mix(col, sky, 1.0 - exp(-hitT * ROD_FOG));
+        col = mix(col, sky, 1.0 - exp(-hitT * ROD_FOG / reach));
     } else {
         col = sky;
         // The halo off the nearest rod the ray slid past.
-        col += dmtHalo(near, 0.55 + hueShift, 4.0, 0.22 + 0.3 * enA);
+        col += dmtHalo(near, 0.55 + hueShift, 4.0, (0.22 + 0.3 * enA) * (1.0 + kBuild));
     }
     col += coreCol * (0.6 + 0.9 * bassA) * onAxis * 2.0 / (1.0 + 0.02 * tGlow * tGlow);
     col += coreCol * 0.06 * (0.6 + 0.9 * bassA) / (1.0 + dot(uv, uv) * 3.0);
@@ -231,5 +246,5 @@ void main() {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

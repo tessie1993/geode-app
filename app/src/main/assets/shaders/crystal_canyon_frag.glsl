@@ -25,6 +25,18 @@ out vec4 fragColor;
 // their tips shoot up and they thicken a little, and nothing gets brighter.
 // A pitch change (SND_HELD_NOTE_CHANGE) slides the crystal hue. Air (sndSpectrum(0.93)) thickens
 // and brightens the sparkle glints on the facets. Overall level rides SND_ENERGY_TREND.
+// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
+// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
+// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
+// the gFlameTurn band on a structure that holds still. Mid gain scales it.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the height of the tips'
+// glowing band, k2 FLOW the canyon's bend (its width's wobble, 0.4..1.0, so a
+// neighbour one cell out stays inside hiN's 1.1), k3 TONE the palette
+// position, k4 BUILD the tips' glow, k5 SPACE the reach (far plane and haze).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -56,9 +68,11 @@ float gTop;
 float gMat;
 /** The eye, z rebased into 0..1024 (see main). */
 vec3 gEye;
+/** k2 FLOW: the width's wobble, world units (0.7 at rest). */
+float gBend = 0.7;
 
 float canyonWidth(float z) {
-    return CC_WIDTH + 0.7 * sin(z * (CC_TAU / 64.0));
+    return CC_WIDTH + gBend * sin(z * (CC_TAU / 64.0));
 }
 
 float wallAt(float ax, float z) {
@@ -133,9 +147,18 @@ vec3 skyColour(vec3 rd, float hueBase) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gBend = 0.7 + 0.6 * kFlow;
+    float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left: every sample and the
@@ -146,7 +169,7 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
     float air = clamp(sndSpectrum(0.93), 0.0, 1.0);
-    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.6 * kTone;
 
     float t = 0.05;
     float hitT = -1.0;
@@ -160,7 +183,7 @@ void main() {
             break;
         }
         t += d * 0.9;
-        if (t > CC_FAR) break;
+        if (t > CC_FAR * reach) break;
     }
 
     vec3 sky = skyColour(rd, hueBase);
@@ -194,8 +217,8 @@ void main() {
             col = pal(hue + 0.55) * 0.05 * ao + prism * fres * 0.25;
         } else {
             // Tips glow from inside; the shaft stays darker glass.
-            float tipGlow = smoothstep(gTop - 2.4, gTop, p.y);
-            vec3 body = pal(hue) * (0.10 + 0.30 * dif) * ao + pal(hue + 0.1) * tipGlow * (0.18 + 0.12 * swell);
+            float tipGlow = smoothstep(gTop - 2.4 * (1.0 + kTexture), gTop, p.y);
+            vec3 body = pal(hue) * (0.10 + 0.30 * dif) * ao + pal(hue + 0.1) * tipGlow * (0.18 + 0.12 * swell) * (1.0 + kBuild);
             col = body + prism * (0.15 + 0.85 * fres) * (0.35 + 0.4 * ao)
                 + mix(vec3(1.0), prism, 0.4) * spec * 0.55;
         }
@@ -211,10 +234,10 @@ void main() {
         col += mix(vec3(1.0), prism, 0.3) * step(0.93 - 0.06 * air, g) * pt * tw
              * (0.12 + 1.4 * air) * (0.3 + 0.7 * fres + spec);
 
-        col = mix(col, sky, 1.0 - exp(-hitT * 0.05));
+        col = mix(col, sky, 1.0 - exp(-hitT * 0.05 / reach));
     }
 
     col *= 0.78 + 0.30 * swell + 0.10 * energy;
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

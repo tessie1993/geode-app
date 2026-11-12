@@ -92,6 +92,13 @@ out vec4 fragColor;
 //  sky (all slew-limited); the beat (SND_KICK_ENV) lurches the fold angle and
 //  settles. Nothing on a hit changes brightness.
 //
+//  THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its offset
+//  from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
+//  filigree's width (the edge trap's band), k2 FLOW added to the fold angle
+//  (+-0.04, the mids' own size; a fold is an isometry, so the march holds),
+//  k3 TONE the palette position, k4 BUILD the light through the arcades, k5
+//  SPACE the depth haze's reach.
+//
 //  DELIBERATELY NOT HERE: a normal-direction ambient-occlusion pass. The
 //  occlusion is read off the march step count instead - a ray that needed most
 //  of its budget was crawling down a fold, which is exactly where the creases
@@ -375,6 +382,8 @@ const float KIFS_TRAP_FAR = 4.0;
 // the normal is taken.
 
 mat3 gFoldRot;
+/** k3 TONE: the palette offset, read by the sky as well. */
+float gTone = 0.0;
 mat2 gPostRot;
 vec3 gFoldC;
 float gScale;
@@ -513,7 +522,7 @@ vec3 kifsNormal(vec3 p, float e) {
  * is the one term here that covers the whole frame.
  */
 vec3 kifsSky(vec3 rdLocal, float energy) {
-    return dmtChrysanthemum(rdLocal, 0.55 + 0.09 * sin(uTime * 0.019), energy);
+    return dmtChrysanthemum(rdLocal, 0.55 + 0.09 * sin(uTime * 0.019) + gTone, energy);
 }
 
 void main() {
@@ -538,6 +547,12 @@ void main() {
     // the lurch below flinches and settles rather than jittering with a
     // drum level.
     float hit = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float haze = 0.18 / (1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
+    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
 
     // ---- camera -----------------------------------------------------------
     //
@@ -632,7 +647,8 @@ void main() {
         + KIFS_FOLD_SWING * sin(uTime * KIFS_FOLD_RATE)
         + KIFS_FOLD_MID * midA
         + KIFS_FOLD_BEAT * hit
-        + KIFS_TOUCH_SPIN * spin;
+        + KIFS_TOUCH_SPIN * spin
+        + 0.08 * kFlow;
     gFoldRot = rotAxis(foldAxis, foldAngle);
 
     float postAngle = KIFS_POST_BASE
@@ -748,7 +764,7 @@ void main() {
         // spreads them evenly across the palette instead of crushing the deep
         // ones into one colour.
         float band = log(max(trapR, 1e-6)) * 0.11;
-        float shell = band + 0.22 * trapZ + 0.07 * sin(uTime * 0.029) + 0.06 * midA;
+        float shell = band + 0.22 * trapZ + 0.07 * sin(uTime * 0.029) + 0.06 * midA + gTone;
 
         // The shell is lit by its OWN band of the spectrum - the edge trap
         // indexes the analyser - so a bassline lights the deep shells and a
@@ -758,7 +774,7 @@ void main() {
 
         // The thin parts are the ones the edge trap found: a small trapZ
         // means the point hugged a fold plane, which is the filigree.
-        float thin = 1.0 - smoothstep(0.0, 0.35, trapZ);
+        float thin = 1.0 - smoothstep(0.0, 0.35 * (1.0 + kTexture), trapZ);
         col = dmtShade(n, rd, shell, band * 0.6, ao, thin, trebA);
         // The spectrum on the rim, on top of the material's own.
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
@@ -768,12 +784,12 @@ void main() {
         // camera, so the near face is unfogged and only the depth INSIDE the
         // structure is greyed. That is what separates the front arcade from
         // the ones behind it.
-        float fog = 1.0 - exp(-max(hitT - tEnter, 0.0) * 0.18);
+        float fog = 1.0 - exp(-max(hitT - tEnter, 0.0) * haze);
         col = mix(col, sky, fog);
     } else if (satT > 0.0) {
         vec3 p = ro + rd * satT;
-        col = dmtSatelliteColor(p, rd, 0.20 + 0.06 * midA, trebA, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
-        col = mix(col, sky, 1.0 - exp(-max(satT - tEnter, 0.0) * 0.18));
+        col = dmtSatelliteColor(p, rd, 0.20 + 0.06 * midA + gTone, trebA, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+        col = mix(col, sky, 1.0 - exp(-max(satT - tEnter, 0.0) * haze));
     } else {
         col = sky;
         // The light through the arcades. A ray that missed but spent most of
@@ -786,8 +802,8 @@ void main() {
         // of it lights the whole escape ball evenly and the frame comes out as
         // flat fog. Squared so only the rays that really crawled contribute.
         float threaded = used / budget;
-        float glowHue = log(max(glowTrap, 1e-6)) * 0.16 + 0.46;
-        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA);
+        float glowHue = log(max(glowTrap, 1e-6)) * 0.16 + 0.46 + gTone;
+        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA) * (1.0 + kBuild);
     }
 
     // TOUCH, everywhere: the wake. Immediate feedback under the finger, before
@@ -806,5 +822,5 @@ void main() {
     // that give it its scale.
     col *= 0.55 + 0.45 * smoothstep(2.0, 0.4, length(uv));
 
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

@@ -39,6 +39,11 @@ out vec4 fragColor;
 // - altitude: in silence (neonQuiet) the eye rises for a calm, wide view;
 //   the drop brings it down to skim the water.
 // - Intensity (neonGlow) is the neon's emission.
+// - mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
+//   it back as they fall, as lib_terra's terraTurn and lib_truchet's
+//   truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0
+//   in silence), the gFlameTurn band on a structure that holds still. Mid gain
+//   scales it.
 //
 // Provenance: written from scratch for BeatRealms from general techniques - a sum
 // of exp(sin) waves (sharp crests, broad troughs) where each wave's slope drags
@@ -206,7 +211,8 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (see the header).
+    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
     ro.z = mod(ro.z, 64.0);
 
     // The six looks the sea was drawn around, each 0..1 with 0.5 as tuned,

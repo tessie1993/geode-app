@@ -26,6 +26,14 @@ out vec4 fragColor;
 // The progress is measured from 0.4 because an onset triggers to 0.4..1
 // (viz/Reactions), never reliably to 1. A pitch change (SND_HELD_NOTE_CHANGE) shifts the
 // nebula's hue. Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the sky's
+// galactic band (seen direct and in every blob), k2 FLOW how far the orbits
+// bend out of their plane, k3 TONE the palette position, k4 BUILD the halo off
+// the chrome, k5 SPACE the eye's distance (lib_chrys's reach).
 
 #define CN_MAX_STEPS 96
 #define CN_BLOBS 6
@@ -55,6 +63,9 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
+/** k1 TEXTURE: the galactic band's width, 0.5..1.5 (1 at rest). */
+float gBandW = 1.0;
+
 /** The sky: two layers of fbm cloud on the palette, a galactic band, and (for the direct view only) stars. */
 vec3 nebula(vec3 d, float hue, float stars) {
     vec3 q = d * 2.1 + vec3(0.0, uTime * 0.015, uTime * 0.02);
@@ -64,7 +75,7 @@ vec3 nebula(vec3 d, float hue, float stars) {
     vec3 c = vec3(0.012, 0.010, 0.022);
     c += pal(hue + n * 0.35) * cloud * 0.55;
     c += pal(hue + 0.45 + n2 * 0.2) * smoothstep(0.52, 0.9, n2) * cloud * 0.35;
-    c += pal(hue + 0.2) * 0.10 * exp(-abs(d.y + 0.35 * (n - 0.5)) * 4.0);
+    c += pal(hue + 0.2) * 0.10 * exp(-abs(d.y + 0.35 * (n - 0.5)) * 4.0 / gBandW);
     if (stars > 0.5) {
         vec3 sc = d * 110.0;
         vec3 cell = floor(sc);
@@ -77,11 +88,18 @@ vec3 nebula(vec3 d, float hue, float stars) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gBandW = 1.0 + kTexture;
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float bass = clamp(sndSpectrum(0.23), 0.0, 1.0);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
-    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.6 * kTone;
 
     // ---- the blobs ----------------------------------------------------------
     // 0 on the hit frame (the envelope is >= 0.4 then), 1 once it has fallen.
@@ -101,7 +119,7 @@ void main() {
         float dir = mod(fi, 2.0) < 0.5 ? 1.0 : -1.0;
         float ph = fi * 1.047 + morph * (0.45 + 0.35 * h1) * dir;
         vec3 c = vec3(sin(tm * (0.7 + 0.5 * h1) + ph) * 1.9,
-                      sin(tm * (0.5 + 0.6 * h2) + ph * 1.3 + 2.0) * 1.1,
+                      sin(tm * (0.5 + 0.6 * h2) + ph * 1.3 + 2.0) * 1.1 * (1.0 + kFlow),
                       cos(tm * (0.6 + 0.4 * h3) + ph * 0.7) * 1.9);
         float r = (0.46 + 0.28 * h2) * grow;
         gBlob[i] = c;
@@ -121,7 +139,7 @@ void main() {
     // ---- march --------------------------------------------------------------
     vec3 ro;
     vec3 rd;
-    camAround(uv, CN_CAM_R, 3.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, CN_CAM_R * (1.0 - 0.3 * kSpace), 3.0 * CAM_SPIN_UNIT, ro, rd);
 
     float t = 0.05;
     float hitT = -1.0;
@@ -159,10 +177,10 @@ void main() {
     } else {
         col = nebula(rd, hue, 1.0);
         // Halo off the chrome the ray slid past.
-        col += pal(hue + 0.15) * 0.12 * exp(-near * 5.0);
+        col += pal(hue + 0.15) * 0.12 * exp(-near * 5.0) * (1.0 + kBuild);
     }
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

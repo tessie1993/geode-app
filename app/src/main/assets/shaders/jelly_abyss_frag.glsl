@@ -52,6 +52,14 @@ out vec4 fragColor;
 //                          eased over the section envelope
 //
 // Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the tentacles' width
+// (an exact radius scale), k2 FLOW added to the current's sway (+-0.1, inside
+// what the 0.6 step covers), k3 TONE the palette position, k4 BUILD the glow
+// integrated along the ray, k5 SPACE the reach (far plane and fog).
 
 /** Compile-time ceiling. uSteps is the runtime budget. */
 #define JA_MAX_STEPS 96
@@ -70,6 +78,8 @@ float gJet;
 float gSway;
 float gZoneHue;
 float gOnsetProg;
+/** k1 TEXTURE: the tentacles' radius scale, 0.5..1.5 (1 at rest). */
+float gTentW = 1.0;
 
 // What map() last found: the live cell's jelly, in jelly-local units.
 float gAlive;
@@ -110,7 +120,7 @@ void jellyParts(vec3 q, float seed) {
     vec2 xz = rot2(k * sector) * qt.xz;
     float wig = 0.05 * sin(q.y * 5.0 + k * 2.0 + uTime * 2.0) * s;
     vec3 off = vec3(xz.x - 0.55 * r.x * (1.0 - 0.35 * s), q.y - clamp(q.y, -len, 0.0), xz.y - wig);
-    float dT = length(off) - 0.035 * (1.0 - 0.6 * s);
+    float dT = length(off) - 0.035 * (1.0 - 0.6 * s) * gTentW;
 
     // The oral arm: shorter, thicker, frilled.
     float len2 = 0.55 * len;
@@ -193,6 +203,12 @@ void zoneParams(float z, out vec3 water, out vec4 prm) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    gTentW = 1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5);
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -207,7 +223,7 @@ void main() {
     // hit and at rest, so the jellies glide up and settle back).
     gContract = 0.55 * kick;
     gJet = 4.0 * kick * (1.0 - kick);
-    gSway = 0.15 + 0.25 * clamp(sndShaped(SND_LOW), 0.0, 1.5) / 1.5 + 0.2 * clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0);
+    gSway = 0.15 + 0.25 * clamp(sndShaped(SND_LOW), 0.0, 1.5) / 1.5 + 0.2 * clamp(sndLevel(SND_SUB_ATT), 0.0, 1.0) + 0.2 * kFlow;
     // 0 on the onset's frame (it triggers to 0.4..1), 1 once it has fallen.
     gOnsetProg = (1.0 - smoothstep(0.05, 0.4, onset));
 
@@ -222,12 +238,12 @@ void main() {
     zoneParams(sec, waterC, prmC);
     vec3 water = mix(waterP, waterC, secBlend);
     vec4 prm = mix(prmP, prmC, secBlend);
-    float fogD = prm.x;
+    float fogD = prm.x / reach;
 
     // The drop swaps the palette for its length and glides back as it ends.
     float dropHue = 0.4 * smoothstep(0.0, 0.3, drop);
     float keyHue = 0.08 * sin(JA_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
-    gZoneHue = prm.z + dropHue + 0.12 * pitch + keyHue + 0.02 * sin(uTime * 0.04);
+    gZoneHue = prm.z + dropHue + 0.12 * pitch + keyHue + 0.02 * sin(uTime * 0.04) + 0.6 * kTone;
     water = mix(water, pal(gZoneHue + 0.5) * length(water) * 0.6, 0.3);
 
     vec3 ro;
@@ -243,7 +259,7 @@ void main() {
     vec2 hueVec = vec2(0.0);
     for (int i = 0; i < JA_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (t > JA_FAR) break;
+        if (t > JA_FAR * reach) break;
         float d = map(ro + rd * t);
         float stepLen = max(d, 0.015 + 0.002 * t);
         if (gAlive > 0.5) {
@@ -265,7 +281,7 @@ void main() {
         }
         t += stepLen;
     }
-    float tEnd = hitT > 0.0 ? hitT : JA_FAR;
+    float tEnd = hitT > 0.0 ? hitT : JA_FAR * reach;
 
     // Water: lighter looking up toward the surface.
     vec3 fogCol = water * (0.25 + 0.75 * smoothstep(-0.5, 1.0, rd.y));
@@ -300,7 +316,7 @@ void main() {
     // The integrated glow, in the jellies' averaged hue.
     if (glowAmt > 1e-5 && dot(hueVec, hueVec) > 1e-12) {
         float gh = atan(hueVec.y, hueVec.x) / JA_TAU;
-        col += pal(gh) * glowAmt * 2.5;
+        col += pal(gh) * glowAmt * 2.5 * (1.0 + kBuild);
     }
 
     // ---- light shafts: a few fixed samples along the ray ---------------------
@@ -352,7 +368,7 @@ void main() {
         col += snow * smoothstep(0.08, 0.3, az);
     }
 
-    col *= 0.8 + 0.25 * swell;
+    col *= (0.8 + 0.25 * swell) * (1.0 + 0.5 * kPulse);
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
     // grade()'s contrast pivots on 0.5, so lift the darks ~2.4x and roll the

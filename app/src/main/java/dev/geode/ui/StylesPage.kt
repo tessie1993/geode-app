@@ -46,8 +46,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.StyleShelfStore
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.model.MilkFile
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
@@ -79,7 +79,7 @@ import dev.geode.ui.theme.performStoneHaptic
  *
  * Random is the icon beside the dropdown: it draws from every style of every family, never the one on
  * screen, and a free user lands on a style they can keep while there is one. The "Family only" chip
- * beside it (off by default, kept by [StyleShelfStore]) holds the draw to the family of the style on
+ * beside it (off by default, kept by `data/StyleShelfStore`) holds the draw to the family of the style on
  * screen: the stage's family rather than the dropdown's, so it means the same from Your styles. It
  * never leaves that family (owner: "Random style within family"): in a family of one, MilkDrop rolls
  * one of its .milk presets the way Auto draws one, and any other style stays. The draw is native too.
@@ -100,7 +100,7 @@ internal fun StylesTab(
     milkFiles: List<MilkFile>,
 ) {
     val context = LocalContext.current
-    val shelfStore = remember { StyleShelfStore.get(context) }
+    val shelfStore = remember { context.geodeContainer.styleShelf }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()

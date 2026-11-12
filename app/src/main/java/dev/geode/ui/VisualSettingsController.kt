@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
 import dev.geode.engine.bridge.GeodeNative
@@ -26,7 +25,8 @@ internal class VisualSettingsController(
     private val host: Host,
 ) {
     interface Host {
-        val guiPrefs: GuiPrefs
+        /** Settings › Visuals' blend between looks, in seconds. */
+        val presetMorphSeconds: Float
 
         /** The preset's MilkDrop file, written if it is missing or stale; it does its disk work off the caller's thread. */
         suspend fun milkPathFor(preset: Preset): String?
@@ -175,7 +175,7 @@ internal class VisualSettingsController(
      * It is a duration the user set, in seconds; nothing consults the analyser or assumes a tempo.
      */
     private fun emitPresetMorph() {
-        val seconds = host.guiPrefs.presetMorphSeconds
+        val seconds = host.presetMorphSeconds
         if (seconds <= 0f) return
         _morphFade.tryEmit(seconds)
     }

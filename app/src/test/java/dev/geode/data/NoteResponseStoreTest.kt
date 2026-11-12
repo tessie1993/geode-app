@@ -1,49 +1,75 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefsSettingsRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * The switch on its repository (#1009, PR 6): nothing reaches the engine before the saved value is read.
+ * The store collects for ever, so it runs in [TestScope.backgroundScope]; `advanceUntilIdle` skips
+ * background work, so each case lets it run with [runCurrent] (nothing here waits on time).
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
 class NoteResponseStoreTest {
-    @Test
-    fun `a new install starts on and tells the engine so once`() {
-        val pushes = mutableListOf<Boolean>()
-        val store = NoteResponseStore(MapPrefs()) { pushes += it }
-        assertTrue(store.enabled.value)
-        assertEquals(listOf(true), pushes)
+    private val pushes = mutableListOf<Boolean>()
+
+    private fun TestScope.store(prefs: MapPrefs): NoteResponseStore {
+        val repository = PrefsSettingsRepository(prefs, NoteResponseCodec, backgroundScope, StandardTestDispatcher(testScheduler))
+        return NoteResponseStore(repository, backgroundScope) { pushes += it }
     }
 
     @Test
-    fun `a saved choice wins over the default`() {
-        val prefs = MapPrefs()
-        prefs.values[NoteResponseStore.KEY_ENABLED] = false
-        val pushes = mutableListOf<Boolean>()
-        val store = NoteResponseStore(prefs) { pushes += it }
-        assertFalse(store.enabled.value)
-        assertEquals(listOf(false), pushes)
-    }
+    fun `a new install starts on and tells the engine so once`() =
+        runTest {
+            val store = store(MapPrefs())
+            assertEquals(emptyList<Boolean>(), pushes)
+            runCurrent()
+            assertTrue(store.enabled.value)
+            assertEquals(listOf(true), pushes)
+        }
 
     @Test
-    fun `the switch is saved and survives a new store`() {
-        val prefs = MapPrefs()
-        NoteResponseStore(prefs) { }.setEnabled(false)
-        assertEquals(false, prefs.values[NoteResponseStore.KEY_ENABLED])
-        val again = NoteResponseStore(prefs) { }
-        assertFalse(again.enabled.value)
-    }
+    fun `a saved choice wins over the default and the default is never pushed`() =
+        runTest {
+            val prefs = MapPrefs()
+            prefs.values[NoteResponseCodec.KEY_ENABLED] = false
+            val store = store(prefs)
+            runCurrent()
+            assertFalse(store.enabled.value)
+            assertEquals(listOf(false), pushes)
+        }
 
     @Test
-    fun `each change reaches the engine and repeats push nothing`() {
-        val pushes = mutableListOf<Boolean>()
-        val store = NoteResponseStore(MapPrefs()) { pushes += it }
-        store.setEnabled(true)
-        store.setEnabled(false)
-        store.setEnabled(false)
-        store.setEnabled(true)
-        assertEquals(listOf(true, false, true), pushes)
-    }
+    fun `the switch is saved and survives a new store`() =
+        runTest {
+            val prefs = MapPrefs()
+            store(prefs).setEnabled(false)
+            runCurrent()
+            assertEquals(false, prefs.values[NoteResponseCodec.KEY_ENABLED])
+            val again = store(prefs)
+            runCurrent()
+            assertFalse(again.enabled.value)
+        }
+
+    @Test
+    fun `each change reaches the engine and repeats push nothing`() =
+        runTest {
+            val store = store(MapPrefs())
+            runCurrent()
+            for (on in listOf(true, false, false, true)) {
+                store.setEnabled(on)
+                runCurrent()
+            }
+            assertEquals(listOf(true, false, true), pushes)
+        }
 
     /** In-memory [SharedPreferences]: the platform one is a stub in local unit tests. */
     private class MapPrefs : SharedPreferences {

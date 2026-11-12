@@ -13,10 +13,14 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import dev.geode.R
-import dev.geode.data.BehaviourStore
 import dev.geode.data.FavouritesStore
 import dev.geode.data.NotificationButton
 import dev.geode.geodeContainer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Settings › Output & devices › Notification buttons: the extra buttons the media notification (and the
@@ -24,36 +28,41 @@ import dev.geode.geodeContainer
  * play and next. The default is shuffle and repeat. Favourite can be added.
  *
  * Each button is a custom session command that toggles its state, so its icon always shows the state
- * now. [refresh] runs after every change that could alter an icon, and when the user changes the
- * setting.
+ * now. [refresh] runs after every change that could alter an icon, and whenever the choice in
+ * Settings changes (it follows the container's one copy, so it also lands once a cold start's load does).
  */
 @OptIn(UnstableApi::class)
 internal class NotificationButtons(
     private val context: Context,
     private val player: Player,
+    private val scope: CoroutineScope,
 ) : Player.Listener {
     private val prefsFiles = context.geodeContainer.prefsFiles
-    private val behaviour = BehaviourStore(prefsFiles.general)
+    private val behaviour = context.geodeContainer.behaviour
 
     private var session: MediaSession? = null
 
     /** The heart follows a favourite changed in the app too. A field: listeners are held weakly. */
     private val favouritesChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
 
-    private val choiceChanged =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == BehaviourStore.KEY_NOTIFICATION_BUTTONS) refresh()
-        }
+    private var choiceChanged: Job? = null
 
     fun attach(session: MediaSession) {
         this.session = session
         prefsFiles.favourites.registerOnSharedPreferenceChangeListener(favouritesChanged)
-        prefsFiles.general.registerOnSharedPreferenceChangeListener(choiceChanged)
+        choiceChanged =
+            scope.launch {
+                behaviour.value
+                    .map { it.notificationButtons }
+                    .distinctUntilChanged()
+                    .collect { refresh() }
+            }
     }
 
     fun detach() {
         prefsFiles.favourites.unregisterOnSharedPreferenceChangeListener(favouritesChanged)
-        prefsFiles.general.unregisterOnSharedPreferenceChangeListener(choiceChanged)
+        choiceChanged?.cancel()
+        choiceChanged = null
         session = null
     }
 
@@ -61,7 +70,7 @@ internal class NotificationButtons(
     fun commands(base: SessionCommands): SessionCommands = base.buildUpon().addSessionCommands(ALL).build()
 
     fun buttons(): List<CommandButton> =
-        NotificationButton.ordered(behaviour.load().notificationButtons).mapNotNull { button ->
+        NotificationButton.ordered(behaviour.value.value.notificationButtons).mapNotNull { button ->
             when (button) {
                 NotificationButton.SHUFFLE -> shuffleButton()
                 NotificationButton.REPEAT -> repeatButton()

@@ -1,13 +1,15 @@
 package dev.geode.data
 
-import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
+import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Note & key reactions' switch (Settings › Sound reaction), persisted, and what the engine is told.
@@ -19,59 +21,59 @@ import kotlinx.coroutines.flow.StateFlow
  * default, so a user who turned it off keeps it off. How strongly each part answers is per style, in
  * Customize › Advanced › Note & key (Pro). The engine seeds each
  * play from the auto-director's seed ([AutoDirectorStore]) mixed with fresh entropy, so this needs none. Like the director the switch is
- * process-wide in the engine, so the screen, exports, the wallpaper and the dream agree; [GeodeApp] creates
- * the store at start so the saved switch reaches a renderer built before the app's UI.
+ * process-wide in the engine, so the screen, exports, the wallpaper and the dream agree.
  *
- * Called on the main thread. [push] is the native call, swappable so the rule is testable off-device.
+ * One instance per process, built by `GeodeContainer`; the switch is kept by [NoteResponseCodec] in a
+ * [SettingsRepository] (#1009, PR 6), read on IO, and pushed once that read is back, then on each change.
+ * [push] is the native call, swappable so the rule is testable off-device.
  */
 class NoteResponseStore internal constructor(
-    private val prefs: SharedPreferences,
-    private val push: (Boolean) -> Unit,
+    private val repository: SettingsRepository<Boolean>,
+    private val scope: CoroutineScope,
+    private val push: (Boolean) -> Unit = { on -> bestEffort(TAG, "push note response") { GeodeNative.noteResponseSet(on) } },
 ) {
-    private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
-
     /** The switch as the user set it, which is also what the engine runs. */
-    val enabled: StateFlow<Boolean> = _enabled
+    val enabled: StateFlow<Boolean> = repository.value
 
     private var pushed: Boolean? = null
 
     init {
-        sync()
+        scope.launch {
+            repository.loaded()
+            repository.value.collect { sync(it) }
+        }
     }
 
     fun setEnabled(on: Boolean) {
-        _enabled.value = on
-        prefs.edit().putBoolean(KEY_ENABLED, on).apply()
-        sync()
+        scope.launch { repository.update { on } }
     }
 
     /** Pushes only when the switch actually changes, so a repeated tap costs no JNI call. */
-    private fun sync() {
-        val next = _enabled.value
+    private fun sync(next: Boolean) {
         if (next == pushed) return
         pushed = next
         push(next)
     }
 
-    companion object {
-        private const val TAG = "NoteResponseStore"
-        internal const val KEY_ENABLED = "note_response_enabled"
+    private companion object {
+        const val TAG = "NoteResponseStore"
+    }
+}
 
-        /** On for a new install; see the class doc. */
-        internal const val DEFAULT_ENABLED = true
+/** The switch in `geode-prefs`; on for a new install (see [NoteResponseStore]). */
+object NoteResponseCodec : PrefsCodec<Boolean> {
+    internal const val KEY_ENABLED = "note_response_enabled"
 
-        internal val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.BOOLEAN, KEY_ENABLED)
-            }
+    override val defaults = true
 
-        @Volatile private var instance: NoteResponseStore? = null
+    override val keys = prefKeys(GeodePrefsFiles.GENERAL) { portable(PrefType.BOOLEAN, KEY_ENABLED) }
 
-        fun get(context: Context): NoteResponseStore =
-            instance ?: synchronized(this) {
-                instance ?: NoteResponseStore(GeodePrefsFiles(context.applicationContext).general) { on ->
-                    bestEffort(TAG, "push note response") { GeodeNative.noteResponseSet(on) }
-                }.also { instance = it }
-            }
+    override fun read(prefs: SharedPreferences) = prefs.getBoolean(KEY_ENABLED, defaults)
+
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: Boolean,
+    ) {
+        editor.putBoolean(KEY_ENABLED, value)
     }
 }

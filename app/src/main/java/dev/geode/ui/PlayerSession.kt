@@ -10,14 +10,12 @@ import androidx.media3.common.util.Util
 import dev.geode.audio.MicCapture
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.data.BehaviourStore
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
 import dev.geode.data.FileTemplateRepository
-import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryState
 import dev.geode.data.Lyrics
@@ -41,7 +39,6 @@ import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
-import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
@@ -103,7 +100,7 @@ class PlayerSession internal constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
 
-    private val container = application.geodeContainer
+    internal val container = application.geodeContainer
 
     private val prefsFiles = container.prefsFiles
 
@@ -134,10 +131,10 @@ class PlayerSession internal constructor(
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
-                    setGuiPrefs(guiPrefs.value.copy(micReactive = on))
+                    settings.update(container.soundInput) { it.copy(micReactive = on) }
                 }
 
-                override val micReactivePref: Boolean get() = guiPrefs.value.micReactive
+                override val micReactivePref: Boolean get() = container.soundInput.value.value.micReactive
             },
         )
 
@@ -160,7 +157,7 @@ class PlayerSession internal constructor(
                     _vizState.update { it.copy(presets = transform(it.presets)) }
                 }
 
-                override val presetMirrorUri: String? get() = guiPrefs.value.presetMirrorUri
+                override val presetMirrorUri: String? get() = container.library.value.value.presetMirrorUri
                 override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
 
                 override fun onMilkFilesChanged() = milkImport.relist()
@@ -195,7 +192,6 @@ class PlayerSession internal constructor(
 
     internal val settings: PlayerSettingsController =
         PlayerSettingsController(
-            container.userData,
             playerPrefsRepository,
             container.appScope,
             playback.player,
@@ -212,7 +208,7 @@ class PlayerSession internal constructor(
             vizStateStore,
             scope,
             object : VisualSettingsController.Host {
-                override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
+                override val presetMorphSeconds: Float get() = container.visuals.value.value.presetMorphSeconds
 
                 override suspend fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
@@ -233,12 +229,6 @@ class PlayerSession internal constructor(
     internal val musicLibrary = MusicLibraryRepository(application, prefsFiles.library, scope)
 
     val library: StateFlow<LibraryState> get() = musicLibrary.library
-
-    val userDataLoaded: StateFlow<Boolean> get() = container.userData.loaded
-
-    val guiPrefs: StateFlow<GuiPrefs> get() = settings.guiPrefs
-
-    fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 
@@ -805,7 +795,7 @@ class PlayerSession internal constructor(
                             m.lfos.value,
                             m.adsrs.value,
                             m.reactions.value,
-                            settings.guiPrefs.value,
+                            container.soundInput.value.value.soundTuning,
                             SystemMotion.isReduced(application.contentResolver),
                         )
                     }
@@ -829,8 +819,6 @@ class PlayerSession internal constructor(
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)
 
     val visualizerRepository: VisualizerRepository = SessionVisualizerRepository(this)
-
-    val userDataRepository: UserDataRepository get() = container.userData
 
     fun startExport(
         aspect: ExportAspect,
@@ -934,7 +922,7 @@ class PlayerSession internal constructor(
 
     private suspend fun attachPlayback() {
         val pp = settings.loadedPlayerPrefs()
-        if (withContext(Dispatchers.IO) { BehaviourStore(prefsFiles.general).load().rememberShuffleRepeat }) {
+        if (container.behaviour.loaded().rememberShuffleRepeat) {
             player.shuffleModeEnabled = pp.shuffle
             player.repeatMode = pp.repeatMode
         }

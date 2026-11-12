@@ -18,11 +18,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
-import dev.geode.data.BehaviourStore
+import dev.geode.data.AppStateCodec
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.StartScreen
-import dev.geode.data.ThemeStore
 import dev.geode.geodeContainer
 import dev.geode.render.PerformanceSettings
 import kotlinx.coroutines.runBlocking
@@ -35,12 +34,12 @@ import org.junit.rules.ExternalResource
  * animation, safety notice, first-run setup and the tutorial would all stand between the test
  * and the screen it means to exercise. [Onboarded] writes the same prefs those screens write
  * when the user gets past them, before the activity is launched, so the shell comes up on the
- * Player tab. The keys are ThemeStore's own constants, so a rename breaks the build here rather
+ * Player tab. The keys are AppStateCodec's own constants, so a rename breaks the build here rather
  * than silently putting every journey back behind onboarding.
  *
  * The file alone is not enough: the instrumented process runs `GeodeApp.onCreate` before any rule,
- * and that builds the container, whose `UserDataRepository` reads the GUI prefs once and keeps
- * them. So the seeded prefs are also handed to that repository ([publishSeededGuiPrefs]); without
+ * and that builds the container, whose app-state repository reads the file once and keeps its
+ * value. So the seeded state is also handed to that repository ([publishSeededAppState]); without
  * it the shell draws the fresh install's safety notice over every journey.
  *
  * It also pins Settings › Performance to [PerformanceSettings.SAVER]. Left unset, the app picks
@@ -60,28 +59,29 @@ class Onboarded(
             // BootAnimationStore's key, private there. The intro only delays the test.
             putBoolean("boot_anim", false)
             if (skipOnboarding) {
-                putBoolean(ThemeStore.KEY_SAFETY_ACKNOWLEDGED, true)
-                putBoolean(ThemeStore.KEY_SETUP_DONE, true)
-                putBoolean(ThemeStore.KEY_TUTORIAL_SEEN, true)
+                putBoolean(AppStateCodec.KEY_SAFETY_ACKNOWLEDGED, true)
+                putBoolean(AppStateCodec.KEY_SETUP_DONE, true)
+                putBoolean(AppStateCodec.KEY_TUTORIAL_SEEN, true)
             }
         }
         val general = context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)
         PerformanceStore(general, context).set(PerformanceSettings.SAVER)
-        // The journeys start from the empty Player; a new install opens on Library (#796).
-        BehaviourStore(general).run { save(load().copy(startScreen = StartScreen.PLAYER)) }
-        if (skipOnboarding) publishSeededGuiPrefs(context)
+        // The journeys start from the empty Player; a new install opens on Library (#796). Through the
+        // app's own repository: it read the file when the application started, before this rule.
+        runBlocking { context.geodeContainer.behaviour.update { it.copy(startScreen = StartScreen.PLAYER) } }
+        if (skipOnboarding) publishSeededAppState(context)
     }
 }
 
 /**
- * Gives the app's live `UserDataRepository` the GUI prefs a rule has just written to the prefs
+ * Gives the app's live app-state repository the onboarding state a rule has just written to the prefs
  * file. The repository loaded that file when the application started, before the rule ran, and
- * the shell draws from its copy; `setGuiPrefs` is the call the app's own screens make, and it
- * also marks the repository loaded, so a load still in flight cannot put the old values back.
+ * the shell draws from its copy; `update` is the call the app's own screens make, and it waits
+ * for a load still in flight, so that load cannot put the old values back.
  */
-internal fun publishSeededGuiPrefs(context: Context) {
-    val seeded = ThemeStore(context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)).loadGui()
-    runBlocking { context.geodeContainer.userData.setGuiPrefs(seeded) }
+internal fun publishSeededAppState(context: Context) {
+    val seeded = AppStateCodec.read(context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE))
+    runBlocking { context.geodeContainer.appState.update { seeded } }
 }
 
 /**

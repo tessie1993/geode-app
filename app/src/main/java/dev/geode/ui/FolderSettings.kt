@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.GuiPrefs
+import dev.geode.data.LibrarySettings
 import dev.geode.data.MinTrackLength
 import dev.geode.geodeContainer
 import dev.geode.ui.theme.StoneIcon
@@ -41,9 +41,9 @@ internal fun MusicFoldersBasics() {
 @Composable
 internal fun OtherFoldersSection() {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val library by settingsViewModel.library.collectAsStateWithLifecycle()
     CrystalOverline(stringResource(R.string.folders_group_preset), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    PresetFolderGroup(settingsViewModel, gui)
+    PresetFolderGroup(settingsViewModel, library)
     CrystalOverline(stringResource(R.string.folders_group_export), color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(
         stringResource(R.string.folders_export_explainer),
@@ -55,7 +55,7 @@ internal fun OtherFoldersSection() {
 @Composable
 private fun PresetFolderGroup(
     viewModel: SettingsViewModel,
-    gui: GuiPrefs,
+    library: LibrarySettings,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -64,7 +64,7 @@ private fun PresetFolderGroup(
             if (uri != null) {
                 scope.launch {
                     if (ctx.geodeContainer.mediaStore.keepFolderAccess(uri)) {
-                        viewModel.setGuiPrefs(gui.copy(presetMirrorUri = uri.toString()))
+                        viewModel.updateLibrary { s -> s.copy(presetMirrorUri = uri.toString()) }
                     }
                 }
             }
@@ -72,7 +72,7 @@ private fun PresetFolderGroup(
     Column {
         Text(
             stringResource(
-                if (gui.presetMirrorUri != null) {
+                if (library.presetMirrorUri != null) {
                     R.string.folders_preset_chosen
                 } else {
                     R.string.folders_preset_internal
@@ -84,9 +84,9 @@ private fun PresetFolderGroup(
             CrystalButton(filled = false, onClick = { folderPicker.launchPicker(ctx, null) }) {
                 Text(stringResource(R.string.folders_choose_preset))
             }
-            if (gui.presetMirrorUri != null) {
+            if (library.presetMirrorUri != null) {
                 TextButton(
-                    onClick = { viewModel.setGuiPrefs(gui.copy(presetMirrorUri = null)) },
+                    onClick = { viewModel.updateLibrary { s -> s.copy(presetMirrorUri = null) } },
                 ) { Text(stringResource(R.string.action_clear)) }
             }
         }

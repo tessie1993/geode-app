@@ -387,16 +387,22 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         }
     }
 
-    // Harmony and form: a chord change, the leading scale degree moving, a new section or a drop (each a new
-    // value that holds, settled so a run of changes cannot flicker it, or a flip between two states); or the
-    // chord's tension, how clearly the key sounds, the tension rising or easing, a build-up or how new the bar
-    // is (followed, or for tension and build-up added up, so a tight passage carries the shape on rather than
-    // pushing it out and back). Onto the shape, depth, field of view, turbulence, warp or the camera's look;
-    // never a colour (the owner's rule: the palette is the style's and the user's) and never a turn.
+    // Harmony or form, half the styles each. Harmony: a chord change or the leading scale degree moving (each a
+    // new value that holds, settled so a run of changes cannot flicker it, or a flip between two states); or the
+    // chord's tension, how clearly the key sounds, the tension rising or easing, how unstable the scale is or how
+    // fast the chords move round the circle of fifths. Form: a new section, a section coming back or a drop
+    // (events, as above); or a build-up, how new the bar is, how far through its section the music is, or being in
+    // a build, a drop or a breakdown. The levels are followed, or for tension, a build-up and being in a build
+    // added up, so a tight passage carries the shape on rather than pushing it out and back. Onto the shape,
+    // depth, field of view, turbulence, warp or the camera's look; never a colour (the owner's rule: the palette
+    // is the style's and the user's) and never a turn.
     {
-        const ReactSource heard = pick(d, std::array{ReactSource::HarmonicChange, ReactSource::DegreeAccent, ReactSource::SectionChange,
-                                                     ReactSource::Drop, ReactSource::Tension, ReactSource::KeyClarity,
-                                                     ReactSource::TensionRise, ReactSource::BuildUp, ReactSource::Novelty});
+        const ReactSource heard =
+            d.coin() ? pick(d, std::array{ReactSource::HarmonicChange, ReactSource::DegreeAccent, ReactSource::Tension, ReactSource::KeyClarity,
+                                          ReactSource::TensionRise, ReactSource::ScaleTension, ReactSource::ChordMotion})
+                     : pick(d, std::array{ReactSource::SectionChange, ReactSource::SectionReturn, ReactSource::Drop, ReactSource::BuildUp,
+                                          ReactSource::Novelty, ReactSource::SectionProgress, ReactSource::InBuild, ReactSource::InDrop,
+                                          ReactSource::InBreakdown});
         const bool event = reactSourceInfo(heard).event;
         const LfoTarget target = landing(b, d,
                                          std::array{LfoTarget::Warp, LfoTarget::Morph, LfoTarget::Zoom, LfoTarget::CamFov,
@@ -406,8 +412,8 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         if (event) {
             const int m = d.below(3);
             mode = m == 0 ? ReactMode::JumpSettled : (m == 1 ? ReactMode::Jump : ReactMode::Toggle);
-        } else if ((heard == ReactSource::Tension || heard == ReactSource::BuildUp) && target != LfoTarget::CamPitch &&
-                   target != LfoTarget::CamYaw && d.coin()) {
+        } else if ((heard == ReactSource::Tension || heard == ReactSource::BuildUp || heard == ReactSource::InBuild) &&
+                   target != LfoTarget::CamPitch && target != LfoTarget::CamYaw && d.coin()) {
             mode = ReactMode::Spin;  // "Add up": a rate, so half the reach a second at most
         }
         const float amount = structuralAmount(d, target) * (mode == ReactMode::Spin ? 0.5f : 1.0f);
@@ -416,13 +422,18 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         b.add(heard, target, mode, amount, rise, fall, ModCurve::Smooth);
     }
 
-    // Feel and timbre, followed slowly with long glides: the mood, the felt tension or the scale's brightness; the
-    // noisiness, brightness, roll-off, hollowness or width of the sound; or how the tune is played (a busy run,
-    // vibrato, glides, slides, the size of its leaps). Onto a look the style does not move yet.
+    // Feel and timbre, followed slowly with long glides: the mood, the felt tension, the scale's brightness, the
+    // key's character, the kind of feeling or its wonder; the noisiness, brightness, roll-off, hollowness or width
+    // of the sound; or how the tune is played (a busy run, vibrato, glides, slides, the size of its leaps). Onto a
+    // look the style does not move yet. Never the felt energy: it carries the loudness, and volume is not what the
+    // picture hears.
     {
         ReactSource feel = ReactSource::Valence;
         switch (d.below(3)) {
-            case 0: feel = pick(d, std::array{ReactSource::Valence, ReactSource::FeltTension, ReactSource::ScaleBrightness}); break;
+            case 0:
+                feel = pick(d, std::array{ReactSource::Valence, ReactSource::FeltTension, ReactSource::ScaleBrightness, ReactSource::KeySharpness,
+                                          ReactSource::FeelingKind, ReactSource::FeelWonder});
+                break;
             case 1:
                 feel = pick(d, std::array{ReactSource::Flatness, ReactSource::Centroid, ReactSource::Rolloff, ReactSource::Evenness,
                                           ReactSource::StereoWidth});

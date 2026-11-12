@@ -36,7 +36,11 @@ object ParamSchema {
     val paletteNames: List<String> by lazy { text.lines().filter { it.startsWith("palette|") }.map { it.substringAfterLast('|') } }
 
     private val choiceLabels: Map<String, List<String>> by lazy {
-        text.lines().filter { it.startsWith("choice|") }.map { it.split('|', limit = 4) }.groupBy({ it[1] }, { it[3] })
+        text
+            .lines()
+            .filter { it.startsWith("choice|") }
+            .map { it.split('|', limit = 4) }
+            .groupBy({ it[1] }, { it[3] })
     }
 
     /** The labels of picker [name]'s values, in index order (the table's `choice|name|index|label` rows); empty for no picker. */

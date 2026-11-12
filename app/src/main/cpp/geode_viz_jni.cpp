@@ -592,11 +592,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps,
+Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps, jfloat capFps,
                                                        jfloat renderScale, jfloat marchScale, jboolean postFx,
                                                        jboolean adaptive, jint liquidHotPolicy, jlong paramsVersion,
                                                        jlong lfoVersion, jlong adsrVersion, jlong tuningVersion) {
-    return geode_viz_frame_begin(vizOf(handle), pacedFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
+    return geode_viz_frame_begin(vizOf(handle), pacedFps, capFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
                                  adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy, paramsVersion, lfoVersion,
                                  adsrVersion, tuningVersion);
 }
@@ -1170,6 +1170,23 @@ Java_dev_geode_engine_bridge_GeodeNative_perfTier(JNIEnv* env, jobject, jint mod
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_liveFpsChoices(JNIEnv* env, jobject, jfloatArray rates, jintArray out) {
+    if (!out) return 0;
+    FloatElements r(env, rates);
+    int choices[GEODE_LIVE_FPS_MAX_CHOICES];
+    const int n = geode_live_fps_choices(r.get(), r.length(), choices, GEODE_LIVE_FPS_MAX_CHOICES);
+    const jsize written = std::min<jsize>({static_cast<jsize>(n), env->GetArrayLength(out), GEODE_LIVE_FPS_MAX_CHOICES});
+    if (written > 0) env->SetIntArrayRegion(out, 0, written, reinterpret_cast<const jint*>(choices));
+    return n;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_liveFpsCap(JNIEnv* env, jobject, jint storedFps, jfloatArray rates) {
+    FloatElements r(env, rates);
+    return geode_live_fps_cap(storedFps, r.get(), r.length());
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_perfModeForDevice(JNIEnv*, jobject, jlong totalRamBytes, jboolean lowRam,
                                                           jint mediaPerformanceClass) {
     return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass);
@@ -1541,6 +1558,27 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordSta
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordStop(JNIEnv*, jobject, jlong handle) {
     geode_viz_record_stop(vizOf(handle));
+}
+
+// Cast's tee (viz/frame/CastTee): the stage's picture to the cast stream.
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizSetCastSource(JNIEnv*, jobject, jlong handle,
+                                                                                  jboolean on) {
+    geode_viz_set_cast_source(vizOf(handle), on ? 1 : 0);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeOpen(JNIEnv*, jobject, jint width, jint height,
+                                                                              jint fps) {
+    return reinterpret_cast<jlong>(geode_cast_tee_open(width, height, fps));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeDraw(JNIEnv*, jobject, jlong tee, jlong nowNs,
+                                                                                 jint width, jint height) {
+    return geode_cast_tee_draw(reinterpret_cast<geode_cast_tee*>(tee), nowNs, width, height) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeClose(JNIEnv*, jobject, jlong tee) {
+    geode_cast_tee_close(reinterpret_cast<geode_cast_tee*>(tee));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizStillRequest(JNIEnv*, jobject, jlong handle) {

@@ -73,6 +73,14 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
 - `core/viz/ParamsJson` (`geode_params_write_json`, `_read_json`) writes and reads the scene params object of presets, links, template looks and the saved look, in the text org.json wrote.
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
+- Customize › Layers is `core/viz/LayerState`: on, source, picked style, knob, blend and mix, process-wide, one text line (`geode_layer_set`, `_normalize`, `_edit`); an export pins it.
+- A layer's source is the user's pick (USER), Auto Director's pick at its style moments (DIRECTOR) or a knob's turn (MACRO), the owner's three choices (2026-11-12).
+- `core/viz/LayerPick` turns the source into a style per renderer each frame; with nothing picked it suits the active style (same look group, another family, by a hash of the active id), never the active style while another exists.
+- Auto Director's layer draws from Auto's pool (`Trait::AutoDraw`) on the play's seed; a knob walks the same pool in catalogue order with a dead band.
+- `geode_layer_editor` is everything Customize › Layers offers (sources, blends, families, knobs, the style drawn now); the shell keeps no list.
+- The layer draws into its own target (`fboL_`), so it runs through a style transition and keeps its last ready style while the next builds.
+- The composite lays the layer over the transition's result, the active style the base: mix 0 is the active style alone.
+- The layer's mix is the page's plus the `layerMix` param, which target `LAYER_MIX` (a luminance target) writes, so waves, envelopes, routes and knobs move it.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
 
 ## Native stage

@@ -154,13 +154,6 @@ class Stage(
 
     fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
 
-    /** Customize › Layers, process-wide (core/viz/LayerState). */
-    fun submitLayer(
-        sceneId: String?,
-        mix: Float,
-        blend: Int,
-    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend)
-
     fun submitFluidInjectionShaders(
         force: String?,
         dye: String?,

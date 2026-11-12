@@ -28,12 +28,13 @@ namespace geode::viz {
 // setter.
 class CompositePass {
 public:
-    static constexpr int kStyleLayer = 6;
     static constexpr float kDitherAmount = 1.0f / 255.0f;
 
     struct Inputs {
         GLuint texA = 0;
         GLuint texB = 0;
+        // Customize › Layers: the layer's own target, blended over the transition's result (zeroTex when none).
+        GLuint texL = 0;
         GLuint flowTex = 0;
         float flowStrength = 0.0f;
         float progress = 1.0f;
@@ -50,10 +51,12 @@ public:
         SceneParams fx;
         std::array<float, 4> gateA{};
         std::array<float, 4> gateB{};
+        std::array<float, 4> gateL{};
         // CameraRig's flat projection and, per texture, whether to apply it.
         std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
         std::array<float, 2> camTilt{};
         std::array<float, 2> camGate{};
+        float camGateL = 0.0f;
         // W00: underlay, read each frame from CompositePass's own latched texture (see the class
         // comment above) via underlayTexOrZero()/underlayBlendMode()/underlayAmount().
         GLuint underlayTex = 0;

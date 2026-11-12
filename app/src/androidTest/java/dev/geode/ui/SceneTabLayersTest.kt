@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,7 +16,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.geode.data.LayerStore
+import dev.geode.geodeContainer
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -29,14 +33,16 @@ class SceneTabLayersTest {
     @get:Rule
     val compose = createComposeRule()
 
+    private val store: LayerStore get() = ApplicationProvider.getApplicationContext<Context>().geodeContainer.layers
+
     @Before
     fun clean() {
-        LayersBus.state.value = LayersUiState()
+        store.edit("on", "0")
     }
 
     @After
     fun restoreLayers() {
-        LayersBus.state.value = LayersUiState()
+        store.edit("on", "0")
     }
 
     @Test
@@ -46,7 +52,7 @@ class SceneTabLayersTest {
             MaterialTheme {
                 CompositionLocalProvider(LocalSceneId provides "kifs", LocalParamQuery provides query) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        LayersPage()
+                        LayersPage(store)
                     }
                 }
             }
@@ -54,7 +60,7 @@ class SceneTabLayersTest {
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Layers enabled").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
-        assertTrue(LayersBus.state.value.enabled)
+        assertTrue(store.editor("kifs").on)
 
         query = "layer"
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()

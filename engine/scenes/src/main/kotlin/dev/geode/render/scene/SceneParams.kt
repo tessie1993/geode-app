@@ -191,12 +191,12 @@ data class SceneParams(
     val paletteShift: Float = 0f,
     // Customize › Shape › Kaleidoscope: 1 off, 2..16 folds (core/viz/ParamTable.inc kaleidoFolds).
     val kaleidoFolds: Float = 1f,
+    val layerMix: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
 
         const val NO_CUSTOM_PALETTE: String = ""
-
         const val NO_STOP: Int = -1
 
         val DEFAULT: SceneParams = SceneParams()

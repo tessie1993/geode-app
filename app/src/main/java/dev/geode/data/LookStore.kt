@@ -3,6 +3,8 @@ package dev.geode.data
 import android.content.ContentResolver
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.util.bestEffort
 
 /**
  * The look as the app last saved it (#345), for the surfaces that run without the app's session: the
@@ -50,12 +52,16 @@ class LookStore(
     fun pushProcessWide() {
         val modulation = LfoStore(prefsFiles.general)
         modulation.pushHand(modulation.loadHandMask(), modulation.loadReactions() != null)
-        // Seam: once #602 lands, push the saved Customize › Layers layer here (GeodeNative.layerSet);
-        // once #498 lands, the saved custom shader code (geode_shader_override_set). Both are process-wide
-        // native stores that nothing pushes from the stores when the process starts without UI.
+        // The saved Customize › Layers layer, read here on the caller's thread so the first frame draws it
+        // (the container's LayerStore pushes the same line once its own read is back).
+        bestEffort(TAG, "push saved layer") { GeodeNative.layerSet(LayerCodec().read(prefsFiles.general)) }
+        // Seam: once #498 lands, the saved custom shader code (geode_shader_override_set), a process-wide
+        // native store nothing pushes from the stores when the process starts without UI.
     }
 
     internal companion object {
+        private const val TAG = "LookStore"
+
         // The session's keys (VizStateStore writes them); one spelling, here below `ui`.
         const val KEY_LIVE_STATE = "live_state"
         const val KEY_TRANSITION_ID = "transition_id"

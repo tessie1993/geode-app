@@ -28,8 +28,10 @@
 #include "viz/GyroLook.hpp"
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/LookSnapshot.hpp"
+#include "viz/MacroBank.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -198,6 +200,7 @@ static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
+static_assert(layer_state::kBlends == kBlendModes && layer_state::kDefaultBlend == GEODE_LAYER_BLEND_DEFAULT);
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
 // between calls matter, and steady_clock never jumps with the wall clock.
@@ -214,6 +217,13 @@ double bootSeconds() {
 }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
+
+// Customize › Layers' texts: valid until this thread's next layer call, like the macro bank's.
+const char* layerOut(std::string out) {
+    thread_local std::string held;
+    held = std::move(out);
+    return held.c_str();
+}
 
 }  // namespace
 
@@ -608,8 +618,39 @@ void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); 
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
-void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
-    layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+void geode_layer_set(const char* layer) { layer_state::set(layer_state::decode(text(layer))); }
+
+const char* geode_layer_normalize(const char* layer) {
+    try {
+        return layerOut(layer_state::encode(layer_state::decode(text(layer))));
+    } catch (...) {
+        return "";
+    }
+}
+
+const char* geode_layer_edit(const char* layer, const char* field, const char* value) {
+    try {
+        return layerOut(layer_state::encode(layer_state::edit(layer_state::decode(text(layer)), text(field), text(value))));
+    } catch (...) {
+        return "";
+    }
+}
+
+const char* geode_layer_editor(const char* layer, const char* active_style) {
+    try {
+        std::vector<std::string> blends;
+        for (int i = 0; i < kBlendModes; ++i) blends.emplace_back(blendModeLabel(static_cast<BlendMode>(i)));
+        // The Macro source's choice: the knobs on screen, as the bank every live renderer reads has them.
+        std::vector<std::pair<int, std::string>> knobs;
+        if (const auto bank = macrobank::global()) {
+            for (const macrobank::Knob& knob : bank->knobs) {
+                if (knob.shown) knobs.emplace_back(knob.id, knob.name);
+            }
+        }
+        return layerOut(layer_pick::editorText(layer_state::decode(text(layer)), text(active_style), layer_state::shown(), blends, knobs));
+    } catch (...) {
+        return "";
+    }
 }
 
 const char* geode_layer_blend_names(void) {

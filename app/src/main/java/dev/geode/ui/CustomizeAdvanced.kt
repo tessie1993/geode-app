@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -19,8 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -38,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.data.LayerStore
+import dev.geode.data.LayersEditor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.fluid.FluidShaderTemplate
@@ -54,6 +55,8 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
+import dev.geode.render.scene.styleFamilyLabel
+import dev.geode.render.scene.styleLabel
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -61,6 +64,7 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
@@ -450,47 +454,66 @@ private fun AdsrSlider(
     LabeledSlider(label, values.getOrElse(field) { 0f }, ModCatalog.range(range), unit = unit) { onChange(field, it) }
 }
 
-/** Expert › Layers: a second style drawn under the active one. */
+/**
+ * Expert › Layers: a second style drawn over the active one. The layer lives in [LayerStore] (saved, and drawn by
+ * the wallpaper and the dream too); which style it draws and everything this page offers is native's
+ * (core/viz/LayerPick), so the page only shows the rows and hands each choice back.
+ */
 @Composable
-internal fun LayersPage() {
-    val layers by LayersBus.state.collectAsStateWithLifecycle()
-    val layerScenes by LayersBus.availableScenes.collectAsStateWithLifecycle()
-    val activeScene by LayersBus.activeSceneId.collectAsStateWithLifecycle()
-    ControlHint(
-        stringResource(R.string.customize_layers_hint),
-    )
-    CheckRow(LAYERS_ENABLED, layers.enabled, scope = ParamScope.UNIVERSAL) { on ->
-        val scene = layers.sceneId ?: layerScenes.firstOrNull { it != activeScene }
-        LayersBus.state.value = layers.copy(enabled = on, sceneId = scene)
-    }
-    if (!layers.enabled || !sectionVisible()) return
-    var showLayerPicker by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { showLayerPicker = true }) {
-            val layerStyle = layers.sceneId?.let { sceneDisplayLabel(it) } ?: stringResource(R.string.customize_layer_none)
-            Text(stringResource(R.string.customize_layer_style, layerStyle))
+internal fun LayersPage(store: LayerStore = LocalContext.current.geodeContainer.layers) {
+    val text by store.text.collectAsStateWithLifecycle()
+    val activeScene = LocalSceneId.current
+    // Read again now and then too: what Auto Director or a knob draws moves without an edit here.
+    val editor by produceState(store.editor(activeScene), text, activeScene) {
+        while (true) {
+            value = store.editor(activeScene)
+            delay(LAYER_SHOWN_POLL_MS)
         }
-        DropdownMenu(expanded = showLayerPicker, onDismissRequest = { showLayerPicker = false }) {
-            layerScenes.filter { it != activeScene }.forEach { id ->
-                DropdownMenuItem(
-                    text = { Text(sceneDisplayLabel(id)) },
-                    onClick = {
-                        LayersBus.state.value = layers.copy(sceneId = id)
-                        showLayerPicker = false
-                    },
-                )
+    }
+    ControlHint(stringResource(R.string.customize_layers_hint))
+    CheckRow(LAYERS_ENABLED, editor.on, scope = ParamScope.UNIVERSAL) { store.edit("on", if (it) "1" else "0") }
+    if (!editor.on || !sectionVisible()) return
+    val source = editor.sources.indexOfFirst { it.name == editor.source }
+    DropdownRow(stringResource(R.string.customize_layer_from), editor.sources.map { it.label }, source) {
+        store.edit("source", editor.sources[it].name)
+    }
+    when (editor.source) {
+        LAYER_SOURCE_USER -> LayerStylePicker(editor) { store.edit("style", it) }
+        LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
+        LAYER_SOURCE_MACRO -> {
+            val knob = editor.knobs.indexOfFirst { it.name == editor.knob.toString() }.coerceAtLeast(0)
+            DropdownRow(stringResource(R.string.customize_layer_knob), editor.knobs.map { it.label }, knob) {
+                store.edit("knob", editor.knobs[it].name)
             }
+            ControlHint(stringResource(R.string.customize_layer_macro_hint))
         }
     }
-    if (layers.sceneId != null && layers.sceneId == activeScene) {
-        ControlHint(stringResource(R.string.customize_layer_idle_hint))
+    if (editor.shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(editor.shown)))
+    DropdownRow("Blend", editor.blends, editor.blend) { store.edit("blend", it.toString()) }
+    LabeledSlider(LAYER_MIX, editor.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { store.edit("mix", it.toString()) }
+}
+
+/** The You source's style: a family, then a style in it, by name, as native lists them; or back to native's pick. */
+@Composable
+private fun LayerStylePicker(
+    editor: LayersEditor,
+    onPick: (String) -> Unit,
+) {
+    val resources = LocalResources.current
+    val shownFamily = editor.families.indexOfFirst { editor.shown in it.ids }.coerceAtLeast(0)
+    var familyIndex by remember(shownFamily) { mutableIntStateOf(shownFamily) }
+    val family = editor.families.getOrNull(familyIndex) ?: return
+    val familyLabels = editor.families.map { styleFamilyLabel(resources, it.name) }
+    DropdownRow(stringResource(R.string.customize_layer_family), familyLabels, familyIndex) { familyIndex = it }
+    DropdownRow(
+        stringResource(R.string.customize_layer_pick),
+        family.ids.map { styleLabel(resources, it) },
+        family.ids.indexOf(editor.styleId),
+        placeholder = stringResource(R.string.customize_layer_suits),
+    ) { onPick(family.ids[it]) }
+    if (editor.styleId.isNotEmpty()) {
+        TextButton(onClick = { onPick("") }) { Text(stringResource(R.string.customize_layer_suits)) }
     }
-    val blendNames =
-        remember {
-            runCatching { GeodeNative.layerBlendNames().lines().filter { it.isNotEmpty() } }.getOrDefault(emptyList())
-        }
-    DropdownRow("Blend", blendNames, layers.blend) { LayersBus.state.value = layers.copy(blend = it) }
-    LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
 }
 
 /**
@@ -705,3 +728,10 @@ private const val ENV_SUSTAIN_TRACK = "Sustain follows the sound"
 private const val ENV_RETRIGGER = "Restart on every hit"
 private const val LAYERS_ENABLED = "Layers enabled"
 private const val LAYER_MIX = "Layer mix"
+
+// Customize › Layers' sources, as native names them (core/viz/LayerState), and how often the page reads again
+// what Auto Director or a knob draws.
+private const val LAYER_SOURCE_USER = "USER"
+private const val LAYER_SOURCE_DIRECTOR = "DIRECTOR"
+private const val LAYER_SOURCE_MACRO = "MACRO"
+private const val LAYER_SHOWN_POLL_MS = 1000L

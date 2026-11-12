@@ -127,9 +127,31 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetReducedMotion(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring sceneId, jfloat mix, jint blendMode) {
-    Utf8Chars id(env, sceneId);
-    geode_layer_set(id.get() ? id.get() : "", mix, blendMode);
+Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring layer) {
+    Utf8Chars text(env, layer);
+    geode_layer_set(text.get() ? text.get() : "");
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerNormalize(JNIEnv* env, jobject, jstring layer) {
+    Utf8Chars text(env, layer);
+    return geode::jni::utf8String(env, geode_layer_normalize(text.get() ? text.get() : ""));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerEdit(JNIEnv* env, jobject, jstring layer, jstring field, jstring value) {
+    Utf8Chars text(env, layer);
+    Utf8Chars name(env, field);
+    Utf8Chars to(env, value);
+    return geode::jni::utf8String(env, geode_layer_edit(text.get() ? text.get() : "", name.get() ? name.get() : "",
+                                                        to.get() ? to.get() : ""));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_layerEditor(JNIEnv* env, jobject, jstring layer, jstring activeStyle) {
+    Utf8Chars text(env, layer);
+    Utf8Chars active(env, activeStyle);
+    return geode::jni::utf8String(env, geode_layer_editor(text.get() ? text.get() : "", active.get() ? active.get() : ""));
 }
 
 JNIEXPORT jstring JNICALL

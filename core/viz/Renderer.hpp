@@ -25,6 +25,7 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
+#include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/LookSnapshot.hpp"
 #include "viz/Lfo.hpp"
@@ -287,7 +288,7 @@ private:
     std::vector<std::string> heldErrors_;
     // The style last asked for, so a failed one's report is said again when it is picked again.
     std::string reportedRequestId_;
-    // The requested scene is still being staged this frame, so the layer scene waits its turn.
+    // The requested scene is still being staged this frame, so a layer scene not built yet waits its turn.
     bool requestedPending_ = false;
     SceneRegistry registry_;
     Overlays overlays_{loader_};
@@ -355,6 +356,9 @@ private:
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
     Framebuffer fboB_{"sceneB"};
+    // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
+    // a layer draws, released when none does.
+    Framebuffer fboL_{"sceneLayer"};
     GLuint quadVao_ = 0;
     GLuint paletteLutTex_ = 0;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
@@ -364,10 +368,14 @@ private:
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
     std::string requestedSceneId_ = kFirstSceneId;
+    // The style this renderer draws as its layer, picked each frame (resolveLayerScene, viz/LayerPick) and
+    // written on the GL thread under stateLock_, so trimScenes keeps it resident.
     std::string layerSceneId_;
+    // Under stateLock_: the Customize › Layers setting (viz/LayerState) and this renderer's view of the store
+    // (followed live, pinned in an export).
+    layer_state::Layer layerSetting_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
-    // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
     layer_state::Follower layerFollower_;
     std::string transitionId_ = kFirstTransitionId;
     int64_t transitionDurationMs_ = kFirstTransitionMs;
@@ -444,6 +452,10 @@ private:
     // The secondary targets' staging asks (#369): this frame's layer, and the next style's this frame
     // and the frame before.
     std::string layerAsked_;
+    // GL thread: the layer's source made a style id each frame, and the last one this renderer told
+    // Customize › Layers about (layer_state::publishShown, live renderers only).
+    layer_pick::Picker layerPicker_;
+    std::string layerShown_;
     std::string bornAsked_;
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;

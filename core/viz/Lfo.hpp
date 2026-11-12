@@ -38,9 +38,11 @@ enum class LfoTarget {
     PaletteShift,
     // Appended: the kaleidoscope's folds (1 off .. 16), the one slider that replaced its switch and count.
     KaleidoFolds,
+    // Appended: Customize › Layers' mix (the layerMix param, added to the Layers page's mix; viz/LayerState).
+    LayerMix,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::KaleidoFolds;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::LayerMix;
 
 struct ModChain {
     int slot;

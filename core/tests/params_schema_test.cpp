@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 188;
+constexpr int kWireFloats = 189;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -72,7 +72,8 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
           "the palette amounts follow it, the primary first");
     check(static_cast<int>(ParamSlot::paletteShift) == 186, "paletteShift keeps its slot");
-    check(static_cast<int>(ParamSlot::kaleidoFolds) == kWireFloats - 1, "kaleidoFolds is the wire's last float");
+    check(static_cast<int>(ParamSlot::kaleidoFolds) == 187, "kaleidoFolds keeps its slot");
+    check(static_cast<int>(ParamSlot::layerMix) == kWireFloats - 1, "layerMix is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -571,6 +572,13 @@ void everyLiveRowHasOneMeta() {
     check(!SceneParams::meta(ParamSlot::paletteMix).live && !SceneParams::meta(ParamSlot::palette2).live &&
               !SceneParams::meta(ParamSlot::paletteLut).live,
           "Palette blend, Palette 2 and Colour map are retired: the stack draws more than one palette and the colour maps");
+    {
+        const ParamMeta& m = SceneParams::meta(ParamSlot::layerMix);
+        const ParamSpec& s = SceneParams::spec(ParamSlot::layerMix);
+        check(std::string(m.label) == "Layer mix" && m.scope == catalogue::Scope::Universal && (m.flags & kMod) != 0 &&
+                  m.rollLo == 0.0f && m.rollHi == 0.0f && s.defaultValue == 0.0f && s.min == -1.0f && s.max == 1.0f,
+              "the layer's mix is an offset a target writes on every style, 0 in every look, never rolled");
+    }
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
     const ParamMeta& kaleido = SceneParams::meta(ParamSlot::kaleidoFolds);
     check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&

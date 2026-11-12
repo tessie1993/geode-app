@@ -11,6 +11,13 @@ out vec4 fragColor;
 
 uniform sampler2D uTexA;
 uniform sampler2D uTexB;
+/**
+ * Customize › Layers: the layer style's own target, drawn over whatever the
+ * transition stage shows (so a style change runs under a layer as it does
+ * without one). Only read when uHasLayer is 1.
+ */
+uniform sampler2D uTexL;
+uniform int uHasLayer;
 // Blue-noise dither mask, sampled 1:1 with output pixels. See BlueNoise.kt for
 // why the tile is blue rather than white noise and why it must not animate.
 uniform sampler2D uNoise;
@@ -20,9 +27,9 @@ uniform float uRatio;
 uniform float uProgress;
 uniform int uStyle;
 /**
- * Layers: how much the TOP layer (uTexA) contributes, 0..1. Photoshop's layer
- * opacity, not a crossfade position - at 0 you see the bottom layer alone, at
- * 1 the full blend. Only read when uStyle is 6.
+ * Layers: how much the TOP layer (uTexL) contributes, 0..1. Photoshop's layer
+ * opacity, not a crossfade position - at 0 you see the active style alone (the
+ * base), at 1 the full blend.
  */
 uniform float uLayerMix;
 /** Layers: which blend function, matching BlendMode's ordinals. */
@@ -56,6 +63,9 @@ uniform float uFisheye;
 // same value in both slots (it never transitions).
 uniform vec4 uGateA;
 uniform vec4 uGateB;
+// The layer's gate and camera gate (uTexL), the same per-texture rule.
+uniform vec4 uGateL;
+uniform float uCamGateL;
 // The shared camera rig (core/viz/CameraRig.cpp) seen through a flat image:
 // every scene that does not march the rig's 3D pose itself is viewed as a
 // picture on a plane the camera pans, tilts, rolls and dollies toward.
@@ -378,15 +388,6 @@ vec3 blended() {
     }
 #endif
     vec3 a = postFx(uTexA, vUv, uGateA, uCamGate.x);
-    // uStyle 6 is Layers, and it is checked BEFORE the uProgress short-circuit
-    // below: uProgress is a transition's clock and sits at 1.0 whenever no
-    // transition is running, which is precisely when a layer IS running.
-    // Reusing uProgress as the mix would have made the two mutually exclusive
-    // for no reason and coupled a persistent setting to a timer.
-    if (uStyle == 6) {
-        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
-        return mix(b, layerBlend(b, a, uBlendMode), clamp(uLayerMix, 0.0, 1.0));
-    }
     if (uStyle == 0 || uProgress >= 1.0) {
         return a;
     }
@@ -416,6 +417,14 @@ vec3 blended() {
 
 void main() {
     vec3 col = blended();
+    // Layers: the layer style over the active one (or over the transition while
+    // the style changes), the active style the base. Its own uniform, not a
+    // uStyle value: a layer is a setting, a transition a timer, and the two run
+    // at once. uLayerMix 0 is the active style alone, 1 the full blend.
+    if (uHasLayer == 1) {
+        vec3 l = postFx(uTexL, vUv, uGateL, uCamGateL);
+        col = mix(col, layerBlend(col, l, uBlendMode), clamp(uLayerMix, 0.0, 1.0));
+    }
     // Underlay (W00): folded in here, after every transition/Layers/postFx blend above and
     // before the dither, so it is the one place both the live composite and the offscreen export
     // apply it - see the uUnderlay* declarations above and CompositePass.hpp.

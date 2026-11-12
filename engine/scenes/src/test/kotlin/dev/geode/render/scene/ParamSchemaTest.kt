@@ -16,7 +16,7 @@ import org.junit.Test
 class ParamSchemaTest {
     @Test
     fun everySlotHoldsItsRowInOrder() {
-        assertEquals(188, ParamSchema.params.size)
+        assertEquals(189, ParamSchema.params.size)
         ParamSchema.params.forEachIndexed { slot, spec ->
             assertEquals(slot, spec.slot)
             assertSame(spec, ParamSchema[slot])

@@ -86,6 +86,7 @@ class WireLayoutTest {
                 paletteAmount3 = 0.25f,
                 paletteShift = 0.75f,
                 kaleidoFolds = 8f,
+                layerMix = -0.25f,
             )
         val out = SceneParamsCodec.pack(p)
         assertEquals(1.25f, out[slot("camFly")])
@@ -101,13 +102,14 @@ class WireLayoutTest {
         assertEquals(0.25f, out[slot("paletteAmount3")])
         assertEquals(0.75f, out[slot("paletteShift")])
         assertEquals(8f, out[slot("kaleidoFolds")])
+        assertEquals(-0.25f, out[slot("layerMix")])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 
     @Test
     fun appendedFieldsKeepTheirSlots() {
         // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
-        assertEquals(188, SceneParamsCodec.FIELDS)
+        assertEquals(189, SceneParamsCodec.FIELDS)
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
@@ -115,6 +117,6 @@ class WireLayoutTest {
         assertEquals(168, slot("paletteStop4"))
         assertEquals(177, slot("diveFollow"))
         val tail = ParamSchema.params.takeLast(3).map { it.name }
-        assertEquals(listOf("paletteAmount7", "paletteShift", "kaleidoFolds"), tail)
+        assertEquals(listOf("paletteShift", "kaleidoFolds", "layerMix"), tail)
     }
 }

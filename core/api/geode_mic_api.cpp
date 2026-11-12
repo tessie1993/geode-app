@@ -16,7 +16,8 @@ geode::audio::ingest::MicInput& mic() {
 
 extern "C" {
 
-int geode_mic_start(geode_pcm_ring* ring, int device_rate_hz, int unprocessed) {
+int geode_mic_start(int device_rate_hz, int unprocessed) {
+    const geode_pcm_ring* ring = geode_pcm_ring_shared(GEODE_PCM_RING_MIC);
     if (!ring) return 0;
     return mic().start(ring->ring, device_rate_hz, unprocessed != 0) ? 1 : 0;
 }

@@ -62,12 +62,4 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutLagMs(JNI
     return geode_playout_lag_ms(playoutOf(handle), nowNs);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutRingFrames(JNIEnv*, jobject) {
-    return geode_playout_ring_frames();
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutRingRunway(JNIEnv*, jobject) {
-    return geode_playout_ring_runway();
-}
-
 }  // extern "C"

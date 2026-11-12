@@ -41,9 +41,9 @@ data class ExternalAudioState(
 internal class CaptureController(
     private val application: Application,
     private val scope: CoroutineScope,
-    capture: dev.geode.engine.audio.SampleRing,
+    capture: Long,
     /** The mic's own ring, layered over the player's natively: the mic never takes [capture]. */
-    private val micRing: dev.geode.engine.audio.SampleRing,
+    private val micRing: Long,
     private val host: Host,
 ) {
     interface Host {
@@ -86,7 +86,7 @@ internal class CaptureController(
      */
     private fun stopMic() {
         GeodeNative.micStop()
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
     }
 
@@ -180,7 +180,7 @@ internal class CaptureController(
         if (GeodeNative.micActive()) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         // A new epoch before the first block: nothing an earlier run left in the ring is heard.
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         val failure = startMic()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
@@ -198,7 +198,7 @@ internal class CaptureController(
         val audio = application.getSystemService(AudioManager::class.java)
         val rate = audio?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull() ?: 0
         val unprocessed = audio?.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
-        return if (GeodeNative.micStart(micRing.handle, rate, unprocessed)) null else CaptureFailure.UNAVAILABLE
+        return if (GeodeNative.micStart(rate, unprocessed)) null else CaptureFailure.UNAVAILABLE
     }
 
     fun hasMicPermission(): Boolean =
@@ -288,7 +288,7 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || GeodeNative.micActive()) return
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
         _micState.value = MicState(active = false, failure = CaptureFailure.UNAVAILABLE)
         host.setMicReactivePref(false)

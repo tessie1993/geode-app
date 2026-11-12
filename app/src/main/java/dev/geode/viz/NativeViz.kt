@@ -4,13 +4,11 @@ import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
-import java.lang.ref.Reference
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
@@ -182,21 +180,15 @@ class NativeViz(
 
     /**
      * One live frame into framebuffer 0 ([GeodeNative.vizFrame]): the renderer hears what [ring] gained, natively,
-     * each sample once (null: nothing, and the last ring goes), and [fps] and [capFps] are the rate the surface last
+     * each sample once (0: nothing, and the last ring goes), and [fps] and [capFps] are the rate the surface last
      * drew at and its own cap, which native keeps apart for the thermal step. The `FRAME_*` events; 0 before the
      * handle exists. GL thread.
      */
     fun frame(
-        ring: SampleRing?,
+        ring: Long,
         fps: Float,
         capFps: Float,
-    ): Int {
-        if (handle == 0L) return 0
-        val events = GeodeNative.vizFrame(handle, ring?.handle ?: 0L, fps, capFps)
-        // The ring's handle is only valid while the ring is held: hold it past the call.
-        Reference.reachabilityFence(ring)
-        return events
-    }
+    ): Int = if (handle == 0L) 0 else GeodeNative.vizFrame(handle, ring, fps, capFps)
 
     /** Settings › Audio's saved tuning, null for the defaults; native resolves and clamps it. */
     fun setSoundTuning(saved: List<Float>?) {

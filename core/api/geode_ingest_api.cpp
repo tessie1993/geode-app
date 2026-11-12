@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -10,6 +11,7 @@
 #include "audio/dsp/PcmConvert.hpp"
 #include "audio/ingest/AiffReader.hpp"
 #include "audio/ingest/PcmRing.hpp"
+#include "audio/ingest/RingKinds.hpp"
 #include "audio/ingest/TrackFeed.hpp"
 #include "sound/Silence.hpp"
 
@@ -41,6 +43,29 @@ PcmRing::Written stitched(geode_pcm_ring* r, const void* data, size_t bytes, int
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
     const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
     return r->snapshots->write(*r->ring, data, bytes, encoding, channels, rate, nowNs);
+}
+
+static_assert(GEODE_PCM_RING_PLAYER == geode::audio::ingest::kPlayerRing);
+static_assert(GEODE_PCM_RING_MIC == geode::audio::ingest::kMicRing);
+static_assert(GEODE_PCM_RING_OUTPUT_MIX == geode::audio::ingest::kOutputMixRing);
+
+using ProcessRings = std::array<geode_pcm_ring*, geode::audio::ingest::kRingKinds>;
+
+// Made on the first ask and never freed, not even at exit, so no thread still writing or reading one then
+// reaches a freed ring. Null where a kind is not kept for the process or there was no memory.
+const ProcessRings& processRings() {
+    static const ProcessRings rings = [] {
+        ProcessRings made{};
+        for (int kind = 0; kind < geode::audio::ingest::kRingKinds; ++kind) {
+            if (!geode::audio::ingest::kRingSpecs[kind].perProcess) continue;
+            geode_pcm_ring*& ring = made[static_cast<size_t>(kind)];
+            ring = geode_pcm_ring_create_kind(kind);
+            if (ring) ring->kept = true;
+        }
+        geode_pcm_ring_set_layer(made[geode::audio::ingest::kPlayerRing], made[geode::audio::ingest::kMicRing]);
+        return made;
+    }();
+    return rings;
 }
 
 }  // namespace
@@ -78,8 +103,32 @@ geode_pcm_ring* geode_pcm_ring_create(int capacity_frames, int channels, int max
     }
 }
 
+geode_pcm_ring* geode_pcm_ring_create_kind(int kind) {
+    const geode::audio::ingest::RingSpec* spec = geode::audio::ingest::ringSpec(kind);
+    if (!spec) return nullptr;
+    geode_pcm_ring* r = geode_pcm_ring_create(spec->capacityFrames, spec->channels, spec->maxWriteFrames);
+    // Without memory for the stitch the ring still hears the capture, unstitched.
+    if (r && spec->snapshots) geode_pcm_ring_set_snapshots(r, 1);
+    return r;
+}
+
+geode_pcm_ring* geode_pcm_ring_shared(int kind) {
+    if (kind < 0 || kind >= geode::audio::ingest::kRingKinds) return nullptr;
+    try {
+        return processRings()[static_cast<size_t>(kind)];
+    } catch (...) {
+        // The first ask could not lock the layer's mutex: nothing was kept, and the next ask tries again.
+        return nullptr;
+    }
+}
+
 void geode_pcm_ring_destroy(geode_pcm_ring* r) {
+    if (r && r->kept) return;
     std::unique_ptr<geode_pcm_ring> owned(r);
+}
+
+int geode_pcm_ring_max_write_frames(const geode_pcm_ring* r) {
+    return r ? r->ring->maxWriteFrames() : 0;
 }
 
 int geode_pcm_ring_write_f32(geode_pcm_ring* r, const float* interleaved, int frames, int channels, int sample_rate,

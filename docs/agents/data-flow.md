@@ -2,7 +2,7 @@
 
 One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 
-## 1. Source → `SampleRing`
+## 1. Source → the PCM ring
 
 - ExoPlayer runs `MvzAudioProcessorChain` on its playback thread.
 - The `PcmTap` there comes first, before any DSP.
@@ -10,6 +10,10 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - A capture of another app uses one `AudioCapturePump` worker thread.
 - The mic has no JVM thread: a native input stream (`core/audio/ingest/MicInput`, Oboe) writes its ring from the audio callback.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
+- Mic and capture use one `AudioCapturePump` worker thread each.
+- The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, the process's player ring (`geode_pcm_ring_shared`, `core/audio/ingest/RingKinds`); stereo, what every sound engine hears.
+- The player's and the mic's rings are made on first use and never freed, so a surface or writer that outlives its session never reaches a freed ring.
+- The wallpaper's and dream's output-mix ring is made on the capture's first start and freed by `SoundSource.release` once its stage has closed.
 - Each block is written with its own rate and converted to float inside the ring: Kotlin loops over no sample.
 - The mic is a layer, never a switch: it writes its own ring (`PlaybackSession.micRing`, `geode_pcm_ring_set_layer`) and never pauses the player.
 - Each renderer mixes the two rings at its reader (`core/audio/ingest/LayerMix`, `layer_mix_test.cpp`): the mic resampled onto the player's blocks, alone once the player has stopped for 0.3 s.

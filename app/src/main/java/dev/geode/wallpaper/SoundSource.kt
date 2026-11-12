@@ -8,7 +8,6 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 
@@ -28,7 +27,7 @@ import dev.geode.geodeContainer
  *
  * It also keeps the silence clock behind "rest when silent": one timestamp, the last time sound
  * was heard. The rule itself is native (`core/sound/Silence`, ADR 0003): each poll has the ring judge its
- * newest samples ([SampleRing.heardAt]) on their level, not on whether a
+ * newest samples ([GeodeNative.pcmRingHeardAt]) on their level, not on whether a
  * player is running, and [GeodeNative.silenceResting] says when the quiet has lasted long enough
  * to rest. Sound coming back wakes it on the next poll.
  *
@@ -45,8 +44,8 @@ class SoundSource(
     private val prefs by lazy { WallpaperPrefsStore(context.geodeContainer.prefsFiles.wallpaper) }
     private val handler = Handler(Looper.getMainLooper())
 
-    /** The input the renderer should read this frame. Written on main, read on the GL thread. */
-    @Volatile var input: SampleRing? = AudioBus.soundInput
+    /** The ring handle the renderer should read this frame, 0 for none. Written on main, read on the GL thread. */
+    @Volatile var input: Long = AudioBus.soundInput
         private set
 
     var silent: Boolean = false
@@ -58,7 +57,7 @@ class SoundSource(
     /** The source rule's state, kept here and handed to native each poll (ADR 0003). */
     private val sourceState = LongArray(GeodeNative.SOUND_SOURCE_STATE_LONGS)
 
-    private var heardRing: SampleRing? = null
+    private var heardRing = 0L
     private var heardWritten = -1L
     private var soundAtMs = 0L
 
@@ -92,6 +91,14 @@ class SoundSource(
         sourceState.fill(0L)
     }
 
+    /** Stops for good and frees the capture's ring: only once the stage that heard [input] has closed. */
+    fun release() {
+        stop()
+        input = 0L
+        heardRing = 0L
+        capture.release()
+    }
+
     private fun tick() {
         val now = SystemClock.uptimeMillis()
         val app = AudioBus.soundInput
@@ -99,9 +106,9 @@ class SoundSource(
             GeodeNative.soundSourceStep(
                 sourceState,
                 now,
-                ringPresent = app != null,
-                ringId = app?.handle ?: 0L,
-                ringWritten = app?.writtenFrames ?: 0L,
+                ringPresent = app != 0L,
+                ringId = app,
+                ringWritten = GeodeNative.pcmRingWritten(app),
                 capturePermitted = hearOtherApps && (capture.running || hasRecordPermission()),
                 captureRunning = capture.running,
             )
@@ -114,7 +121,7 @@ class SoundSource(
         val useCapture = (answer and GeodeNative.SOUND_SOURCE_USE_CAPTURE) != 0
         val chosen = if (useCapture && capture.running) capture.soundInput else app
         input = chosen
-        if (chosen != null) soundAtMs = heardAt(chosen, now)
+        if (chosen != 0L) soundAtMs = heardAt(chosen, now)
         val nowSilent = GeodeNative.silenceResting(now, soundAtMs)
         if (nowSilent != silent) {
             silent = nowSilent
@@ -130,14 +137,14 @@ class SoundSource(
      * to the native rule; no new samples counts as nothing heard.
      */
     private fun heardAt(
-        ring: SampleRing,
+        ring: Long,
         now: Long,
     ): Long {
-        val written = ring.writtenFrames
-        val fresh = ring === heardRing && written != heardWritten
+        val written = GeodeNative.pcmRingWritten(ring)
+        val fresh = ring == heardRing && written != heardWritten
         heardRing = ring
         heardWritten = written
-        return if (fresh) ring.heardAt(LEVEL_FRAMES, now, soundAtMs) else soundAtMs
+        return if (fresh) GeodeNative.pcmRingHeardAt(ring, LEVEL_FRAMES, now, soundAtMs) else soundAtMs
     }
 
     private companion object {

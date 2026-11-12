@@ -62,7 +62,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ParamSchema` | 90 | pending |
 | `PerformanceSettings` | 94 | **moved to `:app`** (`data/PerformanceSettings`, beside `PerformanceStore`): a value holder; the preset match, the scale choices and the Liquid policy fallback are `core/viz/frame/Quality` and `liquid::hotPolicyFrom` through `core/api/geode_perf_api.cpp`, test `core/tests/quality_test.cpp`. `NativeViz.setQuality` takes the five values. |
 | `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
-| `SampleRing` | 95 | pending |
+| `SampleRing` | 95 | **deleted** (#1150): the rings' kinds, sizes, runway default, the mic's layer and the output mix's stitch are native (`core/audio/ingest/RingKinds`, `geode_pcm_ring_shared`, `geode_pcm_ring_create_kind`); the player's and the mic's live for the process, so no `Cleaner`. Callers hold the `Long` handle. Test `core/tests/pcm_ring_kinds_test.cpp`. |
 | `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |
 | `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
 | `VisualStyleCatalog` | 106 | pending |

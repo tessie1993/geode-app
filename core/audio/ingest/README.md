@@ -12,7 +12,8 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - `CapturePlan.{hpp,cpp}`: the formats the mic and other apps' capture try, in order (the device rate, then 48, 44.1 and 22.05 kHz; stereo before mono for other apps' audio; float before 16-bit), the AudioRecord buffer (4 minimums, at least one 1024-frame read) and the read size (`geode_capture_*` in `core/api/geode_capture_api.cpp`, `capture_plan_test.cpp`).
 - `MicInput.{hpp,cpp}`: live input, the mic as a device input stream whose callback writes the mic's ring (no JVM thread, no lock or allocation in the callback). The mono plan of `CapturePlan`, the UNPROCESSED source where the device has it, else VOICE_RECOGNITION; a disconnect reopens the stream, at most 3 times in 10 s (`ReopenBudget`). The stream is behind `MicStreams`: `android/OboeMic.cpp` (an Oboe input stream, shared, normal latency) on the device, a fake in `mic_input_test.cpp`. The C ABI is `geode_mic_*` in `core/api/geode_mic_api.cpp`.
 - The C ABI is `geode_pcm_ring_*` and `geode_pcm_cursor_*` in `core/api/geode_ingest_api.cpp`; `geode_viz_feed_ring` (`core/api/geode_viz_api.cpp`) lets a live renderer take from a ring with its own cursor, so no sample crosses JNI on the GL thread.
-- Lifetime: a `geode_pcm_ring` handle and every cursor made from it share the ring, which is freed with the last of them. Kotlin's `SampleRing` holds the handle and frees it when it is collected (a `Cleaner`), so a writer thread or a surface that still holds the ring never reaches a freed one; a renderer's feed and Cast's audio pump (`core/output/CastAudioPump`) keep the ring on their own.
+- `RingKinds.hpp`: the rings the app keeps and their sizes. The player's and the mic's (layered over it) are made on first use and kept for the process (`geode_pcm_ring_shared`), so a writer thread, a stage or a surface that still holds the handle never reaches a freed one; the output mix's is one per capture, stitched, made by `geode_pcm_ring_create_kind` and freed by its owner. `pcm_ring_kinds_test.cpp` pins them.
+- Lifetime: a `geode_pcm_ring` handle and every cursor made from it share the ring, which is freed with the last of them; a renderer's feed and Cast's audio pump (`core/output/CastAudioPump`) keep the ring on their own.
 
 **Contract**
 - In: interleaved PCM from the tap's direct `ByteBuffer` (read where it lies), or a capture's `short[]`, `float[]` or `byte[]` (pinned for one copy), any thread, one writer at a time.
@@ -20,7 +21,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - Clock: the sample count. No wall time, except where a snapshot ring's write lands on it (the capture clock, `SnapshotStitch`).
 
 **Moved in**
-- `SampleRing.kt`, `SoundCursor.kt` (now handle holders in `engine/audio-core`), `SoundInput.kt` and `PcmSink.kt` (gone: the rate was a separate volatile beside the ring, now it is in each write)
+- `SampleRing.kt` and `SoundCursor.kt` (gone: the shell holds the handle), `SoundInput.kt` and `PcmSink.kt` (gone: the rate was a separate volatile beside the ring, now it is in each write)
 - the per-sample loops of `PcmTap.kt` (16-bit and float from the tap's buffer), `AudioCapturePump.kt` (int16 to float), `OutputMixCapture.kt` (8-bit to float), Cast's float to int16 (`CastStream.kt`, now `geode_pcm_cursor_take_s16`) and the wallpaper's level snapshot (`SoundSource.kt`, now `geode_pcm_ring_heard_at`)
 - the decode loop, per-sample loops and pre-roll cut of `render/offscreen/TrackAudio.kt` (gone) and the AIFF header walk and sample conversion of `dev.geode.audio.AiffPcm` (gone: `export/AudioTranscoder` holds the `geode_aiff_*` handle itself)
 - the peak scan of `MicCapture.kt` and `PlaybackCapture.kt`: a write returns the block's peak

@@ -45,7 +45,6 @@ set -euo pipefail
 S='engine/scenes/src/main/kotlin/dev/geode'
 C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
-    "$C/audio/SampleRing.kt"
     "$C/bridge/GeodeNative.kt"
     "$S/render/bridge/SceneParamsCodec.kt"
     "$S/render/scene/ParamKeys.kt"

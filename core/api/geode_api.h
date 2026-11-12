@@ -896,12 +896,13 @@ GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_
 GEODE_API int             geode_capture_plan(int device_rate_hz, int stereo, int* out, int capacity);
 GEODE_API int             geode_capture_buffer_bytes(int min_buffer_bytes, int channels);
 GEODE_API int             geode_capture_read_frames(void);
-/* Live input (audio/ingest/MicInput): the microphone as a native input stream whose callback writes `ring`.
+/* Live input (audio/ingest/MicInput): the microphone as a native input stream whose callback writes the
+ * process's mic ring (geode_pcm_ring_shared(GEODE_PCM_RING_MIC)), declared below.
  * Opens the first format of the capture plan the device gives (mono, device_rate_hz first, <= 0 unknown),
  * with the UNPROCESSED source when unprocessed != 0, else VOICE_RECOGNITION; reopens after a disconnect.
  * Call only once RECORD_AUDIO is granted. start: 1 when running (also when it already was). stop: no write
  * after it returns. active: 0 after stop or once a closed stream could not be opened again. Main thread. */
-GEODE_API int             geode_mic_start(geode_pcm_ring* ring, int device_rate_hz, int unprocessed);
+GEODE_API int             geode_mic_start(int device_rate_hz, int unprocessed);
 GEODE_API void            geode_mic_stop(void);
 GEODE_API int             geode_mic_active(void);
 
@@ -1360,14 +1361,12 @@ GEODE_API int64_t        geode_playout_listen_limit(const geode_playout*, int64_
 /* Wall ms from now_ns until the newest sample the sink took is heard (its buffer, the HAL, the link), at
  * most 2000; 0 with no map. A gain ramp that ended on the samples is heard after this long. */
 GEODE_API int            geode_playout_lag_ms(const geode_playout*, int64_t now_ns);
-/* The player's ring, sized so a reader at the speaker is not overrun at 192 kHz: capacity and runway. */
-GEODE_API int            geode_playout_ring_frames(void);
-GEODE_API int            geode_playout_ring_runway(void);
 /* The PCM ingest ring (audio/ingest/PcmRing): one lock-free ring per audio source, written by one thread
  * at a time (the player's tap, a capture thread) and read by any number of cursors, which never change it.
  * Every write carries its sample rate and source channel count, so a reader gets each frame with the rate
  * it was written at. Lifetime: the handle and every cursor (a renderer's feed included) share the ring, so
- * it is freed when the last of them goes; destroy the handle only once no thread writes through it. Every
+ * it is freed when the last of them goes; destroy the handle only once no thread writes through it and no
+ * stage is handed it. The player's and the mic's handles are kept for the process and never freed. Every
  * call is safe on a NULL handle. */
 typedef struct geode_pcm_ring   geode_pcm_ring;
 typedef struct geode_pcm_cursor geode_pcm_cursor;
@@ -1378,7 +1377,21 @@ typedef struct geode_pcm_cursor geode_pcm_cursor;
 /* capacity_frames a power of two; the ring stores `channels` channels; max_write_frames is the runway
  * (0 = a quarter of the ring). NULL for arguments it cannot take. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_create(int capacity_frames, int channels, int max_write_frames);
+/* destroy leaves a handle from geode_pcm_ring_shared alone. */
 GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
+/* The rings the app keeps, one per source (audio/ingest/RingKinds): the player's (the tap, or a capture of
+ * another app in its place), the mic's and the wallpaper's or dream's output-mix capture. */
+#define GEODE_PCM_RING_PLAYER 0
+#define GEODE_PCM_RING_MIC 1
+#define GEODE_PCM_RING_OUTPUT_MIX 2
+/* The process's ring of a kind kept for it (the player's, the mic's), made on the first ask at the kind's
+ * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
+ * for another kind or no memory. Any thread. */
+GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
+/* A new ring of a kind's size and rules (the output mix's writes are snapshots), its owner's to destroy.
+ * NULL for an unknown kind or no memory. */
+GEODE_API geode_pcm_ring*   geode_pcm_ring_create_kind(int kind);
+GEODE_API int               geode_pcm_ring_max_write_frames(const geode_pcm_ring*);   /* the runway */
 /* Interleaved frames of `channels` source channels at sample_rate (missing ring channels stored silent,
  * extra ones dropped). Returns the frames written, 0 for a refused block; peak_out (may be NULL) gets the
  * largest magnitude stored. write_bytes takes whole frames of `encoding` from unaligned bytes in the

@@ -19,7 +19,7 @@ out vec4 fragColor;
 // is folded and inverted three times and the veils are the levels of one
 // coordinate of the folded space, so they curl into each other.
 //
-// Morph moves the folds apart, so the flame inside reshapes. Worst case 72
+// Morph moves the folds apart, so the flame inside reshapes. Worst case 90
 // samples and 3 fold iterations, no noise.
 
 #define ORB_R 1.55

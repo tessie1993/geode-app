@@ -255,9 +255,9 @@ jobs:
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
-          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
-          ./push_versions_test
+          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/live_frame_test.cpp -o live_frame_test
+          ./live_frame_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
           ./loop_seam_test
@@ -330,6 +330,15 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
+      # The saved text of the user's reaction routes (core/viz/ReactionText), pinned to the Kotlin codec it replaced.
+      - name: Reaction text host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/reaction_text_test.cpp core/viz/ReactionText.cpp \
+            core/api/geode_reaction_text_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o reaction_text_test
+          ./reaction_text_test
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
       # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests
@@ -394,6 +403,17 @@ jobs:
             core/tests/recorder_test.cpp core/api/geode_record_api.cpp core/output/Recorder.cpp \
             core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o recorder_test
           ./recorder_test
+
+      # The encode sink (core/output/EncodeSink) and Record's session on it (core/output/RecordSession), on a fake
+      # codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, the end of stream,
+      # errors, no sample written twice or dropped, and the stop through the stage's tee.
+      - name: Encode sink host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub \
+            core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
+            core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
+          ./encode_sink_test
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests

@@ -9,7 +9,7 @@ for your app or game"
 
 **Recommended: Music & Audio** (application, not game). Play describes it with music players
 and audio tools, and the app is a music player first: a library, a queue, a `MediaLibraryService`
-that Android Auto browses (`playback/PlaybackService`).
+that the notification, Bluetooth and Assistant browse (`playback/PlaybackService`).
 
 | Alternative | Play's description | Why not first |
 |---|---|---|

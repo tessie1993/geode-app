@@ -8,7 +8,7 @@ import dev.geode.util.bestEffort
  * Mirrors `ReactSource` in core/viz/Reactions.hpp; the ordinal is the wire value, so append only.
  *
  * This is the second numbering. The old analyser's 34 sources were replaced wholesale, and routes saved
- * before it are not read back (ReactionRouteCodec's `reactions/2`), so each style restarts on its DNA.
+ * before it are not read back (core/viz/ReactionText's `reactions/2`), so each style restarts on its DNA.
  *
  * A route sees each source as 0..1 (pan and interval -1..1): relative levels halved (typical 0.5, a
  * strong hit 1), shaped values as they are, a clock as how fast it runs, and a trigger ([isEvent]) as an

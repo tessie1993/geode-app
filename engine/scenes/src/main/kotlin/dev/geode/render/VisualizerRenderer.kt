@@ -2,62 +2,48 @@ package dev.geode.render
 
 import android.content.Context
 import android.opengl.GLSurfaceView
-import android.os.SystemClock
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.look.LookApplier
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.concurrent.atomic.AtomicLong
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 /**
- * The GL-thread adapter over the native renderer: every frame is one `geode_viz_render`.
+ * The GL-thread adapter over the native renderer: every frame is one `geode_viz_frame`.
  *
- * The `@Volatile` properties are the state the UI publishes from other threads; each frame hands
- * the current values across before rendering.
+ * What the UI sets from other threads goes to native when it changes, never per frame.
  */
 class VisualizerRenderer(
     context: Context,
 ) : GLSurfaceView.Renderer {
     /**
-     * What this surface draws (#345): the host publishes a new [LookSnapshot] from any thread, and each
-     * frame [LookApplier] pushes the parts native asks for. A field that changed (by identity) is a new
-     * version for native's `PushVersions`; until one is published, [LookSnapshot]'s defaults (the free first style).
+     * What this surface draws (#345): the host publishes a new [LookSnapshot] from any thread, and the parts
+     * that changed (by identity) go to native at once ([NativeViz.setLook]); until one is published,
+     * [LookSnapshot]'s defaults (the free first style).
      */
     @Volatile
     var look: LookSnapshot = LookSnapshot()
         set(value) {
-            val was = field
             field = value
-            if (value.params !== was.params) paramsVersion = pushVersions.incrementAndGet()
-            if (value.lfos !== was.lfos) lfoVersion = pushVersions.incrementAndGet()
-            if (value.adsrs !== was.adsrs) adsrVersion = pushVersions.incrementAndGet()
-            if (value.soundTuning !== was.soundTuning) tuningVersion = pushVersions.incrementAndGet()
+            nativeViz.setLook(value)
         }
 
-    @Volatile private var paramsVersion = 0L
-
-    @Volatile private var lfoVersion = 0L
-
-    @Volatile private var adsrVersion = 0L
-
-    @Volatile private var tuningVersion = 0L
-
-    private val lookApplier = LookApplier()
-
     /**
-     * Settings › Performance. Live surfaces only: the offscreen export renderer never reads it,
-     * because an export is not real time and can afford full quality. The fps cap is not here;
-     * it belongs to the view's [FramePacer] (see [VisualizerView.applyPerformance]).
+     * Settings › Performance, handed to native when set. Live surfaces only: the offscreen export renderer
+     * never sets it, because an export is not real time and can afford full quality. The fps cap is not
+     * here; it belongs to the view's [FramePacer] (see [VisualizerView.applyPerformance]).
      */
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
+        set(value) {
+            field = value
+            nativeViz.setQuality(value)
+        }
 
     /** What paces this surface, set by its host: the view's or the wallpaper's own pacer, Cast's fixed rate. */
     @Volatile
@@ -91,20 +77,6 @@ class VisualizerRenderer(
     @Volatile
     var soundInput: () -> SampleRing? = { null }
 
-    /**
-     * [GyroLook]'s last reading, null while off; core/viz/GyroLook makes the look. [gyroSession]
-     * bumps on each switch on, so native recaptures even if no frame saw it off.
-     */
-    @Volatile
-    var gyroReading: FloatArray? = null
-
-    @Volatile
-    var gyroSession: Int = 0
-
-    private var nativeGyroSession = 0
-
-    private val appContext = context.applicationContext
-
     // Outlives nativeViz's handle, which VisualizerView destroys on every detach, and this renderer
     // too (shared by the process, saved across restarts); each new handle starts on the preset it
     // remembers rather than on projectM's idle preset.
@@ -112,6 +84,9 @@ class VisualizerRenderer(
     val nativeViz =
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
+            // The defaults above, so a handle made before the host sets anything draws them.
+            viz.setLook(LookSnapshot())
+            viz.setQuality(PerformanceSettings.HIGH)
         }
     private val liquidModeState = MutableStateFlow(0)
 
@@ -194,13 +169,9 @@ class VisualizerRenderer(
         gl: GL10?,
         config: EGLConfig?,
     ) {
-        ThermalGovernor.attach(appContext)
+        // Native keeps the look across a new surface, starts the sound engine's cursor over and attaches the
+        // platform's thermal listener once for the process.
         nativeViz.surfaceCreated()
-        // The handle may outlive the surface, or be new: either way the next frame resends the whole look.
-        lookApplier.reset()
-        // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
-        // Dropping the feed makes the next frame's cursor a new one.
-        nativeViz.feedRing(null)
     }
 
     override fun onSurfaceChanged(
@@ -223,14 +194,11 @@ class VisualizerRenderer(
     var surfaceHeight = 0
         private set
 
-    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    /** GL thread. Record's tee into [session]'s encoder; see [GeodeNative.recordSessionTeeStart]. */
     fun recordStart(
-        recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        session: Long,
         watermark: Long,
-    ): Boolean = nativeViz.recordStart(recorder, surface, width, height, watermark)
+    ): Boolean = nativeViz.recordStart(session, watermark)
 
     fun recordStop() = nativeViz.recordStop()
 
@@ -248,53 +216,26 @@ class VisualizerRenderer(
     fun setEdgeGlow(options: FloatArray) = nativeViz.setEdgeGlow(options)
 
     /**
-     * Each frame starts with one native call that takes the pacer's cap and Settings › Performance and
-     * says what is due (`core/viz/frame/Cadence`): native skips a repeated quality push, clears a new
-     * surface's first frame and builds nothing on it (so `GLSurfaceView.surfaceChanged`, parked on the
-     * main thread until this frame ends, is released at once), and picks the frame that reads the
-     * thermal state and the one that hands over a new Liquid label. It also takes the version of each
-     * pushed input and says which ones this surface still lacks (`core/viz/frame/PushVersions`).
+     * The whole frame is one native call (`core/viz/frame/LiveFrame`): the pacer's rate, the quality, a new
+     * surface's clear-only first frame (so `GLSurfaceView.surfaceChanged`, parked on the main thread until this
+     * frame ends, is released at once), the thermal reading, the gyro, the scene, the sound and the render. No
+     * sample crosses here: the renderer keeps its own cursor on the ring. What comes back is acted on only when
+     * its bit is set.
      */
     override fun onDrawFrame(gl: GL10?) {
-        val perf = performance
-        val due =
-            nativeViz.frameBegin(
-                pacedRate,
-                perf.renderScale,
-                perf.marchScale,
-                perf.postFx,
-                perf.adaptive,
-                perf.liquidHot.native,
-                paramsVersion,
-                lfoVersion,
-                adsrVersion,
-                tuningVersion,
-            )
-        if (due and GeodeNative.FRAME_CLEAR_ONLY != 0) return
-        if (due and GeodeNative.FRAME_THERMAL_DUE != 0) ThermalGovernor.sample()
-        if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
-        syncNativeState(due)
-        nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
-        if (due and GeodeNative.FRAME_ERROR_CHANGED != 0) nativeViz.pollError(onShaderError)
-        nativeViz.takeMilkPresetLoaded()?.let { path ->
-            milkPreset.loaded(path)
-            onMilkPresetLoaded(path)
+        val events = nativeViz.frame(soundInput(), pacedRate)
+        if (events == 0 || events and GeodeNative.FRAME_CLEAR_ONLY != 0) return
+        if (events and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = nativeViz.liquidMode()
+        if (events and GeodeNative.FRAME_ERROR_CHANGED != 0) nativeViz.pollError(onShaderError)
+        if (events and GeodeNative.FRAME_MILK_LOADED != 0) {
+            nativeViz.takeMilkPresetLoaded()?.let { path ->
+                milkPreset.loaded(path)
+                onMilkPresetLoaded(path)
+            }
         }
-        if (nativeViz.takeDirectorStyleMoments() > 0) onDirectorStyleMoment()
+        if (events and GeodeNative.FRAME_DIRECTOR_MOMENT != 0 && nativeViz.takeDirectorStyleMoments() > 0) onDirectorStyleMoment()
+        if (events and GeodeNative.FRAME_STILL_READY != 0) nativeViz.deliverStill()
     }
-
-    private fun syncNativeState(due: Int) {
-        lookApplier.apply(look, nativeViz, due)
-        val reading = gyroReading
-        val session = if (reading == null) -1 else gyroSession // off is a session too: one reset, not one a frame
-        if (session != nativeGyroSession) nativeViz.gyroReset()
-        nativeGyroSession = session
-        if (reading != null) nativeViz.gyroSample(reading)
-        feedSound()
-    }
-
-    // No sample crosses here: the native renderer keeps its own cursor on the ring and takes from it.
-    private fun feedSound() = nativeViz.feedRing(soundInput())
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
@@ -306,8 +247,3 @@ class VisualizerRenderer(
         }
     }
 }
-
-private const val NANOS_PER_SECOND = 1_000_000_000.0
-
-/** One counter for every pushed input's version (`core/viz/frame/PushVersions`), so each write gets a larger one. */
-private val pushVersions = AtomicLong()

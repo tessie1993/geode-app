@@ -89,6 +89,8 @@ class WireLayoutTest {
                 paletteStop4 = 0xFFFFFF,
                 diveTwist = -0.5f,
                 diveFollow = 1.5f,
+                paletteAmount3 = 0.25f,
+                paletteShift = 0.75f,
             )
         val out = SceneParamsCodec.pack(p)
         assertEquals(1.25f, out[slot("camFly")])
@@ -101,20 +103,23 @@ class WireLayoutTest {
         assertEquals(16_777_215f, out[slot("paletteStop4")])
         assertEquals(-0.5f, out[slot("diveTwist")])
         assertEquals(1.5f, out[slot("diveFollow")])
+        assertEquals(0.25f, out[slot("paletteAmount3")])
+        assertEquals(0.75f, out[slot("paletteShift")])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 
     @Test
     fun appendedFieldsKeepTheirSlots() {
         // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
-        assertEquals(178, SceneParamsCodec.FIELDS)
+        assertEquals(187, SceneParamsCodec.FIELDS)
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
         assertEquals(163, slot("camFlat"))
         assertEquals(168, slot("paletteStop4"))
-        val tail = ParamSchema.params.takeLast(5).map { it.name }
-        assertEquals(listOf("diveShape", "diveBlend", "diveFog", "diveLens", "diveFollow"), tail)
+        assertEquals(177, slot("diveFollow"))
+        val tail = ParamSchema.params.takeLast(3).map { it.name }
+        assertEquals(listOf("paletteAmount6", "paletteAmount7", "paletteShift"), tail)
     }
 
     @Test
@@ -153,7 +158,7 @@ class WireLayoutTest {
 
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: Macro is last.
+        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: PaletteShift is last.
         assertEquals(118, ReactSource.entries.size)
         assertEquals(72, ReactSource.EQ_25.ordinal)
         assertEquals(46, ReactSource.KICK.ordinal)
@@ -161,7 +166,9 @@ class WireLayoutTest {
         assertEquals(5, ReactMode.entries.size)
         assertEquals(3, ReactMode.JUMP.ordinal)
         assertEquals(4, ReactMode.TOGGLE.ordinal)
-        assertEquals(LfoTarget.entries.last(), LfoTarget.MACRO)
+        assertEquals(LfoTarget.entries.last(), LfoTarget.PALETTE_SHIFT)
+        assertEquals(67, LfoTarget.PALETTE_SHIFT.ordinal)
+        assertEquals(60, LfoTarget.PALETTE_AMOUNT_1.ordinal)
         assertEquals(59, LfoTarget.MACRO.ordinal)
         assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)
         assertEquals(55, LfoTarget.DIVE_SPEED.ordinal)

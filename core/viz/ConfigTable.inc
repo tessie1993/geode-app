@@ -29,8 +29,8 @@
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
-// LfoTarget: None .. Macro (ordinal 25 is the retired Glitch).
-GEODE_CONFIG(lfo, target, Int, 0, 0, 59, None)
+// LfoTarget: None .. PaletteShift (kLastLfoTarget; ordinal 25 is the retired Glitch).
+GEODE_CONFIG(lfo, target, Int, 0, 0, 67, None)
 // LfoWave: Sine .. RandomGlide.
 GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,

@@ -1,4 +1,5 @@
 #pragma once
+#include <bitset>
 #include <cstdint>
 #include <string>
 
@@ -17,8 +18,8 @@
 namespace geode::viz::modtargets {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-constexpr int kTextVersion = 2;
-constexpr int kTargetCount = static_cast<int>(LfoTarget::Macro) + 1;
+constexpr int kTextVersion = 3;
+constexpr int kTargetCount = static_cast<int>(kLastLfoTarget) + 1;
 
 // The wire name; "" outside the enum.
 const char* name(LfoTarget target);
@@ -41,7 +42,10 @@ constexpr int kPickerEnvelope = -1;
 // runs the slots in order and a chain back to itself or an earlier slot would land a frame late.
 bool offeredTo(LfoTarget target, const std::string& styleId, int picker);
 // Bit per LfoTarget ordinal that offeredTo says yes to.
-std::uint64_t offerMask(const std::string& styleId, int picker);
+using Mask = std::bitset<kTargetCount>;
+Mask offerMask(const std::string& styleId, int picker);
+// A mask in lowercase hex, the highest ordinal's digit first, no leading zeros ("0" for none).
+std::string hex(const Mask& mask);
 // Bit per MusicAction (viz/ReactionDna) whose target reaches `styleId`: Customize › Music hides the rest.
 std::uint32_t musicActionsFor(const std::string& styleId);
 // An oscillator swings both ways; a follower reads 0 in silence, so a bipolar follower would shove the
@@ -56,7 +60,8 @@ ModPolarity naturalPolarity(ModSource source);
 //   polarity|<ordinal>|<NAME>
 //   curve|<ordinal>|<NAME>
 //   wave|<ordinal>|<NAME>
-//   reach|<style id>|<reaction>|<envelope>|<wave 1>|<wave 2>|<wave 3>         offerMask per picker, hex;
+//   reach|<style id>|<reaction>|<envelope>|<wave 1>|<wave 2>|<wave 3>         offerMask per picker, hex(), wider
+//        than 64 bits once the targets pass ordinal 63;
 //        one row per catalogue id in allIds() order, then "*", the answer for an id the catalogue lacks
 const std::string& text();
 

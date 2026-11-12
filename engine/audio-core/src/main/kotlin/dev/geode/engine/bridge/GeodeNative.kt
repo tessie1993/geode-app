@@ -281,21 +281,12 @@ object GeodeNative {
         sampleRate: Int,
     )
 
-    /**
-     * The live feed: the renderer takes what the ring at [ring] (a [pcmRingCreate] handle; 0 for none)
-     * gained since its last call straight into its sound engine, resetting it on a restart. Render thread.
-     */
-    external fun vizFeedRing(
-        handle: Long,
-        ring: Long,
-    )
-
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,
     )
 
-    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
+    /** The reaction source catalogue (core/viz/Reactions.cpp): a "NAME|Label|GROUP|0/1" line per source, in wire order. */
     external fun reactSourceCatalog(): String
 
     /**
@@ -506,13 +497,13 @@ object GeodeNative {
     )
 
     /**
-     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays) under the hand
-     * [mask] (geode_viz_set_user_reactions). Native resolves what plays from these, the scene and `reactSeed`.
+     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays)
+     * (geode_viz_set_user_reactions). Native resolves what plays from these, the scene, `reactSeed` and the hand
+     * mask ([handSet], or an export's pin), which it reads itself. Any thread.
      */
     external fun vizSetUserReactions(
         handle: Long,
         routes: FloatArray?,
-        mask: Int,
     )
 
     /**
@@ -545,6 +536,12 @@ object GeodeNative {
         user: FloatArray?,
         mask: Int,
     ): FloatArray
+
+    /** The saved text of the user's [routes] (core/viz/ReactionText), in the [vizSetUserReactions] layout. */
+    external fun reactionsTextEncode(routes: FloatArray): String
+
+    /** The routes saved as [text], in the [vizSetUserReactions] layout; null for text that is no list. */
+    external fun reactionsTextDecode(text: String): FloatArray?
 
     /** Customize › Music's rows, [MUSIC_STATE_FLOATS] per moment (geode_music_state). */
     external fun musicState(
@@ -615,8 +612,8 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*); core/viz/GyroLook makes the look. */
-    external fun vizGyroSample(
+    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*), latched for the next [vizFrame]. Any thread. */
+    external fun vizGyroPush(
         handle: Long,
         x: Float,
         y: Float,
@@ -625,60 +622,58 @@ object GeodeNative {
         displayRotation: Int,
     )
 
-    /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
-    external fun vizGyroReset(handle: Long)
+    /** The gyro stopped: the next frame recentres the look; the next reading starts a new baseline. Any thread. */
+    external fun vizGyroOff(handle: Long)
 
-    /**
-     * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
-     * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
-     * is the rate this surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap it
-     * asked for (the same for a fixed rate); the thermal step is taken from [capFps] natively. The rest is
-     * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
-     * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
-     * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
-     * exactly those before [vizRender]. Answers a bitmask of the `FRAME_*` bits.
-     */
-    external fun vizFrameBegin(
+    /** The style a live surface draws, latched: each [vizFrame] asks for it until the renderer can draw it. Any thread. */
+    external fun vizRequestScene(
         handle: Long,
-        pacedFps: Float,
-        capFps: Float,
+        sceneId: String,
+    )
+
+    /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
+    external fun vizSetQuality(
+        handle: Long,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
-        paramsVersion: Long,
-        lfoVersion: Long,
-        adsrVersion: Long,
-        tuningVersion: Long,
+    )
+
+    /**
+     * One whole live frame into framebuffer 0 (geode_viz_frame, `core/viz/frame/LiveFrame`), GL thread: the
+     * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the rate this
+     * surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap (the same for a fixed
+     * rate). Answers the `FRAME_*` events; act on a bit only when it is set.
+     */
+    external fun vizFrame(
+        handle: Long,
+        ring: Long,
+        pacedFps: Float,
+        capFps: Float,
     ): Int
+
+    /** What Liquid mode ran when a frame last said [FRAME_LIQUID_CHANGED]: 0 off, 1 full, 2 lite, 3 warp, 4 paused. */
+    external fun vizLiquidMode(handle: Long): Int
 
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_THERMAL_DUE: ask PowerManager's headroom and call [thermalPush]. */
-    const val FRAME_THERMAL_DUE: Int = 0x2
-
-    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [vizLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
     /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
     const val FRAME_ERROR_CHANGED: Int = 0x8
 
-    /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
-    fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
+    /** Mirrors GEODE_FRAME_MILK_LOADED: MilkDrop finished loading a preset; take it with [vizTakeMilkPresetLoaded]. */
+    const val FRAME_MILK_LOADED: Int = 0x10
 
-    /** Mirrors GEODE_FRAME_PUSH_PARAMS: push the scene params ([vizSetParams]). */
-    const val FRAME_PUSH_PARAMS: Int = 0x10
+    /** Mirrors GEODE_FRAME_DIRECTOR_MOMENT: take the moments with [vizTakeDirectorStyleMoments]. */
+    const val FRAME_DIRECTOR_MOMENT: Int = 0x20
 
-    /** Mirrors GEODE_FRAME_PUSH_LFO: push every LFO slot ([vizSetLfo]). */
-    const val FRAME_PUSH_LFO: Int = 0x20
-
-    /** Mirrors GEODE_FRAME_PUSH_ADSR: push every ADSR slot ([vizSetAdsr]). */
-    const val FRAME_PUSH_ADSR: Int = 0x40
-
-    /** Mirrors GEODE_FRAME_PUSH_TUNING: push the sound tuning ([vizSetSoundTuning]). */
-    const val FRAME_PUSH_TUNING: Int = 0x80
+    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([vizStillSize], [vizStillRead]). */
+    const val FRAME_STILL_READY: Int = 0x40
 
     /**
      * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
@@ -881,6 +876,9 @@ object GeodeNative {
 
     /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
     external fun artPaletteExtract(argb: IntArray): FloatArray?
+
+    /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
+    external fun paletteColourMapName(index: Int): String
 
     /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
     external fun paletteRamp(
@@ -1285,10 +1283,9 @@ object GeodeNative {
     const val RECORD_STOP_FILE_FULL = 4
     const val RECORD_STOP_FAILED = 5
 
-    /** The recording's audio: 48 kHz stereo, 16-bit. */
-    const val RECORD_AUDIO_RATE_HZ = 48_000
-    const val RECORD_AUDIO_CHANNELS = 2
-    const val RECORD_AUDIO_BPS = 192_000
+    /** A record session's state ([recordSessionState]): stopped, the tee should close; then finished, saved or (3) not. */
+    const val RECORD_SESSION_CLOSING = 1
+    const val RECORD_SESSION_SAVED = 2
 
     /** The monotonic clock every `nowNs` of a recorder is read from, in ns. */
     external fun recordNowNs(): Long
@@ -1307,28 +1304,6 @@ object GeodeNative {
     ): Long
 
     external fun recorderDestroy(handle: Long)
-
-    /** The video encoder put one frame out. */
-    external fun recorderVideoEncoded(handle: Long)
-
-    /** The muxer wrote [bytes] more. */
-    external fun recorderWrote(
-        handle: Long,
-        bytes: Long,
-        nowNs: Long,
-    )
-
-    /**
-     * Up to [capacityFrames] of the recording's audio into [out] (direct, native order), stamped
-     * `ptsUs[0]`. Returns the frames written; 0 once [recorderStopped] means the audio is complete.
-     */
-    external fun recorderTakeAudio(
-        handle: Long,
-        nowNs: Long,
-        out: java.nio.ByteBuffer,
-        capacityFrames: Int,
-        ptsUs: LongArray,
-    ): Int
 
     /** Ends the recording for [why], one of `RECORD_STOP_*`; the first reason wins. */
     external fun recorderStop(
@@ -1352,35 +1327,46 @@ object GeodeNative {
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
 
-    /**
-     * What to ask the video encoder for on try [attempt] (0 first) into [out]: width, height, bit rate.
-     * The chosen [shortSide] held to the stage, then each smaller size; false past the last.
-     */
-    external fun recordEncoderAttempt(
-        stageWidth: Int,
-        stageHeight: Int,
-        shortSide: Int,
-        fps: Int,
-        limitMs: Long,
-        attempt: Int,
-        out: IntArray,
-    ): Boolean
-
     /** Whether a recording [recordedMs] long is kept (a shorter one is a mis-tap). */
     external fun recordWorthKeeping(recordedMs: Long): Boolean
 
     /**
-     * GL thread. From the next [vizRender] on, the frames [recorder]'s clock keeps are copied into
-     * [surface] (the video encoder's input `Surface`, [width] x [height]) and the sound the renderer hears
-     * goes to the recorder. [watermark] is an `exportWatermarkCreate` handle built on this thread, or 0.
-     * False when the driver would not open the surface.
+     * A recording's encoders and file (`geode_record_session_open`): H.264 at the first size the device takes, AAC,
+     * and the MP4 muxer on [fd] (read-write; the muxer keeps its own duplicate), on [recorder]'s clock and the
+     * session's own encoder thread. 0 when no encoder would start.
      */
-    external fun vizRecordStart(
-        handle: Long,
+    external fun recordSessionOpen(
         recorder: Long,
-        surface: Any,
-        width: Int,
-        height: Int,
+        fd: Int,
+        stageWidth: Int,
+        stageHeight: Int,
+        shortSide: Int,
+        fps: Int,
+    ): Long
+
+    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and the GL thread's [recordSessionTeeClosed] ran. */
+    external fun recordSessionDestroy(session: Long)
+
+    /** The encoder's frame into [out]: width, height. */
+    external fun recordSessionSize(
+        session: Long,
+        out: IntArray,
+    )
+
+    /** One of `RECORD_SESSION_*`, polled. */
+    external fun recordSessionState(session: Long): Int
+
+    /** GL thread, after [vizRecordStop]: the stage no longer draws into the encoder, so its stream may end. */
+    external fun recordSessionTeeClosed(session: Long)
+
+    /**
+     * GL thread. From the next [vizRender] on, the frames the session's clock keeps are copied into its encoder
+     * and the sound the renderer hears goes to the clock. [watermark] is an `exportWatermarkCreate` handle built on
+     * this thread, or 0. False when the driver would not open the encoder's surface or the session already ended.
+     */
+    external fun recordSessionTeeStart(
+        session: Long,
+        handle: Long,
         watermark: Long,
     ): Boolean
 
@@ -2430,13 +2416,7 @@ object GeodeNative {
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal); a headroom is due on FRAME_THERMAL_DUE.
-
-    /** One PowerManager reading: status (< 0 = none this time) and headroom (NaN = none this time). */
-    external fun thermalPush(
-        platformStatus: Int,
-        headroom: Float,
-    )
+    // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
 
     /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
     external fun thermalTakeWarmNote(

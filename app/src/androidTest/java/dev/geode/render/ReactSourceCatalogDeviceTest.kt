@@ -8,16 +8,16 @@ import org.junit.runner.RunWith
 
 /**
  * C++ owns the reaction source catalogue (core/viz/Reactions.cpp); the Kotlin [ReactSource] mirror
- * must match it entry for entry (name, label, group, event) until the Customize feature reads the
+ * must match it line for line ("NAME|Label|GROUP|0/1", in wire order) until Customize reads the
  * native catalogue alone.
  */
 @RunWith(AndroidJUnit4::class)
 class ReactSourceCatalogDeviceTest {
     @Test
     fun theKotlinMirrorMatchesTheNativeCatalogue() {
-        val native = ReactSourceCatalog.parse(GeodeNative.reactSourceCatalog())
+        val native = GeodeNative.reactSourceCatalog().lines().filter { it.isNotBlank() }
         val mirror =
-            ReactSource.entries.map { ReactSourceInfo(it.ordinal, it.name, it.label, it.group.name, it.isEvent) }
+            ReactSource.entries.map { "${it.name}|${it.label}|${it.group.name}|${if (it.isEvent) 1 else 0}" }
         assertEquals(mirror, native)
     }
 }

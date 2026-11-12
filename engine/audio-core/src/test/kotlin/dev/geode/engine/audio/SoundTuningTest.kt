@@ -49,19 +49,19 @@ class SoundTuningTest {
             ),
             slots,
         )
-        assertEquals(SoundFrameLayout.TUNING_FLOATS, at)
+        assertEquals(SoundTuning.FLOATS, at)
     }
 
     @Test
     fun savedFloatsRoundTripWithoutNative() {
-        val f = FloatArray(SoundFrameLayout.TUNING_FLOATS) { it.toFloat() }
+        val f = FloatArray(SoundTuning.FLOATS) { it.toFloat() }
         assertEquals(f.toList(), SoundTuning.fromFloats(f).savedFloats()?.toList())
         assertEquals(SoundTuning.fromFloats(f), SoundTuning.fromFloats(f.copyOf()))
     }
 
     @Test
     fun aSaveFromBeforeTheInputTrimKeepsItsSliders() {
-        val old = FloatArray(SoundFrameLayout.TUNING_FLOATS - 1) { it.toFloat() }
+        val old = FloatArray(SoundTuning.FLOATS - 1) { it.toFloat() }
         val loaded = SoundTuning.fromFloats(old).savedFloats()!!
         assertEquals(old.toList() + 0f, loaded.toList())
     }

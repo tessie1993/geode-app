@@ -11,8 +11,9 @@
 // line, one soft highlight, and (where a style asks) fine lines drawn along
 // the skin coordinate. The steps spent near a body leave a faint halo.
 //
-// COST. One loop of min(uSteps, 80) steps, each one opalMap; a hit adds four
-// more for its normal, so at most 80 + 4 * OPAL_HITS = 96 opalMap per pixel.
+// COST. One loop of OPAL_STEPS steps (80 at the default Detail, 100 at most),
+// each one opalMap; a hit adds four more for its normal, so at most
+// 100 + 4 * OPAL_HITS = 116 opalMap per pixel.
 // The maps are smooth unions of a few spheres, tori or one lattice term; no
 // noise octaves and no texture. The palette is read five times per pixel
 // before the loop (opalSetup) and mixed after.
@@ -56,7 +57,9 @@
 // number), and after it includes lib_opal_march, which calls it.
 
 #define OPAL_TAU 6.2831853
-#define OPAL_MAX_STEPS 80
+#define OPAL_MAX_STEPS 100
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 80 left Detail and the hot-phone cut dead above it. */
+#define OPAL_STEPS (min(uSteps * 0.78, float(OPAL_MAX_STEPS)))
 #define OPAL_HITS 4
 #define OPAL_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */

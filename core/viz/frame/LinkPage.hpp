@@ -53,6 +53,14 @@ video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contai
 #play:disabled { opacity: 0.4; cursor: default; }
 #note { position: fixed; left: 0; right: 0; bottom: 24px; margin: 0; text-align: center; color: #bbb; }
 [hidden] { display: none !important; }
+#pair { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vw, 360px);
+  display: flex; flex-direction: column; align-items: center; gap: 16px; }
+#code { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #555; border-radius: 12px;
+  background: #111; color: #fff; font: inherit; font-size: 28px; letter-spacing: 4px; text-align: center;
+  text-transform: uppercase; }
+#go { padding: 12px 40px; border: 0; border-radius: 999px; background: #fff; color: #000; font: inherit;
+  font-size: 18px; cursor: pointer; }
+#go:disabled { opacity: 0.4; cursor: default; }
 )CSS";
 
 inline constexpr std::string_view kPageJs = R"JS('use strict';
@@ -340,6 +348,66 @@ inline constexpr std::string_view kPageJs = R"JS('use strict';
   });
   video.addEventListener('error', () => { if (video.src && !video.srcObject && !over) end(); });
   wait();
+})();
+)JS";
+
+// The typed path's page at "/" (LinkPair.hpp): a computer that cannot scan the QR opens the short link and types
+// the code the phone shows; a right code is answered with the token's path, which the page opens in its place.
+inline constexpr std::string_view kPairHtml = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>BeatRealms 3D</title>
+<link rel="stylesheet" href="player.css">
+<script src="pair.js" defer></script>
+</head>
+<body>
+<form id="pair" autocomplete="off">
+<label for="code">Type the code the phone shows</label>
+<input id="code" type="text" maxlength="12" autocapitalize="characters" spellcheck="false" placeholder="XXX-XXX" autofocus>
+<button id="go" type="submit">Watch</button>
+</form>
+<p id="note"></p>
+</body>
+</html>
+)HTML";
+
+inline constexpr std::string_view kPairJs = R"JS('use strict';
+(() => {
+  const form = document.getElementById('pair');
+  const code = document.getElementById('code');
+  const go = document.getElementById('go');
+  const note = document.getElementById('note');
+  const PATH = /^\/[0-9a-f]{32}\/$/;
+  const say = (text) => { note.textContent = text; };
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const typed = code.value.trim();
+    if (!typed) return;
+    go.disabled = true;
+    try {
+      const r = await fetch('pair', { method: 'POST', body: typed, cache: 'no-store', credentials: 'omit',
+        headers: { 'Content-Type': 'text/plain' } });
+      if (r.ok) {
+        const path = (await r.text()).trim();
+        if (PATH.test(path)) { location.replace(path); return; }
+        say('The phone sent an answer this page cannot use.');
+      } else if (r.status === 403) {
+        say('That code is not right. Type the code the phone shows now.');
+      } else if (r.status === 429) {
+        say('Too many tries. Wait a minute, then type the code the phone shows now.');
+      } else {
+        say('The phone is not sharing right now.');
+      }
+    } catch (err) {
+      say('The phone cannot be reached.');
+    }
+    go.disabled = false;
+    code.select();
+  });
 })();
 )JS";
 

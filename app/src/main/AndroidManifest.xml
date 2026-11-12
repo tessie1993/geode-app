@@ -127,10 +127,6 @@
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        <!-- Android Auto: the playback service below is also a media browser. -->
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
         <!--
           singleTask: one MainActivity, so a geode:// link or a voice search from another app's
           task reaches the running one through onNewIntent instead of stacking a second activity
@@ -213,7 +209,7 @@
                 <data android:mimeType="application/ogg" />
                 <data android:mimeType="application/x-flac" />
             </intent-filter>
-            <!-- Android Auto voice search: "play <something> on Geode" arrives here
+            <!-- Voice search: "play <something> on Geode" arrives here
                  with a query, and the activity plays the first library match. -->
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />

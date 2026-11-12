@@ -2865,6 +2865,7 @@ object GeodeNative {
         which: Int,
     ): String?
 
+    // A render's plan (core/api/geode_render_plan_api.h).
 
     /** The part between slider fractions [start] and [end] of [trackMs] into [out] (start ms, duration ms); false: the whole track. */
     external fun exportRangeOf(

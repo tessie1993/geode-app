@@ -172,6 +172,9 @@ int libraryIndex(std::string_view id);
 constexpr int kClassicCount = 21;
 constexpr int kColourMapFirst = 21;
 constexpr int kColourMapCount = 5;
+// Classic rows SceneParams::kListedPalettes..kClassicCount - 1 are retired: they stay so a saved index
+// resolves and an old look draws as it did, but the stack's picker lists them no more. Every other row is listed.
+bool listed(int index);
 // The library as the shell lists it (no colours: geode_palette_library_entry has those):
 //   library|<kTextVersion>|<count>
 //   entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stop count>

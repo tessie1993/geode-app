@@ -185,7 +185,7 @@ void rollsStayInsideTheSchemasRanges() {
 // A choice roll picks from the whole schema range, so a value added to ParamTable.inc is rolled too
 // (the camera's drive, fall and rise paths were left out by a count kept beside the schema).
 void choiceRollsReachEverySchemaValue() {
-    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::camPath}) {
+    for (const ParamSlot slot : {ParamSlot::camPath}) {
         const ParamSpec& spec = SceneParams::spec(slot);
         std::set<int> rolled;
         for (uint64_t seed = 0; seed < 2000; ++seed) {
@@ -197,6 +197,18 @@ void choiceRollsReachEverySchemaValue() {
         check(*rolled.begin() == static_cast<int>(spec.min) && *rolled.rbegin() == static_cast<int>(spec.max),
               std::string(spec.name) + " rolls from min to max");
     }
+}
+
+// The palette roll deals every listed built-in and never a retired one (rows 12..20 stay in the table only so
+// a saved index still draws).
+void thePaletteRollDealsTheListedPalettesOnly() {
+    std::set<int> rolled;
+    for (uint64_t seed = 0; seed < 2000; ++seed) rolled.insert(randomizer::randomize(kDefaults, seed, std::nullopt, "", {}).palette);
+    check(static_cast<int>(rolled.size()) == SceneParams::kListedPalettes && *rolled.begin() == 0 &&
+              *rolled.rbegin() == SceneParams::kListedPalettes - 1,
+          "palette rolls " + std::to_string(rolled.size()) + " of the " + std::to_string(SceneParams::kListedPalettes) + " listed");
+    check(SceneParams::spec(ParamSlot::palette).max == static_cast<float>(SceneParams::palettes().size() - 1),
+          "a saved retired index is still in the field's range");
 }
 
 void aPaletteRollDropsACustomPalette() {
@@ -288,6 +300,7 @@ int main() {
     rollsStayUnderTheFlashClamp();
     rollsStayInsideTheSchemasRanges();
     choiceRollsReachEverySchemaValue();
+    thePaletteRollDealsTheListedPalettesOnly();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
     aHostilePresetIsClampedToTheSchemaRanges();

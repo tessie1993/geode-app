@@ -112,9 +112,10 @@ const std::vector<Roll>& rolls() {
          [](SceneParams& p, Rng& r) { p.milkdropBlendPresets = r.chance(0.35f); }},
 
         // A rolled palette replaces a user-made one: the custom hue overrides and your colours go back to unset.
+        // It deals the listed built-ins only, never a retired row (SceneParams::kListedPalettes).
         {T::Color, "Palette",
          [](SceneParams& p, Rng& r) {
-             p.palette = choice(r, ParamSlot::palette);
+             p.palette = r.below(SceneParams::kListedPalettes);
              p.paletteBaseOverride = SceneParams::kUnsetOverride;
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
              p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;

@@ -148,6 +148,9 @@ struct SceneParams {
         float range;
     };
     static const std::array<Palette, 21>& palettes();
+    // The built-in palettes a picker lists and a roll deals: rows 0..11. Rows 12..20 (Royal .. Yellow) are
+    // retired: they stay in the table so a look saved on one still draws it, but nothing offers them again.
+    static constexpr int kListedPalettes = 12;
 
     float paletteBase() const;
     float paletteRange() const;

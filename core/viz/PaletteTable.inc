@@ -3,7 +3,8 @@
 // GEODE_CLASSIC(id, name, base, range): rows 0..20, the old cosine hue ramps in the `palette` index order
 // looks were saved by; viz/Params' SceneParams::palettes() reads these rows too, so there is one table.
 // The library samples each to kMaxStops stops: a ramp round the whole wheel (range 1) Loops, the others run
-// once and Mirror, like a new palette.
+// once and Mirror, like a new palette. Rows 12..20 (Royal .. Yellow) are retired (SceneParams::kListedPalettes):
+// kept, never moved, so a saved index still draws, but no picker lists them and no roll deals them.
 GEODE_CLASSIC("spectrum", "Spectrum", 0.0f, 1.0f)
 GEODE_CLASSIC("neon", "Neon", 0.5f, 0.45f)
 GEODE_CLASSIC("fire", "Fire", 0.0f, 0.14f)
@@ -16,6 +17,7 @@ GEODE_CLASSIC("sunset", "Sunset", 0.05f, 0.3f)
 GEODE_CLASSIC("ice", "Ice", 0.55f, 0.15f)
 GEODE_CLASSIC("vapor", "Vapor", 0.78f, 0.35f)
 GEODE_CLASSIC("toxic", "Toxic", 0.25f, 0.25f)
+// Retired from here to row 20.
 GEODE_CLASSIC("royal", "Royal", 0.7f, 0.25f)
 GEODE_CLASSIC("blush", "Blush", 0.93f, 0.12f)
 GEODE_CLASSIC("copper", "Copper", 0.07f, 0.1f)

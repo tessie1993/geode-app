@@ -73,7 +73,7 @@ const std::vector<Variant>& variants() {
         {"rod_tunnel · Bead Rush", "rod_tunnel", 0.7f, 0.18f, {{"palette", 1},
             {"speed", 1.1f}, {"marchDetail", 1.2f}, {"audioDrive", 1.3f}, {"bloom", 0.6f},
             {"contrast", 1.1f}, {"bassGain", 1.3f}}},
-        {"neon_tiles · Arcade", "neon_tiles", 0.55f, 0.14f, {{"palette", 12},
+        {"neon_tiles · Arcade", "neon_tiles", 0.55f, 0.14f, {{"palette", 1},
             {"speed", 0.8f}, {"audioDrive", 1.15f}, {"kaleidoFolds", 8.0f},
             {"bloom", 0.5f}, {"posterize", 0.15f}, {"scanlines", 0.15f}, {"saturation", 1.2f}}},
         {"chroma_orb · Lens", "chroma_orb", 0.5f, 0.12f, {{"speed", 0.8f}, {"audioDrive", 1.2f},
@@ -132,7 +132,7 @@ const std::vector<Variant>& variants() {
             {"fluidSpawnProgress", 1.0f}, {"fluidCatchPoints", 2}, {"fluidCatchPull", 1.4f}, {"fluidCatchRadius", 0.12f},
             {"fluidParticleLife", 7.0f}, {"fluidBeatPattern", 1}, {"fluidBeatSplats", 3}, {"fluidStirrers", 2},
             {"fluidChromaticAging", 0.4f}, {"fluidCurl", 35.0f},
-            {"palette", 16}}},
+            {"palette", 10}}},
         // One preset per styled fluid look. Each names the style's id, so applying it switches to that look;
         // the params only lean on what the look already does (a wash wants slow dye, chrome wants a smooth
         // field, neon wants hits).

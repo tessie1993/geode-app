@@ -582,6 +582,10 @@ const std::vector<Entry>& library() {
     return kLibrary;
 }
 
+bool listed(int index) {
+    return index >= 0 && index < static_cast<int>(library().size()) && (index < SceneParams::kListedPalettes || index >= kClassicCount);
+}
+
 int libraryIndex(std::string_view id) {
     const auto& lib = library();
     for (size_t i = 0; i < lib.size(); ++i) {

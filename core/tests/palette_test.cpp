@@ -419,10 +419,16 @@ void theRampARendererUploads() {
 void theStackAsLookDrawsIt() {
     const std::string unset = geode_palette_stack_unset();
     std::string text = geode_palette_stack_editor(unset.c_str());
-    const int picks = static_cast<int>(pl::library().size());
+    int picks = 0;
+    for (int i = 0; i < static_cast<int>(pl::library().size()); ++i) picks += pl::listed(i) ? 1 : 0;
+    check(picks == static_cast<int>(pl::library().size()) - (pl::kClassicCount - SceneParams::kListedPalettes),
+          "every palette is listed but the retired classic rows");
     check(text.rfind("palettestack|1|0|8|SHARE\n", 0) == 0, "an unset stack: no layer, room for eight");
     check(text.find("layer|") == std::string::npos, "no layer row while unset");
-    check(std::count(text.begin(), text.end(), '\n') == picks + 1, "a pick row per library palette");
+    check(std::count(text.begin(), text.end(), '\n') == picks + 1, "a pick row per listed library palette");
+    check(text.find("pick|11|Toxic\n") != std::string::npos && text.find("|Royal\n") == std::string::npos &&
+              text.find("|Yellow\n") == std::string::npos && text.find("pick|21|bamO\n") != std::string::npos,
+          "classic rows 12..20 are retired from the picker; the rows after them keep their indices");
     const std::string one = geode_palette_stack_add_library(unset.c_str(), 2);
     const std::string twoLayers = geode_palette_stack_add_library(one.c_str(), 3);
     text = geode_palette_stack_editor(twoLayers.c_str());
@@ -431,7 +437,7 @@ void theStackAsLookDrawsIt() {
               text.find("layer|1|" + pl::library()[3].palette.name + "\n") != std::string::npos,
           "the layers by name, the primary first");
     check(std::string(geode_palette_stack_add_library(twoLayers.c_str(), -1)) == twoLayers &&
-              std::string(geode_palette_stack_add_library(twoLayers.c_str(), picks)) == twoLayers,
+              std::string(geode_palette_stack_add_library(twoLayers.c_str(), static_cast<int>(pl::library().size()))) == twoLayers,
           "a palette the library does not have adds nothing");
     std::string full = unset;
     for (int i = 0; i < 12; ++i) full = geode_palette_stack_add_library(full.c_str(), i);

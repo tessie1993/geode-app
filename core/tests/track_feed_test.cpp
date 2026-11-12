@@ -384,6 +384,40 @@ void frameExactHandOut() {
     check(pushes == static_cast<int>((f.delivered() + 1151) / 1152), "no chunk decoded before it is needed");
 }
 
+void sampleExactFrames() {
+    // #999 F6: at 24 fps over 44.1 kHz a frame lasts 1837.5 samples. Frame n hears llround((n + 1) * rate / fps),
+    // so no frame is cut short by the whole-millisecond floor, and every 3 s the count is exactly 3 * rate.
+    TrackFeed f(0);
+    Heard h;
+    int64_t written = 0;
+    const auto push = [&] {
+        std::vector<int16_t> chunk(1152 * 2, 3);
+        const auto b = s16Bytes(chunk);
+        f.pushDecoded(b.data(), b.size(), false, 2, 44100, written * 1'000'000 / 44100);
+        written += 1152;
+    };
+    for (int frame = 0; frame < 240; ++frame) {
+        while (!f.hasRate()) push();
+        f.setTargetFrame(frame, 24);
+        while (!f.deliver(sink, &h)) push();
+        const int64_t want = std::llround((frame + 1) * 44100.0 / 24.0);
+        check(f.delivered() == want, "frame " + std::to_string(frame) + " at 24 fps hears llround((n + 1) * rate / fps)");
+        const int64_t endMs = (static_cast<int64_t>(frame) + 1) * 1000 / 24;
+        check(f.delivered() >= endMs * 44100 / 1000, "never less than the whole-millisecond cut");
+        if ((frame + 1) % 72 == 0) {
+            check(f.delivered() == (frame + 1) / 24 * 44100, "every 3 s exactly 3 s of samples");
+        }
+    }
+    geode_track_feed* c = geode_track_feed_create(0);
+    const auto b = s16Bytes(std::vector<int16_t>(200, 1));
+    geode_track_feed_push_decoded(c, b.data(), b.size(), 0, 2, 1000, 0);
+    geode_track_feed_target_frame(c, 2, 30);  // llround(3 * 1000 / 30) = 100 frames at 1 kHz
+    Heard ch;
+    check(geode_track_feed_deliver(c, sink, &ch) == 1 && ch.samples.size() == 200, "C ABI: the frame target");
+    geode_track_feed_target_frame(nullptr, 0, 30);
+    geode_track_feed_destroy(c);
+}
+
 void aiffSkip() {
     // 2 s of mono at 8 kHz, range from 1500 ms: 12000 frames skipped across two 8192-sample reads.
     Aiff a;
@@ -439,6 +473,7 @@ int main() {
     conversion();
     codecPreRoll();
     frameExactHandOut();
+    sampleExactFrames();
     aiffSkip();
     cAbi();
     if (failures) {

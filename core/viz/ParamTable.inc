@@ -456,6 +456,37 @@ GEODE_PARAM_META(paletteStop3, "Palette", Universal, 0, 0, 0)
 GEODE_PARAM(Int, paletteStop4, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
 GEODE_PARAM_META(paletteStop4, "Palette", Universal, 0, 0, 0)
 
+// Endless zoom's tunnel (viz/EndlessZoom.hpp, tunnel::Look; Customize › Dive). Appended so every wire
+// index survives. Each default is the plain tunnel, so a look saved before them dives as it did.
+// Octaves between two nested copies.
+GEODE_PARAM(Float, diveSpacing, 1.0f, 0.5f, 2.0f, Fade)
+GEODE_PARAM_META(diveSpacing, "Ring spacing", EndlessZoom, 0, 0.7f, 1.6f)
+// Quarter turns a copy makes per octave it grows: the tunnel as a spiral.
+GEODE_PARAM(Float, diveTwist, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(diveTwist, "Dive twist", EndlessZoom, kMod, -0.6f, 0.6f)
+// The vanishing point, -1..1 across the frame. Where the user points the dive: no roll draws it.
+GEODE_PARAM(Float, diveAimX, 0.0f, -0.6f, 0.6f, Fade)
+GEODE_PARAM_META(diveAimX, "Dive aim X", EndlessZoom, kMod, 0, 0)
+GEODE_PARAM(Float, diveAimY, 0.0f, -0.6f, 0.6f, Fade)
+GEODE_PARAM_META(diveAimY, "Dive aim Y", EndlessZoom, kMod, 0, 0)
+// A copy's outline: 0 round, 0.5 the rounded frame, 1 nearly square.
+GEODE_PARAM(Float, diveShape, 0.5f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(diveShape, "Tunnel shape", EndlessZoom, 0, 0.0f, 1.0f)
+// How much of a copy's band dissolves into the copy around it: 0 a cut .. 1 the whole band. The roll
+// stays in the soft half: it never deals the hard-edged frames.
+GEODE_PARAM(Float, diveBlend, 0.75f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(diveBlend, "Dive blend", EndlessZoom, 0, 0.55f, 1.0f)
+// How far the far end of the tunnel falls into dark.
+GEODE_PARAM(Float, diveFog, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(diveFog, "Depth fade", EndlessZoom, 0, 0.2f, 0.7f)
+// How much more (above 0) or less of the picture each copy's band holds.
+GEODE_PARAM(Float, diveLens, 0.0f, -0.5f, 1.5f, Fade)
+GEODE_PARAM_META(diveLens, "Dive lens", EndlessZoom, 0, -0.3f, 0.8f)
+// The music's slow hand on the dive's rate (endless::Follow): 0 none, 1 as designed, 2 twice the reach.
+// How much the user wants the music to move things: no roll draws it.
+GEODE_PARAM(Float, diveFollow, 1.0f, 0.0f, 2.0f, Fade)
+GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

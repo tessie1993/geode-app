@@ -1,4 +1,4 @@
-params|3|169
+params|3|178
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -168,6 +168,15 @@ param|165|paletteStop1|INT|-1|-1|16777215|HOLD|LIVE
 param|166|paletteStop2|INT|-1|-1|16777215|HOLD|LIVE
 param|167|paletteStop3|INT|-1|-1|16777215|HOLD|LIVE
 param|168|paletteStop4|INT|-1|-1|16777215|HOLD|LIVE
+param|169|diveSpacing|FLOAT|1|0.5|2|FADE|LIVE
+param|170|diveTwist|FLOAT|0|-1|1|FADE|LIVE
+param|171|diveAimX|FLOAT|0|-0.6|0.6|FADE|LIVE
+param|172|diveAimY|FLOAT|0|-0.6|0.6|FADE|LIVE
+param|173|diveShape|FLOAT|0.5|0|1|FADE|LIVE
+param|174|diveBlend|FLOAT|0.75|0|1|FADE|LIVE
+param|175|diveFog|FLOAT|0|0|1|FADE|LIVE
+param|176|diveLens|FLOAT|0|-0.5|1.5|FADE|LIVE
+param|177|diveFollow|FLOAT|1|0|2|FADE|LIVE
 palette|0|Spectrum
 palette|1|Neon
 palette|2|Fire

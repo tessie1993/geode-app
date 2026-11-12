@@ -4,3 +4,24 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # The version catalog (gradle/libs.versions.toml) and the build scripts' plugins. Minor and
+  # patch bumps come as one PR a week so CI runs once for them; a major bump comes on its own.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      gradle-minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  # The native submodules under third_party/. projectM is held at v4.1.7: tools/ carries two patches cut
+  # against that tag (render FBO backport, shader fallback), so a bump there is a port, done by hand.
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "third_party/projectm"

@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
@@ -198,27 +199,7 @@ class BehaviourStore(
     }
 
     fun save(b: BehaviourPrefs) {
-        prefs.edit {
-            putString(KEY_START_SCREEN, b.startScreen.name)
-            putString(KEY_LAST_SCREEN, b.lastScreen.name)
-            putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, b.keepScreenOnVisuals)
-            putBoolean(KEY_START_ON_HEADPHONES, b.startOnHeadphones)
-            putStringSet(KEY_NOTIFICATION_BUTTONS, b.notificationButtons.mapTo(mutableSetOf()) { it.name })
-            putBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, b.rememberShuffleRepeat)
-            putString(KEY_QUEUE_END, b.queueEnd.name)
-            putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
-            putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
-            putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
-            putBoolean(KEY_DREAM_OTHER_APPS, b.dreamHearOtherApps)
-            putInt(KEY_DREAM_FPS, b.dreamFps)
-            for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
-        }
-    }
-
-    /** Records the screen now shown, for [StartScreen.LAST_USED]; alone, so it never rewrites the rest. */
-    fun saveLastScreen(screen: StartScreen) {
-        if (screen == StartScreen.LAST_USED) return
-        prefs.edit { putString(KEY_LAST_SCREEN, screen.name) }
+        prefs.edit { write(this, b) }
     }
 
     /** A stored enum by name; an unknown or missing name (renamed in a later build) reads as [default]. */
@@ -242,6 +223,26 @@ class BehaviourStore(
         const val KEY_DREAM_FPS = "behaviour_dream_fps"
         const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
 
+        /** Puts every key of [b]; [save] and [BehaviourCodec] share it. */
+        fun write(
+            editor: SharedPreferences.Editor,
+            b: BehaviourPrefs,
+        ) {
+            editor.putString(KEY_START_SCREEN, b.startScreen.name)
+            editor.putString(KEY_LAST_SCREEN, b.lastScreen.name)
+            editor.putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, b.keepScreenOnVisuals)
+            editor.putBoolean(KEY_START_ON_HEADPHONES, b.startOnHeadphones)
+            editor.putStringSet(KEY_NOTIFICATION_BUTTONS, b.notificationButtons.mapTo(mutableSetOf()) { it.name })
+            editor.putBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, b.rememberShuffleRepeat)
+            editor.putString(KEY_QUEUE_END, b.queueEnd.name)
+            editor.putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
+            editor.putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
+            editor.putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
+            editor.putBoolean(KEY_DREAM_OTHER_APPS, b.dreamHearOtherApps)
+            editor.putInt(KEY_DREAM_FPS, b.dreamFps)
+            for (gesture in CanvasGesture.entries) editor.putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
+        }
+
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
                 portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
@@ -251,5 +252,26 @@ class BehaviourStore(
                 portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
                 portable(PrefType.INT, KEY_DREAM_FPS)
             }
+    }
+}
+
+/**
+ * [BehaviourPrefs] as `GeodeContainer.behaviour` keeps it (#1009, PR 4): the same keys [BehaviourStore]
+ * reads and writes. Every writer goes through that repository's `update` (Settings' rows, the last screen
+ * shown), so the playback service's listeners read its value instead of parsing the file in a player
+ * callback, and never see a copy older than the last change.
+ */
+object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
+    override val defaults = BehaviourPrefs()
+
+    override val keys = BehaviourStore.PREF_KEYS
+
+    override fun read(prefs: SharedPreferences): BehaviourPrefs = BehaviourStore(prefs).load()
+
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: BehaviourPrefs,
+    ) {
+        BehaviourStore.write(editor, value)
     }
 }

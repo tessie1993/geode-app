@@ -18,7 +18,7 @@ namespace geode::viz::modtargets {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
 constexpr int kTextVersion = 2;
-constexpr int kTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
+constexpr int kTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 
 // The wire name; "" outside the enum.
 const char* name(LfoTarget target);

@@ -18,8 +18,6 @@ import dev.geode.data.StartScreen
 import dev.geode.data.StudioPrefsStore
 import dev.geode.geodeContainer
 import dev.geode.ui.theme.StoneIcon
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * The app's top-level screens, in the order the navigation bar shows them.
@@ -163,11 +161,11 @@ fun rememberGeodeAppState(): GeodeAppState {
                 studioSection = StudioSection.fromName(lastTab) ?: StudioSection.RENDER,
             )
         }
-    // "Where you left off" reopens the last screen shown. Recorded on IO each time it changes;
-    // Settings is never a start screen, so leaving the app there reopens the screen before it.
+    // "Where you left off" reopens the last screen shown. Recorded through the Behaviour repository (written
+    // on IO) each time it changes; Settings is never a start screen, so leaving the app there reopens the screen before it.
     LaunchedEffect(state.dest) {
         val screen = state.dest.startScreen ?: return@LaunchedEffect
-        withContext(Dispatchers.IO) { BehaviourStore(general).saveLastScreen(screen) }
+        context.geodeContainer.behaviour.update { it.copy(lastScreen = screen) }
     }
     return state
 }

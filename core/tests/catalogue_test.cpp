@@ -411,8 +411,9 @@ void textRoundTrips() {
     check(pickers == static_cast<int>(catalogue::pickerFamilies().size()), "a picker row per picker family");
     // 86 keys: the 80 of the old hand list plus the six held controls whose scope Customize kept to itself
     // (Fluid quality and its auto switch, Progression, the two fluid layers, Water ripples on) until the
-    // params schema's meta rows carried every control's scope (#1005 PR 4a).
-    check(kinds == catalogue::kKindCount && families == 13 && keys == 86 && overrides == 8, "row counts");
+    // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
+    // tunnel controls (Customize › Dive), all on the endless zoom's scope.
+    check(kinds == catalogue::kKindCount && families == 13 && keys == 95 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

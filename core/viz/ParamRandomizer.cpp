@@ -223,6 +223,15 @@ const std::vector<Roll>& rolls() {
         {T::Cymatics, "Nodal glow", [](SceneParams& p, Rng& r) { p.cymaticsGlow = drawn(r, ParamSlot::cymaticsGlow); }},
         {T::Cymatics, "Iridescence", [](SceneParams& p, Rng& r) { p.cymaticsIridescence = drawn(r, ParamSlot::cymaticsIridescence); }},
         {T::Cymatics, "Caustic sheen", [](SceneParams& p, Rng& r) { p.cymaticsCaustic = drawn(r, ParamSlot::cymaticsCaustic); }},
+
+        // The dive's tunnel, appended so every roll above draws the numbers it always drew. Blend's roll
+        // range stays in its soft half (its meta row): a roll never deals the hard-edged frames.
+        {T::Motion, "Ring spacing", [](SceneParams& p, Rng& r) { p.diveSpacing = drawn(r, ParamSlot::diveSpacing); }},
+        {T::Motion, "Tunnel shape", [](SceneParams& p, Rng& r) { p.diveShape = drawn(r, ParamSlot::diveShape); }},
+        {T::Motion, "Dive blend", [](SceneParams& p, Rng& r) { p.diveBlend = drawn(r, ParamSlot::diveBlend); }},
+        {T::Motion, "Depth fade", [](SceneParams& p, Rng& r) { p.diveFog = maybe(r, 0.3f, ParamSlot::diveFog); }},
+        {T::Motion, "Dive twist", [](SceneParams& p, Rng& r) { p.diveTwist = maybe(r, 0.35f, ParamSlot::diveTwist); }},
+        {T::Motion, "Dive lens", [](SceneParams& p, Rng& r) { p.diveLens = maybe(r, 0.25f, ParamSlot::diveLens); }},
     };
     return kRolls;
 }
@@ -283,6 +292,9 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"rippleOverlayEnabled", "the water-ripple overlay's master switch"},
         {"marchDetail", "a performance budget, not a look"},
         {"camFlat", "how much the user wants flat styles to travel with the camera"},
+        {"diveAimX", "where the user points the dive"},
+        {"diveAimY", "where the user points the dive"},
+        {"diveFollow", "how much the user wants the music to move things"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},

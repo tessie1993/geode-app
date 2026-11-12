@@ -57,6 +57,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     // Were UNIVERSAL while this table kept its own scopes; now each is its Customize control's (Flow curl,
     // Flow force, Dive speed), so a wave is offered exactly where the slider is shown.
     {"FLOW_CURL", "FLOW_FIELD_SIM"}, {"FLOW_FORCE", "FLOW_FIELD_SIM"}, {"DIVE_SPEED", "ENDLESS_ZOOM"},
+    // Appended after the port: the dive's spiral and aim, on Dive speed's scope.
+    {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -67,7 +69,9 @@ void everyTargetKeepsItsNameAndScope() {
         check(std::string(catalogue::name(modtargets::scopeOf(t))) == kOldTargets[i].second,
               std::string("scope of ") + kOldTargets[i].first);
     }
-    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55, "wire ordinals");
+    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
+              static_cast<int>(LfoTarget::DiveAimY) == 58,
+          "wire ordinals");
 }
 
 void onlyTheRetiredSlotsAreHidden() {

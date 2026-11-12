@@ -54,7 +54,7 @@ class CustomizeBrowserTest {
                     openSections = open.value,
                     onToggleSection = { s -> open.value = if (s.path in open.value) open.value - s.path else open.value + s.path },
                     sectionLocked = { false },
-                    // Shorter than the ten rows, so the list scrolls on any emulator.
+                    // Shorter than the eleven rows, so the list scrolls on any emulator.
                     modifier = Modifier.fillMaxWidth().height(BROWSER_HEIGHT),
                 ) { section -> section.controls.forEach { Text(it) } }
             }
@@ -108,15 +108,15 @@ class CustomizeBrowserTest {
     @Test
     fun backReturnsToTheListAtTheSameScrollPosition() {
         setBrowser()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Expert"))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Engine"))
         compose.waitForIdle()
         val before = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
         assertTrue("the list scrolled", before.first > 0 || before.second > 0)
-        compose.onNodeWithText("Expert").performClick()
-        // Expert has no Basics; its first section header is the top of the page.
+        compose.onNodeWithText("Engine").performClick()
+        // Engine has no Basics; its first section header is the top of the page.
         compose.onNodeWithText("Fluid: flow").assertIsDisplayed()
         back()
-        compose.onNodeWithText("Expert").assertIsDisplayed()
+        compose.onNodeWithText("Engine").assertIsDisplayed()
         assertEquals(before, listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset)
     }
 }

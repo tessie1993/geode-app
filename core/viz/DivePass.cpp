@@ -21,7 +21,7 @@ void DivePass::release() {
 }
 
 GLuint DivePass::run(GLuint sceneTex, int srcWidth, int srcHeight, int width, int height, float phase, float mix,
-                     GLuint quadVao) {
+                     const endless::tunnel::Look& look, GLuint quadVao) {
     if (program_ == 0 || sceneTex == 0 || !target_.ensure(std::max(width, 1), std::max(height, 1))) return 0;
     glBindFramebuffer(GL_FRAMEBUFFER, target_.fbo());
     // Every pixel is written below: a tile GPU must not load the old contents back first.
@@ -36,6 +36,16 @@ GLuint DivePass::run(GLuint sceneTex, int srcWidth, int srcHeight, int width, in
                 1.0f / static_cast<float>(std::max(srcHeight, 1)));
     glUniform1f(uniforms_.loc("uPhase"), phase);
     glUniform1f(uniforms_.loc("uMix"), mix);
+    glUniform1f(uniforms_.loc("uAspect"), look.aspect);
+    glUniform1i(uniforms_.loc("uInner"), look.inner);
+    glUniform1i(uniforms_.loc("uBase"), look.base);
+    glUniform1f(uniforms_.loc("uStep"), look.step);
+    glUniform1f(uniforms_.loc("uTwist"), look.twist);
+    glUniform2f(uniforms_.loc("uCentre"), look.cx, look.cy);
+    glUniform1f(uniforms_.loc("uShape"), look.shape);
+    glUniform1f(uniforms_.loc("uBlend"), look.blend);
+    glUniform1f(uniforms_.loc("uFog"), look.fog);
+    glUniform1f(uniforms_.loc("uLens"), look.lens);
     glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

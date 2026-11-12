@@ -43,8 +43,10 @@ Pick pick(uint64_t seed, const std::string& current, const std::set<std::string>
 // base (the look on screen once the pick is applied) with every control the lock set keeps put back
 // to its value in before (the look before the gesture), then every Customize category's controls
 // that reach styleId and are not kept rolled, category by category. locked is the panel's lock set
-// as it stands: control keys and "#CATEGORY" markers. With rollCategories false (a user the
-// Customize roll is Pro for) only the kept controls are put back: the style and preset still change.
+// as it stands: control keys and "#CATEGORY" markers, plus "#PRO" for a user without Pro: the dice's
+// free rule (customize::kProLock), so the roll moves the free Basics only and every control below a
+// Basics keeps the new preset's value (it is not put back: #PRO is not Keep). With rollCategories
+// false only the kept controls are put back: the style and preset still change.
 SceneParams roll(const SceneParams& before, const SceneParams& base, uint64_t seed, const std::string& styleId,
                  const std::set<std::string>& locked, bool rollCategories = true);
 

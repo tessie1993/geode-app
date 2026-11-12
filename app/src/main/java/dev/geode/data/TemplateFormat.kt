@@ -146,7 +146,7 @@ class ForeignFields private constructor(
 
 /**
  * Serialises and parses [VideoTemplate]. Pure text in, pure text out: storage lives
- * in TemplateRepository.kt so the format can be tested and reasoned about on its own.
+ * in TemplateRepository (VideoTemplate.kt) so the format can be tested and reasoned about on its own.
  */
 object TemplateFormat {
     const val FORMAT: String = "geode.template"

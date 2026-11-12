@@ -12,8 +12,10 @@
 #include <string>
 #include <vector>
 
+#include "util/Json.hpp"
 #include "viz/LookFiles.hpp"
 #include "viz/Params.hpp"
+#include "viz/ParamsJson.hpp"
 #include "viz/ParamsPalette.hpp"
 
 using namespace geode;
@@ -235,6 +237,46 @@ void presets(const std::string& folder) {
     check(files::safeChars("a/b c") == "a_b c", "a folder name keeps no slash");
 }
 
+// The template library (TemplateRepository's TemplateStore, FileTemplateRepository and BundledTemplates before):
+// a file's name, an import's new name and the starter set.
+void templates() {
+    const std::string suffix = ".geode.json";
+    check(files::templateFileName("Reel Neon", "geode.starter.reel-neon", suffix) == "Reel Neon--geode_starter_reel-neon.geode.json",
+          "name stem, then the id's tag");
+    check(files::templateFileName("", "x", suffix) == "-e3b0c442--x.geode.json", "a blank name keeps its hashed stem");
+    check(files::templateFileName(std::string(70, 'a'), "x", suffix) == std::string(60, 'a') + "--x.geode.json", "the stem is 60 at most");
+    check(files::templateFileName("a", std::string(50, 'b') + "/c", suffix) == "a--" + std::string(40, 'b') + suffix, "the tag is 40 at most");
+    check(files::templateFileTail("id/\xc3\xa9", suffix) == "--id__" + suffix, "one '_' per code point in the tag");
+
+    check(files::uniqueTemplateName("  Mine ", {"Other"}) == "Mine", "a free name is the trimmed name");
+    check(files::uniqueTemplateName("Mine", {"mine", "MINE 2"}) == "Mine 3", "taken names, caseless, count on from 2");
+    check(files::uniqueTemplateName(" ", {}) == "Template", "a blank name is Template");
+
+    check(files::starterCount() == 6, "six starters");
+    check(files::starter(-1).empty() && files::starter(files::starterCount()).empty(), "past the end is empty");
+    for (int i = 0; i < files::starterCount(); ++i) {
+        const auto doc = json::parse(std::string(files::starter(i)));
+        check(doc && doc->kind() == json::Value::Kind::Object, "starter " + std::to_string(i) + " is a JSON object");
+        if (!doc) continue;
+        check(doc->optString("format") == "geode.template", "starter " + std::to_string(i) + " is a template");
+        const std::string id = doc->optString("id");
+        check(id.rfind("geode.starter.", 0) == 0 && files::isStarter(id), "its id is a starter's: " + id);
+        const json::Value* look = doc->get("look");
+        const json::Value* params = look ? look->get("params") : nullptr;
+        SceneParams read;
+        std::string a, b;
+        check(params && viz::readParamsJson(json::orgJsonText(*params).value_or(""), read, a, b), id + "'s params read");
+    }
+    const auto reel = json::parse(std::string(files::starter(0)));
+    const json::Value* reelParams = reel && reel->get("look") ? reel->get("look")->get("params") : nullptr;
+    SceneParams neon;
+    std::string a, b;
+    check(reelParams && viz::readParamsJson(json::orgJsonText(*reelParams).value_or(""), neon, a, b) && neon.speed == 1.3f &&
+              neon.palette == 1 && neon.bassGain == 1.4f,
+          "Reel Neon's look as it always was");
+    check(!files::isStarter("geode.starter.") && !files::isStarter("my-template"), "other ids are not starters");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -242,6 +284,7 @@ int main(int argc, char** argv) {
     fileNames();
     savedPalettes();
     presets(argc > 1 ? argv[1] : "app/src/test/resources/presets");
+    templates();
     if (failures == 0) std::printf("look files: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

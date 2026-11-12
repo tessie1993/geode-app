@@ -153,4 +153,30 @@ const char* geode_preset_milk_file_name(const char* preset_name) {
     return hold(out, files::milkFileName(textOf(preset_name)));
 }
 
+const char* geode_template_file_name(const char* name, const char* id, const char* suffix) {
+    thread_local std::string out;
+    return hold(out, files::templateFileName(textOf(name), textOf(id), textOf(suffix)));
+}
+
+const char* geode_template_file_tail(const char* id, const char* suffix) {
+    thread_local std::string out;
+    return hold(out, files::templateFileTail(textOf(id), textOf(suffix)));
+}
+
+const char* geode_template_unique_name(const char* base, const char* const* taken, int count) {
+    thread_local std::string out;
+    std::vector<std::string> names;
+    for (int i = 0; taken && i < count; ++i) names.push_back(textOf(taken[i]));
+    return hold(out, files::uniqueTemplateName(textOf(base), names));
+}
+
+int geode_template_starter_count(void) { return files::starterCount(); }
+
+const char* geode_template_starter(int index) {
+    thread_local std::string out;
+    return hold(out, std::string(files::starter(index)));
+}
+
+int geode_template_is_starter(const char* id) { return files::isStarter(textOf(id)) ? 1 : 0; }
+
 }

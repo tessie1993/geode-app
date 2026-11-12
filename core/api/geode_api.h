@@ -615,6 +615,17 @@ GEODE_API const char* geode_preset_write(const char* name, const char* scene_id,
                                          const char* custom_shader, const char* milk_preset, const float* frame, int n,
                                          const char* custom_palette_id);
 GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
+/* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
+ * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
+ * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and
+ * starter(i): the bundled starter set, each a whole template file ("" past the end); is_starter: 1 for a starter's
+ * id. Text out valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API const char* geode_template_file_name(const char* name, const char* id, const char* suffix);
+GEODE_API const char* geode_template_file_tail(const char* id, const char* suffix);
+GEODE_API const char* geode_template_unique_name(const char* base, const char* const* taken, int count);
+GEODE_API int         geode_template_starter_count(void);
+GEODE_API const char* geode_template_starter(int index);
+GEODE_API int         geode_template_is_starter(const char* id);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

@@ -179,4 +179,40 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetMilkFil
     return utf8String(env, geode_preset_milk_file_name(textOf(chars)));
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_templateFileName(JNIEnv* env, jobject, jstring name, jstring id, jstring suffix) {
+    Utf8Chars label(env, name);
+    Utf8Chars ident(env, id);
+    Utf8Chars end(env, suffix);
+    return utf8String(env, geode_template_file_name(textOf(label), textOf(ident), textOf(end)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateFileTail(JNIEnv* env, jobject, jstring id, jstring suffix) {
+    Utf8Chars ident(env, id);
+    Utf8Chars end(env, suffix);
+    return utf8String(env, geode_template_file_tail(textOf(ident), textOf(end)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_templateUniqueName(JNIEnv* env, jobject, jstring base, jobjectArray taken) {
+    Utf8Chars stem(env, base);
+    const std::vector<std::string> names = stringsOf(env, taken);
+    std::vector<const char*> pointers;
+    for (const auto& s : names) pointers.push_back(s.c_str());
+    return utf8String(env, geode_template_unique_name(textOf(stem), pointers.data(), static_cast<int>(pointers.size())));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateStarterCount(JNIEnv*, jobject) {
+    return geode_template_starter_count();
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateStarter(JNIEnv* env, jobject, jint index) {
+    return utf8String(env, geode_template_starter(index));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateIsStarter(JNIEnv* env, jobject, jstring id) {
+    Utf8Chars ident(env, id);
+    return geode_template_is_starter(textOf(ident)) ? JNI_TRUE : JNI_FALSE;
+}
+
 }

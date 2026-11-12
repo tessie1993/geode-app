@@ -107,4 +107,24 @@ std::string writePreset(const Preset& p);
 // The MilkDrop file a preset mirrors its .milk source to: its name's stem (a ".milk" suffix dropped) plus ".milk".
 std::string milkFileName(std::string_view presetName);
 
+// ---- The template library ------------------------------------------------------------------------------------
+
+// A template's file in the library: its name's stem (at most 60 bytes, trimmed, "Template" when blank), "--", its
+// id's tag (A-Z a-z 0-9 '_' '-' kept, anything else '_', at most 40 bytes) and `suffix` (the template format's).
+// The id is in the name so a template is found without reading every file.
+std::string templateFileName(std::string_view name, std::string_view id, std::string_view suffix);
+// What every file of template `id` ends with: "--", its id's tag and `suffix`.
+std::string templateFileTail(std::string_view id, std::string_view suffix);
+
+// The name a newly added template takes: `base` trimmed ("Template" when blank), or, when a template in `taken`
+// already has it (ASCII letters caseless), the first free "<name> 2", "<name> 3"... A replaced template keeps its own.
+std::string uniqueTemplateName(std::string_view base, const std::vector<std::string>& taken);
+
+// The bundled starter set, each a whole template file in the template format (written once here, so it always
+// reads and matches the current model). Using one copies it into the library under a fresh id, so editing a copy
+// never changes what a starter means. starter(i) is "" past the end.
+int starterCount();
+std::string_view starter(int index);
+bool isStarter(std::string_view id);
+
 }  // namespace geode::viz::files

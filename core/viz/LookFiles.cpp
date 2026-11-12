@@ -269,6 +269,126 @@ std::string writePreset(const Preset& p) {
     return out + "}";
 }
 
+namespace {
+
+std::string idTag(std::string_view id) {
+    std::string out;
+    for (size_t i = 0; i < id.size() && out.size() < 40;) {
+        const CodePoint cp = codePointAt(id, i);
+        const bool keep = (cp.value >= 'A' && cp.value <= 'Z') || (cp.value >= 'a' && cp.value <= 'z') ||
+                          (cp.value >= '0' && cp.value <= '9') || cp.value == '_' || cp.value == '-';
+        out += keep ? static_cast<char>(cp.value) : '_';
+        i += cp.length;
+    }
+    return out;
+}
+
+// One bundled starter: its id, name and notes, and the rest of its file (look, layout, text, export).
+struct Starter {
+    const char* slug;
+    const char* name;
+    const char* notes;
+    const char* body;
+};
+
+constexpr const char* kStarterIdPrefix = "geode.starter.";
+
+// The values the starters always had. Every key a starter leaves out reads as the template model's default.
+constexpr Starter kStarters[] = {
+    {"reel-neon", "Reel Neon", "Vertical hook clip. Loud, loop-safe, thirty seconds around the biggest moment.",
+     R"("look":{"sceneId":"fluid","attack":0.85,"decay":0.24,"params":{"speed":1.3,"audioDrive":1.6,"bloom":0.6,"contrast":1.2,)"
+     R"("intensity":1.15,"bassGain":1.4,"palette":1,"paramFadeSec":0.4}},)"
+     R"("layout":{"ratio":"R9_16","artwork":"BEHIND_BLURRED","progress":"BAR"},)"
+     R"("export":{"fps":30,"loopSafe":true,"segment":{"kind":"LOUDEST_WINDOW","durationMs":30000}})"},
+    {"lo-fi-loop", "Lo-Fi Loop", "Square, slow and soft. Made to sit under a study playlist without shouting.",
+     R"("look":{"sceneId":"aurora","attack":0.4,"decay":0.06,"params":{"speed":0.5,"audioDrive":0.85,"trails":true,)"
+     R"("trailLength":0.8,"saturation":0.8,"brightness":0.9,"palette":3,"sway":0.35,"vignette":0.4,"grain":0.18,"paramFadeSec":1.5}},)"
+     R"("layout":{"ratio":"R1_1","artwork":"CARD","artworkScale":0.55,"progress":"NONE"},)"
+     R"("text":{"slots":[{"role":"TITLE","anchor":"BOTTOM_CENTER","offsetY":-0.05,"sizeSp":26,"weight":"MEDIUM"},)"
+     R"({"role":"ARTIST","anchor":"BOTTOM_CENTER","sizeSp":18,"weight":"REGULAR"}]},)"
+     R"("export":{"fps":30,"loopSafe":true,"segment":{"kind":"LOUDEST_WINDOW","durationMs":45000}})"},
+    {"vinyl-spin", "Vinyl Spin", "Round artwork, ring progress, whole track. The classic single-cover post.",
+     R"("look":{"sceneId":"ring","attack":0.55,"decay":0.1,"params":{"speed":0.8,"audioDrive":1.1,"saturation":1.1,"bloom":0.3,)"
+     R"("vignette":0.5,"palette":5,"paramFadeSec":0.8}},)"
+     R"("layout":{"ratio":"R1_1","artwork":"CIRCLE","artworkScale":0.7,"progress":"RING"},)"
+     R"("text":{"slots":[{"role":"ARTIST","pattern":"{artist}","anchor":"TOP_CENTER","offsetY":0.06,"sizeSp":20,"allCaps":true,)"
+     R"("weight":"BOLD"}]},)"
+     R"("export":{"fps":30,"loopSafe":false,"segment":{"kind":"WHOLE_TRACK"}})"},
+    {"album-teaser", "Album Teaser", "Four-by-five feed post, fifteen seconds, album name front and centre.",
+     R"("look":{"sceneId":"waves","attack":0.7,"decay":0.15,"params":{"speed":1.0,"audioDrive":1.25,"trails":true,)"
+     R"("trailLength":0.45,"contrast":1.1,"bloom":0.4,"palette":2,"paramFadeSec":0.6}},)"
+     R"("layout":{"ratio":"R4_5","artwork":"CARD","artworkScale":0.6,"progress":"BAR"},)"
+     R"("text":{"slots":[{"role":"ALBUM","anchor":"MIDDLE_CENTER","sizeSp":40,"allCaps":true,"weight":"BOLD"},)"
+     R"({"role":"CAPTION","pattern":"{artist} - {title}","anchor":"BOTTOM_CENTER","offsetY":-0.07,"sizeSp":20}]},)"
+     R"("export":{"fps":30,"loopSafe":true,"segment":{"kind":"LOUDEST_WINDOW","durationMs":15000}})"},
+    {"podcast-bars", "Podcast Bars", "Wide, calm spectrum for speech. Whole episode, readable title, no strobing.",
+     R"("look":{"sceneId":"bars","attack":0.5,"decay":0.2,"params":{"speed":0.9,"audioDrive":1.0,"saturation":0.7,)"
+     R"("brightness":0.95,"midGain":1.25,"vignette":0.25,"palette":0,"paramFadeSec":1.0}},)"
+     R"("layout":{"ratio":"R16_9","artwork":"CARD","artworkScale":0.4,"progress":"BAR"},)"
+     R"("text":{"slots":[{"role":"TITLE","anchor":"MIDDLE_LEFT","offsetX":0.08,"sizeSp":32,"weight":"BOLD"},)"
+     R"({"role":"CREDIT","pattern":"{artist} - {index} of {total}","anchor":"BOTTOM_LEFT","offsetX":0.08,"sizeSp":18}]},)"
+     R"("export":{"fps":30,"loopSafe":false,"segment":{"kind":"WHOLE_TRACK"}})"},
+    {"master-4k", "Master 4K", "Archive render: 4K, sixty frames, no overlays. The one you keep.",
+     R"("look":{"attack":0.65,"decay":0.12,"params":{"speed":1.0,"audioDrive":1.2,"bloom":0.45,"contrast":1.05,"paramFadeSec":0.9}},)"
+     R"("layout":{"ratio":"R16_9","artwork":"NONE","progress":"NONE"},)"
+     R"("text":{"slots":[]},)"
+     R"("export":{"quality":"UHD4K","fps":60,"loopSafe":false,"segment":{"kind":"WHOLE_TRACK"},)"
+     R"("fileNamePattern":"{artist} - {title} (4K)"})"},
+};
+
+constexpr int kStarterCount = static_cast<int>(sizeof(kStarters) / sizeof(kStarters[0]));
+
+const std::vector<std::string>& starterTexts() {
+    static const std::vector<std::string> texts = [] {
+        std::vector<std::string> out;
+        for (const Starter& s : kStarters) {
+            out.push_back(std::string(R"({"format":"geode.template","formatVersion":1,"id":)") +
+                          json::quoted(std::string(kStarterIdPrefix) + s.slug) + R"(,"name":)" + json::quoted(s.name) +
+                          R"(,"author":"BeatRealms","notes":)" + json::quoted(s.notes) + R"(,"createdAtMs":0,)" + s.body + "}");
+        }
+        return out;
+    }();
+    return texts;
+}
+
+}  // namespace
+
+std::string templateFileTail(std::string_view id, std::string_view suffix) { return "--" + idTag(id) + std::string(suffix); }
+
+std::string templateFileName(std::string_view name, std::string_view id, std::string_view suffix) {
+    std::string stem = trimmed(safeFileName(name).substr(0, 60));
+    if (stem.empty()) stem = "Template";
+    return stem + templateFileTail(id, suffix);
+}
+
+std::string uniqueTemplateName(std::string_view base, const std::vector<std::string>& taken) {
+    std::string stem = trimmed(base);
+    if (stem.empty()) stem = "Template";
+    const auto isTaken = [&taken](const std::string& candidate) {
+        const std::string key = caselessKey(candidate);
+        return std::any_of(taken.begin(), taken.end(), [&key](const std::string& t) { return caselessKey(t) == key; });
+    };
+    if (!isTaken(stem)) return stem;
+    for (int attempt = 2;; ++attempt) {
+        std::string candidate = stem + " " + std::to_string(attempt);
+        if (!isTaken(candidate)) return candidate;
+    }
+}
+
+int starterCount() { return kStarterCount; }
+
+std::string_view starter(int index) {
+    if (index < 0 || index >= kStarterCount) return {};
+    return starterTexts()[static_cast<size_t>(index)];
+}
+
+bool isStarter(std::string_view id) {
+    for (const Starter& s : kStarters) {
+        if (id == std::string(kStarterIdPrefix) + s.slug) return true;
+    }
+    return false;
+}
+
 std::string milkFileName(std::string_view presetName) {
     constexpr std::string_view kSuffix = ".milk";
     if (presetName.size() >= kSuffix.size() && presetName.substr(presetName.size() - kSuffix.size()) == kSuffix) {

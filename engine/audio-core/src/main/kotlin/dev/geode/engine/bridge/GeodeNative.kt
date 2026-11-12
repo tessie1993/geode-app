@@ -1194,6 +1194,34 @@ object GeodeNative {
     /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
     external fun presetMilkFileName(presetName: String): String
 
+    /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
+    external fun templateFileName(
+        name: String,
+        id: String,
+        suffix: String,
+    ): String
+
+    /** What every library file of template [id] ends with (`geode_template_file_tail`). */
+    external fun templateFileTail(
+        id: String,
+        suffix: String,
+    ): String
+
+    /** The name a newly added template takes beside the [taken] ones (`geode_template_unique_name`). */
+    external fun templateUniqueName(
+        base: String,
+        taken: Array<String>,
+    ): String
+
+    /** How many bundled starter templates there are (`geode_template_starter_count`). */
+    external fun templateStarterCount(): Int
+
+    /** Bundled starter [index] as a whole template file (`geode_template_starter`). */
+    external fun templateStarter(index: Int): String
+
+    /** True for a bundled starter's template id (`geode_template_is_starter`). */
+    external fun templateIsStarter(id: String): Boolean
+
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON

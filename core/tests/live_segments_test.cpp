@@ -5,7 +5,7 @@
 // could hold (too small, too large, endless), which end the cutting with nothing kept.
 //
 // Build & run:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_segments_test.cpp \
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_segments_test.cpp
 //       core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_segments_test && ./live_segments_test
 #include <algorithm>
 #include <cstddef>

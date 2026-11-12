@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "api/geode_export_job_api.h"
+#include "api/geode_modulation_api.h"
 #include "output/android/MediaCodecSink.hpp"
 
 namespace geode::output::looprender {
@@ -186,24 +187,11 @@ private:
         }
         driftParams(params, colorShift, temperature, scene.hueOffset, scene.warmthOffset);
         geode_viz_set_params(viz_, params.data(), static_cast<int>(params.size()));
-        for (int slot = 0; slot < GEODE_LFO_SLOTS; ++slot) {
-            const std::vector<float>& config = setup_.lfos[slot];
-            if (!config.empty()) geode_viz_set_lfo(viz_, slot, config.data(), static_cast<int>(config.size()));
-        }
-        for (int slot = 0; slot < GEODE_ADSR_SLOTS; ++slot) {
-            const std::vector<float>& config = setup_.adsrs[slot];
-            if (!config.empty()) geode_viz_set_adsr(viz_, slot, config.data(), static_cast<int>(config.size()));
-        }
-        if (setup_.soundTuning.size() >= static_cast<size_t>(GEODE_SOUND_TUNING_FLOATS)) {
-            GeodeSoundTuning tuning{};
-            std::memcpy(&tuning, setup_.soundTuning.data(), sizeof(tuning));
-            geode_viz_set_sound_tuning(viz_, &tuning);
-        }
-        if (setup_.hasReactions) {
-            geode_viz_set_user_reactions(viz_, setup_.reactions.data(), static_cast<int>(setup_.reactions.size()), 1);
-        } else {
-            geode_viz_set_user_reactions(viz_, nullptr, 0, 0);
-        }
+        geode_viz_set_lfos(viz_, setup_.lfos.c_str());
+        geode_viz_set_adsrs(viz_, setup_.adsrs.c_str());
+        geode_viz_set_sound_tuning(viz_, setup_.soundTuning.empty() ? nullptr : setup_.soundTuning.data(),
+                                   static_cast<int>(setup_.soundTuning.size()));
+        geode_viz_set_reactions(viz_, setup_.hasReactions ? setup_.reactions.c_str() : nullptr);
         geode_viz_set_reduced_motion(viz_, setup_.reducedMotion ? 1 : 0);
         geode_viz_set_transition(viz_, setup_.transitionId.c_str(), setup_.transitionMs);
         if (setup_.underlay.empty()) {

@@ -18,7 +18,7 @@
 namespace geode::output::looprender {
 
 // What the shell hands over once, before the job runs. The look is in the frames the live renderer takes it
-// in (geode_viz_set_params, _set_lfo, _set_adsr, _set_sound_tuning, _set_user_reactions).
+// in (geode_viz_set_params, _set_lfos, _set_adsrs, _set_sound_tuning, _set_reactions).
 struct Setup {
     int width = 0;
     int height = 0;
@@ -38,10 +38,10 @@ struct Setup {
     bool entitled = false;
 
     std::vector<float> params;
-    std::vector<float> lfos[GEODE_LFO_SLOTS];
-    std::vector<float> adsrs[GEODE_ADSR_SLOTS];
+    std::string lfos;
+    std::string adsrs;
     std::vector<float> soundTuning;
-    std::vector<float> reactions;
+    std::string reactions;
     bool hasReactions = false;
     bool reducedMotion = false;
     std::string transitionId;

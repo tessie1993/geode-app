@@ -35,12 +35,14 @@ GEODE_API void geode_loop_job_set_track(geode_loop_job*, int fd, int64_t offset,
    outlive the run. milk_path NULL: no MilkDrop preset. */
 GEODE_API void geode_loop_job_set_scene(geode_loop_job*, AAssetManager* assets, const char* milk_texture_dir,
                                         const char* scene_id, const char* milk_path, int entitled);
-/* The look, each part in the frame the geode_viz setter of the same name takes; all copied. */
+/* The look, each part in the frame the geode_viz setter of the same name takes; all copied. The waves,
+   envelopes and reactions are the saved texts (reactions NULL: Auto); the tuning is the saved one (NULL: the
+   defaults). */
 GEODE_API void geode_loop_job_set_params(geode_loop_job*, const float* values, int count);
-GEODE_API void geode_loop_job_set_lfo(geode_loop_job*, int slot, const float* config, int count);
-GEODE_API void geode_loop_job_set_adsr(geode_loop_job*, int slot, const float* config, int count);
-GEODE_API void geode_loop_job_set_sound_tuning(geode_loop_job*, const float* tuning, int count);
-GEODE_API void geode_loop_job_set_user_reactions(geode_loop_job*, const float* routes, int count, int has_user);
+GEODE_API void geode_loop_job_set_lfos(geode_loop_job*, const char* lfos);
+GEODE_API void geode_loop_job_set_adsrs(geode_loop_job*, const char* adsrs);
+GEODE_API void geode_loop_job_set_sound_tuning(geode_loop_job*, const float* saved, int count);
+GEODE_API void geode_loop_job_set_reactions(geode_loop_job*, const char* reactions);
 GEODE_API void geode_loop_job_set_motion(geode_loop_job*, int reduced_motion, const char* transition_id,
                                          int64_t transition_ms);
 /* pixels NULL, or fewer than width * height of them (count): no image. */

@@ -15,8 +15,8 @@ import dev.geode.geodeContainer
  *
  * Android delivers no headset broadcast to a manifest receiver any more, so this only listens while
  * a [PlaybackSession] is alive, which is whenever the app or the playback service holds one. That is
- * also the only time there is a track to resume. The switch is read on every connect rather than
- * cached, so flipping it in Settings takes effect without a restart.
+ * also the only time there is a track to resume. The switch is read on every connect from the
+ * container's one copy, so flipping it in Settings takes effect without a restart.
  */
 internal class HeadphoneAutoplay(
     context: Context,

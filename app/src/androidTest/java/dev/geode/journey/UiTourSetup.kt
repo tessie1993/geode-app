@@ -10,8 +10,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.geode.BuildConfig
 import dev.geode.billing.CachedEntitlement
 import dev.geode.billing.PrefsEntitlementStore
+import dev.geode.data.AppStateCodec
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.ThemeStore
 import org.junit.Assume.assumeTrue
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -133,10 +133,10 @@ class TourSetup : TestRule {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (case.onboarded && !case.tutorialSeen) {
             context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE).edit(commit = true) {
-                putBoolean(ThemeStore.KEY_TUTORIAL_SEEN, false)
+                putBoolean(AppStateCodec.KEY_TUTORIAL_SEEN, false)
             }
             // After Onboarded's own hand-over, so the repository holds the unseen tour too.
-            publishSeededGuiPrefs(context)
+            publishSeededAppState(context)
         }
         if (case.pro && BuildConfig.USE_FAKE_BILLING) {
             val store = PrefsEntitlementStore(PrefsEntitlementStore.open(context))

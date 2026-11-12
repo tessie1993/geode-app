@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.MacroStore
+import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
@@ -245,7 +245,7 @@ private fun CustomizeHeader(
     var savingPreset by remember { mutableStateOf(false) }
     var borrowing by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val macroStore = remember { MacroStore.get(context) }
+    val macroStore = remember { context.geodeContainer.macros }
     val target = category ?: CustomizeCategory.QUICK_KNOBS
     val onKnobs = target == CustomizeCategory.QUICK_KNOBS
     val nudge = LocalTourNudge.current

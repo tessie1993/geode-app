@@ -46,8 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.data.NoteResponseStore
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
 import dev.geode.render.EnvBand
@@ -478,7 +478,7 @@ internal fun NoteKeyPage(
     onChange: (SceneParams) -> Unit,
 ) {
     val context = LocalContext.current
-    val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
+    val running by remember { context.geodeContainer.noteResponse }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
     NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {

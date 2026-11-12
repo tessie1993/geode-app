@@ -266,6 +266,8 @@ void marchedStylesMatchTheOldSet() {
             if (std::string(f.name) == family) want.insert(f.ids.begin(), f.ids.end());
         }
     }
+    // Life is presented as a marched field on the camera rig (core/viz/present/FieldPresent).
+    for (const auto& id : styles::lifeIds()) want.insert(id);
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -302,8 +304,14 @@ void paramScopesMatchTheOldParamScope() {
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
     check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
-    check(!catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::TrebleBand, "life_orbium"),
-          "life reads treble, not bass");
+    // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
+    check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
+              catalogue::reaches(Scope::TrebleBand, "life_orbium"),
+          "life hears every band");
+    check(catalogue::reaches(Scope::ShaderLook, "life_orbium") && catalogue::reaches(Scope::Turbulence, "life_orbium") &&
+              catalogue::reaches(Scope::MarchDetail, "life_worms") && catalogue::fliesCamera("life_worms"),
+          "life reads the shader look, Turbulence and Detail and flies the rig");
+    check(!catalogue::reaches(Scope::ShaderLook, "silk_web") && !catalogue::fliesCamera("silk_web"), "silk is still flat");
     check(catalogue::reaches(Scope::Journey, "curlflow") && !catalogue::reaches(Scope::Emitters, "curlflow"), "curl flow");
     check(catalogue::reaches(Scope::Cymatics, "kundt_tube") && !catalogue::reaches(Scope::Cymatics, "plasma"), "cymatics");
     check(catalogue::kindOf("no_such_style") == Kind::Silk, "unknown ids are silk");

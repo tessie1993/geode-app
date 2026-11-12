@@ -19,16 +19,6 @@ silk_hyper: noteChords noteDrums noteIntervals notePitch noteTension
 silk_resonance: noteChords noteDrums noteIntervals notePitch noteTension
 silk_curl: noteChords noteDrums noteIntervals notePitch noteTension
 silk_pendulum: noteChords noteDrums noteIntervals notePitch noteTension
-life_orbium: noteChords noteDrums noteIntervals notePitch noteTension
-life_gyre: noteChords noteDrums noteIntervals notePitch noteTension
-life_helix: noteChords noteDrums noteIntervals notePitch noteTension
-life_pulsar: noteChords noteDrums noteIntervals notePitch noteTension
-life_hydro: noteChords noteDrums noteIntervals notePitch noteTension
-life_bug: noteChords noteDrums noteIntervals notePitch noteTension
-life_mitosis: noteChords noteDrums noteIntervals notePitch noteTension
-life_coral: noteChords noteDrums noteIntervals notePitch noteTension
-life_labyrinth: noteChords noteDrums noteIntervals notePitch noteTension
-life_worms: noteChords noteDrums noteIntervals notePitch noteTension
 myco_polycephalum: noteChords noteDrums noteIntervals notePitch noteTension
 myco_rivals: noteChords noteDrums noteIntervals notePitch noteTension
 myco_symbiosis: noteChords noteDrums noteIntervals notePitch noteTension

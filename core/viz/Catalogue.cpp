@@ -310,12 +310,16 @@ bool inMarchedFamily(const std::string& id) {
     return false;
 }
 
+// A simulation presented in 3D (core/viz/present/FieldPresent): its present is drawn by a ShaderScene on the
+// shared block, so it reads the shader look, the bands and Turbulence as a shader style does, and marches.
+bool presentsIn3d(Kind k) { return k == Kind::Life; }
+
 // Per-band gain reaches only a style that reads that band's envelope; MilkDrop takes raw PCM.
 bool readsBass(Kind k) {
-    return k == Kind::Shader || k == Kind::Silk || k == Kind::Mycelium || k == Kind::Acid || k == Kind::Fluid;
+    return k == Kind::Shader || k == Kind::Silk || k == Kind::Mycelium || k == Kind::Acid || k == Kind::Fluid || presentsIn3d(k);
 }
 bool readsMid(Kind k) {
-    return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow;
+    return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow || presentsIn3d(k);
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
@@ -329,10 +333,11 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::MidBand: return readsMid(k);
         case Scope::TrebleBand: return readsTreble(k);
         case Scope::BandGains: return readsBass(k) || readsMid(k) || readsTreble(k);
-        case Scope::ShaderLook: return k == Kind::Shader;
+        case Scope::ShaderLook: return k == Kind::Shader || presentsIn3d(k);
         case Scope::MarchDetail: return false;
         case Scope::EndlessZoom: return true;
-        case Scope::Turbulence: return k == Kind::Shader || k == Kind::Mycelium || k == Kind::Acid || k == Kind::CurlFlow;
+        case Scope::Turbulence:
+            return k == Kind::Shader || k == Kind::Mycelium || k == Kind::Acid || k == Kind::CurlFlow || presentsIn3d(k);
         case Scope::DyeDensity: return k == Kind::Fluid;
         // A shader style's trails are the feedback pass's sustain, echo zoom and warp (EndlessZoom.hpp).
         case Scope::TrailToggle:
@@ -579,7 +584,8 @@ Kind kindOf(const std::string& id) {
 }
 
 bool isMarched(const std::string& id) {
-    return listed(kLooseMarched, id) || listed(kFamilyMarched, id) || inMarchedFamily(id);
+    return listed(kLooseMarched, id) || listed(kFamilyMarched, id) || inMarchedFamily(id) ||
+           presentsIn3d(kindOf(id));
 }
 
 bool fliesCamera(const std::string& id) { return isMarched(id) && !listed(kMarchedOffRig, id); }

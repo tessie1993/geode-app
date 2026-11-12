@@ -187,8 +187,15 @@ The renderer runs these in order each frame.
 - `ShaderScene::uploadParams` takes the knobs from `NoteResponse` (exactly 0.5 while it is off).
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
-- The simulation scenes (Silk, Fluid, Life, Morphing (ids `acid_*`, `AcidScene`), Cymatics) present their field as a lit 3D surface through `lib_relief`.
+- Silk and Morphing (ids `acid_*`, `AcidScene`) present their field as a lit relief through `lib_relief`.
+- Life presents its field in 3D through `core/viz/present/FieldPresent` (`life_show_frag`): seven styles a terrain on the rig, Gyre a torus, Pulsar and Mitosis a sphere.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.
+- `core/viz/present/FieldPresent` presents a simulation in 3D: `field_prep_frag` writes its state into a mipmapped field (height, tint, age), and a `ShaderScene` fed that field (`ShaderScene::Field`) draws it, so the present reads the whole shared block like a style.
+- That present shader includes `lib_field3d`, defines its colours, then `lib_field3d_march`: the field marched as a terrain on `camFly` or a torus or sphere on `camAround`, with finer copies of the field as fractal detail.
+- In it Kaleidoscope, Twist, Tile, Warp and Ripple bend the 3D shape (`VIEW_BENDS_IN_3D` keeps them out of `view()`).
+- `core/viz/present/FieldGeometry` is its pure maths: each surface's size and eye, and where a finger lands on the field (`field_present_test`).
+- The composite applies no geometry, mirror or grade to a scene that draws the rig itself (`grade::gateFor`, `Scene::drawsCamera`).
+- A held simulation that draws the rig redraws its held field when the rig moves (`Scene::redrawHeld`); it is not stepped.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
 - Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.

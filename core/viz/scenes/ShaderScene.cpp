@@ -156,6 +156,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadCamera();
     uploadWorld();
     uploadPool();
+    uploadField();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -367,6 +368,18 @@ void ShaderScene::uploadPool() {
     glUniform4fv(uniforms_.loc("uPoolWakes"), uniforms_.arrayCount("uPoolWakes", pool::kMaxWakes), &s.wakes[0].x);
     glUniform4f(uniforms_.loc("uPoolLook"), s.look.refraction, s.look.focus, s.look.caustics, s.look.shade);
     glUniform4f(uniforms_.loc("uPoolView"), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
+}
+
+void ShaderScene::uploadField() {
+    if (!field_ || field_->texture == 0) return;
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, field_->texture);
+    glUniform1i(uniforms_.loc("uField"), 4);
+    glActiveTexture(GL_TEXTURE0);
+    glUniform2fv(uniforms_.loc("uFieldRes"), 1, field_->size.data());
+    glUniform4fv(uniforms_.loc("uFieldGeom"), 1, field_->geom.data());
+    glUniform4fv(uniforms_.loc("uFieldShape"), 1, field_->shape.data());
+    glUniform4fv(uniforms_.loc("uFieldLook"), uniforms_.arrayCount("uFieldLook", kFieldLooks), field_->look.data());
 }
 
 void ShaderScene::specializeWorld() {

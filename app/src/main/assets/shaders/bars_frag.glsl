@@ -58,7 +58,10 @@ out vec4 fragColor;
 //   k0 PULSE    how far the beat throws the caps
 //   k1 TEXTURE  how many window bands a tower has
 //   k2 FLOW     a slow standing swell of the snare's wave, with or without snare
-//   k3 TONE     the city's hue
+//   k3 TONE     the skyline's tilt across the spectrum: a high melody lifts
+//               the treble towers by the kerb and lowers the bass walls at the
+//               edges, a low one the reverse, so the city leans with the tune
+//               (and a small hue offset, as before)
 //   k4 BUILD    the tower height per unit of band level
 //   k5 SPACE    the fog: the far end of the avenue clears or closes in
 //
@@ -118,6 +121,7 @@ float gGain;
 float gScatter;
 float gRound;
 float gTurn;
+float gTilt;
 
 float barsKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
@@ -162,7 +166,9 @@ float map(vec3 p) {
         float seg = 1.0 - (lane + 0.5) / BARS_LANES;
         float lvl = clamp(0.5 * sndEq(seg), 0.0, 1.5);
         float wave = gWaveAmp * sin(lane * 0.7 + cc.y * (BARS_TAU / 16.0) - uTime * 3.0);
-        float top = BARS_FLOOR + 0.15 + gGain * lvl * (1.0 + gScatter * (2.0 * h - 1.0)) + wave;
+        // TONE leans the skyline: seg 1 is the kerb (treble), 0 the outer bass lane.
+        float lean = max(1.0 + gTilt * (2.0 * seg - 1.0), 0.15);
+        float top = BARS_FLOOR + 0.15 + gGain * lvl * lean * (1.0 + gScatter * (2.0 * h - 1.0)) + wave;
         top = clamp(top, BARS_FLOOR + 0.05, BARS_HMAX - BARS_CAP_GAP - BARS_CAP_H - 0.3);
         // The cap: thrown up on the beat and falling back with gravity's shape.
         float capY = min(top + BARS_CAP_GAP + gThrow * gBeatFall * barsRegion(seg), BARS_HMAX - BARS_CAP_H);
@@ -249,6 +255,7 @@ void main() {
     gScatter = 0.12 + 0.35 * clamp(uTurbulence, 0.0, 1.0);
     gRound = clamp(uMorph, 0.0, 1.0);
     gTurn = 1.6 * clamp(uWarp, 0.0, 2.0);
+    gTilt = 1.6 * barsKnob(3);
     float hue = 0.15 * barsKnob(3);
     float bands = 3.0 * (1.0 + 0.9 * barsKnob(1));
     float fog = 0.035 * (1.0 - 1.4 * barsKnob(5));

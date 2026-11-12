@@ -56,8 +56,10 @@ out vec4 fragColor;
 //
 // Knobs (exactly 0.5, neutral, while Note & key reactions are off):
 // k0 PULSE the kick's thickening, k1 TEXTURE the graticule's density,
-// k2 FLOW the knot's tumble rate, k3 TONE the hue, k4 BUILD the halo,
-// k5 SPACE the orbit radius.
+// k2 FLOW the knot's tumble rate, k3 TONE the figure's build (a high melody
+// draws it tall and slim, a low one flat and wide, plus a small hue offset),
+// k4 BUILD the halo and how far the knot gives way to the waveform's own
+// portrait (tension shows the raw sound), k5 SPACE the orbit radius.
 //
 // Shared controls: Morph pulls the beam toward the waveform, Warp twists the
 // figure about its vertical axis, Turbulence shivers the vertices, Intensity
@@ -75,7 +77,8 @@ out vec4 fragColor;
 // farther than LS_CULL from any point on the ray. The field returns
 // min(kept capsules, LS_CULL), which is never more than the true distance, so
 // the march cannot overstep a dropped segment. Every vertex stays within 3.26
-// of the origin (knot or waveform at most 1.9, shiver 0.28, swell 1.5x), so
+// of the origin (knot or waveform at most 1.9, shiver 0.28, swell 1.5x; TONE
+// only ever shrinks an axis, never stretches one), so
 // the tube stays within 3.4 and LS_BOUND adds the cull reach. The nearest the
 // rig's dolly brings the eye is 0.65 x 5.4 = 3.51, so the eye is never inside
 // the tube, and a ray that misses the bounding sphere never marches at all.
@@ -175,7 +178,10 @@ void main() {
     float hueBase = 0.18 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.5 * kn(3);
 
     // ---- the beam: knot blended toward the waveform's portrait ---------------
-    float trace = clamp((0.3 + 0.7 * clamp(uMorph, 0.0, 1.0)) * (0.25 + 1.2 * level), 0.0, 1.0);
+    float trace = clamp((0.3 + 0.7 * clamp(uMorph, 0.0, 1.0)) * (0.25 + 1.2 * level) + 0.7 * kn(4), 0.0, 1.0);
+    // TONE: tall and slim for a high melody, flat and wide for a low one. Each
+    // factor is at most 1, so the vertex bound in the header still holds.
+    vec3 build = vec3(1.0 - 1.2 * max(kn(3), 0.0), 1.0 + 1.2 * min(kn(3), 0.0), 1.0 - 1.2 * max(kn(3), 0.0));
     vec3 ratio = knotRatios();
     float phase = uTime * 0.15 + SND_MID_TIME * 0.25 * (1.0 + 1.2 * kn(2));
     float scale = 1.15 * (1.0 + 0.1 * bass + 0.15 * surge);
@@ -195,7 +201,7 @@ void main() {
         vec3 knot = vec3(sin(ratio.x * th + phase), sin(ratio.y * th), sin(ratio.z * th + phase * 0.7)) * 0.8;
         vec3 v = mix(knot, wave * 1.1, trace);
         v += shiver * sin(vec3(fi * 1.7, fi * 2.3, fi * 2.9) + uTime * vec3(3.1, 2.7, 3.7));
-        v *= scale;
+        v *= scale * build;
         float ta = twist * v.y;
         v.xz = mat2(cos(ta), -sin(ta), sin(ta), cos(ta)) * v.xz;
         if (i > 0) {

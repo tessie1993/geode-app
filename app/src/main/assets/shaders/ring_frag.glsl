@@ -52,7 +52,9 @@ out vec4 fragColor;
 // base rides a three-lobed wave) and widens the oscillogram, Turbulence
 // shimmers the blade lengths. Knobs (offset from 0.5): k0 PULSE the kick
 // swell, k1 TEXTURE the blade thickness, k2 FLOW the oscillogram swing, k3
-// TONE the hue, k4 BUILD the blade gain, k5 SPACE the orbit radius.
+// TONE the blades' lean on top of Morph's (a high melody lifts the crown into
+// a cup, a low one droops it into an umbrella under the ring plane, and a
+// small hue offset), k4 BUILD the blade gain, k5 SPACE the orbit radius.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -64,7 +66,8 @@ out vec4 fragColor;
 // the distance to the nearer boundary plus RG_GAP. That bound is only taken
 // inside the annulus that holds every blade; outside it, the distance to the
 // annulus (an exact 2D box distance in (r, y), since the annulus is a solid
-// of revolution) is the bound. Each blade's length, base and tilt are
+// of revolution) is the bound; the box reaches RG_LMAX above and below the
+// ring plane, since TONE can lean the blades either way. Each blade's length, base and tilt are
 // constants of its sector, so its own box is exact. The core and hub are
 // exact. The march steps 0.85 of the estimate and starts at the bounding
 // sphere RG_BOUND, which the dolly's closest eye (0.65 * RG_CAM_MIN) never
@@ -141,8 +144,8 @@ float map(vec3 p) {
     const float cw = 0.9978589; // cos(pi / 48)
     float toEdge = max(sw * xr - cw * abs(zt), 0.0);
     // The annulus every blade lives in, as a box in (r, y).
-    vec2 bc = vec2(RG_RIN + 0.5 * RG_LMAX, 0.5 * RG_LMAX);
-    vec2 bh = vec2(0.5 * RG_LMAX + 0.5, 0.5 * RG_LMAX + 0.5);
+    vec2 bc = vec2(RG_RIN + 0.5 * RG_LMAX, 0.0);
+    vec2 bh = vec2(0.5 * RG_LMAX + 0.5, RG_LMAX + 0.5);
     vec2 bq = abs(vec2(r, p.y) - bc) - bh;
     float dBound = length(max(bq, 0.0)) + min(max(bq.x, bq.y), 0.0);
     float dBlades = min(dOwn, max(toEdge + RG_GAP, dBound));
@@ -210,7 +213,7 @@ void main() {
     gPhase = fract(uTime * 0.02 + orbit / RG_TAU);
     gGain = 1.25 * (1.0 + 0.5 * kBuild);
     gThick = 1.0 + 0.6 * kTexture;
-    gLean = 0.85 * clamp(uMorph, 0.0, 1.0);
+    gLean = clamp(0.85 * clamp(uMorph, 0.0, 1.0) + 1.1 * kTone, -0.7, 1.2);
     gWarp = clamp(uWarp, 0.0, 1.2);
     gTurb = clamp(uTurbulence, 0.0, 1.0);
     gCore = 0.48 + 0.16 * kick * (1.0 + 1.6 * kPulse);

@@ -49,8 +49,11 @@ out vec4 fragColor;
 // waveform as a radius around the corridor's axis, mirrored so it has no
 // seam); Warp twists the frames about the axis into a slow helix; Turbulence
 // jitters the beam. Knobs: k0 PULSE the kick's pinch, k1 TEXTURE the
-// graticule, k2 FLOW the helix, k3 TONE the hue, k4 BUILD the halo, k5 SPACE
-// the tube's width. Each is read as its offset from rest (0.5), so with Note &
+// graticule, k2 FLOW the helix, k3 TONE where the beam rides (a high melody
+// lifts every trace toward the ceiling, the ring scope widens; a low one drops
+// them to the floor; plus a small hue offset), k4 BUILD the halo and how the
+// traces grow taller down the tube ahead (a build stacks rising frames),
+// k5 SPACE the tube's width. Each is read as its offset from rest (0.5), so with Note &
 // key reactions off the style is exactly its tuned look.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -232,6 +235,10 @@ void main() {
         float morph = clamp(uMorph, 0.0, 1.0);
         float helix = clamp(uWarp, 0.0, 2.0) * 0.9 + 0.8 * scKnob(2);
         float haloK = (0.30 + 0.55 * snare) * clamp(1.0 + 1.5 * scKnob(4), 0.2, 2.5);
+        // TONE: where the beam rides in the tube; BUILD: how much taller each frame
+        // ahead stands than the last, so a build reads as a rising stack in depth.
+        float lift = 2.2 * scKnob(3);
+        float rise = 0.12 * scKnob(4);
         for (int i = 0; i < SC_FRAMES; i++) {
             if (i >= frames) break;
             float zi = (base + dir * float(i)) * SC_FRAME_SP;
@@ -242,6 +249,8 @@ void main() {
             vec2 q = rot2(helix * sin(zw * (SC_TAU / 32.0) + uTime * 0.15)) * (ro.xy + rd.xy * ti);
 
             float px = ti * pxK;
+            // By distance, not frame index, so a frame grows smoothly as the eye nears it.
+            float ampI = amp * max(1.0 + rise * ti / SC_FRAME_SP, 0.3);
             float d = 1e3;
             float u = 0.5;
             float ends = 1.0;
@@ -249,8 +258,8 @@ void main() {
                 // The flat scope: y = wave(x), its distance corrected by the slope.
                 float ul = q.x / (2.0 * SC_TRACE_W) + 0.5;
                 float du = 1.0 / 512.0;
-                float f0 = traceY(ul, zw, amp);
-                float f1 = traceY(ul + du, zw, amp);
+                float f0 = traceY(ul, zw, ampI) + lift;
+                float f1 = traceY(ul + du, zw, ampI) + lift;
                 float slope = (f1 - f0) / (2.0 * SC_TRACE_W * du);
                 float dl = abs(q.y - f0) / sqrt(1.0 + slope * slope);
                 float el = smoothstep(0.0, 0.03, ul) * (1.0 - smoothstep(0.97, 1.0, ul));
@@ -264,7 +273,7 @@ void main() {
                 float r = length(q);
                 float a = r > 1e-4 ? atan(q.y, q.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
                 float ur = abs(a) / SC_PI;
-                float fr = 1.4 + 0.55 * (traceY(ur, zw, amp) / 0.9);
+                float fr = max(1.4 + 0.4 * lift + 0.55 * (traceY(ur, zw, ampI) / 0.9), 0.3);
                 float dr = abs(r - fr);
                 bool pure = morph >= 0.999;
                 d = pure ? dr : mix(d, dr, morph);

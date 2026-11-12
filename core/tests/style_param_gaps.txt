@@ -103,18 +103,6 @@ arbor_rosette: midGain
 arbor_spire: noteChords noteDrums noteIntervals notePitch noteTension
 arbor_synapse: midGain noteChords noteDrums noteIntervals notePitch noteTension
 arbor_sakura: midGain
-bulb_classic: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_julia: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_slice: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_lotus: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_glow: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_cavern: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_shell: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_prism: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_contour: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_chrome: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_hybrid: midGain noteChords noteDrums noteIntervals notePitch noteTension
 chrys_phyllo: midGain
 chrys_lotus: midGain
 chrys_corolla: midGain noteChords noteDrums noteIntervals notePitch noteTension

@@ -254,6 +254,9 @@ The renderer runs these in order each frame.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
 - Shard, Prism and Fluor also include `lib_strata` before `lib_<family>`: a far fractal lattice and a domain-warped haze round the marched form, and the folds, sponge and nested shells a style's form is built from.
 - `uFormula` (lib_scene_uniforms) picks one of three formulas in a Shard, Prism or Fluor style, crossfaded in two narrow bands (`strataFormula`); 0 is each style's original geometry.
+- Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
+- `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
+- `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.

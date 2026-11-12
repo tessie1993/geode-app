@@ -2,12 +2,14 @@
 // presentation times of a stop, the seam the reel reports, the drift each stop adds, what a cancel and each
 // failure leave behind, and the order a stop is torn down in. The picture, the surface and the files are a fake
 // Host; the encoder and the muxer are fakes of the encode sink's seam, fed by what the fake surface presents.
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <deque>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,6 +59,7 @@ struct World {
     std::vector<int> seamCaps;    // per stop, the most seam frames the stash holds (missing: all asked for)
     std::string seamError;        // the seam pass does not build
     int failFrame = -1;           // renderFrame fails at this frame
+    int throwFrame = -1;          // renderFrame throws at this frame
     int failPresentAt = -1;       // the swap fails once this many frames were presented
     int cancelStop = -1;          // cancel while this stop draws ...
     int cancelFrame = -1;         // ... this frame
@@ -223,6 +226,7 @@ public:
     }
     bool renderFrame(int frame) override {
         if (frame == w_.failFrame) return false;
+        if (frame == w_.throwFrame) throw std::runtime_error("out of memory");
         ++w_.framesThisStop;
         if (w_.job && w_.stop == w_.cancelStop && frame == w_.cancelFrame) w_.job->cancel();
         return true;
@@ -420,6 +424,27 @@ void cancelMidway() {
     check(job.progress() < 1.0f, "a cancelled job never reports 1");
 }
 
+// A throw out of a frame unwinds through the stop: its scene, muxer, encoder, surface and file still close, in
+// the order a finished stop closes them, so nothing stays open for the caller to find.
+void throwMidStop() {
+    World w;
+    w.throwFrame = 100;
+    FakeHost host(w);
+    lr::Job job(request(1280, 720, 6'000'000, 60), host);
+    bool thrown = false;
+    try {
+        job.run();
+    } catch (const std::runtime_error&) {
+        thrown = true;
+    }
+    check(thrown, "the throw reaches the caller");
+    check(w.files.size() == 1 && w.files[0].closed, "the stop's file is closed");
+    check(w.files[0].muxStops == 1, "a muxer that took samples is stopped");
+    const std::vector<std::string> want{"close-scene", "muxer-gone", "encoder-gone", "close-surface", "close-file"};
+    const bool ends = w.events.size() >= want.size() && std::equal(want.begin(), want.end(), w.events.end() - 5);
+    check(ends, "scene, muxer, encoder, surface, file: the teardown's order");
+}
+
 lr::Job* runFailing(World& w, FakeHost& host, std::unique_ptr<lr::Job>& job) {
     job = std::make_unique<lr::Job>(request(1280, 720, 6'000'000, 60), host);
     job->run();
@@ -521,6 +546,7 @@ int main() {
     longFormCap();
     driftAndShortestSeam();
     cancelMidway();
+    throwMidStop();
     failuresAreNamed();
     driftOnTheParamsFrame();
     if (failures == 0) std::printf("loop_render_test: all checks passed\n");

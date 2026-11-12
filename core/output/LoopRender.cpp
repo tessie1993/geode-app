@@ -193,7 +193,6 @@ void Job::run() {
         files_.push_back(path);
         int kept = 0;
         end = renderStop(stops[i], i, count, fd, seamFrames, &kept);
-        host_.closeFile(fd);
         // A later stop cannot hold more seam frames than an earlier one did, so the reel reports the shortest
         // seam any of its loops used.
         if (end == End::Done) seamFrames = std::min(seamFrames, kept);
@@ -210,18 +209,28 @@ void Job::run() {
 }
 
 Job::End Job::renderStop(const DriftStop& stop, int index, int count, int fd, int crossfadeFrames, int* seamFrames) {
+    // The stop's teardown in its one order, however the stop ends, a throw included: what holds GL names while
+    // the context is current, then the muxer and the encoder with its window, then the surface, then the file.
+    struct File {
+        Host& host;
+        int fd;
+        ~File() { host.closeFile(fd); }
+    };
+    struct Teardown {
+        Host& host;
+        Writer& writer;
+        ~Teardown() {
+            host.closeScene();
+            writer.close();
+            host.closeSurface();
+        }
+    };
+    const File file{host_, fd};
     Writer writer;
+    const Teardown teardown{host_, writer};
     const sink::VideoFormat format = videoFormat(mime_, request_.width, request_.height, EncoderRung{fps_, bitRate_});
-    End end = End::Done;
-    if (const Failure failure = writer.open(host_.codecs(fd), format); failure != Failure::None) {
-        end = fail(failure);
-    } else {
-        end = drawStop(writer, stop, index, count, crossfadeFrames, seamFrames);
-    }
-    host_.closeScene();
-    writer.close();
-    host_.closeSurface();
-    return end;
+    if (const Failure failure = writer.open(host_.codecs(fd), format); failure != Failure::None) return fail(failure);
+    return drawStop(writer, stop, index, count, crossfadeFrames, seamFrames);
 }
 
 Job::End Job::drawStop(Writer& writer, const DriftStop& stop, int index, int count, int crossfadeFrames,

@@ -239,12 +239,10 @@ void geode_loop_job_run(geode_loop_job* h) {
     try {
         job->run();
     } catch (...) {
-        // Out of memory mid-render: free what holds GL names while the context is still current, and leave no
+        // Out of memory mid-render: the stop closed its scene, encoder, surface and file as it unwound; leave no
         // scratch file behind.
         h->broken.store(true, std::memory_order_release);
         try {
-            h->host->closeScene();
-            h->host->closeSurface();
             for (const std::string& file : job->files()) h->host->removeFile(file);
         } catch (...) {
         }

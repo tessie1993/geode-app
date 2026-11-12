@@ -5,11 +5,13 @@
 #include <cmath>
 #include <utility>
 
+#include "output/PreRoll.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
+#include "viz/Underlay.hpp"
 
 namespace geode::viz {
 
@@ -94,6 +96,8 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
         if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
             sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
             sound_->setTuning(soundTuning_);
+            // An export's track is the player from its first sample, the pre-roll's included (beginFrame).
+            if (offscreen_.load(std::memory_order_relaxed)) sound_->setPlayerSource(true);
         }
         sound_->write(interleaved, frames, channels);
     }
@@ -110,6 +114,16 @@ void Renderer::resetAudio() {
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
+}
+
+bool Renderer::endPreRoll(int64_t rangeStartMs) {
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (!output::endPreRoll(sound_.get(), output::preRollFor(rangeStartMs))) return false;
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.clear();
+    return true;
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
@@ -212,18 +226,25 @@ void Renderer::applyPendingFluidInjection() {
     }
 }
 
-// Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
-// actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
-// applyUnderlayUpload(), a copy-now/convert-later split. blend/amount are only
-// meaningful (and only stored) alongside a non-empty pixel buffer; a null/zero-size buffer clears.
+// Any thread. Converts the ARGB ints to the RGBA8 bytes GL takes, outside stateLock_, into a new
+// retained buffer; the GL upload happens on the GL thread in applyUnderlayUpload(), which shares the
+// buffer rather than copying it. blend/amount are only meaningful (and only stored) alongside a
+// non-empty pixel buffer; a null/zero-size buffer clears.
 void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount) {
+    std::shared_ptr<const std::vector<uint8_t>> rgba;
+    if (pixels != nullptr && width > 0 && height > 0) {
+        const size_t count = static_cast<size_t>(width) * static_cast<size_t>(height);
+        auto bytes = std::make_shared<std::vector<uint8_t>>(count * 4);
+        underlay::toRgbaBytes(pixels, count, bytes->data());
+        rgba = std::move(bytes);
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
-    if (pixels == nullptr || width <= 0 || height <= 0) {
-        underlayPixels_.clear();
+    // The old buffer is freed here unless an upload still holds it, in which case that upload frees it.
+    underlayRgba_ = std::move(rgba);
+    if (!underlayRgba_) {
         underlayWidth_ = 0;
         underlayHeight_ = 0;
     } else {
-        underlayPixels_.assign(pixels, pixels + static_cast<size_t>(width) * static_cast<size_t>(height));
         underlayWidth_ = width;
         underlayHeight_ = height;
         underlayBlend_ = blend;
@@ -232,13 +253,13 @@ void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, in
     underlayDirty_ = true;
 }
 
-// GL thread, called once per frame from beginFrame(). Copies (not swaps, unlike
-// applyPendingFluidInjection: the source buffers are retained state that must survive a surface
-// recreation, not a one-shot request) the latched pixels out from under stateLock_, then does the
-// actual conversion and glTexImage2D/glTexSubImage2D upload unlocked.
+// GL thread, called once per frame from beginFrame(). Shares (not swaps, unlike
+// applyPendingFluidInjection: the buffer is retained state that must survive a surface recreation,
+// not a one-shot request) the latched bytes out from under stateLock_, then does the
+// glTexImage2D/glTexSubImage2D upload unlocked. The buffer is immutable, so sharing it is safe.
 void Renderer::applyUnderlayUpload() {
     bool underlayDirty = false;
-    std::vector<uint32_t> underlayPixels;
+    std::shared_ptr<const std::vector<uint8_t>> underlayRgba;
     int underlayWidth = 0;
     int underlayHeight = 0;
     int underlayBlend = 0;
@@ -248,7 +269,7 @@ void Renderer::applyUnderlayUpload() {
         underlayDirty = underlayDirty_;
         underlayDirty_ = false;
         if (underlayDirty) {
-            underlayPixels = underlayPixels_;
+            underlayRgba = underlayRgba_;
             underlayWidth = underlayWidth_;
             underlayHeight = underlayHeight_;
             underlayBlend = underlayBlend_;
@@ -256,8 +277,8 @@ void Renderer::applyUnderlayUpload() {
         }
     }
     if (underlayDirty) {
-        if (underlayWidth > 0 && underlayHeight > 0) {
-            compositePass_.uploadUnderlay(underlayPixels, underlayWidth, underlayHeight, underlayBlend, underlayAmount);
+        if (underlayRgba && underlayWidth > 0 && underlayHeight > 0) {
+            compositePass_.uploadUnderlay(*underlayRgba, underlayWidth, underlayHeight, underlayBlend, underlayAmount);
         } else {
             compositePass_.clearUnderlay();
         }
@@ -354,6 +375,7 @@ void Renderer::onSurfaceCreated() {
         quadVao_ = 0;
     }
     touchField_.reset();
+    smearTrail_.reset();
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
@@ -371,7 +393,7 @@ void Renderer::onSurfaceCreated() {
         // W00: the compositePass_.release() call above already dropped the underlay
         // GL texture, so re-arm from the retained pixel buffer to reupload it once
         // compositePass_.create() (below) has run on the new context.
-        if (!underlayPixels_.empty()) underlayDirty_ = true;
+        if (underlayRgba_) underlayDirty_ = true;
     }
 
     std::string error;
@@ -564,11 +586,11 @@ void Renderer::dropScene(const std::string& id) {
 }
 
 void Renderer::admitScene(const std::string& id, const Scene& scene) {
-    residency_.insert(id, scene.isFluid(), sizeStamp_);
+    residency_.insert(id, SceneResidency::heavy(scene.isFluid(), scene.family() == SceneFamily::Milkdrop), sizeStamp_);
     trimScenes(id);
 }
 
-void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
+void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     std::string requestedId;
     std::string layerId;
     {
@@ -581,7 +603,7 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
-    if (trim != MemoryTrim::None) {
+    if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
         // sides alone are six screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
@@ -590,7 +612,15 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         uiBlurPass_.releaseTargets();
         bornFbo_.release();
     }
-    for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_, trim))) {
+    if (shed.sceneTargets) {
+        // ensureTargets builds them again on the next frame; a held scene or layer draws afresh into them.
+        fboA_.release();
+        fboB_.release();
+        heldScene_ = nullptr;
+        heldLayer_ = nullptr;
+    }
+    const int budget = shed.spares ? 0 : SceneResidency::spareBudget(appliedTier_);
+    for (const std::string& victim : residency_.evict(pinned, budget)) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;
             it->second->release();

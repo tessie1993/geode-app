@@ -43,7 +43,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the light's drift. Complexity: uMorph past 0.5 makes
+// Speed scales the light's drift. Complexity: uMorph past 0.5 makes
 // the tiles two thirds the size (more channels per stride). Chaos: uWarp/uTurbulence bend the floor's
 // plan before it is tiled, so the channels meander (that bend is not periodic
 // in z, so with Chaos up the rig's 8192-unit travel wrap can show once). Energy: uIntensity scales
@@ -87,13 +87,13 @@ void main() {
     vec2 uv = view();
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     gT = t;
     gHits = floor(SND_ONSET_COUNT);
     // 1 or 1.5 cells per world unit: either way 8192 * scale is a multiple
     // of the 64-cell id wrap, so the rig's travel wrap stays invisible.
     gScale = truchetMorph() >= 0.5 ? 1.5 : 1.0;
-    gDepth = (0.14 + 0.07 * clamp(SND_BASS_PRESENCE, 0.0, 1.5) * e) / gScale;
+    gDepth = (0.14 + 0.07 * clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.5) * e) / gScale;
     // Slope bound in world units: the groove is TR_W / gScale wide.
     float slope = gDepth * TRUCHET_PI * gScale / (2.0 * TR_W) + TR_TOP * gScale / (1.6 * TR_W);
     // Chaos bends the plan first; its stretch multiplies the slope.

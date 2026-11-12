@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import dev.geode.data.displayNameOf
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
+import dev.geode.model.OpenedAudio
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
 import dev.geode.playback.MediaArtwork
@@ -146,6 +147,29 @@ internal class QueueController(
         host.onQueueStarted(uris.first())
         val unresolved = uris.filterIndexed { i, _ -> quick[i].unresolved }
         if (unresolved.isNotEmpty()) resolveTitlesAsync(unresolved, generation)
+    }
+
+    /**
+     * A file another app opened, alone in the queue under an [OpenedAudio] id so history and resumption
+     * leave it out. [name] is only the display title: the player's own read of the file's tags wins over
+     * it. No embedded-art extras, so nothing but the player opens the file.
+     */
+    fun playOpened(
+        uri: Uri,
+        name: String,
+    ) {
+        ++openGeneration
+        val item =
+            MediaItem
+                .Builder()
+                .setUri(uri)
+                .setMediaId(OpenedAudio.mediaId())
+                .setMediaMetadata(MediaMetadata.Builder().setDisplayTitle(name).build())
+                .build()
+        player.setMediaItems(listOf(item))
+        player.prepare()
+        player.play()
+        host.onQueueStarted(uri)
     }
 
     fun playNext(uri: String) = addQuick(QueueOps.insertNextIndex(player.currentMediaItemIndex, player.mediaItemCount), uri.toUri())
@@ -304,7 +328,7 @@ internal class QueueController(
                             ?.toString()
                             .orEmpty(),
                     title =
-                        item.mediaMetadata.title?.toString()
+                        (item.mediaMetadata.title ?: item.mediaMetadata.displayTitle)?.toString()
                             ?: item.localConfiguration
                                 ?.uri
                                 ?.lastPathSegment

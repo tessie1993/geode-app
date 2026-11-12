@@ -35,7 +35,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the water's shiver and the Chaos drift. Complexity
+// Speed scales the water's shiver and the Chaos drift. Complexity
 // (uMorph) fades in an octave of hillside. Chaos (uWarp, uTurbulence, uTwist)
 // bends the hills, and the terraces with them (terraChaos). Energy
 // (uIntensity) scales the ripples and the ripening. Colour is pal() in the
@@ -62,10 +62,10 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
-    float beat = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
-    float ripe = clamp(SND_MID_PRESENCE * energy, 0.0, 1.0);
+    float beat = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float ripe = clamp(SND_MID_PRESENCE * uSoundDrive * energy, 0.0, 1.0);
     gOct = terraOctaves(3.0);
 
     vec3 ro;

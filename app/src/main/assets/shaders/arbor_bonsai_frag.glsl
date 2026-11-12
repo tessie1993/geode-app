@@ -37,7 +37,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the pads' slow breath. Complexity: uMorph adds a level to every form (arbLevels).
+// Speed scales the pads' slow breath. Complexity: uMorph adds a level to every form (arbLevels).
 // Chaos: uTurbulence and uWarp deepen the trunk's sinuous warp; uTwist adds a
 // standing spiral to the forks. Colour: the ink and wash tints from pal(); the
 // paper and the seal are fixed accents. Energy: uIntensity scales the harmony
@@ -86,9 +86,9 @@ void main() {
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float harmony = clamp(uHarmony, 0.0, 1.0) * energy;
-    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     vec4 form = mix(formFor(SND_CUT_COUNT - 1.0), formFor(SND_CUT_COUNT), morphIn);

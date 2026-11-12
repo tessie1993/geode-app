@@ -41,7 +41,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the vein drift. Complexity (uMorph) adds up to two
+// Speed scales the vein drift. Complexity (uMorph) adds up to two
 // fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the bulb before it is inverted (bulbChaos in q, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is tone(),
@@ -85,7 +85,7 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
     gTwist = 0.32 * dropBump * bulbEnergy();

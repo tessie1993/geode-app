@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import dev.geode.R
 import dev.geode.model.GestureTip
+import dev.geode.model.TabLabels
 import dev.geode.model.TourSpot
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -191,7 +192,8 @@ private const val MILLIS_PER_SECOND = 1000f
 
 /**
  * The floating mini player: the Player's seek bar ([TrackSeekBar]: tap or drag to seek, a 48 dp
- * target) over art, title · artist, play/pause and next. A touch that starts on the bar is the
+ * target) over art, title · artist, play/pause and next, with previous before them when
+ * Settings › Preferences asks for it ([onPrevious]; off by default, so the title keeps its room). A touch that starts on the bar is the
  * bar's alone: it never opens Library or Player and never hides the card.
  * It draws no glass of its own: on a phone the dock's one slab is around it and the tab bar
  * ([DockSlab]); beside the rail the caller's modifier makes it a card. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
@@ -222,6 +224,7 @@ internal fun FloatingMiniPlayer(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    onPrevious: (() -> Unit)? = null,
 ) {
     val seekHeld = remember { mutableStateOf(false) }
     val view = LocalView.current
@@ -275,6 +278,11 @@ internal fun FloatingMiniPlayer(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+            }
+            if (onPrevious != null) {
+                IconButton(onClick = { tap(onPrevious) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
+                    StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
                 }
             }
             IconButton(onClick = { tap(onPlayPause) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
@@ -519,6 +527,8 @@ internal data class DockItem(
  * The height stays safe at large fonts: in the compact look at most one label is drawn, one
  * line high, and the shell measures the pill (`onSizeChanged` in `AppShell`) rather than
  * assuming its height, so whatever height the bar takes the screen above it makes room.
+ *
+ * [labels] is the user's choice (Settings › Look › Layout); [TabLabels.AUTO] is the rule above.
  */
 @Composable
 internal fun FloatingTabBar(
@@ -526,6 +536,7 @@ internal fun FloatingTabBar(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    labels: TabLabels = TabLabels.AUTO,
 ) {
     val view = LocalView.current
     val compact = compactTabLabels()
@@ -539,7 +550,7 @@ internal fun FloatingTabBar(
         ) {
             items.forEachIndexed { i, item ->
                 val isSelected = i == selected
-                val showLabel = !compact || isSelected
+                val showLabel = labels.shows(isSelected, roomIsShort = compact)
                 NavigationBarItem(
                     selected = isSelected,
                     modifier = item.tour?.let { Modifier.tourTarget(it) } ?: Modifier,

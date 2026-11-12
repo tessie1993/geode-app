@@ -2,6 +2,10 @@ package dev.geode.billing
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
+import dev.geode.geodeContainer
 import dev.geode.pro.BillingRepository
 
 /**
@@ -101,19 +105,20 @@ data class SignedPurchase(
 
         /**
          * Whether [json], a purchase as Play signed it, is Pro paid for: it names
-         * [BillingRepository.PRO_PRODUCT_ID] and is not a pending payment. A field Play left out
-         * decides nothing (the fake's cache has no JSON at all); only one that says otherwise
-         * refuses. Read by pattern, not `org.json`, which is a stub in JVM tests; a quote inside a
-         * JSON string is escaped, so a value cannot pass for a field.
+         * [BillingRepository.PRO_PRODUCT_ID] and is not a pending payment. Only an empty [json]
+         * passes without naming it: the fake's unsigned cache, which only a fake-billing build's
+         * verifier accepts (a keyed one refuses empty data). Read by pattern, not `org.json`, which
+         * is a stub in JVM tests; a quote inside a JSON string is escaped, so a value cannot pass
+         * for a field.
          */
         fun isCompletedPro(
             json: String,
             productId: String = BillingRepository.PRO_PRODUCT_ID,
         ): Boolean {
+            if (json.isEmpty()) return true
             if (STATE.find(json)?.groupValues?.get(1) == STATE_PENDING) return false
             val single = PRODUCT_ID.find(json)?.groupValues?.get(1)
             val listed = PRODUCT_IDS.find(json)?.groupValues?.get(1)
-            if (single == null && listed == null) return true
             return single == productId || listed?.contains("\"$productId\"") == true
         }
     }
@@ -181,13 +186,20 @@ class PrefsEntitlementStore(
     }
 
     companion object {
-        const val PREFS_FILE: String = "geode-pro"
+        const val PREFS_FILE: String = GeodePrefsFiles.PRO
         private const val KEY_OWNED = "pro_owned"
         private const val KEY_VERIFIED_AT = "pro_verified_at"
         private const val KEY_PURCHASE_JSON = "pro_purchase_json"
         private const val KEY_SIGNATURE = "pro_purchase_signature"
         private const val KEY_MISSING_SINCE = "pro_missing_since"
 
-        fun open(context: Context): SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        internal val PREF_KEYS =
+            prefKeys(PREFS_FILE) {
+                cache(PrefType.BOOLEAN, KEY_OWNED)
+                cache(PrefType.LONG, KEY_VERIFIED_AT, KEY_MISSING_SINCE)
+                cache(PrefType.STRING, KEY_PURCHASE_JSON, KEY_SIGNATURE)
+            }
+
+        fun open(context: Context): SharedPreferences = context.geodeContainer.prefsFiles.pro
     }
 }

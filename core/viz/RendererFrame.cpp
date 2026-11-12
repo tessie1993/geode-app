@@ -2,17 +2,20 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <random>
 
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
+#include "viz/BandTrim.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
 
@@ -30,23 +33,6 @@ constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
 // About two seconds at 60 Hz.
 constexpr int kFeedbackIdleFrames = 120;
-
-// The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
-// level and att envelope, and its shaped low/middle/high.
-GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
-    if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
-    GeodeSoundFrame out = f;
-    out.bass = f.bass * p.bassGain;
-    out.bassAtt = f.bassAtt * p.bassGain;
-    out.low = std::clamp(f.low * p.bassGain, 0.0f, 1.0f);
-    out.mid = f.mid * p.midGain;
-    out.midAtt = f.midAtt * p.midGain;
-    out.middle = std::clamp(f.middle * p.midGain, 0.0f, 1.0f);
-    out.treble = f.treble * p.trebGain;
-    out.trebleAtt = f.trebleAtt * p.trebGain;
-    out.high = std::clamp(f.high * p.trebGain, 0.0f, 1.0f);
-    return out;
-}
 }  // namespace
 
 float Renderer::beginFrame(double timeSeconds) {
@@ -107,6 +93,16 @@ float Renderer::beginFrame(double timeSeconds) {
     }
     applyMilkRequests();
     applyUnderlayUpload();
+    if (transition_choice::isRandom(frameTransitionId_) && nextRandomTransition_.empty()) {
+        // Drawn and compiled a change ahead, so a library transition's build never lands on the switch frame.
+        if (transitionRng_ == 0) {
+            transitionRng_ = offscreen_.load(std::memory_order_relaxed)
+                                 ? 0x5EEDull
+                                 : static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
+        }
+        nextRandomTransition_ = transition_choice::pick(compositePass_.catalog().allIds(), switchTransitionId_, transitionRng_);
+        compositePass_.warmTransition(nextRandomTransition_);
+    }
     return dt;
 }
 
@@ -128,6 +124,16 @@ Scene* Renderer::resolveActiveScene() {
             outgoingScene_ = activeScene_;
             outgoingParams_ = lastFinalParams_;
             transitionStartS_ = frameNowS_;
+            if (transition_choice::isRandom(frameTransitionId_)) {
+                switchTransitionId_ = nextRandomTransition_.empty() ? std::string("fade") : nextRandomTransition_;
+                nextRandomTransition_.clear();
+            } else {
+                switchTransitionId_ = frameTransitionId_;
+            }
+            // An export replays its switches as the user made them: never Auto's longer fade.
+            const bool automatic =
+                !offscreen_.load(std::memory_order_relaxed) && transition_choice::takeAuto(requested->id(), seenAutoMark_);
+            switchTransitionMs_ = transition_choice::durationMs(frameTransitionDurationMs_, automatic);
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
@@ -186,7 +192,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
-        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
+        resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // Settings › Performance's extra effects.
@@ -200,9 +206,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
-    // Wave three: nothing drives the post pass's beat pulse any more, since
-    // it existed to ride the transient FormDrive read.
-    postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, 0.0f, dt);
     return p;
 }
 
@@ -255,14 +258,13 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
         bindSecondaryTarget();
-        wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        layerScene_->update(gainAdjusted(soundFrame_, p), dt);
+        layerScene_->update(bandTrimmed(soundFrame_, p), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
-        progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / frameTransitionDurationMs_), 0.0f, 1.0f);
+        progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / switchTransitionMs_), 0.0f, 1.0f);
         if (progress >= 1.0f) {
             outgoingScene_ = nullptr;
             outgoingParams_.reset();
@@ -271,7 +273,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            outgoingScene_->update(gainAdjusted(soundFrame_, op), dt);
+            outgoingScene_->update(bandTrimmed(soundFrame_, op), dt);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -295,10 +297,9 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    wireFlow(scene, p);
     scene.setParams(p);
     deliverPcm(scene);
-    scene.update(gainAdjusted(soundFrame_, p), dt);
+    scene.update(bandTrimmed(soundFrame_, p), dt);
     scene.draw(timeSeconds_);
 }
 
@@ -318,21 +319,14 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.blendOrdinal = frameLayerBlend_;
     in.hasLayer = layerScene_ != nullptr;
     in.hasOutgoing = outgoingScene_ != nullptr;
-    in.transitionId = frameTransitionId_;
-    in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(frameTransitionId_).value_or(TransitionStyle::Fade));
+    const std::string& transitionId = outgoingScene_ ? switchTransitionId_ : frameTransitionId_;
+    in.transitionId = transitionId;
+    in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(transitionId).value_or(TransitionStyle::Fade));
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
-    // Wave three: nothing feeds the composite pass's transient reaction any
-    // more (that read live::hit(), a transient flag); flash/strobe/pulse/
-    // shake themselves are already inert (see Params.hpp).
-    in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing.
-    in.flash = fx.flash;
-    in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
-    in.postBeatPulse = postBeatPulse_;
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family()).toVec4();
@@ -354,6 +348,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
+    // Settings › Visuals › Touch › Smear drew its strokes into the ripple overlay or Water's pool; both went
+    // with Pool (#1036), so smearTrail_ is not stepped until the smear has a new target.
     stepLiquid(scene, p, dt);
 }
 
@@ -376,15 +372,6 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
                  sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
 }
 
-void Renderer::wireFlow(Scene& target, const SceneParams& p) {
-    fluid::FlowField* ff = overlays_.flow();
-    if (liquidOn() && ff) {
-        target.setFlow(ff->available() ? ff->velocityTex() : compositePass_.zeroTex(), p.flowStrength);
-    } else {
-        target.setFlow(compositePass_.zeroTex(), 0.0f);
-    }
-}
-
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
@@ -392,8 +379,9 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         applyRenderScale();
     }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
-    // a surface that is still drawing; one that pauses sheds them at the pause (trimSpares).
-    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
+    // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
+    // at the pause (trimSpares).
+    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
     Scene* scene = resolveActiveScene();
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
@@ -531,7 +519,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
-    overlays_.stepFlow(gainAdjusted(soundFrame_, p), dt, fp);
+    overlays_.stepFlow(bandTrimmed(soundFrame_, p), dt, fp);
 }
 
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
@@ -577,7 +565,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     glClear(GL_COLOR_BUFFER_BIT);
     next->setParams(p);
     deliverPcm(*next);
-    next->update(gainAdjusted(soundFrame_, p), dt);
+    next->update(bandTrimmed(soundFrame_, p), dt);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
 }
@@ -612,7 +600,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
 
 GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown) {
     const float wall = std::isfinite(wallDt) ? std::clamp(wallDt, 0.0f, 0.1f) : 0.0f;
-    diveFollow_.step(soundFrame_, wall, p.audioDrive);
+    diveFollow_.step(soundFrame_, wall, p.audioDrive, p.diveFollow);
     // Liquid mode's liquid has a dive of its own on a flat style (LiquidMath's Dive), which takes Dive
     // speed there; a 3D style in Liquid mode has none, so the stage is its dive.
     const bool flat = !scene.drawsCamera();
@@ -629,12 +617,16 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
         return shown;
     }
     // dt is the music's clock: no sound, no travel.
-    if (on) divePhase_ = endless::advance(divePhase_, endless::travel((zoom ? p.endlessZoomSpeed : 0.0f) + fly, diveFollow_), dt);
+    if (on) {
+        const float octaves = endless::travel((zoom ? p.endlessZoomSpeed : 0.0f) + fly, diveFollow_);
+        divePhase_ = endless::advance(divePhase_, endless::copiesPerSecond(octaves, p.diveSpacing), dt);
+    }
+    const auto look = endless::tunnel::lookFor(p, static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1)));
     const bool plain = shown == 0;
     const GLuint dived =
         divePass_.run(plain ? fboA_.tex() : shown, plain ? renderWidth_ : liquidPass_.width(),
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
-                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), quadVao_);
+                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_);
     return dived != 0 ? dived : shown;
 }
 

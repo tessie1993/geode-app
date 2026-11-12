@@ -40,7 +40,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the slow erosion drift and the twinkle. Complexity:
+// Speed scales the slow erosion drift and the twinkle. Complexity:
 // uMorph adds a noise octave to the dust (nebVolOctaves, at most four).
 // Chaos: uWarp/uTurbulence swirl the dust through nebWarp3; uTwist via
 // view(). Colour: front, gas and dust tint are pal(). Energy: uIntensity

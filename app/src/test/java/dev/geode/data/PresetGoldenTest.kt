@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
 import org.json.JSONObject
@@ -15,7 +16,7 @@ import org.junit.Test
  *
  * - `current.json` is a preset with every key the pre-schema writer put, in its order, each set to a
  *   value off its default: it must read and write back to the same keys and values.
- * - `legacy.json` is an early preset: most keys missing, the retired `glitch` and an unknown key.
+ * - `legacy.json` is an early preset: most keys missing, every retired key and an unknown key.
  * - `hostile.json` is a shared link out of range, non-finite and of the wrong type.
  */
 class PresetGoldenTest {
@@ -54,12 +55,15 @@ class PresetGoldenTest {
         assertEquals("palette-a", p.customPaletteId)
         assertEquals("palette-b", p.customPalette2Id)
         assertEquals(12.5f, p.flowCurl)
+        // Your colours: white and black are colours, not sentinels, and survive the float wire exactly.
+        assertEquals(listOf(0xFF8800, 0x2233FF, 0x10E0A0, 0xFFFFFF, 0x000000), p.paletteStops)
     }
 
     @Test
-    fun theWrittenKeysAreTheSchemaNamesLessGlitchPlusThePaletteIds() {
+    fun theWrittenKeysAreTheLiveSchemaNamesPlusThePaletteIds() {
         val keys = PresetStore.paramsToJson(SceneParams.DEFAULT).keyNames()
-        val expected = ParamSchema.params.map { it.name }.toSet() - "glitch" + setOf("customPaletteId", "customPalette2Id")
+        val live = ParamSchema.params.filterNot { it.retired }
+        val expected = live.map { it.name }.toSet() + setOf("customPaletteId", "customPalette2Id")
         assertEquals(expected, keys)
     }
 
@@ -79,8 +83,34 @@ class PresetGoldenTest {
         assertTrue(p.trails)
         assertTrue(p.kaleidoscope)
         assertEquals("old-palette", p.customPaletteId)
-        // Retired and unknown keys are not read.
-        assertEquals(SceneParams.DEFAULT.glitch, p.glitch)
+        // Retired and unknown keys are not read: the frame carries each retired row's default.
+        val frame = SceneParamsCodec.pack(p)
+        val retired = ParamSchema.params.filter { it.retired }
+        assertEquals(
+            setOf(
+                "pulse",
+                "shake",
+                "flash",
+                "glitch",
+                "strobe",
+                "waterWaveSpeed",
+                "waterDamping",
+                "waterRippleStrength",
+                "waterDepth",
+                "waterSpecular",
+                "waterFlow",
+                "waterLiquid",
+                "waterLiquidFlow",
+                "waterLiquidFade",
+                "rippleOverlayEnabled",
+                "rippleOverlayStrength",
+                "rippleOverlaySpecular",
+                "formDrive",
+                "motionOrbit",
+            ),
+            retired.map { it.name }.toSet(),
+        )
+        for (spec in retired) assertEquals(spec.name, spec.default, frame[spec.slot])
         // Keys the old file never had come back as the schema's defaults.
         assertEquals(SceneParams.DEFAULT.flowCurl, p.flowCurl)
         assertEquals(SceneParams.DEFAULT.camFly, p.camFly)
@@ -92,7 +122,7 @@ class PresetGoldenTest {
         val water = PresetStore.fromJson("""{"name":"w","sceneId":"water","attack":0.1,"decay":0.2,"waterDepth":0.7}""")
         assertEquals("pool", water.sceneId)
         assertFalse(JSONObject(PresetStore.toJson(water)).has("waterDepth"))
-        assertFalse(written.has("glitch"))
+        for (spec in retired) assertFalse(spec.name, written.has(spec.name))
         assertFalse(written.has("beatFlash"))
     }
 

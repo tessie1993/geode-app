@@ -18,6 +18,10 @@
 // - battery saver (when the user keeps that option on) or silence (after core/sound/Silence's
 //   grace, when the user keeps "rest when silent" on): a still frame;
 // - otherwise: moving.
+// The dream asks for kDarkWhenSilent: there silence (with its option) means no visual at all, Dark, ahead of
+// reduced motion and battery saver, since no sound is no visuals (owner, #999 F11) and a still frame on a
+// screen saver is the burn-in it exists to prevent. The wallpaper keeps its still frame: a home screen
+// must show something.
 //
 // The entitlement is a wall-clock time the visual may move until: kForever for Pro, the trial's end
 // for a running trial, 0 for free. Nothing on the device announces a trial's end, so the caller asks
@@ -31,7 +35,8 @@
 // Pure and stateless: the caller holds every input and restates on any change.
 namespace geode::viz::surface {
 
-enum class RunMode : int { Stopped = 0, Still = 1, Animated = 2 };
+// Dark: no visual; the shell covers it in black and draws no frames, still hearing, so sound wakes it.
+enum class RunMode : int { Stopped = 0, Still = 1, Animated = 2, Dark = 3 };
 
 // Bits of what the caller observed. Values are the ABI (GEODE_SURFACE_* in geode_api.h).
 enum Flag : uint32_t {
@@ -45,6 +50,8 @@ enum Flag : uint32_t {
     kRestWhenSilent = 1u << 7,
     // The system's Remove animations, as the shell reads it.
     kReducedMotion = 1u << 8,
+    // The surface shows nothing in a silent rest rather than a still frame: the dream.
+    kDarkWhenSilent = 1u << 9,
 };
 
 inline constexpr int64_t kForever = std::numeric_limits<int64_t>::max();
@@ -57,16 +64,31 @@ inline bool has(uint32_t flags, Flag f) { return (flags & f) != 0; }
 // Whether the entitlement lets the visual move at nowMs.
 inline bool entitled(int64_t animateUntilMs, int64_t nowMs) { return nowMs < animateUntilMs; }
 
-inline RunMode mode(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
-    if (!has(flags, kHasSurface) || !has(flags, kVisible)) return RunMode::Stopped;
+// Why the surface is not moving: the rule's first reason that holds, None when it moves. Settings pages
+// name it, so a still wallpaper never looks broken.
+enum class Reason : int { None = 0, Hidden = 1, Entitlement = 2, ReducedMotion = 3, BatterySaver = 4, Silence = 5 };
+
+inline Reason reason(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
+    if (!has(flags, kHasSurface) || !has(flags, kVisible)) return Reason::Hidden;
     const bool preview = has(flags, kPreview);
-    if (has(flags, kCovered) && !preview) return RunMode::Stopped;
-    if (!entitled(animateUntilMs, nowMs)) return RunMode::Still;
-    if (has(flags, kReducedMotion)) return RunMode::Still;
-    if (preview) return RunMode::Animated;
-    if (has(flags, kBatterySaver) && has(flags, kPauseInBatterySaver)) return RunMode::Still;
-    if (has(flags, kSilent) && has(flags, kRestWhenSilent)) return RunMode::Still;
-    return RunMode::Animated;
+    if (has(flags, kCovered) && !preview) return Reason::Hidden;
+    if (!entitled(animateUntilMs, nowMs)) return Reason::Entitlement;
+    const bool rest = has(flags, kSilent) && has(flags, kRestWhenSilent);
+    if (rest && has(flags, kDarkWhenSilent) && !preview) return Reason::Silence;
+    if (has(flags, kReducedMotion)) return Reason::ReducedMotion;
+    if (preview) return Reason::None;
+    if (has(flags, kBatterySaver) && has(flags, kPauseInBatterySaver)) return Reason::BatterySaver;
+    if (rest) return Reason::Silence;
+    return Reason::None;
+}
+
+inline RunMode mode(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
+    switch (reason(flags, animateUntilMs, nowMs)) {
+        case Reason::None: return RunMode::Animated;
+        case Reason::Hidden: return RunMode::Stopped;
+        case Reason::Silence: return has(flags, kDarkWhenSilent) && !has(flags, kPreview) ? RunMode::Dark : RunMode::Still;
+        default: return RunMode::Still;
+    }
 }
 
 // Whether the surface should be hearing sound: whenever it would move if there were sound, cover

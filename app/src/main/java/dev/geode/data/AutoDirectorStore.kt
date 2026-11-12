@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
@@ -11,7 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.random.Random
 
 /**
- * The auto-director's switch (Settings › Behaviour) and the play it is directing.
+ * The auto-director's switch (Settings › Visual playback) and the play it is directing.
  *
  * The work is native (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
  * over every style, never colour or a reaction route. This store only tells the engine how much to
@@ -131,6 +133,12 @@ class AutoDirectorStore private constructor(
 
         /** Customize's lock set in the modulation prefs, which `ModulationController` edits. */
         const val KEY_KEPT = "locked_params"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.BOOLEAN, KEY_ENABLED)
+                portable(PrefType.INT, KEY_REACH)
+            }
 
         @Volatile private var instance: AutoDirectorStore? = null
 

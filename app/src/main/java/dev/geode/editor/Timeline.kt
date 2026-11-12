@@ -1,6 +1,5 @@
 package dev.geode.editor
 
-import dev.geode.export.ClipEdit
 import kotlin.math.abs
 
 /*
@@ -89,12 +88,12 @@ sealed interface ClipContent {
     }
 
     /**
-     * A video file. [edit] carries the existing export-side look (grade, speed, rotation, ratio);
-     * the in/out points live on the [Clip] instead, so trimming works the same on every lane.
+     * A video file. The in/out points live on the [Clip], so trimming works the same on every lane.
+     * Only a project saved by the dropped video editor (#227) holds one: nothing makes or renders it
+     * now, so the grade it once carried is not read back.
      */
     data class Video(
         val uri: String,
-        val edit: ClipEdit = ClipEdit(),
     ) : ClipContent {
         override val laneKind: LaneKind = LaneKind.Media
     }
@@ -150,8 +149,6 @@ data class Clip(
     val endMs: Long get() = startMs + durationMs
 
     val hasBoundedSource: Boolean get() = sourceDurationMs > 0L
-
-    fun overlaps(other: Clip): Boolean = startMs < other.endMs && other.startMs < endMs
 
     /** Move the tail to [newEndMs], never past the end of the available source material. */
     fun trimmedToEnd(newEndMs: Long): Clip? {

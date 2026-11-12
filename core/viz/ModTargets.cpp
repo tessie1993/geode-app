@@ -12,71 +12,69 @@ namespace {
 
 using catalogue::Scope;
 
-struct TargetRow {
-    const char* name;
-    Scope scope;
-};
-
-// One row per LfoTarget, in wire order. A target's scope is the scope of the field it writes: the
-// camera rig's and the composite's offsets are Universal (every family is seen through them), the
-// shader look only reaches the fragment styles, the fluid knobs only their own scenes.
-constexpr std::array<TargetRow, kTargetCount> kTargets{{
-    {"NONE", Scope::Universal},
-    {"SPEED", Scope::SceneClock},
-    {"ZOOM", Scope::Universal},
-    {"ROTATION", Scope::Universal},
-    {"SWAY", Scope::Universal},
-    {"PULSE", Scope::Universal},
-    {"DRIFT_X", Scope::Universal},
-    {"DRIFT_Y", Scope::Universal},
-    {"WARP", Scope::Universal},
-    {"RIPPLE", Scope::Universal},
-    {"MORPH", Scope::ShaderLook},
-    {"TWIST", Scope::Universal},
-    {"TILE", Scope::Universal},
-    {"PIXELATE", Scope::Universal},
-    {"POSTERIZE", Scope::Universal},
-    {"COLOR_SHIFT", Scope::Universal},
-    {"PALETTE_MIX", Scope::ShaderLook},
-    {"SATURATION", Scope::Universal},
-    {"BRIGHTNESS", Scope::Universal},
-    {"INTENSITY", Scope::Universal},
-    {"BLOOM", Scope::Universal},
-    {"TEMPERATURE", Scope::Universal},
-    {"TURBULENCE", Scope::Turbulence},
-    {"CHROMA_AB", Scope::Universal},
-    {"VIGNETTE", Scope::Universal},
-    {"RETIRED_25", Scope::Universal},  // was GLITCH; a saved "GLITCH" no longer resolves
-    {"FISHEYE", Scope::Universal},
-    {"PARTICLE_SIZE", Scope::ParticleSprite},
-    {"TRAIL_LENGTH", Scope::TrailLength},
-    {"FLUID_CURL", Scope::FluidSim},
-    {"FLUID_RADIUS", Scope::Emitters},
-    {"FLUID_FORCE", Scope::Emitters},
-    {"FLUID_GLOW", Scope::FluidSim},
-    {"FLUID_FADE", Scope::FluidSim},
-    {"FLUID_CATCH_PULL", Scope::Journey},
-    {"FLUID_CATCH_RADIUS", Scope::Journey},
-    {"FLOW_STRENGTH", Scope::Universal},
-    {"RETIRED_37", Scope::Universal},  // was WATER_RIPPLE
-    {"RETIRED_38", Scope::Universal},  // was RIPPLE_OVERLAY
-    {"LFO1_RATE", Scope::Universal},
-    {"LFO1_DEPTH", Scope::Universal},
-    {"LFO2_RATE", Scope::Universal},
-    {"LFO2_DEPTH", Scope::Universal},
-    {"LFO3_RATE", Scope::Universal},
-    {"LFO3_DEPTH", Scope::Universal},
-    {"CAM_FLY", Scope::Universal},
-    {"CAM_ORBIT", Scope::Universal},
-    {"CAM_PUSH", Scope::Universal},
-    {"CAM_YAW", Scope::Universal},
-    {"CAM_PITCH", Scope::Universal},
-    {"CAM_ROLL", Scope::Universal},
-    {"CAM_FOV", Scope::Universal},
-    {"CAM_SHAKE", Scope::Universal},
-    {"FLOW_CURL", Scope::Universal},
-    {"FLOW_FORCE", Scope::Universal},
-    {"DIVE_SPEED", Scope::Universal},  // LfoTarget::EndlessZoomSpeed
+// One name per LfoTarget, in wire order: the name a saved wave, envelope or route carries. Which styles a
+// target reaches and whether it is offered are not kept here: they are the meta row of the field it
+// writes (viz/ParamTable.inc), so a target follows its Customize control.
+constexpr std::array<const char*, kTargetCount> kTargetNames{{
+    "NONE",
+    "SPEED",
+    "ZOOM",
+    "ROTATION",
+    "SWAY",
+    "RETIRED_5",  // was PULSE; a saved "PULSE" no longer resolves
+    "DRIFT_X",
+    "DRIFT_Y",
+    "WARP",
+    "RIPPLE",
+    "MORPH",
+    "TWIST",
+    "TILE",
+    "PIXELATE",
+    "POSTERIZE",
+    "COLOR_SHIFT",
+    "PALETTE_MIX",
+    "SATURATION",
+    "BRIGHTNESS",
+    "INTENSITY",
+    "BLOOM",
+    "TEMPERATURE",
+    "TURBULENCE",
+    "CHROMA_AB",
+    "VIGNETTE",
+    "RETIRED_25",  // was GLITCH; a saved "GLITCH" no longer resolves
+    "FISHEYE",
+    "PARTICLE_SIZE",
+    "TRAIL_LENGTH",
+    "FLUID_CURL",
+    "FLUID_RADIUS",
+    "FLUID_FORCE",
+    "FLUID_GLOW",
+    "FLUID_FADE",
+    "FLUID_CATCH_PULL",
+    "FLUID_CATCH_RADIUS",
+    "FLOW_STRENGTH",
+    "RETIRED_37",  // was WATER_RIPPLE (Water is gone; Pool replaced it)
+    "RETIRED_38",  // was RIPPLE_OVERLAY
+    "LFO1_RATE",
+    "LFO1_DEPTH",
+    "LFO2_RATE",
+    "LFO2_DEPTH",
+    "LFO3_RATE",
+    "LFO3_DEPTH",
+    "CAM_FLY",
+    "CAM_ORBIT",
+    "CAM_PUSH",
+    "CAM_YAW",
+    "CAM_PITCH",
+    "CAM_ROLL",
+    "CAM_FOV",
+    "CAM_SHAKE",
+    "FLOW_CURL",
+    "FLOW_FORCE",
+    "DIVE_SPEED",  // LfoTarget::EndlessZoomSpeed
+    "DIVE_TWIST",
+    "DIVE_AIM_X",
+    "DIVE_AIM_Y",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};
@@ -130,12 +128,24 @@ std::string build() {
 
 }  // namespace
 
-const char* name(LfoTarget target) { return known(target) ? kTargets[static_cast<size_t>(target)].name : ""; }
+const char* name(LfoTarget target) { return known(target) ? kTargetNames[static_cast<size_t>(target)] : ""; }
 
-Scope scopeOf(LfoTarget target) { return known(target) ? kTargets[static_cast<size_t>(target)].scope : Scope::Universal; }
+// The scope of the field the target writes; None and the chained targets (a wave's speed or depth)
+// write none and are Universal.
+Scope scopeOf(LfoTarget target) {
+    const int slot = known(target) ? paramSlotOf(target) : -1;
+    return slot >= 0 ? SceneParams::meta(static_cast<ParamSlot>(slot)).scope : Scope::Universal;
+}
 
+// None and the chained targets always; a scene target while its field's meta row says kMod. A retired
+// field has no meta row, so its target (RETIRED_5, RETIRED_25, RETIRED_37, RETIRED_38) is never offered.
 bool offered(LfoTarget target) {
-    return known(target) && target != LfoTarget::Retired25 && target != LfoTarget::Retired37 && target != LfoTarget::Retired38;
+    if (!known(target)) return false;
+    if (target == LfoTarget::None) return true;
+    ModChain c{};
+    if (chainOf(target, c)) return true;
+    const int slot = paramSlotOf(target);
+    return slot >= 0 && (SceneParams::meta(static_cast<ParamSlot>(slot)).flags & kMod) != 0;
 }
 
 int chainSlot(LfoTarget target) {

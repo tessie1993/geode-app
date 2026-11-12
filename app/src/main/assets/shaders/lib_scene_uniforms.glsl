@@ -31,7 +31,6 @@ precision highp sampler2D;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform float uSpeed;
 uniform float uZoom;
 uniform float uRotation;
 uniform float uColorShift;
@@ -59,15 +58,12 @@ uniform float uMorph;
 uniform float uPixelate;
 uniform float uPosterize;
 uniform float uSway;
-uniform float uPulse;
 uniform float uDriftX;
 uniform float uDriftY;
-uniform float uShake;
 uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
-uniform float uFlash;
 
 // ---- the style knobs --------------------------------------------------------
 //

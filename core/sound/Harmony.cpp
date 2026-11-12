@@ -8,9 +8,12 @@ namespace geode::sound {
 
 namespace {
 
-// Krumhansl & Kessler's probe-tone ratings (1982), tonic first.
-constexpr std::array<float, 12> kMajorProfile = {6.35f, 2.23f, 3.48f, 2.33f, 4.38f, 4.09f, 2.52f, 5.19f, 2.39f, 3.66f, 2.29f, 2.88f};
-constexpr std::array<float, 12> kMinorProfile = {6.33f, 2.68f, 3.52f, 5.38f, 2.60f, 3.53f, 2.54f, 4.75f, 3.98f, 2.69f, 3.34f, 3.17f};
+// Noland's key profiles, as Essentia ships them ("noland"), tonic first. They replaced Krumhansl &
+// Kessler's probe-tone ratings (1982) after tools/sound_bench measured both on the same chroma: the key
+// at the end of a piece rose from MIREX 0.69-0.79 to 0.82-0.84 and the frames with the exact key from
+// 0.64-0.66 to 0.75-0.77 over three seeds of the bench's 48 pieces; Temperley's 2005 profiles came close.
+constexpr std::array<float, 12> kMajorProfile = {0.0629f, 0.0146f, 0.061f, 0.0121f, 0.0623f, 0.0414f, 0.0248f, 0.0631f, 0.015f, 0.0521f, 0.0142f, 0.0478f};
+constexpr std::array<float, 12> kMinorProfile = {0.0682f, 0.0138f, 0.0543f, 0.0519f, 0.0234f, 0.0544f, 0.0176f, 0.067f, 0.0349f, 0.0297f, 0.0401f, 0.027f};
 
 // How rough each interval class sounds when its two notes ring together: minor second / major seventh
 // worst, then the tritone, the major second / minor seventh; thirds, fourths and fifths nearly smooth.

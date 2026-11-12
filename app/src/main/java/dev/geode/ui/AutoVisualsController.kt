@@ -42,6 +42,9 @@ internal class AutoVisualsController(
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
 
+    /** Whether [cachedMilkFiles] was asked for; Auto's switches come back from the prefs, not a toggle. */
+    private var milkListed = false
+
     /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
     private var leftAs: Pair<String, SceneParams>? = null
 
@@ -58,6 +61,17 @@ internal class AutoVisualsController(
             }
             field = value
         }
+
+    /**
+     * The user picked a style, a preset or a .milk by hand: Auto's wait starts over, as MilkDrop's does
+     * on any load, so the timer does not replace the pick a moment later and a .milk's `progress` runs
+     * over the wait that now applies to it.
+     */
+    fun noteHandPick() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, now)
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, now)
+    }
 
     /** Auto changes nothing now: Customize is open or nothing plays. */
     private val holding get() = editing || !host.isPlaying
@@ -125,21 +139,24 @@ internal class AutoVisualsController(
         val now = android.os.SystemClock.elapsedRealtime()
         if (!GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_PLAYLIST, now, s.vizPlaylistIntervalSec, running)) return
         vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
-        applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
+        applyVizEntry(s.vizPlaylist[vizPlaylistIndex], automatic = true)
     }
 
     /**
      * A step by hand (a gesture on the visual): the next entry now, or the previous one for a
      * negative [step], whether or not the playlist is cycling, and its clock restarts so the timer
      * does not jump again a moment later. False when the playlist has fewer than two looks, so the
-     * caller steps the styles instead.
+     * caller steps the styles instead. [automatic]: a director moment's step, not the user's.
      */
-    fun stepVizPlaylist(step: Int = 1): Boolean {
+    fun stepVizPlaylist(
+        step: Int = 1,
+        automatic: Boolean = false,
+    ): Boolean {
         val s = host.vizState.value
         if (s.vizPlaylist.size < 2) return false
         GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, android.os.SystemClock.elapsedRealtime())
         vizPlaylistIndex = Math.floorMod(vizPlaylistIndex + if (step < 0) -1 else 1, s.vizPlaylist.size)
-        applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
+        applyVizEntry(s.vizPlaylist[vizPlaylistIndex], automatic)
         return true
     }
 
@@ -184,6 +201,7 @@ internal class AutoVisualsController(
     }
 
     private fun refreshMilkCache() {
+        milkListed = true
         host.milkFilesAsync { cachedMilkFiles = it }
     }
 
@@ -203,11 +221,13 @@ internal class AutoVisualsController(
         leftAs = now
         if (touched) return
         // A moment changes the style, never the look: a preset would replace every Customize value.
-        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist() else randomStepNow(keepLook = true)
+        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist(automatic = true) else randomStepNow(keepLook = true)
     }
 
     fun advanceRandomMode() {
         val s = host.vizState.value
+        // "MilkDrop presets" restored on at start draws from the list too, not only after a toggle.
+        if (s.randomIncludeMilk && !milkListed) refreshMilkCache()
         val running = s.randomEnabled && !holding
         val now = android.os.SystemClock.elapsedRealtime()
         if (GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_RANDOM, now, s.randomIntervalSec, running)) randomStepNow()
@@ -246,10 +266,18 @@ internal class AutoVisualsController(
         if (choices.size > 1 && pick.sceneId == s.sceneId && pick.presetName == null && pick.milkPath == null) {
             pick = choices[randomRng.nextInt(choices.size)]
         }
-        applyVizEntry(pick)
+        applyVizEntry(pick, automatic = true)
     }
 
-    fun applyVizEntry(entry: VizPlaylistEntry) {
+    /** [automatic]: Auto's own change, which native fades for longer than one by hand. */
+    fun applyVizEntry(
+        entry: VizPlaylistEntry,
+        automatic: Boolean = false,
+    ) {
+        if (automatic) {
+            GeodeNative.autoMarkChange(entry.sceneId)
+            entry.milkPath?.let(GeodeNative::autoMarkChange)
+        }
         host.selectScene(entry.sceneId)
         if (entry.presetName != null) {
             host.vizState.value.presets

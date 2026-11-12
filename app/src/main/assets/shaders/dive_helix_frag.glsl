@@ -28,7 +28,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph cuts a second ring of
+// Speed scales the clock. Complexity: uMorph cuts a second ring of
 // star facets. Chaos: uWarp/uTurbulence bend the cut. Energy: uIntensity
 // scales the drop and the glints. Colour: diveColor. Space: the rig's look
 // rides on top of the helix.

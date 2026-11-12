@@ -42,6 +42,7 @@ if [[ ! -d "$WORK/pm" ]]; then
   git -C "$WORK/pm" fetch -q --depth 1 origin "$PM_COMMIT"
   git -C "$WORK/pm" checkout -q FETCH_HEAD
   git -C "$WORK/pm" apply --include='src/api/include/*' "$ROOT/tools/projectm-v4.1.7-render-fbo-backport.patch"
+  git -C "$WORK/pm" apply --include='src/api/include/*' "$ROOT/tools/projectm-v4.1.7-shader-fallback.patch"
 fi
 cp "$WORK/pm/src/api/include/projectM-4/"*.h "$WORK/inc/projectM-4/"
 printf '#pragma once\n#define PROJECTM_EXPORT\n' > "$WORK/inc/projectM-4/projectM_export.h"

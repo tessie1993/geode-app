@@ -4,21 +4,23 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.service.dreams.DreamService
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.BehaviourStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.VisualizerView
@@ -27,7 +29,7 @@ import dev.geode.util.bestEffort
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
  * hosts, on a plain window instead of a wallpaper surface, with the time and what is playing
- * over it ([DreamOverlay], each part a Settings › Behaviour toggle).
+ * over it ([DreamOverlay], each part a Settings › Wallpaper & screen saver toggle).
  *
  * Reusing [VisualizerView] itself — rather than wiring a bare `GLSurfaceView` the way the
  * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
@@ -38,15 +40,17 @@ import dev.geode.util.bestEffort
  * thing on the same kind of screen — one that sits there for hours while nobody may be looking:
  * - covered ([DreamCover]: the proximity sensor reads near, face down or in a pocket): no frames;
  * - battery saver: a still frame;
- * - silence ([SoundSource]'s grace): a still frame, until sound comes back;
+ * - silence ([SoundSource]'s grace): no visual, faded to black under the overlay, until sound comes
+ *   back (owner: no sound, no visuals; #999);
  * - reduced motion (the system's Remove animations, [SystemAnimations]): a
  *   still frame for the whole dream (owner, ADR 0008; #389). Off, the dream keeps its gentle flight.
  * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
  * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are
- * on, the battery-friendly defaults of [WallpaperSettings]. It hears what the wallpaper hears:
- * the app's ring while BeatRealms feeds it, else any app's audio once the user has granted the
- * permission the output-mix capture needs.
+ * on, the battery-friendly defaults of [WallpaperSettings]. It hears the app's ring while
+ * BeatRealms feeds it, else, when Settings › Wallpaper & screen saver says so
+ * ([dev.geode.data.BehaviourPrefs.dreamHearOtherApps]) and the permission the output-mix capture
+ * needs is granted, any app's audio, as the wallpaper's "React to any app" does.
  */
 class VisualizerDreamService : DreamService() {
     private var visualizerView: VisualizerView? = null
@@ -55,10 +59,30 @@ class VisualizerDreamService : DreamService() {
     private val handler = Handler(Looper.getMainLooper())
     private val powerManager by lazy { getSystemService(PowerManager::class.java) }
 
-    /** The wallpaper's options, minus the looks: a dream has no options screen to change them. */
-    private val settings = WallpaperSettings()
+    /**
+     * The wallpaper's options, minus the looks: a dream has no options screen to change them. Other
+     * apps' sound is Behaviour's choice, set at attach; it was a fixed default (off) before, so the
+     * dream stood still whenever another app played.
+     */
+    private var settings = WallpaperSettings()
 
     private val sound = SoundSource(this) { syncRunState() }
+
+    /** Lazy: a service has no context for its prefs until onCreate. */
+    private val generalPrefs by lazy { geodeContainer.prefsFiles.general }
+
+    /** Behaviour's dream frame rate, read at attach; [applyPerformance] restates it after the cap. */
+    private var dreamFps = GeodeNative.SURFACE_DEFAULT_FPS
+
+    /**
+     * Settings › Performance, followed live like the wallpaper's: the app shares this process and
+     * the prefs file, so a change (a backup restored mid-dream, say) reaches the running dream.
+     * A field: listeners are held weakly.
+     */
+    private val performanceChanged =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key in PerformanceStore.KEYS) applyPerformance()
+        }
 
     /** Lazy: it asks for the sensor service, which a service has no context for until onCreate. */
     private val cover by lazy { DreamCover(this) { syncRunState() } }
@@ -71,6 +95,10 @@ class VisualizerDreamService : DreamService() {
     private var listening = false
     private var glPaused = false
     private var runMode = WallpaperRunMode.STOPPED
+
+    /** Black over the visual while the run rule says [WallpaperRunMode.DARK]; the overlay stays above. */
+    private var darkCover: View? = null
+    private var darkShown = false
 
     /** A still frame's settle burst is running; how long is native ([settleMsFrom]). */
     private var settling = false
@@ -98,10 +126,11 @@ class VisualizerDreamService : DreamService() {
         }
         isInteractive = false
         isFullscreen = true
-        val prefsFiles = GeodePrefsFiles(this)
-        // Its own switch (Settings › Behaviour), no longer Player's keep-screen-on.
+        val prefsFiles = geodeContainer.prefsFiles
+        // Its own switch (Settings › Wallpaper & screen saver), no longer Player's keep-screen-on.
         val behaviour = BehaviourStore(prefsFiles.general).load()
         isScreenBright = behaviour.dreamScreenBright
+        settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)
         val view = VisualizerView(this)
         visualizerView = view
         // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
@@ -109,13 +138,16 @@ class VisualizerDreamService : DreamService() {
         val looks = LookStore(prefsFiles, contentResolver)
         looks.pushProcessWide()
         view.visualizerRenderer.look = looks.current().gentleFlight()
-        view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
-        // After applyPerformance, which caps to the live visual's fps: the dream has its own choice,
-        // snapped natively. The view hands the rate to its surface when that is created.
-        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(behaviour.dreamFps).toFloat())
+        dreamFps = behaviour.dreamFps
+        applyPerformance()
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Above the GL view (a SurfaceView's hole would clear anything below it), under the overlay.
+        val black = View(this).apply { setBackgroundColor(android.graphics.Color.BLACK) }
+        black.alpha = 0f
+        darkCover = black
+        stage.addView(black, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         if (behaviour.dreamShowClock || behaviour.dreamShowNowPlaying) {
             val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying)
             overlay = dreamOverlay
@@ -137,6 +169,18 @@ class VisualizerDreamService : DreamService() {
         )
         receiverRegistered = true
         systemAnimations.start()
+        generalPrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
+    }
+
+    /**
+     * Settings › Performance's quality on the dream's view, then the dream's own frame rate: the
+     * view's applyPerformance caps to the live visual's fps, and the dream paces to its own choice,
+     * snapped natively. The view hands the rate to its surface when that is created.
+     */
+    private fun applyPerformance() {
+        val view = visualizerView ?: return
+        view.applyPerformance(PerformanceStore(generalPrefs, this).settings.value)
+        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(dreamFps).toFloat())
     }
 
     override fun onDreamingStarted() {
@@ -164,6 +208,7 @@ class VisualizerDreamService : DreamService() {
     private fun entitled(): Boolean = GeodeNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
 
     override fun onDetachedFromWindow() {
+        generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
         handler.removeCallbacks(endStillSettle)
         handler.removeCallbacks(trialEnded)
         sound.stop()
@@ -178,6 +223,8 @@ class VisualizerDreamService : DreamService() {
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         overlay = null
+        darkCover?.animate()?.cancel()
+        darkCover = null
         super.onDetachedFromWindow()
     }
 
@@ -203,6 +250,7 @@ class VisualizerDreamService : DreamService() {
                 reducedMotion = systemAnimations.removed,
                 settings = settings,
                 animateUntilMs = animateUntilMs(),
+                darkWhenSilent = true,
             )
         // A trial that ends mid-dream ends the dream, the same as a free user starting one
         // (owner, #376), and Android falls back to its own.
@@ -221,7 +269,10 @@ class VisualizerDreamService : DreamService() {
             handler.removeCallbacks(endStillSettle)
             settling = false
         }
+        showDark(runMode == WallpaperRunMode.DARK)
         when (runMode) {
+            // No frames under the black; the GL view is not paused, so sound wakes it at once.
+            WallpaperRunMode.DARK -> view.framePacer.stop()
             WallpaperRunMode.ANIMATED -> {
                 resumeGl(view)
                 view.framePacer.start()
@@ -249,6 +300,19 @@ class VisualizerDreamService : DreamService() {
                 }
             }
         }
+    }
+
+    /**
+     * Fades the black over the visual in or out on a change only. The platform's long animation time
+     * is scaled by the system's animator duration scale, so Remove animations makes it a cut.
+     */
+    private fun showDark(dark: Boolean) {
+        if (dark == darkShown) return
+        darkShown = dark
+        darkCover
+            ?.animate()
+            ?.alpha(if (dark) 1f else 0f)
+            ?.setDuration(resources.getInteger(android.R.integer.config_longAnimTime).toLong())
     }
 
     private fun resumeGl(view: VisualizerView) {

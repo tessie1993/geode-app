@@ -46,18 +46,19 @@ class ShellTabsTest {
         compose.tap("Studio")
         compose.waitForIdle()
 
-        // Settings is a list of groups; a group opens as its page, ‹ › step to the next one and ←
-        // returns to the list. The list is lazy, so the wait names a group near its top: Export,
-        // eighth of ten, sits below the fold on a phone-sized emulator and is never composed.
+        // Settings is a list of fourteen tabs; a tab opens as its page, ‹ › step to the next one
+        // and ← returns to the list. The list is lazy, so the waits name the first two tabs: the
+        // later ones sit below the fold on a phone-sized emulator and are never composed. (Before
+        // the regroup this walked Behaviour & gestures into Visuals; both tabs are gone.)
         compose.tap("Settings")
-        compose.awaitNode(hasText("Behaviour & gestures"))
-        compose.tap("Behaviour & gestures")
-        compose.awaitNode(hasText("Open on"))
+        compose.awaitNode(hasText("Playback"))
+        compose.tap("Playback")
+        compose.awaitNode(hasText("Sleep timer"))
         compose.tap("Next group")
-        // Visuals' Basics: the heading is a CrystalOverline, which draws its text in capitals.
-        compose.awaitNode(hasText("Flashing and motion", ignoreCase = true))
+        // Sound & equalizer's page: its title in the header, the list itself no longer shown.
+        compose.awaitNode(hasText("Sound & equalizer"))
         compose.tap("Back to Settings")
-        compose.awaitNode(hasText("Behaviour & gestures"))
+        compose.awaitNode(hasText("Playback"))
 
         compose.tap("Player")
         compose.awaitEmptyPlayer()

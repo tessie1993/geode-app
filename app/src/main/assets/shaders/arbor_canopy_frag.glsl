@@ -36,7 +36,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the dapple drift and the leaves' stir. Complexity:
+// Speed scales the dapple drift and the leaves' stir. Complexity:
 // uMorph adds a fork level (arbLevels). Chaos: uTurbulence and uWarp scatter
 // each tree's twist and lean from its hash; uTwist adds a standing spiral to
 // every crown. Colour: bark, leaves, light and haze from pal(). Energy:
@@ -91,8 +91,8 @@ void main() {
     vec2 uv = arbView();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float snare = clamp(SND_SNARE_ENV * energy, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * uSoundDrive * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
     gChaos = arbChaos();

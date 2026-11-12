@@ -36,7 +36,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the caustics and the current. Complexity: uMorph adds
+// Speed scales the caustics and the current. Complexity: uMorph adds
 // a fold level (arbLevels). Chaos: uTurbulence and uWarp scatter each
 // colony's tilt and twist from its cell hash; uTwist adds a standing spiral.
 // Colour: coral, polyps, sand and water from pal(). Energy: uIntensity scales

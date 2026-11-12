@@ -472,7 +472,45 @@ void frameTimeSplitsAtTheEdges() {
 
 }  // namespace
 
+// A fluid scene's auto quality over a long session: a hot spell's deficits step it down, and once the
+// phone keeps up again it climbs back to the user's tier instead of keeping Min for the scene's life.
+void autoQualityRecoversAfterAHotSpell() {
+    constexpr float dt = 1.0f / 60.0f;
+    constexpr int userTier = 2;
+    quality::AutoDowngrade a;
+    a.onFrame(2, false, dt);
+    a.onFrame(2, false, dt);
+    check(quality::effectiveIndex(userTier, a.steps) == quality::kTierCount - 1, "a hot spell steps a fluid scene down to Min");
+    check(a.steps == quality::kTierCount - 1, "the rungs stop at the ladder's end, so a step up is never swallowed");
+    for (int i = 0; i < 60 * 600; ++i) a.onFrame(0, true, dt);
+    check(quality::effectiveIndex(userTier, a.steps) == userTier, "ten kept-up minutes give the user's tier back");
+
+    quality::AutoDowngrade idle;
+    for (int i = 0; i < 60 * 600; ++i) idle.onFrame(0, false, dt);
+    check(idle.steps == 0, "nothing to give back, nothing moves");
+
+    quality::AutoDowngrade heavy;
+    heavy.onFrame(1, false, dt);
+    float t = 0.0f;
+    while (heavy.steps == 1 && t < 100.0f) {
+        heavy.onFrame(0, true, dt);
+        t += dt;
+    }
+    check(heavy.steps == 0 && t >= quality::AutoDowngrade::kRelaxSeconds - 0.1f, "one rung back after the relax wait");
+    heavy.onFrame(1, false, dt);  // the better tier failed inside the probe
+    check(heavy.relaxSeconds == 2.0f * quality::AutoDowngrade::kRelaxSeconds, "a failed step up doubles the next wait");
+    for (int k = 0; k < 10; ++k) {
+        while (heavy.steps == 1) heavy.onFrame(0, true, dt);
+        heavy.onFrame(1, false, dt);
+    }
+    check(heavy.relaxSeconds == quality::AutoDowngrade::kRelaxMaxSeconds, "the wait stops at its ceiling");
+    while (heavy.steps == 1) heavy.onFrame(0, true, dt);
+    for (int i = 0; i < 60 * 20; ++i) heavy.onFrame(0, true, dt);
+    check(heavy.relaxSeconds == quality::AutoDowngrade::kRelaxSeconds, "a step up that holds puts the wait back");
+}
+
 int main() {
+    autoQualityRecoversAfterAHotSpell();
     multigridLevelsCoarsenCellCentred();
     solvePlanSpendsTheBudget();
     multigridBeatsJacobiAtEveryBudget();

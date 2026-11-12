@@ -6,6 +6,7 @@
 
 #include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -48,11 +49,6 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
 
 ShaderScene::~ShaderScene() { release(); }
 
-void ShaderScene::setFlow(GLuint texture, float strength) {
-    flowTex_ = texture;
-    flowStrength_ = strength;
-}
-
 void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
     // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
@@ -70,6 +66,7 @@ void ShaderScene::init() {
     motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
+    worldParts_ = 0;
     {
         std::lock_guard<std::mutex> lock(pendingLock_);
         pendingFragment_ = currentFragment_;
@@ -116,7 +113,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
             world_->reset(seed);
             worldSeeded_ = true;
         }
-        world::DriverInput in = world::DriverInput::fromSound(sound);
+        world::DriverInput in = world::DriverInput::fromSound(sound, p.audioDrive);
         in.morph = p.morph;
         in.warp = p.warp;
         in.turbulence = p.turbulence;
@@ -134,17 +131,11 @@ void ShaderScene::draw(float timeSeconds) {
     (void) timeSeconds;
     compilePendingIfAny();
     if (program_ == 0) return;
+    specializeWorld();
     glDisable(GL_BLEND);
     glUseProgram(program_);
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
-    if (flowTex_ != 0) {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, flowTex_);
-        glUniform1i(uniforms_.loc("uFlow"), 1);
-        set1f("uFlowStrength", flowStrength_);
-        glActiveTexture(GL_TEXTURE0);
-    }
     const SceneParams& p = params_;
     const bool lutSelected = p.paletteLut >= 0 && paletteLutTex_ != 0;
     if (paletteLutTex_ != 0) {
@@ -172,7 +163,6 @@ void ShaderScene::draw(float timeSeconds) {
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
     set1f("uTime", shaderTime_);
-    set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
@@ -189,6 +179,19 @@ void ShaderScene::uploadParams() {
     set1f("uPal2Base", p.palette2Base());
     set1f("uPal2Range", p.palette2Range());
     set1f("uPaletteMix", p.paletteMix);
+    {
+        const auto stops = p.paletteStops();
+        const int count = p.paletteStopCount();
+        std::array<float, 3 * colour::kMaxStops> rgb{};
+        for (int i = 0; i < count; ++i) {
+            const colour::Rgb c = colour::unpack(stops[static_cast<size_t>(i)]);
+            rgb[static_cast<size_t>(3 * i)] = c.r;
+            rgb[static_cast<size_t>(3 * i + 1)] = c.g;
+            rgb[static_cast<size_t>(3 * i + 2)] = c.b;
+        }
+        set1f("uPalStopCount", static_cast<float>(count));
+        glUniform3fv(uniforms_.loc("uPalStops"), colour::kMaxStops, rgb.data());
+    }
     set1f("uDuotone", flag(p.duotone));
     set1f("uBloom", p.bloom);
     set1f("uWarp", p.warp);
@@ -199,15 +202,12 @@ void ShaderScene::uploadParams() {
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
-    set1f("uPulse", p.pulse);
     set1f("uDriftX", p.driftX);
     set1f("uDriftY", p.driftY);
-    set1f("uShake", p.shake);
     set1f("uTile", p.tile);
     set1f("uTwist", p.twist);
     set1f("uTemperature", p.temperature);
     set1f("uSolarize", flag(p.solarize));
-    set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
     // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
@@ -240,7 +240,6 @@ void ShaderScene::uploadMotion() {
     set1f("uHarmony", m.harmony);
     set1f("uKeyHue", m.keyHue);
     set1f("uKeyStrength", m.keyStrength);
-    set1f("uBeatOsc", m.beatOsc);
     set1f("uBarOsc", m.barOsc);
     glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
     set1f("uDrift", m.drift);
@@ -248,12 +247,10 @@ void ShaderScene::uploadMotion() {
     set1f("uFlowPhase", m.flowPhase);
     set1f("uFlowTime", m.flowTime);
     glUniform3f(uniforms_.loc("uSoundTimeSped"), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
-    set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
 
     // Legacy since wave three, held at their neutral constant until R08
-    // deletes the readers: a spike that never fires, a spawn born once and
-    // never re-rolled, a direction that never turns.
-    set1f("uSpike", 0.0f);
+    // deletes the readers: a spawn born once and never re-rolled, a direction
+    // that never turns.
     set1f("uSpawnSeed", 0.0f);
     set1f("uSpawnAge", 1000.0f);
     set1f("uFormPhase", 0.0f);
@@ -286,7 +283,6 @@ void ShaderScene::uploadCamera() {
         set1f("uCamFocal", c.focal);
         set1f("uCamTravel", c.travel);
         set1f("uCamDolly", c.dolly);
-        glUniform3f(uniforms_.loc("uCamLook"), c.yaw, c.pitch, c.roll);
     }
 }
 
@@ -370,6 +366,28 @@ void ShaderScene::uploadPool() {
     glUniform4f(uniforms_.loc("uPoolView"), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
 }
 
+void ShaderScene::specializeWorld() {
+    // A user's shader override keeps its own source.
+    if (!world_ || currentFragment_ != stockFragment_) return;
+    const uint32_t want = world_->parts();
+    if (want == world::MorphDriver::kAllParts || (worldParts_ != 0 && (want & ~worldParts_) == 0)) return;
+    // Built here, in the frame that retargeted, before it draws: an export renders the same frames, and
+    // a retarget's new parts are never missing from the frame that first needs them.
+    std::string error;
+    const GLuint built = program::build(vertexSrc_, world::withParts(stockFragment_, want), cache_, &error);
+    // On a failure the stock program, which has every part, keeps drawing; marking the parts done
+    // keeps a broken driver from being asked again every frame.
+    worldParts_ = want;
+    if (built == 0) {
+        GEODE_LOGW(kTag, "Morph World parts %u did not build, drawing every part: %s", want, error.c_str());
+        return;
+    }
+    glDeleteProgram(program_);
+    program_ = built;
+    uniforms_ = UniformCache(built);
+    drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+}
+
 void ShaderScene::set1f(const char* name, float value) {
     glUniform1f(uniforms_.loc(name), value);
 }
@@ -400,6 +418,7 @@ void ShaderScene::compilePendingIfAny() {
     program_ = built;
     uniforms_ = UniformCache(built);
     drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+    worldParts_ = 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
 }

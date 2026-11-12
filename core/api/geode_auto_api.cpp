@@ -1,5 +1,6 @@
 #include "api/geode_api.h"
 #include "viz/AutoTimer.hpp"
+#include "viz/TransitionChoice.hpp"
 
 namespace auto_timer = geode::viz::auto_timer;
 
@@ -15,5 +16,9 @@ int geode_auto_timer_due(int timer, long long now_ms, int interval_s, int runnin
 }
 
 double geode_auto_timer_hold_s(void) { return auto_timer::liveHoldSeconds(); }
+
+void geode_auto_mark_change(const char* key) {
+    if (key) geode::viz::transition_choice::markAuto(key);
+}
 
 }  // extern "C"

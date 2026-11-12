@@ -60,16 +60,16 @@
     <string name="perf_liquid_hot_full">Full (phone may throttle)</string>
     <string name="perf_liquid_hot_pause">Pause</string>
     <string name="perf_liquid_hot_hint">What Liquid mode does when the phone gets hot. Simplify keeps the flow with fewer details, Full never steps down, Pause freezes the liquid until the phone cools.</string>
-    <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
+    <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
-    <string name="help_topic_library_body">BeatRealms reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Library &amp; lyrics.</string>
+    <string name="help_topic_library_body">BeatRealms reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Library.</string>
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
-    <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Drag with two fingers to play with the visual; Settings › Behaviour &amp; gestures sets what each gesture does.</string>
+    <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Drag with two fingers to play with the visual; Settings › Gestures &amp; controls sets what each gesture does.</string>
     <string name="help_topic_safety">Flashing and motion</string>
     <string name="help_topic_safety_body">BeatRealms clamps how deep its strobe and flash effects go and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
@@ -167,6 +167,10 @@
     <string name="notice_dismiss">Dismiss</string>
     <string name="notice_dismiss_description">Dismiss playback message</string>
 
+    <plurals name="library_short_hidden">
+        <item quantity="one">%1$d short track hidden · Settings</item>
+        <item quantity="other">%1$d short tracks hidden · Settings</item>
+    </plurals>
     <plurals name="track_count">
         <item quantity="one">%1$d track</item>
         <item quantity="other">%1$d tracks</item>
@@ -315,7 +319,7 @@
     <!-- Library with access granted and no songs (#340). -->
     <string name="library_empty_title">No songs here yet</string>
     <string name="library_empty_hint">BeatRealms lists the music Android has indexed on this phone. If you just copied songs over, rescan. If they live somewhere else, choose the folder. Or skip the library: the visuals can listen to another app or the room.</string>
-    <string name="library_empty_short_hint">Tracks shorter than %1$d s are hidden. Change that in Settings › Folders.</string>
+    <string name="library_empty_short_hint">Tracks shorter than %1$d s are hidden. Change that in Settings › Library.</string>
     <string name="library_empty_rescan">Rescan</string>
     <string name="library_empty_choose_folder">Choose a music folder</string>
     <string name="library_empty_listen">Listen to another app or the mic</string>
@@ -378,33 +382,17 @@
         <item quantity="other">%1$d clips</item>
     </plurals>
 
-    <string name="studio_brightness">Brightness</string>
-    <string name="studio_contrast">Contrast</string>
-    <string name="studio_saturation">Saturation</string>
-    <string name="studio_hue_shift">Hue shift</string>
-    <string name="studio_speed">Speed</string>
-    <string name="studio_rotate">Rotate</string>
-    <string name="studio_as_shot">As shot</string>
     <string name="studio_render">Render</string>
-
-    <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
-    <string name="studio_look_punch">Punch</string>
-    <string name="studio_look_bleach">Bleach</string>
-    <string name="studio_look_neon">Neon</string>
-    <string name="studio_look_night">Night</string>
-    <string name="studio_look_mono">Mono</string>
-    <string name="studio_look_invert">Invert</string>
-    <string name="studio_clip_untitled">Clip</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>
     <string name="playback_pitch">"Pitch  %1$s st (0 = normal)"</string>
     <string name="playback_fade_off">Fade on pause, resume and skip — off</string>
     <string name="playback_fade">"Fade on pause, resume and skip  %1$ss"</string>
-    <string name="playback_fade_explainer">Ramps the volume instead of cutting it. Not a crossfade — one player decodes one track at a time, and a second one would give the analyser two streams to sum — but it removes the hard edges, which is the part you hear.</string>
+    <string name="playback_fade_explainer">Ramps the volume instead of cutting it when you pause, resume or skip. The crossfade above joins one track to the next.</string>
     <string name="playback_skip_silence">Skip silence</string>
     <string name="playback_pause_unplugged">Pause when unplugged</string>
-    <string name="playback_keep_screen_on">Keep screen on</string>
+    <string name="playback_keep_screen_on">Keep the screen on while a visual shows</string>
     <string name="playback_auto_resume">Auto-resume last track</string>
     <string name="playback_sleep_timer">Sleep timer</string>
     <string name="playback_sleep_off">Off</string>
@@ -422,7 +410,9 @@
     <string name="playback_resume_long_tracks_explainer">Anything over 20 minutes — a mix, an audiobook, a podcast — picks up where it was left, until it is played to the end.</string>
     <string name="playback_bit_perfect">Bit-perfect USB output</string>
     <string name="playback_bit_perfect_explainer">Asks Android to hand the stream to a USB DAC untouched by the system mixer, at the track\'s own sample rate. Only DACs that offer that path take it; a track the DAC cannot take bit-perfect plays as usual. System sounds are muted on the DAC while it plays.</string>
-    <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness, crossfeed and the limiter. The visuals still react.</string>
+    <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness and the limiter. The visuals still react.</string>
+    <string name="playback_picture_delay">Picture delay: %1$+d ms</string>
+    <string name="playback_picture_delay_explainer">If the visual runs ahead of or behind what you hear on a headset or car speaker, move this until the beats line up. Positive waits for the sound; negative shows the picture sooner.</string>
     <string name="playback_native_output">Native output (Oboe)</string>
     <string name="playback_native_output_explainer">Experimental. Plays through Oboe instead of Android\'s AudioTrack, and falls back automatically for anything it cannot play, such as surround files or bit-perfect USB.</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
@@ -642,7 +632,7 @@
     <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. BeatRealms leaves the level as it is.</string>
     <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. BeatRealms leaves the level as it is.</string>
 
-    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <!-- Export: failure messages. Shared by VideoExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
     <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
@@ -650,13 +640,6 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/BeatRealms.</string>
-    <string name="export_error_studio_start">The export could not be started.</string>
-    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
-    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
-    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">BeatRealms does not have permission to read that file.</string>
-    <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
     <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
@@ -690,12 +673,31 @@
     <string name="look_font_color">Font color</string>
     <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
     <string name="look_group_layout">Layout</string>
-    <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
     <string name="look_corner_style">Corner style</string>
     <string name="look_corner_sharp">Sharp</string>
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
     <string name="look_boot_animation">Boot animation</string>
+    <string name="look_accent_follows_visual">Accent follows the visual</string>
+    <string name="look_accent_follows_visual_hint">Off keeps the accent light blue whatever the visual shows.</string>
+    <string name="look_haptics">Vibrate on touch</string>
+    <string name="look_haptics_hint">Small taps you feel on buttons, tabs and gestures. Follows the system touch-feedback setting.</string>
+    <string name="look_tab_labels">Tab bar labels</string>
+    <string name="look_knob_size">Knob size</string>
+    <string name="look_knob_size_small">Small</string>
+    <string name="look_knob_size_medium">Medium</string>
+    <string name="look_knob_size_large">Large</string>
+    <string name="look_tab_labels_auto">Automatic</string>
+    <string name="look_tab_labels_always">Always</string>
+    <string name="look_tab_labels_selected">Selected tab only</string>
+    <string name="look_tab_labels_never">Icons only</string>
+    <string name="look_show_time_left">Show time left</string>
+    <string name="look_show_time_left_hint">The Player shows the time left in the track instead of its length.</string>
+    <string name="look_screen_rotation">Screen rotation</string>
+    <string name="look_screen_rotation_follow">Follow phone</string>
+    <string name="look_screen_rotation_portrait">Lock portrait</string>
+    <string name="look_screen_rotation_landscape">Lock landscape</string>
+    <string name="look_screen_rotation_hint">Locked, the app stays put while you move the phone. Tablets and unfolded phones always turn with the device.</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>
@@ -714,7 +716,7 @@
     <string name="notes_body">Each style hears the melody, the chords and the mood, not just the drums, through six knobs of its own, and spends them its own way. Colours stay the style\'s and yours. Drums count for as much as the track is made of them.</string>
     <!-- Customize › Advanced › Note & key (Pro): six per-style strengths, 1 = as designed. -->
     <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
-    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Visuals to hear these.</string>
+    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Sound reaction to hear these.</string>
     <string name="note_key_pitch">Pitch height</string>
     <string name="note_key_pitch_hint">How much high and low notes move the style\'s tone knob.</string>
     <string name="note_key_intervals">Leaps and steps</string>
@@ -726,11 +728,11 @@
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
-    <string name="behavior_touch_smear">Smear the visuals with a finger</string>
-    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it.</string>
+    <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
+    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless Behaviour &amp; gestures says otherwise), they also push the picture around. In Liquid mode the fingers move the liquid instead.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
-    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets — and undone by dragging the slider back.</string>
+    <string name="behavior_touch_transform_hint">Two fingers on the visual: pinch moves the Zoom slider, twist moves Rotation. They are the same controls Customize shows, so a gesture is saved into presets, and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">The visual moves there at that screen\'s own resolution and the phone keeps the controls. Both screens stay on while it shows; it pauses when you leave the app.</string>
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or USB-C, or connect a wireless display, and the visual can move to that screen while the phone keeps the controls.</string>
@@ -743,39 +745,18 @@
     <string name="display_state_waiting">%1$s is connected but the visual could not be shown there yet.</string>
     <string name="display_state_ready">%1$s is connected. The visual stays on the phone.</string>
     <string name="display_state_locked">%1$s is connected. Showing the visual there is part of Pro, like Cast.</string>
-    <string name="behavior_safety_title">Flashing and motion</string>
     <string name="behavior_flash_guidance">BeatRealms clamps how deep its strobe and flash effects go and slows its brightness modulation. These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets and imported shaders are not covered. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
-    <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
+    <string name="behavior_pip_auto_enter_hint">Leaving Visuals while something is playing shrinks the visual into a picture-in-picture window. Off, leaving only sends the app to the background.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
 
-    <!-- Studio clip preview. -->
-    <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
-    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
-    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
-    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
-    <string name="render_video_label">Rendering your video</string>
-    <plurals name="render_skip_overlay">
-        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
-        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
-    </plurals>
-    <plurals name="render_skip_no_song">
-        <item quantity="one">%1$d visual clip with no song under it</item>
-        <item quantity="other">%1$d visual clips with no song under them</item>
-    </plurals>
-    <plurals name="render_skip_past_song">
-        <item quantity="one">the end of %1$d visual clip, past its song</item>
-        <item quantity="other">the ends of %1$d visual clips, past their song</item>
-    </plurals>
-    <plurals name="render_skip_wrong_lane">
-        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
-        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
-    </plurals>
+    <!-- The one-tap Render: a part of the song too short to draw over. -->
+    <string name="editor_export_nothing">Nothing to render: the part of the song you chose is too short.</string>
 
     <!-- Shared verbs. One definition each, so a translator sees them once. -->
     <string name="action_save">Save</string>
@@ -813,6 +794,9 @@
     <string name="link_offer_replace_title">Replace template?</string>
     <string name="link_offer_replace_body">A link opened BeatRealms with another version of your template \"%1$s\". Importing replaces yours.</string>
     <string name="link_offer_untitled_template">Shared template</string>
+    <string name="link_offer_milk_title">Open MilkDrop preset?</string>
+    <string name="link_offer_milk_body">Another app opened BeatRealms with the MilkDrop preset \"%1$s\". Opening adds it to your MilkDrop presets and plays it.</string>
+    <string name="link_offer_open">Open</string>
     <string name="link_offer_import">Import</string>
     <string name="link_offer_replace">Replace</string>
     <string name="template_entry_point">Video templates</string>
@@ -835,18 +819,37 @@
     <string name="template_updated">Updated \"%1$s\".</string>
     <string name="template_share_subject">BeatRealms template: %1$s</string>
     <string name="template_untitled">Template</string>
-    <string name="palette_base_hue">Base hue %1$s</string>
-    <string name="palette_hue_span">Hue span %1$s</string>
-    <string name="palette_apply_gradient">Apply gradient</string>
-    <string name="palette_from_current">From current</string>
+    <!-- Your colours (Customize › Look): the colour picker, the eyedropper and saved palettes. -->
+    <string name="customize_your_colours">Your colours</string>
+    <string name="palette_explainer">Pick up to five colours: tap a swatch, then drag in the square and along the hue strip, type a hex code, or take a colour with the eyedropper. The visual loops through them as you go; Save keeps them beside the built-in palettes and in every preset you save.</string>
+    <string name="palette_stop">Colour %1$d of %2$d, %3$s</string>
+    <string name="palette_stop_add">Add a colour</string>
+    <string name="palette_stop_remove">Remove this colour</string>
+    <string name="palette_sv_square">Saturation and brightness</string>
+    <string name="palette_sv_state">Saturation %1$d%%, brightness %2$d%%</string>
+    <string name="palette_more_saturated">More saturated</string>
+    <string name="palette_less_saturated">Less saturated</string>
+    <string name="palette_brighter">Brighter</string>
+    <string name="palette_darker">Darker</string>
+    <string name="palette_hue_strip">Hue</string>
+    <string name="palette_hex_label">Hex</string>
+    <string name="palette_hex_invalid">Six hex digits, like #FF8800</string>
+    <string name="palette_pick_visual">Pick from the visual</string>
+    <string name="palette_pick_artwork">Pick from the artwork</string>
+    <string name="palette_pick_hint">Drag to the colour you want, then let go</string>
+    <string name="palette_pick_centre">Take the colour in the middle</string>
+    <string name="palette_pick_cancel">Cancel picking</string>
+    <string name="palette_pick_image">The picture to pick a colour from</string>
+    <string name="palette_from_current">Start from this palette</string>
     <string name="palette_name_label">Palette name</string>
     <string name="palette_save">Save palette</string>
-    <string name="palette_saved_heading">Saved palettes</string>
-    <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
+    <string name="palette_saved_heading">Your palettes</string>
+    <string name="palette_none_yet">None yet: make one above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
-    <!-- Palette maker and the palette taken from a track's artwork. -->
-    <string name="palette_explainer">Build a gradient: the base hue is where it starts, the span is how far around the colour wheel it sweeps (0 = one flat colour). Apply auditions it on the scene; Save adds it to the palette row above and to every preset you save afterwards.</string>
+    <string name="palette_second">Second palette</string>
+    <string name="palette_second_previous">Previous second palette</string>
+    <string name="palette_second_next">Next second palette</string>
     <string name="palette_art_nothing_playing">Nothing is playing.</string>
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>
@@ -857,7 +860,11 @@
     <!-- Live wallpaper options (wallpaper/*, ui/wallpaper/WallpaperOptionsActivity), opened from the system wallpaper picker. -->
     <string name="wallpaper_options_title">Wallpaper options</string>
     <string name="wallpaper_options_close">Close</string>
+    <string name="wallpaper_options_still_pro">Still frame: moving wallpaper is Pro</string>
+    <string name="wallpaper_options_still_motion">Still frame: Android\'s Remove animations is on</string>
+    <string name="wallpaper_options_still_saver">Still frame: battery saver is on</string>
     <string name="wallpaper_options_group_sound">Sound</string>
+    <string name="wallpaper_options_mix_refused">This phone doesn\'t share its sound with wallpapers. Play your music in BeatRealms, or turn on the mic there, and the wallpaper follows it.</string>
     <string name="wallpaper_options_other_apps">React to any app</string>
     <string name="wallpaper_options_other_apps_hint">Reacts to whatever your phone is playing, from any app. Android lists this under the microphone permission; the wallpaper only reads the sound your phone plays, and nothing is recorded or kept.</string>
     <string name="wallpaper_options_open_settings">Allow in Android settings</string>
@@ -894,7 +901,6 @@
     <string name="music_moment_nothing">No actions</string>
     <string name="music_moment_recipes">Ready-made</string>
     <string name="music_moment_full">%1$d of %2$d reactions in use, so greyed-out ones don\'t fit. Turn one off to make room.</string>
-    <string name="music_action_pulse">Pulse</string>
     <string name="music_action_flash">Flash</string>
     <string name="music_action_zoom">Zoom</string>
     <string name="music_action_shake">Shake</string>
@@ -941,6 +947,7 @@
     <string name="customize_a11y_close_search">Close search</string>
     <string name="customize_a11y_search">Search every control</string>
     <string name="customize_a11y_randomize">Randomize %1$s</string>
+    <string name="customize_a11y_randomize_all">Randomize every group</string>
     <string name="customize_a11y_undo">Undo</string>
     <string name="customize_a11y_more_options">More options</string>
     <string name="customize_summary_as_styled">As styled</string>
@@ -993,33 +1000,46 @@
     <string name="visuals_gesture_previous_look">Previous look</string>
     <string name="visuals_gesture_macros">Macros</string>
     <string name="visuals_gesture_record">Record a video</string>
-    <string name="visuals_gesture_randomize">Randomize everything</string>
+    <string name="visuals_gesture_randomize">Randomize style, preset and settings</string>
     <string name="visuals_gesture_touch_play">Stir the visual</string>
     <string name="visuals_gesture_play_pause">Play or pause</string>
+    <!-- Shake to screenshot (ui/EasterEggs.kt): the visual alone, saved to Pictures. -->
+    <string name="visuals_screenshot_saved">Screenshot saved to Pictures</string>
+    <string name="visuals_screenshot_failed">Could not save the screenshot</string>
     <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
     <string name="macros_drawer_title">Macros</string>
     <string name="macros_drawer_edit">Edit and make macros</string>
-    <!-- Settings, rebuilt in Customize's pattern (#337, #338, #336): groups, Basics, sections. -->
+    <!-- Settings, rebuilt in Customize's pattern (#337, #338, #336): tabs, Basics, sections. The fourteen tabs (2026-11-11). -->
     <string name="settings_back_to_list">Back to Settings</string>
     <string name="settings_group_position">%1$d of %2$d</string>
     <string name="settings_previous_group">Previous group</string>
     <string name="settings_next_group">Next group</string>
     <string name="settings_basics">Basics</string>
     <string name="settings_group_playback">Playback</string>
-    <string name="settings_group_playback_summary">Crossfade, fades, sleep timer, equalizer, ReplayGain</string>
-    <string name="settings_group_behaviour">Behaviour &amp; gestures</string>
-    <string name="settings_group_behaviour_summary">Start screen, screen on, headphones, queue end, gestures</string>
-    <string name="settings_group_visuals">Visuals</string>
-    <string name="settings_group_visuals_summary">Note reactions, safety, touch, second screen, wallpaper</string>
-    <string name="settings_group_sound_input">Sound input</string>
-    <string name="settings_group_sound_input_summary">Microphone, other apps\' audio, how the visual listens</string>
+    <string name="settings_group_playback_summary">Crossfade, fades, sleep timer, queue end, speed, ReplayGain</string>
+    <string name="settings_group_sound_eq">Sound &amp; equalizer</string>
+    <string name="settings_group_sound_eq_summary">Equalizer, bass boost and loudness</string>
+    <string name="settings_group_output">Output &amp; devices</string>
+    <string name="settings_group_output_summary">Headphones, notification buttons, native output, bit-perfect USB</string>
+    <string name="settings_group_visual_playback">Visual playback</string>
+    <string name="settings_group_visual_playback_summary">Auto, the style timer and what it picks, preset morph</string>
+    <string name="settings_group_sound_reaction">Sound reaction</string>
+    <string name="settings_group_sound_reaction_summary">Microphone, other apps\' audio, note reactions, how the visual listens</string>
+    <string name="settings_group_safety">Photosensitivity &amp; motion</string>
+    <string name="settings_group_safety_summary">Flash limits and reduced motion</string>
+    <string name="settings_group_displays">Displays &amp; casting</string>
+    <string name="settings_group_displays_summary">Screen on, a connected display, picture-in-picture</string>
+    <string name="settings_group_wallpaper">Wallpaper &amp; screen saver</string>
+    <string name="settings_group_wallpaper_summary">The live wallpaper, the screen saver\'s clock and sound</string>
+    <string name="settings_group_gestures">Gestures &amp; controls</string>
+    <string name="settings_group_gestures_summary">What each gesture on the visual does, touch</string>
     <string name="settings_group_look">Look</string>
-    <string name="settings_group_look_summary">Accent, sounds, text size and colour, layout</string>
+    <string name="settings_group_look_summary">Where the app opens, accent, sounds, text, layout</string>
     <string name="settings_group_performance">Performance</string>
     <string name="settings_group_performance_summary">Quality for the screen, wallpaper and screen saver</string>
-    <string name="settings_group_library">Library &amp; lyrics</string>
-    <string name="settings_group_library_summary">Music folders, lyrics, the preset folder</string>
-    <string name="settings_group_export">Export</string>
+    <string name="settings_group_library">Library</string>
+    <string name="settings_group_library_summary">Music folders, short tracks, lyrics, the preset folder</string>
+    <string name="settings_group_export">Export &amp; recording</string>
     <string name="settings_group_export_summary">Recording quality and length; renders live in Studio</string>
     <string name="settings_section_record">Record</string>
     <string name="record_hint">A hold on the visual records what it shows and hears, until you stop. These rows set that video.</string>
@@ -1034,17 +1054,49 @@
     <string name="record_size_lowered">Recording stops there. A recording is about %1$s at most; the quality is lowered to keep one this long under 4 GB.</string>
     <string name="record_free_cap">In the trial a recording stops after a minute, with the watermark.</string>
     <string name="record_stopped_at_max">Recording stopped at the maximum length (%1$s) and was saved</string>
-    <string name="settings_group_help">Tutorials &amp; help</string>
-    <string name="settings_group_help_summary">Replay the tour and read how things work</string>
-    <string name="settings_group_about">Backup &amp; about</string>
-    <string name="settings_group_about_summary">Back up your settings, version, licences</string>
+    <string name="settings_group_preferences">Preferences</string>
+    <string name="settings_group_preferences_summary">Your watermark, how Library opens, the Player\'s buttons, the icons on the visual</string>
+    <string name="watermark_hint_free">Where the BeatRealms watermark goes on your videos and recordings. Free and trial videos always carry it.</string>
+    <string name="watermark_hint_pro">Pro videos and recordings are clean. Add the BeatRealms watermark if you want them signed.</string>
+    <string name="watermark_pro_adds">Add the watermark</string>
+    <string name="watermark_placement">Watermark placement</string>
+    <string name="watermark_placement_tiled">Tiled across the frame</string>
+    <string name="watermark_placement_corner">Corner</string>
+    <string name="watermark_placement_end_card">End card</string>
+    <string name="watermark_corner">Corner</string>
+    <string name="watermark_corner_top_left">Top left</string>
+    <string name="watermark_corner_top_right">Top right</string>
+    <string name="watermark_corner_bottom_left">Bottom left</string>
+    <string name="watermark_corner_bottom_right">Bottom right</string>
+    <string name="watermark_end_card_hint">The end card fades in over the last seconds of a video. Loops, recordings and Studio projects of several scenes get the corner mark instead.</string>
+    <string name="prefs_section_library">Library</string>
+    <string name="prefs_section_player">Player &amp; mini player</string>
+    <string name="prefs_section_visuals">Icons on the visual</string>
+    <string name="prefs_library_start_tab">Library opens on</string>
+    <string name="prefs_library_sort">Library opens sorted by</string>
+    <string name="prefs_library_sort_hint">A different order picked in Library holds until you leave the app.</string>
+    <string name="prefs_track_tap">Tapping a track</string>
+    <string name="prefs_track_tap_play_list">Plays it with its list</string>
+    <string name="prefs_track_tap_play_alone">Plays only that track</string>
+    <string name="prefs_track_tap_play_next">Plays it next</string>
+    <string name="prefs_track_tap_add_to_queue">Adds it to the queue</string>
+    <string name="prefs_track_tap_hint">With nothing loaded, a tap always plays. The ⋮ menu keeps every choice.</string>
+    <string name="prefs_show_ab_loop">A–B loop button</string>
+    <string name="prefs_show_ab_loop_hint">Under the Player\'s seek bar. While a loop runs it stays, so you can end it.</string>
+    <string name="prefs_mini_player_previous">Previous on the mini player</string>
+    <string name="prefs_mini_player_previous_hint">Adds a previous button beside play and next. The mini player on Visuals always has one.</string>
+    <string name="prefs_stage_arrows">‹ › on the sides</string>
+    <string name="prefs_stage_arrows_hint">Step styles with a button. The sideways swipe still steps them, as set in Gestures &amp; controls.</string>
+    <string name="prefs_stage_record">Record button</string>
+    <string name="prefs_stage_record_hint">Start a recording with a button. The hold on the visual still records, as set in Gestures &amp; controls, and a running recording keeps its stop.</string>
+    <string name="settings_group_help_about">Backup, help &amp; about</string>
+    <string name="settings_group_help_about_summary">Back up your settings, replay the tour, how things work, licences</string>
     <string name="settings_section_speed_pitch">Speed &amp; pitch</string>
     <string name="settings_section_volume_levelling">Volume levelling</string>
-    <string name="settings_section_equalizer">Equalizer</string>
-    <string name="settings_section_playback_more">Output and more</string>
-    <string name="settings_section_gestures">Gestures on the visual</string>
+    <string name="settings_section_playback_more">Silence &amp; long tracks</string>
+    <string name="settings_section_output_engine">Output</string>
     <string name="settings_section_notification">Notification buttons</string>
-    <string name="settings_section_wallpaper_dream">Wallpaper &amp; screen saver</string>
+    <string name="settings_section_tutorials">Tutorials</string>
     <string name="settings_section_other_folders">Preset and video folders</string>
     <string name="playback_crossfade_off">Crossfade: off</string>
     <plurals name="playback_crossfade_seconds">
@@ -1087,7 +1139,7 @@
     <string name="settings_gesture_action_step_playlist">Next or previous playlist look</string>
     <string name="settings_gesture_action_macros">Open Macros</string>
     <string name="settings_gesture_action_record">Record</string>
-    <string name="settings_gesture_action_randomize">Randomize</string>
+    <string name="settings_gesture_action_randomize">Randomize everything</string>
     <string name="settings_gesture_action_touch_play">Touch the visual</string>
     <string name="settings_gesture_action_play_pause">Play or pause</string>
     <string name="behavior_motion_system">Reduced motion</string>
@@ -1096,6 +1148,8 @@
     <string name="settings_dream_bright">Screen saver at full brightness</string>
     <string name="settings_dream_clock">Show the time and date on the screen saver</string>
     <string name="settings_dream_now_playing">Show what\'s playing on the screen saver</string>
+    <string name="settings_dream_other_apps">Screen saver reacts to any app</string>
+    <string name="settings_dream_other_apps_hint">When BeatRealms is not playing, the screen saver moves to whatever your phone plays. Android lists this under the microphone permission; only the sound your phone plays is read, and nothing is recorded or kept.</string>
     <!-- Customize: menus, dialogs and the editors' own words (CustomizePanel, CustomizeTabs, CustomizeAdvanced). -->
     <string name="customize_keep_when_randomizing">Keep when randomizing</string>
     <string name="customize_palette_from_artwork">Take the colours from the artwork</string>

@@ -18,6 +18,12 @@
   "symmetry": 8,
   "kaleidoscope": true,
   "glitch": 0.75,
+  "pulse": 0.6,
+  "shake": 0.4,
+  "flash": 0.6,
+  "strobe": 0.5,
+  "formDrive": 0.2,
+  "motionOrbit": 0.9,
   "beatFlash": 0.5,
   "customPaletteId": "old-palette"
 }

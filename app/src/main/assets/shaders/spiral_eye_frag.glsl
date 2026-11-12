@@ -40,8 +40,8 @@ out vec4 fragColor;
 // 0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE), thickens the cloud and opens
 // its outer falloff. Treble (SND_TREBLE_PRESENCE) lights the filaments, the
 // steep edges of the dye. A spike never brightens anything at once: it re-aims
-// the flow (uMoveDir, through the abcFlow drift) and the pupil, swells the halo
-// through uSpike's rise, and moves the arm count to a new plateau
+// the flow (uMoveDir, through the abcFlow drift) and the pupil, and moves the
+// arm count to a new plateau
 // (uFormPhase), crossfaded so no frame steps. The winding runs on uFlowPhase,
 // which only moves forward, so a loud passage spins the galaxy faster and
 // never backwards. Knobs: k0 density, k1 filament sharpness, k2 flow, k3 hue,
@@ -180,7 +180,7 @@ vec3 seEye(vec3 rd, float swell, float halo) {
     vec3 iris = pal(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
     vec3 col = iris * coreMask * (0.35 + 0.65 * rings * spokes) * 1.4;
     col += vec3(1.0, 0.97, 0.9) * exp(-r * r * 700.0) * 2.0;
-    col += warm * exp(-r * 11.0) * (0.35 + 0.45 * uSpike) * halo;
+    col += warm * exp(-r * 11.0) * 0.35 * halo;
     // The galaxy's far glow, so the end of the throat is lit, not a hole.
     col += pal(0.55) * exp(-r * 2.2) * (0.06 + 0.06 * swell);
     return col;

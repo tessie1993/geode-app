@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.Catalogue
 import org.json.JSONArray
@@ -63,6 +65,14 @@ class AutoVisualsPrefsStore(
         private const val KEY_PLAYLIST_ENABLED = "auto_playlist_enabled"
         private const val KEY_PLAYLIST_INTERVAL = "auto_playlist_interval_sec"
         private const val KEY_PLAYLIST_ENTRIES = "auto_playlist_entries"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.VIZ) {
+                portable(PrefType.INT, KEY_RANDOM_INTERVAL, KEY_PLAYLIST_INTERVAL)
+                portable(PrefType.BOOLEAN, KEY_RANDOM_STYLES, KEY_RANDOM_PRESETS, KEY_RANDOM_MILK, KEY_PLAYLIST_ENABLED)
+                portable(PrefType.STRING, KEY_PLAYLIST_ENTRIES)
+                retired(null, LEGACY_KEY_RANDOM_ENABLED)
+            }
 
         internal fun entriesToJson(entries: List<VizPlaylistEntry>): String {
             val arr = JSONArray()

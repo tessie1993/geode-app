@@ -2,6 +2,7 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.graphics.Bitmap
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
@@ -14,7 +15,9 @@ import dev.geode.render.look.LookTarget
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
+import java.lang.ref.Cleaner
 import java.lang.ref.Reference
+import java.nio.ByteBuffer
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
@@ -36,9 +39,26 @@ class NativeViz(
     // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
     private var handle = 0L
+
+    // The handle again, for the Cleaner (#999). A teardown queues the release on the GL thread and waits
+    // 200 ms (VisualizerView, the wallpaper engine); when the wait runs out, the queued job dies with the
+    // thread and nothing else destroyed the native renderer: its scenes, sound engine and projectM heap
+    // leaked for the life of the process. Once this object is unreachable the Cleaner destroys what is
+    // left. JNI's destroy waits for calls in flight and ignores a handle already gone; without a context
+    // its GL deletes are no-ops, and the lost context took those objects with it.
+    private val owned = Owned()
+
+    init {
+        CLEANER.register(this, owned)
+    }
+
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
     private val sent = LastSent()
     private var reportedError = ""
+
+    // Shake to screenshot's waiting request: set from any thread, answered on the GL thread after a frame.
+    @Volatile
+    private var stillThen: ((Bitmap) -> Unit)? = null
 
     /**
      * Runs once per new handle, inside [create], on whichever thread created it. A handle is
@@ -51,11 +71,14 @@ class NativeViz(
     fun create(): Boolean {
         if (handle == 0L) {
             handle = GeodeNative.vizCreate(assets, cacheDir)
+            owned.handle = handle
             sent.clear()
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
+                if (stillThen != null) GeodeNative.vizStillRequest(handle)
+                if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
                 onCreated()
             }
         }
@@ -67,6 +90,19 @@ class NativeViz(
         if (handle == 0L) return
         GeodeNative.vizDestroy(handle)
         handle = 0L
+        owned.handle = 0L
+    }
+
+    /** Holds no reference to its [NativeViz], or the Cleaner could never run it. */
+    private class Owned : Runnable {
+        @Volatile
+        var handle = 0L
+
+        override fun run() {
+            val h = handle
+            handle = 0L
+            if (h != 0L) GeodeNative.vizDestroy(h)
+        }
     }
 
     fun knows(sceneId: String): Boolean = handle != 0L && GeodeNative.vizKnows(handle, sceneId)
@@ -101,6 +137,16 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
     }
 
+    /** Kept for a new handle, like the edge glow: the user's smear switch outlives a detach. */
+    fun setTouchSmear(
+        on: Boolean,
+        strength: Float,
+    ) {
+        smearOn = on
+        smearStrength = strength
+        if (handle != 0L) GeodeNative.vizSetTouchSmear(handle, on, strength)
+    }
+
     fun setFluidInjectionShaders(
         force: String?,
         dye: String?,
@@ -131,6 +177,16 @@ class NativeViz(
     ) {
         if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
+
+    /**
+     * An export's track audio: the native feed at [feed] hands this renderer's sound engine its held frames
+     * up to the feed's target, with no copy through Kotlin (to nobody once destroyed). True once the target is
+     * reached.
+     */
+    fun hearTrack(feed: Long): Boolean = GeodeNative.vizHearTrack(handle, feed)
+
+    /** After the pre-roll, before frame 0 (core/output/PreRoll); false when the engine heard nothing. */
+    fun endPreRoll(rangeStartMs: Long): Boolean = GeodeNative.vizEndPreRoll(handle, rangeStartMs)
 
     /**
      * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
@@ -168,11 +224,9 @@ class NativeViz(
         }
     }
 
-    fun gyroSample(
-        azimuth: Float,
-        pitch: Float,
-    ) {
-        if (handle != 0L) GeodeNative.vizGyroSample(handle, azimuth, pitch)
+    /** [reading] is [dev.geode.render.GyroLook]'s: the rotation vector's x, y, z, w and the display rotation. */
+    fun gyroSample(reading: FloatArray) {
+        if (handle != 0L) GeodeNative.vizGyroSample(handle, reading[0], reading[1], reading[2], reading[3], reading[4].toInt())
     }
 
     fun gyroReset() {
@@ -225,6 +279,8 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
+    private var smearOn = false
+    private var smearStrength = 1f
 
     /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
     fun prepareOffscreen() {
@@ -320,7 +376,27 @@ class NativeViz(
         timeSeconds: Double,
         targetFbo: Int,
     ) {
-        if (handle != 0L) GeodeNative.vizRender(handle, timeSeconds, targetFbo)
+        if (handle == 0L) return
+        GeodeNative.vizRender(handle, timeSeconds, targetFbo)
+        stillThen?.let(::deliverStill)
+    }
+
+    /** The next finished visual (no app UI), handed to [then] on the GL thread. Any thread. */
+    fun requestStill(then: (Bitmap) -> Unit) {
+        stillThen = then
+        if (handle != 0L) GeodeNative.vizStillRequest(handle)
+    }
+
+    /** Tap along: true on the tap that completes a streak on the beat this renderer heard ([GeodeNative.vizTapAlong]). Any thread. */
+    fun tapAlong(uptimeNs: Long): Boolean = handle != 0L && GeodeNative.vizTapAlong(handle, uptimeNs)
+
+    private fun deliverStill(then: (Bitmap) -> Unit) {
+        val size = IntArray(2)
+        if (!GeodeNative.vizStillSize(handle, size)) return
+        stillThen = null
+        val pixels = ByteBuffer.allocateDirect(size[0] * size[1] * 4)
+        if (!GeodeNative.vizStillRead(handle, pixels)) return
+        then(Bitmap.createBitmap(size[0], size[1], Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(pixels) })
     }
 
     fun releaseScenes() {
@@ -357,6 +433,9 @@ class NativeViz(
 
     private companion object {
         const val UI_BLUR_FLOATS = 6
+
+        /** One daemon thread for every renderer in the process. */
+        val CLEANER: Cleaner = Cleaner.create()
     }
 }
 

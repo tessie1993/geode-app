@@ -1208,7 +1208,12 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
         // The view's feel mutates gently: a tunnel should not learn to stare at its walls.
         const bool view = f == Roll || f == GazePitch || f == GazeYaw;
         const float scale = (f >= PBox && f <= MDensity) ? 0.6f : (view ? 0.4f : 1.0f);
-        m[f] += (unit(s) * 2.0f - 1.0f) * amount * span * scale * 0.5f;
+        const float nudge = (unit(s) * 2.0f - 1.0f) * amount * span * scale * 0.5f;
+        // A primitive, a mode or the landscape the seed leaves off stays off here: each one with any
+        // weight is work every march step pays for, and the nudge woke about half of them at once.
+        // The wake below brings new ones in on purpose.
+        const bool part = (f >= PBox && f <= PKifs) || (f >= MSurface && f <= MDensity) || f == Terrain;
+        if (!(part && origin[f] <= 0.0f)) m[f] += nudge;
     }
     // Far mutations also wake operators the seed leaves off: a new kind of fold, not only new numbers.
     for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),

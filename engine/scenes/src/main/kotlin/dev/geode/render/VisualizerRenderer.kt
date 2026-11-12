@@ -92,14 +92,11 @@ class VisualizerRenderer(
     var soundInput: () -> SampleRing? = { null }
 
     /**
-     * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
-     * look. [gyroSession] bumps on each switch on, so native recaptures even if no frame saw it off.
+     * [GyroLook]'s last reading, null while off; core/viz/GyroLook makes the look. [gyroSession]
+     * bumps on each switch on, so native recaptures even if no frame saw it off.
      */
     @Volatile
-    var gyroAzimuth: Float = Float.NaN
-
-    @Volatile
-    var gyroPitch: Float = 0f
+    var gyroReading: FloatArray? = null
 
     @Volatile
     var gyroSession: Int = 0
@@ -112,7 +109,7 @@ class VisualizerRenderer(
     // too (shared by the process, saved across restarts); each new handle starts on the preset it
     // remembers rather than on projectM's idle preset.
     private val milkPreset = MilkPresetMemory.shared(context)
-    private val nativeViz =
+    val nativeViz =
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
@@ -181,6 +178,12 @@ class VisualizerRenderer(
     fun reloadCurrentMilkPreset() = nativeViz.reloadMilkPreset()
 
     fun warmTransition(id: String) = nativeViz.warmTransition(id)
+
+    /** Settings › Visuals › Touch › Smear, handed to native as set; the rule is core/viz/TouchSmear. */
+    fun setTouchSmear(
+        on: Boolean,
+        strength: Float,
+    ) = nativeViz.setTouchSmear(on, strength)
 
     /** The pointers that are down right now, in y-up NDC; `n = 0` says every finger has lifted. */
     fun submitTouchPoints(
@@ -288,11 +291,11 @@ class VisualizerRenderer(
 
     private fun syncNativeState(due: Int) {
         lookApplier.apply(look, nativeViz, due)
-        val azimuth = gyroAzimuth
-        val session = if (azimuth.isNaN()) -1 else gyroSession // off is a session too: one reset, not one a frame
+        val reading = gyroReading
+        val session = if (reading == null) -1 else gyroSession // off is a session too: one reset, not one a frame
         if (session != nativeGyroSession) nativeViz.gyroReset()
         nativeGyroSession = session
-        if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
+        if (reading != null) nativeViz.gyroSample(reading)
         feedSound()
     }
 

@@ -1,31 +1,34 @@
 package dev.geode.export
 
-import android.content.res.AssetManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.WatermarkChoice
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * The non-Pro watermark: the wordmark tiled diagonally across the whole frame, composited over
- * each exported frame. The video stays watchable as a preview, and unusable as a finished one.
- *
- * The compositing is native (`core/viz/frame/ExportPasses`, `WatermarkPass`, #442): drawn on the
- * export's own EGL context straight after the scene, into the default framebuffer the encoder
- * reads, restoring what it changes. What stays here is what needs Android: the text. One tile, the
- * wordmark rotated by [ANGLE_DEGREES], is rasterised once at [prepare] at the size native gives
- * (a share of the frame's short side, rounded to a power of two so the tile can repeat) and
- * handed over as pixels; per frame native draws one full-frame quad repeating it.
+ * The wordmark over each exported frame, as [choice] asks on frames of [use]: tiled across the frame
+ * (the free default), in a corner, or an end card. Whether frames are marked, where, how large and
+ * opaque, and when an end card shows are native (`core/viz/frame/ExportPasses`, `WatermarkPass`, #442),
+ * drawn on the export's own EGL context after the scene. What stays here is what needs Android: the
+ * text, rasterised once at [prepare] into the tile native sizes and handed over as pixels.
  */
 class WatermarkOverlay(
-    private val text: String,
-    private val assets: AssetManager,
+    private val choice: WatermarkChoice,
+    context: Context,
+    use: Int = choice.use,
 ) {
-    /** The native pass once [prepare]d, else 0; Record hands it to the stage's tee. */
+    private val text = context.getString(R.string.pro_watermark_text)
+    private val assets = context.assets
+    private val placement = GeodeNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, use)
+
+    /** The native pass once [prepare]d (0 when these frames carry no mark); Record hands it to the stage's tee. */
     var handle = 0L
         private set
     private var width = 0
@@ -35,13 +38,15 @@ class WatermarkOverlay(
     fun prepare(
         frameWidth: Int,
         frameHeight: Int,
+        lengthMs: Long = 0L,
     ) {
+        if (placement == 0) return
         width = frameWidth
         height = frameHeight
         val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
         val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
         bitmap.copyPixelsToBuffer(pixels)
-        handle = GeodeNative.exportWatermarkCreate(assets, pixels, bitmap.width, bitmap.height)
+        handle = GeodeNative.exportWatermarkCreate(assets, pixels, bitmap.width, bitmap.height, placement, choice.corner, lengthMs)
         bitmap.recycle()
         val problem = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
         if (problem.isNotEmpty()) {
@@ -50,9 +55,9 @@ class WatermarkOverlay(
         }
     }
 
-    /** Composites the mark over whatever is in the default framebuffer. */
-    fun draw() {
-        if (handle != 0L) GeodeNative.exportWatermarkDraw(handle, width, height)
+    /** Composites the mark over whatever is in the default framebuffer; [timeMs] is the frame's time in the video. */
+    fun draw(timeMs: Long = 0L) {
+        if (handle != 0L) GeodeNative.exportWatermarkDraw(handle, width, height, timeMs)
     }
 
     fun release() {
@@ -62,21 +67,22 @@ class WatermarkOverlay(
     }
 
     private fun rasteriseTile(shortSide: Int): Bitmap {
-        val textPx = GeodeNative.exportWatermarkTextPx(shortSide)
+        val textPx = GeodeNative.exportWatermarkTextPx(shortSide, placement)
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                alpha = TEXT_ALPHA
+                alpha = GeodeNative.exportWatermarkAlpha(placement)
                 textSize = textPx
                 typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
                 letterSpacing = LETTER_SPACING
                 setShadowLayer(textPx * SHADOW_FRACTION, 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
             }
         val textWidth = paint.measureText(text)
-        val size = GeodeNative.exportWatermarkTileWidth(textWidth)
-        return Bitmap.createBitmap(size, GeodeNative.exportWatermarkTileHeight(size), Bitmap.Config.ARGB_8888).also { tile ->
+        val size = GeodeNative.exportWatermarkTileWidth(textWidth, textPx, placement)
+        val tileHeight = GeodeNative.exportWatermarkTileHeight(size, textPx, placement)
+        return Bitmap.createBitmap(size, tileHeight, Bitmap.Config.ARGB_8888).also { tile ->
             Canvas(tile).apply {
-                rotate(ANGLE_DEGREES, tile.width / 2f, tile.height / 2f)
+                rotate(GeodeNative.exportWatermarkAngle(placement), tile.width / 2f, tile.height / 2f)
                 val metrics = paint.fontMetrics
                 drawText(text, (tile.width - textWidth) / 2f, tile.height / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
             }
@@ -84,8 +90,6 @@ class WatermarkOverlay(
     }
 
     private companion object {
-        const val ANGLE_DEGREES = -24f
-        const val TEXT_ALPHA = 92
         const val SHADOW_ALPHA = 70
         const val SHADOW_FRACTION = 0.12f
         const val LETTER_SPACING = 0.04f

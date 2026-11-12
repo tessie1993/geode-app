@@ -155,7 +155,7 @@ typedef struct GeodeSoundFrame {
     float fluxMid;
     float fluxHigh;
     float hfc;
-    /* Harmony, from core/sound/Harmony: the chroma (below) against the Krumhansl–Kessler key profiles. */
+    /* Harmony, from core/sound/Harmony: the chroma (below) against Noland's key profiles. */
     float keyHue;       /* the key on the circle of fifths, 0..1 (C = 0, G = 1/12 …; a minor key sits on its relative major) */
     float keyRoot;      /* the key's tonic pitch class, C = 0 … B = 11/12 */
     float keyMajor;     /* 1 major … 0 minor, 0.5 undecided */

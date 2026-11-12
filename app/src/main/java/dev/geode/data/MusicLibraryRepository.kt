@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
@@ -61,7 +63,14 @@ internal fun Flow<Unit>.libraryRescans(quietMs: Long = RESCAN_QUIET_MS): Flow<Un
 
 private const val RESCAN_QUIET_MS = 1_000L
 
-private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
+private const val KEY_ROOTS = "roots"
+
+internal val MEDIA_ROOTS_PREF_KEYS =
+    prefKeys(GeodePrefsFiles.LIBRARY) {
+        device(PrefType.STRING_SET, KEY_ROOTS)
+    }
+
+private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "aiff", "aif")
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MusicLibraryRepository(
@@ -141,14 +150,18 @@ internal class MusicLibraryRepository(
         refreshDeviceTracks()
     }
 
+    private val _hiddenShortTracks = MutableStateFlow(0)
+
+    override val hiddenShortTracks: StateFlow<Int> = _hiddenShortTracks
+
     override fun refreshDeviceTracks() {
         scope.launch(Dispatchers.IO) {
-            _deviceTracks.value = queryDeviceTracksBlocking()
+            val scan = DeviceTrackQuery.scan(application, _minTrackSeconds.value)
+            _deviceTracks.value = scan.tracks
+            _hiddenShortTracks.value = scan.hiddenShort
             _deviceTracksLoaded.value = true
         }
     }
-
-    private fun queryDeviceTracksBlocking(): List<DeviceTrack> = DeviceTrackQuery.query(application, _minTrackSeconds.value)
 
     /**
      * A file MediaStore indexes while the app runs (a download, a copy over USB, a scan finishing)
@@ -337,7 +350,7 @@ internal class MusicLibraryRepository(
     }
 
     private val _mediaRoots =
-        MutableStateFlow<Set<String>>(libraryPrefs.getStringSet("roots", emptySet()) ?: emptySet())
+        MutableStateFlow<Set<String>>(libraryPrefs.getStringSet(KEY_ROOTS, emptySet()) ?: emptySet())
 
     override val mediaRoots: StateFlow<Set<String>> = _mediaRoots
 
@@ -347,7 +360,7 @@ internal class MusicLibraryRepository(
     override fun importFolder(treeUri: Uri) {
         application.contentResolver.persistGrant(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         _mediaRoots.update { it + treeUri.toString() }
-        libraryPrefs.edit().putStringSet("roots", _mediaRoots.value).apply()
+        libraryPrefs.edit().putStringSet(KEY_ROOTS, _mediaRoots.value).apply()
         scope.launch(Dispatchers.IO) {
             _libraryScanning.value = true
             try {
@@ -360,7 +373,7 @@ internal class MusicLibraryRepository(
 
     override fun removeMediaRoot(uriStr: String) {
         _mediaRoots.update { it - uriStr }
-        libraryPrefs.edit().putStringSet("roots", _mediaRoots.value).apply()
+        libraryPrefs.edit().putStringSet(KEY_ROOTS, _mediaRoots.value).apply()
     }
 
     override fun rescanMediaRoots() {
@@ -488,9 +501,7 @@ internal class MusicLibraryRepository(
             val fileName = openableInfoFor(uri).first.ifBlank { uri.lastPathSegment.orEmpty() }
             val text =
                 runCatching {
-                    application.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.readBytes().toString(Charsets.UTF_8)
-                    }
+                    application.contentResolver.openInputStream(uri)?.use(ReadCap.PLAYLIST::text)
                 }.getOrNull()
             if (text == null) {
                 return@withContext PlaylistImportResult.Failed("could not open the picked file")

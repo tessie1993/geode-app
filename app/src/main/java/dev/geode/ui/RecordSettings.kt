@@ -15,12 +15,13 @@ import dev.geode.R
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDestination
 import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.RecordPrefs
 import dev.geode.data.RecordPrefsStore
+import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportQualityLabel
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
+import dev.geode.geodeContainer
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.PaywallTrigger
 import dev.geode.ui.pro.PaywallViewModel
@@ -46,12 +47,12 @@ internal fun RecordSection() {
     val context = LocalContext.current
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    val store = remember { RecordPrefsStore(GeodePrefsFiles(context).general) }
+    val store = remember { RecordPrefsStore(context.geodeContainer.prefsFiles.general) }
     var loaded by remember { mutableStateOf<RecordPrefs?>(null) }
     LaunchedEffect(store) {
         loaded =
             withContext(Dispatchers.IO) {
-                store.load(ExportPrefsStore(GeodePrefsFiles(context).general).loadFor(ExportDestination.CUSTOM))
+                store.load(ExportPrefsStore(context.geodeContainer.prefsFiles.general).loadFor(ExportDestination.CUSTOM))
             }
     }
     val prefs = loaded ?: return
@@ -134,3 +135,32 @@ internal fun recordLengthLabel(
         seconds < SECONDS_PER_MINUTE -> context.getString(R.string.record_length_seconds, seconds)
         else -> context.getString(R.string.record_length_minutes, seconds / SECONDS_PER_MINUTE)
     }
+
+/**
+ * Settings › Export › Basics: Render's "add it to My videos?" ([StudioPrefsStore.keepAsProject]).
+ * Its "don't ask again" used to be final; here it can be asked again, or answered either way.
+ */
+@Composable
+internal fun KeepRendersRow() {
+    val context = LocalContext.current
+    val store = remember { StudioPrefsStore(context.geodeContainer.prefsFiles.general) }
+    var keep by remember { mutableStateOf(store.keepAsProject()) }
+    SettingsChoiceRow(
+        title = stringResource(R.string.settings_keep_renders),
+        options = listOf(null, true, false),
+        selected = keep,
+        label = {
+            stringResource(
+                when (it) {
+                    null -> R.string.settings_keep_renders_ask
+                    true -> R.string.settings_keep_renders_always
+                    false -> R.string.settings_keep_renders_never
+                },
+            )
+        },
+        onSelect = {
+            keep = it
+            store.saveKeepAsProject(it)
+        },
+    )
+}

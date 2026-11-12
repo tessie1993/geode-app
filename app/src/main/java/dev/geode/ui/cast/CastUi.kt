@@ -33,6 +33,8 @@ import dev.geode.ui.PlayerViewModel
 import dev.geode.ui.geodeViewModel
 import dev.geode.ui.pro.PaywallViewModel
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.merge
 
 /**
  * The Cast button: Media3's route button, which lists the TVs on the network and starts a session.
@@ -54,7 +56,11 @@ fun CastButton(modifier: Modifier = Modifier) {
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
     val player: PlayerViewModel = geodeViewModel()
-    LaunchedEffect(player) { CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }) }
+    LaunchedEffect(player) {
+        // A .milk reaches the stage as a request (a preset, Auto, the dice) or as a load the stage reports.
+        val milk = merge(player.activeMilkPath, player.vizApply.mapNotNull { it.milkPath })
+        CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
+    }
     val cast by CastController.state.collectAsStateWithLifecycle()
     val ui = castButtonUi(cast)
     val status = ui.status?.let { stringResource(it, ui.deviceName.orEmpty()) }
@@ -89,9 +95,11 @@ fun CastButton(modifier: Modifier = Modifier) {
 /**
  * Shows what a cast left behind, once, wherever the app is: a free user who picked a TV (here or in the system's
  * output switcher) gets the paywall, a failure its reason. A state reached in the background waits for the app.
+ * The same for "Show on a computer" ([ComputerLinkHost]).
  */
 @Composable
 fun CastHost() {
+    ComputerLinkHost()
     val context = LocalContext.current
     val cast by CastController.state.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()

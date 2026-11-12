@@ -2,11 +2,13 @@
 
 // The pure maths of the export post-passes (ExportPasses.hpp): no GL, so core/tests/export_passes_test.cpp
 // pins it on the host. Each function is a line-for-line port of the Kotlin it replaced
-// (export/WatermarkOverlay.kt, export/GlTransitionEffect.kt, LoopRender's seam), float for float, because
+// (export/WatermarkOverlay.kt, LoopRender's seam), float for float, because
 // the acceptance for #442 is the same frames before and after: a rounding that moved one tile edge or one
-// dissolve weight would show up in a pixel diff of a fixed export.
+// dissolve weight would show up in a pixel diff of a fixed export. The watermark's placement (corner, end
+// card) came later, with Settings › Preferences; with the tiled default every value is still the old one.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace geode::viz::frame::exportmath {
@@ -68,6 +70,116 @@ inline Tiles tiles(int frameWidth, int frameHeight, int tileWidth, int tileHeigh
             static_cast<float>(frameHeight) / static_cast<float>(tileHeight)};
 }
 
+// Where the mark goes (Settings › Preferences › Watermark), the GEODE_WATERMARK_* codes of geode_api.h. Tiled is
+// the free tier's original diagonal pattern and every unknown code; Corner is one small mark; End card a large
+// centred mark over a dimmed picture for the video's last seconds.
+constexpr int kNone = 0;
+constexpr int kTiled = 1;
+constexpr int kCorner = 2;
+constexpr int kEndCard = 3;
+constexpr int kTopLeft = 0;
+constexpr int kTopRight = 1;
+constexpr int kBottomLeft = 2;
+constexpr int kBottomRight = 3;
+// What the frames are: a whole video whose end is known, a stretch of one (a Studio scene segment, layered
+// later), a loop (it has no end), or live (Record: the end is when the user stops).
+constexpr int kWhole = 0;
+constexpr int kSegment = 1;
+constexpr int kLoop = 2;
+constexpr int kLive = 3;
+
+// Whether frames are marked and where: the entitlement's `required`, or Pro's own `proAdds`. An end card needs
+// the video's end, so anything but a whole video gets the corner instead.
+inline int placement(bool required, bool proAdds, int requested, int use) {
+    if (!required && !proAdds) return kNone;
+    const int p = requested >= kTiled && requested <= kEndCard ? requested : kTiled;
+    return p == kEndCard && use != kWhole ? kCorner : p;
+}
+
+// The end card's wordmark is twice the tiled one; the corner's is the tiled size.
+constexpr float kEndCardTextFraction = 0.09f;
+inline float textPx(int shortSide, int placement) {
+    return placement == kEndCard ? std::max(static_cast<float>(shortSide) * kEndCardTextFraction, kMinTextPx * 2.0f)
+                                 : textPx(shortSide);
+}
+
+// The tile's rotation in degrees: only the tiled pattern is diagonal.
+inline float angleDegrees(int placement) { return placement == kCorner || placement == kEndCard ? 0.0f : -24.0f; }
+
+// The text's alpha in the raster (0..255): the tiled pattern stays faint, being everywhere; a single mark reads
+// more solidly.
+inline int textAlpha(int placement) {
+    if (placement == kCorner) return 150;
+    if (placement == kEndCard) return 235;
+    return 92;
+}
+
+// A single mark's tile hugs the text (plus room for its shadow) instead of the pattern's power-of-two repeat.
+constexpr float kSinglePad = 0.4f;
+constexpr float kSingleHeight = 1.8f;
+inline int tileWidth(float textWidth, float textPx, int placement) {
+    if (placement != kCorner && placement != kEndCard) return tileWidth(textWidth);
+    return std::clamp(truncate(std::ceil(textWidth + 2.0f * textPx * kSinglePad)), 1, kMaxTilePx);
+}
+
+inline int tileHeight(int tileWidth, float textPx, int placement) {
+    if (placement != kCorner && placement != kEndCard) return tileHeight(tileWidth);
+    return std::clamp(truncate(std::ceil(textPx * kSingleHeight)), 1, kMaxTilePx);
+}
+
+// Where the tile lands: texture coordinates are (frame fraction, top down - origin) × tiles, so the tiled
+// pattern is origin 0 and a single mark is its top-left corner in the frame with the tile drawn 1:1 and
+// nothing outside it (clip).
+struct Layout {
+    float originU = 0.0f;
+    float originV = 0.0f;
+    float tilesU = 0.0f;
+    float tilesV = 0.0f;
+    bool clip = false;
+};
+
+// A corner mark sits this share of the short side in from both edges.
+constexpr float kCornerMargin = 0.035f;
+
+inline Layout layout(int placement, int corner, int frameWidth, int frameHeight, int tileWidth, int tileHeight) {
+    const Tiles t = tiles(frameWidth, frameHeight, tileWidth, tileHeight);
+    if (placement != kCorner && placement != kEndCard) return {0.0f, 0.0f, t.u, t.v, false};
+    if (frameWidth <= 0 || frameHeight <= 0 || tileWidth <= 0 || tileHeight <= 0) return {};
+    const float fw = static_cast<float>(frameWidth);
+    const float fh = static_cast<float>(frameHeight);
+    const float spareX = fw - static_cast<float>(tileWidth);
+    const float spareY = fh - static_cast<float>(tileHeight);
+    float x = spareX * 0.5f;
+    float y = spareY * 0.5f;
+    if (placement == kCorner) {
+        const int c = corner >= kTopLeft && corner <= kBottomRight ? corner : kBottomRight;
+        const float margin = static_cast<float>(std::min(frameWidth, frameHeight)) * kCornerMargin;
+        x = c == kTopRight || c == kBottomRight ? spareX - margin : margin;
+        y = c == kBottomLeft || c == kBottomRight ? spareY - margin : margin;
+    }
+    return {x / fw, y / fh, t.u, t.v, true};
+}
+
+// The end card: the last kEndCardMs of the video (half of a shorter one), fading in over kEndCardFadeMs, over
+// the picture dimmed by kEndCardDim. An unknown length, or a video under a second, shows it throughout, so a
+// mark is never lost.
+constexpr int64_t kEndCardMs = 3000;
+constexpr int64_t kEndCardFadeMs = 500;
+constexpr float kEndCardDim = 0.55f;
+
+inline float endCardAlpha(int64_t timeMs, int64_t lengthMs) {
+    if (lengthMs < 2 * kEndCardFadeMs) return 1.0f;
+    const int64_t start = lengthMs - std::min(kEndCardMs, lengthMs / 2);
+    return std::clamp(static_cast<float>(timeMs - start) / static_cast<float>(kEndCardFadeMs), 0.0f, 1.0f);
+}
+
+// The whole mark's opacity at a frame, and how much it darkens the picture under it (before that opacity).
+inline float opacity(int placement, int64_t timeMs, int64_t lengthMs) {
+    return placement == kEndCard ? endCardAlpha(timeMs, lengthMs) : 1.0f;
+}
+
+inline float dim(int placement) { return placement == kEndCard ? kEndCardDim : 0.0f; }
+
 }  // namespace watermark
 
 namespace seam {
@@ -82,23 +194,5 @@ inline float weight(int tail, int seamFrames) {
 }
 
 }  // namespace seam
-
-namespace transition {
-
-// How far into the transition a frame at ptsUs is, the clip's first frame (originUs) being 0. No duration
-// means the transition is already over. Long-to-float then float division, as the Kotlin did.
-inline float progress(int64_t ptsUs, int64_t originUs, int64_t durationUs) {
-    if (durationUs <= 0) return 1.0f;
-    const float p = static_cast<float>(ptsUs - originUs) / static_cast<float>(durationUs);
-    return std::clamp(p, 0.0f, 1.0f);
-}
-
-// GL Transitions' `ratio` uniform: width over height, a zero height read as one pixel.
-inline float ratio(int width, int height) { return static_cast<float>(width) / static_cast<float>(std::max(height, 1)); }
-
-// The frame is drawn plain (the copy program) without an outgoing frame, and from the end on.
-inline bool passthrough(bool hasFrom, float progress) { return !hasFrom || progress >= 1.0f; }
-
-}  // namespace transition
 
 }  // namespace geode::viz::frame::exportmath

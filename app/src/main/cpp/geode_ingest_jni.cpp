@@ -1,5 +1,8 @@
 #include <jni.h>
 
+#include <cstdint>
+#include <vector>
+
 #include "api/geode_api.h"
 
 // The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. A ring handle is
@@ -84,6 +87,11 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLayer(
     geode_pcm_ring_set_layer(ringOf(handle), ringOf(layer));
 }
 
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetSnapshots(JNIEnv*, jobject, jlong handle,
+                                                                                        jboolean on) {
+    return geode_pcm_ring_set_snapshots(ringOf(handle), on ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
     geode_pcm_ring_begin_epoch(ringOf(handle));
 }
@@ -138,6 +146,83 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmCursorTakeS16
         env->SetIntArrayRegion(info, 0, 2, values);
     }
     return frames < 0 ? 0 : frames;
+}
+
+// AIFF (core/audio/ingest/AiffReader): the descriptor is handed over and closed natively.
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffOpenFd(JNIEnv*, jobject, jint fd,
+                                                                            jlong startOffset, jlong length) {
+    return reinterpret_cast<jlong>(geode_aiff_open_fd(fd, startOffset, length));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffClose(JNIEnv*, jobject, jlong handle) {
+    geode_aiff_close(reinterpret_cast<geode_aiff*>(handle));
+}
+
+// out: [0] channels, [1] sample rate, [2] the COMM frame count.
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffInfo(JNIEnv* env, jobject, jlong handle,
+                                                                         jlongArray out) {
+    if (!out || env->GetArrayLength(out) < 3) return;
+    const auto* a = reinterpret_cast<const geode_aiff*>(handle);
+    const jlong values[3] = {geode_aiff_channels(a), geode_aiff_sample_rate(a), geode_aiff_total_frames(a)};
+    env->SetLongArrayRegion(out, 0, 3, values);
+}
+
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffProgress(JNIEnv*, jobject, jlong handle) {
+    return geode_aiff_progress(reinterpret_cast<const geode_aiff*>(handle));
+}
+
+// File I/O happens in the read, so the array is filled from a native buffer rather than pinned across it.
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffReadS16(JNIEnv* env, jobject, jlong handle,
+                                                                            jshortArray out) {
+    if (!out) return -1;
+    const jsize capacity = env->GetArrayLength(out);
+    std::vector<int16_t> samples(static_cast<size_t>(capacity));
+    const int n = geode_aiff_read_s16(reinterpret_cast<geode_aiff*>(handle), samples.data(), capacity);
+    if (n > 0) env->SetShortArrayRegion(out, 0, n, samples.data());
+    return n;
+}
+
+// An export's track audio (core/audio/ingest/TrackFeed).
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedCreate(JNIEnv*, jobject, jlong startMs) {
+    return reinterpret_cast<jlong>(geode_track_feed_create(startMs));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_track_feed_destroy(reinterpret_cast<geode_track_feed*>(handle));
+}
+
+// A decoder's output buffer, read where it lies; false for a heap buffer or a span past its end.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedPushDirect(
+    JNIEnv* env, jobject, jlong handle, jobject buffer, jint offset, jint size, jboolean isFloat, jint channels,
+    jint sampleRate, jlong ptsUs) {
+    if (!buffer || offset < 0 || size < 0) return JNI_FALSE;
+    const auto* base = static_cast<const uint8_t*>(env->GetDirectBufferAddress(buffer));
+    const jlong capacity = env->GetDirectBufferCapacity(buffer);
+    if (!base || capacity < 0 || static_cast<jlong>(offset) + size > capacity) return JNI_FALSE;
+    geode_track_feed_push_decoded(reinterpret_cast<geode_track_feed*>(handle), base + offset, static_cast<size_t>(size),
+                                  isFloat ? 1 : 0, channels, sampleRate, ptsUs);
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedPushAiff(JNIEnv*, jobject, jlong handle,
+                                                                                     jlong aiff) {
+    return geode_track_feed_push_aiff(reinterpret_cast<geode_track_feed*>(handle), reinterpret_cast<geode_aiff*>(aiff))
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedHasRate(JNIEnv*, jobject, jlong handle) {
+    return geode_track_feed_has_rate(reinterpret_cast<const geode_track_feed*>(handle)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedTargetMs(JNIEnv*, jobject, jlong handle,
+                                                                                  jlong endMs) {
+    geode_track_feed_target_ms(reinterpret_cast<geode_track_feed*>(handle), endMs);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedTargetFrame(JNIEnv*, jobject, jlong handle,
+                                                                                     jlong frame, jint fps) {
+    geode_track_feed_target_frame(reinterpret_cast<geode_track_feed*>(handle), frame, fps);
 }
 
 }  // extern "C"

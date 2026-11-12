@@ -39,7 +39,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the floor's scroll. Complexity (uMorph) adds up to
+// Speed scales the floor's scroll. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters) and a denser second line family. Chaos
 // (uWarp, uTurbulence, uTwist) warps the body (bulbChaos, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales the air's thickening. Colour is tone(), its own ramp

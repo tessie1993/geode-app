@@ -13,6 +13,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
@@ -115,43 +116,20 @@ data class TimeOfDayDrift(
         require(warmth.isFinite()) { "warmth must be finite, was $warmth" }
     }
 
-    val drifts: Boolean get() = stops > 1 && (hueTurns != 0f || warmth != 0f)
-
     /**
      * The palette offset for each stop, from none at the start to the full drift at the end.
-     * One stop means one render and no drift.
+     * One stop means one render and no drift. The phases are native (`core/output/LoopPlan`,
+     * pinned by `core/tests/output_test.cpp`).
      */
     fun stopPhases(): List<DriftStop> {
-        if (!drifts) return listOf(DriftStop(0, 0f, 0f))
-        val last = (stops - 1).toFloat()
-        return List(stops) { index ->
-            val progress = index / last
-            DriftStop(index, hueTurns * progress, warmth * progress)
-        }
+        val pairs = GeodeNative.loopDriftStops(hueTurns, warmth, stops)
+        return List(pairs.size / 2) { index -> DriftStop(index, pairs[index * 2], pairs[index * 2 + 1]) }
     }
 
     companion object {
         val None: TimeOfDayDrift = TimeOfDayDrift(0f, 0f, 1)
 
         const val MAX_STOPS: Int = 8
-        const val MIN_STOP_MS: Long = 20 * 60_000
-
-        /**
-         * Spreads a drift over [totalMs] at no more than one step every [MIN_STOP_MS].
-         *
-         * Each stop is a whole extra loop render, so the count stays small: eight stops across a
-         * three-hour video cost eight minutes of rendering rather than three hours of it, and a
-         * palette step every twenty minutes is already slower than anyone watches for.
-         */
-        fun over(
-            totalMs: Long,
-            hueTurns: Float,
-            warmth: Float = 0f,
-        ): TimeOfDayDrift {
-            if (hueTurns == 0f && warmth == 0f) return None
-            val stops = (totalMs / MIN_STOP_MS).toInt().coerceIn(1, MAX_STOPS)
-            return TimeOfDayDrift(hueTurns, warmth, stops)
-        }
     }
 }
 
@@ -161,15 +139,11 @@ data class DriftStop(
     val hueOffset: Float,
     val warmthOffset: Float,
 ) {
-    fun applyTo(params: SceneParams): SceneParams =
-        params.copy(
-            colorShift = wrapTurn(params.colorShift + hueOffset),
-            temperature = (params.temperature + warmthOffset).coerceIn(-1f, 1f),
-        )
-
-    private fun wrapTurn(value: Float): Float {
-        val fraction = value - kotlin.math.floor(value)
-        return fraction.coerceIn(0f, 1f)
+    /** colorShift moved and wrapped into a turn, temperature moved and held to its range, natively. */
+    fun applyTo(params: SceneParams): SceneParams {
+        val out = FloatArray(2)
+        GeodeNative.loopDriftApply(params.colorShift, params.temperature, hueOffset, warmthOffset, out)
+        return params.copy(colorShift = out[0], temperature = out[1])
     }
 }
 
@@ -271,10 +245,10 @@ class LoopRender(
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
-        // The free tier's corner wordmark; see WatermarkOverlay.
-        watermark: Boolean = false,
+        // The wordmark, as the render pinned it at its start; see WatermarkOverlay.
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
         // The track the loop is cut from: the export's sound engine hears it.
-        audioUri: Uri? = null,
+        audioUri: Uri,
         // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
         longFormMs: Long = 0L,
     ): Result =
@@ -292,7 +266,7 @@ class LoopRender(
                     look = look,
                     drift = drift,
                     paramsAt = paramsAt,
-                    watermarkText = if (watermark) context.getString(R.string.pro_watermark_text) else null,
+                    watermark = watermark,
                     audioUri = audioUri,
                 ),
                 onProgress,
@@ -309,8 +283,8 @@ class LoopRender(
         val look: LookSnapshot,
         val drift: TimeOfDayDrift,
         val paramsAt: ((Long) -> SceneParams)?,
-        val watermarkText: String?,
-        val audioUri: Uri?,
+        val watermark: WatermarkChoice,
+        val audioUri: Uri,
     )
 
     private data class EncoderChoice(
@@ -421,9 +395,7 @@ class LoopRender(
             val sourceFrames = loopFrames + seamFrames
             val scene = prepareRenderer(job, stop, sourceFrames).also { renderer = it }
             scene.prepare()
-            job.watermarkText?.let { text ->
-                mark = WatermarkOverlay(text, context.assets).apply { prepare(job.aspect.width, job.aspect.height) }
-            }
+            mark = WatermarkOverlay(job.watermark, context, WatermarkChoice.USE_LOOP).apply { prepare(job.aspect.width, job.aspect.height) }
 
             val outcome =
                 drawFrames(

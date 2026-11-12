@@ -39,7 +39,6 @@ internal enum class MusicMoment(
 internal enum class MusicAction(
     @StringRes val label: Int,
 ) {
-    PULSE(R.string.music_action_pulse),
     FLASH(R.string.music_action_flash),
     ZOOM(R.string.music_action_zoom),
     SHAKE(R.string.music_action_shake),
@@ -113,14 +112,14 @@ internal object MusicMoments {
         hand: HandReactions,
         moment: MusicMoment,
         value: Float,
-    ): HandReactions = edit(sceneId, seed, hand, OP_STRENGTH, moment, MusicAction.PULSE, value)
+    ): HandReactions = edit(sceneId, seed, hand, OP_STRENGTH, moment, null, value)
 
     fun resetToAuto(
         sceneId: String,
         seed: Int,
         hand: HandReactions,
         moment: MusicMoment,
-    ): HandReactions = edit(sceneId, seed, hand, OP_RESET, moment, MusicAction.PULSE, 0f)
+    ): HandReactions = edit(sceneId, seed, hand, OP_RESET, moment, null, 0f)
 
     private fun edit(
         sceneId: String,
@@ -128,13 +127,13 @@ internal object MusicMoments {
         hand: HandReactions,
         op: Int,
         moment: MusicMoment,
-        action: MusicAction,
+        action: MusicAction?,
         value: Float,
     ): HandReactions {
         val out = IntArray(2)
         val floats =
             runCatching {
-                GeodeNative.musicEdit(sceneId, seed, pack(hand), hand.mask, op, moment.ordinal, action.ordinal, value, out)
+                GeodeNative.musicEdit(sceneId, seed, pack(hand), hand.mask, op, moment.ordinal, action?.ordinal ?: 0, value, out)
             }.getOrNull() ?: return hand
         return HandReactions(if (out[1] == 1) ModConfigCodec.unpackReactions(floats) else null, out[0])
     }

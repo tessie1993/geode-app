@@ -9,7 +9,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Params.hpp"
 
-// The Customize panel's map: nine categories grouped by what their controls do, each split into a
+// The Customize panel's map: eleven categories grouped by what their controls do, each split into a
 // free Basics section and Pro sections below it, and which control lives where. Pure: no GL, no JNI.
 //
 // WHY native (ADR 0003): the map decides what a category's Randomize rolls and what its Reset puts
@@ -29,8 +29,8 @@ namespace geode::viz::customize {
 constexpr int kTextVersion = 1;
 
 // In panel order. Names match Kotlin's CustomizeCategory.
-enum class Category { QuickKnobs, Look, Shape, Motion, Camera, Music, Effects, Liquid, Expert };
-constexpr int kCategoryCount = 9;
+enum class Category { QuickKnobs, Look, Shape, Motion, Dive, Camera, Music, Effects, Liquid, Engine, Expert };
+constexpr int kCategoryCount = 11;
 
 // Which styles a category or section is offered on, beyond each control's own scope. A section is
 // also hidden when no control in it reaches the style (a dive on a style that cannot dive).
@@ -75,7 +75,14 @@ const char* name(Show show);
 // random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
 // such marker replaced by its category's controls; a marker naming no category is dropped.
 inline constexpr char kCategoryLockPrefix = '#';
+// "#PRO" holds every control below a Basics: what a roll leaves alone without Pro (pro/FreeTier).
+inline constexpr const char* kProLock = "#PRO";
 std::set<std::string> expandLocks(const std::set<std::string>& locked);
+
+// What Keep holds in a lock set: expandLocks without "#PRO". "#PRO" only narrows a roll to the free
+// Basics; it is not the user keeping those controls, so a step that puts kept controls back (Randomize
+// everything over a new preset) leaves the controls it names as the new look made them.
+std::set<std::string> expandKeeps(const std::set<std::string>& locked);
 
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);
@@ -85,13 +92,29 @@ bool reaches(std::string_view key, const std::string& styleId);
 bool shows(const Section& section, const std::string& styleId);
 bool shows(Category category, const std::string& styleId);
 
+// Whether the panel offers a control on styleId: it reaches the style and its section shows there.
+bool offered(std::string_view key, const std::string& styleId);
+
+// Whether the picture reads a control in this look: false behind a switch that is off (a tunnel
+// control with the endless zoom off, Liquid's with Liquid off).
+bool live(std::string_view key, const SceneParams& params, const std::string& styleId);
+
+// Whether a category's roll has anything to move on styleId. The shell greys the dice otherwise.
+bool rolls(Category category, const std::string& styleId);
+
 // The SceneParams fields a control writes: its roll's fields, or heldControls()'s.
 std::vector<const char*> fieldsOf(std::string_view key);
 
-// A new look for one category: every rolled control in it that reaches styleId (any style when
-// empty) and is not in locked. Controls in other categories hold. Returns current when nothing can change.
+// A new look for one category: every rolled control in it that the panel offers on styleId (any
+// style when empty) and is not in locked. Controls in other categories hold. A category that sits
+// behind a switch of its own (Dive, Liquid) never rolls that switch off, and turns it on when
+// nothing the roll moved would show otherwise. Returns current when nothing can change.
 SceneParams randomize(const SceneParams& current, uint64_t seed, Category category, const std::string& styleId,
                       const std::set<std::string>& locked);
+
+// A new look across every category: each rolled control the panel offers on styleId, minus locked.
+SceneParams randomizeAll(const SceneParams& current, uint64_t seed, const std::string& styleId,
+                         const std::set<std::string>& locked);
 
 // current with every field the category's controls write taken from another look: MilkDrop's
 // mash-up, one bin loaded from another preset.
@@ -107,8 +130,9 @@ SceneParams reset(const SceneParams& current, Category category);
 // Built once; the reference lives for the process.
 const std::string& text();
 
-// What the panel offers on styleId: one line per shown category ("<CATEGORY>") and per shown
-// section ("<CATEGORY>/<id>"), in panel order.
+// What the panel offers on styleId: one line per shown category ("<CATEGORY>"), one more when its
+// roll has something to move there ("<CATEGORY>:roll"), and one per shown section
+// ("<CATEGORY>/<id>"), in panel order.
 std::string shownOn(const std::string& styleId);
 
 }  // namespace geode::viz::customize

@@ -2,13 +2,15 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Note & key reactions' switch (Settings › Behaviour), persisted, and what the engine is told.
+ * Note & key reactions' switch (Settings › Sound reaction), persisted, and what the engine is told.
  *
  * The work is native (core/viz/NoteResponse): notes, chords, key and mood drive the six style knobs each
  * style spends its own way; it writes no scene param and no colour. This store only says
@@ -57,6 +59,11 @@ class NoteResponseStore internal constructor(
 
         /** On for a new install; see the class doc. */
         internal const val DEFAULT_ENABLED = true
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.BOOLEAN, KEY_ENABLED)
+            }
 
         @Volatile private var instance: NoteResponseStore? = null
 

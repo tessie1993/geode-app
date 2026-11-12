@@ -54,7 +54,7 @@ internal class PcmResampler(
         /**
          * A mix's clips are all brought to this, so they can share one AAC track. Which rate a lone
          * source gets, and how long its bytes last, is native (`GeodeNative.aacRateFor`,
-         * `pcmS16BytesToUs`; core/audio/dsp/PcmTiming, tested by core/tests/clip_media_test.cpp).
+         * `pcmS16BytesToUs`; core/audio/dsp/PcmTiming, tested by core/tests/export_pcm_test.cpp).
          */
         const val MIX_RATE_HZ = 48_000
     }

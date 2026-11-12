@@ -8,7 +8,8 @@
 //
 // The fixture is what the shell's JVM tests read in place of geode_mod_targets_text (the geode.modTargets
 // property, dev.geode.render.ModTable). The expected scopes below are the Kotlin LfoTarget table this
-// replaced, so the port changed no target's reach.
+// replaced, so the port changed no target's reach; since the scopes are read from the params schema's meta
+// rows (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -40,7 +41,7 @@ void check(bool ok, const std::string& what) {
 // The old Kotlin LfoTarget rows (name, ParamScope), in wire order.
 const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"NONE", "UNIVERSAL"}, {"SPEED", "SCENE_CLOCK"}, {"ZOOM", "UNIVERSAL"}, {"ROTATION", "UNIVERSAL"},
-    {"SWAY", "UNIVERSAL"}, {"PULSE", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},
+    {"SWAY", "UNIVERSAL"}, {"RETIRED_5", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},
     {"WARP", "UNIVERSAL"}, {"RIPPLE", "UNIVERSAL"}, {"MORPH", "SHADER_LOOK"}, {"TWIST", "UNIVERSAL"},
     {"TILE", "UNIVERSAL"}, {"PIXELATE", "UNIVERSAL"}, {"POSTERIZE", "UNIVERSAL"}, {"COLOR_SHIFT", "UNIVERSAL"},
     {"PALETTE_MIX", "SHADER_LOOK"}, {"SATURATION", "UNIVERSAL"}, {"BRIGHTNESS", "UNIVERSAL"}, {"INTENSITY", "UNIVERSAL"},
@@ -53,7 +54,11 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"LFO3_RATE", "UNIVERSAL"}, {"LFO3_DEPTH", "UNIVERSAL"},
     {"CAM_FLY", "UNIVERSAL"}, {"CAM_ORBIT", "UNIVERSAL"}, {"CAM_PUSH", "UNIVERSAL"}, {"CAM_YAW", "UNIVERSAL"},
     {"CAM_PITCH", "UNIVERSAL"}, {"CAM_ROLL", "UNIVERSAL"}, {"CAM_FOV", "UNIVERSAL"}, {"CAM_SHAKE", "UNIVERSAL"},
-    {"FLOW_CURL", "UNIVERSAL"}, {"FLOW_FORCE", "UNIVERSAL"}, {"DIVE_SPEED", "UNIVERSAL"},
+    // Were UNIVERSAL while this table kept its own scopes; now each is its Customize control's (Flow curl,
+    // Flow force, Dive speed), so a wave is offered exactly where the slider is shown.
+    {"FLOW_CURL", "FLOW_FIELD_SIM"}, {"FLOW_FORCE", "FLOW_FIELD_SIM"}, {"DIVE_SPEED", "ENDLESS_ZOOM"},
+    // Appended after the port: the dive's spiral and aim, on Dive speed's scope.
+    {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -64,15 +69,41 @@ void everyTargetKeepsItsNameAndScope() {
         check(std::string(catalogue::name(modtargets::scopeOf(t))) == kOldTargets[i].second,
               std::string("scope of ") + kOldTargets[i].first);
     }
-    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55, "wire ordinals");
+    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
+              static_cast<int>(LfoTarget::DiveAimY) == 58,
+          "wire ordinals");
 }
 
-bool retired(LfoTarget t) { return t == LfoTarget::Retired25 || t == LfoTarget::Retired37 || t == LfoTarget::Retired38; }
+bool retired(LfoTarget t) {
+    return t == LfoTarget::Retired5 || t == LfoTarget::Retired25 || t == LfoTarget::Retired37 || t == LfoTarget::Retired38;
+}
 
-void onlyTheRetiredSlotIsHidden() {
+void onlyTheRetiredSlotsAreHidden() {
     for (int i = 0; i < modtargets::kTargetCount; ++i) {
         const auto t = static_cast<LfoTarget>(i);
         check(modtargets::offered(t) == !retired(t), std::string("offered ") + modtargets::name(t));
+    }
+}
+
+// A target's scope and whether it is offered are its field's meta row (viz/ParamTable.inc): kMod is set on
+// exactly the rows a target writes, a target's scope is its Customize control's, and a retired field's
+// target is offered nowhere.
+void targetsFollowTheirMetaRow() {
+    std::vector<int> writers(SceneParams::kFieldCount, 0);
+    for (int i = 0; i < modtargets::kTargetCount; ++i) {
+        const auto t = static_cast<LfoTarget>(i);
+        const int slot = paramSlotOf(t);
+        if (slot < 0) continue;
+        ++writers[static_cast<size_t>(slot)];
+        const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+        check(m.live, std::string(modtargets::name(t)) + " writes a live field");
+        check(modtargets::scopeOf(t) == catalogue::scopeOf(m.label), std::string(modtargets::name(t)) + " has its control's scope");
+    }
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+        const std::string field = SceneParams::fieldNames()[static_cast<size_t>(slot)];
+        check(((m.flags & kMod) != 0) == (writers[static_cast<size_t>(slot)] > 0), field + ": kMod iff a target writes it");
+        check(writers[static_cast<size_t>(slot)] <= 1, field + ": one target per field");
     }
 }
 
@@ -83,7 +114,7 @@ void reachFollowsTheScope() {
     check(modtargets::reaches(LfoTarget::FluidCurl, "fluid"), "Fluid curl reaches Fluid");
     check(!modtargets::reaches(LfoTarget::FluidCurl, "julia"), "Fluid curl does not reach a shader style");
     check(modtargets::reaches(LfoTarget::Lfo2Depth, "milkdrop"), "a chained target reaches every style");
-    for (LfoTarget t : {LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38}) {
+    for (LfoTarget t : {LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38}) {
         check(!modtargets::reaches(t, "julia"), "a retired slot reaches nothing");
     }
     check(static_cast<int>(LfoTarget::Retired37) == 37 && static_cast<int>(LfoTarget::Retired38) == 38, "the water slots keep their ordinals");
@@ -140,7 +171,8 @@ void pickersOfferWhatTheEngineRuns() {
     for (int picker : {kPickerReaction, kPickerEnvelope, 0, 1, 2}) {
         check(modtargets::offeredTo(LfoTarget::Morph, "julia", picker) && !modtargets::offeredTo(LfoTarget::Morph, "silk_web", picker),
               "a scene target follows the style's reach for picker " + std::to_string(picker));
-        check(!modtargets::offeredTo(LfoTarget::Retired25, "julia", picker), "the retired slot is offered to no picker");
+        check(!modtargets::offeredTo(LfoTarget::Retired5, "julia", picker) && !modtargets::offeredTo(LfoTarget::Retired25, "julia", picker),
+              "a retired slot is offered to no picker");
     }
     check(!modtargets::offeredTo(LfoTarget::Zoom, "julia", 3) && !modtargets::offeredTo(LfoTarget::Zoom, "julia", -3),
           "an unknown picker is offered nothing");
@@ -173,7 +205,8 @@ void textCarriesEveryRow() {
     check(t.rfind("modulation|2\n", 0) == 0, "header first");
     check(hasLine(t, "config|2|0.05|60|0.3|3"), "config row: default rate, rate range, default depth, slots");
     check(hasLine(t, "target|10|MORPH|SHADER_LOOK|-1|1"), "a scene target row");
-    check(hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"), "the retired row is not offered");
+    check(hasLine(t, "target|5|RETIRED_5|UNIVERSAL|-1|0") && hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"),
+          "the retired rows are not offered");
     check(hasLine(t, "target|37|RETIRED_37|UNIVERSAL|-1|0") && hasLine(t, "target|38|RETIRED_38|UNIVERSAL|-1|0"),
           "nor are the Water style's and the ripple overlay's old slots");
     check(hasLine(t, "target|43|LFO3_RATE|UNIVERSAL|2|1"), "a chained row names its slot");
@@ -214,7 +247,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     everyTargetKeepsItsNameAndScope();
-    onlyTheRetiredSlotIsHidden();
+    onlyTheRetiredSlotsAreHidden();
+    targetsFollowTheirMetaRow();
     reachFollowsTheScope();
     musicActionsReachWhatTheirTargetsReach();
     chainedTargetsSteerTheirSlot();

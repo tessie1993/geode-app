@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.app.Application
+import android.content.ContentResolver
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.RingLog
@@ -9,6 +10,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.PresetStore
+import dev.geode.data.ReadCap
 import dev.geode.data.displayNameOf
 import dev.geode.model.MilkFile
 import dev.geode.render.scene.MilkStarterPack
@@ -62,15 +64,66 @@ internal class MilkImportController(
         }
     }
 
+    /**
+     * A .milk another app (a file manager) asked us to open. The uri is untrusted: only a content or
+     * file uri whose name ends in .milk is read, a file uri never from inside this app's own storage.
+     * [offerOpenedMilkAsync] names it for the user's yes; only then [importOpenedMilkAsync] copies it
+     * through the same capped, name-sanitised import as the picker's, never over an existing preset.
+     */
+    fun offerOpenedMilkAsync(
+        uri: Uri,
+        onDone: (String?) -> Unit,
+    ) {
+        scope.launch(Dispatchers.IO) {
+            val name = openableMilkName(uri)
+            withContext(Dispatchers.Main) { onDone(name) }
+        }
+    }
+
+    fun importOpenedMilkAsync(
+        uri: Uri,
+        onDone: (String?) -> Unit,
+    ) {
+        scope.launch(Dispatchers.IO) {
+            val path = if (openableMilkName(uri) != null) importMilkPresetBlocking(uri, keepExisting = true) else null
+            withContext(Dispatchers.Main) { onDone(path) }
+        }
+    }
+
+    private fun openableMilkName(uri: Uri): String? {
+        val name = runCatching { displayNameOf(uri) }.getOrNull() ?: return null
+        if (!name.endsWith(".milk", ignoreCase = true)) return null
+        val openable =
+            when (uri.scheme) {
+                ContentResolver.SCHEME_CONTENT -> true
+                ContentResolver.SCHEME_FILE -> {
+                    val path = uri.path ?: return null
+                    val own = File(application.applicationInfo.dataDir).canonicalPath
+                    val target = runCatching { File(path).canonicalPath }.getOrNull() ?: return null
+                    target != own && !target.startsWith("$own/")
+                }
+                else -> false
+            }
+        return name.takeIf { openable }
+    }
+
     @Suppress("TooGenericExceptionCaught")
-    internal fun importMilkPresetBlocking(uri: Uri): String? =
+    internal fun importMilkPresetBlocking(
+        uri: Uri,
+        keepExisting: Boolean = false,
+    ): String? =
         try {
             val dir = importDir().apply { mkdirs() }
             val display = displayNameOf(uri).orEmpty().ifBlank { "preset" }
-            val file = File(dir, PresetStore.milkFileName(display))
+            val stem = PresetStore.milkFileName(display).removeSuffix(".milk")
+            val file =
+                generateSequence(1) { it + 1 }
+                    .map { n -> File(dir, if (n == 1) "$stem.milk" else "$stem $n.milk") }
+                    .first { !keepExisting || !it.exists() }
+            // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
                 application.contentResolver.openInputStream(uri)?.use { input ->
-                    AtomicWrite.stream(file) { out -> input.copyTo(out) }
+                    AtomicWrite.stream(file) { out -> ReadCap.MILK.copy(input, out) }
                 } ?: false
             if (written) textureLinks.relink(file)
             if (written) file.absolutePath else null

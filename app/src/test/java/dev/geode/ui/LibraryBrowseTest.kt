@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import dev.geode.model.DeviceTrack
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,68 +15,74 @@ class LibraryBrowseTest {
         folder: String = "/music",
     ) = DeviceTrack(uri = id, title = title, artist = artist, album = album, folder = folder, durationMs = 200_000L)
 
-    @Test
-    fun accentFreeQueryFindsAccentedTags() {
-        val tracks = listOf(track("1", "Halo", artist = "Beyoncé"), track("2", "Hello", artist = "Adele"))
-        val index = LibraryBrowse.index(tracks)
-        assertEquals(listOf("1"), LibraryBrowse.browse(index, "beyonce", LibrarySort.TITLE).tracks.map { it.uri })
-        assertEquals(listOf("1"), LibraryBrowse.browse(index, "BEYONCÉ", LibrarySort.TITLE).tracks.map { it.uri })
-    }
+    private fun index(tracks: List<DeviceTrack>) = LibraryBrowse.index(tracks) { FakeLibrarySearcher(it) }
 
     @Test
-    fun titleHitsRankAboveArtistAboveAlbum() {
+    fun blankQueryIsTheWholeLibraryInTheOrderAskedGroupedForTheTabs() {
         val tracks =
             listOf(
-                track("album", "Aaa", album = "Love Songs"),
-                track("artist", "Bbb", artist = "Love Inc."),
-                track("title", "Zzz Love"),
+                track("2", "Élan", artist = "B", album = "Y", folder = "/b"),
+                track("1", "Dawn", artist = "A", album = "X"),
+                track("3", "Fall", artist = "A", album = "Y"),
             )
-        // Title order alone would put "album" first; the tiers win, the sort holds inside them.
-        val result = LibraryBrowse.browse(LibraryBrowse.index(tracks), "love", LibrarySort.TITLE)
-        assertEquals(listOf("title", "artist", "album"), result.tracks.map { it.uri })
-    }
-
-    @Test
-    fun sortHoldsWithinATier() {
-        val tracks = listOf(track("b", "Love B"), track("a", "Love A"), track("c", "Love C"))
-        val result = LibraryBrowse.browse(LibraryBrowse.index(tracks), "love", LibrarySort.TITLE)
-        assertEquals(listOf("a", "b", "c"), result.tracks.map { it.uri })
-    }
-
-    @Test
-    fun aTypoStillFindsButBelowExactHits() {
-        val tracks = listOf(track("typo", "Yesterday"), track("exact", "Other", album = "Yesterdays"))
-        val result = LibraryBrowse.browse(LibraryBrowse.index(tracks), "yesterdya", LibrarySort.TITLE)
-        assertTrue(result.tracks.any { it.uri == "typo" })
-    }
-
-    @Test
-    fun blankQueryIsTheWholeLibrarySorted() {
-        val tracks = listOf(track("2", "Élan"), track("1", "Dawn"), track("3", "Fall"))
-        val result = LibraryBrowse.browse(LibraryBrowse.index(tracks), "  ", LibrarySort.TITLE)
-        // Folded: "Élan" sorts with the Es.
+        val result = LibraryBrowse.browse(index(tracks), "  ", LibrarySort.TITLE)
         assertEquals(listOf("1", "2", "3"), result.tracks.map { it.uri })
+        assertEquals(setOf("X", "Y"), result.albums.keys)
+        assertEquals(listOf("2", "3"), result.albums.getValue("Y").map { it.uri })
+        assertEquals(setOf("A", "B"), result.artists.keys)
+        assertEquals(setOf("/music", "/b"), result.folders.keys)
+        assertTrue(result.albumHits.isEmpty() && result.artistHits.isEmpty())
     }
 
     @Test
-    fun groupsFollowTheSearch() {
+    fun aSearchKeepsTheIndexsOrderWhateverTheSort() {
+        val tracks = listOf(track("b", "Love B"), track("a", "Love A"), track("x", "Other"))
+        val result = LibraryBrowse.browse(index(tracks), "love", LibrarySort.DURATION)
+        assertEquals(listOf("b", "a"), result.tracks.map { it.uri })
+        assertTrue(result.albums.isEmpty() && result.artists.isEmpty() && result.folders.isEmpty())
+    }
+
+    @Test
+    fun aSearchNamesItsArtistsAndAlbumsWithEveryTrackOfThem() {
         val tracks =
             listOf(
-                track("1", "Halo", artist = "Beyoncé", album = "Fierce"),
-                track("2", "Run", artist = "Beyoncé", album = "4"),
+                track("1", "Run", artist = "Beyoncé", album = "Fierce"),
+                track("2", "Halo", artist = "Beyoncé", album = "Fierce"),
                 track("3", "Hello", artist = "Adele", album = "25"),
             )
-        val result = LibraryBrowse.browse(LibraryBrowse.index(tracks), "beyonce", LibrarySort.TITLE)
-        assertEquals(setOf("Beyoncé"), result.artists.keys)
-        assertEquals(setOf("Fierce", "4"), result.albums.keys)
-        assertEquals(setOf("/music"), result.folders.keys)
+        val byArtist = LibraryBrowse.browse(index(tracks), "beyonce", LibrarySort.TITLE)
+        assertEquals(listOf("1", "2"), byArtist.tracks.map { it.uri })
+        assertEquals(listOf("Beyoncé"), byArtist.artistHits.map { it.name })
+        // The whole artist, in title order, not only the hits.
+        val byArtistTracks = byArtist.artistHits.single().tracks
+        assertEquals(listOf("2", "1"), byArtistTracks.map { it.uri })
+        assertTrue(byArtist.albumHits.isEmpty())
+
+        val byAlbum = LibraryBrowse.browse(index(tracks), "fierce", LibrarySort.TITLE)
+        assertEquals(listOf("Fierce"), byAlbum.albumHits.map { it.name })
+        val byAlbumTracks = byAlbum.albumHits.single().tracks
+        assertEquals(listOf("2", "1"), byAlbumTracks.map { it.uri })
     }
 
     @Test
-    fun voiceSearchFoldsToo() {
-        val tracks = listOf(track("1", "Café del Mar"), track("2", "Tea"))
-        assertEquals(listOf("1"), LibraryBrowse.search(tracks, "cafe").map { it.uri })
-        assertEquals(tracks, LibraryBrowse.search(tracks, ""))
+    fun nothingFoundIsNoTrackAlbumOrArtist() {
+        val tracks = listOf(track("1", "Halo"))
+        assertTrue(LibraryBrowse.browse(index(tracks), "zzz", LibrarySort.TITLE).nothingFound)
+        assertFalse(LibraryBrowse.browse(index(tracks), "halo", LibrarySort.TITLE).nothingFound)
+    }
+
+    @Test
+    fun theIndexIsNotBuiltUntilAsked() {
+        var built = 0
+        val index =
+            LibraryBrowse.index(listOf(track("1", "Halo"))) {
+                built++
+                FakeLibrarySearcher(it)
+            }
+        assertEquals(0, built)
+        LibraryBrowse.browse(index, "", LibrarySort.TITLE)
+        LibraryBrowse.browse(index, "halo", LibrarySort.TITLE)
+        assertEquals(1, built)
     }
 
     @Test

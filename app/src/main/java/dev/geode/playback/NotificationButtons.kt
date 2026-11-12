@@ -15,24 +15,24 @@ import androidx.media3.session.SessionResult
 import dev.geode.R
 import dev.geode.data.BehaviourStore
 import dev.geode.data.FavouritesStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.NotificationButton
+import dev.geode.geodeContainer
 
 /**
- * Settings › Behaviour › Notification buttons: the extra buttons the media notification (and the
+ * Settings › Output & devices › Notification buttons: the extra buttons the media notification (and the
  * lock screen, Android Auto and the system media controls, which share it) carries beside previous,
  * play and next. The default is shuffle and repeat. Favourite can be added.
  *
  * Each button is a custom session command that toggles its state, so its icon always shows the state
- * now. [refresh] runs after every change that could alter an icon, and after the user changes the
- * setting the next time playback changes.
+ * now. [refresh] runs after every change that could alter an icon, and when the user changes the
+ * setting.
  */
 @OptIn(UnstableApi::class)
 internal class NotificationButtons(
     private val context: Context,
     private val player: Player,
 ) : Player.Listener {
-    private val prefsFiles = GeodePrefsFiles(context)
+    private val prefsFiles = context.geodeContainer.prefsFiles
     private val behaviour = BehaviourStore(prefsFiles.general)
 
     private var session: MediaSession? = null
@@ -40,13 +40,20 @@ internal class NotificationButtons(
     /** The heart follows a favourite changed in the app too. A field: listeners are held weakly. */
     private val favouritesChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
 
+    private val choiceChanged =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == BehaviourStore.KEY_NOTIFICATION_BUTTONS) refresh()
+        }
+
     fun attach(session: MediaSession) {
         this.session = session
         prefsFiles.favourites.registerOnSharedPreferenceChangeListener(favouritesChanged)
+        prefsFiles.general.registerOnSharedPreferenceChangeListener(choiceChanged)
     }
 
     fun detach() {
         prefsFiles.favourites.unregisterOnSharedPreferenceChangeListener(favouritesChanged)
+        prefsFiles.general.unregisterOnSharedPreferenceChangeListener(choiceChanged)
         session = null
     }
 

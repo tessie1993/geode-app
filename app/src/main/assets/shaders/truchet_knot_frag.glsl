@@ -230,15 +230,15 @@ void main() {
 
     float t = truchetTime();
     float e = truchetEnergy();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0) * e;
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0) * e;
 
     gT = t;
     gHits = floor(SND_ONSET_COUNT);
     gEnv = SND_ONSET_ENV;
     gScl = 1.0 + 0.6 * truchetMorph();
     gCpw = gScl * 0.70710678;
-    gH = KN_H * truchetBreath(SND_BASS_PRESENCE) * (1.0 + 0.3 * kSpace);
+    gH = KN_H * truchetBreath(SND_BASS_PRESENCE * uSoundDrive) * (1.0 + 0.3 * kSpace);
     gArch = min(0.19 + 0.04 * snare * clamp(1.0 + 1.6 * kPulse, 0.2, 1.8), KN_ARCH_MAX);
     gOff = 0.085 + 0.03 * kTexture;
     gR = KN_HALF - gOff;

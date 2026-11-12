@@ -35,7 +35,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Chaos drift. Complexity (uMorph) fades in an
+// Speed scales the Chaos drift. Complexity (uMorph) fades in an
 // octave of fraying along the cliff lines. Chaos (uWarp, uTurbulence,
 // uTwist) bends the table-lands (terraChaos). Energy (uIntensity) scales the
 // rise and the strata's slide. Colour is pal() in the strata and sky. Space is

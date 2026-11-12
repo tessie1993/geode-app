@@ -64,7 +64,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Chaos drift and the tint drift. Complexity
+// Speed scales the Chaos drift and the tint drift. Complexity
 // (uMorph) fades in an octave of ground (terraOctaves). Chaos (uWarp,
 // uTurbulence, uTwist) bends the ridges (terraChaos). Energy (uIntensity)
 // scales the beat's ink and the bass lift. Colour is pal() in the tints, the
@@ -108,10 +108,10 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
     float beat = clamp(SND_KICK_TOGGLE * energy, 0.0, 1.0);
-    float lift = 0.12 * clamp(SND_BASS_PRESENCE, 0.0, 1.2) * energy;
+    float lift = 0.12 * clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.2) * energy;
     gOct = terraOctaves(3.0);
     gK = 1.0 + lift;
     gEx = 1.0 + 0.3 * kBuild;

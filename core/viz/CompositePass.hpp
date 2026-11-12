@@ -16,8 +16,8 @@ namespace geode::viz {
 //
 // W00: underlay texture pass. A full-frame RGBA8 layer latched from any thread (Renderer::
 // setUnderlayRgba) and uploaded here on the GL thread at the start of the next frame
-// (Renderer::applyUnderlayUpload), converting from Android's ARGB int layout to GL's RGBA8 byte
-// layout exactly once, on upload. The underlay sits UNDER/INTO the scene: draw() blends it into
+// (Renderer::applyUnderlayUpload), as the RGBA8 bytes Renderer::setUnderlayRgba converted Android's
+// ARGB ints to once, when the image was set (#999). The underlay sits UNDER/INTO the scene: draw() blends it into
 // the finished composite colour (screen/multiply/add, by uUnderlayAmount) inside
 // composite_frag.glsl, right before the dither - so it reads identically on the live view, the
 // wallpaper and the frame-exact offscreen export, all of which share this same pass. It is read
@@ -45,12 +45,8 @@ public:
         std::string transitionId = "fade";
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
-        float hitImpulse = 0.0f;
-        float flash = 0.0f;
-        float strobeHz = 0.0f;
         float postRotationAngle = 0.0f;
         float postCyclePhase = 0.0f;
-        float postBeatPulse = 0.0f;
         GLuint quadVao = 0;
         SceneParams fx;
         std::array<float, 4> gateA{};
@@ -77,10 +73,10 @@ public:
     TransitionCatalog& catalog() { return transitions_.catalog(); }
     void draw(const Inputs& inputs);
 
-    // W00: underlay upload, called on the GL thread only (Renderer::applyUnderlayUpload).
-    // `argbPixels` is Android's Bitmap.getPixels layout (0xAARRGGBB per int); converted to GL's
-    // RGBA8 byte order once here. width/height <= 0 or a short buffer is treated as a clear.
-    void uploadUnderlay(const std::vector<uint32_t>& argbPixels, int width, int height, int blend, float amount);
+    // W00: underlay upload, called on the GL thread only (Renderer::applyUnderlayUpload). `rgba` is
+    // width * height RGBA8 pixels, uploaded straight from the renderer's retained buffer, no copy.
+    // width/height <= 0 or a short buffer is treated as a clear.
+    void uploadUnderlay(const std::vector<uint8_t>& rgba, int width, int height, int blend, float amount);
     void clearUnderlay();
     GLuint underlayTexOrZero() const { return underlayTex_.ok() ? underlayTex_.id() : zeroTex_; }
     int underlayBlendMode() const { return underlayBlendMode_; }

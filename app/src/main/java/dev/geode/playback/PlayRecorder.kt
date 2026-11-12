@@ -5,6 +5,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
+import dev.geode.model.OpenedAudio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -148,11 +149,16 @@ class PlayRecorder(
     }
 
     companion object {
-        /** [Source] over the real player: the queue's uris and metadata, as [PlaybackService] rebuilds them. */
+        /**
+         * [Source] over the real player: the queue's uris and metadata, as [PlaybackService] rebuilds them.
+         * A file another app opened ([OpenedAudio]) is left out like an item without a uri: its grant
+         * ends with the sender's task, so neither history nor resumption may keep it.
+         */
         fun sourceOf(player: Player): Source =
             object : Source {
                 override fun current(): SessionStore.SavedTrack? {
                     val item = player.currentMediaItem ?: return null
+                    if (OpenedAudio.isOpened(item.mediaId)) return null
                     val uri = item.localConfiguration?.uri ?: return null
                     return SessionStore.SavedTrack(
                         uri = uri.toString(),
@@ -164,7 +170,7 @@ class PlayRecorder(
                     )
                 }
 
-                // Raw positions of items without a uri in the last queue(), so index() needs no walk.
+                // Raw positions of items without a uri (or opened files) in the last queue(), so index() needs no walk.
                 private var dropped = IntArray(0)
 
                 override fun wantsToPlay(): Boolean = player.playWhenReady
@@ -184,7 +190,10 @@ class PlayRecorder(
                         (0 until count).mapNotNull { i ->
                             val item = player.getMediaItemAt(i)
                             val uri =
-                                item.localConfiguration?.uri?.toString() ?: run {
+                                item.localConfiguration
+                                    ?.uri
+                                    ?.toString()
+                                    ?.takeUnless { OpenedAudio.isOpened(item.mediaId) } ?: run {
                                     skipped.add(i)
                                     return@mapNotNull null
                                 }

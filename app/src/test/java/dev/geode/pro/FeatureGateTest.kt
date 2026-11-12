@@ -1,5 +1,6 @@
 package dev.geode.pro
 
+import dev.geode.model.WatermarkChoice
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import org.junit.Assert.assertEquals
@@ -119,5 +120,19 @@ class FeatureGateTest {
         assertEquals(4, FreeTier.neonProIds.size)
         FreeTier.neonProIds.forEach { assertFalse(it, it in FreeTier.freeStyleIds) }
         assertFalse(FreeTier.neonOpener in FreeTier.neonProIds)
+    }
+
+    @Test
+    fun `the watermark preference places the mark and never lifts a required one`() {
+        val preference =
+            WatermarkChoice(required = false, proAdds = true, placement = WatermarkChoice.CORNER, corner = WatermarkChoice.TOP_LEFT)
+        val free = FeatureGate.FREE.renderLimits.withMark(preference)
+        assertTrue(free.watermark.required)
+        assertEquals(WatermarkChoice.CORNER, free.watermark.placement)
+        assertEquals(WatermarkChoice.TOP_LEFT, free.watermark.corner)
+        val pro = FeatureGate(Entitlement.Pro).renderLimits.withMark(preference)
+        assertFalse(pro.watermark.required)
+        assertTrue(pro.watermark.proAdds)
+        assertEquals(WatermarkChoice.TILED, FeatureGate.FREE.renderLimits.watermark.placement)
     }
 }

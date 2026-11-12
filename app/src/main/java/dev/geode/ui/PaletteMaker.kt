@@ -54,6 +54,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStore
+import dev.geode.data.SavedPaletteFiles
+import dev.geode.data.withSavedPalette
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
@@ -73,13 +75,15 @@ private val paletteIo: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1
 /**
  * The saved palettes a Customize control shows. Nothing here touches the disk on the caller's
  * thread: the store is opened (it migrates old ids on open), listed and written in [io], and
- * [items] is empty until [load] has answered.
+ * [items] is empty until [load] has answered. [sanitize] and the store default to native's
+ * ([PaletteStore]); a JVM test, where libgeode is not loaded, hands stand-ins for both.
  */
 @Stable
 internal class SavedPalettes(
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = paletteIo,
-    openStore: () -> PaletteStore,
+    private val sanitize: (CustomPalette) -> CustomPalette = { PaletteStore.sanitized(it) },
+    openStore: () -> SavedPaletteFiles,
 ) {
     /** Opened by its first use, which is always inside [io]. */
     private val store by lazy(openStore)
@@ -93,7 +97,7 @@ internal class SavedPalettes(
 
     /** The palette as it will be stored, at once; the file and the new list follow from [io]. */
     fun save(palette: CustomPalette): CustomPalette {
-        val clean = PaletteStore.sanitized(palette)
+        val clean = sanitize(palette)
         write { store.save(clean) }
         return clean
     }

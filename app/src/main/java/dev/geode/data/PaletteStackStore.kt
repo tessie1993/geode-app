@@ -160,13 +160,22 @@ class CustomPalette(
 /** Saved palette [palette] as the look's own palette. */
 fun SceneParams.withSavedPalette(palette: CustomPalette): SceneParams = withSavedPalette(palette.text, palette.id)
 
+/** The saved palettes' files as Customize reads and writes them: [PaletteStore], or a JVM test's stand-in (no libgeode there). */
+interface SavedPaletteFiles {
+    fun list(): List<CustomPalette>
+
+    fun save(palette: CustomPalette): CustomPalette
+
+    fun delete(id: String)
+}
+
 /**
  * The saved palettes' folder (files/palettes/<id>.json): bytes in and out. What a file holds, its name, its
  * migration to the current id rule and the list's order are native (core/viz/LookFiles).
  */
 class PaletteStore(
     context: Context,
-) {
+) : SavedPaletteFiles {
     private val dir = File(context.filesDir, "palettes").apply { mkdirs() }
 
     init {
@@ -177,18 +186,18 @@ class PaletteStore(
         }
     }
 
-    fun list(): List<CustomPalette> {
+    override fun list(): List<CustomPalette> {
         val read = files().mapNotNull { it.text()?.let(GeodeNative::savedPaletteRead) }.map(::CustomPalette)
         return GeodeNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
     }
 
-    fun save(palette: CustomPalette): CustomPalette {
+    override fun save(palette: CustomPalette): CustomPalette {
         val clean = sanitized(palette)
         AtomicWrite.text(File(dir, clean.id + ".json"), clean.text)
         return clean
     }
 
-    fun delete(id: String) {
+    override fun delete(id: String) {
         File(dir, GeodeNative.savedPaletteIdFor(id) + ".json").delete()
     }
 

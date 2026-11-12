@@ -1086,6 +1086,28 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** True when the params [frame] draws its own palette, a hue override or a first stop set (`geode_params_uses_custom_palette`). */
+    external fun paramsUsesCustomPalette(frame: FloatArray): Boolean
+
+    /** Your colours' stops set from the first in the params [frame] (`geode_params_palette_stops`). */
+    external fun paramsPaletteStops(frame: FloatArray): IntArray
+
+    /** [frame] with both hue overrides and every stop unset, as a new frame (`geode_params_clear_custom_palette`). */
+    external fun paramsClearCustomPalette(frame: FloatArray): FloatArray
+
+    /** [frame] cleared, then the first five of [stops] as your colours (`geode_params_apply_stops`). */
+    external fun paramsApplyStops(
+        frame: FloatArray,
+        stops: IntArray,
+    ): FloatArray
+
+    /** [frame] with no stops and the hue gradient [base], [span] (held to 0..1) as its overrides (`geode_params_apply_gradient`). */
+    external fun paramsApplyGradient(
+        frame: FloatArray,
+        base: Float,
+        span: Float,
+    ): FloatArray
+
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
@@ -1218,7 +1240,7 @@ object GeodeNative {
     ): Int
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
      * something.

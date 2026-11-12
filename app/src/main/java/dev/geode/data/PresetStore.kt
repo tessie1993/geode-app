@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONObject
@@ -242,21 +241,20 @@ class PresetStore(
          * the text org.json always wrote: each live schema row under its name as its JSON type, then the two palette
          * slot ids; read as org.json's opt* read, retired and unknown keys dropped, then sanitized. Read from the
          * stored text where native can, since org.json prints a whole double as a long; else from the object as
-         * org.json prints it. The ids are kept as written, not dropped by [SceneParamsCodec.unpack]. Seams for JVM
+         * org.json prints it. The ids are kept as written. Seams for JVM
          * tests, which have no libgeode.
          */
         @VisibleForTesting
         internal var writeParams: (SceneParams) -> String = { p ->
-            checkNotNull(GeodeNative.paramsWriteJson(SceneParamsCodec.pack(p), p.customPaletteId, SceneParams.NO_CUSTOM_PALETTE))
+            checkNotNull(GeodeNative.paramsWriteJson(p.frame(), p.customPaletteId, SceneParams.NO_CUSTOM_PALETTE))
         }
 
         @VisibleForTesting
         internal var readParams: (String?, String, String?) -> SceneParams = { document, path, fallback ->
-            val frame = FloatArray(SceneParamsCodec.FIELDS)
+            val frame = FloatArray(SceneParams.FIELDS)
             val ids = arrayOfNulls<String>(2)
             check(GeodeNative.paramsReadJson(document, path, fallback, frame, ids)) { "not a params object" }
-            val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
-            read.copy(customPaletteId = ids[0] ?: SceneParams.NO_CUSTOM_PALETTE)
+            SceneParams.read(frame, ids[0] ?: SceneParams.NO_CUSTOM_PALETTE)
         }
 
         internal fun fromJson(json: String): Preset {

@@ -5,7 +5,6 @@ import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
@@ -45,7 +44,7 @@ class NativeViz(
         CLEANER.register(this, owned)
     }
 
-    private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
+    private val paramFrame = FloatArray(SceneParams.FIELDS)
 
     // What the owner last set, kept for the next handle: a handle is destroyed on every detach, and the new
     // renderer knows none of it. Guarded by this object's monitor, like the handle's create and destroy.
@@ -109,7 +108,7 @@ class NativeViz(
     }
 
     private fun pushLook(l: LookSnapshot) {
-        SceneParamsCodec.pack(l.params, paramFrame)
+        l.params.frameInto(paramFrame)
         GeodeNative.vizSetLook(
             handle,
             l.sceneId,
@@ -147,7 +146,7 @@ class NativeViz(
     @Synchronized
     fun setParams(p: SceneParams) {
         if (handle == 0L) return
-        SceneParamsCodec.pack(p, paramFrame)
+        p.frameInto(paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
     }
 

@@ -97,6 +97,19 @@ uint8_t* directBytes(JNIEnv* env, jobject buffer, int64_t needed) {
 
 int64_t rgbaBytes(jint width, jint height) { return static_cast<int64_t>(width) * static_cast<int64_t>(height) * 4; }
 
+// A params frame edited by `edit` (in, out), as a new array; the input unchanged when it is short.
+template <typename Edit>
+jfloatArray editedFrame(JNIEnv* env, jfloatArray frame, Edit edit) {
+    FloatElements values(env, frame);
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!values.get() || values.length() < count) return frame;
+    std::vector<float> out(static_cast<size_t>(count));
+    edit(values.get(), out.data());
+    jfloatArray result = env->NewFloatArray(count);
+    if (result) env->SetFloatArrayRegion(result, 0, count, out.data());
+    return result;
+}
+
 }  // namespace
 
 extern "C" {
@@ -644,6 +657,43 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteBase(JNIEnv*, jobject, jin
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, jint palette, jfloat override) {
     return geode_params_palette_range(palette, override);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsUsesCustomPalette(JNIEnv* env, jobject, jfloatArray frame) {
+    FloatElements values(env, frame);
+    if (!values.get() || values.length() < geode_viz_param_count()) return JNI_FALSE;
+    return geode_params_uses_custom_palette(values.get()) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteStops(JNIEnv* env, jobject, jfloatArray frame) {
+    FloatElements values(env, frame);
+    int stops[5] = {};
+    const int n = values.get() && values.length() >= geode_viz_param_count() ? geode_params_palette_stops(values.get(), stops) : 0;
+    jintArray out = env->NewIntArray(n);
+    if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(stops));
+    return out;
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsClearCustomPalette(JNIEnv* env, jobject, jfloatArray frame) {
+    return editedFrame(env, frame, [](const float* in, float* out) { geode_params_clear_custom_palette(in, out); });
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsApplyStops(JNIEnv* env, jobject, jfloatArray frame, jintArray stops) {
+    const jsize n = stops ? std::min<jsize>(env->GetArrayLength(stops), 5) : 0;
+    jint rgb[5] = {};
+    if (n > 0) env->GetIntArrayRegion(stops, 0, n, rgb);
+    return editedFrame(env, frame, [&](const float* in, float* out) {
+        geode_params_apply_stops(in, reinterpret_cast<const int*>(rgb), static_cast<int>(n), out);
+    });
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsApplyGradient(JNIEnv* env, jobject, jfloatArray frame, jfloat base, jfloat span) {
+    return editedFrame(env, frame, [&](const float* in, float* out) { geode_params_apply_gradient(in, base, span, out); });
 }
 
 JNIEXPORT jstring JNICALL

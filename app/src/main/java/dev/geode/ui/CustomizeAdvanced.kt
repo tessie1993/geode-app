@@ -116,8 +116,8 @@ internal fun ReactionsSection(
     // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
     // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
     val routes =
-        remember(sceneId, p.reactSeed, reactions, handMask) {
-            GeodeNative.modRoutesPlaying(sceneId, p.reactSeed, reactions, handMask)
+        remember(sceneId, p.int("reactSeed"), reactions, handMask) {
+            GeodeNative.modRoutesPlaying(sceneId, p.int("reactSeed"), reactions, handMask)
         }
     val each = GeodeNative.MOD_ROUTE_VALUES
     val count = routes.size / each

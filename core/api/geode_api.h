@@ -569,6 +569,16 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
+ * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
+ * then). palette_stops: how many stops are set from the first, into out[0..4]. clear_custom_palette: both overrides
+ * and every stop unset. apply_stops: cleared, then the first `count` (at most five) of `stops`. apply_gradient: no
+ * stops, base and span held to 0..1 as the overrides. Same wire in and out; in and out may alias. Pure, any thread. */
+GEODE_API int         geode_params_uses_custom_palette(const float* frame);
+GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
+GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
+GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
+GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

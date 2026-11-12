@@ -57,9 +57,6 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.ControlRange
-import dev.geode.model.get
-import dev.geode.model.int
-import dev.geode.model.with
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit

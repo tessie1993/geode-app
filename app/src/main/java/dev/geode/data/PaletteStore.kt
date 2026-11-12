@@ -84,11 +84,7 @@ class PaletteStore(
             baseHue: Float,
             hueSpan: Float,
             id: String = SceneParams.NO_CUSTOM_PALETTE,
-        ): SceneParams {
-            val base = baseHue.coerceIn(0f, 1f)
-            val span = hueSpan.coerceIn(0f, 1f)
-            return p.withPaletteStops(emptyList()).copy(paletteBaseOverride = base, paletteRangeOverride = span, customPaletteId = id)
-        }
+        ): SceneParams = p.withGradient(baseHue, hueSpan, id)
 
         /** A saved palette as the look's own: its colours, else its gradient. */
         fun applyPalette(
@@ -106,7 +102,7 @@ class PaletteStore(
             p: SceneParams,
             stops: List<Int>,
             id: String = SceneParams.NO_CUSTOM_PALETTE,
-        ): SceneParams = clear(p).withPaletteStops(stops.take(MAX_STOPS)).copy(customPaletteId = id)
+        ): SceneParams = p.withStops(stops, id)
 
         fun clear(p: SceneParams): SceneParams = p.withoutCustomPalette()
 
@@ -116,7 +112,7 @@ class PaletteStore(
         ): SceneParams {
             if (deletedId == SceneParams.NO_CUSTOM_PALETTE) return p
             var out = p
-            if (out.customPaletteId == deletedId) out = out.copy(customPaletteId = SceneParams.NO_CUSTOM_PALETTE)
+            if (out.customPaletteId == deletedId) out = out.withPaletteId(SceneParams.NO_CUSTOM_PALETTE)
             return out
         }
 

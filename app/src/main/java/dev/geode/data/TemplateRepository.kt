@@ -183,16 +183,15 @@ object BundledTemplates {
                     attack = 0.85f,
                     decay = 0.24f,
                     params =
-                        SceneParams(
-                            speed = 1.3f,
-                            audioDrive = 1.6f,
-                            bloom = 0.6f,
-                            contrast = 1.2f,
-                            intensity = 1.15f,
-                            bassGain = 1.4f,
-                            palette = 1,
-                            paramFadeSec = 0.4f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 1.3f)
+                            .with("audioDrive", 1.6f)
+                            .with("bloom", 0.6f)
+                            .with("contrast", 1.2f)
+                            .with("intensity", 1.15f)
+                            .with("bassGain", 1.4f)
+                            .with("palette", 1)
+                            .with("paramFadeSec", 0.4f),
                 ),
             layout =
                 TemplateLayout(
@@ -220,19 +219,18 @@ object BundledTemplates {
                     attack = 0.4f,
                     decay = 0.06f,
                     params =
-                        SceneParams(
-                            speed = 0.5f,
-                            audioDrive = 0.85f,
-                            trails = true,
-                            trailLength = 0.8f,
-                            saturation = 0.8f,
-                            brightness = 0.9f,
-                            palette = 3,
-                            sway = 0.35f,
-                            vignette = 0.4f,
-                            grain = 0.18f,
-                            paramFadeSec = 1.5f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 0.5f)
+                            .with("audioDrive", 0.85f)
+                            .with("trails", true)
+                            .with("trailLength", 0.8f)
+                            .with("saturation", 0.8f)
+                            .with("brightness", 0.9f)
+                            .with("palette", 3)
+                            .with("sway", 0.35f)
+                            .with("vignette", 0.4f)
+                            .with("grain", 0.18f)
+                            .with("paramFadeSec", 1.5f),
                 ),
             layout =
                 TemplateLayout(
@@ -279,15 +277,14 @@ object BundledTemplates {
                     attack = 0.55f,
                     decay = 0.1f,
                     params =
-                        SceneParams(
-                            speed = 0.8f,
-                            audioDrive = 1.1f,
-                            saturation = 1.1f,
-                            bloom = 0.3f,
-                            vignette = 0.5f,
-                            palette = 5,
-                            paramFadeSec = 0.8f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 0.8f)
+                            .with("audioDrive", 1.1f)
+                            .with("saturation", 1.1f)
+                            .with("bloom", 0.3f)
+                            .with("vignette", 0.5f)
+                            .with("palette", 5)
+                            .with("paramFadeSec", 0.8f),
                 ),
             layout =
                 TemplateLayout(
@@ -330,16 +327,15 @@ object BundledTemplates {
                     attack = 0.7f,
                     decay = 0.15f,
                     params =
-                        SceneParams(
-                            speed = 1.0f,
-                            audioDrive = 1.25f,
-                            trails = true,
-                            trailLength = 0.45f,
-                            contrast = 1.1f,
-                            bloom = 0.4f,
-                            palette = 2,
-                            paramFadeSec = 0.6f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 1.0f)
+                            .with("audioDrive", 1.25f)
+                            .with("trails", true)
+                            .with("trailLength", 0.45f)
+                            .with("contrast", 1.1f)
+                            .with("bloom", 0.4f)
+                            .with("palette", 2)
+                            .with("paramFadeSec", 0.6f),
                 ),
             layout =
                 TemplateLayout(
@@ -387,16 +383,15 @@ object BundledTemplates {
                     attack = 0.5f,
                     decay = 0.2f,
                     params =
-                        SceneParams(
-                            speed = 0.9f,
-                            audioDrive = 1.0f,
-                            saturation = 0.7f,
-                            brightness = 0.95f,
-                            midGain = 1.25f,
-                            vignette = 0.25f,
-                            palette = 0,
-                            paramFadeSec = 1.0f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 0.9f)
+                            .with("audioDrive", 1.0f)
+                            .with("saturation", 0.7f)
+                            .with("brightness", 0.95f)
+                            .with("midGain", 1.25f)
+                            .with("vignette", 0.25f)
+                            .with("palette", 0)
+                            .with("paramFadeSec", 1.0f),
                 ),
             layout =
                 TemplateLayout(
@@ -444,13 +439,12 @@ object BundledTemplates {
                     attack = 0.65f,
                     decay = 0.12f,
                     params =
-                        SceneParams(
-                            speed = 1.0f,
-                            audioDrive = 1.2f,
-                            bloom = 0.45f,
-                            contrast = 1.05f,
-                            paramFadeSec = 0.9f,
-                        ),
+                        SceneParams.DEFAULT
+                            .with("speed", 1.0f)
+                            .with("audioDrive", 1.2f)
+                            .with("bloom", 0.45f)
+                            .with("contrast", 1.05f)
+                            .with("paramFadeSec", 0.9f),
                 ),
             layout =
                 TemplateLayout(

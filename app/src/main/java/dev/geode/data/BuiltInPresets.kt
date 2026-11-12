@@ -1,7 +1,6 @@
 package dev.geode.data
 
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
 
@@ -9,7 +8,7 @@ import dev.geode.render.scene.SceneParams
  * The bundled looks, read from the engine. Which looks ship, on which styles, and every value they set
  * are native (core/viz/CataloguePresets, the catalogue's presets section, #648): the shell asks once
  * through [GeodeNative.cataloguePresetsText] and reads the rows. Each look is a set of values by param
- * name (#346's schema), laid over [SceneParams]'s defaults through the wire codec, so a look reads back
+ * name (#346's schema), laid over [SceneParams.DEFAULT] by name, so a look reads back
  * exactly the params the old Kotlin literal built; core/tests/presets_test.cpp pins those values.
  */
 object BuiltInPresets {
@@ -49,12 +48,10 @@ object BuiltInPresets {
         return presets
     }
 
-    private fun params(values: String): SceneParams {
-        val frame = SceneParamsCodec.pack(SceneParams())
-        for (pair in values.split(',').filter { it.isNotEmpty() }) {
+    private fun params(values: String): SceneParams =
+        values.split(',').filter { it.isNotEmpty() }.fold(SceneParams.DEFAULT) { p, pair ->
             val (name, value) = pair.split('=')
-            frame[checkNotNull(ParamSchema[name]) { "bundled look sets unknown param $name" }.slot] = value.toFloat()
+            check(ParamSchema[name] != null) { "bundled look sets unknown param $name" }
+            p.with(name, value.toFloat())
         }
-        return SceneParamsCodec.unpack(frame, SceneParams())
-    }
 }

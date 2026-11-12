@@ -1,7 +1,5 @@
 package dev.geode.ui
 
-import dev.geode.model.get
-import dev.geode.model.with
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals
@@ -10,7 +8,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Customize's screens name scene params as text (`model/ParamEdit`), so a misspelt name would only throw when its
+ * Customize's screens name scene params as text (`SceneParams.get`/`with`), so a misspelt name would only throw when its
  * control first draws. This reads the names their controls pass from the sources and holds each to the params
  * schema fixture (`geode.paramsSchema`), so the typo fails here instead.
  */
@@ -41,8 +39,9 @@ class ParamNamesTest {
 
     @Test
     fun aKeyedEditIsTheFieldsCopy() {
-        val p = SceneParams.DEFAULT.copy(customPaletteId = "kept")
-        assertEquals(p.copy(noteDrums = 1.5f), p.with("noteDrums", 1.5f))
+        val p = SceneParams.DEFAULT.withPaletteId("kept")
+        assertEquals("kept", p.with("noteDrums", 1.5f).customPaletteId)
         assertEquals(1.5f, p.with("noteDrums", 1.5f)["noteDrums"], 0f)
+        assertEquals(SceneParams.DEFAULT["noteDrums"], p["noteDrums"], 0f)
     }
 }

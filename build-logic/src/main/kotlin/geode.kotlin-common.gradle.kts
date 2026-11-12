@@ -63,4 +63,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)
     // The knob editor's read of a sample bank (core/viz/MacroBank's editorText), proven by core/tests/macro_bank_test.
     systemProperty("geode.macroEditor", rootProject.file("core/tests/macro_editor.txt").absolutePath)
+    // Customize › Music's moment and action rows of the modulation catalog, proven by core/tests/mod_document_test.
+    systemProperty("geode.modCatalog", rootProject.file("core/tests/mod_catalog_music.txt").absolutePath)
 }

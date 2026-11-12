@@ -31,7 +31,8 @@ internal enum class MusicMoment(
 /**
  * What a moment can do to the picture, one chip each. Only the label lives here: the route each one
  * deals (target, amount, smoothing, step or follow) is native beside the DNA (`MusicAction` in
- * core/viz/ReactionDna). The ordinal is the wire value.
+ * core/viz/ReactionDna). The ordinal is the wire value. The menu's order and groups are native's
+ * ([MusicMoments.chips]); MusicMomentsTest holds both enums to native's `moment` and `music` rows.
  */
 internal enum class MusicAction(
     @StringRes val label: Int,
@@ -43,6 +44,12 @@ internal enum class MusicAction(
     CAMERA(R.string.music_action_camera),
     WARP(R.string.music_action_warp),
 }
+
+/** One action in a moment's menu, with the group native puts it in (`LIGHT`, `MOTION`): a divider sits where the group changes. */
+internal data class ActionChip(
+    val action: MusicAction,
+    val group: String,
+)
 
 /** One row as native reads it from what plays now (geode_mod_music_state). */
 internal data class MomentState(
@@ -66,12 +73,21 @@ internal object MusicMoments {
     private const val TAG = "MusicMoments"
 
     /** The actions whose target reaches [sceneId] (native decides; geode_music_actions_for): the page hides the rest. */
-    fun actionsFor(sceneId: String): List<MusicAction> {
+    fun actionsFor(sceneId: String): List<ActionChip> {
         // Native unreachable: show every chip rather than none, and log it.
         var bits = -1
         bestEffort(TAG, "musicActionsFor($sceneId)") { bits = GeodeNative.musicActionsFor(sceneId) }
-        return MusicAction.entries.filter { bits and (1 shl it.ordinal) != 0 }
+        return chips(bits)
     }
+
+    /** The actions in [bits] (one per [MusicAction] ordinal), in the menu's order and groups as native's catalog lists them. */
+    fun chips(bits: Int): List<ActionChip> =
+        ModCatalog.words("music").mapNotNull { w ->
+            MusicAction.entries
+                .getOrNull(w.ordinal)
+                ?.takeIf { bits and (1 shl it.ordinal) != 0 }
+                ?.let { ActionChip(it, w.more.firstOrNull().orEmpty()) }
+        }
 
     /** Every row, in [MusicMoment] order, over the user's saved [reactions] and the hand [mask]. */
     fun rows(

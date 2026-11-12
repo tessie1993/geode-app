@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -503,6 +505,40 @@ void catalog() {
           "the beat periods are the picker's");
 }
 
+// Customize › Music's moment and action rows, byte-equal to the copy the shell's JVM tests read
+// (MusicMomentsTest): the Kotlin enums' order is checked against it there.
+void musicRows(const char* fixture) {
+    std::string rows;
+    std::istringstream lines(modcatalog::text());
+    for (std::string line; std::getline(lines, line);) {
+        if (line.rfind("moment|", 0) == 0 || line.rfind("music|", 0) == 0) rows += line + "\n";
+    }
+    std::ifstream in(fixture, std::ios::binary);
+    std::stringstream want;
+    want << in.rdbuf();
+    check(in.good() || in.eof(), std::string("the music fixture reads: ") + fixture);
+    check(rows == want.str(), "the music rows equal " + std::string(fixture) + ":\n" + rows);
+
+    // Every action once, light before motion, so one divider splits the menu.
+    unsigned seen = 0;
+    int groupChanges = 0;
+    std::string group;
+    std::istringstream music(rows);
+    for (std::string line; std::getline(music, line);) {
+        if (line.rfind("music|", 0) != 0) continue;
+        const int ordinal = std::stoi(line.substr(6));
+        check(ordinal >= 0 && ordinal < kMusicActionCount && (seen & (1u << ordinal)) == 0, "an action is listed once: " + line);
+        if (ordinal >= 0 && ordinal < kMusicActionCount) seen |= 1u << ordinal;
+        const std::string g = line.substr(line.rfind('|') + 1);
+        check(g == "LIGHT" || g == "MOTION", "an action is light or motion: " + line);
+        if (!group.empty() && g != group) ++groupChanges;
+        if (group.empty()) check(g == "LIGHT", "the menu opens on the light actions");
+        group = g;
+    }
+    check(seen == (1u << kMusicActionCount) - 1u, "the menu lists every action");
+    check(groupChanges == 1, "each group is one run");
+}
+
 void abi() {
     const std::string defaults = defaultLfos();
     char big[4096];
@@ -547,7 +583,7 @@ void abi() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
     savedWavesRead();
     olderWavesRead();
     forgivingWaves();
@@ -560,6 +596,7 @@ int main() {
     values();
     pickers();
     catalog();
+    musicRows(argc > 1 ? argv[1] : "core/tests/mod_catalog_music.txt");
     abi();
     if (failures) {
         std::printf("%d modulation document check(s) failed\n", failures);

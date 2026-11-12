@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
+import java.io.File
 
 /** One row native publishes for a picker: its wire ordinal, the name a saved text carries and the words shown. */
 internal data class ModWord(
@@ -14,18 +15,23 @@ internal data class ModWord(
 
 /**
  * What the modulation editors show, read once from native (core/viz/ModCatalog, `geode_mod_catalog_text`):
- * every wave shape, source, direction, curve, band, mode, target and recipe, the slider ranges and the slot
- * counts. The editors keep no list, range or default of their own; this only splits the rows.
+ * every wave shape, source, direction, curve, band, mode, target and recipe, Music's moments and actions,
+ * the slider ranges and the slot counts. The editors keep no list, range or default of their own; this
+ * only splits the rows.
+ *
+ * JVM unit tests cannot load libgeode; the build points [TEXT_FILE_PROPERTY] at
+ * `core/tests/mod_catalog_music.txt`, which core/tests/mod_document_test proves equal to native's rows.
  */
 internal object ModCatalog {
+    const val TEXT_FILE_PROPERTY: String = "geode.modCatalog"
     private const val TAG = "ModCatalog"
     private const val WORD_FIELDS = 4
     private const val MIN = 3
     private const val MAX = 4
 
     private val rows: Map<String, List<List<String>>> by lazy {
-        var text = ""
-        bestEffort(TAG, "modCatalogText") { text = GeodeNative.modCatalogText() }
+        var text = System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() }.orEmpty()
+        if (text.isEmpty()) bestEffort(TAG, "modCatalogText") { text = GeodeNative.modCatalogText() }
         text.lines().map { it.split('|') }.groupBy { it[0] }
     }
 

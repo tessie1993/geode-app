@@ -55,6 +55,8 @@ const char* targetLabel(LfoTarget target);
 //   group|<index>|<KEY>|<label>            reaction-source groups, in the picker's order
 //   react|<ordinal>|<NAME>|<label>|<group KEY>|<1 when it is an event, else 0>
 //   recipe|<ordinal>|<NAME>|<title>|<sentence>
+//   moment|<ordinal>|<NAME>|<label>                  Customize › Music's rows, in wire order
+//   music|<ordinal>|<NAME>|<label>|<LIGHT|MOTION>    a moment's actions, in the menu's order and groups
 const std::string& text();
 
 }  // namespace geode::viz::modcatalog

@@ -54,7 +54,7 @@ import dev.geode.ui.theme.LocalGeodeMotion
  *
  * One row per [MusicMoment] (Kick, Snare … Loudness): its name, what it does as one summary button
  * ("Auto · Pulse, Zoom", or "Pulse, Zoom" once it is the user's) that opens a checkable menu of the
- * [MusicAction]s in two groups (light, then motion), and its ⋮ (UI V2 rule 2: one row and a menu,
+ * [MusicAction]s in native's order and groups (light, then motion), and its ⋮ (UI V2 rule 2: one row and a menu,
  * not seven chips per moment). A tap on the name opens the row in place to show its Strength, one
  * row at a time, so ten moments read as ten lines.
  *
@@ -131,7 +131,7 @@ internal fun EventsTab(
                 }
             }
             val recipeFull = shown.any { (_, state) -> state and (GeodeNative.MOD_RECIPE_ON or GeodeNative.MOD_RECIPE_FITS) == 0 }
-            val momentFull = rows.any { row -> actions.any { a -> a !in row.on && a !in row.fits } }
+            val momentFull = rows.any { row -> actions.any { (a) -> a !in row.on && a !in row.fits } }
             if (recipeFull || momentFull) {
                 val playing =
                     remember(sceneId, seed, reactions, handMask) {
@@ -143,21 +143,17 @@ internal fun EventsTab(
     }
 }
 
-/** The light actions first, then the ones that move the picture; a divider sits between the groups. */
-private val LIGHT_ACTIONS = listOf(MusicAction.FLASH, MusicAction.COLOUR)
-private val MOTION_ACTIONS = listOf(MusicAction.ZOOM, MusicAction.SHAKE, MusicAction.CAMERA, MusicAction.WARP)
-
 /**
  * One moment as one row: its name (with "Mine" once it is the user's and a chevron while it has a
  * Strength to show), the actions summary that opens the checkable menu, and its ⋮. [row] is native's
- * reading of it ([MusicMoments.rows]); [onEdit] sends a tap. While [expanded], the Strength slider
- * opens under the row.
+ * reading of it ([MusicMoments.rows]); [actions] are the menu's, in native's order and groups
+ * ([MusicMoments.actionsFor]); [onEdit] sends a tap. While [expanded], the Strength slider opens under the row.
  */
 @Composable
 private fun MomentRow(
     moment: MusicMoment,
     row: MomentState,
-    actions: List<MusicAction>,
+    actions: List<ActionChip>,
     expanded: Boolean,
     onExpand: () -> Unit,
     reactTo: (() -> Unit)?,
@@ -165,7 +161,7 @@ private fun MomentRow(
 ) {
     val name = stringResource(moment.label)
     val mine = row.mine
-    val ordered = (LIGHT_ACTIONS + MOTION_ACTIONS).filter { it in actions }
+    val ordered = actions.map { it.action }
     val onNames = ordered.filter { it in row.on }.map { stringResource(it.label) }
     val playing = onNames.joinToString().ifEmpty { stringResource(R.string.music_moment_nothing) }
     // An Auto row still says what it plays now, so the user sees what a tick would start from.
@@ -210,12 +206,12 @@ private fun MomentRow(
                 val picks =
                     ordered.map { a -> MenuPick(stringResource(a.label), a in row.on, a in row.on || a in row.fits) } +
                         MenuPick(none, row.on.isEmpty(), row.on.isNotEmpty())
-                val motionAt = ordered.indexOfFirst { it in MOTION_ACTIONS }
+                val groupStarts = (1 until actions.size).filter { actions[it].group != actions[it - 1].group }
                 MultiPickButton(
                     name = stringResource(R.string.music_moment_actions, name),
                     summary = summary,
                     picks = picks,
-                    dividersBefore = setOfNotNull(motionAt.takeIf { it > 0 }, ordered.size),
+                    dividersBefore = (groupStarts + ordered.size).toSet(),
                 ) { i ->
                     if (i == ordered.size) {
                         // None: every action this moment plays, off, one native edit after another.

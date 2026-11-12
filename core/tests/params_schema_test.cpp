@@ -245,7 +245,7 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Ripple, "ripple", 0.0f, 1.0f},          {LfoTarget::Morph, "morph", 0.0f, 1.0f},
     {LfoTarget::Twist, "twist", -1.0f, 1.0f},           {LfoTarget::Tile, "tile", 1.0f, 6.0f},
     {LfoTarget::Pixelate, "pixelate", 0.0f, 1.0f},      {LfoTarget::Posterize, "posterize", 0.0f, 1.0f},
-    {LfoTarget::PaletteMix, "paletteMix", 0.0f, 1.0f},  {LfoTarget::Saturation, "saturation", 0.0f, 1.5f},
+    {LfoTarget::PaletteMix, "paletteAmount1", 0.0f, 1.0f},  {LfoTarget::Saturation, "saturation", 0.0f, 1.5f},
     {LfoTarget::Brightness, "brightness", 0.2f, 2.0f},  {LfoTarget::Intensity, "intensity", 0.2f, 2.0f},
     {LfoTarget::Bloom, "bloom", 0.0f, 1.0f},            {LfoTarget::Temperature, "temperature", -1.0f, 1.0f},
     {LfoTarget::Turbulence, "turbulence", 0.0f, 1.5f},  {LfoTarget::ChromaAb, "chromaAb", 0.0f, 1.0f},
@@ -494,9 +494,12 @@ void everyLiveRowHasOneMeta() {
           "each palette amount and the position is a control of its own");
     for (int slot = static_cast<int>(ParamSlot::paletteAmount0); slot <= static_cast<int>(ParamSlot::paletteShift); ++slot) {
         const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
-        check(m.scope == catalogue::Scope::Universal && m.rollLo == 0.0f && m.rollHi == 0.0f,
-              std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": every style, never dealt by the param roll");
+        // Palette 2's amount is what PaletteMix writes: on shader styles until every style kind draws the stack.
+        const auto scope = slot == static_cast<int>(ParamSlot::paletteAmount1) ? catalogue::Scope::ShaderLook : catalogue::Scope::Universal;
+        check(m.scope == scope && m.rollLo == 0.0f && m.rollHi == 0.0f && (m.flags & kMod) != 0,
+              std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": a target, never dealt by the param roll");
     }
+    check((SceneParams::meta(ParamSlot::paletteMix).flags & kMod) == 0, "no target writes the old Palette blend");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
 }
 

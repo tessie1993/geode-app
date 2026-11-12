@@ -288,6 +288,8 @@ internal fun ModulatorCard(
     var showTargetPicker by remember { mutableStateOf(false) }
     val sceneId = LocalSceneId.current
     val v = remember(lfos, index, sceneId) { GeodeNative.modLfoValues(lfos, index, sceneId) }
+    // Native says which controls the slot reads as it stands: shape and timing, its own period, a knob.
+    val shows = remember(lfos, index) { GeodeNative.modLfoShows(lfos, index) }
     val target = v.intAt(GeodeNative.MOD_LFO_TARGET)
     val targetLabel = ModCatalog.label("target", target)
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
@@ -304,13 +306,12 @@ internal fun ModulatorCard(
             if (target != 0 && !v.flagAt(GeodeNative.MOD_LFO_REACHES)) {
                 ControlHint("$targetLabel does nothing on this style - pick another.")
             }
-            if (target == ModCatalog.ordinal("target", "MACRO")) {
+            if (shows and GeodeNative.MOD_SHOWS_KNOB != 0) {
                 MacroKnobRow(v.intAt(GeodeNative.MOD_LFO_KNOB)) { onChange(GeodeNative.MOD_LFO_KNOB, it.toFloat()) }
             }
             // Native also turns the wave the way a new source is useful.
-            val source = v.intAt(GeodeNative.MOD_LFO_SOURCE)
-            WordRow("Follows", "source", source) { onChange(GeodeNative.MOD_LFO_SOURCE, it) }
-            if (source == ModCatalog.ordinal("source", "LFO")) {
+            WordRow("Follows", "source", v.intAt(GeodeNative.MOD_LFO_SOURCE)) { onChange(GeodeNative.MOD_LFO_SOURCE, it) }
+            if (shows and GeodeNative.MOD_SHOWS_WAVE != 0) {
                 WordRow("Wave shape", "wave", v.intAt(GeodeNative.MOD_LFO_WAVE)) { onChange(GeodeNative.MOD_LFO_WAVE, it) }
                 val timing = ModCatalog.words("beats")
                 val beats = v.intAt(GeodeNative.MOD_LFO_BEATS)
@@ -319,10 +320,8 @@ internal fun ModulatorCard(
                 }
                 val moment = v.intAt(GeodeNative.MOD_LFO_MOMENT)
                 MomentTriggerRow(moment, stringResource(R.string.mod_moment_free)) { onChange(GeodeNative.MOD_LFO_MOMENT, it.toFloat()) }
-                // Native runs a wave on a moment on its own period, whatever its timing says.
-                val ownPeriod = beats == 0 || moment >= 0
                 val rate = v.getOrElse(GeodeNative.MOD_LFO_RATE_SECONDS) { 0f }
-                if (ownPeriod) RateSecondsSlider(rate) { onChange(GeodeNative.MOD_LFO_RATE_SECONDS, it) }
+                if (shows and GeodeNative.MOD_SHOWS_RATE != 0) RateSecondsSlider(rate) { onChange(GeodeNative.MOD_LFO_RATE_SECONDS, it) }
             }
             LabeledSlider(MOD_DEPTH, v.getOrElse(GeodeNative.MOD_LFO_DEPTH) { 0f }, ModCatalog.range("lfo.depth")) {
                 onChange(GeodeNative.MOD_LFO_DEPTH, it)
@@ -412,7 +411,8 @@ internal fun AdsrCard(
                 modifier = Modifier.weight(1f, fill = false),
             ) { i -> onChange(GeodeNative.MOD_ADSR_TARGET, offered[i].toFloat()) }
         }
-        if (ModCatalog.ordinal("target", "MACRO") in targets) {
+        val shows = remember(adsrs, index) { GeodeNative.modAdsrShows(adsrs, index) }
+        if (shows and GeodeNative.MOD_SHOWS_KNOB != 0) {
             MacroKnobRow(v.intAt(GeodeNative.MOD_ADSR_KNOB)) { onChange(GeodeNative.MOD_ADSR_KNOB, it.toFloat()) }
         }
         CardSubHeader(stringResource(R.string.customize_envelope_shape))

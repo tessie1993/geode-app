@@ -228,6 +228,23 @@ Java_dev_geode_engine_bridge_GeodeNative_searchSheet(JNIEnv* env, jobject, jobje
     return intsOf(env, packed);
 }
 
+// An .lrc as the wire form of core/library/Lyrics (see geode_lyrics_parse). Only marshalling here.
+JNIEXPORT jbyteArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_lyricsParse(JNIEnv* env, jobject, jbyteArray text) {
+    const std::string source = textOf(env, text);
+    std::string wire(static_cast<size_t>(geode_lyrics_parse(source.c_str(), nullptr, 0)), '\0');
+    geode_lyrics_parse(source.c_str(), wire.data(), static_cast<int>(wire.size()) + 1);
+    return utf8Bytes(env, wire.c_str());
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_lyricsIndexAt(JNIEnv* env, jobject, jlongArray timesMs, jlong positionMs) {
+    if (!timesMs) return -1;
+    const jsize count = env->GetArrayLength(timesMs);
+    const std::vector<long long> times = longsOf(env, timesMs, count);
+    return geode_lyrics_index_at(times.data(), static_cast<int>(count), positionMs);
+}
+
 // A picked playlist file (core/library/Playlist): the file's name and bytes in, the wire text out. Only marshalling
 // here; both cross as byte[] so a name or title outside the BMP survives.
 JNIEXPORT jbyteArray JNICALL

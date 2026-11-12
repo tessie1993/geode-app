@@ -31,7 +31,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float lr = log(r);
     f = vec2(0.5 * p.z * side + 1.5 * lr, 12.0 * th / FLAME_TAU + mix(0.2, 3.0, gFlameForm) * lr + uTime * FLAME_RATE(50));
     hue = vec2(0.25 * lr + 0.3 * side, 0.5 + 0.2 * lr);
-    float edge = smoothstep(2.0, 1.5, max(abs(c.x), abs(c.y))) * smoothstep(0.03, 0.2, r);
+    float edge = (1.0 - smoothstep(1.5, 2.0, max(abs(c.x), abs(c.y)))) * smoothstep(0.03, 0.2, r);
     wt = edge * vec2(0.9, 0.7);
 }
 

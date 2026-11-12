@@ -423,7 +423,7 @@ void textRoundTrips() {
     // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
     // (#1036): Water's seven controls and the ripple overlay's three are retired.
-    check(kinds == catalogue::kKindCount && families == 13 && keys == 85 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 13 && keys == 86 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

@@ -93,7 +93,7 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::Pixelate: GEODE_DRIVE(pixelate, 1.0f);
         case LfoTarget::Posterize: GEODE_DRIVE(posterize, 1.0f);
         case LfoTarget::ColorShift: GEODE_DRIVE(colorShift, 0.5f);
-        case LfoTarget::PaletteMix: GEODE_DRIVE(paletteMix, 1.0f);
+        case LfoTarget::PaletteMix: GEODE_DRIVE(paletteAmount1, 1.0f);
         case LfoTarget::Saturation: GEODE_DRIVE(saturation, 1.0f);
         case LfoTarget::Brightness: GEODE_DRIVE(brightness, 1.0f);
         case LfoTarget::Intensity: GEODE_DRIVE(intensity, 1.0f);

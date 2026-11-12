@@ -26,5 +26,7 @@ void main() {
     vec3 prev = texture(uPrev, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
     // An 8-bit target rounds a slow decay back to the same level, so dim trails would never fade:
     // the step below takes every level down by at least one each frame.
+    // A NaN or an infinity would be carried frame to frame: it never decays.
+    if (any(isnan(prev)) || any(isinf(prev))) prev = vec3(0.0);
     fragColor = vec4(max(prev * uDecay - 0.6 / 255.0, 0.0), 1.0);
 }

@@ -142,6 +142,9 @@ struct SceneParams {
 
     // The geode_viz_set_params wire: kFieldCount floats in slot order. A retired slot is read as its default.
     static SceneParams fromWire(const float* values);
+    // fromWire with every Float row also held to its [min, max] (a Circular one wraps where it is drawn, so
+    // it is not): what a value read from a saved look or a shared link may become (geode_params_sanitize).
+    static SceneParams sanitized(const float* values);
     void toWire(float* out) const;
 };
 

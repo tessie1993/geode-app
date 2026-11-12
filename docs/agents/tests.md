@@ -67,6 +67,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `lyrics_test.cpp`: the .lrc parse (stamps, fractions, headers, plain lyrics, the wire form) and the line sung at a position.
 - `playlist_test.cpp`: `core/library/Playlist`: M3U, PLS and XSPF reads, names, durations, base names, the DOCTYPE refusal and the wire text.
 - `live_segments_test.cpp`: Cast's segment window: the muxer's bytes cut at any write size, the window of six, the playlist's exact text.
 - `live_http_test.cpp`: Cast's HTTP answers: the request reader's bounds and deadlines, hostile requests, every response, the per-address limit.
@@ -87,6 +88,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
 - `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
 - `mod_document_test.cpp` also keeps the catalogue's `moment` and `music` rows equal to `core/tests/mod_catalog_music.txt`, read by the JVM through `geode.modCatalog`.
+- `mod_controls_test.cpp`: `core/viz/ModControls`: which wave and envelope controls Customize shows for each source, timing, moment and Macro target, and nothing for a slot out of range.
 - `musical_test.cpp`: the sound engine's musical layer.
 - `note_response_test.cpp`: Note & key reactions.
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.
@@ -100,10 +102,12 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, has no Kotlin field and is not saved, so an old look naming one still loads.
 - `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
+- `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link; the JVM `PresetGoldenTest` and `SharedLinkNumbersTest` pass the frame through `PresetStore.sanitize` and hold the format only.
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
 - `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
+- `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.

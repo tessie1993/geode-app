@@ -68,8 +68,6 @@ internal class CastStream(
 ) {
     private val appContext = context.applicationContext
     private val prefsFiles = appContext.geodeContainer.prefsFiles
-    private val segments = LiveSegments()
-
     private val link: LinkAddress = lanLinkAddress(appContext) ?: throw NoLanAddress()
 
     /** The Wi-Fi or Ethernet address the stream is served from. */
@@ -77,7 +75,7 @@ internal class CastStream(
 
     /** WebRTC for browsers, bound to the same address; closed after the server and the encoder stop. */
     private val webrtc = WebRtcLink(address, link.prefixLength)
-    private val server = LiveHttpServer(segments, address, link.prefixLength, webrtc::answer)
+    private val server = LiveLink(address, link.prefixLength, webrtc)
 
     /** Who may connect: the Cast device at [tv] while [forTv], the Wi-Fi's subnet while [forLink] (native rule). */
     fun admit(
@@ -113,7 +111,7 @@ internal class CastStream(
     val shareLabel: String get() = server.label
 
     /** True once the playlist lists enough segments for the receiver to start on. */
-    val isReady: Boolean get() = segments.playlist() != null
+    val isReady: Boolean get() = server.isReady
 
     fun start() {
         try {
@@ -187,10 +185,10 @@ internal class CastStream(
     private var mirroredMilk: String? = null
 
     /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
-    val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
+    val isFrozen: Boolean get() = server.msSinceLastSegment > FROZEN_MS
 
     private fun renderLoop() {
-        val encoder = CastEncoder(segments, webrtc::video)
+        val encoder = CastEncoder(server.sink, webrtc::video)
         val egl = EncoderSurface(encoder.surface)
         val audio = AudioPump(encoder, musicInput, webrtc)
         var fallback: VisualizerRenderer? = null

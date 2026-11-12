@@ -230,7 +230,7 @@ jobs:
       # The promises Play and the privacy policy rest on, checked on every PR so a break
       # shows up here, not only when a release bundle is requested (release.yml). INTERNET is
       # for Cast only (dev.geode.cast: Cast to TV and Show on a computer, one stream served on the
-      # LAN by cast/LiveHttpServer), so it may appear only with the Cast service; the
+      # LAN by core/cast/LiveServer), so it may appear only with the Cast service; the
       # main manifest is the same for every build type, so the debug manifest is a fair proxy.
       # Cast to TV is the app's only internet use (owner, 2026-11-02). The manifest check below
       # can only see the permission, so this one looks at the code and the dependencies:

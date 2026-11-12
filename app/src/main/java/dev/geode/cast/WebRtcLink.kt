@@ -22,23 +22,20 @@ import kotlin.concurrent.write
  * read the WebRTC media, but anyone who has the link can still open it, and someone who can alter the Wi-Fi's
  * traffic could put themselves in between.
  *
- * One per [CastStream], bound to the address its server listens on. [close] waits for a call in flight.
+ * One per [CastStream], bound to the address its server ([LiveLink]) listens on. [close] waits for a call in flight.
  */
 internal class WebRtcLink(
     address: InetAddress,
     prefix: Int,
 ) : AutoCloseable {
     private val lock = ReentrantReadWriteLock()
-    private var handle: Long = GeodeNative.webrtcOpen(address.hostAddress.orEmpty(), LiveHttpServer.ipv4(address), prefix)
+    private var handle: Long = GeodeNative.webrtcOpen(address.hostAddress.orEmpty(), ipv4(address), prefix)
 
-    /** The answer to a browser's [offer] and the HTTP status native gives it; the answer is null unless 200. */
-    fun answer(offer: String): Pair<Int, String?> =
-        lock.read {
-            val result = IntArray(1)
-            val answer = if (handle != 0L) GeodeNative.webrtcAnswer(handle, offer, result) else null
-            if (handle == 0L) result[0] = REFUSED_FAILED
-            GeodeNative.linkRtcStatus(result[0]) to answer
-        }
+    /**
+     * The native link, which the cast's server ([LiveLink]) asks for the answer to a browser's offer; 0 once
+     * closed. The server keeps it, so it stops before this closes.
+     */
+    val native: Long get() = lock.read { handle }
 
     /** One H.264 buffer from the cast encoder ([CastEncoder]'s video tap): a frame, or the codec config. */
     fun video(
@@ -66,11 +63,6 @@ internal class WebRtcLink(
             if (handle != 0L) GeodeNative.webrtcClose(handle)
             handle = 0L
         }
-
-    private companion object {
-        /** GEODE_WEBRTC_REFUSED_FAILED. */
-        const val REFUSED_FAILED = -6
-    }
 }
 
 /**

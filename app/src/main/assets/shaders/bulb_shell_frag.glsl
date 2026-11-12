@@ -69,18 +69,16 @@ const float BH_SPIN = -5.0 * CAM_SPIN_UNIT;
 float gWin;
 float gLatticeTurn;
 int gIters;
-vec4 gTrap;
-float gWinD;
 
 // Its own ramp: candle amber, ember red and a smoky brown.
 vec3 tone(float t) {
     return bulbRamp(t, vec3(0.62, 0.40, 0.22), vec3(0.35, 0.25, 0.15), vec3(1.0, 0.8, 0.6), vec3(0.02, 0.10, 0.20));
 }
 
-float map(vec3 p) {
+/** The style's body: the pierced shell, its orbit trap, and in mat the distance to the nearest window's rim. */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float db = bulbDE(bulbChaos(p), 4.0, 4.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
     float shell = abs(db + BH_OFF) - BH_THICK;
     // The nearest window centre on the staggered lattice.
     float r = max(length(p), 1e-6);
@@ -92,9 +90,10 @@ float map(vec3 p) {
     float dl = lat - ring * BH_RING;
     float dn = mod(lon - stagger + 0.5 * cell, cell) - 0.5 * cell;
     float win = length(vec2(dn * cos(lat), dl)) * r - gWin;
-    gWinD = win;
-    return max(shell, -win);
+    return BulbHit(max(shell, -win), tr, win);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -134,12 +133,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
-                winD = gWinD;
+                trap = h.trap;
+                winD = h.mat;
                 break;
             }
             t += max(d * 0.8, eps * 0.5);

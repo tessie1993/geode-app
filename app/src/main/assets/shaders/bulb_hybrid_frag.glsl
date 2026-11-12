@@ -58,7 +58,6 @@ const float BY_LOOP_RATE = 5.0 * CAM_SPIN_UNIT;
 
 mat3 gPose;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: delft cobalt, ultramarine and an ink violet.
 vec3 tone(float t) {
@@ -90,21 +89,17 @@ float hybridDE(vec3 p, out vec4 tr) {
     return 0.5 * log(r) * r / dr;
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     p = gPose * p;
     float r2 = max(dot(p, p), 1e-4);
     vec3 q = p * (BY_K / r2);
     vec4 tr;
     float d = hybridDE(bulbChaos(q), tr) / bulbChaosLip();
-    gTrap = tr;
-    return d * (r2 / BY_K) * 0.6;
+    return BulbHit(d * (r2 / BY_K) * 0.6, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 /** A thin line on every integer of f, `w` pixels wide, antialiased. */
 float lineOn(float f, float w) {
@@ -139,15 +134,19 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
+    // The last step's trap, for a ray that ran out of steps at a wall.
+    vec4 lastTrap = vec4(1.0);
     for (int i = 0; i < BY_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > BY_FAR) break;
         used = float(i);
-        float d = map(ro + rd * t);
+        BulbHit h = bulbField(ro + rd * t);
+        float d = h.d;
+        lastTrap = h.trap;
         float eps = bulbEps(t) * 2.5;
         if (d < eps) {
             hitT = t;
-            trap = gTrap;
+            trap = h.trap;
             break;
         }
         t += max(d, eps * 0.5);
@@ -156,7 +155,7 @@ void main() {
     // a crease: shade it as a hit (Cavern's rule).
     if (hitT < 0.0 && t < BY_FAR) {
         hitT = t;
-        trap = gTrap;
+        trap = lastTrap;
     }
 
     // Brush coordinates for every pixel (fwidth needs the whole quad).
@@ -167,7 +166,7 @@ void main() {
     vec3 col = paper;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
+        vec3 n = bulbNormal(p, bulbEps(hitT) * 1.5);
         float ndv = dot(n, -rd);
         // Porcelain: white, with only a whisper of light to tell the walls apart.
         vec3 body = paper * (0.86 + 0.14 * max(dot(n, normalize(vec3(-0.3, 0.8, -0.4))), 0.0));

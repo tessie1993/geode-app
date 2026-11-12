@@ -65,23 +65,18 @@ vec3 tone(float t) {
 float gTwist;
 float gTwistLip;
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     p.xz = rot2(gTwist * p.y) * p.xz;
     float r2 = max(dot(p, p), 1e-4);
     vec3 q = p * (BV_K / r2);
     vec4 tr;
     float d = bulbDE(bulbChaos(q), 12.0, 12.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d * (r2 / BV_K) * 0.6 / gTwistLip;
+    return BulbHit(d * (r2 / BV_K) * 0.6 / gTwistLip, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -112,15 +107,19 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
+    // The last step's trap, for a ray that ran out of steps at a wall.
+    vec4 lastTrap = vec4(1.0);
     for (int i = 0; i < BV_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > BV_FAR) break;
         used = float(i);
-        float d = map(ro + rd * t);
+        BulbHit h = bulbField(ro + rd * t);
+        float d = h.d;
+        lastTrap = h.trap;
         float eps = bulbEps(t) * 2.5;
         if (d < eps) {
             hitT = t;
-            trap = gTrap;
+            trap = h.trap;
             break;
         }
         t += max(d, eps * 0.5);
@@ -130,13 +129,13 @@ void main() {
     // shade them as hits, or half the room paints as empty fog.
     if (hitT < 0.0 && t < BV_FAR) {
         hitT = t;
-        trap = gTrap;
+        trap = lastTrap;
     }
 
     vec3 col = fog;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
+        vec3 n = bulbNormal(p, bulbEps(hitT) * 1.5);
         // The lantern: at the eye, falling off with distance.
         // Warm and strong: the cave is the one Bulb seen from INSIDE, and it
         // has to read as a lit room, amber stone against teal depth, not as

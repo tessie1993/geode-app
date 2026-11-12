@@ -21,7 +21,7 @@ Line numbers are `app/src/main/AndroidManifest.xml` and `app/src/main/java/dev/g
 Not requested: camera, location, contacts, phone, SMS, storage beyond audio, exact alarms,
 all-files access, query-all-packages, advertising ID, body sensors or activity recognition. The
 motion sensors the app reads (accelerometer for the shake screenshot, `ui/EasterEggs.kt`;
-gyroscope, `render/GyroLook.kt`; proximity, `wallpaper/DreamCover.kt`) need no permission.
+gyroscope, `stage/StageView.kt`; proximity, `wallpaper/DreamCover.kt`) need no permission.
 Screenshots and recordings are written through MediaStore rows the app inserts itself
 (`data/StillFiles.kt`, `data/RecordFiles.kt`), which needs no storage permission on Android 13+. None of the permissions above is on
 Play's restricted list that needs a Permissions Declaration Form.

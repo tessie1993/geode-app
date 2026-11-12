@@ -10,7 +10,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import kotlinx.coroutines.delay
 
 /**
@@ -20,7 +20,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 internal fun StageWarmNote(
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     pip: Boolean,
 ) {
     val context = LocalContext.current
@@ -30,8 +30,8 @@ internal fun StageWarmNote(
         if (pip) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
-                val pacer = visualizerView.framePacer
-                val fps = GeodeNative.thermalTakeWarmNote(pacer.capFps(), pacer.fps())
+                val stage = visualizerView.stage
+                val fps = GeodeNative.thermalTakeWarmNote(stage.capFps, stage.pacedFps())
                 if (fps > 0) {
                     Toast.makeText(context, resources.getString(R.string.stage_phone_warm, fps), Toast.LENGTH_LONG).show()
                     break

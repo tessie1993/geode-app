@@ -3,8 +3,10 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
+    api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_param_text_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
     api/geode_modulation_api.cpp
@@ -28,6 +30,8 @@ add_library(geode_core STATIC
     viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp
+    stage/LiveClient.cpp
+    stage/StageCore.cpp
     stage/StageLifecycle.cpp
     stage/StagePacing.cpp
     api/geode_auto_api.cpp
@@ -35,9 +39,12 @@ add_library(geode_core STATIC
     api/geode_style_pick_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
+    api/geode_capture_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
+    api/geode_widget_glow_api.cpp
+    viz/WidgetGlow.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -48,6 +55,7 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    library/Playlist.cpp
     audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
@@ -55,6 +63,7 @@ add_library(geode_core STATIC
     audio/ingest/android/TrackDecoder.cpp
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
+    audio/ingest/CapturePlan.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -113,6 +122,7 @@ add_library(geode_core STATIC
     viz/Framebuffer.cpp
     viz/Quad.cpp
     viz/Params.cpp
+    viz/ParamText.cpp
     viz/Palette.cpp
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp

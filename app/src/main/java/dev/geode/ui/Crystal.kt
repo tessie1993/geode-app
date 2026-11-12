@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.geode.data.GeneralSettings
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -178,16 +178,12 @@ fun Modifier.crystalPanel(
 }
 
 /**
- * The app's one live [VisualizerView], hosted once by the shell (`AppRoot`) for every screen and
+ * The app's one live [StageView], hosted once by the shell (`AppRoot`) for every screen and
  * laid out at [bounds] (the Visuals screen's, in root pixels), so a tab switch never detaches it.
  * Off Visuals ([shown] false) it is hidden with alpha 0, not `INVISIBLE` (#852): an invisible
  * SurfaceView gives its surface back, and showing it again is a `surfaceChanged` that parks the
- * main thread until the GL thread has drawn a frame. At alpha 0 the surface and the GL thread
- * and EGL context all stay; the view stops its own pacer and gyro (see `VisualizerView.setAlpha`).
- *
- * It used to be composed inside Visuals, so leaving Visuals removed it from the hierarchy: a
- * main-thread wait of up to 200 ms for the scene release, a GL thread join, and coming back a
- * new EGL context, every program rebuilt through ProgramStager and a black first frame.
+ * main thread until the stage has taken it. At alpha 0 the surface stays and the stage stops
+ * its vsync and the tilt sensor (see `StageView.setAlpha`).
  *
  * Still hidden until [bounds] has been measured once, so a cold start on Visuals never shows a
  * 0×0 surface. The second screen remains the one real move: the shell drops this host while a
@@ -195,12 +191,12 @@ fun Modifier.crystalPanel(
  * Being drawn before the screens, the surface shows through wherever they draw nothing.
  *
  * While a cast streams ([keepDrawing]) the stream is this view's own frames (core/viz/frame/CastTee), so it keeps
- * drawing on every tab (above alpha 0 keeps its pacer running, `VisualizerView.setAlpha`), in its whole rect
+ * drawing on every tab (above alpha 0 keeps it drawing, `StageView.setAlpha`), in its whole rect
  * (the tee turns and crops it to the stream), even before Visuals was ever laid out. Where and how it shows is native (core/viz/StageRun host).
  */
 @Composable
 fun VisualizerCanvasHost(
-    view: VisualizerView,
+    view: StageView,
     shown: Boolean,
     bounds: androidx.compose.runtime.State<androidx.compose.ui.unit.IntRect>,
     modifier: Modifier = Modifier,

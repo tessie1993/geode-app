@@ -13,4 +13,9 @@ float snapToStep(float value, float step) {
     return std::floor(value / step + 0.5f) * step;
 }
 
+ErrorAction errorAction(int consecutiveFailures, bool hasNext) {
+    if (consecutiveFailures >= kMaxConsecutiveFailures) return ErrorAction::StopSourceUnavailable;
+    return hasNext ? ErrorAction::SkipToNext : ErrorAction::StopEndOfQueue;
+}
+
 }  // namespace geode::audio

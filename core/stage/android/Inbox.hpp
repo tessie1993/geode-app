@@ -7,26 +7,12 @@
 
 #include "stage/CommandQueue.hpp"
 
-// A looper thread's inbox: the commands other threads hand it (core/stage/CommandQueue) and the looper that sleeps
+// A looper thread's inbox: the commands other threads hand it (core/stage/CommandQueue; a stage's are listed in
+// core/stage/StageCore.hpp) and the looper that sleeps
 // on them, woken by ALooper_wake, which any thread may call. Shared (std::shared_ptr) between the thread and its
 // senders, so a sender still holding it after the thread ends pushes into a queue nobody reads, never into freed
 // memory.
 namespace geode::stage::platform {
-
-// What a stage thread is told. a, b: sizes or a mode; f, g: rates; t: a window hand-over's sequence number;
-// target: an ANativeWindow the sender acquired for the stage.
-enum StageCommand : uint16_t {
-    kStageWindow = 1,      // Ordered: target = ANativeWindow*, a = width, b = height, t = sequence
-    kStageWindowGone = 2,  // Ordered: t = sequence
-    kStageSize = 3,        // LastWins: a = width, b = height
-    kStageMode = 4,        // LastWins: a = RunMode
-    kStagePause = 5,       // LastWins with kStageResume's kind: a = 1 paused, 0 resumed
-    kStageRedraw = 6,      // LastWins
-    kStageCap = 7,         // LastWins: f = cap fps
-    kStageFrameDue = 8,    // LastWins, from the vsync thread: f = paced fps, g = cap fps
-    kStageFrameRate = 9,   // LastWins, from the vsync thread: f = the window's hint
-    kStageQuit = 10,       // Ordered
-};
 
 struct Inbox {
     static constexpr size_t kCapacity = 32;

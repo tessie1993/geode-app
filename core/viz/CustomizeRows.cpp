@@ -54,6 +54,8 @@ const std::vector<Control>& table() {
         {"Front layer", W::Slider, "frontLayer", nullptr, kOwn, R::Always, false},
         {"Back layer", W::Slider, "backLayer", nullptr, kOwn, R::Always, false},
         {"Formula", W::Slider, "formula", nullptr, kOwn, R::Always, false},
+        // Shapes: how far the shape graph melts into a raymarched style's form (catalogue::Scope::Shapes).
+        {"Shapes", W::Slider, "shapes", nullptr, kOwn, R::Always, false},
         {"Particle shape", W::Chips, "particleShape", nullptr, kOwn, R::Always, false},
         {"Particle size", W::Slider, "particleSize", nullptr, kOwn, R::Always, false},
         {"Density", W::Slider, "density", nullptr, kOwn, R::Always, false},

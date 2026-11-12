@@ -35,6 +35,7 @@
   "frontLayer": -0.5,
   "backLayer": 0.75,
   "formula": 0.5,
+  "shapes": 0.25,
   "morph": 0.5,
   "pixelate": 0.5,
   "posterize": 0.5,

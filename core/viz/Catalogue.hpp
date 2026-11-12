@@ -53,8 +53,9 @@ enum class Scope {
     Spin,           // per STYLE, like MarchDetail: only the styles spinRate turns
     FamilyForm,     // per STYLE: Spawn, Fractal and the two layers, drawn by the family libraries that honour them
     Formula,        // per STYLE: the styles that keep alternative distance formulas and read uFormula
+    Shapes,         // per STYLE: the raymarched styles that melt the shape graph into their form (uShapeMix)
 };
-constexpr int kScopeCount = 25;
+constexpr int kScopeCount = 26;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside the
@@ -120,6 +121,8 @@ float spinRate(const std::string& id);
 bool drawsFamilyForm(const std::string& id);
 // It keeps alternative distance formulas and steps through them by Formula (Scope::Formula, uFormula).
 bool hasFormulas(const std::string& id);
+// It melts the shape graph (viz/ShapeGraph, lib_shapes) into its own form by Shapes (Scope::Shapes, uShapeMix).
+bool drawsShapes(const std::string& id);
 std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.

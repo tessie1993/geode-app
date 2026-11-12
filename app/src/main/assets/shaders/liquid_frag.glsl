@@ -53,6 +53,8 @@ layout(location = 1) out vec4 outDisplay;
 vec2 centred(vec2 uv) { return (uv * 2.0 - 1.0) * vec2(uAspect, 1.0); }
 vec2 uncentred(vec2 c) { return (c / vec2(uAspect, 1.0)) * 0.5 + 0.5; }
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+// A NaN or an infinity from a style would be carried frame to frame and spread: it never fades.
+vec3 sane(vec3 c) { return any(isnan(c)) || any(isinf(c)) ? vec3(0.0) : c; }
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -118,13 +120,14 @@ void main() {
         n3 = texture(uStyle, src - vec2(0.0, uStyleTexel.y)).rgb;
     }
 
+    prev = sane(prev);
     vec3 liquid = prev;
     float r = uBornR;
     // A bell with no plateau: a disc with a flat top and a narrow rim left a ring the dive magnified.
     float bell = 1.0 - smoothstep(0.0, r * 1.25, length(c - uVp));
     float bornMask = uBornGain * bell * bell;
     if (uFeedback == 1) {
-        vec3 style = texture(uStyle, vUv).rgb;
+        vec3 style = sane(texture(uStyle, vUv).rgb);
         float gx = luma(texture(uStyle, vUv + vec2(uStyleTexel.x, 0.0)).rgb) - luma(texture(uStyle, vUv - vec2(uStyleTexel.x, 0.0)).rgb);
         float gy = luma(texture(uStyle, vUv + vec2(0.0, uStyleTexel.y)).rgb) - luma(texture(uStyle, vUv - vec2(0.0, uStyleTexel.y)).rgb);
         float edge = clamp(length(vec2(gx, gy)) * 3.0, 0.0, 1.0);
@@ -151,7 +154,7 @@ void main() {
             liquid = mix(liquid, born, bornMask);
         }
     }
-    liquid = clamp(liquid, 0.0, 64.0);
+    liquid = clamp(sane(liquid), 0.0, 64.0);
     outLiquid = vec4(liquid, 1.0);
 
     vec3 shown = liquid;

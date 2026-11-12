@@ -474,6 +474,10 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
+/* A frame read from a saved look or a shared link, made safe (viz/Params SceneParams::sanitized): a non-finite
+ * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
+ * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
+GEODE_API void        geode_params_sanitize(const float* in, float* out);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
@@ -1700,6 +1704,15 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_SIDE 57
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
+
+/* Which controls of one wave or envelope slot do anything as it stands (viz/ModControls), so Customize shows only
+ * those: GEODE_MOD_SHOWS_* bits. lfos and adsrs are the saved texts (api/geode_modulation_api.h); 0 for a slot
+ * outside them. Pure, any thread. */
+#define GEODE_MOD_SHOWS_WAVE 1u /* wave shape, timing and moment: the source is the steady wave */
+#define GEODE_MOD_SHOWS_RATE 2u /* the cycle time: a steady wave on its own period (free timing, or on a moment) */
+#define GEODE_MOD_SHOWS_KNOB 4u /* the macro knob picker: the slot moves a Macro knob */
+GEODE_API unsigned        geode_mod_lfo_shows(const char* lfos, int slot);
+GEODE_API unsigned        geode_mod_adsr_shows(const char* adsrs, int slot);
 
 /* The widget's generated glow (viz/WidgetGlow), for a style with no thumbnail: writes 3 lights x 6 floats into
  * out[18] (x and y as shares of the bitmap's width and height, radius as a share of its width, hue in degrees,

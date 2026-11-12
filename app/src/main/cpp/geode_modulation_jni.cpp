@@ -186,4 +186,16 @@ Java_dev_geode_engine_bridge_GeodeNative_modHandLoad(JNIEnv* env, jobject, jstri
     return geode_mod_hand_load(saved.get(), hasMask ? 1 : 0, savedMask);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_modLfoShows(JNIEnv* env, jobject, jstring lfos, jint slot) {
+    Utf8Chars saved(env, lfos);
+    return static_cast<jint>(geode_mod_lfo_shows(saved.get(), slot));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_modAdsrShows(JNIEnv* env, jobject, jstring adsrs, jint slot) {
+    Utf8Chars saved(env, adsrs);
+    return static_cast<jint>(geode_mod_adsr_shows(saved.get(), slot));
+}
+
 }  // extern "C"

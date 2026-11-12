@@ -39,13 +39,13 @@ import kotlin.math.abs
  * job never pays for it; `.github/workflows/render-thumbs.yml` sets it, runs only this class and
  * turns the output into a bot PR.
  *
- * Each style gets a fresh [NativeViz], prepared the way [dev.geode.render.offscreen.OffscreenSceneRenderer]
+ * Each style gets a fresh [NativeViz], prepared the way the native export job (`core/output/ExportFrame`)
  * prepares an export (offscreen tier, cut transition, the style's own reaction DNA from
  * resolved natively), hears [SyntheticGroove] frame by frame and runs [WARMUP_SECONDS] of
  * frames before the one that is kept, so simulations have grown and reactions are mid-groove
  * rather than at their silent rest pose. NativeViz is driven directly rather than through
- * OffscreenSceneRenderer because that one only hears a decoded track (TrackAudio), and the
- * groove is generated in code.
+ * the export job because that one only hears a decoded track, and the groove is generated
+ * in code.
  *
  * The frame is drawn at [RENDER_SIZE] and filtered down to [THUMB_SIZE], which antialiases the
  * thin lines many styles draw, then saved as lossy WebP through [TestStorage]: files written

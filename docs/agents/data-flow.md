@@ -42,7 +42,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The style's DNA is built natively by `core/viz/ReactionDna`: a personality for each side of the groove plus layers, each drawing its source from the sound frame.
 - DNA draws from the 117 `ReactSource`s, one per `GeodeSoundFrame` value.
 - DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
-- `OffscreenSceneRenderer` resolves reactions the same way, so exports react like the screen.
+- The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `GyroLook` (in `VisualizerView`) feeds the camera's look while it is visible: the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
 - Each frame the GL thread has the native renderer take the ring's new PCM (`AudioBus.soundInput`, inside `NativeViz.frame`; no Kotlin array) into its own `core/sound` engine.
@@ -61,10 +61,10 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 ## 4. Export
 
 - `VideoExporter` and `LoopRender` run on Default inside `ExportRun.scope`.
-- They draw one `LookSnapshot` pinned when the render starts (`ExportController.Host.look`) through `OffscreenSceneRenderer`.
-- `OffscreenSceneRenderer` pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the Note & key switch, the hand mask and the director, no note entropy.
+- They draw one `LookSnapshot` pinned when the render starts (`ExportController.Host.look`) through `export/ExportScene`, which hands it to the native export job (`core/output/ExportFrame`).
+- The export job pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the Note & key switch, the hand mask and the director, no note entropy.
 - So live edits never reach a render in progress.
-- Its own sound engine hears the track frame by frame (`TrackAudio`, stepped at 1/fps), so export equals live.
+- Its own sound engine hears the track frame by frame (`core/audio/ingest/TrackPump`, decoded natively, stepped at 1/fps), so export equals live.
 - Before frame 0 the engine hears a pre-roll (`core/output/PreRoll`): up to 8 s before the range, or the track's opening and then a track boundary, so the first frame is as warm as live playing on.
 - A track the engine cannot hear fails the render.
 - An export's style switches would reach it as a `StyleSchedule` (`geode_viz_set_style_schedule`, timed by `core/viz/StyleSchedule`), but nothing sets one since the Studio project render went.

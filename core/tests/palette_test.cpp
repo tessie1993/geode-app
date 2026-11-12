@@ -59,7 +59,7 @@ void oklabRoundTrips() {
 
 void theLibraryKeepsTheOldIndices() {
     const auto& lib = pl::library();
-    check(lib.size() == 34, "21 classic ramps, 5 colour maps, 8 newer palettes");
+    check(lib.size() == 35, "21 classic ramps, 5 colour maps, 9 newer palettes");
     for (int i = 0; i < pl::kClassicCount; ++i) {
         check(lib[static_cast<size_t>(i)].palette.name == SceneParams::palettes()[static_cast<size_t>(i)].name,
               "library row " + std::to_string(i) + " is old palette " + std::to_string(i));
@@ -74,6 +74,15 @@ void theLibraryKeepsTheOldIndices() {
         check(pl::libraryIndex(lib[i].id) == static_cast<int>(i), lib[i].id + ": one id, one row");
     }
     check(pl::libraryIndex("nothing") == -1, "an unknown id has no row");
+    // The Neon family's ramp, appended so no saved index moves: its five stops, looping as neon() does.
+    const int neonSet = pl::libraryIndex("neon_set");
+    check(neonSet == 34 && pl::offered(neonSet) && lib[34].palette.name == "Neon glow" && lib[34].palette.wrap == pl::Wrap::Loop &&
+              lib[34].palette.space == pl::Space::Rgb,
+          "Neon glow is row 34, offered, looped in RGB");
+    const int neonStops[] = {0x0D4CFF, 0x8014FF, 0xFF0F9E, 0xFF6B08, 0x4CFF2E};
+    bool sameStops = lib[34].palette.stops.size() == 5;
+    for (size_t i = 0; sameStops && i < 5; ++i) sameStops = lib[34].palette.stops[i].rgb == neonStops[i];
+    check(sameStops, "Neon glow's stops are the neon set's");
     check(lib[0].palette.wrap == pl::Wrap::Loop, "Spectrum comes round the whole wheel, so it loops");
     check(lib[2].palette.wrap == pl::Wrap::Mirror, "Fire runs once and mirrors, like a new palette");
     // A colour map row is the LUT's entry 16·i.

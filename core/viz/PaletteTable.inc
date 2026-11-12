@@ -49,3 +49,7 @@ GEODE_COLOURS("noir", "Noir", BuiltIn, Mirror, Oklab, 0x0B0B0D, 0x3A3A40, 0x8A8A
 GEODE_COLOURS("moss", "Moss", BuiltIn, Mirror, Oklab, 0x1E2D24, 0x3C5A3A, 0x7A9A54, 0xC5D86D, 0xF4F1BB)
 GEODE_COLOURS("reef", "Reef", BuiltIn, Mirror, Oklab, 0x003049, 0xD62828, 0xF77F00, 0xFCBF49, 0xEAE2B7)
 GEODE_COLOURS("lavender", "Lavender", BuiltIn, Mirror, Oklab, 0x2E1A47, 0x5B3E96, 0x9C7AD6, 0xD7C6F5)
+// Row 34: the Neon style family's own ramp (neon() in black_hole_frag.glsl and mandelbox_cathedral_frag.glsl):
+// electric blue, violet, magenta, orange, acid green, blended in RGB and looping back to the blue as theirs does.
+// "neon" is classic row 1's id, so this one is neon_set.
+GEODE_COLOURS("neon_set", "Neon glow", BuiltIn, Loop, Rgb, 0x0D4CFF, 0x8014FF, 0xFF0F9E, 0xFF6B08, 0x4CFF2E)

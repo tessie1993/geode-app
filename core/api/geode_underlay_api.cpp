@@ -26,4 +26,10 @@ int geode_underlay_clamp_blur(int radius) { return underlay::clampBlur(radius); 
 
 int geode_underlay_blur_max(void) { return underlay::kBlurMax; }
 
+int geode_underlay_blend_count(void) { return underlay::kBlendCount; }
+
+const char* geode_underlay_blend_name(int blend) { return underlay::blendName(blend); }
+
+int geode_underlay_blend_of(const char* name) { return underlay::blendOf(name); }
+
 }  // extern "C"

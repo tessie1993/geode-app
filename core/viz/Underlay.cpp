@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <vector>
 
 namespace geode::viz::underlay {
@@ -16,6 +17,8 @@ float clamp01(float v) {
     if (!(v > 0.0f)) return 0.0f;  // NaN and negatives
     return v < 1.0f ? v : 1.0f;
 }
+
+constexpr const char* kBlendNames[kBlendCount] = {"SCREEN", "MULTIPLY", "ADD"};
 
 uint32_t channel(uint32_t p, int shift) { return (p >> shift) & 0xFFu; }
 
@@ -144,6 +147,16 @@ void toRgbaBytes(const uint32_t* argb, size_t count, uint8_t* out) {
         dst[2] = static_cast<uint8_t>(px & 0xFFu);          // B
         dst[3] = static_cast<uint8_t>((px >> 24) & 0xFFu);  // A
     }
+}
+
+const char* blendName(int blend) { return kBlendNames[blend >= 0 && blend < kBlendCount ? blend : kBlendScreen]; }
+
+int blendOf(const char* name) {
+    if (!name) return kBlendScreen;
+    for (int i = 0; i < kBlendCount; ++i) {
+        if (std::strcmp(name, kBlendNames[i]) == 0) return i;
+    }
+    return kBlendScreen;
 }
 
 }  // namespace geode::viz::underlay

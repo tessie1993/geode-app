@@ -9,8 +9,8 @@
 // chunked lengths, a truncated body.
 //
 // Build & run:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp \
-//       core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp \
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp
+//       core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp
 //       -o live_http_test && ./live_http_test
 #include <algorithm>
 #include <cstddef>

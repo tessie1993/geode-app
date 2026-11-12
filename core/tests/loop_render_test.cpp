@@ -277,12 +277,13 @@ lr::Request request(int width, int height, int bitRate, int fps) {
 
 bool near(float a, float b) { return std::fabs(a - b) < 1e-6f; }
 
-// One stop at 60 fps: 1800 loop frames and a 60-frame tail are drawn, the first 60 are stashed, 1800 are
+// One stop at 60 fps, at a size whose stash holds the whole seam (1280x720 holds 54 frames): 1800 loop frames and a
+// 60-frame tail are drawn, the first 60 are stashed, 1800 are
 // presented on the truncated 16 666 666 ns grid, and the stop is torn down scene first, surface last.
 void oneStop() {
     World w;
     FakeHost host(w);
-    lr::Job job(request(1280, 720, 6'000'000, 60), host);
+    lr::Job job(request(960, 540, 6'000'000, 60), host);
     check(job.state() == lr::State::Idle, "a job starts idle");
     job.run();
     check(job.state() == lr::State::Rendered, "one stop renders");
@@ -309,7 +310,7 @@ void oneStop() {
     // Both configures (the probe's and the stop's) ask for the same format.
     check(w.configured.size() == 2, "the probe and the stop each configure an encoder");
     const sink::VideoFormat& f = w.configured.back();
-    check(f.width == 1280 && f.height == 720 && f.bitRate == 6'000'000 && f.frameRate == 60, "the stop's format");
+    check(f.width == 960 && f.height == 540 && f.bitRate == 6'000'000 && f.frameRate == 60, "the stop's format");
     check(f.iFrameIntervalSec == 1 && f.colorFormat == sink::kColorFormatSurface, "a keyframe a second, from a surface");
     check(w.idleWaits == 0, "an encoder that ends at once is never waited on");
     const std::vector<std::string> order = {"encoder-gone", "open-surface", "seam",         "scene",         "mark",
@@ -385,7 +386,7 @@ void driftAndShortestSeam() {
     World w;
     w.seamCaps = {60, 40};
     FakeHost host(w);
-    lr::Request r = request(1280, 720, 6'000'000, 60);
+    lr::Request r = request(960, 540, 6'000'000, 60);
     r.hueTurns = 0.3f;
     r.warmth = 0.6f;
     r.stops = 3;

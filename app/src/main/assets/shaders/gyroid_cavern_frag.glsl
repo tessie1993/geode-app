@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Gyroid Cavern: a flight through a triply periodic minimal surface. The
 // walls are a thin sheet around the surface's zero set (|g| < thickness), so
@@ -60,6 +61,21 @@ out vec4 fragColor;
 // shifts q by exactly 16, a whole number of periods, so a morph that never
 // settles back to 1 still never shows the wrap. The estimate is divided by the
 // largest k, the scale's Lipschitz bound.
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// The cavern's tunables as normalized inputs, mapped once at the top of main;
+// 0.5 is the look as tuned (the knobs rest there exactly while Note & key is
+// off), and none reads the sound:
+//
+//   sScale      k3 TONE          the lattice's scale about the eye 0.65 .. 1 .. 1.35
+//   sWall       k4 BUILD         the walls' resting thickness 0.08 .. 0.14 .. 0.26
+//   sTube       k5 SPACE         the flight channel's radius 1.4 .. 1.9 .. 2.6
+//   gBendA      k2 FLOW          the corkscrew's radius -0.5 .. 0 .. 0.5
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The period (8) and the vein ratio (3) stay: both must tile the 16 of the
+// rebase. The sheet goes through SHELL_FIELD3, so the shell's hooks reach it.
 
 #define GC_MAX_STEPS 104
 #define GC_ZWRAP 16.0
@@ -82,6 +98,10 @@ vec3 gEye;
 vec3 gQ;
 /** k2 FLOW: the corkscrew's radius, world units (0 at rest). */
 float gBendA = 0.0;
+/** Shape inputs (see the header). */
+float sScale;
+float sWall;
+float sTube;
 
 float tpms(vec3 x) {
     vec3 s = sin(x);
@@ -93,7 +113,7 @@ float tpms(vec3 x) {
     return gW.x * gy + gW.y * sp + gW.z * di;
 }
 
-float map(vec3 w) {
+float mapField(vec3 w) {
     // FLOW's corkscrew bends the sheet only; the flight tube and the eye's bubble stay put.
     vec3 wb = w;
     wb.xy += gBendA * vec2(sin(w.z * (GC_TAU / 16.0)), cos(w.z * (GC_TAU / 16.0)));
@@ -105,6 +125,11 @@ float map(vec3 w) {
     d = smax(d, gTube - length(w.xy), 0.9);
     d = max(d, GC_BUBBLE - length(w - gEye));
     return d;
+}
+
+/** The cavern as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -136,13 +161,18 @@ float vein(vec3 q, vec3 flow) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sScale = shellMap(shellKnob(3), 0.65, 1.0, 1.35);
+    sWall = shellMap(shellKnob(4), 0.08, 0.14, 0.26);
+    sTube = shellMap(shellKnob(5), 1.4, 1.9, 2.6);
+    gBendA = shellMap(shellKnob(2), -0.5, 0.0, 0.5);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
-    gBendA = clamp(uKnob[2], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -164,10 +194,10 @@ void main() {
     vec3 stretch = mix(gcOnsetStretch(mod(floor(SND_HIT_TIME) - 1.0, 4096.0)), gcOnsetStretch(floor(SND_HIT_TIME)), og);
     // A slow idle breath so silence still moves; the drop opens everything.
     vec3 idle = 1.0 + 0.04 * vec3(sin(uTime * 0.07), sin(uTime * 0.05 + 2.0), sin(uTime * 0.06 + 4.0));
-    gK = stretch * idle * mix(1.0, 0.62, dropBump) * (1.0 + 0.7 * kTone);
+    gK = stretch * idle * mix(1.0, 0.62, dropBump) * sScale;
     gKMax = max(gK.x, max(gK.y, gK.z));
-    gTh = (0.14 + 0.34 * kick) * (1.0 - 0.45 * dropBump);
-    gTube = 1.9 + 1.4 * dropBump;
+    gTh = (sWall + 0.34 * kick) * (1.0 - 0.45 * dropBump);
+    gTube = sTube + 1.4 * dropBump;
 
     vec3 ro;
     vec3 rd;

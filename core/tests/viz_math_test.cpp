@@ -903,9 +903,12 @@ void zoomPersonalitiesZoomOnTheBeat() {
     check(seen > 20, "zoom personalities were checked");
 }
 
-bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::Onset; }
+// What the pulse's two sides hear: the kick on every hit, every other one or as its envelope; the snare on every hit,
+// every other one or as its envelope, or the hats.
+bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::KickEnv; }
 bool snareSide(ReactSource s) {
-    return s == ReactSource::Snare || s == ReactSource::Snare2 || s == ReactSource::Hat || s == ReactSource::NoteChange;
+    return s == ReactSource::Snare || s == ReactSource::Snare2 || s == ReactSource::SnareEnv || s == ReactSource::Hat ||
+           s == ReactSource::HatEnv;
 }
 
 void kickAndSnareSidesAnswerDifferently() {
@@ -921,6 +924,57 @@ void kickAndSnareSidesAnswerDifferently() {
         check(!a.empty() && !b.empty(), "both sides of the groove move something");
         check(dna.lead != dna.second && a != b, "the two sides answer it differently");
     }
+}
+
+// The owner: "make sure all styles have capacity to react to drums", beside the musical layers. Every catalogue
+// style's DNA, with its real traits and on every seed, holds a route on the kick and one on the snare or the hats
+// (kickSide, snareSide: each the drum's own row on Customize › Music), each onto a target the style reads (its
+// catalogue scope reaches it, and style_reads_test holds every style to reading what Customize shows it) and never a
+// turn (the owner took sound-driven spin out). Across the catalogue the drums move many different things, in
+// different ways, so no drum reaction is the same for every style.
+void everyStyleAnswersTheDrums() {
+    using S = ReactSource;
+    for (const S s : {S::Kick, S::Kick2, S::KickEnv}) {
+        check(hand::momentOf(s) == static_cast<int>(Moment::Kick), "the kick side is the Kick row");
+    }
+    for (const S s : {S::Snare, S::Snare2, S::SnareEnv, S::Hat, S::HatEnv}) {
+        check(hand::momentOf(s) == static_cast<int>(Moment::Snare) || hand::momentOf(s) == static_cast<int>(Moment::Hat),
+              "the snare side is the Snare or the Hat row");
+    }
+    std::set<int> kickTargets;
+    std::set<int> snareTargets;
+    std::set<int> modes;
+    int styles = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        ++styles;
+        const StyleTraits traits{catalogue::spinRate(id), catalogue::isShaderStyle(id)};
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, traits);
+            bool kick = false;
+            bool snare = false;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                const bool shows = route.enabled && route.amount != 0.0f && route.target != LfoTarget::Rotation &&
+                                   route.target != LfoTarget::CamRoll && targetReaches(route.target, id);
+                if (!shows) continue;
+                if (kickSide(route.source)) {
+                    kick = true;
+                    kickTargets.insert(static_cast<int>(route.target));
+                    modes.insert(static_cast<int>(route.mode));
+                }
+                if (snareSide(route.source)) {
+                    snare = true;
+                    snareTargets.insert(static_cast<int>(route.target));
+                    modes.insert(static_cast<int>(route.mode));
+                }
+            }
+            check(kick, (id + ": the DNA moves nothing the style reads on the kick").c_str());
+            check(snare, (id + ": the DNA moves nothing the style reads on the snare or the hats").c_str());
+        }
+    }
+    check(styles > 100, "the catalogue's styles were checked");
+    check(kickTargets.size() >= 6 && snareTargets.size() >= 6, "the drums move many different things across styles");
+    check(modes.size() >= 3, "the drums follow, jump or settle, style by style");
 }
 
 void dnaSourcesVaryAcrossStyles() {
@@ -2471,6 +2525,7 @@ int main() {
     stylesGetDifferentPersonalities();
     zoomPersonalitiesZoomOnTheBeat();
     kickAndSnareSidesAnswerDifferently();
+    everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();
     dnaRespectsStyleTraits();
     dnaLeavesRoomAndStaysInRange();

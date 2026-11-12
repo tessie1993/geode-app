@@ -63,6 +63,27 @@ GEODE_API void        geode_director_reach_set(int level);
 /* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
  * geode_params_randomize takes). Null or "" keeps nothing. */
 GEODE_API void        geode_director_keep_set(const char* keys);
+/* The Auto Director's settings (core/viz/DirectorTuning): every number it tunes itself by, as a table native
+ * lists. The shell stores the text native gives it and draws the rows as given. set: process-wide like
+ * geode_director_set and pinned with it by an export (null or "" is every default). count: the rows; label,
+ * help: row i's, static ("" outside the table); range: writes min, max, step (0 continuous) and 1 for a
+ * switch (an on/off row) or 0 into out, returns 0 outside the table; value: row i in a saved text; value_text:
+ * as the page shows it; with: the saved text with row i set to value, held to its range. The returned
+ * texts are valid until this thread's next tuning call. */
+GEODE_API void        geode_director_tuning_set(const char* text);
+GEODE_API int         geode_director_tuning_count(void);
+GEODE_API const char* geode_director_tuning_label(int index);
+GEODE_API const char* geode_director_tuning_help(int index);
+GEODE_API int         geode_director_tuning_range(int index, float* out4);
+GEODE_API float       geode_director_tuning_value(const char* text, int index);
+GEODE_API const char* geode_director_tuning_value_text(const char* text, int index);
+GEODE_API const char* geode_director_tuning_with(const char* text, int index, float value);
+/* Auto's pick at a director moment or a timer tick (core/viz/DirectorStyle, core/viz/AutoDraw): ids is the
+ * shell's pool, one style id a line in its order (a saved look or a .milk preset by its style's id);
+ * on_screen the entry showing (-1 none). With director_moment, the style the moment's director asks for: a
+ * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
+ * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
+GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
  * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */

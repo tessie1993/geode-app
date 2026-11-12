@@ -40,7 +40,9 @@ out vec4 fragColor;
 //                            spheres' ring count, and holds each plateau.
 // uMoveDir / uFlowPhase      drift the motes in the air and turn the burst.
 // Knobs (uKnob, 0.5 = neutral): PULSE the bass breath, TEXTURE the web's line
-// weight, FLOW turns the merkabas, TONE the hue, BUILD the column, SPACE the fog.
+// weight, FLOW turns the merkabas, TONE how high they float (a high melody
+// lifts the stars up toward the vault, a low one lowers them to hang over the
+// floor's web; and a small hue offset), BUILD the column, SPACE the fog.
 // Morph eases each star toward an octahedron, Warp sways the web lines,
 // Turbulence shakes the motes and bobs the merkabas, Intensity scales the light.
 // No term in this file can reach its peak inside one frame.
@@ -87,6 +89,8 @@ float gBass;
 float gSpinRate;
 float gMorph;
 float gBob;
+/** k3 TONE: how far the merkabas are lifted (0 at rest). */
+float gLift;
 vec3 gEye;
 /** 0 floor, 1 vault, 2 sphere, 3 merkaba: which surface map() found nearest. */
 float gMat;
@@ -141,7 +145,7 @@ float map(vec3 p) {
     float k2 = uhashUnit(uhash(v));
     float k3 = uhashUnit(uhash(v ^ 0x51edu));
     float s = 0.55 + 0.2 * k1;
-    vec3 mc = vec3(MG_MK_X + (k2 - 0.5) * 0.8, 0.6 + 2.0 * k3 + gBob * sin(uTime * 0.31 + k1 * 40.0),
+    vec3 mc = vec3(MG_MK_X + (k2 - 0.5) * 0.8, 0.6 + 2.0 * k3 + gBob * sin(uTime * 0.31 + k1 * 40.0) + gLift,
                    zm * MG_CELL + (k1 - 0.5) * 2.4);
     vec3 q = a - mc;
     // A fixed rate times uTime, plus FLOW as a bounded offset: a rate that moved
@@ -267,6 +271,7 @@ void main() {
     gSpinRate = 2.0 * kFlow;
     gMorph = 0.6 * clamp(uMorph, 0.0, 1.0);
     gBob = 0.15 + 0.35 * turb;
+    gLift = 2.2 * kTone;
 
     vec3 ro;
     vec3 rd;

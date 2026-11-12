@@ -132,6 +132,8 @@ void main() {
     float hitT = -1.0;
     float trap = 1.0;
     float glow = 0.0;
+    // The glow's depth, weighted like the glow, to colour it by how far off it hangs.
+    float glowT = 0.0;
     float used = 0.0;
     for (int i = 0; i < FD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
@@ -144,7 +146,9 @@ void main() {
             trap = gTrap;
             break;
         }
-        glow += exp(-d * 18.0) * 0.012;
+        float g = exp(-d * 18.0) * 0.012;
+        glow += g;
+        glowT += g * t;
         t += max(d * 0.75, eps);
     }
 
@@ -158,20 +162,28 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0015 * hitT + 0.0006);
         float band = log(max(trap, 1e-4)) * 0.16;
-        vec3 base = pal(hue + 0.25 + band);
+        // Depth, as the Hollows read it: the walls' colour runs on round the
+        // palette with distance, the headlamp falls off, and every edge that
+        // turns away from the eye catches a rim light, so the nested arches
+        // separate into layers instead of one flat screen of filigree.
+        float depth = hitT / (FD_FAR * reach);
+        vec3 base = pal(hue + 0.25 + band + 0.35 * depth);
         // A headlamp at the eye, plus a cool fill from the corridor axis.
-        float diff = max(dot(n, -rd), 0.0);
+        float diff = max(dot(n, -rd), 0.0) / (1.0 + 0.03 * hitT * hitT);
         vec3 axisDir = normalize(vec3(-p.xy, 0.0) + 1e-4);
         float fill = 0.5 + 0.5 * dot(n, axisDir);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 24.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
-        col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao;
+        float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+        col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao
+            + pal(hue + 0.55 + 0.35 * depth) * rim * 0.3 * ao;
         // Trap glow on the thinnest shells: the filigree lights up.
         col += pal(hue + 0.1) * (1.0 - smoothstep(0.0, 0.06 * (1.0 + kTexture), trap)) * 0.25;
         col = mix(col, fogCol, 1.0 - exp(-hitT * FD_FOG / reach));
     }
     // Light threaded past the walls, coloured off the corridor's hue.
-    col += pal(hue + 0.15) * glow * (0.6 + 0.3 * swell) * (1.0 + kBuild);
+    float glowFar = glow > 1e-5 ? glowT / (glow * FD_FAR * reach) : 0.0;
+    col += pal(hue + 0.15 + 0.3 * glowFar) * glow * (0.6 + 0.3 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

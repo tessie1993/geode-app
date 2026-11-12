@@ -397,6 +397,60 @@ Java_dev_geode_engine_bridge_GeodeNative_directorKeepSet(JNIEnv* env, jobject, j
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningSet(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    geode_director_tuning_set(chars.get());
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningCount(JNIEnv*, jobject) {
+    return geode_director_tuning_count();
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningLabel(JNIEnv* env, jobject, jint index) {
+    return geode::jni::utf8String(env, geode_director_tuning_label(index));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningHelp(JNIEnv* env, jobject, jint index) {
+    return geode::jni::utf8String(env, geode_director_tuning_help(index));
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningRange(JNIEnv* env, jobject, jint index) {
+    float range[4] = {0.0f, 1.0f, 0.0f, 0.0f};
+    geode_director_tuning_range(index, range);
+    jfloatArray out = env->NewFloatArray(4);
+    if (out) env->SetFloatArrayRegion(out, 0, 4, range);
+    return out;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningValue(JNIEnv* env, jobject, jstring text, jint index) {
+    Utf8Chars chars(env, text);
+    return geode_director_tuning_value(chars.get(), index);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningValueText(JNIEnv* env, jobject, jstring text, jint index) {
+    Utf8Chars chars(env, text);
+    return geode::jni::utf8String(env, geode_director_tuning_value_text(chars.get(), index));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorTuningWith(JNIEnv* env, jobject, jstring text, jint index, jfloat value) {
+    Utf8Chars chars(env, text);
+    return geode::jni::utf8String(env, geode_director_tuning_with(chars.get(), index, value));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoPickAmong(JNIEnv* env, jobject, jstring ids, jint onScreen, jboolean directorMoment) {
+    Utf8Chars chars(env, ids);
+    return geode_auto_pick_among(chars.get(), onScreen, directorMoment == JNI_TRUE ? 1 : 0);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
     geode_note_response_set(enabled ? 1 : 0);
 }

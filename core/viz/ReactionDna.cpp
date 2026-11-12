@@ -58,14 +58,13 @@ int groupOf(Personality p) {
         case Personality::Pulse: case Personality::Lens: return 0;
         case Personality::Chroma: case Personality::Flash: return 1;
         case Personality::Twist: case Personality::Warp: case Personality::Ripple: case Personality::Morph: return 2;
-        case Personality::Swing: case Personality::Spin: return 3;
+        case Personality::Swing: return 3;
         case Personality::Split: return 4;
     }
     return 4;
 }
 
 bool allowed(Personality p, const StyleTraits& t) {
-    if (p == Personality::Spin) return t.spinRate != 0.0f;
     if (p == Personality::Morph) return t.shaderLook;
     return true;
 }
@@ -114,8 +113,11 @@ public:
     }
 };
 
-// What the picture does on the beat, for one personality.
-void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTraits& t) {
+// What the picture does on the beat, for one personality. Every target here moves every style (its catalogue
+// scope is Universal: the composite's lens, the rig or a flat style's flat camera, and the Look, Shape and Motion
+// controls style_reads_test holds every style to reading), but Morph, which allowed() keeps to the shader styles
+// that read it; and none turns the picture.
+void addBeat(Builder& b, Draw& d, Personality p, ReactSource s) {
     // A hi-hat comes too often for a jump to land between hits: on the hats a jump waits for its glide.
     const ReactMode jump = s == ReactSource::Hat ? ReactMode::JumpSettled : ReactMode::Jump;
     switch (p) {
@@ -148,9 +150,6 @@ void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTrait
         case Personality::Lens:
             b.add(s, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.3f, 0.6f), 0.03f, 0.35f, ModCurve::Smooth);
             b.addBeatZoom(s);
-            break;
-        case Personality::Spin:
-            b.add(s, LfoTarget::Rotation, ReactMode::Step, (t.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.12f, 0.25f), 0.12f, 0.12f);
             break;
         case Personality::Morph:
             b.add(s, LfoTarget::Morph, ReactMode::Follow, d.range(0.3f, 0.5f), 0.04f, 0.4f, ModCurve::Smooth);
@@ -215,12 +214,15 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
 
     // The pulse: one personality on the kick side, one from another group on the snare side, so
     // the two halves of a groove look different. Which kick and which snare is the style's own:
-    // every hit, every other one, or the note starts.
+    // every hit, every other one, or the hit's envelope; the snare's or the hats'. The owner: "make
+    // sure all styles have capacity to react to drums". So both sides always hear a drum (the kick
+    // side could hear any onset and the snare side the melody's notes, so a style that drew both had
+    // no route on a drum), and they are drawn first, so no cap ever drops them. Each source pool
+    // keeps its size, so a style that drew a kick and a snare before draws every layer as it did.
     b.dna.lead = pickPersonality(d, traits, -1);
     b.dna.second = pickPersonality(d, traits, groupOf(b.dna.lead));
-    addBeat(b, d, b.dna.lead, pick(d, std::array{ReactSource::Kick, ReactSource::Kick, ReactSource::Kick2, ReactSource::Onset}), traits);
-    addBeat(b, d, b.dna.second, pick(d, std::array{ReactSource::Snare, ReactSource::Snare2, ReactSource::Hat, ReactSource::NoteChange}),
-            traits);
+    addBeat(b, d, b.dna.lead, pick(d, std::array{ReactSource::Kick, ReactSource::Kick, ReactSource::Kick2, ReactSource::KickEnv}));
+    addBeat(b, d, b.dna.second, pick(d, std::array{ReactSource::Snare, ReactSource::Snare2, ReactSource::Hat, ReactSource::SnareEnv}));
 
     // The big moment (a hard cut, or the level surging back): always a surge forward, plus one
     // look the pulse does not already use.

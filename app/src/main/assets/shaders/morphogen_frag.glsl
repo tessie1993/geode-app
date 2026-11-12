@@ -59,7 +59,8 @@ out vec4 fragColor;
 // from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
 // seam line's width (FRONT_WIDTH 0.5..1.5 times, still under the 0.03 that
 // washed), k2 FLOW added to the wring's twist about the view axis (gLip
-// follows it), k3 TONE the palette position, k4 BUILD the glow the body leaks
+// follows it), k3 TONE the palette position and the box-fold's scale (a high
+// melody carves the crystal finer, a low one chunkier), k4 BUILD the glow the body leaks
 // into the room, k5 SPACE how far that glow reaches.
 
 // ---- framing --------------------------------------------------------------
@@ -854,7 +855,10 @@ void main() {
     // gives a solid lump with the folds only on its skin. A tenth of a unit of
     // mids is a visible change of character and still well inside the band
     // where the estimator is well behaved.
-    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid;
+    // TONE moves the scale too: a high melody toward the finer, smaller
+    // magnitude end, a low one toward the chunkier larger one, an eighth of a
+    // unit each way, still inside the band where the estimator behaves.
+    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid + 0.25 * kTone;
     // The fold loop is where the cost is, so it is what Detail buys: 3 folds
     // at uSteps 64, 4 at the default 102, 6 at 128. 6/128 is exact in binary,
     // so both ends of the Detail range land on whole numbers rather than on a

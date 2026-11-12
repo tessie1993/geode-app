@@ -78,7 +78,7 @@ jobs:
           ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o resolver_test
@@ -86,7 +86,7 @@ jobs:
           # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
           # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_reach_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o director_reach_test
@@ -115,7 +115,7 @@ jobs:
           ./meter_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp \
+            core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
           ./director_test
           # Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
@@ -188,6 +188,10 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp core/viz/LayerState.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o layer_pick_test
           ./layer_pick_test
+          # Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_style_test.cpp core/viz/DirectorStyle.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o director_style_test
+          ./director_style_test
           # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o sound_source_test
           ./sound_source_test

@@ -99,7 +99,11 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' wall
 // thickness (0.75..1.25, the relief scaled with it so it never cuts through
 // and gLip follows), k2 FLOW added to the spiral's bend (inside SPIRAL_MAX),
-// k3 TONE the palette position, k4 BUILD the light at the end's glow, k5
+// k3 TONE the palette position and the shells' windows (a high melody opens
+// them until each shell is a scatter of small caps and the regress shows
+// deep, a low one closes them toward heavy caps, never past the sqrt(2)
+// threshold where the bridges would join and shut the frame), k4 BUILD the
+// light at the end's glow, k5
 // SPACE the reach (the far plane and the fog along the ray).
 
 // ---- the stack ------------------------------------------------------------
@@ -618,7 +622,9 @@ void main() {
         SPIRAL_MAX
     );
     gSpin = uTime * SPIN_W + spin;
-    gHole = HOLE_BASE + HOLE_SWING * energyAmt;
+    // TONE moves the windows; the floor keeps the caps free (above sqrt 2).
+    gHole = clamp(HOLE_BASE + HOLE_SWING * energyAmt + 0.3 * (clamp(uKnob[3], 0.0, 1.0) - 0.5),
+                  min(1.44, HOLE_BASE + HOLE_SWING * energyAmt), 1.66);
     gReliefAmp = (RELIEF_IDLE + RELIEF_TREBLE * trebAmt) * wallK;
     gReliefPhase = uTime * RELIEF_PHASE_W;
 

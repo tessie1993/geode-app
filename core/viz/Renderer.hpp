@@ -137,8 +137,10 @@ public:
     // The path of the preset the MilkDrop scene last compiled, handed out once.
     std::string takeMilkPresetLoaded();
     // How many times the director committed a look at a new section or a drop since the last take.
-    // The shell's Auto changes style on each (one Auto mode: the director picks the moments).
-    int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
+    // The shell's Auto changes style on each (one Auto mode: the director picks the moments). Taking them
+    // publishes the director's style intent for Auto's pick (viz/DirectorStyle), so the renderer whose
+    // moments the shell takes is the one whose director names the next style. Any thread.
+    int takeDirectorStyleMoments();
     // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
     bool directorStyleMomentsPending() const { return directorStyleMoments_.load(std::memory_order_acquire) > 0; }
     // Whether a preset load waits for takeMilkPresetLoaded, without taking it. Any thread.
@@ -325,6 +327,9 @@ private:
     // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
     signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
+    // The style intent of the last moment counted; written on the stepping thread, read by a take.
+    std::mutex directorIntentLock_;
+    director::StyleIntent directorIntent_;  // guarded by directorIntentLock_
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;

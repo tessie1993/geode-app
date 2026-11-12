@@ -60,7 +60,8 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the halo's edge width,
 // k2 FLOW added to the stir's bend (gWarpAmount; gLip follows it), k3 TONE the
-// palette position, k4 BUILD the halo's glow, k5 SPACE the eye's distance
+// palette position and the stir's scale (a high melody curls the body in fine,
+// tight eddies, a low one in broad slow folds; gLip follows it), k4 BUILD the halo's glow, k5 SPACE the eye's distance
 // (2.8..3.4, clear of the bank's 2.33).
 
 #define CB_MAX_STEPS 128
@@ -146,7 +147,7 @@ void main() {
     // The stir. Amount is kept modest deliberately: the Lipschitz bound below
     // is what pays for it, and a large amount makes every ray take tiny steps
     // and the body dissolve into banding at low Detail.
-    gWarpScale = 1.15 + 0.25 * swell;
+    gWarpScale = max(1.15 + 0.25 * swell + 1.0 * tone, 0.5);
     gWarpAmount = max(0.10 + 0.11 * bass + 0.05 * finger + 0.08 * kFlow, 0.0);
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
     gRadius = 0.86 * (1.0 + 0.07 * swell);
@@ -159,7 +160,9 @@ void main() {
     // a new angle every second even in silence, and a spike banks the orbit
     // toward the new travel direction.
     vec3 ro = vec3(0.0, 0.0, -3.1 * (1.0 - 0.2 * kSpace));
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    // On uTime alone: the loudness clock (uFlowPhase) used to add to the turn,
+    // and no style turns to the music (owner rule).
+    mat3 cam = rotY(uTime * 0.11) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 

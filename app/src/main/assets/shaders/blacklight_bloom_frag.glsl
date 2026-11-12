@@ -42,7 +42,9 @@ out vec4 fragColor;
 // brightness off a raw envelope.
 //
 // Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight, k2 FLOW
-// how fast the floaters tumble, k3 TONE the ink hue, k4 BUILD how many
+// how fast the floaters tumble, k3 TONE the fold's own offsets and a small ink
+// hue offset (the melody's height re-cuts the tapestry: each fold steps its
+// copies apart differently, so a rising line grows a different lattice), k4 BUILD how many
 // floaters there are, k5 SPACE the hall's width. Morph turns the folds (a
 // different tapestry), Turbulence skews the second fold rotation.
 //
@@ -269,7 +271,9 @@ void main() {
     // Kept inside 1.80..1.98: past it the strokes outrun the trap and the
     // tapestry turns to grit.
     gScale = 1.82 + 0.10 * min(swell, 1.0) + 0.06 * uMorph;
-    gOff = vec3(1.0, 0.82, 0.9);
+    // TONE re-cuts the fold (offsets are isometries, so the estimate holds).
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    gOff = vec3(1.0 - 0.3 * kTone, 0.82 + 0.4 * kTone, 0.9 - 0.2 * kTone);
     float turn = 0.42 + 0.30 * uMorph + 0.06 * sin(uTime * 0.07);
     gRotA = rot2(turn);
     gRotB = rot2(0.27 + 0.25 * uTurbulence + 0.05 * sin(uTime * 0.05 + 1.0));

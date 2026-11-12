@@ -70,8 +70,10 @@ out vec4 fragColor;
 // whole nave from side to side, Turbulence sways the spires, Intensity and the
 // palette reach through lib_scene_grade and pal(). Knobs (offsets from 0.5,
 // so off is the tuned look): k0 PULSE the kick's swell, k1 TEXTURE the lace
-// and filigree, k2 FLOW the lamps' chase, k3 TONE the hue, k4 BUILD the sky
-// and halo, k5 SPACE the dome's size.
+// and filigree, k2 FLOW the lamps' chase, k3 TONE the portals' span and a
+// small hue offset (a high melody throws the rings wide like open arches, a
+// low one draws them in tight round the causeway, still clear of it), k4 BUILD
+// the sky and halo, k5 SPACE the dome's size.
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -297,7 +299,7 @@ void main() {
     gLean = 0.03 * clamp(uTurbulence, 0.0, 1.0);
     gScal = 0.12 + 0.24 * clamp(uMorph, 0.0, 1.0);
     gRD = 20.0 + 3.0 * swell + 6.0 * kSpace;
-    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6));
+    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6)) * (1.0 + 0.4 * kTone);
     gTube = 0.13;
 
     vec3 ro;

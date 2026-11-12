@@ -11,6 +11,7 @@ EngineSettings globalSettings() {
     EngineSettings s;
     s.bank = viz::macrobank::global();
     s.director = viz::director::global();
+    s.directorTuning = viz::director::tuning();
     s.reach = viz::director::reach();
     s.kept = viz::director::kept();
     s.palettes = viz::palette::global();

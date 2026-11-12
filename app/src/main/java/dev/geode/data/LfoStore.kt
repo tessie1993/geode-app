@@ -16,12 +16,16 @@ import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
 import dev.geode.render.ModTable
 import dev.geode.render.ReactionRoute
-import dev.geode.render.ReactionRouteCodec
+import dev.geode.render.bridge.ModConfigCodec
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** [encodeReactions] and [decodeReactions] are the routes' saved text, native; seams for JVM tests, which have no libgeode. */
 class LfoStore(
     private val prefs: SharedPreferences,
+    private val encodeReactions: (FloatArray) -> String = GeodeNative::reactionsTextEncode,
+    private val decodeReactions: (String) -> FloatArray? = GeodeNative::reactionsTextDecode,
 ) {
     fun load(): List<LfoConfig> =
         runCatching {
@@ -56,7 +60,8 @@ class LfoStore(
     }
 
     /** The user's own reaction routes, or null while the style's DNA plays (nothing saved, or unreadable). */
-    fun loadReactions(): List<ReactionRoute>? = ReactionRouteCodec.decode(prefs.getString(KEY_REACTIONS, null))
+    fun loadReactions(): List<ReactionRoute>? =
+        prefs.getString(KEY_REACTIONS, null)?.let(decodeReactions)?.let(ModConfigCodec::unpackReactions)
 
     /**
      * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are):
@@ -85,7 +90,9 @@ class LfoStore(
         if (routes == null) {
             edit.remove(KEY_REACTIONS).remove(KEY_REACTIONS_HAND)
         } else {
-            edit.putString(KEY_REACTIONS, ReactionRouteCodec.encode(routes)).putInt(KEY_REACTIONS_HAND, handMask)
+            edit
+                .putString(KEY_REACTIONS, encodeReactions(BuildStyleReactionsUseCase.packExact(routes)))
+                .putInt(KEY_REACTIONS_HAND, handMask)
         }
         edit.apply()
     }

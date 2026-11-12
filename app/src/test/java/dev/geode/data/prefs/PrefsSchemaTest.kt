@@ -52,7 +52,6 @@ import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
-import dev.geode.engine.audio.SoundFrameLayout
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
@@ -94,7 +93,7 @@ class PrefsSchemaTest {
                 GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
             },
             Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
-                val tuning = SoundTuning.fromFloats(FloatArray(SoundFrameLayout.TUNING_FLOATS))
+                val tuning = SoundTuning.fromFloats(FloatArray(SoundTuning.FLOATS))
                 SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
             },
             Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {
@@ -123,7 +122,7 @@ class PrefsSchemaTest {
             },
             Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroBankCodec { bank -> bank }.save(it[general], "macrobank|1|1\n") },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
-                val store = LfoStore(it[general])
+                val store = LfoStore(it[general], encodeReactions = { "reactions/2" }, decodeReactions = { null })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions(emptyList())
@@ -169,7 +168,8 @@ class PrefsSchemaTest {
 
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
-                ModulationController(LfoStore(it[general]), it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
+                val lfos = LfoStore(it[general], encodeReactions = { "reactions/2" }, decodeReactions = { null })
+                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)

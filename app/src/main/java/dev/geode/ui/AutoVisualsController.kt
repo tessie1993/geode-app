@@ -6,7 +6,6 @@ import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.MilkdropEngine
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
@@ -269,7 +268,7 @@ internal class AutoVisualsController(
                 choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name)
             }
         }
-        if (s.randomIncludeMilk && MilkdropEngine.available && host.allowsStyle(SceneIds.MILKDROP)) {
+        if (s.randomIncludeMilk && host.allowsStyle(SceneIds.MILKDROP)) {
             val playing = host.activeMilkPath.takeIf { s.sceneId == SceneIds.MILKDROP }
             host.milkFiles.forEach {
                 if (it.path == playing && onScreen < 0) onScreen = choices.size

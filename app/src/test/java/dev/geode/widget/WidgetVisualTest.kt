@@ -2,10 +2,12 @@ package dev.geode.widget
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -20,6 +22,18 @@ import org.robolectric.RobolectricTestRunner
 class WidgetVisualTest {
     @get:Rule
     val tmp = TemporaryFolder()
+
+    @Before
+    fun noNativeLibrary() {
+        WidgetVisual.lightsOf = { FloatArray(18) { 0.5f } }
+    }
+
+    @After
+    fun restoreLights() {
+        WidgetVisual.lightsOf = original
+    }
+
+    private val original = WidgetVisual.lightsOf
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 

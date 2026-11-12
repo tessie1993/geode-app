@@ -80,7 +80,7 @@ import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
@@ -103,7 +103,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun StudioHub(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     section: StudioSection,
     onSection: (StudioSection) -> Unit,
 ) {
@@ -264,7 +264,7 @@ private val studioRouteSaver =
 @Composable
 internal fun StudioRenderTab(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     gate: FeatureGate,
 ) {
     val paywall: PaywallViewModel = geodeViewModel()
@@ -330,7 +330,7 @@ internal fun StudioRenderTab(
     val renderOne: (ExportDefaults, Boolean) -> Unit = { chosen, keep ->
         val track = studioViewModel.currentTrack(player.title)
         if (keep && track != null) {
-            val milkPath = visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId).milkPresetPath
+            val milkPath = visualizerView.stage.exportSceneFactory(viz.sceneId).milkPresetPath
             studioViewModel.keepNextRenderAsProject(track, viz.sceneId, milkPath)
         }
         val range = length.rangeFor(player.durationMs)
@@ -439,7 +439,7 @@ internal fun StudioRenderTab(
             onRender = render@{
                 if (selection.scope.isBatch) {
                     val look = lookPresets.firstOrNull { it.name == selection.lookName }
-                    val renderer = visualizerView.visualizerRenderer
+                    val renderer = visualizerView.stage
                     val sceneId = look?.sceneId?.takeIf { it in renderer.availableSceneIds() } ?: viz.sceneId
                     viewModel.startBatch(
                         tracks = batchTracks,

@@ -435,7 +435,7 @@ void testSectionsReturn() {
 
 // The same input gives the same frames, bit for bit (live and export agree).
 // One frame the way a live renderer takes it: the frame's audio is written, then (when the player named a
-// track boundary since the last frame) trackBoundary(), then the step (VisualizerRenderer's feed, then
+// track boundary since the last frame) trackBoundary(), then the step (the live frame's feed, then
 // Renderer::beginFrame).
 void frameOf(SoundEngine& e, const std::function<float(double)>& signal, int i, bool boundary, GeodeSoundFrame& f,
              std::vector<float>& buf) {

@@ -2,6 +2,7 @@
 #include <android/choreographer.h>
 
 #include <memory>
+#include <mutex>
 
 #include "stage/StagePacing.hpp"
 #include "stage/android/Inbox.hpp"
@@ -12,7 +13,7 @@
 // last-wins frame request in the stage's inbox; a moved cap becomes a frame-rate hint there.
 //
 // Started on first use and never quit: an idle looper costs nothing, and a thread torn down on every pause would
-// race the next start. Named and prioritised like the thread it replaces ("GeodeFramePacer", display priority).
+// race the next start. Named "GeodeFramePacer", at display priority.
 namespace geode::stage::platform {
 
 class VsyncThread {
@@ -23,6 +24,7 @@ public:
         StagePacing pacing;
         std::shared_ptr<Inbox> stage;
         bool detached = false;
+        Sink* nextDetached = nullptr;  // under detachLock_ until the vsync thread takes it
     };
 
     static VsyncThread& process();
@@ -31,7 +33,7 @@ public:
     Sink* attach(std::shared_ptr<Inbox> stage, float capFps);
     void run(Sink* sink, bool on);
     void setCap(Sink* sink, float capFps);
-    // The last call for this sink.
+    // The last call for this sink. Never dropped: it does not go through the bounded queue.
     void detach(Sink* sink);
 
     VsyncThread(const VsyncThread&) = delete;
@@ -41,10 +43,14 @@ private:
     VsyncThread();
     void loop();
     void apply(const Command& command);
+    Sink* takeDetached();
+    static void retire(Sink* sink);
     static void onFrame(int64_t frameTimeNanos, void* data);
 
     std::shared_ptr<Inbox> inbox_;
     AChoreographer* choreographer_ = nullptr;  // vsync thread only
+    std::mutex detachLock_;
+    Sink* detached_ = nullptr;  // under detachLock_
 };
 
 }  // namespace geode::stage::platform

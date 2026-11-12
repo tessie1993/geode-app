@@ -57,7 +57,7 @@ import dev.geode.data.MilkTexture
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinkKind
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -87,7 +87,7 @@ import java.io.File
 @Composable
 internal fun MilkDropTab(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     onOpenTextures: () -> Unit,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -136,7 +136,7 @@ internal fun MilkDropTab(
                 }
             }
         }
-    if (!visualizerView.visualizerRenderer.milkdropAvailable) {
+    if (!visualizerView.stage.milkdropAvailable) {
         Text(stringResource(R.string.milk_unavailable), Modifier.padding(GeodeSpacing.L), style = MaterialTheme.typography.bodyMedium)
         return
     }
@@ -448,11 +448,11 @@ private fun Modifier.clip16(): Modifier = clip(RoundedCornerShape(GeodeRadius.La
 
 internal fun selectMilk(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     path: String,
 ) {
     viewModel.selectScene(GeodeNative.STYLE_MILKDROP)
-    visualizerView.visualizerRenderer.loadMilkPreset(path)
+    visualizerView.stage.loadMilkPreset(path)
 }
 
 private const val CARD_PRESETS = "presets"

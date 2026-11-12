@@ -52,9 +52,9 @@ import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
+import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -80,7 +80,7 @@ import kotlinx.coroutines.flow.map
 @Composable
 internal fun CustomizePanel(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val paywall: PaywallViewModel = geodeViewModel()
@@ -203,7 +203,7 @@ private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChange
 @Composable
 private fun CustomizeHeader(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     category: CustomizeCategory,
     canRoll: Boolean,
     proLock: ProLock,
@@ -364,7 +364,7 @@ private fun CustomizeHeader(
             onDismiss = { savingPreset = false },
             onSave = { name ->
                 // The one save path: the same call the Presets page makes.
-                visualsViewModel.savePreset(name, visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId))
+                visualsViewModel.savePreset(name, visualizerView.stage.customShaderFor(viewModel.vizState.value.sceneId))
                 savingPreset = false
             },
         )

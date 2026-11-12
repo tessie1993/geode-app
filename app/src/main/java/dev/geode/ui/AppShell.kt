@@ -50,6 +50,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -118,7 +119,7 @@ import dev.geode.model.TourPlace
 import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.cast.CastHost
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
@@ -223,9 +224,13 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
-    val visualizerView = remember { VisualizerView(context) }
+    val visualizerView = remember { StageView(context) }
     // A cast to a TV or a browser carries this view's own frames (core/viz/frame/CastTee), not a second render.
-    LaunchedEffect(visualizerView) { visualizerView.visualizerRenderer.nativeViz.castSource = true }
+    DisposableEffect(visualizerView) {
+        visualizerView.stage.castSource = true
+        // The stage outlives its surface, so the shell that made it ends it.
+        onDispose { visualizerView.stage.close() }
+    }
     val general by settingsViewModel.general.collectAsStateWithLifecycle()
     val onboarding by settingsViewModel.appState.collectAsStateWithLifecycle()
     val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
@@ -248,7 +253,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
         SecondScreenCanvas(secondScreen, visualizerView)
     }
     StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
-    // The Visuals screen's bounds, in root pixels. The one VisualizerView is hosted once below and
+    // The Visuals screen's bounds, in root pixels. The one StageView is hosted once below and
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
@@ -452,7 +457,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     .then(if (television) Modifier.remoteKeepsChromeAwake(chrome, appState) else Modifier),
             ) {
                 // Drawn first, so every screen draws over it; Visuals draws nothing behind its stage,
-                // so the visual shows there. The one VisualizerView has one parent: the second screen
+                // so the visual shows there. The one StageView has one parent: the second screen
                 // holds it while it is on, and this host steps aside.
                 if (!onSecondScreen) {
                     // While a cast streams, the stage keeps drawing on every tab: the stream is its frames.
@@ -869,18 +874,14 @@ private fun NavRail(
     }
 }
 
-/** The accent a palette gives: the middle of its hue span, bright enough to read on black. */
+/** The accent a palette gives, from native (`geode_colour_palette_accent`); [VisualAccent.Fallback] when it gives no colour. */
 private fun paletteAccent(
     base: Float,
     range: Float,
 ): Color {
-    val hue = ((base + range / 2f) % 1f + 1f) % 1f
-    return Color.hsl(hue * DEGREES, ACCENT_SATURATION, ACCENT_LIGHTNESS)
+    val rgb = GeodeNative.colourPaletteAccent(base, range)
+    return if (rgb < 0) VisualAccent.Fallback else Color(0xFF000000.toInt() or rgb)
 }
-
-private const val DEGREES = 360f
-private const val ACCENT_SATURATION = 0.85f
-private const val ACCENT_LIGHTNESS = 0.6f
 
 /** Bottom padding whose size is read when the layout runs, so a value that changes every frame never recomposes. */
 private fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =

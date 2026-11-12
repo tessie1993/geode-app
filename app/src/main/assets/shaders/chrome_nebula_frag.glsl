@@ -32,7 +32,10 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the sky's
 // galactic band (seen direct and in every blob), k2 FLOW how far the orbits
-// bend out of their plane, k3 TONE the palette position, k4 BUILD the halo off
+// bend out of their plane, k3 TONE the palette position and how the chrome
+// flows together (a high melody melts the blobs into one long liquid body, a
+// low one parts them into separate drops; a smooth union of any width is
+// still a lower bound), k4 BUILD the halo off
 // the chrome, k5 SPACE the eye's distance (lib_chrys's reach).
 
 #define CN_MAX_STEPS 96
@@ -46,15 +49,17 @@ vec3 gBlob[CN_BLOBS];
 float gRad[CN_BLOBS];
 vec3 gBud;
 float gBudR;
+/** k3 TONE: the blend radius between blobs (CN_K at rest). */
+float gK = CN_K;
 
 float map(vec3 p) {
     float d = sdSphere(p - gBlob[0], gRad[0]);
     for (int i = 1; i < CN_BLOBS; i++) {
-        d = smin(d, sdSphere(p - gBlob[i], gRad[i]), CN_K);
+        d = smin(d, sdSphere(p - gBlob[i], gRad[i]), gK);
     }
     // The blend shrinks with the bud, so a vanishing bud is a hard min with a
     // point (never hit) rather than a nub left on its parent.
-    return smin(d, sdSphere(p - gBud, gBudR), CN_K * clamp(gBudR * 2.5, 0.0, 1.0));
+    return smin(d, sdSphere(p - gBud, gBudR), gK * clamp(gBudR * 2.5, 0.0, 1.0));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -95,6 +100,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
     gBandW = 1.0 + kTexture;
+    gK = CN_K * max(1.0 + 1.6 * kTone, 0.1);
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float bass = clamp(sndSpectrum(0.23), 0.0, 1.0);

@@ -35,7 +35,9 @@ out vec4 fragColor;
 //
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the curtains' ribbon
-// width, k2 FLOW how far the curtains bend, k3 TONE the palette position, k4
+// width, k2 FLOW how far the curtains bend, k3 TONE the palette position and
+// the curtains' stature (a high melody spaces their layers out so they tower
+// up the sky, a low one packs them into a low, dense band), k4
 // BUILD the curtains' glow, k5 SPACE the reach (the far plane and the haze).
 
 #define AO_MAX_STEPS 96
@@ -57,6 +59,8 @@ float gRibW = 1.0;
 float gBend = 1.0;
 /** k4 BUILD: the curtains' glow, 0.5..1.5 (1 at rest). */
 float gGlow = 1.0;
+/** k3 TONE: the spacing of the curtain layers, world units (0.45 at rest). */
+float gLayer = 0.45;
 
 /** Height of the sea above AO_SEA_Y at xz. Four crested octaves, each warped by the last. */
 float sea(vec2 xz) {
@@ -103,7 +107,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             // Each layer is a horizontal plane higher up the curtain. Projecting
             // the ray onto it makes one ribbon line on the ground plane into a
             // vertical streak on screen, which is what a curtain is.
-            float lh = 3.0 + fi * 0.45;
+            float lh = 3.0 + fi * gLayer;
             vec2 q = ro.xz * 0.15 + rd.xz * (lh / rd.y);
             q *= 0.12;
             // The drop leans the curtain: every layer slides further along x.
@@ -140,6 +144,7 @@ void main() {
     gRibW = 1.0 + kTexture;
     gBend = 1.0 + kFlow;
     gGlow = 1.0 + kBuild;
+    gLayer = 0.45 * (1.0 + 1.4 * kTone);
     float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);

@@ -124,18 +124,6 @@ chrys_fall: midGain
 lucid_weave: midGain
 lucid_hive: midGain
 lucid_bulge: midGain
-dive_lattice: noteChords noteDrums noteIntervals notePitch noteTension
-dive_jewel: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mushroom: noteChords noteDrums noteIntervals notePitch noteTension
-dive_gyro: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mandala: noteChords noteDrums noteIntervals notePitch noteTension
-dive_serpent: noteChords noteDrums noteIntervals notePitch noteTension
-dive_helix: noteChords noteDrums noteIntervals notePitch noteTension
-dive_accordion: noteChords noteDrums noteIntervals notePitch noteTension
-dive_orbit: noteChords noteDrums noteIntervals notePitch noteTension
-dive_neon: noteChords noteDrums noteIntervals notePitch noteTension
-dive_cycle: noteChords noteDrums noteIntervals notePitch noteTension
-dive_show: noteChords noteDrums noteIntervals notePitch noteTension
 glass_orb: midGain
 glass_pool: midGain
 glass_prism: midGain

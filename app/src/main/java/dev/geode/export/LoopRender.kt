@@ -242,10 +242,16 @@ class LoopRender(
                 coroutineScope {
                     val poll =
                         launch {
-                            while (isActive) {
-                                if (isCancelled()) GeodeNative.loopJobCancel(job)
-                                onProgress(GeodeNative.loopJobProgress(job))
-                                delay(POLL_MS)
+                            try {
+                                while (isActive) {
+                                    if (isCancelled()) GeodeNative.loopJobCancel(job)
+                                    onProgress(GeodeNative.loopJobProgress(job))
+                                    delay(POLL_MS)
+                                }
+                            } finally {
+                                // A cancel of the caller ends this poll while the run below still blocks its
+                                // thread: only this stops the job. After the run has ended it changes nothing.
+                                GeodeNative.loopJobCancel(job)
                             }
                         }
                     // Blocks this worker thread for the whole render; the poll above runs on another.

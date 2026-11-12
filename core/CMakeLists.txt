@@ -20,6 +20,7 @@ add_library(geode_core STATIC
     viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp
+    stage/LiveClient.cpp
     stage/StageCore.cpp
     stage/StageLifecycle.cpp
     stage/StagePacing.cpp

@@ -93,7 +93,8 @@ class PrefsSchemaTest {
                 GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
             },
             Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
-                val tuning = SoundTuning.fromFloats(FloatArray(SoundTuning.FLOATS))
+                // GeodeSoundTuning's 30 floats; the codec stores them as given, without native.
+                val tuning = SoundTuning.fromFloats(FloatArray(30))
                 SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
             },
             Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {

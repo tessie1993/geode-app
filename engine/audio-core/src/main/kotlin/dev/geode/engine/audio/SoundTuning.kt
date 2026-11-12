@@ -4,9 +4,9 @@ import dev.geode.engine.bridge.GeodeNative
 
 /**
  * The user's tuning of the sound engine (Settings › Audio): `GeodeSoundTuning` (`core/sound/SoundFrame.h`) as
- * [FLOATS] floats, one per slot constant below; three-slot groups are low, middle,
- * high (or kick, snare, hat). Only a holder: defaults, ranges and the clamp are native (`core/sound/Tuning`).
- * With no saved floats it is "the engine's defaults" and stays unresolved until read, so storage and
+ * one float per slot in its field order; three-slot groups are low, middle, high (or kick, snare, hat). Only a
+ * holder: defaults, ranges, the clamp and how an older save reads are native (`core/sound/Tuning`).
+ * Saved floats stay as stored until read, and with none it is "the engine's defaults", so storage and
  * equality never load the native library and JVM tests of the prefs can build one.
  */
 class SoundTuning private constructor(
@@ -14,10 +14,8 @@ class SoundTuning private constructor(
 ) {
     constructor() : this(null)
 
-    /** The saved floats clamped by native, or its defaults; resolved on first read, on a thread that has the library. */
-    private val values: FloatArray by lazy {
-        saved?.copyOf()?.also(GeodeNative::soundTuningClamp) ?: Schema.floats.copyOf(FLOATS)
-    }
+    /** The saved floats as native reads them, or its defaults; resolved on first read, on a thread that has the library. */
+    private val values: FloatArray by lazy { checkNotNull(GeodeNative.soundTuningFromSaved(saved)) }
 
     operator fun get(slot: Int): Float = values[slot]
 
@@ -44,12 +42,9 @@ class SoundTuning private constructor(
     }
 
     companion object {
-        /** `GEODE_SOUND_TUNING_FLOATS`: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 9 scalars. */
-        const val FLOATS = 30
-
+        // The slots Settings › Audio names, in `GeodeSoundTuning`'s field order (SoundTuningTest holds them to the header).
         const val GAIN = 0
         const val THRESHOLD = 3
-        const val OFFSET = 6
         const val ATTACK = 9
         const val RELEASE = 12
         const val DRUM = 15
@@ -64,16 +59,16 @@ class SoundTuning private constructor(
         const val SILENCE_DB = 28
         const val INPUT_TRIM_DB = 29
 
+        /** The schema's rows: defaults, minimums, maximums. */
+        private const val SCHEMA_ROWS = 3
+
         /** The slider range of [slot], native's. */
         fun range(slot: Int): ClosedFloatingPointRange<Float> {
-            val n = FLOATS
+            val n = Schema.floats.size / SCHEMA_ROWS
             return Schema.floats[n + slot]..Schema.floats[2 * n + slot]
         }
 
-        /** Saved floats, clamped on first read; one slot short (before the input trim) gets 0 dB, any other length the defaults. */
-        fun fromFloats(f: FloatArray): SoundTuning {
-            val n = FLOATS
-            return if (f.size == n || f.size == n - 1) SoundTuning(f.copyOf(n)) else SoundTuning()
-        }
+        /** Saved floats as stored; native reads them on first use (`geode_sound_tuning_from_saved`). */
+        fun fromFloats(f: FloatArray): SoundTuning = SoundTuning(f.copyOf())
     }
 }

@@ -15,7 +15,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ReactionRouteCodec` | 77 | **ported**: `core/viz/ReactionText`, `geode_reactions_text_encode/decode` (`core/api/geode_reaction_text_api.h`), test `core/tests/reaction_text_test.cpp` (the JVM test's cases, plus the text the Kotlin codec wrote). `LfoStore` hands the saved string across; the saved format is unchanged. |
 | `MilkdropEngine` | 12 | **deleted**: `available` was "libgeode loaded", from when MilkDrop was a library of its own. `GeodeNative` loads the same library and each of its three callers calls native right beside the check, so it was always true where it was read; the three checks are gone. |
 | `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test that holds the `ReactSource` mirror to the native catalogue now compares the lines themselves. |
-| `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the one constant in use, the tuning's 30 floats, is `SoundTuning.FLOATS`, still held to the header by `SoundTuningTest`. |
+| `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the tuning's slots that Settings › Audio names are still held to the header by `SoundTuningTest`. |
 | `TransitionStyle` | 9 | pending |
 | `TouchField` | 13 | pending |
 | `FluidQuality` | 13 | pending |
@@ -38,7 +38,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `AiffPcm` | 57 | pending |
 | `LookSnapshot` | 70 | pending |
 | `SceneIds` | 70 | pending |
-| `SoundTuning` | 76 | pending |
+| `SoundTuning` | 76 | **shrunk to a holder** (74): how a saved array reads (30 floats as saved, 29 from before the input trim at 0 dB, any other length the defaults) is `core/sound/Tuning::fromSaved` behind `geode_sound_tuning_from_saved`, pinned by `sound_test.cpp`; the floats stay as stored until read. It stays in `:engine:audio-core` while `LookSnapshot`, `LookApplier` and `NativeViz` carry it. The slot constants Settings › Audio names stay (no `FLOATS`, no `OFFSET`), held to the header by `SoundTuningTest`. |
 | `TransitionCatalog` | 79 | pending |
 | `SceneParamsCodec` | 80 | pending |
 | `ModConfigCodec` | 81 | pending |

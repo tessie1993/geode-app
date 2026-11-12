@@ -635,6 +635,45 @@ void testTuningSchema() {
           "the struct clamps slot by slot");
 }
 
+// Saved tunings keep loading (geode_sound_tuning_from_saved): a save of all 30 slots as saved, clamped; a
+// 29-float save from before the input trim keeps every slider and gets 0 dB trim; any other length is the
+// defaults.
+void testTuningFromSaved() {
+    namespace tuning = geode::sound::tuning;
+    const GeodeSoundTuning d = tuning::defaults();
+    float defaults[tuning::kSlots];
+    std::memcpy(defaults, &d, sizeof defaults);
+
+    float saved30[tuning::kSlots];
+    std::memcpy(saved30, defaults, sizeof saved30);
+    saved30[21] = 2.5f;    // reactivity
+    saved30[28] = -72.0f;  // silence
+    saved30[29] = 6.0f;    // input trim
+    saved30[0] = 9.0f;     // a gain above its range, from a corrupt save
+    float out[tuning::kSlots];
+    CHECK(tuning::fromSaved(saved30, tuning::kSlots, out), "30 floats are a save");
+    CHECK(out[21] == 2.5f && out[28] == -72.0f && out[29] == 6.0f, "every slot read as saved");
+    CHECK(out[0] == 4.0f, "and clamped, %f", static_cast<double>(out[0]));
+
+    float saved29[tuning::kSlots - 1];
+    std::memcpy(saved29, defaults, sizeof saved29);
+    saved29[22] = 1.75f;  // speed
+    saved29[23] = std::numeric_limits<float>::quiet_NaN();
+    CHECK(tuning::fromSaved(saved29, tuning::kSlots - 1, out), "29 floats are a save from before the trim");
+    CHECK(out[22] == 1.75f && out[23] == 2.0f, "its sliders kept, a NaN back to its default");
+    CHECK(out[29] == 0.0f, "the trim it never had is 0 dB");
+
+    const int wrong[] = {0, 3, tuning::kSlots - 2, tuning::kSlots + 1};
+    for (int count : wrong) {
+        float any[tuning::kSlots + 1] = {};
+        for (float& v : any) v = 3.0f;
+        CHECK(!tuning::fromSaved(any, count, out), "%d floats are not a save", count);
+        CHECK(std::memcmp(out, defaults, sizeof out) == 0, "%d floats read as the defaults", count);
+    }
+    CHECK(!tuning::fromSaved(nullptr, tuning::kSlots, out) && out[21] == 1.0f, "no save is the defaults");
+    CHECK(!tuning::fromSaved(saved30, tuning::kSlots, nullptr), "nowhere to write, no crash");
+}
+
 // The engine clamps whatever it is handed, so no surface can feed it a NaN or an out-of-range knob.
 void testEngineClampsTuning() {
     SoundEngine e(48000);
@@ -715,6 +754,7 @@ int main() {
     testPlayerSignals();
     testBoundaryEvent();
     testTuningSchema();
+    testTuningFromSaved();
     testEngineClampsTuning();
     testShaderLibraryNamesEveryScalarInItsSlot();
     if (failures == 0) std::printf("sound_test: all passed\n");

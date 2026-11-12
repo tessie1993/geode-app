@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 
 namespace geode::sound::tuning {
@@ -50,6 +51,24 @@ void clamp(float* values, int count) {
         const Slot& s = kTable[static_cast<size_t>(i)];
         values[i] = std::isfinite(values[i]) ? std::clamp(values[i], s.lo, s.hi) : s.def;
     }
+}
+
+// The input trim is the last slot, the one saves from before it lack.
+static_assert(offsetof(GeodeSoundTuning, inputTrimDb) == sizeof(float) * (kSlots - 1), "the input trim is the last slot");
+
+bool fromSaved(const float* saved, int count, float* out) {
+    if (!out) return false;
+    const bool everySlot = count == kSlots;
+    const bool beforeTrim = count == kSlots - 1;
+    if (!saved || !(everySlot || beforeTrim)) {
+        for (int i = 0; i < kSlots; ++i) out[i] = kTable[static_cast<size_t>(i)].def;
+        return false;
+    }
+    std::copy(saved, saved + count, out);
+    // A save from before the trim was heard untrimmed: 0 dB, whatever the trim's default becomes.
+    if (beforeTrim) out[kSlots - 1] = 0.0f;
+    clamp(out, kSlots);
+    return true;
 }
 
 GeodeSoundTuning defaults() {

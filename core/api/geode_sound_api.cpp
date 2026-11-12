@@ -101,6 +101,14 @@ void geode_sound_tuning_ranges(float* min_out, float* max_out, int count) {
     }
 }
 
-void geode_sound_tuning_clamp(float* values, int count) { geode::sound::tuning::clamp(values, count); }
+int geode_sound_tuning_from_saved(const float* saved, int count, float* out, int out_count) {
+    float read[geode::sound::tuning::kSlots];
+    const bool ok = geode::sound::tuning::fromSaved(saved, count, read);
+    if (out) {
+        const int n = std::min(out_count, geode::sound::tuning::kSlots);
+        for (int i = 0; i < n; ++i) out[i] = read[i];
+    }
+    return ok ? 1 : 0;
+}
 
 }  // extern "C"

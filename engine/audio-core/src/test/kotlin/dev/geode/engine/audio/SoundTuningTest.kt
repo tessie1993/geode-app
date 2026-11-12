@@ -6,8 +6,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The slot layout only: defaults, ranges and the clamp are native (`core/sound/Tuning`) and tested in
- * `core/tests/sound_test.cpp`, since this module's tests have no native library. Nothing here reads a value.
+ * The slot layout only: defaults, ranges, the clamp and how an older save reads are native (`core/sound/Tuning`)
+ * and tested in `core/tests/sound_test.cpp`, since this module's tests have no native library. Nothing here reads a value.
  */
 class SoundTuningTest {
     private fun header(): String {
@@ -28,11 +28,10 @@ class SoundTuningTest {
             Regex("float\\s+(\\w+)(\\[3])?;").findAll(body).associate { m ->
                 (m.groupValues[1] to at).also { at += if (m.groupValues[2].isEmpty()) 1 else 3 }
             }
-        assertEquals(
+        val named =
             mapOf(
                 "gain" to SoundTuning.GAIN,
                 "threshold" to SoundTuning.THRESHOLD,
-                "offset" to SoundTuning.OFFSET,
                 "attack" to SoundTuning.ATTACK,
                 "release" to SoundTuning.RELEASE,
                 "drum" to SoundTuning.DRUM,
@@ -46,29 +45,15 @@ class SoundTuningTest {
                 "noteHold" to SoundTuning.NOTE_HOLD,
                 "silenceDb" to SoundTuning.SILENCE_DB,
                 "inputTrimDb" to SoundTuning.INPUT_TRIM_DB,
-            ),
-            slots,
-        )
-        assertEquals(SoundTuning.FLOATS, at)
+            )
+        assertEquals(named, slots.filterKeys(named::containsKey))
     }
 
     @Test
-    fun savedFloatsRoundTripWithoutNative() {
-        val f = FloatArray(SoundTuning.FLOATS) { it.toFloat() }
+    fun savedFloatsStayAsStoredWithoutNative() {
+        val f = FloatArray(29) { it.toFloat() }
         assertEquals(f.toList(), SoundTuning.fromFloats(f).savedFloats()?.toList())
         assertEquals(SoundTuning.fromFloats(f), SoundTuning.fromFloats(f.copyOf()))
-    }
-
-    @Test
-    fun aSaveFromBeforeTheInputTrimKeepsItsSliders() {
-        val old = FloatArray(SoundTuning.FLOATS - 1) { it.toFloat() }
-        val loaded = SoundTuning.fromFloats(old).savedFloats()!!
-        assertEquals(old.toList() + 0f, loaded.toList())
-    }
-
-    @Test
-    fun theWrongLengthIsTheDefaultsAndDefaultsSaveAsNothing() {
-        assertEquals(SoundTuning(), SoundTuning.fromFloats(FloatArray(3)))
         assertNull(SoundTuning().savedFloats())
     }
 }

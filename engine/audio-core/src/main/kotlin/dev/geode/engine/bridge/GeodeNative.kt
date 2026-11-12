@@ -1407,27 +1407,26 @@ object GeodeNative {
         values: FloatArray,
     )
 
-    external fun loopJobSetLfo(
+    external fun loopJobSetLfos(
         job: Long,
-        slot: Int,
-        config: FloatArray,
+        lfos: String,
     )
 
-    external fun loopJobSetAdsr(
+    external fun loopJobSetAdsrs(
         job: Long,
-        slot: Int,
-        config: FloatArray,
+        adsrs: String,
     )
 
+    /** [saved] null: the default tuning. */
     external fun loopJobSetSoundTuning(
         job: Long,
-        tuning: FloatArray,
+        saved: FloatArray?,
     )
 
-    /** [routes] null: the user set no reactions of their own. */
-    external fun loopJobSetUserReactions(
+    /** [reactions] null: Auto, the style's own play. */
+    external fun loopJobSetReactions(
         job: Long,
-        routes: FloatArray?,
+        reactions: String?,
     )
 
     external fun loopJobSetMotion(

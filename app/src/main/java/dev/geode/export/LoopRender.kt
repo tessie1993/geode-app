@@ -10,13 +10,9 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
-import dev.geode.render.AdsrEngine
-import dev.geode.render.LfoEngine
 import dev.geode.render.SceneFactory
-import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
@@ -302,10 +298,10 @@ class LoopRender(
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
         GeodeNative.loopJobSetParams(job, SceneParamsCodec.pack(look.params))
-        look.lfos.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.loopJobSetLfo(job, slot, ModConfigCodec.packLfo(c)) }
-        look.adsrs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.loopJobSetAdsr(job, slot, ModConfigCodec.packAdsr(c)) }
-        GeodeNative.loopJobSetSoundTuning(job, look.soundTuning.toFloats())
-        GeodeNative.loopJobSetUserReactions(job, look.reactions?.let { BuildStyleReactionsUseCase.packExact(it) })
+        GeodeNative.loopJobSetLfos(job, look.lfos)
+        GeodeNative.loopJobSetAdsrs(job, look.adsrs)
+        GeodeNative.loopJobSetSoundTuning(job, look.soundTuning?.toFloatArray())
+        GeodeNative.loopJobSetReactions(job, look.reactions)
         GeodeNative.loopJobSetMotion(job, look.reducedMotion, look.transitionId, look.transitionMs)
         val u = look.underlay
         GeodeNative.loopJobSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)

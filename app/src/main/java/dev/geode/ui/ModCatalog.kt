@@ -44,12 +44,6 @@ internal object ModCatalog {
         ordinal: Int,
     ): String = words(kind).firstOrNull { it.ordinal == ordinal }?.label.orEmpty()
 
-    /** The ordinal of the [kind] row named [name]; -1 when native lists none. */
-    fun ordinal(
-        kind: String,
-        name: String,
-    ): Int = words(kind).firstOrNull { it.name == name }?.ordinal ?: -1
-
     /** A slot count: `waves`, `envelopes` or `routes`. */
     fun count(name: String): Int = row("count", name)?.getOrNull(2)?.toIntOrNull() ?: 0
 

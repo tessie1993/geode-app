@@ -197,21 +197,19 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
 }
 
 /**
- * Where a long track was left, per track, in the same prefs file as the player options. Only
- * tracks over [LONG_TRACK_MS] get one, and a position within [EDGE_MS] of either end clears it.
+ * Where a long track was left, per track, in the same prefs file as the player options. Which
+ * tracks get one, and which positions clear it, is native's call (`core/audio/dsp/TrackBookmark`).
  */
 class BookmarkStore(
     private val prefs: SharedPreferences,
 ) {
     fun positionFor(uri: String): Long? = prefs.getLong(keyOf(uri), -1L).takeIf { it > 0L }
 
-    fun note(
+    fun save(
         uri: String,
         positionMs: Long,
-        durationMs: Long,
     ) {
-        if (durationMs < LONG_TRACK_MS) return
-        if (positionMs < EDGE_MS || positionMs > durationMs - EDGE_MS) clear(uri) else prefs.edit().putLong(keyOf(uri), positionMs).apply()
+        prefs.edit().putLong(keyOf(uri), positionMs).apply()
     }
 
     fun clear(uri: String) {
@@ -221,8 +219,6 @@ class BookmarkStore(
     private fun keyOf(uri: String): String = PREFIX + uri
 
     companion object {
-        const val LONG_TRACK_MS: Long = 20L * 60_000L
-        const val EDGE_MS: Long = 10_000L
         private const val PREFIX = "bookmark:"
 
         internal val PREF_KEYS =

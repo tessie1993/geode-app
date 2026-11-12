@@ -7,6 +7,7 @@
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
 #include "viz/MacroBank.hpp"
+#include "viz/Palette.hpp"
 
 namespace geode::signal {
 
@@ -20,6 +21,8 @@ struct EngineSettings {
     viz::DirectorConfig director{};   // the auto-director's amount and play seed
     viz::director::Reach reach = viz::director::Reach::Look;  // how far the director reaches past its look
     std::shared_ptr<const viz::director::Kept> kept;          // Customize's keep set; null keeps nothing
+    // Customize › Look's palette stack (viz/Palette). Null: the look keeps none and its old colour params draw.
+    std::shared_ptr<const viz::palette::Stack> palettes;
     bool notesOn = false;             // Settings › Behaviour › Note & key reactions
     std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand); an export pins it for its route merge
     bool reducedMotion = false;       // the system's reduced motion, applied once by the motion field and the clamp
@@ -27,11 +30,11 @@ struct EngineSettings {
 };
 
 // The process globals as they are now (macrobank::global, director::global, director::reach and kept,
-// note_response::globalEnabled, hand::global), as a live surface reads them. reducedMotion and noteEntropy are the renderer's own and
+// palette::global, note_response::globalEnabled, hand::global), as a live surface reads them. reducedMotion and noteEntropy are the renderer's own and
 // are left at their defaults here.
 EngineSettings globalSettings();
 
-// An export's settings (#350), taken once when it is prepared: the macro bank, the Note & key switch, the
+// An export's settings (#350), taken once when it is prepared: the macro bank, the palette stack, the Note & key switch, the
 // hand mask and the director's reach and keep set as they are now; the director from the user's switch, `entitled` (Pro or the trial) and
 // `durationMs` (director::forExport, never the live amount, which the live free taste may have cut); and
 // no note entropy, so an export is deterministic: the same play exported twice draws the same notes.

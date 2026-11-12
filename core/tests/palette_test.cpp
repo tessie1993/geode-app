@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -393,6 +394,40 @@ void libraryTextEqualsTheFixture(const char* path) {
 
 }  // namespace
 
+void theRampARendererUploads() {
+    pl::Ramp ramp;
+    check(!ramp.active() && !ramp.update(nullptr, pl::defaultAmounts()), "no stack: nothing to draw, nothing changed");
+    const auto stack = std::make_shared<const pl::Stack>(pl::addLayer(pl::addLayer({}, one(0xFF0000, "FLAT")), one(0x0000FF, "FLAT")));
+    check(ramp.update(stack, pl::defaultAmounts()) && ramp.active(), "a stack composes");
+    check(ramp.bytes().size() == static_cast<size_t>(pl::kRampSize) * 3, "256 RGB8 texels");
+    const auto want = pl::compose(*stack, pl::defaultAmounts());
+    bool same = true;
+    for (size_t i = 0; i < want.size(); ++i) {
+        const int rgb = packed(want[i]);
+        same = same && ramp.bytes()[3 * i] == ((rgb >> 16) & 0xFF) && ramp.bytes()[3 * i + 1] == ((rgb >> 8) & 0xFF) && ramp.bytes()[3 * i + 2] == (rgb & 0xFF);
+    }
+    check(same, "the texels are compose()'s colours, red first");
+    check(!ramp.update(stack, pl::defaultAmounts()), "the same stack and amounts: not composed again");
+    pl::Amounts unread = pl::defaultAmounts();
+    unread[5] = 0.9f;
+    check(!ramp.update(stack, unread), "an amount no layer reads changes nothing");
+    pl::Amounts moved = pl::defaultAmounts();
+    moved[1] = 0.1f;
+    check(ramp.update(stack, moved), "a layer's amount composes again");
+    check(ramp.update(std::make_shared<const pl::Stack>(), moved) && !ramp.active(), "an unset stack hands the look back to its old colours");
+}
+
+void anOldBlendRidesPaletteTwosAmount() {
+    SceneParams look;
+    look.paletteMix = 0.3f;
+    look.paletteAmount1 = 0.8f;
+    SceneParams carried = pl::carryBlend(look);
+    check(carried.paletteAmount1 == 0.3f && carried.paletteMix == 0.3f, "the blend rides the row its target writes");
+    carried.paletteAmount1 = 0.65f;
+    const SceneParams settled = pl::settleBlend(carried, look.paletteAmount1);
+    check(settled.paletteMix == 0.65f && settled.paletteAmount1 == 0.8f, "what moved it lands on the blend; the row gets its own value back");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << pl::libraryText();
@@ -412,6 +447,8 @@ int main(int argc, char** argv) {
     edits();
     anOldLookKeepsItsColours();
     recentColours();
+    theRampARendererUploads();
+    anOldBlendRidesPaletteTwosAmount();
     libraryTextEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/palettes.txt");
     if (failures) {
         std::printf("%d failure(s)\n", failures);

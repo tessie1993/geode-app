@@ -3,8 +3,11 @@
 // (.github/workflows/android.yml, "Params host tests") with the system compiler; no GL.
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
+#include <limits>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "viz/Catalogue.hpp"
@@ -208,6 +211,67 @@ void theWireRoundTrips() {
     check(wire(SceneParams::fromWire(w.data())) == w, "fromWire(toWire(p)) == p");
 }
 
+constexpr float kInf = std::numeric_limits<float>::infinity();
+constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
+
+// A frame as the preset reader hands it to geode_params_sanitize: the defaults, with `values` over them.
+SceneParams sanitizedOver(std::initializer_list<std::pair<const char*, float>> values) {
+    std::vector<float> in = wire(kDefaults);
+    for (const auto& [name, v] : values) in[static_cast<size_t>(SceneParams::slotOf(name))] = v;
+    return SceneParams::sanitized(in.data());
+}
+
+// presets/hostile.json as the shell reads it (an int through optInt, so 2.75 is 2; "abc" and NaN as NaN;
+// 1e39 overflows to infinity as a float): held to the schema's ranges, not the narrower slider stops.
+void aHostilePresetIsClampedToTheSchemaRanges() {
+    const SceneParams p = sanitizedOver({
+        {"speed", 99.0f},
+        {"zoom", -5.0f},
+        {"rotation", kInf},
+        {"warp", -kInf},
+        {"endlessZoomSpeed", kNaN},
+        {"trails", 1.0f},
+        {"symmetry", 40.0f},
+        {"palette", -3.0f},
+        {"particleShape", 2.0f},
+        {"reactSeed", 99999999.0f},
+        {"paletteLut", 9.0f},
+        {"brightness", 1.875f},
+        {"bloom", 0.625f},
+        {"intensity", 3.0f},
+        {"cymaticsFundamental", 10.0f},
+        {"flowCurl", 75.0f},
+        {"colorShift", 1.5f},
+        {"camFov", kNaN},
+    });
+    check(p.speed == 4.0f && p.zoom == 0.3f, "hostile: speed and zoom held to their ranges");
+    check(p.rotation == kDefaults.rotation && p.warp == kDefaults.warp, "hostile: infinities read as the default");
+    check(p.endlessZoomSpeed == kDefaults.endlessZoomSpeed && p.camFov == kDefaults.camFov, "hostile: NaN reads as the default");
+    check(p.trails, "hostile: a flag over 0.5 is on");
+    check(p.symmetry == 16 && p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
+    check(p.reactSeed == 16777215 && p.paletteLut == 4, "hostile: wide ints held to their ranges");
+    check(p.brightness == 1.875f && p.bloom == 0.625f && p.intensity == 2.0f, "hostile: the schema's range, not the slider's");
+    check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f, "hostile: floats held to their ranges");
+    check(p.colorShift == 1.5f, "hostile: a circular value wraps where it is drawn and is not clamped");
+    const auto once = wire(p);
+    check(wire(SceneParams::sanitized(once.data())) == once, "a sanitized frame saves and reads back the same");
+}
+
+// A shared link's overflowing numbers (1e39, 1e999, -1e999) read as each row's default.
+void overflowingNumbersReadAsTheDefaults() {
+    const SceneParams p = sanitizedOver({{"zoom", kInf}, {"speed", kInf}, {"warp", -kInf}, {"bloom", -kInf}});
+    check(p.zoom == kDefaults.zoom && p.speed == kDefaults.speed, "overflow: zoom and speed read as the default");
+    check(p.warp == kDefaults.warp && p.bloom == kDefaults.bloom, "overflow: warp and bloom read as the default");
+}
+
+// A retired row's key is not read: its slot keeps the default.
+void aRetiredSlotReadsAsItsDefault() {
+    const auto slot = static_cast<size_t>(ParamSlot::pulse);
+    std::vector<float> in = wire(kDefaults);
+    in[slot] += 0.5f;
+    check(wire(SceneParams::sanitized(in.data()))[slot] == wire(kDefaults)[slot], "a retired slot reads as its default");
+}
+
 }  // namespace
 
 int main() {
@@ -223,6 +287,9 @@ int main() {
     choiceRollsReachEverySchemaValue();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
+    aHostilePresetIsClampedToTheSchemaRanges();
+    overflowingNumbersReadAsTheDefaults();
+    aRetiredSlotReadsAsItsDefault();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

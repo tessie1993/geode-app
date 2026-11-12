@@ -42,6 +42,9 @@ object GeodeNative {
     const val DSP_FX_BAND: Int = 0
     const val DSP_FX_BASS_BOOST: Int = 1
     const val DSP_FX_LOUDNESS: Int = 2
+    const val BOOKMARK_IGNORE: Int = 0
+    const val BOOKMARK_CLEAR: Int = 1
+    const val BOOKMARK_SAVE: Int = 2
 
     /** The equalizer's bands. */
     external fun dspBandCount(): Int
@@ -57,14 +60,18 @@ object GeodeNative {
     ): Int
 
     /**
-     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the
-     * [stored] levels, a band with neither at 0, each in range. The bands written.
+     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the saved
+     * text's ([csv]: millibels, comma separated, low band first; null for none), a band with neither at 0, each
+     * in range. An entry that is not a whole number is dropped and the rest move up. The bands written.
      */
-    external fun dspRestoreBands(
+    external fun dspRestoreBandsText(
         preset: Int,
-        stored: IntArray,
+        csv: String?,
         out: IntArray,
     ): Int
+
+    /** The saved text for [levels]: millibels, comma separated. */
+    external fun dspEncodeBands(levels: IntArray): String
 
     external fun dspSetEnabled(
         handle: Long,
@@ -655,6 +662,23 @@ object GeodeNative {
         value: Float,
     ): String
 
+    /** Which of the wave [slot]'s controls do anything as it stands (geode_mod_lfo_shows): [MOD_SHOWS_WAVE] and the rest. */
+    external fun modLfoShows(
+        lfos: String,
+        slot: Int,
+    ): Int
+
+    /** Which of the envelope [slot]'s controls do anything as it stands (geode_mod_adsr_shows). */
+    external fun modAdsrShows(
+        adsrs: String,
+        slot: Int,
+    ): Int
+
+    // Mirrors of GEODE_MOD_SHOWS_*: the bits [modLfoShows] and [modAdsrShows] return.
+    const val MOD_SHOWS_WAVE: Int = 1
+    const val MOD_SHOWS_RATE: Int = 2
+    const val MOD_SHOWS_KNOB: Int = 4
+
     /** The target ordinals a [picker] (a wave slot, or [MOD_PICKER_REACTION]) lists on [styleId]. */
     external fun modTargetsOffered(
         styleId: String,
@@ -1021,6 +1045,16 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /**
+     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
+     * retired slots to their defaults, every row held to its schema range but a circular one
+     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     */
+    external fun paramsSanitize(
+        input: FloatArray,
+        output: FloatArray,
+    )
+
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(
         h: Float,
@@ -1172,6 +1206,9 @@ object GeodeNative {
         input: FloatArray,
         output: FloatArray,
     ): Boolean
+
+    /** How many fields of the wire frame [input] differ from the defaults (core/viz/CustomizeMap `changedCount`). */
+    external fun customizeChangedCount(input: FloatArray): Int
 
     /** [input] with every field [category]'s controls write put back to its default, into [output]. */
     external fun customizeReset(
@@ -1885,12 +1922,6 @@ object GeodeNative {
      * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
      */
     external fun soundTrackBoundary(seed: Long): Long
-
-    /**
-     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
-     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
-     */
-    external fun soundSetFadeGain(gain: Float)
 
     /**
      * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
@@ -2965,11 +2996,32 @@ object GeodeNative {
         out: DoubleArray,
     ): Int
 
+    /**
+     * An .lrc or plain lyrics (UTF-8 [text]) as core/library/Lyrics' wire form: "S" or "P" and a newline, then one
+     * "<timeMs>\t<text>\n" per line; empty when there are no lyrics.
+     */
+    external fun lyricsParse(text: ByteArray): ByteArray
+
+    /** The line sung at [positionMs] among ascending [timesMs]; -1 before the first, with none, or when plain. */
+    external fun lyricsIndexAt(
+        timesMs: LongArray,
+        positionMs: Long,
+    ): Int
+
     /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
     external fun castServerState(
         handle: Long,
         out: LongArray,
     )
+
+    /** What to do with a track's bookmark at [positionMs] of [durationMs]: [BOOKMARK_IGNORE], [BOOKMARK_CLEAR] or [BOOKMARK_SAVE]. */
+    external fun bookmarkVerdict(
+        positionMs: Long,
+        durationMs: Long,
+    ): Int
+
+    /** Whether a track that just started at [currentPositionMs] may still jump to its bookmark. */
+    external fun bookmarkResumesFrom(currentPositionMs: Long): Boolean
 
     // The native stage (core/stage, core/api/geode_stage_api.h): one surface's render thread, EGL context, vsync
     // and renderer. A handle is an id that is never reused: every call on one that is gone does nothing and

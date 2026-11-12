@@ -286,6 +286,12 @@ GEODE_API int        geode_dsp_fx_min(int control);
 GEODE_API int        geode_dsp_fx_max(int control);
 GEODE_API int        geode_dsp_fx_clamp(int control, int value);
 GEODE_API int        geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count, int32_t* out, int capacity);
+/* The same from the text the settings save the levels as: millibels, comma separated, low band first. An entry
+ * that is not a whole number in int range is dropped and the rest move up; NULL is nothing saved.
+ * _encode_bands writes that text for `count` levels (NUL-terminated, cut to fit) and returns the length the
+ * whole text needs, so a short buffer asks again with room. */
+GEODE_API int        geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity);
+GEODE_API int        geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
@@ -309,6 +315,12 @@ GEODE_API int        geode_playback_crossfade_ms(float seconds);
 /* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
+
+/* Which track positions are remembered (audio/dsp/TrackBookmark). Pure, any thread. Verdict: 0 ignore (a track
+ * under 20 minutes, or of unknown length), 1 clear (within 10 s of either end), 2 save this position. */
+GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);
+/* 1 when a track that just started at current_position_ms is still within 10 s of its start, so it may jump to its bookmark. */
+GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
 
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
@@ -418,6 +430,14 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
+/* Lyrics (core/library/Lyrics). _parse reads UTF-8 .lrc or plain lyrics into the wire form: "S" (timed, sorted by
+ * time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
+ * lyrics. The text goes out as geode::api::textOut does (the return is the length needed). _index_at takes the
+ * ascending times of the lines and returns the line sung at `position_ms`: -1 before the first, with no lines,
+ * or when plain (first time -1). */
+GEODE_API int         geode_lyrics_parse(const char* text, char* out, int capacity);
+GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms);
+
 /* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
  * (a hint for the format, and the playlist's name when the file has none). Text goes into `out`, NUL-terminated;
  * the return is the length the whole text needs. Record 0 is "O", name or "E", reason; then one record per entry:
@@ -469,6 +489,10 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
+/* A frame read from a saved look or a shared link, made safe (viz/Params SceneParams::sanitized): a non-finite
+ * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
+ * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
+GEODE_API void        geode_params_sanitize(const float* in, float* out);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
@@ -530,7 +554,10 @@ GEODE_API void        geode_params_palette_preview(const float* params, int seco
  * at texel centres under amounts[8] (NULL: 1 for the primary, 0.5 for the rest). stack_from_params: an old
  * look's colours (the geode_viz_set_params frame's palette rows) as a stack that draws as it did, and its
  * amounts into amounts_out[8]. recent_push: the recent colours text with rgb first, no repeats, at most 24;
- * recent_read: its colours into out (at most max), the count; out NULL counts them all. */
+ * recent_read: its colours into out (at most max), the count; out NULL counts them all.
+ * stack_set: the look's stack for every renderer of the process (an export keeps the one it pinned,
+ * geode_viz_pin_engine_settings). While it is set, shader styles draw its ramp under the look's
+ * paletteAmount0..7 rows, moved along by paletteShift; unset or unreadable, the look's old colour params draw. */
 GEODE_API const char* geode_palette_library_text(void);
 GEODE_API const char* geode_palette_library_entry(int index);
 GEODE_API int         geode_palette_library_index(const char* id);
@@ -548,6 +575,7 @@ GEODE_API const char* geode_palette_stack_move(const char* stack, int layer, int
 GEODE_API const char* geode_palette_stack_set_blend(const char* stack, const char* blend);
 GEODE_API const char* geode_palette_stack_set_edge(const char* stack, const char* edge);
 GEODE_API const char* geode_palette_stack_set_full_range(const char* stack, int on);
+GEODE_API void        geode_palette_stack_set(const char* stack);
 GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);
 GEODE_API const char* geode_palette_set_stop(const char* palette_line, int stop, int rgb, float pos);
 GEODE_API const char* geode_palette_add_stop(const char* palette_line, int rgb, float pos);
@@ -600,6 +628,8 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* How many fields of the look in (same wire) differ from the defaults: the Customize header's "changed" count. */
+GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
@@ -829,7 +859,6 @@ GEODE_API int             geode_capture_read_frames(void);
  * another app's audio takes it; a pause then holds the tempo, key and sections (no 2 s silence re-warm),
  * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
 GEODE_API long long       geode_sound_track_boundary(long long seed);
-GEODE_API void            geode_sound_set_fade_gain(float gain);
 GEODE_API void            geode_sound_set_player_source(int on);
 /* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
  * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
@@ -1690,6 +1719,15 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_SIDE 57
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
+
+/* Which controls of one wave or envelope slot do anything as it stands (viz/ModControls), so Customize shows only
+ * those: GEODE_MOD_SHOWS_* bits. lfos and adsrs are the saved texts (api/geode_modulation_api.h); 0 for a slot
+ * outside them. Pure, any thread. */
+#define GEODE_MOD_SHOWS_WAVE 1u /* wave shape, timing and moment: the source is the steady wave */
+#define GEODE_MOD_SHOWS_RATE 2u /* the cycle time: a steady wave on its own period (free timing, or on a moment) */
+#define GEODE_MOD_SHOWS_KNOB 4u /* the macro knob picker: the slot moves a Macro knob */
+GEODE_API unsigned        geode_mod_lfo_shows(const char* lfos, int slot);
+GEODE_API unsigned        geode_mod_adsr_shows(const char* adsrs, int slot);
 
 /* The widget's generated glow (viz/WidgetGlow), for a style with no thumbnail: writes 3 lights x 6 floats into
  * out[18] (x and y as shares of the bitmap's width and height, radius as a share of its width, hue in degrees,

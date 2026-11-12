@@ -19,10 +19,14 @@ import org.junit.Test
  *   value off its default: it must read and write back to the same keys and values.
  * - `legacy.json` is an early preset: most keys missing, every retired key and an unknown key.
  * - `hostile.json` is a shared link out of range, non-finite and of the wrong type.
+ *
+ * What a read value may become is native's (`geode_params_sanitize`): its cases, hostile.json's params
+ * among them, are `core/tests/params_test.cpp`'s. Here the frame passes through, so these hold the format.
  */
 class PresetGoldenTest {
     init {
         TestCatalogue.install()
+        PresetStore.sanitize = { it }
     }
 
     private fun fixture(name: String): String = checkNotNull(javaClass.getResource("/presets/$name")) { "missing fixture $name" }.readText()
@@ -133,32 +137,14 @@ class PresetGoldenTest {
     }
 
     @Test
-    fun hostilePresetIsClampedToTheSchemaRangesAndFallsBackToDefaults() {
+    fun hostilePresetClampsItsEnvelopeAndReadsEachParamAsItsJsonType() {
         val preset = PresetStore.fromJson(fixture("hostile.json"))
-        val p = preset.params
         assertEquals(PresetStore.ATTACK_RANGE.endInclusive, preset.attack)
         assertEquals(PresetStore.DECAY_RANGE.start, preset.decay)
-        assertEquals(4f, p.speed)
-        assertEquals(0.3f, p.zoom)
-        assertEquals(SceneParams.DEFAULT.rotation, p.rotation)
-        assertEquals(SceneParams.DEFAULT.warp, p.warp)
-        assertEquals(SceneParams.DEFAULT.endlessZoomSpeed, p.endlessZoomSpeed)
-        assertEquals(SceneParams.DEFAULT.camFov, p.camFov)
-        assertTrue(p.trails)
-        assertEquals(16, p.symmetry)
-        assertEquals(0, p.palette)
+        val p = preset.params
+        // An int is read through optInt (2.75 is 2), a flag accepts "true", a string where a number goes is the default.
         assertEquals(2, p.particleShape)
-        assertEquals(16_777_215, p.reactSeed)
-        assertEquals(4, p.paletteLut)
-        // The schema's ranges, not the narrower slider stops (brightness 1.25, bloom 0.25).
-        assertEquals(1.875f, p.brightness)
-        assertEquals(0.625f, p.bloom)
-        assertEquals(2f, p.intensity)
-        assertEquals(40f, p.cymaticsFundamental)
-        assertEquals(50f, p.flowCurl)
-        // A circular param wraps natively and is not clamped.
-        assertEquals(1.5f, p.colorShift)
-        // And it saves again.
-        assertEquals(p, PresetStore.fromJson(PresetStore.toJson(preset)).params)
+        assertTrue(p.trails)
+        assertEquals(SceneParams.DEFAULT.endlessZoomSpeed, p.endlessZoomSpeed)
     }
 }

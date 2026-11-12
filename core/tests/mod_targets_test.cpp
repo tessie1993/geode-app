@@ -84,6 +84,7 @@ void everyTargetKeepsItsNameAndScope() {
               paramSlotOf(LfoTarget::PaletteAmount8) == static_cast<int>(ParamSlot::paletteAmount7) &&
               paramSlotOf(LfoTarget::PaletteShift) == static_cast<int>(ParamSlot::paletteShift),
           "each palette target writes its own row");
+    check(paramSlotOf(LfoTarget::PaletteMix) == static_cast<int>(ParamSlot::paletteAmount1), "Palette blend's target is Palette 2's amount");
     for (LfoTarget t : {LfoTarget::PaletteAmount1, LfoTarget::PaletteAmount3, LfoTarget::PaletteAmount8, LfoTarget::PaletteShift}) {
         check(isLuminanceTarget(t), std::string(modtargets::name(t)) + " is held to the flash rate and the route floors");
     }

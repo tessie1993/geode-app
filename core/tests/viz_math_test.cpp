@@ -12,6 +12,7 @@
 #include <string>
 
 #include "viz/BandTrim.hpp"
+#include "viz/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
@@ -1379,6 +1380,37 @@ void scenePrepGivesUpAndRemembersFailures() {
     check(!prep.failed("flame_veil"), "forgive() lets a failed target build again");
 }
 
+// A style that did not build says which, at what stage and the driver's first lines, and says it
+// again when it is picked again.
+void buildReportNamesStyleStageAndLog() {
+    namespace report = build_report;
+    check(report::stageOf("missing shader asset 'opal_drop_frag.glsl'") == report::Stage::Asset, "a missing file is the asset stage");
+    check(report::stageOf("unknown shader include 'lib_hollow'") == report::Stage::Asset, "a refused include is the asset stage");
+    check(report::stageOf("Link failed: too many uniforms") == report::Stage::Link, "a link log is the link stage");
+    check(report::stageOf("ERROR: 0:95: 'gFlamePal' : syntax error") == report::Stage::Compile, "anything else is the compile stage");
+
+    const std::string compile = report::of("flame_veil", {"", "ERROR: 0:95: 'x' : syntax error\r\n\nERROR: 2\nERROR: 3\nERROR: 4\nERROR: 5\n", ""});
+    check(compile == "flame_veil did not load (compile)\nERROR: 0:95: 'x' : syntax error\nERROR: 2\nERROR: 3\nERROR: 4",
+          "the style, the stage and the log's first lines, blank ones skipped");
+    const std::string longLine = report::text("opal_drop", report::Stage::Link, "Link failed: " + std::string(900, 'z'));
+    check(longLine.size() == std::string("opal_drop did not load (link)\n").size() + report::kMaxLineChars, "a long line is cut");
+    check(report::of("hollow_roots", {}) == "hollow_roots did not load (compile)\nthe driver gave no message", "a silent failure still names the style");
+    check(report::of("hollow_roots", {"missing shader asset 'hollow_roots_frag.glsl'"}) ==
+              "hollow_roots did not load (asset)\nmissing shader asset 'hollow_roots_frag.glsl'",
+          "a missing file is named");
+    check(report::text("flame_orb", report::Stage::Stall, "") == "flame_orb did not load (stall)\nits shaders did not finish compiling",
+          "a stall says so");
+
+    ScenePrep prep;
+    prep.fail("flame_veil", compile);
+    prep.fail("flame_veil", "another");
+    check(prep.report("flame_veil") == compile, "the first report of a failed style is kept");
+    check(prep.report("glass_orb").empty() && !prep.reported(""), "a style that did not fail has none");
+    check(prep.reported(compile) && !prep.reported("Silk unavailable on this GPU"), "only a failed style's report is one");
+    prep.forgive();
+    check(!prep.reported(compile), "forgive() forgets the reports");
+}
+
 // #369: a layer and Liquid's next style, each staged through the one ScenePrep, take turns.
 void scenePrepSecondariesTakeTurns() {
     ScenePrep prep;
@@ -1887,6 +1919,7 @@ int main() {
     scenePrepRetargetsAndCaps();
     scenePrepSecondariesTakeTurns();
     scenePrepGivesUpAndRemembersFailures();
+    buildReportNamesStyleStageAndLog();
     stagedBuildFinishesInBoundedFrames();
     everyRecipeHoldsItsOldRoutes();
     everyRecipeFitsTheMatrixAndListensToSomething();

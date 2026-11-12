@@ -106,7 +106,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, has no Kotlin field and is not saved, so an old look naming one still loads.
 - `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
-- `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link; the JVM `PresetGoldenTest` and `SharedLinkNumbersTest` pass the frame through `PresetStore.sanitize` and hold the format only.
+- `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link.
+- The JVM `PresetGoldenTest` and `SharedLinkNumbersTest` hold only the envelope around the params object (`PresetStore.writeParams` and `readParams` stand in for native); the params object is `params_json_test.cpp`'s.
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
 - `slider_map_test.cpp`: a Customize slider's Reset offer, whole-number snap and log track, both ways (`core/viz/SliderMap`, `geode_slider_*`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).

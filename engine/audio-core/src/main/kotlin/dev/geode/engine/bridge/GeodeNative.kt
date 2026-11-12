@@ -1069,16 +1069,6 @@ object GeodeNative {
     ): Float
 
     /**
-     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
-     * retired slots to their defaults, every row held to its schema range but a circular one
-     * (`geode_params_sanitize`, core/viz/Params). Pure.
-     */
-    external fun paramsSanitize(
-        input: FloatArray,
-        output: FloatArray,
-    )
-
-    /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
      * (`geode_params_write_json`). Null for a short frame. Pure.

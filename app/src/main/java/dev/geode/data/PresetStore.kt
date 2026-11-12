@@ -5,14 +5,11 @@ import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
-import dev.geode.render.scene.ParamSchema
-import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
-import kotlin.math.roundToInt
 
 data class Preset(
     val name: String,
@@ -171,12 +168,13 @@ class PresetStore(
                 .put("sceneId", p.sceneId)
                 .put("attack", p.attack.toDouble())
                 .put("decay", p.decay.toDouble())
-                .also { putParams(it, p.params) }
+                .also { o ->
+                    val params = paramsToJson(p.params)
+                    for (key in params.keys()) o.put(key, params.get(key))
+                }
                 .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
-
-        internal val ENVELOPE_KEYS = setOf("name", "sceneId", "attack", "decay", "customShader", "milkPreset")
 
         internal fun milkFileName(presetName: String): String = safeFileName(presetName.removeSuffix(".milk")) + ".milk"
 
@@ -199,11 +197,9 @@ class PresetStore(
             return "$stem-$hash"
         }
 
-        internal fun paramsToJson(params: SceneParams): JSONObject =
-            JSONObject(toJson(Preset("", "", 0f, 0f, null, params)))
-                .also { o -> ENVELOPE_KEYS.forEach(o::remove) }
+        internal fun paramsToJson(params: SceneParams): JSONObject = JSONObject(writeParams(params))
 
-        internal fun paramsFromJson(o: JSONObject): SceneParams = readParams(o)
+        internal fun paramsFromJson(o: JSONObject): SceneParams = readParams(o.toString())
 
         /**
          * The envelope ranges the Customize sliders offer (attack 5 ms to 1 s, decay 10 ms to 1.5 s).
@@ -238,68 +234,25 @@ class PresetStore(
         ): Float = finiteOr(raw, range.start).coerceIn(range)
 
         /**
-         * The two Kotlin-only fields ([SceneParams.NOT_RENDERED]): the saved palette slots' ids. They
-         * are not schema rows, so they travel by hand, under their own names, as strings.
-         */
-        private const val KEY_CUSTOM_PALETTE_ID = "customPaletteId"
-        private const val KEY_CUSTOM_PALETTE2_ID = "customPalette2Id"
-
-        /**
-         * Writes [params] into [o] by the native params schema ([ParamSchema], core/viz/ParamTable.inc):
-         * every row under its name, a flag as a JSON boolean, a picker as an int and every float as a
-         * number, from the wire frame [SceneParamsCodec.pack] gives. The names are the ones the format
-         * always used (the table's names are the preset keys), so a file written now holds the same
-         * keys and values as one written before the schema.
-         */
-        private fun putParams(
-            o: JSONObject,
-            params: SceneParams,
-        ) {
-            val frame = SceneParamsCodec.pack(params)
-            for (spec in ParamSchema.params) {
-                if (spec.retired) continue
-                val v = frame[spec.slot]
-                when (spec.kind) {
-                    ParamSpec.Kind.BOOL -> o.put(spec.name, v > 0.5f)
-                    ParamSpec.Kind.INT -> o.put(spec.name, v.roundToInt())
-                    ParamSpec.Kind.FLOAT, ParamSpec.Kind.CIRCULAR -> o.put(spec.name, v.toDouble())
-                }
-            }
-            o.put(KEY_CUSTOM_PALETTE_ID, params.customPaletteId)
-            o.put(KEY_CUSTOM_PALETTE2_ID, params.customPalette2Id)
-        }
-
-        /**
-         * Native's reading of what a value may be ([GeodeNative.paramsSanitize], core/viz/Params
-         * `SceneParams::sanitized`), so a shared link cannot hand the renderer a value no control can make.
-         * A seam for JVM tests, which have no libgeode; a lambda, so naming it loads nothing.
+         * The params object, native's both ways (core/viz/ParamsJson, `geode_params_write_json` and `_read_json`) in
+         * the text org.json always wrote: each live schema row under its name as its JSON type, then the two palette
+         * slot ids; read as org.json's opt* read, retired and unknown keys dropped, then sanitized. The ids are kept
+         * as written, not dropped by [SceneParamsCodec.unpack]. Seams for JVM tests, which have no libgeode.
          */
         @VisibleForTesting
-        internal var sanitize: (FloatArray) -> FloatArray = { frame ->
-            FloatArray(frame.size).also { GeodeNative.paramsSanitize(frame, it) }
+        internal var writeParams: (SceneParams) -> String = { p ->
+            checkNotNull(GeodeNative.paramsWriteJson(SceneParamsCodec.pack(p), p.customPaletteId, p.customPalette2Id))
         }
 
-        /**
-         * Reads scene params from [o] by the schema: each row under its name as its JSON type, its default
-         * when the key is missing, then [sanitize]d by native (non-finite and retired to default, held to
-         * the row's range). The ids are copied as written: an id whose overrides are unset is kept, as it
-         * always was, rather than dropped by [SceneParamsCodec.unpack].
-         */
-        private fun readParams(o: JSONObject): SceneParams {
+        @VisibleForTesting
+        internal var readParams: (String) -> SceneParams = { text ->
             val frame = FloatArray(SceneParamsCodec.FIELDS)
-            for (spec in ParamSchema.params) {
-                val def = spec.default
-                frame[spec.slot] =
-                    when (spec.kind) {
-                        ParamSpec.Kind.BOOL -> if (o.optBoolean(spec.name, def > 0.5f)) 1f else 0f
-                        ParamSpec.Kind.INT -> o.optInt(spec.name, def.roundToInt()).toFloat()
-                        ParamSpec.Kind.FLOAT, ParamSpec.Kind.CIRCULAR -> o.optDouble(spec.name, def.toDouble()).toFloat()
-                    }
-            }
-            val read = SceneParamsCodec.unpack(sanitize(frame), SceneParams.DEFAULT)
-            return read.copy(
-                customPaletteId = o.optString(KEY_CUSTOM_PALETTE_ID, SceneParams.NO_CUSTOM_PALETTE),
-                customPalette2Id = o.optString(KEY_CUSTOM_PALETTE2_ID, SceneParams.NO_CUSTOM_PALETTE),
+            val ids = arrayOfNulls<String>(2)
+            check(GeodeNative.paramsReadJson(text, frame, ids)) { "not a params object" }
+            val read = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
+            read.copy(
+                customPaletteId = ids[0] ?: SceneParams.NO_CUSTOM_PALETTE,
+                customPalette2Id = ids[1] ?: SceneParams.NO_CUSTOM_PALETTE,
             )
         }
 
@@ -312,7 +265,7 @@ class PresetStore(
                 decay = finiteIn(o.getDouble("decay"), DECAY_RANGE),
                 customShader = if (o.has("customShader")) o.getString("customShader") else null,
                 milkPreset = if (o.has("milkPreset")) o.getString("milkPreset") else null,
-                params = readParams(o),
+                params = paramsFromJson(o),
             )
         }
     }

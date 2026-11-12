@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -10,12 +11,13 @@ import org.junit.Test
  * are not finite as a Float (NaN, the infinities, `1e39`) used to reach `JSONObject.put` and throw,
  * crashing the app on open. The test org.json is the real one, whose `put` throws the same way.
  * It reads unquoted `NaN` as a string and falls back, so NaN is covered through [PresetStore.finiteOr].
- * The scene params' own overflow cases are native's (`core/tests/params_test.cpp`); here the frame passes through.
+ * The scene params object and its overflow cases are native's (`core/tests/params_json_test.cpp`); here a stand-in passes through.
  */
 class SharedLinkNumbersTest {
     init {
         TestCatalogue.install()
-        PresetStore.sanitize = { it }
+        PresetStore.writeParams = { "{}" }
+        PresetStore.readParams = { SceneParams.DEFAULT }
     }
 
     @Test

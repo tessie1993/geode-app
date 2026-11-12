@@ -87,6 +87,9 @@ struct SceneHost {
     std::function<bool()> offscreen;
     // A style is being built or blended in (ThermalGovernor::settling): slow frames are not this scene's.
     std::function<bool()> settling;
+    // The look's palette stack as a kRampSize × 1 texture (viz/Palette), 0 while the look keeps none and
+    // its old colour params draw.
+    std::function<GLuint()> paletteRamp;
 };
 
 }  // namespace geode::viz

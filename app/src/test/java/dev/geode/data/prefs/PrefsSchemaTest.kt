@@ -145,7 +145,7 @@ class PrefsSchemaTest {
             Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
                 PlayerPrefsStore(it[player]).save(PlayerPrefs())
-                BookmarkStore(it[player]).note("content://track", BookmarkStore.LONG_TRACK_MS, BookmarkStore.LONG_TRACK_MS * 2)
+                BookmarkStore(it[player]).save("content://track", 20L * 60_000L)
             },
             Owner("$APP/audio/AudioFxController.kt", AudioFxController.PREF_KEYS) {
                 val fx = AudioFxController(it[GeodePrefsFiles.AUDIO_FX], emptyList(), NativeDspProcessor(), UnclampedFx)

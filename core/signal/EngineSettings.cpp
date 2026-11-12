@@ -13,6 +13,7 @@ EngineSettings globalSettings() {
     s.director = viz::director::global();
     s.reach = viz::director::reach();
     s.kept = viz::director::kept();
+    s.palettes = viz::palette::global();
     s.notesOn = viz::note_response::globalEnabled();
     s.handMask = viz::hand::global();
     return s;

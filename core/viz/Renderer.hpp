@@ -229,6 +229,7 @@ private:
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
+    void uploadPaletteRamp(const SceneParams& p);
     bool holds(const Scene& scene, const Scene* held) const;
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
@@ -355,6 +356,9 @@ private:
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;
     GLuint paletteLutTex_ = 0;
+    // The look's palette stack, composed for this frame's amounts (resolveParams).
+    palette::Ramp paletteRamp_;
+    GLuint paletteRampTex_ = 0;
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;

@@ -42,6 +42,9 @@ object GeodeNative {
     const val DSP_FX_BAND: Int = 0
     const val DSP_FX_BASS_BOOST: Int = 1
     const val DSP_FX_LOUDNESS: Int = 2
+    const val BOOKMARK_IGNORE: Int = 0
+    const val BOOKMARK_CLEAR: Int = 1
+    const val BOOKMARK_SAVE: Int = 2
 
     /** The equalizer's bands. */
     external fun dspBandCount(): Int
@@ -1145,6 +1148,9 @@ object GeodeNative {
         output: FloatArray,
     ): Boolean
 
+    /** How many fields of the wire frame [input] differ from the defaults (core/viz/CustomizeMap `changedCount`). */
+    external fun customizeChangedCount(input: FloatArray): Int
+
     /** [input] with every field [category]'s controls write put back to its default, into [output]. */
     external fun customizeReset(
         category: String,
@@ -1857,12 +1863,6 @@ object GeodeNative {
      * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
      */
     external fun soundTrackBoundary(seed: Long): Long
-
-    /**
-     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
-     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
-     */
-    external fun soundSetFadeGain(gain: Float)
 
     /**
      * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
@@ -2937,6 +2937,18 @@ object GeodeNative {
         out: DoubleArray,
     ): Int
 
+    /**
+     * An .lrc or plain lyrics (UTF-8 [text]) as core/library/Lyrics' wire form: "S" or "P" and a newline, then one
+     * "<timeMs>\t<text>\n" per line; empty when there are no lyrics.
+     */
+    external fun lyricsParse(text: ByteArray): ByteArray
+
+    /** The line sung at [positionMs] among ascending [timesMs]; -1 before the first, with none, or when plain. */
+    external fun lyricsIndexAt(
+        timesMs: LongArray,
+        positionMs: Long,
+    ): Int
+
     /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
     external fun castServerState(
         handle: Long,
@@ -2951,6 +2963,15 @@ object GeodeNative {
         name: String,
         out: FloatArray,
     ): Boolean
+
+    /** What to do with a track's bookmark at [positionMs] of [durationMs]: [BOOKMARK_IGNORE], [BOOKMARK_CLEAR] or [BOOKMARK_SAVE]. */
+    external fun bookmarkVerdict(
+        positionMs: Long,
+        durationMs: Long,
+    ): Int
+
+    /** Whether a track that just started at [currentPositionMs] may still jump to its bookmark. */
+    external fun bookmarkResumesFrom(currentPositionMs: Long): Boolean
 
     // The native stage (core/stage, core/api/geode_stage_api.h): one surface's render thread, EGL context, vsync
     // and renderer. A handle is an id that is never reused: every call on one that is gone does nothing and

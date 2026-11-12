@@ -142,6 +142,19 @@ internal class LiveSegments(
     @Synchronized
     fun segment(sequence: Long): ByteArray? = segments.firstOrNull { it.sequence == sequence }?.bytes
 
+    /**
+     * The browser feed's next fragment after sequence [after] (its sequence and bytes), or null while there is none
+     * yet. A new feed ([after] -1) starts at the newest, the live edge; a feed that fell out of the window skips to
+     * the newest too, since a browser holding half a second would rather jump than play old seconds.
+     */
+    @Synchronized
+    fun nextAfter(after: Long): Pair<Long, ByteArray>? {
+        val newest = segments.lastOrNull() ?: return null
+        if (newest.sequence <= after) return null
+        val next = if (after < 0) newest else segments.firstOrNull { it.sequence == after + 1 } ?: newest
+        return next.sequence to next.bytes
+    }
+
     /** The live media playlist, or null until there is enough for the receiver to start on (native). */
     @Synchronized
     fun playlist(): String? {

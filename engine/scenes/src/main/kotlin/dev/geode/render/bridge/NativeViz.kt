@@ -78,6 +78,7 @@ class NativeViz(
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
                 if (stillThen != null) GeodeNative.vizStillRequest(handle)
+                if (castSource) GeodeNative.vizSetCastSource(handle, true)
                 onCreated()
             }
         }
@@ -297,6 +298,17 @@ class NativeViz(
         uiBlur[5] = cornerPx
         applyUiBlur()
     }
+
+    /**
+     * This renderer is the stage a cast carries ([GeodeNative.vizSetCastSource]): the app's one stage view sets it,
+     * never the wallpaper, the dream or an export. Any thread; latched for every new handle.
+     */
+    @Volatile
+    var castSource = false
+        @Synchronized set(on) {
+            field = on
+            if (handle != 0L) GeodeNative.vizSetCastSource(handle, on)
+        }
 
     /** The wallpaper's edge glow; see [GeodeNative.vizSetEdgeGlow]. Any thread; latched before the handle exists. */
     @Synchronized

@@ -239,6 +239,19 @@ typedef struct geode_export_pass geode_export_pass;
 GEODE_API int         geode_viz_record_start(geode_viz*, const geode_recorder* recorder, void* native_window, int width,
                                              int height, geode_export_pass* watermark);
 GEODE_API void        geode_viz_record_stop(geode_viz*);
+/* Cast's tee (core/viz/frame/CastTee): the stream to a TV or a browser carries what the stage draws, not a second
+ * render. A renderer marked as the cast's source (the app's stage only; any thread, kept until changed) copies
+ * its finished visual, at the same point as Record's tee, into the running cast's tee at most once per cast frame.
+ * The cast thread opens the tee with its own EGL context current (width x height, the stream's frame and fps;
+ * NULL when the driver lacks what it needs, and the cast then renders on its own), and each frame slot calls
+ * geode_cast_tee_draw, which blits the stage's newest copy into framebuffer 0 and returns 1, or returns 0 when
+ * the stage has drawn nothing for a quarter of a second (the app in the background): the cast's own renderer
+ * draws that frame. Close on the cast thread, its context still current. */
+typedef struct geode_cast_tee geode_cast_tee;
+GEODE_API void            geode_viz_set_cast_source(geode_viz*, int on);
+GEODE_API geode_cast_tee* geode_cast_tee_open(int width, int height, int fps);
+GEODE_API int             geode_cast_tee_draw(geode_cast_tee*, int64_t now_ns, int width, int height);
+GEODE_API void            geode_cast_tee_close(geode_cast_tee*);
 /* Shake to screenshot's picture: the next frame's finished visual (after the composite and the edge glow,
  * before the UI blur, as Record's tee sees it) is read back once, rows top first, RGBA8. Any thread.
  * geode_viz_still_size gives its width and height (1 once it is ready, 0 before); geode_viz_still_read copies
@@ -1231,6 +1244,8 @@ GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buf
 #define GEODE_LINK_INIT     6   /* init.mp4 */
 #define GEODE_LINK_SEGMENT  7   /* seg<n>.m4s, n in *sequence */
 #define GEODE_LINK_REDIRECT 8   /* /<token>: 308 to /<token>/ */
+#define GEODE_LINK_STREAM   9   /* stream.mp4: the browser's live feed, init then each fragment as it is cut */
+#define GEODE_LINK_MAX_STREAMS 3   /* browsers fed at once; past it 503 (the page retries) */
 /* A request's method and request-target against the token: returns the status (200, 204, 308, 404, 405) and
  * fills *resource (GEODE_LINK_*) and *sequence (a segment's, else -1). */
 GEODE_API int             geode_link_route(const char* method, const char* target, const char* token, int* resource,

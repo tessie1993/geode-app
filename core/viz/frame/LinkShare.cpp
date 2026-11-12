@@ -39,6 +39,7 @@ Resource named(std::string_view name) {
     if (name == kMasterName) return Resource::Master;
     if (name == kPlaylistName) return Resource::Playlist;
     if (name == kInitName) return Resource::Init;
+    if (name == kStreamName) return Resource::Stream;
     if (segmentSequence(name) >= 0) return Resource::Segment;
     return Resource::None;
 }
@@ -51,6 +52,7 @@ const char* reasonPhrase(int status) {
         case 405: return "Method Not Allowed";
         case 414: return "URI Too Long";
         case 431: return "Request Header Fields Too Large";
+        case 503: return "Service Unavailable";
         default: return "Not Found";
     }
 }
@@ -63,7 +65,8 @@ const char* contentType(Resource r) {
         case Resource::Master:
         case Resource::Playlist: return "application/vnd.apple.mpegurl";
         case Resource::Init:
-        case Resource::Segment: return "video/mp4";
+        case Resource::Segment:
+        case Resource::Stream: return "video/mp4";
         default: return nullptr;
     }
 }
@@ -206,7 +209,7 @@ Route route(std::string_view method, std::string_view target, std::string_view t
         if (resource == Resource::Segment) sequence = segmentSequence(name);
     }
     const bool read = method == "GET" || method == "HEAD";
-    if (method == "OPTIONS" && resource != Resource::Redirect) {
+    if (method == "OPTIONS" && resource != Resource::Redirect && resource != Resource::Stream) {
         r.status = 204;
     } else if (read) {
         r.status = resource == Resource::Redirect ? 308 : 200;
@@ -230,7 +233,9 @@ std::string responseHead(int status, Resource resource, int64_t length, std::str
         h += type;
         h += "\r\n";
     }
-    if (status != 204) {
+    // The feed's body runs until the connection closes (Connection: close below ends it), so it has no length.
+    const bool feed = status == 200 && resource == Resource::Stream;
+    if (status != 204 && !feed) {
         h += "Content-Length: ";
         h += std::to_string(status == 200 && length > 0 ? length : 0);
         h += "\r\n";
@@ -247,7 +252,8 @@ std::string responseHead(int status, Resource resource, int64_t length, std::str
         if (status == 204) h += "Access-Control-Allow-Private-Network: true\r\n";
         h += "Accept-Ranges: none\r\n";
     }
-    if (status == 405) h += "Allow: GET, HEAD, OPTIONS\r\n";
+    if (status == 405) h += resource == Resource::Stream ? "Allow: GET, HEAD\r\n" : "Allow: GET, HEAD, OPTIONS\r\n";
+    if (status == 503) h += "Retry-After: 2\r\n";
     if (status == 308 && validToken(token)) {
         h += "Location: /";
         h += token;

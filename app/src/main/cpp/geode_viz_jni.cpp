@@ -1524,6 +1524,27 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordStop(JN
     geode_viz_record_stop(vizOf(handle));
 }
 
+// Cast's tee (viz/frame/CastTee): the stage's picture to the cast stream.
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizSetCastSource(JNIEnv*, jobject, jlong handle,
+                                                                                  jboolean on) {
+    geode_viz_set_cast_source(vizOf(handle), on ? 1 : 0);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeOpen(JNIEnv*, jobject, jint width, jint height,
+                                                                              jint fps) {
+    return reinterpret_cast<jlong>(geode_cast_tee_open(width, height, fps));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeDraw(JNIEnv*, jobject, jlong tee, jlong nowNs,
+                                                                                 jint width, jint height) {
+    return geode_cast_tee_draw(reinterpret_cast<geode_cast_tee*>(tee), nowNs, width, height) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeClose(JNIEnv*, jobject, jlong tee) {
+    geode_cast_tee_close(reinterpret_cast<geode_cast_tee*>(tee));
+}
+
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizStillRequest(JNIEnv*, jobject, jlong handle) {
     geode_viz_still_request(vizOf(handle));
 }

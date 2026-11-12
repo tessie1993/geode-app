@@ -1353,6 +1353,36 @@ object GeodeNative {
     /** GL thread, or after its surface went: ends the copy. */
     external fun vizRecordStop(handle: Long)
 
+    /**
+     * Marks this renderer as the stage the cast carries (`geode_viz_set_cast_source`, core/viz/frame/CastTee): while a
+     * cast's tee is open it copies its finished visual into it, at most once per cast frame. Any thread; the app's stage only.
+     */
+    external fun vizSetCastSource(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /**
+     * The cast thread, its EGL context current: opens the tee the stage copies into, [width] x [height] at [fps];
+     * 0 when the driver lacks what it needs (the cast then renders on its own).
+     */
+    external fun castTeeOpen(
+        width: Int,
+        height: Int,
+        fps: Int,
+    ): Long
+
+    /** The cast thread: blits the stage's newest copy into the encoder surface; false while the stage draws nothing. */
+    external fun castTeeDraw(
+        tee: Long,
+        nowNs: Long,
+        width: Int,
+        height: Int,
+    ): Boolean
+
+    /** The cast thread, its context still current: closes the tee. */
+    external fun castTeeClose(tee: Long)
+
     /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
     external fun vizStillRequest(handle: Long)
 
@@ -2313,6 +2343,12 @@ object GeodeNative {
     const val LINK_PLAYLIST = 5
     const val LINK_INIT = 6
     const val LINK_SEGMENT = 7
+
+    /** stream.mp4: the browser's live feed, the init segment then each fragment as it is cut, held open. */
+    const val LINK_STREAM = 9
+
+    /** Browsers fed at once (GEODE_LINK_MAX_STREAMS); past it the feed answers 503 and the page retries. */
+    const val LINK_MAX_STREAMS = 3
 
     /**
      * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)

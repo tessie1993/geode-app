@@ -18,23 +18,33 @@ import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
 import dev.geode.render.PacedRate
 import dev.geode.render.VisualizerRenderer
+import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.util.concurrent.Executors
 import java.util.concurrent.locks.LockSupport
 
 /**
- * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV, a browser through
- * "Show on a computer" ([ComputerLink]), or both.
+ * One cast: the phone's picture into [CastEncoder], served to the TV, a browser through "Show on a computer"
+ * ([ComputerLink]), or both.
  *
- * The picture comes from its own [VisualizerRenderer] on its own thread and EGL context, not from
- * the screen's view: casting keeps going with the app in the background and the screen off (owner,
- * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
- * look: the stage's style and params as they change ([CastMirror], previews included), else the
- * saved live state; modulation, re-read whenever the app saves it; the MilkDrop preset the renderer
- * restores when built, then each one the stage picks ([CastMirror.milkPath]); the same sound
- * ([AudioBus.soundInput]), from which the native renderer also takes MilkDrop's raw PCM itself
- * (core/viz/PcmHandoff), as the screen's does.
+ * The picture is the stage's own (owner: "make sure the app is not rendering twice 2 different things, but
+ * merely sending what the phone does"). While the app's stage draws, its renderer copies each finished frame
+ * into the cast's tee (core/viz/frame/CastTee: GPU buffers both contexts share, no read-back) and this thread
+ * blits the newest into the encoder: one render, the exact style, preset, Auto step, preview, touch and tilt the
+ * phone shows. The stage keeps drawing while the app is open on another tab ([CastMirror.streaming]).
+ *
+ * Only while the stage draws nothing (the app in the background, the screen off: casting keeps going then,
+ * owner 2026-11-02) does a renderer of its own draw here, made on first need and freed after a stretch unused:
+ * the saved live look, the stage's style and params as last seen ([CastMirror]), the MilkDrop preset it last
+ * picked ([CastMirror.milkPath]) and the same sound ([AudioBus.soundInput]). It is a second engine, so its
+ * Auto, director and MilkDrop randomness can drift from what the phone last showed; nobody sees the phone then.
+ * The saved look is read off this thread and only the parts that changed are handed over, so a store write (a
+ * track change, a slider) never stalls the encoder's clock or restarts modulation.
+ *
+ * The encoder, its clock, the PTS and the audio cut are this thread's for the whole stream whichever source
+ * draws, so nothing restarts when the track, the look or the source changes.
  *
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
@@ -75,9 +85,12 @@ internal class CastStream(
     @Volatile
     private var running = false
 
+    /** The saved live look, read on [lookReader] whenever the app saves one; null until the first read lands. */
     @Volatile
-    private var lookChanged = true
-    private val lookListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> lookChanged = true }
+    private var savedLook: LookSnapshot? = null
+    private val lookReader =
+        Executors.newSingleThreadExecutor { r -> Thread(r, "cast-look").apply { isDaemon = true } }
+    private val lookListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> readSavedLook() }
 
     /** The URL the receiver loads; valid after [start]. */
     val playlistUrl: String get() = server.playlistUrl
@@ -97,6 +110,7 @@ internal class CastStream(
         }
         prefsFiles.viz.registerOnSharedPreferenceChangeListener(lookListener)
         prefsFiles.general.registerOnSharedPreferenceChangeListener(lookListener)
+        readSavedLook()
         running = true
         thread =
             Thread({ runRenderLoop() }, "cast-render").apply {
@@ -110,7 +124,35 @@ internal class CastStream(
         thread = null
         prefsFiles.viz.unregisterOnSharedPreferenceChangeListener(lookListener)
         prefsFiles.general.unregisterOnSharedPreferenceChangeListener(lookListener)
+        lookReader.shutdownNow()
         server.stop()
+    }
+
+    /**
+     * Reads the saved look on [lookReader], never on the render thread (it parses JSON and asks Settings for reduced
+     * motion), keeping every part that did not change as the same object: [VisualizerRenderer] re-pushes a part
+     * by identity, and each read used to make every part new, so any store write (a track change, a slider's save)
+     * re-sent all the waves, envelopes and tuning and had native resolve the reactions again.
+     */
+    private fun readSavedLook() {
+        bestEffort(TAG, "read the saved look") {
+            lookReader.execute {
+                val fresh = runCatching { LookStore(prefsFiles, appContext.contentResolver).current() }.getOrNull() ?: return@execute
+                val old = savedLook
+                savedLook =
+                    if (old == null) {
+                        fresh
+                    } else {
+                        fresh.copy(
+                            params = if (fresh.params == old.params) old.params else fresh.params,
+                            lfos = if (fresh.lfos == old.lfos) old.lfos else fresh.lfos,
+                            adsrs = if (fresh.adsrs == old.adsrs) old.adsrs else fresh.adsrs,
+                            reactions = if (fresh.reactions == old.reactions) old.reactions else fresh.reactions,
+                            soundTuning = if (fresh.soundTuning == old.soundTuning) old.soundTuning else fresh.soundTuning,
+                        )
+                    }
+            }
+        }
     }
 
     private fun runRenderLoop() {
@@ -120,10 +162,11 @@ internal class CastStream(
         }
     }
 
-    /** The mirrored look last handed to the renderer; render thread only. */
+    /** The saved look and the mirrored look last handed to the fallback renderer; render thread only. */
+    private var applied: LookSnapshot? = null
     private var mirrored: CastMirror.Look? = null
 
-    /** The .milk last handed to the renderer; render thread only. */
+    /** The .milk last handed to the fallback renderer; render thread only. */
     private var mirroredMilk: String? = null
 
     /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
@@ -132,47 +175,86 @@ internal class CastStream(
     private fun renderLoop() {
         val encoder = CastEncoder(segments)
         val egl = EncoderSurface(encoder.surface)
-        val renderer = VisualizerRenderer(appContext)
         val audio = AudioPump(encoder, musicInput)
+        var fallback: VisualizerRenderer? = null
+        var fallbackDrewNs = 0L
+        var tee = 0L
         try {
             // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.
             GeodeNative.playoutSetBypass(PlaybackEngine.playout, true)
             egl.makeCurrent()
-            renderer.soundInput = { AudioBus.soundInput }
-            // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
-            // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
-            val castFps = CastEncoder.FPS.toFloat()
-            renderer.pacedRate = PacedRate { castFps }
-            renderer.onDirectorStyleMoment = CastMirror::directorMoment
-            renderer.onSurfaceCreated(null, null)
-            renderer.onSurfaceChanged(null, encoder.width, encoder.height)
+            // The stage's own picture wherever the stage draws; 0 on a driver without the GPU buffer extensions.
+            tee = GeodeNative.castTeeOpen(encoder.width, encoder.height, CastEncoder.FPS)
+            if (tee == 0L) RingLog.note(TAG, "no tee: the cast renders on its own")
+            val teeOpenedNs = System.nanoTime()
+            CastMirror.setStreaming(true)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
             GeodeNative.frameClockStart(clock, CastEncoder.FPS, System.nanoTime())
             while (running) {
                 LockSupport.parkNanos(GeodeNative.frameClockWaitNs(clock, System.nanoTime()))
                 val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
-                syncLook(renderer)
-                renderer.onDrawFrame(null)
+                val now = System.nanoTime()
+                val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, encoder.width, encoder.height)
+                val stageDue = tee != 0L && fallback == null && now - teeOpenedNs < STAGE_FIRST_COPY_NS
+                if (!fromStage && stageDue) {
+                    // The stage's first copy is a frame away: wait for it rather than build a second renderer.
+                    audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
+                    continue
+                }
+                if (!fromStage) {
+                    val renderer = fallback ?: fallbackRenderer(encoder).also { fallback = it }
+                    syncLook(renderer)
+                    renderer.onDrawFrame(null)
+                    fallbackDrewNs = now
+                } else if (fallback != null && now - fallbackDrewNs > FALLBACK_IDLE_NS) {
+                    // The stage has led for a while: give the fallback's scenes and sound engine back.
+                    bestEffort(TAG, "fallback.releaseScenes()") { fallback?.releaseScenes() }
+                    fallback = null
+                }
                 egl.setPresentationTimeNs(ptsNs)
                 egl.swapBuffers()
                 audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
+            CastMirror.setStreaming(false)
             GeodeNative.playoutSetBypass(PlaybackEngine.playout, false)
-            bestEffort(TAG, "renderer.releaseScenes()") { renderer.releaseScenes() }
+            if (tee != 0L) bestEffort(TAG, "castTeeClose()") { GeodeNative.castTeeClose(tee) }
+            bestEffort(TAG, "fallback.releaseScenes()") { fallback?.releaseScenes() }
             audio.close()
             egl.release()
             encoder.release()
         }
     }
 
-    /** The saved look when the app saves one, then the stage's own look on top while [CastMirror] has one. */
+    /** The renderer that draws while the stage does not; made on this thread, its context current. */
+    private fun fallbackRenderer(encoder: CastEncoder): VisualizerRenderer {
+        val renderer = VisualizerRenderer(appContext)
+        renderer.soundInput = { AudioBus.soundInput }
+        // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
+        // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
+        val castFps = CastEncoder.FPS.toFloat()
+        renderer.pacedRate = PacedRate { castFps }
+        renderer.onDirectorStyleMoment = CastMirror::directorMoment
+        renderer.onSurfaceCreated(null, null)
+        renderer.onSurfaceChanged(null, encoder.width, encoder.height)
+        // A new renderer starts from the whole look and the stage's preset.
+        applied = null
+        mirrored = null
+        mirroredMilk = null
+        return renderer
+    }
+
+    /** The saved look when the app saves one, then the stage's style and params on top while [CastMirror] has them. */
     private fun syncLook(renderer: VisualizerRenderer) {
-        if (lookChanged) {
-            lookChanged = false
-            // The saved live look, read the way the wallpaper and the dream read it.
-            renderer.look = LookStore(prefsFiles, appContext.contentResolver).current()
-            mirrored = null
+        val saved = savedLook
+        if (saved != null && saved !== applied) {
+            applied = saved
+            // Only the parts that changed are new objects (readSavedLook), so only those are pushed again.
+            renderer.look =
+                saved.copy(
+                    sceneId = mirrored?.sceneId ?: saved.sceneId,
+                    params = mirrored?.params ?: saved.params,
+                )
         }
         // The renderer restores the remembered preset only when it is built; every later pick is followed here.
         val milk = CastMirror.milkPath
@@ -283,6 +365,12 @@ internal class CastStream(
         /** Segments arrive every second; five without one is a frozen picture on the TV. */
         const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
+
+        /** The fallback renderer is freed after the stage has led this long (30 s): it costs scenes and a sound engine. */
+        const val FALLBACK_IDLE_NS = 30_000_000_000L
+
+        /** How long a new stream waits for the stage's first copy before the fallback draws (half a second). */
+        const val STAGE_FIRST_COPY_NS = 500_000_000L
 
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active

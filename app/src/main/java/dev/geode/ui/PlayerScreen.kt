@@ -30,7 +30,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -76,6 +78,8 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.ui.cast.ComputerLinkDoor
+import dev.geode.ui.cast.running
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -868,6 +872,17 @@ private fun QuickActions(
                         ),
                     )
                 }
+            }
+        }
+        item {
+            // Share to PC, beside the Cast-shaped source tile (owner): the browser link and its sheet.
+            ComputerLinkDoor { door ->
+                QuickAction(
+                    if (door.link.running) Icons.Filled.Computer else Icons.Outlined.Computer,
+                    stringResource(if (door.link.running) R.string.quick_pc_on else R.string.link_button),
+                    active = door.link.running,
+                    onClick = door.tap,
+                )
             }
         }
         item {

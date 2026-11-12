@@ -90,6 +90,12 @@ internal class LiveHttpServer(
     private val notFound = AtomicInteger(0)
     private val overflow = AtomicInteger(0)
 
+    /** Browsers on the live feed now ([feed]). */
+    private val feeds = AtomicInteger(0)
+
+    @Volatile
+    private var stopped = false
+
     /** Lets in the Cast device at [tv] while [forTv], and the bound subnet while [forLink]; nobody else. */
     fun admit(
         tv: InetAddress?,
@@ -122,6 +128,7 @@ internal class LiveHttpServer(
     }
 
     fun stop() {
+        stopped = true
         bestEffort(TAG, "socket.close()") { socket.close() }
         pool.shutdownNow()
         deadlines.shutdownNow()
@@ -192,7 +199,8 @@ internal class LiveHttpServer(
             }.getOrNull()
         client.use { s ->
             runCatching {
-                if (answer(s, deadlineNanos) && peer == GeodeNative.LINK_PEER_RECEIVER) {
+                // The browser's feed outlives the connection deadline; its writes get their own (see [feed]).
+                if (answer(s, deadlineNanos) { cutOff?.cancel(false) } && peer == GeodeNative.LINK_PEER_RECEIVER) {
                     lastReceiverFetch.set(SystemClock.elapsedRealtime())
                 }
                 s.shutdownOutput()
@@ -206,6 +214,7 @@ internal class LiveHttpServer(
     private fun answer(
         s: Socket,
         deadlineNanos: Long,
+        keepOpen: () -> Unit,
     ): Boolean {
         val out = s.getOutputStream()
         val requestLine =
@@ -221,9 +230,82 @@ internal class LiveHttpServer(
         val resource = route[0].toInt()
         if (status == STATUS_NOT_FOUND) notFound.incrementAndGet()
         if (status != STATUS_OK) return respond(out, status, resource, null)
+        if (resource == GeodeNative.LINK_STREAM) return feed(s, out, sendBody = parts[0] != "HEAD", keepOpen)
         // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
         val body = body(resource, route[1]) ?: return respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
         return respond(out, STATUS_OK, resource, body, sendBody = parts[0] != "HEAD")
+    }
+
+    /**
+     * The browser's live feed (stream.mp4, "Show on a computer"): the native head (no length: the body ends when the
+     * connection does), the init segment, then each fragment the moment [LiveSegments] cuts it, from the newest on,
+     * until the stream stops or the browser goes. One response instead of a playlist poll and a request per
+     * segment, so a fragment reaches the browser as soon as it exists and the page can hold half a second.
+     * At most [GeodeNative.LINK_MAX_STREAMS] at once (503 past it; the page retries). Each write must finish within
+     * [FEED_WRITE_MS] or the socket is closed: a browser that stops reading can't hold a pool thread.
+     * Never true: the TV's fetches are counted on its own requests.
+     */
+    private fun feed(
+        s: Socket,
+        out: OutputStream,
+        sendBody: Boolean,
+        keepOpen: () -> Unit,
+    ): Boolean {
+        val init = stream.initSegment()
+        val status =
+            when {
+                init == null -> STATUS_NOT_FOUND
+                !sendBody -> STATUS_OK
+                feeds.incrementAndGet() > GeodeNative.LINK_MAX_STREAMS -> {
+                    feeds.decrementAndGet()
+                    STATUS_BUSY
+                }
+                else -> 0
+            }
+        if (status != 0 || init == null) {
+            respond(out, status, if (status == STATUS_NOT_FOUND) NO_RESOURCE else GeodeNative.LINK_STREAM, null, sendBody = false)
+            return false
+        }
+        try {
+            keepOpen()
+            s.tcpNoDelay = true
+            val head = GeodeNative.linkResponseHead(STATUS_OK, GeodeNative.LINK_STREAM, 0L, token)
+            writeWithin(s) {
+                out.write(head.toByteArray(Charsets.US_ASCII))
+                out.write(init)
+                out.flush()
+            }
+            var sent = -1L
+            while (!stopped && !s.isClosed) {
+                val next = stream.nextAfter(sent)
+                if (next == null) {
+                    Thread.sleep(FEED_POLL_MS)
+                    continue
+                }
+                sent = next.first
+                writeWithin(s) {
+                    out.write(next.second)
+                    out.flush()
+                }
+            }
+        } finally {
+            feeds.decrementAndGet()
+        }
+        return false
+    }
+
+    /** Runs [write], closing [s] if it has not finished within [FEED_WRITE_MS] (the write then throws). */
+    private inline fun writeWithin(
+        s: Socket,
+        write: () -> Unit,
+    ) {
+        val closeIt = Runnable { bestEffort(TAG, "client.close()") { s.close() } }
+        val cut = runCatching { deadlines.schedule(closeIt, FEED_WRITE_MS, TimeUnit.MILLISECONDS) }.getOrNull()
+        try {
+            write()
+        } finally {
+            cut?.cancel(false)
+        }
     }
 
     /** Reads what the client still sends after the response, until it closes, briefly, so the close is clean. */
@@ -283,6 +365,11 @@ internal class LiveHttpServer(
         const val STATUS_NOT_FOUND = 404
         const val STATUS_URI_TOO_LONG = 414
         const val STATUS_HEADERS_TOO_LARGE = 431
+        const val STATUS_BUSY = 503
+
+        /** How often an idle feed looks for the next fragment, and how long one write to a browser may take. */
+        const val FEED_POLL_MS = 10L
+        const val FEED_WRITE_MS = 5_000L
         const val DRAIN_MS = 1_000L
         const val DRAIN_CHUNK = 1_024
 

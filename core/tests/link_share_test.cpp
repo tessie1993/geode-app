@@ -60,6 +60,13 @@ void testRoutes() {
     check(get(t + "/live.m3u8", "OPTIONS").status == 204, "OPTIONS: the receiver's preflight");
     check(get(t + "/live.m3u8", "POST").status == 405 && get(t + "/", "PUT").status == 405, "other methods: 405");
     check(get(t + "/live.m3u8", "get").status == 405, "methods are case-sensitive");
+    const share::Route feed = get(t + "/stream.mp4");
+    check(feed.status == 200 && feed.resource == Resource::Stream && feed.sequence == -1, "the browser's feed");
+    check(get(t + "/stream.mp4", "HEAD").status == 200, "the feed answers HEAD");
+    check(get(t + "/stream.mp4", "OPTIONS").status == 405, "no preflight on the feed: only the page reads it");
+    check(get(t + "/stream.mp4?_=1").resource == Resource::Stream, "a query on the feed is ignored");
+    check(get(t + "/stream.mp4/").status == 404 && get(t + "/STREAM.MP4").status == 404 && get("/stream.mp4").status == 404,
+          "the feed only by its exact name under the token");
 
     const char* missing[] = {"/", "/index.html", "/live.m3u8", "/favicon.ico", "", "live.m3u8"};
     for (const char* m : missing) check(get(m).status == 404 && get(m).resource == Resource::None, "off the token: 404");
@@ -97,7 +104,7 @@ void testHeads() {
     check(has(page, "frame-ancestors 'none'") && has(page, "X-Frame-Options: DENY\r\n"), "not framed");
     check(!has(page, "Access-Control"), "no CORS on the page");
     for (Resource r : {Resource::Page, Resource::Script, Resource::Style, Resource::Master, Resource::Playlist, Resource::Init,
-                       Resource::Segment}) {
+                       Resource::Segment, Resource::Stream}) {
         const std::string h = share::responseHead(200, r, 10, kToken);
         check(has(h, "Cache-Control: no-store\r\n") && has(h, "X-Content-Type-Options: nosniff\r\n") &&
                   has(h, "Referrer-Policy: no-referrer\r\n") && has(h, "Connection: close\r\n"),
@@ -122,6 +129,18 @@ void testHeads() {
     check(has(share::responseHead(405, Resource::Page, 0, kToken), "Allow: GET, HEAD, OPTIONS\r\n"), "405 says what is allowed");
     check(share::responseHead(414, Resource::None, 0, kToken).rfind("HTTP/1.1 414 URI Too Long", 0) == 0, "414");
     check(share::responseHead(431, Resource::None, 0, kToken).rfind("HTTP/1.1 431 Request Header Fields Too Large", 0) == 0, "431");
+
+    // The browser's feed: mp4 with no length (it ends when the connection closes), no CORS, no CSP.
+    const std::string feed = share::responseHead(200, Resource::Stream, 12345, kToken);
+    check(has(feed, "Content-Type: video/mp4\r\n") && !has(feed, "Content-Length") && has(feed, "Connection: close\r\n"),
+          "the feed: mp4, no length, closed to end");
+    check(!has(feed, "Access-Control") && !has(feed, "Content-Security-Policy"), "the feed has no CORS: the page is same-origin");
+    check(has(share::responseHead(405, Resource::Stream, 0, kToken), "Allow: GET, HEAD\r\n"), "405 on the feed: no OPTIONS");
+    const std::string busy = share::responseHead(503, Resource::Stream, 0, kToken);
+    check(busy.rfind("HTTP/1.1 503 Service Unavailable\r\n", 0) == 0 && has(busy, "Retry-After: 2\r\n") &&
+              has(busy, "Content-Length: 0\r\n") && !has(busy, "\r\nContent-Type:"),
+          "503 when the feed's viewers are full: retry, no body");
+    check(share::kMaxStreams == GEODE_LINK_MAX_STREAMS && share::kMaxStreams >= 1, "abi: the feed's viewer cap");
 }
 
 // ---- An init segment built like FragmentedMp4Muxer's: ftyp, moov with an avc1 and an mp4a trak. ----
@@ -264,6 +283,9 @@ void testPage() {
     check(has(js, "'index.m3u8'") && has(js, "isTypeSupported") && has(js, "appendBuffer") && has(js, "application/vnd.apple.mpegurl"),
           "MSE first, native HLS after");
     check(has(js, "cache: 'no-store'") && has(js, "credentials: 'omit'"), "fetches neither cache nor send credentials");
+    check(has(js, "'stream.mp4'") && has(js, "getReader()") && has(js, "CUSHION_S = 0.5"),
+          "MSE reads the one live feed as it arrives, half a second in hand");
+    check(!has(js, "live.m3u8"), "the MSE player no longer polls the media playlist");
 
     size_t size = 0;
     const char* page = geode_link_asset(GEODE_LINK_PAGE, &size);
@@ -316,11 +338,18 @@ void testAbiRoute() {
     check(geode_link_route("GET", target.c_str(), kToken.c_str(), &resource, &sequence) == 200 && resource == GEODE_LINK_SEGMENT &&
               sequence == 7,
           "abi: route");
+    const std::string feedTarget = "/" + kToken + "/stream.mp4";
+    check(geode_link_route("GET", feedTarget.c_str(), kToken.c_str(), &resource, &sequence) == 200 &&
+              resource == GEODE_LINK_STREAM && sequence == -1,
+          "abi: the feed's route");
     check(geode_link_route(nullptr, nullptr, nullptr, &resource, &sequence) == 404 && resource == GEODE_LINK_NONE && sequence == -1,
           "abi: nulls are a 404");
     char head[1024];
     const int len = geode_link_response_head(200, GEODE_LINK_PAGE, 5, kToken.c_str(), head, sizeof head);
     check(len > 0 && std::string(head) == share::responseHead(200, Resource::Page, 5, kToken), "abi: the head");
+    check(geode_link_response_head(200, GEODE_LINK_STREAM, -1, kToken.c_str(), head, sizeof head) > 0 &&
+              std::string(head) == share::responseHead(200, Resource::Stream, -1, kToken),
+          "abi: the feed's head");
     check(geode_link_response_head(200, 77, 5, kToken.c_str(), head, sizeof head) > 0 && !has(head, "\r\nContent-Type:"),
           "abi: an unknown resource has no type");
 }

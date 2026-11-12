@@ -9,12 +9,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The stage's live look, held for the cast renderer: the TV mirrors exactly what the phone's visual
- * shows (owner, 2026-11-02), a style only previewed in the Styles grid included, which the saved
- * live state deliberately leaves out.
+ * The stage's live look, held for the cast's fallback renderer, which draws only while the stage draws
+ * nothing (the app in the background); while the stage draws, the stream carries its own frames
+ * (core/viz/frame/CastTee). The fallback follows what the phone's visual last showed (owner, 2026-11-02),
+ * a style only previewed in the Styles grid included, which the saved live state deliberately leaves out.
  *
  * The MilkDrop preset is mirrored too ([milkPath]): the cast renderer restores the process's
  * remembered preset only when it is built, so without it a .milk picked on the phone, or drawn by
@@ -40,6 +44,18 @@ object CastMirror {
     @Volatile
     var milkPath: String? = null
         private set
+
+    private val streamingFlow = MutableStateFlow(false)
+
+    /**
+     * True while a cast stream runs (TV or browser). The stream carries the stage's own frames (core/viz/frame/CastTee),
+     * so the shell keeps the stage drawing while the app is open on another tab ([CastStream]).
+     */
+    val streaming: StateFlow<Boolean> = streamingFlow.asStateFlow()
+
+    internal fun setStreaming(on: Boolean) {
+        streamingFlow.value = on
+    }
 
     /** What the shell last saw of the stage (the `GeodeNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
     @Volatile

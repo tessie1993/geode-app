@@ -79,6 +79,9 @@
   <li><strong><code>MODIFY_AUDIO_SETTINGS</code></strong>: for bit-perfect USB audio output to an external DAC.</li>
   <li><strong><code>VIBRATE</code></strong>: haptic feedback for the app's controls.</li>
   <li><strong><code>WAKE_LOCK</code></strong>: keeps the music playing while the screen is off.</li>
+  <li><strong><code>RECEIVE_BOOT_COMPLETED</code></strong>: added by Android's WorkManager library, which the home-screen
+  widget uses, so widget updates still pending when the phone restarts can run. The app starts
+  nothing of its own at boot.</li>
 </ul>
 <p>BeatRealms requests no camera, contacts or location permission.</p>
 

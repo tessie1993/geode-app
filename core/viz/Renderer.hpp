@@ -211,8 +211,9 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
-    // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
-    void applyStyleSchedule();
+    // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
+    // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
+    void applyStyleSchedule(float dt);
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();

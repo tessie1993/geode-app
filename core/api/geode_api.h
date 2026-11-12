@@ -1649,6 +1649,13 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
 
+/* The widget's generated glow (viz/WidgetGlow), for a style with no thumbnail: writes 3 lights x 6 floats into
+ * out[18] (x and y as shares of the bitmap's width and height, radius as a share of its width, hue in degrees,
+ * saturation, value) and returns 3; 0 for a null out. `art_hue` below zero means no cover; `style_hash` is Java's
+ * String.hashCode of the style id and counts only when `has_style`. Pure, any thread. */
+GEODE_API int             geode_widget_glow(float art_hue, float art_span, int has_style, int style_hash, int tick,
+                                            float* out);
+
 #ifdef __cplusplus
 }
 #endif

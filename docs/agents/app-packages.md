@@ -334,6 +334,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+).
 - Progress moves on a slow tick while playing.
 - The style on screen shows as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette).
+- The glow's light positions and hues are native (`core/viz/WidgetGlow`, `geode_widget_glow`); `WidgetVisual` only paints the gradients.
 - Style buttons go to the session through `WidgetStyles` (it collects `steps`, calls `publish`); with no session they open the app.
 - Play/pause is Media3's button action, the tile's rule: nothing loaded opens the app.
 

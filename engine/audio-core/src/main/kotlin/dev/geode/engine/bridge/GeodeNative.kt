@@ -1008,6 +1008,18 @@ object GeodeNative {
     /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
     external fun artPaletteExtract(argb: IntArray): FloatArray?
 
+    /**
+     * The widget glow's three lights as 6 floats each: x and y (shares of the bitmap), radius (share of its width), hue in
+     * degrees, saturation, value (`geode_widget_glow`). [styleHash] is the style id's `hashCode`. Pure.
+     */
+    external fun widgetGlow(
+        artHue: Float,
+        artSpan: Float,
+        hasStyle: Boolean,
+        styleHash: Int,
+        tick: Int,
+    ): FloatArray
+
     /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
     external fun paletteColourMapName(index: Int): String
 

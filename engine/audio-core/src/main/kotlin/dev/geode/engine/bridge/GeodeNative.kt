@@ -1835,6 +1835,49 @@ object GeodeNative {
     const val STAGE_PRESENT_ENTITLED = 1 shl 1
     const val STAGE_PRESENT_FOUND = 1 shl 2
 
+    /**
+     * What the stage's next/previous style steps (core/viz/StageStep): [page] is the open Visuals page
+     * (STAGE_STEP_PAGE_*), [flags] the STAGE_STEP_* facts, [milkCount] the .milk presets listed and
+     * [lookCount] the saved looks the user may apply. One of [STAGE_STEP_STYLES], [STAGE_STEP_LOOKS], [STAGE_STEP_MILK].
+     */
+    external fun stageStepTarget(
+        page: Int,
+        flags: Int,
+        milkCount: Int,
+        lookCount: Int,
+    ): Int
+
+    /** The item [step] places from [here] among [open]'s, wrapping, skipping [here] and the closed ones; -1 for none. */
+    external fun stageStepIndex(
+        open: BooleanArray,
+        here: Int,
+        step: Int,
+    ): Int
+
+    /**
+     * The index in [paths] (the MilkDrop page's order) of the .milk [step] loads from [current] ("" when MilkDrop
+     * is not on screen), previous retracing the steps taken; -1 for none.
+     */
+    external fun stageStepMilk(
+        paths: Array<String>,
+        current: String,
+        step: Int,
+    ): Int
+
+    const val STAGE_STEP_PAGE_STYLES = 0
+    const val STAGE_STEP_PAGE_CUSTOMIZE = 1
+    const val STAGE_STEP_PAGE_PRESETS = 2
+    const val STAGE_STEP_PAGE_MILKDROP = 3
+    const val STAGE_STEP_PAGE_TEXTURES = 4
+    const val STAGE_STEP_PAGE_SETTINGS = 5
+    const val STAGE_STEP_SHEET_SHOWN = 1 shl 0
+    const val STAGE_STEP_ON_MILK = 1 shl 1
+    const val STAGE_STEP_ON_LOOK = 1 shl 2
+    const val STAGE_STEP_MILK_OPEN = 1 shl 3
+    const val STAGE_STEP_STYLES = 0
+    const val STAGE_STEP_LOOKS = 1
+    const val STAGE_STEP_MILK = 2
+
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
@@ -1909,6 +1952,12 @@ object GeodeNative {
      * fade (native `core/viz/TransitionChoice`).
      */
     external fun autoMarkChange(key: String)
+
+    /** Auto's random draw (core/viz/AutoDraw): an index in 0 until [count], never [onScreen] while count > 1; -1 for none. */
+    external fun autoPick(
+        count: Int,
+        onScreen: Int,
+    ): Int
 
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1

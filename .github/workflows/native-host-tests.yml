@@ -178,9 +178,12 @@ jobs:
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test
           ./surface_motion_test
-          # Auto's style timer: the interval plus a spread per look, never sooner than the interval; and the duration a .milk preset's progress runs over.
+          # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
+          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
+          ./stage_step_test
           # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
           ./milk_shader_note_test

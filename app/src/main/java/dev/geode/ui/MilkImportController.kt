@@ -16,6 +16,8 @@ import dev.geode.model.MilkFile
 import dev.geode.render.scene.MilkStarterPack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -30,27 +32,54 @@ internal class MilkImportController(
 
     private fun importDir(): File = File(application.filesDir, "milk")
 
+    private val _files = MutableStateFlow<List<MilkFile>>(emptyList())
+
+    /**
+     * The user's .milk presets, newest first: the MilkDrop page's list, the order the stage's step walks
+     * (native `core/viz/StageStep`) and Auto's pool. Re-read after every import here and whenever
+     * [relist] is asked (a removed texture's generated preset), so neither the page nor Auto keeps a
+     * list from before an import or a delete. Empty until the first read.
+     */
+    val files: StateFlow<List<MilkFile>> = _files
+
+    /**
+     * Reads the list again ([files]): the starter pack (a marker read once it is in) and the folder,
+     * without [milkPresetFilesAsync]'s relink of every preset, so an import's relist stays cheap.
+     */
+    fun relist() = listAsync(relink = false) {}
+
+    /** The list for Auto and randomize-everything, after a full relink; also published as [files]. */
+    fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = listAsync(relink = true, onDone)
+
     @Suppress("TooGenericExceptionCaught")
-    fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) {
+    private fun listAsync(
+        relink: Boolean,
+        onDone: (List<MilkFile>) -> Unit,
+    ) {
         scope.launch(Dispatchers.IO) {
-            val files =
+            val listed =
                 try {
-                    builtInDir().deleteRecursively()
-                    File(importDir(), "textures").mkdirs()
+                    if (relink) {
+                        builtInDir().deleteRecursively()
+                        File(importDir(), "textures").mkdirs()
+                    }
                     MilkStarterPack.install(application, importDir())
                     // Idempotent refresh: catches textures imported before a preset existed,
                     // presets from older installs that predate linking, and starter presets.
-                    textureLinks.relinkAll()
+                    if (relink) textureLinks.relinkAll()
                     importDir()
-                        .listFiles { f -> f.extension == "milk" }
+                        .listFiles { f -> f.isFile && f.extension == "milk" }
                         .orEmpty()
+                        .sortedByDescending { it.lastModified() }
                         .map { MilkFile(it.nameWithoutExtension, it.absolutePath) }
-                        .sortedBy { it.name }
                 } catch (t: Throwable) {
                     RingLog.note("MilkFiles", "milk list failed", t)
                     emptyList()
                 }
-            withContext(Dispatchers.Main) { onDone(files) }
+            withContext(Dispatchers.Main) {
+                _files.value = listed
+                onDone(listed)
+            }
         }
     }
 
@@ -60,6 +89,7 @@ internal class MilkImportController(
     ) {
         scope.launch(Dispatchers.IO) {
             val path = importMilkPresetBlocking(uri)
+            if (path != null) relist()
             withContext(Dispatchers.Main) { onDone(path) }
         }
     }
@@ -86,6 +116,7 @@ internal class MilkImportController(
     ) {
         scope.launch(Dispatchers.IO) {
             val path = if (openableMilkName(uri) != null) importMilkPresetBlocking(uri, keepExisting = true) else null
+            if (path != null) relist()
             withContext(Dispatchers.Main) { onDone(path) }
         }
     }
@@ -146,6 +177,7 @@ internal class MilkImportController(
             // The importer's missing count is measured BEFORE linking; what the person needs to
             // hear is the state after it - how many presets still had to take a stand-in.
             val report = imported.copy(presetsMissingTextures = textureLinks.relinkAll())
+            relist()
             withContext(Dispatchers.Main) { onDone(report) }
         }
     }

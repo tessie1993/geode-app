@@ -138,6 +138,13 @@ fun VisualizerEngineBindings(
         val sceneId = if (layers.enabled) layers.sceneId else null
         visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
     }
+    LaunchedEffect(Unit) {
+        // Settings › Gestures & controls › Touch › Smear: handed over as set; native bends the picture (core/viz/TouchSmear).
+        settingsViewModel.visuals
+            .map { it.touchSmear to it.touchSmearStrength }
+            .distinctUntilChanged()
+            .collect { (on, strength) -> visualizerView.visualizerRenderer.nativeViz.setTouchSmear(on, strength) }
+    }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }

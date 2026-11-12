@@ -310,10 +310,12 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
     in.texB = fboB_.tex();
-    // Liquid mode shows the liquid in place of the scene target; the composite's old flow nudge is retired.
     if (liquidTex != 0) in.texA = liquidTex;
-    in.flowTex = compositePass_.zeroTex();
-    in.flowStrength = 0.0f;
+    // The smear bends the finished picture by the flow field; Liquid mode rides that field itself.
+    fluid::FlowField* ff = overlays_.flow();
+    const bool smear = smearWarp_ > 0.0f && ff != nullptr && ff->available();
+    in.flowTex = smear ? ff->velocityTex() : compositePass_.zeroTex();
+    in.flowStrength = smear ? smearWarp_ : 0.0f;
     in.progress = progress;
     in.layerMix = safety::layerMix(frameLayerMix_, blendModeFromOrdinal(frameLayerBlend_));
     in.blendOrdinal = frameLayerBlend_;
@@ -349,6 +351,31 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
     stepLiquid(scene, p, dt);
+    stepSmear(dt);
+}
+
+void Renderer::stepSmear(float dt) {
+    smearWarp_ = 0.0f;
+    const touch::SmearSettings s{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
+    fluid::FlowField* ff = overlays_.flow();
+    // Never in an export, never beside Liquid mode (paused included: its field keeps its place), and,
+    // as flow distortion, one of the optional passes: off on a hot phone or without Performance's extra effects.
+    const bool can = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
+                     thermal_.tierInfo().optionalPasses && userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
+                     ff->available();
+    if (!can) {
+        smearTrail_.reset();
+        smearLinger_.reset();
+        return;
+    }
+    smearTrail_.step(touchField_.points(), dt, s, [&](const touch::SmearKick& k) {
+        ff->queueKick(k.x, k.y, k.vx, k.vy, touch::kSmearRadius);
+        smearLinger_.kicked();
+    });
+    if (!smearLinger_.live()) return;
+    if (dt > 0.0f) ff->stepTouch(dt, touch::kSmearDissipation);
+    smearLinger_.step(dt);
+    smearWarp_ = touch::smearWarp(s, smearLinger_.fade(), frameSettings_.reducedMotion);
 }
 
 // After stepOverlays, so the look follows this frame's touch anchor.

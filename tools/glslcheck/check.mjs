@@ -185,6 +185,8 @@ const SHADER_VALUES = {
   uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
+  // Your colours (lib_palette): none picked, so the cosine ramp draws.
+  uPalStops: new Array(15).fill(0), uPalStopCount: 0,
   uMoveDir: [0.8, 0.6], uSpawnSeed: 0.37, uSpawnAge: 4.0, uFormPhase: 0.62, uFlowPhase: 12.5,
   uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
   uKeyHue: 0.3, uKeyStrength: 0.5, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,

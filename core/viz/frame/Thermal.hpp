@@ -173,6 +173,23 @@ public:
     // kept-up frames with no raise anywhere, so a cheap surface keeping up cannot undo a busy one's raise.
     uint64_t raises() const { return raises_.load(std::memory_order_relaxed); }
 
+    // The "Phone is warm" note on the Visuals stage (#994): once per process, the first time a hot tier has
+    // made the stage draw fewer frames than it asks for. `surfaceCapFps` is the stage's own cap (Follow device
+    // too), `pacedFps` the rate its pacer holds it to now. Returns that rate, rounded, to name in the note, and 0
+    // every other time: cool, a cap already at the floor, or a pacer that has not stepped down yet (asked again).
+    int takeWarmNote(float surfaceCapFps, float pacedFps) {
+        const int rungs = fpsRungsDown();
+        if (rungs <= 0 || !std::isfinite(pacedFps) || pacedFps <= 0.0f) return 0;
+        if (!frame::isLiveFpsFollow(surfaceCapFps)) {
+            const float hot = frame::thermalStepCapFps(surfaceCapFps, rungs);
+            const bool capped = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
+            if (capped && hot >= surfaceCapFps) return 0;
+            if (pacedFps > hot + frame::kRefreshToleranceHz) return 0;
+        }
+        if (warmNoteShown_.exchange(true, std::memory_order_relaxed)) return 0;
+        return static_cast<int>(std::lround(pacedFps));
+    }
+
     static ThermalTier statusTier(int status) {
         // PowerManager.THERMAL_STATUS_*: NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
         if (status <= 0) return ThermalTier::Full;
@@ -222,6 +239,7 @@ private:
     std::atomic<ThermalTier> measuredFloor_{ThermalTier::Full};
     std::atomic<bool> platformKnows_{false};
     std::atomic<uint64_t> raises_{0};
+    std::atomic<bool> warmNoteShown_{false};
     // Under lock_.
     int status_ = 0;
     float headroom_ = std::numeric_limits<float>::quiet_NaN();

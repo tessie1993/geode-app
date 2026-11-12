@@ -66,6 +66,8 @@ public:
     // The context is gone: drops everything held without GL calls.
     void forget() { entries_.clear(); }
     bool parallel() const { return parallel_; }
+    // Moves each time a program finishes (built, failed or loaded from the cache): ScenePrep's stall clock.
+    int progress() const { return progress_; }
 
 private:
     struct Job {
@@ -92,6 +94,7 @@ private:
     ProgramBinaryCache* cache_;
     bool parallel_ = false;
     bool deferred_ = false;
+    int progress_ = 0;
     std::vector<Entry> entries_;
 };
 

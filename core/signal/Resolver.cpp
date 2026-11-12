@@ -17,6 +17,28 @@ void Resolver::beginMorph(float seconds) {
     morphRemainSec_ = seconds * 3.0f;
 }
 
+viz::macrobank::KnobMods Resolver::knobModsOf(const std::array<float, viz::LfoEngine::kSlots>& waves,
+                                              const std::array<float, viz::AdsrEngine::kCount>& envs) const {
+    using viz::LfoTarget;
+    using viz::macrobank::KnobMods;
+    KnobMods mods;
+    for (size_t i = 0; i < waves.size(); ++i) {
+        const viz::LfoConfig& c = lfo_.configs[i];
+        if (!c.enabled || c.target != LfoTarget::Macro || c.knob <= 0) continue;
+        // How far the wave can turn the knob: its depth, one way or both (its polarity).
+        const float depth = std::clamp(c.depth, 0.0f, 1.0f);
+        const float lo = c.polarity == viz::ModPolarity::Positive ? 0.0f : -depth;
+        const float hi = c.polarity == viz::ModPolarity::Negative ? 0.0f : depth;
+        mods.add(c.knob, waves[i], KnobMods::kWave, lo, hi);
+    }
+    for (size_t i = 0; i < envs.size(); ++i) {
+        const viz::AdsrConfig& c = adsr_.configs[i];
+        if (!c.enabled || c.knob <= 0 || std::find(c.targets.begin(), c.targets.end(), LfoTarget::Macro) == c.targets.end()) continue;
+        mods.add(c.knob, envs[i] * c.amount, KnobMods::kEnvelope, 0.0f, c.amount);
+    }
+    return mods;
+}
+
 void Resolver::reset() {
     // Exactly what a new surface has always reset; the LFO and envelope phases, the fade and the director's
     // commit count carry on (a reset director counts from 0, so the next commit is a new moment again).
@@ -25,6 +47,7 @@ void Resolver::reset() {
     director_.reset();
     directorReach_.reset();
     notes_.reset();
+    momentWatch_.reset();
 }
 
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
@@ -92,9 +115,16 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         in.drums = own.noteDrums;
         notes_.step(sound, director_.emotion(), in, dt);
     }
-    const auto& envValues = adsr_.tick(dt, sound);
+    // The reaction matrix hears the frame before the waves and envelopes, so a slot set "On a moment" restarts or
+    // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them.
+    reactions_.tick(sound, dt);
+    const std::uint32_t moments = momentWatch_.step(reactions_.signals());
+    const auto& envValues = adsr_.tick(dt, sound, moments);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
-    const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data());
+    const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data(), moments);
+    // A wave or an envelope on a macro knob turns the knob, not a param: it is added to the knob's turn where the
+    // bank runs, so the knob's links move with it, and the user's turn is never rewritten (base plus modulation).
+    frame_.knobMods = knobModsOf(lfoValues, envValues);
     // Order: the director's shuffle, its look, its axes and modulators, then the user's macro bank and LFOs
     // over all of it. The bank adds its offsets to what the director left (base plus modulation), so every
     // stage after it (and the safety clamp) sees the knobbed look.
@@ -105,12 +135,11 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     }
     SceneParams p = director_.applyAxes(director_.apply(directorReach_.applyShuffle(displayed_)));
     p = directorReach_.applyModulation(p);
-    if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_);
+    if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_, &frame_.knobMods);
     p = lfo_.apply(p, lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
-    reactions_.tick(sound, dt);
     p = reactions_.apply(p);
     // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound

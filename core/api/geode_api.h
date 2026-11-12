@@ -16,12 +16,14 @@ typedef struct geode_tags     geode_tags;
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
 #define GEODE_LFO_SLOTS 3
-#define GEODE_LFO_CONFIG_FLOATS 9   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free) */
+#define GEODE_LFO_CONFIG_FLOATS 11  /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free),
+                                       knob (the macro knob's id a MACRO target turns; 0 none), moment (-1 free, else the Moment that restarts it) */
 #define GEODE_ADSR_SLOTS 2
 #define GEODE_REACT_ROUTES 12
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
-#define GEODE_ADSR_CONFIG_FLOATS 10 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
-                                       sustain_track, retrigger; followed by the target ordinals */
+#define GEODE_ADSR_CONFIG_FLOATS 12 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
+                                       sustain_track, retrigger, knob (as the LFO's), moment (-1 a note start, else the
+                                       Moment that fires it); followed by the target ordinals */
 
 GEODE_API geode_viz*  geode_viz_create(AAssetManager* assets, const char* cache_dir);
 GEODE_API void        geode_viz_destroy(geode_viz*);
@@ -33,6 +35,9 @@ GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
+/* Settings › Gestures & controls › Touch › Smear (core/viz/TouchSmear): on, the fingers touch play holds bend the
+ * picture through the flow field, at strength 0.2..2 (clamped; a broken value is 1). Live renderers only. Any thread. */
+GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float strength);
 /* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
 GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 GEODE_API void        geode_viz_load_milk_preset(geode_viz*, const char* path);
@@ -255,6 +260,10 @@ GEODE_API void            geode_viz_set_cast_source(geode_viz*, int on);
 GEODE_API geode_cast_tee* geode_cast_tee_open(int width, int height, int fps);
 GEODE_API int             geode_cast_tee_draw(geode_cast_tee*, int64_t now_ns, int width, int height);
 GEODE_API void            geode_cast_tee_close(geode_cast_tee*);
+/* 1 while a new stream should leave this frame slot empty for the stage's first copy instead of drawing on its own
+ * renderer: the shell says the stage draws (GEODE_STAGE_DRAWS), that renderer is not made yet and the tee opened
+ * since_open_ns ago, under 3 s. Pure (viz/frame/CastTeeRule). */
+GEODE_API int             geode_cast_tee_await_stage(int stage_draws, int fallback_made, int64_t since_open_ns);
 /* Shake to screenshot's picture: the next frame's finished visual (after the composite and the edge glow,
  * before the UI blur, as Record's tee sees it) is read back once, rows top first, RGBA8. Any thread.
  * geode_viz_still_size gives its width and height (1 once it is ready, 0 before); geode_viz_still_read copies
@@ -456,6 +465,53 @@ GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, floa
 GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
 GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
 GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
+/* The palette stack (viz/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
+ * up to 16 colours with its options (SMOOTH|STEPS, MIRROR|LOOP, RGB|HUE|OKLAB, a position per stop, and for one
+ * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, meeting at a
+ * SOFT edge (a bounded cross-fade; the default) or a HARD one under SHARE, and fullRange (0: colour moves stay
+ * in the stack). set_edge and set_blend change nothing for a name they do not know. The shell keeps a stack and a palette as opaque text and hands it back;
+ * every edit returns the edited text, valid until the calling thread's next palette call. Pure, any thread.
+ * library_text: "library|<version>|<count>" then "entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stops>"
+ * (static); entries 0..20 are the old `palette` ramps, 21..25 the old colour maps. library_entry: that entry as
+ * a palette line ("" out of range); library_index: an id's index or -1. stack_unset: the stack that draws the
+ * style's own palette; stack_resolve_default puts style_default in as the only layer of an unset stack.
+ * stack_layer: a layer as a palette line, "" out of range. stack_set_layer at layer_count appends.
+ * from_colours: a palette of `count` 0xRRGGBB colours (invalid skipped, 16 kept) from source BUILT_IN,
+ * COLOUR_MAP, STYLE (ref = style id), MILK (ref = .milk file name), ARTWORK or YOURS. Palette edits return ""
+ * for a line that is not a palette; set_stop and add_stop keep or append the place when pos < 0.
+ * swatch: `samples` colours of a palette's own run, first stop to last; stack_ramp: the stack's composed ramp
+ * at texel centres under amounts[8] (NULL: 1 for the primary, 0.5 for the rest). stack_from_params: an old
+ * look's colours (the geode_viz_set_params frame's palette rows) as a stack that draws as it did, and its
+ * amounts into amounts_out[8]. recent_push: the recent colours text with rgb first, no repeats, at most 24;
+ * recent_read: its colours into out (at most max), the count; out NULL counts them all. */
+GEODE_API const char* geode_palette_library_text(void);
+GEODE_API const char* geode_palette_library_entry(int index);
+GEODE_API int         geode_palette_library_index(const char* id);
+GEODE_API const char* geode_palette_stack_normalize(const char* stack);
+GEODE_API const char* geode_palette_stack_unset(void);
+GEODE_API int         geode_palette_stack_is_unset(const char* stack);
+GEODE_API int         geode_palette_stack_layer_count(const char* stack);
+GEODE_API const char* geode_palette_stack_layer(const char* stack, int layer);
+GEODE_API const char* geode_palette_stack_resolve_default(const char* stack, const char* style_default);
+GEODE_API const char* geode_palette_stack_add(const char* stack, const char* palette_line);
+GEODE_API const char* geode_palette_stack_set_layer(const char* stack, int layer, const char* palette_line);
+GEODE_API const char* geode_palette_stack_remove(const char* stack, int layer);
+GEODE_API const char* geode_palette_stack_move(const char* stack, int layer, int delta);
+GEODE_API const char* geode_palette_stack_set_blend(const char* stack, const char* blend);
+GEODE_API const char* geode_palette_stack_set_edge(const char* stack, const char* edge);
+GEODE_API const char* geode_palette_stack_set_full_range(const char* stack, int on);
+GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);
+GEODE_API const char* geode_palette_set_stop(const char* palette_line, int stop, int rgb, float pos);
+GEODE_API const char* geode_palette_add_stop(const char* palette_line, int rgb, float pos);
+GEODE_API const char* geode_palette_remove_stop(const char* palette_line, int stop);
+GEODE_API const char* geode_palette_set_option(const char* palette_line, const char* option);
+GEODE_API const char* geode_palette_rename(const char* palette_line, const char* name);
+GEODE_API const char* geode_palette_spread(const char* palette_line);
+GEODE_API void        geode_palette_swatch(const char* palette_line, int samples, int* out);
+GEODE_API void        geode_palette_stack_ramp(const char* stack, const float* amounts, int samples, int* out);
+GEODE_API const char* geode_palette_stack_from_params(const float* params, float* amounts_out);
+GEODE_API const char* geode_colour_recent_push(const char* recent, int rgb);
+GEODE_API int         geode_colour_recent_read(const char* recent, int* out, int max);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
@@ -538,7 +594,9 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * geode_macro_bank_hide_knob takes a knob off screen into the bank's library and geode_macro_bank_show_knob puts one
  * back (a built-in knob too, as built, when the bank lacks it). geode_macro_bank_auto_name
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
- * adds to its params each frame, after the director and the note layer and before the LFOs. */
+ * adds to its params each frame, after the director and the note layer and before the LFOs. geode_macro_bank_live_mods is
+ * what the waves and envelopes on a knob (LfoTarget MACRO) add to its turn on the on-screen surface's last frame, one row
+ * "mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>" per knob, for the knob's second arc; poll it from the UI. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
 GEODE_API const char* geode_macro_bank_targets_text(void);
@@ -565,6 +623,7 @@ GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
+GEODE_API const char* geode_macro_bank_live_mods(void);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
@@ -812,6 +871,18 @@ GEODE_API void            geode_auto_mark_change(const char* key);
 /* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
  * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
+/* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
+ * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
+ * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
+ * none. With family_only in a family of one style it never leaves the family: GEODE_STYLES_ROLL_INSIDE when that
+ * style has variety of its own to roll (inner_count: its variations, the .milk presets for MilkDrop, 0 for none;
+ * inner_on_screen: the one showing, -1 for none; it rolls when one is not on screen), else -1. lead: writes
+ * into out (count ints) the order a list shows, lead first (the item on screen, or the family holding it), the
+ * rest in order; lead outside the list keeps the order. */
+#define GEODE_STYLES_ROLL_INSIDE             (-2)
+GEODE_API int             geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen,
+                                              int family_only, int inner_count, int inner_on_screen);
+GEODE_API void            geode_styles_lead(int count, int lead, int* out);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and
  * of Cast; the answer is GEODE_STAGE_DRAWS while somebody can see the stage (resumed, or started in a
@@ -825,6 +896,18 @@ GEODE_API int             geode_auto_pick(int count, int on_screen);
 #define GEODE_STAGE_DRAWS                    (1u << 0)
 #define GEODE_STAGE_CAST_LEADS_AUTO          (1u << 1)
 GEODE_API unsigned        geode_stage_run(unsigned flags);
+
+/* Where the shell lays the stage's view out (viz/StageRun host): flags are GEODE_STAGE_HOST_*, bounds the Visuals
+ * screen's rect in window pixels (left, top, right, bottom; empty before Visuals was laid out), window_w x window_h
+ * the window. rect_out gets the view's rect (left, top, right, bottom; empty: 0 x 0): the bounds, or while casting
+ * the window when there are none (the tee turns and crops the picture to the stream, tee::place). Returns
+ * GEODE_STAGE_HOST_HIDDEN, _FAINT (drawing under the other screens) or _OPAQUE. Pure. */
+#define GEODE_STAGE_HOST_SHOWN               (1u << 0)
+#define GEODE_STAGE_HOST_CASTING             (1u << 1)
+#define GEODE_STAGE_HOST_HIDDEN              0
+#define GEODE_STAGE_HOST_FAINT               1
+#define GEODE_STAGE_HOST_OPAQUE              2
+GEODE_API int             geode_stage_host(unsigned flags, const int* bounds, int window_w, int window_h, int* rect_out);
 
 /* The connected display the stage shows on (viz/StageRun): flags per display are the GEODE_STAGE_DISPLAY_* bits
  * plus its failures so far << GEODE_STAGE_DISPLAY_FAILURE_SHIFT. pick returns the index of the display to use
@@ -842,7 +925,7 @@ GEODE_API int             geode_stage_pick_display(const int* ids, const unsigne
 GEODE_API int             geode_stage_presents(unsigned flags);
 
 /* What the stage's "next / previous style" steps (core/viz/StageStep; owner 2026-11-12: it walks what the open
- * Visuals tab lists). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
+ * Visuals tab lists, and the .milk presets from any tab while MilkDrop is on screen and two are listed). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
  * milk_count the .milk presets listed and look_count the saved looks the user may apply; the answer is
  * GEODE_STAGE_STEP_STYLES, _LOOKS or _MILK. index: the item step (+1 next, -1 previous) places from here among
  * count items, wrapping, skipping here and every open[i] == 0 (open null: all open), from an end when here is
@@ -897,6 +980,9 @@ GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 /* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
    forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
+/* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
+   has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
+GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its

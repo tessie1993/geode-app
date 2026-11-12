@@ -174,6 +174,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetTouch(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetTouchSmear(JNIEnv*, jobject, jlong handle, jboolean on, jfloat strength) {
+    geode_viz_set_touch_smear(vizOf(handle), on == JNI_TRUE ? 1 : 0, strength);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetFluidInjection(JNIEnv* env, jobject, jlong handle, jstring force, jstring dye) {
     Utf8Chars forceSrc(env, force);
     Utf8Chars dyeSrc(env, dye);
@@ -373,6 +378,11 @@ JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
     Utf8Chars text(env, bank);
     return env->NewStringUTF(geode_macro_bank_roll(text.get(), knobId, static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankLiveMods(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_macro_bank_live_mods());
 }
 
 JNIEXPORT jstring JNICALL
@@ -1273,6 +1283,11 @@ Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint stat
     geode_thermal_push(status, headroom);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_thermalTakeWarmNote(JNIEnv*, jobject, jfloat capFps, jfloat pacedFps) {
+    return geode_thermal_take_warm_note(capFps, pacedFps);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_memoryTrim(JNIEnv*, jobject, jint level) {
     geode_memory_trim(level);
@@ -1626,6 +1641,12 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeDraw(
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeClose(JNIEnv*, jobject, jlong tee) {
     geode_cast_tee_close(reinterpret_cast<geode_cast_tee*>(tee));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_castTeeAwaitStage(JNIEnv*, jobject, jboolean stageDraws,
+                                                                                       jboolean fallbackMade,
+                                                                                       jlong sinceOpenNs) {
+    return geode_cast_tee_await_stage(stageDraws ? 1 : 0, fallbackMade ? 1 : 0, sinceOpenNs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizStillRequest(JNIEnv*, jobject, jlong handle) {

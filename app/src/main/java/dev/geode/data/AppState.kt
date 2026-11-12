@@ -20,7 +20,10 @@ data class AppState(
     val safetyAcknowledged: Boolean = false,
     /** Whether first-run setup has been completed. */
     val setupDone: Boolean = false,
-    /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
+    /**
+     * The tour: chapters seen or skipped, where an unfinished one picks up, the tips said, and
+     * Settings › Tutorials' tips switch, which stays with this install like the rest of it.
+     */
     val tourProgress: TourProgress = TourProgress(),
 )
 
@@ -33,6 +36,7 @@ object AppStateCodec : PrefsCodec<AppState> {
     internal const val KEY_TUTORIAL_DONE = "gui_tutorial_done"
     internal const val KEY_TUTORIAL_RESUME = "gui_tutorial_resume"
     internal const val KEY_TUTORIAL_TIPS = "gui_tutorial_tips"
+    internal const val KEY_TUTORIAL_OFF = "gui_tutorial_off"
 
     /** Read-only: the retired first-run answer, kept solely so an old install counts as set up. */
     internal const val KEY_INTENT = "gui_intent"
@@ -48,7 +52,7 @@ object AppStateCodec : PrefsCodec<AppState> {
 
     override val keys =
         prefKeys(GeodePrefsFiles.GENERAL) {
-            state(PrefType.BOOLEAN, KEY_SAFETY_ACKNOWLEDGED, KEY_SETUP_DONE)
+            state(PrefType.BOOLEAN, KEY_SAFETY_ACKNOWLEDGED, KEY_SETUP_DONE, KEY_TUTORIAL_OFF)
             state(PrefType.STRING, KEY_TUTORIAL_DONE, KEY_TUTORIAL_RESUME, KEY_TUTORIAL_TIPS)
             retired(PrefType.STRING, KEY_INTENT, KEY_SAFETY_CHOICE)
             retired(PrefType.BOOLEAN, KEY_TUTORIAL_SEEN, backup = BackupClass.STATE)
@@ -73,6 +77,7 @@ object AppStateCodec : PrefsCodec<AppState> {
                     resume = prefs.getString(KEY_TUTORIAL_RESUME, null),
                     tips = prefs.getString(KEY_TUTORIAL_TIPS, null),
                     legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
+                    off = prefs.getBoolean(KEY_TUTORIAL_OFF, false),
                 ),
         )
 
@@ -86,6 +91,7 @@ object AppStateCodec : PrefsCodec<AppState> {
             .putString(KEY_TUTORIAL_DONE, value.tourProgress.encodeDone())
             .putString(KEY_TUTORIAL_RESUME, value.tourProgress.encodeResume())
             .putString(KEY_TUTORIAL_TIPS, value.tourProgress.encodeTips())
+            .putBoolean(KEY_TUTORIAL_OFF, value.tourProgress.off)
             .remove(KEY_TUTORIAL_SEEN)
             .remove(KEY_TUTORIAL_ON_FIRST_RUN)
     }

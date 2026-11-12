@@ -72,14 +72,16 @@ std::shared_ptr<CastTee>& currentTee() {
 
 }  // namespace
 
-CastTee::CastTee(int width, int height, int fps) : width_(width), height_(height), fps_(fps > 0 ? fps : 30) {
+CastTee::CastTee(int width, int height, int fps)
+    : width_(width), height_(height), side_(width > height ? width : height), fps_(fps > 0 ? fps : 30) {
     const Ext& e = ext();
     display_ = eglGetCurrentDisplay();
     if (display_ == EGL_NO_DISPLAY) display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (!e.usable() || display_ == EGL_NO_DISPLAY || width_ <= 0 || height_ <= 0) return;
     AHardwareBuffer_Desc desc{};
-    desc.width = static_cast<uint32_t>(width_);
-    desc.height = static_cast<uint32_t>(height_);
+    // Square: a slot holds the frame's size, or its transpose for a stage that is turned (tee::place).
+    desc.width = static_cast<uint32_t>(side_);
+    desc.height = static_cast<uint32_t>(side_);
     desc.layers = 1;
     desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
     desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER;
@@ -149,7 +151,14 @@ void CastTee::freeSide(Side& side) {
     forget(side);
 }
 
-void CastTee::releaseReader() { freeSide(reader_); }
+void CastTee::releaseReader() {
+    if (turn_.program != 0 && turn_.context == eglGetCurrentContext()) {
+        glDeleteProgram(turn_.program);
+        glDeleteVertexArrays(1, &turn_.vao);
+    }
+    turn_ = {};
+    freeSide(reader_);
+}
 
 void CastTee::releaseWriter() { freeSide(writer_); }
 
@@ -212,42 +221,158 @@ void CastTee::publish(GLuint sourceFbo, int sourceWidth, int sourceHeight, int64
     GLint readFb = 0;
     GLint drawFb = 0;
     GLint viewport[4] = {0, 0, 0, 0};
-    GLfloat clear[4] = {0.f, 0.f, 0.f, 0.f};
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFb);
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFb);
     glGetIntegerv(GL_VIEWPORT, viewport);
-    glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
     const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
     glDisable(GL_SCISSOR_TEST);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, writer_.framebuffer[slot]);
-    glViewport(0, 0, width_, height_);
-    glClearColor(0.f, 0.f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    const tee::Placement place = tee::place(sourceWidth, sourceHeight, width_, height_);
+    glViewport(0, 0, place.slotW, place.slotH);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, sourceFbo);
-    const tee::Rect r = tee::fit(sourceWidth, sourceHeight, width_, height_);
-    glBlitFramebuffer(0, 0, sourceWidth, sourceHeight, r.x0, r.y0, r.x1, r.y1, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    const tee::Rect r = place.crop;
+    glBlitFramebuffer(r.x0, r.y0, r.x1, r.y1, 0, 0, place.slotW, place.slotH, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(readFb));
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFb));
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-    glClearColor(clear[0], clear[1], clear[2], clear[3]);
     if (scissor) glEnable(GL_SCISSOR_TEST);
     void* fence = ext().createSync(display_, EGL_SYNC_FENCE_KHR, nullptr);
     glFlush();
     std::lock_guard<std::mutex> lock(lock_);
     if (written_[slot]) ext().destroySync(display_, written_[slot]);
     written_[slot] = fence == EGL_NO_SYNC_KHR ? nullptr : fence;
+    turned_[slot] = place.turned;
     box_.publish(slot, nowNs);
+}
+
+namespace {
+
+// One full-frame triangle; vUv is the frame's 0..1, v up.
+constexpr const char* kTurnVert = R"(#version 300 es
+out vec2 vUv;
+void main() {
+    vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+    vUv = p;
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}
+)";
+
+// tee::turnedSource: the slot's top on the frame's left. uScale maps 0..1 onto the slot's used corner, uMax keeps
+// the filter off the texels past it.
+constexpr const char* kTurnFrag = R"(#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+uniform vec2 uScale;
+uniform vec2 uMax;
+in vec2 vUv;
+out vec4 fragColor;
+void main() {
+    vec2 st = vec2(vUv.y, 1.0 - vUv.x);
+    fragColor = vec4(texture(uTex, min(st * uScale, uMax)).rgb, 1.0);
+}
+)";
+
+GLuint compileShader(GLenum type, const char* source) {
+    const GLuint shader = glCreateShader(type);
+    if (shader == 0) return 0;
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
+    GLint ok = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+    if (ok == GL_FALSE) {
+        glDeleteShader(shader);
+        return 0;
+    }
+    return shader;
+}
+
+}  // namespace
+
+bool CastTee::buildTurn() {
+    const EGLContext context = eglGetCurrentContext();
+    if (turn_.context == context && turn_.program != 0) return true;
+    if (turn_.context == context && turn_.failed) return false;
+    // A program from another (or a lost) context is not this one's to delete.
+    turn_ = {};
+    turn_.context = context;
+    const GLuint vert = compileShader(GL_VERTEX_SHADER, kTurnVert);
+    const GLuint frag = compileShader(GL_FRAGMENT_SHADER, kTurnFrag);
+    GLuint program = 0;
+    if (vert != 0 && frag != 0) {
+        program = glCreateProgram();
+        glAttachShader(program, vert);
+        glAttachShader(program, frag);
+        glLinkProgram(program);
+        GLint linked = 0;
+        glGetProgramiv(program, GL_LINK_STATUS, &linked);
+        if (linked == GL_FALSE) {
+            glDeleteProgram(program);
+            program = 0;
+        }
+    }
+    if (vert != 0) glDeleteShader(vert);
+    if (frag != 0) glDeleteShader(frag);
+    if (program == 0) {
+        turn_.failed = true;
+        return false;
+    }
+    turn_.program = program;
+    turn_.tex = glGetUniformLocation(program, "uTex");
+    turn_.scale = glGetUniformLocation(program, "uScale");
+    turn_.max = glGetUniformLocation(program, "uMax");
+    glGenVertexArrays(1, &turn_.vao);
+    return true;
+}
+
+bool CastTee::drawTurned(int slot) {
+    if (!buildTurn()) return false;
+    GLint program = 0;
+    GLint vao = 0;
+    GLint active = 0;
+    GLint texture = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+    const GLboolean blend = glIsEnabled(GL_BLEND);
+    const GLboolean depth = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean cull = glIsEnabled(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+    glUseProgram(turn_.program);
+    glBindVertexArray(turn_.vao);
+    glBindTexture(GL_TEXTURE_2D, reader_.texture[slot]);
+    // The slot holds the picture unturned at height_ x width_ in its bottom-left corner.
+    const float side = static_cast<float>(side_);
+    const float sx = static_cast<float>(height_) / side;
+    const float sy = static_cast<float>(width_) / side;
+    glUniform1i(turn_.tex, 0);
+    glUniform2f(turn_.scale, sx, sy);
+    glUniform2f(turn_.max, sx - 0.5f / side, sy - 0.5f / side);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture));
+    glActiveTexture(static_cast<GLenum>(active));
+    glBindVertexArray(static_cast<GLuint>(vao));
+    glUseProgram(static_cast<GLuint>(program));
+    if (blend) glEnable(GL_BLEND);
+    if (depth) glEnable(GL_DEPTH_TEST);
+    if (cull) glEnable(GL_CULL_FACE);
+    return true;
 }
 
 bool CastTee::draw(int64_t nowNs, int width, int height) {
     if (!ok_ || width <= 0 || height <= 0) return false;
     int slot = -1;
     void* writeFence = nullptr;
+    bool turned = false;
     {
         std::lock_guard<std::mutex> lock(lock_);
         slot = box_.acquire(nowNs);
         if (slot < 0) return false;
         writeFence = std::exchange(written_[slot], nullptr);
+        turned = turned_[slot];
     }
     // The stage's copy into this slot must be done before the encoder gets it (a GPU wait where the driver has
     // one; else up to kClientWaitNs, then the slot is read anyway: a torn frame beats a dropped one here).
@@ -258,11 +383,20 @@ bool CastTee::draw(int64_t nowNs, int width, int height) {
         return false;
     }
     glDisable(GL_SCISSOR_TEST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, reader_.framebuffer[slot]);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glViewport(0, 0, width, height);
-    const GLenum filter = width == width_ && height == height_ ? GL_NEAREST : GL_LINEAR;
-    glBlitFramebuffer(0, 0, width_, height_, 0, 0, width, height, GL_COLOR_BUFFER_BIT, filter);
+    if (turned) {
+        if (!drawTurned(slot)) {
+            // The turn's program would not build: the cast's own renderer draws rather than a stretched picture.
+            std::lock_guard<std::mutex> lock(lock_);
+            box_.release(slot);
+            return false;
+        }
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, reader_.framebuffer[slot]);
+        const GLenum filter = width == width_ && height == height_ ? GL_NEAREST : GL_LINEAR;
+        glBlitFramebuffer(0, 0, width_, height_, 0, 0, width, height, GL_COLOR_BUFFER_BIT, filter);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     void* fence = ext().createSync(display_, EGL_SYNC_FENCE_KHR, nullptr);
     glFlush();

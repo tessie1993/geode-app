@@ -182,7 +182,7 @@ static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the p
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::Macro) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
@@ -254,6 +254,10 @@ void geode_viz_begin_param_morph(geode_viz* v, float seconds) {
 void geode_viz_set_touch(geode_viz* v, const float* xy_ndc, int points) {
     if (!v) return;
     v->renderer.submitTouchPoints(xy_ndc ? xy_ndc : nullptr, xy_ndc ? std::max(points, 0) : 0);
+}
+
+void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
+    if (v) v->renderer.setTouchSmear(on != 0, strength);
 }
 
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
@@ -389,6 +393,14 @@ size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
     return source.size();
 }
 
+// A knob id the macro bank can hold; anything else is none.
+static int knobOf(float v) { return std::isfinite(v) && v >= 1.0f && v <= 999999.0f ? static_cast<int>(v) : 0; }
+
+// A Moment ordinal; anything else is none (-1).
+static int momentOf(float v) {
+    return std::isfinite(v) && v >= 0.0f && v < static_cast<float>(geode::viz::kMomentCount) ? static_cast<int>(v) : -1;
+}
+
 // Only the periods the editor offers; anything else is free timing.
 static float beatsOf(float v) {
     for (float b : {1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f}) if (v == b) return b;
@@ -406,8 +418,10 @@ void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
     cfg.depth = c[5];
     cfg.polarity = enumAt<ModPolarity>(c[6], kModPolarityCount);
     cfg.curve = enumAt<ModCurve>(c[7], kModCurveCount);
-    // Float 9 (beat timing) is absent from a shorter array: that slot stays free.
-    if (count >= GEODE_LFO_CONFIG_FLOATS) cfg.beats = beatsOf(c[8]);
+    // Float 9 (beat timing) is absent from a shorter array: that slot stays free; so are the knob and the moment.
+    if (count >= 9) cfg.beats = beatsOf(c[8]);
+    if (count >= 10) cfg.knob = knobOf(c[9]);
+    if (count >= GEODE_LFO_CONFIG_FLOATS) cfg.moment = momentOf(c[10]);
     std::lock_guard<std::mutex> lock(v->configLock);
     v->lfo[static_cast<size_t>(slot)] = cfg;
     v->renderer.setLfoConfigs(v->lfo);
@@ -426,6 +440,8 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     cfg.gateThreshold = c[7];
     cfg.sustainTrack = flag(c[8]);
     cfg.retrigger = flag(c[9]);
+    cfg.knob = knobOf(c[10]);
+    cfg.moment = momentOf(c[11]);
     for (int i = GEODE_ADSR_CONFIG_FLOATS; i < count; ++i) {
         cfg.targets.push_back(enumAt<LfoTarget>(c[i], kLfoTargetCount));
     }
@@ -500,6 +516,10 @@ float geode_pacer_effective_cap(float cap_fps) {
 
 void geode_thermal_push(int platform_status, float headroom) {
     geode::viz::ThermalState::process().push(platform_status, headroom, monotonicSeconds());
+}
+
+int geode_thermal_take_warm_note(float cap_fps, float paced_fps) {
+    return geode::viz::ThermalState::process().takeWarmNote(cap_fps, paced_fps);
 }
 
 void geode_memory_trim(int android_level) {

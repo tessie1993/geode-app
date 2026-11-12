@@ -282,6 +282,7 @@ internal fun ModulatorCard(
             if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
+            if (config.target == LfoTarget.MACRO) MacroKnobRow(config.knob) { onChange(config.copy(knob = it)) }
             DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
                 val source = ModSource.entries[it]
                 onChange(config.copy(source = source, polarity = ModTable.naturalPolarity(source)))
@@ -294,7 +295,10 @@ internal fun ModulatorCard(
                 DropdownRow("Timing", timing, LfoConfig.BEAT_CHOICES.indexOf(config.beats) + 1) {
                     onChange(config.copy(beats = LfoConfig.BEAT_CHOICES.getOrElse(it - 1) { 0 }))
                 }
-                if (config.beats == 0) RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
+                MomentTriggerRow(config.moment, stringResource(R.string.mod_moment_free)) { onChange(config.copy(moment = it)) }
+                // Native runs a wave on a moment on its own period, whatever its timing says.
+                val ownPeriod = config.beats == 0 || config.moment >= 0
+                if (ownPeriod) RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
             }
             LabeledSlider(MOD_DEPTH, config.depth, 0f..1f) { onChange(config.copy(depth = it)) }
             DropdownRow("Direction", ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {
@@ -387,6 +391,7 @@ internal fun AdsrCard(
                 onChange(config.copy(targets = if (t in config.targets) config.targets - t else config.targets + t))
             }
         }
+        if (LfoTarget.MACRO in config.targets) MacroKnobRow(config.knob) { onChange(config.copy(knob = it)) }
         CardSubHeader(stringResource(R.string.customize_envelope_shape))
         LabeledSlider(ENV_ATTACK, config.attack, 0.005f..1f, unit = ParamUnit.SECONDS) { onChange(config.copy(attack = it)) }
         LabeledSlider(ENV_DECAY, config.decay, 0.01f..1.5f, unit = ParamUnit.SECONDS) { onChange(config.copy(decay = it)) }
@@ -403,6 +408,7 @@ internal fun AdsrCard(
         LabeledSlider(ENV_GATE_LEVEL, config.gateThreshold, 0.05f..1f) { onChange(config.copy(gateThreshold = it)) }
         CheckRow(ENV_SUSTAIN_TRACK, config.sustainTrack) { onChange(config.copy(sustainTrack = it)) }
         CheckRow(ENV_RETRIGGER, config.retrigger) { onChange(config.copy(retrigger = it)) }
+        MomentTriggerRow(config.moment, stringResource(R.string.mod_moment_note_start)) { onChange(config.copy(moment = it)) }
     }
 }
 

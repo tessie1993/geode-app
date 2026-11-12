@@ -14,10 +14,12 @@ namespace geode::viz::frame {
 
 // Cast's tee: the stage's finished picture, handed to the cast stream's encoder (rules in CastTeeRule.hpp).
 //
-// The hand-off is through tee::kSlots AHardwareBuffers the size of the stream's frame, each an EGLImage that
+// The hand-off is through tee::kSlots square AHardwareBuffers as wide as the stream's frame, each an EGLImage that
 // both GL contexts (the stage's and the cast thread's) bind as a texture: the stage blits its composite into
-// one (scaled, its aspect kept, black around it) after the composite and before the UI blur, as Record's tap
-// does; the cast thread blits the newest into the encoder's surface. An EGL fence after each blit orders the
+// one after the composite and before the UI blur, as Record's tap does, cropped to the frame's shape (tee::place;
+// a portrait stage to the frame's transpose, unturned); the cast thread blits the newest into the encoder's
+// surface, or draws it a quarter turn counter-clockwise when it was a portrait stage (no blit turns a picture).
+// An EGL fence after each blit orders the
 // two GPUs' work: the reader waits on the writer's fence before it samples a slot, the writer on the reader's
 // before it overwrites one; neither waits long (the stage gives up after 2 ms and skips the copy).
 //
@@ -68,9 +70,24 @@ private:
     void freeSide(Side& side);
     // Waits for and destroys a fence; false when it timed out (it is then kept for the next try).
     bool settle(void*& fence, int64_t timeoutNs);
+    // The cast thread's quarter-turn draw of a portrait stage's slot into framebuffer 0; false without a program.
+    bool buildTurn();
+    bool drawTurned(int slot);
+
+    // The turn's program, in the cast thread's context.
+    struct Turn {
+        EGLContext context = EGL_NO_CONTEXT;
+        GLuint program = 0;
+        GLuint vao = 0;
+        GLint tex = -1;
+        GLint scale = -1;
+        GLint max = -1;
+        bool failed = false;
+    };
 
     const int width_;
     const int height_;
+    const int side_;  // the slots' edge: the frame's longer side
     const int fps_;
     bool ok_ = false;
     EGLDisplay display_ = EGL_NO_DISPLAY;
@@ -80,8 +97,10 @@ private:
     tee::Mailbox box_;                                          // lock_
     void* written_[tee::kSlots] = {nullptr, nullptr, nullptr};  // EGLSyncKHR, lock_: the stage's copy is done
     void* read_[tee::kSlots] = {nullptr, nullptr, nullptr};     // EGLSyncKHR, lock_: the cast's blit is done
+    bool turned_[tee::kSlots] = {false, false, false};          // lock_: the slot holds a portrait stage
     Side writer_;   // stage thread only
     Side reader_;   // cast thread only
+    Turn turn_;     // cast thread only
 };
 
 }  // namespace geode::viz::frame

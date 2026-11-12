@@ -67,6 +67,8 @@ public:
         int styleMoments = 0;
         // The camera rig's music moves: the director's Space and Chaos axes under its look.
         viz::CameraRig::Moves cameraMoves{};
+        // What the waves and envelopes on a macro knob added to its turn this step (the knob's second arc).
+        viz::macrobank::KnobMods knobMods{};
     };
 
     // Per-renderer configuration, kept until changed. Plain copies; call from the stepping thread.
@@ -95,9 +97,15 @@ public:
     const viz::MotionField& motionField() const { return motionField_; }
 
 private:
+    // What the slots on LfoTarget::Macro add to their knobs this step.
+    viz::macrobank::KnobMods knobModsOf(const std::array<float, viz::LfoEngine::kSlots>& waves,
+                                        const std::array<float, viz::AdsrEngine::kCount>& envs) const;
+
     viz::LfoEngine lfo_;
     viz::AdsrEngine adsr_;
     viz::ReactionEngine reactions_;
+    // Customize › Music's moments as they come, for the waves and envelopes set "On a moment".
+    viz::MomentWatch momentWatch_;
     viz::Director director_;
     int directorCommitsSeen_ = 0;
     viz::DirectorReach directorReach_;

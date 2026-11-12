@@ -38,6 +38,10 @@
 "lib_flame",
 "lib_opal",
 "lib_hollow",
+// Their second halves, included after the style's own map: the march that calls it (no prototypes).
+"lib_flame_march",
+"lib_opal_march",
+"lib_hollow_march",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).

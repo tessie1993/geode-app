@@ -53,6 +53,7 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.GestureTip
 import dev.geode.model.MilkFile
@@ -96,6 +97,7 @@ internal fun BoxScope.VisualsStage(
     tapSplitPx: () -> Float,
     onTapDown: (Long) -> Unit,
     onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
+    styleStepLabels: Pair<String, String>,
     remote: StageRemote? = null,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
@@ -112,7 +114,7 @@ internal fun BoxScope.VisualsStage(
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
                 onPinch = onPinch,
-                a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
+                a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording, styleStepLabels),
                 onTapDown = onTapDown,
             ).then(if (remote != null) Modifier.stageRemote(remote, behaviour, actions) else Modifier),
     )
@@ -153,6 +155,7 @@ internal fun BoxScope.StageIcons(
     onFullScreen: () -> Unit,
     onOpenStudioRender: () -> Unit,
     onSettings: () -> Unit,
+    stepLabels: Pair<String, String>,
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
@@ -254,7 +257,7 @@ internal fun BoxScope.StageIcons(
         ) {
             StageIconButton(
                 StoneIcon.CHEVRON_LEFT,
-                stringResource(R.string.visuals_previous_style),
+                stepLabels.second,
                 arrowsOn,
                 {
                     nudge(GestureTip.SWIPE_STYLES)
@@ -268,7 +271,7 @@ internal fun BoxScope.StageIcons(
             )
             StageIconButton(
                 StoneIcon.CHEVRON_RIGHT,
-                stringResource(R.string.visuals_next_style),
+                stepLabels.first,
                 arrowsOn,
                 {
                     nudge(GestureTip.SWIPE_STYLES)
@@ -493,18 +496,39 @@ internal fun rememberStageActions(
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /**
- * Every style the stage swipes through, in the order the Styles page lists them (the native
- * picker's families one after another). MilkDrop is left out: its presets are a library of their
+ * Every style the stage swipes through, in the native picker's order (its families one after
+ * another; the Styles page shows the same order with the style on screen lifted to the top, which
+ * would make a swipe walk a list that moves under it). MilkDrop is left out: its presets are a library of their
  * own, which the step walks from the MilkDrop tab ([stepStage]).
  */
 internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
 
 /**
+ * What the stage's "next / previous style" walks now (GeodeNative.STAGE_STEP_*). Native decides
+ * (`core/viz/StageStep`; owner, 2026-11-12: the open Visuals tab's list, and the .milk presets from any tab
+ * while MilkDrop is on screen); this only gathers the facts.
+ */
+internal fun stageStepTarget(
+    viz: VizUiState,
+    visualizerView: VisualizerView,
+    gate: FeatureGate,
+    page: VisualsPage,
+    sheetShown: Boolean,
+    milkCount: Int,
+): Int {
+    val looks = openLooks(viz, gate)
+    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(SceneIds.MILKDROP)
+    var flags = 0
+    if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
+    if (viz.sceneId == SceneIds.MILKDROP) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
+    if (lookOnStage(viz, looks) >= 0) flags = flags or GeodeNative.STAGE_STEP_ON_LOOK
+    if (milkOpen) flags = flags or GeodeNative.STAGE_STEP_MILK_OPEN
+    return GeodeNative.stageStepTarget(page.stepPage, flags, milkCount, looks.size)
+}
+
+/**
  * The stage's "next / previous style" ([GestureAction.STEP_STYLE]: whichever gesture the map gives it, ‹ ›,
- * TalkBack's action). What it walks is native (`core/viz/StageStep`; owner, 2026-11-12: the open Visuals
- * tab's list): the user's .milk presets from the MilkDrop tab, the saved looks from Presets, the styles from
- * everywhere else. With the options hidden the tab they were left on holds only while what is on screen still
- * comes from it. This gathers the facts and loads what native picked; [step] is +1 next, -1 previous.
+ * TalkBack's action): loads what native picks from [stageStepTarget]'s list; [step] is +1 next, -1 previous.
  */
 internal fun stepStage(
     viewModel: PlayerViewModel,
@@ -516,17 +540,9 @@ internal fun stepStage(
     step: Int,
 ) {
     val viz = viewModel.vizState.value
-    val looks = openLooks(viz, gate)
-    val onMilk = viz.sceneId == SceneIds.MILKDROP
-    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(SceneIds.MILKDROP)
-    var flags = 0
-    if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
-    if (onMilk) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
-    if (lookOnStage(viz, looks) >= 0) flags = flags or GeodeNative.STAGE_STEP_ON_LOOK
-    if (milkOpen) flags = flags or GeodeNative.STAGE_STEP_MILK_OPEN
-    when (GeodeNative.stageStepTarget(page.stepPage, flags, milkFiles.size, looks.size)) {
+    when (stageStepTarget(viz, visualizerView, gate, page, sheetShown, milkFiles.size)) {
         GeodeNative.STAGE_STEP_MILK -> {
-            val current = if (onMilk) viewModel.activeMilkPath.value.orEmpty() else ""
+            val current = if (viz.sceneId == SceneIds.MILKDROP) viewModel.activeMilkPath.value.orEmpty() else ""
             val next = GeodeNative.stageStepMilk(Array(milkFiles.size) { milkFiles[it].path }, current, step)
             if (next >= 0) selectMilk(viewModel, visualizerView, milkFiles[next].path)
         }
@@ -551,6 +567,16 @@ internal fun stepStageStyle(
     val next = GeodeNative.stageStepIndex(BooleanArray(order.size) { gate.allowsStyle(order[it]) }, here, step)
     if (next >= 0) viewModel.selectScene(order[next])
 }
+
+/** What the stage's next and previous name for [target] (GeodeNative.STAGE_STEP_*), for ‹ › and TalkBack. */
+@Composable
+internal fun stageStepLabels(target: Int): Pair<String, String> =
+    when (target) {
+        GeodeNative.STAGE_STEP_MILK -> stringResource(R.string.a11y_next_milk_preset) to stringResource(R.string.a11y_previous_milk_preset)
+        GeodeNative.STAGE_STEP_LOOKS ->
+            stringResource(R.string.visuals_gesture_next_preset) to stringResource(R.string.visuals_gesture_previous_preset)
+        else -> stringResource(R.string.a11y_next_style) to stringResource(R.string.a11y_previous_style)
+    }
 
 /** The open page as native's step rule numbers it. */
 private val VisualsPage.stepPage: Int

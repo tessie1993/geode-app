@@ -10,10 +10,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * The settings the critique found dead and the owner kept: Settings › Visuals › Touch (pinch and
- * twist; the smear went with Water, #1036), the pinch's gesture key, and the screen saver's "reacts
- * to any app". Each is read back as saved; what they do is native (`touch_transform_test.cpp`) or
- * the dream's sound source.
+ * The settings the critique found dead and the owner kept: Settings › Gestures & controls › Touch
+ * (pinch and twist, the smear and its strength), the pinch's gesture key, and the screen saver's
+ * "reacts to any app". Each is read back as saved; what they do is native (`touch_transform_test.cpp`,
+ * `touch_smear_test.cpp`) or the dream's sound source.
  */
 @RunWith(RobolectricTestRunner::class)
 class TouchAndDreamPrefsTest {
@@ -35,15 +35,25 @@ class TouchAndDreamPrefsTest {
     }
 
     @Test
-    fun anOldInstallsSmearKeysGoOnTheNextSave() {
+    fun smearIsOffAtFullStrengthByDefault() {
+        val v = VisualsSettingsCodec.read(prefs)
+        assertFalse(v.touchSmear)
+        assertEquals(1f, v.touchSmearStrength, 0f)
+    }
+
+    @Test
+    fun anOldInstallsSmearKeysAreReadAgainAndKept() {
         prefs
             .edit()
             .putBoolean(VisualsSettingsCodec.KEY_TOUCH_SMEAR, true)
             .putFloat(VisualsSettingsCodec.KEY_TOUCH_SMEAR_STRENGTH, 1.6f)
             .commit()
-        saveVisuals(VisualsSettingsCodec.read(prefs))
-        assertFalse(prefs.contains(VisualsSettingsCodec.KEY_TOUCH_SMEAR))
-        assertFalse(prefs.contains(VisualsSettingsCodec.KEY_TOUCH_SMEAR_STRENGTH))
+        val v = VisualsSettingsCodec.read(prefs)
+        assertTrue(v.touchSmear)
+        assertEquals(1.6f, v.touchSmearStrength, 0f)
+        saveVisuals(v.copy(touchSmearStrength = 0.5f))
+        assertTrue(prefs.getBoolean(VisualsSettingsCodec.KEY_TOUCH_SMEAR, false))
+        assertEquals(0.5f, prefs.getFloat(VisualsSettingsCodec.KEY_TOUCH_SMEAR_STRENGTH, 0f), 0f)
     }
 
     @Test

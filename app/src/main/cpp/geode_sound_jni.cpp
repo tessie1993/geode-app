@@ -100,6 +100,22 @@ Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) 
     return static_cast<jint>(geode_stage_run(static_cast<unsigned>(flags)));
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageHost(JNIEnv* env, jobject, jint flags, jintArray bounds, jint windowW,
+                                                   jint windowH, jintArray rectOut) {
+    if (bounds == nullptr || rectOut == nullptr || env->GetArrayLength(bounds) < 4 || env->GetArrayLength(rectOut) < 4) {
+        return GEODE_STAGE_HOST_HIDDEN;
+    }
+    jint in[4];
+    env->GetIntArrayRegion(bounds, 0, 4, in);
+    int b[4] = {in[0], in[1], in[2], in[3]};
+    int r[4] = {0, 0, 0, 0};
+    const int alpha = geode_stage_host(static_cast<unsigned>(flags), b, windowW, windowH, r);
+    const jint out[4] = {r[0], r[1], r[2], r[3]};
+    env->SetIntArrayRegion(rectOut, 0, 4, out);
+    return alpha;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageDisplayEligible(JNIEnv*, jobject, jint flags) {
     return geode_stage_display_eligible(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
@@ -212,6 +228,36 @@ Java_dev_geode_engine_bridge_GeodeNative_autoMarkChange(JNIEnv* env, jobject, js
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_autoPick(JNIEnv*, jobject, jint count, jint onScreen) {
     return geode_auto_pick(count, onScreen);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stylesRandom(JNIEnv* env, jobject, jintArray family, jbooleanArray open,
+                                                      jint onScreen, jboolean familyOnly, jint innerCount,
+                                                      jint innerOnScreen) {
+    if (family == nullptr || open == nullptr) return -1;
+    const jsize count = env->GetArrayLength(family);
+    if (env->GetArrayLength(open) != count) return -1;
+    std::vector<jint> families(static_cast<size_t>(count));
+    std::vector<jboolean> raw(static_cast<size_t>(count));
+    if (count > 0) {
+        env->GetIntArrayRegion(family, 0, count, families.data());
+        env->GetBooleanArrayRegion(open, 0, count, raw.data());
+    }
+    std::vector<int> fam(families.begin(), families.end());
+    std::vector<unsigned char> flags(raw.begin(), raw.end());
+    return geode_styles_random(fam.data(), flags.data(), count, onScreen, familyOnly ? 1 : 0, innerCount,
+                               innerOnScreen);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stylesLead(JNIEnv* env, jobject, jint count, jint lead) {
+    const jsize n = count > 0 ? count : 0;
+    std::vector<int> order(static_cast<size_t>(n));
+    geode_styles_lead(n, lead, order.data());
+    std::vector<jint> out(order.begin(), order.end());
+    jintArray result = env->NewIntArray(n);
+    if (result != nullptr && n > 0) env->SetIntArrayRegion(result, 0, n, out.data());
+    return result;
 }
 
 }  // extern "C"

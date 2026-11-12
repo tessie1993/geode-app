@@ -113,6 +113,7 @@ import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
 import dev.geode.model.TabLabels
 import dev.geode.model.TourChapter
+import dev.geode.model.TourCover
 import dev.geode.model.TourPlace
 import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
@@ -555,19 +556,20 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     },
                 )
             }
-            // Held back while the boot intro, the notice, setup, the paywall or a PiP window is up.
+            // Held back while the boot intro, the notice, setup, the paywall or a PiP window is up;
+            // TourHost adds a permission rationale or a system dialog over the app.
             val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
             TourHost(
                 viewModel = tourViewModel,
                 state = tour,
                 place = appState.dest.tourPlace,
                 playing = state.isPlaying,
-                blocked =
-                    (bootAnimEnabled != false && !appState.bootDone) ||
-                        !onboarding.safetyAcknowledged ||
-                        !onboarding.setupDone ||
-                        paywall.visible ||
-                        inPip,
+                cover =
+                    TourCover(
+                        firstRun = overlayUp || (bootAnimEnabled != false && !appState.bootDone),
+                        paywall = paywall.visible,
+                        pip = inPip,
+                    ),
                 onNavigate = { showTourScreen(it, appState) },
                 onOfferPro = { paywallViewModel.open(PaywallTrigger.Onboarding) },
             )

@@ -59,6 +59,7 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
@@ -187,6 +188,8 @@ private fun VisualsHubContent(
     val stepStyle: (Int) -> Unit = { step ->
         stepStage(viewModel, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles, step)
     }
+    val styleStepTarget = stageStepTarget(viz, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles.size)
+    val styleStepLabels = stageStepLabels(styleStepTarget)
     val context = LocalContext.current
     val resources = LocalResources.current
     val view = LocalView.current
@@ -200,6 +203,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
+    StageWarmNote(visualizerView, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
@@ -325,12 +329,15 @@ private fun VisualsHubContent(
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onTapDown = tapAlong,
             onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
+            styleStepLabels = styleStepLabels,
             remote = if (television) StageRemote(stageFocus, optionsFocus, optionsShown = nav.sheetShown && !pip, side = side) else null,
         )
         // Here, beside the stage, so its requester is attached by the time the effect runs.
         LaunchedEffect(television, nav.sheetShown, pip) {
             if (television && !nav.sheetShown && !pip) stageFocus.requestFocus()
         }
+        val sideways = behaviour.actionFor(CanvasGesture.SWIPE_SIDEWAYS)
+        val sidewaysStepsOther = sideways in STEP_ACTIONS && sideways != GestureAction.STEP_STYLE
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
             StageIcons(
@@ -346,8 +353,8 @@ private fun VisualsHubContent(
                 onOpenStudioRender = onOpenStudioRender,
                 onSettings = { nav.openTab(VisualsPage.SETTINGS) },
                 // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
+                stepLabels = stageStepLabels(if (sidewaysStepsOther) GeodeNative.STAGE_STEP_STYLES else styleStepTarget),
                 onStep = { step ->
-                    val sideways = behaviour.actionFor(CanvasGesture.SWIPE_SIDEWAYS)
                     actions.run(if (sideways in STEP_ACTIONS) sideways else GestureAction.STEP_STYLE, step)
                 },
             )
@@ -432,7 +439,7 @@ private fun VisualsHubContent(
                     entryProvider = { page ->
                         NavEntry(page) {
                             when (page) {
-                                VisualsPage.STYLES -> StylesTab(viewModel)
+                                VisualsPage.STYLES -> StylesTab(viewModel, visualizerView, milkFiles)
                                 VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                                 VisualsPage.MILKDROP ->

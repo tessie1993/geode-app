@@ -34,6 +34,17 @@ class StyleShelfTest {
     }
 
     @Test
+    fun randomFamilyOnlyIsOffUntilSetAndLeavesTheShelfAlone() {
+        val shelf = StyleShelf(favourites = setOf("x"), recents = listOf("y"))
+        assertFalse(shelf.randomFamilyOnly)
+        val on = shelf.withRandomFamilyOnly(true)
+        assertTrue(on.randomFamilyOnly)
+        assertEquals(shelf.favourites, on.favourites)
+        assertEquals(shelf.recents, on.recents)
+        assertFalse(on.withRandomFamilyOnly(false).randomFamilyOnly)
+    }
+
+    @Test
     fun yoursIsOnScreenThenFavouritesThenRecentEachOnce() {
         val shelf = StyleShelf(favourites = setOf("silk_a", "arbor_a"), recents = listOf("fluid_a", "missing", "arbor_a"))
         assertEquals(listOf("arbor_b", "arbor_a", "silk_a", "fluid_a"), shelf.yours(order, onScreen = "arbor_b"))

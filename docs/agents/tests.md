@@ -1,0 +1,142 @@
+# Tests
+
+One test file per line, in alphabetical order. Add a new test as its own bullet in its place.
+
+## Where tests live
+
+- JVM unit tests live in `app/src/test` and `engine/*/src/test`; CI runs every module's.
+- Instrumented tests live in `app/src/androidTest`.
+- `engine/scenes/src/test/` covers wire layouts, the saved-reactions codec, the catalogue, the params schema and the modulation-target table as Kotlin reads them, and the gyro look's on/off rule.
+- `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
+- `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
+- A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
+- `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
+- Put new pure tests in a JVM module where you can.
+- Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (see `render/ReactionRouteCodec`).
+- Anything that needs a device goes into the PR as a short checklist.
+- `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
+- `tools/check_shaders.py` runs every fragment and vertex shader, and every fluid look, through the NDK's glslc (in `android.yml`).
+
+## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
+
+- `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
+- `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
+- `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
+- `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
+- `cache_sentinels_test.cpp`: `core/viz/CacheSentinels`, the program-binary cache's crash sentinel.
+- `cast_audio_test.cpp`: `core/viz/frame/CastAudio`, Cast's audio pump, as counts.
+- `cast_clock_test.cpp`: Cast's frame clock: steady slots, drop not burst, monotonic PTS, the audio cut.
+- `cast_tee_test.cpp`: Cast's tee: the stage-to-stream hand-off, the fallback after a stale copy, one copy per cast frame, the placement: a portrait stage turned and cropped, a landscape one cropped.
+- `cast_same_visual_test.cpp`: the stage's host while casting (`core/viz/StageRun`): drawing on every tab and before Visuals was ever laid out, no bars; every stage shape filling the stream; a new stream waiting for the stage's first copy.
+- `catalogue_test.cpp`: the catalogue against the old Kotlin tables, and its text against `core/tests/catalogue.txt`.
+- `core/tests/catalogue.txt` is the copy JVM tests read through the `geode.catalogue` property; regenerate it with `catalogue_test --write`.
+- `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
+- `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
+- `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
+- `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
+- `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
+- `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
+- `easter_eggs_test.cpp`: shake to screenshot never from walking or a set-down, one picture per shake; tap along fires once on four taps on the beat, never off it, in silence or on double taps.
+- `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.
+- `edge_glow_test.cpp`: the wallpaper edge glow's options, envelope and mask.
+- `encoder_ladder_test.cpp`: the encoder fallback ladder: rungs, floor, bit rate, unknown ceiling.
+- `export_passes_test.cpp`: the export post-passes' maths: watermark tiling, placement, corner layout and end card, seam weights.
+- `export_pcm_test.cpp`: the export's PCM conversions (`PcmConvert`, `PcmTiming`) and their C ABI.
+- `export_preroll_test.cpp`: an export's start: the pre-roll runs the clock whole from frame 0 and through a loop's seam, mid-song frame 0 hears live's tempo, a track with no audio fails.
+- `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
+- `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
+- `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
+- `gltf_import_test.cpp`: glTF import: every limit, the fit and its counts, refusals and the low-detail copy.
+- `gltf_import_test.cpp` also covers the textures: caps, mips, ASTC and ETC2 decoded back, the memory fit and drops, on .glb, PNG and KTX2 fixtures the test builds itself.
+- `gyro_look_test.cpp`: phone tilt to camera look, read on the screen's axes at every display rotation.
+- `hidden_hits_test.cpp`: no hidden hit reactions: nothing reads the retired `beatResponse`, and under `core/viz` a hit is read only behind a control the user sets.
+- `hidden_hits_test.cpp`'s gaps list is the scenes still reading drums on their own, which only shrinks; shaders are not covered.
+- `hls_segments_test.cpp`: Cast's HLS timing: media-time EXTINF, TARGETDURATION, the playlist, the fragment rewrite.
+- `layer_mix_test.cpp`: `core/audio/ingest/LayerMix`, the mic layered over the player's ring, mixed at the reader.
+- `layer_state_test.cpp`: the process-wide Customize layer (`core/viz/LayerState`).
+- `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
+- `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
+- `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
+- `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
+- `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; `LoopRender` only presents.
+- `loudness_test.cpp`: export DSP, the BS.1770 meter.
+- `macro_bank_test.cpp`: `core/viz/MacroBank`: the user's knobs as weighted offsets on scene params, their edits and text, the process-wide bank, C ABI `geode_macro_bank_*`.
+- `macro_bank_test.cpp` also covers the knob editor's copy, move, reset, links with range and curve, the random roll, the dice's seeded turns, the screen and its library, a knob from a slider and its name.
+- `macro_bank_test.cpp` also pins the built-in four that cannot be removed, and the editor's text against `core/tests/macro_editor.txt`, read through `geode.macroEditor`.
+- `meter_test.cpp`: `Rhythm`'s bar of 3 or 4 beats from the accents: 3/4 and 4/4 at 93 and 141 BPM read as themselves, a backbeat or an even pulse never 3.
+- `milk_shader_note_test.cpp`: the note a .milk preset gets when projectM swapped one of its shaders for the default (`core/viz/MilkShaderNote`).
+- `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
+- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`, read through `geode.modTargets`; `--write` regenerates it.
+- `musical_test.cpp`: the sound engine's musical layer.
+- `note_response_test.cpp`: Note & key reactions.
+- `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.
+- `output_test.cpp`: export planning (`core/output`: `FrameClock`, `LoopPlan`, `EncodePlan`, `Chapters`) and its C ABI.
+- `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
+- `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
+- `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
+- `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.
+- `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, has no Kotlin field and is not saved, so an old look naming one still loads.
+- `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.
+- `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
+- `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
+- `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
+- `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
+- `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
+- `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
+- `presets_test.cpp`: the bundled looks, pinned to the Kotlin literals they replaced.
+- `push_versions_test.cpp`: `core/viz/frame/PushVersions`, which pushed inputs a live frame still owes native.
+- `qr_code_test.cpp`: Show on a computer's QR code (`core/util/QrCode`) against the standard's vectors.
+- `quality_test.cpp`: `core/viz/frame/Quality`, Settings › Performance's tiers and the first-run pick.
+- `randomize_all_test.cpp`: the two-circle gesture's Randomize everything: seeded, never a locked style, MilkDrop's .milk as its preset, every category rolled, Keep held through the preset.
+- `reaction_resolve_test.cpp`: the renderer's reaction resolve against the old Kotlin path, and when it re-resolves.
+- `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
+- `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
+- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes the shell.
+- `resampler_test.cpp`: export DSP, the resampler.
+- `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
+- `resolver_test.cpp` also covers the bank's offset, an export's pinned bank, and the director leaving the bank alone.
+- `resolver_test.cpp` also pins the owner's rule: with Auto and Note & key on every colour param is the user's and, with no route and the Motion dials at 0, no param hears the sound.
+- `scene_residency_test.cpp`: `core/viz/SceneResidency`, which built scenes stay on the GPU.
+- `shader_overrides_test.cpp`: the process-wide shader overrides (`core/viz/ShaderOverrides`).
+- `snapshot_stitch_test.cpp`: `core/audio/ingest/SnapshotStitch`, the wallpaper's output-mix snapshots heard by the ring as real time, without seams.
+- `sound_golden_test.cpp`: a golden vector for the sound engine, the whole `GeodeSoundFrame` at six instants of a synthetic song, against `core/tests/sound_golden.txt` (`--write` regenerates it).
+- `sound_rate_test.cpp`: the sound engine at 30 and 120 fps equal to 60 at every shared sample, on a synthetic song and real tracks, and an export's frame cut equal to live's tap blocks.
+- `sound_source_test.cpp`: the wallpaper's ring-or-capture choice.
+- `sound_test.cpp`: the sound engine.
+- `sound_test.cpp` and `musical_test.cpp` also play click tracks from 60 to 190 BPM, each read as itself and treated alike, and an ambiguous beat read at the same level at every tempo.
+- `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
+- `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.
+- `style_pick_test.cpp`: Styles' Random: every family or the on-screen family, never the style on screen, a kept style first, a family of one rolling inside its style; each list led by what is on screen.
+- `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.
+- `style_reads_test.cpp` also checks every Customize control each style shows against what its shader or scene reads or a shared pass applies; the known gaps are `core/tests/style_param_gaps.txt`, which only shrinks; `--matrix` prints them.
+- `style_reads_test.cpp` also checks that no style declares a function ahead of its body.
+- `style_schedule_test.cpp`: an export segment's style schedule, which drops the styles the entitlement locks and holds in silence.
+- `surface_motion_test.cpp`: the wallpaper's and dream's run rule under reduced motion, the still frame's settle, and each surface's fps choice.
+- `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
+- `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier, the once-per-process "Phone is warm" note `ui/StageWarmNote` toasts, `geode_thermal_take_warm_note`.
+- `touch_smear_test.cpp`: Settings › Touch › Smear (`core/viz/TouchSmear`): the fingers' kicks, the bend, its linger, silence, reduced motion.
+- `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.
+- `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
+- `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
+- `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
+- `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
+- `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
+- `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).
+- `wallpaper_window_test.cpp`: the wallpaper's on-screen window and fps pick.
+- `webrtc_rule_test.cpp`: Show on a computer over WebRTC (`core/viz/frame/WebRtcRule`): the H.264 sent, the offer read, LAN-only candidates, the RTP clock.
+- `world_genome_test.cpp`: Morph World's genome and morph driver (`core/viz/world`).
+
+## Journeys, UI tour, thumbnails, store shots
+
+- Journeys: `app/src/androidTest/.../journey/` drives `MainActivity` end to end with AndroidX Test (Compose test + Espresso, Truth) under Orchestrator with `clearPackageData`.
+- Seed a journey past onboarding with the `Onboarded` rule.
+- `@Ignore` a regression whose fix is unmerged, with its QA number.
+- UI tour: `journey/UiTourTest` is skipped unless `-e uitour 1`; look per `uitourConfig=portrait|landscape|font`.
+- `UiTourTest` walks every screen, sheet and visual gesture under gesture navigation and writes numbered screenshots plus `ui-tour-report.md`/`.json` (expected vs observed, system-inset collisions).
+- `ui-tour.yml` (manual) runs all three looks on one emulator and uploads them as artifact `ui-tour-<run>`.
+- Style thumbnails are `app/src/main/assets/thumbs/<styleId>.webp` (~237 × ~10 KB ≈ 2.4 MB of APK), rendered, not drawn.
+- No thumbnails are committed yet; only the widget reads them, Styles and Presets are text.
+- The manual `render-thumbs.yml` runs `app/src/androidTest/.../thumbs/StyleThumbnailRenderTest` (skipped unless `-e thumbs 1`; `thumbsOnly=<ids>` for a subset) on the emulator against a synthetic groove and opens a `bot/style-thumbs-<run>` PR.
+- The manual `store-assets.yml` runs `app/src/androidTest/.../store/` (`StoreShotsTest`, `StoreReelTest`, `StoreFramesTest`; skipped unless `-e storeshots|storereel|storeframes 1`) on one emulator cut to phone and tablet screens with `wm size`.
+- `tools/store_assets_collect.py` checks every store picture against Play's sizes before the artifact `store-assets-<run>` is uploaded.

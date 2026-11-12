@@ -244,6 +244,13 @@ object GeodeNative {
         points: Int,
     )
 
+    /** Settings › Touch › Smear (`core/viz/TouchSmear`): the switch and the strength, clamped natively. */
+    external fun vizSetTouchSmear(
+        handle: Long,
+        on: Boolean,
+        strength: Float,
+    )
+
     external fun vizSetFluidInjection(
         handle: Long,
         force: String?,
@@ -393,6 +400,12 @@ object GeodeNative {
         knobId: Int,
         seed: Long,
     ): String
+
+    /**
+     * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
+     * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
+     */
+    external fun macroBankLiveMods(): String
 
     /** New ranges and curves for the links the knob has, their params kept; the same [seed], the same ranges. */
     external fun macroBankRollRanges(
@@ -1404,6 +1417,13 @@ object GeodeNative {
     /** The cast thread, its context still current: closes the tee. */
     external fun castTeeClose(tee: Long)
 
+    /** True while a new stream leaves this slot empty for the stage's first copy (`geode_cast_tee_await_stage`). Pure. */
+    external fun castTeeAwaitStage(
+        stageDraws: Boolean,
+        fallbackMade: Boolean,
+        sinceOpenNs: Long,
+    ): Boolean
+
     /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
     external fun vizStillRequest(handle: Long)
 
@@ -1825,6 +1845,24 @@ object GeodeNative {
     const val STAGE_DRAWS = 1 shl 0
     const val STAGE_CAST_LEADS_AUTO = 1 shl 1
 
+    /**
+     * Where the stage's view goes (core/viz/StageRun host): [flags] are STAGE_HOST_SHOWN / _CASTING, [bounds] the
+     * Visuals rect (left, top, right, bottom; empty before it was laid out), the window [windowW] x [windowH];
+     * [rectOut] gets the view's rect. Returns STAGE_HOST_HIDDEN, _FAINT or _OPAQUE.
+     */
+    external fun stageHost(
+        flags: Int,
+        bounds: IntArray,
+        windowW: Int,
+        windowH: Int,
+        rectOut: IntArray,
+    ): Int
+
+    const val STAGE_HOST_SHOWN = 1 shl 0
+    const val STAGE_HOST_CASTING = 1 shl 1
+    const val STAGE_HOST_FAINT = 1
+    const val STAGE_HOST_OPAQUE = 2
+
     /** Whether a display with these STAGE_DISPLAY_* bits (and failures) can take the stage (core/viz/StageRun). */
     external fun stageDisplayEligible(flags: Int): Boolean
 
@@ -1970,6 +2008,30 @@ object GeodeNative {
         count: Int,
         onScreen: Int,
     ): Int
+
+    /**
+     * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,
+     * [family] each one's family index and [open] whether the entitlement keeps it; never [onScreen], every family
+     * or with [familyOnly] the on-screen style's family alone, a kept style while there is one; -1 for none.
+     * With [familyOnly] in a family of one style, [STYLES_ROLL_INSIDE] when that style has a variation to roll
+     * ([innerCount], the .milk presets for MilkDrop, [innerOnScreen] the one showing or -1).
+     */
+    external fun stylesRandom(
+        family: IntArray,
+        open: BooleanArray,
+        onScreen: Int,
+        familyOnly: Boolean,
+        innerCount: Int,
+        innerOnScreen: Int,
+    ): Int
+
+    const val STYLES_ROLL_INSIDE = -2
+
+    /** The order a Styles list shows its [count] items: [lead] (what is on screen) first, the rest in order. */
+    external fun stylesLead(
+        count: Int,
+        lead: Int,
+    ): IntArray
 
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
@@ -2375,6 +2437,12 @@ object GeodeNative {
         platformStatus: Int,
         headroom: Float,
     )
+
+    /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
+    external fun thermalTakeWarmNote(
+        capFps: Float,
+        pacedFps: Float,
+    ): Int
 
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)

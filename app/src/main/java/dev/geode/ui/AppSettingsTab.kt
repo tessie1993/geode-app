@@ -242,7 +242,7 @@ enum class SettingsSectionKey(
     OUTPUT_ENGINE(R.string.settings_section_output_engine, listOf(SettingsRowKey.NATIVE_OUTPUT, SettingsRowKey.BIT_PERFECT)),
     NOTIFICATION(R.string.settings_section_notification, listOf(SettingsRowKey.NOTIFICATION_BUTTONS)),
     PICTURE_IN_PICTURE(R.string.behavior_group_pip, listOf(SettingsRowKey.PIP_AUTO_ENTER)),
-    TOUCH(R.string.behavior_group_touch, listOf(SettingsRowKey.TOUCH_TRANSFORM)),
+    TOUCH(R.string.behavior_group_touch, listOf(SettingsRowKey.TOUCH_SMEAR, SettingsRowKey.TOUCH_TRANSFORM)),
     CONNECTED_DISPLAY(R.string.behavior_group_display, listOf(SettingsRowKey.CONNECTED_DISPLAY)),
     ANALYSIS(R.string.audio_group_analysis, listOf(SettingsRowKey.SOUND_TUNING)),
     LOOK_TEXT(R.string.look_group_text, listOf(SettingsRowKey.LOOK_TEXT)),
@@ -462,6 +462,7 @@ private fun SettingsRowContent(
         SettingsRowKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
         SettingsRowKey.PIP_AUTO_ENTER -> PictureInPictureSection(settings)
         SettingsRowKey.LIVE_WALLPAPER -> LiveWallpaperRow()
+        SettingsRowKey.TOUCH_SMEAR -> TouchSmearRow(settings)
         SettingsRowKey.TOUCH_TRANSFORM -> TouchTransformRow(settings)
         SettingsRowKey.LOOK_THEME -> LookBasics(settings)
         SettingsRowKey.LOOK_TEXT -> LookTextSection(settings)

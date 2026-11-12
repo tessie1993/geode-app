@@ -1,5 +1,7 @@
 #pragma once
+#include <algorithm>
 #include <string>
+#include <vector>
 
 // The pure half of staged scene builds (ProgramStager is the GL half). No GL here, so the host
 // tests (core/tests/viz_math_test.cpp) drive it frame by frame.
@@ -57,11 +59,17 @@ private:
 //  - Wait: the stager still has work queued or compiling; advance it one budgeted step.
 //  - Block: too many attempts came back deferred (a scene whose program list keeps changing),
 //    so build it the old way, all at once, rather than never showing it.
+//  - GiveUp: the stager has had work for kStallSeconds and finished none of it (a driver that never
+//    completes a parallel compile). The renderer reports it and stops asking, as for a failed build.
+//
+// A target that failed (its programs did not build, or it gave up) is remembered, so the renderer keeps
+// drawing the scene it had instead of building the broken one again every frame, until forgive().
 class ScenePrep {
 public:
     static constexpr int kMaxAttempts = 6;
+    static constexpr double kStallSeconds = 30.0;
 
-    enum class Step { Wait, Attempt, Block };
+    enum class Step { Wait, Attempt, Block, GiveUp };
 
     // True when `id` is not the scene being prepared, which restarts the count; the caller then
     // drops whatever the stager holds for the old target.
@@ -70,13 +78,22 @@ public:
         target_ = id;
         active_ = true;
         attempts_ = 0;
+        stallSinceS_ = -1.0;
         return true;
     }
 
-    // Once per frame after retarget(). `stagerIdle`: nothing queued or compiling.
-    Step next(bool stagerIdle) {
+    // Once per frame after retarget(). `stagerIdle`: nothing queued or compiling. `progress`: a count
+    // that moves whenever the stager finishes a piece of work (ProgramStager::progress).
+    Step next(bool stagerIdle, double nowS = 0.0, int progress = 0) {
         if (attempts_ >= kMaxAttempts) return Step::Block;
-        if (!stagerIdle) return Step::Wait;
+        if (!stagerIdle) {
+            if (stallSinceS_ < 0.0 || progress != progress_) {
+                stallSinceS_ = nowS;
+                progress_ = progress;
+            }
+            return nowS - stallSinceS_ > kStallSeconds ? Step::GiveUp : Step::Wait;
+        }
+        stallSinceS_ = -1.0;
         ++attempts_;
         return Step::Attempt;
     }
@@ -86,7 +103,16 @@ public:
         active_ = false;
         target_.clear();
         attempts_ = 0;
+        stallSinceS_ = -1.0;
     }
+
+    // `id` did not build: not asked for again until forgive().
+    void fail(const std::string& id) {
+        if (!failed(id)) failed_.push_back(id);
+    }
+    bool failed(const std::string& id) const { return std::find(failed_.begin(), failed_.end(), id) != failed_.end(); }
+    // A new context or a changed shader source may build what failed before.
+    void forgive() { failed_.clear(); }
 
     // True when `id`, a secondary target (the layer, Liquid's next style), must wait because the
     // stager is working for `other`, the other secondary target, which is still wanted. Without this
@@ -105,6 +131,9 @@ private:
     std::string target_;
     bool active_ = false;
     int attempts_ = 0;
+    double stallSinceS_ = -1.0;
+    int progress_ = 0;
+    std::vector<std::string> failed_;
 };
 
 }  // namespace geode::viz

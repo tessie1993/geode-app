@@ -31,6 +31,8 @@ vec2 hollowMap(vec3 p) {
     return vec2(room + pit, 2.5 * (c.x * c.y + c.y * c.z + c.z * c.x) + 0.5);
 }
 
+//#include lib_hollow_march
+
 void main() {
     vec2 uv = view();
     hollowSetup();

@@ -45,9 +45,15 @@ jobs:
           # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o colour_test
           ./colour_test
+          # The palette stack (Customize › Look): each gradient option, the 16-colour and 8-palette caps, Share and Mix, one colour's drawings, the codec and edits, old looks as they drew, recent colours, the library text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/palette_test.cpp core/viz/Palette.cpp core/api/geode_palette_api.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o palette_test
+          ./palette_test core/tests/palettes.txt
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
+          ./touch_smear_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -185,9 +191,12 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
-          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
           ./stage_step_test
+          # Visuals › Styles: Random over every family (or the on-screen family alone), never the style on screen, a kept style first; every list leads with what is on screen.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp -o style_pick_test
+          ./style_pick_test
           # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
           ./milk_shader_note_test
@@ -262,9 +271,12 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
-          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the fitted rectangle.
+          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the placement (a portrait stage turned, every stage centre-cropped).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_tee_test.cpp -o cast_tee_test
           ./cast_tee_test
+          # Cast shows the phone's own visual: the stage keeps drawing while a cast streams (before Visuals was ever laid out too) in its whole rect, the tee turning a portrait stage and its centred crop filling the stream with no bars, and a new stream waits for its first copy.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_same_visual_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp core/api/geode_frame_api.cpp -o cast_same_visual_test
+          ./cast_same_visual_test
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test

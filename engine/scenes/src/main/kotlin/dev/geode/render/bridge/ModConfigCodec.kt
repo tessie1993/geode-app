@@ -10,9 +10,7 @@ import dev.geode.render.ReactionRoute
 
 /** The float layouts `geode_viz_set_lfo`, `_adsr` and `_reactions` read; enums travel as ordinals. */
 object ModConfigCodec {
-    const val ADSR_HEAD_FLOATS = 10
-
-    /** Mirrors GEODE_REACT_ROUTE_FLOATS. */
+    const val ADSR_HEAD_FLOATS = 12
     const val REACT_ROUTE_FLOATS = 8
 
     fun packLfo(c: LfoConfig): FloatArray =
@@ -26,6 +24,8 @@ object ModConfigCodec {
             c.polarity.ordinal.toFloat(),
             c.curve.ordinal.toFloat(),
             c.beats.toFloat(),
+            c.knob.toFloat(),
+            c.moment.toFloat(),
         )
 
     fun packAdsr(c: AdsrConfig): FloatArray {
@@ -40,6 +40,8 @@ object ModConfigCodec {
         out[7] = c.gateThreshold
         out[8] = flag(c.sustainTrack)
         out[9] = flag(c.retrigger)
+        out[10] = c.knob.toFloat()
+        out[11] = c.moment.toFloat()
         c.targets.forEachIndexed { i, target -> out[ADSR_HEAD_FLOATS + i] = target.ordinal.toFloat() }
         return out
     }

@@ -103,6 +103,8 @@ class LfoStore(
             .put("gateThreshold", c.gateThreshold.toDouble())
             .put("sustainTrack", c.sustainTrack)
             .put("retrigger", c.retrigger)
+            .put("knob", c.knob)
+            .put("moment", c.moment)
 
     private fun adsrFromJson(o: JSONObject): AdsrConfig =
         AdsrConfig(
@@ -123,6 +125,8 @@ class LfoStore(
             gateThreshold = o.optDouble("gateThreshold", 0.25).toFloat(),
             sustainTrack = o.optBoolean("sustainTrack", false),
             retrigger = o.optBoolean("retrigger", true),
+            knob = o.optInt("knob", 0),
+            moment = o.optInt("moment", NO_MOMENT),
         )
 
     private fun toJson(c: LfoConfig): JSONObject =
@@ -136,6 +140,8 @@ class LfoStore(
             .put("polarity", c.polarity.name)
             .put("curve", c.curve.name)
             .put("beats", c.beats)
+            .put("knob", c.knob)
+            .put("moment", c.moment)
 
     private fun fromJson(o: JSONObject): LfoConfig =
         LfoConfig(
@@ -148,6 +154,8 @@ class LfoStore(
             polarity = runCatching { ModPolarity.valueOf(o.getString("polarity")) }.getOrDefault(ModPolarity.BIPOLAR),
             curve = runCatching { ModCurve.valueOf(o.getString("curve")) }.getOrDefault(ModCurve.LINEAR),
             beats = o.optInt("beats", 0).takeIf { it in LfoConfig.BEAT_CHOICES } ?: 0,
+            knob = o.optInt("knob", 0),
+            moment = o.optInt("moment", NO_MOMENT),
         )
 
     /**
@@ -177,6 +185,9 @@ class LfoStore(
         const val KEY_ADSR = "adsrs"
         const val KEY_REACTIONS = "reactions"
         const val KEY_REACTIONS_HAND = "reactions_hand"
+
+        /** A slot saved before "On a moment" (or set to none): a wave runs free, an envelope fires on a note start. */
+        const val NO_MOMENT = -1
 
         /** Every key this store writes: a backup files the LFOs, envelopes and reactions under Creative. */
         val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_HAND)

@@ -35,6 +35,8 @@ vec2 hollowMap(vec3 p) {
     return vec2(d, 3.0 * th / HOLLOW_TAU * 6.0 + 0.75 * p.z + 0.6 * cord);
 }
 
+//#include lib_hollow_march
+
 void main() {
     vec2 uv = view();
     hollowSetup();

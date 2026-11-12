@@ -23,10 +23,11 @@ data class AdsrConfig(
     val gateThreshold: Float = 0.25f,
     val sustainTrack: Boolean = false,
     val retrigger: Boolean = true,
+    val knob: Int = 0,
+    val moment: Int = -1,
 )
 
-// Envelopes run natively every frame (core/viz/RendererFrame.cpp, against the configs geode_viz_set_adsr
-// pushes); the configs ride in the LookSnapshot (render/look). Only the count is Kotlin's.
+// Envelopes run natively every frame (core/viz/Adsr, from geode_viz_set_adsr); the configs ride in the LookSnapshot.
 object AdsrEngine {
     const val COUNT = 2
 }

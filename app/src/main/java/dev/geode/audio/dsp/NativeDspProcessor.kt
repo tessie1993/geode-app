@@ -30,9 +30,10 @@ data class DspSettings(
  * (`core/audio/dsp/DspProcessor`), which owns a chain per format and the switch between them. That
  * switch follows the [AudioProcessor] contract: [onConfigure] describes the format queued after the
  * next flush, and the old format may still drain through [queueInput] until then (issue #356), so
- * native only stages the next chain at configure and makes it live at [onFlush]. Each block goes down with the channel count it was queued in and the buffer's
- * capacity, and native passes a block it cannot fit through untouched. Native frees its chains only in
- * [release], after the player is gone, so a setter racing a format change never reaches a freed one.
+ * native only stages the next chain at configure and makes it live at [onFlush]. Each block goes down with the encoding and
+ * channel count it was queued in and the buffer's capacity; native says how many bytes of whole frames to pass on, and passes
+ * a block it cannot fit through untouched. Native frees its chains only in [release], after the player is gone, so a setter
+ * racing a format change never reaches a freed one.
  *
  * A format the chain cannot run (more than two channels, a 5.1 or 7.1 file; an encoding other than
  * 16-bit or float; native's rule, `geode_dsp_runs`) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
@@ -103,16 +104,10 @@ class NativeDspProcessor : BaseAudioProcessor() {
         // Media3 queues its shared EMPTY_BUFFER, which is also our first output: put() into itself throws.
         if (!inputBuffer.hasRemaining()) return
         val format = inputAudioFormat
-        val floatSamples = format.encoding == C.ENCODING_PCM_FLOAT
-        val frameBytes = format.channelCount * (if (floatSamples) 4 else 2)
-        val frames = inputBuffer.remaining() / frameBytes
-        val whole = inputBuffer.duplicate().apply { limit(position() + frames * frameBytes) }
-        inputBuffer.position(inputBuffer.limit())
-        val output = replaceOutputBuffer(frames * frameBytes)
-        output.put(whole)
+        val output = replaceOutputBuffer(inputBuffer.remaining())
+        output.put(inputBuffer)
         output.flip()
-        val h = handle
-        if (h != 0L && frames > 0) GeodeNative.dspProcess(h, output, frames, format.channelCount, floatSamples)
+        output.limit(GeodeNative.dspProcessBytes(handle, output, output.limit(), format.encoding, format.channelCount))
     }
 
     override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {

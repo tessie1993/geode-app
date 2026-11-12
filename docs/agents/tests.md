@@ -41,6 +41,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
 - `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
+- `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `GeodeNative.AUDIO_OUT_*`, pinned.
 - `dsp_runs_test.cpp`: which formats the playback DSP runs (`geode_dsp_runs`: 16-bit or float, mono or stereo); `NativeDspProcessor` steps aside for the rest.
 - `easter_eggs_test.cpp`: shake to screenshot never from walking or a set-down, one picture per shake; tap along fires once on four taps on the beat, never off it, in silence or on double taps.
 - `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.

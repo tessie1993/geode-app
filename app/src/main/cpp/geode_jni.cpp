@@ -234,20 +234,13 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlon
 }
 
 // The buffer must be direct: the audio thread must not copy or allocate here. Its capacity goes along so
-// native can never walk past it (issue #356). `pcmFloat` only picks which of the two ABI calls gets it.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspProcess(JNIEnv* env, jobject, jlong handle, jobject buffer, jint frames, jint channels,
-                                                    jboolean pcmFloat) {
-    if (!buffer) return;
-    void* address = env->GetDirectBufferAddress(buffer);
-    const jlong capacityBytes = env->GetDirectBufferCapacity(buffer);
-    if (!address || capacityBytes <= 0 || frames <= 0 || channels <= 0) return;
-    const auto bytes = static_cast<size_t>(capacityBytes);
-    if (pcmFloat == JNI_TRUE) {
-        geode_dsp_process(dspOf(handle), static_cast<float*>(address), bytes / sizeof(float), static_cast<size_t>(frames), channels);
-    } else {
-        geode_dsp_process_pcm16(dspOf(handle), static_cast<int16_t*>(address), bytes / sizeof(int16_t), static_cast<size_t>(frames), channels);
-    }
+// native can never walk past it (issue #356).
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspProcessBytes(JNIEnv* env, jobject, jlong handle, jobject buffer, jint bytes, jint encoding,
+                                                         jint channels) {
+    void* address = buffer ? env->GetDirectBufferAddress(buffer) : nullptr;
+    const jlong capacity = address ? env->GetDirectBufferCapacity(buffer) : 0;
+    return geode_dsp_process_bytes(dspOf(handle), address, capacity > 0 ? static_cast<size_t>(capacity) : 0, bytes, encoding, channels);
 }
 
 }

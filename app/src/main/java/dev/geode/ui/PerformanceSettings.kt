@@ -99,7 +99,13 @@ private fun PerformanceDetailControls(
     Column {
         Choice(
             stringResource(R.string.perf_fps_cap),
-            fpsCaps.map { stringResource(R.string.perf_fps_value, it) },
+            fpsCaps.map {
+                if (it == GeodeNative.LIVE_FPS_FOLLOW) {
+                    stringResource(R.string.perf_fps_follow)
+                } else {
+                    stringResource(R.string.perf_fps_value, it)
+                }
+            },
             // The stored pick as this display runs it (a 120 picked on a foldable's inner screen reads 60 outside).
             fpsCaps.indexOf(GeodeNative.liveFpsCap(settings.fpsCap, refreshRates)),
         ) { onChange(settings.copy(fpsCap = fpsCaps[it])) }
@@ -166,7 +172,7 @@ internal fun rememberSeamlessRefreshRates(): FloatArray {
     return remember(view, configuration) { seamlessRefreshRates(view) }
 }
 
-/** The live caps Settings › Performance offers on a display with [refreshRates], ascending (native). */
+/** The live caps Settings › Performance offers on a display with [refreshRates], ascending, then Follow device (native). */
 private fun liveFpsCaps(refreshRates: FloatArray): List<Int> {
     val out = IntArray(GeodeNative.LIVE_FPS_MAX_CHOICES)
     val count = GeodeNative.liveFpsChoices(refreshRates, out)

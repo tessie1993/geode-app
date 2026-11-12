@@ -175,15 +175,16 @@ void nanAndTinyCaps() {
 }
 
 void wireRoundTrip() {
-    PacerState s{1, 2, 3, 4, 5, 6, 7, 8};
+    PacerState s{1, 2, 3, 4, 5, 6, 7, 8, 9};
     int64_t wire[kPacerStateLongs] = {};
     pack(s, wire);
     const PacerState back = unpack(wire);
     check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6 &&
-              back.capMilliHz == 7 && back.pacedMilliHz == 8,
-          "the eight-long wire layout round-trips");
+              back.capMilliHz == 7 && back.pacedMilliHz == 8 && back.followedMilliHz == 9,
+          "the nine-long wire layout round-trips");
     check(wire[kPacerCapSlot] == 7, "the cap sits in the slot the shell reads");
     check(wire[kPacerPacedSlot] == 8, "and the paced rate in the one after it");
+    check(wire[kPacerFollowedSlot] == 9, "and the followed rate last");
 }
 
 // The cap a vsync paced to is recorded for the shell's setFrameRate (#440).

@@ -15,7 +15,7 @@ import dev.geode.engine.bridge.GeodeNative
 data class PerformanceSettings(
     /** Fraction of the surface's pixels the scene is drawn at, then upscaled. Below 1 also drops supersampling. */
     val renderScale: Float,
-    /** The live frame-rate cap handed to the pacer: 30 to 120, snapped to the display where it is applied. */
+    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`GeodeNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,

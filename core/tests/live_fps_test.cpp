@@ -7,8 +7,9 @@
 // What is pinned: 30 and 60 on every display and 60 the default; 90 and 120 only where a refresh rate the
 // display can switch to shows them evenly (itself or a whole multiple, within a hertz); a stored cap
 // snapped to the nearest offered, the lower on a tie; the thermal walk 120 -> 90 -> 60 -> 30, a 60 cap's
-// old drop to 30 unchanged, nothing under the floor touched; and the pacer drawing what the walk asks on
-// 120 and 90 Hz panels.
+// old drop to 30 unchanged, nothing under the floor touched; the pacer drawing what the walk asks on 120
+// and 90 Hz panels; and Follow device: every vsync of the panel the system chose (144 included), its rate
+// in the paced slot, and a hot phone stepping down from the rate it followed while cool.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -38,10 +39,10 @@ std::vector<int> choices(const std::vector<float>& rates) {
 }
 
 void sixtyIsAlwaysOffered() {
-    check(choices({}) == std::vector<int>({30, 60}), "an unknown display offers 30 and 60");
-    check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 2, "a null rate list is an unknown display, and counting needs no array");
-    check(choices({60.0f}) == std::vector<int>({30, 60}), "a 60 Hz phone offers 30 and 60 only");
-    check(choices({48.0f}) == std::vector<int>({30, 60}), "even a panel under 60 keeps 60: the pacer draws every vsync");
+    check(choices({}) == std::vector<int>({30, 60, -1}), "an unknown display offers 30, 60 and Follow device");
+    check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 3, "a null rate list is an unknown display, and counting needs no array");
+    check(choices({60.0f}) == std::vector<int>({30, 60, -1}), "a 60 Hz phone offers 30 and 60 only");
+    check(choices({48.0f}) == std::vector<int>({30, 60, -1}), "even a panel under 60 keeps 60: the pacer draws every vsync");
     check(frame::kLiveFpsDefault == 60, "the default stays 60");
     // Every Settings › Performance tier is a cap every display offers, so picking a tier never shows a value
     // the tab cannot.
@@ -51,22 +52,25 @@ void sixtyIsAlwaysOffered() {
 }
 
 void highRatesOnlyWhereTheDisplayShowsThem() {
-    check(choices({60.0f, 90.0f, 120.0f}) == std::vector<int>({30, 60, 90, 120}), "a 60/90/120 Hz panel offers all four");
-    check(choices({60.0f, 120.0f}) == std::vector<int>({30, 60, 120}), "a 60/120 Hz panel has no 90: 120 does not divide to it");
-    check(choices({60.0f, 90.0f}) == std::vector<int>({30, 60, 90}), "a 90 Hz phone offers 90, not 120");
-    check(choices({144.0f}) == std::vector<int>({30, 60}), "144 Hz alone divides to neither 90 nor 120 evenly");
-    check(choices({144.0f, 120.0f, 60.0f}) == std::vector<int>({30, 60, 120}), "a 144 Hz panel with a 120 mode offers 120");
-    check(choices({240.0f}) == std::vector<int>({30, 60, 120}), "240 Hz shows 120 every second vsync");
-    check(choices({180.0f}) == std::vector<int>({30, 60, 90}), "180 Hz shows 90 every second vsync, not 120");
-    check(choices({59.94f, 119.88f}) == std::vector<int>({30, 60, 120}), "a 119.88 Hz mode is a 120 Hz mode");
-    check(choices({89.5f}) == std::vector<int>({30, 60, 90}), "half a hertz off is still 90");
-    check(choices({88.0f}) == std::vector<int>({30, 60}), "two hertz off is not");
-    check(choices({NAN, INFINITY, -120.0f, 0.0f}) == std::vector<int>({30, 60}), "nonsense rates offer nothing more");
-    check(choices({1200.0f}) == std::vector<int>({30, 60}), "a rate past eight divides is not read as 120");
+    check(choices({60.0f, 90.0f, 120.0f}) == std::vector<int>({30, 60, 90, 120, -1}), "a 60/90/120 Hz panel offers all four");
+    check(choices({60.0f, 120.0f}) == std::vector<int>({30, 60, 120, -1}), "a 60/120 Hz panel has no 90: 120 does not divide to it");
+    check(choices({60.0f, 90.0f}) == std::vector<int>({30, 60, 90, -1}), "a 90 Hz phone offers 90, not 120");
+    check(choices({144.0f}) == std::vector<int>({30, 60, -1}), "144 Hz alone divides to neither 90 nor 120 evenly");
+    check(choices({144.0f, 120.0f, 60.0f}) == std::vector<int>({30, 60, 120, -1}), "a 144 Hz panel with a 120 mode offers 120");
+    check(choices({240.0f}) == std::vector<int>({30, 60, 120, -1}), "240 Hz shows 120 every second vsync");
+    check(choices({180.0f}) == std::vector<int>({30, 60, 90, -1}), "180 Hz shows 90 every second vsync, not 120");
+    check(choices({59.94f, 119.88f}) == std::vector<int>({30, 60, 120, -1}), "a 119.88 Hz mode is a 120 Hz mode");
+    check(choices({89.5f}) == std::vector<int>({30, 60, 90, -1}), "half a hertz off is still 90");
+    check(choices({88.0f}) == std::vector<int>({30, 60, -1}), "two hertz off is not");
+    check(choices({NAN, INFINITY, -120.0f, 0.0f}) == std::vector<int>({30, 60, -1}), "nonsense rates offer nothing more");
+    check(choices({1200.0f}) == std::vector<int>({30, 60, -1}), "a rate past eight divides is not read as 120");
     // The array is filled up to its capacity; the count is the whole list.
     const float rates[] = {120.0f, 90.0f, 60.0f};
     int two[2] = {0, 0};
-    check(frame::liveFpsChoices(rates, 3, two, 2) == 4 && two[0] == 30 && two[1] == 60, "a short array gets the first, the count all");
+    check(frame::liveFpsChoices(rates, 3, two, 2) == 5 && two[0] == 30 && two[1] == 60, "a short array gets the first, the count all");
+    int five[5] = {0, 0, 0, 0, 0};
+    check(frame::liveFpsChoices(rates, 3, five, 5) == 5 && five[3] == 120 && five[4] == frame::kLiveFpsFollow,
+          "Follow device comes last, after the rates");
     check(!frame::liveFpsOffered(75, rates, 3), "a rate off the ladder is never offered");
 }
 
@@ -85,6 +89,11 @@ void aStoredCapSnapsToTheDisplay() {
     check(frame::liveFpsCap(75, fast, 3) == 60, "75 is as near 60 as 90: the lower");
     check(frame::liveFpsCap(100, fast, 3) == 90, "100 is nearest 90");
     check(frame::liveFpsCap(1000, fast, 3) == 120 && frame::liveFpsCap(1, fast, 3) == 30, "far out of range clamps to the ends");
+    check(frame::liveFpsCap(frame::kLiveFpsFollow, fast, 3) == frame::kLiveFpsFollow &&
+              frame::liveFpsCap(frame::kLiveFpsFollow, nullptr, 0) == frame::kLiveFpsFollow,
+          "Follow device stays Follow device on any display");
+    check(frame::liveFpsCap(-2, fast, 3) == 60, "any other negative is the default");
+    check(frame::kLiveFpsFollow == -1, "Follow is -1: an older build reads a negative cap as none, every vsync");
 }
 
 constexpr float kCaps[] = {120.0f, 90.0f, 60.0f, 45.0f, 30.0f, 24.0f, 15.0f};
@@ -147,6 +156,78 @@ void thePacerDrawsTheWalk() {
     check(drawnPerSecond(60.0f, frame::thermalStepCapFps(120.0f, 0)) == 60, "a 120 cap the panel cannot reach draws the panel's 60");
 }
 
+// One Follow device surface: its pacer state and the clock its vsyncs arrive on.
+struct Follow {
+    frame::PacerState p;
+    double tNs = 1e9;
+
+    // `seconds` of a panel at `panelHz` under a thermal tier `rungsDown` steps hot; returns how many frames the
+    // last second drew. The cap is what geode_pacer_on_vsync paces each vsync to.
+    int run(double panelHz, int rungsDown, int seconds) {
+        const double period = 1e9 / panelHz;
+        const int vsyncs = static_cast<int>(std::lround(panelHz * seconds));
+        const int lastSecond = vsyncs - static_cast<int>(std::lround(panelHz));
+        int drawn = 0;
+        for (int i = 0; i < vsyncs; ++i) {
+            tNs += period;
+            const float cap = frame::pacerCapFps(p, static_cast<float>(frame::kLiveFpsFollow), rungsDown);
+            if (frame::Pacer::onVsync(p, static_cast<int64_t>(std::llround(tNs)), cap) > 0.0 && i >= lastSecond) drawn++;
+        }
+        return drawn;
+    }
+};
+
+// Follow device: every vsync of the panel the system chose, its real rate in the paced slot, and the
+// thermal walk from the rate it followed while cool.
+void followDeviceDrawsThePanelsOwnRate() {
+    Follow f;
+    check(frame::pacerCapFps(f.p, -1.0f, 0) == 0.0f, "before the panel is measured Follow draws every vsync");
+    check(f.run(120.0, 0, 2) == 120, "a 120 Hz panel: 120 frames a second");
+    check(f.p.divisor == 1 && f.p.pacedMilliHz == 120'000, "every vsync, and the paced rate says 120 for MilkDrop and the target");
+    check(f.p.followedMilliHz == 120'000, "the rate followed while cool is kept");
+    // The system changes the panel (battery saver, Smooth display off): Follow follows it.
+    check(f.run(60.0, 0, 3) == 60, "the panel drops to 60: 60 frames a second");
+    check(f.p.pacedMilliHz == 60'000 && f.p.followedMilliHz == 60'000, "and the kept rate follows it while cool");
+    check(f.run(90.0, 0, 3) == 90 && f.p.pacedMilliHz == 90'000, "a 90 Hz mode: 90");
+
+    Follow odd;
+    check(odd.run(144.0, 0, 2) == 144, "an odd 144 Hz panel draws every vsync, never an uneven divide");
+    check(odd.p.divisor == 1 && odd.p.pacedMilliHz == 144'000, "and reads as 144");
+    check(odd.run(144.0, 1, 2) == 72 && odd.p.divisor == 2, "warm: the 120 step is the whole divide 72");
+    check(odd.run(144.0, 2, 2) == 72 && odd.p.divisor == 2, "Reduced: 90 asked, still the whole divide 72");
+    check(odd.run(144.0, 3, 2) == 48 && odd.p.divisor == 3 && odd.p.pacedMilliHz == 48'000, "Minimal: 60 asked, 48 drawn, evenly");
+
+    check(Follow().run(60.0, 0, 2) == 60, "a 60 Hz phone follows at 60");
+    Follow cold;
+    check(cold.run(120.0, 1, 2) == 60, "hot before any rate was followed: it steps from the panel it first measures");
+    check(cold.p.followedMilliHz == 120'000, "and keeps that rate, so a panel the system lowers later cannot pull it down");
+}
+
+// Kills: Follow stepping from the panel as it is when hot. Drawing fewer frames can let the system lower the
+// panel (adaptive refresh rate), and stepping from that walks a warm phone down to the floor.
+void aHotFollowStepsFromTheRateItFollowedCool() {
+    Follow f;
+    f.run(120.0, 0, 2);
+    check(f.run(120.0, 1, 2) == 60, "warm on a 120 Hz panel: 90 asked, the whole divide 60 drawn");
+    check(f.run(90.0, 1, 3) == 90, "warm, and the system put the panel at 90: 90");
+    check(f.run(60.0, 1, 3) == 60, "warm, and the system lowered the panel to 60: still 60, not 30");
+    check(f.p.followedMilliHz == 120'000, "the kept rate does not move while hot");
+    check(f.run(120.0, 2, 3) == 60, "Reduced: 60");
+    check(f.run(120.0, 3, 2) == 30, "Minimal: 30");
+    check(f.run(120.0, 0, 2) == 120, "cool again: back to the panel's 120");
+    // fps first at every step: each hotter tier draws no more than the cooler one.
+    for (const double hz : {60.0, 90.0, 120.0, 144.0}) {
+        int cooler = 1000;
+        for (int t = 0; t < 4; ++t) {
+            Follow g;
+            g.run(hz, 0, 2);
+            const int drawn = g.run(hz, t, 2);
+            check(drawn <= cooler, "a hotter tier never draws more under Follow");
+            cooler = drawn;
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -155,6 +236,8 @@ int main() {
     aStoredCapSnapsToTheDisplay();
     aHotPhoneWalksTheCapDownARungATier();
     thePacerDrawsTheWalk();
+    followDeviceDrawsThePanelsOwnRate();
+    aHotFollowStepsFromTheRateItFollowedCool();
     if (failures == 0) std::printf("live_fps_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -149,9 +149,9 @@ public:
     // What the pacer applies and Surface.setFrameRate asks for: the surface's own cap stepped down a rung per
     // hot tier (frame::thermalStepCapFps; for a cap of 60 or under that is min(cap, fpsCap())). Handed the
     // surface's own cap, never a rate this already produced: the step is not idempotent.
-    float capFor(float surfaceCapFps) const {
-        return frame::thermalStepCapFps(surfaceCapFps, thermalTierInfo(tier()).fpsRungsDown);
-    }
+    float capFor(float surfaceCapFps) const { return frame::thermalStepCapFps(surfaceCapFps, fpsRungsDown()); }
+    // How many live rungs the settled tier steps a cap down (0 cool): what Follow device steps its panel rate by.
+    int fpsRungsDown() const { return thermalTierInfo(tier()).fpsRungsDown; }
 
     // The measured fallback: a governor that saw a sustained frame-time deficit raises the floor for the
     // whole process (the surfaces share one GPU), never past kMeasuredCeiling.

@@ -670,6 +670,28 @@ void theGovernorStepsTheOwnCapNotThePacedRate() {
     check(c.pacedFps() == 45.0f, "cool, the pacer's 45 for a 60 cap on a 90 Hz panel stands");
 }
 
+// Follow device has no cap of its own (GEODE_LIVE_FPS_FOLLOW): the pacer stepped the panel rate it follows,
+// so the governor reads the paced rate as it is. Kills: the -1 read as a cap (a warm phone's floor 30 under
+// a stage drawing 60), or as a rate (MilkDrop told -1 fps).
+void followDeviceReadsThePacedRate() {
+    ThermalState shared;
+    pushFor(shared, 1, NAN, 100.0, 3);  // Eased
+    ThermalGovernor g(shared);
+    const float follow = static_cast<float>(GEODE_LIVE_FPS_FOLLOW);
+    g.setPacedFps(60.0f, follow);
+    check(g.pacedFps() == 60.0f, "warm, Follow paced at 60 reads 60");
+    g.setPacedFps(-1.0f, follow);
+    check(g.pacedFps() == 30.0f, "before a vsync says, warm Follow reads as a warm free-running surface");
+    ThermalState cool;
+    cool.push(0, NAN, 100.0);
+    ThermalGovernor c(cool);
+    c.setPacedFps(144.0f, follow);
+    check(c.pacedFps() == 144.0f, "cool, Follow on a 144 Hz panel reads 144");
+    c.setPacedFps(-1.0f, follow);
+    check(c.pacedFps() == 0.0f, "and before a vsync, free-running");
+    check(frame::isLiveFpsFollow(follow) && !frame::isLiveFpsFollow(-2.0f), "only -1 means Follow");
+}
+
 // Kills: a frame-time target that stays at 50 above a 60 cap (a 120 cap drawn at 70 would never step down),
 // and one that moved for caps of 60 and under. Worked by hand: under a 120 cap the target is 50 x 120 / 60 =
 // 100, so 90 fps is a 10 % deficit, a mild one: with Adapt on it raises the floor a rung after 2.5 s, which
@@ -751,6 +773,7 @@ int main() {
     theShellsPacerArrayHoldsTheCap();
     aHighCapWalksDownTheLadder();
     theGovernorStepsTheOwnCapNotThePacedRate();
+    followDeviceReadsThePacedRate();
     aHighCapThatCannotKeepUpStepsDownARung();
     everySurfaceInTheProcessReadsOneState();  // last: it uses the real process state
     if (failures == 0) std::printf("thermal_test: all checks passed\n");

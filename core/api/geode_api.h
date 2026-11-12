@@ -739,10 +739,12 @@ GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, 
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
    an unknown display. choices: the caps offered, ascending, into out (up to capacity); returns how many: 30
-   and 60 always, 90 and 120 where the display shows them evenly. cap: the stored pick as this display runs
-   it, an offered cap as it is, anything else the nearest offered (the lower on a tie), <= 0 the default. */
+   and 60 always, 90 and 120 where the display shows them evenly, then GEODE_LIVE_FPS_FOLLOW ("Follow
+   device") always. cap: the stored pick as this display runs it: an offered cap or Follow as it is, anything
+   else the nearest offered cap (the lower on a tie), any other value <= 0 the default. */
 #define GEODE_LIVE_FPS_DEFAULT 60
-#define GEODE_LIVE_FPS_MAX_CHOICES 4
+#define GEODE_LIVE_FPS_FOLLOW (-1)
+#define GEODE_LIVE_FPS_MAX_CHOICES 5
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
 GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
 /* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
@@ -820,8 +822,9 @@ GEODE_API int             geode_stage_pick_display(const int* ids, const unsigne
 GEODE_API int             geode_stage_presents(unsigned flags);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
-#define GEODE_PACER_STATE_LONGS 8
+   `state` is nine int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS); slot 8 is native's
+   own (the rate "Follow device" last followed while cool). */
+#define GEODE_PACER_STATE_LONGS 9
 /* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
    Surface.setFrameRate when it moves. */
 #define GEODE_PACER_CAP_SLOT 6
@@ -830,12 +833,15 @@ GEODE_API int             geode_stage_presents(unsigned flags);
    it to geode_viz_frame_begin as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). */
+   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). GEODE_LIVE_FPS_FOLLOW
+   follows the panel: every vsync of the rate the display runs now while cool, a rung under the rate it
+   last ran at while cool when hot (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
 /* The cap a surface asking for cap_fps runs at now: cap_fps stepped down a rung per hot thermal tier (120 to
-   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate. */
+   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate, so
+   GEODE_LIVE_FPS_FOLLOW answers 0 at every tier: the surface states no rate and the system chooses. */
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The

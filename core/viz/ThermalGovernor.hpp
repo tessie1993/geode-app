@@ -67,8 +67,14 @@ public:
     // The rate this surface really draws at: its cap under the thermal one, as the pacer applies it.
     // The fluid scenes and the measured fallback read this, so a 30 fps thermal cap is never mistaken
     // for a phone that cannot keep up with 60.
+    // Follow device has no cap of its own to step: the pacer stepped the panel rate it follows already, so its
+    // paced rate is the rate, and until a vsync says one the surface reads as free-running (the floor when hot).
     float pacedFps() const {
-        return frame::effectiveCapFps(pacedFps_.load(), frame::thermalStepCapFps(ownCapFps_.load(), tierInfo().fpsRungsDown));
+        const float paced = pacedFps_.load();
+        const float own = ownCapFps_.load();
+        const int rungsDown = tierInfo().fpsRungsDown;
+        if (frame::isLiveFpsFollow(own)) return paced > 0.0f ? paced : frame::thermalStepCapFps(0.0f, rungsDown);
+        return frame::effectiveCapFps(paced, frame::thermalStepCapFps(own, rungsDown));
     }
     // Settings › Performance "Adapt to frame time": any sustained frame-time deficit steers the tier
     // even when the platform reports thermals, and a sustained run of kept-up frames steps it back up.

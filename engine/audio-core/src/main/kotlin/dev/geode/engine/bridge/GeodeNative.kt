@@ -1736,12 +1736,19 @@ object GeodeNative {
     ): Boolean
 
     /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
-    const val LIVE_FPS_MAX_CHOICES = 4
+    const val LIVE_FPS_MAX_CHOICES = 5
+
+    /**
+     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap and handed
+     * to the pacer as one. The stage runs at the rate the display runs now and states no rate of its own.
+     */
+    const val LIVE_FPS_FOLLOW = -1
 
     /**
      * Settings › Performance's live frame-rate caps (core/viz/frame/LiveFps) on a display that can switch to
      * [refreshRates] seamlessly, ascending into [out]; returns how many. 30 and 60 always, 90 and 120 where
-     * the display shows them. The in-app stage only: the wallpaper, dream, export and Cast keep their own.
+     * the display shows them, then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper, dream, export and
+     * Cast keep their own.
      */
     external fun liveFpsChoices(
         refreshRates: FloatArray,
@@ -1897,8 +1904,8 @@ object GeodeNative {
 
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
-    /** Eight longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 8
+    /** Nine longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 9
 
     /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
     const val PACER_CAP_SLOT = 6

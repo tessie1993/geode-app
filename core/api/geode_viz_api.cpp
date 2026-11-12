@@ -451,7 +451,9 @@ int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media
 
 int geode_live_fps_choices(const float* rates, int count, int* out, int capacity) {
     static_assert(geode::viz::frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
-    static_assert(static_cast<int>(geode::viz::frame::kLiveFpsRungs.size()) == GEODE_LIVE_FPS_MAX_CHOICES);
+    static_assert(geode::viz::frame::kLiveFpsFollow == GEODE_LIVE_FPS_FOLLOW);
+    // Every rung, then Follow device.
+    static_assert(static_cast<int>(geode::viz::frame::kLiveFpsRungs.size()) + 1 == GEODE_LIVE_FPS_MAX_CHOICES);
     return geode::viz::frame::liveFpsChoices(rates, std::max(count, 0), out, std::max(capacity, 0));
 }
 
@@ -467,14 +469,18 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
     static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
     static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
     frame::PacerState s = frame::unpack(wire);
-    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008).
-    const float cap = geode::viz::ThermalState::process().capFor(cap_fps);
+    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008); Follow device
+    // takes its cap from the panel the state has measured (frame::followCapFps).
+    const float cap = frame::pacerCapFps(s, cap_fps, geode::viz::ThermalState::process().fpsRungsDown());
     const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
     frame::pack(s, wire);
     return dt;
 }
 
 float geode_pacer_effective_cap(float cap_fps) {
+    // Follow device states no rate, hot or cool: the system keeps choosing the panel's mode (setFrameRate(0)
+    // is the platform's "no preference"), and a hot phone's step is the pacer's divide of whatever it chose.
+    if (geode::viz::frame::isLiveFpsFollow(cap_fps)) return 0.0f;
     return geode::viz::ThermalState::process().capFor(cap_fps);
 }
 

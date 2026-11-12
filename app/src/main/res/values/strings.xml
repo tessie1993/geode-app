@@ -47,7 +47,8 @@
     <string name="perf_render_scale">Render resolution</string>
     <string name="perf_fps_cap">Frame rate cap</string>
     <string name="perf_fps_value">%1$d fps</string>
-    <string name="perf_fps_cap_hint">Higher rates use more battery and heat the phone sooner; 90 and 120 appear only on screens that run that fast.</string>
+    <string name="perf_fps_follow">Follow device</string>
+    <string name="perf_fps_cap_hint">Higher rates use more battery and heat the phone sooner; 90 and 120 appear only on screens that run that fast, and Follow device runs at your screen\'s own refresh rate setting.</string>
     <string name="perf_march">3D detail (ray-march steps)</string>
     <string name="perf_level_low">Low</string>
     <string name="perf_level_medium">Medium</string>

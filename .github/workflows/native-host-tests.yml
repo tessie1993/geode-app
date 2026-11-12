@@ -121,6 +121,10 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # The AIFF header scan the export's reader and the player's extractor share: every layout, the chunk walk, the
+          # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
+          ./aiff_header_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
@@ -408,6 +412,9 @@ jobs:
           # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
+          # The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o eq_presets_test
+          ./eq_presets_test
           # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp core/api/geode_playback_api.cpp -o playback_controls_test
           ./playback_controls_test
@@ -423,6 +430,13 @@ jobs:
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t
           done
+          # A render's range and time left (core/output/ExportRange, RenderEta): the segment clamp and its
+          # refusals, the estimate through a lead-in and an even render, a restart, the wording's thresholds.
+          EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/export_range_test.cpp $EXPORT_RUN_SRCS -o export_range_test
+          ./export_range_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/render_eta_test.cpp $EXPORT_RUN_SRCS -o render_eta_test
+          ./render_eta_test
 
       # Record's clock (core/output/Recorder): which stage frames a live recording keeps and their PTS at
       # 30, 60 and 120 fps, where each heard sample sits, a pause, a seek, a rate change, the limits.

@@ -20,6 +20,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
+- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`core/audio/ingest/AiffHeaderScan`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
 - `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
 - `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
@@ -42,10 +43,12 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.
 - `edge_glow_test.cpp`: the wallpaper edge glow's options, envelope and mask.
 - `encoder_ladder_test.cpp`: the encoder fallback ladder: rungs, floor, bit rate, unknown ceiling.
+- `eq_presets_test.cpp`: the built-in equalizer curves (`core/audio/dsp/EqPresets`), each in its saved place, through `geode_dsp_eq_preset_*`.
 - `export_passes_test.cpp`: the export post-passes' maths: watermark tiling, placement, corner layout and end card, seam weights.
 - `export_pcm_test.cpp`: the export's PCM conversions (`PcmConvert`, `PcmTiming`) and their C ABI.
 - `export_frame_test.cpp`: an export's render order (`core/output/ExportFrame`): prepare up to the look, the pre-roll's plan, each frame's audio to its exact end and its draw at its exact time.
 - `export_preroll_test.cpp`: an export's start: the pre-roll runs the clock whole from frame 0 and through a loop's seam, mid-song frame 0 hears live's tempo, a track with no audio fails.
+- `export_range_test.cpp`: an export segment's clamp (`core/output/ExportRange`): the 1 s minimum, the whole track as no range.
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
@@ -99,6 +102,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
 - `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
 - `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
+- `render_eta_test.cpp`: the export's time left (`core/output/RenderEta`): nothing through a lead-in or the first 10 s, then near the truth and never climbing, and which phrase words it.
 - `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.

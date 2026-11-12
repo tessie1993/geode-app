@@ -310,6 +310,11 @@ GEODE_API void       geode_dsp_destroy(geode_dsp*);
 GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
+/* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
+ * is saved data. _levels writes GEODE_DSP_BANDS millibel levels, low band first, and returns that count; 0,
+ * writing nothing, for no such curve or a capacity below GEODE_DSP_BANDS. */
+GEODE_API int        geode_dsp_eq_preset_count(void);
+GEODE_API int        geode_dsp_eq_preset_levels(int preset, int32_t* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
@@ -1099,6 +1104,31 @@ GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
+/* A render's range and time left (output/ExportRange, output/RenderEta). */
+/* The segment a picked start and end cover, held inside a track of track_ms: 1 with the outs filled (either
+ * may be NULL), 0 when there is no segment to render (no track length, under geode_export_range_min_ms left,
+ * or the whole track, which renders as a whole track). */
+GEODE_API int     geode_export_range(int64_t start_ms, int64_t end_ms, int64_t track_ms, int64_t* out_start_ms,
+                                     int64_t* out_duration_ms);
+GEODE_API int64_t geode_export_range_min_ms(void);
+/* The time left, from progress samples. A sample is the bar's 0..1 at at_ms on a monotonic clock; steady 0
+ * marks the quick lead-in (the audio transcode), which says nothing about the render's pace and starts the
+ * estimate over, as progress moving backwards does. Returns whole seconds, or GEODE_RENDER_ETA_UNKNOWN until
+ * the steady render has run long enough to say. Any thread: the handle locks. */
+#define GEODE_RENDER_ETA_UNKNOWN (-1)
+typedef struct geode_render_eta geode_render_eta;
+GEODE_API geode_render_eta* geode_render_eta_create(void);
+GEODE_API void    geode_render_eta_destroy(geode_render_eta*);
+GEODE_API int64_t geode_render_eta_sample(geode_render_eta*, float progress, int64_t at_ms, int steady);
+GEODE_API void    geode_render_eta_reset(geode_render_eta*);
+/* How an estimate is worded: the phrase, and for minutes and hours the rounded number it carries (else 0). */
+#define GEODE_ETA_ALMOST_DONE 0     /* under 30 s */
+#define GEODE_ETA_ABOUT_A_MINUTE 1  /* under 90 s */
+#define GEODE_ETA_MINUTES 2         /* under an hour */
+#define GEODE_ETA_HOURS 3
+GEODE_API int     geode_render_eta_phrase(int64_t seconds_remaining);
+GEODE_API int     geode_render_eta_phrase_count(int64_t seconds_remaining);
+
 /* A recording's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
  * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. The stop itself
  * is the recorder's (geode_recorder_*). */
@@ -1333,6 +1363,43 @@ GEODE_API int64_t           geode_aiff_total_frames(const geode_aiff*);   /* 0 =
 GEODE_API float             geode_aiff_progress(const geode_aiff*);       /* frames read over the total, 0..1 */
 /* Up to `capacity` interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
 GEODE_API int               geode_aiff_read_s16(geode_aiff*, int16_t* out, int capacity);
+/* The same header walk (audio/ingest/AiffHeaderScan) for a caller that holds the file itself, the player's
+ * extractor: pass over geode_aiff_scan_skip bytes, read geode_aiff_scan_read bytes (never more than
+ * GEODE_AIFF_SCAN_MAX_READ), hand them to geode_aiff_scan_step, and repeat while it answers MORE. After DONE
+ * the file stands at the first sample. A step whose `n` is not the count asked for, or a NULL scan, is
+ * INVALID; nothing in the file is trusted with more than a skip. One thread at a time per handle. */
+#define GEODE_AIFF_SCAN_MORE      0
+#define GEODE_AIFF_SCAN_DONE      1
+#define GEODE_AIFF_SCAN_INVALID (-1)
+#define GEODE_AIFF_SCAN_MAX_READ 22
+typedef struct geode_aiff_scan geode_aiff_scan;
+GEODE_API geode_aiff_scan*  geode_aiff_scan_create(void);
+GEODE_API void              geode_aiff_scan_destroy(geode_aiff_scan*);
+GEODE_API int64_t           geode_aiff_scan_skip(const geode_aiff_scan*);
+GEODE_API int               geode_aiff_scan_read(const geode_aiff_scan*);
+GEODE_API int               geode_aiff_scan_step(geode_aiff_scan*, const uint8_t* bytes, int n);
+/* What the header said, GEODE_AIFF_HEADER_COUNT values in the order below; 1, or 0 writing nothing before
+ * DONE or with a smaller `capacity`. PCM is how the player takes the samples: GEODE_AIFF_PCM_NONE for a
+ * width or byte order it has no encoding for. DATA_BYTES is what SSND's size leaves for samples. */
+#define GEODE_AIFF_HEADER_CHANNELS        0
+#define GEODE_AIFF_HEADER_SAMPLE_RATE     1
+#define GEODE_AIFF_HEADER_PCM             2
+#define GEODE_AIFF_HEADER_BYTES_PER_FRAME 3
+#define GEODE_AIFF_HEADER_FRAMES          4
+#define GEODE_AIFF_HEADER_DATA_START      5
+#define GEODE_AIFF_HEADER_DATA_BYTES      6
+#define GEODE_AIFF_HEADER_COUNT           7
+#define GEODE_AIFF_PCM_NONE   0
+#define GEODE_AIFF_PCM_S16_LE 1
+#define GEODE_AIFF_PCM_S16_BE 2
+#define GEODE_AIFF_PCM_S24_BE 3
+#define GEODE_AIFF_PCM_S32_BE 4
+GEODE_API int               geode_aiff_scan_header(const geode_aiff_scan*, int64_t* out, int capacity);
+/* The player's seek map over the samples, in whole frames: the start time of the frame `bytes` in lies in,
+ * and the byte offset of the frame playing at time_us, held inside data_bytes. 0 for a bad layout. */
+GEODE_API int64_t           geode_aiff_time_us(int64_t bytes, int bytes_per_frame, int sample_rate);
+GEODE_API int64_t           geode_aiff_seek_offset(int64_t time_us, int bytes_per_frame, int sample_rate,
+                                                   int64_t data_bytes);
 /* An export's track audio (audio/ingest/TrackFeed): the shell pushes each decoded chunk, and the renderer's
  * sound engine hears exactly the frames up to each video frame's end, counted from the range start.
  * Frames before start_ms are dropped. One chunk is held at a time: push only after a deliver returned 0.

@@ -24,6 +24,15 @@ object GeodeNative {
 
     external fun dspBandCenterHz(band: Int): Float
 
+    /** How many built-in equalizer curves there are. */
+    external fun dspEqPresetCount(): Int
+
+    /** Curve [preset]'s band levels in millibels into [out]; the bands written, 0 for no such curve. */
+    external fun dspEqPresetLevels(
+        preset: Int,
+        out: IntArray,
+    ): Int
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,
@@ -1403,6 +1412,49 @@ object GeodeNative {
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 
+    /**
+     * A picked segment held inside the track: [out] gets its start and length in ms. False, leaving [out]
+     * alone, when there is no segment to render (no track length, too short, or the whole track).
+     */
+    external fun exportRange(
+        startMs: Long,
+        endMs: Long,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The shortest segment [exportRange] accepts. */
+    external fun exportRangeMinMs(): Long
+
+    /** What [renderEtaSample] answers while it has no estimate yet. */
+    const val RENDER_ETA_UNKNOWN = -1L
+
+    /** A render's estimate of the time left, for one run after another. Freed with [renderEtaDestroy]. */
+    external fun renderEtaCreate(): Long
+
+    external fun renderEtaDestroy(handle: Long)
+
+    /** Feeds one progress sample; the seconds left, or [RENDER_ETA_UNKNOWN]. [steady] false while warming up. */
+    external fun renderEtaSample(
+        handle: Long,
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Long
+
+    external fun renderEtaReset(handle: Long)
+
+    /** How [renderEtaPhrase] words the seconds left; the last two carry [renderEtaPhraseCount]. */
+    const val ETA_ALMOST_DONE = 0
+    const val ETA_ABOUT_A_MINUTE = 1
+    const val ETA_MINUTES = 2
+    const val ETA_HOURS = 3
+
+    external fun renderEtaPhrase(secondsRemaining: Long): Int
+
+    /** The minutes or hours the phrase names; 0 for the other two. */
+    external fun renderEtaPhraseCount(secondsRemaining: Long): Int
+
     /** Why a recording ended ([recorderStopped]); 0 while it runs. `Stop` in core/output/Recorder. */
     const val RECORD_STOP_USER = 1
     const val RECORD_STOP_MAX_LENGTH = 2
@@ -2263,6 +2315,71 @@ object GeodeNative {
         handle: Long,
         out: ShortArray,
     ): Int
+
+    /** What [aiffScanStep] answers: feed it again, the header is read, or this is not an AIFF that plays. */
+    const val AIFF_SCAN_MORE = 0
+    const val AIFF_SCAN_DONE = 1
+    const val AIFF_SCAN_INVALID = -1
+
+    /** The most [aiffScanRead] asks for at once. */
+    const val AIFF_SCAN_MAX_READ = 22
+
+    /** Where [aiffScanHeader] puts each value. */
+    const val AIFF_HEADER_CHANNELS = 0
+    const val AIFF_HEADER_SAMPLE_RATE = 1
+    const val AIFF_HEADER_PCM = 2
+    const val AIFF_HEADER_BYTES_PER_FRAME = 3
+    const val AIFF_HEADER_FRAMES = 4
+    const val AIFF_HEADER_DATA_START = 5
+    const val AIFF_HEADER_DATA_BYTES = 6
+    const val AIFF_HEADER_COUNT = 7
+
+    /** The header's `AIFF_HEADER_PCM`: how the samples lie, 0 for a layout the player has no encoding for. */
+    const val AIFF_PCM_S16_LE = 1
+    const val AIFF_PCM_S16_BE = 2
+    const val AIFF_PCM_S24_BE = 3
+    const val AIFF_PCM_S32_BE = 4
+
+    /**
+     * The AIFF header walk for a caller that holds the file itself (the player's extractor): skip
+     * [aiffScanSkip] bytes, read [aiffScanRead] bytes, hand them to [aiffScanStep], and repeat while it
+     * answers [AIFF_SCAN_MORE]. Freed with [aiffScanDestroy].
+     */
+    external fun aiffScanCreate(): Long
+
+    external fun aiffScanDestroy(handle: Long)
+
+    external fun aiffScanSkip(handle: Long): Long
+
+    external fun aiffScanRead(handle: Long): Int
+
+    /** The first [n] bytes of [bytes], which must be the count [aiffScanRead] asked for. */
+    external fun aiffScanStep(
+        handle: Long,
+        bytes: ByteArray,
+        n: Int,
+    ): Int
+
+    /** Fills [out] (`AIFF_HEADER_COUNT` values); false before [AIFF_SCAN_DONE]. */
+    external fun aiffScanHeader(
+        handle: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The start time of the frame [bytes] into the samples lies in. */
+    external fun aiffTimeUs(
+        bytes: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+    ): Long
+
+    /** The byte offset into the samples of the frame playing at [timeUs], held inside [dataBytes]. */
+    external fun aiffSeekOffset(
+        timeUs: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+        dataBytes: Long,
+    ): Long
 
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(

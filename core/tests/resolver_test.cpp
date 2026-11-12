@@ -687,7 +687,7 @@ struct OldChain {
         if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
         p = lfo.apply(p, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
-        reactions.tick(soundFrame, dt);
+        reactions.tick(soundFrame, dt, &director.emotion());
         p = reactions.apply(p);
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);

@@ -344,9 +344,11 @@ void everyPathCrossesTheTravelWrapSmoothly() {
             rig.step(p, {}, 0.1f, false);
             const CameraPose& c = rig.pose();
             wrapped = wrapped || c.travel < prev.travel;
+            // z is the travel and wraps with it, onto a world that tiles along z, so z is compared modulo the wrap.
+            float dz = c.pos[2] - prev.pos[2];
+            if (std::fabs(dz) > 0.5f * CameraRig::kTravelWrap) dz -= std::copysign(CameraRig::kTravelWrap, dz);
             maxStep = std::fmax(maxStep, std::sqrt((c.pos[0] - prev.pos[0]) * (c.pos[0] - prev.pos[0]) +
-                                                   (c.pos[1] - prev.pos[1]) * (c.pos[1] - prev.pos[1]) +
-                                                   (c.pos[2] - prev.pos[2]) * (c.pos[2] - prev.pos[2])));
+                                                   (c.pos[1] - prev.pos[1]) * (c.pos[1] - prev.pos[1]) + dz * dz));
             maxUpTurn = std::fmax(maxUpTurn, angleBetween(c.up, prev.up));
             auto dot = [](const std::array<float, 3>& a, const std::array<float, 3>& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
             unit = unit && std::isfinite(c.pos[0] + c.pos[1] + c.pos[2]) && std::fabs(dot(c.fwd, c.fwd) - 1.0f) < 1e-3f && std::fabs(dot(c.up, c.up) - 1.0f) < 1e-3f &&
@@ -401,9 +403,10 @@ void flatStylesDiveBothWays() {
     check(CameraRig::flatDive(p) == 0.0f, "hover does not dive");
     p.camPath = 11;
     check(CameraRig::flatDive(p) == 0.0f, "pendulum does not dive");
+    // Fly speed is still -1 here, so the travelling paths zoom out exactly as glide did.
     for (int path : {7, 8, 9, 10}) {
         p.camPath = path;
-        check(CameraRig::flatDive(p) == in, "weave, corkscrew, swoop and strafe dive like the other travelling paths");
+        check(CameraRig::flatDive(p) == out, "weave, corkscrew, swoop and strafe dive like the other travelling paths");
     }
     // Backward shrinks the picture without a pop: the endless zoom phase wraps either way.
     float ph = 0.0f;

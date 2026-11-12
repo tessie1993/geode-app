@@ -77,7 +77,9 @@ const std::vector<Section>& table() {
         {C::Camera, "framing", false, S::ThreeD, {"Field of view", "Swing", "Push in", "Look turn", "Look tilt", "Roll"}},
         {C::Camera, "feel", false, S::ThreeD, {"Handheld shake", "Tilt phone to look", "Drag to look", "Camera smoothing"}},
 
-        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA", "@auto_moments"}},
+        // The auto-director's switch is not a Customize control: it is Visuals › Settings' first row (and
+        // Settings › Visual playback), since it changes the look with the song rather than being part of it.
+        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA"}},
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
         {C::Music, "notes_key", false, S::Always, {"Key colour", "@notes_key"}},
@@ -167,7 +169,6 @@ const std::vector<HeldControl>& held() {
         {"@macros", {}, std::nullopt},
         {"@macro_editor", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
-        {"@auto_moments", {}, std::nullopt},
         {"@moments", {}, std::nullopt},
         {"@rise_fall", {}, Scope::BandGains},
         {"@notes_key", {"noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums"}, std::nullopt},

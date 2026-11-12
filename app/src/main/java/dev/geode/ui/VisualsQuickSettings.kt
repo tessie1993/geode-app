@@ -87,16 +87,16 @@ import kotlin.math.roundToInt
 /**
  * Visuals › Settings: a page of the options sheet, opened by the ⚙ at the top of the visual (owner:
  * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
- * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
+ * reaches for while watching, split from Customize by kind: what changes the look by itself (the Auto Director,
  * the style timer and what it steps through, the visual playlist) and how the glass over the visual
  * behaves (the sheet's opacity, how long the mini player stays), and "Show on a computer" (the Cast stream to a
  * browser, `ui/cast/ComputerLinkRow`), since the ⚙ sits beside the Cast icon.
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
- * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
+ * so the two can never disagree: the Auto Director is [AutoDirectorStore], the timer, its sources and the
  * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), and the glass rows are
  * [GeneralSettings] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
- * may switch Auto on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
+ * may switch the Auto Director on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
  *
  * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
  * rows split into two columns (the landscape panel, a tablet). Back is the sheet's: the page is on
@@ -229,7 +229,7 @@ private class RandomPick(
 )
 
 /**
- * The controls. In one column they run top to bottom; in two, the timer (Auto and its reach, the timer
+ * The controls. In one column they run top to bottom; in two, the timer (the Auto Director and its reach, the timer
  * switch, its interval and what it steps through) is on the left and its source, then the glass, on
  * the right.
  */
@@ -279,14 +279,22 @@ internal fun StyleTimerRows(viewModel: PlayerViewModel) {
     TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist = null)
 }
 
-/** Auto, the auto-director ([AutoDirectorStore]), and how far it reaches while it is on. */
+/**
+ * The Auto Director's switch ([AutoDirectorStore]), named and explained in one line so it reads as what
+ * it is, and how far it reaches while it is on. Its only homes are here and Settings › Visual playback.
+ */
 @Composable
 internal fun AutoDirectorRows() {
     val context = LocalContext.current
     val director = remember { context.geodeContainer.autoDirector }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
-    SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
+    SwitchRow(
+        stringResource(R.string.visuals_qs_auto),
+        checked = directorOn,
+        onCheckedChange = director::setEnabled,
+        description = stringResource(R.string.visuals_qs_auto_about),
+    )
     if (directorOn) ReachRow(reach, director::setReach)
 }
 
@@ -300,7 +308,7 @@ private class TimerSourceState(
 @Composable
 private fun rememberTimerSource(viz: VizUiState): TimerSourceState {
     var picked by rememberSaveable { mutableStateOf(if (viz.vizPlaylistEnabled) TimerSource.PLAYLIST else TimerSource.RANDOM) }
-    // A mode started elsewhere (Settings, the Now Playing Auto button) wins over the local pick.
+    // A mode started elsewhere (Settings › Visual playback, the same timer rows) wins over the local pick.
     val source =
         when {
             viz.vizPlaylistEnabled -> TimerSource.PLAYLIST
@@ -426,7 +434,7 @@ private fun RotationRow(
     }
 }
 
-/** How far Auto reaches; the position in [REACH_LABELS] is the native level. */
+/** How far the Auto Director reaches; the position in [REACH_LABELS] is the native level. */
 @Composable
 private fun ReachRow(
     level: Int,
@@ -582,13 +590,15 @@ private fun GlassRows(
 
 /**
  * A switch and its label as one control: the whole row toggles, and TalkBack reads the label with
- * the state ("Auto, on, switch"); the M3 switch itself takes no touch of its own.
+ * the state ("Auto Director, on, switch"); the M3 switch itself takes no touch of its own. A
+ * [description] sits under the label in small type, read with it.
  */
 @Composable
 private fun SwitchRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    description: String? = null,
 ) {
     Row(
         Modifier
@@ -598,7 +608,18 @@ private fun SwitchRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (description != null) {
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = null)
     }
 }

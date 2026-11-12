@@ -35,7 +35,7 @@ section|DIVE|travel|PRO|ALWAYS|Music follow,Travel zoom
 section|CAMERA|basics|BASICS|ALWAYS|Camera path,Fly speed
 section|CAMERA|framing|PRO|THREE_D|Field of view,Swing,Push in,Look turn,Look tilt,Roll
 section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,Camera smoothing
-section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA,@auto_moments
+section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA
 section|MUSIC|moments|PRO|ALWAYS|@moments
 section|MUSIC|listening|PRO|ALWAYS|Bass gain,Mid gain,Treble gain,@rise_fall
 section|MUSIC|notes_key|PRO|ALWAYS|Key colour,@notes_key

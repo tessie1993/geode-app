@@ -315,7 +315,7 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
+The switch, labelled Auto Director, first in Visuals › Settings (and in Settings › Visual playback), that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
@@ -327,7 +327,7 @@ One auto-director decision: a behaviour (axes, camera moves, motion dials), glid
 _Avoid_: Look (alone)
 
 **Director reach**:
-How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
+How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto Director). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
 _Avoid_: Auto level, auto-randomize, shuffle mode
 
 **Look snapshot**:

@@ -36,7 +36,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Settings (`AppSettingsTab`) is a list, then pages.
 - It is a list of fifteen tabs (`SettingsGroupKey`: icon, name, one-line summary).
 - The tabs: Playback, Sound & equalizer, Output & devices, Library, Visual playback, Sound reaction, Photosensitivity & motion, Displays & casting, Wallpaper & screen saver, Gestures & controls, Look, Performance, Export & recording, Preferences, Backup, help & about.
-- Visual playback has the same Auto and style-timer rows as Visuals' quick settings, on the same stores.
+- Visual playback has the same Auto Director and style-timer rows as Visuals' quick settings, on the same stores.
 - Preferences is the home of small choices with no other tab: the watermark's placement (tiled, a corner or an end card) and Pro's switch to add it (`PreferencesSettings`).
 - `SettingsGroupKey.fromName` restores the ten old group names.
 - Each tab is a page with ← the title and ‹ › to the next tab.
@@ -85,7 +85,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A long press on a knob opens its editor (`KnobEditorDialog`).
 - A long press on a Customize slider offers "Add to knob" (`KnobLinks`, from `geode_macro_bank_controls`, which also marks the sliders a knob moves).
 - `VisualsSettingsPage` (`VisualsQuickSettings.kt`) is Visuals › Settings, the page the ⚙ at the top of the visual opens (no gesture).
-- Visuals › Settings holds Auto and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- Visuals › Settings holds the Auto Director (first row, with a line on what it does) and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- The Auto Director switch lives only there and in Settings › Visual playback; Customize has none.
 - Studio (`StudioHub`: Render and My videos (`MyVideosTab`)) owns export, loop render and export defaults.
 - Studio has no editor: the owner dropped video editing (#227).
 - Record (`RecordController`, Pro) is a live video of the visual and what it hears, until the user stops or Settings › Export › Record's maximum length (`ui/RecordSettings`).

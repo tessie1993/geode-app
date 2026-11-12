@@ -384,7 +384,6 @@ private fun PanelPiece(
                     stringResource(R.string.customize_your_colours),
                 ) { YourColoursCard(host, p, onChange, rememberSavedPalettes()) }
             }
-        "@auto_moments" -> DirectorSwitch()
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()
@@ -548,20 +547,6 @@ private fun RiseAndFall(
 ) {
     LabeledSlider(RISE, attack, 0.05f..1f, scope = ParamScope.BAND_GAINS) { onReactivityChange(it, decay) }
     LabeledSlider(FALL, decay, 0.02f..0.6f, scope = ParamScope.BAND_GAINS) { onReactivityChange(attack, it) }
-}
-
-/**
- * Music's Auto moments: the auto-director, the same switch (and store) as Settings › Visual playback ›
- * Auto and Visuals' quick settings, so the three never disagree.
- */
-@Composable
-private fun DirectorSwitch() {
-    val label = stringResource(R.string.customize_director)
-    if (!visible(label, ParamScope.UNIVERSAL)) return
-    val context = LocalContext.current
-    val store = remember { context.geodeContainer.autoDirector }
-    val on by store.enabled.collectAsStateWithLifecycle()
-    LabeledSwitch(label, checked = on, onCheckedChange = store::setEnabled)
 }
 
 /** A picker as [ParamChips] for the scene param named [name], its labels native's (the schema's choice rows); none without them. */

@@ -261,8 +261,9 @@ void main() {
 
     // ---- march, only inside the bounding sphere ------------------------------
     float bt = dot(-ro, rd);
-    // A hook that is on may reach past the figure: a twin 0.6 aside, a layer opened 18%.
-    float bound = shellRest ? LS_BOUND : 1.2 * LS_BOUND + 0.6;
+    // A hook that is on may reach past the figure (a twin aside, children out of the tubes, a layer opened)
+    // by lib_shell's slack, 0 at rest.
+    float bound = LS_BOUND + SHELL_SLACK(LS_BOUND);
     float bh = bt * bt - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;
     float md = LS_CULL;

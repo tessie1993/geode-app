@@ -194,7 +194,6 @@ void main() {
     float orbitTurb = shellMap(nTurb, 1.0, 1.0, 2.5);
     // The hooks grow about the body at the origin; a twin stands 0.6 aside at full Spawn.
     shellSetup3(vec3(0.0), 2.0, 1.0, true);
-    bool shellRest = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -222,8 +221,9 @@ void main() {
     vec3 rd;
     camAround(uv, camR, JQ_SPIN, ro, rd);
 
-    // Clip the march to the bounding sphere; a hook that is on reaches past it (a twin aside, a layer opened).
-    float bound = JQ_BOUND * gScale * (shellRest ? 1.0 : 1.2) + (shellRest ? 0.0 : 0.6);
+    // Clip the march to the bounding sphere; a hook that is on reaches past it (a twin aside, children out of
+    // the surface, a layer opened) by lib_shell's slack, 0 at rest.
+    float bound = JQ_BOUND * gScale + SHELL_SLACK(JQ_BOUND * gScale);
     float b = dot(ro, rd);
     float h = b * b - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;

@@ -45,11 +45,18 @@
 vec3 gGrowEye = vec3(0.0);
 float gGrowNear = 3.0;
 bool gGrowAround = false;
+/**
+ * Whether lib_camera has set the three above this pixel (camFly or camAround). A style that draws from a
+ * view of its own never calls them, and a reader that falls back on the rig's frame (lib_shell) must
+ * know the defaults above are only placeholders then.
+ */
+bool gGrowSet = false;
 
 void growSetup(vec3 eye, float near, bool around) {
     gGrowEye = eye;
     gGrowNear = near;
     gGrowAround = around;
+    gGrowSet = true;
 }
 
 /** The eye in the frame the library's field is evaluated in. */

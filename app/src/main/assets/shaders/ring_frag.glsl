@@ -280,7 +280,10 @@ void main() {
     float hitT = -1.0;
     float firstPass = 1.0;
     float bOff = dot(ro, rd);
-    float bDisc = bOff * bOff - (dot(ro, ro) - RG_BOUND * RG_BOUND);
+    // The grown crown (a twin aside, children out of the blades, a layer opened) reaches past RG_BOUND
+    // by lib_shell's slack while a hook is on; RG_BOUND itself at rest.
+    float bound = RG_BOUND + SHELL_SLACK(RG_BOUND);
+    float bDisc = bOff * bOff - (dot(ro, ro) - bound * bound);
     if (bDisc > 0.0) {
         float bRoot = sqrt(bDisc);
         float t = max(-bOff - bRoot, 0.0);

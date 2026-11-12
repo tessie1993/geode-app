@@ -117,9 +117,12 @@ float nfField(vec3 p) {
     return density(p, gBend, gSquash, gSharp, gWarpScale, gWarpAmount);
 }
 
-/** The field the march reads: nfField, through lib_shell's hook (the identity until the shell drives it). */
+/**
+ * The density the march reads: nfField through lib_shell's density hook (the identity at rest), so a
+ * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
+ */
 float nfDensity(vec3 p) {
-    return SHELL_FIELD3(p, nfField);
+    return SHELL_DENSITY3(p, nfField);
 }
 
 /**
@@ -198,6 +201,8 @@ void main() {
     mat3 flight = nfFlightBasis(fly, roll);
     vec3 ro = vec3(nfPath(fly), fly);
     vec3 rd = flight * normalize(vec3(uv, NF_FOCAL));
+    // The grow hooks open the dye round this eye, which flies far from the origin along +z.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     // ---- the volume march ---------------------------------------------------
     //

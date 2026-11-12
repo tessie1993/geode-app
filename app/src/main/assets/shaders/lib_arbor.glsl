@@ -3,9 +3,10 @@
 //
 // Include after lib_scene_uniforms and lib_sdf3 (it calls rot2() and hash11()).
 // The tree functions read no uniform at all. The macro helpers at the bottom
-// read uSteps, uMorph, uTurbulence and uWarp, and arbView() the view controls,
-// each only inside the helper that needs it, so a style that never calls one
-// leaves that uniform to the linker.
+// read uSteps, uMorph, uTurbulence and uWarp, the style knobs (arbKnob) and the
+// mid band (arbMidBow), and arbView() the view controls, each only inside the
+// helper that needs it, so a style that never calls one leaves that uniform to
+// the linker.
 //
 // ---- the Customize macros --------------------------------------------------------
 //
@@ -19,6 +20,18 @@
 // replaces view() so those four uniforms are not ALSO applied as screen warps.
 // arbView() reads vUv, so include this file only in a fragment style that
 // declares `in vec2 vUv` (every style does).
+//
+// The six style knobs are each style's own, read as offsets from 0.5 (arbKnob)
+// so with Note & key reactions off the style is its tuned self, with one
+// role per knob in all twelve: k0 PULSE the beat's or the kick's swell (the
+// drums through the user's own Notes & key mapping), k1 TEXTURE the fine
+// grain (pads, threads, lead, rain, brush), k2 FLOW the sway, k3 TONE the
+// hue, k4 BUILD the glow or halo, k5 SPACE the orbit or the haze. The mid
+// band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
+// added to a 3D form's bend, a 2D form's lean or a dendrite's side angle, so
+// the boughs give while the mids climb and lift back as they fall. A tree
+// never turns (trees hold still), so this is Arbor's form of the mid band's
+// push that turns lib_flame's structure. Mid gain scales it.
 //
 // ---- why a fold, not a recursion ---------------------------------------------
 //
@@ -344,6 +357,16 @@ vec2 arbView() {
         uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
     }
     return uv;
+}
+
+/** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
+float arbKnob(int i) {
+    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+}
+
+/** The mid band's bow, radians (see the header): 0.12 at most, 0 in silence. */
+float arbMidBow() {
+    return 0.08 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 /** The Complexity macro, 0..1 (uMorph; neutral 0). */

@@ -41,7 +41,10 @@ out vec4 fragColor;
 // each tree's twist and lean from its hash; uTwist adds a standing spiral to
 // every crown. Colour: bark, leaves, light and haze from pal(). Energy:
 // uIntensity scales the snare flex and the key's pull. Space: camFly, the
-// rig's path.
+// rig's path. Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned
+// look): k0 PULSE opens the forks as the snare does, k1 TEXTURE the dapples'
+// grain, k2 FLOW the leaves' stir, k3 TONE the season's hue, k4 BUILD the sun
+// shafts, k5 SPACE the haze. The mids bow the limbs (arbMidBow).
 
 #define CN_MAX_STEPS 112
 #define CN_FAR 30.0
@@ -53,6 +56,7 @@ ArborForm gF;
 float gGrow;
 float gChaos;
 float gStir;
+float gStirAmp;
 vec3 gEye;
 float gMat;
 
@@ -70,7 +74,7 @@ float map(vec3 p) {
     ArborForm f = gF;
     f.twist += (h - 0.5) * (0.4 + 1.2 * gChaos);
     float tree = arborTree(q, f, gGrow);
-    float leaves = gArbTip - 0.15 - 0.025 * sin(gStir + h * 20.0);
+    float leaves = gArbTip - 0.15 - gStirAmp * sin(gStir + h * 20.0);
     float crown = smin(tree, leaves, 0.12);
     gMat = smoothstep(-0.05, 0.05, tree - leaves);
 
@@ -94,18 +98,25 @@ void main() {
     float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
     float snare = clamp(SND_SNARE_ENV * uSoundDrive * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
 
     gChaos = arbChaos();
     gStir = t * 1.3;
+    gStirAmp = 0.025 * (1.0 + 1.2 * kFlow);
     gGrow = arbLevels(8.0, 1.0);
-    gF = ArborForm(2.0, 0.46 + 0.30 * snare, 0.04, 1.57 + 0.5 * uTwist, 0.74, 2.3, 0.075, 0.74);
+    gF = ArborForm(2.0, 0.46 + 0.30 * snare + 0.08 * kPulse, 0.04 + arbMidBow(), 1.57 + 0.5 * uTwist, 0.74, 2.3, 0.075, 0.74);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.22 + 0.25 * key;
+    float hue = 0.22 + 0.25 * key + 0.3 * kTone;
     vec3 sunDir = normalize(vec3(0.25, 0.85, 0.45));
     vec3 haze = mix(pal(hue - 0.1) * 0.26, vec3(0.50, 0.46, 0.28), 0.4);
 
@@ -138,7 +149,7 @@ void main() {
         vec3 lit = arbLight(n, rd, sunDir, 0.5, 16.0);
         float ao = arbStepAO(used, uSteps);
         // Dapples: the sun only gets through where the leaf noise opens.
-        float dap = smoothstep(0.42, 0.62, fbm3(vec3(p.xz * 1.4, t * 0.05), 2));
+        float dap = smoothstep(0.42, 0.62, fbm3(vec3(p.xz * (1.4 * (1.0 + 0.5 * kTexture)), t * 0.05), 2));
         vec3 base;
         if (mat < -0.5) {
             float path = smoothstep(1.9, 1.3, abs(p.x));
@@ -153,11 +164,11 @@ void main() {
             col += leaf * mat * pow(max(dot(rd, sunDir), 0.0), 3.0) * 0.35;
             col += haze * lit.y * 0.15;
         }
-        col = mix(col, haze, 1.0 - exp(-hitT * 0.045));
+        col = mix(col, haze, 1.0 - exp(-hitT * 0.045 * (1.0 + 1.2 * kSpace)));
     }
     // Sun shafts: soft bright streaks in the haze toward the sun.
     float shafts = pow(max(dot(rd, sunDir), 0.0), 3.0) * (0.55 + 0.45 * sin(rd.x * 37.0 + rd.z * 11.0 + t * 0.2));
-    col += haze * shafts * (0.12 + 0.1 * swell);
+    col += haze * shafts * (0.12 + 0.1 * swell + 0.1 * kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));

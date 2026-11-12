@@ -92,17 +92,6 @@ black_hole: midGain
 mandelbox_cathedral: midGain
 morph_world: midGain
 pool: midGain
-arbor_grove: midGain
-arbor_willow: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_frost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_bolt: midGain
-arbor_bonsai: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_canopy: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_rosette: midGain
-arbor_spire: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_synapse: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_sakura: midGain
 chrys_phyllo: midGain
 chrys_lotus: midGain
 chrys_corolla: midGain noteChords noteDrums noteIntervals notePitch noteTension

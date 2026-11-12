@@ -59,7 +59,12 @@ out vec4 fragColor;
 // irregular warp into the crystal's edges. Twist (uTwist) winds the arms into
 // a pinwheel, more at the rim. Colour: ice, glow and sky from
 // pal(). Energy: uIntensity scales the treble growth and the kick pulse.
-// Space: camAround, the rig's look and dolly.
+// Space: camAround, the rig's look and dolly. Knobs (lib_arbor's roles,
+// offsets from 0.5 so off is the tuned look): k0 PULSE the plate's swell, k1
+// TEXTURE the growth rings' grain, k2 FLOW the crystal's sway, k3 TONE the
+// ice's hue, k4 BUILD the glow round the limbs, k5 SPACE the orbit radius
+// (inside the first flake cylinder at every setting). The mids open the side
+// arms' angle a little (arbMidBow), which moves no tip past CF_BOUND.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -196,19 +201,27 @@ void main() {
     float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
 
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     gHab = mix(habit(SND_CUT_COUNT - 1.0), habit(SND_CUT_COUNT), morphIn);
-    gPlateR = 0.075 + 0.025 * kick;
+    gHab.x += arbMidBow();
+    gPlateR = 0.075 + 0.025 * kick + 0.015 * kPulse;
     gGrow = arbLevels(2.5 + 4.5 * clamp(treb, 0.0, 1.2), 1.0);
-    gYaw = rot2(0.45 * sin(t * 0.11));
-    gPitch = rot2(0.28 * sin(t * 0.077 + 1.0));
+    float sway = 1.0 + 0.6 * kFlow;
+    gYaw = rot2(0.45 * sway * sin(t * 0.11));
+    gPitch = rot2(0.28 * sway * sin(t * 0.077 + 1.0));
     gRoll = rot2(t * 0.03);
 
-    float hue = 0.58 + 0.04 * sin(t * 0.03);
+    float hue = 0.58 + 0.04 * sin(t * 0.03) + 0.3 * kTone;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, CF_EYE, 0.0, ro, rd);
+    camAround(uv, CF_EYE * (1.0 + 0.25 * kSpace), 0.0, ro, rd);
 
     // ---- sky and falling flakes (uniform control flow: fwidth inside) -----
     vec3 sky = skyColour(rd, hue);
@@ -261,7 +274,7 @@ void main() {
             tm += d * 0.75;
         }
         // The glow close round every limb, the 2D style's exp(-d * 55) halo.
-        col += pal(hue + 0.08) * 0.16 * exp(-max(dMin, 0.0) * 22.0) * (0.8 + 0.3 * swell);
+        col += pal(hue + 0.08) * 0.16 * exp(-max(dMin, 0.0) * 22.0) * (0.8 + 0.3 * swell) * (1.0 + kBuild);
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
@@ -273,7 +286,7 @@ void main() {
             vec3 ice = mix(vec3(0.85, 0.95, 1.0), pal(hue + 0.02), 0.35);
             // Spine: deep inside the outline, along every limb's centre.
             float spine = smoothstep(-0.002, -0.012, hd2);
-            float rings = (0.5 + 0.5 * sin(length(hc) * 260.0)) * step(hPlate, 0.0);
+            float rings = (0.5 + 0.5 * sin(length(hc) * (260.0 * (1.0 + 0.4 * kTexture)))) * step(hPlate, 0.0);
             // Fake refraction with dispersion: the bent ray reads the palette
             // at three staggered offsets, and what is behind shows through.
             vec3 rf = refract(rd, n, 0.76);

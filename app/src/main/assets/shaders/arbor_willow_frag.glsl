@@ -45,7 +45,10 @@ out vec4 fragColor;
 // sway into a wind-torn curtain; uTwist winds the canopy into a spiral.
 // Colour: leaves, sky and fireflies from pal(). Energy: uIntensity scales the
 // mid weight, the kick ripple and the hat startle. Space: camAround, the rig's
-// orbit and dolly.
+// orbit and dolly. Knobs (lib_arbor's roles, offsets from 0.5 so off is the
+// tuned look): k0 PULSE the ripple ring's height, k1 TEXTURE the water's lap,
+// k2 FLOW the strands' sway, k3 TONE the leaves' and sky's hue, k4 BUILD the
+// fireflies' glow, k5 SPACE the orbit radius.
 
 #define WL_MAX_STEPS 112
 #define WL_FAR 30.0
@@ -120,6 +123,12 @@ void main() {
     float mid = clamp(SND_MID_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
     float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
 
     gTime = t;
     gGrow = arbLevels(7.0, 1.0);
@@ -128,14 +137,14 @@ void main() {
     float droop = 0.20 + 0.20 * mid + 0.03 * sin(t * 0.4) + chaos * 0.05 * sin(t * 2.3);
     gF = ArborForm(2.0, 0.36, droop, twist, 0.78, 1.40, 0.065, 0.78);
     gHem = clamp(1.5 - 0.8 * mid, 0.2, 1.6);
-    gSway = 0.10 + 0.25 * chaos;
+    gSway = 0.10 + 0.25 * chaos + 0.08 * kFlow;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 10.5, 3.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, 10.5 * (1.0 + 0.2 * kSpace), 3.0 * CAM_SPIN_UNIT, ro, rd);
 
     vec3 moonDir = normalize(vec3(-0.45, 0.42, 0.78));
-    float hue = 0.48 + 0.05 * sin(t * 0.02);
+    float hue = 0.48 + 0.05 * sin(t * 0.02) + 0.3 * kTone;
 
     float tPlane = rd.y < -1e-4 ? (WL_WATER - ro.y) / rd.y : 1e9;
     float tMax = min(WL_FAR, tPlane);
@@ -180,8 +189,8 @@ void main() {
         float r = length(p.xz);
         // The kick's ripple ring travels outward as its envelope falls.
         float ringR = 0.6 + 6.0 * (1.0 - kick);
-        float ring = exp(-pow((r - ringR) * 3.0, 2.0)) * kick;
-        float lap = 0.015 * sin(p.x * 3.1 + t * 0.7) * sin(p.z * 2.7 - t * 0.5);
+        float ring = exp(-pow((r - ringR) * 3.0, 2.0)) * kick * (1.0 + 1.2 * kPulse);
+        float lap = 0.015 * (1.0 + 1.2 * kTexture) * sin(p.x * 3.1 + t * 0.7) * sin(p.z * 2.7 - t * 0.5);
         vec2 radial = p.xz / max(r, 1e-3) * ring * 0.35;
         vec3 n = normalize(vec3(radial.x + lap, 1.0, radial.y + lap));
         vec3 rr = reflect(rd, n);
@@ -208,7 +217,7 @@ void main() {
         if (along < 0.0 || along > tHit) continue;
         float dist = length(w - rd * along);
         float twinkle = 0.6 + 0.4 * sin(t * (2.0 + hash11(fk + 5.0) * 3.0) + fk);
-        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * 0.8;
+        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * (0.8 + 0.6 * kBuild);
     }
 
     col *= 0.85 + 0.2 * swell;

@@ -65,7 +65,7 @@ out vec4 fragColor;
 // Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE how far the
 // bolt's light reaches over the land, k1 TEXTURE the rain, k2 FLOW the cloud
 // churn, k3 TONE the hue, k4 BUILD the bolt's halo, k5 SPACE how far ahead the
-// strikes land.
+// strikes land. The mids lean the bolt's forks (arbMidBow).
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -190,7 +190,7 @@ void boltHit(float n, vec3 ro, vec3 rd, float grow, float chaos, float t, float 
     // The flat style's frame: the tree grows down from the cloud.
     vec2 p = -q;
     px = max(length(fwidth(p)), 1e-4);
-    float lean = 0.03 * sin(t * 1.7 + n) + (hash11(n * 2.9) - 0.5) * 0.12 + 0.14 * uTwist;
+    float lean = 0.03 * sin(t * 1.7 + n) + (hash11(n * 2.9) - 0.5) * 0.12 + 0.14 * uTwist + arbMidBow();
     ArborForm2 f = ArborForm2(vec2(0.14, 0.80), vec2(0.86, 0.46), lean, 0.95 + 0.6 * chaos, 0.30, 0.026, 0.85);
     dB = arborTree2(p, f, grow, n * 13.37);
     mB = step(0.0, tB) * smoothstep(0.03, 0.2, abs(den)) * (1.0 - smoothstep(-0.03, 0.01, q.y));

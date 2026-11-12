@@ -49,7 +49,6 @@
     <ID>TooGenericExceptionCaught:ExportController.kt$ExportController$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:PlayerViewModel.kt$PlayerViewModel$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:VideoExporter.kt$VideoExporter$e: Exception</ID>
-    <ID>UnusedParameter:AudioFxController.kt$AudioFxController$band: Int</ID>
     <ID>UseCheckOrError:AudioTranscoder.kt$AudioTranscoder$throw IllegalStateException("Audio transcode stalled (codec made no progress)")</ID>
   </CurrentIssues>
 </SmellBaseline>

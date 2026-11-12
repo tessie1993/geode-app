@@ -49,13 +49,28 @@
   <img class="mark" src="assets/wordmark.svg" alt="">
 </div>
 
+<nav class="nav" aria-label="Main">
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="./"><img src="assets/wordmark.svg" alt="BeatRealms 3D home" width="100" height="40"></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#menu"/></svg></button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#what"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg>What it does</a></li>
+      <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg>Customize</a></li>
+      <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#palette"/></svg>Styles</a></li>
+      <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg>Free and Pro</a></li>
+      <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg>All features</a></li>
+      <li><a class="nav-cta" href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#download"/></svg>Get the app</a></li>
+    </ul>
+  </div>
+</nav>
+
 <header class="hero">
   <div class="wrap">
     <div>
       <span class="shine"><img class="wordmark" src="assets/wordmark.svg" alt="BeatRealms 3D" width="200" height="80"></span>
       <h1 class="headline"><span>Visualize the invisible</span></h1>
       <p class="subhead">A music player with 3D visuals that react to your songs. Export them as video.</p>
-      <p class="lede">334 visual styles that listen to the sound itself: the bass, the drum hits, the notes and chords, the build-ups and the drops. It works offline, with no account, no ads and no tracking.</p>
+      <p class="lede">334 living styles that hear the music itself: every bass note, drum hit, chord and drop. Make each one yours, then render it as a video in up to 4K. Offline, with no account, no ads and no tracking.</p>
       <div class="cta">
         <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app">
           <img src="assets/google-play-badge.png" alt="Get it on Google Play" width="186" height="72">
@@ -88,7 +103,12 @@
   </div>
 </section>
 
-<section class="marquee" aria-label="Screenshots of the app">
+<section class="marquee" id="styles" aria-labelledby="styles-title">
+  <div class="wrap section-head">
+    <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#palette"/></svg> 334 styles · 19 families</p>
+    <h2 id="styles-title">A new world for every song</h2>
+    <p class="intro">3D scenes to fly through, fractals, nebulae, terrain, glass, fluid and particles. Every one moves with what you play. These are real screenshots from a phone.</p>
+  </div>
   <div class="marquee-track">
       <img src="assets/shots/visuals-glass.webp" alt="Glass rings in a green tunnel on the Visuals screen" loading="lazy" width="720" height="1403">
       <img src="assets/shots/ember-spire.webp" alt="A red ember spire of folded light" loading="lazy" width="720" height="1403">
@@ -126,73 +146,141 @@
 </section>
 
 <main id="main">
-  <section>
+  <section id="what" aria-labelledby="what-title">
     <div class="wrap">
-      <h2 class="reveal">What it does</h2>
-      <p class="intro reveal">One app to play your music, watch it and turn it into a video. <a href="features.html">See every feature, and what Free and Pro include</a>.</p>
-      <div class="grid">
-        <article class="card reveal">
-          <h3>Play your music</h3>
-          <ul>
-            <li>Tracks, albums, artists, folders and playlists, with search</li>
-            <li>Queue, shuffle, repeat, sleep timer, ReplayGain, equalizer, fades</li>
-            <li>Lyrics from an .lrc file or the track's tags</li>
-            <li>Home screen widget and Quick Settings tile</li>
-          </ul>
-        </article>
-        <article class="card reveal">
-          <h3>Watch it</h3>
-          <ul>
-            <li>3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particles</li>
-            <li>Auto mode changes style, camera and motion as the song moves on</li>
-            <li>Customize everything, or push the liquid mode around with your fingers</li>
-            <li>More than 700 bundled looks; save and share your own</li>
-          </ul>
-        </article>
-        <article class="card reveal">
-          <h3>Make a video</h3>
-          <ul>
-            <li>Render the visual over a song to an MP4 on your phone</li>
-            <li>720p, 1080p or 4K, 24 to 60 frames per second, H.264 or HEVC</li>
-            <li>Widescreen, vertical, square and more</li>
-            <li>Record a live take of what the visual shows and hears (Pro)</li>
-          </ul>
-        </article>
-        <article class="card reveal">
-          <h3>Beyond the phone</h3>
-          <ul>
-            <li>Live wallpaper and screen saver (Pro)</li>
-            <li>Cast to a TV with Google Cast (Pro)</li>
-            <li>Show it in a browser on a computer on your Wi-Fi (Pro)</li>
-            <li>HDMI, USB-C or wireless displays (Pro)</li>
-          </ul>
-        </article>
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg> What it does</p>
+        <h2 id="what-title">Play it. Watch it. Make it yours.</h2>
+        <p class="intro">A full music player, a visualizer that listens and a studio that renders, in one app. <a href="features.html">See the full run-down of every feature</a>.</p>
+      </div>
+      <div class="fcards">
+        <a class="fcard card reveal" href="features.html#player">
+          <div class="fcard-media"><img src="assets/shots/screen-player.webp" alt="The Player screen" style="object-position:center 74%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#music"/></svg></span><h3>Play your music</h3><p>Albums, artists, folders and playlists, with A–B loop, crossfade, sleep timer, equalizer and timed lyrics.</p><span class="more">The player <svg class="ico" aria-hidden="true"><use href="assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#visuals">
+          <div class="fcard-media"><img src="assets/shots/visuals-star.webp" alt="A pink and orange star on the Visuals screen" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg></span><h3>Watch it move</h3><p>334 styles that hear the bass, the drums, the notes, the key and the drops, and Auto mode to direct them for you.</p><span class="more">The visuals <svg class="ico" aria-hidden="true"><use href="assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#studio">
+          <div class="fcard-media"><img src="assets/shots/screen-studio.webp" alt="Studio, ready to render in 4K at 60 fps" style="object-position:center 66%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#film"/></svg></span><h3>Make a video</h3><p>Render any song to MP4 in up to 4K at 60 fps, with one-tap shapes for YouTube, Shorts and TikTok.</p><span class="more">The studio <svg class="ico" aria-hidden="true"><use href="assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#beyond">
+          <div class="fcard-media"><img src="assets/shots/neon-flowers.webp" alt="Blue neon flowers spiralling into the dark" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#cast"/></svg></span><h3>Take it further</h3><p>A live wallpaper and screen saver, Cast to your TV, or show it on a computer or a second screen.</p><span class="more">Beyond the phone <svg class="ico" aria-hidden="true"><use href="assets/icons.svg#arrow"/></svg></span></div>
+        </a>
       </div>
     </div>
   </section>
 
-  <section>
+  <section id="customize" class="customize" aria-labelledby="customize-title">
+    <div class="wrap custom-grid">
+      <div class="knob-panel card reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg> Quick knobs</p>
+        <div class="knobs">
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--cyan);--d:7s;--delay:0s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Glow</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--amber);--d:9s;--delay:-3s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Heat</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--violet-light);--d:8s;--delay:-5s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Bend</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--lilac);--d:10s;--delay:-2s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Flow</figcaption>
+        </figure>
+        </div>
+        <p class="knob-note">Turn one knob and the whole look follows. With Pro, build knobs of your own.</p>
+        <img class="knob-shot" src="assets/shots/magenta-bloom.webp" alt="A magenta flower of light, one of the looks" loading="lazy" width="720" height="1403">
+      </div>
+      <div class="reveal">
+        <div class="section-head">
+          <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg> Customize</p>
+          <h2 id="customize-title">Make every visual yours</h2>
+          <p class="intro">Start with a single knob, or go eleven groups deep. Everything you change can be saved, shared and brought back.</p>
+        </div>
+        <ul class="custom-list">
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg></span><div><b>Four quick knobs</b><span>Glow, Heat, Bend and Flow change the whole feel with one turn.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg></span><div><b>Knobs of your own <span class="tag pro inline">Pro</span></b><span>Link any parameters to a knob, shape it with a curve, and let a wave or an envelope turn it for you.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#wave"/></svg></span><div><b>You choose what reacts</b><span>See and edit what moves on a kick, a note or a drop. Shuffle it, or go back to the style's own.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#palette"/></svg></span><div><b>Your colours</b><span>Take the palette from the album artwork or pick your own. Auto mode never narrows it.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#phone"/></svg></span><div><b>Touch it</b><span>Pinch and twist the picture, smear it with your fingers, or push the liquid mode around.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#library"/></svg></span><div><b>Presets and templates</b><span>Save any look, borrow parts from another, share it as a template. 700+ looks built in, and your own .milk presets with Pro.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" aria-labelledby="why-title">
     <div class="wrap">
-      <h2 class="reveal">Free and Pro</h2>
-      <p class="intro reveal">No ads in either. Pro is a single in-app purchase, not a subscription, and you can try it for one hour first.</p>
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg> Why BeatRealms</p>
+        <h2 id="why-title">Made for the music, not for ads</h2>
+      </div>
+      <div class="why">
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#offline"/></svg></span><b>Works offline</b><span>No connection needed to play, watch or render.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#no-ads"/></svg></span><b>No ads, ever</b><span>Not in Free, not in Pro.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#user-off"/></svg></span><b>No account</b><span>Install it and press play.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#screen-4k"/></svg></span><b>4K at 60 fps</b><span>Studio-grade video from your phone.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#lyrics"/></svg></span><b>Timed lyrics</b><span>Tap a line to jump to it.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#wallpaper"/></svg></span><b>Live wallpaper</b><span>Your home screen moves with the music.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#tv"/></svg></span><b>Big screens</b><span>Cast to a TV, or show it on a computer.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#shield"/></svg></span><b>Backup and restore</b><span>Playlists, favourites, settings and presets in one file.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pro" aria-labelledby="pro-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg> Free and Pro</p>
+        <h2 id="pro-title">Free to start. Pro once, for good.</h2>
+        <p class="intro">No ads in either. Pro is a single in-app purchase, not a subscription, and you can try it for an hour first.</p>
+      </div>
       <div class="grid">
         <article class="card reveal">
-          <h3>Free</h3>
-          <ul>
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#music"/></svg></span>Free</h3>
+          <ul class="checks">
             <li>The full music player</li>
             <li>More than 60 styles, the first of every family</li>
-            <li>The basic controls in Customize</li>
+            <li>The quick knobs and basic controls in Customize</li>
             <li>Video up to 1080p at 30 fps, one minute, with a watermark</li>
-            <li>Auto mode directs the first minute of each song</li>
+            <li>Auto mode for the first minute of each song</li>
           </ul>
         </article>
         <article class="card pro reveal">
-          <h3>Pro</h3>
-          <ul>
-            <li>Every style and every control, your own knobs</li>
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg></span>Pro</h3>
+          <ul class="checks">
+            <li>All 334 styles, every control, and knobs of your own</li>
             <li>4K and 60 fps, full length, no watermark</li>
-            <li>Loop and playlist renders, and Record</li>
-            <li>Wallpaper, screen saver, Cast and external displays</li>
+            <li>Loop renders, playlist renders and Record</li>
+            <li>Live wallpaper, screen saver, Cast and external displays</li>
             <li>Auto mode for the whole song</li>
           </ul>
         </article>
@@ -200,11 +288,12 @@
     </div>
   </section>
 
-  <section>
+  <section id="privacy" aria-labelledby="privacy-title">
     <div class="wrap grid">
       <div class="reveal">
-        <h2>Private by design</h2>
-        <p class="intro">No account, no ads, no analytics. Your music, your listening history, your settings and the videos you make stay on your phone. The internet is used only for Cast to TV and for showing the visual on a computer, over your own Wi-Fi. This website sets no cookies and loads nothing from anywhere else.</p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#shield"/></svg> Privacy</p>
+        <h2 id="privacy-title">Private by design</h2>
+        <p class="intro">No account, no ads, no analytics. Your music, history, settings and videos stay on your phone. The internet is used only for Cast to TV and for showing the visual on a computer, over your own Wi-Fi. This website sets no cookies and loads nothing from anywhere else.</p>
         <p><a href="privacy-policy.html">Read the privacy policy</a></p>
       </div>
       <div class="warning reveal" role="note">
@@ -215,18 +304,45 @@
   </section>
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="wm" src="assets/wordmark.svg" alt="BeatRealms 3D" width="100" height="40">
+        <p>A music player, a visualizer that listens, and a studio for your own music videos. For Android 13 and newer.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="assets/google-play-badge.png" alt="Get it on Google Play" width="155" height="60" style="height:60px;width:auto"></a>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <ul>
+          <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg>All features</a></li>
+          <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg>Customize</a></li>
+          <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#palette"/></svg>Styles</a></li>
+          <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg>Free and Pro</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Help</h4>
+        <ul>
+          <li><a href="features.html#faq"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#lyrics"/></svg>Questions</a></li>
+          <li><a href="mailto:CONTACT_EMAIL"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#mail"/></svg>Contact</a></li>
+          <li><a href="privacy-policy.html"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#shield"/></svg>Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Get it</h4>
+        <ul>
+          <li><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#android"/></svg>Google Play</a></li>
+          <li><a href="features.html#included"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#check"/></svg>What's included</a></li>
+        </ul>
+      </div>
+    </div>
     <!-- i18n:switcher -->
     <!-- /i18n:switcher -->
-    <nav aria-label="Site">
-      <a href="features.html">Features</a>
-      <a href="privacy-policy.html">Privacy policy</a>
-      <a href="mailto:CONTACT_EMAIL">Contact</a>
-      <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app">Google Play</a>
-    </nav>
-    <p>BeatRealms 3D. Requires Android 13 or newer.</p>
-    <p>Google Play and the Google Play logo are trademarks of Google LLC.</p>
+    <div class="foot-legal">
+      <p>BeatRealms 3D. Requires Android 13 or newer.</p>
+      <p>Google Play and the Google Play logo are trademarks of Google LLC.</p>
+    </div>
   </div>
 </footer>
 
@@ -243,6 +359,7 @@
   const heroVideo = document.getElementById('hero-video');
   if (!still) heroVideo.play().catch(() => {});
 </script>
+<script src="assets/nav.js"></script>
 <script type="module" src="assets/vortex.js"></script>
 <script src="assets/vendor/motion.min.js"></script>
 <script src="assets/motion.js"></script>

@@ -41,14 +41,8 @@
 <script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="assets/site.css">
 <style>
-  .topnav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(6, 5, 11, .72); border-bottom: 1px solid var(--line); }
-  .topnav .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1.5rem; padding-top: .6rem; padding-bottom: .6rem; }
-  .topnav img { height: 40px; width: auto; display: block; }
-  .topnav nav { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .95rem; }
-  .topnav nav a { color: var(--text); text-decoration: none; }
-  .topnav nav a:hover { color: var(--cyan); }
 
-  .promo-hero { padding: 4rem 0 3rem; background: radial-gradient(60rem 36rem at 50% 30%, rgba(124, 77, 255, .25), transparent 65%), var(--void); }
+  .promo-hero { padding: 7.5rem 0 3rem; background: radial-gradient(60rem 36rem at 50% 30%, rgba(124, 77, 255, .25), transparent 65%), var(--void); }
   .promo-hero .wrap { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: center; }
   .eyebrow { font: 600 .75rem/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; margin: 0 0 .75rem; }
   .promo-hero h1 { font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; margin: 0 0 1rem; }
@@ -135,23 +129,25 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="topnav">
-  <div class="wrap">
-    <a href="./"><img src="assets/wordmark.svg" alt="BeatRealms 3D home" width="100" height="40"></a>
-    <nav aria-label="Site">
-      <a href="#visuals">Visuals</a>
-      <a href="#studio">Video</a>
-      <a href="#beyond">Beyond the phone</a>
-      <a href="#included">What's included</a>
-      <a href="#faq">FAQ</a>
-    </nav>
+<nav class="nav" aria-label="Main">
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="./"><img src="assets/wordmark.svg" alt="BeatRealms 3D home" width="100" height="40"></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#menu"/></svg></button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#visuals"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg>Visuals</a></li>
+      <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg>Customize</a></li>
+      <li><a href="#studio"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#film"/></svg>Video</a></li>
+      <li><a href="#everything"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg>Everything</a></li>
+      <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg>Free and Pro</a></li>
+      <li><a class="nav-cta" href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#download"/></svg>Get the app</a></li>
+    </ul>
   </div>
-</header>
+</nav>
 
 <section class="promo-hero" aria-labelledby="top">
   <div class="wrap">
     <div>
-      <p class="eyebrow">Music visualizer, player and video studio</p>
+      <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg> Music visualizer, player and video studio</p>
       <h1 id="top">Every feature in BeatRealms 3D</h1>
       <p class="lede">Play your music and watch it move in 3D. The visuals hear the song itself, not just how loud it is, and you can turn what you see into a video. Offline, with no account and no ads.</p>
       <ul class="facts" aria-label="At a glance">
@@ -189,7 +185,7 @@
         <li><a href="#studio">Make a video</a></li>
         <li><a href="#record">Record</a></li>
         <li><a href="#beyond">Beyond the phone</a></li>
-        <li><a href="#included">What's included</a></li>
+        <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg> What's included</a></li>
       </ul>
     </div>
   </section>
@@ -197,7 +193,7 @@
   <section class="feature" id="visuals" aria-labelledby="h-visuals">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">01 · Visuals that listen</p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#wave"/></svg> 01 · Visuals that listen</p>
         <h2 id="h-visuals">It hears the song, not just the volume</h2>
         <p>The visuals react to the sound itself, as it plays:</p>
         <ul>
@@ -214,7 +210,7 @@
 
   <section id="styles" aria-labelledby="h-styles">
     <div class="wrap">
-      <p class="eyebrow reveal">02 · 334 styles</p>
+      <p class="eyebrow reveal"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#palette"/></svg> 02 · 334 styles</p>
       <h2 id="h-styles" class="reveal">Fly through it, fall into it</h2>
       <p class="intro reveal">3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, in nineteen families. More than 700 bundled looks on top, and with Pro, your own .milk preset files.</p>
       <div class="gallery">
@@ -238,7 +234,7 @@
   <section class="feature flip" id="auto" aria-labelledby="h-auto">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">03 · Auto mode</p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg> 03 · Auto mode</p>
         <h2 id="h-auto">A director that follows the song</h2>
         <p>Auto mode changes the style, the camera and the motion as the song moves from one part to the next. Your colours stay yours: it never narrows the palette you picked.</p>
         <p><span class="tag free">Free</span> the first minute of each song <span class="tag pro">Pro</span> the whole song</p>
@@ -250,14 +246,18 @@
   <section class="feature" id="customize" aria-labelledby="h-customize">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">04 · Customize</p>
-        <h2 id="h-customize">Four knobs, or eleven groups deep</h2>
-        <ul>
-          <li>Four quick knobs, Glow, Heat, Bend and Flow, to change the feel in a second</li>
-          <li>Up to eleven groups: camera, motion, the endless dive, effects and what reacts to what</li>
-          <li>A liquid mode you push around with your fingers; pinch and twist the picture</li>
-          <li>Save, organise and share your own looks</li>
-          <li>Randomize everything, and edit your own knobs <span class="tag pro">Pro</span></li>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg> 04 · Customize</p>
+        <h2 id="h-customize">Make every visual yours</h2>
+        <p>Start with one knob, or go eleven groups deep. Everything you change can be saved, shared and brought back.</p>
+        <ul class="checks">
+          <li><b>Four quick knobs.</b> Glow, Heat, Bend and Flow change the whole feel with one turn.</li>
+          <li><b>Knobs of your own</b> <span class="tag pro inline">Pro</span>. Link any parameters to a knob, shape it with a curve (ease in, ease out, S-curve) and let a wave or an envelope turn it.</li>
+          <li><b>You choose what reacts.</b> See and edit what moves on a kick, a note or a drop; shuffle it, or go back to the style's own.</li>
+          <li><b>Eleven groups deep.</b> Camera, motion, the endless dive, effects, transitions and more.</li>
+          <li><b>Your colours.</b> Take the palette from the album artwork, or pick your own.</li>
+          <li><b>Touch it.</b> Pinch and twist the picture, smear it with your fingers, or push the liquid mode around.</li>
+          <li><b>Presets and templates.</b> Save a look, take parts from another, share it as a template, and open shared ones.</li>
+          <li><b>Randomize everything</b> <span class="tag pro inline">Pro</span>, then keep what you like.</li>
         </ul>
       </div>
       <div class="shot reveal" data-drift="0.07"><img src="assets/shots/visuals-blue.webp" alt="A blue crystal tunnel on the Visuals screen" loading="lazy" width="720" height="1403"></div>
@@ -267,7 +267,7 @@
   <section class="feature flip" id="player" aria-labelledby="h-player">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">05 · Music player <span class="tag free">Free</span></p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#music"/></svg> 05 · Music player <span class="tag free">Free</span></p>
         <h2 id="h-player">A real music player first</h2>
         <ul>
           <li>Tracks, albums, artists, folders and playlists, with search</li>
@@ -284,7 +284,7 @@
   <section class="feature" id="studio" aria-labelledby="h-studio">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">06 · Make a video</p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#film"/></svg> 06 · Make a video</p>
         <h2 id="h-studio">Render the visual over a song</h2>
         <p>Turn any song on your phone into an MP4, ready for a feed, a stream or a big screen.</p>
         <div class="specs">
@@ -303,7 +303,7 @@
   <section class="feature flip" id="record" aria-labelledby="h-record">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">07 · Record <span class="tag pro">Pro</span></p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#record"/></svg> 07 · Record <span class="tag pro">Pro</span></p>
         <h2 id="h-record">Hold to record a live take</h2>
         <p>Hold a finger on the visual to record a live video of what it shows and hears, until you stop. Screenshots are free.</p>
       </div>
@@ -314,7 +314,7 @@
   <section class="feature" id="beyond" aria-labelledby="h-beyond">
     <div class="wrap">
       <div class="reveal">
-        <p class="eyebrow">08 · Beyond the phone <span class="tag pro">Pro</span></p>
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#cast"/></svg> 08 · Beyond the phone <span class="tag pro">Pro</span></p>
         <h2 id="h-beyond">On your wall, your TV, your laptop</h2>
         <ul>
           <li>A live wallpaper and a screen saver that react to what is playing</li>
@@ -324,6 +324,124 @@
         </ul>
       </div>
       <div class="shot reveal" data-drift="0.07"><img src="assets/shots/neon-flowers.webp" alt="Blue neon flowers spiralling into the dark, full screen in the app" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section id="everything" aria-labelledby="h-everything">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg> Everything in BeatRealms</p>
+        <h2 id="h-everything">The full run-down</h2>
+        <p class="intro">Every feature, by what you do with it. Anything marked Pro needs the one-time unlock; the rest is free.</p>
+      </div>
+      <div class="rundown">
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#music"/></svg></span>Play</h3>
+          <ul class="checks">
+            <li>Queue, shuffle, repeat and an A–B loop</li>
+            <li>Crossfade, fades between tracks and playback speed</li>
+            <li>Sleep timer, and a choice of what happens when the queue ends</li>
+            <li>Resume the last thing you played</li>
+            <li>Favourites and recently played</li>
+            <li>Timed lyrics from an .lrc file or the track's tags; tap a line to jump</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#library"/></svg></span>Library</h3>
+          <ul class="checks">
+            <li>Tracks, albums, artists, folders and playlists</li>
+            <li>Search titles, artists and albums</li>
+            <li>Sort by title, artist, album, length or date added</li>
+            <li>Choose your music folders and hide very short tracks</li>
+            <li>Edit a track's details</li>
+            <li>Find duplicate tracks</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#wave"/></svg></span>Sound</h3>
+          <ul class="checks">
+            <li>Equalizer with presets: Flat, Bass, Treble, Vocal, Rock, Electronic</li>
+            <li>Bass boost and loudness</li>
+            <li>ReplayGain</li>
+            <li>Headphone and notification-button settings</li>
+            <li>Bit-perfect output to a USB DAC</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg></span>Visuals</h3>
+          <ul class="checks">
+            <li>334 styles in 19 families</li>
+            <li>Reacts to loudness, bass, mids and treble, kick, snare and hi-hat, notes, chords, key, build-ups and drops</li>
+            <li>Auto mode directs style, camera and motion through the song</li>
+            <li>Colours taken from the album artwork</li>
+            <li>Your own .milk presets and textures <span class="tag pro inline">Pro</span></li>
+            <li>Picture-in-picture, entered automatically if you like</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg></span>Customize</h3>
+          <ul class="checks">
+            <li>Glow, Heat, Bend and Flow quick knobs</li>
+            <li>Knobs of your own, with curves, waves and envelopes <span class="tag pro inline">Pro</span></li>
+            <li>Edit what reacts to the music, or shuffle it</li>
+            <li>Eleven groups of controls</li>
+            <li>More than 700 bundled looks</li>
+            <li>Save presets, share and import templates</li>
+            <li>Randomize everything <span class="tag pro inline">Pro</span></li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#phone"/></svg></span>Touch</h3>
+          <ul class="checks">
+            <li>Pinch and twist the picture</li>
+            <li>Smear the visuals with your fingers, at the strength you set</li>
+            <li>A liquid mode you push around</li>
+            <li>Vibration on touch, and three knob sizes</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#film"/></svg></span>Studio</h3>
+          <ul class="checks">
+            <li>Render a song to MP4: 720p, 1080p or 4K, 24 to 60 fps, H.264 or HEVC</li>
+            <li>Shapes: 16:9, 9:16, 1:1, 4:5, 4:3 and 21:9</li>
+            <li>One-tap presets: YouTube, Shorts, TikTok, Feed, Square and Master</li>
+            <li>A loudness target with advice for YouTube, Shorts and TikTok</li>
+            <li>Loop renders with a seamless crossfade and palette drift <span class="tag pro inline">Pro</span></li>
+            <li>Render a whole queue or playlist <span class="tag pro inline">Pro</span></li>
+            <li>Save to your Movies folder or a folder you choose, then share or upload</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#record"/></svg></span>Record and capture</h3>
+          <ul class="checks">
+            <li>Hold to record a live take of the visual and its sound <span class="tag pro inline">Pro</span></li>
+            <li>Screenshots, free</li>
+            <li>Make the visuals follow another app's sound</li>
+            <li>Or follow the microphone and the room around you</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#cast"/></svg></span>Beyond the phone</h3>
+          <ul class="checks">
+            <li>Live wallpaper and screen saver <span class="tag pro inline">Pro</span></li>
+            <li>Cast the visual and the music to a TV <span class="tag pro inline">Pro</span></li>
+            <li>Show it in a browser on a computer, by link or QR code <span class="tag pro inline">Pro</span></li>
+            <li>HDMI, USB-C and wireless displays <span class="tag pro inline">Pro</span></li>
+            <li>The same app on Android TV</li>
+            <li>Android Auto, a home screen widget and a Quick Settings tile</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#shield"/></svg></span>Your data</h3>
+          <ul class="checks">
+            <li>No account, no ads, no analytics</li>
+            <li>Works offline; the network is only for Cast and the computer link</li>
+            <li>Back up and restore playlists, favourites, history, track edits, settings and imported presets</li>
+            <li>Built-in help for every part of the app</li>
+            <li>Follows Android's "Remove animations" setting</li>
+          </ul>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -416,18 +534,44 @@
   </section>
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="wm" src="assets/wordmark.svg" alt="BeatRealms 3D" width="100" height="40">
+        <p>A music player, a visualizer that listens, and a studio for your own music videos. For Android 13 and newer.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="assets/google-play-badge.png" alt="Get it on Google Play" width="155" height="60" style="height:60px;width:auto"></a>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <ul>
+          <li><a href="./"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#eye"/></svg>Home</a></li>
+          <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sliders"/></svg>Customize</a></li>
+          <li><a href="#everything"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg>Everything</a></li>
+          <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#star"/></svg>Free and Pro</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Help</h4>
+        <ul>
+          <li><a href="#faq"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#lyrics"/></svg>Questions</a></li>
+          <li><a href="mailto:CONTACT_EMAIL"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#mail"/></svg>Contact</a></li>
+          <li><a href="privacy-policy.html"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#shield"/></svg>Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Get it</h4>
+        <ul>
+          <li><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="assets/icons.svg#android"/></svg>Google Play</a></li>
+        </ul>
+      </div>
+    </div>
     <!-- i18n:switcher -->
     <!-- /i18n:switcher -->
-    <nav aria-label="Footer">
-      <a href="./">Home</a>
-      <a href="privacy-policy.html">Privacy policy</a>
-      <a href="mailto:CONTACT_EMAIL">Contact</a>
-      <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app">Google Play</a>
-    </nav>
-    <p>Screenshots are of the app on a phone, playing music. Track titles are blurred.</p>
-    <p>Google Play and the Google Play logo are trademarks of Google LLC.</p>
+    <div class="foot-legal">
+      <p>Screenshots are of the app on a phone, playing music. Track titles are blurred.</p>
+      <p>Google Play and the Google Play logo are trademarks of Google LLC.</p>
+    </div>
   </div>
 </footer>
 
@@ -447,6 +591,7 @@
     }, { passive: true });
   }
 </script>
+<script src="assets/nav.js"></script>
 <script type="module" src="assets/vortex.js"></script>
 <script src="assets/vendor/motion.min.js"></script>
 <script src="assets/motion.js"></script>

@@ -44,9 +44,9 @@ float SceneParams::paletteRange() const {
     return paletteRangeOverride >= 0.0f ? paletteRangeOverride : paletteAt(palette).range;
 }
 
-// The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
-// but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs
-// rewriting (params_schema_test --write): a row added to viz/ParamTable.inc fails here first, on purpose.
+// The wire's float count. The shell's SceneParams reads the slots from the schema text, so it follows on its own,
+// but core/tests/params_schema.txt, the JVM tests' copy, needs rewriting (params_schema_test --write):
+// a row added to viz/ParamTable.inc fails here first, on purpose.
 static_assert(SceneParams::kFieldCount == 189, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
 
 namespace {

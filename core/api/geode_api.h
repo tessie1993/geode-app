@@ -595,6 +595,63 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
+ * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
+ * then). palette_stops: how many stops are set from the first, into out[0..4]. clear_custom_palette: both overrides
+ * and every stop unset. apply_stops: cleared, then the first `count` (at most five) of `stops`. apply_gradient: no
+ * stops, base and span held to 0..1 as the overrides. Same wire in and out; in and out may alias. Pure, any thread. */
+GEODE_API int         geode_params_uses_custom_palette(const float* frame);
+GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
+GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
+GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
+GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
+/* The look files (viz/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
+ * the calling thread's next call of the same function. Pure, any thread.
+ * file_safe_name: a name as a file stem (A-Z a-z 0-9 - _ space kept, anything else '_', and a changed or blank name
+ * gets '-' and four SHA-256 bytes in hex); file_safe_chars the same without the hash (a preset folder). looks_order: the indices of `names` in list order into out (count ints),
+ * caseless or by code point, ties kept; returns count.
+ * Saved palettes (files/palettes/<id>.json): read gives the file's text as this build writes it, or NULL when it is
+ * no palette; sanitize the same, the id, name, hues and colours made safe; create a new palette's text (a hue
+ * gradient, or your colours when count > 0); migrate the text the file should hold under its current id; id_for a
+ * name's id (its file stem); string its "id" or "name"; hues writes base and span to out[2]; stops writes its colours
+ * to out (at most max_stops) and returns how many; apply makes it the params frame's own palette (1, or 0 and a copy
+ * when the text is no palette); kept_id the saved palette id a look keeps once deleted_id is deleted. */
+GEODE_API const char* geode_file_safe_name(const char* name);
+GEODE_API const char* geode_file_safe_chars(const char* name);
+GEODE_API int         geode_looks_order(const char* const* names, int count, int caseless, int* out);
+GEODE_API const char* geode_saved_palette_read(const char* text);
+GEODE_API const char* geode_saved_palette_sanitize(const char* text);
+GEODE_API const char* geode_saved_palette_create(const char* name, float base, float span, const int* stops, int count);
+GEODE_API const char* geode_saved_palette_migrate(const char* text);
+GEODE_API const char* geode_saved_palette_id_for(const char* name);
+GEODE_API const char* geode_saved_palette_string(const char* text, const char* key);
+GEODE_API int         geode_saved_palette_hues(const char* text, float* out);
+GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
+GEODE_API int         geode_saved_palette_max_stops(void);
+GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
+GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
+/* Presets (files/presets/**, a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
+ * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
+ * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
+ * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay
+ * valid until the calling thread's next read. write: the file text org.json wrote (toString(2)); custom_shader and
+ * milk_preset NULL to leave them out; NULL for a short frame. milk_file_name: the .milk file a preset mirrors to. */
+GEODE_API int         geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay,
+                                         const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                         const char* custom_palette_id);
+GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
+/* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
+ * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
+ * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and
+ * starter(i): the bundled starter set, each a whole template file ("" past the end); is_starter: 1 for a starter's
+ * id. Text out valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API const char* geode_template_file_name(const char* name, const char* id, const char* suffix);
+GEODE_API const char* geode_template_file_tail(const char* id, const char* suffix);
+GEODE_API const char* geode_template_unique_name(const char* base, const char* const* taken, int count);
+GEODE_API int         geode_template_starter_count(void);
+GEODE_API const char* geode_template_starter(int index);
+GEODE_API int         geode_template_is_starter(const char* id);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

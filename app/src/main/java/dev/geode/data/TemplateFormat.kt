@@ -74,6 +74,8 @@
 
 package dev.geode.data
 
+import androidx.annotation.VisibleForTesting
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
@@ -144,7 +146,7 @@ class ForeignFields private constructor(
 
 /**
  * Serialises and parses [VideoTemplate]. Pure text in, pure text out: storage lives
- * in TemplateRepository.kt so the format can be tested and reasoned about on its own.
+ * in TemplateRepository (VideoTemplate.kt) so the format can be tested and reasoned about on its own.
  */
 object TemplateFormat {
     const val FORMAT: String = "geode.template"
@@ -165,6 +167,45 @@ object TemplateFormat {
     const val MAX_FILE_BYTES: Int = 4 * 1024 * 1024
 
     const val LINK_HOST: String = "template"
+
+    /*
+     * The look's envelope ranges and the number guard: what core/viz/LookFiles' kAttack*, kDecay* and finiteOr
+     * decide for presets. The template codec keeps this copy until it ports to native (its JVM tests have no
+     * libgeode); moved here from PresetStore, whose codec is native now.
+     */
+    internal val ATTACK_RANGE: ClosedFloatingPointRange<Float> = 0.005f..1f
+    internal val DECAY_RANGE: ClosedFloatingPointRange<Float> = 0.01f..1.5f
+
+    /** [raw] as a Float, or [fallback] when that is not finite: `put` throws on NaN, an infinity or a Float overflow. */
+    internal fun finiteOr(
+        raw: Double,
+        fallback: Float,
+    ): Float = raw.toFloat().takeIf { it.isFinite() } ?: fallback
+
+    /**
+     * A look's params object, native's both ways (core/viz/ParamsJson, `geode_params_write_json` and `_read_json`),
+     * read from the stored text at [PARAMS_PATH] where native can. Seams for JVM tests, which have no libgeode.
+     */
+    @VisibleForTesting
+    internal var writeParams: (SceneParams) -> String = { p ->
+        checkNotNull(GeodeNative.paramsWriteJson(p.frame(), p.customPaletteId, SceneParams.NO_CUSTOM_PALETTE))
+    }
+
+    @VisibleForTesting
+    internal var readParams: (String?, String, String?) -> SceneParams = { document, path, fallback ->
+        val frame = FloatArray(SceneParams.FIELDS)
+        val ids = arrayOfNulls<String>(2)
+        check(GeodeNative.paramsReadJson(document, path, fallback, frame, ids)) { "not a params object" }
+        SceneParams.read(frame, ids[0] ?: SceneParams.NO_CUSTOM_PALETTE)
+    }
+
+    private fun paramsToJson(params: SceneParams): JSONObject = JSONObject(writeParams(params))
+
+    private fun paramsFromJson(
+        o: JSONObject,
+        document: String,
+        path: String,
+    ): SceneParams = readParams(document, path, o.toString())
 
     fun encode(template: VideoTemplate): String = rootOf(template).toString(JSON_INDENT)
 
@@ -314,7 +355,7 @@ object TemplateFormat {
             .put(KEY_SCENE_ID, look.sceneId)
             .put(KEY_ATTACK, look.attack.toDouble())
             .put(KEY_DECAY, look.decay.toDouble())
-            .put(KEY_PARAMS, PresetStore.paramsToJson(look.params).mergeForeign(look.paramsForeign))
+            .put(KEY_PARAMS, paramsToJson(look.params).mergeForeign(look.paramsForeign))
             .also { out -> look.customShader?.let { out.put(KEY_CUSTOM_SHADER, it) } }
             .also { out -> look.milkPreset?.let { out.put(KEY_MILK_PRESET, it) } }
             .mergeForeign(look.foreign)
@@ -326,17 +367,17 @@ object TemplateFormat {
         val paramsSource = source?.optJSONObject(KEY_PARAMS)
         val params =
             paramsSource
-                ?.let { o -> runCatching { PresetStore.paramsFromJson(o, body, PARAMS_PATH) }.getOrDefault(SceneParams.DEFAULT) }
+                ?.let { o -> runCatching { paramsFromJson(o, body, PARAMS_PATH) }.getOrDefault(SceneParams.DEFAULT) }
                 ?: SceneParams.DEFAULT
         val bare =
             TemplateLook(
                 sceneId = StyleCatalogue.resolve(source?.optString(KEY_SCENE_ID).orEmpty().ifBlank { StyleCatalogue.DEFAULT_ID }),
-                attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(PresetStore.ATTACK_RANGE),
-                decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(PresetStore.DECAY_RANGE),
+                attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(ATTACK_RANGE),
+                decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(DECAY_RANGE),
                 params = params,
                 customShader = optStringOrNull(source, KEY_CUSTOM_SHADER),
                 milkPreset = optStringOrNull(source, KEY_MILK_PRESET),
-                paramsForeign = foreignOf(paramsSource, PresetStore.paramsToJson(params)),
+                paramsForeign = foreignOf(paramsSource, paramsToJson(params)),
             )
         return bare.copy(foreign = foreignOf(source, lookOf(bare)))
     }
@@ -508,12 +549,12 @@ object TemplateFormat {
 
     private fun decodeLink(link: String): String? = PresetLink.decode(link.replaceFirst(LINK_PREFIX, PRESET_PREFIX, ignoreCase = true))
 
-    /** A finite Float or [fallback]: NaN, infinities and overflowing values would make `put` throw ([PresetStore.finiteOr]). */
+    /** A finite Float or [fallback]: NaN, infinities and overflowing values would make `put` throw ([finiteOr]). */
     private fun optFloat(
         source: JSONObject?,
         key: String,
         fallback: Float,
-    ): Float = source?.let { PresetStore.finiteOr(it.optDouble(key, fallback.toDouble()), fallback) } ?: fallback
+    ): Float = source?.let { finiteOr(it.optDouble(key, fallback.toDouble()), fallback) } ?: fallback
 
     private fun optStringOrNull(
         source: JSONObject?,
@@ -562,7 +603,7 @@ object TemplateFormat {
     private const val KEY_DECAY = "decay"
     private const val KEY_PARAMS = "params"
 
-    /** Where a template's params object sits in its text, for native's read of that text ([PresetStore.paramsFromJson]). */
+    /** Where a template's params object sits in its text, for native's read of that text ([paramsFromJson]). */
     private const val PARAMS_PATH = "$KEY_LOOK\n$KEY_PARAMS"
     private const val KEY_CUSTOM_SHADER = "customShader"
     private const val KEY_MILK_PRESET = "milkPreset"

@@ -205,7 +205,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `data`
 
-- Open first: `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
+- Open first: `PresetRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
+- `PresetRepository.kt` holds `Preset` and `PresetStore`, the preset folders' I/O; every preset's JSON, file name and order is native (`core/viz/LookFiles`, `geode_preset_*`).
+- `PaletteStackStore.kt` holds `CustomPalette` (a saved palette's file text) and `PaletteStore`, the saved palettes' folder I/O; the format, ids and migration are native (`geode_saved_palette_*`).
+- `VideoTemplate.kt` ends with `TemplateRepository`, the template library's folder I/O and StateFlow; file names, an import's name and the starter set are native (`geode_template_*`).
 - Stores (SharedPreferences, JSON files) and their repositories.
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
 - `MilkPathPrefs`: the last MilkDrop preset's path (`geode-viz`, key `milk_path`).
@@ -271,7 +274,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
 - `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
-- `ParamEdit` reads and edits a scene param by its schema name (`get`, `int`, `flag`, `with`) through the wire codec, so Customize's controls take a name, not a Kotlin property (#1150).
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
 - `OpenedAudio` is the id an audio file opened from another app plays under.
 

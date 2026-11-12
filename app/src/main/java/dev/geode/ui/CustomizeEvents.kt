@@ -82,7 +82,7 @@ internal fun EventsTab(
     val searching = LocalParamQuery.current.isNotBlank()
     Column {
         if (!searching) {
-            val seed = p.reactSeed
+            val seed = p.int("reactSeed")
             // Each row's state over what plays now (the native merge of the user's routes and the live DNA).
             val rows = remember(sceneId, seed, reactions, handMask) { MusicMoments.rows(sceneId, seed, reactions, handMask) }
             val actions = remember(sceneId) { MusicMoments.actionsFor(sceneId) }

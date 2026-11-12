@@ -109,10 +109,9 @@ internal class VisualSettingsController(
     ) {
         val p = state.value.params
         val next =
-            p.copy(
-                zoom = GeodeNative.touchZoom(p.zoom, zoomFactor),
-                rotation = GeodeNative.touchRotation(p.rotation, degrees),
-            )
+            p
+                .with("zoom", GeodeNative.touchZoom(p["zoom"], zoomFactor))
+                .with("rotation", GeodeNative.touchRotation(p["rotation"], degrees))
         if (next != p) setSceneParams(next)
     }
 

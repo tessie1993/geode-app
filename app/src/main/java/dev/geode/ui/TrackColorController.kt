@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
-import dev.geode.data.PaletteStore
 import dev.geode.render.scene.SceneParams
 import dev.geode.viz.ArtPalette
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +49,7 @@ internal class TrackColorController(
                             application.getString(R.string.palette_art_greyscale)
                     else -> {
                         host.setSceneParams(
-                            PaletteStore.applyGradient(host.params, extracted.baseHue, extracted.span),
+                            host.params.withGradient(extracted.baseHue, extracted.span),
                         )
                         _artPaletteNote.value =
                             application.getString(R.string.palette_art_taken, (extracted.confidence * 100).roundToInt())

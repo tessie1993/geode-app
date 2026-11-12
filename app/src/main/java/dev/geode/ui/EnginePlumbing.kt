@@ -102,7 +102,7 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(Unit) {
         viewModel.vizState
-            .map { it.params.camGyro }
+            .map { it.params.flag("camGyro") }
             .distinctUntilChanged()
             .collect { visualizerView.gyroWanted = it }
     }

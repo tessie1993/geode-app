@@ -14,8 +14,8 @@
 //   fade     Fade: lerpParams glides it (only a Float or a Circular can). Hold: it snaps to the new
 //            value, as every Int and Bool does, the custom palette sentinels and the fade time itself.
 //
-// The row order IS the geode_viz_set_params wire: row i is wire slot i, and SceneParamsCodec packs by
-// these rows (it reads them through ParamSchema; WireLayoutTest holds the Kotlin fields to them, and
+// The row order IS the geode_viz_set_params wire: row i is wire slot i. The shell holds the frame as it is
+// and finds a name's slot through these rows (ParamSchema reads the text, so a new row needs no Kotlin edit, and
 // params_schema_test holds core/tests/params_schema.txt, the JVM tests' copy, to the text). Never insert or reorder:
 // append, and retire a field by leaving its row where it is, deleting its meta row and listing it in Params.hpp's kRetiredParams:
 // the slot keeps its place on the wire, always at its default, and no look, control, roll or modulation
@@ -26,7 +26,7 @@
 //
 //   GEODE_PARAM_META(name, label, scope, flags, rollLo, rollHi)
 //
-//   label    the Customize control that sets the field, by its key (the Kotlin ParamKeys string, the
+//   label    the Customize control that sets the field, by its key (its native label: the text on screen, the
 //            lock key and the search term); rows of one control share it ("Palette" is the palette and
 //            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).

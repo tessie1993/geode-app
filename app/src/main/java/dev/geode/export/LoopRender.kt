@@ -11,7 +11,6 @@ import dev.geode.data.LookSnapshot
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
@@ -269,7 +268,7 @@ class LoopRender(
             sceneFactory.milkPresetPath,
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
-        GeodeNative.loopJobSetParams(job, SceneParamsCodec.pack(look.params))
+        GeodeNative.loopJobSetParams(job, look.params.frame())
         GeodeNative.loopJobSetLfos(job, look.lfos)
         GeodeNative.loopJobSetAdsrs(job, look.adsrs)
         GeodeNative.loopJobSetSoundTuning(job, look.soundTuning?.toFloatArray())

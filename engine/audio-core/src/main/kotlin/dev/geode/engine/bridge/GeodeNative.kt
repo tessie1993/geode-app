@@ -542,7 +542,7 @@ object GeodeNative {
         curve: String,
     ): String
 
-    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    /** A new knob that moves the Customize control [control] (a control key); native names it. */
     external fun macroBankAddKnobFor(
         bank: String,
         control: String,
@@ -1107,6 +1107,142 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** True when the params [frame] draws its own palette, a hue override or a first stop set (`geode_params_uses_custom_palette`). */
+    external fun paramsUsesCustomPalette(frame: FloatArray): Boolean
+
+    /** Your colours' stops set from the first in the params [frame] (`geode_params_palette_stops`). */
+    external fun paramsPaletteStops(frame: FloatArray): IntArray
+
+    /** [frame] with both hue overrides and every stop unset, as a new frame (`geode_params_clear_custom_palette`). */
+    external fun paramsClearCustomPalette(frame: FloatArray): FloatArray
+
+    /** [frame] cleared, then the first five of [stops] as your colours (`geode_params_apply_stops`). */
+    external fun paramsApplyStops(
+        frame: FloatArray,
+        stops: IntArray,
+    ): FloatArray
+
+    /** [frame] with no stops and the hue gradient [base], [span] (held to 0..1) as its overrides (`geode_params_apply_gradient`). */
+    external fun paramsApplyGradient(
+        frame: FloatArray,
+        base: Float,
+        span: Float,
+    ): FloatArray
+
+    /** A name as a file stem (core/viz/LookFiles, `geode_file_safe_name`). Pure. */
+    external fun fileSafeName(name: String): String
+
+    /** [fileSafeName] without the hash: a preset folder's name (`geode_file_safe_chars`). Pure. */
+    external fun fileSafeChars(name: String): String
+
+    /** The indices of [names] in list order, [caseless] or by code point, ties kept (`geode_looks_order`). Pure. */
+    external fun looksOrder(
+        names: Array<String>,
+        caseless: Boolean,
+    ): IntArray
+
+    /** A saved palette file's text as this build writes it, or null when it is no palette (`geode_saved_palette_read`). */
+    external fun savedPaletteRead(text: String): String?
+
+    /** [savedPaletteRead] with the id, name, hues and colours made safe (`geode_saved_palette_sanitize`). */
+    external fun savedPaletteSanitize(text: String): String?
+
+    /** A new saved palette's text: [stops] when not empty, else the hue gradient (`geode_saved_palette_create`). */
+    external fun savedPaletteCreate(
+        name: String,
+        base: Float,
+        span: Float,
+        stops: IntArray,
+    ): String
+
+    /** The text a palette file should hold under its current id, or null for no palette (`geode_saved_palette_migrate`). */
+    external fun savedPaletteMigrate(text: String): String?
+
+    /** A palette name's id, its file stem (`geode_saved_palette_id_for`). */
+    external fun savedPaletteIdFor(name: String): String
+
+    /** A saved palette's "id" or "name" (`geode_saved_palette_string`). */
+    external fun savedPaletteString(
+        text: String,
+        key: String,
+    ): String
+
+    /** A saved palette's hue base and span (`geode_saved_palette_hues`). */
+    external fun savedPaletteHues(text: String): FloatArray
+
+    /** A saved palette's colours, packed 0xRRGGBB (`geode_saved_palette_stops`). */
+    external fun savedPaletteStops(text: String): IntArray
+
+    /** How many colours a saved palette holds at most (`geode_saved_palette_max_stops`). */
+    external fun savedPaletteMaxStops(): Int
+
+    /** The params [frame] with saved palette [text] as its own palette, as a new frame (`geode_saved_palette_apply`). */
+    external fun savedPaletteApply(
+        text: String,
+        frame: FloatArray,
+    ): FloatArray
+
+    /** The saved palette id a look naming [lookId] keeps once [deletedId] is deleted (`geode_saved_palette_kept_id`). */
+    external fun savedPaletteKeptId(
+        lookId: String,
+        deletedId: String,
+    ): String
+
+    /**
+     * A preset's text as org.json read it (core/viz/LookFiles, `geode_preset_read`): its params into [frame], into
+     * [strings] (five slots) the name, scene id, custom shader, milk preset (null when absent) and saved palette id,
+     * into [envelope] the attack and decay. False, nothing written, when it is no preset.
+     */
+    external fun presetRead(
+        text: String,
+        frame: FloatArray,
+        strings: Array<String?>,
+        envelope: FloatArray,
+    ): Boolean
+
+    /** A preset's file text, as org.json wrote it (`geode_preset_write`); null for a short frame. */
+    external fun presetWrite(
+        name: String,
+        sceneId: String,
+        attack: Float,
+        decay: Float,
+        customShader: String?,
+        milkPreset: String?,
+        frame: FloatArray,
+        customPaletteId: String,
+    ): String?
+
+    /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
+    external fun presetMilkFileName(presetName: String): String
+
+    /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
+    external fun templateFileName(
+        name: String,
+        id: String,
+        suffix: String,
+    ): String
+
+    /** What every library file of template [id] ends with (`geode_template_file_tail`). */
+    external fun templateFileTail(
+        id: String,
+        suffix: String,
+    ): String
+
+    /** The name a newly added template takes beside the [taken] ones (`geode_template_unique_name`). */
+    external fun templateUniqueName(
+        base: String,
+        taken: Array<String>,
+    ): String
+
+    /** How many bundled starter templates there are (`geode_template_starter_count`). */
+    external fun templateStarterCount(): Int
+
+    /** Bundled starter [index] as a whole template file (`geode_template_starter`). */
+    external fun templateStarter(index: Int): String
+
+    /** True for a bundled starter's template id (`geode_template_is_starter`). */
+    external fun templateIsStarter(id: String): Boolean
+
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
@@ -1239,9 +1375,9 @@ object GeodeNative {
     ): Int
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
     external fun paramsRandomize(
@@ -1260,7 +1396,7 @@ object GeodeNative {
      */
     external fun customizeText(): String
 
-    /** Every control a roll can move (ParamKeys strings, one per line), so the panel offers to keep it; ask once. */
+    /** Every control a roll can move (control keys, one per line), so the panel offers to keep it; ask once. */
     external fun customizeLockableKeys(): String
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
@@ -1269,7 +1405,7 @@ object GeodeNative {
     /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     * control keys in [locked]. Every other control holds. True when it changed something.
      */
     external fun customizeRandomize(
         styleId: String?,

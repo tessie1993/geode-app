@@ -24,9 +24,10 @@ One fact per line. Add a fact as a new bullet under its module.
 - `MilkPresetMemory` is the one MilkDrop preset every new native renderer starts on: process-wide, saved across restarts, a bundled preset on first launch.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
-- `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).
+- `render/scene/ParamSchema` is the shell's one read of the native params schema (each param's slot, kind, default, range and fade, from `geode_params_schema_text`).
 - `ParamSchema` also reads the built-in palettes' names from the same text.
-- `render/bridge/SceneParamsCodec` packs the wire by `ParamSchema`.
+- `SceneParams` (in `render/scene/ParamSchema.kt`) is an opaque holder of the `geode_viz_set_params` frame and the saved palette's id: read and set by schema name, handed across as `frame()`.
+- A new `core/viz/ParamTable.inc` row needs no Kotlin edit: the holder's slots and defaults come from the schema text.
 - `render/scene/Catalogue` is the shell's one read of the native style catalogue (ids, kinds, `StyleFamilies`, `ParamScope`, ranges).
 - The catalogue's display labels are in `VisualStyleCatalog`.
 - The modulation document is native (`core/viz/ModDocument`): the waves, envelopes and routes as saved text, read, edited one field at a time and pushed to a renderer as that text.

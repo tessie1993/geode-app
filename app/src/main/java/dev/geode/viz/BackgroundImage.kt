@@ -4,8 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import dev.geode.data.LookUnderlay
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.look.LookUnderlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -39,7 +39,7 @@ class BackgroundPixels(
  * native (core/viz/Underlay), so one bake serves the live underlay and every export.
  */
 object BackgroundImage {
-    /** [decode]s [spec] at [renderWidth]x[renderHeight], wrapped for [dev.geode.render.look.LookSnapshot.underlay]. */
+    /** [decode]s [spec] at [renderWidth]x[renderHeight], wrapped for [dev.geode.data.LookSnapshot.underlay]. */
     suspend fun decodeForExport(
         context: Context,
         spec: BackgroundExportSpec,

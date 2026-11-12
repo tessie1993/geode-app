@@ -20,16 +20,8 @@ One fact per line. Add a fact as a new bullet under its module.
 ## `:engine:scenes`
 
 - Packages: `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`.
-- `render/bridge/NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`:app` `stage/`).
 - Packages: `dev.geode.render.*`, `dev.geode.audio`.
-- The GL adapter: `VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`.
 - `MilkPresetMemory` is the one MilkDrop preset every new native renderer starts on: process-wide, saved across restarts, a bundled preset on first launch.
-- The look snapshot is `render/look` (#345).
-- `LookSnapshot` is the one value every host draws: style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
-- `LookSource.pin` freezes the snapshot for a render.
-- `gentleFlight` is the dream's override.
-- `NativeViz.setLook` pushes the parts of a look that changed, from any thread, into the native handle's latches; a new handle gets the whole look once.
-- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
 - `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).

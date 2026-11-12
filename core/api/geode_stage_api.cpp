@@ -133,8 +133,6 @@ struct Stage {
     std::shared_ptr<StageThread> thread;
     std::shared_ptr<stage::LiveClient> live;  // none on a stage made with a C client
     geode_viz* viz = nullptr;                 // the live client's; valid while its lockViz holds
-    std::mutex lookLock;                      // held across a look's compare and apply, so two never interleave
-    stage::LookLatch look;
     std::mutex stillLock;
     std::optional<stage::Still> still;
     // What the view last said, for the tilt sensor's rule.
@@ -177,23 +175,6 @@ std::shared_ptr<stage::LiveClient> liveOf(const geode_stage* handle) {
 
 // The clients whose renderer this thread holds, innermost last, so unlock needs no handle that may be gone.
 thread_local std::vector<std::shared_ptr<stage::LiveClient>> tHeld;
-
-std::vector<float> floats(const float* data, int count) {
-    return data && count > 0 ? std::vector<float>(data, data + count) : std::vector<float>();
-}
-
-void applyLook(geode_viz* v, const stage::Look& l, uint32_t parts) {
-    if ((parts & stage::kLookScene) != 0) geode_viz_request_scene(v, l.sceneId.c_str());
-    if ((parts & stage::kLookParams) != 0 && !l.params.empty()) geode_viz_set_params(v, l.params.data(), static_cast<int>(l.params.size()));
-    if ((parts & stage::kLookLfos) != 0) geode_viz_set_lfos(v, l.lfos.c_str());
-    if ((parts & stage::kLookAdsrs) != 0) geode_viz_set_adsrs(v, l.adsrs.c_str());
-    if ((parts & stage::kLookTuning) != 0) {
-        geode_viz_set_sound_tuning(v, l.tuning.empty() ? nullptr : l.tuning.data(), static_cast<int>(l.tuning.size()));
-    }
-    if ((parts & stage::kLookReactions) != 0) geode_viz_set_reactions(v, l.hasReactions ? l.reactions.c_str() : nullptr);
-    if ((parts & stage::kLookReducedMotion) != 0) geode_viz_set_reduced_motion(v, l.reducedMotion ? 1 : 0);
-    if ((parts & stage::kLookTransition) != 0) geode_viz_set_transition(v, l.transitionId.c_str(), l.transitionMs);
-}
 
 size_t copyText(const std::string& text, char* out, size_t capacity) {
     if (out && capacity > 0) {
@@ -353,30 +334,12 @@ void geode_stage_set_sound(geode_stage* s, const geode_pcm_ring* ring) {
     }
 }
 
-void geode_stage_set_look(geode_stage* s, const geode_stage_look* look) {
+void geode_stage_set_look(geode_stage* s, const geode_viz_look* look) {
     if (!look) return;
     try {
         const std::shared_ptr<Stage> stage = find(s);
-        if (!stage || !stage->live || !stage->viz) return;
-        stage::Look next;
-        next.sceneId = look->scene_id ? look->scene_id : "";
-        next.params = floats(look->params, look->param_count);
-        next.lfos = look->lfos ? look->lfos : "";
-        next.adsrs = look->adsrs ? look->adsrs : "";
-        next.tuning = floats(look->tuning, look->tuning_count);
-        next.hasReactions = look->reactions != nullptr;
-        if (next.hasReactions) next.reactions = look->reactions;
-        next.reducedMotion = look->reduced_motion != 0;
-        next.transitionId = look->transition_id ? look->transition_id : "";
-        next.transitionMs = look->transition_ms;
-        std::lock_guard<std::mutex> one(stage->lookLock);
-        if (!stage->live->lockViz()) return;
-        const uint32_t parts = stage->look.take(std::move(next));
-        try {
-            applyLook(stage->viz, stage->look.look(), parts);
-        } catch (...) {
-            GEODE_LOGE(kTag, "geode_stage_set_look failed");
-        }
+        if (!stage || !stage->live || !stage->viz || !stage->live->lockViz()) return;
+        geode_viz_set_look(stage->viz, look);
         stage->live->unlockViz();
     } catch (...) {
         GEODE_LOGE(kTag, "geode_stage_set_look failed");

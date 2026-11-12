@@ -421,6 +421,19 @@ Java_dev_geode_engine_bridge_GeodeNative_vizRequestScene(JNIEnv* env, jobject, j
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv* env, jobject, jlong handle, jstring sceneId, jfloatArray params,
+                                                    jstring lfos, jstring adsrs, jfloatArray tuning, jstring reactions,
+                                                    jboolean reducedMotion, jstring transitionId, jlong transitionMs) {
+    geode::jni::LookArgs look(env, sceneId, params, lfos, adsrs, tuning, reactions, reducedMotion, transitionId, transitionMs);
+    if (look.ok()) geode_viz_set_look(vizOf(handle), look.get());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizLookDefaults(JNIEnv* env, jobject) {
+    return geode::jni::utf8String(env, geode_viz_look_defaults());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale, jfloat marchScale,
                                                       jboolean postFx, jboolean adaptive, jint liquidHotPolicy) {
     geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0, adaptive == JNI_TRUE ? 1 : 0,

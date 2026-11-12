@@ -9,11 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.data.LookSnapshot
+import dev.geode.data.LookUnderlay
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.look.LookSnapshot
-import dev.geode.render.look.LookUnderlay
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.flow.MutableStateFlow

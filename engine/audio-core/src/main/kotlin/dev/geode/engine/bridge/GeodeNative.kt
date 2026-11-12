@@ -859,6 +859,26 @@ object GeodeNative {
         sceneId: String,
     )
 
+    /**
+     * The user's whole look (geode_viz_set_look): native passes on only the parts that differ from the look set last
+     * on this handle, all of them on a new one. [reactions] null means the style's own routes. Any thread.
+     */
+    external fun vizSetLook(
+        handle: Long,
+        sceneId: String,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    external fun vizLookDefaults(): String
+
     /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
     external fun vizSetQuality(
         handle: Long,

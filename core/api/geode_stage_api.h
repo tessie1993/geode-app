@@ -103,25 +103,9 @@ GEODE_API void     geode_stage_viz_unlock(void);
 /* The ring frames hear, or NULL. Returns once no frame reads the ring it replaced, which may then be freed. */
 GEODE_API void     geode_stage_set_sound(geode_stage*, const geode_pcm_ring* ring);
 
-/* The user's look as the shell hands it. lfos, adsrs and reactions are the saved texts geode_viz_set_lfos,
-   _set_adsrs and _set_reactions read (NULL lfos or adsrs: none saved; NULL reactions: the style's own
-   routes); tuning is the saved sound tuning, none for the engine's defaults. */
-typedef struct geode_stage_look {
-    const char*  scene_id;
-    const float* params;
-    int          param_count;
-    const char*  lfos;
-    const char*  adsrs;
-    const float* tuning;
-    int          tuning_count;
-    const char*  reactions;
-    int          reduced_motion;
-    const char*  transition_id;
-    long long    transition_ms;
-} geode_stage_look;
-/* Only the parts that differ from the look set last reach the renderer (all of them the first time), so a
-   transition or a scene set again restarts nothing. */
-GEODE_API void     geode_stage_set_look(geode_stage*, const geode_stage_look* look);
+/* The user's look, as geode_viz_set_look takes it: only the parts that differ from the look set last reach the
+   stage's renderer. */
+GEODE_API void     geode_stage_set_look(geode_stage*, const geode_viz_look* look);
 /* Builds a transition's program on the stage thread, once it has a context. */
 GEODE_API void     geode_stage_warm_transition(geode_stage*, const char* id);
 

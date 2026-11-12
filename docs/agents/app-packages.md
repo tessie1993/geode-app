@@ -239,6 +239,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - What recordings are encoded at and how long one may run is `RecordPrefsStore` (Settings › Export › Record): resolution and frame rate, which follow the Custom defaults until picked, and a maximum length.
 - The offered lengths and the size estimate are native (`core/output/RecordPlan`, `geode_record_*`).
 - `LookStore` is the saved look snapshot for the wallpaper, the dream and Cast (the session's keys, plus `pushProcessWide` for the hand mask).
+- `LookSnapshot` is the one value every host draws (#345): style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
+- `LookSource.pin` freezes the snapshot for a render; `gentleFlight` is the dream's override.
+- `LookSnapshot`'s first style and fade are native's (`geode_viz_look_defaults`).
 - Settings › Export's per-destination defaults are `ExportPrefsStore` and `ExportDestination`.
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
@@ -303,6 +306,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The background image layer.
 - The artwork palette's shell (`ArtPalette`): a cover's pixels to native `core/viz/ArtPalette`, `geode_art_palette_extract`.
 - Customize › Look's "Take the colours from the artwork" and the widget's glow read it.
+- `NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`stage/`).
+- `NativeViz.setLook` hands the whole look across; native passes on only the parts that changed (`geode_viz_set_look`), and a new handle gets the whole look.
+- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 
 ## `stage`
 

@@ -26,6 +26,7 @@
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
+#include "viz/LookSnapshot.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
@@ -362,14 +363,14 @@ private:
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    std::string requestedSceneId_ = "neon_chrome_sea"; // the app's first style (FreeTier.FIRST_STYLE_ID)
+    std::string requestedSceneId_ = kFirstSceneId;
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
     // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
     layer_state::Follower layerFollower_;
-    std::string transitionId_ = "fade";
-    int64_t transitionDurationMs_ = 1200;
+    std::string transitionId_ = kFirstTransitionId;
+    int64_t transitionDurationMs_ = kFirstTransitionMs;
     std::atomic<bool> reducedMotion_{false};
     std::atomic<float> userScale_{1.0f};
     std::atomic<float> marchScale_{1.0f};
@@ -496,12 +497,12 @@ private:
     // stateLock_.
     float frameLayerMix_ = 0.5f;
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);
-    std::string frameTransitionId_ = "fade";
-    int64_t frameTransitionDurationMs_ = 1200;
+    std::string frameTransitionId_ = kFirstTransitionId;
+    int64_t frameTransitionDurationMs_ = kFirstTransitionMs;
     // The transition in flight, fixed when its switch happens (core/viz/TransitionChoice): the id "random"
     // draws one per change, warmed ahead as nextRandomTransition_, and an automatic change fades longer.
-    std::string switchTransitionId_ = "fade";
-    int64_t switchTransitionMs_ = 1200;
+    std::string switchTransitionId_ = kFirstTransitionId;
+    int64_t switchTransitionMs_ = kFirstTransitionMs;
     std::string nextRandomTransition_;
     uint64_t transitionRng_ = 0;
     uint64_t seenAutoMark_ = 0;

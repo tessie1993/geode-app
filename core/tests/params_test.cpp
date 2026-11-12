@@ -70,10 +70,11 @@ void everyFieldIsRolledOnceOrSaysWhyNot() {
         check(owned.count(field) == 1, std::string(field) + " is rolled by exactly one control or never rolled");
     }
     check(owned.size() == static_cast<size_t>(SceneParams::kFieldCount), "no roll writes a field that does not exist");
-    for (const char* inert : {"pulse", "shake", "beatResponse", "flash", "strobe", "formDrive"}) {
+    for (const ParamSlot slot : kRetiredParams) {
+        const std::string retired = SceneParams::fieldNames()[static_cast<int>(slot)];
         bool listed = false;
-        for (const auto& entry : randomizer::neverRolled()) listed = listed || std::string(entry.first) == inert;
-        check(listed, std::string(inert) + " is inert, so never rolled");
+        for (const auto& entry : randomizer::neverRolled()) listed = listed || std::string(entry.first) == retired;
+        check(listed, retired + " is retired, so never rolled");
     }
 }
 

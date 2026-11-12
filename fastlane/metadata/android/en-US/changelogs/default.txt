@@ -1,5 +1,5 @@
 First release of BeatRealms 3D.
-• A music player with 244 visual styles that react to your music.
+• A music player with 274 visual styles that react to your music.
 • Customize every look, or let Auto mode direct the picture as the song moves on.
 • Render the visual over a song to MP4 video.
 • With Pro: every style, 4K and 60 fps video, Record, live wallpaper, screen saver and Cast to TV.

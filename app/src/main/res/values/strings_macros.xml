@@ -50,7 +50,10 @@
     <string name="macro_add_to_knob_title">Which knob moves %1$s?</string>
     <string name="macro_moved_by">Moved by %1$s</string>
     <string name="macro_knob_moves_it">Moves it now; tap to stop</string>
-    <string name="macro_bank_full">You have %1$d knobs, the most there can be.</string>
+    <string name="macro_bank_full">You have %1$d knobs on screen, the most there can be.</string>
+    <string name="macro_add_macro">Add macro</string>
+    <string name="macro_remove_from_screen">Remove from screen</string>
+    <string name="macro_randomize_turns">Randomize the knobs</string>
     <string name="macro_reset_all">Reset all knobs</string>
     <string name="macro_reset_all_title">Reset all knobs?</string>
     <string name="macro_reset_all_text">Your own knobs are deleted and the four original knobs go back to how they came.</string>

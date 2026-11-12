@@ -116,6 +116,9 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // Export: the pre-roll the shell wrote before frame 0 is heard (output/PreRoll): its triggers dropped,
+    // its raw PCM not frame 0's, the song started over where the plan says. False when nothing was heard.
+    bool endPreRoll(int64_t rangeStartMs);
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
@@ -178,10 +181,10 @@ public:
     // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
     void clearToBlack(GLuint targetFbo);
     void releaseScenes();
-    // The surface is about to stop drawing (the host's pause, a hidden wallpaper): the spares go now, as a
-    // UiHidden trim sheds them, since the trim signal is only read by a frame and none follows. GL thread,
-    // with the context current.
-    void trimSpares() { trimScenes({}, MemoryTrim::UiHidden); }
+    // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
+    // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
+    // is only read by a frame and none follows. GL thread, with the context current.
+    void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
     const GlProfile& profile() const { return profile_; }
 
 private:
@@ -201,8 +204,9 @@ private:
     void admitScene(const std::string& id, const Scene& scene);
     // Releases the built scenes SceneResidency says are over budget; `keepId` is pinned beside the
     // ones in use this frame.
-    // `trim` other than None drops every spare (#854), whatever the thermal tier would keep.
-    void trimScenes(const std::string& keepId, MemoryTrim trim = MemoryTrim::None);
+    // A trim (#854, #999) drops what `shed` names: every spare whatever the tier would keep, and for a surface
+    // that stops drawing the passes' and the scene targets too.
+    void trimScenes(const std::string& keepId, TrimShed shed = {});
     // One logcat line when the resident scene count or the thermal tier changes (the device checklist reads it).
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
@@ -232,7 +236,6 @@ private:
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
-    void wireFlow(Scene& target, const SceneParams& p);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
     void stepLiquid(Scene& scene, const SceneParams& p, float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
@@ -382,8 +385,10 @@ private:
     bool fluidInjectionDirty_ = false;
     // W00: the underlay layer. Retained (not just "pending") so a surface recreation can
     // re-arm the dirty flag and re-upload, the same way fluidForceSrc_/fluidDyeSrc_ do above;
-    // see onSurfaceCreated() and applyUnderlayUpload(). Empty = cleared.
-    std::vector<uint32_t> underlayPixels_;
+    // see onSurfaceCreated() and applyUnderlayUpload(). Null = cleared. Kept as the RGBA8 bytes GL
+    // takes and shared, never copied, with the upload (#999: a 1080p image was held once here and
+    // copied twice more on every upload, as ints and again as bytes).
+    std::shared_ptr<const std::vector<uint8_t>> underlayRgba_;
     int underlayWidth_ = 0;
     int underlayHeight_ = 0;
     int underlayBlend_ = 0;
@@ -439,7 +444,6 @@ private:
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
-    float postBeatPulse_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

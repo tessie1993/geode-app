@@ -29,7 +29,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock AND the cycle. Complexity: uMorph adds each
+// Speed scales the clock AND the cycle. Complexity: uMorph adds each
 // scene's extra layer. Chaos: uWarp/uTurbulence bend the scenes. Energy:
 // uIntensity scales the reactions. Colour: diveColor. Space: the rig.
 

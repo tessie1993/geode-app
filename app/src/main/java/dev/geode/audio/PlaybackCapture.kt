@@ -19,10 +19,6 @@ class PlaybackCapture(
     ring: dev.geode.engine.audio.SampleRing,
 ) : AudioCapturePump(ring, DEFAULT_RATE) {
     @Volatile
-    var blockedLikely: Boolean = false
-        private set
-
-    @Volatile
     private var channelCount: Int = 1
 
     override val threadName = "geode-playback-capture"
@@ -33,24 +29,6 @@ class PlaybackCapture(
         val rec = openRecord(projection) ?: return CaptureFailure.UNAVAILABLE
         if (!startPump(rec, channelCount)) return CaptureFailure.UNAVAILABLE
         return null
-    }
-
-    override fun noteLevel(
-        peak: Float,
-        startedAtMs: Long,
-    ) {
-        val now = nowMs()
-        if (peak > SILENCE_EPSILON) {
-            lastAudibleAtMs = now
-            blockedLikely = false
-        } else {
-            val quietSince = if (lastAudibleAtMs == 0L) startedAtMs else lastAudibleAtMs
-            if (now - quietSince > SILENCE_GRACE_MS) blockedLikely = true
-        }
-    }
-
-    override fun resetLevel() {
-        blockedLikely = false
     }
 
     private fun openRecord(projection: MediaProjection): AudioRecord? {

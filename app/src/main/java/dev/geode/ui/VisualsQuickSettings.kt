@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -73,7 +74,9 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
+import dev.geode.model.ScreenRotation
 import dev.geode.render.scene.MilkdropEngine
+import dev.geode.ui.cast.ComputerLinkRow
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
@@ -86,7 +89,8 @@ import kotlin.math.roundToInt
  * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
  * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
  * the style timer and what it steps through, the visual playlist) and how the glass over the visual
- * behaves (the sheet's opacity, how long the mini player stays).
+ * behaves (the sheet's opacity, how long the mini player stays), and "Show on a computer" (the Cast stream to a
+ * browser, `ui/cast/ComputerLinkRow`), since the ⚙ sits beside the Cast icon.
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
  * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
@@ -242,11 +246,14 @@ private fun QuickSettingsRows(
     val left: @Composable () -> Unit = {
         AutoDirectorRows()
         TimerRows(viewModel, viz, timer)
+        RotationRow(gui, onGuiChange)
     }
     val right: @Composable () -> Unit = {
         ConnectedDisplayRows()
         TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist)
         GlassRows(gui, onGuiChange)
+        // Beside the Cast icon's ⚙: the stream to a browser, for a computer without a Chromecast.
+        ComputerLinkRow()
     }
     if (twoColumns) {
         Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {
@@ -384,6 +391,38 @@ private fun ConnectedDisplayRows() {
                 )
             }
         }
+    }
+}
+
+/** Settings › Look's screen rotation, the same key; where Android ignores it (600 dp and wider) the row says so. */
+@Composable
+private fun RotationRow(
+    gui: GuiPrefs,
+    onGuiChange: (GuiPrefs) -> Unit,
+) {
+    MenuRow(
+        label = stringResource(R.string.look_screen_rotation),
+        value = stringResource(gui.screenRotation.labelRes()),
+    ) { close ->
+        ScreenRotation.entries.forEach { option ->
+            val isSelected = option == gui.screenRotation
+            DropdownMenuItem(
+                text = { Text(stringResource(option.labelRes())) },
+                onClick = {
+                    onGuiChange(gui.copy(screenRotation = option))
+                    close()
+                },
+                leadingIcon = { CheckSlot(isSelected) },
+                modifier = Modifier.semantics { selected = isSelected },
+            )
+        }
+    }
+    if (LocalConfiguration.current.smallestScreenWidthDp >= LARGE_SCREEN_DP) {
+        Text(
+            stringResource(R.string.look_screen_rotation_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -709,13 +748,16 @@ private const val LABEL_WEIGHT = 1f
 private const val SLIDER_WEIGHT = 1.2f
 private const val CLAIM_SLOP_FACTOR = 2f
 
+/** Android 16 ignores an app's orientation request on a display this wide (smallest width, dp). */
+private const val LARGE_SCREEN_DP = 600
+
 private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()
 
 /**
- * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in, here and in Settings › Look
- * › Layout: exactly the range [floatingGlass] clamps its fill to, so every stop of either slider
- * changes what is drawn and the % shown is the fill drawn (#559).
+ * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in: exactly the range
+ * [floatingGlass] clamps its fill to, so every stop of the slider changes what is drawn and the %
+ * shown is the fill drawn (#559).
  */
 internal val SHEET_OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
 

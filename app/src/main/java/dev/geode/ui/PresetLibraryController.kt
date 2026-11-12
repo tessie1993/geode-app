@@ -7,6 +7,7 @@ import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.data.ReadCap
 import dev.geode.data.VizUiState
 import dev.geode.model.PresetFiltering
 import dev.geode.model.PresetLink
@@ -164,11 +165,7 @@ internal class PresetLibraryController(
             val json =
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        application
-                            .contentResolver
-                            .openInputStream(uri)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
+                        application.contentResolver.openInputStream(uri)?.use(ReadCap.PRESET::text)
                     }.getOrNull()
                 }
             onResult(json?.let { importPresetJson(it) })

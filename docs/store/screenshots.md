@@ -52,11 +52,11 @@ The eight, in upload order:
 | 1 | `01-visual-neon-chrome-sea` | The app's first style, full screen | A chrome sea under neon light, moving with the music |
 | 2 | `02-styles` | The Styles menu over the running visual | The list of visual styles, opened over a nebula that reacts to the song |
 | 3 | `03-visual-nebula` | Nebula, full screen | A glowing nebula that moves with the music |
-| 4 | `04-customize` | Customize's nine groups | The Customize menu: quick knobs, look, shape, motion, camera, music, effects, liquid |
+| 4 | `04-customize` | Customize's groups (ten on Terrain; Engine shows only on styles with an engine of their own) | The Customize menu: quick knobs, look, shape, motion, dive, camera, music, effects, liquid, expert |
 | 5 | `05-visual-terrain` | Terrain, full screen | A mountain ridge flown over as the music plays |
 | 6 | `06-player` | The player with a track playing | The music player with a track playing and its controls |
 | 7 | `07-studio-render` | Studio › Render | The video render page: source, look, format, length and save |
-| 8 | `08-presets` | The preset grid | A grid of saved looks to apply to the visual |
+| 8 | `08-presets` | The Presets list (a text list, no previews) | A list of saved looks to apply to the visual |
 
 They show the **free** app (owner decision, 2026-11-11: "screenshots free, record pro"): every
 style on screen is one a free user keeps, and Pro badges in the lists are what a free user
@@ -65,8 +65,11 @@ screenshot into a Pro one. The recorded clips are the Pro half ([promo-video.md]
 
 ### Honest limits
 
-- **Not run yet.** There is no emulator in the agent container, and the workflow was not
-  triggered. The first run is the test of it. Things that run could show: a label the test
+- **First run, 2026-11-11 (run 43112454833): incomplete.** Between 0 and 5 of the eight per set:
+  `UiAutomation.takeScreenshot()` returned null on some captures with the visual on screen
+  (`StoreStage.shot`), the emulator went offline in the 10-inch set, and the collect step
+  failed to install Pillow, so no report was written (the Pillow pin is fixed). Other things a
+  run could show: a label the test
   taps has changed; `wm size` on this emulator image gives screenshots of another size (the
   collect step will say so); the app dies at High quality (the workflow then retries at
   Balanced and Saver and records which mode each set used in `report.md`).

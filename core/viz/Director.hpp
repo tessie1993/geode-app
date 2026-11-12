@@ -67,7 +67,6 @@ public:
         Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;
-        float motionOrbit = 0.5f;
         float motionDrift = 0.5f;
         CameraRig::Moves moves{};
     };

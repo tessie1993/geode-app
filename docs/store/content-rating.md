@@ -24,7 +24,7 @@ a music player and video tool, not a game, a social network or a news product).
 | Controlled substances (drugs, alcohol, tobacco) | No | None. One simulation style is named "Acid" (a reaction-diffusion look, `core/tests/catalogue.txt`, kind `ACID`); it depicts and references no drug use. If the owner would rather not explain a name to a reviewer, rename it |
 | Gambling, simulated gambling | No | None |
 | Fear, horror | No | None |
-| Users can interact or exchange content with each other | No | No accounts, chat, comments or feeds. Record and screenshots save files on the device only. Sharing is Android's share sheet to another app (`ui/RenderBar.kt:232`) |
+| Users can interact or exchange content with each other | No | No accounts, chat, comments or feeds. Record and screenshots save files on the device only. Sharing is Android's share sheet to another app (`ui/RenderBar.kt:234`) |
 | Shares the user's location with others | No | No location permission (`AndroidManifest.xml`) |
 | Allows purchases of digital goods | **Yes** | One in-app product, `beatrealms3d_pro`, a one-time unlock through Google Play Billing (`pro/BillingRepository.kt`, `PRO_PRODUCT_ID`) |
 | Unrestricted internet access, a browser | No | The app opens the system browser for a lyrics search the user taps (`ui/LyricsSettings.kt:91-92`); it has no browser of its own |

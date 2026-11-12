@@ -11,16 +11,18 @@
 // drives it on the host; Renderer owns the scenes and asks this unit which ids to release.
 //
 // Why: the renderer kept every style it ever built. A shader style holds a linked program, a VAO and a
-// sound texture; a fluid style holds a whole FluidSim (at Ultra the dye grid alone is ~38 MB, plus
-// velocity, pressure, multigrid, particles and bloom). An hour of Auto, the wallpaper or the dream
+// sound texture; a fluid style holds a whole FluidSim (at Ultra the dye grid alone is tens of MB, #999's
+// arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom); a MilkDrop style holds
+// a projectM instance with its own screen-size textures (the main pair, the blurs, its frame target). An hour of Auto, the wallpaper or the dream
 // visits dozens of styles, so resident memory grew until the memory limiter or LMK killed the process,
 // or GL allocations failed. And every tier or scale change resized all of them in one frame.
 //
 // The policy, an LRU with pins and a weighted spare budget:
 //  - Pinned scenes (the one drawn, the one fading out, the layer, the born style, the one just built or
-//    requested) never count and are never released.
+//    requested) are never released. The heaviest of them is free; the others count against the spare
+//    budget (#999), so a fluid fading into a fluid over a fluid layer leaves no room for spares.
 //  - The rest, most recent first, keep their place while their weight fits the tier's spare budget.
-//    A fluid scene weighs kHeavyWeight: one of them costs what several shader styles cost.
+//    A fluid or MilkDrop scene weighs kHeavyWeight: one of them costs what several shader styles cost.
 //  - A cool phone keeps a few spares, so back and forth between two looks (a beat cut, ‹ ›) stays a
 //    cache hit; a hot one keeps none, since a rebuild is cheaper than the memory and a later resize.
 //  - Resizes are lazy: a tier or scale change bumps the size stamp, only scenes drawn this frame are
@@ -40,12 +42,20 @@
 // process-wide (one process serves the app, the wallpaper and the dream) and each renderer reads it
 // on its own GL thread, so no release ever runs off the thread that owns the context.
 // Only a frame reads the signal, and UI_HIDDEN arrives after the app's GL thread has paused, so a surface
-// that stops drawing sheds the same way at its pause, while its context is still current
-// (Renderer::trimSpares, geode_viz_trim_spares); the signal is for the surfaces that go on drawing.
+// that stops drawing sheds at its pause, while its context is still current (Renderer::trimSpares,
+// geode_viz_trim_spares); the signal is for the surfaces that go on drawing. What each sheds is shedFor.
 namespace geode::viz {
 
 // What the system asked for. Background is the stronger ask; scenes shed the same way for both.
 enum class MemoryTrim : int { None = 0, UiHidden = 1, Background = 2 };
+
+// What one trim releases (#999). The scene drawn is never in it: a paused GL thread has no current context
+// to release it with when BACKGROUND arrives, and a rebuild on return is a staged build, not a free one.
+struct TrimShed {
+    bool spares = false;        // every unpinned scene, whatever the tier keeps
+    bool passTargets = false;   // Liquid's sides, the dive, Trails, the UI blur, the born target
+    bool sceneTargets = false;  // the renderer's own two scene targets (sceneA, sceneB)
+};
 
 class SceneResidency {
 public:
@@ -80,6 +90,21 @@ public:
 
     // What one fluid-solver scene weighs against a shader style in the spare budget.
     static constexpr int kHeavyWeight = 3;
+
+    // A scene's weight: a fluid solver or a projectM instance is heavy, a shader style is not.
+    static bool heavy(bool fluid, bool milkdrop) { return fluid || milkdrop; }
+
+    // What a trim sheds. A renderer that goes on drawing (the signal read by a frame: a visible wallpaper,
+    // the dream, Cast, an export) drops its spares only: the passes' targets hold the picture's history
+    // (Liquid's feedback, Trails, the dive), and freeing them popped that history on screen, on the TV and
+    // into the MP4. A surface that stops drawing (its pause, an in-app hide, a stopped wallpaper) also drops
+    // the passes' targets and its two scene targets, since the next frame it draws builds them again;
+    // through hours of background playback they were 20 MiB at 1080p for nothing.
+    static TrimShed shedFor(MemoryTrim trim, bool drawing) {
+        if (trim == MemoryTrim::None) return {};
+        if (drawing) return {true, false, false};
+        return {true, true, true};
+    }
 
     struct Entry {
         std::string id;
@@ -142,7 +167,15 @@ public:
     template <typename Pinned>
     std::vector<std::string> evict(Pinned pinned, int budget) {
         std::vector<std::string> victims;
-        int used = 0;
+        // The pinned scenes past the heaviest one take their weight out of the budget first.
+        int pinnedTotal = 0;
+        int pinnedMost = 0;
+        for (const Entry& e : entries_) {
+            if (!pinned(e.id)) continue;
+            pinnedTotal += e.weight;
+            pinnedMost = std::max(pinnedMost, e.weight);
+        }
+        int used = pinnedTotal - pinnedMost;
         for (auto it = entries_.begin(); it != entries_.end();) {
             if (pinned(it->id)) {
                 ++it;

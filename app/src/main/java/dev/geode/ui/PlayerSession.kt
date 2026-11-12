@@ -24,16 +24,16 @@ import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MusicLibraryRepository
+import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PlayerPrefs
+import dev.geode.data.PlayerPrefsCodec
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
-import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.SystemMotion
@@ -45,6 +45,7 @@ import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
+import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -69,6 +70,7 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -106,7 +108,7 @@ class PlayerSession internal constructor(
     private val prefsFiles = container.prefsFiles
 
     private val playerPrefsRepository: PlayerPrefsRepository =
-        SharedPrefsPlayerPrefsRepository(PlayerPrefsStore(prefsFiles.player), storeScope)
+        PrefsSettingsRepository(prefsFiles.player, PlayerPrefsCodec, storeScope)
 
     private val favouritesRepository: FavouritesRepository =
         SharedPrefsFavouritesRepository(prefsFiles.favourites, storeScope)
@@ -323,6 +325,10 @@ class PlayerSession internal constructor(
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
     private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+
+    /** Settings › Preferences › Watermark; the provider folds it into [renderLimits]. */
+    internal val watermarkPrefs: dev.geode.data.WatermarkPrefsRepository =
+        PrefsSettingsRepository(prefsFiles.general, dev.geode.data.WatermarkPrefsCodec, storeScope)
     private val exportPrefs = dev.geode.data.ExportPrefsStore(prefsFiles.general)
 
     internal val record: RecordController =
@@ -401,7 +407,7 @@ class PlayerSession internal constructor(
                 durationMs = player.duration.coerceAtLeast(0),
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
-                    player.mediaMetadata.title?.toString()
+                    (player.mediaMetadata.title ?: player.mediaMetadata.displayTitle)?.toString()
                         ?: uri
                             ?.lastPathSegment
                             ?.substringAfterLast('/')
@@ -573,6 +579,30 @@ class PlayerSession internal constructor(
         startUri: String,
     ) = queueController.playFrom(tracks, startUri)
 
+    // Completed once attachPlayback has run, so a file opened on a cold start is not replaced by the restore.
+    private val playbackAttached = CompletableDeferred<Unit>()
+
+    /**
+     * Plays an audio file another app opened ("Open with") as a one-item queue, after
+     * [dev.geode.data.OpenedAudioSource] has checked the uri off the main thread. [onResult] is false
+     * when it was refused.
+     */
+    fun openAudio(
+        uri: Uri,
+        onResult: (Boolean) -> Unit,
+    ) {
+        scope.launch {
+            val inspection = container.openedAudio.inspect(uri)
+            if (inspection !is OpenedAudioSource.Inspection.Playable) {
+                onResult(false)
+                return@launch
+            }
+            playbackAttached.await()
+            queueController.playOpened(uri, inspection.name ?: application.getString(dev.geode.R.string.opened_audio_untitled))
+            onResult(true)
+        }
+    }
+
     fun playAll(
         tracks: List<QueueTrack>,
         shuffled: Boolean = false,
@@ -612,8 +642,8 @@ class PlayerSession internal constructor(
     internal var onStyleLocked: () -> Unit = {}
 
     /**
-     * The entitlement's export limits for every project render (a take, Studio's Render), set by the
-     * provider like [allowsStyle]; open until set.
+     * The entitlement's export limits for a recording (Record's cap), set by the provider like
+     * [allowsStyle]; open until set.
      */
     internal var renderLimits: () -> dev.geode.pro.RenderLimits = { dev.geode.pro.RenderLimits.NONE }
 
@@ -627,6 +657,7 @@ class PlayerSession internal constructor(
         pendingUnlockSceneId = null
         if (allowsStyle(sceneId)) {
             visual.selectScene(sceneId)
+            autoVisuals.noteHandPick()
         } else {
             // Kept so that buying Pro from this paywall ends on the style that asked for it.
             pendingUnlockSceneId = sceneId
@@ -669,7 +700,12 @@ class PlayerSession internal constructor(
 
     fun applyPreset(preset: Preset) {
         pendingUnlockSceneId = null
-        if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+        if (allowsStyle(preset.sceneId)) {
+            visual.applyPreset(preset)
+            autoVisuals.noteHandPick()
+        } else {
+            onStyleLocked()
+        }
     }
 
     /**
@@ -678,19 +714,19 @@ class PlayerSession internal constructor(
      * those [allowsStyle] lets the user keep (Auto's rule, so the paywall never opens), a saved or
      * bundled preset made for it, else on MilkDrop a .milk file, then the roll over that look with
      * Customize's kept controls held. This only lists what the shell knows and applies the pick through
-     * [applyPreset] or [selectScene]. [rollParams] false (the roll is Pro) keeps the preset as it is.
+     * [applyPreset] or [selectScene]. [basicsOnly] (no Pro) is the dice's free rule: the free Basics roll.
      */
-    fun randomizeEverything(rollParams: Boolean) {
+    fun randomizeEverything(basicsOnly: Boolean) {
         // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
         if (MilkdropEngine.available && allowsStyle(SceneIds.MILKDROP)) {
-            milkPresetFilesAsync { randomizeEverything(rollParams, it) }
+            milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
         } else {
-            randomizeEverything(rollParams, emptyList())
+            randomizeEverything(basicsOnly, emptyList())
         }
     }
 
     private fun randomizeEverything(
-        rollParams: Boolean,
+        basicsOnly: Boolean,
         milk: List<MilkFile>,
     ) {
         val seed = Random.nextLong()
@@ -709,7 +745,7 @@ class PlayerSession internal constructor(
         val preset = viz.presets.getOrNull(picks[0])
         if (preset != null) applyPreset(preset) else selectScene(style)
         milk.getOrNull(picks[1])?.let { visual.emitApply(VizApply(milkPath = it.path, sceneId = style)) }
-        modulation.randomizeAllRoll(viz.params, seed, rollParams)
+        modulation.randomizeAllRoll(viz.params, seed, basicsOnly)
     }
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
@@ -769,8 +805,6 @@ class PlayerSession internal constructor(
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
 
                 override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
-
-                override fun renderLimits() = this@PlayerSession.renderLimits()
             },
         )
 
@@ -797,7 +831,7 @@ class PlayerSession internal constructor(
         destination: Uri? = null,
         range: ExportRange? = null,
         codec: ExportCodec = ExportCodec.H264,
-        watermark: Boolean = false,
+        watermark: dev.geode.model.WatermarkChoice = dev.geode.model.WatermarkChoice.NONE,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
 
     fun deleteStudioClip(
@@ -877,7 +911,11 @@ class PlayerSession internal constructor(
         // The playback session records plays (#371); this only tells history screens to re-read.
         scope.launch { playback.playsRecorded.drop(1).collect { listening.onPlayRecorded() } }
         scope.launch {
-            attachPlayback()
+            try {
+                attachPlayback()
+            } finally {
+                playbackAttached.complete(Unit)
+            }
             pollPlaybackState()
         }
     }

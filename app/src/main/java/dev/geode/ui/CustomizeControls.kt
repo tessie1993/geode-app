@@ -91,7 +91,7 @@ private fun LookControl(
         ParamKeys.BLOOM -> LabeledSlider(key, p, SceneParams::bloom, display = "Glow") { onChange(p.copy(bloom = it)) }
         ParamKeys.PALETTE_2 ->
             if (p.paletteMix > PALETTE_MIX_SHOWN && visible(key, ParamScope.SHADER_LOOK)) {
-                ProGated(key) { PaletteDropdown(key, "Second palette", p, onChange, rememberSavedPalettes(), second = true) }
+                ProGated(key) { SecondPaletteStepper(p, onChange) }
             }
         ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, SceneParams::paletteMix) { onChange(p.copy(paletteMix = it)) }
         ParamKeys.COLOUR_MAP ->
@@ -219,6 +219,15 @@ private fun MotionControl(
                     onChange(p.copy(endlessZoomSpeed = it))
                 }
             }
+        DIVE_SPACING -> LabeledSlider(key, p, SceneParams::diveSpacing) { onChange(p.copy(diveSpacing = it)) }
+        DIVE_SHAPE -> LabeledSlider(key, p, SceneParams::diveShape) { onChange(p.copy(diveShape = it)) }
+        DIVE_BLEND -> LabeledSlider(key, p, SceneParams::diveBlend, display = "Soft edges") { onChange(p.copy(diveBlend = it)) }
+        DIVE_FOG -> LabeledSlider(key, p, SceneParams::diveFog) { onChange(p.copy(diveFog = it)) }
+        DIVE_TWIST -> LabeledSlider(key, p, SceneParams::diveTwist, display = "Spiral") { onChange(p.copy(diveTwist = it)) }
+        DIVE_AIM_X -> LabeledSlider(key, p, SceneParams::diveAimX, display = "Aim sideways") { onChange(p.copy(diveAimX = it)) }
+        DIVE_AIM_Y -> LabeledSlider(key, p, SceneParams::diveAimY, display = "Aim up and down") { onChange(p.copy(diveAimY = it)) }
+        DIVE_LENS -> LabeledSlider(key, p, SceneParams::diveLens, display = "Lens") { onChange(p.copy(diveLens = it)) }
+        DIVE_FOLLOW -> LabeledSlider(key, p, SceneParams::diveFollow) { onChange(p.copy(diveFollow = it)) }
         ParamKeys.MOTION_AMOUNT ->
             LabeledSlider(key, p, SceneParams::motionAmount) { onChange(p.copy(motionAmount = it)) }
         ParamKeys.MOTION_BREATH ->
@@ -519,7 +528,13 @@ private fun PanelPiece(
             val macros by store.state.collectAsStateWithLifecycle()
             ProGated(id, stringResource(R.string.macro_editor_title)) { MacroEditor(macros, store, viz.sceneId) }
         }
-        "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
+        "@palette_maker" ->
+            if (sectionVisible()) {
+                ProGated(
+                    id,
+                    stringResource(R.string.customize_your_colours),
+                ) { YourColoursCard(host, p, onChange, rememberSavedPalettes()) }
+            }
         "@auto_moments" -> DirectorSwitch()
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
@@ -606,7 +621,7 @@ private fun PaletteControl(
     }
     if (visible(ParamKeys.PALETTE, ParamScope.UNIVERSAL)) {
         ProGated(ParamKeys.PALETTE) {
-            PaletteDropdown(ParamKeys.PALETTE, ParamKeys.PALETTE, p, onChange, rememberSavedPalettes(), second = false)
+            PaletteDropdown(ParamKeys.PALETTE, p, onChange, rememberSavedPalettes())
         }
     }
 }
@@ -717,6 +732,15 @@ private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"
 private const val LIQUID_ON = "Flow field on"
+private const val DIVE_SPACING = "Ring spacing"
+private const val DIVE_SHAPE = "Tunnel shape"
+private const val DIVE_BLEND = "Dive blend"
+private const val DIVE_FOG = "Depth fade"
+private const val DIVE_TWIST = "Dive twist"
+private const val DIVE_AIM_X = "Dive aim X"
+private const val DIVE_AIM_Y = "Dive aim Y"
+private const val DIVE_LENS = "Dive lens"
+private const val DIVE_FOLLOW = "Music follow"
 private const val RIPPLES_ON = "Water ripples on"
 private const val GLIDE_TIME = "Glide time"
 private const val TRANSITION_LENGTH = "Transition length"

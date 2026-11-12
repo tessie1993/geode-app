@@ -38,7 +38,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the sparks' travel and the slow hue drift. Complexity:
+// Speed scales the sparks' travel and the slow hue drift. Complexity:
 // uMorph adds a fork level to every dendrite (arbLevels). Chaos: uTurbulence
 // and uWarp scatter each neuron's fork angle and twist from its cell hash;
 // uTwist adds a standing spiral. Colour: membranes, somas and sparks from

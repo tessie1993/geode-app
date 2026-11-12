@@ -30,11 +30,7 @@ import dev.geode.editor.ProjectRender
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
-import dev.geode.export.ClipEdit
-import dev.geode.export.ClipLook
 import dev.geode.export.ExportCodec
-import dev.geode.export.ExportQuality
-import dev.geode.export.ExportRatio
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -247,7 +243,7 @@ internal object EditorProjectJson {
                     .putOpt("presetId", c.presetId)
                     .putOpt("milkPath", c.milkPath)
                     .putOpt("beatCut", c.beatCut?.let(::beatCut))
-            is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri).put("edit", clipEdit(c.edit))
+            is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri)
             is ClipContent.Still -> JSONObject().put("type", "still").put("uri", c.uri).put("kenBurns", c.kenBurns.toDouble())
             is ClipContent.Text -> JSONObject().put("type", "text").put("text", c.text).putOpt("styleId", c.styleId)
             is ClipContent.Overlay ->
@@ -268,7 +264,9 @@ internal object EditorProjectJson {
                     milkPath = o.stringOrNull("milkPath"),
                     beatCut = o.optJSONObject("beatCut")?.let(::beatCut),
                 )
-            "video" -> ClipContent.Video(o.getString("uri"), o.optJSONObject("edit")?.let(::clipEdit) ?: ClipEdit())
+            // A project the dropped video editor saved (#227) may still carry the clip's grade under
+            // "edit": nothing renders a video clip any more, so it is skipped rather than read.
+            "video" -> ClipContent.Video(o.getString("uri"))
             "still" -> ClipContent.Still(o.getString("uri"), o.optDouble("kenBurns", 0.0).toFloat())
             "text" -> ClipContent.Text(o.getString("text"), o.stringOrNull("styleId"))
             "overlay" ->
@@ -290,51 +288,6 @@ internal object EditorProjectJson {
             everyBeats = o.optInt("everyBeats", BeatCut.DEFAULT_BEATS_PER_CUT).coerceAtLeast(1),
         )
     }
-
-    private fun clipEdit(e: ClipEdit): JSONObject =
-        JSONObject()
-            .put("startMs", e.startMs)
-            .put("endMs", e.endMs)
-            .put("look", e.look.name)
-            .put("brightness", e.brightness.toDouble())
-            .put("contrast", e.contrast.toDouble())
-            .put("saturation", e.saturation.toDouble())
-            .put("hueDegrees", e.hueDegrees.toDouble())
-            .put("monochrome", e.monochrome)
-            .put("invert", e.invert)
-            .put("speed", e.speed.toDouble())
-            .put("rotationDegrees", e.rotationDegrees.toDouble())
-            .putOpt("ratio", e.ratio?.name)
-            .put("quality", e.quality.name)
-            .put("mute", e.mute)
-            .put("caption", e.caption)
-            .putOpt("lutUri", e.lutUri)
-            .put("gammaRed", e.gammaRed.toDouble())
-            .put("gammaGreen", e.gammaGreen.toDouble())
-            .put("gammaBlue", e.gammaBlue.toDouble())
-
-    private fun clipEdit(o: JSONObject): ClipEdit =
-        ClipEdit(
-            startMs = o.optLong("startMs", 0L),
-            endMs = o.optLong("endMs", 0L),
-            look = enumOr(o.optString("look"), ClipLook.NONE),
-            brightness = o.optDouble("brightness", 0.0).toFloat(),
-            contrast = o.optDouble("contrast", 0.0).toFloat(),
-            saturation = o.optDouble("saturation", 0.0).toFloat(),
-            hueDegrees = o.optDouble("hueDegrees", 0.0).toFloat(),
-            monochrome = o.optBoolean("monochrome", false),
-            invert = o.optBoolean("invert", false),
-            speed = o.optDouble("speed", 1.0).toFloat(),
-            rotationDegrees = o.optDouble("rotationDegrees", 0.0).toFloat(),
-            ratio = o.stringOrNull("ratio")?.let { name -> ExportRatio.entries.firstOrNull { it.name == name } },
-            quality = enumOr(o.optString("quality"), ExportQuality.FHD1080),
-            mute = o.optBoolean("mute", false),
-            caption = o.optString("caption", ""),
-            lutUri = o.stringOrNull("lutUri"),
-            gammaRed = o.optDouble("gammaRed", 1.0).toFloat(),
-            gammaGreen = o.optDouble("gammaGreen", 1.0).toFloat(),
-            gammaBlue = o.optDouble("gammaBlue", 1.0).toFloat(),
-        )
 
     private fun marker(m: Marker): JSONObject =
         JSONObject()

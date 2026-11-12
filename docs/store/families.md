@@ -15,7 +15,7 @@ The app has no ads, accounts, chat or tracking, so most of the policy was alread
 four were not, as the code stood on 2026-11-11:
 
 1. **Cast at launch.** The Google Cast SDK starts for every user when the app opens
-   (`ui/MainActivity.kt:302`, `cast/CastOptionsProvider.kt:29`) and logs discovery and session
+   (`ui/MainActivity.kt:397`, `cast/CastOptionsProvider.kt:29`) and logs discovery and session
    events to Google, which nobody can turn off. A Families app may use an SDK "not approved
    for use in child-directed services" only if no data is collected from children or it sits
    behind a neutral age screen, and Google's Cast page does not say the SDK is approved. The

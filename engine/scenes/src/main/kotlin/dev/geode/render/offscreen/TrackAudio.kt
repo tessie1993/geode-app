@@ -69,17 +69,17 @@ class TrackAudio(
     }
 
     /**
-     * Hands [viz]'s sound engine everything from the range start up to [endMs] into the range, at whatever
-     * rate the track decodes to, decoding as needed. Returns false once the track has run out.
+     * Hands [viz]'s engine everything from the range start up to the target [aim] sets on the feed (a ms or a
+     * video frame's exact end), decoding as needed. Returns false once the track has run out.
      */
-    fun deliverUntilMs(
-        endMs: Long,
+    fun deliverUntil(
         viz: NativeViz,
+        aim: (feed: Long) -> Unit,
     ): Boolean {
         // The rate is only known once the decoder has produced something.
         while (!GeodeNative.trackFeedHasRate(feed) && !ended) step()
         if (!GeodeNative.trackFeedHasRate(feed)) return false
-        GeodeNative.trackFeedTargetMs(feed, endMs)
+        aim(feed)
         while (!viz.hearTrack(feed)) {
             if (ended) return false
             step()

@@ -9,6 +9,7 @@
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -401,6 +402,7 @@ struct Run {
     float gazeOutside = 0.0f;
     float gazeOverRate = 0.0f;
     float gazeWidest = 0.0f;
+    int mostParts = 0;
 };
 
 Run play(uint64_t seedValue, int frames, float energyScale = 1.0f) {
@@ -459,6 +461,13 @@ Run play(uint64_t seedValue, int frames, float energyScale = 1.0f) {
         prev = d.live();
         havePrev = true;
         check(inBounds(d.live()), "the live genome stays in bounds");
+        // The shader is compiled with d.parts() alone: every part the live world draws must be in it.
+        const uint32_t parts = d.parts();
+        for (int pi = 0; pi < kPrimCount; ++pi) {
+            if (d.live()[PBox + pi] > 0.0f) check(((parts >> pi) & 1u) != 0, "a primitive with weight is compiled in");
+        }
+        if (d.live()[Terrain] > 0.0f) check(((parts >> MorphDriver::kTerrainPart) & 1u) != 0, "the landscape is compiled in while it shows");
+        run.mostParts = std::max(run.mostParts, std::popcount(parts));
         check(d.uniforms()[ZPhase] >= 0.0f && d.uniforms()[ZPhase] <= 2.0f * d.live()[CellZ] + 1e-3f, "the z phase stays in a period");
     }
     return run;
@@ -468,6 +477,8 @@ void driverIsReplayableAndSeeded() {
     const int frames = 60 * 60 * 4;  // four minutes
     const Run a = play(0xC0FFEEu, frames);
     const Run b = play(0xC0FFEEu, frames);
+    check(a.mostParts >= 1 && a.mostParts <= 8,
+          "a world and its glide need a few of lib_world's parts, not all of them (" + std::to_string(a.mostParts) + ")");
     const Run c = play(0xBADBEEFu, frames);
     check(!a.seeds.empty(), "a song with sections and drops retargets");
     check(a.seeds == b.seeds && a.fields == b.fields, "same seed and music: the same target sequence");
@@ -681,6 +692,19 @@ void newFractalSeedsHold() {
     }
 }
 
+// Before its first step the driver has no world yet, so the shader keeps every part; withParts puts
+// the define after #version, which GLSL needs first.
+void partsStartWholeAndDefineAfterVersion() {
+    MorphDriver d;
+    d.reset(7);
+    check(d.parts() == MorphDriver::kAllParts, "every part before the first step");
+    d.step(DriverInput{}, 1.0f / 60.0f);
+    check(d.parts() != MorphDriver::kAllParts && d.parts() != 0, "a started world names its own parts");
+    check(withParts("#version 300 es\nvoid main() {}\n", 5) == "#version 300 es\n#define WG_PARTS 5\nvoid main() {}\n",
+          "WG_PARTS follows the #version line");
+    check(withParts("void main() {}\n", 3) == "#define WG_PARTS 3\nvoid main() {}\n", "no #version: the define leads");
+}
+
 // lib_world's WG_* names must index the fields the C++ side uploads.
 void glslNamesMatch(const char* path) {
     std::ifstream in(path);
@@ -720,6 +744,18 @@ void glslNamesMatch(const char* path) {
     check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[" + std::to_string(kVec4) + "]");
     // Every field and runtime value has a name: a new one cannot be left out of the map.
     check(static_cast<int>(expect.size()) == kUniformCount, "every uWorld slot is named (" + std::to_string(expect.size()) + "/" + std::to_string(kUniformCount) + ")");
+    // The parts: each primitive's guard is its bit in field order, the landscape's is kTerrainPart, and
+    // without WG_PARTS every part is in.
+    std::map<int, std::string> nameOf;
+    for (const auto& [name, index] : expect) nameOf[index] = name;
+    for (int i = 0; i < kPrimCount; ++i) {
+        const std::string want = "#if (WG_PARTS & " + std::to_string(1u << i) + ") != 0\n    if (" + nameOf[PBox + i] + " > 0.0)";
+        check(src.find(want) != std::string::npos, "lib_world guards " + nameOf[PBox + i] + " by bit " + std::to_string(i));
+    }
+    check(src.find("#if (WG_PARTS & " + std::to_string(1u << MorphDriver::kTerrainPart) + ") != 0\n    if (WG_TERRAIN > 0.0)") !=
+              std::string::npos,
+          "lib_world guards the landscape by kTerrainPart");
+    check(src.find("#define WG_PARTS " + std::to_string(MorphDriver::kAllParts) + "\n") != std::string::npos, "lib_world defaults to every part");
     // The shape atlas: wShape() addresses the tiles WorldAssets packs.
     for (const auto& [name, value] : std::map<std::string, int>{
              {"WG_SHAPES", kShapeCount}, {"WG_SHAPE_RES", kShapeRes}, {"WG_ATLAS_COLS", kAtlasCols}, {"WG_ATLAS_ROWS", kAtlasRows}}) {
@@ -821,6 +857,23 @@ void loadAssets(const char* shapes, const char* textures) {
 
 }  // namespace
 
+// Audio drive reaches Morph World: the levels the driver hears scale with it, and 1 is the frame as heard.
+void audioDriveScalesWhatTheWorldHears() {
+    GeodeSoundFrame f{};
+    f.presence = 1.0f;
+    f.loudness = 0.3f;
+    f.intensity = 0.3f;
+    f.bassAtt = 0.5f;
+    f.kickEnv = 0.4f;
+    const DriverInput at1 = DriverInput::fromSound(f);
+    const DriverInput same = DriverInput::fromSound(f, 1.0f);
+    check(at1.energy == same.energy && at1.bass == same.bass && at1.kick == same.kick, "Audio drive 1 is the frame as heard");
+    const DriverInput loud = DriverInput::fromSound(f, 2.0f);
+    const DriverInput soft = DriverInput::fromSound(f, 0.2f);
+    check(loud.energy > at1.energy && loud.bass > at1.bass && loud.kick > at1.kick, "Audio drive 2 makes the world hear more");
+    check(soft.energy < at1.energy && soft.bass < at1.bass && soft.kick < at1.kick, "Audio drive 0.2 makes it hear less");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::string(argv[1]) == "--dump") {
         const Genome& g = seed(std::atoi(argv[2])).genome;
@@ -830,6 +883,7 @@ int main(int argc, char** argv) {
         u[IterCap] = 5.0f;
         u[WakeZ] = 1.9f;
         u[Assets] = 1.0f;
+        u[LensNow] = g[Lens];
         for (int i = 0; i < kUniformCount; ++i) std::printf("%s%g", i ? "," : "", static_cast<double>(u[static_cast<size_t>(i)]));
         std::printf("\n");
         return 0;
@@ -845,6 +899,7 @@ int main(int argc, char** argv) {
     }
     if (argc == 4) loadAssets(argv[2], argv[3]);
     lerpEndpointsAreExact();
+    audioDriveScalesWhatTheWorldHears();
     seedsAreValid();
     noWorldIsTheFourWayCross();
     randomGenomesAreValid();
@@ -860,6 +915,7 @@ int main(int argc, char** argv) {
     dropRushesAndVerseGlides();
     travelIsSeamless();
     newFractalSeedsHold();
+    partsStartWholeAndDefineAfterVersion();
     atlasLayoutIsSound();
     if (argc >= 2) glslNamesMatch(argv[1]);
     if (failures == 0) std::printf("world_genome_test: all passed\n");

@@ -35,7 +35,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the ripples' wind drift. Complexity (uMorph) fades in
+// Speed scales the ripples' wind drift. Complexity (uMorph) fades in
 // an octave of the bending field. Chaos (uWarp, uTurbulence, uTwist) bends
 // the crests (terraChaos). Energy (uIntensity) scales the hat shimmer and the
 // bass swell. Colour is pal() in the sand and sky. Space is the rig.

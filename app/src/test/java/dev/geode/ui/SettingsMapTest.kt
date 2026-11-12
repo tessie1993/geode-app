@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Settings' fourteen tabs (owner, 2026-11-11) as `AppSettingsTab` draws them: [SettingsGroupKey]'s
+ * Settings' fifteen tabs (owner, 2026-11-11; Preferences the same day) as `AppSettingsTab` draws them: [SettingsGroupKey]'s
  * Basics and sections, each a list of [SettingsRowKey]. The regroup moved every row of the ten
  * groups before it; these hold that none was lost or shown twice, and that a page saved by an old
  * name (a process-death bundle across the update) still opens on a tab.
@@ -35,7 +35,7 @@ class SettingsMapTest {
     }
 
     @Test
-    fun theFourteenTabsInListOrder() {
+    fun theFifteenTabsInListOrder() {
         assertEquals(
             listOf(
                 "PLAYBACK",
@@ -51,6 +51,7 @@ class SettingsMapTest {
                 "LOOK",
                 "PERFORMANCE",
                 "EXPORT",
+                "PREFERENCES",
                 "HELP_ABOUT",
             ),
             SettingsGroupKey.entries.map { it.name },
@@ -123,6 +124,13 @@ class SettingsMapTest {
         assertRowsOn(SettingsGroupKey.VISUAL_PLAYBACK, SettingsRowKey.AUTO_DIRECTOR, SettingsRowKey.STYLE_TIMER)
         assertRowsOn(SettingsGroupKey.SAFETY, SettingsRowKey.FLASH_LIMITS, SettingsRowKey.REDUCED_MOTION)
         assertRowsOn(SettingsGroupKey.DISPLAYS, SettingsRowKey.CONNECTED_DISPLAY, SettingsRowKey.PIP_AUTO_ENTER)
+        assertRowsOn(
+            SettingsGroupKey.PREFERENCES,
+            SettingsRowKey.WATERMARK,
+            SettingsRowKey.LIBRARY_PREFS,
+            SettingsRowKey.PLAYER_PREFS,
+            SettingsRowKey.STAGE_PREFS,
+        )
     }
 
     private fun assertRowsOn(

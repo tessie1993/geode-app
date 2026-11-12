@@ -56,10 +56,12 @@ import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 
 /**
- * Settings' fourteen tabs, in the order the list shows them (owner, 2026-11-11, after a survey of
+ * Settings' fifteen tabs, in the order the list shows them (owner, 2026-11-11, after a survey of
  * Poweramp, Symfonium and VJ apps' settings): how often people reach for each in
  * a music player and visualizer, playback and sound first, the look and the app's own housekeeping
- * last. Each tab's page is [basics] (always open) and [sections] that drop open below it.
+ * last. Preferences, just before housekeeping, is the home of small choices that fit no other tab
+ * (the watermark first; owner, 2026-11-11), then how Library, the Player and the visual's icons
+ * behave. Each tab's page is [basics] (always open) and [sections] that drop open below it.
  *
  * Saved by name, so reordering never restores the wrong page; [fromName] also takes the names of
  * the ten groups before the regroup, so a page saved then still opens on the tab its rows went to.
@@ -88,7 +90,7 @@ enum class SettingsGroupKey(
     OUTPUT(
         R.string.settings_group_output,
         R.string.settings_group_output_summary,
-        listOf(SettingsRowKey.PAUSE_UNPLUGGED, SettingsRowKey.HEADPHONES_AUTOPLAY),
+        listOf(SettingsRowKey.PAUSE_UNPLUGGED, SettingsRowKey.HEADPHONES_AUTOPLAY, SettingsRowKey.PICTURE_DELAY),
         listOf(SettingsSectionKey.OUTPUT_ENGINE, SettingsSectionKey.NOTIFICATION),
     ),
     LIBRARY(
@@ -154,6 +156,12 @@ enum class SettingsGroupKey(
         listOf(SettingsRowKey.OPEN_STUDIO_RENDER, SettingsRowKey.KEEP_RENDERS),
         listOf(SettingsSectionKey.RECORD),
     ),
+    PREFERENCES(
+        R.string.settings_group_preferences,
+        R.string.settings_group_preferences_summary,
+        listOf(SettingsRowKey.WATERMARK),
+        listOf(SettingsSectionKey.PREFS_LIBRARY, SettingsSectionKey.PREFS_PLAYER, SettingsSectionKey.PREFS_VISUALS),
+    ),
     HELP_ABOUT(
         R.string.settings_group_help_about,
         R.string.settings_group_help_about_summary,
@@ -183,6 +191,7 @@ enum class SettingsGroupKey(
                 LOOK -> Icons.Filled.Palette
                 PERFORMANCE -> Icons.Filled.Speed
                 EXPORT -> StoneIcon.STUDIO.vector
+                PREFERENCES -> StoneIcon.SETTINGS.vector
                 HELP_ABOUT -> Icons.Filled.Backup
             }
 
@@ -242,6 +251,9 @@ enum class SettingsSectionKey(
     LYRICS(R.string.settings_tab_lyrics, listOf(SettingsRowKey.LYRICS)),
     OTHER_FOLDERS(R.string.settings_section_other_folders, listOf(SettingsRowKey.PRESET_FOLDER)),
     RECORD(R.string.settings_section_record, listOf(SettingsRowKey.RECORD_QUALITY)),
+    PREFS_LIBRARY(R.string.prefs_section_library, listOf(SettingsRowKey.LIBRARY_PREFS)),
+    PREFS_PLAYER(R.string.prefs_section_player, listOf(SettingsRowKey.PLAYER_PREFS)),
+    PREFS_VISUALS(R.string.prefs_section_visuals, listOf(SettingsRowKey.STAGE_PREFS)),
     TUTORIALS(R.string.settings_section_tutorials, listOf(SettingsRowKey.TUTORIALS)),
     HELP_TOPICS(R.string.help_topics_group, listOf(SettingsRowKey.HELP_TOPICS)),
     ABOUT(R.string.settings_tab_about, listOf(SettingsRowKey.ABOUT)),
@@ -420,6 +432,7 @@ private fun SettingsRowContent(
         SettingsRowKey.NATIVE_OUTPUT,
         SettingsRowKey.BIT_PERFECT,
         SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL,
+        SettingsRowKey.PICTURE_DELAY,
         -> PlayerPrefsRow(row, settings)
         SettingsRowKey.QUEUE_END,
         SettingsRowKey.REMEMBER_SHUFFLE,
@@ -459,6 +472,10 @@ private fun SettingsRowContent(
         SettingsRowKey.OPEN_STUDIO_RENDER -> OpenStudioRenderRow(deps.onOpenStudioRender)
         SettingsRowKey.KEEP_RENDERS -> KeepRendersRow()
         SettingsRowKey.RECORD_QUALITY -> RecordSection()
+        SettingsRowKey.WATERMARK -> WatermarkRows(settings)
+        SettingsRowKey.LIBRARY_PREFS -> LibraryChoiceRows(settings)
+        SettingsRowKey.PLAYER_PREFS -> PlayerButtonRows(settings)
+        SettingsRowKey.STAGE_PREFS -> StageIconRows(settings)
         SettingsRowKey.BACKUP -> BackupSection()
         SettingsRowKey.TUTORIALS -> TutorialSettingsTab(settings, onPlay = deps.onPlayTutorial, onReset = deps.onResetTutorials)
         SettingsRowKey.HELP_TOPICS -> HelpTopicsSection()

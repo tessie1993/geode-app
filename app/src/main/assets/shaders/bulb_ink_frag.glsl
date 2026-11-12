@@ -34,7 +34,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the hue drift. Complexity (uMorph) adds up to two fractal
+// Speed scales the hue drift. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the snare squash. Colour is tone(), the print ramp pal() tints; Space is
@@ -76,8 +76,8 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0);
     float s = 0.22 * snare * bulbEnergy();
     gSquash = vec3(1.0 + 0.6 * s, 1.0 - s, 1.0 + 0.6 * s);
     gLip = min(gSquash.x, gSquash.y);

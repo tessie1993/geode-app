@@ -116,13 +116,10 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     // They only move while music plays, which is what the old confidence gate was for. ----
     rhythmLock_ = oneOle(rhythmLock_, std::clamp(f.presence, 0.0f, 1.0f), dt, kRhythmLockSeconds);
     const float clock = oscClock_ == 0 ? f.hitTime : (oscClock_ == 1 ? 0.5f * f.bassTime : 0.5f * f.curvedTime);
-    const float beatPhase = std::isfinite(clock) ? clock - std::floor(clock) : 0.0f;
     const float barClock = std::isfinite(clock) ? 0.25f * clock : 0.0f;
     const float barPhase = barClock - std::floor(barClock);
-    const float beatSin = std::sin(kTwoPi * beatPhase);
     const float barSin = std::sin(kTwoPi * barPhase);
     barSin_ = barSin;
-    state_.beatOsc = 0.5f + 0.5f * beatSin * rhythmLock_;
     state_.barOsc = 0.5f + 0.5f * barSin * rhythmLock_;
 
     // ---- orbit: a slow wander point, re-targeted by big moments (and, for some styles, every
@@ -172,13 +169,10 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
 
 // Reshapes every family's parameters from the continuous state step() just
 // computed. Nothing here is a trigger, and nothing here writes brightness,
-// intensity, contrast, flash, strobe, pulse or shake: those stay exactly what
+// intensity or contrast: those stay exactly what
 // the caller passed in and go through the safety clamp unchanged.
 SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float spin) const {
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
-    // motionOrbit is not read here: uOrbit is a raw shader uniform (see
-    // lib_scene_motion.glsl), and its own motionOrbit scaling happens in
-    // view() (wave three's R01), not in this SceneParams-facing table.
     // Rotation, sway and turbulence are rates safety::apply scales for reduced
     // motion after this, so their terms take the dials unscaled: scaling them
     // here too slowed them to 0.4 x 0.4 of full. Every other term below is a

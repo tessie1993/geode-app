@@ -36,6 +36,7 @@ import dev.geode.data.StudioPrefsStore
 import dev.geode.data.StyleShelfStore
 import dev.geode.data.ThemeStore
 import dev.geode.data.VizUiState
+import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
 import dev.geode.engine.audio.SoundFrameLayout
@@ -146,10 +147,16 @@ class PrefsSchemaTest {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
                 RecordPrefsStore(it[general]) { seconds -> seconds }.save(record)
             },
+            Owner("$DATA/WatermarkPrefs.kt", WatermarkPrefsCodec.keys) {
+                it[general].edit().also { editor -> WatermarkPrefsCodec.write(editor, WatermarkPrefsCodec.defaults) }.apply()
+            },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
-            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) { WallpaperPrefsStore(it).save(WallpaperSettings()) },
+            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {
+                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).save(WallpaperSettings())
+                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).saveMixRefused(true)
+            },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
-                WidgetState.save(it, WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
+                WidgetState.save(it[GeodePrefsFiles.WIDGET], WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },
             Owner("$APP/billing/EntitlementStore.kt", PrefsEntitlementStore.PREF_KEYS) {
                 PrefsEntitlementStore(it[PrefsEntitlementStore.PREFS_FILE]).save(CachedEntitlement.NONE)
@@ -182,6 +189,7 @@ class PrefsSchemaTest {
     private val passThrough =
         setOf(
             "$DATA/GeodePrefsFiles.kt",
+            "$DATA/prefs/SettingsRepository.kt",
             "$DATA/VizStateStore.kt",
             "$DATA/FavouritesRepository.kt",
             "$DATA/UserDataRepository.kt",
@@ -211,7 +219,9 @@ class PrefsSchemaTest {
             // Equalizer band levels (owner decision 9 of #1009).
             put(GeodePrefsFiles.AUDIO_FX to "band_levels", BackupClass.DEVICE)
             // The wallpaper's options are the user's choices, but no backup section holds their file.
-            WallpaperPrefsStore.PREF_KEYS.forEach { put(it.file to it.name, BackupClass.PORTABLE) }
+            WallpaperPrefsStore.PREF_KEYS
+                .filterNot { it.name == WallpaperPrefsStore.KEY_MIX_REFUSED }
+                .forEach { put(it.file to it.name, BackupClass.PORTABLE) }
         }
 
     private val allKeys = owners.flatMap { it.keys }

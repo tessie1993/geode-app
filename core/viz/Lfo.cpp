@@ -10,7 +10,7 @@ namespace geode::viz {
 // The lfo rows' enum ranges are these enums' ordinals (viz/ConfigTable.inc): a value appended to one
 // moves its row's max in the same change.
 static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
-static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::EndlessZoomSpeed), "lfo target row");
+static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::DiveAimY), "lfo target row");
 static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::RandomGlide), "lfo wave row");
 static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
@@ -81,7 +81,6 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::Zoom: GEODE_DRIVE(zoom, 1.0f);
         case LfoTarget::Rotation: GEODE_DRIVE(rotation, 1.5f);
         case LfoTarget::Sway: GEODE_DRIVE(sway, 1.0f);
-        case LfoTarget::Pulse: GEODE_DRIVE(pulse, 1.0f);
         case LfoTarget::DriftX: GEODE_DRIVE(driftX, 1.0f);
         case LfoTarget::DriftY: GEODE_DRIVE(driftY, 1.0f);
         case LfoTarget::Warp: GEODE_DRIVE(warp, 1.0f);
@@ -125,7 +124,10 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::FlowCurl: GEODE_DRIVE(flowCurl, 25.0f);
         case LfoTarget::FlowForce: GEODE_DRIVE(flowForce, 1.5f);
         case LfoTarget::EndlessZoomSpeed: GEODE_DRIVE(endlessZoomSpeed, 0.5f);
-        // None, the retired Glitch slot and the chained targets write no scene parameter.
+        case LfoTarget::DiveTwist: GEODE_DRIVE(diveTwist, 0.5f);
+        case LfoTarget::DiveAimX: GEODE_DRIVE(diveAimX, 0.5f);
+        case LfoTarget::DiveAimY: GEODE_DRIVE(diveAimY, 0.5f);
+        // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }
 #undef GEODE_DRIVE

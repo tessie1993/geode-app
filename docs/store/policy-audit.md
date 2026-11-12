@@ -24,6 +24,12 @@ Two things in it need reading with care:
   Record can save the microphone's or another app's sound in a video the user records, and a
   shake saves a screenshot; both are in data-safety.md and the privacy policy. Its other findings stand. The one risk it rated a suggestion, the
   `mediaProjection` declaration, is the weakest fit in the Console form; see permissions.md.
+- **Rechecked at 8fd87553d** (2026-11-12): no permission added. Media3 Transformer and Effect
+  left the build (video editing is gone); no SDK joined. The manifest gained Android TV support
+  (`android.software.leanback`, touchscreen not required, a `LEANBACK_LAUNCHER` entry and a TV
+  banner) and a `VIEW` filter for audio files another app opens (content uris only). Show on a
+  computer (#1048) reuses the Cast stream's one server socket under `cast/`; the report's line
+  numbers below are from b8ac569b5 and have moved.
 
 To run it again: load the skill in an agent session and follow its two phases; it writes to
 `.scratch/` (git-ignored).

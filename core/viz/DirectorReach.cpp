@@ -26,8 +26,9 @@ std::shared_ptr<const director::Kept> gKept;
 const std::string kNoStyle;
 
 // The categories a moment may roll. Quick knobs has no roll; Music is how much the user wants the music
-// to move things, and the director deals its own routes; Expert tunes an engine, not a look.
-constexpr std::array<Category, 6> kShuffled{Category::Look,   Category::Shape,   Category::Motion,
+// to move things, and the director deals its own routes; Engine tunes an engine, not a look, and Expert
+// has no roll.
+constexpr std::array<Category, 7> kShuffled{Category::Look,   Category::Shape,   Category::Motion, Category::Dive,
                                             Category::Camera, Category::Effects, Category::Liquid};
 
 // Controls inside those categories the shuffle leaves alone: the palette and the dials the director's
@@ -95,7 +96,7 @@ bool glides(int slot) {
 struct Control {
     const char* key;
     std::optional<Category> category;
-    std::array<int, 3> slots;
+    std::array<int, std::tuple_size_v<decltype(randomizer::RolledKey::fields)>> slots;
     bool shuffled;
 };
 
@@ -110,7 +111,8 @@ const Table& table() {
         Table t;
         t.ofSlot.fill(-1);
         for (const auto& roll : randomizer::rolledKeys()) {
-            Control c{roll.key, customize::categoryOf(roll.key), {-1, -1, -1}, false};
+            Control c{roll.key, customize::categoryOf(roll.key), {}, false};
+            c.slots.fill(-1);
             c.shuffled = c.category && std::find(kShuffled.begin(), kShuffled.end(), *c.category) != kShuffled.end();
             for (const char* own : kLooksOwn) c.shuffled = c.shuffled && std::string_view(own) != roll.key;
             for (size_t i = 0; i < roll.fields.size(); ++i) {
@@ -202,7 +204,7 @@ void DirectorReach::letGoAll() {
 
 void DirectorReach::roll(const SceneParams& requested, const Wire& wire, float seconds) {
     Rng rng = rngFor(seed_, momentCommit_, kShuffleSalt);
-    std::array<Category, 6> order = kShuffled;
+    auto order = kShuffled;
     shuffle(order, static_cast<int>(order.size()), rng);
     const int count = std::clamp(static_cast<int>(std::lround(momentStrength_ * static_cast<float>(order.size()))), 1,
                                  static_cast<int>(order.size()));

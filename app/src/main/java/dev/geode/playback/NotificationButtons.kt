@@ -15,8 +15,8 @@ import androidx.media3.session.SessionResult
 import dev.geode.R
 import dev.geode.data.BehaviourStore
 import dev.geode.data.FavouritesStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.NotificationButton
+import dev.geode.geodeContainer
 
 /**
  * Settings › Output & devices › Notification buttons: the extra buttons the media notification (and the
@@ -32,7 +32,7 @@ internal class NotificationButtons(
     private val context: Context,
     private val player: Player,
 ) : Player.Listener {
-    private val prefsFiles = GeodePrefsFiles(context)
+    private val prefsFiles = context.geodeContainer.prefsFiles
     private val behaviour = BehaviourStore(prefsFiles.general)
 
     private var session: MediaSession? = null

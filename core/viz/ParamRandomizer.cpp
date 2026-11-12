@@ -4,7 +4,6 @@
 #include <iterator>
 
 #include "viz/Catalogue.hpp"
-#include "viz/scenes/CymaticsMath.hpp"
 
 namespace geode::viz::randomizer {
 
@@ -34,7 +33,8 @@ struct Rng {
 using RollFn = void (*)(SceneParams&, Rng&);
 
 struct Roll {
-    RolledKey key;
+    Tab tab;
+    const char* key;
     RollFn roll;
 };
 
@@ -44,177 +44,194 @@ int choice(Rng& r, ParamSlot slot) {
     return r.n(static_cast<int>(spec.min), static_cast<int>(spec.max));
 }
 
-// Choice counts the rolls pick from (SceneParams.kt's lists and Renderer's cyclic LUT rows).
-constexpr int kCyclicPalettes = 5;
-constexpr int kParticleShapes = 7;
-constexpr int kFluidPatterns = 4;
-constexpr int kFluidPaths = 5;
-constexpr int kCymaticsGeometries = 2;
-constexpr int kFolds[] = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
-// reactSeed travels as a float; above 2^24 it would not come back as the same int.
-constexpr int kMaxReactSeed = (1 << 24) - 1;
+// The field's roll range, its meta row's rollLo..rollHi (ParamTable.inc): a number anywhere in it, the
+// same often but zero otherwise, or a whole count in it.
+float drawn(Rng& r, ParamSlot slot) {
+    const ParamMeta& m = SceneParams::meta(slot);
+    return r.f(m.rollLo, m.rollHi);
+}
+float maybe(Rng& r, float p, ParamSlot slot) {
+    const ParamMeta& m = SceneParams::meta(slot);
+    return r.sometimes(p, m.rollLo, m.rollHi);
+}
+int counted(Rng& r, ParamSlot slot) {
+    const ParamMeta& m = SceneParams::meta(slot);
+    return r.n(static_cast<int>(m.rollLo), static_cast<int>(m.rollHi));
+}
 
+// The kaleidoscope's folds a roll picks from (SceneParams.SYMMETRY_FOLDS less 0, the off).
+constexpr int kFolds[] = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
+
+// What each roll does with its range: how often it moves a field at all, a coin for a switch, the
+// palette's overrides cleared. The fields a roll owns are the rows its key labels (rolledKeys).
 const std::vector<Roll>& rolls() {
     using T = Tab;
-    // Upper bounds of brightness, contrast, intensity and bloom are the flash clamp's
+    // The roll ranges of brightness, contrast, intensity and bloom stop at the flash clamp's
     // (1 + kMaxFlashDepth, kMaxFlashDepth): above them a roll is invisible.
     static const std::vector<Roll> kRolls = {
-        {{T::Motion, "Speed", {"speed"}}, [](SceneParams& p, Rng& r) { p.speed = r.f(0.2f, 2.5f); }},
-        {{T::Motion, "Zoom", {"zoom"}}, [](SceneParams& p, Rng& r) { p.zoom = r.f(0.6f, 2.0f); }},
-        {{T::Motion, "Rotation", {"rotation"}}, [](SceneParams& p, Rng& r) { p.rotation = r.f(-1.5f, 1.5f); }},
-        {{T::Motion, "Sway", {"sway"}}, [](SceneParams& p, Rng& r) { p.sway = r.sometimes(0.5f, 0.1f, 0.8f); }},
-        {{T::Motion, "Drift X", {"driftX"}}, [](SceneParams& p, Rng& r) { p.driftX = r.sometimes(0.3f, -0.5f, 0.5f); }},
-        {{T::Motion, "Drift Y", {"driftY"}}, [](SceneParams& p, Rng& r) { p.driftY = r.sometimes(0.3f, -0.5f, 0.5f); }},
-        {{T::Motion, "Camera path", {"camPath"}}, [](SceneParams& p, Rng& r) { p.camPath = choice(r, ParamSlot::camPath); }},
-        {{T::Motion, "Fly speed", {"camFly"}}, [](SceneParams& p, Rng& r) { p.camFly = r.f(0.2f, 1.4f); }},
-        {{T::Motion, "Swing", {"camOrbit"}}, [](SceneParams& p, Rng& r) { p.camOrbit = r.f(0.1f, 0.8f); }},
-        {{T::Motion, "Field of view", {"camFov"}}, [](SceneParams& p, Rng& r) { p.camFov = r.f(0.8f, 1.4f); }},
-        {{T::Motion, "Handheld shake", {"camShake"}}, [](SceneParams& p, Rng& r) { p.camShake = r.sometimes(0.25f, 0.1f, 0.5f); }},
-        {{T::Motion, "Endless zoom", {"endlessZoom"}}, [](SceneParams& p, Rng& r) { p.endlessZoom = r.chance(0.2f); }},
-        {{T::Motion, "Dive speed", {"endlessZoomSpeed"}}, [](SceneParams& p, Rng& r) { p.endlessZoomSpeed = r.f(0.1f, 0.8f); }},
-        {{T::Motion, "Turbulence", {"turbulence"}}, [](SceneParams& p, Rng& r) { p.turbulence = r.sometimes(0.5f, 0.1f, 1.0f); }},
+        {T::Motion, "Speed", [](SceneParams& p, Rng& r) { p.speed = drawn(r, ParamSlot::speed); }},
+        {T::Motion, "Zoom", [](SceneParams& p, Rng& r) { p.zoom = drawn(r, ParamSlot::zoom); }},
+        {T::Motion, "Rotation", [](SceneParams& p, Rng& r) { p.rotation = drawn(r, ParamSlot::rotation); }},
+        {T::Motion, "Sway", [](SceneParams& p, Rng& r) { p.sway = maybe(r, 0.5f, ParamSlot::sway); }},
+        {T::Motion, "Drift X", [](SceneParams& p, Rng& r) { p.driftX = maybe(r, 0.3f, ParamSlot::driftX); }},
+        {T::Motion, "Drift Y", [](SceneParams& p, Rng& r) { p.driftY = maybe(r, 0.3f, ParamSlot::driftY); }},
+        {T::Motion, "Camera path", [](SceneParams& p, Rng& r) { p.camPath = choice(r, ParamSlot::camPath); }},
+        {T::Motion, "Fly speed", [](SceneParams& p, Rng& r) { p.camFly = drawn(r, ParamSlot::camFly); }},
+        {T::Motion, "Swing", [](SceneParams& p, Rng& r) { p.camOrbit = drawn(r, ParamSlot::camOrbit); }},
+        {T::Motion, "Field of view", [](SceneParams& p, Rng& r) { p.camFov = drawn(r, ParamSlot::camFov); }},
+        {T::Motion, "Handheld shake", [](SceneParams& p, Rng& r) { p.camShake = maybe(r, 0.25f, ParamSlot::camShake); }},
+        {T::Motion, "Endless zoom", [](SceneParams& p, Rng& r) { p.endlessZoom = r.chance(0.2f); }},
+        {T::Motion, "Dive speed", [](SceneParams& p, Rng& r) { p.endlessZoomSpeed = drawn(r, ParamSlot::endlessZoomSpeed); }},
+        {T::Motion, "Turbulence", [](SceneParams& p, Rng& r) { p.turbulence = maybe(r, 0.5f, ParamSlot::turbulence); }},
 
-        {{T::Shape, "Domain warp", {"warp"}}, [](SceneParams& p, Rng& r) { p.warp = r.sometimes(0.5f, 0.1f, 0.8f); }},
-        {{T::Shape, "Ripple", {"ripple"}}, [](SceneParams& p, Rng& r) { p.ripple = r.sometimes(0.4f, 0.1f, 0.8f); }},
-        {{T::Shape, "Morph", {"morph"}}, [](SceneParams& p, Rng& r) { p.morph = r.sometimes(0.5f, 0.1f, 0.8f); }},
-        {{T::Shape, "Twist", {"twist"}}, [](SceneParams& p, Rng& r) { p.twist = r.sometimes(0.4f, -0.8f, 0.8f); }},
-        {{T::Shape, "Kaleidoscope", {"kaleidoscope", "symmetry"}},
+        {T::Shape, "Domain warp", [](SceneParams& p, Rng& r) { p.warp = maybe(r, 0.5f, ParamSlot::warp); }},
+        {T::Shape, "Ripple", [](SceneParams& p, Rng& r) { p.ripple = maybe(r, 0.4f, ParamSlot::ripple); }},
+        {T::Shape, "Morph", [](SceneParams& p, Rng& r) { p.morph = maybe(r, 0.5f, ParamSlot::morph); }},
+        {T::Shape, "Twist", [](SceneParams& p, Rng& r) { p.twist = maybe(r, 0.4f, ParamSlot::twist); }},
+        {T::Shape, "Kaleidoscope",
          [](SceneParams& p, Rng& r) {
              p.kaleidoscope = r.chance(0.3f);
              if (p.kaleidoscope) p.symmetry = kFolds[r.below(static_cast<int>(std::size(kFolds)))];
          }},
-        {{T::Shape, "Tile", {"tile"}}, [](SceneParams& p, Rng& r) { p.tile = r.chance(0.25f) ? r.f(2.0f, 4.0f) : 1.0f; }},
-        {{T::Shape, "Pixelate", {"pixelate"}}, [](SceneParams& p, Rng& r) { p.pixelate = r.sometimes(0.15f, 0.2f, 0.6f); }},
-        {{T::Shape, "Mirror", {"mirror"}}, [](SceneParams& p, Rng& r) { p.mirror = r.chance(0.15f); }},
-        {{T::Shape, "Particle shape", {"particleShape"}}, [](SceneParams& p, Rng& r) { p.particleShape = r.below(kParticleShapes); }},
-        {{T::Shape, "Particle size", {"particleSize"}}, [](SceneParams& p, Rng& r) { p.particleSize = r.f(0.5f, 1.8f); }},
-        {{T::Shape, "Density", {"density"}}, [](SceneParams& p, Rng& r) { p.density = r.f(0.4f, 1.0f); }},
+        {T::Shape, "Tile", [](SceneParams& p, Rng& r) { p.tile = r.chance(0.25f) ? drawn(r, ParamSlot::tile) : 1.0f; }},
+        {T::Shape, "Pixelate", [](SceneParams& p, Rng& r) { p.pixelate = maybe(r, 0.15f, ParamSlot::pixelate); }},
+        {T::Shape, "Mirror", [](SceneParams& p, Rng& r) { p.mirror = r.chance(0.15f); }},
+        {T::Shape, "Particle shape", [](SceneParams& p, Rng& r) { p.particleShape = counted(r, ParamSlot::particleShape); }},
+        {T::Shape, "Particle size", [](SceneParams& p, Rng& r) { p.particleSize = drawn(r, ParamSlot::particleSize); }},
+        {T::Shape, "Density", [](SceneParams& p, Rng& r) { p.density = drawn(r, ParamSlot::density); }},
 
-        {{T::Reactivity, "Audio drive", {"audioDrive"}}, [](SceneParams& p, Rng& r) { p.audioDrive = r.f(0.6f, 1.8f); }},
-        {{T::Reactivity, "Motion amount", {"motionAmount"}}, [](SceneParams& p, Rng& r) { p.motionAmount = r.f(0.3f, 1.0f); }},
-        {{T::Reactivity, "Breath", {"motionBreath"}}, [](SceneParams& p, Rng& r) { p.motionBreath = r.f(0.2f, 0.9f); }},
-        {{T::Reactivity, "Spin drift", {"motionDrift"}}, [](SceneParams& p, Rng& r) { p.motionDrift = r.f(0.1f, 0.9f); }},
-        {{T::Reactivity, "Key colour", {"motionHue"}}, [](SceneParams& p, Rng& r) { p.motionHue = r.f(0.1f, 0.8f); }},
+        {T::Reactivity, "Audio drive", [](SceneParams& p, Rng& r) { p.audioDrive = drawn(r, ParamSlot::audioDrive); }},
+        {T::Reactivity, "Motion amount", [](SceneParams& p, Rng& r) { p.motionAmount = drawn(r, ParamSlot::motionAmount); }},
+        {T::Reactivity, "Breath", [](SceneParams& p, Rng& r) { p.motionBreath = drawn(r, ParamSlot::motionBreath); }},
+        {T::Reactivity, "Spin drift", [](SceneParams& p, Rng& r) { p.motionDrift = drawn(r, ParamSlot::motionDrift); }},
+        {T::Reactivity, "Key colour", [](SceneParams& p, Rng& r) { p.motionHue = drawn(r, ParamSlot::motionHue); }},
         // A new reaction personality for the style (core/viz/ReactionDna).
-        {{T::Reactivity, kReactionDna, {"reactSeed"}}, [](SceneParams& p, Rng& r) { p.reactSeed = r.n(1, kMaxReactSeed); }},
-        {{T::Reactivity, "Bass gain", {"bassGain"}}, [](SceneParams& p, Rng& r) { p.bassGain = r.f(0.8f, 1.4f); }},
-        {{T::Reactivity, "Mid gain", {"midGain"}}, [](SceneParams& p, Rng& r) { p.midGain = r.f(0.8f, 1.4f); }},
-        {{T::Reactivity, "Treble gain", {"trebGain"}}, [](SceneParams& p, Rng& r) { p.trebGain = r.f(0.8f, 1.4f); }},
+        {T::Reactivity, kReactionDna, [](SceneParams& p, Rng& r) { p.reactSeed = counted(r, ParamSlot::reactSeed); }},
+        {T::Reactivity, "Bass gain", [](SceneParams& p, Rng& r) { p.bassGain = drawn(r, ParamSlot::bassGain); }},
+        {T::Reactivity, "Mid gain", [](SceneParams& p, Rng& r) { p.midGain = drawn(r, ParamSlot::midGain); }},
+        {T::Reactivity, "Treble gain", [](SceneParams& p, Rng& r) { p.trebGain = drawn(r, ParamSlot::trebGain); }},
 
-        {{T::Scene, "Blend preset changes", {"milkdropBlendPresets"}},
+        {T::Scene, "Blend preset changes",
          [](SceneParams& p, Rng& r) { p.milkdropBlendPresets = r.chance(0.35f); }},
 
-        // A rolled palette replaces a user-made one: the custom hue overrides go back to unset.
-        {{T::Color, "Palette", {"palette", "paletteBaseOverride", "paletteRangeOverride"}},
+        // A rolled palette replaces a user-made one: the custom hue overrides and your colours go back to unset.
+        {T::Color, "Palette",
          [](SceneParams& p, Rng& r) {
              p.palette = choice(r, ParamSlot::palette);
              p.paletteBaseOverride = SceneParams::kUnsetOverride;
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
+             p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;
          }},
-        {{T::Color, "Colour map", {"paletteLut"}},
-         [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? r.below(kCyclicPalettes) : SceneParams::kNoPaletteLut; }},
-        {{T::Color, "Palette 2", {"palette2", "palette2BaseOverride", "palette2RangeOverride"}},
+        {T::Color, "Colour map",
+         [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? counted(r, ParamSlot::paletteLut) : SceneParams::kNoPaletteLut; }},
+        {T::Color, "Palette 2",
          [](SceneParams& p, Rng& r) {
              p.palette2 = choice(r, ParamSlot::palette2);
              p.palette2BaseOverride = SceneParams::kUnsetOverride;
              p.palette2RangeOverride = SceneParams::kUnsetOverride;
          }},
-        {{T::Color, "Palette blend", {"paletteMix"}}, [](SceneParams& p, Rng& r) { p.paletteMix = r.sometimes(0.5f, 0.2f, 0.8f); }},
-        {{T::Color, "MilkDrop palette tint", {"milkdropPaletteTint"}},
-         [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = r.sometimes(0.4f, 0.2f, 0.9f); }},
-        {{T::Color, "Hue shift", {"colorShift"}}, [](SceneParams& p, Rng& r) { p.colorShift = r.f(0.0f, 1.0f); }},
-        {{T::Color, "Hue range", {"hueRange"}}, [](SceneParams& p, Rng& r) { p.hueRange = r.f(0.5f, 1.5f); }},
-        {{T::Color, "Color cycle", {"colorCycle"}}, [](SceneParams& p, Rng& r) { p.colorCycle = r.chance(0.3f); }},
-        {{T::Color, "Cycle speed", {"cycleSpeed"}}, [](SceneParams& p, Rng& r) { p.cycleSpeed = r.f(0.02f, 0.3f); }},
-        {{T::Color, "Saturation", {"saturation"}}, [](SceneParams& p, Rng& r) { p.saturation = r.f(0.4f, 1.4f); }},
-        {{T::Color, "Brightness", {"brightness"}}, [](SceneParams& p, Rng& r) { p.brightness = r.f(0.7f, 1.25f); }},
-        {{T::Color, "Contrast", {"contrast"}}, [](SceneParams& p, Rng& r) { p.contrast = r.f(0.8f, 1.25f); }},
-        {{T::Color, "Gamma", {"gamma"}}, [](SceneParams& p, Rng& r) { p.gamma = r.f(0.8f, 1.3f); }},
-        {{T::Color, "Intensity", {"intensity"}}, [](SceneParams& p, Rng& r) { p.intensity = r.f(0.7f, 1.25f); }},
-        {{T::Color, "Temperature", {"temperature"}}, [](SceneParams& p, Rng& r) { p.temperature = r.sometimes(0.4f, -0.6f, 0.6f); }},
-        {{T::Color, "Bloom", {"bloom"}}, [](SceneParams& p, Rng& r) { p.bloom = r.sometimes(0.5f, 0.1f, 0.25f); }},
-        {{T::Color, "Posterize", {"posterize"}}, [](SceneParams& p, Rng& r) { p.posterize = r.sometimes(0.15f, 0.2f, 0.6f); }},
-        {{T::Color, "Duotone", {"duotone"}}, [](SceneParams& p, Rng& r) { p.duotone = r.chance(0.1f); }},
-        {{T::Color, "Solarize", {"solarize"}}, [](SceneParams& p, Rng& r) { p.solarize = r.chance(0.05f); }},
-        {{T::Color, "Invert", {"invert"}}, [](SceneParams& p, Rng& r) { p.invert = r.chance(0.03f); }},
+        {T::Color, "Palette blend", [](SceneParams& p, Rng& r) { p.paletteMix = maybe(r, 0.5f, ParamSlot::paletteMix); }},
+        {T::Color, "MilkDrop palette tint",
+         [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
+        {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
+        {T::Color, "Hue range", [](SceneParams& p, Rng& r) { p.hueRange = drawn(r, ParamSlot::hueRange); }},
+        {T::Color, "Color cycle", [](SceneParams& p, Rng& r) { p.colorCycle = r.chance(0.3f); }},
+        {T::Color, "Cycle speed", [](SceneParams& p, Rng& r) { p.cycleSpeed = drawn(r, ParamSlot::cycleSpeed); }},
+        {T::Color, "Saturation", [](SceneParams& p, Rng& r) { p.saturation = drawn(r, ParamSlot::saturation); }},
+        {T::Color, "Brightness", [](SceneParams& p, Rng& r) { p.brightness = drawn(r, ParamSlot::brightness); }},
+        {T::Color, "Contrast", [](SceneParams& p, Rng& r) { p.contrast = drawn(r, ParamSlot::contrast); }},
+        {T::Color, "Gamma", [](SceneParams& p, Rng& r) { p.gamma = drawn(r, ParamSlot::gamma); }},
+        {T::Color, "Intensity", [](SceneParams& p, Rng& r) { p.intensity = drawn(r, ParamSlot::intensity); }},
+        {T::Color, "Temperature", [](SceneParams& p, Rng& r) { p.temperature = maybe(r, 0.4f, ParamSlot::temperature); }},
+        {T::Color, "Bloom", [](SceneParams& p, Rng& r) { p.bloom = maybe(r, 0.5f, ParamSlot::bloom); }},
+        {T::Color, "Posterize", [](SceneParams& p, Rng& r) { p.posterize = maybe(r, 0.15f, ParamSlot::posterize); }},
+        {T::Color, "Duotone", [](SceneParams& p, Rng& r) { p.duotone = r.chance(0.1f); }},
+        {T::Color, "Solarize", [](SceneParams& p, Rng& r) { p.solarize = r.chance(0.05f); }},
+        {T::Color, "Invert", [](SceneParams& p, Rng& r) { p.invert = r.chance(0.03f); }},
 
-        {{T::Fx, "Trails", {"trails"}}, [](SceneParams& p, Rng& r) { p.trails = r.chance(0.4f); }},
-        {{T::Fx, "Trail length", {"trailLength"}}, [](SceneParams& p, Rng& r) { p.trailLength = r.f(0.3f, 0.9f); }},
-        {{T::Fx, "Trail zoom (echo in/out)", {"trailZoom"}}, [](SceneParams& p, Rng& r) { p.trailZoom = r.sometimes(0.3f, -0.3f, 0.3f); }},
-        {{T::Fx, "Trail warp (liquid echo)", {"trailWarp"}}, [](SceneParams& p, Rng& r) { p.trailWarp = r.sometimes(0.3f, 0.1f, 0.6f); }},
-        {{T::Fx, "Chromatic aberration", {"chromaAb"}}, [](SceneParams& p, Rng& r) { p.chromaAb = r.sometimes(0.4f, 0.1f, 0.5f); }},
-        {{T::Fx, "Vignette", {"vignette"}}, [](SceneParams& p, Rng& r) { p.vignette = r.sometimes(0.5f, 0.1f, 0.6f); }},
-        {{T::Fx, "Scanlines", {"scanlines"}}, [](SceneParams& p, Rng& r) { p.scanlines = r.sometimes(0.25f, 0.15f, 0.5f); }},
-        {{T::Fx, "Film grain", {"grain"}}, [](SceneParams& p, Rng& r) { p.grain = r.sometimes(0.3f, 0.1f, 0.4f); }},
-        {{T::Fx, "Fisheye", {"fisheye"}}, [](SceneParams& p, Rng& r) { p.fisheye = r.sometimes(0.25f, -0.5f, 0.5f); }},
+        {T::Fx, "Trails", [](SceneParams& p, Rng& r) { p.trails = r.chance(0.4f); }},
+        {T::Fx, "Trail length", [](SceneParams& p, Rng& r) { p.trailLength = drawn(r, ParamSlot::trailLength); }},
+        {T::Fx, "Trail zoom (echo in/out)", [](SceneParams& p, Rng& r) { p.trailZoom = maybe(r, 0.3f, ParamSlot::trailZoom); }},
+        {T::Fx, "Trail warp (liquid echo)", [](SceneParams& p, Rng& r) { p.trailWarp = maybe(r, 0.3f, ParamSlot::trailWarp); }},
+        {T::Fx, "Chromatic aberration", [](SceneParams& p, Rng& r) { p.chromaAb = maybe(r, 0.4f, ParamSlot::chromaAb); }},
+        {T::Fx, "Vignette", [](SceneParams& p, Rng& r) { p.vignette = maybe(r, 0.5f, ParamSlot::vignette); }},
+        {T::Fx, "Scanlines", [](SceneParams& p, Rng& r) { p.scanlines = maybe(r, 0.25f, ParamSlot::scanlines); }},
+        {T::Fx, "Film grain", [](SceneParams& p, Rng& r) { p.grain = maybe(r, 0.3f, ParamSlot::grain); }},
+        {T::Fx, "Fisheye", [](SceneParams& p, Rng& r) { p.fisheye = maybe(r, 0.25f, ParamSlot::fisheye); }},
 
-        {{T::Fluid, "Solver iterations", {"fluidIterations"}}, [](SceneParams& p, Rng& r) { p.fluidIterations = r.n(12, 28); }},
-        {{T::Fluid, "Pressure", {"fluidPressure"}}, [](SceneParams& p, Rng& r) { p.fluidPressure = r.f(0.5f, 0.95f); }},
-        {{T::Fluid, "Fluid curl", {"fluidCurl"}}, [](SceneParams& p, Rng& r) { p.fluidCurl = r.f(5.0f, 45.0f); }},
-        {{T::Fluid, "Motion fade", {"fluidVelocityDissipation"}},
-         [](SceneParams& p, Rng& r) { p.fluidVelocityDissipation = r.f(0.02f, 0.6f); }},
-        {{T::Fluid, "Fluid fade", {"fluidDensityDissipation"}}, [](SceneParams& p, Rng& r) { p.fluidDensityDissipation = r.f(0.2f, 2.2f); }},
-        {{T::Fluid, "Chromatic aging", {"fluidChromaticAging"}}, [](SceneParams& p, Rng& r) { p.fluidChromaticAging = r.f(0.0f, 0.8f); }},
-        {{T::Fluid, "Hit pattern", {"fluidBeatPattern"}}, [](SceneParams& p, Rng& r) { p.fluidBeatPattern = r.below(kFluidPatterns); }},
-        {{T::Fluid, "Hit splats", {"fluidBeatSplats"}}, [](SceneParams& p, Rng& r) { p.fluidBeatSplats = r.n(1, 6); }},
-        {{T::Fluid, "Stirrers", {"fluidStirrers"}}, [](SceneParams& p, Rng& r) { p.fluidStirrers = r.n(0, 3); }},
-        {{T::Fluid, "Stirrer speed", {"fluidStirrerSpeed"}}, [](SceneParams& p, Rng& r) { p.fluidStirrerSpeed = r.f(0.3f, 1.6f); }},
-        {{T::Fluid, "Fluid splat radius", {"fluidSplatRadius"}}, [](SceneParams& p, Rng& r) { p.fluidSplatRadius = r.f(0.05f, 0.25f); }},
-        {{T::Fluid, "Fluid splat force", {"fluidSplatForce"}}, [](SceneParams& p, Rng& r) { p.fluidSplatForce = r.f(0.5f, 2.0f); }},
-        {{T::Fluid, "Bass pump", {"fluidBassPump"}}, [](SceneParams& p, Rng& r) { p.fluidBassPump = r.chance(0.25f); }},
-        {{T::Fluid, "Treble sparkle", {"fluidSparkle"}}, [](SceneParams& p, Rng& r) { p.fluidSparkle = r.chance(0.7f); }},
-        {{T::Fluid, "Palette cycle", {"fluidPaletteCycleSpeed"}}, [](SceneParams& p, Rng& r) { p.fluidPaletteCycleSpeed = r.f(0.0f, 1.2f); }},
-        {{T::Fluid, "Path", {"fluidSpawnPath"}}, [](SceneParams& p, Rng& r) { p.fluidSpawnPath = r.below(kFluidPaths); }},
-        {{T::Fluid, "Spawn points", {"fluidSpawnPoints"}}, [](SceneParams& p, Rng& r) { p.fluidSpawnPoints = r.n(2, 5); }},
-        {{T::Fluid, "Catch points", {"fluidCatchPoints"}}, [](SceneParams& p, Rng& r) { p.fluidCatchPoints = r.n(0, 3); }},
-        {{T::Fluid, "Catch pull", {"fluidCatchPull"}}, [](SceneParams& p, Rng& r) { p.fluidCatchPull = r.f(0.4f, 1.8f); }},
-        {{T::Fluid, "Catch radius", {"fluidCatchRadius"}}, [](SceneParams& p, Rng& r) { p.fluidCatchRadius = r.f(0.06f, 0.2f); }},
-        {{T::Fluid, "Particle life (s)", {"fluidParticleLife"}}, [](SceneParams& p, Rng& r) { p.fluidParticleLife = r.f(3.0f, 12.0f); }},
-        {{T::Fluid, "Particle drag", {"fluidParticleDrag"}}, [](SceneParams& p, Rng& r) { p.fluidParticleDrag = r.f(0.15f, 0.9f); }},
-        {{T::Fluid, "Particle brightness", {"fluidParticleBrightness"}},
-         [](SceneParams& p, Rng& r) { p.fluidParticleBrightness = r.f(0.6f, 1.6f); }},
-        {{T::Fluid, "Shading (embossed ink)", {"fluidShading"}}, [](SceneParams& p, Rng& r) { p.fluidShading = r.chance(0.7f); }},
-        {{T::Fluid, "Glow (fluid)", {"fluidBloom"}}, [](SceneParams& p, Rng& r) { p.fluidBloom = r.chance(0.8f); }},
-        {{T::Fluid, "Fluid glow", {"fluidBloomIntensity"}}, [](SceneParams& p, Rng& r) { p.fluidBloomIntensity = r.f(0.4f, 1.4f); }},
-        {{T::Fluid, "Glow threshold", {"fluidBloomThreshold"}}, [](SceneParams& p, Rng& r) { p.fluidBloomThreshold = r.f(0.4f, 0.8f); }},
-        {{T::Fluid, "Sunrays", {"fluidSunrays"}}, [](SceneParams& p, Rng& r) { p.fluidSunrays = r.chance(0.7f); }},
-        {{T::Fluid, "Sunrays weight", {"fluidSunraysWeight"}}, [](SceneParams& p, Rng& r) { p.fluidSunraysWeight = r.f(0.4f, 1.0f); }},
-        {{T::Fluid, "Curl from mids", {"fluidCurlAudio"}}, [](SceneParams& p, Rng& r) { p.fluidCurlAudio = r.f(0.1f, 0.9f); }},
-        {{T::Fluid, "Glow from loudness", {"fluidBloomAudio"}}, [](SceneParams& p, Rng& r) { p.fluidBloomAudio = r.f(0.1f, 0.9f); }},
-        {{T::Fluid, "Fade when quiet", {"fluidFadeAudio"}}, [](SceneParams& p, Rng& r) { p.fluidFadeAudio = r.f(0.2f, 0.9f); }},
-        {{T::Fluid, "Radius on hit", {"fluidRadiusPulse"}}, [](SceneParams& p, Rng& r) { p.fluidRadiusPulse = r.f(0.0f, 0.8f); }},
-        {{T::Fluid, "Flow strength", {"flowStrength"}}, [](SceneParams& p, Rng& r) { p.flowStrength = r.f(0.1f, 0.7f); }},
-        {{T::Fluid, "Flow force", {"flowForce"}}, [](SceneParams& p, Rng& r) { p.flowForce = r.f(0.4f, 2.0f); }},
-        {{T::Fluid, "Flow curl", {"flowCurl"}}, [](SceneParams& p, Rng& r) { p.flowCurl = r.f(5.0f, 40.0f); }},
-        {{T::Fluid, "Wave speed", {"waterWaveSpeed"}}, [](SceneParams& p, Rng& r) { p.waterWaveSpeed = r.f(0.5f, 1.6f); }},
-        {{T::Fluid, "Damping", {"waterDamping"}}, [](SceneParams& p, Rng& r) { p.waterDamping = r.f(0.96f, 0.995f); }},
-        {{T::Fluid, "Ripple strength", {"waterRippleStrength"}}, [](SceneParams& p, Rng& r) { p.waterRippleStrength = r.f(0.5f, 1.6f); }},
-        {{T::Fluid, "Depth", {"waterDepth"}}, [](SceneParams& p, Rng& r) { p.waterDepth = r.f(0.3f, 0.9f); }},
-        {{T::Fluid, "Specular", {"waterSpecular"}}, [](SceneParams& p, Rng& r) { p.waterSpecular = r.f(0.3f, 0.9f); }},
-        {{T::Fluid, "Flow drift", {"waterFlow"}}, [](SceneParams& p, Rng& r) { p.waterFlow = r.f(0.05f, 0.6f); }},
-        {{T::Fluid, "Liquid", {"waterLiquid"}}, [](SceneParams& p, Rng& r) { p.waterLiquid = r.f(0.4f, 1.0f); }},
-        {{T::Fluid, "Liquid flow", {"waterLiquidFlow"}}, [](SceneParams& p, Rng& r) { p.waterLiquidFlow = r.f(0.6f, 2.6f); }},
-        {{T::Fluid, "Liquid fade", {"waterLiquidFade"}}, [](SceneParams& p, Rng& r) { p.waterLiquidFade = r.f(0.1f, 1.2f); }},
-        {{T::Fluid, "Ripple overlay strength", {"rippleOverlayStrength"}},
-         [](SceneParams& p, Rng& r) { p.rippleOverlayStrength = r.f(0.15f, 0.7f); }},
-        {{T::Fluid, "Ripple glint", {"rippleOverlaySpecular"}}, [](SceneParams& p, Rng& r) { p.rippleOverlaySpecular = r.f(0.1f, 0.6f); }},
+        {T::Fluid, "Solver iterations", [](SceneParams& p, Rng& r) { p.fluidIterations = counted(r, ParamSlot::fluidIterations); }},
+        {T::Fluid, "Pressure", [](SceneParams& p, Rng& r) { p.fluidPressure = drawn(r, ParamSlot::fluidPressure); }},
+        {T::Fluid, "Fluid curl", [](SceneParams& p, Rng& r) { p.fluidCurl = drawn(r, ParamSlot::fluidCurl); }},
+        {T::Fluid, "Motion fade",
+         [](SceneParams& p, Rng& r) { p.fluidVelocityDissipation = drawn(r, ParamSlot::fluidVelocityDissipation); }},
+        {T::Fluid, "Fluid fade", [](SceneParams& p, Rng& r) { p.fluidDensityDissipation = drawn(r, ParamSlot::fluidDensityDissipation); }},
+        {T::Fluid, "Chromatic aging", [](SceneParams& p, Rng& r) { p.fluidChromaticAging = drawn(r, ParamSlot::fluidChromaticAging); }},
+        {T::Fluid, "Hit pattern", [](SceneParams& p, Rng& r) { p.fluidBeatPattern = counted(r, ParamSlot::fluidBeatPattern); }},
+        {T::Fluid, "Hit splats", [](SceneParams& p, Rng& r) { p.fluidBeatSplats = counted(r, ParamSlot::fluidBeatSplats); }},
+        {T::Fluid, "Stirrers", [](SceneParams& p, Rng& r) { p.fluidStirrers = counted(r, ParamSlot::fluidStirrers); }},
+        {T::Fluid, "Stirrer speed", [](SceneParams& p, Rng& r) { p.fluidStirrerSpeed = drawn(r, ParamSlot::fluidStirrerSpeed); }},
+        {T::Fluid, "Fluid splat radius", [](SceneParams& p, Rng& r) { p.fluidSplatRadius = drawn(r, ParamSlot::fluidSplatRadius); }},
+        {T::Fluid, "Fluid splat force", [](SceneParams& p, Rng& r) { p.fluidSplatForce = drawn(r, ParamSlot::fluidSplatForce); }},
+        {T::Fluid, "Bass pump", [](SceneParams& p, Rng& r) { p.fluidBassPump = r.chance(0.25f); }},
+        {T::Fluid, "Treble sparkle", [](SceneParams& p, Rng& r) { p.fluidSparkle = r.chance(0.7f); }},
+        {T::Fluid, "Palette cycle", [](SceneParams& p, Rng& r) { p.fluidPaletteCycleSpeed = drawn(r, ParamSlot::fluidPaletteCycleSpeed); }},
+        {T::Fluid, "Path", [](SceneParams& p, Rng& r) { p.fluidSpawnPath = counted(r, ParamSlot::fluidSpawnPath); }},
+        {T::Fluid, "Spawn points", [](SceneParams& p, Rng& r) { p.fluidSpawnPoints = counted(r, ParamSlot::fluidSpawnPoints); }},
+        {T::Fluid, "Catch points", [](SceneParams& p, Rng& r) { p.fluidCatchPoints = counted(r, ParamSlot::fluidCatchPoints); }},
+        {T::Fluid, "Catch pull", [](SceneParams& p, Rng& r) { p.fluidCatchPull = drawn(r, ParamSlot::fluidCatchPull); }},
+        {T::Fluid, "Catch radius", [](SceneParams& p, Rng& r) { p.fluidCatchRadius = drawn(r, ParamSlot::fluidCatchRadius); }},
+        {T::Fluid, "Particle life (s)", [](SceneParams& p, Rng& r) { p.fluidParticleLife = drawn(r, ParamSlot::fluidParticleLife); }},
+        {T::Fluid, "Particle drag", [](SceneParams& p, Rng& r) { p.fluidParticleDrag = drawn(r, ParamSlot::fluidParticleDrag); }},
+        {T::Fluid, "Particle brightness",
+         [](SceneParams& p, Rng& r) { p.fluidParticleBrightness = drawn(r, ParamSlot::fluidParticleBrightness); }},
+        {T::Fluid, "Shading (embossed ink)", [](SceneParams& p, Rng& r) { p.fluidShading = r.chance(0.7f); }},
+        {T::Fluid, "Glow (fluid)", [](SceneParams& p, Rng& r) { p.fluidBloom = r.chance(0.8f); }},
+        {T::Fluid, "Fluid glow", [](SceneParams& p, Rng& r) { p.fluidBloomIntensity = drawn(r, ParamSlot::fluidBloomIntensity); }},
+        {T::Fluid, "Glow threshold", [](SceneParams& p, Rng& r) { p.fluidBloomThreshold = drawn(r, ParamSlot::fluidBloomThreshold); }},
+        {T::Fluid, "Sunrays", [](SceneParams& p, Rng& r) { p.fluidSunrays = r.chance(0.7f); }},
+        {T::Fluid, "Sunrays weight", [](SceneParams& p, Rng& r) { p.fluidSunraysWeight = drawn(r, ParamSlot::fluidSunraysWeight); }},
+        {T::Fluid, "Curl from mids", [](SceneParams& p, Rng& r) { p.fluidCurlAudio = drawn(r, ParamSlot::fluidCurlAudio); }},
+        {T::Fluid, "Glow from loudness", [](SceneParams& p, Rng& r) { p.fluidBloomAudio = drawn(r, ParamSlot::fluidBloomAudio); }},
+        {T::Fluid, "Fade when quiet", [](SceneParams& p, Rng& r) { p.fluidFadeAudio = drawn(r, ParamSlot::fluidFadeAudio); }},
+        {T::Fluid, "Radius on hit", [](SceneParams& p, Rng& r) { p.fluidRadiusPulse = drawn(r, ParamSlot::fluidRadiusPulse); }},
+        {T::Fluid, "Flow strength", [](SceneParams& p, Rng& r) { p.flowStrength = drawn(r, ParamSlot::flowStrength); }},
+        {T::Fluid, "Flow force", [](SceneParams& p, Rng& r) { p.flowForce = drawn(r, ParamSlot::flowForce); }},
+        {T::Fluid, "Flow curl", [](SceneParams& p, Rng& r) { p.flowCurl = drawn(r, ParamSlot::flowCurl); }},
+        {T::Fluid, "Wave speed", [](SceneParams& p, Rng& r) { p.waterWaveSpeed = drawn(r, ParamSlot::waterWaveSpeed); }},
+        {T::Fluid, "Damping", [](SceneParams& p, Rng& r) { p.waterDamping = drawn(r, ParamSlot::waterDamping); }},
+        {T::Fluid, "Ripple strength", [](SceneParams& p, Rng& r) { p.waterRippleStrength = drawn(r, ParamSlot::waterRippleStrength); }},
+        {T::Fluid, "Depth", [](SceneParams& p, Rng& r) { p.waterDepth = drawn(r, ParamSlot::waterDepth); }},
+        {T::Fluid, "Specular", [](SceneParams& p, Rng& r) { p.waterSpecular = drawn(r, ParamSlot::waterSpecular); }},
+        {T::Fluid, "Flow drift", [](SceneParams& p, Rng& r) { p.waterFlow = drawn(r, ParamSlot::waterFlow); }},
+        {T::Fluid, "Liquid", [](SceneParams& p, Rng& r) { p.waterLiquid = drawn(r, ParamSlot::waterLiquid); }},
+        {T::Fluid, "Liquid flow", [](SceneParams& p, Rng& r) { p.waterLiquidFlow = drawn(r, ParamSlot::waterLiquidFlow); }},
+        {T::Fluid, "Liquid fade", [](SceneParams& p, Rng& r) { p.waterLiquidFade = drawn(r, ParamSlot::waterLiquidFade); }},
+        {T::Fluid, "Ripple overlay strength",
+         [](SceneParams& p, Rng& r) { p.rippleOverlayStrength = drawn(r, ParamSlot::rippleOverlayStrength); }},
+        {T::Fluid, "Ripple glint", [](SceneParams& p, Rng& r) { p.rippleOverlaySpecular = drawn(r, ParamSlot::rippleOverlaySpecular); }},
 
-        {{T::Cymatics, "Geometry", {"cymaticsGeometry"}}, [](SceneParams& p, Rng& r) { p.cymaticsGeometry = r.below(kCymaticsGeometries); }},
-        {{T::Cymatics, "Fundamental (Hz)", {"cymaticsFundamental"}}, [](SceneParams& p, Rng& r) { p.cymaticsFundamental = r.f(55.0f, 260.0f); }},
-        {{T::Cymatics, "Standing waves", {"cymaticsModes"}},
-         [](SceneParams& p, Rng& r) {
-             p.cymaticsModes = r.n(2, cymatics::kMaxRenderedModes);
-         }},
-        {{T::Cymatics, "Tonal focus", {"cymaticsFocus"}}, [](SceneParams& p, Rng& r) { p.cymaticsFocus = r.f(0.35f, 1.0f); }},
-        {{T::Cymatics, "Plate ring", {"cymaticsRing"}}, [](SceneParams& p, Rng& r) { p.cymaticsRing = r.f(0.15f, 0.8f); }},
-        {{T::Cymatics, "Field scale", {"cymaticsScale"}}, [](SceneParams& p, Rng& r) { p.cymaticsScale = r.f(1.6f, 5.5f); }},
-        {{T::Cymatics, "Wave flow", {"cymaticsFlow"}}, [](SceneParams& p, Rng& r) { p.cymaticsFlow = r.f(0.05f, 0.8f); }},
-        {{T::Cymatics, "Field swirl", {"cymaticsSwirl"}}, [](SceneParams& p, Rng& r) { p.cymaticsSwirl = r.f(-0.3f, 0.3f); }},
-        {{T::Cymatics, "Fill", {"cymaticsFill"}}, [](SceneParams& p, Rng& r) { p.cymaticsFill = r.f(0.05f, 1.0f); }},
-        {{T::Cymatics, "Nodal lines", {"cymaticsLine"}}, [](SceneParams& p, Rng& r) { p.cymaticsLine = r.f(0.4f, 1.7f); }},
-        {{T::Cymatics, "Nodal glow", {"cymaticsGlow"}}, [](SceneParams& p, Rng& r) { p.cymaticsGlow = r.f(0.3f, 1.7f); }},
-        {{T::Cymatics, "Iridescence", {"cymaticsIridescence"}}, [](SceneParams& p, Rng& r) { p.cymaticsIridescence = r.f(0.0f, 1.0f); }},
-        {{T::Cymatics, "Caustic sheen", {"cymaticsCaustic"}}, [](SceneParams& p, Rng& r) { p.cymaticsCaustic = r.f(0.2f, 1.3f); }},
+        {T::Cymatics, "Geometry", [](SceneParams& p, Rng& r) { p.cymaticsGeometry = counted(r, ParamSlot::cymaticsGeometry); }},
+        {T::Cymatics, "Fundamental (Hz)", [](SceneParams& p, Rng& r) { p.cymaticsFundamental = drawn(r, ParamSlot::cymaticsFundamental); }},
+        {T::Cymatics, "Standing waves", [](SceneParams& p, Rng& r) { p.cymaticsModes = counted(r, ParamSlot::cymaticsModes); }},
+        {T::Cymatics, "Tonal focus", [](SceneParams& p, Rng& r) { p.cymaticsFocus = drawn(r, ParamSlot::cymaticsFocus); }},
+        {T::Cymatics, "Plate ring", [](SceneParams& p, Rng& r) { p.cymaticsRing = drawn(r, ParamSlot::cymaticsRing); }},
+        {T::Cymatics, "Field scale", [](SceneParams& p, Rng& r) { p.cymaticsScale = drawn(r, ParamSlot::cymaticsScale); }},
+        {T::Cymatics, "Wave flow", [](SceneParams& p, Rng& r) { p.cymaticsFlow = drawn(r, ParamSlot::cymaticsFlow); }},
+        {T::Cymatics, "Field swirl", [](SceneParams& p, Rng& r) { p.cymaticsSwirl = drawn(r, ParamSlot::cymaticsSwirl); }},
+        {T::Cymatics, "Fill", [](SceneParams& p, Rng& r) { p.cymaticsFill = drawn(r, ParamSlot::cymaticsFill); }},
+        {T::Cymatics, "Nodal lines", [](SceneParams& p, Rng& r) { p.cymaticsLine = drawn(r, ParamSlot::cymaticsLine); }},
+        {T::Cymatics, "Nodal glow", [](SceneParams& p, Rng& r) { p.cymaticsGlow = drawn(r, ParamSlot::cymaticsGlow); }},
+        {T::Cymatics, "Iridescence", [](SceneParams& p, Rng& r) { p.cymaticsIridescence = drawn(r, ParamSlot::cymaticsIridescence); }},
+        {T::Cymatics, "Caustic sheen", [](SceneParams& p, Rng& r) { p.cymaticsCaustic = drawn(r, ParamSlot::cymaticsCaustic); }},
+
+        // The dive's tunnel, appended so every roll above draws the numbers it always drew. Blend's roll
+        // range stays in its soft half (its meta row): a roll never deals the hard-edged frames.
+        {T::Motion, "Ring spacing", [](SceneParams& p, Rng& r) { p.diveSpacing = drawn(r, ParamSlot::diveSpacing); }},
+        {T::Motion, "Tunnel shape", [](SceneParams& p, Rng& r) { p.diveShape = drawn(r, ParamSlot::diveShape); }},
+        {T::Motion, "Dive blend", [](SceneParams& p, Rng& r) { p.diveBlend = drawn(r, ParamSlot::diveBlend); }},
+        {T::Motion, "Depth fade", [](SceneParams& p, Rng& r) { p.diveFog = maybe(r, 0.3f, ParamSlot::diveFog); }},
+        {T::Motion, "Dive twist", [](SceneParams& p, Rng& r) { p.diveTwist = maybe(r, 0.35f, ParamSlot::diveTwist); }},
+        {T::Motion, "Dive lens", [](SceneParams& p, Rng& r) { p.diveLens = maybe(r, 0.25f, ParamSlot::diveLens); }},
     };
     return kRolls;
 }
@@ -234,7 +251,18 @@ bool sameWire(const SceneParams& a, const SceneParams& b) {
 const std::vector<RolledKey>& rolledKeys() {
     static const std::vector<RolledKey> kKeys = [] {
         std::vector<RolledKey> out;
-        for (const auto& roll : rolls()) out.push_back(roll.key);
+        for (const auto& roll : rolls()) {
+            RolledKey key{roll.tab, roll.key, {}};
+            // The fields are the live rows the key labels, in wire order (ParamTable.inc's meta rows).
+            size_t n = 0;
+            for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+                const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+                if (!m.live || std::strcmp(m.label, roll.key) != 0) continue;
+                if (n < key.fields.size()) key.fields[n] = SceneParams::fieldNames()[static_cast<size_t>(slot)];
+                ++n;
+            }
+            out.push_back(key);
+        }
         return out;
     }();
     return kKeys;
@@ -264,6 +292,9 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"rippleOverlayEnabled", "the water-ripple overlay's master switch"},
         {"marchDetail", "a performance budget, not a look"},
         {"camFlat", "how much the user wants flat styles to travel with the camera"},
+        {"diveAimX", "where the user points the dive"},
+        {"diveAimY", "where the user points the dive"},
+        {"diveFollow", "how much the user wants the music to move things"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},
@@ -283,15 +314,15 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"liquidBorn", "a Liquid mode pick"},
         {"liquidAge", "a Liquid mode pick"},
         {"liquidSurface", "a Liquid mode pick"},
-        // Inert since wave three (see SceneParams): no reader, so no control and no roll.
-        {"pulse", "inert since wave three"},
-        {"shake", "inert since wave three"},
         {"beatResponse", "inert since wave three"},
-        {"flash", "inert since wave three"},
-        {"strobe", "inert since wave three"},
-        {"glitch", "retired: the composite Glitch effect is gone"},
-        {"formDrive", "inert since wave three"},
-        {"motionOrbit", "no native reader"},
+        // SceneParams::retired: no reader, so no control and no roll.
+        {"pulse", "retired"},
+        {"shake", "retired"},
+        {"flash", "retired"},
+        {"glitch", "retired"},
+        {"strobe", "retired"},
+        {"formDrive", "retired"},
+        {"motionOrbit", "retired"},
     };
     return kNever;
 }
@@ -312,9 +343,9 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, std::optional<T
     for (int attempt = 0; attempt < kRerolls; ++attempt) {
         SceneParams out = current;
         for (const auto& roll : rolls()) {
-            if (tab && roll.key.tab != *tab) continue;
-            if (!styleId.empty() && !catalogue::reaches(catalogue::scopeOf(roll.key.key), styleId)) continue;
-            if (locked.count(roll.key.key)) continue;
+            if (tab && roll.tab != *tab) continue;
+            if (!styleId.empty() && !catalogue::reaches(catalogue::scopeOf(roll.key), styleId)) continue;
+            if (locked.count(roll.key)) continue;
             roll.roll(out, rng);
         }
         if (!sameWire(out, current)) return out;
@@ -325,9 +356,9 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, std::optional<T
 SceneParams resetTab(const SceneParams& current, Tab tab) {
     const SceneParams defaults{};
     SceneParams out = current;
-    for (const auto& roll : rolls()) {
-        if (roll.key.tab != tab) continue;
-        for (const char* field : roll.key.fields) {
+    for (const auto& roll : rolledKeys()) {
+        if (roll.tab != tab) continue;
+        for (const char* field : roll.fields) {
             if (field) out.set(field, defaults.get(field));
         }
     }

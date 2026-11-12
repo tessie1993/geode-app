@@ -210,9 +210,9 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float rel = clamp(uEnergyRel - 0.6, 0.0, 1.4) * uIntensity;
-    float onset = lucidBump(SND_ONSET_ENV) * clamp(uIntensity, 0.0, 2.0);
+    float onset = lucidBump(SND_ONSET_ENV * uSoundDrive) * clamp(uIntensity, 0.0, 2.0);
     float chaos = lucidChaos();
     int depthLevels = lucidDetail(3, 2);
     int oct = lucidDetail(3, 2);

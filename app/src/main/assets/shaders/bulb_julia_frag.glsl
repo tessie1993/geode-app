@@ -42,7 +42,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the drift of c round its loop. Complexity (uMorph) adds up to two fractal
+// Speed scales the drift of c round its loop. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip);
 // turbulence also wobbles c itself.

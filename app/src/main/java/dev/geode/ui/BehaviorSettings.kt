@@ -26,20 +26,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
-import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
+import dev.geode.geodeContainer
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.wallpaper.VisualizerWallpaperService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 // The rows stored in [BehaviourPrefs] (`geode-prefs`, defaults the owner's), which Settings spreads
 // over seven tabs since the regroup: Playback (queue end, shuffle and repeat), Output & devices
@@ -56,20 +54,23 @@ internal class BehaviourPrefsHolder(
 )
 
 /**
- * Reads [BehaviourStore] once on IO, then keeps the page's copy and writes each change through
- * (`apply()`, already async). Nothing else writes these keys while Settings is open, apart from the
- * last screen shown, which [BehaviourStore.saveLastScreen] writes alone and [BehaviourStore.save]
- * carries over unchanged.
+ * The process's one Behaviour repository (`GeodeContainer.behaviour`, #1009 PR 4) as the page holds it:
+ * null until the file has been read, then its value. Each change shows at once and is written through
+ * the repository's `update` on the app's scope, so leaving the page never drops it. The last screen
+ * shown is not the page's to write: the update keeps whatever the repository holds for it.
  */
 @Composable
 internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
-    val ctx = LocalContext.current
-    val store = remember { BehaviourStore(GeodePrefsFiles(ctx).general) }
+    val container = LocalContext.current.geodeContainer
+    val repository = remember(container) { container.behaviour }
     var prefs by remember { mutableStateOf<BehaviourPrefs?>(null) }
-    LaunchedEffect(store) { prefs = withContext(Dispatchers.IO) { store.load() } }
+    LaunchedEffect(repository) {
+        repository.loaded()
+        repository.value.collect { prefs = it }
+    }
     return BehaviourPrefsHolder(prefs) { next ->
         prefs = next
-        store.save(next)
+        container.appScope.launch { repository.update { next.copy(lastScreen = it.lastScreen) } }
     }
 }
 
@@ -266,11 +267,8 @@ internal fun TouchSmearRow(viewModel: SettingsViewModel) {
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
         if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
                 value = gui.touchSmearStrength,
                 onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
                 valueRange = 0.2f..2f,

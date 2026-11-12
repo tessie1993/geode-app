@@ -174,31 +174,29 @@ const SOUND_SCALARS = [
 
 const SHADER_VALUES = {
   uTime: 37.0, uResolution: [0, 0],
-  uSpeed: 1, uZoom: 1, uRotation: 0, uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
+  uZoom: 1, uRotation: 0, uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
   uInvert: 0, uIntensity: 1, uMirrorX: 0, uTurbulence: 0, uPalBase: 0, uPalRange: 1,
   uContrast: 1, uGamma: 1, uPal2Base: 0, uPal2Range: 1, uPaletteMix: 0, uDuotone: 0, uBloom: 0, uWarp: 0,
-  uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0, uPulse: 0,
-  uDriftX: 0, uDriftY: 0, uShake: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
-  uFlash: 0,
+  uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0,
+  uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
   uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
-  uSpike: 0.15,
   uMoveDir: [0.8, 0.6], uSpawnSeed: 0.37, uSpawnAge: 4.0, uFormPhase: 0.62, uFlowPhase: 12.5,
   uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
-  uKeyHue: 0.3, uKeyStrength: 0.5, uBeatOsc: 0.4, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
-  uBreath: 0.5, uMotion: 0.5,
-  // The Speed-integrated clocks (core/viz/SpeedClock.hpp) at uSpeed 1, where they equal the unscaled
+  uKeyHue: 0.3, uKeyStrength: 0.5, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
+  uBreath: 0.5,
+  // The Speed-integrated clocks (core/viz/SpeedClock.hpp) at Speed 1, where they equal the unscaled
   // ones: uFlowTime is uFlowPhase, uSoundTimeSped the BASS_TIME MID_TIME TREBLE_TIME scalars below.
   uFlowTime: 12.5, uSoundTimeSped: [37, 35, 33],
   // SoundUniforms::upload: the frame, the Audio drive slider at its default, held events, counts.
   uSound: SOUND_SCALARS, uSoundDrive: 1, uSoundEvents: [0.2, 0, 0, 0], uSoundCounts: [41, 3],
   // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.
   uCamPos: [0, 0, 37], uCamBasis: [1, 0, 0, 0, 1, 0, 0, 0, 1], uCamFocal: 1.6, uCamTravel: 37,
-  uCamDolly: 0, uCamLook: [0, 0, 0],
+  uCamDolly: 0,
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
   uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, -0.2, 0.6, 0, 0, 1, 2, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0],
@@ -376,8 +374,9 @@ function liquidJobs(args, registry) {
 // ---- Endless zoom (--dive <style>) ------------------------------------------
 //
 // The style, then dive_frag.glsl over its picture (core/viz/DivePass): --frames snapshots spread over
-// one octave of travel at --speed octaves a second (negative rises out), so the first and the one
-// after the last are the same picture. Look at them in order: every copy only grows, none pops.
+// one step of travel at --speed octaves a second (negative rises out), so the first and the one
+// after the last are the same picture. --look <name>=<value> sets a Dive control (spacing, twist, aimX,
+// aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.
 function diveJob(args, registry) {
   const W = args.size, H = args.height ?? args.size;
   const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
@@ -390,13 +389,31 @@ function diveJob(args, registry) {
   const n = args.frames === 240 ? 8 : args.frames;
   const speed = args.speed ?? 0.3;
   const t0 = args.time ?? 37;
+  // endless::tunnel::lookFor: the Dive category's params as dive_frag's uniforms.
+  const d = { spacing: 1, twist: 0, aimX: 0, aimY: 0, shape: 0.5, blend: 0.75, fog: 0, lens: 0 };
+  for (const kv of args.diveLook) {
+    const [k, v] = kv.split('=');
+    if (!(k in d)) throw new Error(`unknown --look ${k}; one of ${Object.keys(d).join(', ')}`);
+    d[k] = Number(v);
+  }
+  const step = Math.min(Math.max(d.spacing, 0.5), 2);
+  const shape = Math.pow(2, 1 + 2 * d.shape);
+  const ax = Math.abs(d.aimX), ay = Math.abs(d.aimY), aspect = W / H;
+  let reach = Math.pow(2, 1 / shape);
+  if (d.twist !== 0) reach = Math.max(reach, Math.hypot((1 + ax) * aspect, 1 + ay) / Math.min((1 - ax) * aspect, 1 - ay));
+  const fade = Math.max(d.blend * (1 - Math.pow(2, -step)), 0.004);
+  const look = {
+    uAspect: aspect, uInner: Math.ceil(5 / step), uBase: Math.max(1, Math.ceil(Math.log2(reach * 1.02 / (1 - fade)) / step)),
+    uStep: step, uTwist: d.twist * Math.PI / 2, uCentre: [d.aimX, d.aimY], uShape: shape, uBlend: d.blend, uFog: 1.5 * d.fog,
+    uLens: d.lens,
+  };
   const frames = [];
   for (let i = 0; i < n; i++) {
     const travelled = i / n;
     const phase = speed >= 0 ? travelled : (1 - travelled) % 1;
     frames.push({
       style: plan(styleU, { ...SHADER_VALUES, uTime: t0 + travelled / Math.max(Math.abs(speed), 0.01) }, SHADER_TEXTURES, W, H),
-      dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1 }, { uScene: 'style' }, W, H),
+      dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1, ...look }, { uScene: 'style' }, W, H),
     });
   }
   return { vert: quadVert, styleFrag, diveFrag, frames, width: W, height: H };
@@ -512,7 +529,7 @@ function songValues(row) {
     uTime: t, uSound: row.sound, uSoundEvents: row.events, uSoundCounts: row.counts,
     uSoundTimeSped: [row.snd('bassTime'), row.snd('midTime'), row.snd('trebleTime')],
     uFlowPhase: 0.5 * t, uFlowTime: 0.5 * t,
-    uBeatOsc: 0.5 + 0.5 * Math.cos(6.2831853 * beat), uBarOsc: 0.5 + 0.5 * Math.cos(6.2831853 * bar),
+    uBarOsc: 0.5 + 0.5 * Math.cos(6.2831853 * bar),
     uKeyHue: row.snd('keyHue'), uHarmony: row.snd('keyClarity'),
     uCamPos: [0, 0, t], uCamTravel: t,
   };
@@ -589,7 +606,7 @@ async function runStills(args, registry) {
 function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
-    liquid: null, dive: null, speed: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
+    liquid: null, dive: null, diveLook: [], speed: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
     sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -604,6 +621,7 @@ function parseArgs(argv) {
     else if (v === '--time') a.time = Number(argv[++i]);
     else if (v === '--liquid') a.liquid = argv[++i];
     else if (v === '--dive') a.dive = argv[++i];
+    else if (v === '--look') a.diveLook.push(argv[++i]);
     else if (v === '--speed') a.speed = Number(argv[++i]);
     else if (v === '--frames') a.frames = Number(argv[++i]);
     else if (v === '--born') a.born = Number(argv[++i]);

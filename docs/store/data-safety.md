@@ -5,7 +5,7 @@ Play Console › Policy and programs › App content › Data safety. The rules 
 ([answer/10787469](https://support.google.com/googleplay/android-developer/answer/10787469), read
 2026-11-11) and Google's Cast SDK disclosure
 ([developers.google.com/cast/docs/android_sender/data_disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
-File and line numbers were taken at b8ac569b5; the rows were rechecked against `origin/main` at b1ac6a75a (Record, screenshots and the sensors are new since); paths under
+File and line numbers were taken at b8ac569b5; the rows were rechecked against `origin/main` at b1ac6a75a (Record, screenshots and the sensors are new since) and again at 8fd87553d (Show on a computer, #1048); paths under
 `app/src/main/java/dev/geode/` are written from `dev/geode/`.
 
 ## What Play counts
@@ -23,7 +23,8 @@ File and line numbers were taken at b8ac569b5; the rows were rechecked against `
 ## The one judgement call (owner decides)
 
 The app's own code sends nothing off the device. The **Google Cast SDK** (linked through
-`media3-cast`, `app/build.gradle.kts:266`; started in `dev/geode/cast/CastController.kt:128-133`
+`media3-cast`, `app/build.gradle.kts:264`; started with the app, `dev/geode/ui/MainActivity.kt:397` and
+`dev/geode/cast/CastOptionsProvider.kt:29`, building the `RemoteCastPlayer` in `dev/geode/cast/CastController.kt:92-96`,
 so the Cast button and the system output switcher can find a TV) does: Google says it logs
 discovery and session events with device and app information, encrypted, without an identifier
 that traces to a person, and that neither the user nor the developer can turn it off or delete
@@ -62,15 +63,15 @@ If the owner takes the other reading, the whole form is: collects or shares data
 
 | Data | What the app does with it | Evidence | Declared |
 |---|---|---|---|
-| Music files and tags | Read from the device to list and play; analysed in memory | `dev/geode/data/DeviceTrackQuery.kt:23`, `READ_MEDIA_AUDIO` asked in `dev/geode/ui/LibraryScreen.kt:159` | No: on device |
-| Microphone audio | Only with Live input on; samples go into the in-memory ring, never a socket; paused in the background unless a cast holds the microphone. They reach a file only if the user starts Record while Live input is on: the MP4 on the device holds what the visual heard | `dev/geode/audio/MicCapture.kt:78`, `dev/geode/ui/CaptureController.kt`, `dev/geode/ui/RecordController.kt:38-41` | No: on device |
-| Other apps' audio | Only with Visualize other apps (system consent, ongoing notification) or the wallpaper's and screen saver's Hear other apps; in a file only through Record, as above | `dev/geode/audio/PlaybackCaptureService.kt:128`, `dev/geode/wallpaper/OutputMixCapture.kt:73` | No: on device |
+| Music files and tags | Read from the device to list and play; analysed in memory | `dev/geode/data/DeviceTrackQuery.kt:36`, `READ_MEDIA_AUDIO` asked in `dev/geode/ui/LibraryScreen.kt:210` | No: on device |
+| Microphone audio | Only with Live input on; samples go into the in-memory ring, never a socket; paused in the background unless a cast holds the microphone. They reach a file only if the user starts Record while Live input is on: the MP4 on the device holds what the visual heard | `dev/geode/audio/MicCapture.kt:50`, `dev/geode/ui/CaptureController.kt`, `dev/geode/ui/RecordController.kt:38-41` | No: on device |
+| Other apps' audio | Only with Visualize other apps (system consent, ongoing notification) or the wallpaper's and screen saver's Hear other apps; in a file only through Record, as above | `dev/geode/audio/PlaybackCaptureService.kt`, `dev/geode/wallpaper/OutputMixCapture.kt:77` | No: on device |
 | Listening history, playlists, settings, presets | Kept in the app's private storage | `dev/geode/data/` stores | No: on device |
 | Crash details | Written to `filesDir/crash-latest.txt` for the user to read; no crash SDK, nothing uploaded | `dev/geode/GeodeApp.kt:26-36` | No: on device |
 | Purchase record | Read from the Play Store app, signature checked on the device, acknowledged back to Play; cached in app prefs. No developer server | `dev/geode/billing/PlayBillingRepository.kt:204-231`, `dev/geode/billing/EntitlementStore.kt:116-134` | No: Play Billing's own data; the app sends it nowhere else |
-| Rendered videos, recordings, screenshots, presets, templates | Written to the device (videos where the user chooses, screenshots to `Pictures/BeatRealms`, `dev/geode/data/StillFiles.kt`); leave it only through the user's Share action | `dev/geode/ui/RenderBar.kt:232`, `dev/geode/ui/PresetActions.kt:382-392`, `dev/geode/ui/TemplatesSheet.kt:243`, `dev/geode/ui/LoopRenderSheet.kt:171` | No: user-initiated |
+| Rendered videos, recordings, screenshots, presets, templates | Written to the device (videos where the user chooses, screenshots to `Pictures/BeatRealms`, `dev/geode/data/StillFiles.kt`); leave it only through the user's Share action | `dev/geode/ui/RenderBar.kt:234`, `dev/geode/ui/PresetActions.kt:390-406`, `dev/geode/ui/TemplatesSheet.kt:243`, `dev/geode/ui/LoopRenderSheet.kt:169` | No: user-initiated |
 | Track title and artist | Handed to the user's browser when they tap "Search the web" for lyrics | `dev/geode/ui/LyricsSettings.kt:91-92` | No: user-initiated |
-| The visual and the music while casting | Streamed from the phone to the TV on the user's own Wi-Fi; the only sockets in the app | `dev/geode/cast/LiveHttpServer.kt:41-55`, `dev/geode/cast/CastStream.kt:249` | No: user-initiated, to the user's own device |
+| The visual and the music while casting or showing on a computer | Streamed from the phone to the TV, or to a browser on a computer, on the user's own Wi-Fi; only the player's music, never the microphone or another app's audio (`dev/geode/cast/CastStream.kt:195-197`); the app's one server socket, bound to the Wi-Fi address; the page the browser opens loads nothing from the internet | `dev/geode/cast/LiveHttpServer.kt:66,116`, `dev/geode/cast/CastStream.kt:296-321`, `dev/geode/cast/ComputerLink.kt` | No: user-initiated, to the user's own device |
 | Motion sensors | Accelerometer (a shake on Visuals saves a screenshot), gyroscope (camera look), proximity (the screen saver's cover); read while that screen shows, decided natively, nothing kept | `dev/geode/ui/EasterEggs.kt`, `render/GyroLook.kt`, `dev/geode/wallpaper/DreamCover.kt` | No: on device, not stored |
 | Connected display | The visual on an HDMI, USB-C or wireless display through Android's `Presentation`; no socket of the app's | `dev/geode/ui/ConnectedDisplays.kt` | No: no transfer by the app |
 | Device backup | Android's own backup of app data to the user's Google account, limited by `res/xml/data_extraction_rules.xml` | `AndroidManifest.xml:103-107` | No: the system's transfer, not the app's or an SDK's |
@@ -107,6 +108,8 @@ Pages on pushes to `main` (the address is in the workflow's header); the owner o
 
 The in-app safety notice (`res/values/strings.xml`, `safety_prompt`) says what the code does
 (it limits the engine's own effects and does not measure the finished picture), and the
-listing's photosensitivity warning says the same without naming strobe or flash effects, which
-are retired (owner, 2026-11-11). The in-app strings still name them; #1024 is the place that
-changes.
+listing's photosensitivity warning says the same without naming strobe or flash effects.
+#1024 retired the pulse, shake and flash params, but the in-app strings (`safety_prompt`,
+`help_topic_safety_body`) still say "strobe and flash depth"; both params are now retired
+(`core/tests/params_schema.txt`, slots 58 and 65), so those strings should be reworded in a
+separate change to match the listing's wording.

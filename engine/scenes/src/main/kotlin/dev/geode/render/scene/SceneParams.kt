@@ -9,26 +9,14 @@ data class SceneParams(
     val endlessZoom: Boolean = false,
     val endlessZoomSpeed: Float = 0.3f,
     val sway: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val pulse: Float = 0f,
     val driftX: Float = 0f,
     val driftY: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val shake: Float = 0f,
     val audioDrive: Float = 1f,
     // Inert since wave three; removed with the next format bump.
     val beatResponse: Float = 1f,
     val turbulence: Float = 0f,
     val density: Float = 1f,
-    /**
-     * March-step budget for the raymarched fragment styles, 0.25..1.5.
-     *
-     * This was `hyperDetail` and belonged to the Hyperspace family, which is gone. The
-     * control outlived it because VANISHING, MORPHOGEN, NEBULA, NONEUCLID and KIFS are all
-     * distance-marched and all need somewhere to spend or save steps; naming it after the
-     * technique rather than a style means the next marched style inherits it for free.
-     * Native ShaderScene turns it into the `uSteps` uniform every one of them breaks on.
-     */
+    /** March-step budget for the raymarched styles, 0.25..1.5: native ShaderScene's `uSteps`. */
     val marchDetail: Float = 1f,
     val trails: Boolean = true,
     val trailLength: Float = 0.5f,
@@ -75,17 +63,11 @@ data class SceneParams(
     val bassGain: Float = 1f,
     val midGain: Float = 1f,
     val trebGain: Float = 1f,
-    // Inert since wave three; removed with the next format bump.
-    val flash: Float = 0f,
     val chromaAb: Float = 0f,
     val vignette: Float = 0f,
     val scanlines: Float = 0f,
     val grain: Float = 0f,
-    // Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
-    val glitch: Float = 0f,
     val fisheye: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val strobe: Float = 0f,
     val paramFadeSec: Float = 0f,
     val fluidQuality: Int = 2,
     val fluidAutoQuality: Boolean = true,
@@ -154,21 +136,12 @@ data class SceneParams(
     val rippleOverlayEnabled: Boolean = false,
     val rippleOverlayStrength: Float = 0.4f,
     val rippleOverlaySpecular: Float = 0.3f,
-    // How far the native superformula driver (core/viz/FormDrive) moved every family's parameters
-    // with the music. Inert since wave three (core/viz/MotionField replaced it); kept so a preset
-    // saved before wave three still decodes.
-    val formDrive: Float = 0.7f,
-    // Wave three: the continuous motion system (core/viz/MotionField), which replaces
-    // formDrive/beatResponse/flash/strobe/pulse/shake as the way the music moves a scene.
-    // Appended after the older fields so every existing wire index survives.
+    // Wave three: the continuous motion system (core/viz/MotionField).
     val motionAmount: Float = 0.7f,
     val motionBreath: Float = 0.5f,
-    val motionOrbit: Float = 0.5f,
     val motionDrift: Float = 0.5f,
     val motionHue: Float = 0.4f,
-    // The shared camera rig (core/viz/CameraRig) and the reaction matrix (core/viz/Reactions).
-    // The push/yaw/pitch/roll offsets are what reaction routes and LFOs write; the rig springs
-    // toward them. Appended so every existing wire index survives.
+    // The camera rig (core/viz/CameraRig); push/yaw/pitch/roll are the offsets routes and LFOs write.
     val camFly: Float = 0.5f,
     val camPath: Int = 0,
     val camOrbit: Float = 0.35f,
@@ -215,6 +188,22 @@ data class SceneParams(
     val liquidSurface: Int = 0,
     /** Camera travel on the flat styles: how far Fly speed (its sign too) dives the picture in or out. 0 off .. 1. */
     val camFlat: Float = 0f,
+    /** Your colours: the first palette's own stops, packed 0xRRGGBB, set from the first; [NO_STOP] unset (core/viz/Colour.hpp). */
+    val paletteStop0: Int = NO_STOP,
+    val paletteStop1: Int = NO_STOP,
+    val paletteStop2: Int = NO_STOP,
+    val paletteStop3: Int = NO_STOP,
+    val paletteStop4: Int = NO_STOP,
+    // Endless zoom's tunnel (core/viz/EndlessZoom.hpp, Customize › Dive); the defaults are the plain tunnel.
+    val diveSpacing: Float = 1f,
+    val diveTwist: Float = 0f,
+    val diveAimX: Float = 0f,
+    val diveAimY: Float = 0f,
+    val diveShape: Float = 0.5f,
+    val diveBlend: Float = 0.75f,
+    val diveFog: Float = 0f,
+    val diveLens: Float = 0f,
+    val diveFollow: Float = 1f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
@@ -222,6 +211,8 @@ data class SceneParams(
         const val NO_CUSTOM_PALETTE: String = ""
 
         const val NO_PALETTE_LUT: Int = -1
+
+        const val NO_STOP: Int = -1
 
         val CYCLIC_PALETTES: List<String> = dev.geode.render.CyclicPalettes.NAMES
 
@@ -233,35 +224,8 @@ data class SceneParams(
                 "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
             )
 
-        /**
-         * The built-in palettes' names, in `palette` index order: labels only. Each one's hue base and
-         * span are native (`core/viz/Params`, read through [paletteBase] and friends), and the params
-         * schema's `palette` range is this list's length (`ParamSchemaTest`).
-         */
-        val PALETTES: List<String> =
-            listOf(
-                "Spectrum",
-                "Neon",
-                "Fire",
-                "Ocean",
-                "Mono",
-                "Candy",
-                "Forest",
-                "Aurora",
-                "Sunset",
-                "Ice",
-                "Vapor",
-                "Toxic",
-                "Royal",
-                "Blush",
-                "Copper",
-                "Mint",
-                "Galaxy",
-                "Cherry",
-                "Cyan",
-                "Magenta",
-                "Yellow",
-            )
+        /** The built-in palettes' names, in `palette` index order: labels only, from the native params schema. */
+        val PALETTES: List<String> get() = ParamSchema.paletteNames
 
         val PARTICLE_SHAPES: List<String> = listOf("Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
 
@@ -280,7 +244,10 @@ data class SceneParams(
     }
 
     val usesCustomPalette: Boolean
-        get() = paletteBaseOverride >= 0f || paletteRangeOverride >= 0f
+        get() = paletteBaseOverride >= 0f || paletteRangeOverride >= 0f || paletteStop0 != NO_STOP
+
+    val paletteStops: List<Int>
+        get() = listOf(paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4).takeWhile { it != NO_STOP }
 
     val usesCustomPalette2: Boolean
         get() = palette2BaseOverride >= 0f || palette2RangeOverride >= 0f
@@ -307,10 +274,13 @@ data class SceneParams(
                 customPalette2Id = NO_CUSTOM_PALETTE,
             )
         } else {
-            copy(
-                paletteBaseOverride = UNSET_OVERRIDE,
-                paletteRangeOverride = UNSET_OVERRIDE,
-                customPaletteId = NO_CUSTOM_PALETTE,
-            )
+            copy(paletteBaseOverride = UNSET_OVERRIDE, paletteRangeOverride = UNSET_OVERRIDE, customPaletteId = NO_CUSTOM_PALETTE)
+                .withPaletteStops(emptyList())
         }
+
+    /** Your colours in the stop fields, the first [colours] in order (at most five), the rest unset. */
+    fun withPaletteStops(colours: List<Int>): SceneParams {
+        val s = List(5) { colours.getOrElse(it) { NO_STOP } }
+        return copy(paletteStop0 = s[0], paletteStop1 = s[1], paletteStop2 = s[2], paletteStop3 = s[3], paletteStop4 = s[4])
+    }
 }

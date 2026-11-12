@@ -13,7 +13,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,7 +32,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.export.ExportAspect
 import dev.geode.export.LoopSpec
 import dev.geode.export.TimeOfDayDrift
@@ -59,7 +57,7 @@ fun LoopRenderSheet(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val defaults = remember { ExportPrefsStore(GeodePrefsFiles(context).general).load() }
+    val defaults = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general).load() }
 
     var loopSeconds by rememberSaveable { mutableStateOf(LoopSpec.MIN_LOOP_MS / 1000f) }
     var crossfadeSeconds by rememberSaveable { mutableStateOf(LoopSpec.DEFAULT_CROSSFADE_MS / 1000f) }
@@ -200,20 +198,14 @@ private fun LoopRenderControls(
     onStartToDestination: () -> Unit,
 ) {
     Text(stringResource(R.string.export_loop_source_hint), style = MaterialTheme.typography.bodySmall)
-    Text(
-        stringResource(R.string.export_loop_length, loopSeconds.roundToInt()),
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Slider(
+    CrystalSlider(
+        label = stringResource(R.string.export_loop_length, loopSeconds.roundToInt()),
         value = loopSeconds,
         onValueChange = onLoopSecondsChange,
         valueRange = (LoopSpec.MIN_LOOP_MS / 1000f)..(LoopSpec.MAX_LOOP_MS / 1000f),
     )
-    Text(
-        stringResource(R.string.export_loop_crossfade, crossfadeSeconds),
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Slider(
+    CrystalSlider(
+        label = stringResource(R.string.export_loop_crossfade, crossfadeSeconds),
         value = crossfadeSeconds,
         onValueChange = onCrossfadeSecondsChange,
         valueRange = (LoopSpec.MIN_CROSSFADE_MS / 1000f)..(LoopSpec.MAX_CROSSFADE_MS / 1000f),
@@ -223,16 +215,14 @@ private fun LoopRenderControls(
         Switch(checked = driftEnabled, onCheckedChange = onDriftEnabledChange)
     }
     if (driftEnabled) {
-        Text(
-            stringResource(R.string.export_loop_drift_hue, (driftHueTurns * 360).roundToInt()),
-            style = MaterialTheme.typography.labelMedium,
+        CrystalSlider(
+            label = stringResource(R.string.export_loop_drift_hue, (driftHueTurns * 360).roundToInt()),
+            value = driftHueTurns,
+            onValueChange = onDriftHueTurnsChange,
+            valueRange = -0.5f..0.5f,
         )
-        Slider(value = driftHueTurns, onValueChange = onDriftHueTurnsChange, valueRange = -0.5f..0.5f)
-        Text(
-            stringResource(R.string.export_loop_drift_stops, driftStops.roundToInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
-        Slider(
+        CrystalSlider(
+            label = stringResource(R.string.export_loop_drift_stops, driftStops.roundToInt()),
             value = driftStops,
             onValueChange = onDriftStopsChange,
             valueRange = 2f..TimeOfDayDrift.MAX_STOPS.toFloat(),

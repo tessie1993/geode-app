@@ -1,13 +1,16 @@
 package dev.geode.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.AudioFxState
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.UserDataRepository
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.model.WatermarkChoice
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,6 +33,12 @@ class SettingsViewModel
         fun setGuiPrefs(prefs: GuiPrefs) = session.setGuiPrefs(prefs)
 
         fun setPlayerPrefs(prefs: PlayerPrefs) = session.setPlayerPrefs(prefs)
+
+        val watermark: StateFlow<WatermarkChoice> get() = session.watermarkPrefs.value
+
+        fun updateWatermark(transform: (WatermarkChoice) -> WatermarkChoice) {
+            viewModelScope.launch { session.watermarkPrefs.update(transform) }
+        }
 
         fun setAudioFxEnabled(enabled: Boolean) = session.settings.setAudioFxEnabled(enabled)
 

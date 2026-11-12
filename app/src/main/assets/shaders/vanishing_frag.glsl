@@ -130,7 +130,7 @@ const float BAND_CYCLE = 6.0;
  * Bands per second of ambient fall, and the bass surge on top of it.
  *
  * uTime is ShaderScene's speed-INTEGRATED clock, so it is never multiplied by
- * uSpeed here - see the note in julia_frag: at t = elapsed * speed, nudging
+ * Speed here - see the note in julia_frag: at t = elapsed * speed, nudging
  * the slider teleports by elapsed * delta-speed, which is exactly what
  * integrating exists to prevent.
  *

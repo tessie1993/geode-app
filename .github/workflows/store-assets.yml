@@ -228,7 +228,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          python3 -m pip install --quiet "pillow==11.0.0"
+          # Wheels only: the runner's python3 is 3.14, which Pillow 11.0.0 has no wheel for, and its
+          # source build needs libjpeg headers the runner lacks. 12.0.0 ships cp314 manylinux wheels.
+          python3 -m pip install --quiet --only-binary=:all: "pillow==12.0.0"
           python3 tools/store_assets_collect.py store-assets-out
 
       - name: Upload the assets

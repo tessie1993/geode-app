@@ -38,7 +38,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Earth's clouds and its slow rise. Complexity
+// Speed scales the Earth's clouds and its slow rise. Complexity
 // (uMorph) fades in an octave of ground. Chaos (uWarp, uTurbulence, uTwist)
 // bends the ground and its craters (terraChaos). Energy (uIntensity) scales
 // the ejecta's glow. Colour is pal() in the regolith and the Earth. Space is
@@ -89,9 +89,9 @@ float height(vec2 xz) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
-    float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV * uSoundDrive, 0.0, 1.0);
     float n0 = floor(SND_ONSET_COUNT);
     gGen = mod(vec3(n0, n0 - 1.0, n0 - 2.0), 64.0);
     // Newest sinks in as the envelope falls, the oldest fills as it does.

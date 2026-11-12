@@ -86,7 +86,7 @@ struct geode_viz {
         if (!recorder || recordPtsNs < 0) return;
         bool ok = recordTap.begin(fbo, width, height);
         if (ok) {
-            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height());
+            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height(), 0);
             ok = recordTap.present(recordPtsNs, fbo);
         }
         if (!ok) recorder->stop(geode::output::record::Stop::Failed, geode_record_now_ns());
@@ -159,7 +159,7 @@ static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the p
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
@@ -283,6 +283,10 @@ int geode_viz_hear_track(geode_viz* v, geode_track_feed* feed) {
         geode_viz_write_audio(static_cast<geode_viz*>(context), interleaved, frames, channels, sample_rate);
     };
     return geode_track_feed_deliver(feed, v ? sink : nullptr, v);
+}
+
+int geode_viz_end_pre_roll(geode_viz* v, int64_t range_start_ms) {
+    return v && v->renderer.endPreRoll(range_start_ms) ? 1 : 0;
 }
 
 void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
@@ -670,9 +674,9 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+void geode_viz_gyro_sample(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
     if (!v) return;
-    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    const GyroLook::Look look = v->gyro.sampleScreen(x, y, z, w, display_rotation);
     v->renderer.setLook(look.yaw, look.pitch);
 }
 

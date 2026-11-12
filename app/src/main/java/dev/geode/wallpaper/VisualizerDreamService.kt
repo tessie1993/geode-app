@@ -17,10 +17,10 @@ import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.BehaviourStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.VisualizerView
@@ -69,7 +69,7 @@ class VisualizerDreamService : DreamService() {
     private val sound = SoundSource(this) { syncRunState() }
 
     /** Lazy: a service has no context for its prefs until onCreate. */
-    private val generalPrefs by lazy { GeodePrefsFiles(this).general }
+    private val generalPrefs by lazy { geodeContainer.prefsFiles.general }
 
     /** Behaviour's dream frame rate, read at attach; [applyPerformance] restates it after the cap. */
     private var dreamFps = GeodeNative.SURFACE_DEFAULT_FPS
@@ -126,7 +126,7 @@ class VisualizerDreamService : DreamService() {
         }
         isInteractive = false
         isFullscreen = true
-        val prefsFiles = GeodePrefsFiles(this)
+        val prefsFiles = geodeContainer.prefsFiles
         // Its own switch (Settings › Wallpaper & screen saver), no longer Player's keep-screen-on.
         val behaviour = BehaviourStore(prefsFiles.general).load()
         isScreenBright = behaviour.dreamScreenBright

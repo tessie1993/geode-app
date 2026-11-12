@@ -34,7 +34,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the curtain's drift. Complexity (uMorph) fades in an
+// Speed scales the curtain's drift. Complexity (uMorph) fades in an
 // octave of hill. Chaos (uWarp, uTurbulence, uTwist) bends the hills
 // (terraChaos). Energy (uIntensity) scales how far the highs light the
 // aurora. Colour is pal() in the aurora and the night sky. Space is the rig.

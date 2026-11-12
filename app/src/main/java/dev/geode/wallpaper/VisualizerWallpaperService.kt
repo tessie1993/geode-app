@@ -18,10 +18,10 @@ import android.view.SurfaceHolder
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
@@ -51,8 +51,9 @@ class VisualizerWallpaperService : WallpaperService() {
         /** The shade or recents is over the wallpaper; see [onZoomChanged]. */
         private var covered = false
 
-        private val prefsStore = WallpaperPrefsStore(this@VisualizerWallpaperService)
-        private val generalPrefs = GeodePrefsFiles(this@VisualizerWallpaperService).general
+        private val prefsFiles = this@VisualizerWallpaperService.geodeContainer.prefsFiles
+        private val prefsStore = WallpaperPrefsStore(prefsFiles.wallpaper)
+        private val generalPrefs = prefsFiles.general
 
         /**
          * Settings › Performance, followed live: the app and the wallpaper share this process and
@@ -187,7 +188,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (MilkPresetMemory). */
         private fun restoreLook(engine: VisualizerRenderer) {
-            val prefsFiles = GeodePrefsFiles(this@VisualizerWallpaperService)
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()
             engine.look = looks.current()

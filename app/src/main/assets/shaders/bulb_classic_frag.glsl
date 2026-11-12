@@ -32,7 +32,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the palette drift. Complexity (uMorph) adds up to two fractal
+// Speed scales the palette drift. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the bass swell. Colour is tone(), the bronze ramp pal() tints; Space is

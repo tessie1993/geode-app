@@ -5,7 +5,7 @@ import org.junit.Test
 
 /**
  * Only the passthrough is Kotlin. The conversion is tested natively (core/tests/resampler_test.cpp), and the
- * AAC rate policy and s16 timing moved to core/audio/dsp/PcmTiming with their cases (core/tests/clip_media_test.cpp):
+ * AAC rate policy and s16 timing moved to core/audio/dsp/PcmTiming with their cases (core/tests/export_pcm_test.cpp):
  * JVM tests have no native library.
  */
 class PcmResamplerTest {

@@ -14,6 +14,7 @@
 #include "viz/BandTrim.hpp"
 #include "viz/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
+#include "viz/Catalogue.hpp"
 #include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"
@@ -169,10 +170,14 @@ void triggersHoldAndSilenceIsQuiet() {
     f.kick = 0.1f;
     s.step(f, 1.0f / 60.0f);
     check(s.value(ReactSource::Kick) >= 0.5f, "even a soft hit crosses the edge Step, Jump and Toggle listen for");
+    check(s.value(ReactSource::Transient) == 0.0f, "no transient without one");
+    f.transient = 0.2f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Transient) >= 0.5f, "a transient is an event like a hit");
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 118, "dev.geode.render.ReactSource has 118 entries");
+    static_assert(kReactSourceCount == 121, "121 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -181,6 +186,8 @@ void sourcesReadTheirFieldsInRange() {
     f.eq[9] = 1.0f;
     f.eq[15] = 3.0f;
     f.fadeGain = 0.25f;
+    f.transientEnv = 0.6f;
+    f.transientSharpness = 0.8f;
     f.bassTime = 0.0f;
     s.step(f, 0.1f);
     f.bassTime = 0.1f;  // one second of clock per second
@@ -189,6 +196,8 @@ void sourcesReadTheirFieldsInRange() {
     check(std::fabs(s.value(ReactSource::Low) - 0.7f) < 1e-5f, "a shaped level reads as it is");
     check(std::fabs(s.value(ReactSource::StereoPan) + 0.4f) < 1e-5f, "pan keeps its sign");
     check(std::fabs(s.value(ReactSource::FadeGain) - 0.25f) < 1e-5f, "the player's fade gain reads as it is");
+    check(std::fabs(s.value(ReactSource::TransientEnv) - 0.6f) < 1e-5f && std::fabs(s.value(ReactSource::TransientSharpness) - 0.8f) < 1e-5f,
+          "the transient's envelope and sharpness read as they are");
     check(std::fabs(s.value(ReactSource::Eq1k5) - 0.5f) < 1e-5f, "an EQ band reads its own band, halved");
     check(s.value(ReactSource::Eq22k) == 1.0f && s.value(ReactSource::Eq25) == 0.0f, "the last EQ band is the 22 kHz one");
     check(std::fabs(s.value(ReactSource::BassTime) - 0.5f) < 1e-4f, "a clock reads its rate");
@@ -598,6 +607,37 @@ void dnaLeavesRoomAndStaysInRange() {
     }
 }
 
+// The owner: "make all styles use transient detection", inside "no hardcoded reactions". So every style's DNA
+// (what plays until the user edits it, and what the user sees and edits in the matrix) holds a route from the
+// transient detector, whatever its traits and seed, within the cap, and the layer comes last: without it the
+// routes before it are what they were.
+void everyStyleHearsTransients() {
+    const auto heard = [](const StyleDna& dna) {
+        for (int r = 0; r < dna.count; ++r) {
+            const ReactSource s = dna.routes[static_cast<size_t>(r)].source;
+            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 1;
+        }
+        return false;
+    };
+    int styles = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        ++styles;
+        for (int seed = 0; seed < 4; ++seed) {
+            for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
+                const StyleDna dna = buildStyleDna(id, seed, t);
+                check(heard(dna), "every style's DNA ends on one transient route");
+                check(dna.count <= StyleDna::kMaxRoutes, "the transient layer keeps the DNA within its cap");
+            }
+        }
+    }
+    check(styles > 100, "the catalogue's styles were checked");
+    std::set<int> targets;
+    for (int i = 0; i < kStyleCount; ++i) {
+        const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
+        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 1)].target));
+    }
+    check(targets.size() >= 3, "the transient layer's target is the style's own, not one for every style");
+}
 
 // Music playing at a steady level, for the camera's own moves.
 GeodeSoundFrame playing() {
@@ -1883,6 +1923,7 @@ int main() {
     dnaSourcesVaryAcrossStyles();
     dnaRespectsStyleTraits();
     dnaLeavesRoomAndStaysInRange();
+    everyStyleHearsTransients();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

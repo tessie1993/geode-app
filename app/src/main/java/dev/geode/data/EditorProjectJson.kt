@@ -1,69 +1,38 @@
 package dev.geode.data
 
-import dev.geode.editor.BeatCut
-import dev.geode.editor.BezierCurve
-import dev.geode.editor.Clip
-import dev.geode.editor.ClipContent
-import dev.geode.editor.ClipId
-import dev.geode.editor.ClipTransition
-import dev.geode.editor.EaseShape
-import dev.geode.editor.EditorProject
-import dev.geode.editor.Interpolation
-import dev.geode.editor.Keyframe
-import dev.geode.editor.KeyframeId
-import dev.geode.editor.KeyframeSheet
-import dev.geode.editor.KeyframeTrack
-import dev.geode.editor.Lane
-import dev.geode.editor.LaneId
-import dev.geode.editor.LaneKind
-import dev.geode.editor.Marker
-import dev.geode.editor.MarkerColour
-import dev.geode.editor.MarkerId
-import dev.geode.editor.MarkerOrigin
-import dev.geode.editor.MarkerSet
-import dev.geode.editor.OverlayBlend
-import dev.geode.editor.ParamId
-import dev.geode.editor.ParamValue
 import dev.geode.editor.ProjectId
-import dev.geode.editor.ProjectKind
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
-import dev.geode.editor.Timeline
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportCodec
-import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The on-disk shapes of the Studio model: an [EditorProject] (the edit), a [StudioProject] (a
- * project folder's `project.json`: the edit plus kind, export settings and renders) and a
- * [ProjectTemplate] (a template folder's `template.json`). Variants carry a "type"/"kind" tag;
- * unknown tags fail the read, and a file from a newer app is refused rather than half-read.
+ * The on-disk shapes of the Studio model: a [StudioProject] (a project folder's `project.json`: the
+ * edit plus kind, export settings and renders) and a [ProjectTemplate] (a template folder's
+ * `template.json`). The kind and the edit are native's documents (`core/studio`): native reads them,
+ * with their defaults, order and unknown tags, and this file embeds the JSON it hands back as it is.
+ * A part native refuses fails the read, and a file from a newer app is refused rather than half-read.
  */
 internal object EditorProjectJson {
-    const val VERSION = 1
-
-    /** Version of `project.json` and `template.json`, separate from the edit's own [VERSION]. */
+    /** Version of `project.json` and `template.json`; the edit carries its own. */
     const val FOLDER_VERSION = 1
-
-    fun toJson(project: EditorProject): String = edit(project).toString(2)
-
-    fun fromJson(json: String): EditorProject = edit(JSONObject(json))
 
     fun projectToJson(p: StudioProject): String =
         JSONObject()
             .put("version", FOLDER_VERSION)
             .put("id", p.id.value)
             .put("name", p.name)
-            .put("kind", kind(p.kind))
+            .put("kind", JSONObject(p.kind))
             .put("destination", p.destination.name)
             .put("export", export(p.export))
             .put("createdAtMs", p.createdAtMs)
             .put("updatedAtMs", p.updatedAtMs)
             .putOpt("templateId", p.templateId?.value)
             .put("renders", JSONArray(p.renders.map(::render)))
-            .put("edit", edit(p.edit))
+            .put("edit", JSONObject(p.edit))
             .toString(2)
 
     fun projectFromJson(json: String): StudioProject {
@@ -72,10 +41,10 @@ internal object EditorProjectJson {
         return StudioProject(
             id = ProjectId(o.getString("id")),
             name = o.optString("name", ""),
-            kind = o.optJSONObject("kind")?.let(::kind) ?: ProjectKind.Standard,
+            kind = kind(o),
+            edit = edit(o),
             destination = ExportDestination.byName(o.stringOrNull("destination")),
             export = o.optJSONObject("export")?.let(::export) ?: ExportDefaults(),
-            edit = o.optJSONObject("edit")?.let(::edit) ?: EditorProject(),
             renders = o.optJSONArray("renders").items(::render),
             createdAtMs = o.optLong("createdAtMs", 0L),
             updatedAtMs = o.optLong("updatedAtMs", 0L),
@@ -89,51 +58,20 @@ internal object EditorProjectJson {
         return ProjectTemplate(
             id = ProjectId(o.getString("id")),
             name = o.optString("name", ""),
-            kind = o.optJSONObject("kind")?.let(::kind) ?: ProjectKind.Standard,
+            kind = kind(o),
+            edit = edit(o),
             destination = ExportDestination.byName(o.stringOrNull("destination")),
             export = o.optJSONObject("export")?.let(::export) ?: ExportDefaults(),
-            edit = o.optJSONObject("edit")?.let(::edit) ?: EditorProject(),
             lengthMs = o.optLong("lengthMs", 0L),
             createdAtMs = o.optLong("createdAtMs", 0L),
         )
     }
 
-    private fun edit(project: EditorProject): JSONObject =
-        JSONObject()
-            .put("version", VERSION)
-            .put("timeline", timeline(project.timeline))
-            .put("markers", JSONArray(project.markers.markers.map(::marker)))
-            .put("keyframes", JSONArray(project.keyframes.tracks.map(::track)))
+    private fun kind(o: JSONObject): String =
+        requireNotNull(GeodeNative.studioKindRead(o.optJSONObject("kind")?.toString())) { "unknown Studio project kind" }
 
-    private fun edit(o: JSONObject): EditorProject {
-        require(o.optInt("version", VERSION) <= VERSION) { "editor project from a newer app" }
-        return EditorProject(
-            timeline = timeline(o.getJSONObject("timeline")),
-            markers = MarkerSet().addAll(o.optJSONArray("markers").items(::marker)),
-            keyframes = KeyframeSheet().withTracks(o.optJSONArray("keyframes").items(::track)),
-        )
-    }
-
-    private fun kind(k: ProjectKind): JSONObject =
-        when (k) {
-            ProjectKind.Standard -> JSONObject().put("type", "standard")
-            is ProjectKind.Loop ->
-                JSONObject()
-                    .put("type", "loop")
-                    .put("targetLengthMs", k.targetLengthMs)
-                    .put("loopLengthMs", k.loopLengthMs)
-        }
-
-    private fun kind(o: JSONObject): ProjectKind =
-        when (val type = o.getString("type")) {
-            "standard" -> ProjectKind.Standard
-            "loop" ->
-                ProjectKind.Loop(
-                    targetLengthMs = o.optLong("targetLengthMs", ProjectKind.DEFAULT_LOOP_LENGTH_MS),
-                    loopLengthMs = o.optLong("loopLengthMs", ProjectKind.DEFAULT_LOOP_MS),
-                )
-            else -> throw IllegalArgumentException("unknown project kind: $type")
-        }
+    private fun edit(o: JSONObject): String =
+        requireNotNull(GeodeNative.studioEditRead(o.optJSONObject("edit")?.toString())) { "unreadable Studio edit" }
 
     private fun export(d: ExportDefaults): JSONObject =
         JSONObject()
@@ -173,281 +111,6 @@ internal object EditorProjectJson {
             createdAtMs = o.optLong("createdAtMs", 0L),
             durationMs = o.optLong("durationMs", 0L),
         )
-
-    private fun timeline(t: Timeline): JSONObject =
-        JSONObject()
-            .put("durationMs", t.durationMs)
-            .put("lanes", JSONArray(t.lanes.map(::lane)))
-
-    private fun timeline(o: JSONObject): Timeline =
-        Timeline(lanes = o.optJSONArray("lanes").items(::lane), durationMs = o.optLong("durationMs", 0L))
-
-    private fun lane(l: Lane): JSONObject =
-        JSONObject()
-            .put("id", l.id.value)
-            .put("kind", laneKindName(l.kind))
-            .put("name", l.name)
-            .put("muted", l.muted)
-            .put("locked", l.locked)
-            .put("clips", JSONArray(l.clips.map(::clip)))
-
-    private fun lane(o: JSONObject): Lane =
-        Lane(
-            id = LaneId(o.getString("id")),
-            kind = laneKind(o.getString("kind")),
-            name = o.optString("name", ""),
-            muted = o.optBoolean("muted", false),
-            locked = o.optBoolean("locked", false),
-        ).withClips(o.optJSONArray("clips").items(::clip))
-
-    private fun clip(c: Clip): JSONObject =
-        JSONObject()
-            .put("id", c.id.value)
-            .put("startMs", c.startMs)
-            .put("durationMs", c.durationMs)
-            .put("sourceInMs", c.sourceInMs)
-            .put("sourceDurationMs", c.sourceDurationMs)
-            .put("label", c.label)
-            .put("enabled", c.enabled)
-            .putOpt("transition", c.transition?.let(::transition))
-            .put("content", content(c.content))
-
-    private fun clip(o: JSONObject): Clip =
-        Clip(
-            id = ClipId(o.getString("id")),
-            content = content(o.getJSONObject("content")),
-            startMs = o.getLong("startMs"),
-            durationMs = o.getLong("durationMs"),
-            sourceInMs = o.optLong("sourceInMs", 0L),
-            sourceDurationMs = o.optLong("sourceDurationMs", 0L),
-            label = o.optString("label", ""),
-            enabled = o.optBoolean("enabled", true),
-            transition = o.optJSONObject("transition")?.let(::transition),
-        )
-
-    private fun transition(t: ClipTransition): JSONObject =
-        JSONObject().put("id", t.id).put("durationMs", t.durationMs).put("onBeat", t.onBeat)
-
-    private fun transition(o: JSONObject): ClipTransition =
-        ClipTransition(
-            o.getString("id"),
-            o.optLong("durationMs", ClipTransition.DEFAULT_TRANSITION_MS),
-            o.optBoolean("onBeat", false),
-        )
-
-    private fun content(c: ClipContent): JSONObject =
-        when (c) {
-            is ClipContent.Scene ->
-                JSONObject()
-                    .put("type", "scene")
-                    .put("sceneId", c.sceneId)
-                    .putOpt("presetId", c.presetId)
-                    .putOpt("milkPath", c.milkPath)
-                    .putOpt("beatCut", c.beatCut?.let(::beatCut))
-            is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri)
-            is ClipContent.Still -> JSONObject().put("type", "still").put("uri", c.uri).put("kenBurns", c.kenBurns.toDouble())
-            is ClipContent.Text -> JSONObject().put("type", "text").put("text", c.text).putOpt("styleId", c.styleId)
-            is ClipContent.Overlay ->
-                JSONObject()
-                    .put("type", "overlay")
-                    .put("uri", c.uri)
-                    .put("blend", c.blend.name)
-                    .put("opacity", c.opacity.toDouble())
-            is ClipContent.Audio -> JSONObject().put("type", "audio").put("uri", c.uri).put("gainDb", c.gainDb.toDouble())
-        }
-
-    private fun content(o: JSONObject): ClipContent =
-        when (val type = o.getString("type")) {
-            "scene" ->
-                ClipContent.Scene(
-                    sceneId = StyleCatalogue.resolve(o.getString("sceneId")),
-                    presetId = o.stringOrNull("presetId"),
-                    milkPath = o.stringOrNull("milkPath"),
-                    beatCut = o.optJSONObject("beatCut")?.let(::beatCut),
-                )
-            // A project the dropped video editor saved (#227) may still carry the clip's grade under
-            // "edit": nothing renders a video clip any more, so it is skipped rather than read.
-            "video" -> ClipContent.Video(o.getString("uri"))
-            "still" -> ClipContent.Still(o.getString("uri"), o.optDouble("kenBurns", 0.0).toFloat())
-            "text" -> ClipContent.Text(o.getString("text"), o.stringOrNull("styleId"))
-            "overlay" ->
-                ClipContent.Overlay(
-                    o.getString("uri"),
-                    enumOr(o.optString("blend"), OverlayBlend.SCREEN),
-                    o.optDouble("opacity", 1.0).toFloat(),
-                )
-            "audio" -> ClipContent.Audio(o.getString("uri"), o.optDouble("gainDb", 0.0).toFloat())
-            else -> throw IllegalArgumentException("unknown clip content: $type")
-        }
-
-    private fun beatCut(b: BeatCut): JSONObject = JSONObject().put("sceneIds", JSONArray(b.sceneIds)).put("everyBeats", b.everyBeats)
-
-    private fun beatCut(o: JSONObject): BeatCut {
-        val ids = o.optJSONArray("sceneIds")
-        return BeatCut(
-            sceneIds = if (ids == null) emptyList() else List(ids.length()) { ids.getString(it) },
-            everyBeats = o.optInt("everyBeats", BeatCut.DEFAULT_BEATS_PER_CUT).coerceAtLeast(1),
-        )
-    }
-
-    private fun marker(m: Marker): JSONObject =
-        JSONObject()
-            .put("id", m.id.value)
-            .put("atMs", m.atMs)
-            .put("name", m.name)
-            .put("colour", m.colour.name)
-            .put("note", m.note)
-            .put(
-                "origin",
-                when (val origin = m.origin) {
-                    MarkerOrigin.Manual -> JSONObject().put("type", "manual")
-                    is MarkerOrigin.TappedIn ->
-                        JSONObject().put("type", "tapped").put("rawAtMs", origin.rawAtMs).put("latencyMs", origin.latencyCompensationMs)
-                    is MarkerOrigin.Detected ->
-                        JSONObject()
-                            .put("type", "detected")
-                            .put("confidence", origin.confidence.toDouble())
-                            .put("strength", origin.strength.toDouble())
-                },
-            )
-
-    private fun marker(o: JSONObject): Marker {
-        val origin = o.optJSONObject("origin")
-        return Marker(
-            id = MarkerId(o.getString("id")),
-            atMs = o.getLong("atMs"),
-            name = o.optString("name", ""),
-            colour = enumOr(o.optString("colour"), MarkerColour.CYAN),
-            note = o.optString("note", ""),
-            // Hoisting the null check up front removes the `!!` the two non-manual branches used
-            // to rely on `origin` being non-null after the `when` had already matched on it.
-            origin =
-                run {
-                    val o = origin ?: return@run MarkerOrigin.Manual
-                    when (val type = o.optString("type", "manual")) {
-                        "manual" -> MarkerOrigin.Manual
-                        "tapped" -> MarkerOrigin.TappedIn(o.getLong("rawAtMs"), o.getLong("latencyMs"))
-                        "detected" ->
-                            MarkerOrigin.Detected(
-                                o.optDouble("confidence", 0.0).toFloat(),
-                                o.optDouble("strength", 0.0).toFloat(),
-                            )
-                        else -> throw IllegalArgumentException("unknown marker origin: $type")
-                    }
-                },
-        )
-    }
-
-    private fun track(t: KeyframeTrack): JSONObject =
-        JSONObject()
-            .put("paramId", t.paramId.value)
-            .putOpt("clipId", t.clipId?.value)
-            .put("enabled", t.enabled)
-            .put("keys", JSONArray(t.keys.map(::key)))
-
-    private fun track(o: JSONObject): KeyframeTrack =
-        KeyframeTrack(
-            paramId = ParamId(o.getString("paramId")),
-            clipId = o.stringOrNull("clipId")?.let(::ClipId),
-            enabled = o.optBoolean("enabled", true),
-            keys = o.optJSONArray("keys").items(::key).sortedBy { it.atMs },
-        )
-
-    private fun key(k: Keyframe): JSONObject =
-        JSONObject()
-            .put("id", k.id.value)
-            .put("atMs", k.atMs)
-            .put("value", value(k.value))
-            .put("interpolation", interpolation(k.interpolation))
-
-    private fun key(o: JSONObject): Keyframe =
-        Keyframe(
-            id = KeyframeId(o.getString("id")),
-            atMs = o.getLong("atMs"),
-            value = value(o.getJSONObject("value")),
-            interpolation = o.optJSONObject("interpolation")?.let(::interpolation) ?: Interpolation.Linear,
-        )
-
-    private fun value(v: ParamValue): JSONObject =
-        when (v) {
-            is ParamValue.Scalar -> JSONObject().put("kind", "scalar").put("value", v.value.toDouble())
-            is ParamValue.Vector2 -> JSONObject().put("kind", "vector2").put("x", v.x.toDouble()).put("y", v.y.toDouble())
-            is ParamValue.Colour ->
-                JSONObject()
-                    .put("kind", "colour")
-                    .put("r", v.r.toDouble())
-                    .put("g", v.g.toDouble())
-                    .put("b", v.b.toDouble())
-                    .put("a", v.a.toDouble())
-            is ParamValue.Toggle -> JSONObject().put("kind", "toggle").put("on", v.on)
-            is ParamValue.Choice -> JSONObject().put("kind", "choice").put("index", v.index)
-        }
-
-    private fun value(o: JSONObject): ParamValue =
-        when (val kind = o.getString("kind")) {
-            "scalar" -> ParamValue.Scalar(o.getDouble("value").toFloat())
-            "vector2" -> ParamValue.Vector2(o.getDouble("x").toFloat(), o.getDouble("y").toFloat())
-            "colour" ->
-                ParamValue.Colour(
-                    o.getDouble("r").toFloat(),
-                    o.getDouble("g").toFloat(),
-                    o.getDouble("b").toFloat(),
-                    o.optDouble("a", 1.0).toFloat(),
-                )
-            "toggle" -> ParamValue.Toggle(o.getBoolean("on"))
-            "choice" -> ParamValue.Choice(o.getInt("index"))
-            else -> throw IllegalArgumentException("unknown keyframe value: $kind")
-        }
-
-    private fun interpolation(i: Interpolation): JSONObject =
-        when (i) {
-            Interpolation.Hold -> JSONObject().put("type", "hold")
-            Interpolation.Linear -> JSONObject().put("type", "linear")
-            is Interpolation.Ease -> JSONObject().put("type", "ease").put("shape", i.shape.name)
-            is Interpolation.Custom ->
-                JSONObject()
-                    .put("type", "custom")
-                    .put("c1x", i.curve.c1x.toDouble())
-                    .put("c1y", i.curve.c1y.toDouble())
-                    .put("c2x", i.curve.c2x.toDouble())
-                    .put("c2y", i.curve.c2y.toDouble())
-        }
-
-    private fun interpolation(o: JSONObject): Interpolation =
-        when (val type = o.getString("type")) {
-            "hold" -> Interpolation.Hold
-            "linear" -> Interpolation.Linear
-            "ease" -> Interpolation.Ease(enumOr(o.optString("shape"), EaseShape.IN_OUT))
-            "custom" ->
-                Interpolation.Custom(
-                    BezierCurve(
-                        o.getDouble("c1x").toFloat(),
-                        o.getDouble("c1y").toFloat(),
-                        o.getDouble("c2x").toFloat(),
-                        o.getDouble("c2y").toFloat(),
-                    ),
-                )
-            else -> throw IllegalArgumentException("unknown interpolation: $type")
-        }
-
-    private fun laneKindName(kind: LaneKind): String =
-        when (kind) {
-            LaneKind.Visual -> "visual"
-            LaneKind.Media -> "media"
-            LaneKind.Text -> "text"
-            LaneKind.Overlay -> "overlay"
-            LaneKind.Audio -> "audio"
-        }
-
-    private fun laneKind(name: String): LaneKind =
-        when (name) {
-            "visual" -> LaneKind.Visual
-            "media" -> LaneKind.Media
-            "text" -> LaneKind.Text
-            "overlay" -> LaneKind.Overlay
-            "audio" -> LaneKind.Audio
-            else -> throw IllegalArgumentException("unknown lane kind: $name")
-        }
 
     private inline fun <reified T : Enum<T>> enumOr(
         name: String,

@@ -35,6 +35,20 @@ Java_dev_geode_engine_bridge_GeodeNative_dspBandCenterHz(JNIEnv*, jobject, jint 
     return geode_dsp_band_center_hz(band);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspEqPresetCount(JNIEnv*, jobject) {
+    return geode_dsp_eq_preset_count();
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspEqPresetLevels(JNIEnv* env, jobject, jint preset, jintArray out) {
+    int32_t levels[GEODE_DSP_BANDS] = {};
+    const int n = geode_dsp_eq_preset_levels(preset, levels, GEODE_DSP_BANDS);
+    if (out == nullptr || n <= 0 || env->GetArrayLength(out) < n) return 0;
+    env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
+    return n;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetEnabled(JNIEnv*, jobject, jlong handle, jboolean enabled) {
     geode_dsp_set_enabled(dspOf(handle), enabled == JNI_TRUE);

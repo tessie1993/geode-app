@@ -6,7 +6,7 @@ import androidx.core.net.toUri
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
-import dev.geode.editor.MIN_CLIP_DURATION_MS
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -375,7 +375,7 @@ internal class ExportController(
      * always this one: a single scene clip over a single song clip of the same span, which the plan
      * always made direct. The plan, the composition and the Studio exporter went with the editor.
      *
-     * The checks keep the plan's order: a range shorter than [MIN_CLIP_DURATION_MS] has no stretch of
+     * The checks keep the plan's order: a range shorter than [GeodeNative.studioMinClipMs] has no stretch of
      * song to draw over (the plan skipped it), then the style is checked against the entitlement.
      */
     private suspend fun renderOneTap(
@@ -388,7 +388,7 @@ internal class ExportController(
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
     ): RenderResult {
-        if (range != null && range.durationMs < MIN_CLIP_DURATION_MS) return RenderResult.NothingToRender
+        if (range != null && range.durationMs < GeodeNative.studioMinClipMs()) return RenderResult.NothingToRender
         val pinned = host.look.pin()
         if (!host.allowsStyle(sceneFactory.sceneId)) return RenderResult.Locked
         val result =

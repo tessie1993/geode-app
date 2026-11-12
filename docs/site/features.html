@@ -80,6 +80,9 @@
   .feature ul { color: var(--muted); padding-left: 1.2rem; }
   .feature li + li { margin-top: .4rem; }
   .shot { justify-self: center; position: relative; }
+  .shot.pair { display: flex; gap: 1rem; align-items: flex-start; }
+  .shot.pair img { width: min(40vw, 15rem); }
+  .shot.pair img + img { margin-top: 3rem; }
   .shot img { width: min(72vw, 19rem); height: auto; aspect-ratio: 720 / 1403; object-fit: cover; border-radius: 1.8rem; display: block; border: 1px solid rgba(199, 146, 234, .35); box-shadow: 0 0 2px rgba(247, 210, 251, .6), 0 30px 80px rgba(124, 77, 255, .3); }
   .shot::before { content: ""; position: absolute; inset: 12% -10%; border-radius: 50%; background: conic-gradient(var(--violet), var(--cyan), var(--lilac), var(--violet)); filter: blur(60px); opacity: .35; z-index: -1; animation: spin 18s linear infinite; }
   .tag { display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em; border-radius: 999px; padding: .15rem .55rem; vertical-align: middle; margin-left: .35rem; }
@@ -219,6 +222,10 @@
         <img class="reveal" src="assets/shots/ribbon-vortex.webp" alt="Ribbons of green and violet light spiralling inward" loading="lazy" width="720" height="1403">
         <img class="reveal" src="assets/shots/neon-flowers.webp" alt="Blue neon flowers spiralling into the dark" loading="lazy" width="720" height="1403">
         <img class="reveal" src="assets/shots/teal-kaleido.webp" alt="A teal and amber kaleidoscope tunnel" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="assets/shots/visuals-gold.webp" alt="A golden kaleidoscope burst on the Visuals screen" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="assets/shots/amber-web.webp" alt="An amber web of light lines folding toward the centre" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="assets/shots/fire-storm.webp" alt="Orange light streaming like fire" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="assets/shots/visuals-kaleido.webp" alt="Rings of coloured light on the Visuals screen" loading="lazy" width="720" height="1403">
       </div>
       <p class="caption">Screenshots of the app on a phone, playing music.</p>
     </div>
@@ -266,7 +273,7 @@
           <li>A home screen widget and a Quick Settings tile</li>
         </ul>
       </div>
-      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/visuals-kaleido.webp" alt="The Visuals screen: the visual, the player bar and the Player, Library, Visuals, Studio and Settings tabs" loading="lazy" width="720" height="1403"></div>
+      <div class="shot pair reveal" data-drift="0.07"><img src="assets/shots/screen-player.webp" alt="The Player screen: artwork, the seek bar with A-B repeat, and the play controls" loading="lazy" width="720" height="1403"><img src="assets/shots/screen-settings.webp" alt="Settings with BeatRealms Pro unlocked, and the Playback, Sound and equalizer, Output and Library sections" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -285,7 +292,7 @@
         <p><span class="tag free">Free</span> up to 1080p at 30 fps, one minute, with a watermark. <span class="tag pro">Pro</span> 4K, 60 fps, full length, no watermark, plus loop renders and renders of a whole queue or playlist.</p>
         <p class="caption">The highest frame rate at each size, and HEVC, depend on what your phone's video encoder can do.</p>
       </div>
-      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/ember-spire.webp" alt="A red ember spire of folded light, full screen in the app" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/screen-studio.webp" alt="Studio, Render tab: the source track, the look, and the format set to 4K at 60 fps" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 

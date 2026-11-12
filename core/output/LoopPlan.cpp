@@ -51,7 +51,9 @@ float seamWeight(int tail, int seamFrames) {
     return seamFrames > 1 ? static_cast<float>(tail) / (static_cast<float>(seamFrames) - 1.0f) : 1.0f;
 }
 
-bool driftMoves(float hueTurns, float warmth, int stops) { return stops > 1 && (hueTurns != 0.0f || warmth != 0.0f); }
+bool driftMoves(float hueTurns, float warmth, int stops) {
+    return stops > 1 && std::isfinite(hueTurns) && std::isfinite(warmth) && (hueTurns != 0.0f || warmth != 0.0f);
+}
 
 int driftStops(float hueTurns, float warmth, int stops, DriftStop* out, int capacity) {
     if (!driftMoves(hueTurns, warmth, stops)) {

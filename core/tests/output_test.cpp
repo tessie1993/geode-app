@@ -185,6 +185,13 @@ void loopExtend() {
           "ABI plan");
     check(geode_loop_estimated_bytes(30'000'000, 100'000'000, 1000, 500) == 4590, "ABI estimated bytes");
     check(geode_loop_fitting_bit_rate(100'000'000, 4'000'000, 1'000'000) == 240'000, "ABI fitting bit rate");
+    int64_t limits[6] = {};
+    check(geode_loop_limits(limits, 6) == 6 && limits[0] == 30'000 && limits[1] == 300'000 && limits[2] == 200 &&
+              limits[3] == 5'000 && limits[4] == 1'000 && limits[5] == kMaxDriftStops,
+          "ABI loop limits");
+    int64_t two[3] = {0, 0, -1};
+    check(geode_loop_limits(two, 2) == 6 && two[1] == 300'000 && two[2] == -1 && geode_loop_limits(nullptr, 0) == 6,
+          "ABI loop limits fill only what fits");
     geode_loop_spec s{};
     geode_loop_spec_of(60'000, 1'000, 60, &s);
     check(s.crossfade_frames == 60 && s.loop_frames == 3600 && s.source_frames == 3660, "ABI loop spec");
@@ -267,6 +274,8 @@ void drift() {
         check(stops[i].index == i && stops[i].hueOffset == hue[i] && stops[i].warmthOffset == warm[i],
               "each stop's offset is the drift times index / (stops - 1)");
     }
+    check(driftStops(std::nanf(""), 0.0f, 3, stops, kMaxDriftStops) == 1 && stops[0].hueOffset == 0.0f,
+          "a drift that is not a number does not move");
     check(driftStops(0.1f, 0.0f, 3, stops, kMaxDriftStops) == 3 && stops[1].hueOffset == 0.1f * 0.5f &&
               stops[2].hueOffset == 0.1f,
           "a hue-only drift");

@@ -56,6 +56,15 @@ void geode_loop_spec_fill(geode_loop_spec* spec) {
     fill(s, spec);
 }
 
+int geode_loop_limits(int64_t* o, int capacity) {
+    const int64_t limits[] = {out::LoopSpec::kMinLoopMs,      out::LoopSpec::kMaxLoopMs,
+                              out::LoopSpec::kMinCrossfadeMs, out::LoopSpec::kMaxCrossfadeMs,
+                              out::LoopSpec::kDefaultCrossfadeMs, out::kMaxDriftStops};
+    const int count = static_cast<int>(sizeof limits / sizeof limits[0]);
+    for (int i = 0; o && i < count && i < capacity; ++i) o[i] = limits[i];
+    return count;
+}
+
 float geode_loop_seam_weight(int tail, int seam_frames) { return out::seamWeight(tail, seam_frames); }
 
 int geode_loudness_window(int target, double* out4) {

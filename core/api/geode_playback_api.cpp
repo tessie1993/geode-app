@@ -23,4 +23,8 @@ float geode_playback_clamp(int control, float value) { return geode::audio::clam
 
 int geode_playback_crossfade_ms(float seconds) { return geode::audio::crossfadeMsFromSeconds(seconds); }
 
+int geode_playback_error_action(int consecutive_failures, int has_next) {
+    return static_cast<int>(geode::audio::errorAction(consecutive_failures, has_next != 0));
+}
+
 }  // extern "C"

@@ -1,5 +1,5 @@
 // Host-side checks for Settings › Playback's speed and pitch rows (core/audio/dsp/PlaybackControls) and their
-// C ABI (geode_playback_pitch_ratio, geode_playback_snap). Built and run by CI ("Native host tests") with the
+// C ABI (geode_playback_pitch_ratio, geode_playback_snap, geode_playback_error_action). Built and run by CI ("Native host tests") with the
 // system compiler; no device.
 //
 // What is pinned: a semitone is a twelfth of an octave on the rate Media3 plays at, and a slider value lands
@@ -82,6 +82,18 @@ void crossfadeSliderRoundsToWholeSeconds() {
     check(crossfadeMsFromSeconds(std::numeric_limits<float>::quiet_NaN()) == 0, "NaN is Off");
 }
 
+void aFailingTrackSkipsOrStops() {
+    using geode::audio::ErrorAction;
+    using geode::audio::errorAction;
+    check(errorAction(1, true) == ErrorAction::SkipToNext, "one failure with a next track skips");
+    check(errorAction(2, true) == ErrorAction::SkipToNext, "two failures in a row still skip");
+    check(errorAction(3, true) == ErrorAction::StopSourceUnavailable, "three in a row stop");
+    check(errorAction(7, true) == ErrorAction::StopSourceUnavailable, "more than three stop too");
+    check(errorAction(1, false) == ErrorAction::StopEndOfQueue, "nothing queued stops");
+    check(errorAction(2, false) == ErrorAction::StopEndOfQueue, "nothing queued stops after two");
+    check(errorAction(3, false) == ErrorAction::StopSourceUnavailable, "the failure count is checked first");
+}
+
 void cAbi() {
     float r[4] = {};
     check(geode_playback_range(3, r) == 1 && r[0] == 0.5f && r[1] == 2.0f && r[2] == 0.05f && r[3] == 1.0f, "speed range");
@@ -90,6 +102,9 @@ void cAbi() {
     check(geode_playback_crossfade_ms(5.2f) == 5000, "the C ABI's crossfade is the engine's");
     check(geode_playback_pitch_ratio(12.0f) == pitchRatio(12.0f), "the C ABI's pitch is the engine's");
     check(geode_playback_snap(1.37f, 0.05f) == snapToStep(1.37f, 0.05f), "the C ABI's snap is the engine's");
+    check(geode_playback_error_action(1, 1) == 0 && geode_playback_error_action(1, 0) == 1 &&
+              geode_playback_error_action(3, 1) == 2,
+          "the C ABI's error action is the engine's");
 }
 
 }  // namespace
@@ -99,6 +114,7 @@ int main() {
     slidersLandOnTheirStep();
     rangesHoldTheSavedOptions();
     crossfadeSliderRoundsToWholeSeconds();
+    aFailingTrackSkipsOrStops();
     cAbi();
     if (failures == 0) std::printf("playback_controls_test: all passed\n");
     return failures == 0 ? 0 : 1;

@@ -41,4 +41,9 @@ int crossfadeMsFromSeconds(float seconds) {
     return static_cast<int>(whole * r.step);
 }
 
+ErrorAction errorAction(int consecutiveFailures, bool hasNext) {
+    if (consecutiveFailures >= kMaxConsecutiveFailures) return ErrorAction::StopSourceUnavailable;
+    return hasNext ? ErrorAction::SkipToNext : ErrorAction::StopEndOfQueue;
+}
+
 }  // namespace geode::audio

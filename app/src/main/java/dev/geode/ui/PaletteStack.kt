@@ -109,7 +109,8 @@ internal fun PaletteStackCard(
 /** A saved palette's colours: its stops, else native's stops for its hue ramp. */
 private fun coloursOf(palette: CustomPalette): List<Int> =
     palette.stops.ifEmpty {
-        runCatching { GeodeNative.paletteStopsFromHues(palette.baseHue, palette.hueSpan, HUE_RAMP_STOPS).toList() }.getOrDefault(emptyList())
+        runCatching { GeodeNative.paletteStopsFromHues(palette.baseHue, palette.hueSpan, HUE_RAMP_STOPS).toList() }
+            .getOrDefault(emptyList())
     }
 
 private const val HUE_RAMP_STOPS = 5

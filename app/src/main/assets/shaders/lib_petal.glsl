@@ -55,6 +55,11 @@
 // The world repeats along z every PETAL_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (PETAL_RATE).
 //
+// GROW AND LAYERS (lib_grow, petalField): Spawn slides a second bloom off the
+// first along the way, Fractal grows petals a third the size out of every
+// sheet, Front layer opens the bloom round the eye and Back layer the bloom
+// down the way. Each costs nothing at 0.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec3 petalMap(vec3 p), its sheets at p (x the signed
@@ -180,6 +185,8 @@ vec3 petalEye(vec3 ro, float bore) {
     ro.z = mod(ro.z, PETAL_PERIOD);
     float r = length(ro.xy);
     if (r > bore) ro.xy *= bore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

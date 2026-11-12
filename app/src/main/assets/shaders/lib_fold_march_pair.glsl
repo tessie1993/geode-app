@@ -13,8 +13,8 @@
 /** The surface's normal at p, unit length; straight back along the ray where the field is flat. */
 vec3 foldPairNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * foldMap(foldBend(p + e.xyy)).x + e.yyx * foldMap(foldBend(p + e.yyx)).x +
-        e.yxy * foldMap(foldBend(p + e.yxy)).x + e.xxx * foldMap(foldBend(p + e.xxx)).x;
+    vec3 g = e.xyy * FOLD_AT((p + e.xyy)).x + e.yyx * FOLD_AT((p + e.yyx)).x +
+        e.yxy * FOLD_AT((p + e.yxy)).x + e.xxx * FOLD_AT((p + e.xxx)).x;
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }
@@ -31,7 +31,7 @@ vec3 foldPair(vec3 ro, vec3 rd) {
     float near = 1.0e3;
     for (int i = 0; i < FOLD_PAIR_MAX; i++) {
         if (float(i) >= n || t > gFoldFar) break;
-        m = foldMap(foldBend(ro + rd * t));
+        m = FOLD_AT((ro + rd * t));
         float eps = gFoldCone * t + 2.0e-4;
         if (m.x < -eps) {
             t = back;
@@ -57,7 +57,7 @@ vec3 foldPair(vec3 ro, vec3 rd) {
     if (hit) {
         vec3 p = ro + rd * t;
         vec3 nor = foldPairNormal(p, rd, 1.5 * (gFoldCone * t + 2.0e-4));
-        float occ = clamp(foldMap(foldBend(p + nor * 0.1)).x / 0.1, 0.0, 1.0);
+        float occ = clamp(FOLD_AT((p + nor * 0.1)).x / 0.1, 0.0, 1.0);
         // Nothing lights right at the eye: flying into the crust must not fill the frame.
         col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
     }

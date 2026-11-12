@@ -236,10 +236,12 @@ constexpr std::array kFamilyMarched = {
 // one word here: Fractal Flame, Opal, Hollows, and the six after them.
 constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
 
-// The families whose library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm), by name.
-// A family joins with one word here once its lib_<family> reads the four (lib_scene_uniforms' uSpawn ..).
-constexpr std::array kFormFamilies = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain",
-                                      "truchet", "foam", "prism", "fluor", "loom", "shard", "petal", "fold"};
+// The families whose library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm), by name: the
+// six whose library reads the style's map through one field of its own (prismField, fluorField, loomField,
+// shardField, petalField, Fold's FOLD_AT), where lib_grow's rules go in once. A family joins with one word here
+// once its lib_<family> reads all four (lib_scene_uniforms' uSpawn ..). Flame, Opal and Hollows stay as they are
+// (owner); the older families call their maps from each style, so they need a field of their own first.
+constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold"};
 
 // The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
 // (uFormula, Scope::Formula), by id. Empty until a style reads uFormula: a style joins here in the commit that gives

@@ -82,6 +82,8 @@ uniform float uBackLayer;
 // (another fold operator, primitive or iteration rule), crossfaded or stepped
 // along 0..1; 0 is the style's first, as it always drew. ParamTable.inc formula.
 uniform float uFormula;
+// The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
+//#include lib_grow
 
 // ---- the style knobs --------------------------------------------------------
 //

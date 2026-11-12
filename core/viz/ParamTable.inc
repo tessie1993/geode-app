@@ -541,18 +541,19 @@ GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 // touches the palette, a brightness or a contrast, and none turns the picture. Each default is the picture
 // as it was, which every library keeps by taking its old path there. No roll deals them (ParamRandomizer).
 //
-// Spawn: more of the family's subject. A second copy of the world splits off the first and eases away,
-// smaller, as it rises (the petals, shards, bulbs, rings or cells double, then drift between the first).
+// Spawn: more of the family's subject. A second copy of the world splits off the first and eases away as
+// it rises (the petals, shards, threads or rosettes double, then drift between the first).
 GEODE_PARAM(Float, spawn, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(spawn, "Spawn", FamilyForm, kMod, 0, 0)
 // Fractal: the subject fractals out. Smaller self-similar copies of it grow on its own surface, out to a
-// shell that thickens as it rises (an extra fold, octave or recursion where the family has one).
+// shell that thickens as it rises.
 GEODE_PARAM(Float, fractal, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(fractal, "Fractal", FamilyForm, kMod, 0, 0)
-// Front layer and Back layer: how far the family's own foreground (the subject: shell, petals, chrome,
-// filaments) and its background (the sky, the field, the backdrop) open or draw in. 0 is as designed;
-// up opens and swells that layer, down draws it in. Two rows, so a route can move one layer alone: the
-// subject pulses with the kick while only the backdrop breathes with the chord.
+// Front layer and Back layer: how far the foreground and the background open or draw in. 0 is as designed;
+// up opens that layer, down draws it in. The layers are depth (lib_grow): flown through, what is round
+// the eye and what lies down the way; turned about, the subject and what lies beyond it; a family with a
+// backdrop of its own (Prism's sky, Loom's skins) moves it with the back layer. Two rows, so a route can
+// move one layer alone: the subject pulses with the kick while only the backdrop breathes with the chord.
 GEODE_PARAM(Float, frontLayer, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(frontLayer, "Front layer", FamilyForm, kMod, 0, 0)
 GEODE_PARAM(Float, backLayer, 0.0f, -1.0f, 1.0f, Fade)

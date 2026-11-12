@@ -11,8 +11,8 @@
 /** The field's gradient at p, unit length; straight back along the ray where the field is flat. */
 vec3 foldProbeNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * foldMap(foldBend(p + e.xyy)).x + e.yyx * foldMap(foldBend(p + e.yyx)).x +
-        e.yxy * foldMap(foldBend(p + e.yxy)).x + e.xxx * foldMap(foldBend(p + e.xxx)).x;
+    vec3 g = e.xyy * FOLD_AT((p + e.xyy)).x + e.yyx * FOLD_AT((p + e.yyx)).x +
+        e.yxy * FOLD_AT((p + e.yxy)).x + e.xxx * FOLD_AT((p + e.xxx)).x;
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }
@@ -28,7 +28,7 @@ vec3 foldProbe(vec3 ro, vec3 rd) {
     float near = 1.0e3;
     for (int i = 0; i < FOLD_PROBE_MAX; i++) {
         if (float(i) >= n || t > gFoldFar) break;
-        m = foldMap(foldBend(ro + rd * t));
+        m = FOLD_AT((ro + rd * t));
         if (m.x < 0.0) {
             hit = true;
             break;
@@ -44,7 +44,7 @@ vec3 foldProbe(vec3 ro, vec3 rd) {
         float b = t;
         for (int j = 0; j < 5; j++) {
             float mid = 0.5 * (a + b);
-            vec4 mm = foldMap(foldBend(ro + rd * mid));
+            vec4 mm = FOLD_AT((ro + rd * mid));
             if (mm.x < 0.0) {
                 b = mid;
                 m = mm;
@@ -55,7 +55,7 @@ vec3 foldProbe(vec3 ro, vec3 rd) {
         t = b;
         vec3 p = ro + rd * t;
         vec3 nor = foldProbeNormal(p, rd, 0.002 * (1.0 + t));
-        float occ = clamp(foldMap(foldBend(p + nor * 0.1)).x / 0.1, 0.0, 1.0);
+        float occ = clamp(FOLD_AT((p + nor * 0.1)).x / 0.1, 0.0, 1.0);
         // Nothing lights right at the eye: flying into the crust must not fill the frame.
         col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
     }

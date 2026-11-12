@@ -9,8 +9,26 @@
 // INCLUDE ORDER: after lib_prism and after the style's prismMap.
 
 vec2 prismField(vec3 p) {
-    vec3 q = prismBend(p);
+    float k = growOpen(p, 0.18);
+    vec3 q = growOpened(prismBend(p), k);
     vec2 m = prismMap(q);
+    // Grow and layers (lib_grow), each off at its default: Spawn slides a second chrome world off the first
+    // along the way (half a rosette cell at full), Fractal grows chrome a third the size out of every surface,
+    // and the layers open the chrome round the eye (front) and down the way (back), k at 1 while they rest.
+    if (uSpawn > 0.0) {
+        vec2 c = prismMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0));
+        c.x = growClearEye(c.x, p, 0.6);
+        if (c.x < m.x) m = c;
+    }
+    float reach = growFractalReach(0.2);
+    if (reach > 0.0) {
+        vec2 c = prismMap(growChildSpace(q, 3.0, 2.0)) / 3.0;
+        c.x = growClearEye(growFractalChild(c.x, m.x, reach), p, 0.6);
+        // A child's ribbons light only right at the child: its mirror lines run on through the air.
+        c.y = max(c.y, 4.0 * c.x);
+        if (c.x < m.x) m = c;
+    }
+    m.x *= k;
     vec3 s = sin(q * 4.0 + uTime * PRISM_RATE(1600) + vec3(0.0, 2.1, 4.2));
     m.x += gPrismChaos * 0.04 * (s.x * s.y + s.z);
     return m;

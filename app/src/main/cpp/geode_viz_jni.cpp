@@ -790,6 +790,16 @@ Java_dev_geode_engine_bridge_GeodeNative_artPaletteExtract(JNIEnv* env, jobject,
     return out;
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_widgetGlow(JNIEnv* env, jobject, jfloat artHue, jfloat artSpan, jboolean hasStyle,
+                                                    jint styleHash, jint tick) {
+    float got[18];
+    geode_widget_glow(artHue, artSpan, hasStyle ? 1 : 0, styleHash, tick, got);
+    jfloatArray out = env->NewFloatArray(18);
+    if (out) env->SetFloatArrayRegion(out, 0, 18, got);
+    return out;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paletteColourMapName(JNIEnv* env, jobject, jint index) {
     return env->NewStringUTF(geode_palette_colour_map_name(index));

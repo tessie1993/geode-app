@@ -812,7 +812,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-
     external fun vizLastError(handle: Long): String
 
     external fun vizSurfaceCreated(handle: Long)

@@ -3035,6 +3035,18 @@ object GeodeNative {
         out: DoubleArray,
     ): Int
 
+    /**
+     * An .lrc or plain lyrics (UTF-8 [text]) as core/library/Lyrics' wire form: "S" or "P" and a newline, then one
+     * "<timeMs>\t<text>\n" per line; empty when there are no lyrics.
+     */
+    external fun lyricsParse(text: ByteArray): ByteArray
+
+    /** The line sung at [positionMs] among ascending [timesMs]; -1 before the first, with none, or when plain. */
+    external fun lyricsIndexAt(
+        timesMs: LongArray,
+        positionMs: Long,
+    ): Int
+
     /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
     external fun castServerState(
         handle: Long,

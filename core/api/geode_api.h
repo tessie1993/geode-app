@@ -403,6 +403,14 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
+/* Lyrics (core/library/Lyrics). _parse reads UTF-8 .lrc or plain lyrics into the wire form: "S" (timed, sorted by
+ * time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
+ * lyrics. The text goes out as geode::api::textOut does (the return is the length needed). _index_at takes the
+ * ascending times of the lines and returns the line sung at `position_ms`: -1 before the first, with no lines,
+ * or when plain (first time -1). */
+GEODE_API int         geode_lyrics_parse(const char* text, char* out, int capacity);
+GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

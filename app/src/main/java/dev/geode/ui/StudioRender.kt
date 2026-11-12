@@ -74,10 +74,10 @@ import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRange
 import dev.geode.export.ExportRatio
-import dev.geode.export.LoudnessTarget
 import dev.geode.export.RenderPlaylist
 import dev.geode.export.RenderScope
 import dev.geode.geodeContainer
+import dev.geode.model.LoudnessTarget
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
@@ -730,7 +730,7 @@ private fun RenderSoundOptions(
 ) {
     OptionLabel(stringResource(R.string.export_loudness_target))
     RenderChipRow {
-        LoudnessTarget.ALL.forEach { target ->
+        LoudnessTarget.entries.forEach { target ->
             RenderChip(stringResource(target.labelRes), options.loudnessTargetId == target.id) {
                 update(options.copy(loudnessTargetId = target.id))
             }

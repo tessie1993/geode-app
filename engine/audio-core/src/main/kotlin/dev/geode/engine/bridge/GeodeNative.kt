@@ -1132,42 +1132,6 @@ object GeodeNative {
         ceilings: IntArray,
     ): IntArray
 
-    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
-
-    external fun loudnessSupports(channels: Int): Boolean
-
-    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
-    external fun loudnessCreate(
-        sampleRate: Int,
-        channels: Int,
-    ): Long
-
-    external fun loudnessDestroy(handle: Long)
-
-    /**
-     * Feeds the decoder output [buffer]'s bytes [offset] until [offset] + [size] (BufferInfo's span) to the
-     * meter where they lie: native-order s16, or float in -1..1 when [isFloat]. [buffer] must be direct, as
-     * MediaCodec's are; false, feeding nothing, when it is not or the span does not fit.
-     */
-    external fun loudnessFeedDirect(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        offset: Int,
-        size: Int,
-        isFloat: Boolean,
-    ): Boolean
-
-    external fun loudnessHasBlock(handle: Long): Boolean
-
-    /**
-     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
-     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
-     */
-    external fun loudnessFinish(
-        handle: Long,
-        out: DoubleArray,
-    ): Boolean
-
     // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
     // thread; the Kotlin exporters only marshal through these.
 
@@ -1276,27 +1240,6 @@ object GeodeNative {
         totalUs: Long,
         loops: Int,
     ): LongArray
-
-    /**
-     * What an export's measured loudness asks of platform [target] (0 Leave as-is, 1 YouTube, 2 Shorts;
-     * core/output/LoudnessAdvice): returns the kind (0 nothing to measure, 1 as mixed, 2 on target,
-     * 3 normalise) and fills [out] (9 doubles): gain dB, gain the level alone needed, resulting LUFS and true
-     * peak, direction (1, -1, 0), ceiling limited (1/0), band (-1 under, 1 over, 0 in), LU under YouTube worth
-     * saying (else 0), peak over YouTube's ceiling (1/0). [gated] false: nothing above the meter's gate.
-     */
-    external fun loudnessAdvise(
-        target: Int,
-        gated: Boolean,
-        lufs: Double,
-        truePeakDbtp: Double,
-        out: DoubleArray,
-    ): Int
-
-    /** [target]'s window, aim, low, high LUFS and true-peak ceiling into [out]; false when it does not normalise. */
-    external fun loudnessWindow(
-        target: Int,
-        out: DoubleArray,
-    ): Boolean
 
     /**
      * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
@@ -2787,4 +2730,21 @@ object GeodeNative {
 
     /** The shortest part a render is offered. */
     external fun exportRangeMinMs(): Long
+
+    // An export's platform audio work (core/api/geode_export_audio_api.h): blocking, on the caller's thread.
+
+    /**
+     * Decodes the finished render at [fd] (detached: native closes it; [offset] and [length] its span, length
+     * < 0: the whole descriptor) and reads its loudness for target [target] (0 Leave as-is, 1 YouTube, 2 Shorts).
+     * Returns the sentence to word it with (-1: nothing measured) and fills [out] (9 doubles): LUFS, true peak,
+     * gain, the gain the level alone needed, resulting LUFS and true peak, the target's ceiling, LU under
+     * YouTube worth saying (else 0), peak over YouTube's ceiling (1/0).
+     */
+    external fun exportLoudnessMeasure(
+        fd: Int,
+        offset: Long,
+        length: Long,
+        target: Int,
+        out: DoubleArray,
+    ): Int
 }

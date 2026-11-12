@@ -147,7 +147,7 @@ private fun RenderResult(
     }
     export.loudnessAdvice?.let { advice ->
         Text(
-            advice.headline(resources) + " " + advice.detail(resources),
+            advice.text(resources),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

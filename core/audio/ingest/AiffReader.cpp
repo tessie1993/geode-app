@@ -2,13 +2,154 @@
 
 #include <cerrno>
 #include <cstring>
+#include <limits>
 #include <unistd.h>
 
 namespace geode::audio::ingest {
 
 namespace {
 constexpr size_t kReadAhead = size_t{1} << 16;
+// COMM's fields: channels, frames, sample size and the ten-byte rate.
+constexpr int kCommBytes = 18;
+constexpr int64_t kMicros = 1'000'000;
+
+uint32_t be32(const uint8_t* b) {
+    return (uint32_t{b[0]} << 24) | (uint32_t{b[1]} << 16) | (uint32_t{b[2]} << 8) | uint32_t{b[3]};
+}
+
+// A signed 16-bit field.
+int be16(const uint8_t* b) { return static_cast<int16_t>(static_cast<uint16_t>((b[0] << 8) | b[1])); }
+
+bool tagIs(const uint8_t* b, const char* tag) { return std::memcmp(b, tag, 4) == 0; }
 }  // namespace
+
+AiffHeader::Pcm AiffHeader::pcm() const {
+    if (bits == 16) return littleEndian ? kS16Le : kS16Be;
+    if (littleEndian) return kNotPlayed;
+    return bits == 24 ? kS24Be : (bits == 32 ? kS32Be : kNotPlayed);
+}
+
+int AiffHeaderScan::extendedRate(const uint8_t* ten) {
+    const int exponent = ((ten[0] & 0x7F) << 8) | ten[1];
+    uint64_t mantissa = 0;
+    for (int i = 0; i < 8; ++i) mantissa = (mantissa << 8) | ten[2 + i];
+    if (mantissa == 0) return 0;
+    // The mantissa is a 64-bit whole number scaled by 2^(exponent - 16383 - 63): its low `below` bits are the
+    // fraction, and the top one of those rounds the rate up.
+    const int below = 63 - (exponent - 16383);
+    if (below < 0 || below > 64) return 0;
+    const uint64_t whole = below == 64 ? 0 : mantissa >> below;
+    const uint64_t half = below == 0 ? 0 : (mantissa >> (below - 1)) & 1;
+    const uint64_t rate = whole + half;
+    return rate > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) ? 0 : static_cast<int>(rate);
+}
+
+AiffHeaderScan::Status AiffHeaderScan::fail() {
+    ask(Phase::kInvalid, 0, 0);
+    return kInvalid;
+}
+
+void AiffHeaderScan::ask(Phase phase, int64_t skip, int read) {
+    phase_ = phase;
+    owed_ = skip;
+    want_ = read;
+}
+
+AiffHeaderScan::Status AiffHeaderScan::onChunkHead(const uint8_t* b) {
+    const int64_t size = be32(b + 4);
+    const int64_t padded = size + (size & 1);
+    if (tagIs(b, "COMM")) {
+        if (size < kCommBytes) return fail();
+        // The compression type is AIFF-C's alone; a plain AIFF's longer COMM carries nothing this reads.
+        const int fields = aifc_ && size >= kMaxRead ? kMaxRead : kCommBytes;
+        commRest_ = padded - fields;
+        ask(Phase::kComm, 0, fields);
+    } else if (tagIs(b, "SSND")) {
+        if (!commSeen_) return fail();
+        ssndSize_ = size;
+        ask(Phase::kSsnd, 0, 8);
+    } else {
+        ask(Phase::kChunkHead, padded, 8);
+    }
+    return kMore;
+}
+
+AiffHeaderScan::Status AiffHeaderScan::onComm(const uint8_t* b, int n) {
+    AiffHeader h;
+    h.channels = be16(b);
+    h.frames = be32(b + 2);
+    h.bits = be16(b + 6);
+    h.sampleRate = extendedRate(b + 8);
+    if (n >= kMaxRead) {
+        if (tagIs(b + kCommBytes, "sowt")) {
+            h.littleEndian = true;
+        } else if (!tagIs(b + kCommBytes, "NONE")) {
+            return fail();
+        }
+    }
+    if (h.channels <= 0 || h.sampleRate <= 0 || h.bits <= 0) return fail();
+    header_ = h;
+    commSeen_ = true;
+    ask(Phase::kChunkHead, commRest_, 8);
+    return kMore;
+}
+
+AiffHeaderScan::Status AiffHeaderScan::step(const uint8_t* bytes, int n) {
+    if (phase_ == Phase::kDone) return kDone;
+    if (phase_ == Phase::kInvalid) return kInvalid;
+    if (n != read() || (n > 0 && !bytes)) return fail();
+    const int64_t passed = skip();
+    owed_ -= passed;
+    at_ += passed + n;
+    if (owed_ > 0) return kMore;  // a long gap, passed over in pieces
+    switch (phase_) {
+        case Phase::kForm:
+            if (!tagIs(bytes, "FORM")) return fail();
+            aifc_ = tagIs(bytes + 8, "AIFC");
+            if (!aifc_ && !tagIs(bytes + 8, "AIFF")) return fail();
+            ask(Phase::kChunkHead, 0, 8);
+            return kMore;
+        case Phase::kChunkHead:
+            return onChunkHead(bytes);
+        case Phase::kComm:
+            return onComm(bytes, n);
+        case Phase::kSsnd: {
+            // SSND's size covers its offset and block size words, then `offset` bytes of padding, then the samples.
+            const int64_t offset = be32(bytes);
+            const int64_t body = ssndSize_ > 8 ? ssndSize_ - 8 : 0;
+            header_.dataStart = at_ + offset;
+            header_.dataBytes = body > offset ? body - offset : 0;
+            ask(offset > 0 ? Phase::kDataGap : Phase::kDone, offset, 0);
+            return offset > 0 ? kMore : kDone;
+        }
+        case Phase::kDataGap:
+            ask(Phase::kDone, 0, 0);
+            return kDone;
+        case Phase::kDone:
+        case Phase::kInvalid:
+            break;
+    }
+    return fail();
+}
+
+int64_t aiffTimeUs(int64_t bytes, int bytesPerFrame, int sampleRate) {
+    if (bytes <= 0 || bytesPerFrame <= 0 || sampleRate <= 0) return 0;
+    const int64_t frames = bytes / bytesPerFrame;
+    const int64_t seconds = frames / sampleRate;
+    if (seconds > std::numeric_limits<int64_t>::max() / kMicros - 1) return std::numeric_limits<int64_t>::max();
+    // Whole seconds and the rest apart, so a long file's frame count times a million never overflows.
+    return seconds * kMicros + frames % sampleRate * kMicros / sampleRate;
+}
+
+int64_t aiffSeekOffset(int64_t timeUs, int bytesPerFrame, int sampleRate, int64_t dataBytes) {
+    if (timeUs <= 0 || bytesPerFrame <= 0 || sampleRate <= 0 || dataBytes <= 0) return 0;
+    const int64_t frames = dataBytes / bytesPerFrame;
+    const int64_t seconds = timeUs / kMicros;
+    // Past the last frame, also when the seconds times the rate would not fit.
+    if (seconds > frames / sampleRate) return frames * bytesPerFrame;
+    const int64_t frame = seconds * sampleRate + timeUs % kMicros * sampleRate / kMicros;
+    return (frame < frames ? frame : frames) * bytesPerFrame;
+}
 
 FdSource::FdSource(int fd, int64_t startOffset, int64_t length) : fd_(fd), remaining_(length < 0 ? -1 : length) {
     if (fd_ < 0 || length < 0 || startOffset <= 0) return;
@@ -79,85 +220,28 @@ void AiffReader::skip(int64_t n) {
     }
 }
 
-bool AiffReader::readInt16(int16_t& v) {
-    uint8_t b[2];
-    if (!readFully(b, 2)) return false;
-    v = static_cast<int16_t>(static_cast<uint16_t>((b[0] << 8) | b[1]));
-    return true;
-}
-
-bool AiffReader::readInt32(int32_t& v) {
-    uint8_t b[4];
-    if (!readFully(b, 4)) return false;
-    v = static_cast<int32_t>((uint32_t{b[0]} << 24) | (uint32_t{b[1]} << 16) | (uint32_t{b[2]} << 8) | uint32_t{b[3]});
-    return true;
-}
-
 std::unique_ptr<AiffReader> AiffReader::open(std::unique_ptr<ByteSource> source) {
     if (!source) return nullptr;
     std::unique_ptr<AiffReader> r(new AiffReader(std::move(source)));
-    uint8_t tag[4];
-    int32_t ignored = 0;
-    if (!r->readFully(tag, 4) || std::memcmp(tag, "FORM", 4) != 0) return nullptr;
-    if (!r->readInt32(ignored) || !r->readFully(tag, 4)) return nullptr;
-    if (std::memcmp(tag, "AIFF", 4) != 0 && std::memcmp(tag, "AIFC", 4) != 0) return nullptr;
-
-    int channels = 0;
-    int bits = 0;
-    int rate = 0;
-    int64_t frames = 0;
-    bool littleEndian = false;
+    AiffHeaderScan scan;
     for (;;) {
-        int32_t size = 0;
-        if (!r->readFully(tag, 4) || !r->readInt32(size)) return nullptr;
-        if (std::memcmp(tag, "COMM", 4) == 0) {
-            int16_t ch = 0;
-            int32_t count = 0;
-            int16_t sampleBits = 0;
-            if (!r->readInt16(ch) || !r->readInt32(count) || !r->readInt16(sampleBits)) return nullptr;
-            channels = ch;
-            frames = static_cast<int64_t>(static_cast<uint32_t>(count));
-            bits = sampleBits;
-            // The 80-bit extended rate: its exponent and the high 32 bits of the mantissa, as the Kotlin read it.
-            int16_t exponentBits = 0;
-            int32_t mantissaHigh = 0;
-            int32_t mantissaLow = 0;
-            if (!r->readInt16(exponentBits) || !r->readInt32(mantissaHigh) || !r->readInt32(mantissaLow)) return nullptr;
-            const int exponent = exponentBits & 0x7FFF;
-            const uint64_t high = static_cast<uint32_t>(mantissaHigh);
-            rate = 0;
-            if (exponent != 0 || high != 0) {
-                const int shift = 63 - (exponent - 16383);
-                if (shift >= 0 && shift <= 63) rate = static_cast<int32_t>(static_cast<uint32_t>((high << 32) >> shift));
-            }
-            int32_t consumed = 18;
-            if (size > consumed) {
-                if (!r->readFully(tag, 4)) return nullptr;
-                consumed += 4;
-                if (std::memcmp(tag, "sowt", 4) == 0) {
-                    littleEndian = true;
-                } else if (std::memcmp(tag, "NONE", 4) != 0) {
-                    return nullptr;
-                }
-                r->skip(static_cast<int64_t>(size) - consumed + (size & 1));
-            } else if ((size & 1) == 1) {
-                r->skip(1);
-            }
-        } else if (std::memcmp(tag, "SSND", 4) == 0) {
-            int32_t offset = 0;
-            if (!r->readInt32(offset) || !r->readInt32(ignored)) return nullptr;
-            if (offset > 0) r->skip(offset);
-            if (channels <= 0 || rate <= 0 || (bits != 8 && bits != 16 && bits != 24 && bits != 32)) return nullptr;
-            r->channels_ = channels;
-            r->sampleRate_ = rate;
-            r->bits_ = bits;
-            r->totalFrames_ = frames;
-            r->littleEndian_ = littleEndian;
-            return r;
-        } else {
-            r->skip(static_cast<int64_t>(size) + (size & 1));
-        }
+        // A gap that runs past the end of the source shows in the read that follows it.
+        r->skip(scan.skip());
+        uint8_t bytes[AiffHeaderScan::kMaxRead] = {};
+        const int want = scan.read();
+        if (want > 0 && !r->readFully(bytes, static_cast<size_t>(want))) return nullptr;
+        const AiffHeaderScan::Status status = scan.step(bytes, want);
+        if (status == AiffHeaderScan::kInvalid) return nullptr;
+        if (status == AiffHeaderScan::kDone) break;
     }
+    const AiffHeader& header = scan.header();
+    if (header.bits != 8 && header.bits != 16 && header.bits != 24 && header.bits != 32) return nullptr;
+    r->channels_ = header.channels;
+    r->sampleRate_ = header.sampleRate;
+    r->bits_ = header.bits;
+    r->totalFrames_ = header.frames;
+    r->littleEndian_ = header.littleEndian;
+    return r;
 }
 
 float AiffReader::progress() const {

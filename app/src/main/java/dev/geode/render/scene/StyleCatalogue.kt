@@ -9,8 +9,8 @@ import java.util.concurrent.ConcurrentHashMap
  * panel asks the same ones on every recomposition.
  *
  * Nothing here decides anything: which styles exist, their order, which family a style is in, what a
- * retired id became and which control reaches which style are all native's. Labels are string resources
- * ([styleLabel]); the Pro rule is `pro/FreeTier`.
+ * retired id became and which control reaches which style are all native's, and so are the names
+ * (core/viz/StyleNames, `GeodeNative.styleLabel`); the Pro rule is `pro/FreeTier`.
  */
 object StyleCatalogue {
     /**

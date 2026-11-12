@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -55,8 +54,6 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.styleFamilyLabel
-import dev.geode.render.scene.styleLabel
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -499,15 +496,14 @@ private fun LayerStylePicker(
     editor: LayersEditor,
     onPick: (String) -> Unit,
 ) {
-    val resources = LocalResources.current
     val shownFamily = editor.families.indexOfFirst { editor.shown in it.ids }.coerceAtLeast(0)
     var familyIndex by remember(shownFamily) { mutableIntStateOf(shownFamily) }
     val family = editor.families.getOrNull(familyIndex) ?: return
-    val familyLabels = editor.families.map { styleFamilyLabel(resources, it.name) }
+    val familyLabels = editor.families.map { GeodeNative.styleFamilyLabel(it.name) }
     DropdownRow(stringResource(R.string.customize_layer_family), familyLabels, familyIndex) { familyIndex = it }
     DropdownRow(
         stringResource(R.string.customize_layer_pick),
-        family.ids.map { styleLabel(resources, it) },
+        family.ids.map { GeodeNative.styleLabel(it) },
         family.ids.indexOf(editor.styleId),
         placeholder = stringResource(R.string.customize_layer_suits),
     ) { onPick(family.ids[it]) }

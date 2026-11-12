@@ -147,12 +147,15 @@ class VisualsViewModel
             from: SceneParams,
         ) = session.modulation.borrowCategory(category, from)
 
-        fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
+        fun randomizeParams(
+            category: CustomizeCategory? = null,
+            basicsOnly: Boolean = false,
+        ) = session.modulation.randomizeParams(category, basicsOnly)
 
         fun randomizeWaves() = session.modulation.randomizeWaves(all = true)
 
-        /** The two-circle gesture's Randomize everything: style, preset and, with [rollParams] (Pro), every category. */
-        fun randomizeEverything(rollParams: Boolean) = session.randomizeEverything(rollParams)
+        /** The two-circle gesture's Randomize everything: style, preset, every category; [basicsOnly] without Pro. */
+        fun randomizeEverything(basicsOnly: Boolean) = session.randomizeEverything(basicsOnly)
 
         /** Tap along's roll, free: Customize › Music's randomize (new moments and reactions), Keep respected. */
         fun tapAlongRoll() = session.modulation.randomizeParams(CustomizeCategory.MUSIC)

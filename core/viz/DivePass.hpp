@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/Program.hpp"
 #include "viz/ShaderSource.hpp"
@@ -24,7 +25,8 @@ public:
     void releaseTarget() { target_.release(); }
     // Draws `sceneTex` (srcWidth x srcHeight) nested at `phase` into a width x height target; `mix` 0..1
     // fades the dive in over the plain picture. Returns the texture to show, 0 when it cannot draw.
-    GLuint run(GLuint sceneTex, int srcWidth, int srcHeight, int width, int height, float phase, float mix, GLuint quadVao);
+    GLuint run(GLuint sceneTex, int srcWidth, int srcHeight, int width, int height, float phase, float mix,
+               const endless::tunnel::Look& look, GLuint quadVao);
 
 private:
     GLuint program_ = 0;

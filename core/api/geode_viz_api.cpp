@@ -36,6 +36,7 @@
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/frame/RecordTap.hpp"
+#include "viz/frame/CastTee.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
@@ -51,8 +52,24 @@ struct geode_viz {
         });
         renderer.setCompositeHook([this](GLuint fbo, int width, int height) {
             recordFrame(fbo, width, height);
+            castFrame(fbo, width, height);
             stillFrame(fbo, width, height);
         });
+    }
+
+    // Cast's tee (geode_viz_set_cast_source): the stage's finished visual into the running cast's tee, at most once
+    // per cast frame (the tee decides). A tee that ended, or a renderer no longer the source, frees its
+    // textures here, in this context. Render thread only, apart from the flag.
+    void castFrame(GLuint fbo, int width, int height) {
+        std::shared_ptr<geode::viz::frame::CastTee> now =
+            castSource.load(std::memory_order_relaxed) ? geode::viz::frame::CastTee::current() : nullptr;
+        if (now != castTee) {
+            if (castTee) castTee->releaseWriter();
+            castTee = std::move(now);
+        }
+        if (!castTee) return;
+        const auto since = std::chrono::steady_clock::now().time_since_epoch();
+        castTee->publish(fbo, width, height, std::chrono::duration_cast<std::chrono::nanoseconds>(since).count());
     }
 
     // Shake to screenshot (geode_viz_still_request): the finished visual read back once, flipped to rows
@@ -120,6 +137,10 @@ struct geode_viz {
     geode::viz::frame::RecordTap recordTap;
     geode_export_pass* recordWatermark = nullptr;
     int64_t recordPtsNs = -1;
+    // Cast's tee (geode_viz_set_cast_source): whether this renderer is the stage the cast carries, and the tee it
+    // last copied into (render thread only).
+    std::atomic<bool> castSource{false};
+    std::shared_ptr<geode::viz::frame::CastTee> castTee;
     std::atomic<bool> stillWanted{false};
     std::vector<uint8_t> still;
     int stillWidth = 0;
@@ -159,7 +180,7 @@ static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the p
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
@@ -902,6 +923,10 @@ int geode_viz_record_start(geode_viz* v, const geode_recorder* recorder, void* n
     v->recordWatermark = watermark;
     v->recordPtsNs = -1;
     return 1;
+}
+
+void geode_viz_set_cast_source(geode_viz* v, int on) {
+    if (v) v->castSource.store(on != 0, std::memory_order_relaxed);
 }
 
 void geode_viz_record_stop(geode_viz* v) {

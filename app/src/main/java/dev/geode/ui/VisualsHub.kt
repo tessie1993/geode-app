@@ -344,6 +344,8 @@ private fun VisualsHubContent(
                 chrome = chrome,
                 sheetShown = nav.sheetShown,
                 room = iconRoom,
+                showArrows = gui.stageArrows,
+                showRecord = gui.stageRecord,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.

@@ -107,6 +107,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.analysis.SearchMatcher
+import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
@@ -223,6 +224,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
+    // A cast to a TV or a browser carries this view's own frames (core/viz/frame/CastTee), not a second render.
+    LaunchedEffect(visualizerView) { visualizerView.visualizerRenderer.nativeViz.castSource = true }
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     ConnectedDisplayWatch()
     val appState = rememberGeodeAppState()
@@ -311,6 +314,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 onHide = chrome::hide,
                 onPlayPause = viewModel::togglePlayPause,
                 onNext = viewModel::next,
+                onPrevious = if (gui.miniPlayerPrevious) viewModel::previous else null,
                 modifier = modifier,
             )
         }
@@ -354,6 +358,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                                 showTimeLeft = gui.showTimeLeft,
+                                showAbLoop = gui.showAbLoop,
                             )
                         GeodeDestination.LIBRARY ->
                             if (twoPane) {
@@ -372,6 +377,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                             onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                             onOpenLibrary = {},
                                             showTimeLeft = gui.showTimeLeft,
+                                            showAbLoop = gui.showAbLoop,
                                         )
                                     }
                                 }
@@ -446,7 +452,14 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 // so the visual shows there. The one VisualizerView has one parent: the second screen
                 // holds it while it is on, and this host steps aside.
                 if (!onSecondScreen) {
-                    VisualizerCanvasHost(visualizerView, shown = appState.dest == GeodeDestination.VISUALS, bounds = visualsBounds)
+                    // While a cast streams, the stage keeps drawing on every tab: the stream is its frames.
+                    val casting by CastMirror.streaming.collectAsStateWithLifecycle()
+                    VisualizerCanvasHost(
+                        visualizerView,
+                        shown = appState.dest == GeodeDestination.VISUALS,
+                        bounds = visualsBounds,
+                        keepDrawing = casting,
+                    )
                 }
                 // A TV always gets the rail: the bar's swipes and floating dock are a phone's.
                 if (!television && !sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {

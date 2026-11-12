@@ -2,7 +2,6 @@ package dev.geode.playback
 
 import android.content.Context
 import androidx.media3.common.Player
-import dev.geode.data.BehaviourStore
 import dev.geode.data.QueueEndAction
 import dev.geode.geodeContainer
 import kotlinx.coroutines.CoroutineScope
@@ -24,11 +23,11 @@ internal class QueueEnd(
     private val tree: LibraryTree,
     private val scope: CoroutineScope,
 ) : Player.Listener {
-    private val behaviour = BehaviourStore(context.geodeContainer.prefsFiles.general)
+    private val behaviour = context.geodeContainer.behaviour
 
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState != Player.STATE_ENDED || player.repeatMode != Player.REPEAT_MODE_OFF) return
-        when (behaviour.load().queueEnd) {
+        when (behaviour.value.value.queueEnd) {
             QueueEndAction.STOP -> Unit
             QueueEndAction.REPEAT -> {
                 player.seekTo(0, 0L)

@@ -30,7 +30,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -76,6 +78,8 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.ui.cast.ComputerLinkDoor
+import dev.geode.ui.cast.running
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -90,6 +94,7 @@ fun PlayerScreen(
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
     showTimeLeft: Boolean = false,
+    showAbLoop: Boolean = true,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Not delegated: only the seek bar and the clock read .value, so a tick recomposes just those.
@@ -164,6 +169,7 @@ fun PlayerScreen(
             position = { position.value },
             abLoop = abLoop,
             showTimeLeft = showTimeLeft,
+            showAbLoop = showAbLoop,
             modifier = inset,
         )
     }
@@ -548,6 +554,7 @@ private fun TransportCard(
     position: () -> Long,
     abLoop: AbLoop?,
     showTimeLeft: Boolean,
+    showAbLoop: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -574,21 +581,24 @@ private fun TransportCard(
             ) {
                 PositionClock(position)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
-                        Text(
-                            when {
-                                abLoop == null -> stringResource(R.string.ab_loop_idle)
-                                abLoop.endMs == null -> stringResource(R.string.ab_loop_set_b)
-                                else -> stringResource(R.string.ab_loop_looping)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color =
-                                if (abLoop != null) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                    // Hidden by Settings › Preferences, but never while a loop runs: it is the loop's only way out.
+                    if (showAbLoop || abLoop != null) {
+                        TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
+                            Text(
+                                when {
+                                    abLoop == null -> stringResource(R.string.ab_loop_idle)
+                                    abLoop.endMs == null -> stringResource(R.string.ab_loop_set_b)
+                                    else -> stringResource(R.string.ab_loop_looping)
                                 },
-                        )
+                                style = MaterialTheme.typography.labelMedium,
+                                color =
+                                    if (abLoop != null) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            )
+                        }
                     }
                 }
                 if (showTimeLeft) {
@@ -862,6 +872,17 @@ private fun QuickActions(
                         ),
                     )
                 }
+            }
+        }
+        item {
+            // Share to PC, beside the Cast-shaped source tile (owner): the browser link and its sheet.
+            ComputerLinkDoor { door ->
+                QuickAction(
+                    if (door.link.running) Icons.Filled.Computer else Icons.Outlined.Computer,
+                    stringResource(if (door.link.running) R.string.quick_pc_on else R.string.link_button),
+                    active = door.link.running,
+                    onClick = door.tap,
+                )
             }
         }
         item {

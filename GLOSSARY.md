@@ -76,7 +76,7 @@ The petal style family: polar petal fields and mandalas that bloom out of a glow
 The domain-warp style family: a noise field sampled through itself several levels deep, often folded into a kaleidoscope.
 
 **Dive**:
-The fly-through style family: one camera diving along a path (straight, serpent, helix, accordion, orbit) through repeating lattices, jewels, mushrooms, gyroscopes and mandalas, switching its own cosine palettes on drops.
+In Customize, the category of the endless zoom (its switch, Dive speed and the tunnel's shape). Also the fly-through style family: one camera diving along a path (straight, serpent, helix, accordion, orbit) through repeating lattices, jewels, mushrooms, gyroscopes and mandalas, switching its own cosine palettes on drops.
 
 **Glass**:
 The refraction style family: ray-traced glass shapes, dispersion, thin-film bubbles and caustic light.

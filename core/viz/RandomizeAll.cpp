@@ -61,16 +61,18 @@ Pick pick(uint64_t seed, const std::string& current, const std::set<std::string>
 
 SceneParams roll(const SceneParams& before, const SceneParams& base, uint64_t seed, const std::string& styleId,
                  const std::set<std::string>& locked, bool rollCategories) {
-    const std::set<std::string> kept = customize::expandLocks(locked);
+    // Keep puts a control back to the look before the gesture; "#PRO" (the roll without Pro, the dice's
+    // free rule) only holds the controls below a Basics through the roll, at the new preset's values.
     SceneParams out = base;
-    for (const auto& key : kept) {
+    for (const auto& key : customize::expandKeeps(locked)) {
         for (const char* field : customize::fieldsOf(key)) out.set(field, before.get(field));
     }
     if (!rollCategories) return out;
+    const std::set<std::string> held = customize::expandLocks(locked);
     uint64_t state = seed ^ kRollStream;
     for (int i = 0; i < customize::kCategoryCount; ++i) {
         state = mix(state);
-        out = customize::randomize(out, state, static_cast<customize::Category>(i), styleId, kept);
+        out = customize::randomize(out, state, static_cast<customize::Category>(i), styleId, held);
     }
     return out;
 }

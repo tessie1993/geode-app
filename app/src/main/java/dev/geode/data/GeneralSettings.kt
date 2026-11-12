@@ -133,7 +133,8 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             portable(PrefType.STRING, KEY_LIBRARY_START_TAB, KEY_LIBRARY_SORT, KEY_TRACK_TAP)
             portable(PrefType.BOOLEAN, KEY_SHOW_AB_LOOP, KEY_MINI_PLAYER_PREVIOUS, KEY_STAGE_ARROWS, KEY_STAGE_RECORD)
             retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
-            retired(null, *RETIRED_THEME_KEYS.toTypedArray(), KEY_REDUCED_MOTION)
+            RETIRED_THEME_KEYS.forEach { retired(null, it) }
+            retired(null, KEY_REDUCED_MOTION)
         }
 
     override fun read(prefs: SharedPreferences): GeneralSettings {

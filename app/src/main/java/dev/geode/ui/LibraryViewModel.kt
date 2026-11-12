@@ -104,7 +104,9 @@ internal class LibraryInputs(
                 library = session.library,
                 overrides = session.musicLibrary.trackOverrides,
                 scanning = session.musicLibrary.libraryScanning,
-                defaultSort = session.container.general.value.map { LibrarySort.fromName(it.librarySort) ?: LibrarySort.TITLE },
+                defaultSort =
+                    session.container.general.value
+                        .map { LibrarySort.fromName(it.librarySort) ?: LibrarySort.TITLE },
             )
     }
 }

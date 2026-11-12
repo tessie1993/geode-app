@@ -99,8 +99,6 @@ out vec4 fragColor;
 #define LM_SQRT3 1.7320508
 
 float gSide;
-float gSeam;
-float gMat;
 float gThA;
 float gThR;
 float gThLip;
@@ -109,8 +107,6 @@ vec2 gLurch;
 vec2 gAxis;
 mat2 gRoll;
 vec3 gEye;
-/** The folded point of the last map() call, for colour and seams. */
-vec3 gF;
 
 /**
  * The three-mirror fold across the tube. Returns the image of `p` in the
@@ -151,13 +147,13 @@ float blob(vec2 f, float z, float cell) {
     return length(vec3(f - c, z - cz)) - min(r, 0.5);
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     vec3 w = p;
     w.xy = gAxis + gRoll * (p.xy - gAxis);
     float seam;
     vec2 f = triFold(w.xy, gSide, seam);
-    gSeam = seam;
-    gF = vec3(f, w.z);
+    found.a.x = seam;
+    found.b.xyz = vec3(f, w.z);
 
     // Blobs: the own slice and the nearer neighbour, clamped by the farther ones.
     float zc = floor(w.z * 0.5);
@@ -173,28 +169,29 @@ float map(vec3 p) {
     float dt = min(length(f - cen - o), length(f - cen + o)) - gThR;
     dt /= gThLip;
 
-    gMat = dt < db ? 1.0 : 0.0;
+    found.mat = dt < db ? 1.0 : 0.0;
     float d = min(db, dt);
     return max(d, LM_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTex = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -204,17 +201,17 @@ void main() {
     int oct = lucidDetail(3, 2);
 
     // The mirror triangle: smaller with Complexity, sized by SPACE.
-    gSide = (1.5 - 0.6 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 0.5 * kSpace);
+    gSide = lucidSpan(N.depth, 1.5, 1.5, 0.9) * lucidSpan(N.reach, 1.0, 0.75, 1.25);
 
     // The barrel: a step per onset, eased by the decaying envelope.
     float barrel = mod((SND_ONSET_COUNT - onset) * 0.37, LUCID_TAU) + t * 0.015;
     gRoll = lucidRot(barrel);
 
-    float lurch = lucidBump(onset) * 0.35 * uIntensity * (1.0 + kPulse);
+    float lurch = lucidBump(onset) * 0.35 * uIntensity * lucidSpan(N.emit, 1.0, 0.5, 1.5);
     gLurch = gSide * 0.3 * vec2(lurch, -0.6 * lurch);
 
     float trebK = clamp(treb, 0.0, 1.0);
-    gThA = gSide * 0.13 * (1.0 + 0.6 * kFlow);
+    gThA = gSide * 0.13 * lucidSpan(N.flow, 1.0, 0.7, 1.3);
     gThR = gSide * 0.032 * (1.0 - 0.3 * trebK);
     gThLip = sqrt(1.0 + gThA * gThA * LM_U8 * LM_U8);
     gWind = flow * 0.4 + t * 0.1;
@@ -235,7 +232,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LM_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -244,7 +242,7 @@ void main() {
         tm += max(d * 0.9, eps);
     }
 
-    float hue = 0.4 * kTone + 0.03 * sin(uTime * 0.019);
+    float hue = lucidSpan(N.tone, 0.0, -0.2, 0.2) + 0.03 * sin(uTime * 0.019);
     float fogK = 0.075;
     float ahead = pow(max(rd.z, 0.0), 6.0);
     // The far end of the tube: pale light through the glass.
@@ -254,12 +252,12 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 nrm = normalAt(p, max(0.0012, 0.001 * hitT));
+        vec3 nrm = lucidNormal(p, max(0.0012, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
-        vec3 f = gF;
-        float seam = gSeam;
-        float mat = gMat;
+        fld = lucidField(p);
+        vec3 f = fld.b.xyz;
+        float seam = fld.a.x;
+        float mat = fld.mat;
 
         float ndv = clamp(dot(nrm, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
@@ -272,7 +270,7 @@ void main() {
         // and a circle in z (one loop per wrap), so the colour is mirrored
         // like the geometry and closes over the rebase.
         float th = f.z * LM_U64;
-        vec2 q = (f.xy / gSide) * 2.4 * (1.0 + 0.8 * kTex)
+        vec2 q = (f.xy / gSide) * 2.4 * lucidSpan(N.scale, 1.0, 0.6, 1.4)
                + 1.6 * vec2(cos(th), sin(th))
                + vec2(t * 0.07 + flow * 0.1, -t * 0.05)
                + vec2(lurch, -0.6 * lurch);
@@ -297,7 +295,7 @@ void main() {
             float core = pow(ndv, 1.5 + 2.5 * trebK);
             vec3 tc = mix(pal(s + 0.5 + hue), vec3(1.0), 0.25);
             surf = tc * (0.12 + 0.3 * dif) * ao
-                 + tc * core * (0.45 + 0.5 * trebK) * (1.0 + 0.9 * kBuild)
+                 + tc * core * (0.45 + 0.5 * trebK) * lucidSpan(N.glow, 1.0, 0.55, 1.45)
                  + prism * fres * 0.25;
         }
 

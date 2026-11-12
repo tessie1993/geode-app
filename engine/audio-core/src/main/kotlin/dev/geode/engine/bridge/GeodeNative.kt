@@ -295,7 +295,7 @@ object GeodeNative {
         tuning: FloatArray,
     )
 
-    /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
+    /** The reaction source catalogue (core/viz/Reactions.cpp): a "NAME|Label|GROUP|0/1" line per source, in wire order. */
     external fun reactSourceCatalog(): String
 
     /**

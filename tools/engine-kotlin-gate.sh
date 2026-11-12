@@ -62,7 +62,6 @@ allowed=(
     "$S/render/Lfo.kt"
     "$S/render/MilkPresetMemory.kt"
     "$S/render/PerformanceSettings.kt"
-    "$S/render/ReactSourceCatalog.kt"
     "$S/render/Reactions.kt"
     "$S/render/SceneFactory.kt"
     "$S/render/ThermalGovernor.kt"

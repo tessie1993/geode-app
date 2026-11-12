@@ -246,6 +246,9 @@ jobs:
           # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # A picked playlist file (core/library/Playlist): M3U, PLS and XSPF, names, durations, the DOCTYPE refusal.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playlist_test.cpp core/library/Playlist.cpp core/api/geode_playlist_api.cpp -o playlist_test
+          ./playlist_test
           # A Studio project's kind and edit (core/studio): saved edits read back the same, in order, with old
           # defaults; newer or unknown files are refused; a new project holds its song and its look.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_edit_test.cpp core/studio/StudioEdit.cpp \

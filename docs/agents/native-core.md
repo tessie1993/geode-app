@@ -146,6 +146,9 @@ The renderer runs these in order each frame.
 - Misspellings match only when nothing else matches.
 - `SearchIndex` orders and searches the Library screen (`geode_library_index_*`).
 - `geode_library_search` answers voice "play X" and Android Auto.
+- `core/library/Playlist` reads a picked M3U, PLS or XSPF file (`geode_playlist_parse`); a DOCTYPE in an XSPF is refused.
+- Writing playlist files has no caller, so it does not exist.
+- `data/PlaylistFormats.kt` only splits the parse text and matches entries to the library by lower-cased file name.
 - `core/scene/object` is `geode::scene::object`, #302's object kinds.
 - `GltfImport` checks the user's .glb against #455's limits, decimates it with meshoptimizer when up to 4× over, refuses it otherwise, and makes a low-detail copy and its materials.
 - `ModelTextures` downscales the model's PNG, JPEG or KTX2 images to the role caps, mipmaps them, encodes to UASTC and transcodes to ASTC 4x4 and ETC2, fitted to the texture memory per model, the simplified mode a later mip base.

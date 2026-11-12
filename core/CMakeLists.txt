@@ -3,6 +3,7 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
+    api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_colour_api.cpp
@@ -46,6 +47,7 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    library/Playlist.cpp
     audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp

@@ -105,6 +105,8 @@ public:
             // ignored, its size is (NdkMediaCodec, AMediaCodec_dequeueOutputBuffer).
             const uint8_t* data = AMediaCodec_getOutputBuffer(codec_, held_, &capacity);
             if (!data) throw std::runtime_error("decoder output buffer null (codec error state)");
+            if (static_cast<size_t>(info.size) > capacity)
+                throw std::runtime_error("decoder output larger than its buffer");
             out.data = data;
             out.bytes = static_cast<size_t>(info.size);
             out.isFloat = isFloat_;

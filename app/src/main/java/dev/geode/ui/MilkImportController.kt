@@ -10,8 +10,8 @@ import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
-import dev.geode.render.scene.MilkStarterPack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +62,7 @@ internal class MilkImportController(
                         builtInDir().deleteRecursively()
                         File(importDir(), "textures").mkdirs()
                     }
-                    MilkStarterPack.install(application, importDir())
+                    GeodeNative.milkStarterInstall(application.assets, importDir().path)
                     // Idempotent refresh: catches textures imported before a preset existed,
                     // presets from older installs that predate linking, and starter presets.
                     if (relink) textureLinks.relinkAll()

@@ -10,7 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.AdsrConfig
@@ -51,7 +50,7 @@ internal fun liveLook(
     lfos: List<LfoConfig>,
     adsrs: List<AdsrConfig>,
     reactions: List<ReactionRoute>?,
-    soundTuning: SoundTuning,
+    soundTuning: List<Float>?,
     // Android's "Remove animations" (data/SystemMotion, #336), the only reduced-motion flag.
     reducedMotion: Boolean,
     underlay: LookUnderlay? = null,

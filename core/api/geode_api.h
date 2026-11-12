@@ -1038,6 +1038,9 @@ typedef struct geode_loop_spec {
 GEODE_API void    geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* out);
 /* Fills the derived fields of a spec as given (no clamping): loop, crossfade and source frames, duration. */
 GEODE_API void    geode_loop_spec_fill(geode_loop_spec* spec);
+/* The ranges a loop render takes, for the shell's controls: the shortest and longest loop (ms), the shortest,
+ * longest and default crossfade (ms), the most drift stops. Writes min(6, capacity) and returns 6. */
+GEODE_API int     geode_loop_limits(int64_t* out, int capacity);
 GEODE_API float   geode_loop_seam_weight(int tail, int seam_frames);
 /* The repeats that fill total_us, spread over `loops` drift stops. Writes min(repeats, capacity) offsets and
  * loop indices (either may be NULL for a count) and returns the repeat count. */

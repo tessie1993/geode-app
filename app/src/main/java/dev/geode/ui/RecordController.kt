@@ -9,6 +9,7 @@ import dev.geode.editor.ProjectRender
 import dev.geode.editor.TrackRef
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.WatermarkOverlay
+import dev.geode.model.WatermarkChoice
 import dev.geode.pro.RenderLimits
 import dev.geode.record.RecordEncoder
 import dev.geode.render.VisualizerView
@@ -169,8 +170,7 @@ internal class RecordController(
                 GeodeNative.recorderDestroy(recorder)
                 return@withContext null
             }
-            val mark = application.getString(R.string.pro_watermark_text)
-            val watermark = if (limits.watermark) WatermarkOverlay(mark, application.assets) else null
+            val watermark = WatermarkOverlay(limits.watermark, application, WatermarkChoice.USE_LIVE)
             val a = Active(recorder, encoder, output, view, watermark, track)
             val running =
                 encoder.start(

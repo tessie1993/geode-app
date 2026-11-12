@@ -13,6 +13,7 @@
 using geode::viz::MemoryTrim;
 using geode::viz::SceneResidency;
 using geode::viz::ThermalTier;
+using geode::viz::TrimShed;
 
 namespace {
 
@@ -178,11 +179,20 @@ void pauseTrimKeepsWhatIsShownAndIsNotRepeated() {
         check(has(r, "drawn") && has(r, "fading") && has(r, "layer") && has(r, "born"), "what is shown stays");
         check(r.size() == 4, "nothing else is resident through the background");
         check(r.evict(pinned, budget).empty(), "the trim signal read after the return drops nothing more");
-        // Back on screen: a new style is admitted under the tier's own budget, as before the pause.
+        // Back on screen: a new style is admitted under the tier's own budget, as before the pause, less the
+        // pins past the heaviest (#999): the fading scene, the layer and the born style weigh 1 each.
         r.insert("next", false, 1);
         const auto later = r.evict(pinned, SceneResidency::spareBudget(tier));
-        check(has(r, "next") == (SceneResidency::spareBudget(tier) >= 1), "after the return the tier decides again");
-        check(later.size() == (SceneResidency::spareBudget(tier) >= 1 ? 0u : 1u), "and only what is over it goes");
+        const bool room = SceneResidency::spareBudget(tier) - 3 >= 1;
+        check(has(r, "next") == room, "after the return the tier decides again");
+        check(later.size() == (room ? 0u : 1u), "and only what is over it goes");
+        r.remove("fading");
+        r.remove("layer");
+        r.remove("born");
+        r.insert("next", false, 1);
+        const auto alone = r.evict(pinned, SceneResidency::spareBudget(tier));
+        check(has(r, "next") == (SceneResidency::spareBudget(tier) >= 1), "with one scene drawn the whole tier budget is there");
+        check(alone.size() == (SceneResidency::spareBudget(tier) >= 1 ? 0u : 1u), "and only what is over it goes");
     }
 }
 
@@ -201,9 +211,78 @@ void trimSignalReachesEachRendererOnce() {
     check(s.poll(a), "a later request is seen again");
 }
 
+// #999: what a trim releases. A renderer still drawing (a visible wallpaper, the dream, Cast, an export
+// reading the process signal in a frame) keeps its passes' history and its scene targets; only the spares
+// go. A surface that stops drawing gives back the spares, the passes' targets and both scene targets.
+void trimShedsByWhetherTheSurfaceDraws() {
+    for (MemoryTrim trim : {MemoryTrim::UiHidden, MemoryTrim::Background}) {
+        const TrimShed drawing = SceneResidency::shedFor(trim, true);
+        check(drawing.spares, "a drawing renderer sheds its spares");
+        check(!drawing.passTargets, "a drawing renderer keeps Liquid, Trails and the dive: no pop on screen or in an export");
+        check(!drawing.sceneTargets, "a drawing renderer keeps its scene targets");
+        const TrimShed stopped = SceneResidency::shedFor(trim, false);
+        check(stopped.spares && stopped.passTargets && stopped.sceneTargets, "a surface that stops drawing gives back every target");
+    }
+    for (bool drawing : {true, false}) {
+        const TrimShed none = SceneResidency::shedFor(MemoryTrim::None, drawing);
+        check(!none.spares && !none.passTargets && !none.sceneTargets, "no trim sheds nothing");
+    }
+}
+
+// #999: the budget counts what a scene weighs. A MilkDrop scene (a projectM instance with its own screen-size
+// textures) is as heavy as a fluid, and the pinned scenes past the heaviest take their weight out of it.
+void budgetCountsWeightAndPins() {
+    check(SceneResidency::heavy(true, false) && SceneResidency::heavy(false, true), "fluid and MilkDrop scenes are heavy");
+    check(!SceneResidency::heavy(false, false), "a shader style is light");
+    const int full = SceneResidency::spareBudget(ThermalTier::Full);
+    {
+        SceneResidency r;
+        r.insert("milk_spare_a", SceneResidency::heavy(false, true), 0);
+        r.insert("milk_spare_b", SceneResidency::heavy(false, true), 0);
+        r.insert("drawn", false, 0);
+        const auto victims = r.evict([](const std::string& id) { return id == "drawn"; }, full);
+        check(victims.size() == 1 && victims[0] == "milk_spare_a", "two MilkDrop spares no longer fit where three shader styles do");
+    }
+    {
+        // One scene drawn: the budget is the tier's, as before.
+        SceneResidency r;
+        r.insert("a", false, 0);
+        r.insert("b", false, 0);
+        r.insert("c", false, 0);
+        r.insert("drawn", true, 0);
+        check(r.evict([](const std::string& id) { return id == "drawn"; }, full).empty(), "a single pin, however heavy, is free");
+    }
+    {
+        // A fluid fading into a fluid: the fading one fills the budget, so the spares go.
+        SceneResidency r;
+        r.insert("spare_a", false, 0);
+        r.insert("spare_b", false, 0);
+        r.insert("fading", true, 0);
+        r.insert("drawn", true, 0);
+        const auto pinned = [](const std::string& id) { return id == "drawn" || id == "fading"; };
+        const auto victims = r.evict(pinned, full);
+        check(victims.size() == 2, "the second heavy pin takes the spares' room");
+        check(has(r, "drawn") && has(r, "fading"), "and both pins stay");
+    }
+    {
+        // A light style fading into a light one keeps room for two light spares at Full.
+        SceneResidency r;
+        r.insert("s1", false, 0);
+        r.insert("s2", false, 0);
+        r.insert("s3", false, 0);
+        r.insert("fading", false, 0);
+        r.insert("drawn", false, 0);
+        const auto pinned = [](const std::string& id) { return id == "drawn" || id == "fading"; };
+        const auto victims = r.evict(pinned, full);
+        check(victims.size() == 1 && victims[0] == "s1", "a light second pin costs one spare");
+    }
+}
+
 }  // namespace
 
 int main() {
+    trimShedsByWhetherTheSurfaceDraws();
+    budgetCountsWeightAndPins();
     memoryTrimShedsSparesNotPinned();
     pauseTrimKeepsWhatIsShownAndIsNotRepeated();
     trimSignalReachesEachRendererOnce();

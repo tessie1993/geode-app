@@ -262,11 +262,8 @@ internal fun TouchSmearRow(viewModel: SettingsViewModel) {
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
         if (visuals.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (visuals.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.behavior_smear_strength, (visuals.touchSmearStrength * 100).toInt()),
                 value = visuals.touchSmearStrength,
                 onValueChange = { viewModel.updateVisuals { s -> s.copy(touchSmearStrength = it) } },
                 valueRange = 0.2f..2f,

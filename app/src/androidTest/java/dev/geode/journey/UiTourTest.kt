@@ -390,7 +390,8 @@ class UiTourTest {
             null
         }
         tour.pages("styles", "list", pages = 3)
-        tour.step("styles", "family-silk", "the Silk family open") { tour.tap(SILK) }
+        tour.step("styles", "family-menu", "the family dropdown open") { tour.tap(STYLE_FAMILY) }
+        tour.step("styles", "family-silk", "the Silk family's styles") { tour.tap(SILK) }
         tour.step("styles", "locked-style", "a Pro style plays while the paywall offers it") {
             tour.tap(LOCKED_STYLE)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
@@ -400,10 +401,13 @@ class UiTourTest {
             tour.tap(UiTour.PAYWALL_CLOSE)
             tour.state().summary()
         }
-        tour.step("styles", "family-silk-closed", "the Silk family closed again") { tour.tap(SILK) }
-        tour.step("styles", "shader-family", "a shader family's variations") {
-            tour.tap(SHADERS)
+        tour.step("styles", "shader-family", "a shader family's styles") {
+            tour.tap(STYLE_FAMILY)
             tour.tap(ARBOR)
+        }
+        tour.step("styles", "your-styles", "Your styles: on screen, favourites, recent") {
+            tour.tap(STYLE_FAMILY)
+            tour.tap(YOUR_STYLES)
         }
         tour.step("styles", "row-menu", "a style's long-press menu") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
@@ -703,8 +707,9 @@ class UiTourTest {
         const val PRESETS = "Presets"
         const val MILKDROP = "MilkDrop"
         const val TEXTURES = "Textures"
+        const val STYLE_FAMILY = "Style family"
+        const val YOUR_STYLES = "Your styles"
         const val SILK = "Silk"
-        const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
         const val SAVE_LOOK = "Save look"
@@ -736,8 +741,9 @@ class UiTourTest {
         val LIBRARY_TABS = listOf("Tracks", "Albums", "Artists", "Folders", "Playlists", "Duplicates")
 
         /**
-         * Settings' fourteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
-         * before them were regrouped, Tutorials & help and Backup & about becoming one tab.
+         * Settings' fifteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
+         * before them were regrouped, Tutorials & help and Backup & about becoming one tab, and
+         * Preferences added for small choices like the watermark.
          */
         val SETTINGS_TABS =
             listOf(
@@ -754,6 +760,7 @@ class UiTourTest {
                 "Look",
                 "Performance",
                 EXPORT,
+                "Preferences",
                 HELP_ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
@@ -768,7 +775,7 @@ class UiTourTest {
         val CUSTOMIZE_PAGES =
             linkedMapOf(
                 MACROS to emptyList<String>(),
-                "Look" to listOf("Make a palette"),
+                "Look" to listOf("Your colours"),
                 "Style" to emptyList<String>(),
                 MOTION to listOf(CAMERA, "Liquid", "Water ripples"),
                 "Music" to listOf("How it listens", "Notes & key"),

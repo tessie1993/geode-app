@@ -21,14 +21,6 @@ class MicCapture(
         UNAVAILABLE,
     }
 
-    @Volatile
-    var peakLevel: Float = 0f
-        private set
-
-    @Volatile
-    var silenceLikely: Boolean = false
-        private set
-
     override val threadName = "geode-mic"
 
     fun hasPermission(): Boolean =
@@ -41,26 +33,6 @@ class MicCapture(
         val rec = openRecord() ?: return Failure.UNAVAILABLE
         if (!startPump(rec, 1)) return Failure.UNAVAILABLE
         return null
-    }
-
-    override fun noteLevel(
-        peak: Float,
-        startedAtMs: Long,
-    ) {
-        peakLevel = peak
-        val now = nowMs()
-        if (peak > SILENCE_EPSILON) {
-            lastAudibleAtMs = now
-            silenceLikely = false
-        } else {
-            val quietSince = if (lastAudibleAtMs == 0L) startedAtMs else lastAudibleAtMs
-            if (now - quietSince > SILENCE_GRACE_MS) silenceLikely = true
-        }
-    }
-
-    override fun resetLevel() {
-        peakLevel = 0f
-        silenceLikely = false
     }
 
     private fun openRecord(): AudioRecord? {

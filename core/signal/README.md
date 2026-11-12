@@ -26,4 +26,4 @@ param fade → director shuffle → Director → Director axes → director modu
 - **An export's director** is `director::forExport`: off with the user's switch off; full throughout for Pro and the trial; for free, full only when the whole export fits the free taste (`director::kFreeTasteMs`, 60 s), else off. Never the live amount, always the play's seed. The note entropy is 0, so an export is deterministic.
 - **Kotlin** forwards only the entitlement and the length; the pin hands back its hand mask for the shell's route merge.
 
-The stages themselves live in `core/viz` (GL-free files). [`timeline/`](timeline/README.md) holds the programme-time sources an export reads: keyframes and speed ramps.
+The stages themselves live in `core/viz` (GL-free files). There is no `timeline/`: its keyframes and clip speed ramps served only the Studio project render, which went with video editing (ADR 0007, #227).

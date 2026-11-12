@@ -2,6 +2,7 @@ package dev.geode.ui.wallpaper
 
 import android.Manifest
 import android.os.Bundle
+import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -29,7 +30,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
+import dev.geode.data.SystemMotion
 import dev.geode.geodeContainer
+import dev.geode.pro.ProFeature
 import dev.geode.ui.CrystalMaterialTheme
 import dev.geode.ui.CrystalSegmented
 import dev.geode.ui.LabeledSwitch
@@ -37,9 +42,11 @@ import dev.geode.ui.SettingsGroup
 import dev.geode.ui.rememberPermissionRequest
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.wallpaper.WallpaperConditions
 import dev.geode.wallpaper.WallpaperLook
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
+import dev.geode.wallpaper.WallpaperStillReason
 
 /**
  * The live wallpaper's options, opened by the Settings button of the system wallpaper picker
@@ -64,21 +71,46 @@ class WallpaperOptionsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val general = geodeContainer.general.current()
         val store = WallpaperPrefsStore(geodeContainer.prefsFiles.wallpaper)
+        // The home screen as it stands, so the page can say why the wallpaper would hold still there.
+        val home =
+            WallpaperConditions(
+                surfaceAvailable = true,
+                visible = true,
+                preview = false,
+                covered = false,
+                batterySaver = getSystemService(PowerManager::class.java)?.isPowerSaveMode == true,
+                silent = false,
+                reducedMotion = SystemMotion.isReduced(contentResolver),
+                settings = store.load(),
+                animateUntilMs = ProSnapshot.animateUntilMs(this, ProFeature.LIVE_WALLPAPER),
+            )
         setContent {
             CrystalMaterialTheme(general) {
-                WallpaperOptionsScreen(store, onClose = ::finish)
+                WallpaperOptionsScreen(store, home, onClose = ::finish)
             }
         }
     }
 }
 
+@Composable
+private fun stillText(reason: WallpaperStillReason): String? =
+    when (reason) {
+        WallpaperStillReason.ENTITLEMENT -> stringResource(R.string.wallpaper_options_still_pro)
+        WallpaperStillReason.REDUCED_MOTION -> stringResource(R.string.wallpaper_options_still_motion)
+        WallpaperStillReason.BATTERY_SAVER -> stringResource(R.string.wallpaper_options_still_saver)
+        else -> null
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WallpaperOptionsScreen(
     store: WallpaperPrefsStore,
+    home: WallpaperConditions,
     onClose: () -> Unit,
 ) {
     var settings by remember { mutableStateOf(store.load()) }
+    val mixRefused = remember { store.mixRefused() }
+    val still = stillText(home.copy(settings = settings).stillReason(WallClock.SYSTEM.nowMs()))
 
     fun update(next: WallpaperSettings) {
         settings = next
@@ -109,9 +141,10 @@ private fun WallpaperOptionsScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            still?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) } }
             item {
                 SettingsGroup(stringResource(R.string.wallpaper_options_group_sound)) {
-                    OtherAppsSwitch(settings) { update(it) }
+                    OtherAppsSwitch(settings, mixRefused) { update(it) }
                 }
             }
             item {
@@ -155,6 +188,7 @@ private fun WallpaperOptionsScreen(
 @Composable
 private fun OtherAppsSwitch(
     settings: WallpaperSettings,
+    mixRefused: Boolean,
     onChange: (WallpaperSettings) -> Unit,
 ) {
     val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
@@ -172,6 +206,12 @@ private fun OtherAppsSwitch(
             TextButton(onClick = permission::request) {
                 Text(stringResource(R.string.wallpaper_options_open_settings))
             }
+        } else if (settings.hearOtherApps && mixRefused) {
+            Text(
+                stringResource(R.string.wallpaper_options_mix_refused),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

@@ -22,6 +22,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 
@@ -40,7 +41,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 164;
+constexpr int kWireFloats = 169;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -62,7 +63,7 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::camFlat) == kWireFloats - 1, "camFlat is the wire's last float");
+    check(static_cast<int>(ParamSlot::paletteStop4) == kWireFloats - 1, "paletteStop4 is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -314,8 +315,17 @@ void theTextIsTheTable() {
     check(line == "params|" + std::to_string(SceneParams::kSchemaTextVersion) + "|" + std::to_string(kWireFloats),
           "the text starts with its version and row count: " + line);
     int slot = 0;
+    size_t palette = 0;
     while (std::getline(lines, line)) {
         const auto f = split(line);
+        if (!f.empty() && f[0] == "palette") {
+            const auto& names = SceneParams::palettes();
+            check(slot == kWireFloats, "the palette names follow every param row: " + line);
+            check(f.size() == 3 && f[1] == std::to_string(palette) && palette < names.size() && f[2] == names[palette].name,
+                  "a palette row names the built-in at its index: " + line);
+            ++palette;
+            continue;
+        }
         if (slot >= SceneParams::kFieldCount) {
             check(false, "a row past the wire: " + line);
             break;
@@ -339,6 +349,7 @@ void theTextIsTheTable() {
         ++slot;
     }
     check(slot == kWireFloats, "one row per slot");
+    check(palette == SceneParams::palettes().size(), "one name per built-in palette");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
     check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
@@ -421,6 +432,49 @@ void palettesAreTheShellsOldTable() {
     }
 }
 
+// The meta rows (#1005 PR 4a): every live row has one, a retired row none (ParamsFields.cpp also asserts
+// it at compile time), the rows one control labels agree on its scope and are few enough for a roll's
+// fields (randomizer::kMaxRollFields), and a roll range sits inside the field's own range.
+void everyLiveRowHasOneMeta() {
+    std::vector<std::string> labels;
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const auto s = static_cast<ParamSlot>(slot);
+        const ParamMeta& m = SceneParams::meta(s);
+        const ParamSpec& spec = SceneParams::spec(s);
+        const std::string field = spec.name;
+        check(m.live == !SceneParams::retired(s), field + ": a live row has a meta row, a retired one none");
+        check(m.label != nullptr, field + ": a label, \"\" for none");
+        if (!m.live) {
+            check(m.label[0] == '\0' && m.flags == 0u && m.rollLo == 0.0f && m.rollHi == 0.0f, field + ": a retired row's meta is empty");
+            continue;
+        }
+        if (m.rollLo != 0.0f || m.rollHi != 0.0f) {
+            check(m.rollLo < m.rollHi, field + ": a roll range runs low to high");
+            check(m.rollLo >= spec.min && m.rollHi <= spec.max, field + ": the roll range is inside the field's range");
+        }
+        if (m.label[0] == '\0') continue;
+        int shared = 0;
+        for (int other = 0; other < SceneParams::kFieldCount; ++other) {
+            const ParamMeta& o = SceneParams::meta(static_cast<ParamSlot>(other));
+            if (!o.live || std::strcmp(o.label, m.label) != 0) continue;
+            ++shared;
+            check(o.scope == m.scope, field + ": the fields of " + m.label + " share its scope");
+        }
+        // A panel piece ("@notes_key") is drawn as a block and rolls nothing; a slider or a picker is rolled
+        // as one RolledKey, which carries three fields at most.
+        check(m.label[0] == '@' || shared <= static_cast<int>(randomizer::kMaxRollFields),
+              std::string(m.label) + ": no more fields per control than a roll's RolledKey holds");
+    }
+    check(std::string(SceneParams::meta(ParamSlot::speed).label) == "Speed", "speed's control is Speed");
+    check(SceneParams::meta(ParamSlot::speed).scope == catalogue::Scope::SceneClock, "Speed paces the scene clock");
+    check(std::string(SceneParams::meta(ParamSlot::paletteBaseOverride).label) == "Palette", "a hue override belongs to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::paletteStop4).label) == "Palette", "your colours' stops belong to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::beatResponse).label).empty(), "beatResponse has no control");
+    check((SceneParams::meta(ParamSlot::camYaw).flags & kMod) != 0 && (SceneParams::meta(ParamSlot::camTouch).flags & kMod) == 0,
+          "a modulation target is flagged, a switch is not");
+    check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
@@ -437,6 +491,7 @@ int main(int argc, char** argv) {
     theCataloguesRangesAgree();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
+    everyLiveRowHasOneMeta();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;

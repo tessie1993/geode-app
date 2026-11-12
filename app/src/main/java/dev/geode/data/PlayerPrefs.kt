@@ -34,6 +34,12 @@ data class PlayerPrefs(
      * back to the AudioTrack by itself (`audio/OboeAudioOutput`).
      */
     val nativeOutput: Boolean = false,
+    /**
+     * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
+     * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
+     */
+    val pictureDelayMs: Int = 0,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -117,6 +123,8 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
     /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
     private const val KEY_NATIVE_OUTPUT = "oboe_output"
 
+    const val KEY_PICTURE_DELAY = "picture_delay_ms"
+
     override val defaults = PlayerPrefs()
 
     override val keys =
@@ -125,6 +133,7 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
             portable(PrefType.BOOLEAN, KEY_REPLAYGAIN_CLIP_GUARD, KEY_RESUME_LONG, KEY_BIT_PERFECT, KEY_NATIVE_OUTPUT)
             portable(PrefType.INT, KEY_REPEAT, KEY_SLEEP_MIN, KEY_FADE_MS, KEY_REPLAYGAIN_MODE, KEY_CROSSFADE_MS)
             portable(PrefType.FLOAT, KEY_SPEED, KEY_PITCH, KEY_REPLAYGAIN_PREAMP)
+            device(PrefType.INT, KEY_PICTURE_DELAY)
             retired(null, "native_engine", "crossfade_ms", "crossfade_curve", "gapless")
         }
 
@@ -150,6 +159,7 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
             bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
             crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
             nativeOutput = prefs.getBoolean(KEY_NATIVE_OUTPUT, false),
+            pictureDelayMs = prefs.getInt(KEY_PICTURE_DELAY, 0),
         ).coerced()
 
     override fun write(
@@ -175,6 +185,7 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
             .putBoolean(KEY_BIT_PERFECT, value.bitPerfect)
             .putInt(KEY_CROSSFADE_MS, value.crossfadeMs)
             .putBoolean(KEY_NATIVE_OUTPUT, value.nativeOutput)
+            .putInt(KEY_PICTURE_DELAY, value.pictureDelayMs)
             // The native engine's options, gone with it (ExoPlayer joins tracks gaplessly by itself).
             .remove("native_engine")
             .remove("crossfade_ms")

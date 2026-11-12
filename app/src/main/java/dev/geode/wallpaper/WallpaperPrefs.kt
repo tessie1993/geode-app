@@ -88,6 +88,13 @@ class WallpaperPrefsStore(
             .apply()
     }
 
+    /** The last output-mix capture this phone refused ([OutputMixCapture.start]); cleared when one opens. */
+    fun mixRefused(): Boolean = prefs.getBoolean(KEY_MIX_REFUSED, false)
+
+    fun saveMixRefused(refused: Boolean) {
+        if (mixRefused() != refused) prefs.edit().putBoolean(KEY_MIX_REFUSED, refused).apply()
+    }
+
     private fun look(
         key: String,
         fallback: WallpaperLook,
@@ -101,6 +108,7 @@ class WallpaperPrefsStore(
         const val KEY_HOME_LOOK = "home_look"
         const val KEY_LOCK_LOOK = "lock_look"
         const val KEY_FPS = "fps"
+        const val KEY_MIX_REFUSED = "mix_refused"
 
         /** No backup section holds this file, so its choices stay on this phone for now. */
         val PREF_KEYS =
@@ -108,6 +116,7 @@ class WallpaperPrefsStore(
                 device(PrefType.BOOLEAN, KEY_REST, KEY_SAVER, KEY_OTHER_APPS)
                 device(PrefType.STRING, KEY_HOME_LOOK, KEY_LOCK_LOOK)
                 device(PrefType.INT, KEY_FPS)
+                device(PrefType.BOOLEAN, KEY_MIX_REFUSED)
             }
     }
 }

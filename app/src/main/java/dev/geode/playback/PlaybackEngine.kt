@@ -187,6 +187,7 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
+        GeodeNative.playoutSetOffsetMs(PlaybackEngine.playout, p.pictureDelayMs)
         val oboe = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
         if (oboe != nativeOutput) {
             nativeOutput = oboe

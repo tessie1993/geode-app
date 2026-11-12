@@ -7,6 +7,9 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
+import dev.geode.model.KnobSize
+import dev.geode.model.ScreenRotation
+import dev.geode.model.TabLabels
 
 enum class CornerStyle(
     @param:StringRes val labelRes: Int,
@@ -44,6 +47,15 @@ data class GeneralSettings(
      * until someone asks for them.
      */
     val uiSounds: Boolean = false,
+    /** Off: the accent stays the fallback #9CC7FF instead of following the visual's palette. */
+    val accentFollowsVisual: Boolean = true,
+    /** The app's own vibration on taps; the system's touch feedback switch still applies on top. */
+    val haptics: Boolean = true,
+    val tabLabels: TabLabels = TabLabels.AUTO,
+    /** Player shows the time left (−m:ss) where the track's length is, instead of the length. */
+    val showTimeLeft: Boolean = false,
+    val screenRotation: ScreenRotation = ScreenRotation.FOLLOW,
+    val knobSize: KnobSize = KnobSize.SMALL,
 ) {
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
@@ -65,6 +77,12 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
     internal const val KEY_TEXT_SCALE = "gui_text_scale"
     internal const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
     internal const val KEY_UI_SOUNDS = "gui_ui_sounds"
+    internal const val KEY_ACCENT_FOLLOWS_VISUAL = "gui_accent_follows_visual"
+    internal const val KEY_HAPTICS = "gui_haptics"
+    internal const val KEY_TAB_LABELS = "gui_tab_labels"
+    internal const val KEY_SHOW_TIME_LEFT = "gui_show_time_left"
+    internal const val KEY_SCREEN_ROTATION = "gui_screen_rotation"
+    internal const val KEY_KNOB_SIZE = "gui_knob_size"
 
     /** The font colour before it was a colour; read while [KEY_FONT_COLOR] is unset, removed on write. */
     internal const val KEY_WHITE_FONT = "gui_white_font"
@@ -79,10 +97,11 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
 
     override val keys =
         prefKeys(GeodePrefsFiles.GENERAL) {
-            portable(PrefType.STRING, KEY_CORNER)
+            portable(PrefType.STRING, KEY_CORNER, KEY_TAB_LABELS, KEY_SCREEN_ROTATION, KEY_KNOB_SIZE)
             portable(PrefType.FLOAT, KEY_OPACITY, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
             portable(PrefType.INT, KEY_FONT_COLOR)
             portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
+            portable(PrefType.BOOLEAN, KEY_ACCENT_FOLLOWS_VISUAL, KEY_HAPTICS, KEY_SHOW_TIME_LEFT)
             retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
             retired(null, *RETIRED_THEME_KEYS.toTypedArray(), KEY_REDUCED_MOTION)
         }
@@ -103,6 +122,12 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             textScale = prefs.getFloat(KEY_TEXT_SCALE, d.textScale),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, d.autoEnterPip),
             uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, d.uiSounds),
+            accentFollowsVisual = prefs.getBoolean(KEY_ACCENT_FOLLOWS_VISUAL, d.accentFollowsVisual),
+            haptics = prefs.getBoolean(KEY_HAPTICS, d.haptics),
+            tabLabels = TabLabels.fromName(prefs.getString(KEY_TAB_LABELS, null)),
+            showTimeLeft = prefs.getBoolean(KEY_SHOW_TIME_LEFT, d.showTimeLeft),
+            screenRotation = ScreenRotation.fromName(prefs.getString(KEY_SCREEN_ROTATION, null)),
+            knobSize = KnobSize.fromName(prefs.getString(KEY_KNOB_SIZE, null)),
         )
     }
 
@@ -124,6 +149,12 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             .putFloat(KEY_TEXT_SCALE, value.textScale)
             .putBoolean(KEY_AUTO_ENTER_PIP, value.autoEnterPip)
             .putBoolean(KEY_UI_SOUNDS, value.uiSounds)
+            .putBoolean(KEY_ACCENT_FOLLOWS_VISUAL, value.accentFollowsVisual)
+            .putBoolean(KEY_HAPTICS, value.haptics)
+            .putString(KEY_TAB_LABELS, value.tabLabels.name)
+            .putBoolean(KEY_SHOW_TIME_LEFT, value.showTimeLeft)
+            .putString(KEY_SCREEN_ROTATION, value.screenRotation.name)
+            .putString(KEY_KNOB_SIZE, value.knobSize.name)
             .remove(KEY_WHITE_FONT)
             .remove(KEY_REDUCED_MOTION)
         val fontColor = value.fontColorArgb

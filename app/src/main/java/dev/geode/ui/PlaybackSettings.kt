@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.ReplayGain
 
@@ -60,11 +61,37 @@ internal fun PlayerPrefsRow(
             PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) { set(prefs.copy(pauseOnNoisy = it)) }
         SettingsRowKey.NATIVE_OUTPUT -> NativeOutputSettings(prefs, set)
         SettingsRowKey.BIT_PERFECT -> BitPerfectSettings(prefs, set)
+        SettingsRowKey.PICTURE_DELAY -> PictureDelaySlider(prefs, set)
         SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL ->
             PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) { set(prefs.copy(keepScreenOn = it)) }
         else -> Unit
     }
 }
+
+/** The visual's delay behind the sound, for a headset that misreports its latency; the bound is native. */
+@Composable
+private fun PictureDelaySlider(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    val max = GeodeNative.playoutMaxOffsetMs().toFloat()
+    Column {
+        CrystalSlider(
+            label = stringResource(R.string.playback_picture_delay, prefs.pictureDelayMs),
+            value = prefs.pictureDelayMs.toFloat(),
+            onValueChange = { onChange(prefs.copy(pictureDelayMs = PlaybackMath.snap(it, PICTURE_DELAY_STEP_MS).toInt())) },
+            valueRange = -max..max,
+            accessibilityStep = PICTURE_DELAY_STEP_MS,
+        )
+        Text(
+            stringResource(R.string.playback_picture_delay_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private const val PICTURE_DELAY_STEP_MS = 10f
 
 /** The fade on play and pause, in quarter seconds. */
 @Composable
@@ -73,18 +100,17 @@ private fun FadeSlider(
     onChange: (PlayerPrefs) -> Unit,
 ) {
     Column {
-        Text(
-            if (prefs.fadeMs <= 0) {
-                stringResource(R.string.playback_fade_off)
-            } else {
-                stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
-            },
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label =
+                if (prefs.fadeMs <= 0) {
+                    stringResource(R.string.playback_fade_off)
+                } else {
+                    stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
+                },
             value = prefs.fadeMs.toFloat(),
             onValueChange = { onChange(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt())) },
             valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
+            accessibilityStep = 250f,
         )
         Text(
             stringResource(R.string.playback_fade_explainer),
@@ -166,15 +192,13 @@ private fun CrossfadeSlider(
     val seconds = prefs.crossfadeMs / PlayerPrefs.CROSSFADE_STEP_MS
     val maxSeconds = PlayerPrefs.MAX_CROSSFADE_MS / PlayerPrefs.CROSSFADE_STEP_MS
     Column {
-        Text(
-            if (seconds <= 0) {
-                stringResource(R.string.playback_crossfade_off)
-            } else {
-                pluralStringResource(R.plurals.playback_crossfade_seconds, seconds, seconds)
-            },
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label =
+                if (seconds <= 0) {
+                    stringResource(R.string.playback_crossfade_off)
+                } else {
+                    pluralStringResource(R.plurals.playback_crossfade_seconds, seconds, seconds)
+                },
             value = seconds.toFloat(),
             onValueChange = { onChange(prefs.copy(crossfadeMs = PlayerPrefs.crossfadeMsFromSeconds(it))) },
             valueRange = 0f..maxSeconds.toFloat(),
@@ -196,25 +220,21 @@ private fun SpeedPitch(
     onChange: (PlayerPrefs) -> Unit,
 ) {
     Column {
-        Text(
-            stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
             value = prefs.speed,
             onValueChange = { onChange(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
             valueRange = 0.5f..2f,
+            accessibilityStep = 0.05f,
         )
     }
     Column {
-        Text(
-            stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
             value = prefs.pitchSemitones,
             onValueChange = { onChange(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
             valueRange = -6f..6f,
+            accessibilityStep = 0.5f,
         )
     }
     Text(
@@ -262,14 +282,12 @@ private fun ReplayGainSettings(
             }
         }
         if (prefs.replayGainMode != ReplayGain.MODE_OFF) {
-            Text(
-                stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.playback_replaygain_preamp, "%.1f".format(prefs.replayGainPreampDb)),
                 value = prefs.replayGainPreampDb,
                 onValueChange = { onChange(prefs.copy(replayGainPreampDb = PlaybackMath.snap(it, 0.5f))) },
                 valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
+                accessibilityStep = 0.5f,
             )
             PlaybackSwitchRow(stringResource(R.string.playback_replaygain_clip_guard), prefs.replayGainClipGuard) {
                 onChange(prefs.copy(replayGainClipGuard = it))

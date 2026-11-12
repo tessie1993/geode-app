@@ -297,7 +297,7 @@ void MilkdropScene::loadPendingPreset(double now) {
             std::lock_guard<std::mutex> lock(errorLock_);
             lastLoggedError_.clear();
         }
-        if (host_.onMilkPresetLoaded) host_.onMilkPresetLoaded(path);
+        shown_.loaded(path);
     }
 }
 
@@ -325,7 +325,9 @@ void MilkdropScene::draw(float timeSeconds) {
     // The engine composites its frame straight into the scene's FBO. The window surface is never
     // read or written here, so the result does not depend on the EGL config the host chose.
     projectm_opengl_render_frame_fbo(engine_.get(), frame_.fbo());
-    if (const auto error = takeError()) host_.onShaderError(*error);
+    const auto drawError = takeError();
+    if (drawError) host_.onShaderError(*drawError);
+    if (const std::string shown = shown_.drew(!drawError); !shown.empty() && host_.onMilkPresetLoaded) host_.onMilkPresetLoaded(shown);
     diagnoseBlackFrame();
     drainEngineErrors();
 

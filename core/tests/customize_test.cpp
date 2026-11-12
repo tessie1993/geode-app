@@ -85,6 +85,31 @@ void heldFieldsAreSceneParams() {
     }
 }
 
+// The params schema's meta rows (#1005 PR 4a) say which control sets each field and its scope; a held
+// control's own fields and scope must say the same until the held table is read from them too.
+void heldControlsAgreeWithTheMeta() {
+    for (const auto& h : customize::heldControls()) {
+        std::set<std::string> labelled;
+        for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+            const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+            if (m.live && std::strcmp(m.label, h.key) == 0) labelled.insert(SceneParams::fieldNames()[static_cast<size_t>(slot)]);
+        }
+        const std::set<std::string> fields(h.fields.begin(), h.fields.end());
+        check(fields == labelled, std::string(h.key) + ": its fields are the rows its meta label names");
+        if (h.scope) check(*h.scope == catalogue::scopeOf(h.key) || fields.empty(), std::string(h.key) + ": its scope is its rows'");
+    }
+    // Every field a placed control sets is labelled by that control.
+    for (const auto& section : customize::sections()) {
+        for (const char* control : section.controls) {
+            for (const char* field : customize::fieldsOf(control)) {
+                const int slot = SceneParams::slotOf(field);
+                check(slot >= 0 && std::strcmp(SceneParams::meta(static_cast<ParamSlot>(slot)).label, control) == 0,
+                      std::string(control) + " labels its field " + field);
+            }
+        }
+    }
+}
+
 void basicsAreFirstFewAndExpertHasNone() {
     std::map<Category, int> basics;
     std::map<Category, int> seen;
@@ -283,6 +308,7 @@ int main(int argc, char** argv) {
     lockableKeysAreTheRolledKeys();
     everyPlacedControlIsKnownAndPlacedOnce();
     heldFieldsAreSceneParams();
+    heldControlsAgreeWithTheMeta();
     basicsAreFirstFewAndExpertHasNone();
     randomizeStaysInsideItsCategory();
     aKeptCategoryHoldsThroughARollOfEverything();

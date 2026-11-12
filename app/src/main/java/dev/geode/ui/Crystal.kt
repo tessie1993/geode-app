@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -32,13 +34,16 @@ import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalTelevision
 import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.StoneHaptics
 import dev.geode.ui.theme.geodeColorScheme
 import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.geodeTypography
 import dev.geode.ui.theme.isReadableOnCanvas
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.ui.theme.rememberUiSounds
+import dev.geode.ui.theme.televisionRipple
 
 /**
  * The app's one theme: black glass on the Material 3 type scale, with M3 Expressive motion.
@@ -47,8 +52,9 @@ import dev.geode.ui.theme.rememberUiSounds
  * is now plain Material with the [GeodeColors]/[GeodeGlass] tokens.
  *
  * [accentSource] is the current visual's main colour, which the accent follows
- * ([dev.geode.ui.theme.VisualAccent]); null keeps the fallback #9CC7FF. The motion scheme follows
- * the system's "Remove animations" live, or the app's own reduced-motion setting.
+ * ([dev.geode.ui.theme.VisualAccent]) unless [GeneralSettings.accentFollowsVisual] is off; null keeps the
+ * fallback #9CC7FF. The motion scheme follows the system's "Remove animations" live, or the app's
+ * own reduced-motion setting.
  */
 @Composable
 internal fun CrystalMaterialTheme(
@@ -61,10 +67,11 @@ internal fun CrystalMaterialTheme(
         geodeColorScheme(
             accentIntensity = general.accentIntensity,
             fontColorOverride = fontColor,
-            accentSource = accentSource,
+            accentSource = accentSource.takeIf { general.accentFollowsVisual },
         )
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
+    SideEffect { StoneHaptics.enabled = general.haptics }
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,
@@ -76,8 +83,14 @@ internal fun CrystalMaterialTheme(
             colorScheme = scheme,
             shapes = general.cornerStyle.shapes(),
             typography = crystalTypography(general.textScale),
-            content = content,
-        )
+        ) {
+            // A remote's focus, lit in the accent on a TV (televisionRipple); a phone keeps Material's.
+            if (LocalTelevision.current) {
+                CompositionLocalProvider(LocalRippleConfiguration provides televisionRipple(scheme.primary), content = content)
+            } else {
+                content()
+            }
+        }
     }
 }
 

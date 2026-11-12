@@ -3,6 +3,7 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,8 +53,9 @@ internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
 internal fun PresetMorphRow(viewModel: SettingsViewModel) {
     val visuals by viewModel.visuals.collectAsStateWithLifecycle()
     Column {
-        Text(stringResource(R.string.audio_preset_morph, visuals.presetMorphSeconds))
         CrystalSlider(
+            label = stringResource(R.string.audio_preset_morph, visuals.presetMorphSeconds),
+            labelStyle = LocalTextStyle.current,
             value = visuals.presetMorphSeconds,
             onValueChange = { viewModel.updateVisuals { s -> s.copy(presetMorphSeconds = it) } },
             valueRange = 0f..VisualsSettingsCodec.PRESET_MORPH_SECONDS_MAX,
@@ -175,8 +177,10 @@ private fun AdvancedTuning(
     listOf(R.string.audio_drum_kick, R.string.audio_drum_snare, R.string.audio_drum_hat).forEachIndexed { i, label ->
         val drum = SoundTuning.DRUM + i
         val decay = SoundTuning.DRUM_DECAY + i
-        TuningSlot(stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay])), tuning, drum, onChange)
+        val drumLine = stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay]))
+        TuningSlot(drumLine, tuning, drum, onChange)
         CrystalSlider(
+            valueDescription = drumLine,
             value = tuning[decay],
             onValueChange = { onChange(tuning.withSlot(decay, it)) },
             valueRange = SoundTuning.range(decay),
@@ -215,6 +219,5 @@ private fun TuningSlider(
     range: ClosedFloatingPointRange<Float>,
     onChange: (Float) -> Unit,
 ) {
-    Text(label, style = MaterialTheme.typography.labelMedium)
-    CrystalSlider(value = value, onValueChange = onChange, valueRange = range)
+    CrystalSlider(value = value, onValueChange = onChange, valueRange = range, label = label)
 }

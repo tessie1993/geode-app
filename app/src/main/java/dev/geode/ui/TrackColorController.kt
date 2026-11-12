@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -59,7 +60,24 @@ internal class TrackColorController(
         }
     }
 
-    private fun artworkPixels(uri: Uri): IntArray? =
+    /** The playing track's embedded artwork, up to [ART_PICK_SIZE] a side, for the eyedropper; null when there is none. */
+    suspend fun artworkBitmap(): Bitmap? {
+        val uri = host.currentUri ?: return null
+        return withContext(Dispatchers.IO) { artwork(uri, ART_PICK_SIZE) }
+    }
+
+    private fun artworkPixels(uri: Uri): IntArray? {
+        val bmp = artwork(uri, ART_SAMPLE_SIZE) ?: return null
+        val out = IntArray(bmp.width * bmp.height)
+        bmp.getPixels(out, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        bmp.recycle()
+        return out
+    }
+
+    private fun artwork(
+        uri: Uri,
+        maxSide: Int,
+    ): Bitmap? =
         runCatching {
             val retriever = MediaMetadataRetriever()
             val bytes =
@@ -73,16 +91,13 @@ internal class TrackColorController(
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             val sample =
                 generateSequence(1) { it * 2 }
-                    .first { bounds.outWidth / it <= ART_SAMPLE_SIZE && bounds.outHeight / it <= ART_SAMPLE_SIZE }
+                    .first { bounds.outWidth / it <= maxSide && bounds.outHeight / it <= maxSide }
             val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return null
-            val out = IntArray(bmp.width * bmp.height)
-            bmp.getPixels(out, 0, bmp.width, 0, 0, bmp.width, bmp.height)
-            bmp.recycle()
-            out
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
         }.getOrNull()
 
     private companion object {
         const val ART_SAMPLE_SIZE = 128
+        const val ART_PICK_SIZE = 1024
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -40,6 +41,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +67,7 @@ import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalGlassBackdrop
+import dev.geode.ui.theme.LocalTelevision
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.glassBackdrop
 import dev.geode.ui.theme.performStoneHaptic
@@ -222,6 +226,11 @@ private fun VisualsHubContent(
             onMacros = { macros = true },
             onRecord = { if (!record.recording) studioViewModel.startRecording() },
         )
+    // A TV's remote: the stage takes focus whenever the options go (full screen), so the D-pad steps
+    // the visual at once, and enters the options from the stage while they are up (StageRemote).
+    val television = LocalTelevision.current
+    val stageFocus = remember { FocusRequester() }
+    val optionsFocus = remember { FocusRequester() }
     val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val backdrop = rememberGlassBackdrop()
     // The side panel's share of the width, kept across turns of the phone.
@@ -311,7 +320,12 @@ private fun VisualsHubContent(
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onTapDown = tapAlong,
             onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
+            remote = if (television) StageRemote(stageFocus, optionsFocus, optionsShown = nav.sheetShown && !pip, side = side) else null,
         )
+        // Here, beside the stage, so its requester is attached by the time the effect runs.
+        LaunchedEffect(television, nav.sheetShown, pip) {
+            if (television && !nav.sheetShown && !pip) stageFocus.requestFocus()
+        }
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
             StageIcons(
@@ -335,6 +349,8 @@ private fun VisualsHubContent(
         // sheet's: a tap there must not reach the stage's top or bottom tap or its double tap. Only
         // while shown, so a hidden sheet's empty strip never blocks the stage's bottom tap.
         val swallowTaps = if (nav.sheetShown || playerComposed) Modifier.pointerInput(Unit) { detectTapGestures { } } else Modifier
+        // On a TV the options are one focus group the remote enters from the stage (StageRemote).
+        val remoteEntry = if (television) Modifier.focusRequester(optionsFocus).focusGroup() else Modifier
         CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
             VisualsOptions(
                 nav = nav,
@@ -381,6 +397,7 @@ private fun VisualsHubContent(
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
                             .padding(GeodeSpacing.EdgeInset)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
+                            .then(remoteEntry)
                     } else {
                         Modifier
                             .align(Alignment.BottomCenter)
@@ -393,6 +410,7 @@ private fun VisualsHubContent(
                             .padding(top = GeodeSpacing.EdgeInset / 2, bottom = dockGap / 2)
                             .graphicsLayer { if (docked != null) alpha = playerAlpha.value }
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
+                            .then(remoteEntry)
                     },
             ) {
                 val pageMotion = LocalGeodeMotion.current

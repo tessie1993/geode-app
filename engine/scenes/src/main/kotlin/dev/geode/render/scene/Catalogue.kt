@@ -19,7 +19,7 @@ import java.io.File
  */
 object Catalogue {
     /** The table version this shell reads; core/viz/Catalogue.hpp's `kTextVersion`. */
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
 
     const val TEXT_FILE_PROPERTY: String = "geode.catalogue"
 
@@ -27,11 +27,11 @@ object Catalogue {
         Table.parse(System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.catalogueText())
     }
 
-    /**
-     * Every style, in picker order: silk, life, mycelium, acid, shaders (loose, then the families),
-     * milkdrop, fluid, curl flow, water, cymatics.
-     */
+    /** Every style, in picker order: [picker]'s families one after another. */
     val styles: List<CatalogueStyle> get() = table.styles
+
+    /** The Styles page's families, one flat level, by name, each with its styles in list order; every style is in one. */
+    val picker: Map<String, List<String>> get() = table.picker
 
     /** The style families, in picker order. */
     val families: List<StyleFamily> get() = table.families
@@ -68,6 +68,7 @@ object Catalogue {
     private class Table(
         val styles: List<CatalogueStyle>,
         val families: List<StyleFamily>,
+        val picker: Map<String, List<String>>,
         val kindScopes: Map<SceneKind, Set<ParamScope>>,
         val keyScopes: Map<String, ParamScope>,
         val ranges: Map<String, ClosedFloatingPointRange<Float>>,
@@ -80,6 +81,7 @@ object Catalogue {
             fun parse(text: String): Table {
                 val styles = mutableListOf<CatalogueStyle>()
                 val families = mutableListOf<StyleFamily>()
+                val picker = linkedMapOf<String, List<String>>()
                 val kindScopes = mutableMapOf<SceneKind, Set<ParamScope>>()
                 val keyScopes = mutableMapOf<String, ParamScope>()
                 val ranges = mutableMapOf<String, ClosedFloatingPointRange<Float>>()
@@ -94,13 +96,14 @@ object Catalogue {
                         "kind" -> kindScopes[SceneKind.valueOf(f[1])] = scopes(f.getOrNull(2))
                         "style" -> styles += CatalogueStyle(f[1], SceneKind.valueOf(f[2]), f[3], scopes(f.getOrNull(4)))
                         "family" -> families += StyleFamily(name = f[1], prefix = f[2], library = f[3], ids = f[4].split(','))
+                        "picker" -> picker[f[1]] = f[2].split(',')
                         "override" -> overrides[f[1] to f[2]] = f[3].toFloat()
                         "key" -> keyScopes[f[1]] = ParamScope.valueOf(f[2])
                         "range" -> ranges[f[1]] = f[2].toFloat()..f[3].toFloat()
                         "value" -> values[f[1]] = f[2].toFloat()
                     }
                 }
-                return Table(styles, families, kindScopes, keyScopes, ranges, values, overrides)
+                return Table(styles, families, picker, kindScopes, keyScopes, ranges, values, overrides)
             }
 
             private fun scopes(field: String?): Set<ParamScope> =

@@ -181,6 +181,7 @@ fun LibraryScreen(
     // The field shows every keystroke; the list follows the debounced query in [state].
     val query by libraryViewModel.query.collectAsStateWithLifecycle()
     val duplicates by libraryViewModel.duplicates.collectAsStateWithLifecycle()
+    val hiddenShort by libraryViewModel.hiddenShortTracks.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
     var tab by rememberSaveable { mutableStateOf(0) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
@@ -266,6 +267,7 @@ fun LibraryScreen(
                 onOpenVisuals = onOpenVisuals,
                 modifier = Modifier.weight(1f),
             )
+            HiddenShortTracks(hiddenShort, onOpenFolders)
             TextButton(onClick = { tab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(stringResource(R.string.library_tab_playlists))
             }
@@ -284,6 +286,7 @@ fun LibraryScreen(
                 if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
                     SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = GeodeSpacing.S))
                 }
+                if (tab == 0) HiddenShortTracks(hiddenShort, onOpenFolders)
                 // Grouping walks the whole library, so the ViewModel does it off the main thread
                 // (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
@@ -296,6 +299,18 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+}
+
+/** "N short tracks hidden · Settings": the minimum length's count, opening Settings › Library where it is set. */
+@Composable
+private fun HiddenShortTracks(
+    count: Int,
+    onOpenSettings: () -> Unit,
+) {
+    if (count <= 0) return
+    TextButton(onClick = onOpenSettings, modifier = Modifier.padding(horizontal = GeodeSpacing.S)) {
+        Text(pluralStringResource(R.plurals.library_short_hidden, count, count), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -324,8 +339,8 @@ private fun SortPicker(
 /**
  * One pick from a list, Material's way: the current value and a ▾ on a 48 dp row, and an M3
  * [DropdownMenu] with a check on the chosen item (TalkBack hears it as selected). Shared by the
- * library's sort and the smart playlist editor's rule pickers, which replaced their chip walls
- * with it.
+ * library's sort, the smart playlist editor's rule pickers and the Styles page's family pick;
+ * [detail] is a quiet note at an item's end (a family's style count).
  */
 @Composable
 internal fun <T> LibraryDropdownRow(
@@ -336,6 +351,7 @@ internal fun <T> LibraryDropdownRow(
     onPick: (T) -> Unit,
     modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
+    detail: ((T) -> String)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
@@ -363,8 +379,20 @@ internal fun <T> LibraryDropdownRow(
                     },
                     modifier = Modifier.semantics { selected = chosen },
                     trailingIcon =
-                        if (chosen) {
-                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        if (chosen || detail != null) {
+                            {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    detail?.let {
+                                        Text(
+                                            it(option),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    // The check's place is kept on every item, so the notes line up.
+                                    if (chosen) Icon(Icons.Filled.Check, contentDescription = null) else Spacer(Modifier.size(24.dp))
+                                }
+                            }
                         } else {
                             null
                         },

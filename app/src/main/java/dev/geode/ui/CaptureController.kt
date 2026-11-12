@@ -260,14 +260,14 @@ internal class CaptureController(
                     val access = nowPlayingBridge.hasAccess()
                     access to (if (access) nowPlayingBridge.current() else null)
                 }
-            val refused = playbackCapture.active && playbackCapture.blockedLikely && (now?.playing ?: false)
+            val refused = playbackCapture.active && playbackCapture.quiet && (now?.playing ?: false)
             _externalAudio.update {
                 it.copy(
                     active = playbackCapture.active,
                     nowPlaying = now,
                     hasSessionAccess = access,
                     refusedByApp = refused,
-                    hearingSilence = playbackCapture.active && playbackCapture.blockedLikely,
+                    hearingSilence = playbackCapture.active && playbackCapture.quiet,
                 )
             }
             externalAudioRefreshInFlight = false

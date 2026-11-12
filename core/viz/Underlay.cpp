@@ -134,4 +134,16 @@ void finish(uint32_t* pixels, int width, int height, int blurRadius, float dimAm
     if (clampDim(dimAmount) > 0.0f) dim(pixels, width * height, dimAmount);
 }
 
+void toRgbaBytes(const uint32_t* argb, size_t count, uint8_t* out) {
+    if (!argb || !out) return;
+    for (size_t i = 0; i < count; i++) {
+        const uint32_t px = argb[i];
+        uint8_t* dst = out + i * 4;
+        dst[0] = static_cast<uint8_t>((px >> 16) & 0xFFu);  // R
+        dst[1] = static_cast<uint8_t>((px >> 8) & 0xFFu);   // G
+        dst[2] = static_cast<uint8_t>(px & 0xFFu);          // B
+        dst[3] = static_cast<uint8_t>((px >> 24) & 0xFFu);  // A
+    }
+}
+
 }  // namespace geode::viz::underlay

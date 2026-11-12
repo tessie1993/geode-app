@@ -69,6 +69,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -107,6 +110,7 @@ import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
+import dev.geode.model.TabLabels
 import dev.geode.model.TourChapter
 import dev.geode.model.TourPlace
 import dev.geode.model.TourSpot
@@ -120,11 +124,14 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
+import dev.geode.ui.theme.LocalTelevision
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.TelevisionSafeArea
 import dev.geode.ui.theme.VisualAccent
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.geodeMotionScheme
+import dev.geode.ui.theme.isTelevision
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.ui.tour.LocalTourNudge
 import dev.geode.ui.tour.TourHost
@@ -204,7 +211,9 @@ private data class NavEntry(
 fun AppRoot() {
     val tourViewModel: TourViewModel = geodeViewModel()
     val nudge = remember(tourViewModel) { tourViewModel::nudge }
-    CompositionLocalProvider(LocalTourNudge provides nudge) { AppContent(tourViewModel) }
+    val context = LocalContext.current
+    val television = remember(context) { context.isTelevision() }
+    CompositionLocalProvider(LocalTourNudge provides nudge, LocalTelevision provides television) { AppContent(tourViewModel) }
 }
 
 @Composable
@@ -346,6 +355,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
                                 onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
+                                showTimeLeft = general.showTimeLeft,
                             )
                         GeodeDestination.LIBRARY ->
                             if (twoPane) {
@@ -363,6 +373,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                             onOpenSearch = appState::openSearch,
                                             onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                             onOpenLibrary = {},
+                                            showTimeLeft = general.showTimeLeft,
                                         )
                                     }
                                 }
@@ -426,10 +437,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
             // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
             // Dialog, a window of its own, so it needs no such help.)
             val overlayUp = (bootAnimEnabled == false || appState.bootDone) && (!onboarding.safetyAcknowledged || !onboarding.setupDone)
+            val television = LocalTelevision.current
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier),
+                    .then(if (overlayUp) Modifier.clearAndSetSemantics { } else Modifier)
+                    .then(if (television) Modifier.remoteKeepsChromeAwake(chrome, appState) else Modifier),
             ) {
                 // Drawn first, so every screen draws over it; Visuals draws nothing behind its stage,
                 // so the visual shows there. The one VisualizerView has one parent: the second screen
@@ -437,7 +450,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 if (!onSecondScreen) {
                     VisualizerCanvasHost(visualizerView, shown = appState.dest == GeodeDestination.VISUALS, bounds = visualsBounds)
                 }
-                if (!sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+                // A TV always gets the rail: the bar's swipes and floating dock are a phone's.
+                if (!television && !sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
                     AppShellCompact(
                         navEntries = navEntries,
                         appState = appState,
@@ -447,6 +461,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         miniPlayer = miniPlayer,
                         dockedPlayer = dockedPlayer,
                         onDock = { dockHeight = it },
+                        tabLabels = general.tabLabels,
                         content = { destinationContent(false) },
                     )
                 } else {
@@ -459,6 +474,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         showMiniPlayer = state.hasMedia && !appState.onPlayer && !playerPaneShown,
                         pip = inPip,
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
+                        television = television,
                         miniPlayer = miniPlayer,
                         onDock = { dockHeight = it },
                         content = { destinationContent(twoPane) },
@@ -552,6 +568,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             PaywallHost(reducedMotion = reducedMotion)
             CastHost()
             SharedLinkConfirm()
+            AudioFileOpened(appState)
             MilkFileOpened(appState)
         }
     }
@@ -579,6 +596,7 @@ private fun AppShellCompact(
     miniPlayer: @Composable (Modifier) -> Unit,
     dockedPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
+    tabLabels: TabLabels,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -699,6 +717,7 @@ private fun AppShellCompact(
                         // Studio from a track menu, say. Fall back to the first tab rather than -1.
                         selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
                         onSelect = { appState.navigateTo(navEntries[it].destination) },
+                        labels = tabLabels,
                         modifier =
                             Modifier.onSizeChanged {
                                 if (it.height > 0) {
@@ -725,6 +744,7 @@ private fun AppShellExpanded(
     showMiniPlayer: Boolean,
     pip: Boolean,
     centerRail: Boolean,
+    television: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
     content: @Composable () -> Unit,
@@ -740,10 +760,35 @@ private fun AppShellExpanded(
     // canvas draws edge to edge behind the bars and the cutout, and only the rail, the stage
     // controls, the options and the dock take the insets themselves (#864).
     val railInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical)
-    Row(Modifier.fillMaxSize().then(if (onVisuals) Modifier else Modifier.safeDrawingPadding())) {
+    // On a TV the rail and every screen but Visuals keep inside the overscan margins (TV-OV).
+    val overscan = Modifier.padding(horizontal = TelevisionSafeArea.Horizontal, vertical = TelevisionSafeArea.Vertical)
+    Row(
+        Modifier
+            .fillMaxSize()
+            .then(if (onVisuals) Modifier else Modifier.safeDrawingPadding())
+            .then(if (television && !onVisuals) overscan else Modifier),
+    ) {
         // A PiP window is the visual alone, with no rail beside it.
         if (!pip) {
-            Box(if (onVisuals) Modifier.windowInsetsPadding(railInsets) else Modifier) {
+            Box(
+                if (onVisuals) {
+                    Modifier
+                        .windowInsetsPadding(railInsets)
+                        .then(
+                            if (television) {
+                                Modifier.padding(
+                                    start = TelevisionSafeArea.Horizontal,
+                                    top = TelevisionSafeArea.Vertical,
+                                    bottom = TelevisionSafeArea.Vertical,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                } else {
+                    Modifier
+                },
+            ) {
                 NavRail(navEntries, appState, centerRail)
             }
         }
@@ -848,6 +893,24 @@ private class DockInsets(
 
     override fun getBottom(density: Density) = with(density) { bottom().roundToPx() }
 }
+
+/**
+ * On a TV the remote is the only touch the chrome gets, so a key press counts as one: off Visuals
+ * it wakes the mini player (a focused button inside it would otherwise vanish under the remote);
+ * on Visuals it only keeps an awake chrome awake, as a touch in the dock does, so stepping styles
+ * with the remote never brings the stage icons back unasked. Watched on the preview pass and never
+ * consumed, so the key still reaches whatever has focus.
+ */
+private fun Modifier.remoteKeepsChromeAwake(
+    chrome: ShellChromeState,
+    appState: GeodeAppState,
+): Modifier =
+    onPreviewKeyEvent { event ->
+        if (event.type == KeyEventType.KeyDown) {
+            if (appState.dest == GeodeDestination.VISUALS) chrome.touched() else chrome.wake()
+        }
+        false
+    }
 
 /** The gap between the floating dock and the screen's bottom edge, and between the screen and the dock. */
 private val DOCK_GAP = 8.dp

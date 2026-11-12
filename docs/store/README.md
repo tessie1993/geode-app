@@ -137,8 +137,8 @@ read 2026-11-11:
 
 - **Real-time Record (#1035):** the "Record a take (Pro)" bullet describes today's take (the
   changes are replayed and rendered in the background). Reword it to what #1035 records.
-- **Pool style (#1036):** one more style; rerun `tools/store-stats.sh` and change "244 visual
-  styles" (and the changelog's 244) to the new count. If Pool is free, "more than 60" stays true.
+- **Pool style (#1036):** one more style; rerun `tools/store-stats.sh` and change "274 visual
+  styles" (and the changelog's 274) to the new count. If Pool is free, "more than 60" stays true.
 - **Macro editor (#1034):** the listing says "quick knobs" only. Add "make your own knobs" to the
   Customize bullet if the editor ships, and say whether it is Pro.
 - **Cast microphone fix:** no listing change; add the microphone foreground-service declaration

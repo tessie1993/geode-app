@@ -216,8 +216,8 @@ private class RouteCustomizeNav(
 /**
  * The one row above the list: how far the look is from as styled, then search, Randomize, Undo
  * and ⋯ (Redo, Reset this category, Reset everything, Save as preset, Show tips). Randomize and
- * Reset act on the open [category], or on Quick knobs from the list; Quick knobs' are free (the
- * knobs' Surprise), every other category's Randomize is Pro. Native decides what each one moves.
+ * Reset act on the open [category], or on Quick knobs from the list; Quick knobs' are free (new turns
+ * for the knobs on screen), every other category's Randomize is Pro. Native decides what each one moves.
  */
 @Composable
 private fun CustomizeHeader(
@@ -246,7 +246,12 @@ private fun CustomizeHeader(
     val nudge = LocalTourNudge.current
     val randomize = {
         nudge(GestureTip.SWIRL_RANDOMIZE)
-        if (proLock.unlocked) visualsViewModel.randomizeParams(target) else proLock.onLocked()
+        when {
+            // The knobs' turns, as before the bank (#1001): free, and native rolls them (core/viz/MacroBank).
+            onKnobs -> macroStore.rollValues(viewModel.vizState.value.sceneId)
+            proLock.unlocked -> visualsViewModel.randomizeParams(target)
+            else -> proLock.onLocked()
+        }
     }
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -268,8 +273,7 @@ private fun CustomizeHeader(
                     stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
-        // The knobs have no roll: the bank is the user's own (core/viz/MacroBank).
-        IconButton(onClick = randomize, enabled = !onKnobs, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
+        IconButton(onClick = randomize, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
             Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, target.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {

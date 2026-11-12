@@ -76,8 +76,8 @@ vec3 normalAt(vec3 p, float eps) {
 void main() {
     vec2 uv = view();
 
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     // 0 at the instant of the event and at its end, 1 in between: an envelope

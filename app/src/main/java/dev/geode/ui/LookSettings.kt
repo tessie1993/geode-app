@@ -38,11 +38,13 @@ import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GeneralSettings
 import dev.geode.geodeContainer
+import dev.geode.model.KnobSize
+import dev.geode.model.TabLabels
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Settings › Look › Basics: the accent and the interface sounds. */
+/** Settings › Look › Basics: the accent, interface sounds and vibration. */
 @Composable
 internal fun LookBasics(viewModel: SettingsViewModel) {
     val gui by viewModel.general.collectAsStateWithLifecycle()
@@ -56,7 +58,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: corners and the boot animation. */
+/** Settings › Look › Layout: corners, tab bar labels, the Player's time, screen rotation, Quick knobs' size and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.general.collectAsStateWithLifecycle()
@@ -69,14 +71,17 @@ private fun ThemeGroup(
     gui: GeneralSettings,
 ) {
     Column {
-        Text(
-            stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
             value = gui.accentIntensity,
             onValueChange = { viewModel.updateGeneral { s -> s.copy(accentIntensity = it) } },
             valueRange = 0.5f..1.5f,
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_accent_follows_visual),
+            summary = stringResource(R.string.look_accent_follows_visual_hint),
+            checked = gui.accentFollowsVisual,
+            onCheckedChange = { viewModel.updateGeneral { s -> s.copy(accentFollowsVisual = it) } },
         )
     }
     Column {
@@ -90,6 +95,12 @@ private fun ThemeGroup(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_haptics),
+            summary = stringResource(R.string.look_haptics_hint),
+            checked = gui.haptics,
+            onCheckedChange = { viewModel.updateGeneral { s -> s.copy(haptics = it) } },
+        )
     }
 }
 
@@ -100,11 +111,8 @@ private fun TextGroup(
 ) {
     FontColorRow(viewModel, gui)
     Column {
-        Text(
-            stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
             value = gui.textScale,
             onValueChange = { viewModel.updateGeneral { s -> s.copy(textScale = it) } },
             valueRange = GeneralSettings.TEXT_SCALE_MIN..GeneralSettings.TEXT_SCALE_MAX,
@@ -206,8 +214,44 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_tab_labels),
+        options = TabLabels.entries,
+        selected = gui.tabLabels,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.updateGeneral { s -> s.copy(tabLabels = it) } },
+    )
+    SettingsSwitchRow(
+        title = stringResource(R.string.look_show_time_left),
+        summary = stringResource(R.string.look_show_time_left_hint),
+        checked = gui.showTimeLeft,
+        onCheckedChange = { viewModel.updateGeneral { s -> s.copy(showTimeLeft = it) } },
+    )
+    ScreenRotationRow(gui, viewModel::updateGeneral)
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_knob_size),
+        options = KnobSize.entries,
+        selected = gui.knobSize,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.updateGeneral { s -> s.copy(knobSize = it) } },
+    )
     BootAnimationRow()
 }
+
+private fun KnobSize.labelRes(): Int =
+    when (this) {
+        KnobSize.SMALL -> R.string.look_knob_size_small
+        KnobSize.MEDIUM -> R.string.look_knob_size_medium
+        KnobSize.LARGE -> R.string.look_knob_size_large
+    }
+
+private fun TabLabels.labelRes(): Int =
+    when (this) {
+        TabLabels.AUTO -> R.string.look_tab_labels_auto
+        TabLabels.ALWAYS -> R.string.look_tab_labels_always
+        TabLabels.SELECTED -> R.string.look_tab_labels_selected
+        TabLabels.NEVER -> R.string.look_tab_labels_never
+    }
 
 @Composable
 private fun BootAnimationRow() {

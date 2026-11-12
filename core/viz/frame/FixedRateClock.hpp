@@ -78,6 +78,9 @@ struct CastFormat {
     // A keyframe this often, so the muxer cuts one fragment, one HLS segment, per interval: the
     // nominal segment length HlsSegments fixes the playlist's TARGETDURATION from.
     static constexpr int kKeyframeIntervalSec = 1;
+    // The encoders' targets (CastEncoder), and the master playlist's BANDWIDTH for a browser (LinkShare).
+    static constexpr int kVideoBitrate = 4'000'000;
+    static constexpr int kAudioBitrate = 160'000;
 };
 
 }  // namespace geode::viz::frame

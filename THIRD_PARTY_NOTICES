@@ -1808,6 +1808,11 @@ Shadertoy code is used. Credited as the best-known demonstration of it:
     (sphere inversion and domain repetition into an Apollonian packing)
 
 
+The Flame, Opal and Hollow style families (app/src/main/assets/shaders/
+lib_flame.glsl, lib_opal.glsl, lib_hollow.glsl and their flame_*, opal_* and
+hollow_* styles) are original code; no third-party shader code is used.
+
+
 Apache License 2.0 (full text)
 ------------------------------
 Verbatim copy of https://www.apache.org/licenses/LICENSE-2.0.txt, shipped

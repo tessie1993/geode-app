@@ -43,8 +43,6 @@ documentfile = { module = "androidx.documentfile:documentfile", version = "1.1.0
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
-media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
 # Cast to TV (dev.geode.cast): the Cast sender and the fragmented-MP4 muxer for its live stream.
 media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
 media3-muxer = { module = "androidx.media3:media3-muxer", version.ref = "media3" }

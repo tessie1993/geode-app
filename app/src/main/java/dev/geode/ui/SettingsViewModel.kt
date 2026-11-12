@@ -11,6 +11,7 @@ import dev.geode.data.PlayerPrefs
 import dev.geode.data.SoundInputSettings
 import dev.geode.data.VisualsSettings
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.model.WatermarkChoice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,6 +75,12 @@ class SettingsViewModel
         val audioFx: StateFlow<AudioFxState> get() = session.settings.audioFxState
 
         fun setPlayerPrefs(prefs: PlayerPrefs) = session.setPlayerPrefs(prefs)
+
+        val watermark: StateFlow<WatermarkChoice> get() = session.watermarkPrefs.value
+
+        fun updateWatermark(transform: (WatermarkChoice) -> WatermarkChoice) {
+            viewModelScope.launch { session.watermarkPrefs.update(transform) }
+        }
 
         fun setAudioFxEnabled(enabled: Boolean) = session.settings.setAudioFxEnabled(enabled)
 

@@ -14,6 +14,16 @@ Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong 
 }
 
 JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_captureHeardAt(JNIEnv*, jobject, jfloat peak, jlong nowMs, jlong heardAtMs) {
+    return geode_capture_heard_at(peak, nowMs, heardAtMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_captureQuiet(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
+    return geode_capture_quiet(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
     return geode_sound_track_boundary(seed);
 }
@@ -77,6 +87,11 @@ Java_dev_geode_engine_bridge_GeodeNative_soundTuningClamp(JNIEnv* env, jobject, 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceRunMode(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceReason(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
+    return geode_surface_reason(static_cast<unsigned>(flags), animateUntilMs, nowMs);
 }
 
 JNIEXPORT jint JNICALL

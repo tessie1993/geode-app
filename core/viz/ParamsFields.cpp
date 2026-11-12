@@ -115,6 +115,8 @@ const std::string& SceneParams::schemaText() {
                 out += std::string("choice|") + rows[static_cast<size_t>(slot)].name + "|" + std::to_string(i) + "|" + std::string(labels[i]) + "\n";
             }
         }
+        // The kaleidoscope's Folds menu.
+        for (size_t i = 0; i < kSymmetryFolds.size(); ++i) out += "fold|" + std::to_string(i) + "|" + std::to_string(kSymmetryFolds[i]) + "\n";
         return out;
     }();
     return kText;

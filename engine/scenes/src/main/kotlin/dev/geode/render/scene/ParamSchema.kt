@@ -21,7 +21,7 @@ import java.io.File
  */
 object ParamSchema {
     /** The table version this shell reads; core/viz/Params.hpp's `kSchemaTextVersion`. */
-    const val VERSION: Int = 4
+    const val VERSION: Int = 5
 
     const val TEXT_FILE_PROPERTY: String = "geode.paramsSchema"
 
@@ -42,6 +42,9 @@ object ParamSchema {
     /** The labels of picker [name]'s values, in index order (the table's `choice|name|index|label` rows); empty for no picker. */
     fun choices(name: String): List<String> = choiceLabels[name].orEmpty()
 
+    /** The kaleidoscope's Folds menu, fewest first (the table's `fold|index|folds` rows). */
+    val folds: List<Int> by lazy { text.lines().filter { it.startsWith("fold|") }.map { it.substringAfterLast('|').toInt() } }
+
     private val byName: Map<String, ParamSpec> by lazy { table.associateBy { it.name } }
 
     /** Every param, in slot order: `params[i].slot == i`, and the `geode_viz_set_params` frame is this long. */
@@ -56,12 +59,12 @@ object ParamSchema {
     /**
      * Reads the `geode_params_schema_text` table: a `params|<version>|<count>` header, then one
      * `param|slot|name|KIND|default|min|max|FADE|HOLD|LIVE|RETIRED` row per slot, in slot order, then the
-     * palette names ([paletteNames]) and the picker labels ([choices]). Throws on a
+     * palette names ([paletteNames]), the picker labels ([choices]) and the [folds]. Throws on a
      * version this shell does not read, a row out of order or a count that disagrees, since a
      * misread schema would put every param in the wrong wire slot.
      */
     internal fun parse(text: String): List<ParamSpec> {
-        val rows = text.lines().filter { it.isNotBlank() && !it.startsWith("palette|") && !it.startsWith("choice|") }.map { it.split('|') }
+        val rows = text.lines().filter { it.startsWith("param") }.map { it.split('|') }
         val header = rows.firstOrNull().orEmpty()
         check(header.size == 3 && header[0] == "params" && header[1] == VERSION.toString()) {
             "native params schema is $header, this shell reads version $VERSION"

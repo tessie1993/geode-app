@@ -1,6 +1,7 @@
 // Host-side checks for the Customize randomizer, Reset tab and the params wire
 // (core/viz/ParamRandomizer, core/viz/Params). Built and run by CI
 // (.github/workflows/android.yml, "Params host tests") with the system compiler; no GL.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <initializer_list>
@@ -163,7 +164,8 @@ void rollsStayUnderTheFlashClamp() {
         check(p.brightness <= 1.25f && p.contrast <= 1.25f && p.intensity <= 1.25f, "levels stay under 1 + flash depth");
         check(p.reactSeed >= 1 && p.reactSeed < (1 << 24), "the DNA seed survives the float wire");
         check(p.symmetry >= 0 && p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");
-        check(!p.kaleidoscope || p.symmetry >= 2, "a kaleidoscope gets real folds");
+        const auto& folds = SceneParams::kSymmetryFolds;
+        check(!p.kaleidoscope || std::find(folds.begin(), folds.end(), p.symmetry) != folds.end(), "a kaleidoscope gets a fold on the menu");
     }
 }
 

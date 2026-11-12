@@ -59,9 +59,6 @@ int counted(Rng& r, ParamSlot slot) {
     return r.n(static_cast<int>(m.rollLo), static_cast<int>(m.rollHi));
 }
 
-// The kaleidoscope's folds a roll picks from (SceneParams.SYMMETRY_FOLDS less 0, the off).
-constexpr int kFolds[] = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
-
 // What each roll does with its range: how often it moves a field at all, a coin for a switch, the
 // palette's overrides cleared. The fields a roll owns are the rows its key labels (rolledKeys).
 const std::vector<Roll>& rolls() {
@@ -91,7 +88,8 @@ const std::vector<Roll>& rolls() {
         {T::Shape, "Kaleidoscope",
          [](SceneParams& p, Rng& r) {
              p.kaleidoscope = r.chance(0.3f);
-             if (p.kaleidoscope) p.symmetry = kFolds[r.below(static_cast<int>(std::size(kFolds)))];
+             const auto& folds = SceneParams::kSymmetryFolds;
+             if (p.kaleidoscope) p.symmetry = folds[static_cast<size_t>(r.below(static_cast<int>(folds.size())))];
          }},
         {T::Shape, "Tile", [](SceneParams& p, Rng& r) { p.tile = r.chance(0.25f) ? drawn(r, ParamSlot::tile) : 1.0f; }},
         {T::Shape, "Pixelate", [](SceneParams& p, Rng& r) { p.pixelate = maybe(r, 0.15f, ParamSlot::pixelate); }},

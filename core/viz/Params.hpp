@@ -99,6 +99,12 @@ struct SceneParams {
     static constexpr int kNoPaletteLut = -1;
     static constexpr int kNoStop = -1;
     static constexpr int kDefaultSymmetryFolds = 6;
+    // The kaleidoscope's folds, fewest first: its Folds menu (the schema text's fold rows) and what a roll deals.
+    static constexpr std::array<int, 10> kSymmetryFolds = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
+    // The folds once the kaleidoscope's switch is set to `on`: switched on with fewer than the fewest, the default.
+    static constexpr int kaleidoscopeFolds(bool on, int symmetry) {
+        return on && symmetry < kSymmetryFolds.front() ? kDefaultSymmetryFolds : symmetry;
+    }
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
 #include "viz/ParamTable.inc"
@@ -144,7 +150,8 @@ struct SceneParams {
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
     // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
     // Then one row per picker label, by field in slot order, each in index order: choice|<name>|<index>|<label> (version 4).
-    static constexpr int kSchemaTextVersion = 4;
+    // Then one row per kSymmetryFolds entry, in order: fold|<index>|<folds> (version 5).
+    static constexpr int kSchemaTextVersion = 5;
     static const std::string& schemaText();
 
     // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired

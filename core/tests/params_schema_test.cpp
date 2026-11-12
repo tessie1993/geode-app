@@ -8,6 +8,7 @@
 //
 // The fixture is what the shell's JVM tests read in place of geode_params_schema_text (the geode.paramsSchema
 // property, dev.geode.render.scene.ParamSchema), so this check is what keeps their schema the device's.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -347,6 +348,22 @@ void everyPickerLabelsItsRange() {
     check(SceneParams::choices(ParamSlot::speed).empty() && SceneParams::choices(ParamSlot::kCount).empty(), "a slider or no slot has none");
 }
 
+// The Folds menu is real folds in symmetry's range, rising, the default among them. Switching the kaleidoscope on
+// without a fold (below 2) takes the default; nothing else moves symmetry.
+void theKaleidoscopeFoldsAreTheMenu() {
+    const auto& folds = SceneParams::kSymmetryFolds;
+    const ParamSpec& s = SceneParams::spec(ParamSlot::symmetry);
+    check(folds.front() == 2 && static_cast<float>(folds.back()) == s.max, "the menu runs from 2 to symmetry's max");
+    for (size_t i = 1; i < folds.size(); ++i) check(folds[i] > folds[i - 1], "the folds rise: " + std::to_string(folds[i]));
+    check(std::find(folds.begin(), folds.end(), SceneParams::kDefaultSymmetryFolds) != folds.end(), "the default is on the menu");
+    check(s.defaultValue == static_cast<float>(SceneParams::kDefaultSymmetryFolds), "symmetry's default is the default folds");
+    for (int n = 0; n <= static_cast<int>(s.max); ++n) {
+        check(SceneParams::kaleidoscopeFolds(false, n) == n, "switching off keeps " + std::to_string(n));
+        const int on = n < 2 ? SceneParams::kDefaultSymmetryFolds : n;
+        check(SceneParams::kaleidoscopeFolds(true, n) == on, "switching on with " + std::to_string(n));
+    }
+}
+
 std::vector<std::string> split(const std::string& line) {
     std::vector<std::string> out;
     std::string field;
@@ -364,8 +381,19 @@ void theTextIsTheTable() {
     int slot = 0;
     size_t palette = 0;
     size_t choiceRows = 0;
+    size_t fold = 0;
+    size_t labels = 0;
+    for (int s = 0; s < SceneParams::kFieldCount; ++s) labels += SceneParams::choices(static_cast<ParamSlot>(s)).size();
     while (std::getline(lines, line)) {
         const auto f = split(line);
+        if (!f.empty() && f[0] == "fold") {
+            const auto& folds = SceneParams::kSymmetryFolds;
+            check(choiceRows == labels, "the fold rows follow the choice rows: " + line);
+            check(f.size() == 3 && f[1] == std::to_string(fold) && fold < folds.size() && f[2] == std::to_string(folds[fold]),
+                  "a fold row names the menu's folds at its index: " + line);
+            ++fold;
+            continue;
+        }
         if (!f.empty() && f[0] == "choice") {
             const int at = f.size() == 4 ? SceneParams::slotOf(f[1]) : -1;
             const auto& labels = SceneParams::choices(static_cast<ParamSlot>(at < 0 ? SceneParams::kFieldCount : at));
@@ -407,9 +435,8 @@ void theTextIsTheTable() {
     }
     check(slot == kWireFloats, "one row per slot");
     check(palette == SceneParams::palettes().size(), "one name per built-in palette");
-    size_t labels = 0;
-    for (int s = 0; s < SceneParams::kFieldCount; ++s) labels += SceneParams::choices(static_cast<ParamSlot>(s)).size();
     check(choiceRows == labels, "one choice row per picker label");
+    check(fold == SceneParams::kSymmetryFolds.size(), "one fold row per fold");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
     check(SceneParams::schemaText().find("|fluidCatchRadius|FLOAT|0.12|0.03|0.3|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
@@ -562,6 +589,7 @@ int main(int argc, char** argv) {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     everyPickerLabelsItsRange();
+    theKaleidoscopeFoldsAreTheMenu();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();

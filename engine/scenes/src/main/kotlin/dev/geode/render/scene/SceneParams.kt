@@ -23,7 +23,7 @@ data class SceneParams(
     val mirror: Boolean = false,
     val warp: Float = 0f,
     val ripple: Float = 0f,
-    val symmetry: Int = DEFAULT_SYMMETRY_FOLDS,
+    val symmetry: Int = 6,
     val kaleidoscope: Boolean = false,
     val morph: Float = 0f,
     val pixelate: Float = 0f,
@@ -216,10 +216,6 @@ data class SceneParams(
                 "customPaletteId" to "which saved palette slot 1 uses; rendering reads the resolved hues",
                 "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
             )
-
-        val SYMMETRY_FOLDS: List<Int> = listOf(0, 2, 3, 4, 5, 6, 7, 8, 9, 12, 16)
-
-        const val DEFAULT_SYMMETRY_FOLDS: Int = 6
     }
 
     val usesCustomPalette: Boolean

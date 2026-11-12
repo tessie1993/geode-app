@@ -606,6 +606,11 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, ji
     return geode_params_palette_range(palette, override);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsKaleidoscopeFolds(JNIEnv*, jobject, jboolean on, jint symmetry) {
+    return geode_params_kaleidoscope_folds(on ? 1 : 0, symmetry);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsSanitize(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());

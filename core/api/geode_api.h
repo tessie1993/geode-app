@@ -498,8 +498,9 @@ GEODE_API void        geode_params_sanitize(const float* in, float* out);
  *   params|<version>|<count>
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Then palette|<index>|<name> per built-in
- * palette and choice|<name>|<index>|<label> per picker label (Params.hpp). Static: the pointer stays valid for the
- * process; the shell parses it once. Page placement stays in Kotlin. */
+ * palette, choice|<name>|<index>|<label> per picker label and fold|<index>|<folds> per kaleidoscope Folds entry
+ * (Params.hpp). Static: the pointer stays valid for the process; the shell parses it once. Page placement stays in
+ * Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
@@ -512,6 +513,9 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* The symmetry to keep when the kaleidoscope's switch is set to `on` (viz/Params kaleidoscopeFolds): switched on
+ * with fewer folds than the Folds menu's fewest, the default folds; otherwise `symmetry` unchanged. Pure, any thread. */
+GEODE_API int         geode_params_kaleidoscope_folds(int on, int symmetry);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

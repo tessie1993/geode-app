@@ -566,11 +566,10 @@ private fun KaleidoscopeControl(
     onChange: (SceneParams) -> Unit,
 ) {
     CheckRow(ParamKeys.KALEIDOSCOPE, p.kaleidoscope) { on ->
-        val folds = if (on && p.symmetry < 2) SceneParams.DEFAULT_SYMMETRY_FOLDS else p.symmetry
-        onChange(p.copy(kaleidoscope = on, symmetry = folds))
+        onChange(p.copy(kaleidoscope = on, symmetry = GeodeNative.paramsKaleidoscopeFolds(on, p.symmetry)))
     }
-    if (p.kaleidoscope && visible(ParamKeys.KALEIDOSCOPE, ParamScope.of(ParamKeys.KALEIDOSCOPE))) {
-        val folds = SceneParams.SYMMETRY_FOLDS.filter { it >= 2 }
+    val folds = ParamSchema.folds
+    if (p.kaleidoscope && folds.isNotEmpty() && visible(ParamKeys.KALEIDOSCOPE, ParamScope.of(ParamKeys.KALEIDOSCOPE))) {
         ProGated(ParamKeys.KALEIDOSCOPE, "Folds", "${p.symmetry}") {
             DropdownRow("Folds", folds.map { "$it" }, selectedIndex = folds.indexOf(p.symmetry)) { idx ->
                 onChange(p.copy(symmetry = folds[idx]))

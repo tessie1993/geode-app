@@ -88,6 +88,8 @@ float geode_params_palette_range(int palette, float range_override) {
     return p.paletteRange();
 }
 
+int geode_params_kaleidoscope_folds(int on, int symmetry) { return SceneParams::kaleidoscopeFolds(on != 0, symmetry); }
+
 const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
 
 float geode_touch_zoom(float current, float scale_factor) { return geode::viz::touch::zoom(current, scale_factor); }

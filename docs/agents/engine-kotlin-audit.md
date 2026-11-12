@@ -79,7 +79,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `VisualizerView` | 220 | pending |
 | `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). The process-wide push of the hand mask is `LfoStore.pushHand`. |
 | `FramePacer` | 248 | pending |
-| `SceneParams` | 272 | **in progress** (#1150): its option label lists are gone; every picker's labels are `GEODE_PARAM_CHOICES` rows in `core/viz/ParamTable.inc`, read through `ParamSchema.choices` (test `core/tests/params_schema_test.cpp`). The fields, defaults, `SYMMETRY_FOLDS` and the palette slot rules remain. |
+| `SceneParams` | 254 | **in progress** (#1150): its option label lists are gone; every picker's labels are `GEODE_PARAM_CHOICES` rows in `core/viz/ParamTable.inc`, read through `ParamSchema.choices` (test `core/tests/params_schema_test.cpp`). The Folds menu and the kaleidoscope switch rule are native too (`SceneParams::kSymmetryFolds`, `kaleidoscopeFolds`; `ParamSchema.folds`, `GeodeNative.paramsKaleidoscopeFolds`). The fields, defaults (the sentinel constants kept for them, pinned by `ParamSchemaTest`) and the palette slot rules remain. |
 | `VisualizerRenderer` | 313 | pending |
 | `NativeViz` | 522 | pending |
 | `GeodeNative` | 2,736 | declarations; its non-declaration members pending |

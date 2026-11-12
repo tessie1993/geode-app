@@ -107,7 +107,8 @@ GEODE_PARAM(Float, warp, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(warp, "Domain warp", Universal, kMod, 0.1f, 0.8f)
 GEODE_PARAM(Float, ripple, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(ripple, "Ripple", Universal, kMod, 0.1f, 0.8f)
-// Kaleidoscope folds: SceneParams.SYMMETRY_FOLDS (0, 2..9, 12, 16).
+// Kaleidoscope folds, below 2 none. The Folds menu and a roll offer SceneParams::kSymmetryFolds; a saved look
+// may hold any count in range, which the shaders fold as it is.
 GEODE_PARAM(Int, symmetry, SceneParams::kDefaultSymmetryFolds, 0, 16, Hold)
 GEODE_PARAM_META(symmetry, "Kaleidoscope", Universal, 0, 0, 0)
 GEODE_PARAM(Bool, kaleidoscope, false, 0, 1, Hold)

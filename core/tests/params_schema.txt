@@ -1,4 +1,4 @@
-params|4|187
+params|5|187
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -252,3 +252,13 @@ choice|liquidAge|2|Ink bleed
 choice|liquidSurface|0|Ink
 choice|liquidSurface|1|Gloss
 choice|liquidSurface|2|Glass
+fold|0|2
+fold|1|3
+fold|2|4
+fold|3|5
+fold|4|6
+fold|5|7
+fold|6|8
+fold|7|9
+fold|8|12
+fold|9|16

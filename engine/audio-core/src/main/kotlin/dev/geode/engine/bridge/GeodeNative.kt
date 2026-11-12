@@ -1045,6 +1045,12 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** The `symmetry` to keep when the kaleidoscope switch is set to [on] (`geode_params_kaleidoscope_folds`). Pure. */
+    external fun paramsKaleidoscopeFolds(
+        on: Boolean,
+        symmetry: Int,
+    ): Int
+
     /**
      * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
      * retired slots to their defaults, every row held to its schema range but a circular one

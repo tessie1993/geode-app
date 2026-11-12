@@ -27,7 +27,7 @@ section|SHAPE|stirrers|PRO|ALWAYS|Stirrers,Stirrer speed
 section|SHAPE|fluid_quality|PRO|ALWAYS|Fluid quality,Lower the quality when the phone struggles
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y
-section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin drift
+section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin
 section|DIVE|basics|BASICS|ALWAYS|Endless zoom,Dive speed
 section|DIVE|tunnel|PRO|ALWAYS|Ring spacing,Tunnel shape,Dive blend,Depth fade
 section|DIVE|spiral_aim|PRO|ALWAYS|Dive twist,Dive aim X,Dive aim Y,Dive lens

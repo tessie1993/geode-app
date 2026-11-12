@@ -135,7 +135,7 @@ target|cymaticsFlow|0|Wave flow
 target|cymaticsSwirl|0|Field swirl
 target|motionAmount|1|Motion amount
 target|motionBreath|1|Breath
-target|motionDrift|1|Spin drift
+target|motionDrift|0|Spin
 target|motionHue|1|Key colour
 target|camSmooth|1|Camera smoothing
 target|reactAmount|1|Reaction strength

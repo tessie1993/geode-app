@@ -47,11 +47,18 @@ Google's own SDK page says the SDK does.
 | Do you provide a way for users to request that their data is deleted? | **No** (Google's Cast logging is anonymous and cannot be deleted by anyone; the app has no accounts and keeps nothing off the device) |
 | Account creation | The app has **no account creation** |
 
-Data types: tick one, leave every other type unticked.
+Data types: tick these two, leave every other type unticked.
 
 | Data type | Collected | Shared | Processed ephemerally | Required or optional | Purposes |
 |---|---|---|---|---|---|
 | App activity › **App interactions** | Yes | No | No | **Required** (users cannot turn it off; it starts with the app) | **Analytics** |
+| App info and performance › **Diagnostics** | Yes | No | No | **Required** (as above) | **Analytics** |
+
+Google's page files the SDK's logging under App Activity alone. Diagnostics is our own, cautious
+reading of the same page (re-read 2026-11-12): it says the logs hold "mobile device information" and
+serve "to monitor overall SDK usage and performance, and to detect software defects", which is what
+Play's Diagnostics type describes. Declaring it costs nothing; leaving it out is the answer a review
+could call a mismatch.
 
 If Play's form asks about **Device or other IDs**: no. Google states the Cast logs carry no
 identifier that traces to a user or device, and the app reads none (no `AD_ID` permission; CI
@@ -95,7 +102,8 @@ every row above:
 - the microphone and other-app rows say the sound is never transmitted and is stored only
   inside a video the user records (› Record and screenshots), which is what Record does;
 - its opening says the app *itself* collects nothing and names Google's Cast logging, so it
-  agrees with "App interactions collected";
+  agrees with "App interactions" and "Diagnostics collected" (its Cast section names the
+  device and app information);
 - the Cast section says the logging starts with the app and cannot be turned off or deleted;
 - "Deleting your data" says nothing is held off the device to delete on request, which matches
   "no way to request deletion";

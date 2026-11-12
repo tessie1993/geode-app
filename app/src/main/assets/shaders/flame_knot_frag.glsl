@@ -18,7 +18,7 @@ out vec4 fragColor;
 // every two the long way, and the whole folded into itself three times, so
 // the windings read as one tangled knot. Turned about.
 //
-// Morph turns the folds, and the tangle reties itself. Worst case 72 samples
+// Morph turns the folds, and the tangle reties itself. Worst case 90 samples
 // and 3 fold iterations, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {

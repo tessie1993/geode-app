@@ -20,6 +20,8 @@ add_library(geode_core STATIC
     viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp
+    stage/StageLifecycle.cpp
+    stage/StagePacing.cpp
     api/geode_auto_api.cpp
     api/geode_stage_step_api.cpp
     api/geode_style_pick_api.cpp
@@ -180,6 +182,17 @@ target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nati
 target_link_libraries(geode_core PUBLIC oboe::oboe)
 # mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC mediandk)
+
+# The native stage's platform layer (docs/agents/native-stage.md): looper threads, AChoreographer, EGL on an
+# ANativeWindow, ANativeWindow_setFrameRate. Android only and in no host-test line; android, EGL and nativewindow
+# are linked above. Every call it makes is available at minSdk 33.
+if(ANDROID)
+    target_sources(geode_core PRIVATE
+        stage/android/EglWindow.cpp
+        stage/android/VsyncThread.cpp
+        stage/android/StageThread.cpp
+        api/geode_stage_api.cpp)
+endif()
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the

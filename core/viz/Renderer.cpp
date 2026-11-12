@@ -331,6 +331,8 @@ void Renderer::syncShaderOverrides() {
     const uint64_t generation = shader_overrides::generation();
     if (generation == shaderGeneration_) return;
     shaderGeneration_ = generation;
+    // An edited source may build where the last one failed.
+    prep_.forgive();
     const auto overrides = shader_overrides::snapshot();
     const std::string stock;
     for (auto& [id, scene] : scenes_) {
@@ -352,6 +354,7 @@ void Renderer::onSurfaceCreated() {
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
+    prep_.forgive();
     // Every name the old context made is released here, before this context's first glGen* (#374).
     // GL numbers names per context from 1, so an old name deleted after a new object was made can be
     // that new object: the passes' create() used to release first, after the overlays and the trail
@@ -666,18 +669,24 @@ Scene* Renderer::readyScene(const std::string& id) {
         }
         return scene;
     }
+    // A style that did not build is not built again every frame: the caller keeps what it drew.
+    if (prep_.failed(id)) return nullptr;
     Scene* scene = nullptr;
     if (blockingBuilds_.load(std::memory_order_relaxed)) {
         scene = sceneFor(id);
     } else {
         if (prep_.retarget(id)) stager_.clear();
-        switch (prep_.next(stager_.idle())) {
+        const double now = monotonicSeconds();
+        switch (prep_.next(stager_.idle(), now, stager_.progress())) {
             case ScenePrep::Step::Wait:
-                stager_.step(monotonicSeconds());
+                stager_.step(now);
                 return nullptr;
+            case ScenePrep::Step::GiveUp:
+                fail(id + ": its shaders did not finish compiling; keeping the last style");
+                prep_.fail(id);
+                break;
             case ScenePrep::Step::Attempt:
                 scene = attemptScene(id);
-                if (!scene) return nullptr;
                 break;
             case ScenePrep::Step::Block:
                 GEODE_LOGW(kTag, "%s kept deferring its programs; building it inline", id.c_str());
@@ -685,7 +694,7 @@ Scene* Renderer::readyScene(const std::string& id) {
                 break;
         }
     }
-    if (scene) {
+    if (scene || prep_.failed(id)) {
         prep_.done();
         stager_.clear();
     }
@@ -722,21 +731,28 @@ Scene* Renderer::attemptScene(const std::string& id) {
         return nullptr;
     }
     for (const auto& message : errors) fail(message);
-    if (!scene) return nullptr;
-    Scene* raw = scene.get();
-    scenes_.emplace_back(id, std::move(scene));
-    admitScene(id, *raw);
-    return raw;
+    return admitBuilt(id, std::move(scene));
 }
 
 Scene* Renderer::sceneFor(const std::string& id) {
     if (Scene* scene = builtScene(id)) return scene;
     auto built = buildScene(id);
-    if (!built) return nullptr;
-    Scene* scene = built.get();
-    scenes_.emplace_back(id, std::move(built));
-    admitScene(id, *scene);
-    return scene;
+    if (built) built->prepare();
+    return admitBuilt(id, std::move(built));
+}
+
+// A scene that did not build (no scene, or its program failed: the error is already reported) is
+// released and remembered as failed, so the frame keeps the scene it had instead of drawing nothing.
+Scene* Renderer::admitBuilt(const std::string& id, std::unique_ptr<Scene> scene) {
+    if (!scene || scene->buildFailed()) {
+        if (scene) scene->release();
+        prep_.fail(id);
+        return nullptr;
+    }
+    Scene* raw = scene.get();
+    scenes_.emplace_back(id, std::move(scene));
+    admitScene(id, *raw);
+    return raw;
 }
 
 std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {

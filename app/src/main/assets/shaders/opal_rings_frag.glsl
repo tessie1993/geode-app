@@ -46,6 +46,8 @@ vec2 opalMap(vec3 p) {
     return vec2(d, d0 < min(d1, d2) ? s0 : (d1 < d2 ? s1 : s2));
 }
 
+//#include lib_opal_march
+
 void main() {
     vec2 uv = view();
     opalSetup();

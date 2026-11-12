@@ -30,6 +30,8 @@ vec2 opalMap(vec3 p) {
     return vec2(f / max(g, 0.7), 3.0 * (c.x * c.y + c.z) + 0.5);
 }
 
+//#include lib_opal_march
+
 void main() {
     vec2 uv = view();
     opalSetup();

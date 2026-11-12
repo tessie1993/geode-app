@@ -30,6 +30,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     wt = vec2(0.85, 0.5) * smoothstep(0.1, 0.35, r);
 }
 
+//#include lib_flame_march
+
 void main() {
     vec2 uv = view();
     flameSetup();

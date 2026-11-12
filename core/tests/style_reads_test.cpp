@@ -261,6 +261,83 @@ void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
     }
 }
 
+// The top-level declarations of a function ahead of its body (prototypes), as "name(params)".
+std::vector<std::string> prototypesOf(const std::string& source) {
+    std::map<std::string, std::set<std::string>> macros;
+    std::istringstream lines(preprocess(stripComments(source), macros));
+    std::string code;
+    std::string line;
+    while (std::getline(lines, line)) {
+        const size_t first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line[first] != '#') code += line;
+        code += '\n';
+    }
+    std::vector<std::string> out;
+    int depth = 0;
+    std::string statement;
+    for (const char c : code) {
+        if (c == '{' || c == '}') {
+            depth += c == '{' ? 1 : -1;
+            statement.clear();
+            continue;
+        }
+        if (depth > 0) continue;
+        if (c != ';') {
+            statement += c;
+            continue;
+        }
+        const size_t open = statement.find('(');
+        const size_t end = statement.find_last_not_of(" \t\n");
+        // "type name(params)" closing the statement, nothing assigned: not a variable, a layout or a block.
+        if (open != std::string::npos && end != std::string::npos && statement[end] == ')' &&
+            statement.find('=') == std::string::npos) {
+            size_t i = open;
+            while (i > 0 && std::isspace(static_cast<unsigned char>(statement[i - 1]))) --i;
+            const size_t nameEnd = i;
+            while (i > 0 && isWord(statement[i - 1])) --i;
+            const bool typed = i > 0 && std::isspace(static_cast<unsigned char>(statement[i - 1]));
+            if (nameEnd > i && typed) out.push_back(statement.substr(i, end + 1 - i));
+        }
+        statement.clear();
+    }
+    return out;
+}
+
+void thePrototypeReaderFindsOnlyPrototypes() {
+    const std::string src =
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "layout(location = 0) out vec4 fragColor;\n"
+        "uniform float uSteps; // vec2 commented(vec3 p);\n"
+        "struct Hit { float t; };\n"
+        "vec3 gPal[5];\n"
+        "vec2 map(vec3 p);\n"
+        "void field(vec3 p, out vec2 f,\n    out vec2 w);\n"
+        "float f(float x) { return sin(x); }\n"
+        "void main() { float d = f(uSteps); vec2 m = map(vec3(d)); }\n"
+        "vec2 map(vec3 p) { return p.xy; }\n";
+    const auto found = prototypesOf(src);
+    check(found.size() == 2, "the reader finds the two prototypes and nothing else");
+    check(!found.empty() && found[0] == "map(vec3 p)", "a one-line prototype is found by name");
+}
+
+// No style declares a function ahead of its body. GLSL ES 3.00 allows it, but until the Flame, Opal and
+// Hollows libraries (lib_flame, lib_opal, lib_hollow: each called the style's map through a prototype) no
+// shader the phones run had one, and exactly those 30 styles froze and crashed the owner's phone
+// (2026-11-12). Each family's march now sits in lib_<family>_march, included after the style's map.
+void noStyleDeclaresAFunctionAhead(const std::string& assetsRoot) {
+    AAssetManager assets{assetsRoot};
+    const ShaderSource source(&assets);
+    for (const std::string& id : catalogue::allIds()) {
+        if (!catalogue::isShaderStyle(id)) continue;
+        const auto src = source.load(id + "_frag.glsl", nullptr);
+        if (!src) continue;
+        for (const std::string& p : prototypesOf(*src)) {
+            check(false, id + ": declares " + p + " ahead of its body; define it before the first call");
+        }
+    }
+}
+
 
 // What carries each SceneParams field Customize can show on a shader style. ShaderScene uploads the field
 // as a uniform and the composite leaves a shader style's geometry and grade to the style (grade::gateFor),
@@ -592,6 +669,8 @@ int main(int argc, char** argv) {
     theReaderFollowsCallsNotDeclarations();
     theCatalogueFollowsTheShaders(root);
     everyShaderStyleReadsTheLookControls(root);
+    thePrototypeReaderFindsOnlyPrototypes();
+    noStyleDeclaresAFunctionAhead(root);
     everyShownControlReachesItsStyle(root, core, gaps, matrix);
     if (failures == 0) std::printf("style_reads_test: ok\n");
     return failures == 0 ? 0 : 1;

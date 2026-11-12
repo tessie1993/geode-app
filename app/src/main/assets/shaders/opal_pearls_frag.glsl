@@ -34,6 +34,8 @@ vec2 opalMap(vec3 p) {
     return vec2(opalSmin(bead, thread, 0.08 + 0.2 * gOpalForm), 0.5);
 }
 
+//#include lib_opal_march
+
 void main() {
     vec2 uv = view();
     opalSetup();

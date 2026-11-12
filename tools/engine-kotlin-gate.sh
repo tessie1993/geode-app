@@ -47,7 +47,6 @@ C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
     "$C/audio/SampleRing.kt"
     "$C/audio/SoundCursor.kt"
-    "$C/audio/SoundTuning.kt"
     "$C/bridge/GeodeNative.kt"
     "$S/render/Adsr.kt"
     "$S/render/BlendMode.kt"
@@ -55,7 +54,6 @@ allowed=(
     "$S/render/FramePacer.kt"
     "$S/render/GyroLook.kt"
     "$S/render/Lfo.kt"
-    "$S/render/MilkPresetMemory.kt"
     "$S/render/PerformanceSettings.kt"
     "$S/render/Reactions.kt"
     "$S/render/SceneFactory.kt"
@@ -68,7 +66,6 @@ allowed=(
     "$S/render/bridge/StyleSchedule.kt"
     "$S/render/look/LookSnapshot.kt"
     "$S/render/scene/BuildStyleReactionsUseCase.kt"
-    "$S/render/scene/MilkStarterPack.kt"
     "$S/render/scene/ParamFormat.kt"
     "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"

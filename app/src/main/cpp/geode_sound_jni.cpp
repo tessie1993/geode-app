@@ -74,18 +74,15 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStartFailed(JNIEnv* env, job
     env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
 }
 
-// The saved tuning (null = none) as native reads it, clamped: every slot, or the defaults.
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundTuningFromSaved(JNIEnv* env, jobject, jfloatArray saved) {
-    const jsize count = saved ? env->GetArrayLength(saved) : 0;
-    std::vector<float> in(static_cast<size_t>(count));
-    if (count > 0) env->GetFloatArrayRegion(saved, 0, count, in.data());
-    const int n = geode_sound_tuning_slots();
-    std::vector<float> out(static_cast<size_t>(n));
-    geode_sound_tuning_from_saved(saved ? in.data() : nullptr, count, out.data(), n);
-    jfloatArray result = env->NewFloatArray(n);
+Java_dev_geode_engine_bridge_GeodeNative_soundTuningResolve(JNIEnv* env, jobject, jfloatArray saved) {
+    std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
+    if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
+    float out[GEODE_SOUND_TUNING_FLOATS];
+    geode_sound_tuning_resolve(saved ? in.data() : nullptr, static_cast<int>(in.size()), out);
+    jfloatArray result = env->NewFloatArray(GEODE_SOUND_TUNING_FLOATS);
     if (!result) return nullptr;
-    env->SetFloatArrayRegion(result, 0, n, out.data());
+    env->SetFloatArrayRegion(result, 0, GEODE_SOUND_TUNING_FLOATS, out);
     return result;
 }
 

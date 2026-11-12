@@ -185,7 +185,7 @@ class VisualizerWallpaperService : WallpaperService() {
             surfaceHolder.surface?.takeIf { it.isValid }?.let(pacer::applyTo)
         }
 
-        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (MilkPresetMemory). */
+        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (core/viz/MilkMemory). */
         private fun restoreLook(engine: VisualizerRenderer) {
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()

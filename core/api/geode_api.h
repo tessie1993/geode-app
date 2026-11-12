@@ -77,7 +77,7 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
@@ -828,16 +828,15 @@ GEODE_API int             geode_sound_source_step(long long* state, long long no
 GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
- * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
- * infinity into the slot's default. The engine clamps whatever it is given; the shell reads its tuning
- * through _from_saved, clamped too, so a slider never shows a value the engine would not use. */
+ * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
+ * infinity becoming the slot's default. The shell keeps only the saved floats (NULL for the defaults) and
+ * resolves them here, so a slider never shows a value the engine would not use. Resolve writes every
+ * slot to out: a save of GEODE_SOUND_TUNING_FLOATS slots, or one short (from before the input trim, which
+ * then reads 0 dB), clamped; any other save the defaults. Returns 1 when the save was used. */
 GEODE_API int             geode_sound_tuning_slots(void);
 GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
 GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
-/* A tuning as Settings › Audio saved it (`count` floats, NULL = none), clamped into `out`: every slot as
- * saved, a save one slot short (from before the input trim) at 0 dB trim, any other length the defaults.
- * 1 when the save was read, 0 when `out` holds the defaults. */
-GEODE_API int             geode_sound_tuning_from_saved(const float* saved, int count, float* out, int out_count);
+GEODE_API int             geode_sound_tuning_resolve(const float* saved, int count, float* out);
 
 /* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
  * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.

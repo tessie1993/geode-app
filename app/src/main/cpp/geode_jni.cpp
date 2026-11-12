@@ -177,6 +177,11 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat v
     return geode_playback_snap(value, step);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackErrorAction(JNIEnv*, jobject, jint consecutiveFailures, jboolean hasNext) {
+    return geode_playback_error_action(consecutiveFailures, hasNext == JNI_TRUE);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);

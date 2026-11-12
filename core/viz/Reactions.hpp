@@ -25,7 +25,7 @@ namespace geode::viz {
 //
 // One source per GeodeSoundFrame value (core/sound/SoundFrame.h), grouped as the Customize picker shows
 // them. This is the second numbering: the old analyser's 34 sources were replaced wholesale, and saved
-// routes from before it are dropped (ReactionRouteCodec's "reactions/2"), so each style restarts on its DNA.
+// routes from before it are dropped (ReactionText's "reactions/2"), so each style restarts on its DNA.
 // What a route reads for each source is a 0..1 (StereoPan and Interval -1..1) view of the field; see
 // kSourceTable in Reactions.cpp for how each kind is shaped.
 enum class ReactSource {

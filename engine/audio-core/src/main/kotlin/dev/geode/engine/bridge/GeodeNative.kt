@@ -546,6 +546,12 @@ object GeodeNative {
         mask: Int,
     ): FloatArray
 
+    /** The saved text of the user's [routes] (core/viz/ReactionText), in the [vizSetUserReactions] layout. */
+    external fun reactionsTextEncode(routes: FloatArray): String
+
+    /** The routes saved as [text], in the [vizSetUserReactions] layout; null for text that is no list. */
+    external fun reactionsTextDecode(text: String): FloatArray?
+
     /** Customize › Music's rows, [MUSIC_STATE_FLOATS] per moment (geode_music_state). */
     external fun musicState(
         styleId: String,

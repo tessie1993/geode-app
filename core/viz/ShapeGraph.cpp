@@ -55,7 +55,7 @@ float roll(uint64_t seed, int slot, int purpose) {
 }
 
 // Purposes of a roll, so no two draws of a slot share one.
-enum Purpose : int { kDirX, kDirY, kDirZ, kReach, kRadius, kDim0, kDim1, kDim2, kPrimRoll, kOpRoll, kColour, kSoft, kPhase0 };
+enum Purpose : int { kDirX, kDirY, kDirZ, kReachRoll, kRadius, kDim0, kDim1, kDim2, kPrimRoll, kOpRoll, kColour, kSoft, kPhase0 };
 
 // The primitive mixes Formula steps through: soft (balls, capsules, rings), hard (blocks, diamonds, drums),
 // crystal (rounded blocks and diamonds, masked in their groups) and carved (round forms cut by drums).
@@ -172,8 +172,8 @@ Target targetOf(const Inputs& in) {
                 r = 0.2f + 0.18f * roll(seed, i, kRadius);
                 // The core sits near the middle; the others reach out as far as Shapes spreads them; the carving
                 // head sits on the core's rim, where it has something to cut.
-                const float reach = i == 0 ? 0.3f * spread * roll(seed, i, kReach)
-                                           : spread * (0.45f + 0.55f * roll(seed, i, kReach));
+                const float reach = i == 0 ? 0.3f * spread * roll(seed, i, kReachRoll)
+                                           : spread * (0.45f + 0.55f * roll(seed, i, kReachRoll));
                 const auto& core = t.slots[0].place;
                 const auto& from = node.carves ? core : std::array<float, 3>{};
                 const float out = node.carves ? headRadius[0] * 0.8f : reach;

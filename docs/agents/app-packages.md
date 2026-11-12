@@ -231,8 +231,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.
 - Customize's tab and open groups are `CustomizeGroupsStore` on a `SettingsRepository`: state, never in a backup.
 - Quick knobs' macro bank is `MacroStore`: the native bank text, one key, pushed to native once its read at process start is back, and on every edit.
-- Customize › Layers is `LayerStore`: native's layer line (`customize_layer` in `geode-prefs`, Creative in a backup), pushed to native at load and on every edit; `LookStore.pushProcessWide` pushes it for the wallpaper and the dream.
-- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws `geode_layer_editor`'s rows only: source (You, Auto Director, Macro), family and style or knob, the style drawn now, blend and mix.
+- Customize › Layers' layer is native's (`core/viz/LayerState`); Kotlin keeps no layer state.
+- `LookStore` saves the line native hands back after each Layers edit (`customize_layer` in `geode-prefs`, Creative in a backup).
+- `LookStore.pushLayer` hands native the saved line: the container on IO at process start, `pushProcessWide` for the wallpaper and the dream.
+- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`GeodeNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
 - Each macro edit is saved as made; a new knob is a draft until saved.
 - A knob off screen is kept in the bank's library for Add macro to put back.
 - `MacroEditorTable` reads the knob editor's rows.

@@ -41,6 +41,8 @@ add_library(geode_core STATIC
     audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
+    audio/ingest/TrackPump.cpp
+    audio/ingest/android/TrackDecoder.cpp
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
     audio/output/OutputFifo.cpp
@@ -57,10 +59,12 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_export_job_api.cpp
     api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
+    output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
@@ -168,6 +172,8 @@ target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow)
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
+# mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
+target_link_libraries(geode_core PUBLIC mediandk)
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the

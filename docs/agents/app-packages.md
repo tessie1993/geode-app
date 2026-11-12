@@ -259,6 +259,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
 - Visualizer export: MediaCodec + offscreen GL.
+- `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render and chapters.
 - Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.

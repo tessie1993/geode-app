@@ -50,11 +50,11 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `LookApplier` | 97 | pending |
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
-| `OffscreenSceneRenderer` | 128 | pending |
+| `OffscreenSceneRenderer` | 128 | **ported**: `core/output/ExportFrame` (the prepare order, the pre-roll, each frame's audio and draw), `geode_export_job_*` (`core/api/geode_export_job_api.h`), test `core/tests/export_frame_test.cpp`. `export/ExportScene` opens the renderer and the track's descriptor and applies the look between the job's two prepare calls. The unused `paramsAt` and `styleSchedule` export parameters are gone. |
 | `SearchMatcher` | 131 | pending |
 | `Catalogue` | 131 | pending |
 | `ParamFormat` | 153 | pending |
-| `TrackAudio` | 158 | pending |
+| `TrackAudio` | 158 | **ported**: `core/audio/ingest/TrackPump` (the decode and hand-out order, AIFF first) over `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, linked `mediandk`), test `core/tests/track_pump_test.cpp`. Needs a device for the codec path. |
 | `ParamKeys` | 158 | pending |
 | `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | pending |
 | `VisualizerView` | 220 | pending |

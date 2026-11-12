@@ -78,8 +78,6 @@ allowed=(
     "$S/render/fluid/FluidShaderTemplate.kt"
     "$S/render/look/LookApplier.kt"
     "$S/render/look/LookSnapshot.kt"
-    "$S/render/offscreen/OffscreenSceneRenderer.kt"
-    "$S/render/offscreen/TrackAudio.kt"
     "$S/render/scene/BuildStyleReactionsUseCase.kt"
     "$S/render/scene/Catalogue.kt"
     "$S/render/scene/MilkStarterPack.kt"

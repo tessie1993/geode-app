@@ -365,7 +365,7 @@ internal class ExportController(
     }
 
     /**
-     * One visual over one stretch of song, drawn by the visualizer exporter (`OffscreenSceneRenderer`)
+     * One visual over one stretch of song, drawn by the visualizer exporter (`export/ExportScene`)
      * straight into [destination], hearing [song] from [range]'s start (the whole song when null), with
      * the loudness readout, background image and watermark.
      *

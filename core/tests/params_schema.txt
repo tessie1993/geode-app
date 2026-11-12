@@ -10,7 +10,7 @@ param|7|driftX|FLOAT|0|-1|1|FADE|LIVE
 param|8|driftY|FLOAT|0|-1|1|FADE|LIVE
 param|9|shake|FLOAT|0|0|1|FADE|RETIRED
 param|10|audioDrive|FLOAT|1|0.2|2.5|FADE|LIVE
-param|11|beatResponse|FLOAT|1|0|2|FADE|LIVE
+param|11|beatResponse|FLOAT|1|0|2|FADE|RETIRED
 param|12|turbulence|FLOAT|0|0|1.5|FADE|LIVE
 param|13|density|FLOAT|1|0.1|1|FADE|LIVE
 param|14|marchDetail|FLOAT|1|0.25|1.5|FADE|LIVE

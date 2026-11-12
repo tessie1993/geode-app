@@ -114,7 +114,6 @@ void SilkScene::stepSound(const GeodeSoundFrame& f, float dt) {
     const ReactSignals& sig = sound_.signals();
     const Variety& v = varietyOf(style_.field);
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
-    const float beat = std::clamp(p.beatResponse, 0.0f, 2.0f);
     stepDrive_ = safeAudioDrive(p.audioDrive);
 
     // Band lanes: the dye each lane injects.
@@ -122,12 +121,8 @@ void SilkScene::stepSound(const GeodeSoundFrame& f, float dt) {
     envMid_ = slewEnvelope(envMid_, clampedBand(live::mid(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(live::treble(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
 
-    // Drums as three separate forces: kick pushes out from the ring centre, snare shears a vortex
-    // around it (the turn flips with each snare), hat shimmers the fine treble strokes.
-    kick_ = std::clamp(unit01(f.kickEnv) * beat, 0.0f, 1.5f);
-    snare_ = std::clamp(unit01(f.snareEnv) * beat, 0.0f, 1.5f);
-    hat_ = std::clamp(unit01(f.hatEnv) * beat, 0.0f, 1.5f);
-    snareSign_ = f.snareToggle > 0.5f ? 1.0f : -1.0f;
+    // No drum forces of its own: the kick's push, the snare's shear and the hat's shimmer (each envelope
+    // times the retired beat-response slot) were hidden hit reactions and are gone.
 
     // Clocks: motion that speeds with the music and never runs backwards. A small floor of scene
     // time keeps the slab and folds drifting in silence, slowly.
@@ -153,19 +148,6 @@ void SilkScene::stepSound(const GeodeSoundFrame& f, float dt) {
     trend_ = ease(trend_, unit01(f.energyTrend), dt, 4.0f);
     writhe_ = ease(writhe_, std::isfinite(f.flux) ? std::clamp((f.flux - 0.9f) * 0.7f, 0.0f, 1.2f) : 0.0f, dt, 0.25f);
     windX_ = ease(windX_, live::pan(f) * 0.5f, dt, 1.5f);
-
-    // Ring: a kick throws a bass ring from a centre it picks (sides alternate on the kick toggle,
-    // offset by the kick's random); a hard cut or sound returning throws a white one from the middle.
-    if (f.kick * beat > 0.15f) {
-        const float side = f.kickToggle > 0.5f ? 1.0f : -1.0f;
-        ringCenterX_ = 0.5f + side * (0.08f + 0.22f * unit01(f.kickRandom));
-        ringCenterY_ = 0.5f + (unit01(f.kickRandom) - 0.5f) * 0.4f;
-        ringRadius_ = 0.0f;
-        const float k = std::clamp(f.kick * beat, 0.0f, 1.5f);
-        ringTint_[0] = k;
-        ringTint_[1] = 0.15f * k;
-        ringTint_[2] = 0.0f;
-    }
 
     // Counted changes. Every 4th kick re-seats the stroke lattice; every 8th jumps the field's damping
     // to a new value; every 16th steps the fold count and the field zoom.
@@ -289,10 +271,6 @@ void SilkScene::bindStep(sim::SimUniforms& u) {
     u.f1("uBass", envBass_);
     u.f1("uMid", envMid_);
     u.f1("uTreble", envTreble_);
-    u.f1("uKick", kick_);
-    u.f1("uSnare", snare_);
-    u.f1("uSnareSign", snareSign_);
-    u.f1("uHat", hat_);
     u.f1("uStrike", std::clamp(pcmStrike_, 0.0f, 1.5f));
     u.f1("uBeatRing", ringRadius_);
     u.f2("uRingCenter", ringCenterX_, ringCenterY_);

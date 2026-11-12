@@ -184,41 +184,4 @@ void Plate::localMean(const float* bands, int bandCount) {
     }
 }
 
-void Drops::update(float dt, float hit) {
-    if (dt <= 0.0f) return;
-    cooldown_ = std::max(cooldown_ - dt, 0.0f);
-    const float fade = std::exp(-dt / kDecaySeconds);
-    for (int i = 0; i < kSlots; ++i) {
-        const size_t base = static_cast<size_t>(i) * 4;
-        if (packed_[base + 3] <= 0.0f) continue;
-        packed_[base + 2] = wrapPhase(packed_[base + 2] + kOmega * dt, kTwoPi);
-        packed_[base + 3] *= fade;
-        if (packed_[base + 3] < kDropSilence) packed_[base + 3] = 0.0f;
-    }
-    if (hit > kSpawnThreshold && cooldown_ <= 0.0f) {
-        spawn(hit);
-        cooldown_ = kCooldownSeconds;
-    }
-}
-
-void Drops::reset() {
-    packed_.fill(0.0f);
-    cooldown_ = 0.0f;
-}
-
-void Drops::spawn(float strength) {
-    const size_t base = static_cast<size_t>(next_) * 4;
-    next_ = (next_ + 1) % kSlots;
-    seed_++;
-    packed_[base] = (hash(seed_) - 0.5f) * 2.0f * kSpread;
-    packed_[base + 1] = (hash(seed_ * 7 + 3) - 0.5f) * 2.0f * kSpread;
-    packed_[base + 2] = 0.0f;
-    packed_[base + 3] = 0.22f + 0.33f * std::clamp(strength, 0.0f, 1.5f);
-}
-
-float Drops::hash(int n) {
-    const float x = std::sin(static_cast<float>(n) * 12.9898f) * 43758.547f;
-    return x - std::floor(x);
-}
-
 }  // namespace geode::viz::cymatics

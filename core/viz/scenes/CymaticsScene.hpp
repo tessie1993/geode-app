@@ -42,7 +42,6 @@ private:
     static constexpr float kDriftWrap = 2.0f;
     static constexpr float kTravelOmega = 1.1f;
     static constexpr float kDriftRate = 0.05f;
-    static constexpr int kStyleFaraday = 4;
     static constexpr float kToneTauSeconds = 2.5f;
     static constexpr float kToneHueSpan = 0.05f;
     static constexpr float kPcmStrikeGain = 0.6f;
@@ -57,7 +56,6 @@ private:
     ProgramLoader loader_;
     SceneHost host_;
     cymatics::Plate plate_;
-    cymatics::Drops drops_;
     std::array<float, cymatics::kMaxRenderedModes * 4> modes_{};
     int modeCount_ = 0;
     SceneParams params_;
@@ -71,7 +69,6 @@ private:
     UniformCache uniforms_{0};
     bool programOk_ = false;
     GLuint vao_ = 0;
-    float beatPulse_ = 0.0f;
     PcmPulse pcmPulse_;
     float pcmStrike_ = 0.0f;
     float swirlPhase_ = 0.0f;

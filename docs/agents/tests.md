@@ -60,6 +60,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `library_search_test.cpp` also covers the global search sheet (`geode_search_sheet`): a fourth field, one hit per URI, the 30-track cap, playlists and presets.
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
@@ -88,6 +89,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
+- `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
@@ -130,6 +132,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
 - `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
+- `transition_library_test.cpp` also covers the picker table the shell splits (`geode_transition_picker`), on the shipped asset too.
 - `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).

@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
-import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.SceneParams
 import dev.geode.thumbs.SyntheticGroove
@@ -131,7 +130,7 @@ class StoreFramesTest {
             viz.surfaceCreated()
             viz.surfaceChanged(WIDTH / WARMUP_DIVISOR, HEIGHT / WARMUP_DIVISOR)
             check(viz.setScene(id)) { "native renderer cannot draw it" }
-            viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
+            viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // The default look, as a new user first meets the style; native resolves its reaction DNA.
             viz.setParams(SceneParams(fluidAutoQuality = false))

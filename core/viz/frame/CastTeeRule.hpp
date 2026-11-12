@@ -19,7 +19,7 @@ namespace geode::viz::frame::tee {
 // honest fallback, since then the phone shows nothing to copy. It starts drawing again as soon as a fresh copy
 // lands.
 //
-// Pure, no GL: the slot hand-off, the publish cadence and the crop are tested on the host
+// Pure, no GL: the slot hand-off, the publish cadence and the placement (turn and crop) are tested on the host
 // (core/tests/cast_tee_test.cpp).
 
 inline constexpr int kSlots = 3;
@@ -132,6 +132,39 @@ inline Rect cover(int srcW, int srcH, int dstW, int dstH) {
     r.x1 = r.x0 + static_cast<int>(w);
     r.y1 = r.y0 + static_cast<int>(h);
     return r;
+}
+
+// How the stage's picture becomes the stream's frame (owner, 2026-11-12: "Phone picture turned 90°"; landscape on
+// the TV and the PC, no bars, no stretch). A stage taller than wide is turned a quarter turn counter-clockwise, as
+// a phone held on its side with its top to the left, so its long side runs along the frame's; then the frame is
+// covered from it. Always the same direction, so turning the phone mid-cast only switches between turned and not.
+//
+// crop is the source rect read; the slot holds it unturned at slotW x slotH (the frame's size, or its transpose
+// when turned); the cast thread draws the slot over the whole frame, turned when `turned`.
+struct Placement {
+    bool turned = false;
+    Rect crop;
+    int slotW = 0;
+    int slotH = 0;
+};
+
+inline Placement place(int srcW, int srcH, int dstW, int dstH) {
+    Placement p;
+    if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return p;
+    // Only a frame wider than tall is turned into: a portrait stream would gain nothing from it.
+    p.turned = srcH > srcW && dstW > dstH;
+    p.slotW = p.turned ? dstH : dstW;
+    p.slotH = p.turned ? dstW : dstH;
+    p.crop = cover(srcW, srcH, p.slotW, p.slotH);
+    return p;
+}
+
+// Where frame pixel (u, v) of the turned picture reads the unturned slot, all in 0..1 with v up: the slot's top
+// (t = 1) lands on the frame's left (u = 0), its left (s = 0) on the frame's bottom. The cast thread's shader
+// does the same (CastTee.cpp, kTurnFrag).
+inline void turnedSource(float u, float v, float& s, float& t) {
+    s = v;
+    t = 1.0f - u;
 }
 
 }  // namespace geode::viz::frame::tee

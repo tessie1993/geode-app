@@ -199,7 +199,7 @@ fun Modifier.crystalPanel(
  *
  * While a cast streams ([keepDrawing]) the stream is this view's own frames (core/viz/frame/CastTee), so it keeps
  * drawing on every tab (above alpha 0 keeps its pacer running, `VisualizerView.setAlpha`), in its whole rect
- * (the tee crops to the stream), even before Visuals was ever laid out. Where and how it shows is native (core/viz/StageRun host).
+ * (the tee turns and crops it to the stream), even before Visuals was ever laid out. Where and how it shows is native (core/viz/StageRun host).
  */
 @Composable
 fun VisualizerCanvasHost(

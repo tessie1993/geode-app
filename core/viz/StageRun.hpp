@@ -51,7 +51,8 @@ inline uint32_t run(uint32_t flags) { return (draws(flags) ? kDraws : 0u) | (cas
 //   Player's Share to PC tile or the system's output switcher) there is no rect yet, so it takes the window: a
 //   0 x 0 view never drew, and the stream fell back to a second renderer that showed another visual until Visuals
 //   was opened.
-// - in its whole rect, no bars on the phone; the tee crops its picture to the stream's shape (tee::cover).
+// - in its whole rect, no bars on the phone; the tee turns a portrait stage and crops it to the stream
+//   (tee::place).
 enum HostFlag : uint32_t {
     kHostShown = 1u << 0,    // Visuals is the open screen
     kHostCasting = 1u << 1,  // a cast or a computer link streams

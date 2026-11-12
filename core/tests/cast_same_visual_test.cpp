@@ -1,13 +1,13 @@
 // Host checks that a cast carries the phone's own visual and fills the receiver's frame (owner, 2026-11-12: "Cast
-// still broken. Shows other visuals then phone"; on the shape: "no stripes on either but cut to fit").
+// still broken. Shows other visuals then phone"; on the shape: "no stripes on either but cut to fit", "Phone picture turned 90°").
 //
 // The stream is the stage's frames (core/viz/frame/CastTee); a second renderer draws only while the stage does not.
 // Pinned here:
 // - the stage's host (viz/StageRun host, through the C ABI the shell calls): while casting the view draws on every
 //   tab, also before Visuals was ever laid out (it was 0 x 0 then, so the second renderer showed another visual
 //   until Visuals opened), in its whole rect: no bars on the phone;
-// - the tee's crop (viz/frame/CastTeeRule cover): a portrait or a landscape stage fills the whole stream frame,
-//   aspect kept, crop centred, no bars on the receiver;
+// - the tee's placement (viz/frame/CastTeeRule place): a portrait stage turned a quarter turn, then every stage
+//   covers the whole stream frame, aspect kept, crop centred, no bars on the receiver;
 // - the stream's start (awaitStage, through the C ABI): a stage that is meant to draw gets time for its first
 //   copy instead of the second renderer drawing first.
 #include <cstdint>
@@ -84,33 +84,50 @@ void aCastDrawsOnEveryTabWithNoBarsOnThePhone() {
     check(open.alpha == GEODE_STAGE_HOST_OPAQUE && is(open, 0, 120, 1080, 2280), "casting on Visuals: its whole rect");
 }
 
-// The crop of a srcW x srcH stage the stream shows: inside the picture, the frame's shape to a pixel, centred,
-// one side whole. The blit stretches it over the whole frame, so the frame has no bars.
-void checkCover(int srcW, int srcH, const char* what) {
+// What the stream shows of a srcW x srcH stage: a portrait stage turned, then a crop inside the picture in the
+// slot's shape (the frame's, or its transpose when turned) to a pixel, centred, one side whole. The copy scales it
+// over the whole frame, so the frame has no bars and nothing is stretched.
+tee::Placement checkPlace(int srcW, int srcH, const char* what) {
     const int fw = stream(0);
     const int fh = stream(1);
-    const tee::Rect c = tee::cover(srcW, srcH, fw, fh);
+    const tee::Placement p = tee::place(srcW, srcH, fw, fh);
+    check(p.turned == (srcH > srcW), what);
+    check(p.slotW == (p.turned ? fh : fw) && p.slotH == (p.turned ? fw : fh), what);
+    const tee::Rect& c = p.crop;
     const int w = c.x1 - c.x0;
     const int h = c.y1 - c.y0;
     check(w > 0 && h > 0 && c.x0 >= 0 && c.y0 >= 0 && c.x1 <= srcW && c.y1 <= srcH, what);
     check(w == srcW || h == srcH, what);
-    // Aspect kept: w / h equals fw / fh to within the half pixel rounding costs on the cut side.
-    const long long cross = static_cast<long long>(w) * fh - static_cast<long long>(h) * fw;
-    check(std::llabs(cross) * 2 <= (w == srcW ? fw : fh) + 1, what);
+    // Aspect kept: w / h equals slotW / slotH to within the half pixel rounding costs on the cut side.
+    const long long cross = static_cast<long long>(w) * p.slotH - static_cast<long long>(h) * p.slotW;
+    check(std::llabs(cross) * 2 <= (w == srcW ? p.slotW : p.slotH) + 1, what);
     check(std::abs((c.x0 + c.x1) - srcW) <= 1 && std::abs((c.y0 + c.y1) - srcH) <= 1, what);
+    return p;
+}
+
+double kept(const tee::Placement& p, int srcW, int srcH) {
+    return static_cast<double>(p.crop.x1 - p.crop.x0) * (p.crop.y1 - p.crop.y0) / (static_cast<double>(srcW) * srcH);
 }
 
 void theReceiverGetsAFullFrameHoweverThePhoneIsHeld() {
     for (const auto& [w, h] : {std::pair{1080, 2400}, std::pair{2400, 1080}, std::pair{1440, 3120}, std::pair{1600, 2560},
                                std::pair{2560, 1600}, std::pair{720, 720}, std::pair{1280, 720}}) {
-        // The stage while casting is its whole Visuals rect; the tee crops that to the stream.
+        // The stage while casting is its whole Visuals rect; the tee turns and crops that to the stream.
         const Placed p = host(kShown | kCasting, 0, 0, w, h, w, h);
-        checkCover(p.w(), p.h(), "the stage fills the stream: frame shape, centred, aspect kept");
+        checkPlace(p.w(), p.h(), "the stage fills the stream: turned when portrait, centred, aspect kept");
     }
-    const tee::Rect portrait = tee::cover(1080, 2400, stream(0), stream(1));
-    check(portrait.x1 - portrait.x0 == 1080 && portrait.y1 - portrait.y0 == 608, "a 1080 x 2400 phone: its middle 608 rows");
-    const tee::Rect landscape = tee::cover(2400, 1080, stream(0), stream(1));
-    check(landscape.y1 - landscape.y0 == 1080 && landscape.x1 - landscape.x0 == 1920, "on its side: its middle 1920 columns");
+    // Upright or on its side, a 20:9 phone keeps 80 % of its picture: only the long ends go, 10 % each.
+    const tee::Placement upright = checkPlace(1080, 2400, "a 1080 x 2400 phone upright");
+    check(upright.turned && upright.crop.y1 - upright.crop.y0 == 1920, "upright: turned, its middle 1920 rows");
+    check(kept(upright, 1080, 2400) >= 0.79, "upright: nearly the whole picture");
+    const tee::Placement side = checkPlace(2400, 1080, "the same phone on its side");
+    check(!side.turned && side.crop.x1 - side.crop.x0 == 1920, "on its side: its middle 1920 columns");
+    check(kept(side, 2400, 1080) == kept(upright, 1080, 2400), "the same share either way up");
+    const tee::Placement tall = checkPlace(1440, 3120, "a 19.5:9 phone upright");
+    check(kept(tall, 1440, 3120) >= 0.82, "a 19.5:9 phone keeps more");
+    // Without the turn a portrait phone kept a quarter of its height (the crop of #1107's first round).
+    const tee::Rect unturned = tee::cover(1080, 2400, stream(0), stream(1));
+    check(unturned.y1 - unturned.y0 == 608, "unturned, the same phone would show 608 of 2400 rows");
 }
 
 void everyPlacementAndCropStaysInside() {
@@ -133,7 +150,7 @@ void everyPlacementAndCropStaysInside() {
         if (laid) check(is(p, l, t, r, b), "laid out: the rect as laid out, cast or not");
         if (!laid && casting) check(is(p, 0, 0, ww, wh), "not laid out, casting: the window");
         if (p.alpha == GEODE_STAGE_HOST_OPAQUE) check((flags & kShown) != 0 && laid, "opaque only on Visuals, laid out");
-        checkCover(ww, wh, "every stage size fills the stream");
+        checkPlace(ww, wh, "every stage size fills the stream");
     }
 }
 

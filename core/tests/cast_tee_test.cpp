@@ -7,7 +7,7 @@
 // does not take another, nothing blocks with the reader holding one and the writer mid-copy), the stage's
 // hand-over to the fallback renderer after kStaleNs and back on the next copy, the publish cadence (one copy per
 // cast frame from a 60, 90, 120 or 144 Hz stage, none faster than the cast's fps, a 30 Hz stage every frame), and
-// the cropped rectangle (the frame's shape, centred, aspect kept, a portrait stage's middle band, degenerate sizes empty).
+// the placement (a portrait stage turned a quarter turn, the frame's shape cropped centred, aspect kept, degenerate sizes empty).
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -134,6 +134,43 @@ void testCover() {
     check(thin.x1 - thin.x0 == 1 && thin.y1 - thin.y0 >= 1, "never zero, never past the picture");
 }
 
+void testPlace() {
+    // A 20:9 phone upright: turned, its long side along the frame's, only the long ends cut (1920 of 2400 rows).
+    const tee::Placement portrait = tee::place(1080, 2400, 1280, 720);
+    check(portrait.turned && portrait.slotW == 720 && portrait.slotH == 1280, "portrait: turned, slot the frame's transpose");
+    check(portrait.crop.x0 == 0 && portrait.crop.x1 == 1080, "portrait: its full width");
+    check(portrait.crop.y1 - portrait.crop.y0 == 1920 && portrait.crop.y0 == 240, "portrait: its middle 1920 rows");
+    // The same phone on its side: not turned, the middle 1920 columns.
+    const tee::Placement landscape = tee::place(2400, 1080, 1280, 720);
+    check(!landscape.turned && landscape.slotW == 1280 && landscape.slotH == 720, "landscape: not turned");
+    check(landscape.crop.x1 - landscape.crop.x0 == 1920 && landscape.crop.x0 == 240 && landscape.crop.y1 == 1080,
+          "landscape: its middle 1920 columns");
+    // Turned or not, the same share of the picture is kept: the phone's turn changes nothing on the TV but its sides.
+    const auto area = [](const tee::Rect& r) { return static_cast<long long>(r.x1 - r.x0) * (r.y1 - r.y0); };
+    check(area(portrait.crop) == area(landscape.crop), "the same pixels kept either way up");
+    const tee::Placement tablet = tee::place(1600, 2560, 1280, 720);
+    check(tablet.turned && tablet.crop.y1 - tablet.crop.y0 == 2560 && tablet.crop.x1 - tablet.crop.x0 == 1440,
+          "a 10:16 tablet upright: turned, all its rows, its middle 1440 columns");
+    const tee::Placement wideTablet = tee::place(2560, 1600, 1280, 720);
+    check(!wideTablet.turned && wideTablet.crop.y1 - wideTablet.crop.y0 == 1440, "16:10 on its side: not turned");
+    const tee::Placement square = tee::place(720, 720, 1280, 720);
+    check(!square.turned && square.crop.y1 - square.crop.y0 == 405, "square: not turned");
+    check(!tee::place(1080, 2400, 720, 1280).turned, "a portrait frame is never turned into");
+    const tee::Placement empty = tee::place(0, 100, 1280, 720);
+    check(!empty.turned && empty.slotW == 0 && empty.crop.x1 == 0, "degenerate sizes: nothing");
+    const tee::Placement thin = tee::place(1, 100000, 1280, 720);
+    check(thin.turned && thin.crop.x1 - thin.crop.x0 == 1 && thin.crop.y1 - thin.crop.y0 >= 1, "never zero");
+    // The direction: the phone's top on the frame's left, its left on the frame's bottom.
+    float s = 0.f;
+    float t = 0.f;
+    tee::turnedSource(0.f, 0.5f, s, t);
+    check(t == 1.f && s == 0.5f, "the frame's left edge is the phone's top");
+    tee::turnedSource(0.5f, 0.f, s, t);
+    check(s == 0.f && t == 0.5f, "the frame's bottom edge is the phone's left");
+    tee::turnedSource(1.f, 1.f, s, t);
+    check(s == 1.f && t == 0.f, "the frame's top right is the phone's bottom right");
+}
+
 }  // namespace
 
 int main() {
@@ -141,6 +178,7 @@ int main() {
     testStale();
     testCadence();
     testCover();
+    testPlace();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

@@ -750,7 +750,7 @@ object GeodeNative {
 
     /**
      * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
-     * false is the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls
+     * false is the wave editor's button (every wave on and rolled); true is a roll of everything, which only re-rolls
      * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
      */
     external fun modWavesRandomize(

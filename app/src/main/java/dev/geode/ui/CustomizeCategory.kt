@@ -33,11 +33,11 @@ enum class CustomizeCategory(
     MOTION("Motion", "Speed, zoom, spin and drift", Icons.Filled.Speed),
     DIVE("Dive", "The endless zoom: its tunnel, spiral, aim and depth", Icons.Filled.AllOut),
     CAMERA("Camera", "How the camera flies through the 3D world", Icons.Filled.Videocam),
-    MUSIC("Music", "How the music moves the picture: personality, reactions, modulation", Icons.Filled.MusicNote),
+    MUSIC("Music", "How the music moves the picture: personality, moments, reactions", Icons.Filled.MusicNote),
     EFFECTS("Effects", "Trails, lens and film looks, transitions", Icons.Filled.AutoAwesome),
     LIQUID("Liquid", "Turn the style into a flowing liquid", Icons.Filled.Waves),
     ENGINE("Engine", "This style's own engine: its flow, plate or presets", Icons.Filled.Memory),
-    EXPERT("Expert", "Layers and shader code", Icons.Filled.Code),
+    EXPERT("Expert", "Waves, envelopes, layers and shader code", Icons.Filled.Code),
     ;
 
     companion object {

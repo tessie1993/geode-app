@@ -49,7 +49,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction, envelope and wave editors), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert; a tab makes no back entry.
+- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list (`PaletteDropdown`, built-ins then the user's own); the blend's second slot steps through the built-ins.
@@ -61,7 +61,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
-- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
+- The waves' own Randomize, which randomize-everything runs for the waves already on (Expert has no roll of its own), is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.

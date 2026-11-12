@@ -127,7 +127,8 @@ internal class ModulationController(
      * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
      * rolls their turns through MacroStore, and has no roll here. [basicsOnly] is the roll
      * without Pro: native holds everything below a Basics (its `#PRO` lock) and the waves stay.
-     * True when the look changed.
+     * The waves are Expert's, which has no roll of its own, so only the roll of everything re-rolls
+     * the running ones. True when the look changed.
      */
     fun randomizeParams(
         category: CustomizeCategory? = null,
@@ -145,7 +146,7 @@ internal class ModulationController(
                 GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
             }
         if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
-        if (!basicsOnly && (category == null || category == CustomizeCategory.MUSIC)) randomizeWaves(all = false)
+        if (!basicsOnly && category == null) randomizeWaves(all = false)
         return changed
     }
 
@@ -172,7 +173,7 @@ internal class ModulationController(
     /**
      * Randomize for the waves. The roll is native (core/viz/WaveRandomizer): [all] is the wave editor's
      * button, every wave switched on and rolled; otherwise a category roll, which only re-rolls the
-     * steady waves already on and holds them when Music is kept. This only carries the waves there and back.
+     * steady waves already on and holds them when Expert is kept. This only carries the waves there and back.
      */
     fun randomizeWaves(all: Boolean) {
         val locked = _lockedParams.value.joinToString("\n")

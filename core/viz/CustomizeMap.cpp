@@ -81,11 +81,9 @@ const std::vector<Section>& table() {
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
         {C::Music, "notes_key", false, S::Always, {"Key colour", "@notes_key"}},
-        // The modulation editors sit with the music they follow: MilkDrop keeps a preset's motion and
-        // its per-frame reactions in one menu, and so does this page.
+        // What reacts to what stays with the music; the waves and envelopes, slot editors for the deep
+        // end, are Expert's (owner, 2026-11-12).
         {C::Music, "reactions", false, S::Always, {"@reactions"}},
-        {C::Music, "envelopes", false, S::Always, {"@envelopes"}},
-        {C::Music, "waves", false, S::Always, {"@waves"}},
 
         {C::Effects, "basics", true, S::Always, {"Trails", "Vignette", "@transition_style"}},
         {C::Effects, "trail_detail", false, S::Always, {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
@@ -129,6 +127,8 @@ const std::vector<Section>& table() {
          S::Engine,
          {"Blend preset changes", "MilkDrop palette tint"}},
 
+        {C::Expert, "waves", false, S::Always, {"@waves"}},
+        {C::Expert, "envelopes", false, S::Always, {"@envelopes"}},
         {C::Expert, "layers", false, S::Always, {"@layers"}},
         {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
@@ -174,8 +174,8 @@ const std::vector<HeldControl>& held() {
         {"@transition_style", {}, std::nullopt},
         {"@transition_length", {}, std::nullopt},
         {"@reactions", {}, std::nullopt},
-        {"@envelopes", {}, std::nullopt},
         {"@waves", {}, std::nullopt},
+        {"@envelopes", {}, std::nullopt},
         {"@layers", {}, std::nullopt},
         {"@shader_code", {}, std::nullopt},
     };

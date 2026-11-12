@@ -335,17 +335,18 @@ vec2 beamAlong(vec3 ro, vec3 rd, float tEnd, out float bAlong) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
     GlassEar ear = glassListen();
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    float k0 = gGlassIn.pulse - 0.5;
+    float k1 = gGlassIn.texture - 0.5;
+    float k2 = gGlassIn.flow - 0.5;
+    float k3 = gGlassIn.tone - 0.5;
+    float k4 = gGlassIn.build - 0.5;
+    float k5 = gGlassIn.space - 0.5;
 
-    gSpread = (0.015 + 0.045 * ear.sharp) * (1.0 + 0.9 * k5);
-    float ior = PR_IOR + 0.12 * glassComplexity();
+    gSpread = glassSpread((0.015 + 0.045 * ear.sharp) * (1.0 + 0.9 * k5));
+    float ior = glassIor(PR_IOR + 0.12 * glassComplexity());
     gHue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.3 * k3;
     float chaos = glassChaos();
     float haze = (0.6 + 0.8 * ear.frost) * (1.0 + 0.8 * k1);

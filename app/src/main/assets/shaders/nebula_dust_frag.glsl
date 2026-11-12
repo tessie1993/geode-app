@@ -69,8 +69,44 @@ out vec4 fragColor;
 /** Hue sway along the path: a 64-unit period, which divides the rig's 8192 wrap. */
 #define DU_Z_FREQ 0.09817477
 
+/** The frame's medium settings, set in main() before the march: the drifts, the gas crest's threshold, the dust ridge's floor, the gas's octaves. */
+vec3 gGasDrift;
+vec3 gDustDrift;
+float gThr;
+float gRidgeLo;
+float gGasOct;
+
+/**
+ * What the field holds at a point (lib_nebula_field): the dust's optical depth (its density here,
+ * before the fade by the eye), the gas field and its glowing crests, and the warped point's z (the hue
+ * sways along it).
+ */
+struct NebHit {
+    float dens;
+    float gas;
+    float glow;
+    float z;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    p = nebWarp3(p, nebTime());
+    NebHit h;
+    h.z = p.z;
+    // Emission: the crests of the gas field.
+    h.gas = nebFbm3(p * 0.25 + gGasDrift, gGasOct);
+    h.glow = smoothstep(gThr, gThr + 0.36, h.gas);
+    // Dust: winding sheets along the field's mid contour, globules at its peaks.
+    float dust = nebFbm3(p * 0.5 + gDustDrift, oct);
+    float ridge = 1.0 - abs(2.0 * dust - 1.0);
+    h.dens = smoothstep(gRidgeLo, 0.95, ridge) + 1.6 * smoothstep(0.66, 0.86, dust);
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     float t = nebTime();
     float flow = nebFlow();
     float e = nebEnergy();
@@ -78,21 +114,21 @@ void main() {
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float oct = nebVolOctaves(3.0);
-    float gasOct = min(oct, 3.0);
+    gGasOct = min(oct, 3.0);
     float key = nebKeyShift(0.12);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gNebIn.pulse - 0.5;
+    float kTexture = gNebIn.texture - 0.5;
+    float kFlow = gNebIn.flow - 0.5;
+    float kTone = gNebIn.tone - 0.5;
+    float kBuild = gNebIn.build - 0.5;
+    float kSpace = gNebIn.space - 0.5;
     key += 0.12 * kTone;
 
     // The gas crest threshold: bass and FLOW spread the glow lower.
-    float thr = 0.46 - 0.08 * bass - 0.06 * kFlow;
+    gThr = 0.46 - 0.08 * bass - 0.06 * kFlow;
     // The dust ridge: TEXTURE thins the sheets, bass thickens them.
-    float ridgeLo = 0.58 + 0.12 * kTexture - 0.06 * bass;
+    gRidgeLo = 0.58 + 0.12 * kTexture - 0.06 * bass;
     float dustK = DU_SIGMA * (1.0 + 0.8 * bass) * (1.0 + 0.8 * kSpace);
     float gain = 0.16 * (0.85 + 0.25 * bass) * (1.0 + 0.6 * kPulse);
     float heat = 0.18 + 0.3 * kBuild;
@@ -101,8 +137,8 @@ void main() {
     // The drift of the flat style, kept in x and y only so the z wrap holds:
     // the dust drifts faster than the gas, as its nearer layer did.
     vec2 travel = vec2(0.9, 0.3) * (flow * 0.012 + t * 0.006);
-    vec3 gasDrift = vec3(travel * 0.6, 0.0);
-    vec3 dustDrift = vec3(travel + vec2(7.3, -2.1), 0.0);
+    gGasDrift = vec3(travel * 0.6, 0.0);
+    gDustDrift = vec3(travel + vec2(7.3, -2.1), 0.0);
 
     vec3 ro;
     vec3 rd;
@@ -115,20 +151,17 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (tt > DU_FAR) break;
-        vec3 p = nebWarp3(ro + rd * tt, t);
+        NebHit at = nebField(ro + rd * tt, oct);
         float dt = nebVolDt(tt, 0.12, 0.035);
 
         // Emission: the crests of the gas field, two hues by height.
-        float gas = nebFbm3(p * 0.25 + gasDrift, gasOct);
-        float glow = smoothstep(thr, thr + 0.36, gas);
-        float hue = 0.12 + 0.55 * gas + key + 0.06 * sin(p.z * DU_Z_FREQ + 0.7);
+        float glow = at.glow;
+        float hue = 0.12 + 0.55 * at.gas + key + 0.06 * sin(at.z * DU_Z_FREQ + 0.7);
         vec3 tint = nebRich(nebEmission(hue, heat * glow), 0.9 * bass);
         vec3 emit = tint * glow * gain * exp(-tt * 0.035);
 
-        // Dust: winding sheets along the field's mid contour, globules at its peaks.
-        float dust = nebFbm3(p * 0.5 + dustDrift, oct);
-        float ridge = 1.0 - abs(2.0 * dust - 1.0);
-        float tau = smoothstep(ridgeLo, 0.95, ridge) + 1.6 * smoothstep(0.66, 0.86, dust);
+        // Dust: the field's sheets and globules, faded in past the eye.
+        float tau = at.dens;
         tau *= smoothstep(0.3, 1.6, tt);
         // Dust faintly scatters the gas light back, reddened: lanes are brown, not holes.
         emit += tint * absorb.zyx * 0.012 * tau * glow;

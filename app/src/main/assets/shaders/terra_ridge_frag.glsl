@@ -35,7 +35,7 @@ out vec4 fragColor;
 // Speed scales the palette drift and the Chaos warp's drift.
 // Complexity (uMorph) fades in a fifth octave (terraOctaves). Chaos (uWarp,
 // uTurbulence, uTwist) bends the ridges sideways (terraChaos). Energy
-// (uIntensity) scales the bass lift. Colour is pal() in the rock, sky and
+// (uIntensity) scales the bass lift. Colour is terraPal() in the rock, sky and
 // haze. Space is the rig (terraFly over camFly).
 
 #define RG_MAX_STEPS 128
@@ -45,13 +45,18 @@ out vec4 fragColor;
 float gOct;
 float gLift;
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     float r = terraRidged(terraChaos(terraWrap(xz)), gOct);
     return 1.5 * r * (1.0 + gLift * r);
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
+    // This style's own inputs (lib_terra's shell), mapped once: FLOW lowers or lifts the snow line.
+    float snowUp = terraShift(gTerraIn.level, 0.2);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float bass = clamp(0.6 * sndLevel(SND_BASS_ATT) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
     gLift = 0.22 * bass * terraEnergy();
@@ -64,9 +69,9 @@ void main() {
 
     float hue = 0.03 * sin(terraTime() * 0.02) + 0.1 * uKeyStrength * sin(TERRA_TAU * uKeyHue);
     vec3 sun = normalize(vec3(0.35, 0.10, 1.0));
-    vec3 sunCol = mix(vec3(1.0, 0.55, 0.25), pal(hue + 0.05), 0.25);
-    vec3 zenith = mix(vec3(0.04, 0.03, 0.13), pal(hue + 0.6) * 0.12, 0.3);
-    vec3 horizon = mix(vec3(0.85, 0.42, 0.22), pal(hue), 0.25);
+    vec3 sunCol = mix(vec3(1.0, 0.55, 0.25), terraPal(hue + 0.05), 0.25);
+    vec3 zenith = mix(vec3(0.04, 0.03, 0.13), terraPal(hue + 0.6) * 0.12, 0.3);
+    vec3 horizon = mix(vec3(0.85, 0.42, 0.22), terraPal(hue), 0.25);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -80,7 +85,7 @@ void main() {
             if (t > span.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -97,13 +102,13 @@ void main() {
     vec3 col = terraSky(rd, sun, zenith, horizon, sunCol);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.004 * hitT + 0.01);
+        vec3 n = terraNormal(p.xz, 0.004 * hitT + 0.01);
         float h = p.y / hMax;
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
         float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0) * max(dot(rd, sun), 0.0);
-        vec3 rock = mix(vec3(0.16, 0.13, 0.15), pal(hue + 0.55 + 0.25 * h) * 0.25, 0.35);
-        float snow = smoothstep(0.55, 0.8, h + 0.25 * (n.y - 0.7)) * smoothstep(0.55, 0.8, n.y);
+        vec3 rock = mix(vec3(0.16, 0.13, 0.15), terraPal(hue + 0.55 + 0.25 * h) * 0.25, 0.35);
+        float snow = smoothstep(0.55, 0.8, h + snowUp + 0.25 * (n.y - 0.7)) * smoothstep(0.55, 0.8, n.y);
         vec3 base = mix(rock, vec3(0.85, 0.82, 0.9), snow);
         col = base * dif * sunCol * 1.3;
         col += base * sky * zenith * 1.6;

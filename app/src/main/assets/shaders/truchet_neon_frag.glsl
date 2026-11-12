@@ -61,7 +61,7 @@ out vec4 fragColor;
 // halo's mid widening and the bass breathing. Colour: pal(), at full
 // saturation. Space: view() and the rig.
 // Knobs are offsets from 0.5, so off is the tuned look: k0 PULSE the hop,
-// k1 TEXTURE the floor's gloss, k2 FLOW the halo width, k3 TONE the hue,
+// k1 TEXTURE the floor's gloss and the tubes' girth, k2 FLOW the halo width, k3 TONE the hue,
 // k4 BUILD the far haze, k5 SPACE the hall's height.
 //
 // ---- why the distance estimate is safe ---------------------------------------
@@ -108,12 +108,19 @@ float gEnv;
 float gT;
 vec3 gEye;
 
-// What the last map() call saw.
-float gDm;
-float gDo;
-float gDi;
-float gFld;
-float gMat;
+/**
+ * What the field holds at a point (lib_truchet_field): the distance, the three lane families' own
+ * distances (middle, outer, inner), the hue field there and the material (0 plane, 1 middle, 2 outer,
+ * 3 inner tube).
+ */
+struct TruchetHit {
+    float d;
+    float dMid;
+    float dOut;
+    float dIn;
+    float fld;
+    float mat;
+};
 
 /** Push a palette colour to full saturation: gas in glass, not pastel. */
 vec3 neonize(vec3 c) {
@@ -130,8 +137,8 @@ vec3 neonize(vec3 c) {
  * determinant 1 - ab > 0.2. Identity at default.
  */
 vec2 neonWarp(vec2 q, float t) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * (2.0 * gTruchetIn.warp);
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return q;
     vec2 o = q;
     q.x += a * sin(o.y * (TRUCHET_TAU / 16.0) + t * 0.21) + b * sin(o.y * (TRUCHET_TAU / 8.0) - t * 0.37 + 2.1);
@@ -154,12 +161,13 @@ float laneDist(float l1, float l2, float r) {
 /**
  * The tubing of one plane. xz is the world point, yRel its height above that
  * plane, idOff an even shift of the cell ids so the ceiling rolls its own
- * tiles. Returns a bound on the distance to the nearest tube; leaves each
- * family's distance in gDm / gDo / gDi for the halo.
+ * tiles. Returns a bound on the distance to the nearest tube in .d, with each
+ * family's own distance (dMid, dOut, dIn) for the halo and the hue field.
  */
-float tubing(vec2 xz, float yRel, float idOff) {
+TruchetHit tubing(vec2 xz, float yRel, float idOff) {
+    TruchetHit h;
     vec2 q = neonWarp(xz * (1.0 / NE_CELL), gT);
-    gFld = neonField(q, gT);
+    h.fld = neonField(q, gT);
     vec2 cell = floor(q);
     vec2 f0 = q - cell - 0.5;
     vec2 id = vec2(cell.x + idOff, mod(cell.y, NE_ZCELLS));
@@ -185,15 +193,15 @@ float tubing(vec2 xz, float yRel, float idOff) {
     float po = min(laneDist(l1, l2, 1.0 / 3.0), laneDist(l1, l2, 2.0 / 3.0)) * NE_CELL;
     float yc = yRel - gR - gHopAmp * hop;
     float inv = 1.0 / gLip;
-    gDm = (length(vec2(pm, yc)) - gR) * inv;
-    gDo = (length(vec2(po, yc)) - gR) * inv;
-    gDi = 1e3;
+    h.dMid = (length(vec2(pm, yc)) - gR) * inv;
+    h.dOut = (length(vec2(po, yc)) - gR) * inv;
+    h.dIn = 1e3;
     if (gFadeIn > 0.01) {
         float pi = min(laneDist(l1, l2, 5.0 / 12.0), laneDist(l1, l2, 7.0 / 12.0)) * NE_CELL;
         float ri = gR * gFadeIn;
-        gDi = (length(vec2(pi, yRel - ri - gHopAmp * hop)) - ri) * inv;
+        h.dIn = (length(vec2(pi, yRel - ri - gHopAmp * hop)) - ri) * inv;
     }
-    float d = min(gDm, min(gDo, gDi));
+    float d = min(h.dMid, min(h.dOut, h.dIn));
 
     // Neighbours may hold arcs this cell cannot see (a turning tile's ends,
     // a hopping neighbour): below the highest any tube reaches, never step
@@ -201,31 +209,32 @@ float tubing(vec2 xz, float yRel, float idOff) {
     vec2 af = abs(f0);
     float toEdge = (0.5 - max(af.x, af.y)) * NE_CELL * inv;
     float top = 2.0 * gR + gHopAmp;
-    return min(d, max(toEdge + 0.03, yRel - top));
+    h.d = min(d, max(toEdge + 0.03, yRel - top));
+    h.mat = 1.0;
+    return h;
 }
 
-float map(vec3 p) {
+TruchetHit truchetMap(vec3 p) {
     float yF = p.y + gHalf;
     float yC = gHalf - p.y;
     bool lower = p.y < 0.0;
-    float dT = tubing(p.xz, lower ? yF : yC, lower ? 0.0 : 1000.0);
+    TruchetHit h = tubing(p.xz, lower ? yF : yC, lower ? 0.0 : 1000.0);
+    float dT = h.d;
     // The far plane's tubing lies wholly below its slab top.
     float top = 2.0 * gR + gHopAmp;
     dT = min(dT, (lower ? yC : yF) - top);
     float dP = min(yF, yC);
     float d = min(dT, dP);
-    gMat = dP < dT ? 0.0 : (gDm <= gDo && gDm <= gDi ? 1.0 : (gDo <= gDi ? 2.0 : 3.0));
-    return max(d, NE_BUBBLE - length(p - gEye));
+    h.mat = dP < dT ? 0.0 : (h.dMid <= h.dOut && h.dMid <= h.dIn ? 1.0 : (h.dOut <= h.dIn ? 2.0 : 3.0));
+    h.d = max(d, NE_BUBBLE - length(p - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -236,7 +245,7 @@ void main() {
     gEye = ro;
 
     float e = truchetEnergy();
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2) * e;
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
@@ -244,16 +253,17 @@ void main() {
     gT = truchetTime();
     gHits = floor(SND_ONSET_COUNT);
     gEnv = SND_ONSET_ENV;
-    gHalf = NE_HALF + 1.2 * (uKnob[5] - 0.5);
-    gR = NE_R * (1.0 + 0.35 * bass * e) * (1.0 - 0.25 * morph);
-    gHopAmp = clamp(0.35 * e * (1.0 + 2.0 * (uKnob[0] - 0.5)), 0.0, 0.8);
+    gHalf = NE_HALF + 1.2 * (gTruchetIn.space - 0.5);
+    // TEXTURE the tubes' girth (the shell's texture input, a quarter either way); the bass swells them on top.
+    gR = truchetAt(gTruchetIn.texture, NE_R, 0.25) * (1.0 + 0.35 * bass * e) * (1.0 - 0.25 * morph);
+    gHopAmp = clamp(0.35 * e * (1.0 + 2.0 * (gTruchetIn.pulse - 0.5)), 0.0, 0.8);
     gFadeIn = smoothstep(0.15, 0.85, morph);
-    float wa = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float wb = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float wa = 0.8 * (2.0 * gTruchetIn.warp);
+    float wb = 0.18 * (2.0 * gTruchetIn.chaos);
     gLip = 1.0 + max(0.393 * wa + 0.785 * wb, 0.29 * wa + 1.07 * wb);
 
     // Halo falloff per world unit: the mids widen it, FLOW widens it more.
-    float kG = (7.0 - 3.0 * mids) * (1.0 - 0.6 * (uKnob[2] - 0.5));
+    float kG = (7.0 - 3.0 * mids) * (1.0 - 0.6 * (gTruchetIn.flow - 0.5));
 
     // ---- primary march, gathering the tubes' halo on the way --------------
     float t = 0.05;
@@ -266,16 +276,17 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        float d = map(p);
+        TruchetHit at = truchetField(p);
+        float d = at.d;
         float w = clamp(d, 0.02, 0.5) * exp(-t * NE_FOG);
-        vec3 h = vec3(exp(-kG * max(gDm, 0.0)), exp(-kG * max(gDo, 0.0)), exp(-kG * max(gDi, 0.0))) * w;
+        vec3 h = vec3(exp(-kG * max(at.dMid, 0.0)), exp(-kG * max(at.dOut, 0.0)), exp(-kG * max(at.dIn, 0.0))) * w;
         glow += h;
         float hs = h.x + h.y + h.z;
-        fs += gFld * hs;
+        fs += at.fld * hs;
         ws += hs;
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
-            hitMat = gMat;
+            hitMat = at.mat;
             break;
         }
         t += d * 0.9;
@@ -283,12 +294,12 @@ void main() {
     }
 
     float hue = 0.05 * sin(gT * 0.017) + 0.12 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue)
-              + 0.25 * (uKnob[3] - 0.5);
+              + 0.25 * (gTruchetIn.tone - 0.5);
     float fAvg = 0.12 * fs / max(ws, 1e-4);
     vec3 cMid = neonize(pal(hue + 0.15 + fAvg));
     vec3 cOut = neonize(pal(hue + 0.62 + fAvg));
     vec3 cIn = neonize(pal(hue + 0.38 + fAvg));
-    vec3 haze = mix(cMid, cOut, 0.5) * (0.018 + 0.03 * (uKnob[4] - 0.5));
+    vec3 haze = mix(cMid, cOut, 0.5) * (0.018 + 0.03 * (gTruchetIn.build - 0.5));
 
     vec3 col = haze;
     if (hitT > 0.0) {
@@ -296,9 +307,9 @@ void main() {
         vec3 surf;
         if (hitMat > 0.5) {
             // A tube: emissive glass, white-hot where it faces the eye.
-            vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
-            map(p);
-            float fl = 0.12 * gFld;
+            vec3 n = truchetNormal(p, max(0.0015, 0.001 * hitT));
+            TruchetHit hit = truchetField(p);
+            float fl = 0.12 * hit.fld;
             vec3 c = hitMat < 1.5 ? neonize(pal(hue + 0.15 + fl))
                    : (hitMat < 2.5 ? neonize(pal(hue + 0.62 + fl)) : neonize(pal(hue + 0.38 + fl)));
             float facing = clamp(dot(n, -rd), 0.0, 1.0);
@@ -315,12 +326,13 @@ void main() {
             for (int j = 0; j < NE_REFL_STEPS; j++) {
                 if (float(j) >= rBudget) break;
                 vec3 q = ro2 + rr * t2;
-                float d = map(q);
+                TruchetHit rat = truchetField(q);
+                float d = rat.d;
                 float w = clamp(d, 0.02, 0.5) * exp(-t2 * NE_FOG * 1.5);
-                rg += vec3(exp(-kG * max(gDm, 0.0)), exp(-kG * max(gDo, 0.0)), exp(-kG * max(gDi, 0.0))) * w;
+                rg += vec3(exp(-kG * max(rat.dMid, 0.0)), exp(-kG * max(rat.dOut, 0.0)), exp(-kG * max(rat.dIn, 0.0))) * w;
                 if (d < 0.002 + 0.001 * t2) {
-                    if (gMat > 0.5) {
-                        vec3 c = gMat < 1.5 ? cMid : (gMat < 2.5 ? cOut : cIn);
+                    if (rat.mat > 0.5) {
+                        vec3 c = rat.mat < 1.5 ? cMid : (rat.mat < 2.5 ? cOut : cIn);
                         rhit = mix(c, vec3(1.0), 0.4) * 0.7 * exp(-t2 * NE_FOG * 1.5);
                     }
                     break;
@@ -329,7 +341,7 @@ void main() {
                 if (t2 > NE_REFL_FAR) break;
             }
             float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);
-            float gloss = clamp(1.0 + 1.4 * (uKnob[1] - 0.5), 0.2, 1.8);
+            float gloss = clamp(1.0 + 1.4 * (gTruchetIn.texture - 0.5), 0.2, 1.8);
             vec3 refl = rhit + (cMid * rg.x + cOut * rg.y + cIn * rg.z * gFadeIn) * 0.6;
             surf = pal(hue + 0.55) * 0.012 + refl * (0.18 + 0.55 * fres) * gloss;
         }

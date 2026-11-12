@@ -116,13 +116,20 @@ float gHalfX;
 float gChase;
 float gHue;
 float gNeonGain;
-/** Set by map(): the bubble of the cell, the nearest arch, the material (0 bubble, 1 neon, 2 floor). */
-vec3 gC;
-float gR;
-float gId;
-float gNeonD;
-float gArch;
-int gMat;
+/**
+ * What the field holds at a point (lib_glass_field): the distance, the bubble of the cell (centre,
+ * radius, id), the distance to the nearest arch's tube and its index, the material (0 bubble, 1 neon,
+ * 2 floor).
+ */
+struct GlassHit {
+    float d;
+    vec3 c;
+    float r;
+    float id;
+    float neonD;
+    float arch;
+    int mat;
+};
 
 /** Distance in the arch plane to the rectangle's outline. */
 float archOutline(vec2 xy) {
@@ -154,12 +161,13 @@ vec3 neonMirror(vec3 p, vec3 rr, float blur) {
     return neonColour(mod(n, 4.0)) * lobe * exp(-tp * BB_FOG);
 }
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
+    GlassHit h;
     float zi = floor(p.z / BB_ARCH);
     float dz = p.z - (zi + 0.5) * BB_ARCH;
     float dn = length(vec2(archOutline(p.xy), dz)) - BB_TUBE;
-    gNeonD = dn;
-    gArch = mod(zi, 4.0);
+    h.neonD = dn;
+    h.arch = mod(zi, 4.0);
     float df = p.y - BB_FLOOR;
 
     // The bubble column of this cell rises at its own rate.
@@ -191,22 +199,25 @@ float map(vec3 p) {
     // Every bubble is inside the hall box: x in +-12.5, y from -7.6 to 8.2.
     vec2 hall = max(abs(p.xy - vec2(0.0, 0.3)) - vec2(12.5, 7.9), 0.0);
     d = max(d, length(hall));
-    gC = c;
-    gR = r;
-    gId = hb * 37.0 + cy * 0.13;
+    h.c = c;
+    h.r = r;
+    h.id = hb * 37.0 + cy * 0.13;
 
-    gMat = 0;
+    h.mat = 0;
     float dm = d;
     if (dn < dm) {
         dm = dn;
-        gMat = 1;
+        h.mat = 1;
     }
     if (df < dm) {
         dm = df;
-        gMat = 2;
+        h.mat = 2;
     }
-    return dm;
+    h.d = dm;
+    return h;
 }
+
+//#include lib_glass_field
 
 /** Both walls of one bubble, front to back; `tr` returns the light it lets through. */
 vec3 shadeBubble(vec3 ro, vec3 rd, vec2 hs, vec3 c, float r, float id, GlassEar ear, GlassLook lk, float baseNm, float marble, out float tr) {
@@ -249,21 +260,22 @@ vec3 shadeBubble(vec3 ro, vec3 rd, vec2 hs, vec3 c, float r, float id, GlassEar 
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     gT = glassTime();
     GlassEar ear = glassListen();
     float bass = min(ear.bass, 1.2);
-    gHue = 0.05 * sin(gT * 0.017) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.25 * (uKnob[3] - 0.5);
+    gHue = 0.05 * sin(gT * 0.017) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.25 * (gGlassIn.tone - 0.5);
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, gHue, ear);
     float baseNm = 280.0 + 440.0 * ear.height;
-    float marble = 0.35 * clamp(2.0 * uKnob[1], 0.0, 2.0);
+    float marble = 0.35 * clamp(2.0 * gGlassIn.texture, 0.0, 2.0);
 
     gFill = 0.35 + 0.35 * glassComplexity();
-    gSize = 0.8 + 0.4 * clamp(uKnob[5], 0.0, 1.0);
-    gBreath = 0.92 + 0.08 * bass * clamp(2.0 * uKnob[0], 0.0, 2.0);
-    gSway = 0.25 * (0.5 + clamp(uKnob[2], 0.0, 1.0));
+    gSize = 0.8 + 0.4 * gGlassIn.space;
+    gBreath = 0.92 + 0.08 * bass * clamp(2.0 * gGlassIn.pulse, 0.0, 2.0);
+    gSway = 0.25 * (0.5 + gGlassIn.flow);
     gHalfX = 13.5 + 2.0 * ear.width;
     gChase = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV);
-    gNeonGain = (0.9 + 0.1 * ear.trend) * (1.0 + clamp(uKnob[4] - 0.5, -0.5, 0.5));
+    gNeonGain = (0.9 + 0.1 * ear.trend) * (1.0 + clamp(gGlassIn.build - 0.5, -0.5, 0.5));
 
     vec3 ro;
     vec3 rd;
@@ -287,24 +299,25 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        float d = map(p);
+        GlassHit at = glassField(p);
+        float d = at.d;
         // The arches' haze in the air this step crosses, dimmed by the bubbles in front.
-        glow += thr * neonColour(gArch) * 0.05 / (1.0 + 40.0 * gNeonD * gNeonD) * min(d, 1.0) * exp(-t * BB_FOG);
+        glow += thr * neonColour(at.arch) * 0.05 / (1.0 + 40.0 * at.neonD * at.neonD) * min(d, 1.0) * exp(-t * BB_FOG);
         if (d < glassEps(t)) {
-            if (gMat != 0) {
+            if (at.mat != 0) {
                 endT = t;
-                endMat = gMat;
-                endArch = gArch;
+                endMat = at.mat;
+                endArch = at.arch;
                 break;
             }
-            vec2 hs = glassSphere(ro, rd, gC, gR);
+            vec2 hs = glassSphere(ro, rd, at.c, at.r);
             // Leaving the bubble just shaded (or a graze): step past it.
             if (hs.y <= t + 0.02) {
                 t += 0.05;
                 continue;
             }
             float tr;
-            vec3 add = shadeBubble(ro, rd, hs, gC, gR, gId, ear, lk, baseNm, marble, tr);
+            vec3 add = shadeBubble(ro, rd, hs, at.c, at.r, at.id, ear, lk, baseNm, marble, tr);
             float fogF = exp(-hs.x * BB_FOG);
             acc += thr * add * fogF;
             thr *= mix(1.0, tr, fogF);

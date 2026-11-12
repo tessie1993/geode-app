@@ -99,8 +99,11 @@ float gLip;
 float gHits;
 float gEnv;
 float gT;
-/** Set by map(): the collar profile under the point, 0..1 (1 on a collar). */
-float gC;
+/** What the field holds at a point (lib_truchet_field): the distance and the collar profile there, 0..1 (1 on a collar). */
+struct TruchetHit {
+    float d;
+    float ring;
+};
 
 /**
  * Distance (cell units) from f, the position in a cube (-0.5..0.5), to the
@@ -147,7 +150,7 @@ float collar(float ang) {
     return c * c * c;
 }
 
-float map(vec3 p) {
+TruchetHit truchetMap(vec3 p) {
     // Chaos: bend space before it is tiled. z terms have periods 32 and 64.
     vec3 q = p;
     if (gWarpA + gWarpB > 1e-4) {
@@ -173,7 +176,8 @@ float map(vec3 p) {
         ang = roll.z < 0.5 ? angO : angN;
     }
     float c = collar(ang);
-    gC = c;
+    TruchetHit h;
+    h.ring = c;
     float rad = gRad + gCollar * c;
     float dc = d - rad;
     // Pipes from neighbouring cubes that do not continue ours stay half a
@@ -182,14 +186,11 @@ float map(vec3 p) {
     float faceDist = 0.5 - max(af.x, max(af.y, af.z));
     dc = min(dc, faceDist + 0.5 - (gRad + gCollar) - 0.02);
     float dw = dc * TT_CELL / gLip;
-    return max(dw, TT_BUBBLE - length(p - gEye));
+    h.d = max(dw, TT_BUBBLE - length(p - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 /** The smooth colour field, about -1..1, in cell units; its z terms are periodic in the wrap. */
 float tubeField(vec3 P, float t) {
@@ -200,17 +201,18 @@ float tubeField(vec3 P, float t) {
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     float t = truchetTime();
     float e = truchetEnergy();
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.2);
@@ -218,8 +220,8 @@ void main() {
     gT = t;
     gHits = floor(SND_HIT_TIME);
     gEnv = SND_ONSET_ENV;
-    gWarpA = 0.8 * clamp(uWarp, 0.0, 2.0);
-    gWarpB = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    gWarpA = 0.8 * (2.0 * gTruchetIn.warp);
+    gWarpB = 0.18 * (2.0 * gTruchetIn.chaos);
     // Pipe radius in cell units: at most 0.115 + 0.05 + 0.035 * 1.5 * 2 * 1.5 ~ 0.32
     // with the collar, under the 0.5 a pipe may have before it meets its own bend centre.
     float girth = clamp(1.0 - 0.6 * kSpace, 0.6, 1.4);
@@ -241,7 +243,7 @@ void main() {
     for (int i = 0; i < TT_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        float d = map(ro + rd * tm);
+        float d = truchetField(ro + rd * tm).d;
         float eps = 0.0012 + 0.0008 * tm;
         if (d < eps) {
             hitT = tm;
@@ -259,17 +261,17 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
+        vec3 n = truchetNormal(p, max(0.0015, 0.001 * hitT));
         float occ = 0.0;
         float sc = 1.0;
         for (int k = 0; k < 2; k++) {
             float hk = 0.08 + 0.14 * float(k);
-            occ += (hk - map(p + n * hk)) * sc;
+            occ += (hk - truchetField(p + n * hk).d) * sc;
             sc *= 0.6;
         }
         float ao = clamp(1.0 - 1.8 * occ, 0.3, 1.0);
-        // Restore the hit point's globals after the normal and AO taps.
-        map(p);
+        // What the field holds at the hit: the collar under it.
+        TruchetHit hit = truchetField(p);
 
         float lt = t * 0.17 * clamp(1.0 + 1.2 * kFlow, 0.2, 2.2);
         vec3 L = normalize(vec3(0.55 * cos(lt), 0.85, 0.55 * sin(lt)));
@@ -285,7 +287,7 @@ void main() {
                   + vec3(1.0, 0.97, 0.92) * spec * 0.55 * (0.4 + 0.6 * ao)
                   + pal(hue + 0.5) * rim * 0.25;
         // The collars catch a little more light: the Complexity detail reads.
-        pipe *= 1.0 + 0.25 * gC * morph;
+        pipe *= 1.0 + 0.25 * hit.ring * morph;
         col = mix(pipe, fogCol, 1.0 - exp(-hitT * 0.06));
     }
 

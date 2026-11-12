@@ -116,16 +116,22 @@ float gHits;
 float gEnv;
 float gT;
 float gLip;
-/** Set by map(): the hit face's came height fraction 0..1, distance to the lead (lattice units), glass colour, lattice position. */
-float gRel;
-float gLeadD;
-float gTone;
-vec2 gLat;
+/**
+ * What the field holds at a point (lib_truchet_field): the distance, the face's came height fraction
+ * 0..1, the distance to the lead (lattice units), the glass colour and the lattice position.
+ */
+struct TruchetHit {
+    float d;
+    float rel;
+    float leadD;
+    float tone;
+    vec2 lat;
+};
 
 /** Chaos, wrap-safe: the lib's bend with frequencies that are whole multiples of 2pi/64 along x and 2pi/Yp around. */
 vec2 ttWarp(vec2 p) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * (2.0 * gTruchetIn.warp);
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return p;
     float fx = TRUCHET_TAU / 64.0;
     float fy = TRUCHET_TAU / gYp;
@@ -162,7 +168,8 @@ vec3 faceTile(vec3 p, float k, vec2 tn, out vec2 lat) {
     return res;
 }
 
-float map(vec3 p) {
+TruchetHit truchetMap(vec3 p) {
+    TruchetHit h;
     vec3 pd = gR - vec3(dot(p.xy, TT_N0), dot(p.xy, TT_N1), dot(p.xy, TT_N2));
     // Nearest face first, the second nearest beside it.
     float k1 = 0.0;
@@ -194,30 +201,27 @@ float map(vec3 p) {
     vec2 lat;
     vec3 f = faceTile(p, k1, t1, lat);
     float d = d1 - gLH * f.x;
-    gRel = f.x;
-    gLeadD = f.y;
-    gTone = f.z;
-    gLat = lat;
+    h.rel = f.x;
+    h.leadD = f.y;
+    h.tone = f.z;
+    h.lat = lat;
     if (d2 - gLH < d) {
         vec2 lat2;
         vec3 f2 = faceTile(p, k2, t2, lat2);
         float dd = d2 - gLH * f2.x;
         if (dd < d) {
             d = dd;
-            gRel = f2.x;
-            gLeadD = f2.y;
-            gTone = f2.z;
-            gLat = lat2;
+            h.rel = f2.x;
+            h.leadD = f2.y;
+            h.tone = f2.z;
+            h.lat = lat2;
         }
     }
-    return d * gLip;
+    h.d = d * gLip;
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 /** The ray's distance to the prism of inradius r, from inside (where it leaves through the nearest face). */
 float exitT(vec3 ro, vec3 rd, float r) {
@@ -241,20 +245,21 @@ float ttField(vec2 q, float t) {
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     // One pixel in view units, taken in uniform control flow.
     float pxUv = max(length(fwidth(uv)), 1e-5);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     float t = truchetTime();
     gT = t;
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     gHits = floor(SND_HIT_TIME);
     gEnv = SND_ONSET_ENV;
 
@@ -269,7 +274,7 @@ void main() {
     gLH = TT_LEAD * (1.0 + 0.6 * clamp(gEnv, 0.0, 1.0) * clamp(1.0 + kPulse, 0.5, 1.5));
     float sc = max(gSz, sy);
     float slope = gLH * TRUCHET_PI / (2.0 * gW) * sc
-                * (1.0 + 0.232 * clamp(uWarp, 0.0, 2.0) + 0.218 * clamp(uTurbulence, 0.0, 2.0));
+                * (1.0 + 0.232 * (2.0 * gTruchetIn.warp) + 0.218 * (2.0 * gTruchetIn.chaos));
     gLip = 1.0 / sqrt(1.0 + slope * slope);
 
     vec3 ro;
@@ -302,7 +307,7 @@ void main() {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (tm >= tOut) break;
-            float d = map(ro + rd * tm);
+            float d = truchetField(ro + rd * tm).d;
             float eps = 0.0008 * tm + 0.0006;
             if (d < eps) {
                 hitT = tm;
@@ -318,16 +323,16 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0015 * hitT + 0.002);
-        // Restore the hit point's globals after the normal taps.
-        map(p);
+        vec3 n = truchetNormal(p, 0.0015 * hitT + 0.002);
+        // What the field holds at the hit.
+        TruchetHit hit = truchetField(p);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float px = pxUv * hitT / (uCamFocal * max(ndv, 0.2)) * sc;
 
-        float field = ttField(gLat, t);
+        float field = ttField(hit.lat, t);
         vec3 paneA = pal(hue + 0.05 + 0.16 * field);
         vec3 paneB = pal(hue + 0.52 + 0.16 * field);
-        vec3 pane = mix(paneA, paneB, gTone);
+        vec3 pane = mix(paneA, paneB, hit.tone);
 
         // Back light: a soft lamp outside the glass, circling the corridor
         // ahead of the eye; the panes nearest it burn brightest.
@@ -336,7 +341,7 @@ void main() {
         vec3 dl = p - lamp;
         float back = 0.45 + 0.55 * clamp(1.0 + 1.2 * kFlow, 0.2, 2.2) * exp(-dot(dl, dl) * 0.07);
         // Brightest mid-pane, dimming into the lead.
-        float body = 0.55 + 0.45 * smoothstep(0.03, 0.2, gLeadD);
+        float body = 0.55 + 0.45 * smoothstep(0.03, 0.2, hit.leadD);
         vec3 glass = pane * back * body * (0.8 + 0.15 * swell) * (0.65 + 0.35 * ndv);
         float fall = 1.0 / (1.0 + 0.02 * hitT * hitT);
         glass += sky * pow(1.0 - ndv, 4.0) * 0.6 + vec3(pow(ndv, 40.0)) * 0.05 * fall;
@@ -345,11 +350,11 @@ void main() {
         // panes' glow caught at its feet.
         float spec = pow(ndv, 18.0);
         vec3 leadC = vec3(0.05) + pal(hue + 0.3) * 0.03 + vec3(0.22) * spec * fall
-                   + pane * back * 0.05 * (1.0 - gRel);
+                   + pane * back * 0.05 * (1.0 - hit.rel);
         // Coverage from the ridge itself (so a re-roll's mix fades it too),
         // a pixel of soft edge: d(ridge)/d(dist) is about 1.55 / w there.
         float edge = px * 1.55 / gW;
-        float cover = smoothstep(0.42 - edge, 0.42 + edge, gRel);
+        float cover = smoothstep(0.42 - edge, 0.42 + edge, hit.rel);
         col = mix(glass, leadC, cover);
 
         col = mix(col, sky, 1.0 - exp(-hitT * 0.05));

@@ -8,6 +8,7 @@
 #include <limits>
 #include <mutex>
 
+#include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Pacer.hpp"
 
 // How hot the phone is, once per process (ADR 0008, #440). Pure, with no GL and no Android, so the host
@@ -31,25 +32,31 @@ enum class ThermalTier { Full, Eased, Reduced, Minimal };
 // One rung of the ladder. Every value multiplies what the renderer would otherwise do, under the user's
 // own Settings › Performance choices.
 struct ThermalTierInfo {
-    float fpsCap;         // 0 = none; the pacer applies min(surface cap, this)
+    float fpsCap;         // 0 = none; a cap of 60 or under (and a free-running surface) runs at min(cap, this)
+    int fpsRungsDown;     // how many live rungs (frame::kLiveFpsRungs) a cap above 60 steps down
     float renderScale;    // the scene targets' size
     float marchScale;     // ray-march steps (uSteps), on top of the user's Detail and march scale
     bool optionalPasses;  // the post FX a cool phone can afford
 };
 
-// The owner's ladder (ADR 0008 point 2), cool to hot: fps drops to 30 first, then render scale, then
-// march quality, then post FX, last. A hot phone's first visible change is smoothness, not sharpness:
-// halving the frame rate halves every pass's cost at once, where a lower scale only saves fill.
+// The owner's ladder (ADR 0008 point 2), cool to hot: fps drops first, then render scale, then march
+// quality, then post FX, last. A hot phone's first visible change is smoothness, not sharpness: halving the
+// frame rate halves every pass's cost at once, where a lower scale only saves fill.
+//
+// The frame rate steps a rung a tier (frame::thermalStepCapFps): a 60 cap drops to 30 at Eased, as it
+// always has, and a 90 or 120 cap (Settings › Performance on a fast panel) walks down the rungs, 120 to 90,
+// 60, then 30, so every hotter tier still costs frames before it costs anything else. fpsCap is the floor
+// of that walk, the 30 every hot tier holds a 60 cap and a free-running surface to.
 //
 // There are three hot tiers for four steps, so march and post FX both go at Minimal: march first in the
 // ladder, post FX the very last thing a phone gives up. Liquid mode keeps its own "when hot" choice
 // (liquid::modeFor), which reads the same tier.
 inline const ThermalTierInfo& thermalTierInfo(ThermalTier tier) {
     static constexpr std::array<ThermalTierInfo, 4> kInfos = {{
-        {0.0f, 1.0f, 1.0f, true},    // Full
-        {30.0f, 1.0f, 1.0f, true},   // Eased: fps only
-        {30.0f, 0.75f, 1.0f, true},  // Reduced: + render scale
-        {30.0f, 0.6f, 0.6f, false},  // Minimal: + march quality, + post FX
+        {0.0f, 0, 1.0f, 1.0f, true},    // Full
+        {30.0f, 1, 1.0f, 1.0f, true},   // Eased: fps only
+        {30.0f, 2, 0.75f, 1.0f, true},  // Reduced: + render scale
+        {30.0f, 3, 0.6f, 0.6f, false},  // Minimal: + march quality, + post FX
     }};
     return kInfos[static_cast<size_t>(tier)];
 }
@@ -139,8 +146,12 @@ public:
     }
     ThermalTier platformTier() const { return settled_.load(std::memory_order_relaxed); }
     float fpsCap() const { return thermalTierInfo(tier()).fpsCap; }
-    // What the pacer applies and Surface.setFrameRate asks for: the surface's cap under the thermal one.
-    float capFor(float surfaceCapFps) const { return frame::effectiveCapFps(surfaceCapFps, fpsCap()); }
+    // What the pacer applies and Surface.setFrameRate asks for: the surface's own cap stepped down a rung per
+    // hot tier (frame::thermalStepCapFps; for a cap of 60 or under that is min(cap, fpsCap())). Handed the
+    // surface's own cap, never a rate this already produced: the step is not idempotent.
+    float capFor(float surfaceCapFps) const { return frame::thermalStepCapFps(surfaceCapFps, fpsRungsDown()); }
+    // How many live rungs the settled tier steps a cap down (0 cool): what Follow device steps its panel rate by.
+    int fpsRungsDown() const { return thermalTierInfo(tier()).fpsRungsDown; }
 
     // The measured fallback: a governor that saw a sustained frame-time deficit raises the floor for the
     // whole process (the surfaces share one GPU), never past kMeasuredCeiling.

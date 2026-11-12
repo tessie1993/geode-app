@@ -259,7 +259,7 @@ class VisualizerRenderer(
         val perf = performance
         val due =
             nativeViz.frameBegin(
-                pacedRate.fps(),
+                pacedRate,
                 perf.renderScale,
                 perf.marchScale,
                 perf.postFx,

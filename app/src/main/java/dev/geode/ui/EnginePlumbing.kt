@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
@@ -145,8 +146,11 @@ fun VisualizerEngineBindings(
         val renderer = visualizerView.visualizerRenderer
         visualizerView.queueEvent { renderer.warmTransition(id) }
     }
-    LaunchedEffect(performance) {
-        visualizerView.applyPerformance(performance)
+    // The stored live cap as this window's display runs it (native, core/viz/frame/LiveFps): a 120 picked on a
+    // fast panel is 60 on a 60 Hz one, so a hot phone's first thermal step still costs frames there.
+    val refreshRates = rememberSeamlessRefreshRates()
+    LaunchedEffect(performance, refreshRates) {
+        visualizerView.applyPerformance(performance.copy(fpsCap = GeodeNative.liveFpsCap(performance.fpsCap, refreshRates)))
     }
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }

@@ -37,6 +37,12 @@ for dir in fastlane/metadata/android/*/; do
     if grep -nEi '\b(best|#1|top[- ]rated|award|editor.s choice|number one|no\. ?1)\b' "${dir}"*.txt "${dir}"changelogs/*.txt; then
         echo "RANKING CLAIM in $dir"; fail=1
     fi
+    # Owner's decisions (2026-11-11): strobe, flash, pulse and shake effects are retired, there is
+    # no tap tempo and Studio has no video editor, so the listing names none of them. "Can flash"
+    # in the photosensitivity warning is a warning, not an effect, and stays.
+    if grep -nEi '\b(strobes?|flash effects?|pulse effects?|screen shake|tap tempo|video editor|edit(ing)? (your )?videos?|timeline)\b' "${dir}"*.txt "${dir}"changelogs/*.txt; then
+        echo "RETIRED OR ABSENT FEATURE named in $dir"; fail=1
+    fi
     # The product is BeatRealms 3D; the old name must not reach the store.
     if grep -nEi 'muz ?viz|studio pro' "${dir}"*.txt "${dir}"changelogs/*.txt; then
         echo "OLD NAME in $dir"; fail=1
@@ -45,7 +51,7 @@ for dir in fastlane/metadata/android/*/; do
     if python3 - "${dir}" <<'PY'
 import pathlib, re, sys
 d = pathlib.Path(sys.argv[1])
-allowed = {"HEVC"}
+allowed = {"HEVC", "HDMI"}
 bad = False
 for f in sorted([*d.glob("*.txt"), *d.glob("changelogs/*.txt")]):
     for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):

@@ -8,7 +8,9 @@
 // - the interval is read on every poll, and a restart's new wait is the hold at once, so a preset loaded
 //   right after the step runs its progress over the wait that will really pass;
 // - a preset's progress runs over Auto's hold; held (Auto off) and in an export it stays at 0, as MilkDrop's
-//   does on a locked preset.
+//   does on a locked preset;
+// - Auto's random draw (core/viz/AutoDraw) never brings back the entry on screen while there is another, so the
+//   same .milk (or style, or look) cannot come up twice running, and it still reaches every other entry.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -17,11 +19,13 @@
 #include <set>
 
 #include "api/geode_api.h"
+#include "viz/AutoDraw.hpp"
 #include "viz/AutoTimer.hpp"
 #include "viz/MilkProgress.hpp"
 
 namespace auto_timer = geode::viz::auto_timer;
 namespace milk = geode::viz::milk;
+namespace auto_draw = geode::viz::auto_draw;
 
 namespace {
 
@@ -178,6 +182,38 @@ void milkProgressOfAHeldPreset() {
 
 }  // namespace
 
+void drawNeverRepeatsTheScreen() {
+    auto_draw::Draw draw(7);
+    std::set<int> seen;
+    for (int i = 0; i < 2000; ++i) {
+        const int idx = draw.pick(5, 2);
+        check(idx >= 0 && idx < 5, "a draw lands in the pool");
+        check(idx != 2, "never the entry on screen");
+        seen.insert(idx);
+    }
+    check(seen.size() == 4, "every other entry still comes up");
+    int on = 0;
+    for (int i = 0; i < 2000; ++i) {
+        const int next = draw.pick(3, on);
+        check(next != on, "a chain of draws never repeats one");
+        on = next;
+    }
+    check(draw.pick(1, 0) == 0, "a pool of one: that one, there is nothing else");
+    check(draw.pick(0, -1) == -1, "an empty pool: nothing");
+    std::set<int> any;
+    for (int i = 0; i < 400; ++i) any.insert(draw.pick(4, -1));
+    check(any.size() == 4, "nothing on screen: the whole pool");
+    std::set<int> past;
+    for (int i = 0; i < 400; ++i) past.insert(draw.pick(4, 9));
+    check(past.size() == 4, "an on-screen index past the pool is nothing on screen");
+    auto_draw::Draw a(42);
+    auto_draw::Draw b(42);
+    bool same = true;
+    for (int i = 0; i < 50; ++i) same = same && a.pick(9, 1) == b.pick(9, 1);
+    check(same, "the same seed draws the same");
+    check(geode_auto_pick(3, 1) != 1 && geode_auto_pick(0, -1) == -1, "the C ABI");
+}
+
 int main() {
     spreadIsModest();
     waitIsIntervalPlusSpread();
@@ -187,6 +223,7 @@ int main() {
     theAbi();
     milkProgressDuration();
     milkProgressOfAHeldPreset();
+    drawNeverRepeatsTheScreen();
     if (failures == 0) std::printf("auto_timer_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

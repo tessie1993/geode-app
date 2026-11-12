@@ -2,6 +2,7 @@
 
 package dev.geode.ui
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,7 +64,6 @@ import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
 import dev.geode.render.ReactSourceGroup
 import dev.geode.render.ReactionRoute
-import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -506,8 +506,19 @@ internal fun NoteKeyPage(
 
 private const val TRANSITION_CHIP_LIMIT = 40
 
-/** Native's transition_choice::kRandomId. */
-private const val RANDOM_TRANSITION = "random"
+/** What the transition picker lists, as native hands it over: the built-in ids it offers, then the library's names. */
+private class TransitionChoices(
+    val builtIn: List<String>,
+    val library: List<String>,
+)
+
+/** Native's picker table (`core/viz/TransitionLibrary`, `encodeTransitionPicker`): two lists, split on RS then US. */
+private fun transitionChoices(context: Context): TransitionChoices {
+    val table = runCatching { String(GeodeNative.transitionPicker(context.assets), Charsets.UTF_8) }.getOrDefault("")
+    val lists = table.split('\u001e')
+    fun list(i: Int) = lists.getOrNull(i).orEmpty().split('\u001f').filter { it.isNotEmpty() }
+    return TransitionChoices(builtIn = list(0), library = list(1))
+}
 
 /**
  * Effects' transition style: how one style hands over to the next. The built-in transitions,
@@ -520,10 +531,11 @@ internal fun TransitionPicker(
 ) {
     if (transitionId == null || !sectionVisible()) return
     val ctx = LocalContext.current
-    val library = remember { TransitionCatalog.library(ctx) }
-    // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied. "random" draws one
-    // per change, never the same twice running (native core/viz/TransitionChoice, MilkDrop's habit).
-    val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } + RANDOM_TRANSITION }
+    // Native leaves "cut" out (VisualSafety plays it as a fade) and offers "random", one per change, never
+    // the same twice running (core/viz/TransitionChoice, MilkDrop's habit).
+    val choices = remember { transitionChoices(ctx) }
+    val library = choices.library
+    val builtIn = choices.builtIn
     DropdownRow(
         stringResource(R.string.transition_built_in),
         builtIn,
@@ -543,8 +555,8 @@ internal fun TransitionPicker(
         singleLine = true,
         label = { Text(stringResource(R.string.customize_search_transitions)) },
     )
-    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) } }
-    val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
+    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.contains(query, ignoreCase = true) } }
+    val names = shown.take(TRANSITION_CHIP_LIMIT)
     DropdownRow(
         stringResource(R.string.transition_library),
         names,

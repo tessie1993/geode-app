@@ -62,7 +62,6 @@ allowed=(
     "$S/render/Reactions.kt"
     "$S/render/SceneFactory.kt"
     "$S/render/ThermalGovernor.kt"
-    "$S/render/TransitionCatalog.kt"
     "$S/render/TransitionStyle.kt"
     "$S/render/VisualizerRenderer.kt"
     "$S/render/VisualizerView.kt"

@@ -122,6 +122,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
 - `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
+- `transition_library_test.cpp` also covers the picker table the shell splits (`geode_transition_picker`), on the shipped asset too.
 - `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).

@@ -2,7 +2,6 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import dev.geode.render.MilkPresetMemory
-import dev.geode.render.TransitionCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -41,16 +40,8 @@ internal class VizStateStore(
 
     private fun restore(store: AutoVisualsPrefsStore): VizUiState {
         var base = store.applyTo(VizUiState(presets = BuiltInPresets.ALL))
-        // Restore the transition id first, then re-derive the style from it (falling back to
-        // whatever default the style key carries) so the two never disagree after a restore.
         val transitionId = prefs.getString(KEY_TRANSITION_ID, null)
-        if (transitionId != null) {
-            base =
-                base.copy(
-                    transitionId = transitionId,
-                    transitionStyle = TransitionCatalog.builtIn(transitionId) ?: base.transitionStyle,
-                )
-        }
+        if (transitionId != null) base = base.copy(transitionId = transitionId)
         if (prefs.contains(KEY_TRANSITION_DURATION_SEC)) {
             base = base.copy(transitionDurationSec = prefs.getFloat(KEY_TRANSITION_DURATION_SEC, base.transitionDurationSec))
         }

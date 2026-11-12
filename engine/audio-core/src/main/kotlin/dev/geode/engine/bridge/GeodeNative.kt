@@ -1816,11 +1816,11 @@ object GeodeNative {
     ): Long
 
     /**
-     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
-     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
+     * GL Transitions library's names, each list's entries separated by US (U+001F); `core/viz/TransitionLibrary.hpp`.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
-    external fun transitionsTable(assets: Any): ByteArray
+    external fun transitionPicker(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 

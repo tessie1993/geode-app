@@ -16,7 +16,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `MilkdropEngine` | 12 | **deleted**: `available` was "libgeode loaded", from when MilkDrop was a library of its own. `GeodeNative` loads the same library and each of its three callers calls native right beside the check, so it was always true where it was read; the three checks are gone. |
 | `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test that holds the `ReactSource` mirror to the native catalogue now compares the lines themselves. |
 | `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the tuning's slots that Settings › Audio names are still held to the header by `SoundTuningTest`. |
-| `TransitionStyle` | 9 | pending |
+| `TransitionStyle` | 9 | pending: its one engine reader is `LookSnapshot`'s default id; the shell no longer names it. |
 | `TouchField` | 13 | **deleted**: the finger slots are native's (`TouchField::kMaxPoints`), published as the catalogue's `touchPoints` value; the gestures and the wallpaper size their buffer by it. Pinned in `catalogue_test.cpp` and the fixture. |
 | `FluidQuality` | 13 | **moved to UI**: the chips' names are private to `ui/CustomizeControls`, shown for the catalogue's `fluidTiers`. |
 | `SceneFactory` | 14 | pending |
@@ -39,7 +39,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `LookSnapshot` | 70 | pending |
 | `SceneIds` | 70 | pending |
 | `SoundTuning` | 76 | **shrunk to a holder** (74): how a saved array reads (30 floats as saved, 29 from before the input trim at 0 dB, any other length the defaults) is `core/sound/Tuning::fromSaved` behind `geode_sound_tuning_from_saved`, pinned by `sound_test.cpp`; the floats stay as stored until read. It stays in `:engine:audio-core` while `LookSnapshot`, `LookApplier` and `NativeViz` carry it. The slot constants Settings › Audio names stay (no `FLOATS`, no `OFFSET`), held to the header by `SoundTuningTest`. |
-| `TransitionCatalog` | 79 | pending |
+| `TransitionCatalog` | 79 | **deleted**: native hands Customize's picker its lists (`geode_transition_picker`: the built-ins offered, from `TransitionCatalog::builtInIds` and `transition_choice::pickerIds`, then the library's names); `ui/CustomizeAdvanced` only splits them. The full-table read and its parser are gone, as is `VizUiState.transitionStyle`, which nothing read. Pinned in `transition_library_test.cpp` and `transition_choice_test.cpp`. |
 | `SceneParamsCodec` | 80 | pending |
 | `ModConfigCodec` | 81 | pending |
 | `EventRecipe` | 86 | pending |

@@ -289,6 +289,9 @@ jobs:
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test
+          # Its typed path for a computer with no scanner: the code (random, case-free, constant-time compare), one per session, its lifetime, the tries, gap and lock-out, the routes off the token and the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_pair_test.cpp core/api/geode_link_api.cpp core/api/geode_link_pair_api.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp core/util/QrCode.cpp -o link_pair_test
+          ./link_pair_test
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test

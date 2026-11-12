@@ -15,20 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.HandReactions
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
-import dev.geode.render.fluid.FluidQuality
-import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 
@@ -95,11 +89,12 @@ private fun LookControl(
         ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, SceneParams::paletteMix) { onChange(p.copy(paletteMix = it)) }
         ParamKeys.COLOUR_MAP ->
             if (visible(key, ParamScope.SHADER_LOOK)) {
-                val selected = SceneParams.CYCLIC_PALETTES.getOrNull(p.paletteLut) ?: "Off"
+                val maps = remember { colourMapNames() }
+                val selected = maps.getOrNull(p.paletteLut) ?: "Off"
                 ProGated(key, value = selected) {
                     DropdownRow(
                         name = key,
-                        options = listOf("Off") + SceneParams.CYCLIC_PALETTES,
+                        options = listOf("Off") + maps,
                         selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
                         lockKey = key,
                         about = "Even colour steps that loop, so a wrap has no seam.",
@@ -184,7 +179,7 @@ private fun ShapeControl(
         ParamKeys.TREBLE_SPARKLE -> CheckRow(key, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }
         FLUID_QUALITY ->
             if (visible(key, ParamScope.EMITTERS)) {
-                val labels = FluidQuality.LABELS
+                val labels = FLUID_QUALITY_LABELS.take(GeodeNative.catalogueValue("fluidTiers").toInt())
                 val quality = p.fluidQuality.coerceIn(0, labels.size - 1)
                 ProGated(key, value = labels[quality]) { DropdownRow(key, labels, quality) { onChange(p.copy(fluidQuality = it)) } }
             }
@@ -357,7 +352,7 @@ private fun EngineControl(
         ParamKeys.SOLVER_ITERATIONS ->
             LabeledIntSlider(key, p, SceneParams::fluidIterations, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
         ParamKeys.FLUID_CURL ->
-            if (SceneCapabilities.isFluid(sceneId)) {
+            if (StyleCatalogue.isFluid(sceneId)) {
                 LabeledSlider(key, p, SceneParams::fluidCurl, display = "Fluid swirl") { onChange(p.copy(fluidCurl = it)) }
             }
         ParamKeys.MOTION_FADE ->
@@ -495,14 +490,7 @@ private fun PanelPiece(
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()
-            ProGated(id, "Moments") {
-                EventsTab(
-                    p,
-                    hand = HandReactions(reactions, handMask),
-                    onReactionsChange = vm::setReactions,
-                    onHandChange = vm::setHandReactions,
-                )
-            }
+            ProGated(id, "Moments") { EventsTab(p, reactions, handMask, vm::editReactions) }
         }
         "@rise_fall" -> RiseAndFall(viz.attack, viz.decay, host.viewModel::setReactivity)
         "@notes_key" -> NoteKeyPage(p, onChange)
@@ -520,15 +508,15 @@ private fun PanelPiece(
         "@reactions" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()
-            ProGated(id, "Reactions") { ReactionsSection(p, reactions, vm::setReactions, vm::rerollReactions, handMask) }
+            ProGated(id, "Reactions") { ReactionsSection(p, reactions, handMask, vm::editReactions, vm::rerollReactions) }
         }
         "@envelopes" -> {
             val adsrs by vm.adsrs.collectAsStateWithLifecycle()
             if (sectionVisible()) {
                 ProGated(id, "Envelopes") {
                     Column {
-                        for (i in 0 until AdsrEngine.COUNT) {
-                            AdsrCard(index = i, config = adsrs.getOrElse(i) { AdsrConfig() }, onChange = { vm.setAdsr(i, it) })
+                        for (i in 0 until ModCatalog.count("envelopes")) {
+                            AdsrCard(index = i, adsrs = adsrs, onChange = { field, value -> vm.setAdsr(i, field, value) })
                         }
                     }
                 }
@@ -544,8 +532,8 @@ private fun PanelPiece(
                             sounds.play(UiSound.TAP)
                             vm.randomizeWaves()
                         }) { Text("Randomize waves") }
-                        for (i in 0 until LfoEngine.SLOTS) {
-                            ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { vm.setLfo(i, it) })
+                        for (i in 0 until ModCatalog.count("waves")) {
+                            ModulatorCard(index = i, lfos = lfos, onChange = { field, value -> vm.setLfo(i, field, value) })
                         }
                     }
                 }
@@ -607,8 +595,8 @@ private fun CymaticsGeometry(
     onChange: (SceneParams) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
-    if (!SceneCapabilities.isCymatics(sceneId)) return
-    val forced = Catalogue.override(sceneId, ParamKeys.GEOMETRY)?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
+    if (!StyleCatalogue.isCymatics(sceneId)) return
+    val forced = StyleCatalogue.held(sceneId, ParamKeys.GEOMETRY)?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
     if (forced != null) {
         ControlHint("Shape set by this style: $forced.", ParamScope.CYMATICS)
     } else {
@@ -680,10 +668,20 @@ private fun DirectorSwitch() {
 /** Above this the second palette is in the picture, so its controls show. */
 private const val PALETTE_MIX_SHOWN = 0.001f
 
+/** The colour maps' names in `paletteLut` order, from the native palette library. */
+private fun colourMapNames(): List<String> =
+    generateSequence(0) { it + 1 }.map(GeodeNative::paletteColourMapName).takeWhile { it.isNotEmpty() }.toList()
+
 // Names of panel controls that are not ParamKeys, as core/viz/CustomizeMap spells them.
 internal const val REACTION_DNA = "Reaction DNA"
 private const val PROGRESSION = "Progression"
 private const val FLUID_QUALITY = "Fluid quality"
+
+/**
+ * The fluid quality chips' names, finest first; a stored quality is an index. The tiers behind them (and
+ * how many there are, the catalogue's `fluidTiers`) are native's, `core/viz/fluid/FluidQuality`.
+ */
+private val FLUID_QUALITY_LABELS = listOf("Ultra", "High", "Medium", "Low", "Min")
 private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"

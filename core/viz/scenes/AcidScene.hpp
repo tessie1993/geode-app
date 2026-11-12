@@ -42,8 +42,6 @@ public:
 private:
     static constexpr int kSimRes = 540;
     static constexpr float kFeedbackCap = 0.975f;
-    static constexpr float kGlitchThreshold = 0.32f;
-    static constexpr float kGlitchDecay = 2.4f;
     static constexpr float kEnvRisePerSec = 9.0f;
     static constexpr float kEnvFallPerSec = 2.4f;
     static constexpr int kSpokes = 12;
@@ -81,9 +79,6 @@ private:
     float envBass_ = 0.0f;
     float envMid_ = 0.0f;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
-    float glitch_ = 0.0f;
-    float glitchEpoch_ = 0.0f;
     const TouchField* touch_ = nullptr;
     std::array<float, kSpokes> spokes_{};
 
@@ -92,8 +87,6 @@ private:
     float spinRate_ = 0.0f;       // eased rate of the curved clock, 0..3 (1 = typical loudness)
     float lastCurved_ = -1.0f;    // last frame's curvedTime, for its rate (-1 = not primed)
     float twistDir_ = 1.0f;       // eased -1..1, follows the kick toggle
-    float lunge4_ = 0.0f;         // every 4th kick: a zoom lunge, decays
-    float lunge8_ = 0.0f;         // every 8th kick: a spin surge, decays
     int kick16Count_ = 0;         // every 16th kick: the source recipe swaps
     float centreX_ = 0.0f;        // eased vanishing point, q units
     float centreY_ = 0.0f;

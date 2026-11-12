@@ -209,7 +209,7 @@ class UiTourTest {
         overlays()
     }
 
-    /** Customize as a Pro user, so every sub-page opens rather than the paywall. */
+    /** Customize as a Pro user, so every group's controls are live rather than the paywall. */
     @Test
     @TourCase(index = 5, area = "customize", pro = true)
     fun customize() {
@@ -220,13 +220,14 @@ class UiTourTest {
             sheetTall()
             tour.state().summary()
         }
-        for ((page, subs) in CUSTOMIZE_PAGES) {
-            tour.step("customize", "page-${slug(page)}", "the jump header scrolls to $page") { tour.tap(page) }
-            tour.pages("customize", "page-${slug(page)}-body", pages = 2)
-            for (sub in subs) {
-                tour.step("customize", "sub-${slug(sub)}", "the $sub page") { tour.tap(sub) }
-                tour.pages("customize", "sub-${slug(sub)}-body", pages = 3)
-                tour.step("customize", "sub-${slug(sub)}-back", "back closes $sub, the page list again") { tour.back() }
+        for ((tab, groups) in CUSTOMIZE_TABS) {
+            tour.step("customize", "tab-${slug(tab)}", "the $tab tab, every group collapsed") { tour.tap(tab) }
+            for (group in groups) {
+                tour.step("customize", "${slug(tab)}-${slug(group)}", "$tab › $group opens and stays open") { tour.tap(group) }
+                tour.pages("customize", "${slug(tab)}-${slug(group)}-body", pages = 2)
+            }
+            tour.step("customize", "${slug(tab)}-collapse-all", "Collapse all closes $tab's groups") {
+                tour.tap("Collapse all groups in $tab")
             }
         }
     }
@@ -424,18 +425,19 @@ class UiTourTest {
             null
         }
         tour.pages("customize-free", "top", pages = 2)
-        for (page in CUSTOMIZE_PAGES.keys) {
-            tour.step("customize-free", "page-${slug(page)}", "the jump header scrolls to $page") { tour.tap(page) }
+        for (tab in CUSTOMIZE_TABS.keys) {
+            tour.step("customize-free", "tab-${slug(tab)}", "the $tab tab") { tour.tap(tab) }
         }
-        tour.step("customize-free", "pro-sub-page", "a Pro sub-page opens the paywall") {
-            tour.tap(MOTION)
-            tour.tap(CAMERA)
+        tour.step("customize-free", "pro-group", "a Pro group opens, its ♛ control offers the paywall") {
+            tour.tap(LOOK)
+            tour.tap(COLOUR_CYCLE)
+            tour.tap(LOCKED_CYCLE)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
         }
         tour.tapIfPresent(UiTour.PAYWALL_CLOSE)
-        tour.step("customize-free", "free-sub-page", "Macros, the free page") {
-            tour.tap(MACROS)
-            null
+        tour.step("customize-free", "free-group", "Quick knobs' Basics, free") {
+            tour.tap(QUICK_KNOBS)
+            tour.tap(BASICS)
         }
         tour.back()
     }
@@ -713,9 +715,11 @@ class UiTourTest {
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
         const val SAVE_LOOK = "Save look"
-        const val MACROS = "Macros"
-        const val MOTION = "Motion"
-        const val CAMERA = "Camera"
+        const val QUICK_KNOBS = "Quick knobs"
+        const val LOOK = "Look"
+        const val BASICS = "Basics"
+        const val COLOUR_CYCLE = "Colour cycle"
+        const val LOCKED_CYCLE = "Cycle the colours, part of Pro"
         const val TOUR_NEXT = "Next"
         const val TOUR_DONE = "Done"
         const val TOUR_SKIP = "Skip"
@@ -731,7 +735,6 @@ class UiTourTest {
         const val ABOUT_SECTION = "About"
         const val SETTINGS_BACK = "Back to Settings"
         const val EXPORT = "Export & recording"
-        const val ADVANCED = "Advanced"
         const val LICENSES = "Open source licenses"
         const val PRIVACY = "Privacy policy"
         const val CLOSE = "Close"
@@ -769,18 +772,22 @@ class UiTourTest {
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
 
         /**
-         * Customize's pages in jump-header order, each with its sub-pages: `CustomizeSubPage` in
-         * `ui/CustomizeAdvanced.kt` by title (the modulation matrix is not offered yet).
+         * Customize's category tabs in order, each with the groups the walk opens: the native map's
+         * sections (core/viz/CustomizeMap) by their titles in `ui/CustomizeCategory.kt`. Engine is
+         * left out: it shows only on a style with an engine of its own.
          */
-        val CUSTOMIZE_PAGES =
+        val CUSTOMIZE_TABS =
             linkedMapOf(
-                MACROS to emptyList<String>(),
-                "Look" to listOf("Your colours"),
-                "Style" to emptyList<String>(),
-                MOTION to listOf(CAMERA, "Liquid"),
-                "Music" to listOf("How it listens", "Notes & key"),
-                "Modulate" to listOf("Reactions", "Envelopes", "Waves"),
-                ADVANCED to listOf("Layers", "Transitions"),
+                QUICK_KNOBS to listOf(BASICS, "Edit knobs"),
+                LOOK to listOf(BASICS, "Your colours"),
+                "Shape" to listOf(BASICS, "Form"),
+                "Motion" to listOf(BASICS),
+                "Dive" to listOf(BASICS),
+                "Camera" to listOf(BASICS),
+                "Music" to listOf(BASICS, "Listening", "Notes & key", "Reactions", "Envelopes", "Waves"),
+                "Effects" to listOf(BASICS, "Transition detail"),
+                "Liquid" to listOf(BASICS),
+                "Expert" to listOf("Layers"),
             )
 
         val LONG_PRESSABLE = SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick)

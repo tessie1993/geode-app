@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // Your colours (Customize › Look): the colour maths the picker, the eyedropper and the renderer share.
 // A colour is one packed 0xRRGGBB int, which a float carries exactly (24 bits), so it rides the params
@@ -175,5 +176,81 @@ inline float hueSpan(const int* stops, int n) {
     for (int i = 1; i < c; ++i) span = std::max(span, wrap01(toHsv(unpack(stops[i]))[0] - h0));
     return span;
 }
+
+// OKLab (Björn Ottosson's): lightness L 0..1 and two opponent axes, where equal steps look equal, so a
+// palette blended through it does not grow the bright and dark bands an RGB or hue blend does.
+struct Lab {
+    float l = 0.0f;
+    float a = 0.0f;
+    float b = 0.0f;
+};
+
+inline float toLinear(float c) { return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f); }
+inline float fromLinear(float c) { return c <= 0.0031308f ? 12.92f * c : 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f; }
+
+inline Lab toOklab(Rgb c) {
+    const float r = toLinear(c.r);
+    const float g = toLinear(c.g);
+    const float b = toLinear(c.b);
+    const float l = std::cbrt(0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b);
+    const float m = std::cbrt(0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b);
+    const float s = std::cbrt(0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b);
+    return {0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * s, 1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * s,
+            0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * s};
+}
+
+// Out-of-gamut results clamp to 0..1 per channel.
+inline Rgb fromOklab(Lab c) {
+    const float l = c.l + 0.3963377774f * c.a + 0.2158037573f * c.b;
+    const float m = c.l - 0.1055613458f * c.a - 0.0638541728f * c.b;
+    const float s = c.l - 0.0894841775f * c.a - 1.2914855480f * c.b;
+    const float l3 = l * l * l;
+    const float m3 = m * m * m;
+    const float s3 = s * s * s;
+    const auto out = [](float v) { return std::clamp(fromLinear(std::max(v, 0.0f)), 0.0f, 1.0f); };
+    return {out(4.0767416621f * l3 - 3.3077115913f * m3 + 0.2309699292f * s3),
+            out(-1.2684380046f * l3 + 2.6097574011f * m3 - 0.3413193965f * s3),
+            out(-0.0041960863f * l3 - 0.7034186147f * m3 + 1.7076147010f * s3)};
+}
+
+// Recent colours (the picker's row): newest first, no repeats, at most kMaxRecent. The shell stores the text
+// and hands it back; "#RRGGBB" joined by ','.
+inline constexpr int kMaxRecent = 24;
+
+namespace recent {
+
+inline std::vector<int> push(std::vector<int> list, int rgb) {
+    if (!valid(rgb)) return list;
+    list.erase(std::remove(list.begin(), list.end(), rgb), list.end());
+    list.insert(list.begin(), rgb);
+    if (list.size() > static_cast<size_t>(kMaxRecent)) list.resize(static_cast<size_t>(kMaxRecent));
+    return list;
+}
+
+// Unreadable entries are skipped, repeats and the overflow dropped, so any text reads as a valid list.
+inline std::vector<int> decode(std::string_view text) {
+    std::vector<int> out;
+    size_t pos = 0;
+    while (pos <= text.size() && out.size() < static_cast<size_t>(kMaxRecent)) {
+        size_t end = text.find(',', pos);
+        if (end == std::string_view::npos) end = text.size();
+        const int rgb = parseHex(text.substr(pos, end - pos));
+        if (valid(rgb) && std::find(out.begin(), out.end(), rgb) == out.end()) out.push_back(rgb);
+        pos = end + 1;
+    }
+    return out;
+}
+
+inline std::string encode(const std::vector<int>& list) {
+    std::string out;
+    for (int rgb : list) {
+        if (!valid(rgb)) continue;
+        if (!out.empty()) out += ',';
+        out += hex(rgb);
+    }
+    return out;
+}
+
+}  // namespace recent
 
 }  // namespace geode::viz::colour

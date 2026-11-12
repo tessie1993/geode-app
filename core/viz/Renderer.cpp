@@ -168,6 +168,11 @@ void Renderer::notePresetLoaded(const std::string& path) {
     milkPresetLoaded_ = path;
 }
 
+bool Renderer::milkPresetLoadedPending() const {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    return !milkPresetLoaded_.empty();
+}
+
 std::string Renderer::takeMilkPresetLoaded() {
     std::lock_guard<std::mutex> lock(stateLock_);
     std::string out;
@@ -378,6 +383,8 @@ void Renderer::onSurfaceCreated() {
         quadVao_ = 0;
     }
     touchField_.reset();
+    smearTrail_.reset();
+    smearLinger_.reset();
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
@@ -537,7 +544,7 @@ void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::str
     styleScheduleRequest_ = std::move(schedule);
 }
 
-void Renderer::applyStyleSchedule() {
+void Renderer::applyStyleSchedule(float dt) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         if (styleScheduleRequest_) {
@@ -546,7 +553,9 @@ void Renderer::applyStyleSchedule() {
         }
     }
     if (styleSchedule_.empty()) return;
-    const StyleCue* cue = styleSchedule_.step(frameNowS_ * 1000.0, soundFrame_.beatCount);
+    // The picture's clock, not render time: a silent stretch holds the schedule as it holds the picture,
+    // and the beats the tracker keeps ticking through it are not the song's (no sound, no movement).
+    const StyleCue* cue = styleSchedule_.advance(dt, musicRate_, soundFrame_.beatCount);
     if (!cue) return;
     std::string requestedScene;
     std::string requestedMilk;

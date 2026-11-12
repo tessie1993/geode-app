@@ -94,7 +94,8 @@ void testChillPinned() {
     if (!p) return;
     check(sameBits(p->attack, 0.4f) && sameBits(p->decay, 0.06f), "Chill attack and decay");
     const SceneParams& s = p->params;
-    check(sameBits(s.speed, 0.5f) && sameBits(s.audioDrive, 0.85f) && sameBits(s.beatResponse, 0.45f), "Chill motion");
+    check(sameBits(s.speed, 0.5f) && sameBits(s.audioDrive, 0.85f), "Chill motion");
+    check(sameBits(s.beatResponse, SceneParams{}.beatResponse), "Chill sets no retired key");
     check(s.trails && sameBits(s.trailLength, 0.8f) && s.colorCycle && sameBits(s.cycleSpeed, 0.025f), "Chill trails and cycle");
     check(s.palette == 3 && sameBits(s.sway, 0.35f) && sameBits(s.vignette, 0.4f) && sameBits(s.paramFadeSec, 1.5f), "Chill look");
     check(sameBits(s.saturation, 0.8f) && sameBits(s.brightness, 0.9f), "Chill grade");

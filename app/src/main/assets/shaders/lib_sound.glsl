@@ -4,7 +4,7 @@
 // directly. Family libraries (lib_dive, lib_glass, ...) read the names but never include it.
 //
 // uSound holds every scalar of GeodeSoundFrame in declaration order, four to a vec4; the SND_* names
-// below are generated from the header, and SoundFrameLayoutTest / ShaderSoundLibTest fail if they drift.
+// below are generated from the header, and core/tests/sound_test.cpp fails if they drift.
 // What each kind of value means (relative ~1.0, shaped 0..1, clocks, one-frame triggers) is documented
 // on the struct. Nothing here is driven, clamped or slewed: shape it in the style.
 //

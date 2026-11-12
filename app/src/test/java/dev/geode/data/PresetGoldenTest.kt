@@ -3,6 +3,7 @@ package dev.geode.data
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestCatalogue
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,6 +21,10 @@ import org.junit.Test
  * - `hostile.json` is a shared link out of range, non-finite and of the wrong type.
  */
 class PresetGoldenTest {
+    init {
+        TestCatalogue.install()
+    }
+
     private fun fixture(name: String): String = checkNotNull(javaClass.getResource("/presets/$name")) { "missing fixture $name" }.readText()
 
     /** JSON equality: 240 and 240.0 are the same number. */
@@ -90,6 +95,7 @@ class PresetGoldenTest {
             setOf(
                 "pulse",
                 "shake",
+                "beatResponse",
                 "flash",
                 "glitch",
                 "strobe",

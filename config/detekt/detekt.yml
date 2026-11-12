@@ -48,7 +48,6 @@ complexity:
     # GeodeNative holds every JNI declaration by rule (AGENTS.md): it grows with the native API and has no logic.
     excludes:
       - '**/ThemePackCatalog.kt'
-      - '**/VisualStyleCatalog.kt'
       - '**/BuiltInPresets.kt'
       - '**/GeodeNative.kt'
 

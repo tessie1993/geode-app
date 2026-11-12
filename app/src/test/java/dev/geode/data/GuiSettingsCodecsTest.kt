@@ -54,6 +54,18 @@ class GuiSettingsCodecsTest {
     }
 
     @Test
+    fun pipIsOnForEveryoneUntilTheSwitchTurnsItOffAndTheOffStays() {
+        // The old key was written false by every save while off was the default, so it means nothing (#994).
+        val prefs = MapPrefs().apply { values[GeneralSettingsCodec.KEY_AUTO_ENTER_PIP_OFF_DEFAULT] = false }
+        assertTrue(GeneralSettingsCodec.read(prefs).autoEnterPip)
+        GeneralSettingsCodec.save(prefs, GeneralSettingsCodec.read(prefs).copy(autoEnterPip = false))
+        assertFalse(prefs.contains(GeneralSettingsCodec.KEY_AUTO_ENTER_PIP_OFF_DEFAULT))
+        assertFalse(GeneralSettingsCodec.read(prefs).autoEnterPip)
+        GeneralSettingsCodec.save(prefs, GeneralSettingsCodec.read(prefs).copy(uiSounds = true))
+        assertFalse(GeneralSettingsCodec.read(prefs).autoEnterPip)
+    }
+
+    @Test
     fun theOldWhiteFontReadsAsWhiteUntilAColourIsChosenThenStaysGone() {
         val prefs = MapPrefs().apply { values[GeneralSettingsCodec.KEY_WHITE_FONT] = true }
         assertEquals(FontColorChoice.WHITE_ARGB, GeneralSettingsCodec.read(prefs).fontColorArgb)

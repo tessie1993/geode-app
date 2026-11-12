@@ -38,6 +38,7 @@ void FlowField::setGrid(int cells, bool macCormack) {
 void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
     if (!sim_.available()) return;
     sim_.curlStrength = std::clamp(p.flowCurl, 0.0f, 50.0f);
+    sim_.velocityDissipation = kVelocityDissipation;
     emitters_.forceScale = std::clamp(p.flowForce, 0.0f, 3.0f);
     emitters_.stirrerSpeed = std::clamp(p.speed, 0.1f, 2.0f);
     // The whole frame; FluidSim::step splits it into stable steps (#383).
@@ -45,6 +46,13 @@ void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParam
     emitters_.tick(features, simDt, sim_.aspect(), 0.0f, 1.0f, splats_);
     for (const Splat& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);
+}
+
+void FlowField::stepTouch(float dt, float dissipation) {
+    if (!sim_.available()) return;
+    sim_.curlStrength = 0.0f;
+    sim_.velocityDissipation = std::max(dissipation, 0.0f);
+    sim_.step(math::frameSimDt(dt));
 }
 
 }  // namespace geode::viz::fluid

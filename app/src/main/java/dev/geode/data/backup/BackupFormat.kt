@@ -1,10 +1,12 @@
 package dev.geode.data.backup
 
+import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.MacroStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefsCodec
+import dev.geode.wallpaper.WallpaperPrefsStore
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -68,6 +70,7 @@ enum class BackupSection(
             GeodePrefsFiles.AUDIO_FX,
             GeodePrefsFiles.LIBRARY,
             GeodePrefsFiles.BACKGROUND,
+            GeodePrefsFiles.WALLPAPER,
         ),
         emptyList(),
         emptyList(),
@@ -133,9 +136,13 @@ object BackupFormat {
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
      *   performance class at first launch. A backup from a fast phone restored onto a slow one
      *   would run it hot; the new phone keeps its own pick.
+     * - Whether this phone's output mix refused the wallpaper a capture
+     *   ([WallpaperPrefsStore.KEY_MIX_REFUSED]): a fact about this phone, not a choice.
      * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
      *   with no migration when the knobs became the macro bank, so an older backup's copies are
      *   skipped rather than written back.
+     * - Where Customize was left, its tab and open groups ([CustomizeGroupsCodec.KEYS]): screen
+     *   memory, like the tour's progress.
      *
      * There is no crash or permission state in prefs: the crash report is `crash-latest.txt`,
      * which is never in a backup, and runtime permissions are the system's.
@@ -150,11 +157,13 @@ object BackupFormat {
                     "gui_tutorial_done",
                     "gui_tutorial_resume",
                     "gui_tutorial_tips",
+                    "gui_tutorial_off",
                     "preset_mirror_uri",
-                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS,
+                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS + CustomizeGroupsCodec.KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.PLAYER to setOf(PlayerPrefsCodec.KEY_PICTURE_DELAY),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
+            GeodePrefsFiles.WALLPAPER to setOf(WallpaperPrefsStore.KEY_MIX_REFUSED),
         )
 
     /**

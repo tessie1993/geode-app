@@ -121,7 +121,7 @@ jobs:
       - name: Run unit tests
         if: github.event_name == 'push'
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest --stacktrace --no-daemon
 
       # Each pre-release gets its own number N (versionName <base>.N, tag apk-v<base>.N):
       # releases so far + 1, reserved by pushing the tag first so concurrent runs never

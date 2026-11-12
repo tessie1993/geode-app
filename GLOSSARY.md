@@ -107,7 +107,7 @@ The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
 
 **Customize tabs**:
-The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
+The categories the scene params are edited in, one tab each (Quick knobs, Look, Shape, Motion, Dive, Camera, Music, Effects, Liquid, Engine, Expert; `CustomizeCategory`). Each tab is a list of **groups**, the native map's sections (`core/viz/CustomizeMap`): Basics (free) then Pro ones, all collapsed until the user opens one, which then stays open. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
 
 **Advanced section**:
 One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field, Shader code), opening its own page. All Pro.

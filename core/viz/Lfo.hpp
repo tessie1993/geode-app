@@ -29,7 +29,16 @@ enum class LfoTarget {
     FlowCurl, FlowForce, EndlessZoomSpeed,
     // Appended: the dive's spiral and where it points (viz/EndlessZoom.hpp).
     DiveTwist, DiveAimX, DiveAimY,
+    // Appended: a macro knob (viz/MacroBank), the one LfoConfig::knob / AdsrConfig::knob names. It writes no param:
+    // the resolver adds the wave or the envelope to the knob's turn, and the knob moves what it links.
+    Macro,
+    // Appended: the palette stack's amounts (Palette 1, 3..8; Palette 2's is PaletteMix's once the renderer draws
+    // the stack) and where along it the colours sit (viz/Palette.hpp).
+    PaletteAmount1, PaletteAmount3, PaletteAmount4, PaletteAmount5, PaletteAmount6, PaletteAmount7, PaletteAmount8,
+    PaletteShift,
 };
+// The last ordinal: the wire's range for a target.
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::PaletteShift;
 
 struct ModChain {
     int slot;
@@ -40,7 +49,7 @@ struct ModChain {
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
 
-// One slot as geode_viz_set_lfo hands it over. Defaults and the period's range are the lfo rows of
+// One slot. Defaults and the period's range are the lfo rows of
 // viz/ConfigTable.inc (#423), the same numbers the stores and the sliders read.
 struct LfoConfig {
     static constexpr float kDefaultRateSeconds = config::spec(config::Slot::lfo_rateSeconds).defaultValue;
@@ -57,6 +66,11 @@ struct LfoConfig {
     ModCurve curve = ModCurve::Linear;
     /* 0 = free (rateSeconds). 1, 2, 4, 8, 16 or 32 = one cycle per that many beats of the music clock. */
     float beats = 0.0f;
+    /* The macro knob's id a Macro target turns; 0 is none. */
+    int knob = 0;
+    /* -1 runs free; a Moment ordinal (viz/Reactions) restarts the cycle each time that moment comes, on the slot's
+     * own period (beat timing gives way to it). */
+    int moment = -1;
 };
 
 float polarized(float raw, ModPolarity polarity);
@@ -77,8 +91,9 @@ public:
     // cycle's number, so it is the same at any frame rate and differs per slot.
     std::uint32_t seed = 0x9E3779B9u;
 
+    // `moments` is the bit per Moment that came this frame (MomentWatch).
     const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
-                                          const float* extDepthAdd = nullptr);
+                                          const float* extDepthAdd = nullptr, std::uint32_t moments = 0);
     SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
 
 private:

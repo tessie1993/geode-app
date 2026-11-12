@@ -2,12 +2,10 @@
 // argument checks and copies live here; the rules are in output/ and audio/dsp/PcmConvert and PcmTiming,
 // each host-tested in core/tests.
 #include <algorithm>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
 #include "audio/dsp/PcmTiming.hpp"
-#include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
@@ -29,19 +27,6 @@ void fill(const out::LoopSpec& s, geode_loop_spec* o) {
     o->loop_duration_us = s.loopDurationUs();
 }
 
-int copyChapters(const std::vector<out::ChapterSpan>& spans, int64_t* start, int64_t* duration, int32_t* source,
-                 int capacity) {
-    const int n = static_cast<int>(spans.size());
-    const int writable = std::min(n, std::max(capacity, 0));
-    for (int i = 0; i < writable; ++i) {
-        const auto& c = spans[static_cast<size_t>(i)];
-        if (start) start[i] = c.startMs;
-        if (duration) duration[i] = c.durationMs;
-        if (source) source[i] = c.source;
-    }
-    return n;
-}
-
 }  // namespace
 
 extern "C" {
@@ -60,15 +45,6 @@ void geode_export_pre_roll(int64_t range_start_ms, int64_t* from_ms, int64_t* he
 
 void geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* o) {
     if (o) fill(out::LoopSpec::of(loop_ms, crossfade_ms, fps), o);
-}
-
-void geode_loop_spec_budgeted(const geode_loop_spec* in, int width, int height, geode_loop_spec* o) {
-    if (!in || !o) return;
-    out::LoopSpec s;
-    s.loopMs = in->loop_ms;
-    s.crossfadeMs = in->crossfade_ms;
-    s.fps = in->fps;
-    fill(s.budgeted(width, height), o);
 }
 
 void geode_loop_spec_fill(geode_loop_spec* spec) {
@@ -105,21 +81,6 @@ int geode_loudness_advise(int target, int gated, double lufs, double true_peak_d
     return a.kind;
 }
 
-int geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth, int capacity) {
-    out::DriftStop all[out::kMaxDriftStops];
-    const int count = out::driftStops(hue_turns, warmth, stops, all, out::kMaxDriftStops);
-    const int writable = std::min({count, std::max(capacity, 0), out::kMaxDriftStops});
-    for (int i = 0; i < writable; ++i) {
-        if (out_hue) out_hue[i] = all[i].hueOffset;
-        if (out_warmth) out_warmth[i] = all[i].warmthOffset;
-    }
-    return count;
-}
-
-void geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset, float* out2) {
-    if (out2) out::applyDrift(color_shift, temperature, hue_offset, warmth_offset, &out2[0], &out2[1]);
-}
-
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
                            int capacity) {
     const auto plan = out::LoopExtendPlan::of(loop_us, total_us, loops);
@@ -145,8 +106,6 @@ int geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_
                                        limit_bytes > 0 ? limit_bytes : out::encode::kTargetBytes);
 }
 
-int64_t geode_export_audio_bytes(int64_t duration_us, int bps) { return out::encode::audioBytes(duration_us, bps); }
-
 int64_t geode_export_muxer_hard_limit_bytes(void) { return out::encode::kMuxerHardLimitBytes; }
 
 void geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h) {
@@ -167,18 +126,6 @@ int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowe
     const auto estimate = out::record::estimate(video_bps, length_sec);
     if (out_lowered) *out_lowered = estimate.lowered ? 1 : 0;
     return estimate.bytes;
-}
-
-int geode_chapters_from_clips(const int64_t* starts_ms, const int64_t* durations_ms, int count, int64_t* out_start_ms,
-                              int64_t* out_duration_ms, int32_t* out_source, int capacity) {
-    return copyChapters(out::chaptersFromClips(starts_ms, durations_ms, count), out_start_ms, out_duration_ms, out_source,
-                        capacity);
-}
-
-int geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t total_ms, int64_t* out_start_ms,
-                                int64_t* out_duration_ms, int32_t* out_source, int capacity) {
-    return copyChapters(out::chaptersFromMarkers(markers_ms, count, total_ms), out_start_ms, out_duration_ms, out_source,
-                        capacity);
 }
 
 size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels, int16_t* o) {

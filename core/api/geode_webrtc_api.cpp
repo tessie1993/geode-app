@@ -1,8 +1,5 @@
 // Show on a computer over WebRTC (core/cast/WebRtcLink): the C ABI. Android build only, with libdatachannel.
 #include <cstdint>
-#include <cstring>
-#include <string>
-#include <string_view>
 
 #include "api/geode_api.h"
 #include "cast/WebRtcLink.hpp"
@@ -25,24 +22,6 @@ void geode_webrtc_close(int64_t handle) {
     if (!link) return;
     link->close();
     delete link;
-}
-
-int geode_webrtc_answer(int64_t handle, const char* offer, char* out, int cap) {
-    WebRtcLink* link = from(handle);
-    if (!link || !offer || !out || cap <= 0) return GEODE_WEBRTC_REFUSED_FAILED;
-    const size_t n = std::strlen(offer);
-    if (n == 0 || n > GEODE_WEBRTC_OFFER_MAX) return GEODE_WEBRTC_REFUSED_MALFORMED;
-    std::string answer;
-    const int result = link->answer(std::string_view(offer, n), answer);
-    if (result < 0) return result;
-    if (answer.size() + 1 > static_cast<size_t>(cap)) {
-        // Too big for the caller: the peer it made would wait for a browser that never hears of it.
-        out[0] = '\0';
-        return GEODE_WEBRTC_REFUSED_FAILED;
-    }
-    std::memcpy(out, answer.data(), answer.size());
-    out[answer.size()] = '\0';
-    return static_cast<int>(answer.size());
 }
 
 void geode_webrtc_video(int64_t handle, const uint8_t* data, size_t size, int64_t pts_us, int key) {

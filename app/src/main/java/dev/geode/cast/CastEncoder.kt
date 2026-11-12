@@ -16,10 +16,11 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.WritableByteChannel
 
 /**
  * Encodes the cast stream: H.264 from a GL surface and AAC from 16-bit PCM, muxed as fragmented
- * MP4 into [LiveSegments].
+ * MP4 into the cast's server ([LiveLink.sink]; native cuts it into HLS segments, core/cast/LiveSegments).
  *
  * The video codec's input [surface] is what the render loop draws into (through
  * `export/EncoderSurface`, the same EGL setup an export uses). Audio is pushed with [queueAudio].
@@ -36,7 +37,7 @@ import java.nio.ByteOrder
  */
 @OptIn(UnstableApi::class)
 internal class CastEncoder(
-    segments: LiveSegments,
+    segments: WritableByteChannel,
     private val videoTap: ((ByteArray, Int, Long, Boolean, Boolean) -> Unit)? = null,
     val width: Int = castFormat[0],
     val height: Int = castFormat[1],

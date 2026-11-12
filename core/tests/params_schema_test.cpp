@@ -41,7 +41,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 178;
+constexpr int kWireFloats = 187;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -65,7 +65,10 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
     check(static_cast<int>(ParamSlot::camFlat) == 163, "camFlat keeps its slot");
     check(static_cast<int>(ParamSlot::paletteStop4) == 168, "paletteStop4 keeps its slot");
-    check(static_cast<int>(ParamSlot::diveFollow) == kWireFloats - 1, "diveFollow is the wire's last float");
+    check(static_cast<int>(ParamSlot::diveFollow) == 177, "diveFollow keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
+          "the palette amounts follow it, the primary first");
+    check(static_cast<int>(ParamSlot::paletteShift) == kWireFloats - 1, "paletteShift is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -133,6 +136,7 @@ void anOldLookWithRetiredNamesStillLoads() {
         {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
         {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
         {"motionDrift", 0.8f},  {"waterDamping", 0.95f}, {"rippleOverlayEnabled", 1.0f},
+        {"beatResponse", 1.9f},
     };
     const SceneParams fresh;
     SceneParams p;
@@ -159,7 +163,8 @@ void anOldLookWithRetiredNamesStillLoads() {
     p.toWire(a.data());
     q.toWire(b.data());
     check(a == b, "a retired slot's wire value is ignored");
-    check(!SceneParams::retired(ParamSlot::beatResponse), "beatResponse is not retired");
+    check(SceneParams::retired(ParamSlot::beatResponse) && static_cast<int>(ParamSlot::beatResponse) == 11,
+          "beatResponse is retired and keeps slot 11");
 }
 
 void theWireRoundTrips() {
@@ -274,6 +279,13 @@ void theLfoClampsAreTheTablesRanges() {
             if (up.getSlot(slot) != base.getSlot(slot)) check(false, name + "'s LFO moved " + SceneParams::schema()[static_cast<size_t>(slot)].name);
         }
     }
+    // The palette stack's amounts stop at 0..1; its position is Circular, like the hue.
+    check(applyLfoTarget(base, LfoTarget::PaletteAmount1, 1000.0f).paletteAmount0 == 1.0f &&
+              applyLfoTarget(base, LfoTarget::PaletteAmount8, -1000.0f).paletteAmount7 == 0.0f,
+          "a palette amount stops at its range");
+    check(SceneParams::spec(ParamSlot::paletteShift).kind == ParamKind::Circular &&
+              applyLfoTarget(base, LfoTarget::PaletteShift, 3.0f).paletteShift == base.paletteShift + 1.5f,
+          "the palette position is never clamped");
     // The hue is Circular: it adds unclamped, at half a turn per unit, as it always did.
     check(SceneParams::spec(ParamSlot::colorShift).kind == ParamKind::Circular, "colorShift is circular");
     check(applyLfoTarget(base, LfoTarget::ColorShift, 3.0f).colorShift == base.colorShift + 1.5f, "the hue LFO is never clamped");
@@ -473,9 +485,18 @@ void everyLiveRowHasOneMeta() {
     check(SceneParams::meta(ParamSlot::speed).scope == catalogue::Scope::SceneClock, "Speed paces the scene clock");
     check(std::string(SceneParams::meta(ParamSlot::paletteBaseOverride).label) == "Palette", "a hue override belongs to Palette");
     check(std::string(SceneParams::meta(ParamSlot::paletteStop4).label) == "Palette", "your colours' stops belong to Palette");
-    check(std::string(SceneParams::meta(ParamSlot::beatResponse).label).empty(), "beatResponse has no control");
+    check(!SceneParams::meta(ParamSlot::beatResponse).live, "beatResponse is retired: no meta, no control");
     check((SceneParams::meta(ParamSlot::camYaw).flags & kMod) != 0 && (SceneParams::meta(ParamSlot::camTouch).flags & kMod) == 0,
           "a modulation target is flagged, a switch is not");
+    check(std::string(SceneParams::meta(ParamSlot::paletteAmount0).label) == "Palette 1 amount" &&
+              std::string(SceneParams::meta(ParamSlot::paletteAmount7).label) == "Palette 8 amount" &&
+              std::string(SceneParams::meta(ParamSlot::paletteShift).label) == "Palette position",
+          "each palette amount and the position is a control of its own");
+    for (int slot = static_cast<int>(ParamSlot::paletteAmount0); slot <= static_cast<int>(ParamSlot::paletteShift); ++slot) {
+        const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+        check(m.scope == catalogue::Scope::Universal && m.rollLo == 0.0f && m.rollHi == 0.0f,
+              std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": every style, never dealt by the param roll");
+    }
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
 }
 

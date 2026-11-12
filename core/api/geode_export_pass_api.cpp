@@ -12,7 +12,6 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/frame/ExportPassMath.hpp"
 #include "viz/frame/ExportPasses.hpp"
-#include "viz/frame/LoopSeam.hpp"
 
 using namespace geode::viz;
 using namespace geode::viz::frame;
@@ -77,18 +76,17 @@ int geode_export_watermark_placement(int required, int pro_adds, int placement, 
     return exportmath::watermark::placement(required != 0, pro_adds != 0, placement, use);
 }
 
-float geode_export_watermark_text_px(int short_side, int placement) { return exportmath::watermark::textPx(short_side, placement); }
-
-float geode_export_watermark_angle(int placement) { return exportmath::watermark::angleDegrees(placement); }
-
-int geode_export_watermark_alpha(int placement) { return exportmath::watermark::textAlpha(placement); }
-
-int geode_export_watermark_tile_width(float text_width, float text_px, int placement) {
-    return exportmath::watermark::tileWidth(text_width, text_px, placement);
+void geode_export_watermark_paint(int short_side, int placement, geode_watermark_paint* out) {
+    if (!out) return;
+    const auto p = exportmath::watermark::paint(short_side, placement);
+    *out = {p.textPx, p.alpha, p.letterSpacingEm, p.shadowRadiusPx, p.shadowAlpha};
 }
 
-int geode_export_watermark_tile_height(int tile_width, float text_px, int placement) {
-    return exportmath::watermark::tileHeight(tile_width, text_px, placement);
+void geode_export_watermark_raster(float text_width, float ascent, float descent, float text_px, int placement,
+                                   geode_watermark_raster* out) {
+    if (!out) return;
+    const auto r = exportmath::watermark::raster(text_width, ascent, descent, text_px, placement);
+    *out = {r.width, r.height, r.angleDegrees, r.pivotX, r.pivotY, r.textX, r.textY};
 }
 
 geode_export_pass* geode_export_watermark_create(AAssetManager* assets, const uint8_t* rgba, int tile_w, int tile_h, int placement,
@@ -131,33 +129,6 @@ void geode_export_seam_blend(geode_export_pass* h, int index, int tail, int seam
         p->stageBlend(index, tail, seam_frames);
         run(*p, {}, {0u, h->width, h->height});
     }
-}
-
-int64_t geode_export_seam_frame(geode_export_pass* h, int frame, int loop_frames, int seam_frames, int fps) {
-    const loopseam::Step s = loopseam::step(frame, loop_frames, seam_frames);
-    switch (s.op) {
-        case loopseam::Op::Capture:
-            geode_export_seam_capture(h, s.index);
-            return -1;
-        case loopseam::Op::BlendPresent:
-            geode_export_seam_blend(h, s.index, s.tail, seam_frames);
-            break;
-        case loopseam::Op::Present:
-            break;
-    }
-    return loopseam::ptsNs(frame, seam_frames, fps);
-}
-
-int64_t geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps, int width, int height) {
-    return loopseam::budgetedCrossfadeMs(crossfade_ms, crossfade_frames, fps, width, height);
-}
-
-float geode_export_loop_progress(int stop, int stops, int frame, int loop_frames, int seam_frames) {
-    return loopseam::progress(stop, stops, frame, loop_frames, seam_frames);
-}
-
-int64_t geode_export_loop_reported_crossfade_ms(int seam_frames, int fps) {
-    return loopseam::reportedCrossfadeMs(seam_frames, fps);
 }
 
 }  // extern "C"

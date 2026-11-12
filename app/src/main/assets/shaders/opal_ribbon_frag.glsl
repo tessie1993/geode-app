@@ -18,7 +18,7 @@ out vec4 fragColor;
 // each turning on its own length as it goes, ruled with fine lines along it.
 //
 // Morph widens the ribbons until they close into one twisted pipe. Worst case
-// 80 steps and 4 skins, no noise.
+// 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     float off = dot(p.xy, p.xy);

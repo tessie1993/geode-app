@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -66,6 +67,7 @@ import dev.geode.ui.pro.ProBadge
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.performStoneHaptic
+import kotlinx.coroutines.delay
 import kotlin.math.floor
 
 /**
@@ -215,8 +217,10 @@ private fun shareLink(
 }
 
 /**
- * The live share: the link's short name, the link as a QR code made on the phone and as text (selectable, to
- * copy; its host written as one number, not the dotted address), whether it is starting or live, who can watch
+ * The live share: the link's short name, the whole link as a QR code made on the phone (for a device that scans),
+ * and for a computer, which has no scanner, the short link with no token as text (selectable, to copy; its host
+ * written as one number, not the dotted address) and the code its page asks for, read again every second since a
+ * code is spent once used and replaced after a few minutes (native); whether it is starting or live, who can watch
  * and what is encrypted (the WebRTC media is; the plain-http link, page and fallback feed are not),
  * where the sound plays, and Stop. Dismissing the sheet keeps the share running; the notification and the row
  * stop it too.
@@ -246,8 +250,20 @@ internal fun ComputerLinkSheet(
                     Text(stringResource(R.string.link_sheet_label, state.label), style = MaterialTheme.typography.titleSmall)
                 }
                 LinkQrCode(state.url)
+                val typed = state.typedUrl.ifEmpty { state.url }
+                val code by produceState("", state) {
+                    while (true) {
+                        value = ComputerLink.pairCode()
+                        delay(CODE_REFRESH_MS)
+                    }
+                }
+                Text(stringResource(R.string.link_sheet_typed), style = MaterialTheme.typography.bodySmall)
                 SelectionContainer {
-                    Text(state.url, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
+                    Text(typed, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
+                }
+                if (code.isNotEmpty()) {
+                    Text(stringResource(R.string.link_sheet_code), style = MaterialTheme.typography.bodySmall)
+                    Text(code, style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace))
                 }
                 Text(
                     stringResource(R.string.link_sheet_address),
@@ -255,10 +271,10 @@ internal fun ComputerLinkSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                    CrystalButton(onClick = { copyLink(context, state.url) }, modifier = Modifier.weight(1f), filled = false) {
+                    CrystalButton(onClick = { copyLink(context, typed) }, modifier = Modifier.weight(1f), filled = false) {
                         Text(stringResource(R.string.link_copy))
                     }
-                    CrystalButton(onClick = { shareLink(context, state.url) }, modifier = Modifier.weight(1f), filled = false) {
+                    CrystalButton(onClick = { shareLink(context, typed) }, modifier = Modifier.weight(1f), filled = false) {
                         Text(stringResource(R.string.link_share))
                     }
                 }
@@ -331,3 +347,4 @@ internal fun ComputerLinkHost() {
 
 private val QR_SIZE = 216.dp
 private const val QUIET_ZONE = 4
+private const val CODE_REFRESH_MS = 1_000L

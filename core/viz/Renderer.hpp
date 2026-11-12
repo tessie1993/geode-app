@@ -43,6 +43,7 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
+#include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
@@ -84,7 +85,7 @@ public:
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
     // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
-    // geode_viz_frame_begin (frame::FrameCadence), so the shell wakes its collectors only on a change. A new
+    // geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on a change. A new
     // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
     int takeLiquidMode() {
         const int mode = liquidMode_.load(std::memory_order_relaxed);
@@ -103,6 +104,11 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
+    // Settings › Gestures & controls › Touch › Smear (viz/TouchSmear): any thread; the GL thread reads it per frame.
+    void setTouchSmear(bool on, float strength) {
+        smearOn_.store(on, std::memory_order_relaxed);
+        smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);
+    }
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
     // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
@@ -130,6 +136,12 @@ public:
     // How many times the director committed a look at a new section or a drop since the last take.
     // The shell's Auto changes style on each (one Auto mode: the director picks the moments).
     int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
+    // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
+    bool directorStyleMomentsPending() const { return directorStyleMoments_.load(std::memory_order_acquire) > 0; }
+    // Whether a preset load waits for takeMilkPresetLoaded, without taking it. Any thread.
+    bool milkPresetLoadedPending() const;
+    // The hand mask the reaction matrix merges under: an export's pinned one, else the process's (hand::global).
+    uint32_t handMask() const { return settingsLatch_.handMask(); }
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
@@ -170,7 +182,7 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
-    // The first frame on a new surface (geode_viz_frame_begin, frame::kFrameClearOnly): black, and nothing
+    // The first frame on a new surface (geode_viz_frame, frame::kEventClearOnly): black, and nothing
     // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
     void clearToBlack(GLuint targetFbo);
     void releaseScenes();
@@ -205,8 +217,9 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
-    // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
-    void applyStyleSchedule();
+    // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
+    // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
+    void applyStyleSchedule(float dt);
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
@@ -232,6 +245,8 @@ private:
     void stepCamera(const SceneParams& p, float dt);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
     void stepLiquid(Scene& scene, const SceneParams& p, float dt);
+    // The smear: the fingers' kicks into the flow field and this frame's bend (smearWarp_), Liquid off only.
+    void stepSmear(float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
@@ -278,6 +293,11 @@ private:
     std::string quadVert_;
 
     TouchField touchField_;
+    touch::SmearTrail smearTrail_;
+    touch::SmearLinger smearLinger_;
+    std::atomic<bool> smearOn_{false};
+    std::atomic<float> smearStrength_{touch::kSmearStrengthDefault};
+    float smearWarp_ = 0.0f;
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;

@@ -1,0 +1,2 @@
+AGENTS.md merge=union
+docs/agents/*.md merge=union

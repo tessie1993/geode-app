@@ -45,9 +45,15 @@ jobs:
           # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o colour_test
           ./colour_test
+          # The palette stack (Customize › Look): each gradient option, the 16-colour and 8-palette caps, Share and Mix, one colour's drawings, the codec and edits, old looks as they drew, recent colours, the library text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/palette_test.cpp core/viz/Palette.cpp core/api/geode_palette_api.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o palette_test
+          ./palette_test core/tests/palettes.txt
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
+          ./touch_smear_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -115,6 +121,16 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # The AIFF header scan the export's reader and the player's extractor share: every layout, the chunk walk, the
+          # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
+          ./aiff_header_test
+          # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
+          # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
+            core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp \
+            core/output/FrameClock.cpp -o track_pump_test
+          ./track_pump_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
@@ -137,12 +153,19 @@ jobs:
           # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o sound_source_test
           ./sound_source_test
+          # Settings › Audio's saved tuning as the engine hears it: clamped, an older save without the trim, any other length the defaults.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_tuning_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o sound_tuning_test
+          ./sound_tuning_test
           # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/gyro_look_test.cpp -o gyro_look_test
           ./gyro_look_test
-          # An export segment's style schedule: every later style is gated by the entitlement (#357).
+          # An export segment's style schedule: every later style is gated by the entitlement (#357), and it holds in silence (#999 F3).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # No hidden hit reactions (owner, 2026-11-12): no core source reads the retired beatResponse, and under
+          # core/viz a hit is read only behind a control the user sets (the scenes still listed are known gaps).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror core/tests/hidden_hits_test.cpp -o hidden_hits_test
+          ./hidden_hits_test core/
           # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp -o cast_clock_test
           ./cast_clock_test
@@ -181,15 +204,21 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
-          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
           ./stage_step_test
+          # Visuals › Styles: Random over every family (or the on-screen family alone), never the style on screen, a kept style first; every list leads with what is on screen.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp -o style_pick_test
+          ./style_pick_test
           # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
           ./milk_shader_note_test
           # A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shown_test.cpp -o milk_shown_test
           ./milk_shown_test
+          # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
+          ./milk_memory_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test
@@ -199,6 +228,15 @@ jobs:
           # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
           ./live_fps_test
+          # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp -o stage_lifecycle_test
+          ./stage_lifecycle_test
+          # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
+          ./command_queue_test
+          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp -o stage_pacing_test
+          ./stage_pacing_test
           # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
@@ -208,6 +246,12 @@ jobs:
           # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # A Studio project's kind and edit (core/studio): saved edits read back the same, in order, with old
+          # defaults; newer or unknown files are refused; a new project holds its song and its look.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_edit_test.cpp core/studio/StudioEdit.cpp \
+            core/api/geode_studio_api.cpp core/util/Json.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp -o studio_edit_test
+          ./studio_edit_test
           # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
           # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
@@ -242,9 +286,9 @@ jobs:
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
-          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
-          ./push_versions_test
+          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/live_frame_test.cpp -o live_frame_test
+          ./live_frame_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
           ./loop_seam_test
@@ -258,15 +302,27 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
-          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the fitted rectangle.
+          # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the placement (a portrait stage turned, every stage centre-cropped).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_tee_test.cpp -o cast_tee_test
           ./cast_tee_test
+          # Cast shows the phone's own visual: the stage keeps drawing while a cast streams (before Visuals was ever laid out too) in its whole rect, the tee turning a portrait stage and its centred crop filling the stream with no bars, and a new stream waits for its first copy.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_same_visual_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp core/api/geode_frame_api.cpp -o cast_same_visual_test
+          ./cast_same_visual_test
           # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
           ./link_share_test
+          # Its typed path for a computer with no scanner: the code (random, case-free, constant-time compare), one per session, its lifetime, the tries, gap and lock-out, the routes off the token and the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_pair_test.cpp core/api/geode_link_api.cpp core/api/geode_link_pair_api.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp core/util/QrCode.cpp -o link_pair_test
+          ./link_pair_test
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test
+          # Cast's live stream (core/cast/LiveSegments): the muxer's bytes cut into the init segment and fragments at any write size, the window of six, the playlist's exact text, the feed's order, the watchdog's clock, boxes no muxer writes.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_segments_test.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_segments_test
+          ./live_segments_test
+          # Cast's HTTP answers (core/cast/LiveHttp): the request reader's bounds, every file's exact response, hostile requests (oversize, malformed, wrong token, lying lengths), the browser's feed and its cap, the WebRTC offer's body.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp -o live_http_test
+          ./live_http_test
           # Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
           ./qr_code_test
@@ -282,8 +338,8 @@ jobs:
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
-      # meta rows, hence Params), ranges, and
-      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      # meta rows, hence Params), ranges, the answers the shell asks for one at a time, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the tools read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -311,6 +367,26 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
+      # The saved text of the user's reaction routes (core/viz/ReactionText).
+      - name: Reaction text host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/reaction_text_test.cpp core/viz/ReactionText.cpp \
+            core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o reaction_text_test
+          ./reaction_text_test
+      # The user's modulation (core/viz/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
+      # a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs.
+      - name: Modulation document host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/mod_document_test.cpp \
+            core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/api/geode_modulation_api.cpp core/util/Json.cpp \
+            core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o mod_document_test
+          ./mod_document_test
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
       # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests
@@ -353,6 +429,12 @@ jobs:
           # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
+          # The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o eq_presets_test
+          ./eq_presets_test
+          # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp core/api/geode_playback_api.cpp -o playback_controls_test
+          ./playback_controls_test
 
       # Export planning and PCM maths ported from Kotlin (ADR 0003, ADR 0006 core/output): frame clock,
       # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
@@ -365,6 +447,13 @@ jobs:
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t
           done
+          # A render's range and time left (core/output/ExportRange, RenderEta): the segment clamp and its
+          # refusals, the estimate through a lead-in and an even render, a restart, the wording's thresholds.
+          EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/export_range_test.cpp $EXPORT_RUN_SRCS -o export_range_test
+          ./export_range_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/render_eta_test.cpp $EXPORT_RUN_SRCS -o render_eta_test
+          ./render_eta_test
 
       # Record's clock (core/output/Recorder): which stage frames a live recording keeps and their PTS at
       # 30, 60 and 120 fps, where each heard sample sits, a pause, a seek, a rate change, the limits.
@@ -375,6 +464,28 @@ jobs:
             core/tests/recorder_test.cpp core/api/geode_record_api.cpp core/output/Recorder.cpp \
             core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o recorder_test
           ./recorder_test
+
+      # The encode sink (core/output/EncodeSink) and Record's session on it (core/output/RecordSession), on a fake
+      # codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, the end of stream,
+      # errors, no sample written twice or dropped, and the stop through the stage's tee.
+      - name: Encode sink host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub \
+            core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
+            core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
+          ./encode_sink_test
+
+      # The loop render job (core/output/LoopRender) on a fake host, encoder and muxer: the encoder it settles on,
+      # each stop's frame counts and presentation times, the seam the reel reports, the drift, and what a cancel
+      # and each failure leave behind.
+      - name: Loop render host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/loop_render_test.cpp core/output/LoopRender.cpp core/output/LoopPlan.cpp \
+            core/output/EncodePlan.cpp -o loop_render_test
+          ./loop_render_test
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
@@ -420,12 +531,20 @@ jobs:
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
+      # And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.
       - name: Export pre-roll
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp \
-            core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_preroll_test
+            core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/StyleSchedule.cpp \
+            -o export_preroll_test
           ./export_preroll_test
+          # The render order (core/output/ExportFrame): prepare up to the look, the pre-roll's plan, each frame's audio to
+          # its exact end and its draw at its exact time, the failures (no track, nothing heard, a track that ends).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_frame_test.cpp \
+            core/output/ExportFrame.cpp core/output/FrameClock.cpp core/audio/ingest/TrackPump.cpp \
+            core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_frame_test
+          ./export_frame_test
 
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
       - name: Sound golden vector
@@ -441,3 +560,21 @@ jobs:
         run: |
           g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
           ./sound_bench --quick
+
+      # A render's plan (core/output/ExportRange): the part of a track a render covers and the free tier's cap.
+      - name: Render plan host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/render_plan_test.cpp \
+            core/output/ExportRange.cpp core/output/RenderBatch.cpp core/api/geode_render_plan_api.cpp -o render_plan_test
+          ./render_plan_test
+
+      # A finished render's loudness (core/output/LoudnessScan on a fake decoder: the meter fed every buffer, the
+      # refusals) and the sentence and numbers its advice is worded with (core/output/LoudnessAdvice readingOf).
+      - name: Loudness scan host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_scan_test.cpp \
+            core/output/LoudnessScan.cpp core/output/LoudnessAdvice.cpp core/audio/dsp/Loudness.cpp \
+            core/audio/dsp/PcmConvert.cpp -o loudness_scan_test
+          ./loudness_scan_test

@@ -36,7 +36,7 @@ import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
-import dev.geode.data.GuiPrefs
+import dev.geode.data.GeneralSettings
 import dev.geode.geodeContainer
 import dev.geode.model.KnobSize
 import dev.geode.model.TabLabels
@@ -47,48 +47,48 @@ import kotlinx.coroutines.withContext
 /** Settings › Look › Basics: the accent, interface sounds and vibration. */
 @Composable
 internal fun LookBasics(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val gui by viewModel.general.collectAsStateWithLifecycle()
     ThemeGroup(viewModel, gui)
 }
 
 /** Settings › Look › Text: its size and colour. */
 @Composable
 internal fun LookTextSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val gui by viewModel.general.collectAsStateWithLifecycle()
     TextGroup(viewModel, gui)
 }
 
 /** Settings › Look › Layout: corners, tab bar labels, the Player's time, screen rotation, Quick knobs' size and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val gui by viewModel.general.collectAsStateWithLifecycle()
     LayoutGroup(viewModel, gui)
 }
 
 @Composable
 private fun ThemeGroup(
     viewModel: SettingsViewModel,
-    gui: GuiPrefs,
+    gui: GeneralSettings,
 ) {
     Column {
         CrystalSlider(
             label = stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
             value = gui.accentIntensity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
+            onValueChange = { viewModel.updateGeneral { s -> s.copy(accentIntensity = it) } },
             valueRange = 0.5f..1.5f,
         )
         SettingsSwitchRow(
             title = stringResource(R.string.look_accent_follows_visual),
             summary = stringResource(R.string.look_accent_follows_visual_hint),
             checked = gui.accentFollowsVisual,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(accentFollowsVisual = it)) },
+            onCheckedChange = { viewModel.updateGeneral { s -> s.copy(accentFollowsVisual = it) } },
         )
     }
     Column {
         LabeledSwitch(
             stringResource(R.string.look_ui_sounds),
             checked = gui.uiSounds,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(uiSounds = it)) },
+            onCheckedChange = { viewModel.updateGeneral { s -> s.copy(uiSounds = it) } },
         )
         Text(
             stringResource(R.string.look_ui_sounds_hint),
@@ -99,7 +99,7 @@ private fun ThemeGroup(
             title = stringResource(R.string.look_haptics),
             summary = stringResource(R.string.look_haptics_hint),
             checked = gui.haptics,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(haptics = it)) },
+            onCheckedChange = { viewModel.updateGeneral { s -> s.copy(haptics = it) } },
         )
     }
 }
@@ -107,15 +107,15 @@ private fun ThemeGroup(
 @Composable
 private fun TextGroup(
     viewModel: SettingsViewModel,
-    gui: GuiPrefs,
+    gui: GeneralSettings,
 ) {
     FontColorRow(viewModel, gui)
     Column {
         CrystalSlider(
             label = stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
             value = gui.textScale,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
-            valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,
+            onValueChange = { viewModel.updateGeneral { s -> s.copy(textScale = it) } },
+            valueRange = GeneralSettings.TEXT_SCALE_MIN..GeneralSettings.TEXT_SCALE_MAX,
         )
         Text(
             stringResource(R.string.look_text_size_hint),
@@ -128,7 +128,7 @@ private fun TextGroup(
 @Composable
 private fun FontColorRow(
     viewModel: SettingsViewModel,
-    gui: GuiPrefs,
+    gui: GeneralSettings,
 ) {
     Column {
         Text(stringResource(R.string.look_font_color), style = MaterialTheme.typography.labelMedium)
@@ -140,7 +140,7 @@ private fun FontColorRow(
                 FontColorSwatch(
                     choice = choice,
                     selected = gui.fontColorArgb == choice.argb,
-                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb)) },
+                    onSelect = { viewModel.updateGeneral { s -> s.copy(fontColorArgb = choice.argb) } },
                 )
             }
         }
@@ -203,14 +203,14 @@ private fun FontColorSwatch(
 @Composable
 private fun LayoutGroup(
     viewModel: SettingsViewModel,
-    gui: GuiPrefs,
+    gui: GeneralSettings,
 ) {
     Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(
             options = CornerStyle.entries.map { stringResource(it.labelRes) },
             selected = CornerStyle.entries.indexOf(gui.cornerStyle),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(cornerStyle = CornerStyle.entries[it])) },
+            onSelect = { viewModel.updateGeneral { s -> s.copy(cornerStyle = CornerStyle.entries[it]) } },
             modifier = Modifier.padding(top = 4.dp),
         )
     }
@@ -219,21 +219,21 @@ private fun LayoutGroup(
         options = TabLabels.entries,
         selected = gui.tabLabels,
         label = { stringResource(it.labelRes()) },
-        onSelect = { viewModel.setGuiPrefs(gui.copy(tabLabels = it)) },
+        onSelect = { viewModel.updateGeneral { s -> s.copy(tabLabels = it) } },
     )
     SettingsSwitchRow(
         title = stringResource(R.string.look_show_time_left),
         summary = stringResource(R.string.look_show_time_left_hint),
         checked = gui.showTimeLeft,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(showTimeLeft = it)) },
+        onCheckedChange = { viewModel.updateGeneral { s -> s.copy(showTimeLeft = it) } },
     )
-    ScreenRotationRow(gui, viewModel::setGuiPrefs)
+    ScreenRotationRow(gui, viewModel::updateGeneral)
     SettingsChoiceRow(
         title = stringResource(R.string.look_knob_size),
         options = KnobSize.entries,
         selected = gui.knobSize,
         label = { stringResource(it.labelRes()) },
-        onSelect = { viewModel.setGuiPrefs(gui.copy(knobSize = it)) },
+        onSelect = { viewModel.updateGeneral { s -> s.copy(knobSize = it) } },
     )
     BootAnimationRow()
 }

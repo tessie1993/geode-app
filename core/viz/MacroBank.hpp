@@ -1,7 +1,10 @@
 #pragma once
+#include <bitset>
+#include <compare>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -43,11 +46,31 @@ std::optional<Curve> curveNamed(std::string_view name);
 // t (0..1, how far the knob is turned) through the curve; 0 at 0 and 1 at 1 for every curve.
 float shape(Curve curve, float t);
 
+// What a link moves: a scene param, by its wire slot. Every live param a knob can offset is one: a float the look
+// glides (Float or Circular, Fade) that a Customize control sets. Left out: Int fields (a picker, a count, a seed,
+// a colour stop: an offset would jump between unrelated choices or rebuild a simulation), Bool switches, Hold
+// floats (the palette's unset sentinels, the glide time), retired slots, fields no control sets, and the Note & key
+// strengths, which NoteResponse reads before the bank runs, so a knob on them would move nothing. A param a
+// modulation target writes is named as that target (MORPH); every other by its schema name (cymaticsRing).
+struct Target {
+    int slot = -1;
+    Target() = default;
+    // Implicit, so a link reads as the modulation target it is; None, a chained or a retired target is no param.
+    Target(LfoTarget target);  // NOLINT(google-explicit-constructor)
+    static Target ofSlot(int slot);
+    bool operator==(const Target&) const = default;
+    auto operator<=>(const Target&) const = default;
+};
+// The wire name; "" for no param.
+std::string name(Target target);
+// The Customize control that sets the param (its ParamKeys key), the label the editor shows; "" for none.
+const char* controlOf(Target target);
+
 // One param a knob moves. up is the offset at a full turn up and down the offset at a full turn
 // down, each a signed fraction (-1..1) of the target's range: the link's own range, set apart each way,
 // so a field resting at its low end can still be moved by turning down, or left alone with 0.
 struct Link {
-    LfoTarget target = LfoTarget::None;
+    Target target;
     float up = 0.0f;
     float down = 0.0f;
     Curve curve = Curve::Linear;
@@ -79,14 +102,19 @@ struct Range {
     float max;
 };
 
-// A target a link may name: one that writes a live scene param. The chained targets (they steer an
-// LFO slot) and the retired slots are not.
-bool linkable(LfoTarget target);
+// Whether a link may name the target (see Target), with a range safety::apply leaves room in.
+bool linkable(Target target);
 // What a link's fractions are of: the field's schema range, its top held to what safety::apply lets
 // through, so no part of a knob's travel is clamped away afterwards. {0, 0} for a target not linkable.
-Range rangeOf(LfoTarget target);
-// By its ModTargets wire name; None for an unknown or unlinkable one.
-LfoTarget targetNamed(std::string_view name);
+Range rangeOf(Target target);
+// By its wire name (name(Target)); a param a modulation target writes is also found by its schema name. No
+// param for an unknown or unlinkable one.
+Target targetNamed(std::string_view name);
+// Every linkable target in the order the editor lists them: the modulation targets' params in wire order,
+// then the rest in schema order. Built once.
+const std::vector<Target>& linkableTargets();
+// Bit per param slot a link may move on a style.
+using Reach = std::bitset<SceneParams::kFieldCount>;
 
 // The four built-in knobs, all at centre: Shape, Motion, Colour, Depth.
 const Bank& defaultBank();
@@ -121,31 +149,42 @@ Bank showKnob(const Bank& bank, int id);
 // A built-in knob's name, hint and links as defaultBank has them; its value stays. Refused for a user's knob.
 Bank resetKnob(const Bank& bank, int id);
 // Adds the link (Linear), or replaces the range of the knob's link on the same target, keeping its curve.
-Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down);
+Bank setLink(const Bank& bank, int id, Target target, float up, float down);
 // A new link at the weights a picked target starts on: a quarter of its range each way, up up and down
 // down, so the knob moves it at once and neither end is reached by one knob alone. Refused when the knob
 // already links the target.
 constexpr float kNewLinkWeight = 0.25f;
-Bank addLink(const Bank& bank, int id, LfoTarget target);
-Bank removeLink(const Bank& bank, int id, LfoTarget target);
+Bank addLink(const Bank& bank, int id, Target target);
+Bank removeLink(const Bank& bank, int id, Target target);
 // A new random set of links for the knob, in place of the ones it has: 2 to 5 distinct targets, each with its
 // own direction, range (a full turn moves it 15-60 % of its range, the other way none or up to as much
 // back) and curve. The same seed rolls the same set, so the shell passes a new seed for each press. Ranges are
 // fractions of rangeOf, which already stops at the safety maxima, so no roll reaches past VisualSafety.
 Bank roll(const Bank& bank, int id, std::uint64_t seed);
+// The knob editor's second Random: the links the knob has keep their params and get a new direction, range and
+// curve each, drawn as roll draws them. The same seed rolls the same ranges; a knob with no links is unchanged.
+Bank rollRanges(const Bank& bank, int id, std::uint64_t seed);
+// The knob editor's Add random: `count` more params linked to the knob, picked at random from the ones it does not
+// move yet that the style reaches (`reach`) and Customize does not keep (`kept`, control keys as expandLocks gives
+// them), each with a range drawn as roll draws one. Stops at kMaxLinks or when no such param is left; the links the
+// knob had stay as they were. The same seed adds the same params.
+constexpr int kAddRandomDefault = 3;
+Bank addRandom(const Bank& bank, int id, int count, const Reach& reach, const std::set<std::string>& kept, std::uint64_t seed);
+// How many params Add random can link to the knob on the style: room under kMaxLinks, and params left to pick.
+int addRandomRoom(const Bank& bank, int id, const Reach& reach);
 // A new turn for every knob on screen that can move the picture on the style (`reach`, reachMask): at least
 // kRollMin of a full turn, up or down at random, or the one way the knob moves there. A knob that moves nothing on
 // the style keeps its turn, the library's stay centred, and the links are untouched. The same seed rolls the same
 // turns, and a knob's draw does not depend on the others'.
 constexpr float kRollMin = 0.3f;
-Bank rollValues(const Bank& bank, std::uint64_t reach, std::uint64_t seed);
+Bank rollValues(const Bank& bank, const Reach& reach, std::uint64_t seed);
 Bank rollValues(const Bank& bank, const std::string& styleId, std::uint64_t seed);
 // Refused when the knob does not link the target.
-Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve);
+Bank setCurve(const Bank& bank, int id, Target target, Curve curve);
 
-// Customize's sliders, by their ParamKeys name (customize::fieldsOf): the target a knob links for one, None
+// Customize's sliders, by their ParamKeys name (customize::fieldsOf): the target a knob links for one, no param
 // when the control writes no linkable param.
-LfoTarget targetOfControl(std::string_view key);
+Target targetOfControl(std::string_view key);
 // A new knob, last, that moves the control's param at the starting weights. Native names it after the
 // control (its key without a unit suffix, " 2", " 3" when a knob has that name already). Refused for a
 // control with no target or a full bank.
@@ -154,13 +193,13 @@ Bank addKnobFor(const Bank& bank, std::string_view key);
 // names one), "Knob <id>" when it moves none a slider shows; told apart from every other knob's name.
 std::string autoName(const Bank& bank, int id);
 
-// Bit per LfoTarget ordinal a link may move on styleId (modtargets::reaches): ask once per style.
-std::uint64_t reachMask(const std::string& styleId);
+// The params a link may move on styleId (the scope of the control that sets each): ask once per style.
+Reach reachMask(const std::string& styleId);
 // p with every knob's offsets added: per link shape(curve, |value|) x (value >= 0 ? up : down) x the
 // target's range, summed per target over the whole bank, then held to that range (the hue, a
 // Circular field, adds unclamped). A link whose target is not in reach is skipped, and a field no
 // live link moves is returned untouched, so a bank at centre is the identity.
-SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach);
+SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach);
 SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId);
 
 // The process-wide bank every live renderer reads (geode_macro_bank_set). Any thread. A renderer takes
@@ -172,7 +211,7 @@ std::shared_ptr<const Bank> global();
 // The bank as the shell stores it. Rows, '|'-separated, one per line:
 //   macrobank|<kTextVersion>|<next id>
 //   knob|<id>|<value>|<name>|<hint>
-//   link|<TARGET>|<up>|<down>[|<CURVE>]   the links of the knob row above, by ModTargets name; no CURVE is
+//   link|<TARGET>|<up>|<down>[|<CURVE>]   the links of the knob row above, by name(Target); no CURVE is
 //                                         Linear (encode leaves it out then, so text from before curves reads alike)
 //   shelf|<id>                            the knob is in the library; text from before the library has none, so
 //                                         every knob it holds stays on screen
@@ -186,7 +225,7 @@ Bank decode(std::string_view text);
 // What a link may name, for the knob editor. Rows, '|'-separated, one per line:
 //   macrotargets|<kTextVersion>
 //   caps|<max knobs>|<max links per knob>|<max name bytes>
-//   target|<TARGET>|<param name>|<min>|<max>|<default>|<SCOPE>     every linkable target, wire order
+//   target|<TARGET>|<param name>|<min>|<max>|<default>|<SCOPE>     every linkable target, linkableTargets() order
 // Labels stay in the shell, keyed by TARGET like the modulation pickers'. Built once.
 const std::string& targetsText();
 // Which way each knob can move the picture on styleId, so the shell dims a knob that cannot:
@@ -201,7 +240,8 @@ std::string liveText(const Bank& bank, const std::string& styleId);
 //   link|<TARGET>|<up>|<down>|<reaches the style 0/1>|<CURVE>|<offset at a full turn up>|<offset at a full turn down>
 //                                                              the links of the knob row above; the offsets are
 //                                                              in the param's own units (up or down x its range)
-//   target|<TARGET>|<reaches the style 0/1>                    every linkable target, wire order
+//   addrandom|<count to offer>|<most Add random can add>       Add random's stepper for the knob row above
+//   target|<TARGET>|<reaches the style 0/1>|<control key>      every linkable target, linkableTargets() order
 //   curve|<CURVE>                                              every curve, in the order the editor offers them
 //   library|<id>|<built-in 0/1>|<name>|<hint>                  what Add macro offers: the built-in knobs off screen
 //                                                              by id, then the user's in bank order

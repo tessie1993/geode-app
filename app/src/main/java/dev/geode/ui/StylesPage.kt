@@ -45,7 +45,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.StyleShelfStore
+import dev.geode.geodeContainer
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.Catalogue
@@ -83,7 +83,7 @@ import dev.geode.ui.theme.performStoneHaptic
 @Composable
 internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
-    val shelfStore = remember { StyleShelfStore.get(context) }
+    val shelfStore = remember { context.geodeContainer.styleShelf }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()

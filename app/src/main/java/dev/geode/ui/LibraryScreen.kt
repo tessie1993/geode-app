@@ -189,9 +189,9 @@ fun LibraryScreen(
     onOpenVisuals: () -> Unit = {},
 ) {
     val settings: SettingsViewModel = geodeViewModel()
-    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
-    CompositionLocalProvider(LocalTrackTap provides gui.trackTap) {
-        LibraryContent(onOpenFolders, onOpenVisuals, gui.libraryStartTab)
+    val general by settings.general.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalTrackTap provides general.trackTap) {
+        LibraryContent(onOpenFolders, onOpenVisuals, general.libraryStartTab)
     }
 }
 

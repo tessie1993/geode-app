@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import dev.geode.data.MediaStoreSource
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
@@ -26,6 +27,7 @@ import java.io.File
 internal class TemplateController(
     private val application: Application,
     private val templates: TemplateRepository,
+    private val mediaStore: MediaStoreSource,
     private val scope: CoroutineScope,
     private val storeScope: CoroutineScope,
     private val host: Host,
@@ -124,7 +126,7 @@ internal class TemplateController(
         onResult: (TemplateImport) -> Unit,
     ) {
         storeScope.launch {
-            val result = templates.importFrom { runCatching { application.contentResolver.openInputStream(uri) }.getOrNull() }
+            val result = templates.importFrom(mediaStore.opener(uri))
             withContext(Dispatchers.Main.immediate) { onResult(result) }
         }
     }

@@ -1,12 +1,11 @@
 package dev.geode.ui
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.data.persistGrant
+import dev.geode.data.MediaStoreSource
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 import dev.geode.viz.BackgroundImage
@@ -40,6 +39,7 @@ internal class BackgroundController(
     private val application: Application,
     private val storeScope: CoroutineScope,
     private val store: BackgroundPrefsStore,
+    private val mediaStore: MediaStoreSource,
 ) {
     private val _prefs = MutableStateFlow(store.load())
     val prefs: StateFlow<BackgroundPrefs> = _prefs
@@ -57,12 +57,7 @@ internal class BackgroundController(
     fun start() {
         val uri = _prefs.value.uri ?: return
         storeScope.launch {
-            val readable =
-                runCatching {
-                    application.contentResolver.openInputStream(Uri.parse(uri))?.use { }
-                    true
-                }.getOrDefault(false)
-            if (!readable) {
+            if (!mediaStore.isReadable(Uri.parse(uri))) {
                 RingLog.note(TAG, "persisted background image is no longer readable, clearing")
                 withContext(Dispatchers.Main.immediate) { clear() }
             }
@@ -70,7 +65,7 @@ internal class BackgroundController(
     }
 
     fun pick(uri: Uri) {
-        application.contentResolver.persistGrant(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        storeScope.launch { mediaStore.keepReadAccess(listOf(uri)) }
         releasePermission(_prefs.value.uri)
         setPrefs(_prefs.value.copy(uri = uri.toString()))
     }
@@ -106,9 +101,7 @@ internal class BackgroundController(
     /** Releases the read grant [pick] took, if any - a permission never released is a permission leak. */
     private fun releasePermission(uri: String?) {
         if (uri == null) return
-        runCatching {
-            application.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+        storeScope.launch { mediaStore.releaseReadAccess(Uri.parse(uri)) }
     }
 
     private fun setPrefs(

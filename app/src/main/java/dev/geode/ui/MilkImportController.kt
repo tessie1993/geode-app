@@ -1,17 +1,15 @@
 package dev.geode.ui
 
 import android.app.Application
-import android.content.ContentResolver
 import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.data.MediaStoreSource
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
-import dev.geode.data.displayNameOf
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +22,7 @@ import java.io.File
 
 internal class MilkImportController(
     private val application: Application,
+    private val mediaStore: MediaStoreSource,
     private val scope: CoroutineScope,
 ) {
     private val textureLinks = MilkTextureLinks(application)
@@ -88,7 +87,7 @@ internal class MilkImportController(
         onDone: (String?) -> Unit,
     ) {
         scope.launch(Dispatchers.IO) {
-            val path = importMilkPresetBlocking(uri)
+            val path = importMilkPreset(uri)
             if (path != null) relist()
             withContext(Dispatchers.Main) { onDone(path) }
         }
@@ -115,31 +114,20 @@ internal class MilkImportController(
         onDone: (String?) -> Unit,
     ) {
         scope.launch(Dispatchers.IO) {
-            val path = if (openableMilkName(uri) != null) importMilkPresetBlocking(uri, keepExisting = true) else null
+            val path = if (openableMilkName(uri) != null) importMilkPreset(uri, keepExisting = true) else null
             if (path != null) relist()
             withContext(Dispatchers.Main) { onDone(path) }
         }
     }
 
-    private fun openableMilkName(uri: Uri): String? {
+    private suspend fun openableMilkName(uri: Uri): String? {
         val name = runCatching { displayNameOf(uri) }.getOrNull() ?: return null
         if (!name.endsWith(".milk", ignoreCase = true)) return null
-        val openable =
-            when (uri.scheme) {
-                ContentResolver.SCHEME_CONTENT -> true
-                ContentResolver.SCHEME_FILE -> {
-                    val path = uri.path ?: return null
-                    val own = File(application.applicationInfo.dataDir).canonicalPath
-                    val target = runCatching { File(path).canonicalPath }.getOrNull() ?: return null
-                    target != own && !target.startsWith("$own/")
-                }
-                else -> false
-            }
-        return name.takeIf { openable }
+        return name.takeIf { mediaStore.isForeignDocument(uri) }
     }
 
     @Suppress("TooGenericExceptionCaught")
-    internal fun importMilkPresetBlocking(
+    private suspend fun importMilkPreset(
         uri: Uri,
         keepExisting: Boolean = false,
     ): String? =
@@ -153,7 +141,7 @@ internal class MilkImportController(
                     .first { !keepExisting || !it.exists() }
             // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
-                application.contentResolver.openInputStream(uri)?.use { input ->
+                mediaStore.read(uri) { input ->
                     AtomicWrite.stream(file) { out -> ReadCap.MILK.copy(input, out) }
                 } ?: false
             if (written) textureLinks.relink(file)
@@ -168,38 +156,16 @@ internal class MilkImportController(
         onDone: (MilkPackImporter.Report) -> Unit,
     ) {
         scope.launch(Dispatchers.IO) {
-            val entries = mutableListOf<MilkPackImporter.Entry>()
-            runCatching {
-                val root = DocumentFile.fromTreeUri(application, treeUri)
-                if (root != null) collectMilkEntries(root, entries, depth = 0)
-            }
+            val entries =
+                mediaStore.filesUnder(treeUri, MILK_WALK_DEPTH).map { (name, uri) ->
+                    MilkPackImporter.Entry(name, mediaStore.opener(uri))
+                }
             val imported = MilkPackImporter.import(entries, importDir())
             // The importer's missing count is measured BEFORE linking; what the person needs to
             // hear is the state after it - how many presets still had to take a stand-in.
             val report = imported.copy(presetsMissingTextures = textureLinks.relinkAll())
             relist()
             withContext(Dispatchers.Main) { onDone(report) }
-        }
-    }
-
-    private fun collectMilkEntries(
-        dir: DocumentFile,
-        out: MutableList<MilkPackImporter.Entry>,
-        depth: Int,
-    ) {
-        if (depth > MILK_WALK_DEPTH) return
-        for (child in dir.listFiles()) {
-            when {
-                child.isDirectory -> collectMilkEntries(child, out, depth + 1)
-                child.isFile -> {
-                    val name = child.name ?: continue
-                    val uri = child.uri
-                    out +=
-                        MilkPackImporter.Entry(name) {
-                            runCatching { application.contentResolver.openInputStream(uri) }.getOrNull()
-                        }
-                }
-            }
         }
     }
 
@@ -218,8 +184,7 @@ internal class MilkImportController(
         }
     }
 
-    private fun displayNameOf(uri: Uri): String? =
-        application.contentResolver.displayNameOf(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
+    private suspend fun displayNameOf(uri: Uri): String? = mediaStore.displayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
 
     private companion object {
         const val MILK_WALK_DEPTH = 4

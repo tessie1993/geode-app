@@ -57,9 +57,10 @@ struct StyleDna {
     static constexpr int kMaxRoutes = ReactionEngine::kRoutes - 3;
     // The groove's layers (the pulse … the transient) keep the room they had
     // before the musical-time layers came, so they draw what they drew; the
-    // bar-count and melody layers come after, within kMaxRoutes.
+    // bar-count and melody layers come after, within kMaxRoutes. A zoom
+    // personality's beat zoom brings one more slot of its own.
     static constexpr int kGrooveRoutes = 9;
-    static_assert(kGrooveRoutes + 2 <= kMaxRoutes, "the bar-count and melody layers fit after the groove");
+    static_assert(kGrooveRoutes + 1 + 2 <= kMaxRoutes, "the beat zoom, the bar-count and the melody layers fit");
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;

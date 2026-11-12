@@ -725,7 +725,36 @@ void stylesGetDifferentPersonalities() {
     }
     check(leads.size() >= 6, "thirty styles draw at least six different pulse personalities");
     check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the kick");
-    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the kick at all");
+    check(beatZooms * 2 <= kStyleCount, "most styles do not zoom on the kick (only the pulse and lens personalities do)");
+}
+
+// A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
+void zoomPersonalitiesZoomOnTheBeat() {
+    int seen = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, true});
+            const auto zooms = [&dna](ReactSource beat) {
+                for (int r = 0; r < dna.count; ++r) {
+                    const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                    if (route.source == beat && route.target == LfoTarget::Zoom && route.amount == 0.2f) return true;
+                }
+                return false;
+            };
+            for (const Personality p : {dna.lead, dna.second}) {
+                if (p != Personality::Pulse && p != Personality::Lens) continue;
+                // Its own move is the first route on its target (the body's fisheye, if any, comes later).
+                const LfoTarget own = p == Personality::Pulse ? LfoTarget::CamPush : LfoTarget::Fisheye;
+                int first = -1;
+                for (int r = 0; r < dna.count && first < 0; ++r) {
+                    if (dna.routes[static_cast<size_t>(r)].target == own) first = r;
+                }
+                check(first >= 0 && zooms(dna.routes[static_cast<size_t>(first)].source), "a zoom personality zooms on its beat");
+                ++seen;
+            }
+        }
+    }
+    check(seen > 20, "zoom personalities were checked");
 }
 
 bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::Onset; }
@@ -2173,6 +2202,7 @@ int main() {
     toggleFlipsBetweenZeroAndAmount();
     dnaIsDeterministicAndSeeded();
     stylesGetDifferentPersonalities();
+    zoomPersonalitiesZoomOnTheBeat();
     kickAndSnareSidesAnswerDifferently();
     dnaSourcesVaryAcrossStyles();
     dnaRespectsStyleTraits();

@@ -86,6 +86,13 @@ public:
         dna.routes[static_cast<size_t>(dna.count++)] = {true, source, target, mode, amount, curve, attack, release};
     }
 
+    // The zoom personalities (Pulse, Lens) also zoom on the beat they hear: a fixed amount, so it draws nothing
+    // and every other layer draws what it drew, and one more slot of room, so it takes no other layer's.
+    void addBeatZoom(ReactSource source) {
+        ++cap;
+        add(source, LfoTarget::Zoom, ReactMode::Follow, 0.2f, 0.02f, 0.25f);
+    }
+
     bool uses(LfoTarget target) const {
         for (int i = 0; i < dna.count; ++i) {
             if (dna.routes[static_cast<size_t>(i)].target == target) return true;
@@ -112,6 +119,7 @@ void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTrait
     switch (p) {
         case Personality::Pulse:
             b.add(s, LfoTarget::CamPush, ReactMode::Follow, d.range(0.35f, 0.6f), 0.02f, 0.28f);
+            b.addBeatZoom(s);
             break;
         case Personality::Chroma:
             b.add(s, LfoTarget::ColorShift, ReactMode::Jump, d.range(0.25f, 0.45f), 0.08f, 0.35f);
@@ -137,6 +145,7 @@ void addBeat(Builder& b, Draw& d, Personality p, ReactSource s, const StyleTrait
             break;
         case Personality::Lens:
             b.add(s, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.3f, 0.6f), 0.03f, 0.35f, ModCurve::Smooth);
+            b.addBeatZoom(s);
             break;
         case Personality::Spin:
             b.add(s, LfoTarget::Rotation, ReactMode::Step, (t.spinRate < 0.0f ? -1.0f : 1.0f) * d.range(0.12f, 0.25f), 0.12f, 0.12f);
@@ -205,7 +214,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         const std::array bodies = {LfoTarget::Zoom, LfoTarget::Saturation, LfoTarget::Ripple, LfoTarget::Bloom,
                                    LfoTarget::Fisheye, LfoTarget::CamOrbit};
         switch (b.freeTarget(d, bodies, traits)) {
-            case LfoTarget::Zoom: b.add(body, LfoTarget::Zoom, ReactMode::Follow, d.range(0.06f, 0.12f), 0.08f, 0.45f, ModCurve::Smooth); break;
+            case LfoTarget::Zoom: b.add(body, LfoTarget::Zoom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.08f, 0.45f, ModCurve::Smooth); break;
             case LfoTarget::Saturation: b.add(body, LfoTarget::Saturation, ReactMode::Follow, d.range(0.2f, 0.4f), 0.3f, 0.8f); break;
             case LfoTarget::Ripple: b.add(body, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), 0.1f, 0.5f, ModCurve::Smooth); break;
             case LfoTarget::Bloom: b.add(body, LfoTarget::Bloom, ReactMode::Follow, d.range(0.15f, 0.3f), 0.2f, 0.6f); break;
@@ -282,7 +291,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // the style does not already move, are drawn like any layer's; Camera shake is never taken above, so there
     // is always one free.
     {
-        if (b.dna.count >= StyleDna::kGrooveRoutes) b.dna.count = StyleDna::kGrooveRoutes - 1;
+        if (b.dna.count >= b.cap) b.dna.count = b.cap - 1;
         const ReactSource attack = pick(d, std::array{ReactSource::Transient, ReactSource::TransientEnv});
         const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::CamShake};
         switch (b.freeTarget(d, attacks, traits)) {

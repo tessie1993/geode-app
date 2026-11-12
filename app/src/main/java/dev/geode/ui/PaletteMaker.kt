@@ -273,7 +273,7 @@ internal fun YourColoursCard(
         ColourPicker(rgb = stops[selected], onChange = setSelected)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
-                host.visualizerView.visualizerRenderer.nativeViz
+                host.visualizerView.stage
                     .requestStill { still -> view.post { picking = still } }
             }) {
                 Icon(Icons.Filled.Colorize, contentDescription = null)

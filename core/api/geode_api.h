@@ -267,6 +267,9 @@ GEODE_API void       geode_dsp_destroy(geode_dsp*);
 /* Stages the chain for the format queued after the next flush; 0 when it cannot run it (not 1 or 2
  * channels), and that format then passes through untouched. */
 GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channels);
+/* 1 when the chain runs a format: `encoding` 16-bit or float (numbered as Android's ENCODING_PCM_*, see
+ * GEODE_PCM_S16), 1 or 2 channels. 0 for any other; the shell then steps aside and the track passes through. */
+GEODE_API int        geode_dsp_runs(int encoding, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 /* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
@@ -294,6 +297,9 @@ GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
 /* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
 GEODE_API float      geode_playback_snap(float value, float step);
+/* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
+ * in a row, checked first). */
+GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
 
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
@@ -403,6 +409,14 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
+/* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
+ * (a hint for the format, and the playlist's name when the file has none). Text goes into `out`, NUL-terminated;
+ * the return is the length the whole text needs. Record 0 is "O", name or "E", reason; then one record per entry:
+ * location, title, duration in ms (-1 unknown), file name inside the location with its case kept. Fields are split
+ * by U+001F, records by U+001E. A playlist with a DOCTYPE is refused. Pure, any thread. */
+GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned char* data, int len, char* out,
+                                           int capacity);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro
@@ -457,6 +471,13 @@ GEODE_API void        geode_params_sanitize(const float* in, float* out);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
+ * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
+ * 2 seconds, 3 hertz, 4 turn degrees, 5 plain; any other value takes the control's own, by its `key` and then
+ * its range lo..hi. A range below zero signs a percentage. UTF-8 into `out`, NUL-terminated; returns the
+ * length the whole text needs. Pure, any thread. */
+GEODE_API int         geode_param_text(const char* key, int unit, float value, float lo, float hi, float def,
+                                       char* out, int capacity);
 /* The hue base and span a palette slot draws (viz/Params paletteBase, paletteRange): the override when it is
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
@@ -464,12 +485,15 @@ GEODE_API float       geode_params_palette_range(int palette, float range_overri
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
- * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper). */
+ * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper).
+ * palette_accent: the shell's accent for a palette of hue base and range (0..1 of a turn each): the middle of its
+ * hue span, bright enough to read on black; -1 for a non-finite input. */
 GEODE_API int         geode_colour_from_hsv(float h, float s, float v);
 GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
 GEODE_API int         geode_colour_parse_hex(const char* text);
 GEODE_API const char* geode_colour_hex(int rgb);
 GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+GEODE_API int         geode_colour_palette_accent(float base, float range);
 /* The artwork palette (viz/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
  * Returns 1 and writes out[3] = base hue (0..1), span (0.06..1 of a turn) and confidence (the share of coloured
  * pixels); 0, out untouched, when no pixel is coloured (greys, near-blacks, blown highlights) or n <= 0. */
@@ -542,6 +566,14 @@ GEODE_API const char* geode_config_schema_text(void);
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
+/* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
+ * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each
+ * (ax, ay, bx, by) px, into out[6]: pan x, pan y and zoom since start, twist in radians since start, and the step
+ * since last as a scale factor and degrees (for geode_touch_zoom / _rotation). _pulse: touch play's stir, step's
+ * two points (4 floats, NDC) into xy and the ms to hold them; 0, xy untouched, once the stir is over. */
+GEODE_API void        geode_touch_to_ndc(float* xy, int points, float width, float height);
+GEODE_API void        geode_touch_pair(const float* start, const float* last, const float* now, float* out);
+GEODE_API int         geode_touch_pulse(int step, float* xy);
 
 /* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -773,6 +805,15 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * capture's start. Pure, any thread. */
 GEODE_API long long       geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_at_ms);     /* 1 = quiet */
+/* A capture's format plan (audio/ingest/CapturePlan): the formats to ask AudioRecord for, first to try first.
+ * device_rate_hz <= 0 is unknown; stereo 0 plans mono only. Writes min(count, capacity) rows of
+ * GEODE_CAPTURE_FORMAT_INTS ints (rate Hz, channels, 1 = float / 0 = 16-bit) and returns the count.
+ * buffer_bytes: the AudioRecord buffer for a format whose platform minimum is min_buffer_bytes, 0 = skip
+ * the format. read_frames: the frames one read takes. Pure, any thread. */
+#define GEODE_CAPTURE_FORMAT_INTS 3
+GEODE_API int             geode_capture_plan(int device_rate_hz, int stereo, int* out, int capacity);
+GEODE_API int             geode_capture_buffer_bytes(int min_buffer_bytes, int channels);
+GEODE_API int             geode_capture_read_frames(void);
 
 /* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
  * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets
@@ -1035,6 +1076,9 @@ typedef struct geode_loop_spec {
 GEODE_API void    geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* out);
 /* Fills the derived fields of a spec as given (no clamping): loop, crossfade and source frames, duration. */
 GEODE_API void    geode_loop_spec_fill(geode_loop_spec* spec);
+/* The ranges a loop render takes, for the shell's controls: the shortest and longest loop (ms), the shortest,
+ * longest and default crossfade (ms), the most drift stops. Writes min(6, capacity) and returns 6. */
+GEODE_API int     geode_loop_limits(int64_t* out, int capacity);
 GEODE_API float   geode_loop_seam_weight(int tail, int seam_frames);
 /* The repeats that fill total_us, spread over `loops` drift stops. Writes min(repeats, capacity) offsets and
  * loop indices (either may be NULL for a count) and returns the repeat count. */
@@ -1384,6 +1428,11 @@ typedef struct geode_audio_out geode_audio_out;
 #define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
                                          the output stalled, so the sink builds a new one */
 GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
+/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened and
+ * asks before each open; 1 = try the stream, 0 = the platform track plays for 60 s. now_ms is one monotonic
+ * clock for both calls. Process-wide. */
+GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
+GEODE_API int              geode_audio_out_may_open(int64_t now_ms);
 /* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
  * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
  * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
@@ -1636,6 +1685,13 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_SIDE 57
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
+
+/* The widget's generated glow (viz/WidgetGlow), for a style with no thumbnail: writes 3 lights x 6 floats into
+ * out[18] (x and y as shares of the bitmap's width and height, radius as a share of its width, hue in degrees,
+ * saturation, value) and returns 3; 0 for a null out. `art_hue` below zero means no cover; `style_hash` is Java's
+ * String.hashCode of the style id and counts only when `has_style`. Pure, any thread. */
+GEODE_API int             geode_widget_glow(float art_hue, float art_span, int has_style, int style_hash, int tick,
+                                            float* out);
 
 #ifdef __cplusplus
 }

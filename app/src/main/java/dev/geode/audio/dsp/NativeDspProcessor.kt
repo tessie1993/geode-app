@@ -35,7 +35,7 @@ data class DspSettings(
  * [release], after the player is gone, so a setter racing a format change never reaches a freed one.
  *
  * A format the chain cannot run (more than two channels, a 5.1 or 7.1 file; an encoding other than
- * 16-bit or float) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
+ * 16-bit or float; native's rule, `geode_dsp_runs`) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
  * makes the processor inactive, and Media3 passes that track's PCM straight through it. Throwing
  * instead, as this used to, fails the sink's configure, and ExoPlayer reports the whole file as
  * unplayable. The equalizer, crossfeed and the playback gain do not apply to such a track; the tap
@@ -86,7 +86,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (!runs(inputAudioFormat.encoding, inputAudioFormat.channelCount)) {
+        if (!GeodeNative.dspRuns(inputAudioFormat.encoding, inputAudioFormat.channelCount)) {
             // Stage pass-through, so the next flush never leaves the old format's chain live.
             val h = handle
             if (h != 0L) GeodeNative.dspConfigure(h, 0, 0)
@@ -158,15 +158,6 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     companion object {
-        /** The native chain is built for mono or stereo; anything else steps aside (see the class KDoc). */
-        const val MAX_CHANNELS = 2
-
-        /** Whether the chain runs on this format; when false the processor stays inactive for the track. */
-        fun runs(
-            encoding: Int,
-            channelCount: Int,
-        ): Boolean = (encoding == C.ENCODING_PCM_16BIT || encoding == C.ENCODING_PCM_FLOAT) && channelCount in 1..MAX_CHANNELS
-
         /** The name the native gain keys a stream by: its item's URI, as `playback/ReplayGain` names it too. */
         fun streamName(item: MediaItem?): String? = item?.localConfiguration?.uri?.toString()
 

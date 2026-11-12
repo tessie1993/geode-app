@@ -57,8 +57,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
 import android.view.ViewConfiguration as PlatformViewConfiguration
 
 /**
@@ -445,7 +443,7 @@ internal fun gestureSafeArea(
     bottom: Float,
 ): Rect = Rect(window.left + left, window.top + top, window.right - right, window.bottom - bottom)
 
-/** The fingers that are down in [event], in y-up NDC (the scenes' frame), handed to [send]. */
+/** The fingers that are down in [event], in y-up NDC (the scenes' frame, native `core/viz/TouchGesture`), handed to [send]. */
 private fun publish(
     event: PointerEvent,
     points: FloatArray,
@@ -453,15 +451,14 @@ private fun publish(
     height: Float,
     send: (FloatArray, Int) -> Unit,
 ) {
-    val w = width.coerceAtLeast(1f)
-    val h = height.coerceAtLeast(1f)
     var live = 0
     for (change in event.changes) {
         if (!change.pressed || live * 2 >= points.size) continue
-        points[live * 2] = change.position.x / w * 2f - 1f
-        points[live * 2 + 1] = 1f - change.position.y / h * 2f
+        points[live * 2] = change.position.x
+        points[live * 2 + 1] = change.position.y
         live++
     }
+    GeodeNative.touchToNdc(points, live, width, height)
     send(points, live)
 }
 
@@ -499,14 +496,17 @@ private class GestureRead(
     private var segmentStart = start
     private var heading = Float.NaN
     private var turn = 0f
-    private var pairStart = Offset.Zero
-    private var spanStart = 1f
-    private var angleStart = 0f
+
+    /** The pair's (ax, ay, bx, by) when it came down, at the last event and now; read natively ([GeodeNative.touchPair]). */
+    private val pairStart = FloatArray(4)
+    private val pairLast = FloatArray(4)
+    private val pairNow = FloatArray(4)
+    private val reading = FloatArray(PAIR_READING)
     private var pan = Offset.Zero
     private var zoom = 1f
     private var twist = 0f
-    private var lastZoom = 1f
-    private var lastTwist = 0f
+    private var stepFactor = 1f
+    private var stepDegrees = 0f
 
     /**
      * What two fingers are doing, once they have shown it: [CanvasGesture.TWO_FINGER_DRAG] when
@@ -546,9 +546,8 @@ private class GestureRead(
             ring.at = null
             val (a, b) = pair(event) ?: return true
             pairInside = pairOurs(a, b)
-            pairStart = (a + b) / 2f
-            spanStart = (b - a).getDistance().coerceAtLeast(1f)
-            angleStart = atan2(b.y - a.y, b.x - a.x)
+            put(pairStart, a, b)
+            pairStart.copyInto(pairLast)
         }
         return multi
     }
@@ -558,9 +557,14 @@ private class GestureRead(
         val (a, b) = pair(event) ?: return event.changes.none { it.pressed }
         // A pair with a finger in a system strip is Android's: it never drags, pinches or plays.
         if (!pairInside) return false
-        pan = (a + b) / 2f - pairStart
-        zoom = (b - a).getDistance() / spanStart
-        twist = wrap(atan2(b.y - a.y, b.x - a.x) - angleStart)
+        put(pairNow, a, b)
+        GeodeNative.touchPair(pairStart, pairLast, pairNow, reading)
+        pairNow.copyInto(pairLast)
+        pan = Offset(reading[0], reading[1])
+        zoom = reading[2]
+        twist = reading[3]
+        stepFactor = reading[4]
+        stepDegrees = reading[5]
         pairKind =
             when {
                 pairKind == CanvasGesture.PINCH_TWIST -> pairKind
@@ -577,10 +581,10 @@ private class GestureRead(
      * recognised on, never from the pair's start, so the canvas does not jump when it is.
      */
     fun pinchStep(): Pair<Float, Float>? {
-        val factor = zoom / lastZoom
-        val degrees = Math.toDegrees(wrap(twist - lastTwist).toDouble()).toFloat()
-        lastZoom = zoom
-        lastTwist = twist
+        val factor = stepFactor
+        val degrees = stepDegrees
+        stepFactor = 1f
+        stepDegrees = 0f
         if (pairKind != CanvasGesture.PINCH_TWIST || (factor == 1f && degrees == 0f)) return null
         return factor to degrees
     }
@@ -637,6 +641,17 @@ private class GestureRead(
         heading = h
         segmentStart = pos
         return abs(turn)
+    }
+
+    private fun put(
+        into: FloatArray,
+        a: Offset,
+        b: Offset,
+    ) {
+        into[0] = a.x
+        into[1] = a.y
+        into[2] = b.x
+        into[3] = b.y
     }
 
     private fun pair(event: PointerEvent): Pair<Offset, Offset>? {
@@ -708,14 +723,13 @@ internal fun rememberTouchPulse(onTouchPoints: (FloatArray, Int) -> Unit): () ->
             scope.launch {
                 val xy = FloatArray(4)
                 try {
-                    for (i in 0 until PULSE_STEPS) {
-                        val a = i.toFloat() / PULSE_STEPS * 2f * PI.toFloat()
-                        xy[0] = PULSE_RADIUS * cos(a)
-                        xy[1] = PULSE_RADIUS * sin(a)
-                        xy[2] = -xy[0]
-                        xy[3] = -xy[1]
+                    // The stir's shape and pace are native (`core/viz/TouchGesture`); this only sends it.
+                    var step = 0
+                    while (true) {
+                        val holdMs = GeodeNative.touchPulse(step++, xy)
+                        if (holdMs <= 0) break
                         send(xy, 2)
-                        delay(PULSE_FRAME_MS)
+                        delay(holdMs.toLong())
                     }
                 } finally {
                     send(xy, 0)
@@ -821,6 +835,4 @@ private const val RING_RADIUS_DP = 44f
 private const val RING_STROKE_DP = 5f
 private const val RING_TRACK_ALPHA = 0.3f
 private const val RING_HALO_ALPHA = 0.45f
-private const val PULSE_STEPS = 36
-private const val PULSE_FRAME_MS = 33L
-private const val PULSE_RADIUS = 0.35f
+private const val PAIR_READING = 6

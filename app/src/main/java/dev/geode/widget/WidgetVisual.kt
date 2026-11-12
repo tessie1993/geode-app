@@ -8,11 +8,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.viz.ArtPalette
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * The widget's picture of the visual: a home-screen widget cannot run the GL renderer, so it shows
@@ -27,9 +24,6 @@ internal object WidgetVisual {
     /** Long side of the bitmap. Thumbnails are 256 px and the glow is soft, so more buys nothing. */
     private const val WIDTH = 256
     private const val HEIGHT = 160
-
-    // The phase one tick moves the lights; a full turn takes this many ticks (about 4 minutes).
-    private const val TICKS_PER_TURN = 12
 
     /** What a picture was drawn from. A picture is drawn again only when its source changes. */
     sealed interface Source
@@ -81,37 +75,30 @@ internal object WidgetVisual {
             context.assets.open("thumbs/$styleId.webp").use { BitmapFactory.decodeStream(it) }
         }.getOrNull()
 
+    /**
+     * Where native puts the three lights (`core/viz/WidgetGlow`). A JVM test has no native library, so it swaps this for
+     * fixed lights; the maths is pinned by `widget_glow_test`.
+     */
+    internal var lightsOf: (WidgetState) -> FloatArray = { state ->
+        GeodeNative.widgetGlow(state.artHue, state.artSpan, state.styleId != null, state.styleId.hashCode(), state.tick)
+    }
+
     private fun glow(state: WidgetState): Bitmap {
         val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.BLACK)
-        val base = baseHue(state)
-        val spread = if (state.artHue >= 0f) state.artSpan.coerceIn(MIN_SPREAD, MAX_SPREAD) else DEFAULT_SPREAD
-        val phase = (state.tick % TICKS_PER_TURN) * (2 * PI / TICKS_PER_TURN)
+        val lights = lightsOf(state)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        LIGHTS.forEachIndexed { i, light ->
-            val angle = phase * light.speed + light.offset
-            val x = WIDTH * (light.x + DRIFT * cos(angle)).toFloat()
-            val y = HEIGHT * (light.y + DRIFT * sin(angle)).toFloat()
-            val hue = (base + spread * (i - 1)).mod(1f) * HUE_DEGREES
-            val color = Color.HSVToColor(LIGHT_ALPHA, floatArrayOf(hue, light.saturation, light.value))
-            paint.shader = RadialGradient(x, y, WIDTH * light.radius, color, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        for (i in 0 until LIGHT_COUNT) {
+            val at = i * LIGHT_FLOATS
+            val color = Color.HSVToColor(LIGHT_ALPHA, floatArrayOf(lights[at + 3], lights[at + 4], lights[at + 5]))
+            val centreX = WIDTH * lights[at]
+            val centreY = HEIGHT * lights[at + 1]
+            paint.shader = RadialGradient(centreX, centreY, WIDTH * lights[at + 2], color, Color.TRANSPARENT, Shader.TileMode.CLAMP)
             canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), paint)
         }
         return bitmap
     }
-
-    /**
-     * The artwork's own hue when it has one, so the widget matches the cover beside it. Without one,
-     * a hue hashed from the style id: each style keeps its colour, and stepping styles visibly
-     * changes the picture even before any thumbnail exists.
-     */
-    private fun baseHue(state: WidgetState): Float =
-        when {
-            state.artHue >= 0f -> state.artHue
-            state.styleId != null -> abs(state.styleId.hashCode() % HUE_STEPS) / HUE_STEPS.toFloat()
-            else -> FALLBACK_HUE
-        }
 
     /** The artwork's palette, for [WidgetState.artHue] and [WidgetState.artSpan]; null when it has no colour. */
     fun paletteOf(art: Bitmap): ArtPalette.Extracted? {
@@ -122,32 +109,8 @@ internal object WidgetVisual {
         return ArtPalette.extract(pixels)
     }
 
-    private class Light(
-        val x: Double,
-        val y: Double,
-        val radius: Float,
-        val speed: Double,
-        val offset: Double,
-        val saturation: Float,
-        val value: Float,
-    )
-
-    private val LIGHTS =
-        listOf(
-            Light(x = 0.25, y = 0.35, radius = 0.55f, speed = 1.0, offset = 0.0, saturation = 0.75f, value = 0.95f),
-            Light(x = 0.70, y = 0.60, radius = 0.50f, speed = -1.0, offset = 2.1, saturation = 0.65f, value = 0.85f),
-            Light(x = 0.50, y = 0.15, radius = 0.35f, speed = 2.0, offset = 4.2, saturation = 0.40f, value = 1.0f),
-        )
-
-    private const val DRIFT = 0.12
     private const val LIGHT_ALPHA = 200
-    private const val HUE_DEGREES = 360f
-    private const val HUE_STEPS = 360
-    private const val MIN_SPREAD = 0.04f
-    private const val MAX_SPREAD = 0.18f
-    private const val DEFAULT_SPREAD = 0.10f
-
-    // The theme's accent hue (#9CC7FF), for a widget that has neither a cover nor a style.
-    private const val FALLBACK_HUE = 0.59f
+    private const val LIGHT_COUNT = 3
+    private const val LIGHT_FLOATS = 6
     private const val PALETTE_SIDE = 32
 }

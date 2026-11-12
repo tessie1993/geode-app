@@ -13,6 +13,7 @@ out vec4 fragColor;
 #define VIEW_OWNS_SHAPE
 //#include lib_scene_uniforms
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -61,6 +62,13 @@ out vec4 fragColor;
 // Params: Morph melts the gems from octahedra to cubes, Warp waves the folds'
 // angle along the tube, Turbulence ripples the mirror faces, Symmetry and the
 // Kaleidoscope switch still fold the screen in view() on top.
+// Every one of these, and the gems' size (BUILD), the sparkles' density
+// (TEXTURE) and the fog (SPACE), is one normalized input (lib_shell) set in one
+// block at the top of main and mapped there to its range; at rest each is the
+// constant the tube was tuned with. The tube and its gems are the field the
+// grow hooks act on (SHELL_FIELD3): Spawn slides a second set of gems and
+// mirrors half a cell down the tube, Fractal grows gems a third the size on
+// the glass, the layers open the near and far tube.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -118,8 +126,6 @@ float kalFolds(float n) {
     return 4.0 + float(kalHash(uint(max(n, 0.0))) % 6u);
 }
 
-float kalKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
-
 /**
  * Twist, warp and fold `p` into one wedge of `seg` radians. The result's x is
  * the distance along the wedge's centre line (the tube face's normal), y the
@@ -165,7 +171,8 @@ float kalTube(vec3 p, float seg, out float mat) {
     return min(wall, gem);
 }
 
-float map(vec3 p) {
+/** The tube and its gems, both section counts blended: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+float kalField(vec3 p) {
     float m;
     float d = kalTube(p, gSegNew, m);
     // gBlend is uniform, so this branch is coherent and costs nothing at rest.
@@ -176,7 +183,11 @@ float map(vec3 p) {
         m = mix(m0, m, gBlend);
     }
     gMat = m;
-    return max(d / gLip, KA_BUBBLE - length(p - gEye));
+    return d / gLip;
+}
+
+float map(vec3 p) {
+    return max(SHELL_FIELD3(p, kalField), KA_BUBBLE - length(p - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -195,9 +206,34 @@ float kalPattern(vec3 q, float t, float dens) {
 void main() {
     vec2 uv = view();
 
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's depth
+    float nTexture = shellKnob(1);                                 // TEXTURE  pattern and sparkle density
+    float nFlow = shellKnob(2);                                    // FLOW     the pattern's speed
+    float nTone = shellKnob(3);                                    // TONE     where the gems hang, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    gem glow and size
+    float nSpace = shellKnob(5);                                   // SPACE    tube width, fog
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    octahedra to cubes
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the folds' wave
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);        // Turbulence the mirrors' ripple
+    float kickK = shellMap(nPulse, 0.3, 1.0, 1.7);
+    float dens = shellMap(nTexture, 0.7, 1.0, 1.3);
+    float sparkBar = shellMap(nTexture, 0.96, 0.93, 0.88);
+    float flow = shellMap(nFlow, 0.0, 0.5, 1.0);
+    float reach = shellMap(nTone, 1.5, 1.0, 0.5);
+    float hueTone = shellMap(nTone, -0.15, 0.0, 0.15);
+    float build = shellMap(nBuild, 0.0, 0.5, 1.0);
+    // The largest gem, (size + 0.45) x 1.1, stays inside KA_GEM_MAX.
+    float gemSize = shellMap(nBuild, 0.4, 0.5, 0.55);
+    float widen = shellMap(nSpace, -0.8, 0.0, 0.8);
+    float fogK = shellMap(nSpace, 0.08, 0.06, 0.04);
+    float morph = shellMap(nMorph, 0.0, 0.0, 1.0);
+    gWarp = shellMap(nWarp, 0.0, 0.0, 0.25);
+    gTurb = shellMap(nTurb, 0.0, 0.0, 0.22);
+
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float low = sndShaped(SND_LOW);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * (1.0 + 1.4 * kalKnob(0));
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * kickK;
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
@@ -212,14 +248,12 @@ void main() {
     gSegOld = KA_TAU / kalFolds(SND_CUT_COUNT - 1.0);
     gSegNew = KA_TAU / kalFolds(SND_CUT_COUNT);
 
-    gR = max(3.6, KA_R * (1.0 + 0.22 * dropBump) + 1.6 * kalKnob(5));
-    gGem = 0.5 + 0.3 * clamp(kick, 0.0, 1.5);
-    gMorph = clamp(uMorph, 0.0, 1.0) * (0.75 + 0.25 * sin(uTime * 0.13));
-    gTurb = 0.22 * clamp(uTurbulence, 0.0, 1.0);
-    gWarp = 0.25 * clamp(uWarp, 0.0, 1.0);
+    gR = max(3.6, KA_R * (1.0 + 0.22 * dropBump) + widen);
+    gGem = gemSize + 0.3 * clamp(kick, 0.0, 1.5);
+    gMorph = morph * (0.75 + 0.25 * sin(uTime * 0.13));
     gSpin = uTime * 0.35;
     // TONE: how far out from the axis the gems hang (1 at rest).
-    gGemReach = clamp(1.0 - 1.0 * kalKnob(3), 0.55, 1.3);
+    gGemReach = clamp(reach, 0.55, 1.3);
     // dtheta/dz of the twist plus the warp wave, times the largest radius met
     // inside the tube (its corner, at most apothem / cos(pi / 4)).
     float dth = KA_TWIST + gWarp * (KA_TAU / 16.0);
@@ -232,6 +266,8 @@ void main() {
     // Every z term has a period dividing 64, so this rebase is exact.
     ro.z = mod(ro.z, KA_ZWRAP);
     gEye = ro;
+    // The layers are measured from the eye; a spawned set slides half a gem cell down the tube.
+    shellSetup3(ro, 3.0, 0.5 * KA_CELL, false);
 
     float t = 0.03;
     float hitT = -1.0;
@@ -252,10 +288,7 @@ void main() {
         t += max(d * 0.9, eps);
     }
 
-    float hue = 0.03 * sin(uTime * 0.021) + 0.5 * dropBump + 0.22 * pitchBump + 0.3 * kalKnob(3);
-    float dens = 1.0 + 0.6 * kalKnob(1);
-    float flow = clamp(0.5 + kalKnob(2), 0.0, 1.0);
-    float fogK = 0.06;
+    float hue = 0.03 * sin(uTime * 0.021) + 0.5 * dropBump + 0.22 * pitchBump + hueTone;
     // The far end of the tube is the toy's light.
     float ahead = pow(max(rd.z, 0.0), 6.0);
     vec3 fogCol = pal(hue + 0.15) * (0.03 + (0.3 + 0.5 * low) * ahead) + vec3(0.004, 0.003, 0.007);
@@ -299,13 +332,12 @@ void main() {
             uvec2 c = uvec2(ivec2(int(cell.x), int(mod(cell.y, KA_ZWRAP * KA_SPARKLE_CELLS))));
             float pick = float(kalHash(c.x ^ kalHash(c.y ^ kalHash(uint(max(SND_ONSET_COUNT, 0.0))))) & 0xffffu)
                 * (1.0 / 65536.0);
-            float sparkle = step(0.93, pick) * (1.0 - smoothstep(0.0, 0.3 + px, length(local))) * hat;
+            float sparkle = step(sparkBar, pick) * (1.0 - smoothstep(0.0, 0.3 + px, length(local))) * hat;
             surf += pal(f * 0.3 + 0.5 + hue) * sparkle * 1.2;
         } else {
             // Gems: faceted glass lit from the tube's far end and the eye.
             float diff = clamp(dot(n, normalize(vec3(0.0, 0.3, 1.0))) * 0.5 + 0.5, 0.0, 1.0);
             vec3 body = pal(hue + 0.25 + 0.3 * dot(n, vec3(0.35, 0.5, 0.2)));
-            float build = 0.5 + kalKnob(4);
             surf = body * (0.08 + 0.5 * diff) * ao
                  + pal(hue + 0.65) * fres * 0.8
                  + vec3(spec) * 0.6

@@ -72,3 +72,6 @@
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).
 "lib_world",
+// Every style's shape as normalized inputs (shellMap, shellKnob) and the grow hooks on its own field
+// (SHELL_FIELD3, SHELL_FIELD2); after lib_scene_uniforms.
+"lib_shell",

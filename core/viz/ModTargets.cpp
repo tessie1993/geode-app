@@ -75,6 +75,7 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "DIVE_TWIST",
     "DIVE_AIM_X",
     "DIVE_AIM_Y",
+    "MACRO",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};
@@ -141,7 +142,7 @@ Scope scopeOf(LfoTarget target) {
 // field has no meta row, so its target (RETIRED_5, RETIRED_25) is never offered.
 bool offered(LfoTarget target) {
     if (!known(target)) return false;
-    if (target == LfoTarget::None) return true;
+    if (target == LfoTarget::None || target == LfoTarget::Macro) return true;
     ModChain c{};
     if (chainOf(target, c)) return true;
     const int slot = paramSlotOf(target);
@@ -161,6 +162,8 @@ bool reaches(LfoTarget target, const std::string& styleId) {
 
 bool offeredTo(LfoTarget target, const std::string& styleId, int picker) {
     if (picker < kPickerReaction || picker >= LfoEngine::kSlots || !reaches(target, styleId)) return false;
+    // A reaction route moves scene params only; a knob is the waves' and the envelopes'.
+    if (target == LfoTarget::Macro) return picker != kPickerReaction;
     const int slot = chainSlot(target);
     if (slot < 0) return true;
     if (picker == kPickerReaction) return false;

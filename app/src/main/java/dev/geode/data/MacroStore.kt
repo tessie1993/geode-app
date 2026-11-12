@@ -74,6 +74,9 @@ class MacroStore internal constructor(
             .onFailure { RingLog.note(TAG, "macro controls read failed", it) }
             .getOrDefault(emptyMap())
 
+    /** What the waves and envelopes on each knob add to its turn on the visual now; the knob's second arc polls it. */
+    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.parse(GeodeNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
+
     fun rename(
         id: Int,
         name: String,

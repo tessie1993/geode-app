@@ -18,12 +18,13 @@ namespace geode::viz::modtargets {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
 constexpr int kTextVersion = 2;
-constexpr int kTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
+constexpr int kTargetCount = static_cast<int>(LfoTarget::Macro) + 1;
 
 // The wire name; "" outside the enum.
 const char* name(LfoTarget target);
 catalogue::Scope scopeOf(LfoTarget target);
-// False for the retired Pulse and Glitch slots, which only hold later ordinals in place.
+// False for the retired Pulse and Glitch slots, which only hold later ordinals in place. Macro (a knob) is offered
+// to the waves and the envelopes on every style, never to a reaction route.
 bool offered(LfoTarget target);
 // The slot a chained target steers (its rate or depth), -1 for one that moves a scene param.
 int chainSlot(LfoTarget target);

@@ -47,5 +47,8 @@ class ModTableTest {
         assertFalse(ModTable.offeredTo(LfoTarget.LFO1_RATE, "julia", 1))
         assertFalse(ModTable.offeredTo(LfoTarget.ZOOM, "julia", 3))
         assertTrue(ModTable.offeredTo(LfoTarget.ZOOM, "not_a_style", 0))
+        assertFalse(ModTable.offeredTo(LfoTarget.MACRO, "julia", ModTable.REACTION))
+        assertTrue(ModTable.offeredTo(LfoTarget.MACRO, "milkdrop", ModTable.ENVELOPE))
+        assertTrue(ModTable.offeredTo(LfoTarget.MACRO, "silk_web", 2))
     }
 }

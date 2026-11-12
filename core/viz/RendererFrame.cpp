@@ -195,6 +195,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     const signal::Resolver::Frame& out =
         resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
+    if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);

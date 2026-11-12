@@ -1,5 +1,7 @@
 package dev.geode.render.bridge
 
+import dev.geode.render.AdsrConfig
+import dev.geode.render.LfoConfig
 import dev.geode.render.LfoTarget
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
@@ -151,7 +153,7 @@ class WireLayoutTest {
 
     @Test
     fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: DiveAimY is last.
+        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: Macro is last.
         assertEquals(118, ReactSource.entries.size)
         assertEquals(72, ReactSource.EQ_25.ordinal)
         assertEquals(46, ReactSource.KICK.ordinal)
@@ -159,9 +161,21 @@ class WireLayoutTest {
         assertEquals(5, ReactMode.entries.size)
         assertEquals(3, ReactMode.JUMP.ordinal)
         assertEquals(4, ReactMode.TOGGLE.ordinal)
-        assertEquals(LfoTarget.entries.last(), LfoTarget.DIVE_AIM_Y)
+        assertEquals(LfoTarget.entries.last(), LfoTarget.MACRO)
+        assertEquals(59, LfoTarget.MACRO.ordinal)
         assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)
         assertEquals(55, LfoTarget.DIVE_SPEED.ordinal)
         assertEquals(58, LfoTarget.DIVE_AIM_Y.ordinal)
+    }
+
+    @Test
+    fun aWaveAndAnEnvelopeCarryTheirKnobAndMoment() {
+        // geode_viz_set_lfo floats 9 and 10, geode_viz_set_adsr floats 10 and 11 (GEODE_*_CONFIG_FLOATS).
+        val lfo = ModConfigCodec.packLfo(LfoConfig(target = LfoTarget.MACRO, knob = 5, moment = 4))
+        assertEquals(11, lfo.size)
+        assertEquals(listOf(59f, 5f, 4f), listOf(lfo[2], lfo[9], lfo[10]))
+        assertEquals(-1f, ModConfigCodec.packLfo(LfoConfig())[10])
+        val env = ModConfigCodec.packAdsr(AdsrConfig(targets = listOf(LfoTarget.MACRO), knob = 3, moment = 0))
+        assertEquals(listOf(3f, 0f, 59f), listOf(env[10], env[11], env[12]))
     }
 }

@@ -1328,6 +1328,49 @@ void addRandomLinksMoreParams() {
     check(std::string(geode_macro_bank_add_random(encoded.c_str(), id, s.flat.c_str(), 3, 9)) == macrobank::encode(r), "geode_macro_bank_add_random");
 }
 
+// A wave or an envelope on a knob (LfoTarget::Macro): base plus modulation. The knob moves its links by its turn
+// plus what they add, held to -1..1, exactly as if turned there; the user's turn stays; a knob in the library takes
+// none; the live text says who turns which knob.
+void modulationTurnsAKnobWithoutRewritingIt() {
+    using macrobank::KnobMods;
+    const Bank& def = macrobank::defaultBank();
+    const int colour = def.knobs[2].id;
+    const Bank bank = macrobank::setValue(def, colour, 0.25f);
+    KnobMods mods;
+    mods.add(colour, 0.5f, KnobMods::kWave, -0.5f, 0.5f);
+    mods.add(colour, 0.125f, KnobMods::kEnvelope, 0.0f, 0.75f);
+    mods.add(4242, 1.0f, KnobMods::kWave);
+    check(mods.count == 2 && mods.of(colour) != nullptr && mods.of(colour)->add == 0.625f, "a knob's modulation sums its sources");
+    check(mods.of(colour)->sources == (KnobMods::kWave | KnobMods::kEnvelope), "and says which they are");
+    check(mods.of(1) == nullptr, "a knob nothing turns has none");
+    check(macrobank::effective(bank.knobs[2], &mods) == 0.875f && macrobank::effective(bank.knobs[2], nullptr) == 0.25f,
+          "the effective turn is the turn plus the modulation");
+    KnobMods big;
+    big.add(colour, 5.0f, KnobMods::kWave);
+    check(macrobank::effective(bank.knobs[2], &big) == 1.0f, "held to a full turn");
+    KnobMods bad;
+    bad.add(colour, std::numeric_limits<float>::quiet_NaN(), KnobMods::kWave);
+    check(macrobank::effective(bank.knobs[2], &bad) == 0.25f, "a non-finite modulation adds nothing");
+    const SceneParams base;
+    const SceneParams modded = macrobank::apply(base, bank, kEveryTarget, &mods);
+    check(sameParams(modded, macrobank::apply(base, macrobank::setValue(def, colour, 0.875f), kEveryTarget)), "it moves the links as that turn would");
+    check(bank.knobs[2].value == 0.25f, "and the user's turn stays");
+    check(sameParams(macrobank::apply(base, def, kEveryTarget, nullptr), base), "no modulation at centre is the identity");
+    KnobMods onCentre;
+    onCentre.add(colour, -0.4f, KnobMods::kWave);
+    check(!sameParams(macrobank::apply(base, def, kEveryTarget, &onCentre), base), "a wave turns a centred knob");
+    const Bank hidden = macrobank::hideKnob(def, colour);
+    check(sameParams(macrobank::apply(base, hidden, kEveryTarget, &onCentre), base), "a knob in the library takes no modulation");
+    KnobMods many;
+    for (int id = 1; id <= macrobank::kMaxKnobs + 4; ++id) many.add(id, 0.1f, KnobMods::kWave);
+    check(many.count == macrobank::kMaxKnobs, "modulation holds at most a bank's knobs");
+    macrobank::publishLive(mods);
+    check(macrobank::liveModsText() == "mod|" + std::to_string(colour) + "|0.625|3|-0.5|1.25\nmod|4242|1|1|0|0\n", "the live text lists who turns which knob");
+    check(std::string(geode_macro_bank_live_mods()) == macrobank::liveModsText(), "geode_macro_bank_live_mods");
+    macrobank::publishLive(KnobMods{});
+    check(macrobank::liveModsText().empty(), "and nothing when nothing does");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1368,6 +1411,7 @@ int main(int argc, char** argv) {
     everyGlidingParamIsAnOption();
     newRangesKeepTheParams();
     addRandomLinksMoreParams();
+    modulationTurnsAKnobWithoutRewritingIt();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

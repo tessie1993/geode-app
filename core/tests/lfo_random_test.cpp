@@ -17,6 +17,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/ModTargets.hpp"
+#include "viz/VisualSafety.hpp"
 #include "viz/WaveRandomizer.hpp"
 
 using namespace geode::viz;
@@ -226,7 +227,8 @@ using Waves = std::array<LfoConfig, LfoEngine::kSlots>;
 
 bool sameWave(const LfoConfig& a, const LfoConfig& b) {
     return a.enabled == b.enabled && a.source == b.source && a.target == b.target && a.wave == b.wave &&
-           a.rateSeconds == b.rateSeconds && a.depth == b.depth && a.polarity == b.polarity && a.curve == b.curve && a.beats == b.beats;
+           a.rateSeconds == b.rateSeconds && a.depth == b.depth && a.polarity == b.polarity && a.curve == b.curve && a.beats == b.beats &&
+           a.knob == b.knob && a.moment == b.moment;
 }
 
 bool sameWaves(const Waves& a, const Waves& b) { return sameWave(a[0], b[0]) && sameWave(a[1], b[1]) && sameWave(a[2], b[2]); }
@@ -306,6 +308,17 @@ void aCategoryRollOnlyMovesRunningWaves() {
     check(sameWave(rolled[1], mine[1]), "a wave following the bass is left alone");
     check(sameWave(rolled[2], mine[2]) && !rolled[2].enabled, "a wave that is off stays off");
     check(rolled[0].target != LfoTarget::Warp, "and the rolled wave keeps off the other's target");
+    // A wave on a macro knob is the user's link: a category roll leaves it, its knob and its moment alone.
+    Waves knob{};
+    knob[0] = wave(LfoWave::Saw, 3.0f, 0.0f, LfoTarget::Macro);
+    knob[0].knob = 2;
+    knob[0].moment = 0;
+    check(sameWave(waves::randomize(knob, params, 7, style, waves::Roll::Running)[0], knob[0]), "a wave on a knob is not rolled");
+    for (std::uint64_t seed = 1; seed <= 100; ++seed) {
+        for (const LfoConfig& c : waves::randomize(Waves{}, params, seed, style, waves::Roll::All)) {
+            check(c.target != LfoTarget::Macro && c.knob == 0 && c.moment == -1, "a roll never puts a wave on a knob or a moment");
+        }
+    }
 }
 
 // A wave on a control sitting at the end of its range swings into the range, not against the stop.
@@ -348,6 +361,18 @@ void theWireRoundTrips() {
     float wire[waves::kWireFloats];
     waves::toWire(w, wire);
     check(sameWaves(waves::fromWire(wire), w), "a set of waves survives the wire");
+    Waves linked = w;
+    linked[1] = wave(LfoWave::Triangle, 4.0f, 0.0f, LfoTarget::Macro);
+    linked[1].knob = 7;
+    linked[1].moment = 4;
+    waves::toWire(linked, wire);
+    check(sameWaves(waves::fromWire(wire), linked), "with a knob and a moment");
+}
+
+// A wave on a knob runs no faster than the flash rate: the knob may link a luminance param.
+void aWaveOnAKnobStaysUnderTheFlashRate() {
+    check(safety::limitLfoRate(20.0f, LfoTarget::Macro) <= 3.0f && safety::limitLfoRate(20.0f, LfoTarget::Zoom) == 20.0f,
+          "a knob is held like a luminance target");
 }
 
 }  // namespace
@@ -366,6 +391,7 @@ int main() {
     polarityFollowsWhereTheControlSits();
     liquidTargetsOnlyWhenLiquidIsOn();
     theWireRoundTrips();
+    aWaveOnAKnobStaysUnderTheFlashRate();
     if (failures == 0) std::printf("lfo_random_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

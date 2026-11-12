@@ -59,6 +59,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"FLOW_CURL", "FLOW_FIELD_SIM"}, {"FLOW_FORCE", "FLOW_FIELD_SIM"}, {"DIVE_SPEED", "ENDLESS_ZOOM"},
     // Appended after the port: the dive's spiral and aim, on Dive speed's scope.
     {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
+    // A macro knob (#owner 2026-11-12): a wave or an envelope turns the knob, which moves what it links.
+    {"MACRO", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -70,7 +72,7 @@ void everyTargetKeepsItsNameAndScope() {
               std::string("scope of ") + kOldTargets[i].first);
     }
     check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
-              static_cast<int>(LfoTarget::DiveAimY) == 58,
+              static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59,
           "wire ordinals");
 }
 
@@ -170,6 +172,12 @@ void pickersOfferWhatTheEngineRuns() {
     }
     check(!modtargets::offeredTo(LfoTarget::Zoom, "julia", 3) && !modtargets::offeredTo(LfoTarget::Zoom, "julia", -3),
           "an unknown picker is offered nothing");
+    // A knob is the waves' and the envelopes' on every style, never a reaction route's, and writes no param.
+    for (const auto& id : catalogue::allIds()) {
+        check(!modtargets::offeredTo(LfoTarget::Macro, id, kPickerReaction), "a reaction route turns no knob on " + id);
+        for (int picker : {kPickerEnvelope, 0, 1, 2}) check(modtargets::offeredTo(LfoTarget::Macro, id, picker), "a knob is offered on " + id);
+    }
+    check(paramSlotOf(LfoTarget::Macro) < 0 && modtargets::chainSlot(LfoTarget::Macro) < 0, "a knob is no param and steers no wave");
 }
 
 void offerMaskHasABitPerTarget() {

@@ -117,6 +117,8 @@ const char* geode_macro_bank_live(const char* bank, const char* style_id) {
     return handOut(macrobank::liveText(bankOf(bank), style_id ? style_id : ""));
 }
 
+const char* geode_macro_bank_live_mods(void) { return handOut(macrobank::liveModsText()); }
+
 const char* geode_macro_bank_editor(const char* bank, const char* style_id) {
     return handOut(macrobank::editorText(bankOf(bank), style_id ? style_id : ""));
 }

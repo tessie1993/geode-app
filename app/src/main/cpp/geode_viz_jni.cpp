@@ -734,6 +734,15 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) 
     return env->NewStringUTF(geode_params_schema_text());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramText(JNIEnv* env, jobject, jstring key, jint unit, jfloat value, jfloat lo,
+                                                   jfloat hi, jfloat def) {
+    Utf8Chars name(env, key);
+    char text[96];
+    geode_param_text(name.get(), unit, value, lo, hi, def, text, sizeof text);
+    return env->NewStringUTF(text);
+}
+
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteBase(JNIEnv*, jobject, jint palette, jfloat override) {
     return geode_params_palette_base(palette, override);

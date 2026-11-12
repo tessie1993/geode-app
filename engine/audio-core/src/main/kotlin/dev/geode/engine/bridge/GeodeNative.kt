@@ -169,6 +169,34 @@ object GeodeNative {
     /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
     external fun playbackPitchRatio(semitones: Float): Float
 
+    /** The saved playback options that have a range (`audio/dsp/PlaybackControls`), in `geode_playback_range` order. */
+    const val PLAYBACK_FADE_MS = 0
+    const val PLAYBACK_CROSSFADE_MS = 1
+    const val PLAYBACK_REPEAT_MODE = 2
+    const val PLAYBACK_SPEED = 3
+    const val PLAYBACK_PITCH_SEMITONES = 4
+    const val PLAYBACK_REPLAYGAIN_MODE = 5
+    const val PLAYBACK_REPLAYGAIN_PREAMP_DB = 6
+    const val PLAYBACK_CONTROLS = 7
+
+    /** Fields of the float[4] [playbackRange] returns. */
+    const val PLAYBACK_RANGE_MIN = 0
+    const val PLAYBACK_RANGE_MAX = 1
+    const val PLAYBACK_RANGE_STEP = 2
+    const val PLAYBACK_RANGE_DEFAULT = 3
+
+    /** Min, max, step (0: none) and default of playback option [control]; null for one that is not one. */
+    external fun playbackRange(control: Int): FloatArray?
+
+    /** [value] held to the option's range, a NaN to its default. */
+    external fun playbackClamp(
+        control: Int,
+        value: Float,
+    ): Float
+
+    /** A crossfade slider position in seconds as ms: whole seconds, Off below half a second, held to the range. */
+    external fun playbackCrossfadeMs(seconds: Float): Int
+
     /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
     external fun playbackSnap(
         value: Float,

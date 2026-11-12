@@ -7,6 +7,22 @@ float geode_playback_pitch_ratio(float semitones) { return geode::audio::pitchRa
 
 float geode_playback_snap(float value, float step) { return geode::audio::snapToStep(value, step); }
 
+int geode_playback_range(int control, float* out4) {
+    if (control < 0 || control >= geode::audio::kPlaybackControls) return 0;
+    const geode::audio::ControlRange r = geode::audio::controlRange(control);
+    if (out4) {
+        out4[0] = r.min;
+        out4[1] = r.max;
+        out4[2] = r.step;
+        out4[3] = r.fallback;
+    }
+    return 1;
+}
+
+float geode_playback_clamp(int control, float value) { return geode::audio::clampControl(control, value); }
+
+int geode_playback_crossfade_ms(float seconds) { return geode::audio::crossfadeMsFromSeconds(seconds); }
+
 int geode_playback_error_action(int consecutive_failures, int has_next) {
     return static_cast<int>(geode::audio::errorAction(consecutive_failures, has_next != 0));
 }

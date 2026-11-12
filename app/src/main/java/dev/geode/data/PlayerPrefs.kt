@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.prefKeys
-import kotlin.math.roundToInt
+import dev.geode.engine.bridge.GeodeNative
 
 data class PlayerPrefs(
     val shuffle: Boolean = false,
@@ -43,41 +43,43 @@ data class PlayerPrefs(
 ) {
     fun coerced(): PlayerPrefs =
         copy(
-            repeatMode = repeatMode.coerceIn(0, MAX_REPEAT_MODE),
-            speed = speed.coerceIn(MIN_SPEED, MAX_SPEED),
-            pitchSemitones = pitchSemitones.coerceIn(-MAX_PITCH_SEMITONES, MAX_PITCH_SEMITONES),
+            repeatMode = clamp(GeodeNative.PLAYBACK_REPEAT_MODE, repeatMode),
+            speed = clamp(GeodeNative.PLAYBACK_SPEED, speed),
+            pitchSemitones = clamp(GeodeNative.PLAYBACK_PITCH_SEMITONES, pitchSemitones),
             sleepTimerMinutes = sleepTimerMinutes.coerceAtLeast(0),
-            fadeMs = fadeMs.coerceIn(0, MAX_FADE_MS),
-            crossfadeMs = crossfadeMs.coerceIn(0, MAX_CROSSFADE_MS),
-            replayGainMode = replayGainMode.coerceIn(0, MAX_REPLAYGAIN_MODE),
-            replayGainPreampDb = replayGainPreampDb.coerceIn(-MAX_REPLAYGAIN_PREAMP_DB, MAX_REPLAYGAIN_PREAMP_DB),
+            fadeMs = clamp(GeodeNative.PLAYBACK_FADE_MS, fadeMs),
+            crossfadeMs = clamp(GeodeNative.PLAYBACK_CROSSFADE_MS, crossfadeMs),
+            replayGainMode = clamp(GeodeNative.PLAYBACK_REPLAYGAIN_MODE, replayGainMode),
+            replayGainPreampDb = clamp(GeodeNative.PLAYBACK_REPLAYGAIN_PREAMP_DB, replayGainPreampDb),
         )
 
     companion object {
-        const val MAX_FADE_MS = 6_000
-        const val MAX_CROSSFADE_MS = 12_000
+        // The ranges, steps and the crossfade slider's rounding are native's (`audio/dsp/PlaybackControls`).
+        private val ranges: List<FloatArray> by lazy {
+            List(GeodeNative.PLAYBACK_CONTROLS) { GeodeNative.playbackRange(it) ?: FloatArray(RANGE_FIELDS) }
+        }
 
-        /** Settings › Playback's crossfade moves in whole seconds (#338). */
-        const val CROSSFADE_STEP_MS = 1_000
+        private fun clamp(
+            control: Int,
+            value: Float,
+        ): Float = GeodeNative.playbackClamp(control, value)
 
-        /**
-         * A crossfade slider position, in seconds, as [crossfadeMs]: rounded to whole seconds, Off
-         * (0) below half a second, never past [MAX_CROSSFADE_MS] nor below 0.
-         */
-        fun crossfadeMsFromSeconds(seconds: Float): Int =
-            if (seconds.isNaN()) {
-                0
-            } else {
-                // Clamped in seconds first, so a huge value cannot overflow the multiply.
-                seconds.coerceIn(0f, (MAX_CROSSFADE_MS / CROSSFADE_STEP_MS).toFloat()).roundToInt() * CROSSFADE_STEP_MS
-            }
+        private fun clamp(
+            control: Int,
+            value: Int,
+        ): Int = GeodeNative.playbackClamp(control, value.toFloat()).toInt()
 
-        const val MAX_REPEAT_MODE = 2
-        const val MIN_SPEED = 0.5f
-        const val MAX_SPEED = 2f
-        const val MAX_PITCH_SEMITONES = 6f
-        const val MAX_REPLAYGAIN_MODE = 2
-        const val MAX_REPLAYGAIN_PREAMP_DB = 15f
+        /** The range a [GeodeNative] `PLAYBACK_*` option takes. */
+        fun rangeOf(control: Int): ClosedFloatingPointRange<Float> =
+            ranges[control][GeodeNative.PLAYBACK_RANGE_MIN]..ranges[control][GeodeNative.PLAYBACK_RANGE_MAX]
+
+        /** What the option's slider moves by. */
+        fun stepOf(control: Int): Float = ranges[control][GeodeNative.PLAYBACK_RANGE_STEP]
+
+        /** A crossfade slider position, in seconds, as [crossfadeMs]. */
+        fun crossfadeMsFromSeconds(seconds: Float): Int = GeodeNative.playbackCrossfadeMs(seconds)
+
+        private const val RANGE_FIELDS = 4
     }
 }
 

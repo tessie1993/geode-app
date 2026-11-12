@@ -23,6 +23,10 @@ namespace geode::viz::frame::tee {
 // (core/tests/cast_tee_test.cpp).
 
 inline constexpr int kSlots = 3;
+// How long a new stream holds its first frames for the stage's first copy while the shell says the stage draws.
+// A stage with no surface yet (Visuals never laid out) makes one and stages its first scene over several frames;
+// the old half second let the second renderer show another visual first.
+inline constexpr int64_t kStageFirstCopyNs = 3'000'000'000;
 // A copy older than this is not the stage's live picture any more: about seven cast frames at 30 fps, well past
 // one late stage frame or a scene build, short enough that a backgrounded app hands over before the TV notices.
 inline constexpr int64_t kStaleNs = 250'000'000;
@@ -89,6 +93,13 @@ inline bool publishDue(bool published, int64_t lastPublishNs, int64_t nowNs, int
     const int64_t quarter = period / 4;
     const int64_t slack = quarter < 4'000'000 ? quarter : 4'000'000;
     return nowNs - lastPublishNs >= period - slack;
+}
+
+// Whether the cast leaves this frame slot empty to wait for the stage's first copy rather than draw on its own
+// renderer: only at the start, before that renderer exists, and only while the stage is meant to draw (with the app
+// in the background nothing will come, so the fallback draws at once).
+inline bool awaitStage(bool stageDraws, bool fallbackMade, int64_t sinceOpenNs) {
+    return stageDraws && !fallbackMade && sinceOpenNs >= 0 && sinceOpenNs < kStageFirstCopyNs;
 }
 
 // Where the stage's picture lands in the stream's frame: whole, centred, its own aspect kept (black bars), as

@@ -100,6 +100,22 @@ Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) 
     return static_cast<jint>(geode_stage_run(static_cast<unsigned>(flags)));
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageHost(JNIEnv* env, jobject, jint flags, jintArray bounds, jint windowW,
+                                                   jint windowH, jintArray rectOut) {
+    if (bounds == nullptr || rectOut == nullptr || env->GetArrayLength(bounds) < 4 || env->GetArrayLength(rectOut) < 4) {
+        return GEODE_STAGE_HOST_HIDDEN;
+    }
+    jint in[4];
+    env->GetIntArrayRegion(bounds, 0, 4, in);
+    int b[4] = {in[0], in[1], in[2], in[3]};
+    int r[4] = {0, 0, 0, 0};
+    const int alpha = geode_stage_host(static_cast<unsigned>(flags), b, windowW, windowH, r);
+    const jint out[4] = {r[0], r[1], r[2], r[3]};
+    env->SetIntArrayRegion(rectOut, 0, 4, out);
+    return alpha;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageDisplayEligible(JNIEnv*, jobject, jint flags) {
     return geode_stage_display_eligible(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;

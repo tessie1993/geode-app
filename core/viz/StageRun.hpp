@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "viz/frame/CastTeeRule.hpp"
+
 // When the app's own stage (the one visual the Activity hosts) draws, and who feeds Auto while it does not.
 //
 // The stage draws for as long as somebody can see it, which is not the same as the Activity being resumed:
@@ -13,8 +15,8 @@
 // - paused otherwise (behind a dialog, losing focus), or stopped (another app in front, the screen off): it
 //   does not. A stopped Activity's windows are hidden, the PiP window and the second screen's included.
 //
-// A cast draws on its own renderer for as long as its session lasts, whatever the stage does. The
-// auto-director's style moments are counted by one surface only, so Auto steps once per moment: the stage
+// A cast carries the stage's frames while the stage draws, and draws on its own renderer only while it does not.
+// The auto-director's style moments are counted by one surface only, so Auto steps once per moment: the stage
 // while it draws, the cast's renderer while the stage does not.
 //
 // Pure and stateless: the shell restates on every change.
@@ -41,6 +43,44 @@ inline bool draws(uint32_t flags) {
 inline bool castLeadsAuto(uint32_t flags) { return (flags & kCasting) != 0 && !draws(flags); }
 
 inline uint32_t run(uint32_t flags) { return (draws(flags) ? kDraws : 0u) | (castLeadsAuto(flags) ? kCastLeadsAuto : 0u); }
+
+// Where the shell lays the stage's view out and how it hides it (ui/Crystal's VisualizerCanvasHost). Off Visuals the
+// view keeps its last Visuals rect at alpha 0, so its surface survives. While a cast streams it keeps drawing on
+// every tab, since the stream is its frames (core/viz/frame/CastTee):
+// - at a faint alpha under the other screens. With Visuals never laid out this process (a cast started from the
+//   Player's Share to PC tile or the system's output switcher) there is no rect yet, so it takes the window: a
+//   0 x 0 view never drew, and the stream fell back to a second renderer that showed another visual until Visuals
+//   was opened.
+// - in the stream's shape, fitted whole and centred in its rect (black around it on the phone), so the receiver
+//   gets a full frame however the phone is held: a portrait stage reached the TV as a narrow strip.
+enum HostFlag : uint32_t {
+    kHostShown = 1u << 0,    // Visuals is the open screen
+    kHostCasting = 1u << 1,  // a cast or a computer link streams
+};
+enum HostAlpha : int {
+    kHostHidden = 0,
+    kHostFaint = 1,  // one 8-bit step: invisible, yet drawing
+    kHostOpaque = 2,
+};
+struct Host {
+    int alpha = kHostHidden;
+    frame::tee::Rect rect;  // window pixels; empty: the view is 0 x 0
+};
+
+inline Host host(uint32_t flags, frame::tee::Rect bounds, int windowW, int windowH, int streamW, int streamH) {
+    const bool laidOut = bounds.x1 > bounds.x0 && bounds.y1 > bounds.y0;
+    const bool casting = (flags & kHostCasting) != 0;
+    Host h;
+    if (!laidOut && !(casting && windowW > 0 && windowH > 0)) return h;
+    const frame::tee::Rect area = laidOut ? bounds : frame::tee::Rect{0, 0, windowW, windowH};
+    h.alpha = (flags & kHostShown) != 0 && laidOut ? kHostOpaque : casting ? kHostFaint : kHostHidden;
+    h.rect = area;
+    if (!casting) return h;
+    const frame::tee::Rect fitted = frame::tee::fit(streamW, streamH, area.x1 - area.x0, area.y1 - area.y0);
+    if (fitted.x1 <= fitted.x0 || fitted.y1 <= fitted.y0) return h;
+    h.rect = {area.x0 + fitted.x0, area.y0 + fitted.y0, area.x0 + fitted.x1, area.y0 + fitted.y1};
+    return h;
+}
 
 // The connected display the stage moves to (HDMI, USB-C DisplayPort, a wireless display), and whether it does.
 // A display qualifies when Android lets a Presentation show on it: it has FLAG_PRESENTATION, is not the

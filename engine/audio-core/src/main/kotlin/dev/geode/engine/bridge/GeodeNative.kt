@@ -1385,6 +1385,13 @@ object GeodeNative {
     /** The cast thread, its context still current: closes the tee. */
     external fun castTeeClose(tee: Long)
 
+    /** True while a new stream leaves this slot empty for the stage's first copy (`geode_cast_tee_await_stage`). Pure. */
+    external fun castTeeAwaitStage(
+        stageDraws: Boolean,
+        fallbackMade: Boolean,
+        sinceOpenNs: Long,
+    ): Boolean
+
     /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
     external fun vizStillRequest(handle: Long)
 
@@ -1805,6 +1812,24 @@ object GeodeNative {
     const val STAGE_CASTING = 1 shl 4
     const val STAGE_DRAWS = 1 shl 0
     const val STAGE_CAST_LEADS_AUTO = 1 shl 1
+
+    /**
+     * Where the stage's view goes (core/viz/StageRun host): [flags] are STAGE_HOST_SHOWN / _CASTING, [bounds] the
+     * Visuals rect (left, top, right, bottom; empty before it was laid out), the window [windowW] x [windowH];
+     * [rectOut] gets the view's rect. Returns STAGE_HOST_HIDDEN, _FAINT or _OPAQUE.
+     */
+    external fun stageHost(
+        flags: Int,
+        bounds: IntArray,
+        windowW: Int,
+        windowH: Int,
+        rectOut: IntArray,
+    ): Int
+
+    const val STAGE_HOST_SHOWN = 1 shl 0
+    const val STAGE_HOST_CASTING = 1 shl 1
+    const val STAGE_HOST_FAINT = 1
+    const val STAGE_HOST_OPAQUE = 2
 
     /** Whether a display with these STAGE_DISPLAY_* bits (and failures) can take the stage (core/viz/StageRun). */
     external fun stageDisplayEligible(flags: Int): Boolean

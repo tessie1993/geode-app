@@ -44,8 +44,7 @@ import kotlinx.coroutines.flow.merge
  * controller is built on first composition, so a session started here (or from the system's output
  * switcher afterwards) has someone listening for it; [CastController] checks Pro again then.
  *
- * It also hands [CastMirror] the stage's live look (owner: the TV mirrors exactly what the phone's
- * visual shows, a style only previewed included). Casting changes nothing else in the app: no
+ * [CastHost] hands [CastMirror] the stage's live look. Casting changes nothing else in the app: no
  * remote screen, no dimming. While the stream starts (a few seconds after the TV connects) a spinner rings it.
  */
 @OptIn(UnstableApi::class)
@@ -55,12 +54,6 @@ fun CastButton(modifier: Modifier = Modifier) {
     remember { CastController.get(context) }
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    val player: PlayerViewModel = geodeViewModel()
-    LaunchedEffect(player) {
-        // A .milk reaches the stage as a request (a preset, Auto, the dice) or as a load the stage reports.
-        val milk = merge(player.activeMilkPath, player.vizApply.mapNotNull { it.milkPath })
-        CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
-    }
     val cast by CastController.state.collectAsStateWithLifecycle()
     val ui = castButtonUi(cast)
     val status = ui.status?.let { stringResource(it, ui.deviceName.orEmpty()) }
@@ -95,11 +88,20 @@ fun CastButton(modifier: Modifier = Modifier) {
 /**
  * Shows what a cast left behind, once, wherever the app is: a free user who picked a TV (here or in the system's
  * output switcher) gets the paywall, a failure its reason. A state reached in the background waits for the app.
- * The same for "Show on a computer" ([ComputerLinkHost]).
+ * The same for "Show on a computer" ([ComputerLinkHost]). It also hands [CastMirror] the stage's live look (owner:
+ * the TV mirrors exactly what the phone's visual shows, a style only previewed included).
  */
 @Composable
 fun CastHost() {
     ComputerLinkHost()
+    val player: PlayerViewModel = geodeViewModel()
+    LaunchedEffect(player) {
+        // Here, composed on every screen, not in the Cast button: a cast started from the Player's Share to PC tile
+        // or the system's output switcher left the background renderer on the saved look and the remembered .milk.
+        // A .milk reaches the stage as a request (a preset, Auto, the dice) or as a load the stage reports.
+        val milk = merge(player.activeMilkPath, player.vizApply.mapNotNull { it.milkPath })
+        CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
+    }
     val context = LocalContext.current
     val cast by CastController.state.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()

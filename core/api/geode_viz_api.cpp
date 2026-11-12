@@ -37,6 +37,8 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/Transition.hpp"
+#include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
@@ -402,17 +404,21 @@ size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
     return source.size();
 }
 
-const char* geode_transitions_table(AAssetManager* assets) {
+const char* geode_transition_picker(AAssetManager* assets) {
+    namespace viz = geode::viz;
+    static const std::vector<std::string> builtIns = viz::transition_choice::pickerIds(viz::TransitionCatalog::builtInIds());
+    // Without the assets the built-ins alone; each string is written once, so a pointer handed out stays valid.
+    static const std::string withoutLibrary = viz::encodeTransitionPicker(builtIns, {});
     static std::mutex lock;
     static std::string table;
     static bool loaded = false;
     std::lock_guard<std::mutex> guard(lock);
     if (!loaded && assets) {
         loaded = true;
-        const auto text = geode::viz::ShaderSource(assets).readAsset("gl_transitions.json");
-        if (text) table = geode::viz::encodeTransitionTable(geode::viz::parseTransitionLibrary(*text));
+        const auto text = viz::ShaderSource(assets).readAsset("gl_transitions.json");
+        table = viz::encodeTransitionPicker(builtIns, text ? viz::parseTransitionLibrary(*text) : std::vector<viz::TransitionDef>());
     }
-    return table.c_str();
+    return loaded ? table.c_str() : withoutLibrary.c_str();
 }
 
 int geode_perf_tier(int mode, float* out, int capacity) {
@@ -703,10 +709,6 @@ void geode_wallpaper_window(float surface_w, float surface_h, float display_w, f
     out[1] = w.top;
     out[2] = w.width;
     out[3] = w.height;
-}
-
-float geode_wallpaper_fps(float target_fps, float cap_fps) {
-    return geode::viz::frame::wallpaper::frameRate(target_fps, cap_fps);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

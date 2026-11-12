@@ -117,6 +117,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
+    /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
+    external fun playbackPitchRatio(semitones: Float): Float
+
+    /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -199,6 +208,20 @@ object GeodeNative {
      */
     external fun libraryIndexSearch(
         handle: Long,
+        query: ByteArray,
+    ): IntArray
+
+    /**
+     * The global search sheet (core/library/Search): [tracks] holds five UTF-8 cells per track (title, artist,
+     * album, one more field, and the URI every copy of a song shares), [preferred] marks the copy shown when
+     * copies meet, [playlists] and [presets] are names. Returns three counts (tracks, playlists, presets), then
+     * those rows, best first. A blank [query] finds nothing.
+     */
+    external fun searchSheet(
+        tracks: Array<ByteArray?>,
+        preferred: BooleanArray,
+        playlists: Array<ByteArray?>,
+        presets: Array<ByteArray?>,
         query: ByteArray,
     ): IntArray
 
@@ -415,13 +438,6 @@ object GeodeNative {
 
     /** Every Customize control a knob can move, its category, and the knobs that move it now. */
     external fun macroBankControls(bank: String): String
-
-    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
-    external fun macroBankRoll(
-        bank: String,
-        knobId: Int,
-        seed: Long,
-    ): String
 
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
@@ -872,12 +888,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
-    external fun wallpaperFps(
-        targetFps: Float,
-        capFps: Float,
-    ): Float
-
     external fun vizKnows(
         handle: Long,
         sceneId: String,
@@ -989,6 +999,9 @@ object GeodeNative {
         paramKey: String,
     ): Float
 
+    /** A size the controls quote: `fluidTiers`, `touchPoints`, `touchRotationPerDegree`; NaN for any other name. */
+    external fun catalogueValue(name: String): Float
+
     /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
     const val STYLE_ANY: Int = 0
     const val STYLE_SHADER: Int = 1
@@ -1097,9 +1110,6 @@ object GeodeNative {
         current: Float,
         degrees: Float,
     ): Float
-
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -1522,9 +1532,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
-
-    /** The stage frames left out because the encoder was behind. */
-    external fun recorderFramesDropped(handle: Long): Long
 
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
@@ -1988,11 +1995,11 @@ object GeodeNative {
     ): Long
 
     /**
-     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
-     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
+     * GL Transitions library's names, each list's entries separated by US (U+001F); `core/viz/TransitionLibrary.hpp`.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
-    external fun transitionsTable(assets: Any): ByteArray
+    external fun transitionPicker(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
@@ -2498,12 +2505,6 @@ object GeodeNative {
 
     /** The offset's bound in ms, for Settings' Picture delay slider. */
     external fun playoutMaxOffsetMs(): Int
-
-    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
-    external fun playoutSpeakerFrame(
-        handle: Long,
-        nowNs: Long,
-    ): Long
 
     /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
     external fun playoutSetBypass(

@@ -8,15 +8,10 @@ package dev.geode.render
  * with the source of truth: `CompositePass::uploadUnderlay` (core/viz/CompositePass.cpp) clamps the
  * incoming int to 0..2, and `composite_frag.glsl`'s `uUnderlayBlend` branch reads the same three
  * values — 0 = screen (shows the image through where the scene is black, leaves bright scene
- * pixels alone), 1 = multiply, 2 = add.
+ * pixels alone), 1 = multiply, 2 = add. The names are saved (Background, Studio projects).
  */
 enum class UnderlayBlend {
     SCREEN,
     MULTIPLY,
     ADD,
-    ;
-
-    companion object {
-        fun fromOrdinal(i: Int): UnderlayBlend = entries.getOrElse(i) { SCREEN }
-    }
 }

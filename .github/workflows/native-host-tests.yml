@@ -413,6 +413,9 @@ jobs:
           # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
+          # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp core/api/geode_playback_api.cpp -o playback_controls_test
+          ./playback_controls_test
 
       # Export planning and PCM maths ported from Kotlin (ADR 0003, ADR 0006 core/output): frame clock,
       # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded

@@ -124,13 +124,6 @@ internal object CustomizeMapTable {
 
     fun sectionsOf(category: CustomizeCategory): List<CustomizeSection> = sections.filter { it.category == category }
 
-    private val byControl: Map<String, CustomizeCategory> by lazy {
-        sections.flatMap { section -> section.controls.map { it to section.category } }.toMap()
-    }
-
-    /** The category the engine files [control] under, or null for a name the map does not have. */
-    fun categoryOf(control: String): CustomizeCategory? = byControl[control]
-
     /** Every control in a Basics section, as the engine says. */
     val basicControls: Set<String> by lazy { sections.filter { it.basics }.flatMapTo(mutableSetOf()) { it.controls } }
 

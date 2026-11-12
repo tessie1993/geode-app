@@ -121,6 +121,16 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLimiter(JNIEnv*, jobject, jlong h
     geode_dsp_set_limiter(dspOf(handle), enabled == JNI_TRUE);
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackPitchRatio(JNIEnv*, jobject, jfloat semitones) {
+    return geode_playback_pitch_ratio(semitones);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat value, jfloat step) {
+    return geode_playback_snap(value, step);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);

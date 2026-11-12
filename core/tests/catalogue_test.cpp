@@ -20,6 +20,8 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
+#include "viz/TouchField.hpp"
+#include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
 
 using namespace geode::viz;
@@ -527,6 +529,11 @@ void theShellsQuestionsAgreeWithTheTables() {
     }
     check(!catalogue::overrideOf("no_such_style", "Geometry"), "an unknown id holds nothing");
 
+    check(catalogue::valueOf("fluidTiers") == static_cast<float>(fluid::quality::kTierCount), "the value fluidTiers");
+    check(catalogue::valueOf("touchPoints") == static_cast<float>(TouchField::kMaxPoints), "the value touchPoints");
+    check(catalogue::valueOf("touchRotationPerDegree") == catalogue::kTouchRotationPerDegree, "the value touchRotationPerDegree");
+    check(!catalogue::valueOf("") && !catalogue::valueOf("no_such_value"), "any other name is no value");
+
     for (int s = 0; s < catalogue::kScopeCount; ++s) {
         const auto scope = static_cast<Scope>(s);
         check(catalogue::scopeNamed(catalogue::name(scope)) == scope, std::string("scope by name: ") + catalogue::name(scope));
@@ -578,6 +585,14 @@ void textEqualsTheFixture(const char* path) {
     }
 }
 
+// The engine numbers the shell sizes things by: the touch field's finger slots are what the gestures and the
+// wallpaper collect, so they come from the field itself.
+void valuesTheShellReads() {
+    const std::string& text = catalogue::text();
+    check(text.find("\nvalue|touchPoints|" + std::to_string(TouchField::kMaxPoints) + "\n") != std::string::npos,
+          "the touch field's slots are a catalogue value");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -594,6 +609,7 @@ int main(int argc, char** argv) {
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();
     theShellsQuestionsAgreeWithTheTables();
     textRoundTrips();
+    valuesTheShellReads();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");
     return failures;

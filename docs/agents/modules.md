@@ -4,7 +4,6 @@ One fact per line. Add a fact as a new bullet under its module.
 
 ```
 :app ──► :engine:scenes ──api──► :engine:audio-core (JVM, pure Kotlin)
-   └───► :engine:audio-android ──api──┘
 :app ──externalNativeBuild──► CMakeLists.txt ──► libgeode.so + libprojectM-4.so
 ```
 
@@ -18,14 +17,9 @@ One fact per line. Add a fact as a new bullet under its module.
 - `SoundTuning` is the user tuning (Settings › Audio, kept in `SoundInputSettings`): a float holder.
 - `SoundTuning`'s defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
 
-## `:engine:audio-android`
-
-- Package: `dev.geode.engine.audioandroid`.
-- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
-
 ## `:engine:scenes`
 
-- Packages: `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util`.
+- Packages: `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util`.
 - The GL adapter: `VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`.
 - `MilkPresetMemory` is the one MilkDrop preset every new native renderer starts on: process-wide, saved across restarts, a bundled preset on first launch.
 - The look snapshot is `render/look` (#345).
@@ -50,7 +44,6 @@ One fact per line. Add a fact as a new bullet under its module.
 - `render/EventRecipe` holds the Customize event recipes' titles; their routes, toggle and merge are native in `core/viz/ReactionDna` (`geode_event_recipe_*`, pinned by `viz_math_test`).
 - `render/scene/ParamFormat` holds the value units.
 - `render/PerformanceSettings` holds the live quality presets.
-- Two pure helpers are left in `dev.geode.analysis`: `PlaybackMath`, `SearchMatcher`.
 
 ## `:app`
 

@@ -91,6 +91,14 @@ float geode_catalogue_override(const char* style_id, const char* param_key) {
     }
 }
 
+float geode_catalogue_value(const char* name) {
+    try {
+        return catalogue::valueOf(name ? name : "").value_or(std::numeric_limits<float>::quiet_NaN());
+    } catch (...) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+}
+
 const char* geode_catalogue_presets_text(void) { return geode::viz::catalogue::presetsText().c_str(); }
 
 }

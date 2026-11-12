@@ -181,8 +181,9 @@ const SHADER_VALUES = {
   uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
   // Grow and layers (lib_scene_uniforms) at their defaults, where every family library draws as before.
   uSpawn: 0, uFractal: 0, uFrontLayer: 0, uBackLayer: 0, uFormula: 0,
-  // Shapes (lib_scene_uniforms) at its default: off, every style its own form.
-  uShapeMix: 0,
+  // Shapes (lib_scene_uniforms) at its default: off, every style its own form, and the graph as a renderer
+  // that never ticked it uploads it (ShaderScene::uploadShapes: nothing present).
+  uShapeMix: 0, uShapes: [0, 0, 0, 0], uShapeCount: 0, uShapeFold: [0, 0, 0, 0], uShapeMelt: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

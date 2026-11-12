@@ -157,6 +157,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadWorld();
     uploadPool();
     uploadField();
+    uploadShapes();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -390,6 +391,22 @@ void ShaderScene::uploadField() {
     glUniform4fv(uniforms_.loc("uFieldGeom"), 1, field_->geom.data());
     glUniform4fv(uniforms_.loc("uFieldShape"), 1, field_->shape.data());
     glUniform4fv(uniforms_.loc("uFieldLook"), uniforms_.arrayCount("uFieldLook", kFieldLooks), field_->look.data());
+}
+
+// The shape graph (viz/ShapeGraph) as the renderer ticked it this frame, for lib_shapes. Only a style that melts
+// it in (catalogue::Scope::Shapes) keeps uShapes past linking, so every other style skips the 128 floats on the
+// location's -1. Only as many vec4 as survived linking are written (past the live length is an
+// INVALID_OPERATION). A host that hands no graph uploads an empty one: uShapeCount 0, the style its own.
+void ShaderScene::uploadShapes() {
+    const GLint at = uniforms_.loc("uShapes");
+    if (at < 0) return;
+    static const shapes::Packed kNone{};
+    const shapes::Packed* g = host_.shapeGraph ? host_.shapeGraph() : nullptr;
+    if (!g) g = &kNone;
+    glUniform4fv(at, uniforms_.arrayCount("uShapes", shapes::kMaxShapes * shapes::kVec4PerShape), g->shapes.data());
+    glUniform1i(uniforms_.loc("uShapeCount"), g->count);
+    glUniform4fv(uniforms_.loc("uShapeFold"), 1, g->fold.data());
+    set1f("uShapeMelt", g->melt);
 }
 
 void ShaderScene::specializeWorld() {

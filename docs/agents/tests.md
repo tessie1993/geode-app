@@ -150,6 +150,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `resolver_test.cpp` also pins the owner's rule: with Auto and Note & key on every colour param is the user's and, with no route and the Motion dials at 0, no param hears the sound.
 - `scene_residency_test.cpp`: `core/viz/SceneResidency`, which built scenes stay on the GPU.
 - `shader_overrides_test.cpp`: the process-wide shader overrides (`core/viz/ShaderOverrides`).
+- `shape_graph_test.cpp`: the shape graph (`core/viz/ShapeGraph`, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, translation only, the colour's blend factor, 1-Lipschitz, nothing past `kReach`.
 - `snapshot_stitch_test.cpp`: `core/audio/ingest/SnapshotStitch`, the wallpaper's output-mix snapshots heard by the ring as real time, without seams.
 - `sound_golden_test.cpp`: a golden vector for the sound engine, the whole `GeodeSoundFrame` at six instants of a synthetic song, against `core/tests/sound_golden.txt` (`--write` regenerates it).
 - `sound_rate_test.cpp`: the sound engine at 30 and 120 fps equal to 60 at every shared sample, on a synthetic song and real tracks, and an export's frame cut equal to live's tap blocks.

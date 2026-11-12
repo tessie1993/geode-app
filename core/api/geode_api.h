@@ -1128,6 +1128,9 @@ GEODE_API int               geode_track_feed_push_aiff(geode_track_feed*, geode_
 GEODE_API int               geode_track_feed_has_rate(const geode_track_feed*);   /* 1 once a chunk told the rate */
 /* Aims the next delivers at end_ms into the range, at the latest chunk's rate. */
 GEODE_API void              geode_track_feed_target_ms(geode_track_feed*, int64_t end_ms);
+/* Aims the next delivers at the end of video frame `frame` (from the range start) at fps: llround((frame + 1) * rate
+ * / fps) frames of the latest chunk's rate, sample-exact (core/output/FrameClock samplesThrough). */
+GEODE_API void              geode_track_feed_target_frame(geode_track_feed*, int64_t frame, int32_t fps);
 /* Hands sink the held frames up to the target: 1 once it is reached, 0 when the held chunk ran out first. */
 typedef void (*geode_track_sink)(void* context, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API int               geode_track_feed_deliver(geode_track_feed*, geode_track_sink sink, void* context);

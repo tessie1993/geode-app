@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "audio/ingest/AiffReader.hpp"
+#include "output/FrameClock.hpp"
 
 // An export's track audio, handed to its renderer's sound engine exactly up to each video frame (ADR 0003:
 // export equals live). The shell decodes (MediaExtractor and MediaCodec, or an AiffReader for AIFF) and
@@ -36,6 +37,10 @@ public:
     bool hasRate() const { return rate_ != 0; }
     // Counts the target from the range start: endMs into the range at the latest chunk's rate.
     void setTargetMs(int64_t endMs) { target_ = endMs * rate_ / 1000; }
+    // Counts the target as everything heard once video frame n (from the range start) at fps is done, at the latest
+    // chunk's rate: output::FrameClock::samplesThrough, llround((n + 1) * rate / fps). Sample-exact, where
+    // setTargetMs of the frame's whole-millisecond end hands each frame up to rate / 1000 frames early (#999 F6).
+    void setTargetFrame(int64_t n, int fps) { target_ = ::geode::output::FrameClock(fps, rate_).samplesThrough(n); }
     // Hands `sink` the held frames up to the target; true once the target is reached, false when the held
     // chunk ran out first (push the next one, then call again).
     bool deliver(Sink sink, void* context);

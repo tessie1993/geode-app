@@ -220,4 +220,9 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedTargetM
     geode_track_feed_target_ms(reinterpret_cast<geode_track_feed*>(handle), endMs);
 }
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_trackFeedTargetFrame(JNIEnv*, jobject, jlong handle,
+                                                                                     jlong frame, jint fps) {
+    geode_track_feed_target_frame(reinterpret_cast<geode_track_feed*>(handle), frame, fps);
+}
+
 }  // extern "C"

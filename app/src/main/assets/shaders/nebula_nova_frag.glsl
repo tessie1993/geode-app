@@ -209,7 +209,9 @@ void main() {
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
     float tc = -dot(ro, rd);
     float aMid = -1.0;
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), NV_BOUND);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), NV_BOUND + growSlack(NV_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.03;
         for (int i = 0; i < NEB_VOL_MAX; i++) {

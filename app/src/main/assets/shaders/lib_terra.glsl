@@ -155,11 +155,16 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 // ---- the normalization shell (see the header) -------------------------------
 
 /**
- * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the style's
- * plain map; at the merge this line becomes the grown field. Today it is F itself.
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * height F at xz grown by terraGrow (lib_terra_field, defined after the style's
+ * map, where this expands): exactly F(xz) while all four rest.
  */
-#define TERRA_GROW(p, F) F(p)
-/** MERGE HOOK, uFormula: 0.0 today (each style's first formula); uFormula at the merge. */
+#define TERRA_GROW(p, F) (growIdle() ? F(p) : terraGrow(p))
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No Terrain style keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
 #define TERRA_FORMULA 0.0
 
 /** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
@@ -400,6 +405,8 @@ void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
     camFly(uv - vec2(0.0, tilt), ro, rd);
     // The eye rises with the relief (and never sinks below its height), so it stays over every peak.
     ro.y = eye * gTerraSteep + 0.35 * ro.y;
+    // Grow and layers (lib_grow) measure from the eye where it flies.
+    growEye(ro);
 }
 
 // ---- marching ---------------------------------------------------------------
@@ -409,7 +416,9 @@ void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
  * means it never is, and the pixel is sky with no march.
  */
 vec2 terraSlab(vec3 ro, vec3 rd, float hMax, float far) {
-    // The style's bound is its map's; the field is the map times the relief.
+    // The style's bound is its map's; the field is the map times the relief. A grown land (terraGrow: a
+    // second range, children on the slopes) rises past it by growSlack while a grow control is on.
+    hMax += growSlack(hMax, 2.0, 0.3);
     hMax *= gTerraRelief;
     float t0 = 0.0;
     float t1 = far;
@@ -429,7 +438,11 @@ float terraEps(float t) {
 
 /** The next step for vertical clearance dy at distance t; k is about 1 / (1 + steepest slope). */
 float terraStep(float dy, float t, float k) {
-    return max(dy * k * (1.0 + 0.02 * t) / (terraChaosLip() * gTerraSteep), 0.004 + 0.003 * t);
+    float lip = terraChaosLip() * gTerraSteep;
+    // A grown land is steeper (terraGrow: Fractal's children add their own slope, a layer drawn in packs
+    // the hills closer); the step shortens by as much while a grow control is on, and is as it was at rest.
+    if (!growIdle()) lip *= 1.15 + clamp(uFractal, 0.0, 1.0);
+    return max(dy * k * (1.0 + 0.02 * t) / lip, 0.004 + 0.003 * t);
 }
 
 /** The surface between the last sample above it (tPrev, dyPrev) and this one (t, dy), when dy went under. */

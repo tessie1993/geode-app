@@ -191,15 +191,20 @@ float nebEnergy() {
 // integrates and whatever else the style reads there, and includes
 // lib_nebula_field after it: nebField(p, oct) there is the one entry its march
 // and its light taps read the medium through. It writes no global. NEB_GROW is
-// where lib_grow applies once that branch merges (it carries the octave count,
-// which a volume's light tap lowers, so its hook takes three arguments).
+// where lib_grow applies (nebGrow, in lib_nebula_field; it carries the octave
+// count, which a volume's light tap lowers, so its hook takes three arguments).
 
 /**
- * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the style's
- * plain medium; at the merge this line becomes the grown field. Today it is F itself.
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * medium F at p grown by nebGrow (lib_nebula_field, defined after the style's
+ * map, where this expands): exactly F(p, oct) while all four rest.
  */
-#define NEB_GROW(p, oct, F) F(p, oct)
-/** MERGE HOOK, uFormula: 0.0 today (each style's first formula); uFormula at the merge. */
+#define NEB_GROW(p, oct, F) (growIdle() ? F(p, oct) : nebGrow(p, oct))
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No Nebula style keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
 #define NEB_FORMULA 0.0
 
 /** The normalized inputs (see above): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */

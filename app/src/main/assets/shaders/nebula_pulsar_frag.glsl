@@ -212,7 +212,9 @@ void main() {
     bool starHit = hs.y > 0.0;
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), PU_BOUND);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), PU_BOUND + growSlack(PU_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tEnd = starHit ? min(tb.y, hs.x) : tb.y;
         float tt = tb.x + nebDither() * 0.03;

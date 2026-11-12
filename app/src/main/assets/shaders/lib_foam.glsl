@@ -117,8 +117,8 @@
 // reads: the packing and its cut at p, with everything the shading needs in the
 // FoamSample it returns. It writes no global, so a normal tap or a second walk
 // can never overwrite what the hit kept. FOAM_GROW is where lib_grow (Spawn,
-// Fractal, the layers) applies once that branch merges; FOAM_FORMULA where
-// uFormula picks the prototype.
+// Fractal, the layers) applies (foamGrow); FOAM_FORMULA is where uFormula will
+// pick the prototype once the family has a second one.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE
 // defined), lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and
@@ -213,11 +213,16 @@ float gFoamEpsPerT;
 // ---- the normalization shell (see the header) -------------------------------
 
 /**
- * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the plain
- * field; at the merge this line becomes the grown field. Today it is F itself.
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the plain
+ * field F at p grown by foamGrow (defined after foamMap, where this expands):
+ * exactly F(p) while all four rest.
  */
-#define FOAM_GROW(p, F) F(p)
-/** MERGE HOOK, uFormula: 0.0 today (the plane, the one formula); uFormula at the merge. */
+#define FOAM_GROW(p, F) (growIdle() ? F(p) : foamGrow(p))
+/**
+ * Formula (uFormula): 0.0, the plane, the family's one prototype. With no
+ * alternatives yet no Foam style reads uFormula; one that gains a second reads
+ * it here and joins Catalogue.cpp's formula styles in the same commit.
+ */
 #define FOAM_FORMULA 0.0
 
 /** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
@@ -479,8 +484,42 @@ FoamSample foamMap(vec3 p) {
 }
 
 /**
+ * GROW AND LAYERS (lib_grow), the family's rules for Spawn, Fractal, Front and
+ * Back layer, as the other families draw them: the layers open the packing
+ * about the subject at the origin (or about the axis the flown eye rides),
+ * Spawn slides a second packing off the first (1 along the way, or aside of a
+ * subject), and Fractal grows the packing a third the size, repeated every 2,
+ * out of every surface within 0.2 at full. No turn and no colour. Every map
+ * read sits behind its own control, and FOAM_GROW takes the field alone while
+ * all four rest, so the picture at rest is the old one, bit for bit.
+ */
+FoamSample foamGrow(vec3 p) {
+    growFrame();
+    float k = growOpen(p, 0.18);
+    vec3 c = growCentre();
+    vec3 q = c + growOpened(p - c, k);
+    FoamSample h = foamMap(q);
+    if (uSpawn > 0.0) {
+        FoamSample s = foamMap(q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
+        if (gGrowSet) s.d = growClearEye(s.d, p, 0.6);
+        if (s.d < h.d) h = s;
+    }
+    float reach = growFractalReach(0.2);
+    if (reach > 0.0) {
+        FoamSample ch = foamMap(growChildSpace(q, 3.0, 2.0));
+        ch.d = growFractalChild(ch.d / 3.0, h.d, reach);
+        if (gGrowSet) ch.d = growClearEye(ch.d, p, 0.6);
+        if (ch.d < h.d) h = ch;
+    }
+    // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
+    // only across it, so min(k, 1) is the safe factor.
+    h.d *= gGrowAround ? k : min(k, 1.0);
+    return h;
+}
+
+/**
  * THE FIELD: the one entry every style reads the packing through (the march, the normal, Ghost's
- * walk). The merge hook FOAM_GROW is where lib_grow applies; today it is foamMap itself.
+ * walk), through FOAM_GROW (foamGrow above; foamMap itself while the grow controls rest).
  */
 FoamSample foamField(vec3 p) {
     return FOAM_GROW(p, foamMap);
@@ -512,6 +551,8 @@ void foamCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     rd = normalize(mat3(right, cross(fwd, right), fwd) * camRayDir(uv));
     gFoamEye = ro;
     gFoamFwd = fwd;
+    // Grow and layers (lib_grow) open round this eye, which rides the bore's path, not the rig's.
+    growSetup(ro, 3.0, false);
     gFoamEpsPerT = FOAM_EPS_PIXELS * 2.0 / (max(uResolution.y, 1.0) * max(uCamFocal, 0.3));
 }
 

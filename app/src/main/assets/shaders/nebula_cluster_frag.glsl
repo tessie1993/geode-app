@@ -184,7 +184,9 @@ void main() {
     float pxK = 2.0 / (max(uCamFocal, 0.1) * max(uResolution.y, 1.0));
 
     vec3 col = vec3(0.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), CL_R);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), CL_R + growSlack(CL_R, 1.0, 0.2));
     if (tb.y > tb.x) {
         float span = tb.y - tb.x;
         vec3 entry = ro + rd * tb.x;

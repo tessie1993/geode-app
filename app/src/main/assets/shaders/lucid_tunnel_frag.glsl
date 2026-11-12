@@ -114,8 +114,6 @@ float gBend;
 float gScrewRate;
 float gSpin;
 float gCrawl;
-/** Set by map(): the wall's (angle, u) coordinate the paint is read at. */
-vec2 gQ;
 
 /** The wall: sine lattice, every angular frequency a whole number and every depth frequency a whole multiple of u. x = angle, y = u. */
 float wallField(vec2 q, float level) {
@@ -139,7 +137,7 @@ vec2 boreCentre(float z) {
     return gBend * vec2(sin(z * (LT_TAU / 32.0)), cos(z * (LT_TAU / 32.0) + 1.3));
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     vec2 c = p.xy - boreCentre(p.z);
     float r = length(c);
     float ang = r > 1e-4 ? atan(c.y, c.x) : 0.0;
@@ -147,28 +145,29 @@ float map(vec3 p) {
     // corkscrew from the eye, and the slow spin of the whole bore.
     ang += p.z * (LT_TAU / 32.0) + gScrewRate * (p.z - gEye.z) + gSpin;
     vec2 q = vec2(ang, p.z * LT_UF + gCrawl);
-    gQ = q;
+    found.a.xy = q;
     float wall = gRadius + gRelief * wallField(q, 0.0);
     float d = (abs(wall - r) - LT_SHELL) / LT_LIP;
     return max(d, LT_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) * uIntensity;
@@ -182,9 +181,9 @@ void main() {
     gScrewRate = 0.12 * screw;
     gSpin = 1.4 * screw + t * 0.04;
     gCrawl = uFlowTime * 0.15;
-    gRelief = LT_RELIEF_MAX * (0.6 + 0.4 * clamp(uMorph, 0.0, 1.0));
-    gBend = 0.7 * clamp(uWarp, 0.0, 1.0);
-    gRadius = LT_RADIUS + 1.1 * kSpace;
+    gRelief = LT_RELIEF_MAX * lucidSpan(N.depth, 0.6, 0.6, 1.0);
+    gBend = lucidSpan(N.bend, 0.0, 0.0, 0.7);
+    gRadius = LT_RADIUS + lucidSpan(N.reach, 0.0, -0.55, 0.55);
 
     vec3 ro;
     vec3 rd;
@@ -216,7 +215,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LT_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0008;
         if (d < eps) {
             hitT = tm;
@@ -225,19 +225,19 @@ void main() {
         tm += max(d * 0.9, eps);
     }
 
-    float hue0 = 0.12 * kTone;
+    float hue0 = lucidSpan(N.tone, 0.0, -0.06, 0.06);
     float ahead = pow(max(dot(rd, normalize(uCamBasis[2])), 0.0), 10.0);
     // UV haze: the bore's far end glows violet-dark, the old dark centre.
-    vec3 fogCol = pal(hue0 + 0.75) * (0.015 + (0.10 + 0.12 * swell) * (1.0 + kBuild) * ahead)
+    vec3 fogCol = pal(hue0 + 0.75) * (0.015 + (0.10 + 0.12 * swell) * lucidSpan(N.glow, 1.0, 0.5, 1.5) * ahead)
                 + vec3(0.004, 0.002, 0.009);
     vec3 col = fogCol;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        vec3 n = lucidNormal(p, max(0.0015, 0.0012 * hitT));
         // Restore the hit point's globals after the normal taps.
-        map(p);
-        vec2 q = gQ;
+        fld = lucidField(p);
+        vec2 q = fld.a.xy;
 
         // The nest, written out for this field, on the hit point only:
         // whole-number angular offsets and whole multiples of u.
@@ -253,7 +253,7 @@ void main() {
 
         // Lines: the field's zero crossings, widened with distance so the far
         // wall softens instead of aliasing.
-        float width = (0.06 + 0.04 * clamp(energy, 0.0, 1.0)) * clamp(1.0 + 1.2 * kTexture, 0.3, 2.0)
+        float width = (0.06 + 0.04 * clamp(energy, 0.0, 1.0)) * lucidSpan(N.scale, 1.0, 0.4, 1.6)
                     + 0.004 * hitT;
         float line = width / (abs(f) + width);
         line = line * line;
@@ -264,7 +264,7 @@ void main() {
 
         // The kick front: brighter paint on a band that runs away from the eye.
         float dF = (p.z - gEye.z) - (1.0 - kick) * LT_REACH;
-        float front = exp(-dF * dF * 0.12) * kick * clamp(1.0 + kPulse, 0.4, 1.6)
+        float front = exp(-dF * dF * 0.12) * kick * lucidSpan(N.emit, 1.0, 0.5, 1.5)
                     * clamp(uIntensity, 0.0, 1.5);
 
         // The near-black wall under UV: a dim headlight for the relief, a
@@ -277,7 +277,7 @@ void main() {
         vec3 wall = pal(hue0 + 0.75) * (0.05 + 0.04 * w.y + 0.12 * ndv * fall) * ao
                   + pal(hue0 + 0.6) * fres * 0.08
                   + vec3(spec) * 0.08 * fall;
-        wall += glow * line * (1.1 + 0.9 * front) * clamp(1.0 + 1.2 * kFlow, 0.3, 2.0) * (0.7 + 0.3 * ao);
+        wall += glow * line * (1.1 + 0.9 * front) * lucidSpan(N.flow, 1.0, 0.4, 1.6) * (0.7 + 0.3 * ao);
         wall = lucidCubic(wall, 0.4);
 
         // UV haze swallows the far wall; the paint carries further than the wall.

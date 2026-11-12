@@ -336,12 +336,18 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer. */
+    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer; [blendMode] indexes [layerBlendNames]. */
     external fun layerSet(
         sceneId: String,
         mix: Float,
         blendMode: Int,
     )
+
+    /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
+    external fun layerBlendNames(): String
+
+    /** Screen, the blend a new layer starts on (`GEODE_LAYER_BLEND_DEFAULT`). */
+    const val LAYER_BLEND_DEFAULT: Int = 1
 
     external fun vizSetTransition(
         handle: Long,

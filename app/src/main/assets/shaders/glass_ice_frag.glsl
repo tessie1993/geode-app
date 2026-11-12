@@ -41,7 +41,11 @@ out vec4 fragColor;
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the slow turn of the lining. Complexity packs more, finer
-// crystals. Chaos ripples the ice. Energy scales every reaction.
+// crystals. Chaos ripples the ice. Energy scales every reaction. Knobs
+// (lib_glass's roles, offsets from 0.5 so off is the tuned look): k0 PULSE the
+// emission, k1 TEXTURE the crystals' width, k2 FLOW added to Chaos's ripple,
+// k3 TONE the palette position, k4 BUILD the world's glow, k5 SPACE the reach
+// of the eye within the geode.
 //
 // ---- cost -------------------------------------------------------------------
 //
@@ -58,6 +62,8 @@ float gLat;
 float gGrow;
 float gSpin;
 vec3 gCell;
+/** k1 TEXTURE on the crystals' width (kept small: a crystal must stay in its cell). */
+float gWide;
 
 float crystal(vec3 q, float r, float L) {
     vec2 a = abs(q.xz);
@@ -87,7 +93,7 @@ float lining(vec3 p, out vec3 cid) {
     vec3 q = p - cd * (IC_R - 0.05);
     vec3 lq = vec3(dot(q, side), dot(q, up), dot(q, fwd));
     float hs = glassHash(vec2(i, j) + 11.0);
-    float r = (0.3 + 0.18 * hs) * (16.0 / gLon);
+    float r = (0.3 + 0.18 * hs) * (16.0 / gLon) * gWide;
     float L = (1.1 + 1.5 * glassHash(vec2(i, j) + 5.0)) * gGrow;
     float d = crystal(lq, r, L);
     // The rind: the inside of the sphere.
@@ -119,9 +125,18 @@ float crossIce(vec3 q, vec3 dir, float eps) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gGlassFlow = kFlow;
     GlassEar ear = glassListen();
-    float hue = 0.55 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.03 * sin(t * 0.02);
+    float hue = 0.55 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.03 * sin(t * 0.02) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    lk.glow *= 1.0 + kBuild;
+    gWide = 1.0 + 0.15 * kTexture;
     gGrow = 1.0 + 0.35 * clamp(ear.bass, 0.0, 1.2);
     gLon = glassComplexity() >= 0.5 ? 22.0 : 16.0;
     gLat = glassComplexity() >= 0.5 ? 11.0 : 8.0;
@@ -132,7 +147,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 1.2, 0.0, ro, rd);
+    camAround(uv, 1.2 * (1.0 + 0.4 * kSpace), 0.0, ro, rd);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -201,5 +216,5 @@ void main() {
     }
 
     col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(glassTone(col)), 1.0);
+    fragColor = vec4(grade(glassTone(col * (1.0 + 0.5 * kPulse))), 1.0);
 }

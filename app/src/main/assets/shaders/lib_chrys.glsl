@@ -59,6 +59,16 @@
 #define CHRYS_GOLDEN 2.39996323
 #define CHRYS_PHI 1.61803399
 
+/**
+ * The mid band's turn, radians: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE, as
+ * lib_flame's gFlameTurn, so 0.9 at most and 0 in silence. A style that hears
+ * no mids of its own turns its flower (or its view) by it while the mids climb,
+ * and it eases back as they fall. Mid gain scales it.
+ */
+float chrysMidTurn() {
+    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+}
+
 /** Counter-clockwise rotation by `a` radians. Named apart from lib_sdf3's rot2 so both can be included. */
 mat2 chrysTurn(float a) {
     float c = cos(a);

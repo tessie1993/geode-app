@@ -64,6 +64,9 @@
 //   seat and the palette turns, all morphed across SND_HELD_HARD_CUT.
 // - Mid clock: the cross-section turns slowly about the bore.
 // - Key: uKeyHue, eased, slides the palette.
+// - Mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, pushes the cross-section
+//   round about the bore (or the ball about its axis) while the mids climb and
+//   eases back as they fall, as lib_flame's gFlameTurn does. Mid gain scales it.
 //
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -71,6 +74,14 @@
 // slide. Complexity: uMorph leans the folds. Chaos: uWarp and uTurbulence wobble
 // the bore's twist and slide the packing further. Energy: foamEnergy(), the
 // gain on every in-shader reaction, 0..2. Colour: pal(). Space: the rig.
+//
+// The six style knobs (uKnob), with the roles lib_flame, lib_opal and
+// lib_hollow give them, each read as its offset from 0.5, so with Note & key
+// reactions off every term is exactly zero and the picture is the tuned one:
+// k0 PULSE the emission (foamFinish; the ink's wash), k1 TEXTURE the cut lines'
+// width, k2 FLOW added to Warp's bend (the bore's wobble and the packing's
+// slide), k3 TONE the palette position, k4 BUILD the glow gathered along the
+// ray, k5 SPACE the reach (the fog draws back).
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE
 // defined), lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and
@@ -135,6 +146,13 @@ float gFoamWedgeHold;
 float gFoamShell;
 /** Multiplier on the loudness fall: halves and whole numbers keep the clock wrap exact. */
 float gFoamFall;
+/** The mid band's push round the bore's axis, radians, on top of gFoamSpin (see the header). */
+float gFoamTurn;
+/** The knobs (see the header): k0's gain on the emission, k1's on the cut lines' width, k4's on the gathered glow, k5's on the reach (fog rates divide by it). */
+float gFoamEmit;
+float gFoamLineW;
+float gFoamGlow;
+float gFoamReach;
 
 // The sound, shaped once, for the shading.
 float gFoamKick;
@@ -201,7 +219,19 @@ vec2 foamSeatFor(float sec) {
 void foamSetup() {
     float e = foamEnergy();
     float morph = foamSat(uMorph);
-    float chaos = clamp(uWarp, 0.0, 2.0) + clamp(uTurbulence, 0.0, 2.0);
+    // The knobs as offsets from 0.5 (see the header): exactly 0 while Note & key reactions are off.
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTex = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gFoamEmit = 1.0 + 0.5 * kPulse;
+    gFoamLineW = 1.0 + kTex;
+    gFoamGlow = 1.0 + kBuild;
+    gFoamReach = 1.0 + 0.4 * kSpace;
+    // FLOW adds to Warp's share of the bend, never below none.
+    float chaos = max(clamp(uWarp, 0.0, 2.0) + 0.5 * kFlow, 0.0) + clamp(uTurbulence, 0.0, 2.0);
 
     gFoamKick = foamSat(SND_KICK_ENV * e);
     gFoamOnset = foamSat(SND_ONSET_ENV * e);
@@ -242,6 +272,8 @@ void foamSetup() {
     float slide = 0.4 * (1.0 + 0.5 * chaos);
     gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
     gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
+    // The mid band's push (see the header): the absolute drive sets how much, the band only the shape.
+    gFoamTurn = 0.6 * sndShaped(SND_MIDDLE) * foamSat(SND_DRIVE);
     gFoamShell = 0.012 * (1.0 + 0.8 * gFoamKick);
     float detail = foamSat((uSteps - 64.0) / 64.0);
     // Detail only: it is a quality setting, not a live control. Complexity moving a whole
@@ -249,7 +281,7 @@ void foamSetup() {
     gFoamIters = 6.0 + floor(detail * 3.0 + 0.5);
 
     // Colour: the key slides the palette, each section turns it a little.
-    gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold);
+    gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold) + 0.6 * kTone;
     float conf = foamSat(SND_PITCH_CONFIDENCE);
     gFoamAccent = mix(mix(pal(gFoamHue + 0.5), pal(SND_PITCH_CLASS), conf), vec3(1.0), 0.3);
     gFoamRingPhase = FOAM_RING_GAP * fract(SND_HIT_TIME);
@@ -298,7 +330,7 @@ float foamMap(vec3 p) {
     vec3 q;
     if (gFoamShape == FOAM_BALL) {
         // The packing inside a ball, folded about the y axis, spun on the mid clock.
-        vec2 xz = rot2(gFoamSpin) * p.xz;
+        vec2 xz = rot2(gFoamSpin + gFoamTurn) * p.xz;
         cutD = length(p) - gFoamRadius;
         if (cutD > FOAM_BORE_MARGIN) {
             gFoamOrb = vec4(FOAM_TRAP_FAR);
@@ -313,7 +345,7 @@ float foamMap(vec3 p) {
     } else {
         vec2 c = p.xy - foamPath(p.z);
         float zw = FOAM_TAU / FOAM_PERIOD * p.z;
-        c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin) * c;
+        c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin + gFoamTurn) * c;
         float r = length(c);
         cutD = gFoamRadius - r;
         if (cutD > FOAM_BORE_MARGIN) {
@@ -519,7 +551,7 @@ float foamPulse(float trapR, float cellH) {
 vec3 foamAccents(FoamSurf s, vec3 sparkleCol, float sparkleGain) {
     vec3 col = gFoamAccent * foamRingAt(s.p) * (0.15 + 0.85 * gFoamOnset);
     col += gFoamAccent * foamPulse(s.trapR, s.cell) * (0.35 + 0.5 * gFoamKick) * (1.0 - smoothstep(4.0, 7.0, s.scaleLog));
-    float w = 2.0 * s.px;
+    float w = 2.0 * s.px * gFoamLineW;
     float cutLine = (1.0 - smoothstep(0.0, w, abs(s.cut))) + 0.35 * exp(-abs(s.cut) / (6.0 * w));
     col += mix(foamColor(0.3 + 0.5 * s.trapR), sparkleCol, 0.4) * cutLine * (0.25 + 0.45 * s.lit) * sparkleGain;
     vec3 gp = s.p * 14.0;
@@ -563,7 +595,7 @@ vec3 foamSoap(FoamSurf s) {
 
 /** Neon cut rings: a dark foam where only the circles the cut makes of each shell glow. */
 vec3 foamNeon(FoamSurf s) {
-    float w = 2.5 * s.px;
+    float w = 2.5 * s.px * gFoamLineW;
     float ring = 1.0 - smoothstep(0.0, w, abs(s.cut));
     float halo = exp(-abs(s.cut) / (8.0 * w));
     vec3 tube = foamColor(0.15 + 0.6 * s.trapR + 0.2 * s.trapX);
@@ -576,17 +608,17 @@ vec3 foamNeon(FoamSurf s) {
 /** Fog toward the end light, then the glow and the rings gathered along the ray. */
 vec3 foamAtmosphere(vec3 col, FoamHit h, float fogRate, float glowGain) {
     vec3 fog = foamColor(0.62) * 0.1;
-    if (h.t > 0.0) col = mix(col, fog, 1.0 - exp(-h.t * fogRate));
+    if (h.t > 0.0) col = mix(col, fog, 1.0 - exp(-h.t * fogRate / gFoamReach));
     float norm = max(h.glow, 1.0e-6);
     float glowHue = 0.25 + 0.5 * foamSat((h.glowTrap / norm) * 0.75);
-    col += foamColor(glowHue) * (1.0 - exp(-h.glow * 4.0)) * (0.14 + 0.22 * gFoamSurgeBump) * glowGain;
+    col += foamColor(glowHue) * (1.0 - exp(-h.glow * 4.0)) * (0.14 + 0.22 * gFoamSurgeBump) * glowGain * gFoamGlow;
     col += gFoamAccent * (1.0 - exp(-h.rings * 5.0)) * (0.15 + 0.75 * gFoamOnset);
     return col;
 }
 
 /** Tone map, screen-space vignette and the user's grade. */
 vec4 foamFinish(vec3 col) {
-    col *= 0.85 + 0.25 * foamSat(SND_INTENSITY);
+    col *= (0.85 + 0.25 * foamSat(SND_INTENSITY)) * gFoamEmit;
     col = vec3(1.0) - exp(-max(col, 0.0) * 1.4);
     vec2 nd = vUv * 2.0 - 1.0;
     col *= 1.0 - 0.11 * dot(nd, nd);

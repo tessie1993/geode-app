@@ -40,7 +40,9 @@ out vec4 fragColor;
 // Speed scales the lava's crawl. Complexity (uMorph) fades in an
 // octave of gully. Chaos (uWarp, uTurbulence, uTwist) bends the flanks and
 // the veins (terraChaos). Energy (uIntensity) scales the kick's pulse. Colour
-// is pal() in the lava, rock and sky. Space is the rig (camAround).
+// is pal() in the lava, rock and sky. Space is the rig (camAround), its
+// radius the k5 SPACE reach, the look turned by the mids (terraTurn); the
+// other knobs as lib_terra.
 
 #define VC_MAX_STEPS 112
 #define VC_FAR 26.0
@@ -82,7 +84,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv + vec2(0.0, 0.08), VC_CAM_R, 0.0, ro, rd);
+    camAround(uv + vec2(-terraTurn(), 0.08), VC_CAM_R * (1.0 + 0.4 * terraKnob(5)), 0.0, ro, rd);
     ro.y += VC_LIFT;
 
     vec3 moon = normalize(vec3(-0.6, 0.5, -0.4));

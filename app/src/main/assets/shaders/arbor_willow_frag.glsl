@@ -45,7 +45,10 @@ out vec4 fragColor;
 // sway into a wind-torn curtain; uTwist winds the canopy into a spiral.
 // Colour: leaves, sky and fireflies from pal(). Energy: uIntensity scales the
 // mid weight, the kick ripple and the hat startle. Space: camAround, the rig's
-// orbit and dolly.
+// orbit and dolly. Knobs (lib_arbor's roles, offsets from 0.5 so off is the
+// tuned look): k0 PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW
+// added to the Chaos bend, k3 TONE the palette position, k4 BUILD the
+// fireflies' glow, k5 SPACE the reach through the night air.
 
 #define WL_MAX_STEPS 112
 #define WL_FAR 30.0
@@ -112,10 +115,16 @@ vec3 skyCol(vec3 rd, vec3 moonDir, float hue) {
 
 void main() {
     vec2 uv = arbView();
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = arbChaos();
+    float chaos = max(arbChaos() + 0.5 * kFlow, 0.0);
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float mid = clamp(SND_MID_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
@@ -126,7 +135,7 @@ void main() {
     gRings = 3.0 + floor(arbMorph() + 0.5);
     float twist = 2.4 + 0.05 * sin(t * 0.23) + chaos * 0.35 * sin(t * 1.7) + 0.6 * uTwist;
     float droop = 0.20 + 0.20 * mid + 0.03 * sin(t * 0.4) + chaos * 0.05 * sin(t * 2.3);
-    gF = ArborForm(2.0, 0.36, droop, twist, 0.78, 1.40, 0.065, 0.78);
+    gF = ArborForm(2.0, 0.36, droop, twist, 0.78, 1.40, 0.065 * (1.0 + 0.5 * kTexture), 0.78);
     gHem = clamp(1.5 - 0.8 * mid, 0.2, 1.6);
     gSway = 0.10 + 0.25 * chaos;
 
@@ -135,7 +144,7 @@ void main() {
     camAround(uv, 10.5, 3.0 * CAM_SPIN_UNIT, ro, rd);
 
     vec3 moonDir = normalize(vec3(-0.45, 0.42, 0.78));
-    float hue = 0.48 + 0.05 * sin(t * 0.02);
+    float hue = 0.48 + 0.05 * sin(t * 0.02) + 0.6 * kTone;
 
     float tPlane = rd.y < -1e-4 ? (WL_WATER - ro.y) / rd.y : 1e9;
     float tMax = min(WL_FAR, tPlane);
@@ -174,7 +183,7 @@ void main() {
         col += vec3(0.6, 0.7, 0.8) * lit.y * 0.25 * ao + vec3(lit.z) * 0.15;
         // The hem catches a little moonlight thrown back off the pond.
         col += leaf * 0.15 * smoothstep(WL_WATER + 1.5, WL_WATER, p.y) * leafy;
-        col = mix(col, skyCol(rd, moonDir, hue), 1.0 - exp(-hitT * 0.035));
+        col = mix(col, skyCol(rd, moonDir, hue), 1.0 - exp(-hitT * 0.035 / (1.0 + 0.4 * kSpace)));
     } else if (tPlane < WL_FAR) {
         vec3 p = ro + rd * tPlane;
         float r = length(p.xz);
@@ -208,10 +217,12 @@ void main() {
         if (along < 0.0 || along > tHit) continue;
         float dist = length(w - rd * along);
         float twinkle = 0.6 + 0.4 * sin(t * (2.0 + hash11(fk + 5.0) * 3.0) + fk);
-        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * 0.8;
+        col += flyCol * exp(-dist * dist * 600.0 / max(along * 0.15, 0.2)) * twinkle * 0.8 * (1.0 + kBuild);
     }
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

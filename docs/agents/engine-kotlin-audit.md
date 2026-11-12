@@ -23,11 +23,13 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `TransitionStyle` | 9 | **deleted**: its one reader was `LookSnapshot`'s default id, now the text `"fade"`; the ids are native (`core/viz/Transition`, `core/viz/VisualSafety`). |
 | `TouchField` | 13 | **deleted**: the finger slots are native's (`TouchField::kMaxPoints`), published as the catalogue's `touchPoints` value; the gestures and the wallpaper size their buffer by it. Pinned in `catalogue_test.cpp` and the fixture. |
 | `FluidQuality` | 13 | **moved to UI**: the chips' names are private to `ui/CustomizeControls`, shown for the catalogue's `fluidTiers`. |
-| `SceneFactory` | 14 | pending |
+| `SceneFactory` | 14 | **moved to `:app`** (`export/SceneFactory`): a shell contract between `Stage` and the exporters; no engine file named it. |
 | `FluidShaderTemplate` | 15 | **moved to UI**: an asset read for Expert › Shader code, to `:app` under the same package; no engine module used it. |
 | `PlaybackMath` | 18 | **ported**: the pitch rate and the slider step are `core/audio/dsp/PlaybackControls` (`geode_playback_pitch_ratio`, `geode_playback_snap`), test `core/tests/playback_controls_test.cpp`; the sleep timer's m:ss countdown is display text, now private to `ui/PlaybackSettings`. |
 | `BestEffort` | 18 | pending: shell glue, but `VisualizerView`, `Reactions`, `OffscreenSceneRenderer` and `TrackAudio` in `:engine:scenes` still call it, so it moves when they do. |
 | `UnderlayBlend` | 22 | **moved to UI**: to `:app`, same package; its names are saved data (Background, Studio projects) and its ordinals the underlay's wire int, clamped natively. The unused `fromOrdinal` is gone. |
+| `BlendMode` | 24 | **deleted**: the blends and their labels are native (`core/viz/VisualSafety`, `geode_layer_blend_names`, test `core/tests/layer_blend_test.cpp`); the shell holds an index. |
+| `StyleSchedule` | 31 | pending |
 | `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
 | `StyleSchedule` | 31 | **deleted**: nothing built one since the export frame driver went native; `core/viz/StyleSchedule` stays (test `core/tests/style_schedule_test.cpp`). |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |

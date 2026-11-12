@@ -16,7 +16,30 @@ const char* transitionStyleId(TransitionStyle style) {
 }
 
 BlendMode blendModeFromOrdinal(int i) {
-    return (i >= 0 && i <= static_cast<int>(BlendMode::Darken)) ? static_cast<BlendMode>(i) : BlendMode::Screen;
+    return (i >= 0 && i < kBlendModes) ? static_cast<BlendMode>(i) : BlendMode::Screen;
+}
+
+const char* blendModeLabel(BlendMode mode) {
+    switch (mode) {
+        case BlendMode::Normal: return "Normal";
+        case BlendMode::Screen: return "Screen";
+        case BlendMode::Add: return "Add";
+        case BlendMode::Multiply: return "Multiply";
+        case BlendMode::Difference: return "Difference";
+        case BlendMode::Overlay: return "Overlay";
+        case BlendMode::Lighten: return "Lighten";
+        case BlendMode::Darken: return "Darken";
+    }
+    return "Screen";
+}
+
+const std::string& blendModeLabels() {
+    static const std::string labels = [] {
+        std::string out;
+        for (int i = 0; i < kBlendModes; ++i) out += std::string(blendModeLabel(static_cast<BlendMode>(i))) + '\n';
+        return out;
+    }();
+    return labels;
 }
 
 namespace safety {

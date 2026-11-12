@@ -94,12 +94,12 @@ style|chrome_nebula|SHADER|SPACE|MARCH_DETAIL
 style|fractal_dive|SHADER|FLY_THROUGH|MARCH_DETAIL
 style|aurora_ocean|SHADER|SPACE|MARCH_DETAIL
 style|spectrum_terrain|SHADER|FLY_THROUGH|MARCH_DETAIL
-style|outrun_drive|SHADER|FLY_THROUGH
+style|outrun_drive|SHADER|FLY_THROUGH|MARCH_DETAIL
 style|menger_core|SHADER|FRACTALS|MARCH_DETAIL
 style|gyroid_cavern|SHADER|FLY_THROUGH|MARCH_DETAIL
-style|ringed_planet|SHADER|SPACE
+style|ringed_planet|SHADER|SPACE|MARCH_DETAIL
 style|jelly_abyss|SHADER|FLOWING|MARCH_DETAIL
-style|ribbon_storm|SHADER|FLOWING
+style|ribbon_storm|SHADER|FLOWING|MARCH_DETAIL
 style|prism_rain|SHADER|GLASS|MARCH_DETAIL
 style|supershape|SHADER|FRACTALS|MARCH_DETAIL
 style|fractal_tunnel|SHADER|FLY_THROUGH|MARCH_DETAIL

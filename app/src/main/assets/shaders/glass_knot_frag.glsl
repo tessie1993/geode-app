@@ -42,7 +42,10 @@ out vec4 fragColor;
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the turn. Complexity switches trefoil to cinquefoil. Chaos
-// ripples the glass. Energy scales every reaction.
+// ripples the glass. Energy scales every reaction. Knobs (lib_glass's roles,
+// offsets from 0.5 so off is the tuned look): k0 PULSE the emission, k1
+// TEXTURE the tube's width, k2 FLOW added to Chaos's ripple, k3 TONE the
+// palette position, k4 BUILD the world's glow, k5 SPACE the reach of the eye.
 //
 // ---- cost -------------------------------------------------------------------
 //
@@ -101,16 +104,24 @@ float crossTube(vec3 q, vec3 dir, float eps) {
 void main() {
     vec2 uv = view();
     float t = glassTime();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gGlassFlow = kFlow;
     GlassEar ear = glassListen();
-    float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    lk.glow *= 1.0 + kBuild;
     float spread = 0.015 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.5;
     float coat = 200.0 + 450.0 * ear.height;
 
     gQ = glassComplexity() >= 0.5 ? 5.0 : 3.0;
     gWind = 0.38 + 0.08 * (0.5 + 0.5 * sin(t * 0.21));
-    gTube = 0.17 + 0.05 * clamp(ear.bass, 0.0, 1.2);
+    gTube = (0.17 + 0.05 * clamp(ear.bass, 0.0, 1.2)) * (1.0 + 0.3 * kTexture);
     gPulse = (1.0 - clamp(SND_SNARE_ENV, 0.0, 1.0)) * 2.0 * GLASS_TAU + glassHash1(floor(SND_ONSET_COUNT)) * 2.0 * GLASS_TAU;
     gBulge = 0.09 * ear.snare;
     float strand = gWind * gQ / (2.0 * max(KN_R - gWind - gTube, 0.2));
@@ -129,7 +140,7 @@ void main() {
     ka = abs(mod(ka, seg) - seg * 0.5);
     vec2 folded = vec2(cos(ka), sin(ka)) * length(kv);
     vec2 kuv = (folded - vec2(0.62, 0.0)) * 1.25;
-    camAround(kuv, KN_CAM_R, 0.0, ro, rd);
+    camAround(kuv, KN_CAM_R * (1.0 + 0.4 * kSpace), 0.0, ro, rd);
     vec3 col = glassEnv(rd, lk);
 
     float hitT = -1.0;
@@ -189,5 +200,5 @@ void main() {
     }
 
     col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(glassTone(col)), 1.0);
+    fragColor = vec4(grade(glassTone(col * (1.0 + 0.5 * kPulse))), 1.0);
 }

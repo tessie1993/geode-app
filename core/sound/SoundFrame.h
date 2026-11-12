@@ -16,14 +16,14 @@
  *  - Shaped (everything marked 0..1): ready to drive a parameter as it is.
  *  - Clocks (…Time): seconds or counts that only move forward, at a speed the music sets. Wrap at an hour
  *    (band clocks) or at 4096 (event clocks).
- *  - Triggers (kick … reattack): > 0 on the one frame they fire (the value is the strength, 0..1), else 0.
+ *  - Triggers (kick … reattack, transient): > 0 on the one frame they fire (the value is the strength, 0..1), else 0.
  *  - Told (fadeGain): what the player says, not what the engine hears. */
 
 #define GEODE_SOUND_EQ_BANDS 16
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
 #define GEODE_SOUND_CHROMA 12
-#define GEODE_SOUND_SCALARS 113
+#define GEODE_SOUND_SCALARS 116
 #define GEODE_SOUND_FRAME_FLOATS                                                                       \
     (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
      3 * GEODE_SOUND_CHROMA)
@@ -199,6 +199,12 @@ typedef struct GeodeSoundFrame {
     float loudnessS;
     float busy;
     float drive;
+    /* Transients (core/sound/Transient): the sharp start of any sound, not only a drum's, seen per sample in each
+     * filter-bank band and the whole mix within a few milliseconds (onset above is a flux peak, ~70 ms late).
+     * Only above the silence gate and the hit floor, and worth more with the drive, as every hit is. */
+    float transient;          /* trigger: an attack, its strength 0..1 */
+    float transientEnv;       /* its envelope, onsetEnv's rise and fall (5 ms up, 0.2 s down) */
+    float transientSharpness; /* how steep the last attack was, 0 a bare pass … 1 a step: held until the next */
     /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */

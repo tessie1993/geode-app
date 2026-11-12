@@ -23,6 +23,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - How much the music is comes from absolute loudness, never from the song's own average.
 - `LufsMeter` (fosfora's) gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
+- `Transient` (`core/sound/Transient`) hears the sharp start of any sound per sample: a fast follower over a slow one in the bank's low, middle and high bands and the whole mix, past a threshold read from the last second (median plus MAD), no tempo.
+- Its frame fields are `transient` (a trigger), `transientEnv` and `transientSharpness`, gated and weighted like a hit.
+- The reaction sources `Transient`, `TransientEnv` and `TransientSharpness` read those fields.
+- The LFO source Transient (`ModSource::Transient`) follows `transientEnv`; it followed the flux onset's `onsetEnv` before.
 - `drive` = loudness × texture.
 - `sound/DriveGain` turns `drive` into the gain that `MotionField`, `CameraRig`, `NoteResponse` and `Reactions` multiply the magnitude of audio-driven motion by.
 - The relative bass/mid/treble ratios only shape the pulse.
@@ -118,6 +122,7 @@ The renderer runs these in order each frame.
 - A reaction route on a luminance target gets an attack of at least 0.08 s and a release of at least 0.35 s (`Reactions`).
 - A cut transition becomes a fade.
 - An Add or Difference layer mixes at 0.25 at most.
+- Customize › Layers' blends and their labels are `BlendMode` (`core/viz/VisualSafety`, `geode_layer_blend_names`); the shell holds an index.
 - These limit the params only; no pass measures the finished frame: the output flash limiter and its readback are gone.
 
 ## Thermal and settling

@@ -43,8 +43,8 @@ constexpr std::array<const char*, 62> kLooseShaders = {
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
-// Outrun Drive and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 58> kLooseMarched = {
+// Pool and Vanishing are both shader styles and only one has a march to spend steps on.
+constexpr std::array<const char*, 61> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
@@ -60,13 +60,14 @@ constexpr std::array<const char*, 58> kLooseMarched = {
     "blacklight_bloom", "fractal_temple", "glow_vortex",
     // Morph World marches up to three ways (surface, glow-through, density), all on the Detail budget.
     "morph_world",
+    // The last three that faked their depth, remade as marches on the Flame, Opal and Hollows pattern.
+    "outrun_drive", "ringed_planet", "ribbon_storm",
 };
 
-// Marching and flying the camera rig (lib_camera's uCamBasis) mostly go together. These five march
-// from a view of their own, so the Camera framing and feel controls have nothing to move.
+// Marching and flying the camera rig (lib_camera's uCamBasis) go together but for these five, which
+// march from a view of their own, so the Camera framing and feel controls have nothing to move. No
+// style flies the rig without a march.
 constexpr std::array<const char*, 5> kMarchedOffRig = {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow"};
-// And these three fly the rig through scenes they draw without a march.
-constexpr std::array<const char*, 3> kRigUnmarched = {"outrun_drive", "ringed_planet", "ribbon_storm"};
 
 // The look group of each loose shader style (the owner's tags, first drafted in the Styles page's
 // StyleLookTags). Every loose style is listed; catalogue_test fails a loose style missing here, so a
@@ -539,9 +540,7 @@ Kind kindOf(const std::string& id) {
 
 bool isMarched(const std::string& id) { return listed(kLooseMarched, id) || listed(kFamilyMarched, id); }
 
-bool fliesCamera(const std::string& id) {
-    return listed(kRigUnmarched, id) || (isMarched(id) && !listed(kMarchedOffRig, id));
-}
+bool fliesCamera(const std::string& id) { return isMarched(id) && !listed(kMarchedOffRig, id); }
 
 float spinRate(const std::string& id) {
     for (const Spin& known : kSpinning) {

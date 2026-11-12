@@ -41,10 +41,12 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The hand mask is `hand::` in `core/viz/Reactions`; `mergeHand` and the Music page's edits are in `core/viz/ReactionDna`; `LfoStore.pushHand` pushes it process-wide (`geode_hand_set`).
 - The hand mask to push on load is native's (`geode_mod_hand_load`, `core/api/geode_modulation_api.cpp`): 0 with no routes, `HAND_ALL` for routes saved without a mask, -1 for unreadable routes, which `LfoStore` then deletes.
 - The style's DNA is built natively by `core/viz/ReactionDna`: a personality for each side of the groove plus layers, each drawing its source from the sound frame.
-- DNA draws from the 117 reaction sources (`ReactSource` in `core/viz/Reactions`), one per `GeodeSoundFrame` value.
+- DNA draws from the 121 reaction sources (`ReactSource` in `core/viz/Reactions`), one per `GeodeSoundFrame` value.
 - A renderer is handed the user's saved routes (`geode_viz_set_reactions`), reads the hand mask itself before each render, and resolves what plays from those, the style and `reactSeed`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
-- DNA draws from the 117 `ReactSource`s, one per `GeodeSoundFrame` value.
+- DNA draws from the 121 `ReactSource`s, one per `GeodeSoundFrame` value.
+- Every style's DNA ends on one route from the transient detector (`Transient` or `TransientEnv`), drawn last so the routes before it keep their draws.
+- A DNA already at its cap gives the transient route the slot of its last-drawn layer.
 - DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.

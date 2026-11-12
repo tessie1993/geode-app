@@ -15,7 +15,8 @@ namespace geode::viz {
 // style changes hue, a Flash style blooms, a Swing style looks somewhere new, a
 // Warp style bends. It draws a second one from another group for the snare
 // side of the groove, then layers for the big moments, the sustained levels,
-// the top end, colour over the song, rises and the melody. No layer has a
+// the top end, colour over the song, rises and the melody, and last the
+// transients, which every style hears. No layer has a
 // fixed source: each draws its own from a pool of GeodeSoundFrame sources
 // (which kick, which level, what drives hue), so styles that share a
 // personality still listen to different parts of the music.

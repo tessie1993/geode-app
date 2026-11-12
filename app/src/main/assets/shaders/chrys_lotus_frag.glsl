@@ -320,6 +320,10 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, LO_ORBIT, CAM_SPIN_UNIT, ro, rd);
+    // The mids turn the flower about the orbit's vertical (lib_chrys's chrysMidTurn): the eye and its ray turn the other way.
+    mat2 midTurn = chrysTurn(chrysMidTurn());
+    ro.xz = midTurn * ro.xz;
+    rd.xz = midTurn * rd.xz;
     // Never under the water: the rig's pitch can swing the orbit low.
     ro.y = max(ro.y, LO_WATER + 0.25);
 

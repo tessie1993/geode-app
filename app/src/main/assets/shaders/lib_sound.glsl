@@ -140,9 +140,14 @@ uniform vec2 uSoundCounts;
 #define SND_LOUDNESS_S             uSound[27].z
 #define SND_BUSY                   uSound[27].w
 #define SND_DRIVE                  uSound[28].x
+#define SND_TRANSIENT              uSound[28].y
+#define SND_TRANSIENT_ENV          uSound[28].z
+#define SND_TRANSIENT_SHARPNESS    uSound[28].w
 // SND_FADE_GAIN is the player's fades (pause, skip, crossfade), 0..1; 1 under the mic or capture and in an export.
 // The loudness, busy and drive scalars are absolute (core/sound/LufsMeter): loudness in LUFS -60..0 as 0..1, busy the texture,
 // drive the magnitude of the music. Scale how much a style moves by SND_DRIVE; the relative bands shape the pulse.
+// SND_TRANSIENT is a trigger (the sharp start of any sound, core/sound/Transient), SND_TRANSIENT_ENV its envelope and
+// SND_TRANSIENT_SHARPNESS the last attack's steepness, 0..1. What moves on one is the reaction matrix's: no style reads them on its own.
 // SND_SECTION_CHANGE and SND_DROP are triggers: 0, or a strength at 0.4..1 (core/sound Form::kEventFloor). Test > 0.0.
 // A track boundary the player names fires SND_SECTION_CHANGE at 1.
 

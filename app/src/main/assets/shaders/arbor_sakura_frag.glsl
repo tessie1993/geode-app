@@ -57,7 +57,7 @@ out vec4 fragColor;
 // Space: camAround's orbit and dolly. Knobs (offsets from 0.5, so off is the
 // tuned look): k0 PULSE the blossom size, k1 TEXTURE the paper grain, k2 FLOW
 // the petal fall speed, k3 TONE the blossom hue, k4 BUILD the sun's glow, k5
-// SPACE the orbit radius.
+// SPACE the orbit radius. The mids bow the boughs (arbMidBow).
 //
 // ---- why the estimate is safe ---------------------------------------------------
 //
@@ -218,7 +218,7 @@ void main() {
     gFlutter = 0.015 + 0.04 * chaos;
     gLip = 1.0 + 1.5 * SK_FLUTTER_K * gFlutter;
     gGrow = arbLevels(7.0, 1.0);
-    gF = ArborForm(2.0, 0.62, 0.16, 1.9 + 0.5 * uTwist + 0.4 * sway, 0.72, 0.82, 0.11, 0.72);
+    gF = ArborForm(2.0, 0.62, 0.16 + arbMidBow(), 1.9 + 0.5 * uTwist + 0.4 * sway, 0.72, 0.82, 0.11, 0.72);
     gBloomScale = 0.12 * (1.0 + 0.6 * kPulse);
 
     vec3 ro;

@@ -178,13 +178,15 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt, sound); break;
             // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
-            // the shaped level, the centroid, the note-start envelope and the stereo field.
+            // the shaped level, the centroid, the transient envelope (core/sound/Transient: the sharp start of any
+            // sound, a few ms after it; it was the flux onset's, ~70 ms late, until the transient detector came)
+            // and the stereo field.
             case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
             case ModSource::Mid: raw = follow(i, 0.5f * sound.midAtt, dt); break;
             case ModSource::Treble: raw = follow(i, 0.5f * sound.trebleAtt, dt); break;
             case ModSource::Level: raw = follow(i, sound.level, dt); break;
             case ModSource::Brightness: raw = follow(i, sound.centroid, dt); break;
-            case ModSource::Transient: raw = follow(i, sound.onsetEnv, dt); break;
+            case ModSource::Transient: raw = follow(i, sound.transientEnv, dt); break;
             case ModSource::StereoWidth: raw = follow(i, sound.stereoWidth, dt); break;
             case ModSource::StereoPan: raw = followBipolar(i, sound.stereoPan, dt); break;
         }

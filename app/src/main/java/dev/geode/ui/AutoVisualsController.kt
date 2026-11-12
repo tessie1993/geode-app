@@ -6,9 +6,8 @@ import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.MilkdropEngine
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.flow.StateFlow
 
 internal class AutoVisualsController(
@@ -250,12 +249,7 @@ internal class AutoVisualsController(
         val choices = mutableListOf<VizPlaylistEntry>()
         // The entry on screen, if it is in the pool: the native draw never brings it back while there is another.
         var onScreen = -1
-        val sceneIds =
-            dev.geode.render.scene.VisualStyleCatalog.silkIds +
-                dev.geode.render.scene.VisualStyleCatalog.lifeIds +
-                dev.geode.render.scene.VisualStyleCatalog.mycoIds +
-                dev.geode.render.scene.VisualStyleCatalog.acidIds +
-                dev.geode.render.scene.SceneCapabilities.SHADER_SCENES.keys
+        val sceneIds = StyleCatalogue.ids(GeodeNative.STYLE_AUTO_DRAW)
         // Locked styles are left out of the draw: a pick the gate then refused was a moment with no change.
         if (s.randomIncludeStyles) {
             sceneIds.filter(host::allowsStyle).forEach {
@@ -269,11 +263,11 @@ internal class AutoVisualsController(
                 choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name)
             }
         }
-        if (s.randomIncludeMilk && MilkdropEngine.available && host.allowsStyle(SceneIds.MILKDROP)) {
-            val playing = host.activeMilkPath.takeIf { s.sceneId == SceneIds.MILKDROP }
+        if (s.randomIncludeMilk && host.allowsStyle(GeodeNative.STYLE_MILKDROP)) {
+            val playing = host.activeMilkPath.takeIf { s.sceneId == GeodeNative.STYLE_MILKDROP }
             host.milkFiles.forEach {
                 if (it.path == playing && onScreen < 0) onScreen = choices.size
-                choices += VizPlaylistEntry(sceneId = SceneIds.MILKDROP, milkPath = it.path, label = it.name)
+                choices += VizPlaylistEntry(sceneId = GeodeNative.STYLE_MILKDROP, milkPath = it.path, label = it.name)
             }
         }
         val pick = GeodeNative.autoPick(choices.size, onScreen)

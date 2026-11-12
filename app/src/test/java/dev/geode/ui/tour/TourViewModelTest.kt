@@ -4,6 +4,7 @@ import dev.geode.data.AppState
 import dev.geode.data.AppStateRepository
 import dev.geode.model.GestureTip
 import dev.geode.model.TourChapter
+import dev.geode.model.TourCover
 import dev.geode.model.TourFacts
 import dev.geode.model.TourPlace
 import dev.geode.model.TourProgress
@@ -63,7 +64,7 @@ class TourViewModelTest {
         facts: TourFacts,
     ): TourViewModel =
         TourViewModel(data).also {
-            it.onBlocked(false)
+            it.onCover(TourCover())
             it.onFacts(facts)
             settle()
         }
@@ -188,12 +189,74 @@ class TourViewModelTest {
             val vm = tour(FakeUserData(startDone), onVisuals)
             vm.onPrimary()
             settle()
-            vm.onBlocked(true)
+            vm.onCover(TourCover(paywall = true))
             settle()
             assertNull(vm.uiState.value.step)
-            vm.onBlocked(false)
+            vm.onCover(TourCover())
             settle()
             assertEquals(TourSpot.STAGE_ARROWS, vm.spot())
+        }
+
+    @Test
+    fun `the first-run hint waits under a permission ask and shows once it is answered`() =
+        runTest(main) {
+            val vm = TourViewModel(FakeUserData(TourProgress()))
+            vm.onCover(TourCover(permissionRationale = true))
+            vm.onFacts(onLibrary)
+            settle()
+            assertNull(vm.uiState.value.step)
+            vm.onCover(TourCover(away = true))
+            settle()
+            assertNull(vm.uiState.value.step)
+            vm.onCover(TourCover())
+            settle()
+            assertEquals(TourSpot.PLAY_SONG, vm.spot())
+        }
+
+    @Test
+    fun `no gesture tip is said while a permission ask is up`() =
+        runTest(main) {
+            val vm = tour(FakeUserData(TourProgress.Finished), onVisuals)
+            vm.onCover(TourCover(away = true))
+            vm.nudge(GestureTip.DOUBLE_TAP_SHEET)
+            assertNull(vm.uiState.value.tip)
+            vm.onCover(TourCover())
+            vm.nudge(GestureTip.DOUBLE_TAP_SHEET)
+            assertEquals(GestureTip.DOUBLE_TAP_SHEET, vm.uiState.value.tip)
+        }
+
+    @Test
+    fun `Don't show tips turns tips and chapters off until they are turned back on`() =
+        runTest(main) {
+            val data = FakeUserData(startDone)
+            val vm = tour(data, TourFacts(shown = tabs, place = TourPlace.VISUALS))
+            vm.nudge(GestureTip.SWIPE_STYLES)
+            vm.onTipsOff()
+            settle()
+            assertNull(vm.uiState.value.tip)
+            assertTrue(data.progress.off)
+            assertEquals(setOf(GestureTip.SWIPE_STYLES), data.progress.tips)
+
+            vm.nudge(GestureTip.HOLD_TO_RECORD)
+            assertNull(vm.uiState.value.tip)
+            vm.onFacts(onVisuals)
+            settle()
+            assertNull(vm.uiState.value.step)
+
+            data.value.value = data.value.value.copy(tourProgress = data.progress.copy(off = false))
+            settle()
+            assertEquals(TourSpot.VISUALS_TABS, vm.spot())
+        }
+
+    @Test
+    fun `a replay still plays while tips are off`() =
+        runTest(main) {
+            val vm = tour(FakeUserData(TourProgress.Finished.copy(off = true)), TourFacts())
+            vm.replay(listOf(TourChapter.CUSTOMIZE))
+            vm.onNavigated()
+            vm.onFacts(TourFacts(shown = TourChapter.CUSTOMIZE.spots.toSet(), place = TourPlace.VISUALS))
+            advanceTimeBy(REPLAY_WAIT + SETTLE)
+            assertEquals(TourSpot.CUSTOMIZE_KNOBS, vm.spot())
         }
 
     @Test

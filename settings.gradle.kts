@@ -28,5 +28,4 @@ include(":app")
 include(
     ":engine:audio-core",
     ":engine:scenes",
-    ":engine:audio-android",
 )

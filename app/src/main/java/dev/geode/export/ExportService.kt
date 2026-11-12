@@ -98,7 +98,7 @@ class ExportService : Service() {
                 .setContentText(
                     listOfNotNull(
                         state.label.ifBlank { getString(dev.geode.R.string.export_notification_text) },
-                        state.secondsRemaining?.let { RenderEta.describe(resources, it) },
+                        state.secondsRemaining?.let { ExportRun.describeEta(resources, it) },
                     ).joinToString(" · "),
                 ).setSmallIcon(dev.geode.R.drawable.ic_stat_capture)
                 .setOngoing(true)

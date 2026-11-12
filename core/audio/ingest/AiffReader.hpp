@@ -6,14 +6,88 @@
 #include <vector>
 
 // An AIFF or AIFF-C (NONE or sowt) file read as 16-bit PCM, for the two readers MediaExtractor cannot
-// serve: the export's track audio (TrackFeed) and the soundtrack transcoder (export/AudioTranscoder).
-// Ported from the Kotlin dev.geode.audio.AiffPcm with the same header walk and the same sample rule: 8-bit
+// serve: the export's track audio (TrackPump) and the soundtrack transcoder (export/AudioTranscoder). The
+// header walk and the sample rule are those the transcoder has always read AIFF with: 8-bit
 // samples are shifted up a byte, 16-, 24- and 32-bit samples keep their top two bytes (no dither, no
 // rounding), whatever the byte order.
 //
 // The bytes come from a ByteSource, read once, front to back: the shell hands over a file descriptor
 // (FdSource), a host test a buffer (MemorySource). One thread at a time.
+//
+// The header is parsed in one place, AiffHeaderScan, for both this reader and the player's extractor, which
+// reads the file through Media3 and so feeds the scan the bytes it asks for.
 namespace geode::audio::ingest {
+
+// What an AIFF's COMM and SSND chunks say.
+struct AiffHeader {
+    // How the player takes the samples; kNotPlayed for a width or byte order its sink has no encoding for.
+    enum Pcm : int { kNotPlayed = 0, kS16Le = 1, kS16Be = 2, kS24Be = 3, kS32Be = 4 };
+
+    int channels = 0;
+    int sampleRate = 0;         // the 80-bit extended rate rounded to the nearest hertz
+    int bits = 0;
+    bool littleEndian = false;  // AIFF-C "sowt"
+    int64_t frames = 0;         // COMM's count
+    int64_t dataStart = 0;      // the file offset of the first sample byte
+    int64_t dataBytes = 0;      // the sample bytes SSND's size leaves after its offset; the file may hold fewer
+
+    Pcm pcm() const;
+    // 0 for a sample width that is not whole bytes.
+    int bytesPerFrame() const { return bits > 0 && bits % 8 == 0 ? channels * (bits / 8) : 0; }
+};
+
+// The walk over an AIFF's chunks up to its first sample, fed by whoever holds the file: pass over skip()
+// bytes, read read() bytes, hand them to step(), and repeat while it answers kMore. The scan never asks for
+// more than kMaxRead bytes at once nor trusts a size in the file with more than a skip: a file cut short
+// fails in the feeder's read, and every size is taken as the unsigned 32 bits the format gives it.
+//
+// Refused (kInvalid): not FORM/AIFF or AIFC, a COMM chunk under 18 bytes, no channels, no rate or no sample
+// size, an AIFF-C compression other than NONE or sowt, SSND before COMM, a step that is not the bytes asked
+// for. A second COMM replaces the first.
+class AiffHeaderScan {
+public:
+    enum Status : int { kMore = 0, kDone = 1, kInvalid = -1 };
+    // The most step() takes at once: COMM's 18 bytes and AIFF-C's compression type.
+    static constexpr int kMaxRead = 22;
+    // The most one request passes over; a longer gap is asked for in pieces, each a step of no bytes.
+    static constexpr int64_t kMaxSkip = int64_t{1} << 30;
+
+    int64_t skip() const { return owed_ < kMaxSkip ? owed_ : kMaxSkip; }
+    int read() const { return owed_ <= kMaxSkip ? want_ : 0; }
+    // `n` must be read(); bytes may be null when it is 0. After kDone the file stands at header().dataStart.
+    Status step(const uint8_t* bytes, int n);
+    bool done() const { return phase_ == Phase::kDone; }
+    // Complete only once done().
+    const AiffHeader& header() const { return header_; }
+
+    // The rate in COMM's ten bytes, rounded to the nearest hertz; 0 for none or one past what an int holds.
+    static int extendedRate(const uint8_t* ten);
+
+private:
+    enum class Phase { kForm, kChunkHead, kComm, kSsnd, kDataGap, kDone, kInvalid };
+
+    Status fail();
+    void ask(Phase phase, int64_t skip, int read);
+    Status onChunkHead(const uint8_t* b);
+    Status onComm(const uint8_t* b, int n);
+
+    Phase phase_ = Phase::kForm;
+    int64_t owed_ = 0;      // bytes still to pass over before the phase's read
+    int want_ = 12;         // the phase's read
+    int64_t at_ = 0;        // the file offset after everything passed over and read so far
+    int64_t commRest_ = 0;  // what follows COMM's parsed fields, its pad byte included
+    int64_t ssndSize_ = 0;
+    bool aifc_ = false;
+    bool commSeen_ = false;
+    AiffHeader header_;
+};
+
+// Where a byte offset into the samples falls in time, and back, for the player's seek map. Both count whole
+// frames and neither overflows on a long file or a far seek.
+// The start time, in microseconds, of the frame `bytes` into the samples lies in; 0 for a bad layout.
+int64_t aiffTimeUs(int64_t bytes, int bytesPerFrame, int sampleRate);
+// The byte offset of the frame playing at timeUs, held to the whole frames in dataBytes.
+int64_t aiffSeekOffset(int64_t timeUs, int bytesPerFrame, int sampleRate, int64_t dataBytes);
 
 class ByteSource {
 public:
@@ -51,9 +125,9 @@ private:
 
 class AiffReader {
 public:
-    // Null when the bytes are not an AIFF this reads: not FORM/AIFF or AIFC, a compression other than NONE
-    // or sowt, no SSND chunk, no channels or rate, a sample size other than 8, 16, 24 or 32 bits, or a
-    // header cut short. The source is dropped (closed) then.
+    // Null when the bytes are not an AIFF this reads: a header AiffHeaderScan refuses or one cut short (no
+    // SSND chunk), or a sample size other than 8, 16, 24 or 32 bits. The source is dropped (closed) then.
+    // The samples are read to the end of the source or COMM's frame count, whatever SSND's size says.
     static std::unique_ptr<AiffReader> open(std::unique_ptr<ByteSource> source);
 
     int channels() const { return channels_; }
@@ -78,8 +152,6 @@ private:
     bool fill();
     bool readFully(uint8_t* dst, size_t n);
     void skip(int64_t n);
-    bool readInt16(int16_t& v);
-    bool readInt32(int32_t& v);
 
     std::unique_ptr<ByteSource> source_;
     std::vector<uint8_t> buffer_;  // the read-ahead the Kotlin BufferedInputStream gave (64 KiB)

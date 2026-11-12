@@ -17,6 +17,8 @@ import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BookmarkStore
 import dev.geode.data.BootAnimationStore
+import dev.geode.data.CustomizeGroups
+import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
 import dev.geode.data.ExportPrefsStore
@@ -50,15 +52,14 @@ import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
-import dev.geode.engine.audio.SoundFrameLayout
-import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
 import dev.geode.model.StyleShelf
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
-import dev.geode.render.MilkPresetMemory
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestCatalogue
 import dev.geode.ui.ModulationController
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
@@ -76,6 +77,10 @@ import java.io.File
  * that is known to be wrong, the key is in [misclassified], which later PRs shrink.
  */
 class PrefsSchemaTest {
+    init {
+        TestCatalogue.install()
+    }
+
     /** One owner of keys: its source file, its list, and how to make it write every key (null: see [sourcePinned]). */
     private class Owner(
         val source: String,
@@ -92,7 +97,7 @@ class PrefsSchemaTest {
                 GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
             },
             Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
-                val tuning = SoundTuning.fromFloats(FloatArray(SoundFrameLayout.TUNING_FLOATS))
+                val tuning = List(GeodeNative.SOUND_TUNING_FLOATS) { 0f }
                 SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
             },
             Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {
@@ -116,12 +121,15 @@ class PrefsSchemaTest {
                 StudioPrefsStore(it[general]).saveKeepAsProject(true)
             },
             Owner("$DATA/BootAnimationStore.kt", BootAnimationStore.PREF_KEYS) { BootAnimationStore(it[general]).save(false) },
+            Owner("$DATA/CustomizeGroupsStore.kt", CustomizeGroupsCodec.keys) {
+                CustomizeGroupsCodec.save(it[general], CustomizeGroups(open = setOf("LOOK/basics"), tab = "LOOK"))
+            },
             Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroBankCodec { bank -> bank }.save(it[general], "macrobank|1|1\n") },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
-                val store = LfoStore(it[general])
+                val store = LfoStore(it[general], readReactions = { null })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
-                store.saveReactions(emptyList())
+                store.saveReactions("reactions/2")
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
@@ -133,9 +141,7 @@ class PrefsSchemaTest {
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
                 StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
             },
-            Owner("engine/scenes/src/main/kotlin/dev/geode/render/MilkPresetMemory.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS) {
-                MilkPresetMemory.shared(it).loaded("/milk/a.milk")
-            },
+            Owner("engine/scenes/src/main/kotlin/dev/geode/render/VisualizerRenderer.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
                 PlayerPrefsStore(it[player]).save(PlayerPrefs())
                 BookmarkStore(it[player]).note("content://track", BookmarkStore.LONG_TRACK_MS, BookmarkStore.LONG_TRACK_MS * 2)
@@ -164,7 +170,8 @@ class PrefsSchemaTest {
 
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
-                ModulationController(LfoStore(it[general]), it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
+                val lfos = LfoStore(it[general], readReactions = { null })
+                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
@@ -203,6 +210,7 @@ class PrefsSchemaTest {
             "$DATA/PerformanceStore.kt" to "its first load and its fallback read the native tier table",
             "$DATA/LookStore.kt" to "VizStateStore writes these, and builds on the native bundled presets",
             "$DATA/MusicLibraryRepository.kt" to "needs an Application, MediaStore and a folder scan",
+            "engine/scenes/src/main/kotlin/dev/geode/render/VisualizerRenderer.kt" to "the preset memory it saves for is native",
         )
 
     /**
@@ -240,10 +248,6 @@ class PrefsSchemaTest {
             ExportPrefsStore.PREF_KEYS.filter { it.name.endsWith("export_save_to") }.forEach { put(general to it.name, BackupClass.DEVICE) }
             // Equalizer band levels (owner decision 9 of #1009).
             put(GeodePrefsFiles.AUDIO_FX to "band_levels", BackupClass.DEVICE)
-            // The wallpaper's options are the user's choices, but no backup section holds their file.
-            WallpaperPrefsStore.PREF_KEYS
-                .filterNot { it.name == WallpaperPrefsStore.KEY_MIX_REFUSED }
-                .forEach { put(it.file to it.name, BackupClass.PORTABLE) }
         }
 
     private val allKeys = owners.flatMap { it.keys }

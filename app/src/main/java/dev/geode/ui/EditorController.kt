@@ -2,23 +2,16 @@ package dev.geode.ui
 
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.ExportDestination
-import dev.geode.editor.Clip
-import dev.geode.editor.ClipContent
-import dev.geode.editor.ClipId
-import dev.geode.editor.IdSource
-import dev.geode.editor.Lane
-import dev.geode.editor.LaneId
-import dev.geode.editor.LaneKind
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject
 import dev.geode.editor.TrackRef
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 /**
  * Studio's project folders as My videos sees them, newest first. [loaded] turns true once the
@@ -37,9 +30,8 @@ data class EditorUiState(
  * stored (ADR 0005): a saved recording becomes one in [keepRecording], and a one-tap render the
  * user adds to My videos becomes one in [createWithLook].
  *
- * The render path records each finished file with [recordRender], so a render that finishes after
- * the user moved on still lands in its project. The store is touched only on [storeScope], one
- * write at a time, so a list read always follows the write before it.
+ * The store is touched only on [storeScope], one write at a time, so a list read always follows
+ * the write before it.
  */
 internal class EditorController(
     private val store: EditorProjectStore,
@@ -47,8 +39,6 @@ internal class EditorController(
 ) {
     private val _state = MutableStateFlow(EditorUiState())
     val state: StateFlow<EditorUiState> = _state
-
-    private val ids = IdSource { UUID.randomUUID().toString() }
 
     /**
      * Reads the project list once at start, first deleting the projects that list no video: only
@@ -67,17 +57,7 @@ internal class EditorController(
         render: ProjectRender,
     ) {
         storeScope.launch {
-            val project =
-                StudioProject.create(
-                    id = store.newId(),
-                    name = render.label.ifBlank { nextName(store.list()) },
-                    destination = ExportDestination.CUSTOM,
-                    defaults = store.defaultsFor(ExportDestination.CUSTOM),
-                    nowMs = store.clock(),
-                    ids = ids,
-                    track = track,
-                )
-            store.save(project.withRender(render))
+            newProject(render.label.ifBlank { nextName(store.list()) }, track, null, null, render)?.let(store::save)
             refreshLists()
         }
     }
@@ -94,37 +74,35 @@ internal class EditorController(
         render: ProjectRender,
     ) {
         storeScope.launch {
-            val base =
-                StudioProject.create(
-                    id = store.newId(),
-                    name = track.title.ifBlank { nextName(store.list()) },
-                    destination = ExportDestination.CUSTOM,
-                    defaults = store.defaultsFor(ExportDestination.CUSTOM),
-                    nowMs = store.clock(),
-                    ids = ids,
-                    track = track,
-                )
-            val lengthMs = maxOf(track.durationMs, render.durationMs)
-            val look =
-                Clip(
-                    id = ClipId(ids.next()),
-                    content = ClipContent.Scene(sceneId = sceneId, milkPath = milkPath),
-                    startMs = 0L,
-                    durationMs = lengthMs,
-                )
-            val visual = Lane(LaneId(ids.next()), LaneKind.Visual, clips = listOfNotNull(look.takeIf { lengthMs > 0L }))
-            val song = base.edit.timeline
-            val timeline = song.copy(lanes = listOf(visual) + song.lanes, durationMs = maxOf(song.durationMs, lengthMs))
-            store.save(base.copy(edit = base.edit.copy(timeline = timeline)).withRender(render))
+            newProject(track.title.ifBlank { nextName(store.list()) }, track, sceneId, milkPath, render)?.let(store::save)
             refreshLists()
         }
     }
 
-    /** Adds a finished video to project [id]'s list. */
-    fun recordRender(
-        id: ProjectId,
+    /** A new project listing [render], its edit made by native; null only when native could not make one. */
+    private fun newProject(
+        name: String,
+        track: TrackRef?,
+        sceneId: String?,
+        milkPath: String?,
         render: ProjectRender,
-    ) = changeProject(id) { it.withRender(render) }
+    ): StudioProject? {
+        val kind = GeodeNative.studioKindRead(null) ?: return null
+        val edit =
+            GeodeNative.studioEditNew(track?.uri, track?.title.orEmpty(), track?.durationMs ?: 0L, sceneId, milkPath, render.durationMs)
+                ?: return null
+        val now = store.clock()
+        return StudioProject(
+            id = store.newId(),
+            name = name,
+            kind = kind,
+            edit = edit,
+            destination = ExportDestination.CUSTOM,
+            export = store.defaultsFor(ExportDestination.CUSTOM),
+            createdAtMs = now,
+            updatedAtMs = now,
+        ).withRender(render)
+    }
 
     /** Takes a video off project [id]'s list (My videos' delete); the file itself is the caller's. */
     fun removeRender(

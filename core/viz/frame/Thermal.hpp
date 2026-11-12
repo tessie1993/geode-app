@@ -20,11 +20,10 @@
 // read "no forecast" and settled on Full while the first was easing off (#387). Now one state holds the
 // readings and the settled tier; every renderer's governor reads it, and the pacer applies its fps cap.
 //
-// Android keeps only the reads. The status is never polled: PowerManager's status listener pushes it when
-// it changes. The headroom is asked every ten seconds: a live renderer's one per-frame call
-// (`geode_viz_frame_begin`) claims the slot and says GEODE_FRAME_THERMAL_DUE; only then does
-// `ThermalGovernor.kt` ask PowerManager and call `geode_thermal_push`. The cadence, the NaN rule, the dwell
-// and the ladder are all decided here.
+// The platform's reads are viz/frame/ThermalSource (the NDK's thermal manager). The status is never polled:
+// its listener pushes it when it changes. The headroom is asked every ten seconds: a live renderer's frame
+// (`geode_viz_frame`) claims the slot and, when it wins one with a headroom due, asks the platform. The
+// cadence, the NaN rule, the dwell and the ladder are all decided here.
 namespace geode::viz {
 
 enum class ThermalTier { Full, Eased, Reduced, Minimal };
@@ -68,7 +67,7 @@ class ThermalState {
 public:
     // The state settles once a second for the whole process, whoever draws.
     static constexpr double kSamplePeriodSeconds = 1.0;
-    // PowerManager's headroom tracks slow skin sensors, and Android's Thermal API guide says to ask no more
+    // The platform's headroom tracks slow skin sensors, and Android's Thermal API guide says to ask no more
     // than once every ten seconds (it answers NaN otherwise), so the whole process asks that often.
     static constexpr double kHeadroomPeriodSeconds = 10.0;
     // A NaN between real readings is a missed window, not a cool phone: the last real headroom holds this
@@ -136,7 +135,7 @@ public:
         settle(std::max(statusTier(status_), headroomTier(headroom_)), step);
     }
 
-    // True once PowerManager has answered with a real status. Until then (and on old phones for good)
+    // True once the platform has answered with a real status. Until then (and on old phones for good)
     // the governors fall back on measured frame time.
     bool platformKnows() const { return platformKnows_.load(std::memory_order_relaxed); }
 
@@ -173,8 +172,25 @@ public:
     // kept-up frames with no raise anywhere, so a cheap surface keeping up cannot undo a busy one's raise.
     uint64_t raises() const { return raises_.load(std::memory_order_relaxed); }
 
+    // The "Phone is warm" note on the Visuals stage (#994): once per process, the first time a hot tier has
+    // made the stage draw fewer frames than it asks for. `surfaceCapFps` is the stage's own cap (Follow device
+    // too), `pacedFps` the rate its pacer holds it to now. Returns that rate, rounded, to name in the note, and 0
+    // every other time: cool, a cap already at the floor, or a pacer that has not stepped down yet (asked again).
+    int takeWarmNote(float surfaceCapFps, float pacedFps) {
+        const int rungs = fpsRungsDown();
+        if (rungs <= 0 || !std::isfinite(pacedFps) || pacedFps <= 0.0f) return 0;
+        if (!frame::isLiveFpsFollow(surfaceCapFps)) {
+            const float hot = frame::thermalStepCapFps(surfaceCapFps, rungs);
+            const bool capped = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
+            if (capped && hot >= surfaceCapFps) return 0;
+            if (pacedFps > hot + frame::kRefreshToleranceHz) return 0;
+        }
+        if (warmNoteShown_.exchange(true, std::memory_order_relaxed)) return 0;
+        return static_cast<int>(std::lround(pacedFps));
+    }
+
     static ThermalTier statusTier(int status) {
-        // PowerManager.THERMAL_STATUS_*: NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
+        // ATHERMAL_STATUS_* (PowerManager.THERMAL_STATUS_*'s values): NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
         if (status <= 0) return ThermalTier::Full;
         if (status == 1) return ThermalTier::Eased;
         if (status == 2) return ThermalTier::Reduced;
@@ -222,6 +238,7 @@ private:
     std::atomic<ThermalTier> measuredFloor_{ThermalTier::Full};
     std::atomic<bool> platformKnows_{false};
     std::atomic<uint64_t> raises_{0};
+    std::atomic<bool> warmNoteShown_{false};
     // Under lock_.
     int status_ = 0;
     float headroom_ = std::numeric_limits<float>::quiet_NaN();

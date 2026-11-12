@@ -7,7 +7,7 @@
 namespace geode::viz::frame::link {
 
 // "Show on a computer": the Cast stream (CastStream, CastEncoder, LiveSegments) served to a browser on the
-// same Wi-Fi as well as, or instead of, a TV. cast/LiveHttpServer (Kotlin) owns the socket and the bytes;
+// same Wi-Fi as well as, or instead of, a TV. core/cast/LiveServer owns the socket and the bytes;
 // everything it decides is here: which path is what (route), the token check, every response header, the
 // page the browser loads (LinkPage.hpp), the master playlist with the codecs read from the encoder's own init
 // segment, the share's state, who may connect at all (admit) and whether the TV is really playing
@@ -17,14 +17,15 @@ namespace geode::viz::frame::link {
 // its source address before a byte is read (admit: a TV cast admits the Cast device alone, a live link the
 // phone's own subnet); then every path sits under a 128-bit
 // random token (SecureRandom in the shell, new per stream), compared in constant time; a wrong token, an
-// unknown name, a query on an unknown name or any other path is a bare 404; only GET, HEAD and OPTIONS; no
+// unknown name, a query on an unknown name or any other path is a bare 404 (off the token only the typed path's
+// page, which hands out the token's path for a right code, LinkPair.hpp); only GET, HEAD and OPTIONS; no
 // response caches (no-store), sniffs (nosniff) or leaks a referrer, and the page runs under a CSP with no
 // inline script or style and nothing from another origin. What stays open by design: plain HTTP on the LAN
 // (no certificate can be trusted for a LAN address), so while a link is shared anyone on the same Wi-Fi who
 // sees the link, or the traffic, can watch; and CORS is * on the stream's own files because the TV's receiver fetches them from
 // Google's https origin.
 
-// The names the server answers under /<token>/. LiveSegments (Kotlin) writes its playlist with the same ones.
+// The names the server answers under /<token>/. core/cast/LiveSegments writes its playlist with the same ones.
 inline constexpr std::string_view kPlaylistName = "live.m3u8";
 inline constexpr std::string_view kMasterName = "index.m3u8";
 inline constexpr std::string_view kInitName = "init.mp4";
@@ -42,6 +43,10 @@ inline constexpr int kMaxStreams = 3;
 // http under the token like everything else; only the media that follows is encrypted (DTLS-SRTP).
 inline constexpr std::string_view kRtcName = "rtc";
 
+// The typed path's names, off the token (LinkPair.hpp): its page at "/", its script, the shared style, the code's POST.
+inline constexpr std::string_view kPairScriptName = "pair.js";
+inline constexpr std::string_view kPairName = "pair";
+
 // The token: 32 lowercase hex characters (16 random bytes).
 inline constexpr size_t kTokenChars = 32;
 
@@ -56,7 +61,10 @@ enum class Resource : int {
     Segment = 7,
     Redirect = 8,   // /<token> without its slash: 308 to /<token>/, so the page's relative names resolve
     Stream = 9,     // stream.mp4: the browser's live feed, no Content-Length, held open while the page plays
-    Rtc = 10,       // rtc: POST an offer (application/sdp), get the answer; the only resource that takes a body
+    Rtc = 10,       // rtc: POST an offer (application/sdp), get the answer
+    PairPage = 11,  // "/": the typed path's page, where a computer types the code (LinkPair.hpp)
+    PairScript = 12,  // "/pair.js"
+    Pair = 13,      // "/pair": POST the typed code (text), get the token's path back
 };
 
 struct Route {
@@ -76,7 +84,9 @@ bool tokenMatches(std::string_view candidate, std::string_view token);
 // 204 for OPTIONS on a known path (the TV receiver's CORS preflight), 308 for the bare token, 405 for
 // another method on a known path, 404 for everything else (a wrong or malformed token included). The feed
 // (stream.mp4) has no preflight: only the page, on the phone's own origin, reads it. rtc takes POST alone
-// (no preflight either: the page is same-origin) and everything else takes no POST.
+// (no preflight either: the page is same-origin) and everything else takes no POST. Off the token only the typed
+// path answers: "/" (its page), "/pair.js", "/player.css" (GET, HEAD) and "/pair" (POST alone); none names
+// anything of the stream.
 Route route(std::string_view method, std::string_view target, std::string_view token);
 
 // The response head (status line, headers, blank line) for a status and resource with a body of length
@@ -94,7 +104,7 @@ inline constexpr int64_t kNoBody = -1;
 inline constexpr int64_t kBadBody = -2;
 int64_t bodyLength(const std::string_view* headers, size_t count, int64_t max);
 
-// The status of the answer to a POST on rtc, from what the WebRTC link said (geode_webrtc_answer: a length,
+// The status of the answer to a POST on rtc, from what the WebRTC link said (WebRtcLink::answer: a length,
 // or a negative GEODE_WEBRTC_REFUSED_*): 200 with the answer; 503 while the stream has no picture yet or the
 // browsers are full (the page then uses the fMP4 feed; it is not retried there); 400 for any other refusal.
 int rtcStatus(int answerResult);
@@ -108,6 +118,11 @@ int rtcStatus(int answerResult);
 // opens the page, and anyone on the Wi-Fi sees the phone's address in the traffic. address 0 or a port outside
 // 1..65535 gives "". A dotted form (the server's own) is still what the TV's receiver is handed.
 std::string shareUrl(uint32_t address, int port, std::string_view token);
+// The short link a computer types (http://3232235876:port/): the same host as one number, and no token. The page
+// there asks for the code (LinkPair.hpp); "" on the same terms as shareUrl.
+std::string pairUrl(uint32_t address, int port);
+// What a right code is answered with: the token's path, "/<token>/", which the typed page then opens.
+std::string pairedPath(std::string_view token);
 // A short name for the sheet to show beside the QR code ("Blue Comet"), the same for the same token, so a
 // viewer can tell which phone's link they opened; two words from the token's hash, saying nothing of the
 // address and too little of the token to help guess it.

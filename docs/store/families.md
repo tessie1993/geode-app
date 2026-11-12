@@ -23,13 +23,12 @@ four were not, as the code stood on 2026-11-11:
 2. **The privacy policy's Children section** says the app "is not directed at children under
    13" (`docs/privacy-policy.md:142-145`). Under 13+ that sentence is correct and stays; under
    9-12 it would have had to be rewritten, with a contact for parents.
-3. **The first-run safety notice** promises that nothing can flash more than three times a
-   second, on screen or in exported video (`res/values/strings.xml:29,85`), while the engine
-   limits parameters and no longer measures the finished frame (#947). Under Families,
-   "content accessible to children must be appropriate" makes that more than a wording issue.
-   It is still an honesty fix under 13+.
+3. **The first-run safety notice** used to promise that nothing could flash more than three
+   times a second, while the engine limits parameters and no longer measures the finished frame
+   (#947). Closed (#994): `safety_prompt` now says what is limited and that MilkDrop presets only
+   get the brightness cap.
 4. **The style kind labelled "Acid"** (`core/viz/Catalogue`). Play's examples of Families
    violations include glamorising controlled substances.
 
-To revisit: close 1 and 3, rewrite 2, decide 4, then tick 9-12 in Target audience and content
+To revisit: close 1, rewrite 2, decide 4, then tick 9-12 in Target audience and content
 and re-read the Families policy, which changes often.

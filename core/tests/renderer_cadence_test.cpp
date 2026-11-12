@@ -5,7 +5,7 @@
 // take), once; a repeated Settings › Performance push is applied once, a change again, a NaN once, and a
 // new surface applies it again; the thermal bit goes to one caller a second across two surfaces sharing
 // one ThermalState; the Liquid field carries the mode only when it changed; the error text is told once per
-// change and once per handle; and the bits match the ABI.
+// change and once per handle; and the bits the shell sees match the ABI.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -31,7 +31,6 @@ void check(bool ok, const char* what) {
 }
 
 static_assert(kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
-static_assert(kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 
@@ -124,7 +123,6 @@ void liquidField() {
         const uint32_t due = frame(c, asked, false, mode);
         check((due & kFrameLiquidChanged) != 0, "a changed mode sets the bit");
         check(FrameCadence::liquidModeOf(due) == mode, "and carries the mode");
-        check(GEODE_FRAME_LIQUID_MODE(due) == mode, "the ABI macro reads the same field");
     }
     check(frame(c, asked, false, -1) == 0, "an unchanged mode sets nothing");
     check((frame(c, asked, false, 0) & kFrameLiquidChanged) != 0, "mode 0 (off) is still a change");

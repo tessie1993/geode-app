@@ -22,7 +22,10 @@
 // - Presets: the saved looks the user may apply, in the page's order, the same way: with the sheet hidden only
 //   while the stage still shows one of them (style and params as saved).
 // - Styles, Customize, Settings, or a tab with nothing to step: the styles, in the Styles page's order, as before.
-// The MilkDrop style stays reachable from Styles as a style ("types"), the presets from their own tabs.
+// Owner, 2026-11-12 (later): while MilkDrop is the style on screen the step walks the .milk presets from any tab
+// (Presets keeps its looks while it steps them), so a swipe surfs MilkDrop instead of leaving it. Every .milk walk
+// needs two presets listed: with one or none, or MilkDrop locked or missing, the step walks the styles. MilkDrop
+// is left by Styles (a style there, or Random), Auto or a preset, never by the swipe.
 //
 // The walk itself ([pickIndex]) wraps at the ends, never lands on the item already on screen, skips what the
 // entitlement locks (a swipe that opened the paywall would stop the browse dead) and starts from an end when
@@ -56,19 +59,23 @@ enum Target : int {
     kMilk = 2,
 };
 
+// The fewest .milk presets a walk needs: with one, a step has nowhere to go but the one on screen.
+constexpr int kMinMilk = 2;
+
 // milkCount: the .milk presets listed; lookCount: the saved looks the user may apply.
 inline Target target(int page, uint32_t flags, int milkCount, int lookCount) {
     const bool shown = (flags & kSheetShown) != 0;
+    const bool onMilk = (flags & kOnMilk) != 0;
+    const bool milk = (flags & kMilkOpen) != 0 && milkCount >= kMinMilk;
     switch (page) {
         case kPageMilkdrop:
         case kPageTextures:
-            if ((flags & kMilkOpen) != 0 && milkCount > 0 && (shown || (flags & kOnMilk) != 0)) return kMilk;
-            return kStyles;
+            return milk && (shown || onMilk) ? kMilk : kStyles;
         case kPagePresets:
             if (lookCount > 0 && (shown || (flags & kOnLook) != 0)) return kLooks;
-            return kStyles;
+            return milk && onMilk ? kMilk : kStyles;
         default:
-            return kStyles;
+            return milk && onMilk ? kMilk : kStyles;
     }
 }
 

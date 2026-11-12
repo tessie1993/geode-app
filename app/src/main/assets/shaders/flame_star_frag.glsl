@@ -20,7 +20,7 @@ out vec4 fragColor;
 // only the cuts are lit, so the stars hang one behind the other as outlines.
 //
 // Morph sharpens the points from a soft octagon to a spiked star. Worst case
-// 72 samples, one fold, no noise.
+// 90 samples, one fold, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float r = max(length(p.xy), 1.0e-3);
@@ -33,6 +33,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float core = smoothstep(0.04, 0.3, r);
     wt = core * vec2(0.8, 0.55 + 0.3 * sin(4.0 * a + p.z));
 }
+
+//#include lib_flame_march
 
 void main() {
     vec2 uv = view();

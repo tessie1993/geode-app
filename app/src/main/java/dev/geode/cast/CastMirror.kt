@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  * remembered preset only when it is built, so without it a .milk picked on the phone, or drawn by
  * Auto while the app is in the background, never reached the TV.
  *
- * The UI feeds it ([follow], from `ui/cast/CastButton`); `cast/` can't read the UI's state itself
+ * The UI feeds it ([follow], from `ui/cast/CastHost`, on every screen); `cast/` can't read the UI's state itself
  * (the layer rule keeps the UI package out of every other package). It follows that flow for the
  * life of the process, so it keeps mirroring with the app in the background. Until something has
  * fed it, [look] is null and [CastStream] falls back to the saved live state.

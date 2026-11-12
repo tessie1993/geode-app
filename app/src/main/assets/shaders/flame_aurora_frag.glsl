@@ -18,7 +18,7 @@ out vec4 fragColor;
 // folded along the way, each with a ragged hem, and combed into fine upright
 // fibres where planes across the way cut them.
 //
-// Morph deepens the folds from flat drapes to tight pleats. Worst case 72
+// Morph deepens the folds from flat drapes to tight pleats. Worst case 90
 // samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
@@ -30,6 +30,8 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float hem = -1.3 + 0.7 * sin(1.7 * p.x + 3.0 * zc) + 0.3 * sin(4.0 * zc);
     wt = vec2(smoothstep(hem, hem + 2.2, p.y) * smoothstep(5.0, 2.0, p.y), 0.0);
 }
+
+//#include lib_flame_march
 
 void main() {
     vec2 uv = view();

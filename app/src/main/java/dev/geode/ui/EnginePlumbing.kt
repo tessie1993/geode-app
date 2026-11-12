@@ -10,13 +10,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
-import dev.geode.render.LfoConfig
-import dev.geode.render.ReactionRoute
 import dev.geode.render.VisualizerView
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
@@ -48,10 +44,10 @@ object LayersBus {
  */
 internal fun liveLook(
     viz: VizUiState,
-    lfos: List<LfoConfig>,
-    adsrs: List<AdsrConfig>,
-    reactions: List<ReactionRoute>?,
-    soundTuning: SoundTuning,
+    lfos: String,
+    adsrs: String,
+    reactions: String?,
+    soundTuning: List<Float>?,
     // Android's "Remove animations" (data/SystemMotion, #336), the only reduced-motion flag.
     reducedMotion: Boolean,
     underlay: LookUnderlay? = null,
@@ -105,7 +101,7 @@ fun VisualizerEngineBindings(
     }
     // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
     // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
-    // renderer's LookApplier pushes only what changed, so an unrelated vizState change costs nothing.
+    // renderer pushes only the parts that changed (NativeViz.setLook), so an unrelated vizState change costs nothing.
     // The underlay is mapped once per background push: a new instance would re-send the whole image.
     LaunchedEffect(reducedMotion) {
         val underlay =
@@ -137,6 +133,13 @@ fun VisualizerEngineBindings(
         // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
         val sceneId = if (layers.enabled) layers.sceneId else null
         visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
+    }
+    LaunchedEffect(Unit) {
+        // Settings › Gestures & controls › Touch › Smear: handed over as set; native bends the picture (core/viz/TouchSmear).
+        settingsViewModel.visuals
+            .map { it.touchSmear to it.touchSmearStrength }
+            .distinctUntilChanged()
+            .collect { (on, strength) -> visualizerView.visualizerRenderer.nativeViz.setTouchSmear(on, strength) }
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn

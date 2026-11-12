@@ -71,7 +71,7 @@ If the owner takes the other reading, the whole form is: collects or shares data
 | Purchase record | Read from the Play Store app, signature checked on the device, acknowledged back to Play; cached in app prefs. No developer server | `dev/geode/billing/PlayBillingRepository.kt:204-231`, `dev/geode/billing/EntitlementStore.kt:116-134` | No: Play Billing's own data; the app sends it nowhere else |
 | Rendered videos, recordings, screenshots, presets, templates | Written to the device (videos where the user chooses, screenshots to `Pictures/BeatRealms`, `dev/geode/data/StillFiles.kt`); leave it only through the user's Share action | `dev/geode/ui/RenderBar.kt:234`, `dev/geode/ui/PresetActions.kt:390-406`, `dev/geode/ui/TemplatesSheet.kt:243`, `dev/geode/ui/LoopRenderSheet.kt:169` | No: user-initiated |
 | Track title and artist | Handed to the user's browser when they tap "Search the web" for lyrics | `dev/geode/ui/LyricsSettings.kt:91-92` | No: user-initiated |
-| The visual and the music while casting or showing on a computer | Streamed from the phone to the TV, or to a browser on a computer, on the user's own Wi-Fi; only the player's music, never the microphone or another app's audio (`dev/geode/cast/CastStream.kt:195-197`); the app's one server socket, bound to the Wi-Fi address; the page the browser opens loads nothing from the internet | `dev/geode/cast/LiveHttpServer.kt:66,116`, `dev/geode/cast/CastStream.kt:296-321`, `dev/geode/cast/ComputerLink.kt` | No: user-initiated, to the user's own device |
+| The visual and the music while casting or showing on a computer | Streamed from the phone to the TV, or to a browser on a computer, on the user's own Wi-Fi; only the player's music, never the microphone or another app's audio (`dev/geode/cast/CastStream.kt:195-197`); the app's one server socket, bound to the Wi-Fi address; the page the browser opens loads nothing from the internet | `core/cast/LiveServer.cpp` (`start`), `dev/geode/cast/CastStream.kt:296-321`, `dev/geode/cast/ComputerLink.kt` | No: user-initiated, to the user's own device |
 | Motion sensors | Accelerometer (a shake on Visuals saves a screenshot), gyroscope (camera look), proximity (the screen saver's cover); read while that screen shows, decided natively, nothing kept | `dev/geode/ui/EasterEggs.kt`, `render/GyroLook.kt`, `dev/geode/wallpaper/DreamCover.kt` | No: on device, not stored |
 | Connected display | The visual on an HDMI, USB-C or wireless display through Android's `Presentation`; no socket of the app's | `dev/geode/ui/ConnectedDisplays.kt` | No: no transfer by the app |
 | Device backup | Android's own backup of app data to the user's Google account, limited by `res/xml/data_extraction_rules.xml` | `AndroidManifest.xml:103-107` | No: the system's transfer, not the app's or an SDK's |
@@ -106,10 +106,9 @@ every row above:
 Play needs a public, non-PDF URL. `pages.yml` publishes `docs/privacy-policy.html` to GitHub
 Pages on pushes to `main` (the address is in the workflow's header); the owner opens it and checks it shows this text before pasting it.
 
-The in-app safety notice (`res/values/strings.xml`, `safety_prompt`) says what the code does
-(it limits the engine's own effects and does not measure the finished picture), and the
-listing's photosensitivity warning says the same without naming strobe or flash effects.
-#1024 retired the pulse, shake and flash params, but the in-app strings (`safety_prompt`,
-`help_topic_safety_body`) still say "strobe and flash depth"; both params are now retired
-(`core/tests/params_schema.txt`, slots 58 and 65), so those strings should be reworded in a
-separate change to match the listing's wording.
+The in-app safety notice (`res/values/strings.xml`, `safety_prompt`, with `help_topic_safety_body`
+and `behavior_flash_guidance`) says what the code does: brightness, contrast and bloom are capped
+and brightness modulation slowed (`core/viz/VisualSafety`), nothing measures the finished picture,
+and a MilkDrop preset only gets the brightness cap (`core/viz/scenes/MilkdropScene` reads the
+clamped `brightness`), so the flashes it draws itself are not limited. The listing's
+photosensitivity warning says the same without naming strobe or flash effects (#994).

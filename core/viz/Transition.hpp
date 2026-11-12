@@ -28,6 +28,8 @@ public:
 
     const std::vector<Def>& library();
     std::vector<std::string> allIds();
+    // The built-in styles' ids, in TransitionStyle order: allIds() without the library.
+    static std::vector<std::string> builtInIds();
     const Def* definition(const std::string& id);
     static std::optional<TransitionStyle> builtIn(const std::string& id);
     static std::string spliceInto(const std::string& base, const Def& def);

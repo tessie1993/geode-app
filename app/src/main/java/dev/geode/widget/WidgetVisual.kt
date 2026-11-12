@@ -8,8 +8,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
-import dev.geode.analysis.ArtPalette
-import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.viz.ArtPalette
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -31,13 +30,6 @@ internal object WidgetVisual {
 
     // The phase one tick moves the lights; a full turn takes this many ticks (about 4 minutes).
     private const val TICKS_PER_TURN = 12
-
-    /** The style's display name; the catalogue's when it has one, else the id in words. */
-    fun label(styleId: String): String {
-        val catalogued = VisualStyleCatalog.label(styleId)
-        if (catalogued != styleId) return catalogued
-        return styleId.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
-    }
 
     /** What a picture was drawn from. A picture is drawn again only when its source changes. */
     sealed interface Source

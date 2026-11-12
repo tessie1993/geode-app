@@ -23,7 +23,6 @@
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/build-logic" />
             <option value="$PROJECT_DIR$/engine" />
-            <option value="$PROJECT_DIR$/engine/audio-android" />
             <option value="$PROJECT_DIR$/engine/audio-core" />
             <option value="$PROJECT_DIR$/engine/scenes" />
           </set>

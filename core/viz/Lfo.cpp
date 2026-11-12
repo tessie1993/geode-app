@@ -10,11 +10,11 @@ namespace geode::viz {
 // The lfo rows' enum ranges are these enums' ordinals (viz/ConfigTable.inc): a value appended to one
 // moves its row's max in the same change.
 static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
-static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::DiveAimY), "lfo target row");
+static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(kLastLfoTarget), "lfo target row");
 static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::RandomGlide), "lfo wave row");
 static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
-static_assert(config::indexInGroup(config::Slot::lfo_beats) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
+static_assert(config::indexInGroup(config::Slot::lfo_moment) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
 
 bool chainOf(LfoTarget target, ModChain& out) {
     switch (target) {
@@ -32,7 +32,9 @@ bool isLuminanceTarget(LfoTarget target) {
     switch (target) {
         case LfoTarget::Brightness: case LfoTarget::Intensity: case LfoTarget::Saturation: case LfoTarget::Bloom:
         case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
-        case LfoTarget::Temperature:
+        case LfoTarget::Temperature: case LfoTarget::PaletteAmount1: case LfoTarget::PaletteAmount3:
+        case LfoTarget::PaletteAmount4: case LfoTarget::PaletteAmount5: case LfoTarget::PaletteAmount6:
+        case LfoTarget::PaletteAmount7: case LfoTarget::PaletteAmount8: case LfoTarget::PaletteShift:
             return true;
         default:
             return false;
@@ -125,6 +127,14 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::DiveTwist: GEODE_DRIVE(diveTwist, 0.5f);
         case LfoTarget::DiveAimX: GEODE_DRIVE(diveAimX, 0.5f);
         case LfoTarget::DiveAimY: GEODE_DRIVE(diveAimY, 0.5f);
+        case LfoTarget::PaletteAmount1: GEODE_DRIVE(paletteAmount0, 1.0f);
+        case LfoTarget::PaletteAmount3: GEODE_DRIVE(paletteAmount2, 1.0f);
+        case LfoTarget::PaletteAmount4: GEODE_DRIVE(paletteAmount3, 1.0f);
+        case LfoTarget::PaletteAmount5: GEODE_DRIVE(paletteAmount4, 1.0f);
+        case LfoTarget::PaletteAmount6: GEODE_DRIVE(paletteAmount5, 1.0f);
+        case LfoTarget::PaletteAmount7: GEODE_DRIVE(paletteAmount6, 1.0f);
+        case LfoTarget::PaletteAmount8: GEODE_DRIVE(paletteAmount7, 1.0f);
+        case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }
@@ -149,7 +159,7 @@ int paramSlotOf(LfoTarget target) {
 }
 
 const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd,
-                                                             const float* extDepthAdd) {
+                                                             const float* extDepthAdd, std::uint32_t moments) {
     for (int i = 0; i < kSlots; i++) {
         out_[i] = 0.0f;
         rateAdd_[i] = extRateAdd ? extRateAdd[i] : 0.0f;
@@ -159,6 +169,11 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         const LfoConfig& c = configs[i];
         if (!c.enabled || c.target == LfoTarget::None) continue;
         const float depth = std::clamp(c.depth + depthAdd_[i], config::spec(config::Slot::lfo_depth).min, kMaxModulatedDepth);
+        // On a moment: the cycle starts over from 0, and a new random value is drawn, each time the moment comes.
+        if (c.moment >= 0 && c.moment < 32 && ((moments >> c.moment) & 1u) != 0) {
+            phases_[i] = 0.0f;
+            ++cycle_[i];
+        }
         float raw = 0.0f;
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt, sound); break;
@@ -240,8 +255,9 @@ float LfoEngine::held(int i, std::uint32_t cycle) const {
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
     if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
     float ph;
-    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period.
-    if (c.beats >= 1.0f && lastBpm_ > 0.0f) {
+    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period. A slot on a
+    // moment runs on its own period from each one.
+    if (c.beats >= 1.0f && lastBpm_ > 0.0f && c.moment < 0) {
         ph = syncedPhase(i, c, dt, sound);
     } else {
         const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);

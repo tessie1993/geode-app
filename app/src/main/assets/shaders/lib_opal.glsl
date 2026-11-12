@@ -11,8 +11,9 @@
 // line, one soft highlight, and (where a style asks) fine lines drawn along
 // the skin coordinate. The steps spent near a body leave a faint halo.
 //
-// COST. One loop of min(uSteps, 80) steps, each one opalMap; a hit adds four
-// more for its normal, so at most 80 + 4 * OPAL_HITS = 96 opalMap per pixel.
+// COST. One loop of OPAL_STEPS steps (80 at the default Detail, 100 at most),
+// each one opalMap; a hit adds four more for its normal, so at most
+// 100 + 4 * OPAL_HITS = 116 opalMap per pixel.
 // The maps are smooth unions of a few spheres, tori or one lattice term; no
 // noise octaves and no texture. The palette is read five times per pixel
 // before the loop (opalSetup) and mixed after.
@@ -49,12 +50,16 @@
 // The world repeats along z every OPAL_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (OPAL_RATE).
 //
-// INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
+// INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
-// The style defines opalMap after it.
+// The style then defines vec2 opalMap(vec3 p), its bodies at p (x the signed
+// distance to the nearest skin, y the skin coordinate, a line at every whole
+// number), and after it includes lib_opal_march, which calls it.
 
 #define OPAL_TAU 6.2831853
-#define OPAL_MAX_STEPS 80
+#define OPAL_MAX_STEPS 100
+/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 80 left Detail and the hot-phone cut dead above it. */
+#define OPAL_STEPS (min(uSteps * 0.78, float(OPAL_MAX_STEPS)))
 #define OPAL_HITS 4
 #define OPAL_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
@@ -76,9 +81,6 @@ float gOpalTone;
 /** The share of a step taken: under 1 where a style's distance is only a bound. */
 float gOpalStride;
 vec3 gOpalPal[5];
-
-/** The style's bodies at p: x the signed distance to the nearest skin, y the skin coordinate (a line at every whole number). */
-vec2 opalMap(vec3 p);
 
 mat2 opalRot(float a) {
     float c = cos(a);
@@ -127,69 +129,9 @@ vec3 opalBend(vec3 p) {
     return p;
 }
 
-vec2 opalField(vec3 p) {
-    vec3 q = opalBend(p);
-    vec2 m = opalMap(q);
-    vec3 s = sin(q * 5.0 + uTime * OPAL_RATE(1700) + vec3(0.0, 2.1, 4.2));
-    m.x += gOpalChaos * 0.035 * (s.x * s.y + s.z);
-    return m;
-}
-
 float opalDither() {
     vec2 f = gl_FragCoord.xy;
     return fract(52.9829189 * fract(dot(f, vec2(0.06711056, 0.00583715))));
-}
-
-/** One skin, seen along rd at p. */
-vec3 opalSkin(vec3 p, vec3 rd, float skin, float eps) {
-    vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 n = normalize(
-        e.xyy * opalField(p + e.xyy).x + e.yyx * opalField(p + e.yyx).x +
-        e.yxy * opalField(p + e.yxy).x + e.xxx * opalField(p + e.xxx).x
-    );
-    float facing = dot(n, rd);
-    n *= -sign(facing);
-    float ndv = abs(facing);
-    float rim = 1.0 - ndv;
-    vec3 r = reflect(rd, n);
-    float film = gOpalTone + gOpalBands * rim * rim + 0.3 * r.y + 0.15 * skin;
-    vec3 col = opalCol(film) * (0.1 + 1.3 * rim * rim);
-    col += opalCol(film + 0.45) * 1.6 * pow(rim, 6.0);
-    float spec = pow(max(dot(r, normalize(vec3(0.45, 0.8, -0.35))), 0.0), 60.0);
-    col += mix(vec3(1.0), opalCol(film + 0.2), 0.35) * spec;
-    float c = fract(skin) - 0.5;
-    col += opalCol(film + 0.3) * gOpalLines * 0.0025 / (c * c + 0.0025) * (0.25 + 0.75 * rim);
-    return col;
-}
-
-/** The gathered light along one ray. */
-vec3 opalTrace(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(OPAL_MAX_STEPS));
-    vec3 acc = vec3(0.0);
-    float through = 1.0;
-    float halo = 0.0;
-    float t = 0.05 + 0.1 * opalDither();
-    int hits = 0;
-    for (int i = 0; i < OPAL_MAX_STEPS; i++) {
-        if (float(i) >= n || t > gOpalFar) break;
-        vec3 p = ro + rd * t;
-        vec2 m = opalField(p);
-        float d = abs(m.x);
-        float eps = 0.0025 * (1.0 + t);
-        float air = exp(-2.2 * t / gOpalFar);
-        halo += air * 0.012 / (1.0 + 60.0 * d * d);
-        if (d < eps) {
-            // Nothing lights right at the eye: flying through a skin must not fill the frame.
-            acc += opalSkin(p, rd, m.y, eps) * through * air * smoothstep(0.1, 0.8, t);
-            through *= 0.6;
-            hits++;
-            if (hits >= OPAL_HITS) break;
-            t += 6.0 * eps;
-        } else {
-            t += d * gOpalStride;
-        }
-    }
-    return acc + opalCol(gOpalTone + 0.5) * halo;
 }
 
 /** `exposure` is the style's own; Intensity and PULSE scale the emission. */

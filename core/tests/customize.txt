@@ -22,7 +22,9 @@ section|SHAPE|form|PRO|ALWAYS|Domain warp,Twist,Ripple,Turbulence
 section|SHAPE|symmetry|PRO|ALWAYS|Mirror,Tile,Pixelate
 section|SHAPE|particles|PRO|PARTICLES|Particle shape,Particle size,Density,Particle life (s),Particle drag
 section|SHAPE|journey|PRO|ALWAYS|Path,Spawn points,Progression,Catch points,Catch pull,Catch radius
-section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Stirrers,Stirrer speed,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle,Fluid quality,Lower the quality when the phone struggles
+section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle
+section|SHAPE|stirrers|PRO|ALWAYS|Stirrers,Stirrer speed
+section|SHAPE|fluid_quality|PRO|ALWAYS|Fluid quality,Lower the quality when the phone struggles
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y
 section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin drift
@@ -49,7 +51,8 @@ section|LIQUID|basics|BASICS|ALWAYS|Flow field on,Flow strength
 section|LIQUID|push_swirl|PRO|ALWAYS|Flow force,Flow curl
 section|LIQUID|surface|PRO|ALWAYS|Born inside,Colour age,Surface
 section|ENGINE|fluid_flow|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Curl from mids,Fade when quiet
-section|ENGINE|fluid_look|PRO|ENGINE|Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Glow from loudness,Sunrays,Sunrays weight,Palette cycle,Particle brightness,Particle layer,Ink layer
+section|ENGINE|fluid_look|PRO|ENGINE|Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Glow from loudness,Sunrays,Sunrays weight,Palette cycle
+section|ENGINE|fluid_layers|PRO|ENGINE|Particle brightness,Particle layer,Ink layer
 section|ENGINE|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl
 section|ENGINE|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
 section|ENGINE|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint

@@ -74,16 +74,12 @@ uniform float uTravelPhase;
 /** Integrated plate scroll, in plate units, wrapped at 2.0 - an exact period
  *  of every cos(n*PI*x) term in the plate formula. */
 uniform float uDriftShift;
-/** Faraday droplets: xy centre in field units, z phase, w amplitude (0 = free
- *  slot). Spawned by CymaticsDrops on beats; amplitude decays to zero. */
-uniform vec4 uDrops[6];
 /** Summed rendered-mode amplitude, 0 silent .. 1 driven: the flat-field gate. */
 uniform float uFieldLive;
 uniform float uBaseHue;
 uniform float uHueSpan;
 uniform float uEnergy;
 uniform float uTreble;
-uniform float uBeat;
 uniform float uExposure;
 
 // ---- the finger as a driver ------------------------------------------------
@@ -134,8 +130,8 @@ float hexLattice(vec2 p) {
  * shells, chambers and tubes without forking the audio or phase logic.
  */
 vec2 styleCoordinates(vec2 p, vec2 uv) {
-    if (uStyle == 2) { // Drumhead: the skin breathes, and dips when struck.
-        p *= 0.96 + 0.05 * sin(uTime * 0.7) - 0.06 * clamp(uBeat, 0.0, 1.0);
+    if (uStyle == 2) { // Drumhead: the skin breathes.
+        p *= 0.96 + 0.05 * sin(uTime * 0.7);
     } else if (uStyle == 3) { // Harmonograph: two slowly precessing pendulums.
         p += 0.24 * vec2(sin(p.y * 0.72 + uTime * 0.31), cos(p.x * 0.66 - uTime * 0.27));
     } else if (uStyle == 4) { // Faraday: subharmonic surface buckling.
@@ -318,17 +314,11 @@ void main() {
         h = h * 0.58 + field(r2 * p * 0.82 + vec2(0.35, -0.18)) * uHeightNorm * 0.42;
     } else if (uStyle == 4) {
         // Faraday: subharmonic folding, then a high-frequency capillary
-        // lattice riding the treble, then beat-spawned droplet rings.
+        // lattice riding the treble.
         float sub = field(p * 1.62 + vec2(0.16, -0.11)) * uHeightNorm;
         h = sin(h * 2.45 + sub * 1.15) * 0.72;
         h += sin(p.x * 21.0 + uTravelPhase * 3.0) * sin(p.y * 21.0 - uTravelPhase * 3.0)
             * 0.16 * clamp(uTreble, 0.0, 1.5);
-        for (int i = 0; i < 6; i++) {
-            float amp = uDrops[i].w;
-            if (amp < 0.003) continue;
-            float d = length(p - uDrops[i].xy);
-            h += amp * sin(9.0 * d - uDrops[i].z) * exp(-2.2 * d);
-        }
         h *= 0.85;
     } else if (uStyle == 5) {
         // Shell: the mirrored second polar reading of the same modes.
@@ -449,10 +439,10 @@ void main() {
     vec3 color = body * (0.04 + 0.20 * az * az + uFill * (0.10 + 0.80 * diffuse) * live) * level;
 
     // Halo (broad, palette-coloured), then the filigree on top (near white,
-    // treble glinting on it and beats flaring it), then the caustic sheen.
+    // treble glinting on it), then the caustic sheen.
     color += body * halo * uGlow * 0.45 * level;
     vec3 ridge = mix(vec3(1.0), body, 0.4);
-    color += ridge * nodal * (0.7 + 0.45 * clamp(uTreble, 0.0, 1.5) + 0.35 * clamp(uBeat, 0.0, 1.0));
+    color += ridge * nodal * (0.7 + 0.45 * clamp(uTreble, 0.0, 1.5));
     color += ridge * (caustic + spec * uCaustic * 0.8) * (0.2 + 0.3 * clamp(uEnergy, 0.0, 1.5)) * live;
 
     // Material signatures: each substyle's own apparatus, painted out of the
@@ -478,7 +468,7 @@ void main() {
         float lum = dot(color, vec3(0.299, 0.587, 0.114));
         color = mix(color, lum * vec3(1.05, 0.97, 0.85), 0.4); // vellum, not lacquer
         color *= 1.0 - smoothstep(0.86, 1.0, rr); // nothing past the shell
-        color += ridge * rim * (0.4 + 0.7 * clamp(uBeat, 0.0, 1.0)) * live;
+        color += ridge * rim * 0.4 * live;
     } else if (uStyle == 3) { // Harmonograph: pendulum ink etched on dim paper.
         float etched = exp(-abs(sin(h * 15.0 + p.x * 1.2 - p.y * 0.7)) * 8.0);
         color *= 0.6;
@@ -511,8 +501,7 @@ void main() {
         vec2 bp = vec2(p.x * 3.4, (p.y + h * 0.22) * 4.6);
         vec2 cellId = floor(bp);
         float hc = hash21(cellId);
-        vec2 centre = vec2(0.5) + (vec2(hc, fract(hc * 7.31)) - 0.5) * 0.16
-            + 0.06 * clamp(uBeat, 0.0, 1.0) * vec2(sin(uTime * 1.4 + hc * 44.0), cos(uTime * 1.1 + hc * 61.0));
+        vec2 centre = vec2(0.5) + (vec2(hc, fract(hc * 7.31)) - 0.5) * 0.16;
         float bead = smoothstep(0.30, 0.14, length(fract(bp) - centre));
         float antinode = smoothstep(0.3, 0.75, az);
         color *= 0.4; // dark chamber
@@ -532,7 +521,7 @@ void main() {
         float tips = pow(max(hexCell, 0.0), 6.0) * smoothstep(0.1, 0.55, az);
         vec3 steel = mix(body, vec3(0.85, 0.9, 1.0), 0.6);
         color *= 0.3; // the fluid body is near-black
-        color += steel * (spec * spec * 2.2 + tips * (0.9 + 0.8 * clamp(uBeat, 0.0, 1.0))) * live;
+        color += steel * (spec * spec * 2.2 + tips * 0.9) * live;
         color += body * halo * 0.18;
     } else if (uStyle == 10) { // Kundt Tube: dust bands inside a glass bore.
         // Dust piles where the air is still (|h| small) - half-wavelength

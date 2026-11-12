@@ -1,4 +1,4 @@
-params|3|178
+params|3|187
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -10,7 +10,7 @@ param|7|driftX|FLOAT|0|-1|1|FADE|LIVE
 param|8|driftY|FLOAT|0|-1|1|FADE|LIVE
 param|9|shake|FLOAT|0|0|1|FADE|RETIRED
 param|10|audioDrive|FLOAT|1|0.2|2.5|FADE|LIVE
-param|11|beatResponse|FLOAT|1|0|2|FADE|LIVE
+param|11|beatResponse|FLOAT|1|0|2|FADE|RETIRED
 param|12|turbulence|FLOAT|0|0|1.5|FADE|LIVE
 param|13|density|FLOAT|1|0.1|1|FADE|LIVE
 param|14|marchDetail|FLOAT|1|0.25|1.5|FADE|LIVE
@@ -177,6 +177,15 @@ param|174|diveBlend|FLOAT|0.75|0|1|FADE|LIVE
 param|175|diveFog|FLOAT|0|0|1|FADE|LIVE
 param|176|diveLens|FLOAT|0|-0.5|1.5|FADE|LIVE
 param|177|diveFollow|FLOAT|1|0|2|FADE|LIVE
+param|178|paletteAmount0|FLOAT|1|0|1|FADE|LIVE
+param|179|paletteAmount1|FLOAT|0.5|0|1|FADE|LIVE
+param|180|paletteAmount2|FLOAT|0.5|0|1|FADE|LIVE
+param|181|paletteAmount3|FLOAT|0.5|0|1|FADE|LIVE
+param|182|paletteAmount4|FLOAT|0.5|0|1|FADE|LIVE
+param|183|paletteAmount5|FLOAT|0.5|0|1|FADE|LIVE
+param|184|paletteAmount6|FLOAT|0.5|0|1|FADE|LIVE
+param|185|paletteAmount7|FLOAT|0.5|0|1|FADE|LIVE
+param|186|paletteShift|CIRCULAR|0|0|1|FADE|LIVE
 palette|0|Spectrum
 palette|1|Neon
 palette|2|Fire

@@ -27,6 +27,9 @@ public:
     // After init and the renderer's setup: builds whatever the first draw() would otherwise build,
     // so a staged build (ScenePrep) sees every program the scene needs before it is shown.
     virtual void prepare() {}
+    // After prepare(): true when the scene has nothing to draw because its program failed to build.
+    // The renderer then drops it and keeps the scene it had (ScenePrep::fail).
+    virtual bool buildFailed() const { return false; }
     virtual void setParams(const SceneParams& params) = 0;
     virtual void resize(int width, int height) = 0;
     // sound: the renderer's sound frame with this scene's band trims applied (gainAdjusted).

@@ -27,13 +27,13 @@ void Emitters::applyParams(const SceneParams& p) {
     splatRadius = std::clamp(p.fluidSplatRadius, 0.02f, 0.4f);
     radiusPulse = std::clamp(p.fluidRadiusPulse, 0.0f, 1.0f);
     catchSuction = std::clamp(p.fluidCatchPull, 0.0f, 3.0f);
-    beatResponse = p.beatResponse;
 }
 
 void Emitters::tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out) {
     out.clear();
-    beatEnvRaw_ = std::max(live::hit(f), beatEnvRaw_ * std::exp(-dt / 0.3f));
-    beatEnv_ = beatEnvRaw_ * std::clamp(beatResponse, 0.0f, 2.0f);
+    // The hit reaches the fluid only through the user's own Customize controls: Hit splats (beatSplats,
+    // off at 0) and Radius on hit (radiusPulse, off at 0). The hidden beat-response scale is gone.
+    beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-dt / 0.3f));
     const float bassTarget = std::clamp(live::bass(f) * 1.2f, 0.0f, 1.0f);
     bassEnv_ += (bassTarget - bassEnv_) * std::min(bassTarget > bassEnv_ ? dt / 0.03f : dt / 0.4f, 1.0f);
     trebleMean_ += (live::treble(f) - trebleMean_) * std::min(dt / 0.32f, 1.0f);
@@ -44,7 +44,7 @@ void Emitters::tick(const GeodeSoundFrame& f, float dt, float aspect, float base
     const float speed = kBaseSpeed * forceScale * (0.4f + 1.6f * live::bass(f)) * (0.3f + 0.7f * beatEnv_);
     const bool beatEdge = hitEdge_.step(f);
 
-    if (beatEdge && beatSplats > 0 && beatResponse > kBeatResponseGate) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
+    if (beatEdge && beatSplats > 0) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
     stirrerSplats(out, f, dt, aspect, baseHue, hueSpan, radius);
     suctionSplats(out, radius);
     if (sparkle && live::treble(f) > trebleMean_ * 1.6f && live::treble(f) > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);

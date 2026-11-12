@@ -3,6 +3,9 @@ package dev.geode.data.prefs
 import dev.geode.data.AutoDirectorCodec
 import dev.geode.data.AutoDirectorSettings
 import dev.geode.data.AutoDirectorStore
+import dev.geode.data.CustomizeGroups
+import dev.geode.data.CustomizeGroupsCodec
+import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleShelf
@@ -45,6 +48,33 @@ class ProcessStoresRepositoryTest {
             val again = shelf()
             runCurrent()
             assertEquals(expected, again.shelf.value)
+        }
+
+    private fun TestScope.groups() =
+        CustomizeGroupsStore(
+            PrefsSettingsRepository(file.prefs, CustomizeGroupsCodec, backgroundScope, StandardTestDispatcher(testScheduler)),
+            backgroundScope,
+        )
+
+    @Test
+    fun customizeGroupsStayOpenAndCollapseAllClosesOneTabOnly() =
+        runTest {
+            val store = groups()
+            runCurrent()
+            store.toggle("LOOK/basics")
+            store.toggle("LOOK/colour_detail")
+            store.toggle("SHAPE/basics")
+            store.selectTab("LOOK")
+            store.collapseAll("LOOK")
+            runCurrent()
+            assertEquals(CustomizeGroups(open = setOf("SHAPE/basics"), tab = "LOOK"), store.groups.value)
+            assertEquals(setOf("SHAPE/basics"), file.values["customize_open_groups"])
+            val again = groups()
+            runCurrent()
+            assertEquals(store.groups.value, again.groups.value)
+            again.collapseAll(null)
+            runCurrent()
+            assertEquals(emptySet<String>(), again.groups.value.open)
         }
 
     @Test

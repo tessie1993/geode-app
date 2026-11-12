@@ -98,9 +98,8 @@ void MycoScene::draw(float timeSeconds) {
     const float drive = safeAudioDrive(p.audioDrive);
     envBass_ = slewEnvelope(envBass_, clampedBand(live::bass(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
     envTreble_ = slewEnvelope(envTreble_, clampedBand(live::treble(f)), dt, kEnvRisePerSec, kEnvFallPerSec);
-    const float hit = live::hit(f);
-    beatPulse_ = std::clamp(std::max(hit * std::clamp(p.beatResponse, 0.0f, 2.0f), beatPulse_ - dt * 3.0f), 0.0f, 1.5f);
-    reaim_ = hit * p.beatResponse > kBeatThreshold ? style_.reaim : 0.0f;
+    // No hit of its own: the sensor breath and the spore re-aim on every hit (the hit times the retired
+    // beat-response slot) are gone with the hidden hit reactions.
 
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
@@ -123,10 +122,8 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(agent_.loc("uTurnAngle"), style_.turnAngle);
     glUniform1f(agent_.loc("uMoveStep"), style_.moveStep * speed * (1.0f + 0.5f * envBass_ * drive));
     glUniform4f(agent_.loc("uMatrix"), style_.selfA, style_.crossAb, style_.crossBa, style_.selfB);
-    glUniform1f(agent_.loc("uBreath"), beatPulse_ * drive);
     glUniform1f(agent_.loc("uJitter"), style_.jitter + 0.35f * envTreble_ * drive + std::clamp(p.turbulence, 0.0f, 1.0f) * 0.5f);
     glUniform1f(agent_.loc("uSnap"), style_.snap);
-    glUniform1f(agent_.loc("uReaim"), reaim_);
     glUniform1f(agent_.loc("uTime"), time_);
     glUniform1f(agent_.loc("uAniso"), style_.aniso);
     // A rate integrated over dt, so a gesture buds the same at 60 and 120 Hz.
@@ -173,7 +170,6 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(show_.loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(show_.loc("uExposure"), style_.exposure * (byteTrail_ ? 1.0f / kByteFallbackDeposit : 1.0f));
     glUniform1f(show_.loc("uEnergy"), clampedBand(f.rms));
-    glUniform1f(show_.loc("uBeat"), beatPulse_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);

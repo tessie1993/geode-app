@@ -42,6 +42,11 @@ std::uint64_t SettingsLatch::directorSeed() const {
     return pin_ ? pin_->director.seed : viz::director::global().seed;
 }
 
+std::uint32_t SettingsLatch::handMask() const {
+    std::lock_guard<std::mutex> guard(lock_);
+    return pin_ ? pin_->handMask : viz::hand::global();
+}
+
 EngineSettings SettingsLatch::latch(bool reducedMotion) {
     std::optional<EngineSettings> pinned;
     {

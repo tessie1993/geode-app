@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_pcm_ring geode_pcm_ring;   /* the audio ring (declared again with its calls below) */
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -87,10 +88,11 @@ GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* confi
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively
    (core/viz/ReactionResolve, #750) from the scene playing (geode_viz_set_scene, and each switch of an export's style schedule, #352), the params' reactSeed, and
-   the user's routes under the hand mask set here: the style's DNA with no user list (has_user 0, routes and
-   mask ignored), else geode_style_reactions_hand's merge. It is worked out again before a render only when one
-   of those changed, so the shell pushes the user's side only when it changes. */
-GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* routes, int count, int has_user, unsigned mask);
+   the user's routes set here under the hand mask (geode_hand_set, or the one an export pinned): the style's DNA
+   with no user list (has_user 0, routes ignored), else geode_style_reactions_hand's merge. It is worked out
+   again before a render only when one of those changed, so the shell pushes the user's routes only when they
+   change, and a new hand mask reaches every renderer without the shell. Any thread. */
+GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* routes, int count, int has_user);
 /* A style's DNA (core/viz/ReactionDna): the routes it plays until the user edits them, in the
    routes layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
    out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
@@ -139,40 +141,41 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
    Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
 GEODE_API const char* geode_mod_targets_text(void);
-/* One game rotation vector reading (quaternion x, y, z, w) on a screen at display_rotation (Surface.ROTATION_*, 0..3).
-   viz/GyroLook reads it as the screen's azimuth and pitch; the first after a reset or a new rotation is the baseline,
-   and the tilt from it is the -1..1 look per axis the camera reads only while camGyro is on. GL thread. */
-GEODE_API void        geode_viz_gyro_sample(geode_viz*, float x, float y, float z, float w, int display_rotation);
-/* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
-GEODE_API void        geode_viz_gyro_reset(geode_viz*);
-/* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
-   geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
-   paced_fps is the rate this surface's pacer draws at (GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps
-   the surface's own cap the pacer was asked for (Settings › Performance's, the wallpaper's or the dream's; the
-   same as paced_fps where nothing paces it but a fixed rate, Cast's): the thermal step is taken from cap_fps
-   (frame::thermalStepCapFps walks a 120 cap down a rung a hot tier, which is not idempotent) and applied under
-   paced_fps natively;
-   the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
-   1 full, 2 pause: liquid::HotPolicy). The four *_version arguments are the shell's version counters (each
-   grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
-   PushVersions, #751): native sets GEODE_FRAME_PUSH_* for each one it has not applied yet (an equal or older
-   version is skipped; a new surface wants all four again), and the shell pushes exactly those, through
-   geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
-   frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
-#define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
-#define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
-#define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
-#define GEODE_FRAME_ERROR_CHANGED  0x8 /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
-/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
-#define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
-#define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
-#define GEODE_FRAME_PUSH_LFO       0x20 /* push every LFO slot (geode_viz_set_lfo) */
-#define GEODE_FRAME_PUSH_ADSR      0x40 /* push every ADSR slot (geode_viz_set_adsr) */
-#define GEODE_FRAME_PUSH_TUNING    0x80 /* push the sound tuning (geode_viz_set_sound_tuning) */
-GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float cap_fps, float render_scale,
-                                            float march_scale, int post_fx, int adaptive, int liquid_hot_policy,
-                                            long long params_version, long long lfo_version,
-                                            long long adsr_version, long long tuning_version);
+/* The phone's tilt for the camera's "Tilt phone to look" (viz/GyroLook): one game rotation vector reading
+   (quaternion x, y, z, w) on a screen at display_rotation (Surface.ROTATION_*, 0..3), latched for the next
+   geode_viz_frame. The first reading after an off (or on a new handle) starts a session, whose first frame
+   recentres and takes it as the baseline; the tilt from it is the -1..1 look per axis the camera reads only
+   while camGyro is on. geode_viz_gyro_off: the sensor stopped; the next frame recentres the look to (0,0),
+   once. Any thread. */
+GEODE_API void        geode_viz_gyro_push(geode_viz*, float x, float y, float z, float w, int display_rotation);
+GEODE_API void        geode_viz_gyro_off(geode_viz*);
+/* The style a live surface draws (any thread, latched): each geode_viz_frame asks the renderer for the latest
+   request until the renderer can draw it, and then not again. Also what the reaction matrix deals the DNA
+   of. An export, which never calls geode_viz_frame, sets its scene with geode_viz_set_scene. */
+GEODE_API void        geode_viz_request_scene(geode_viz*, const char* scene_id);
+/* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
+   changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
+   simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive,
+                                            int liquid_hot_policy);
+/* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
+   framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
+   GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
+   only a fixed rate paces it, Cast's) to the thermal step; the latched quality; a new surface's first frame
+   cleared to black and nothing else; on the frame that wins the process's thermal slot, the platform's
+   headroom asked natively; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
+   hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
+   Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
+#define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
+#define GEODE_FRAME_LIQUID_CHANGED  0x4  /* Liquid mode changed: geode_viz_liquid_mode */
+#define GEODE_FRAME_ERROR_CHANGED   0x8  /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
+#define GEODE_FRAME_MILK_LOADED     0x10 /* MilkDrop finished loading a preset: geode_viz_take_milk_preset_loaded */
+#define GEODE_FRAME_DIRECTOR_MOMENT 0x20 /* director moments wait: geode_viz_take_director_style_moments */
+#define GEODE_FRAME_STILL_READY     0x40 /* the still asked for is ready: geode_viz_still_size / _read */
+GEODE_API int         geode_viz_frame(geode_viz*, const geode_pcm_ring* ring, float paced_fps, float cap_fps);
+/* What Liquid mode ran when a frame last said GEODE_FRAME_LIQUID_CHANGED: 0 off, 1 full, 2 lite, 3 warp,
+   4 paused (liquid::Mode). Any thread. */
+GEODE_API int         geode_viz_liquid_mode(geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
@@ -961,7 +964,7 @@ GEODE_API void            geode_stage_step_milk_reset(void);
 #define GEODE_PACER_CAP_SLOT 6
 /* The slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync): the cap, or
    the next whole divide of the panel under it (45 fps for a 60 fps cap on a 90 Hz panel). The shell passes
-   it to geode_viz_frame_begin as paced_fps. */
+   it to geode_viz_frame as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
    every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). GEODE_LIVE_FPS_FOLLOW
@@ -975,13 +978,9 @@ GEODE_API void            geode_pacer_resume(long long* state);
    GEODE_LIVE_FPS_FOLLOW answers 0 at every tier: the surface states no rate and the system chooses. */
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
-   cadence across the process is native: a live renderer learns from GEODE_FRAME_THERMAL_DUE
-   (geode_viz_frame_begin), every ten seconds, that it asks PowerManager's headroom and pushes it; the
-   status is pushed by PowerManager's status listener when it changes. */
-/* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
-   forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
-GEODE_API void            geode_thermal_push(int platform_status, float headroom);
+/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. Native
+   reads the platform itself (viz/frame/ThermalSource): the status from the NDK's listener when it changes,
+   and the forecast headroom on the frame that wins the process's slot, every ten seconds. */
 /* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
    has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
 GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);

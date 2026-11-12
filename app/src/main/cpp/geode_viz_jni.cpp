@@ -781,8 +781,51 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jl
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_catalogue_text());
+Java_dev_geode_engine_bridge_GeodeNative_catalogueStyleIds(JNIEnv* env, jobject, jint trait) {
+    return env->NewStringUTF(geode_catalogue_style_ids(trait));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePickerNames(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_catalogue_picker_names());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePickerIds(JNIEnv* env, jobject, jstring family) {
+    Utf8Chars name(env, family);
+    return env->NewStringUTF(geode_catalogue_picker_ids(name.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueResolve(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_catalogue_resolve(style.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetStyle(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_catalogue_preset_style(style.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueScopeOf(JNIEnv* env, jobject, jstring paramKey) {
+    Utf8Chars key(env, paramKey);
+    return env->NewStringUTF(geode_catalogue_scope_of(key.get()));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueReaches(JNIEnv* env, jobject, jstring scope, jstring styleId) {
+    Utf8Chars name(env, scope);
+    Utf8Chars style(env, styleId);
+    return geode_catalogue_reaches(name.get(), style.get()) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueOverride(JNIEnv* env, jobject, jstring styleId, jstring paramKey) {
+    Utf8Chars style(env, styleId);
+    Utf8Chars key(env, paramKey);
+    return geode_catalogue_override(style.get(), key.get());
 }
 
 JNIEXPORT jstring JNICALL

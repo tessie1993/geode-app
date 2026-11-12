@@ -5,7 +5,7 @@ package dev.geode.render.scene
  *
  * These strings are the identity of a control everywhere: the label on screen, the key the
  * randomizer rolls and locks by, the term the panel search matches, and the key
- * [ParamScope.of] answers visibility for. Changing one renames the control.
+ * the native catalogue answers visibility for. Changing one renames the control.
  */
 object ParamKeys {
     const val SPEED = "Speed"

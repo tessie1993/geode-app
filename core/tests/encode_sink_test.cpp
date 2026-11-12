@@ -42,18 +42,17 @@ void check(bool ok, const char* what) {
 struct Step {
     Out kind = Out::None;
     BufferInfo info;
-    std::vector<uint8_t> bytes;  // the whole buffer; the sample is info.offset .. + info.size
+    std::vector<uint8_t> bytes;  // the sample
 };
 
 Step formatChanged() { return {Out::FormatChanged, {}, {}}; }
 
-// A sample whose bytes all equal tag, after `offset` bytes of padding the muxer must skip.
-Step sample(int64_t ptsUs, uint8_t tag, int size = 8, uint32_t flags = 0, int offset = 0) {
+// A sample whose bytes all equal tag.
+Step sample(int64_t ptsUs, uint8_t tag, int size = 8, uint32_t flags = 0) {
     Step s;
     s.kind = Out::Sample;
-    s.info = {offset, size, ptsUs, flags};
-    s.bytes.assign(static_cast<size_t>(offset), 0xEE);
-    s.bytes.insert(s.bytes.end(), static_cast<size_t>(size), tag);
+    s.info = {size, ptsUs, flags};
+    s.bytes.assign(static_cast<size_t>(size), tag);
     return s;
 }
 
@@ -79,6 +78,8 @@ struct EncState {
     bool eosOnEndInput = false;  // a surface's end puts out an empty end-of-stream buffer
     bool eosOnEosInput = false;  // an end-of-stream input does the same
     bool errorNext = false;
+    size_t outputShortBy = 0;  // the output buffer holds this many bytes fewer than the sample claims
+    bool noOutputBuffer = false;
     size_t inputCapacity = 4096 * 4;
     bool unaligned = false;
     std::deque<Step> outputs;
@@ -145,7 +146,11 @@ public:
         }
         return out_.kind;
     }
-    const uint8_t* outputBuffer(int index) override { return index == 3 ? out_.bytes.data() : nullptr; }
+    const uint8_t* outputBuffer(int index, size_t* capacity) override {
+        if (index != 3 || s_->noOutputBuffer) return nullptr;
+        *capacity = out_.bytes.size() - std::min(out_.bytes.size(), s_->outputShortBy);
+        return out_.bytes.data();
+    }
     bool releaseOutput(int index) override {
         ++s_->releasedOutputs;
         return index == 3;
@@ -188,7 +193,7 @@ public:
     bool writeSample(int track, const uint8_t* data, const BufferInfo& info) override {
         if (!s_->started) s_->writeBeforeStart = true;
         if (static_cast<int>(s_->written.size()) == s_->failWriteAt) return false;
-        s_->written.push_back({track, info, std::vector<uint8_t>(data + info.offset, data + info.offset + info.size)});
+        s_->written.push_back({track, info, std::vector<uint8_t>(data, data + info.size)});
         return true;
     }
     bool stop() override {
@@ -358,7 +363,7 @@ void ladder() {
 void heldThenWritten() {
     Rig r;
     check(r.open(), "held: opens");
-    r.video->outputs = {sample(0, 0x11, 30, sink::kFlagCodecConfig), formatChanged(), sample(0, 0xA0, 8, 1, 3),
+    r.video->outputs = {sample(0, 0x11, 30, sink::kFlagCodecConfig), formatChanged(), sample(0, 0xA0, 8, 1),
                         sample(33'333, 0xA1, 9), sample(66'666, 0xA2, 10)};
     r.host.pcm = {1024};
     r.run(5);
@@ -373,8 +378,8 @@ void heldThenWritten() {
     check(mux.written.size() == 4, "held: held and new samples all written once");
     if (mux.written.size() == 4) {
         check(mux.written[0].info.ptsUs == 0 && mux.written[0].bytes == std::vector<uint8_t>(8, 0xA0) &&
-                  mux.written[0].info.offset == 0 && mux.written[0].info.flags == 1,
-              "held: the first sample's bytes without the codec's padding, its flags kept");
+                  mux.written[0].info.flags == 1,
+              "held: the first sample's bytes and flags kept");
         check(mux.written[1].bytes == std::vector<uint8_t>(9, 0xA1) && mux.written[2].bytes == std::vector<uint8_t>(10, 0xA2),
               "held: in the order they came out");
         check(mux.written[3].track == 1 && mux.written[3].bytes == std::vector<uint8_t>(6, 0xB0), "held: then the audio");
@@ -641,6 +646,60 @@ void session() {
 
 }  // namespace
 
+void buffers() {
+    {
+        Rig r;
+        check(r.open(), "buffer: opens");
+        r.video->outputs = {formatChanged(), sample(0, 1, 16)};
+        r.audio->outputs = {formatChanged()};
+        r.video->outputShortBy = 1;
+        r.run(4);
+        check(r.sink->failed() && r.host.failCount == 1, "buffer: a sample longer than its buffer ends the stream");
+        check(r.codecs.mux->written.empty(), "buffer: and is not written");
+        check(r.video->releasedOutputs == 1, "buffer: the codec still gets its buffer back");
+    }
+    {
+        Rig r;
+        check(r.open(), "buffer: opens");
+        r.video->outputs = {formatChanged(), sample(0, 1, 16)};
+        r.audio->outputs = {formatChanged()};
+        r.video->noOutputBuffer = true;
+        r.run(4);
+        check(r.sink->failed() && r.codecs.mux->written.empty(), "buffer: bytes with no buffer end the stream");
+    }
+    {
+        // The muxer cannot start (the audio never names its format): what waits is bounded.
+        Rig r;
+        check(r.open(), "held limit: opens");
+        const int each = static_cast<int>(EncodeSink::kHeldLimitBytes / 4);
+        r.video->outputs = {formatChanged()};
+        for (int i = 0; i < 4; ++i) r.video->outputs.push_back(sample(i * 33'333, static_cast<uint8_t>(i + 1), each));
+        r.run(5);
+        check(!r.sink->failed() && r.host.encoded == 4, "held limit: up to the limit is kept");
+        r.video->outputs.push_back(sample(4 * 33'333, 9, 1));
+        r.run(1);
+        check(r.sink->failed() && r.host.failCount == 1, "held limit: one byte more ends the stream");
+    }
+    {
+        // Held samples of different sizes come back whole and in order from the one block.
+        Rig r;
+        check(r.open(), "held block: opens");
+        r.video->outputs = {formatChanged()};
+        for (int i = 0; i < 40; ++i) r.video->outputs.push_back(sample(i * 33'333, static_cast<uint8_t>(i + 1), 1 + i * 37));
+        r.run(41);
+        r.audio->outputs = {formatChanged()};
+        r.run(1);
+        const auto& written = r.codecs.mux->written;
+        check(written.size() == 40, "held block: every held sample written");
+        bool whole = written.size() == 40;
+        for (size_t i = 0; whole && i < written.size(); ++i) {
+            whole = written[i].bytes == std::vector<uint8_t>(1 + i * 37, static_cast<uint8_t>(i + 1)) &&
+                    written[i].info.ptsUs == static_cast<int64_t>(i) * 33'333;
+        }
+        check(whole, "held block: each with its own bytes and time");
+    }
+}
+
 int main() {
     ladder();
     heldThenWritten();
@@ -649,6 +708,7 @@ int main() {
     pcmBuffers();
     errors();
     exactlyOnce();
+    buffers();
     session();
     if (failures == 0) std::printf("encode_sink_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

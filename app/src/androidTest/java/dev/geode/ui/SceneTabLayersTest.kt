@@ -16,7 +16,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.render.scene.SceneIds
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -45,7 +44,7 @@ class SceneTabLayersTest {
         var query by mutableStateOf("")
         compose.setContent {
             MaterialTheme {
-                CompositionLocalProvider(LocalSceneId provides SceneIds.KIFS, LocalParamQuery provides query) {
+                CompositionLocalProvider(LocalSceneId provides "kifs", LocalParamQuery provides query) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         LayersPage()
                     }

@@ -126,16 +126,16 @@ int bulbIters(int hi) {
 // uTwist 0) bends space before the fractal sees it, Energy (uIntensity 1)
 // scales how far the music moves a style. Colour is pal(); Space is the rig.
 //
-// The six style knobs (uKnob), each read as its offset from 0.5 (bulbKnob), so
-// with Note & key reactions off every term is exactly zero and every member
-// draws its tuned picture: k0 PULSE swells the body a few percent (the drums
-// through the user's own Notes & key mapping; bulbChaos, its stretch in
-// bulbChaosLip), k1 TEXTURE packs the member's colour bands closer (bulbRamp),
-// k2 FLOW adds to the Chaos bend (bulbChaosAmp), k3 TONE the palette position
-// (bulbRamp), k5 SPACE backs the eye off the body (bulbAim, and the WHOLE
-// members' orbit radius). k4 BUILD has no shared hand here yet.
+// The six style knobs (uKnob), with the roles lib_flame, lib_opal and
+// lib_hollow give them, each read as its offset from 0.5 (bulbKnob), so with
+// Note & key reactions off every term is exactly zero and every member draws
+// its tuned picture: k0 PULSE the emission (bulbRamp's gain), k1 TEXTURE the
+// body's thickness, a few percent (bulbChaos, its stretch in bulbChaosLip), k2
+// FLOW added to Warp's bend (bulbChaosAmp), k3 TONE the palette position
+// (bulbRamp), k5 SPACE the reach: the eye backs off the body (bulbAim, and the
+// WHOLE members' orbit radius). k4 BUILD has no shared hand here yet.
 //
-// The mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, turns the body about
+// The mid band: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE turns the body about
 // its pole while the mids climb and eases it back as they fall, as lib_flame's
 // gFlameTurn does (bulbChaos; a rigid turn, so no stretch). Mid gain scales it.
 
@@ -144,14 +144,14 @@ float bulbKnob(int i) {
     return clamp(uKnob[i], 0.0, 1.0) - 0.5;
 }
 
-/** k0 PULSE as a scale on the fractal's domain: under 1 swells the body (by about 3% at most). */
-float bulbPulseScale() {
-    return 1.0 - 0.06 * bulbKnob(0);
+/** k1 TEXTURE as a scale on the fractal's domain: under 1 thickens the body (by about 3% at most). */
+float bulbWidthScale() {
+    return 1.0 - 0.06 * bulbKnob(1);
 }
 
 /** The mid band's turn about the pole, radians (see above). */
 float bulbTurn() {
-    return 0.4 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 /** Animation time under the Speed macro. */
@@ -164,9 +164,9 @@ float bulbEnergy() {
     return clamp(uIntensity, 0.0, 2.0);
 }
 
-/** Domain-warp amplitude and frequency for the Chaos macro, k2 FLOW added, floored at none. */
+/** Domain-warp amplitude and frequency for the Chaos macro, k2 FLOW added to Warp's share, floored at none. */
 float bulbChaosAmp() {
-    return max(0.05 * uWarp + 0.035 * uTurbulence + 0.05 * bulbKnob(2), 0.0);
+    return 0.05 * max(uWarp + 0.5 * bulbKnob(2), 0.0) + 0.035 * uTurbulence;
 }
 #define BULB_CHAOS_FREQ 3.5
 
@@ -174,11 +174,11 @@ float bulbChaosAmp() {
  * Chaos: a slow sine warp (uWarp, uTurbulence) and a twist about the pole
  * (uTwist) applied to p before the fractal. Neither is rigid, so the caller
  * divides its estimate by bulbChaosLip(). At default the branch is skipped
- * and p comes back untouched. Before them, k0 PULSE's scale and the mid
+ * and p comes back untouched. Before them, k1 TEXTURE's scale and the mid
  * band's turn (see the macros above); both are identity at rest.
  */
 vec3 bulbChaos(vec3 p) {
-    p *= bulbPulseScale();
+    p *= bulbWidthScale();
     float turn = bulbTurn();
     if (turn > 1e-4) {
         float tc = cos(turn);
@@ -199,9 +199,9 @@ vec3 bulbChaos(vec3 p) {
     return p;
 }
 
-/** Bound on bulbChaos's stretch, for a body within about 1.5 of the pole: divide the estimate by it. The pulse's scale over 1 (a shrink) stretches too. */
+/** Bound on bulbChaos's stretch, for a body within about 1.5 of the pole: divide the estimate by it. The width's scale over 1 (a thinning) stretches too. */
 float bulbChaosLip() {
-    return (1.0 + bulbChaosAmp() * BULB_CHAOS_FREQ * 1.8) * (1.0 + abs(uTwist) * 1.2 * 1.5) * max(bulbPulseScale(), 1.0);
+    return (1.0 + bulbChaosAmp() * BULB_CHAOS_FREQ * 1.8) * (1.0 + abs(uTwist) * 1.2 * 1.5) * max(bulbWidthScale(), 1.0);
 }
 
 /** Escape radius for power n: 2 from power 4 up, widening to 4 at power 2. */
@@ -348,9 +348,9 @@ void bulbAim(vec2 uv, vec3 eye, vec3 target, out vec3 ro, out vec3 rd) {
 /** How much of the Director's pal() is mixed into a member's own ramp (the recipe's 0.3 - 0.5). */
 #define BULB_TINT 0.4
 
-/** A member's own cosine ramp at t, tinted toward pal(t); k3 TONE moves t, k1 TEXTURE packs the ramp's bands. */
+/** A member's own cosine ramp at t, tinted toward pal(t); k3 TONE moves t, k0 PULSE is its gain. */
 vec3 bulbRamp(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
-    t += 0.25 * bulbKnob(3);
-    vec3 own = clamp(a + b * cos(BULB_TAU * (c * (t + uColorShift) * (1.0 + 0.5 * bulbKnob(1)) + d)), 0.0, 1.0);
-    return mix(own, pal(t), BULB_TINT);
+    t += 0.6 * bulbKnob(3);
+    vec3 own = clamp(a + b * cos(BULB_TAU * (c * (t + uColorShift) + d)), 0.0, 1.0);
+    return mix(own, pal(t), BULB_TINT) * (1.0 + 0.5 * bulbKnob(0));
 }

@@ -53,7 +53,7 @@ out vec4 fragColor;
 // the seed bulb inside its wedge (bulbChaos, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales how far each onset re-seed moves
 // the seed. Colour is tone(), the stained-glass ramp pal() tints; Space is
-// the rig (camAround), its radius scaled by k5 SPACE; the other knobs as lib_bulb.
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BP_MAX_STEPS 128
 #define BP_BOUND 1.75
@@ -112,7 +112,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BP_CAM_R * (1.0 + 0.25 * bulbKnob(5)), BP_SPIN, ro, rd);
+    camAround(uv, BP_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BP_SPIN, ro, rd);
 
     float hue = 0.04 * sin(bulbTime() * 0.015);
 

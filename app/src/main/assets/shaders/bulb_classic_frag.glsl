@@ -36,7 +36,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the bass swell. Colour is tone(), the bronze ramp pal() tints; Space is
-// the rig (camAround), its radius scaled by k5 SPACE; the other knobs as lib_bulb.
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BC_MAX_STEPS 128
 #define BC_BOUND 1.25
@@ -76,7 +76,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BC_CAM_R * (1.0 + 0.25 * bulbKnob(5)), BC_SPIN, ro, rd);
+    camAround(uv, BC_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BC_SPIN, ro, rd);
 
     float hue = 0.04 * sin(bulbTime() * 0.021) + 0.12 * uKeyStrength * sin(BULB_TAU * uKeyHue);
 

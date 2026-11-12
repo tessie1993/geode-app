@@ -35,6 +35,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 - `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
+- `control_range_test.cpp`: the range a Customize slider offers for a scene param (`core/viz/ControlRange`): the schema's, cut short by the flash clamp's depth and Fly's stop; the old `ControlRangeTest` cases.
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
@@ -52,7 +53,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `export_range_test.cpp`: an export segment's clamp (`core/output/ExportRange`): the 1 s minimum, the whole track as no range.
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
-- `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`.
+- `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`, and the saved band-levels text (`geode_dsp_restore_bands_text`, `geode_dsp_encode_bands`).
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
 - `gltf_import_test.cpp`: glTF import: every limit, the fit and its counts, refusals and the low-detail copy.
 - `gltf_import_test.cpp` also covers the textures: caps, mips, ASTC and ETC2 decoded back, the memory fit and drops, on .glb, PNG and KTX2 fixtures the test builds itself.

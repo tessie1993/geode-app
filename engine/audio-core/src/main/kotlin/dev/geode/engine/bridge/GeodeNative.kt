@@ -233,36 +233,10 @@ object GeodeNative {
         durationMs: Long,
     )
 
-    external fun vizBeginParamMorph(
-        handle: Long,
-        seconds: Float,
-    )
-
-    external fun vizSetTouch(
-        handle: Long,
-        xy: FloatArray,
-        points: Int,
-    )
-
-    /** Settings › Touch › Smear (`core/viz/TouchSmear`): the switch and the strength, clamped natively. */
-    external fun vizSetTouchSmear(
-        handle: Long,
-        on: Boolean,
-        strength: Float,
-    )
-
-    external fun vizSetFluidInjection(
-        handle: Long,
-        force: String?,
-        dye: String?,
-    )
-
     external fun vizLoadMilkPreset(
         handle: Long,
         path: String,
     )
-
-    external fun vizReloadMilkPreset(handle: Long)
 
     external fun vizSetMilkTextureDir(
         handle: Long,
@@ -475,7 +449,7 @@ object GeodeNative {
 
     /**
      * The auto-director (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
-     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
+     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by (pinned natively);
      * [amount] 0 off .. 1 full is what live surfaces drive with now; [seed] is the play's, so a new seed
      * starts the song afresh and an export pinned with it makes the same film.
      */
@@ -503,8 +477,8 @@ object GeodeNative {
      * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
      * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
-     * so the live note response differs every time; an export pins its settings with none
-     * ([vizPinEngineSettings]), so exporting the same play twice draws the same picture, though not the one
+     * so the live note response differs every time; an export pins its settings with none,
+     * so exporting the same play twice draws the same picture, though not the one
      * the screen drew.
      */
     external fun noteResponseSet(enabled: Boolean)
@@ -646,19 +620,6 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*), latched for the next [vizFrame]. Any thread. */
-    external fun vizGyroPush(
-        handle: Long,
-        x: Float,
-        y: Float,
-        z: Float,
-        w: Float,
-        displayRotation: Int,
-    )
-
-    /** The gyro stopped: the next frame recentres the look; the next reading starts a new baseline. Any thread. */
-    external fun vizGyroOff(handle: Long)
-
     /** The style a live surface draws, latched: each [vizFrame] asks for it until the renderer can draw it. Any thread. */
     external fun vizRequestScene(
         handle: Long,
@@ -688,13 +649,10 @@ object GeodeNative {
         capFps: Float,
     ): Int
 
-    /** What Liquid mode ran when a frame last said [FRAME_LIQUID_CHANGED]: 0 off, 1 full, 2 lite, 3 warp, 4 paused. */
-    external fun vizLiquidMode(handle: Long): Int
-
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [vizLiquidMode]. */
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [stageLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
     /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
@@ -706,61 +664,18 @@ object GeodeNative {
     /** Mirrors GEODE_FRAME_DIRECTOR_MOMENT: take the moments with [vizTakeDirectorStyleMoments]. */
     const val FRAME_DIRECTOR_MOMENT: Int = 0x20
 
-    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([vizStillSize], [vizStillRead]). */
+    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([stageStillSize], [stageStillRead]). */
     const val FRAME_STILL_READY: Int = 0x40
-
-    /**
-     * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
-     * ignores [macroBankSet], [noteResponseSet], [handSet] and [directorSet], so live edits never reach a render
-     * in progress. The director is decided natively from the user's switch, [entitled] and [durationMs].
-     * Returns the pinned hand mask, for the export's route merge.
-     */
-    external fun vizPinEngineSettings(
-        handle: Long,
-        entitled: Boolean,
-        durationMs: Long,
-    ): Int
 
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,
     )
 
-    /** Export: step every frame by exactly 1/[fps] instead of measuring frame times; 0 = live. */
-    external fun vizSetFrameRate(
-        handle: Long,
-        fps: Int,
-    )
-
-    /**
-     * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
-     * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
-     * visual's size); [strength] 0..1, 0 = off and free; [cornerPx] in surface pixels. Ignored offscreen.
-     */
-    external fun vizSetUiBlurRegion(
-        handle: Long,
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        strength: Float,
-        cornerPx: Float,
-    )
-
-    /**
-     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
-     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
-     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
-     */
-    external fun vizSetEdgeGlow(
-        handle: Long,
-        opts: FloatArray?,
-    )
-
     /**
      * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
      * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
-     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [vizSetEdgeGlow] takes them.
+     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [stageSetEdgeGlow] takes them.
      */
     external fun wallpaperWindow(
         surfaceW: Float,
@@ -777,13 +692,6 @@ object GeodeNative {
         capFps: Float,
     ): Float
 
-    external fun vizKnows(
-        handle: Long,
-        sceneId: String,
-    ): Boolean
-
-    external fun vizSceneIds(handle: Long): String
-
     external fun vizLastError(handle: Long): String
 
     external fun vizSurfaceCreated(handle: Long)
@@ -799,43 +707,11 @@ object GeodeNative {
         sceneId: String,
     ): Boolean
 
-    /**
-     * Export only (Studio 2D): the styles this segment switches to, as timed cues ([atMs] render ms
-     * since the segment began, [sceneIds], [milkPaths] with "" for none, all the same length) and a
-     * beat cut through [cutIds] every [everyBeats] beats. The native renderer decides when
-     * (`core/viz/StyleSchedule`); empty arrays clear it. [lockedIds] is the entitlement: styles this
-     * user may not draw, dropped from the schedule natively (empty for Pro).
-     */
-    external fun vizSetStyleSchedule(
-        handle: Long,
-        atMs: DoubleArray,
-        sceneIds: Array<String>,
-        milkPaths: Array<String>,
-        cutIds: Array<String>,
-        everyBeats: Int,
-        lockedIds: Array<String>,
-    )
-
-    external fun vizWarmTransition(
-        handle: Long,
-        id: String,
-    )
-
-    external fun vizCut(handle: Long)
-
     external fun vizRender(
         handle: Long,
         timeSeconds: Double,
         targetFbo: Int,
     )
-
-    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
-    external fun vizPrepareOffscreen(handle: Long)
-
-    external fun vizReleaseScenes(handle: Long)
-
-    /** Sheds the renderer's spare scenes as a UI_HIDDEN trim does; GL thread, before it pauses (`geode_viz_trim_spares`). */
-    external fun vizTrimSpares(handle: Long)
 
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
@@ -1461,7 +1337,7 @@ object GeodeNative {
         fps: Int,
     ): Long
 
-    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and the GL thread's [recordSessionTeeClosed] ran. */
+    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and [stageRecordClosed] says the tee is closed. */
     external fun recordSessionDestroy(session: Long)
 
     /** The encoder's frame into [out]: width, height. */
@@ -1472,32 +1348,6 @@ object GeodeNative {
 
     /** One of `RECORD_SESSION_*`, polled. */
     external fun recordSessionState(session: Long): Int
-
-    /** GL thread, after [vizRecordStop]: the stage no longer draws into the encoder, so its stream may end. */
-    external fun recordSessionTeeClosed(session: Long)
-
-    /**
-     * GL thread. From the next [vizRender] on, the frames the session's clock keeps are copied into its encoder
-     * and the sound the renderer hears goes to the clock. [watermark] is an `exportWatermarkCreate` handle built on
-     * this thread, or 0. False when the driver would not open the encoder's surface or the session already ended.
-     */
-    external fun recordSessionTeeStart(
-        session: Long,
-        handle: Long,
-        watermark: Long,
-    ): Boolean
-
-    /** GL thread, or after its surface went: ends the copy. */
-    external fun vizRecordStop(handle: Long)
-
-    /**
-     * Marks this renderer as the stage the cast carries (`geode_viz_set_cast_source`, core/viz/frame/CastTee): while a
-     * cast's tee is open it copies its finished visual into it, at most once per cast frame. Any thread; the app's stage only.
-     */
-    external fun vizSetCastSource(
-        handle: Long,
-        on: Boolean,
-    )
 
     /**
      * The cast thread, its EGL context current: opens the tee the stage copies into, [width] x [height] at [fps];
@@ -1525,27 +1375,6 @@ object GeodeNative {
         stageDraws: Boolean,
         fallbackMade: Boolean,
         sinceOpenNs: Long,
-    ): Boolean
-
-    /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
-    external fun vizStillRequest(handle: Long)
-
-    /** GL thread: the still's width and height into [out], true once it is ready. */
-    external fun vizStillSize(
-        handle: Long,
-        out: IntArray,
-    ): Boolean
-
-    /** GL thread: the still, RGBA8 rows top first, into the direct buffer [out]; then it is let go. */
-    external fun vizStillRead(
-        handle: Long,
-        out: java.nio.ByteBuffer,
-    ): Boolean
-
-    /** Tap along (`core/viz/TapAlong`): a touch-down at [uptimeNs]; true on the tap that completes a streak on the beat. Any thread. */
-    external fun vizTapAlong(
-        handle: Long,
-        uptimeNs: Long,
     ): Boolean
 
     /** Shake to screenshot's detector (`core/viz/Shake`), one per listener. */
@@ -2088,15 +1917,6 @@ object GeodeNative {
         nowMs: Long,
     ): Long
 
-    /**
-     * How long to keep pacing after a restate from [previousMode] to [mode] (the run modes' ordinals)
-     * before stopping: the still frame's settle, or 0 when one frame, or plain on and off, is enough.
-     */
-    external fun surfaceSettleMs(
-        previousMode: Int,
-        mode: Int,
-    ): Long
-
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
 
@@ -2178,30 +1998,6 @@ object GeodeNative {
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
     const val SURFACE_DEFAULT_FPS = 30
 
-    // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
-
-    /** Nine longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 9
-
-    /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
-    const val PACER_CAP_SLOT = 6
-
-    /** The state slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync). */
-    const val PACER_PACED_SLOT = 7
-
-    /**
-     * One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] is the surface's own cap
-     * (<= 0 draws every vsync); native paces to min([capFps], the thermal cap).
-     */
-    external fun pacerOnVsync(
-        state: LongArray,
-        frameTimeNanos: Long,
-        capFps: Float,
-    ): Double
-
-    /** A start after a stop: forget the gap, keep the panel's period. */
-    external fun pacerResume(state: LongArray)
-
     // AIFF files (core/audio/ingest/AiffReader), for the soundtrack transcoder.
 
     /**
@@ -2231,18 +2027,6 @@ object GeodeNative {
         handle: Long,
         out: ShortArray,
     ): Int
-
-    /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
-    external fun vizHearTrack(
-        handle: Long,
-        feed: Long,
-    ): Boolean
-
-    /** Ends the pre-roll before frame 0; false when renderer [handle]'s engine heard nothing (the render must fail). */
-    external fun vizEndPreRoll(
-        handle: Long,
-        rangeStartMs: Long,
-    ): Boolean
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
     // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
@@ -2506,9 +2290,6 @@ object GeodeNative {
 
     /** The output's buffer in frames: the FIFO plus the stream's own. */
     external fun audioOutBufferFrames(handle: Long): Long
-
-    /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
-    external fun pacerEffectiveCap(capFps: Float): Float
 
     // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
 

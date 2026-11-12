@@ -72,13 +72,13 @@ void testRoutes() {
     check(get(t + "/stream.mp4/").status == 404 && get(t + "/STREAM.MP4").status == 404 && get("/stream.mp4").status == 404,
           "the feed only by its exact name under the token");
 
-    const char* missing[] = {"/", "/index.html", "/live.m3u8", "/favicon.ico", "", "live.m3u8"};
+    const char* missing[] = {"/index.html", "/live.m3u8", "/favicon.ico", "", "live.m3u8"};
     for (const char* m : missing) check(get(m).status == 404 && get(m).resource == Resource::None, "off the token: 404");
     const std::string notFound[] = {
         t + "/seg.m4s", t + "/seg-1.m4s", t + "/segx.m4s", t + "/seg1.mp4", t + "/seg1234567890123456789.m4s",
         t + "/../live.m3u8", t + "/a/live.m3u8", t + "//", t + "/live.m3u8/", t + "/LIVE.M3U8", t + "/%6cive.m3u8",
         "/" + kToken.substr(0, 31) + "/live.m3u8", "/" + kToken + "0/live.m3u8", "/0123456789ABCDEF0123456789ABCDEF/",
-        "/" + kToken.substr(0, 31) + "e/", "http://10.0.0.2:80/" + kToken + "/", "/?" + kToken + "/", "/x/" + kToken + "/"};
+        "/" + kToken.substr(0, 31) + "e/", "http://10.0.0.2:80/" + kToken + "/", "/x/" + kToken + "/"};
     for (const std::string& target : notFound) check(get(target).status == 404, "a wrong name or token: 404");
     for (const std::string& target : notFound) check(get(target, "POST").status == 404, "and 404 whatever the method");
     check(share::route("GET", "/" + kToken + "/", "").status == 404, "no token: nothing is served");

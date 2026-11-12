@@ -51,10 +51,12 @@ const char* reasonPhrase(int status) {
         case 204: return "No Content";
         case 308: return "Permanent Redirect";
         case 400: return "Bad Request";
+        case 403: return "Forbidden";
         case 405: return "Method Not Allowed";
         case 411: return "Length Required";
         case 413: return "Content Too Large";
         case 414: return "URI Too Long";
+        case 429: return "Too Many Requests";
         case 431: return "Request Header Fields Too Large";
         case 503: return "Service Unavailable";
         default: return "Not Found";
@@ -63,8 +65,11 @@ const char* reasonPhrase(int status) {
 
 const char* contentType(Resource r) {
     switch (r) {
-        case Resource::Page: return "text/html; charset=utf-8";
-        case Resource::Script: return "text/javascript; charset=utf-8";
+        case Resource::Page:
+        case Resource::PairPage: return "text/html; charset=utf-8";
+        case Resource::Script:
+        case Resource::PairScript: return "text/javascript; charset=utf-8";
+        case Resource::Pair: return "text/plain; charset=utf-8";
         case Resource::Style: return "text/css; charset=utf-8";
         case Resource::Master:
         case Resource::Playlist: return "application/vnd.apple.mpegurl";
@@ -202,6 +207,22 @@ Route route(std::string_view method, std::string_view target, std::string_view t
     const size_t cut = target.find_first_of("?#");
     const std::string_view path = target.substr(0, cut);
     const std::string_view rest = path.substr(1);
+    const bool read = method == "GET" || method == "HEAD";
+    // The typed path, off the token: names fixed in advance, so they tell nothing about the token.
+    if (rest.empty() || rest == kPairScriptName || rest == kStyleName || rest == kPairName) {
+        r.resource = rest.empty()              ? Resource::PairPage
+                     : rest == kPairScriptName ? Resource::PairScript
+                     : rest == kStyleName      ? Resource::Style
+                                               : Resource::Pair;
+        if (r.resource == Resource::Pair) {
+            r.status = method == "POST" ? 200 : 405;
+        } else if (method == "OPTIONS" && r.resource == Resource::Style) {
+            r.status = 204;
+        } else {
+            r.status = read ? 200 : 405;
+        }
+        return r;
+    }
     const size_t slash = rest.find('/');
     if (!tokenMatches(rest.substr(0, slash), token)) return r;
     Resource resource = Resource::Redirect;
@@ -213,7 +234,6 @@ Route route(std::string_view method, std::string_view target, std::string_view t
         if (resource == Resource::None) return r;
         if (resource == Resource::Segment) sequence = segmentSequence(name);
     }
-    const bool read = method == "GET" || method == "HEAD";
     if (resource == Resource::Rtc) {
         r.status = method == "POST" ? 200 : 405;
     } else if (method == "OPTIONS" && resource != Resource::Redirect && resource != Resource::Stream) {
@@ -260,17 +280,18 @@ std::string responseHead(int status, Resource resource, int64_t length, std::str
         h += "Accept-Ranges: none\r\n";
     }
     if (status == 405) {
-        h += resource == Resource::Rtc      ? "Allow: POST\r\n"
-             : resource == Resource::Stream ? "Allow: GET, HEAD\r\n"
-                                            : "Allow: GET, HEAD, OPTIONS\r\n";
+        h += resource == Resource::Rtc || resource == Resource::Pair ? "Allow: POST\r\n"
+             : resource == Resource::Stream || resource == Resource::PairPage || resource == Resource::PairScript
+                 ? "Allow: GET, HEAD\r\n"
+                 : "Allow: GET, HEAD, OPTIONS\r\n";
     }
-    if (status == 503) h += "Retry-After: 2\r\n";
+    if (status == 503 || status == 429) h += "Retry-After: 2\r\n";
     if (status == 308 && validToken(token)) {
         h += "Location: /";
         h += token;
         h += "/\r\n";
     }
-    if (status == 200 && resource == Resource::Page) {
+    if (status == 200 && (resource == Resource::Page || resource == Resource::PairPage)) {
         h += "Content-Security-Policy: ";
         h += kPagePolicy;
         h += "\r\nX-Frame-Options: DENY\r\n";
@@ -364,6 +385,19 @@ std::string shareUrl(uint32_t address, int port, std::string_view token) {
     url += token;
     url += '/';
     return url;
+}
+
+std::string pairUrl(uint32_t address, int port) {
+    if (address == 0 || port < 1 || port > 65535) return {};
+    return "http://" + std::to_string(address) + ':' + std::to_string(port) + '/';
+}
+
+std::string pairedPath(std::string_view token) {
+    if (!validToken(token)) return {};
+    std::string path = "/";
+    path += token;
+    path += '/';
+    return path;
 }
 
 std::string friendlyLabel(std::string_view token) {

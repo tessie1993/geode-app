@@ -148,7 +148,8 @@ class VisualizerDreamService : DreamService() {
         darkCover = black
         stage.addView(black, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         if (behaviour.dreamShowClock || behaviour.dreamShowNowPlaying) {
-            val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying)
+            val textScale = geodeContainer.general.current().textScale
+            val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying, textScale)
             overlay = dreamOverlay
             stage.addView(
                 dreamOverlay,

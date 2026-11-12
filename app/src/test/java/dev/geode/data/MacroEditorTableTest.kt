@@ -43,6 +43,15 @@ class MacroEditorTableTest {
         val mine = state.knobs.last()
         assertFalse(mine.builtIn)
         assertTrue(mine.canLink)
+        assertEquals(3 to 7, shine.addCount to shine.addMax)
+        assertEquals(3 to 10, mine.addCount to mine.addMax)
+    }
+
+    @Test
+    fun `every param a control sets is offered, labelled by its control`() {
+        assertEquals(MacroTarget("WARP", true, "Domain warp"), state.targets.first { it.name == "WARP" })
+        assertEquals(MacroTarget("cymaticsRing", false, "Plate ring"), state.targets.first { it.name == "cymaticsRing" })
+        assertTrue(state.targets.any { it.name == "grain" && it.reaches })
     }
 
     @Test

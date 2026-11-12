@@ -54,7 +54,8 @@ public:
     static constexpr float kShakeRadians = 0.025f;
     static constexpr float kFlatTilt = 0.35f;      // 2D plane tilt is gentler than the 3D look
     static constexpr float kFlatOctaves = 0.35f;   // octaves / s a flat style dives at camFly 1, camFlat 1
-    static constexpr int kPathCount = 7;           // glide, spiral, orbit, hover, drive, fall, rise
+    // glide, spiral, orbit, hover, drive, fall, rise, weave, corkscrew, swoop, strafe, pendulum
+    static constexpr int kPathCount = 12;
     // Reversing turns the view around over this much speed (world units / s), so the swing is
     // continuous through a stop instead of a snap.
     static constexpr float kTurnAroundSpeed = 0.25f * kBaseSpeed;
@@ -62,6 +63,9 @@ public:
     // a fast camFly) still turns at a bounded rate, never in a few frames.
     static constexpr float kTurnAroundSeconds = 0.6f;
     static constexpr float kFallPitch = 0.3f;      // radians the nose tips down (fall) or up (rise)
+    // False on the paths whose z is a closed loop rather than travel (orbit, hover, pendulum): no dive,
+    // no bank, no turn-around.
+    static bool travels(int path);
 
     struct LookInput {
         float yaw = 0.0f;    // -1..1, touch anchor or gyro
@@ -103,12 +107,12 @@ public:
     const CameraPose& pose() const { return pose_; }
 
     // Octaves per second a flat (2D) style dives for these params: camFlat x camFly, so the sign of
-    // Fly speed zooms in (forward) or out (backward), and 0 on the paths that do not travel (orbit,
-    // hover). The renderer feeds it to the endless zoom (EndlessZoom.hpp), which loops without a pop
-    // either way. Forward travel arrives already scaled for reduced motion by safety::apply.
+    // Fly speed zooms in (forward) or out (backward), and 0 on the paths that do not travel (travels).
+    // The renderer feeds it to the endless zoom (EndlessZoom.hpp), which loops without a pop either way. Forward travel arrives already scaled for reduced motion by safety::apply.
     static float flatDive(const SceneParams& p);
 
-    // The path centre line at travel s, before look/dolly; public for tests.
+    // The path centre line at travel s, before look/dolly; public for tests. Strafe's eye stands off
+    // to the side of this line, looking in at it.
     static std::array<float, 3> pathPoint(int path, float orbit, float s);
 
 private:

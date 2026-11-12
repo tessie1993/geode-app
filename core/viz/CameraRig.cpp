@@ -106,14 +106,35 @@ Vec3 CameraRig::pathPoint(int path, float orbit, float s) {
             const float saw = std::sin(th) - 0.5f * std::sin(2.0f * th) + std::sin(3.0f * th) / 3.0f;
             return {0.6f * a * std::sin(16.0f * kW * s), (path == 5 ? -3.0f : 3.0f) * a * saw, s};
         }
+        case 7: {  // weave: a quick slalom that traces a figure-eight across the travel axis
+            const float th = 44.0f * kW * s;
+            return {1.6f * a * std::sin(th), 0.6f * a * std::sin(2.0f * th), s};
+        }
+        case 8: {  // corkscrew: a tight helix; step rolls the view once per turn, the axis kept below
+            const float th = 96.0f * kW * s;
+            return {-0.7f * a * std::sin(th), 0.7f * a * std::cos(th), s};
+        }
+        case 9: {  // swoop: long climbs and dives, the nose following the slope
+            const float th = 14.0f * kW * s;
+            return {0.8f * a * std::sin(9.0f * kW * s), a * (2.8f * std::sin(th) + 0.8f * std::sin(2.0f * th + 1.0f)), s};
+        }
+        case 10:  // strafe: the track a sideways tracking shot looks in at (step stands the eye off it)
+            return {0.5f * a * std::sin(10.0f * kW * s), 0.3f * a * std::sin(22.0f * kW * s), s};
+        case 11: {  // pendulum: swings on a hanging arc through the centre line, drifting slowly in z, not travel
+            const float swing = 0.9f * std::sin(32.0f * kW * s);
+            const float len = 1.5f + 1.5f * a;
+            return {len * std::sin(swing), len * (1.0f - std::cos(swing)), -(1.6f + a) + 0.5f * a * std::sin(5.0f * kW * s)};
+        }
         default:  // glide: a smooth wandering spline down +z
             return {a * (std::sin(34.0f * kW * s) + 0.5f * std::sin(21.0f * kW * s + 1.0f)),
                     0.6f * a * std::sin(28.0f * kW * s + 2.0f), s};
     }
 }
 
+bool CameraRig::travels(int path) { return path != 2 && path != 3 && path != 11; }
+
 float CameraRig::flatDive(const SceneParams& p) {
-    if (p.camPath == 2 || p.camPath == 3) return 0.0f;
+    if (!travels(std::clamp(p.camPath, 0, kPathCount - 1))) return 0.0f;
     const float on = std::isfinite(p.camFlat) ? std::clamp(p.camFlat, 0.0f, 1.0f) : 0.0f;
     const float fly = std::isfinite(p.camFly) ? std::clamp(p.camFly, -2.5f, 2.5f) : 0.0f;
     return on * fly * kFlatOctaves;
@@ -252,27 +273,41 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
 
     const Vec3 here = pathPoint(path, orbit_.x, travel_);
     const Vec3 ahead = pathPoint(path, orbit_.x, travel_ + kLookAhead);
-    Vec3 fwd = path == 2 ? normalize(scale(here, -1.0f)) : (path == 3 ? Vec3{0.0f, 0.0f, 1.0f} : normalize(sub(ahead, here)));
+    // The way the path goes. Orbit and pendulum look at the origin, hover straight ahead, strafe in from the side.
+    const Vec3 dir = normalize(sub(ahead, here));
+    Vec3 fwd = (path == 2 || path == 11) ? normalize(scale(here, -1.0f))
+               : path == 3                ? Vec3{0.0f, 0.0f, 1.0f}
+               : path == 10               ? Vec3{1.0f, 0.0f, 0.0f}
+                                          : dir;
     const Vec3 worldUp{0.0f, 1.0f, 0.0f};
     Vec3 right = normalize(cross(worldUp, fwd));
     Vec3 up = cross(fwd, right);
 
     // The path's sideways acceleration: the same going either way, so reversing keeps the corner.
-    const bool travels = path != 2 && path != 3;
+    const bool moving = travels(path);
     Vec3 turn{0.0f, 0.0f, 0.0f};
-    if (travels) {
+    Vec3 eye = here;
+    if (moving) {
         const Vec3 further = pathPoint(path, orbit_.x, travel_ + 2.0f * kLookAhead);
-        turn = sub(normalize(sub(further, ahead)), fwd);
+        turn = sub(normalize(sub(further, ahead)), dir);
         // Backward: swing round to face the way the camera goes, eased by the facing spring (facingOf the
         // speed spring), so a reversal turns the view at a bounded rate rather than flipping it. It rests
         // at exactly 1 while stopped or moving forward, so forward looks are exactly as they were.
         const float swing = kTwoPi * 0.5f * (1.0f - std::clamp(facing_.x, 0.0f, 1.0f));
         fwd = rotate(fwd, up, swing);
         right = rotate(right, up, swing);
+        // Strafe stands off the track looking in, so the reverse turn carries the eye round to the other side.
+        if (path == 10) eye = sub(here, scale(fwd, 2.0f + 1.2f * std::clamp(orbit_.x, 0.0f, 1.0f)));
     }
     // Bank into the curve, in the camera's own frame, so the horizon leans toward the inside of a turn.
     float bank = 0.0f;
-    if (travels) bank = std::clamp(-dot(turn, right) * 1.2f, -0.5f, 0.5f) * g;
+    if (moving) bank = std::clamp(-dot(turn, right) * 1.2f, -0.5f, 0.5f) * g;
+    // Corkscrew rolls with its turn, once per loop; reduced motion blends that toward level (g < 0.5 never
+    // rolls over), and the angle of the blended vector stays continuous.
+    if (path == 8) {
+        const float th = 96.0f * kW * travel_;
+        bank += std::atan2(g * std::sin(th), 1.0f - g + g * std::cos(th));
+    }
     const float shake = std::clamp(p.camShake, 0.0f, 1.0f) * kShakeRadians * g;
     // The trauma shake goes on the view only, after the springs, so it never feeds back into the pose.
     const float trauma = trauma_ * trauma_ * kTraumaRadians;
@@ -289,7 +324,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     right = rotate(right, fwd, roll);
     up = rotate(up, fwd, roll);
 
-    pose_.pos = add(here, scale(fwd, dolly_.x * kDollyReach));
+    pose_.pos = add(eye, scale(fwd, dolly_.x * kDollyReach));
     pose_.fwd = fwd;
     pose_.right = right;
     pose_.up = up;

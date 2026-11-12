@@ -260,7 +260,7 @@ float angleBetween(const std::array<float, 3>& a, const std::array<float, 3>& b)
 }
 
 void backwardTravelUnwindsAndTheTurnIsContinuous() {
-    for (int path : {0, 1, 4, 5, 6}) {
+    for (int path : {0, 1, 4, 5, 6, 7, 8, 9}) {
         CameraRig rig;
         SceneParams p;
         p.camPath = path;
@@ -299,6 +299,86 @@ void backwardTravelUnwindsAndTheTurnIsContinuous() {
     }
 }
 
+// Strafe looks in at its track from the side; reversing carries the eye round the track point through
+// the turn-around spring, so it ends looking in from the other side, never with a jump.
+void strafeLooksInAndCranesRoundOnReverse() {
+    CameraRig rig;
+    SceneParams p;
+    p.camPath = 10;
+    p.camFly = 1.0f;
+    for (int i = 0; i < 600; ++i) rig.step(p, {}, 1.0f / 60.0f, false);
+    check(rig.pose().fwd[0] > 0.8f && rig.pose().pos[0] < -1.5f, "strafe stands off to one side and looks in");
+    p.camFly = -1.0f;
+    CameraPose prev = rig.pose();
+    float maxStep = 0.0f;
+    float maxTurn = 0.0f;
+    for (int i = 0; i < 600; ++i) {
+        rig.step(p, {}, 1.0f / 60.0f, false);
+        const CameraPose& c = rig.pose();
+        maxStep = std::fmax(maxStep, std::sqrt((c.pos[0] - prev.pos[0]) * (c.pos[0] - prev.pos[0]) +
+                                               (c.pos[1] - prev.pos[1]) * (c.pos[1] - prev.pos[1]) +
+                                               (c.pos[2] - prev.pos[2]) * (c.pos[2] - prev.pos[2])));
+        maxTurn = std::fmax(maxTurn, angleBetween(c.fwd, prev.fwd));
+        prev = c;
+    }
+    check(maxStep < 0.3f, "strafe's reverse cranes the eye round without a jump");
+    check(maxTurn < 0.35f, "strafe's reverse turns the view smoothly");
+    check(rig.pose().fwd[0] < -0.8f && rig.pose().pos[0] > 1.5f, "backward, strafe looks in from the other side");
+}
+
+// Every path flies through the travel wrap with no jump, a finite unit basis on every step, and the
+// corkscrew's roll continuous through it.
+void everyPathCrossesTheTravelWrapSmoothly() {
+    for (int path = 0; path < CameraRig::kPathCount; ++path) {
+        CameraRig rig;
+        SceneParams p;
+        p.camPath = path;
+        p.camFly = 2.5f;
+        rig.step(p, {}, 0.1f, false);
+        CameraPose prev = rig.pose();
+        float maxStep = 0.0f;
+        float maxUpTurn = 0.0f;
+        bool wrapped = false;
+        bool unit = true;
+        for (int i = 0; i < 21000; ++i) {
+            rig.step(p, {}, 0.1f, false);
+            const CameraPose& c = rig.pose();
+            wrapped = wrapped || c.travel < prev.travel;
+            maxStep = std::fmax(maxStep, std::sqrt((c.pos[0] - prev.pos[0]) * (c.pos[0] - prev.pos[0]) +
+                                                   (c.pos[1] - prev.pos[1]) * (c.pos[1] - prev.pos[1]) +
+                                                   (c.pos[2] - prev.pos[2]) * (c.pos[2] - prev.pos[2])));
+            maxUpTurn = std::fmax(maxUpTurn, angleBetween(c.up, prev.up));
+            auto dot = [](const std::array<float, 3>& a, const std::array<float, 3>& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+            unit = unit && std::isfinite(c.pos[0] + c.pos[1] + c.pos[2]) && std::fabs(dot(c.fwd, c.fwd) - 1.0f) < 1e-3f && std::fabs(dot(c.up, c.up) - 1.0f) < 1e-3f &&
+                   std::fabs(dot(c.fwd, c.up)) < 1e-3f && std::fabs(dot(c.fwd, c.right)) < 1e-3f;
+            prev = c;
+        }
+        check(wrapped, "the run crosses the travel wrap");
+        check(unit, "every path keeps a finite, unit, orthogonal basis");
+        check(maxStep < 1.0f, "no path jumps, at the travel wrap or anywhere");
+        check(maxUpTurn < 0.5f, "the up vector never snaps, the corkscrew's roll included");
+    }
+}
+
+// The corkscrew rolls over with its turn; reduced motion only leans it.
+void corkscrewRollsAndReducedMotionLeans() {
+    float fullMax = 0.0f;
+    float reducedMax = 0.0f;
+    for (bool reduced : {false, true}) {
+        CameraRig rig;
+        SceneParams p;
+        p.camPath = 8;
+        p.camFly = 1.0f;
+        for (int i = 0; i < 1200; ++i) {
+            rig.step(safety::apply(p, reduced), {}, 1.0f / 60.0f, reduced);
+            float& m = reduced ? reducedMax : fullMax;
+            m = std::fmax(m, std::fabs(rig.pose().roll));
+        }
+    }
+    check(fullMax > 2.5f, "the corkscrew rolls over");
+    check(reducedMax < 1.2f, "reduced motion never rolls the corkscrew over");
+}
+
 void reverseDoesNotChangeForwardLooks() {
     // The turn-round is 1 while moving forward, so the default look is bit-for-bit what it was.
     CameraRig rig;
@@ -319,6 +399,12 @@ void flatStylesDiveBothWays() {
     check(in > 0.0f && out < 0.0f && std::fabs(in + out) < 1e-6f, "forward zooms in, backward zooms out");
     p.camPath = 3;
     check(CameraRig::flatDive(p) == 0.0f, "hover does not dive");
+    p.camPath = 11;
+    check(CameraRig::flatDive(p) == 0.0f, "pendulum does not dive");
+    for (int path : {7, 8, 9, 10}) {
+        p.camPath = path;
+        check(CameraRig::flatDive(p) == in, "weave, corkscrew, swoop and strafe dive like the other travelling paths");
+    }
     // Backward shrinks the picture without a pop: the endless zoom phase wraps either way.
     float ph = 0.0f;
     float last = ph;
@@ -1887,6 +1973,9 @@ int main() {
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();
     backwardTravelUnwindsAndTheTurnIsContinuous();
+    strafeLooksInAndCranesRoundOnReverse();
+    everyPathCrossesTheTravelWrapSmoothly();
+    corkscrewRollsAndReducedMotionLeans();
     reverseDoesNotChangeForwardLooks();
     flatStylesDiveBothWays();
     reducedMotionSlowsTravel();

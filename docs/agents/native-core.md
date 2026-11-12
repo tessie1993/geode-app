@@ -98,6 +98,11 @@ The renderer runs these in order each frame.
 - Then `safety::apply` (`core/viz/VisualSafety`), the unconditional clamp, last.
 - In an export the renderer also steps `StyleSchedule` (the segment's style switches, by time and by beat, on the picture's clock, so it holds in silence).
 - Then it steps `CameraRig`, the one camera every render path shares, which also reads the sound frame for its own cuts, trauma shake and clock-driven orbit.
+- `CameraRig` has twelve paths (`camPath` 0..11): glide, spiral, orbit, hover, drive, fall, rise, weave, corkscrew, swoop, strafe, pendulum.
+- The Camera path chips' labels are `SceneParams.CAMERA_PATHS` in `:engine:scenes`, by `camPath` index.
+- Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
+- Strafe looks in at its track from the side; reversing carries the eye round to the other side.
+- Corkscrew rolls once per turn; under reduced motion it only leans.
 
 ## Visual safety
 

@@ -141,6 +141,7 @@ add_library(geode SHARED
     app/src/main/cpp/geode_ingest_jni.cpp
     app/src/main/cpp/geode_audio_out_jni.cpp
     app/src/main/cpp/geode_webrtc_jni.cpp
+    app/src/main/cpp/geode_cast_jni.cpp
     app/src/main/cpp/geode_shell_port_jni.cpp
     app/src/main/cpp/geode_milk_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})

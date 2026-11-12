@@ -46,6 +46,11 @@ enum class Source { BuiltIn, ColourMap, Style, Milk, Artwork, Yours };
 // every colour stays as picked. Mix: every palette is drawn over the whole of t and blended by amount
 // (what an old look's second palette did).
 enum class Blend { Share, Mix };
+// Where two palettes meet under Share. Soft: the colours fade into each other across the line, over at most
+// kSoftReach of t each way and never more than a quarter of either share, so a small share keeps its middle
+// pure. Hard: each pure up to a sharp line.
+enum class Edge { Soft, Hard };
+constexpr float kSoftReach = 0.05f;
 
 struct Stop {
     int rgb = 0;
@@ -70,6 +75,7 @@ struct Stack {
     // The primary first. Empty is unset: the style's own palette draws (resolveDefault).
     std::vector<Palette> layers;
     Blend blend = Blend::Share;
+    Edge edge = Edge::Soft;
     // Off: colour cycles, hue shift and moment colours walk the stack's colours only. On (the user's
     // opt-in): they may turn the whole hue wheel.
     bool fullRange = false;
@@ -86,6 +92,7 @@ const char* name(Space v);
 const char* name(Single v);
 const char* name(Source v);
 const char* name(Blend v);
+const char* name(Edge v);
 
 // Even positions for n stops: i/(n-1) for Mirror, so the run reaches both ends; i/n for Loop, so the
 // last stop's blend back into the first is one step like the others.
@@ -140,7 +147,7 @@ Palette spreadEvenly(Palette p);
 // Text. A palette is one line:
 //   palette|<SOURCE>|<ref>|<name>|<SMOOTH|STEPS>|<MIRROR|LOOP>|<RGB|HUE|OKLAB>|<SHADES|FLAT|TO_BLACK>|<stops>
 // stops "RRGGBB@pos" joined by ','. A stack is a header and its layers, the primary first:
-//   palettes|<kTextVersion>|<SHARE|MIX>|<fullRange 0|1>
+//   palettes|<kTextVersion>|<SHARE|MIX>|<fullRange 0|1>|<SOFT|HARD>
 //   palette|...
 // decode drops what it cannot read; an unreadable header is the unset stack.
 std::string encode(const Palette& p);
@@ -168,9 +175,10 @@ const std::string& libraryText();
 // An old look's colours as a stack, so it draws as it did: the first slot from its stops (your colours),
 // else its hue gradient (a saved override or built-in `palette`) sampled to stops; a second palette under
 // `paletteMix` as layer 2 with blend Mix; a colour map (`paletteLut`), which replaced both, as the only
-// layer. Every layer Loops, as the old ramps did. `amounts` gets the layers' amounts.
+// layer. Every layer Loops, as the old ramps did, and palettes meet Hard. `amounts` gets the layers' amounts.
 Stack fromLegacy(const SceneParams& p, Amounts& amounts);
-// The old cosine ramp (base, range) as kMaxStops stops at i/kMaxStops, looped, in RGB.
+// The old cosine ramp (base, range) as kMaxStops stops, in RGB, looped: at i/kMaxStops for a ramp of whole
+// turns, which meets itself; else from base to base + range inclusive, so t just short of 1 is the ramp's end.
 Palette fromHueRamp(std::string_view name, Source source, std::string_view ref, float base, float range);
 
 }  // namespace geode::viz::palette

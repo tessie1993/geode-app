@@ -82,12 +82,20 @@ void classicRampsDrawAsTheyDid() {
         const auto& old = SceneParams::palettes()[static_cast<size_t>(i)];
         const pl::Palette p = pl::fromHueRamp(old.name, pl::Source::BuiltIn, "", old.base, old.range);
         check(p.wrap == pl::Wrap::Loop && p.space == pl::Space::Rgb && p.stops.size() == 16, std::string(old.name) + " loops in RGB");
-        for (int k = 0; k < 64; ++k) {
-            const float t = static_cast<float>(k) / 64.0f;
-            const float eps = (k % 4 == 0) ? 1.0f / 255.0f : 4.0f / 255.0f;
-            check(near(pl::at(p, t), colour::procedural(old.base, old.range, t), eps),
+        // Only Spectrum comes round whole turns; every other ramp ends on base + range, not back on base.
+        const bool periodic = i == 0;
+        check(p.stops.back().pos == (periodic ? 15.0f / 16.0f : 1.0f), std::string(old.name) + ": where its last stop sits");
+        for (const pl::Stop& stop : p.stops) {
+            check(near(pl::at(p, stop.pos == 1.0f ? 0.999999f : stop.pos), colour::procedural(old.base, old.range, stop.pos), 1.0f / 255.0f),
+                  std::string(old.name) + " on its stop at " + std::to_string(stop.pos) + " is the old cosine");
+        }
+        for (int k = 0; k < 256; ++k) {
+            const float t = static_cast<float>(k) / 256.0f;
+            check(near(pl::at(p, t), colour::procedural(old.base, old.range, t), 4.0f / 255.0f),
                   std::string(old.name) + " at " + std::to_string(t) + " is the old cosine");
         }
+        check(near(pl::at(p, 0.999f), colour::procedural(old.base, old.range, 0.999f), 4.0f / 255.0f),
+              std::string(old.name) + " just short of 1 is the ramp's end, not its start");
     }
 }
 
@@ -172,7 +180,8 @@ void shareAndMix() {
     const pl::Palette red = one(0xFF0000, "FLAT");
     const pl::Palette blue = one(0x0000FF, "FLAT");
     pl::Stack s = pl::addLayer(pl::addLayer({}, red), blue);
-    check(s.blend == pl::Blend::Share && !s.fullRange, "Share by default, colour moves held to the stack");
+    check(s.blend == pl::Blend::Share && s.edge == pl::Edge::Soft && !s.fullRange, "Share with soft edges by default, colour moves held to the stack");
+    s.edge = pl::Edge::Hard;
     const pl::Amounts defaults = pl::defaultAmounts();
     check(defaults[0] == 1.0f && defaults[1] == 0.5f && defaults[7] == 0.5f, "the primary at 1, the rest at 0.5");
     // Share: red takes 1 / 1.5 of the ramp, blue the rest, both pure.
@@ -185,6 +194,34 @@ void shareAndMix() {
     pl::Amounts only2{};
     only2[1] = 1.0f;
     check(packed(pl::at(s, only2, 0.1f)) == 0x0000FF, "a palette at 0 takes no share");
+
+    // Hard: a sharp line, red up to it and blue from it.
+    float hardJump = 0.0f;
+    for (int i = 0; i < 2000; ++i) {
+        const colour::Rgb a = pl::at(s, defaults, static_cast<float>(i) / 2000.0f);
+        const colour::Rgb b = pl::at(s, defaults, static_cast<float>(i + 1) / 2000.0f);
+        hardJump = std::max(hardJump, std::fabs(a.r - b.r));
+    }
+    check(hardJump > 0.99f, "hard: the colours change at a line");
+
+    // Soft: continuous all round (t = 1 meets t = 0 too), half each on the line, pure at each share's centre.
+    s.edge = pl::Edge::Soft;
+    float softStep = 0.0f;
+    for (int i = 0; i < 2000; ++i) {
+        const colour::Rgb a = pl::at(s, defaults, static_cast<float>(i) / 2000.0f);
+        const colour::Rgb b = pl::at(s, defaults, static_cast<float>(i + 1) / 2000.0f);
+        softStep = std::max({softStep, std::fabs(a.r - b.r), std::fabs(a.g - b.g), std::fabs(a.b - b.b)});
+    }
+    check(softStep < 0.02f, "soft: no step anywhere in the ramp");
+    check(near(pl::at(s, defaults, 2.0f / 3.0f), {0.5f, 0.0f, 0.5f}, 2.0f / 255.0f), "soft: half each on the line");
+    check(packed(pl::at(s, defaults, 1.0f / 3.0f)) == 0xFF0000 && packed(pl::at(s, defaults, 5.0f / 6.0f)) == 0x0000FF,
+          "soft: each palette pure at its share's centre");
+    check(packed(pl::at(s, defaults, 0.6f)) == 0xFF0000, "soft: the fade reaches no further than kSoftReach");
+    pl::Amounts small{};
+    small[0] = 1.0f;
+    small[1] = 0.02f;
+    check(packed(pl::at(s, small, (1.0f + 0.01f) / 1.02f)) == 0x0000FF && packed(pl::at(s, small, 0.5f)) == 0xFF0000,
+          "soft: a small share keeps its centre pure");
 
     s.blend = pl::Blend::Mix;
     pl::Amounts even{};
@@ -223,16 +260,20 @@ void theTextRoundTrips() {
     pl::setOption(milk, "STEPS");
     s = pl::addLayer(s, milk);
     s.blend = pl::Blend::Mix;
+    s.edge = pl::Edge::Hard;
     s.fullRange = true;
     const std::string text = pl::encode(s);
     check(pl::decode(text) == pl::normalized(s), "a stack reads back as written");
     check(pl::encode(pl::decode(text)) == text, "and writes the same text again");
     check(milk.name == "CosmicDust" && pl::decode(text).layers[1].name == "CosmicDust", "a name loses the field separator");
-    check(text.rfind("palettes|1|MIX|1\n", 0) == 0, "the header names the blend and the full-range switch");
+    check(text.rfind("palettes|1|MIX|1|HARD\n", 0) == 0, "the header names the blend, the full-range switch and the edge");
+    check(pl::decode(text).edge == pl::Edge::Hard, "the edge reads back");
+    check(pl::isUnset(pl::decode("palettes|1|SHARE|0|FUZZY\n" + pl::encode(milk) + "\n")), "an unknown edge: unset");
+    check(pl::isUnset(pl::decode("palettes|1|SHARE|0\n" + pl::encode(milk) + "\n")), "no edge: unset");
     check(pl::isUnset(pl::decode("")) && pl::isUnset(pl::decode("palettes|2|SHARE|0\n")), "no header, or another version: unset");
-    check(pl::decode("palettes|1|SHARE|0\nsomething|new\n" + pl::encode(milk) + "\n").layers.size() == 1, "an unknown row is skipped");
+    check(pl::decode("palettes|1|SHARE|0|SOFT\nsomething|new\n" + pl::encode(milk) + "\n").layers.size() == 1, "an unknown row is skipped");
     check(!pl::valid(pl::decodePalette("palette|YOURS||x|SMOOTH|MIRROR|OKLAB|SHADES|nothing")), "a line with no readable stop is no palette");
-    check(pl::encode(pl::Stack{}) == "palettes|1|SHARE|0\n" && std::string(geode_palette_stack_unset()) == "palettes|1|SHARE|0\n",
+    check(pl::encode(pl::Stack{}) == "palettes|1|SHARE|0|SOFT\n" && std::string(geode_palette_stack_unset()) == "palettes|1|SHARE|0|SOFT\n",
           "the unset stack's text");
 }
 
@@ -258,6 +299,9 @@ void edits() {
     check(mixed.rfind("palettes|1|MIX|0", 0) == 0, "the blend by name");
     const std::string full = geode_palette_stack_set_full_range(stack.c_str(), 1);
     check(full.rfind("palettes|1|SHARE|1", 0) == 0, "the full-range opt-in");
+    const std::string hard = geode_palette_stack_set_edge(stack.c_str(), "HARD");
+    check(pl::decode(hard).edge == pl::Edge::Hard, "the edge by name");
+    check(std::string(geode_palette_stack_set_edge(hard.c_str(), "BLURRY")) == hard, "an unknown edge changes nothing");
     const int colours[] = {0x445566, 0x778899};
     const std::string fromStyle = geode_palette_from_colours("STYLE", "silk_satin", "Silk · Satin", colours, 2);
     check(pl::decodePalette(fromStyle).source == pl::Source::Style && pl::decodePalette(fromStyle).name == "Silk · Satin", "a style's own palette");
@@ -280,7 +324,7 @@ void anOldLookKeepsItsColours() {
     p.palette2 = 3;
     p.paletteMix = 0.3f;
     s = pl::fromLegacy(p, amounts);
-    check(s.layers.size() == 2 && s.blend == pl::Blend::Mix, "a second palette: two layers, mixed");
+    check(s.layers.size() == 2 && s.blend == pl::Blend::Mix && s.edge == pl::Edge::Hard, "a second palette: two layers, mixed, hard edges");
     check(std::fabs(amounts[0] - 0.7f) < 1e-6f && std::fabs(amounts[1] - 0.3f) < 1e-6f, "weighted 1 - mix and mix");
     for (float t : {0.0f, 0.25f, 0.5f, 0.8f}) {
         const colour::Rgb a = colour::procedural(p.paletteBase(), p.paletteRange(), t);

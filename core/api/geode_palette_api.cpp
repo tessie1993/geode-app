@@ -99,6 +99,14 @@ const char* geode_palette_stack_set_blend(const char* stack, const char* blend) 
     return handOut(s);
 }
 
+const char* geode_palette_stack_set_edge(const char* stack, const char* edge) {
+    palette::Stack s = stackOf(stack);
+    const std::string e = edge ? edge : "";
+    if (e == palette::name(palette::Edge::Soft)) s.edge = palette::Edge::Soft;
+    if (e == palette::name(palette::Edge::Hard)) s.edge = palette::Edge::Hard;
+    return handOut(s);
+}
+
 const char* geode_palette_stack_set_full_range(const char* stack, int on) {
     palette::Stack s = stackOf(stack);
     s.fullRange = on != 0;

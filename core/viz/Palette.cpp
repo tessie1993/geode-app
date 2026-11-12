@@ -19,6 +19,7 @@ constexpr std::array<const char*, 3> kSpaceNames = {"RGB", "HUE", "OKLAB"};
 constexpr std::array<const char*, 3> kSingleNames = {"SHADES", "FLAT", "TO_BLACK"};
 constexpr std::array<const char*, 6> kSourceNames = {"BUILT_IN", "COLOUR_MAP", "STYLE", "MILK", "ARTWORK", "YOURS"};
 constexpr std::array<const char*, 2> kBlendNames = {"SHARE", "MIX"};
+constexpr std::array<const char*, 2> kEdgeNames = {"SOFT", "HARD"};
 
 template <typename E, size_t N>
 const char* nameIn(const std::array<const char*, N>& names, E v) {
@@ -216,6 +217,25 @@ bool evenlySpread(const Palette& p, Wrap wrap) {
     return true;
 }
 
+// A palette's share of t under Share, after the ones before it.
+struct Part {
+    size_t layer;
+    float start;
+    float width;
+};
+
+// Just short of 1: a palette's own colour at the very end of its share.
+constexpr float kBeforeOne = 1.0f - 1e-6f;
+
+// How far a soft edge reaches each way: kSoftReach, but at most a quarter of either share, so the middle half
+// of every share stays pure however small it is.
+float softHalf(float a, float b) { return std::min(kSoftReach, 0.25f * std::min(a, b)); }
+
+float smooth(float x) {
+    const float c = std::clamp(x, 0.0f, 1.0f);
+    return c * c * (3.0f - 2.0f * c);
+}
+
 float amountOf(const Amounts& amounts, size_t i) {
     const float a = amounts[i];
     return std::isfinite(a) ? std::clamp(a, 0.0f, 1.0f) : 0.0f;
@@ -236,6 +256,7 @@ const char* name(Space v) { return nameIn(kSpaceNames, v); }
 const char* name(Single v) { return nameIn(kSingleNames, v); }
 const char* name(Source v) { return nameIn(kSourceNames, v); }
 const char* name(Blend v) { return nameIn(kBlendNames, v); }
+const char* name(Edge v) { return nameIn(kEdgeNames, v); }
 
 std::vector<float> spread(int n, Wrap wrap) {
     std::vector<float> out;
@@ -272,6 +293,7 @@ Stack normalized(Stack s) {
     }
     s.layers = std::move(kept);
     if (s.blend != Blend::Mix) s.blend = Blend::Share;
+    if (s.edge != Edge::Hard) s.edge = Edge::Soft;
     return s;
 }
 
@@ -315,17 +337,35 @@ colour::Rgb at(const Stack& s, const Amounts& amounts, float t) {
         return sum;
     }
     // Share: each layer draws its whole self across its own part of t, in stack order.
+    std::vector<Part> parts;
     float start = 0.0f;
-    const float x = w * total;
-    size_t lastShown = 0;
     for (size_t i = 0; i < s.layers.size(); ++i) {
-        const float a = amountOf(amounts, i);
-        if (a <= 0.0f) continue;
-        lastShown = i;
-        if (x < start + a) return at(s.layers[i], (x - start) / a);
-        start += a;
+        const float width = amountOf(amounts, i) / total;
+        if (width <= 0.0f) continue;
+        parts.push_back({i, start, width});
+        start += width;
     }
-    return at(s.layers[lastShown], 1.0f - 1e-6f);
+    size_t k = parts.size() - 1;
+    for (size_t j = 0; j < parts.size(); ++j) {
+        if (w < parts[j].start + parts[j].width) {
+            k = j;
+            break;
+        }
+    }
+    const Part& part = parts[k];
+    const colour::Rgb own = at(s.layers[part.layer], std::clamp((w - part.start) / part.width, 0.0f, kBeforeOne));
+    if (s.edge == Edge::Hard || parts.size() < 2) return own;
+    // Soft: across each line the two palettes' colours there cross-fade, half each on the line itself, so the
+    // ramp is continuous; t = 0 and 1 are a line too, between the last palette and the first.
+    const Part& prev = parts[(k + parts.size() - 1) % parts.size()];
+    const Part& next = parts[(k + 1) % parts.size()];
+    const float fromLeft = w - part.start;
+    const float toRight = part.start + part.width - w;
+    const float left = softHalf(prev.width, part.width);
+    const float right = softHalf(part.width, next.width);
+    if (fromLeft < left) return lerp(at(s.layers[prev.layer], kBeforeOne), own, smooth((fromLeft + left) / (2.0f * left)));
+    if (toRight < right) return lerp(at(s.layers[next.layer], 0.0f), own, smooth((toRight + right) / (2.0f * right)));
+    return own;
 }
 
 std::vector<colour::Rgb> compose(const Stack& s, const Amounts& amounts, int samples) {
@@ -471,7 +511,7 @@ Palette decodePalette(std::string_view line) {
 
 std::string encode(const Stack& stack) {
     const Stack s = normalized(stack);
-    std::string out = "palettes|" + std::to_string(kTextVersion) + "|" + name(s.blend) + "|" + (s.fullRange ? "1" : "0") + "\n";
+    std::string out = "palettes|" + std::to_string(kTextVersion) + "|" + name(s.blend) + "|" + (s.fullRange ? "1" : "0") + "|" + name(s.edge) + "\n";
     for (const Palette& p : s.layers) out += encode(p) + "\n";
     return out;
 }
@@ -491,13 +531,18 @@ Stack decode(std::string_view text) {
             const std::vector<std::string_view> f = split(line, '|');
             int version = 0;
             std::optional<Blend> blend;
-            if (f.size() == 4) blend = named<Blend>(kBlendNames, f[2]);
-            if (f.size() != 4 || f[0] != "palettes" || !parseInt(f[1], version) || version != kTextVersion || !blend ||
+            std::optional<Edge> edge;
+            if (f.size() == 5) {
+                blend = named<Blend>(kBlendNames, f[2]);
+                edge = named<Edge>(kEdgeNames, f[4]);
+            }
+            if (f.size() != 5 || f[0] != "palettes" || !parseInt(f[1], version) || version != kTextVersion || !blend || !edge ||
                 (f[3] != "0" && f[3] != "1")) {
                 return {};
             }
             s.blend = *blend;
             s.fullRange = f[3] == "1";
+            s.edge = *edge;
             header = true;
         } else {
             // A row this version does not know (a later PR's) is skipped, not fatal.
@@ -536,13 +581,23 @@ const std::string& libraryText() {
 }
 
 Palette fromHueRamp(std::string_view name, Source source, std::string_view ref, float base, float range) {
+    // A ramp of whole turns (Spectrum) ends on the hue it starts on: its stops sit at i/16 and the last blends
+    // back into the first. Any other ends elsewhere, at base + range: its stops run 0..1 inclusive and nothing
+    // blends back, so the last sixteenth reaches that end as the old cosine did instead of turning toward base.
+    const bool periodic = range != 0.0f && std::fabs(range - std::round(range)) < 1e-6f;
+    const int steps = periodic ? kMaxStops : kMaxStops - 1;
     std::vector<int> colours;
     for (int i = 0; i < kMaxStops; ++i) {
-        colours.push_back(colour::pack(colour::procedural(base, range, static_cast<float>(i) / static_cast<float>(kMaxStops))));
+        colours.push_back(colour::pack(colour::procedural(base, range, static_cast<float>(i) / static_cast<float>(steps))));
     }
+    // fromColours spreads them at i/15 (a mirror's even spread), which the open run keeps as it is.
     Palette p = fromColours(source, ref, name, colours.data(), static_cast<int>(colours.size()));
     p.space = Space::Rgb;
-    setOption(p, "LOOP");
+    if (periodic) {
+        setOption(p, "LOOP");
+    } else {
+        p.wrap = Wrap::Loop;
+    }
     return p;
 }
 
@@ -550,6 +605,8 @@ Stack fromLegacy(const SceneParams& p, Amounts& amounts) {
     amounts = defaultAmounts();
     Stack s;
     s.blend = Blend::Share;
+    // Old ramps never met another under Share; Hard keeps that so, whatever the look becomes later.
+    s.edge = Edge::Hard;
     const auto& lib = library();
     if (p.paletteLut >= 0) {
         // A colour map replaced the whole ramp, the second palette with it.

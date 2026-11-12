@@ -454,8 +454,9 @@ GEODE_API void        geode_palette_stops_from_hues(float base, float range, int
 GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
 /* The palette stack (viz/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
  * up to 16 colours with its options (SMOOTH|STEPS, MIRROR|LOOP, RGB|HUE|OKLAB, a position per stop, and for one
- * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, and fullRange
- * (0: colour moves stay in the stack). The shell keeps a stack and a palette as opaque text and hands it back;
+ * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, meeting at a
+ * SOFT edge (a bounded cross-fade; the default) or a HARD one under SHARE, and fullRange (0: colour moves stay
+ * in the stack). set_edge and set_blend change nothing for a name they do not know. The shell keeps a stack and a palette as opaque text and hands it back;
  * every edit returns the edited text, valid until the calling thread's next palette call. Pure, any thread.
  * library_text: "library|<version>|<count>" then "entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stops>"
  * (static); entries 0..20 are the old `palette` ramps, 21..25 the old colour maps. library_entry: that entry as
@@ -484,6 +485,7 @@ GEODE_API const char* geode_palette_stack_set_layer(const char* stack, int layer
 GEODE_API const char* geode_palette_stack_remove(const char* stack, int layer);
 GEODE_API const char* geode_palette_stack_move(const char* stack, int layer, int delta);
 GEODE_API const char* geode_palette_stack_set_blend(const char* stack, const char* blend);
+GEODE_API const char* geode_palette_stack_set_edge(const char* stack, const char* edge);
 GEODE_API const char* geode_palette_stack_set_full_range(const char* stack, int on);
 GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);
 GEODE_API const char* geode_palette_set_stop(const char* palette_line, int stop, int rgb, float pos);

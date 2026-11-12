@@ -20,7 +20,7 @@ struct LoudnessReport {
 };
 
 // ITU-R BS.1770-4 integrated loudness and true peak, fed interleaved float samples in -1..1. Used on
-// exported files (export/LoudnessMeter decodes them and feeds this). Ported unchanged from the Kotlin
+// exported files (output/LoudnessScan decodes them and feeds this). Ported unchanged from the Kotlin
 // LoudnessAnalyser, double precision throughout and FP contraction off, so numbers did not move.
 //
 // The chain per BS.1770:

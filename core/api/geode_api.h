@@ -758,13 +758,29 @@ GEODE_API void                geode_export_pass_destroy(geode_export_pass*);
 /* Whether frames are marked (the entitlement requires it, or Pro adds it) and where: GEODE_WATERMARK_NONE, or
  * the placement asked for, an end card becoming a corner mark where the video's end is not known. Pure. */
 GEODE_API int                 geode_export_watermark_placement(int required, int pro_adds, int placement, int use);
-/* The raster the placement wants: the text size for a frame's short side, its rotation in degrees and alpha
- * (0..255), and the tile for the measured text width (the tiled pattern's is a power of two). Pure. */
-GEODE_API float               geode_export_watermark_text_px(int short_side, int placement);
-GEODE_API float               geode_export_watermark_angle(int placement);
-GEODE_API int                 geode_export_watermark_alpha(int placement);
-GEODE_API int                 geode_export_watermark_tile_width(float text_width, float text_px, int placement);
-GEODE_API int                 geode_export_watermark_tile_height(int tile_width, float text_px, int placement);
+/* The raster the placement wants. paint: the text size for a frame's short side, its alpha (0..255), letter
+ * spacing in ems and its shadow's radius and alpha. raster: for the text measured with that paint (its width, and
+ * the font's ascent and descent), the tile (the tiled pattern's a power of two), its rotation in degrees about
+ * the pivot, and where the text is drawn. Pure. */
+typedef struct geode_watermark_paint {
+    float text_px;
+    int   alpha;
+    float letter_spacing_em;
+    float shadow_radius_px;
+    int   shadow_alpha;
+} geode_watermark_paint;
+typedef struct geode_watermark_raster {
+    int   width;
+    int   height;
+    float angle_degrees;
+    float pivot_x;
+    float pivot_y;
+    float text_x;
+    float text_y;
+} geode_watermark_raster;
+GEODE_API void                geode_export_watermark_paint(int short_side, int placement, geode_watermark_paint* out);
+GEODE_API void                geode_export_watermark_raster(float text_width, float ascent, float descent, float text_px,
+                                                            int placement, geode_watermark_raster* out);
 /* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). length_ms
  * is the video's (an end card's last seconds), 0 when unknown. */
 GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h,
@@ -1029,7 +1045,7 @@ GEODE_API void            geode_memory_trim(int android_level);
 /* ── Export planning and PCM maths (ADR 0006: core/output; ADR 0003 ports) ──────────────────────────────────
  * Pure functions, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender, LoopExtend,
  * AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are
- * output/FrameClock, LoopPlan, EncodePlan, Chapters, audio/dsp/PcmConvert and PcmTiming. */
+ * output/FrameClock, LoopPlan, EncodePlan, audio/dsp/PcmConvert and PcmTiming. */
 
 /* Frame clock (output/FrameClock): each value from the frame index alone, so nothing accumulates. */
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
@@ -1082,13 +1098,7 @@ GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
-/* A render's range and time left (output/ExportRange, output/RenderEta). */
-/* The segment a picked start and end cover, held inside a track of track_ms: 1 with the outs filled (either
- * may be NULL), 0 when there is no segment to render (no track length, under geode_export_range_min_ms left,
- * or the whole track, which renders as a whole track). */
-GEODE_API int     geode_export_range(int64_t start_ms, int64_t end_ms, int64_t track_ms, int64_t* out_start_ms,
-                                     int64_t* out_duration_ms);
-GEODE_API int64_t geode_export_range_min_ms(void);
+/* A render's time left (output/RenderEta); its range is in geode_render_plan_api.h. */
 /* The time left, from progress samples. A sample is the bar's 0..1 at at_ms on a monotonic clock; steady 0
  * marks the quick lead-in (the audio transcode), which says nothing about the render's pace and starts the
  * estimate over, as progress moving backwards does. Returns whole seconds, or GEODE_RENDER_ETA_UNKNOWN until
@@ -1193,15 +1203,6 @@ GEODE_API void    geode_record_session_size(const geode_record_session*, int* ou
 GEODE_API int     geode_record_session_state(const geode_record_session*);
 GEODE_API void    geode_record_session_tee_closed(geode_record_session*);
 GEODE_API int     geode_record_session_tee_start(geode_record_session*, geode_viz* v, geode_export_pass* watermark);
-
-/* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
- * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */
-GEODE_API int     geode_chapters_from_clips(const int64_t* starts_ms, const int64_t* durations_ms, int count,
-                                            int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
-                                            int capacity);
-GEODE_API int     geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t total_ms,
-                                              int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
-                                              int capacity);
 
 /* PCM conversions (audio/dsp/PcmConvert). downmix returns the frames written (0: not a downmix). */
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,

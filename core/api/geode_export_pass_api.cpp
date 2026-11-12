@@ -76,18 +76,17 @@ int geode_export_watermark_placement(int required, int pro_adds, int placement, 
     return exportmath::watermark::placement(required != 0, pro_adds != 0, placement, use);
 }
 
-float geode_export_watermark_text_px(int short_side, int placement) { return exportmath::watermark::textPx(short_side, placement); }
-
-float geode_export_watermark_angle(int placement) { return exportmath::watermark::angleDegrees(placement); }
-
-int geode_export_watermark_alpha(int placement) { return exportmath::watermark::textAlpha(placement); }
-
-int geode_export_watermark_tile_width(float text_width, float text_px, int placement) {
-    return exportmath::watermark::tileWidth(text_width, text_px, placement);
+void geode_export_watermark_paint(int short_side, int placement, geode_watermark_paint* out) {
+    if (!out) return;
+    const auto p = exportmath::watermark::paint(short_side, placement);
+    *out = {p.textPx, p.alpha, p.letterSpacingEm, p.shadowRadiusPx, p.shadowAlpha};
 }
 
-int geode_export_watermark_tile_height(int tile_width, float text_px, int placement) {
-    return exportmath::watermark::tileHeight(tile_width, text_px, placement);
+void geode_export_watermark_raster(float text_width, float ascent, float descent, float text_px, int placement,
+                                   geode_watermark_raster* out) {
+    if (!out) return;
+    const auto r = exportmath::watermark::raster(text_width, ascent, descent, text_px, placement);
+    *out = {r.width, r.height, r.angleDegrees, r.pivotX, r.pivotY, r.textX, r.textY};
 }
 
 geode_export_pass* geode_export_watermark_create(AAssetManager* assets, const uint8_t* rgba, int tile_w, int tile_h, int placement,

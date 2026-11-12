@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportRun
-import dev.geode.export.RenderBatch
 import dev.geode.model.TourSpot
 import dev.geode.ui.tour.tourTarget
 
@@ -146,7 +145,7 @@ private fun RenderResult(
     }
     export.loudnessAdvice?.let { advice ->
         Text(
-            advice.headline(resources) + " " + advice.detail(resources),
+            advice.text(resources),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -255,7 +255,9 @@ void marchedStylesMatchTheOldSet() {
         "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
         "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
         "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
-        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
+        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel",
+        // The last three that faked their depth, remade as marches.
+        "outrun_drive", "ringed_planet", "ribbon_storm"};
     std::set<std::string> want = old;
     // Every style of the families added since marches.
     for (const char* family : {"flame", "opal", "hollow"}) {
@@ -285,7 +287,7 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Turbulence, "plasma"), "turbulence reaches a shader");
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
-    check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
+    check(!catalogue::reaches(Scope::MarchDetail, catalogue::kPool), "detail misses an unmarched shader");
     // Spin (the old Spin drift) shows only where a style turns: bars, grids, landscapes and trees hold still.
     check(catalogue::scopeOf("Spin") == Scope::Spin && catalogue::scopeOf("Spin drift") == Scope::Universal, "Spin, and no Spin drift");
     check(catalogue::reaches(Scope::Spin, "bead_vortex") && catalogue::reaches(Scope::Spin, "tunnel"), "spin reaches a turning style");

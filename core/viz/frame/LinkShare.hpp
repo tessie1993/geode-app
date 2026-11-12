@@ -33,6 +33,11 @@ inline constexpr std::string_view kSegmentSuffix = ".m4s";
 inline constexpr std::string_view kPageName = "index.html";
 inline constexpr std::string_view kScriptName = "player.js";
 inline constexpr std::string_view kStyleName = "player.css";
+// The browser's low-latency feed: the init segment, then each new fragment the moment the encoder cuts it, on
+// one long-lived response (fragmented MP4 straight into Media Source Extensions; no playlist to poll).
+inline constexpr std::string_view kStreamName = "stream.mp4";
+// Browsers fed at once; past it a viewer gets 503 and its page retries (the server's pool is small).
+inline constexpr int kMaxStreams = 3;
 
 // The token: 32 lowercase hex characters (16 random bytes).
 inline constexpr size_t kTokenChars = 32;
@@ -47,6 +52,7 @@ enum class Resource : int {
     Init = 6,
     Segment = 7,
     Redirect = 8,   // /<token> without its slash: 308 to /<token>/, so the page's relative names resolve
+    Stream = 9,     // stream.mp4: the browser's live feed, no Content-Length, held open while the page plays
 };
 
 struct Route {
@@ -64,11 +70,14 @@ bool tokenMatches(std::string_view candidate, std::string_view token);
 
 // Where a request goes: its method and request-target as the request line has them. 200 with a resource,
 // 204 for OPTIONS on a known path (the TV receiver's CORS preflight), 308 for the bare token, 405 for
-// another method on a known path, 404 for everything else (a wrong or malformed token included).
+// another method on a known path, 404 for everything else (a wrong or malformed token included). The feed
+// (stream.mp4) has no preflight: only the page, on the phone's own origin, reads it.
 Route route(std::string_view method, std::string_view target, std::string_view token);
 
 // The response head (status line, headers, blank line) for a status and resource with a body of length
-// bytes. Every head: Content-Length (not on 204), no-store, nosniff, no-referrer, Connection: close. The
+// bytes. Every head: Content-Length (not on 204, nor on the feed's 200, whose body ends when the connection
+// closes), no-store, nosniff, no-referrer, Connection: close. A 503 (the feed's viewers are full) asks for a
+// retry in two seconds. The
 // stream's files and their preflight add CORS for the TV's receiver; the page adds its CSP and denies
 // framing; the redirect names /<token>/.
 std::string responseHead(int status, Resource resource, int64_t length, std::string_view token);

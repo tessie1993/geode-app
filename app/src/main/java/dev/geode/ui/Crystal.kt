@@ -195,6 +195,10 @@ fun Modifier.crystalPanel(
  * 0×0 surface. The second screen remains the one real move: the shell drops this host while a
  * Presentation holds the view, and the factory takes it back from whatever parent it has.
  * Being drawn before the screens, the surface shows through wherever they draw nothing.
+ *
+ * While a cast streams ([keepDrawing]) the stream is this view's own frames (core/viz/frame/CastTee), so off
+ * Visuals it stays at [KEEP_DRAWING_ALPHA] instead of 0: not seen under the screens, but above 0, which is what
+ * keeps its pacer running (`VisualizerView.setAlpha`). The engine module stays as it is; this is the shell's choice.
  */
 @Composable
 fun VisualizerCanvasHost(
@@ -202,12 +206,19 @@ fun VisualizerCanvasHost(
     shown: Boolean,
     bounds: androidx.compose.runtime.State<androidx.compose.ui.unit.IntRect>,
     modifier: Modifier = Modifier,
+    keepDrawing: Boolean = false,
 ) {
     val measured =
         androidx.compose.runtime.remember(bounds) {
             androidx.compose.runtime.derivedStateOf { !bounds.value.isEmpty }
         }
     val visible = shown && measured.value
+    val alpha =
+        when {
+            visible -> 1f
+            keepDrawing && measured.value -> KEEP_DRAWING_ALPHA
+            else -> 0f
+        }
     AndroidView(
         factory = {
             (view.parent as? android.view.ViewGroup)?.removeView(view)
@@ -223,6 +234,9 @@ fun VisualizerCanvasHost(
                 val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w, minHeight = h, maxHeight = h))
                 layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(r.left, r.top) }
             },
-        update = { it.alpha = if (visible) 1f else 0f },
+        update = { it.alpha = alpha },
     )
 }
+
+/** One 8-bit step: invisible under the screens, yet a drawing view (alpha above 0) for a cast that carries it. */
+private const val KEEP_DRAWING_ALPHA = 1f / 255f

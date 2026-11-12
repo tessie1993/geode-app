@@ -52,7 +52,8 @@ out vec4 fragColor;
 //
 // SND_LEVEL inflates the body, SND_BASS_PRESENCE deepens the stir, sndShaped(SND_HIGH)
 // sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
-// the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
+// the flow (uMoveDir), slides the eye a little toward it (a place, never a
+// turn) and re-seeds the surface veining (uSpawnSeed). Nothing
 // keys brightness off a raw envelope, so nothing here can flash.
 //
 // ---- knobs ------------------------------------------------------------------
@@ -157,12 +158,13 @@ void main() {
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
-    // a new angle every second even in silence, and a spike banks the orbit
-    // toward the new travel direction.
-    vec3 ro = vec3(0.0, 0.0, -3.1 * (1.0 - 0.2 * kSpace));
-    // On uTime alone: the loudness clock (uFlowPhase) used to add to the turn,
-    // and no style turns to the music (owner rule).
-    mat3 cam = rotY(uTime * 0.11) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    // a new angle every second even in silence. Both turns run on uTime alone:
+    // the loudness clock (uFlowPhase) and a spike's heading (uMoveDir) used to
+    // turn it too, and no style turns to the music (owner rule). A spike now
+    // moves the eye instead: it slides a little toward the new heading, a
+    // change of place, still well clear of the satellites' bank.
+    vec3 ro = vec3(0.2 * uMoveDir, -3.1 * (1.0 - 0.2 * kSpace));
+    mat3 cam = rotY(uTime * 0.11) * rotX(0.32 * sin(uTime * 0.07));
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 

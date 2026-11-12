@@ -35,9 +35,12 @@ out vec4 fragColor;
 // ---- the flight ------------------------------------------------------------
 //
 // The camera rides lib_dmt's flight path rather than a straight line down -z:
-// it banks up, down, left and right through the volume, and the whole path
-// leans toward the last spike's heading (uMoveDir), so the music steers the
-// turns and they glide in. Position is integrated on uFlowPhase. The volume
+// it banks up, down, left and right through the volume on the path's own
+// weave. It used to lean toward the last spike's heading too, which turned
+// the flight to the music; owner rule, nothing turns to the music, so the
+// path here is lib_dmt's weave without that lean (nfPath), and a spike moves
+// the whole path sideways toward its heading instead: a change of place,
+// gliding in as uMoveDir does. Position is integrated on uFlowPhase. The volume
 // is world-anchored, so the fold moves past the camera as it should, and a
 // volume march needs no correction for a curved camera path - there is no
 // distance estimate to overshoot.
@@ -49,7 +52,7 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets the dye's density, sndShaped(SND_LOW) the fold depth, SND_TREBLE_PRESENCE the
-// filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
+// filament sharpness. A spike shifts the flight toward its heading (uMoveDir), re-seeds the dye
 // (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase).
 //
 // ---- knobs ------------------------------------------------------------------
@@ -101,6 +104,29 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
     return exp(-abs(trap) * sharp);
 }
 
+/**
+ * lib_dmt's flight path (dmtTunnelPath) without its lean on uMoveDir, which
+ * grew with depth and so turned the heading on every spike. The heading now
+ * shifts the path by a fixed amount instead: the weave is the same, the
+ * flight moves over and never turns to the music.
+ */
+vec2 nfPath(float z) {
+    return vec2(1.4 * sin(z * 0.2101554) + 2.6 * sin(z * 0.0429515 + 1.3),
+                1.2 * cos(z * 0.1702718 + 0.7) + 2.2 * cos(z * 0.0306796))
+         + 0.6 * uMoveDir;
+}
+
+/** dmtFlightBasis on nfPath: right, up and forward, forward along the path's tangent. */
+mat3 nfFlightBasis(float dist, float roll) {
+    vec2 ahead = nfPath(dist + 0.01);
+    vec2 behind = nfPath(dist - 0.01);
+    vec3 fwd = normalize(vec3((ahead - behind) * 50.0, 1.0));
+    vec3 upRef = vec3(sin(roll), cos(roll), 0.0);
+    vec3 right = normalize(cross(upRef, fwd));
+    vec3 up = cross(fwd, right);
+    return mat3(right, up, fwd);
+}
+
 void main() {
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
@@ -131,10 +157,9 @@ void main() {
     // the camera travels, never where it is - and the path banks the heading.
     float fly = uFlowPhase * 2.2;
     float roll = uTime * 0.05;
-    vec3 ro;
-    vec3 rd;
-    dmtFlightRay(uv, NF_FOCAL, fly, roll, ro, rd);
-    mat3 flight = dmtFlightBasis(fly, roll);
+    mat3 flight = nfFlightBasis(fly, roll);
+    vec3 ro = vec3(nfPath(fly), fly);
+    vec3 rd = flight * normalize(vec3(uv, NF_FOCAL));
 
     // ---- the volume march ---------------------------------------------------
     //

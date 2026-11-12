@@ -98,7 +98,8 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' wall
 // thickness (0.75..1.25, the relief scaled with it so it never cuts through
-// and gLip follows), k2 FLOW added to the spiral's bend (inside SPIRAL_MAX),
+// and gLip follows), k2 FLOW added to where the stack sits in its fall (a
+// place, never a turn: nothing here turns to the music),
 // k3 TONE the palette position and the shells' windows (a high melody opens
 // them until each shell is a scatter of small caps and the regress shows
 // deep, a low one closes them toward heavy caps, never past the sqrt(2)
@@ -267,7 +268,6 @@ const float SPIN_W = 0.06017699;
  */
 const float SPIRAL_BASE = 0.20;
 const float SPIRAL_DRIFT = 0.12;
-const float SPIRAL_MID = 0.18;
 const float SPIRAL_MAX = 0.5;
 
 // ---- camera and march -----------------------------------------------------
@@ -613,11 +613,14 @@ void main() {
     // because the stack and the hue are both periodic at BAND_CYCLE.
     // A spike re-aims the fall rather than surging it: uFlowPhase only advances,
     // so a loud passage descends faster and never jumps a band.
-    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + FALL_SURGE * bassAmt * 0.3, BAND_CYCLE) + pull;
-    // Mids steer: they set how hard the stack spirals, which is the direction
-    // the corridor screws away in.
+    // The mids and FLOW move the stack too, as a place in the fall (owner
+    // rule: sound may move position and shape, never turn anything); they used
+    // to steer the spiral's shear, which turned the corridor to the music.
+    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + FALL_SURGE * (0.3 * bassAmt + 0.3 * midAmt + 0.6 * kFlow),
+                BAND_CYCLE) + pull;
+    // The spiral's shear breathes on uTime alone; the fingers' twist rides on top.
     gSpiral = clamp(
-        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + SPIRAL_MID * midAmt + twist + 0.2 * kFlow,
+        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + twist,
         -SPIRAL_MAX,
         SPIRAL_MAX
     );

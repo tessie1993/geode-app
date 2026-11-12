@@ -2,7 +2,7 @@
 // and what the composite leaves to a scene that draws the rig itself.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Field present host test"):
 //
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/field_present_test.cpp \
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/field_present_test.cpp
 //     core/viz/present/FieldGeometry.cpp -o field_present_test && ./field_present_test
 #include <algorithm>
 #include <cmath>

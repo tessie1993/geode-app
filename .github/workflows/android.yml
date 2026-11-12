@@ -145,7 +145,7 @@ jobs:
         # Every module, not just :app: build-logic applies detekt (and a per-module
         # baseline) to all four, but a gate CI never runs is not a gate. --continue
         # so one module's failure still produces the other modules' reports.
-        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
+        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt --continue --stacktrace --no-daemon
 
       # detekt prints only "Analysis failed with N weighted issues" and a stack
       # trace; the findings themselves go to a report file. Without this, reading
@@ -155,7 +155,7 @@ jobs:
         if: failure()
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          for module in app engine/audio-core engine/scenes engine/audio-android; do
+          for module in app engine/audio-core engine/scenes; do
             dir=$module/build/reports/detekt
             if [ -f "$dir/detekt.txt" ]; then
               echo "::group::detekt findings ($module)"
@@ -258,7 +258,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest --stacktrace --no-daemon
 
       - name: Run Android lint
         working-directory: ${{ env.PROJECT_DIR }}

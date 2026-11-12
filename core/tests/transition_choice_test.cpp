@@ -4,6 +4,7 @@
 // What is pinned:
 // - "random" never draws "cut", "random" or the transition it drew last, reaches every other id, and falls
 //   back sanely on a catalogue with nothing else in it;
+// - the Customize picker offers every built-in but "cut", then "random";
 // - a change by hand fades for the user's length; Auto's for MilkDrop's 2.7/1.7 of it, never shorter,
 //   never past 5 s;
 // - Auto's mark is read once per reader, only for its own key, only inside the window; a new mark of the
@@ -53,6 +54,13 @@ int main() {
     check(tc::pick({"fade", "cut"}, "fade", rng) == "fade", "with nothing else left the last one plays again");
     check(tc::pick({"cut", "random"}, "", rng) == "fade", "nothing to draw from plays a fade");
     check(tc::pick({}, "", rng) == "fade", "an empty catalogue plays a fade");
+
+    check(tc::pickerIds({"cut", "fade", "melt", "slide", "zoom"}) ==
+              std::vector<std::string>({"fade", "melt", "slide", "zoom", "random"}),
+          "the picker offers every built-in but cut, in order, then random");
+    check(tc::pickerIds({"random", "", "fade"}) == std::vector<std::string>({"fade", "random"}),
+          "random is offered once, an empty id never");
+    check(tc::pickerIds({}) == std::vector<std::string>({"random"}), "with no built-ins only random");
 
     check(tc::durationMs(1200, false) == 1200, "by hand: the user's length");
     check(tc::durationMs(1700, true) == 2700, "Auto: MilkDrop's 2.7 s for its 1.7 s");

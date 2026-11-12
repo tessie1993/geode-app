@@ -50,6 +50,32 @@ std::vector<long long> longsOf(JNIEnv* env, jlongArray values, jsize count) {
 
 geode_library_index* libraryIndexOf(jlong handle) { return reinterpret_cast<geode_library_index*>(handle); }
 
+// A byte[][] of UTF-8 as C strings: `pointers` point into `owned`. A null array is no cells; a null
+// element reads as "".
+struct Cells {
+    std::vector<std::string> owned;
+    std::vector<const char*> pointers;
+};
+
+Cells cellsOf(JNIEnv* env, jobjectArray texts) {
+    Cells cells;
+    const jsize n = texts ? env->GetArrayLength(texts) : 0;
+    cells.owned.reserve(static_cast<size_t>(n));
+    for (jsize i = 0; i < n; ++i) cells.owned.push_back(stringAt(env, texts, i).value_or(std::string()));
+    cells.pointers.reserve(cells.owned.size());
+    for (const std::string& s : cells.owned) cells.pointers.push_back(s.c_str());
+    return cells;
+}
+
+std::string textOf(JNIEnv* env, jbyteArray bytes) {
+    std::string text;
+    if (!bytes) return text;
+    const jsize n = env->GetArrayLength(bytes);
+    text.resize(static_cast<size_t>(n));
+    if (n > 0) env->GetByteArrayRegion(bytes, 0, n, reinterpret_cast<jbyte*>(text.data()));
+    return text;
+}
+
 jintArray intsOf(JNIEnv* env, const std::vector<jint>& values) {
     jintArray out = env->NewIntArray(static_cast<jsize>(values.size()));
     if (out && !values.empty()) env->SetIntArrayRegion(out, 0, static_cast<jsize>(values.size()), values.data());
@@ -175,6 +201,30 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryIndexSearch(JNIEnv* env, jobject
     const geode_library_index* index = libraryIndexOf(handle);
     std::vector<jint> packed(static_cast<size_t>(geode_library_index_search(index, text.c_str(), nullptr, 0)));
     geode_library_index_search(index, text.c_str(), packed.data(), static_cast<int>(packed.size()));
+    return intsOf(env, packed);
+}
+
+// The global search sheet (core/library/Search): GEODE_SEARCH_SHEET_FIELDS UTF-8 cells per track, one preferred
+// flag per track, the playlist and preset names, and the query. Only marshalling here; the buffer is sized for
+// every row, so native searches once.
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_searchSheet(JNIEnv* env, jobject, jobjectArray tracks, jbooleanArray preferred,
+                                                     jobjectArray playlists, jobjectArray presets, jbyteArray query) {
+    const Cells trackCells = cellsOf(env, tracks);
+    const Cells playlistNames = cellsOf(env, playlists);
+    const Cells presetNames = cellsOf(env, presets);
+    const auto count = static_cast<jsize>(trackCells.pointers.size() / GEODE_SEARCH_SHEET_FIELDS);
+    std::vector<jboolean> flags(static_cast<size_t>(count), JNI_FALSE);
+    const jsize flagged = preferred ? std::min(count, env->GetArrayLength(preferred)) : 0;
+    if (flagged > 0) env->GetBooleanArrayRegion(preferred, 0, flagged, flags.data());
+    const std::string text = textOf(env, query);
+    const size_t capacity = 3 + static_cast<size_t>(count) + playlistNames.pointers.size() + presetNames.pointers.size();
+    std::vector<jint> packed(capacity);
+    const int total = geode_search_sheet(trackCells.pointers.data(), flags.data(), static_cast<int>(count),
+                                         playlistNames.pointers.data(), static_cast<int>(playlistNames.pointers.size()),
+                                         presetNames.pointers.data(), static_cast<int>(presetNames.pointers.size()),
+                                         text.c_str(), packed.data(), static_cast<int>(capacity));
+    packed.resize(std::min(capacity, static_cast<size_t>(std::max(total, 0))));
     return intsOf(env, packed);
 }
 

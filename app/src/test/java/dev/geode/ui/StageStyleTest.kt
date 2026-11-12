@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -8,6 +9,10 @@ import org.junit.Test
  * what the step walks per tab are native now, pinned by core/tests/stage_step_test.cpp.
  */
 class StageStyleTest {
+    init {
+        TestCatalogue.install()
+    }
+
     @Test
     fun theRealOrderHasNoDuplicates() {
         val real = stageStyleOrder()

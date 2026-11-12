@@ -61,8 +61,7 @@ import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.Catalogue
-import dev.geode.render.scene.SceneIds
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.cast.CastButton
 import dev.geode.ui.cast.ComputerLinkButton
 import dev.geode.ui.theme.GeodeGlass
@@ -501,7 +500,7 @@ internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_P
  * would make a swipe walk a list that moves under it). MilkDrop is left out: its presets are a library of their
  * own, which the step walks from the MilkDrop tab ([stepStage]).
  */
-internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
+internal fun stageStyleOrder(): List<String> = StyleCatalogue.picker.values.flatten() - GeodeNative.STYLE_MILKDROP
 
 /**
  * What the stage's "next / previous style" walks now (GeodeNative.STAGE_STEP_*). Native decides
@@ -517,10 +516,10 @@ internal fun stageStepTarget(
     milkCount: Int,
 ): Int {
     val looks = openLooks(viz, gate)
-    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(SceneIds.MILKDROP)
+    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
     var flags = 0
     if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
-    if (viz.sceneId == SceneIds.MILKDROP) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
+    if (viz.sceneId == GeodeNative.STYLE_MILKDROP) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
     if (lookOnStage(viz, looks) >= 0) flags = flags or GeodeNative.STAGE_STEP_ON_LOOK
     if (milkOpen) flags = flags or GeodeNative.STAGE_STEP_MILK_OPEN
     return GeodeNative.stageStepTarget(page.stepPage, flags, milkCount, looks.size)
@@ -542,7 +541,7 @@ internal fun stepStage(
     val viz = viewModel.vizState.value
     when (stageStepTarget(viz, visualizerView, gate, page, sheetShown, milkFiles.size)) {
         GeodeNative.STAGE_STEP_MILK -> {
-            val current = if (viz.sceneId == SceneIds.MILKDROP) viewModel.activeMilkPath.value.orEmpty() else ""
+            val current = if (viz.sceneId == GeodeNative.STYLE_MILKDROP) viewModel.activeMilkPath.value.orEmpty() else ""
             val next = GeodeNative.stageStepMilk(Array(milkFiles.size) { milkFiles[it].path }, current, step)
             if (next >= 0) selectMilk(viewModel, visualizerView, milkFiles[next].path)
         }

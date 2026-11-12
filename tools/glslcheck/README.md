@@ -26,7 +26,7 @@ value).
 
 - The style ids are the `SHADER`-kind `style|` lines of
   `core/tests/catalogue.txt`, the text table of `core/viz/Catalogue.cpp`
-  (`geode_catalogue_text`). `catalogue_test` checks that file against the
+  (`catalogue::text()`). `catalogue_test` checks that file against the
   catalogue, so `--all` covers what the app ships: the loose styles and every
   style family.
 - Includes are resolved the way `core/viz/ShaderSource.cpp` resolves them:

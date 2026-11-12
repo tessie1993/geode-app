@@ -26,8 +26,8 @@ import android.content.Context
 import androidx.annotation.WorkerThread
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -179,7 +179,7 @@ object BundledTemplates {
             notes = "Vertical hook clip. Loud, loop-safe, thirty seconds around the biggest moment.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.FLUID,
+                    sceneId = "fluid",
                     attack = 0.85f,
                     decay = 0.24f,
                     params =
@@ -216,7 +216,7 @@ object BundledTemplates {
             notes = "Square, slow and soft. Made to sit under a study playlist without shouting.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.AURORA,
+                    sceneId = "aurora",
                     attack = 0.4f,
                     decay = 0.06f,
                     params =
@@ -277,7 +277,7 @@ object BundledTemplates {
             notes = "Round artwork, ring progress, whole track. The classic single-cover post.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.RING,
+                    sceneId = "ring",
                     attack = 0.55f,
                     decay = 0.1f,
                     params =
@@ -328,7 +328,7 @@ object BundledTemplates {
             notes = "Four-by-five feed post, fifteen seconds, album name front and centre.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.WAVES,
+                    sceneId = "waves",
                     attack = 0.7f,
                     decay = 0.15f,
                     params =
@@ -385,7 +385,7 @@ object BundledTemplates {
             notes = "Wide, calm spectrum for speech. Whole episode, readable title, no strobing.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.BARS,
+                    sceneId = "bars",
                     attack = 0.5f,
                     decay = 0.2f,
                     params =
@@ -442,7 +442,7 @@ object BundledTemplates {
             notes = "Archive render: 4K, sixty frames, no overlays. The one you keep.",
             look =
                 TemplateLook(
-                    sceneId = SceneIds.DEFAULT,
+                    sceneId = StyleCatalogue.DEFAULT_ID,
                     attack = 0.65f,
                     decay = 0.12f,
                     params =

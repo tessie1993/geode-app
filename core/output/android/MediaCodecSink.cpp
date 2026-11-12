@@ -110,7 +110,9 @@ public:
         const ssize_t at = AMediaCodec_dequeueOutputBuffer(codec_, &got, 0);
         if (at >= 0) {
             *index = static_cast<int>(at);
-            *info = {got.offset, got.size, got.presentationTimeUs, got.flags};
+            // The info's offset is dropped here: up to API level 35 it is not valid and the sample starts at the
+            // buffer's pointer (NdkMediaCodec, AMediaCodec_dequeueOutputBuffer); later it is always 0.
+            *info = {got.size, got.presentationTimeUs, got.flags};
             return Out::Sample;
         }
         if (at == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) return Out::FormatChanged;
@@ -118,9 +120,8 @@ public:
         return Out::Error;
     }
 
-    const uint8_t* outputBuffer(int index) override {
-        size_t size = 0;
-        return AMediaCodec_getOutputBuffer(codec_, static_cast<size_t>(index), &size);
+    const uint8_t* outputBuffer(int index, size_t* capacity) override {
+        return AMediaCodec_getOutputBuffer(codec_, static_cast<size_t>(index), capacity);
     }
 
     bool releaseOutput(int index) override {
@@ -155,7 +156,7 @@ public:
     bool start() override { return AMediaMuxer_start(muxer_) == AMEDIA_OK; }
 
     bool writeSample(int track, const uint8_t* data, const BufferInfo& info) override {
-        const AMediaCodecBufferInfo out{info.offset, info.size, info.ptsUs, info.flags};
+        const AMediaCodecBufferInfo out{0, info.size, info.ptsUs, info.flags};
         return AMediaMuxer_writeSampleData(muxer_, static_cast<size_t>(track), data, &out) == AMEDIA_OK;
     }
 

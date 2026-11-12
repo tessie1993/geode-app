@@ -6,9 +6,9 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
-import dev.geode.analysis.ArtPalette
 import dev.geode.data.PaletteStore
 import dev.geode.render.scene.SceneParams
+import dev.geode.viz.ArtPalette
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -104,13 +104,6 @@ float gLead;
 float gStream;
 float gLip;
 vec3 gEye;
-/** Set by map(): 1 on a jewel, 0 on the bore face. */
-float gMat;
-/** Set by map(): the jewel's ring phase (0 at the heart, 1 at the rim) and its hash. */
-float gPh;
-float gGemHash;
-
-float lmKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
 /** Twist and fold `p` into one wedge of `seg` radians: x along the wedge's centre line, y across it. */
 vec3 lmFold(vec3 p, float seg) {
@@ -163,7 +156,7 @@ float lmBore(vec3 p, float seg, out float mat, out float ph, out float gh) {
     return min(wall, gem);
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     float m;
     float ph;
     float gh;
@@ -182,35 +175,42 @@ float map(vec3 p) {
         d = mix(d0, d, gBlend);
         m = mix(m0, m, gBlend);
     }
-    gMat = m;
-    gPh = ph;
-    gGemHash = gh;
+    found.mat = m;
+    found.a.x = ph;
+    found.a.y = gh;
     return max(d / gLip, LM_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0) * uIntensity;
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     // Eased: the swell rises with the envelope's fall, not on the hit's frame.
-    float kickSwell = lucidBump(kick) * clamp(0.5 + lmKnob(0), 0.0, 1.0);
+    float kickSwell = lucidBump(kick) * lucidSpan(N.emit, 0.5, 0.0, 1.0);
 
     int depth = lucidDetail(4, 3);
     int oct = lucidDetail(3, 2);
 
     // The fold count, cross-faded between the two neighbouring even counts.
     float rest = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 8.0;
-    float segs = max(rest + 4.0 * hat + 4.0 * clamp(uMorph, 0.0, 1.0), 4.0);
+    float segs = max(rest + 4.0 * hat + lucidSpan(N.depth, 0.0, 0.0, 4.0), 4.0);
     float lo = 2.0 * floor(segs * 0.5);
     float f = (segs - lo) * 0.5;
     gBlend = f * f * (3.0 - 2.0 * f);
@@ -219,10 +219,10 @@ void main() {
 
     // uDrift is an accumulated angle: only the fixed 0.35 scales it (lib_scene_motion).
     gSpin = uDrift * 0.35 + t * 0.02;
-    gR = max(3.4, LM_R + 1.4 * lmKnob(5));
+    gR = max(3.4, lucidSpan(N.reach, LM_R, LM_R - 0.7, LM_R + 0.7));
     gGem = min(0.6 + 0.25 * kickSwell, 0.9);
     gStream = flow * 0.06 + t * 0.01;
-    gLead = 0.11 + 0.18 * lmKnob(2);
+    gLead = lucidSpan(N.flow, 0.11, 0.02, 0.2);
     // The twist's Lipschitz bound at the prism's corner (apothem / cos(pi / 4)
     // for the fewest faces the bore allows, 4).
     float rMax = gR * 1.4142136;
@@ -246,19 +246,20 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LM_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            mat = gMat;
-            ph = gPh;
-            gh = gGemHash;
+            mat = fld.mat;
+            ph = fld.a.x;
+            gh = fld.a.y;
             break;
         }
         tm += max(d * 0.9, eps);
     }
 
-    float hue = 0.03 * sin(t * 0.019) + 0.3 * lmKnob(3);
+    float hue = 0.03 * sin(t * 0.019) + lucidSpan(N.tone, 0.0, -0.15, 0.15);
     float fogK = 0.055;
     // The far end of the bore is the mandala's heart, glowing softly.
     float ahead = pow(max(rd.z, 0.0), 10.0);
@@ -267,12 +268,12 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        vec3 n = lucidNormal(p, max(0.0015, 0.0012 * hitT));
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 48.0);
-        float build = clamp(0.5 + lmKnob(4), 0.0, 1.0);
+        float build = lucidSpan(N.glow, 0.5, 0.0, 1.0);
         float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
         float r = length(p.xy) / gR;
 
@@ -285,7 +286,7 @@ void main() {
             vec3 qb = lmFold(p, gSegHi);
             vec3 q = mix(qa, qb, gBlend);
             float zz = 64.0 * abs(2.0 * fract(p.z / LM_ZWRAP) - 1.0);
-            float dens = 1.0 + 0.6 * lmKnob(1);
+            float dens = lucidSpan(N.scale, 1.0, 0.7, 1.3);
             vec2 fq = vec2(zz * 0.55 - flow * 0.35 - t * 0.05, q.y * 1.1) * dens;
             fq += lucidJitter(fq, t);
             vec4 nst = lucidNest(fq, depth, 1.6 * lucidChaos(), t * 0.25, LUCID_SIMPLEX, oct);

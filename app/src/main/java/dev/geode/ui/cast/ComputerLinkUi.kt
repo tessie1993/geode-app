@@ -21,6 +21,18 @@ internal fun linkRowValue(
         else -> R.string.link_row_idle
     }
 
+/** What TalkBack hears for the stage's Share to PC icon. */
+@StringRes
+internal fun linkButtonLabel(
+    state: LinkState,
+    locked: Boolean,
+): Int =
+    when {
+        state.running -> R.string.link_button_live
+        locked -> R.string.link_row_locked
+        else -> R.string.link_button
+    }
+
 /** What the sheet says the share is doing. */
 @StringRes
 internal fun linkSheetStatus(state: LinkState): Int? =

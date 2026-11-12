@@ -60,6 +60,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.cast.CastButton
+import dev.geode.ui.cast.ComputerLinkButton
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -187,6 +188,8 @@ internal fun BoxScope.StageIcons(
                 )
             }
         }
+        // Share to PC, beside Cast (owner): the browser link's sheet, with Copy and Share.
+        ComputerLinkButton(enabled = rowOn)
         // A connected display (HDMI, USB-C, a wireless display): only while one is there; filled while on.
         val display = rememberConnectedDisplayControl()
         display.display?.let { connected ->
@@ -399,8 +402,8 @@ internal fun stageIconRoom(
     )
 }
 
-/** The top row's icons: Cast, Settings, Studio and Full screen. */
-private const val TOP_ROW_ICONS = 4
+/** The top row's icons: Cast, Share to PC, Settings, Studio and Full screen. */
+private const val TOP_ROW_ICONS = 5
 
 /** The layer's alpha from [alpha], read in the draw pass, so a fade never recomposes the icons. */
 private fun Modifier.faded(alpha: State<Float>): Modifier = graphicsLayer { this.alpha = alpha.value }

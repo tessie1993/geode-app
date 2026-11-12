@@ -254,12 +254,21 @@ internal class LiveHttpServer(
         val resource = route[0].toInt()
         if (status == STATUS_NOT_FOUND) notFound.incrementAndGet()
         if (status != STATUS_OK) return respond(out, status, resource, null)
-        if (resource == GeodeNative.LINK_STREAM) return feed(s, out, sendBody = parts[0] != "HEAD", keepOpen)
-        if (resource == GeodeNative.LINK_RTC) return offer(s, out, (head as RequestLine.Line).headers, deadlineNanos)
-        if (resource == GeodeNative.LINK_PAIR) return pair(s, out, (head as RequestLine.Line).headers, deadlineNanos)
-        // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
-        val body = body(resource, route[1]) ?: return respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
-        return respond(out, STATUS_OK, resource, body, sendBody = parts[0] != "HEAD")
+        val sendBody = parts[0] != "HEAD"
+        return when (resource) {
+            GeodeNative.LINK_STREAM -> feed(s, out, sendBody, keepOpen)
+            GeodeNative.LINK_RTC -> offer(s, out, (head as RequestLine.Line).headers, deadlineNanos)
+            GeodeNative.LINK_PAIR -> pair(s, out, (head as RequestLine.Line).headers, deadlineNanos)
+            else -> {
+                // A known name with nothing behind it yet (the stream still starting, a segment out of the window): 404.
+                val body = body(resource, route[1])
+                if (body == null) {
+                    respond(out, STATUS_NOT_FOUND, NO_RESOURCE, null)
+                } else {
+                    respond(out, STATUS_OK, resource, body, sendBody = sendBody)
+                }
+            }
+        }
     }
 
     /**

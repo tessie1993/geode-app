@@ -2,6 +2,7 @@ package dev.geode.data.prefs
 
 import android.content.SharedPreferences
 import dev.geode.audio.AudioFxController
+import dev.geode.audio.AudioFxLimits
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.billing.CachedEntitlement
 import dev.geode.billing.PrefsEntitlementStore
@@ -147,7 +148,7 @@ class PrefsSchemaTest {
                 BookmarkStore(it[player]).note("content://track", BookmarkStore.LONG_TRACK_MS, BookmarkStore.LONG_TRACK_MS * 2)
             },
             Owner("$APP/audio/AudioFxController.kt", AudioFxController.PREF_KEYS) {
-                val fx = AudioFxController(it[GeodePrefsFiles.AUDIO_FX], emptyList(), NativeDspProcessor())
+                val fx = AudioFxController(it[GeodePrefsFiles.AUDIO_FX], emptyList(), NativeDspProcessor(), UnclampedFx)
                 fx.setEnabled(true)
                 fx.setBandLevel(0, 0)
                 fx.setBassBoost(1)
@@ -363,4 +364,23 @@ class PrefsSchemaTest {
         // Unit tests run with the module directory as the working directory.
         val root: File = listOf(File("."), File("..")).first { File(it, "app/src/main").isDirectory }
     }
+}
+
+/** Stands in for the native effect ranges, which a JVM test cannot load: ten bands, every value as given. */
+private object UnclampedFx : AudioFxLimits {
+    override val bandCount = 10
+
+    override fun min(control: Int) = Int.MIN_VALUE
+
+    override fun max(control: Int) = Int.MAX_VALUE
+
+    override fun clamp(
+        control: Int,
+        value: Int,
+    ) = value
+
+    override fun restoreBands(
+        preset: Int,
+        stored: List<Int>,
+    ) = List(bandCount) { stored.getOrElse(it) { 0 } }
 }

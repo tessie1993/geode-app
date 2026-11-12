@@ -118,7 +118,7 @@ internal fun EqualizerCard(
                 label = stringResource(R.string.eq_bass_boost, fx.bassBoost / 10),
                 value = fx.bassBoost.toFloat(),
                 onValueChange = { onBassBoost(it.toInt()) },
-                valueRange = 0f..1000f,
+                valueRange = 0f..fx.bassMax.toFloat(),
                 enabled = controlsOn,
             )
         }
@@ -127,7 +127,7 @@ internal fun EqualizerCard(
                 label = stringResource(R.string.eq_loudness, AudioFxFormat.dbLabel(fx.loudness)),
                 value = fx.loudness.toFloat(),
                 onValueChange = { onLoudness(it.toInt()) },
-                valueRange = 0f..1000f,
+                valueRange = 0f..fx.loudnessMax.toFloat(),
                 enabled = controlsOn,
             )
         }

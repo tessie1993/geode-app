@@ -2,7 +2,6 @@ package dev.geode.audio
 
 import android.content.Context
 import dev.geode.R
-import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.engine.bridge.GeodeNative
 
 /** The built-in equalizer curves as native lists them (core/audio/dsp/EqPresets), named here in its order. */
@@ -18,7 +17,7 @@ object AudioFxPresets {
         )
 
     fun all(context: Context): List<AudioFxPreset> {
-        val levels = IntArray(NativeDspProcessor.BANDS)
+        val levels = IntArray(GeodeNative.dspBandCount())
         return List(minOf(names.size, GeodeNative.dspEqPresetCount())) { index ->
             GeodeNative.dspEqPresetLevels(index, levels)
             AudioFxPreset(context.getString(names[index]), levels.toList())

@@ -432,6 +432,9 @@ jobs:
           # The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o eq_presets_test
           ./eq_presets_test
+          # The sound effects' ranges: each control's range and clamp, and the band levels a session starts on.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fx_ranges_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o fx_ranges_test
+          ./fx_ranges_test
           # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp core/api/geode_playback_api.cpp -o playback_controls_test
           ./playback_controls_test

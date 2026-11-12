@@ -13,7 +13,7 @@ import java.nio.ByteBuffer
 /** Everything the native chain is told; re-applied whenever a format change builds a new chain. */
 data class DspSettings(
     val enabled: Boolean = false,
-    val bandsMb: List<Int> = List(NativeDspProcessor.BANDS) { 0 },
+    val bandsMb: List<Int> = emptyList(),
     val bassBoost: Int = 0,
     val loudnessMb: Int = 0,
     val crossfeed: Boolean = false,
@@ -149,7 +149,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
         s: DspSettings,
     ) {
         GeodeNative.dspSetEnabled(h, s.enabled)
-        s.bandsMb.take(BANDS).forEachIndexed { band, mb -> GeodeNative.dspSetBand(h, band, mb) }
+        s.bandsMb.forEachIndexed { band, mb -> GeodeNative.dspSetBand(h, band, mb) }
         GeodeNative.dspSetBassBoost(h, s.bassBoost)
         GeodeNative.dspSetLoudnessMb(h, s.loudnessMb)
         GeodeNative.dspSetCrossfeed(h, s.crossfeed)
@@ -158,10 +158,6 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     companion object {
-        const val BANDS = 10
-        const val MIN_MB = -1500
-        const val MAX_MB = 1500
-
         /** The native chain is built for mono or stereo; anything else steps aside (see the class KDoc). */
         const val MAX_CHANNELS = 2
 

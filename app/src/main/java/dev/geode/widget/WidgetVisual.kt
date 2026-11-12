@@ -8,8 +8,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
-import dev.geode.analysis.ArtPalette
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.viz.ArtPalette
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos

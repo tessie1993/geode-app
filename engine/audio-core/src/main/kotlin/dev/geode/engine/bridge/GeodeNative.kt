@@ -872,6 +872,9 @@ object GeodeNative {
     /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
     external fun colourAverageArgb(argb: IntArray): Int
 
+    /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
+    external fun artPaletteExtract(argb: IntArray): FloatArray?
+
     /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
     external fun paletteRamp(
         stops: IntArray,

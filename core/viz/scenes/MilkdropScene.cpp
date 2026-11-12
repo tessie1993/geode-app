@@ -9,7 +9,6 @@
 #include "util/Log.hpp"
 #include "viz/AutoTimer.hpp"
 #include "viz/CompositeGrade.hpp"
-#include "viz/LiveSignal.hpp"
 #include "viz/MilkProgress.hpp"
 #include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
@@ -185,11 +184,10 @@ void MilkdropScene::armLastPreset() {
     pendingPresetPath_ = lastPresetPath_;
 }
 
-void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
+void MilkdropScene::update(const GeodeSoundFrame& /*features*/, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
-    beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
     const bool offscreen = host_.offscreen && host_.offscreen();
     // Presets read the real rate: the paced one live (30 on the wallpaper, less on a hot phone), an
@@ -341,7 +339,9 @@ void MilkdropScene::draw(float timeSeconds) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_.tex());
     glUniform1i(postLocs_.loc("uTex"), 0);
-    set1f("uZoom", p.zoom * (1.0f + beatPulse_ * p.beatResponse * 0.08f));
+    // The user's Zoom only. A hidden 8 % kick on every hit (the hit times the retired beat-response slot)
+    // is gone: what moves on a hit is the reaction matrix alone.
+    set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     set1f("uMirrorX", p.mirror ? 1.0f : 0.0f);
     set1f("uPalBase", p.paletteBase());

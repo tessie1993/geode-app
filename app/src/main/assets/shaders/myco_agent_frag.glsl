@@ -32,10 +32,8 @@ uniform float uSensorAngle;  // radians
 uniform float uTurnAngle;    // radians
 uniform float uMoveStep;     // texels per frame
 uniform vec4 uMatrix;        // (A<-A, A<-B, B<-A, B<-B) sense weights
-uniform float uBreath;       // beat envelope onto sensor distance
 uniform float uJitter;       // heading noise, radians
 uniform float uSnap;         // >0: headings quantized to this many radians
-uniform float uReaim;        // beat scatter: fraction of agents re-aimed
 uniform float uTime;
 uniform float uAniso;        // vertical sensing bias for frost-like growth
 uniform float uInit;         // 1 = write a fresh random population and stop
@@ -100,7 +98,7 @@ void main() {
     float species = a.w;
 
     vec2 texel = 1.0 / uTrailRes;
-    float dist = uSensorDist * (1.0 + 0.45 * uBreath);
+    float dist = uSensorDist;
     vec2 stretch = vec2(1.0, 1.0 + uAniso); // frost styles look further up/down
 
     vec2 fwd = vec2(cos(heading), sin(heading));
@@ -126,13 +124,6 @@ void main() {
         heading -= turn;
     }
     heading += (rnd - 0.5) * uJitter;
-
-    // Beat scatter: a hashed subset of agents re-aims outward from centre,
-    // so a drop reads as a spore burst rather than a global twitch.
-    if (uReaim > 0.0 && hash1(vUv * 313.0 + 7.7) < uReaim) {
-        vec2 fromCentre = pos - 0.5;
-        heading = atan(fromCentre.y, fromCentre.x) + (rnd - 0.5) * 0.8;
-    }
 
     // Spore fall: a slice of the colony is reborn under a finger, aimed out of
     // the cloud it lands in, so the touch grows a network instead of stamping a

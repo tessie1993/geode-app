@@ -33,7 +33,6 @@ public:
 
 private:
     static constexpr int kTrailRes = 384;
-    static constexpr float kBeatThreshold = 0.3f;
     static constexpr float kEnvRisePerSec = 9.0f;
     static constexpr float kEnvFallPerSec = 2.4f;
     static constexpr float kByteFallbackDeposit = 0.125f;
@@ -68,8 +67,6 @@ private:
     float pcmStrike_ = 0.0f;
     float envBass_ = 0.0f;
     float envTreble_ = 0.0f;
-    float beatPulse_ = 0.0f;
-    float reaim_ = 0.0f;
     const TouchField* touch_ = nullptr;
 };
 

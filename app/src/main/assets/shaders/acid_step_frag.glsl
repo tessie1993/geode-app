@@ -34,18 +34,15 @@ uniform sampler2D uPrev;
 uniform vec2 uRes;
 uniform int uStyle;       // warp recipe, 0..9 (the style's own, or its hard-cut alternate)
 uniform int uSource;      // audio source layer recipe, 0..3
-uniform float uZoom;      // per-frame feedback zoom (1 = none), already punched by kick/surge
-uniform float uRotate;    // per-frame feedback rotation, radians (never reverses: clock + snare)
+uniform float uZoom;      // per-frame feedback zoom (1 = none), already pushed by a surge or a hard cut
+uniform float uRotate;    // per-frame feedback rotation, radians (never reverses: the sound clock)
 uniform float uHueShift;  // per-frame hue rotation, turns
 uniform float uFeedback;  // survival gain, < 1 (echo length follows the energy trend)
 uniform float uModulate;  // how far source brightness displaces the resample
-uniform float uGlitch;    // beat-gated glitch amount, 0..1
-uniform float uEpoch;     // integer re-roll for glitch block offsets
 uniform float uClock;     // the sound clock: seconds that run with the music and never backwards
 uniform float uBass;
 uniform float uMid;
 uniform float uTreble;
-uniform float uBeat;
 uniform float uStrike;
 uniform float uDrive;
 // Twelve live spectral spokes, 0..1: the current band envelopes folded into a wheel.
@@ -59,21 +56,10 @@ uniform float uLiquid;    // sine-field liquid warp amount (melody wobble alread
 uniform vec2 uCentre;
 /** Local vortex around the centre, radians per frame; its sign flips with the kick toggle. */
 uniform float uTwist;
-/** Hat shimmer: fine high-frequency resample jitter, q units. */
-uniform float uShimmer;
 /** Stereo drift: per-frame resample offset, q units (the echo slides toward the sound). */
 uniform vec2 uDrift;
-/** Mirror fold 0..1 (the snare's flash, or the style's own), and which half survives (+-1, snare toggle). */
-uniform float uMirror;
-uniform float uMirrorSide;
 /** Melody wobble 0..1 (glide + vibrato): bends the liquid field's frequency. */
 uniform float uWobble;
-/** Drum envelopes 0..1 for the drum source layer. */
-uniform float uKickEnv;
-uniform float uSnareEnv;
-uniform float uHatEnv;
-/** Onset count: re-rolls the snare's star and the hat's sparks per hit. */
-uniform float uSeed;
 /** The lead note: x = pitch class (turns), y = pitch height 0..1, z = how strongly to draw it, w = hue. */
 uniform vec4 uMelody;
 
@@ -159,49 +145,21 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
     float ph = uClock * 0.9;
     vec2 orbit = 0.45 * vec2(sin(ph * 3.0 + uBass * 2.0), sin(ph * 4.0 + 1.3));
     float d = length(q - orbit);
-    float dot1 = exp(-d * d * 260.0) * (0.5 + uStrike + uBeat);
+    float dot1 = exp(-d * d * 260.0) * (0.5 + uStrike);
     return hsv2rgb(vec3(fract(uBaseHue + uTreble * 0.3), 0.7, 1.0)) * dot1 * 1.6;
 }
 
 /**
- * The drums and the melody drawn straight into the loop, on top of the style's
- * recipe, so the echo is FULL of the song's events and not only its level:
+ * The melody drawn straight into the loop, on top of the style's recipe: a dot
+ * at the note's pitch class on a wheel whose radius is the pitch height, so a
+ * line sung or played draws its own contour, and the feedback spins it into a
+ * ribbon. (The kick's ring, the snare's star and the hat's sparks were hidden
+ * hit reactions and are gone: what moves on a hit is the reaction matrix.)
  *
- *  - kick: a ring born at the vanishing point that the envelope's decay
- *    throws outward; the zoom then carries it on down the tunnel as a stack
- *    of rings, one per kick, which is what makes the depth read.
- *  - snare: an eight-point star whose angle re-rolls per onset.
- *  - hat: a sparse spray of single-texel sparks, a different set per hit.
- *  - melody: a dot at the note's pitch class on a wheel whose radius is the
- *    pitch height, so a line sung or played draws its own contour, and the
- *    feedback spins it into a ribbon.
- *
- * No loops: four closed forms, bounded, fixed cost.
+ * No loops: a closed form, bounded, fixed cost.
  */
 vec3 eventLayer(vec2 q) {
     vec3 acc = vec3(0.0);
-    vec2 c = q - uCentre;
-    float rc = length(c);
-    if (uKickEnv > 0.01) {
-        float ringR = 0.06 + 0.5 * (1.0 - uKickEnv);
-        float ring = exp(-pow((rc - ringR) * 34.0, 2.0)) * uKickEnv;
-        acc += hsv2rgb(vec3(fract(uBaseHue + 0.5 * uHueSpan), 0.65, 1.0)) * ring * 0.55;
-    }
-    if (uSnareEnv > 0.01) {
-        float a0 = fract(sin(uSeed * 7.13) * 917.3) * TAU;
-        float a = atan(c.y, c.x) - a0;
-        float seg = TAU / 8.0;
-        float d = abs(mod(a + seg * 0.5, seg) - seg * 0.5);
-        float star = exp(-d * d * 260.0) * exp(-rc * 3.5) * uSnareEnv;
-        acc += hsv2rgb(vec3(fract(uBaseHue + 0.15 + 0.3 * uHueSpan), 0.35, 1.0)) * star * 0.6;
-    }
-    if (uHatEnv > 0.02) {
-        vec2 cell = floor(q * 48.0);
-        vec2 h = hash2(cell + vec2(uSeed * 1.7, uSeed * 0.3));
-        vec2 f = fract(q * 48.0) - 0.5;
-        float spark = step(h.x, 0.05 * uHatEnv) * exp(-dot(f, f) * 30.0);
-        acc += vec3(spark * uHatEnv * 0.7);
-    }
     if (uMelody.z > 0.01) {
         float a = uMelody.x * TAU + uClock * 0.2;
         vec2 p = (0.12 + 0.36 * uMelody.y) * vec2(cos(a), sin(a));
@@ -264,17 +222,8 @@ vec2 warp(vec2 q) {
         ang += 0.35 * lr * 0.15 + 0.006;
         float er = exp(lr);
         q = er * vec2(cos(ang), sin(ang));
-    } else if (uStyle == 5 && uGlitch > 0.001) {
-        // block displacement: quantized cells jump while the glitch is hot
-        float cells = 14.0;
-        vec2 id = floor((q * 0.5 + 0.5) * cells);
-        vec2 h = hash2(id + uEpoch);
-        if (h.x < uGlitch * 0.6) q += (h - 0.5) * 0.22 * uGlitch;
     } else if (uStyle == 6) {
-        // scanline shear + slow vertical roll
-        float row = floor((q.y * 0.5 + 0.5) * uRes.y / 3.0);
-        float h = hash2(vec2(row, uEpoch)).x;
-        q.x += (h - 0.5) * 0.05 * uGlitch;
+        // slow vertical roll (its scanline shear fired on hits, a hidden reaction, and is gone)
         q.y += 0.0035;
     } else if (uStyle == 8) {
         // four-fold mirror room: fold both axes, then slide into the corner
@@ -302,10 +251,6 @@ vec2 warp(vec2 q) {
     // keeps its direction.
     if (abs(uTwist) > 1e-5) {
         q = rot(uTwist * exp(-dot(q, q) * 5.0)) * q;
-    }
-    // Hat shimmer: a fine, fast ripple of the resample point.
-    if (uShimmer > 1e-5) {
-        q += uShimmer * vec2(sin(q.y * 85.0 + uClock * 31.0), cos(q.x * 85.0 + uClock * 29.0));
     }
     // zoom + rotation, shared by every style (their rates differ per style)
     q = rot(uRotate) * q;
@@ -351,14 +296,6 @@ void main() {
     vec2 w = warp(q) + srcLuma * uModulate * normalize(q - uCentre + vec2(1e-4)) * -0.02;
 
     vec3 prev = samplePrev(w / vec2(aspect, 1.0) + 0.5);
-    // Mirror fold: blend toward the frame folded about the vanishing point's
-    // vertical, keeping the half the snare toggle chose. A blend, not a cut,
-    // so the snare's flash ghosts a symmetric twin into the echo and lets it
-    // go again instead of snapping the picture.
-    if (uMirror > 0.01) {
-        vec2 m = vec2(uCentre.x + uMirrorSide * abs(w.x - uCentre.x), w.y);
-        prev = mix(prev, samplePrev(m / vec2(aspect, 1.0) + 0.5), uMirror);
-    }
     prev = clamp(prev, vec3(0.0), vec3(1.0));
     // Black pedestal: the loop lives in 8 bits, and per-frame hue rotation
     // walks quantization error into full-field grey shimmer if the smallest

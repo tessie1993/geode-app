@@ -75,7 +75,7 @@ float Renderer::beginFrame(double timeSeconds) {
     // nothing feeds stays still.
     musicRate_ = soundHeard_ ? sound::motionRate(soundFrame_) : 0.0f;
     timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, kTimeWrapSeconds);
-    applyStyleSchedule();
+    applyStyleSchedule(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);

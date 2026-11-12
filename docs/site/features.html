@@ -15,6 +15,8 @@
 <meta property="og:image" content="https://tessie1993.github.io/geode-app/assets/og-image.png">
 <meta property="og:image:alt" content="The BeatRealms 3D eye logo, made of sound waves, over a spectrum of light">
 <meta name="twitter:card" content="summary_large_image">
+<!-- i18n:alternates -->
+<!-- /i18n:alternates -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -162,6 +164,7 @@
       </div>
     </div>
     <div class="fan" aria-hidden="true">
+      <canvas class="vortex" data-vortex></canvas>
       <div class="fan-inner" id="fan">
         <img src="assets/shots/visuals-glass.webp" alt="">
         <img src="assets/shots/visuals-blue.webp" alt="">
@@ -202,7 +205,7 @@
         </ul>
         <p>No sound, no visuals: when the music stops, the picture comes to rest. The visuals can also follow the microphone or another app's sound, if you turn that on.</p>
       </div>
-      <div class="shot reveal"><img src="assets/shots/teal-kaleido.webp" alt="A teal and amber kaleidoscope tunnel, full screen in the app" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/teal-kaleido.webp" alt="A teal and amber kaleidoscope tunnel, full screen in the app" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -229,7 +232,7 @@
         <p>Auto mode changes the style, the camera and the motion as the song moves from one part to the next. Your colours stay yours: it never narrows the palette you picked.</p>
         <p><span class="tag free">Free</span> the first minute of each song <span class="tag pro">Pro</span> the whole song</p>
       </div>
-      <div class="shot reveal"><img src="assets/shots/visuals-tunnel.webp" alt="A golden tunnel of light streaks on the Visuals screen" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/visuals-tunnel.webp" alt="A golden tunnel of light streaks on the Visuals screen" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -246,7 +249,7 @@
           <li>Randomize everything, and edit your own knobs <span class="tag pro">Pro</span></li>
         </ul>
       </div>
-      <div class="shot reveal"><img src="assets/shots/visuals-blue.webp" alt="A blue crystal tunnel on the Visuals screen" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/visuals-blue.webp" alt="A blue crystal tunnel on the Visuals screen" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -263,7 +266,7 @@
           <li>A home screen widget and a Quick Settings tile</li>
         </ul>
       </div>
-      <div class="shot reveal"><img src="assets/shots/visuals-kaleido.webp" alt="The Visuals screen: the visual, the player bar and the Player, Library, Visuals, Studio and Settings tabs" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/visuals-kaleido.webp" alt="The Visuals screen: the visual, the player bar and the Player, Library, Visuals, Studio and Settings tabs" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -282,7 +285,7 @@
         <p><span class="tag free">Free</span> up to 1080p at 30 fps, one minute, with a watermark. <span class="tag pro">Pro</span> 4K, 60 fps, full length, no watermark, plus loop renders and renders of a whole queue or playlist.</p>
         <p class="caption">The highest frame rate at each size, and HEVC, depend on what your phone's video encoder can do.</p>
       </div>
-      <div class="shot reveal"><img src="assets/shots/ember-spire.webp" alt="A red ember spire of folded light, full screen in the app" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/ember-spire.webp" alt="A red ember spire of folded light, full screen in the app" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -293,7 +296,7 @@
         <h2 id="h-record">Hold to record a live take</h2>
         <p>Hold a finger on the visual to record a live video of what it shows and hears, until you stop. Screenshots are free.</p>
       </div>
-      <div class="shot reveal"><img src="assets/shots/ribbon-vortex.webp" alt="Ribbons of green and violet light, full screen in the app" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/ribbon-vortex.webp" alt="Ribbons of green and violet light, full screen in the app" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -309,7 +312,7 @@
           <li>Show it on a connected display: HDMI, USB-C or a wireless display</li>
         </ul>
       </div>
-      <div class="shot reveal"><img src="assets/shots/neon-flowers.webp" alt="Blue neon flowers spiralling into the dark, full screen in the app" loading="lazy" width="720" height="1403"></div>
+      <div class="shot reveal" data-drift="0.07"><img src="assets/shots/neon-flowers.webp" alt="Blue neon flowers spiralling into the dark, full screen in the app" loading="lazy" width="720" height="1403"></div>
     </div>
   </section>
 
@@ -404,6 +407,8 @@
 
 <footer>
   <div class="wrap">
+    <!-- i18n:switcher -->
+    <!-- /i18n:switcher -->
     <nav aria-label="Footer">
       <a href="./">Home</a>
       <a href="privacy-policy.html">Privacy policy</a>
@@ -431,5 +436,7 @@
     }, { passive: true });
   }
 </script>
+<script type="module" src="assets/vortex.js"></script>
+<script src="assets/motion.js"></script>
 </body>
 </html>

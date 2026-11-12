@@ -15,6 +15,8 @@
 <meta property="og:image" content="https://tessie1993.github.io/geode-app/assets/og-image.png">
 <meta property="og:image:alt" content="The BeatRealms 3D eye logo, made of sound waves, over a spectrum of light">
 <meta name="twitter:card" content="summary_large_image">
+<!-- i18n:alternates -->
+<!-- /i18n:alternates -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -51,7 +53,8 @@
   <div class="wrap">
     <div>
       <span class="shine"><img class="wordmark" src="assets/wordmark.svg" alt="BeatRealms 3D" width="200" height="80"></span>
-      <h1>A music player with 3D visuals that react to your songs. Export them as video.</h1>
+      <h1 class="headline"><span>Visualize the invisible</span></h1>
+      <p class="subhead">A music player with 3D visuals that react to your songs. Export them as video.</p>
       <p class="lede">334 visual styles that listen to the sound itself: the bass, the drum hits, the notes and chords, the build-ups and the drops. It works offline, with no account, no ads and no tracking.</p>
       <div class="cta">
         <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app">
@@ -62,6 +65,7 @@
     </div>
     <div>
       <div class="stage" aria-hidden="true">
+        <canvas class="vortex" data-vortex></canvas>
         <div class="halo"></div>
         <img class="eye" src="assets/eye.webp" alt="">
       </div>
@@ -77,11 +81,11 @@
         <h2>Your music, made visible</h2>
         <p class="intro">This is the app's own start-up clip. Inside the app, every style flies, folds and glows in time with what is playing. When the music stops, the picture comes to rest.</p>
       </div>
-      <div class="phone reveal">
+      <div class="phone reveal" data-drift="0.06">
         <video id="clip" muted playsinline preload="none" poster="assets/splash-poster.jpg" aria-label="The BeatRealms 3D start-up clip: a neon eye forming out of light">
           <source src="assets/splash.mp4" type="video/mp4">
         </video>
-        <button class="replay" type="button" id="replay">Play</button>
+        <button class="replay" type="button" id="replay" data-again="Replay">Play</button>
       </div>
     </div>
   </section>
@@ -177,6 +181,8 @@
 
 <footer>
   <div class="wrap">
+    <!-- i18n:switcher -->
+    <!-- /i18n:switcher -->
     <nav aria-label="Site">
       <a href="features.html">Features</a>
       <a href="privacy-policy.html">Privacy policy</a>
@@ -208,7 +214,7 @@
   // visitor asked for less motion.
   const clip = document.getElementById('clip');
   const replay = document.getElementById('replay');
-  const play = () => { clip.currentTime = 0; clip.play().catch(() => {}); replay.textContent = 'Replay'; };
+  const play = () => { clip.currentTime = 0; clip.play().catch(() => {}); replay.textContent = replay.dataset.again; };
   replay.addEventListener('click', play);
   if (!still) {
     const once = new IntersectionObserver(([e]) => {
@@ -217,5 +223,7 @@
     once.observe(clip);
   }
 </script>
+<script type="module" src="assets/vortex.js"></script>
+<script src="assets/motion.js"></script>
 </body>
 </html>

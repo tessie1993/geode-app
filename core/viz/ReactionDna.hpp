@@ -14,7 +14,9 @@ namespace geode::viz {
 // Each style draws a personality: what its picture does on the pulse. A Chroma
 // style changes hue, a Flash style blooms, a Swing style looks somewhere new, a
 // Warp style bends. It draws a second one from another group for the snare
-// side of the groove, then layers for the big moments, the sustained levels,
+// side of the groove. The kick side always hears the kick and the snare side
+// the snare or the hats, so every style answers the drums whatever else it
+// hears; then layers for the big moments, the sustained levels,
 // the top end, colour over the song, rises and the melody, then the
 // transients, which every style hears, and last the song's long time (every
 // 4 bars or every phrase, counted on the music's own bars) and its tune (the
@@ -42,7 +44,7 @@ enum class Personality {
     Split,   // the colour channels split apart on the beat
     Swing,   // the camera looks somewhere new per beat
     Lens,    // a fisheye bulge on the beat
-    Spin,    // turns a notch per beat (only styles that turn)
+    // No personality turns the picture on the beat: the owner took every sound-driven spin out.
     Morph,   // the shape morphs on the beat (only shader styles)
 };
 constexpr int kPersonalityCount = static_cast<int>(Personality::Morph) + 1;

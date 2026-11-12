@@ -7,7 +7,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import dev.geode.audio.MicCapture
+import dev.geode.audio.CaptureFailure
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.DeviceTrackQuery
@@ -136,7 +136,7 @@ class PlayerSession internal constructor(
 
     val externalAudio: StateFlow<ExternalAudioState> get() = captureController.externalAudio
 
-    fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = captureController.setMicEnabled(enabled)
+    fun setMicEnabled(enabled: Boolean): CaptureFailure? = captureController.setMicEnabled(enabled)
 
     fun stopExternalAudio() = captureController.stopExternalAudio()
 

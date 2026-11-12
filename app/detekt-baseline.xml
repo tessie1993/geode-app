@@ -22,10 +22,9 @@
     <ID>ReturnCount:AiffExtractor.kt$AiffExtractor$override fun read( input: ExtractorInput, seekPosition: PositionHolder, ): Int</ID>
     <ID>ReturnCount:AudioTranscoder.kt$AudioTranscoder$fun feedEncoder(): Boolean</ID>
     <ID>ReturnCount:AutoVisualsController.kt$AutoVisualsController$fun advanceSectionStaging()</ID>
-    <ID>ReturnCount:CaptureController.kt$CaptureController$fun setMicEnabled(enabled: Boolean): MicCapture.Failure?</ID>
+    <ID>ReturnCount:CaptureController.kt$CaptureController$fun setMicEnabled(enabled: Boolean): CaptureFailure?</ID>
     <ID>ReturnCount:HistoryStore.kt$HistoryStore$private fun readLocked()</ID>
     <ID>ReturnCount:LibraryScreen.kt$internal fun playlistDropIndex( from: Int, offsetPx: Float, rowHeightPx: Int, count: Int, ): Int</ID>
-    <ID>ReturnCount:MicCapture.kt$MicCapture$@Synchronized fun start(onSampleRate: (Int) -&gt; Unit = {}): Failure?</ID>
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun move( name: String, from: Int, to: Int, ): MusicPlaylist</ID>
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun rename( oldName: String, newName: String, ): Boolean</ID>
     <ID>ReturnCount:NowPlayingBridge.kt$NowPlayingBridge$fun current(): External?</ID>

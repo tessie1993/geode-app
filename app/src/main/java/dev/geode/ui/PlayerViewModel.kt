@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.geode.audio.MicCapture
+import dev.geode.audio.CaptureFailure
 import dev.geode.data.Lyrics
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
@@ -83,7 +83,7 @@ class PlayerViewModel
 
         val morphFade: SharedFlow<Float> get() = session.visual.morphFade
 
-        fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
+        fun setMicEnabled(enabled: Boolean): CaptureFailure? = session.setMicEnabled(enabled)
 
         fun onAppBackground() = session.captureController.onBackground()
 

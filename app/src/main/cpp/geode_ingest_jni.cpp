@@ -218,4 +218,15 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureReadFrame
     return geode_capture_read_frames();
 }
 
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStart(JNIEnv*, jobject, jlong ring,
+                                                                             jint deviceRateHz, jboolean unprocessed) {
+    return geode_mic_start(ringOf(ring), deviceRateHz, unprocessed ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStop(JNIEnv*, jobject) { geode_mic_stop(); }
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micActive(JNIEnv*, jobject) {
+    return geode_mic_active() ? JNI_TRUE : JNI_FALSE;
+}
+
 }  // extern "C"

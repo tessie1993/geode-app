@@ -146,7 +146,8 @@ The renderer runs these in order each frame.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
 - `core/audio/dsp/EqPresets` is the built-in equalizer curves; the settings save a curve by its index, so their order is saved data.
-- `core/audio/ingest/CapturePlan` orders the formats a capture asks AudioRecord for and sizes its buffer (`geode_capture_plan`, `geode_capture_buffer_bytes`); the mic and playback capture only make the AudioRecord calls.
+- `core/audio/ingest/CapturePlan` orders the formats a capture asks AudioRecord for and sizes its buffer (`geode_capture_plan`, `geode_capture_buffer_bytes`); playback capture only makes the AudioRecord calls.
+- `core/audio/ingest/MicInput` is live input: an Oboe input stream on that plan, mono, writing the mic's ring from its callback (`geode_mic_*`); Kotlin only asks the permission and starts and stops it.
 - `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
 - `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end (`core/api/geode_bookmark_api.cpp`).

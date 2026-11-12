@@ -10,7 +10,6 @@ import kotlin.concurrent.thread
 abstract class AudioCapturePump(
     private val ring: dev.geode.engine.audio.SampleRing,
     defaultRateHz: Int,
-    protected val nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
     private var record: AudioRecord? = null
     private var worker: Thread? = null
@@ -36,15 +35,11 @@ abstract class AudioCapturePump(
     protected abstract val threadName: String
 
     /**
-     * Opens the first format of native's plan (`core/audio/ingest/CapturePlan`) that [open] gets initialized,
-     * at the buffer native sizes, and keeps its rate. Returns the record and its channel count.
+     * Opens the first stereo-first format of native's plan (`core/audio/ingest/CapturePlan`) that [open] gets
+     * initialized, at the buffer native sizes, and keeps its rate. Returns the record and its channel count.
      */
-    protected fun openFirst(
-        deviceRateHz: Int,
-        stereo: Boolean,
-        open: (rate: Int, mask: Int, encoding: Int, bufferBytes: Int) -> AudioRecord,
-    ): Pair<AudioRecord, Int>? {
-        val plan = GeodeNative.captureFormats(deviceRateHz, stereo)
+    protected fun openFirst(open: (rate: Int, mask: Int, encoding: Int, bufferBytes: Int) -> AudioRecord): Pair<AudioRecord, Int>? {
+        val plan = GeodeNative.captureFormats(0, true)
         for (at in plan.indices step GeodeNative.CAPTURE_FORMAT_INTS) {
             val rate = plan[at + GeodeNative.CAPTURE_FORMAT_RATE]
             val channels = plan[at + GeodeNative.CAPTURE_FORMAT_CHANNELS]
@@ -139,5 +134,7 @@ abstract class AudioCapturePump(
         record = null
     }
 }
+
+private fun nowMs(): Long = android.os.SystemClock.elapsedRealtime()
 
 private const val TAG = "AudioCapturePump"

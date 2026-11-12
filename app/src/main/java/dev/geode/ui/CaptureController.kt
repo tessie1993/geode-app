@@ -1,12 +1,16 @@
 package dev.geode.ui
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import android.media.AudioManager
+import androidx.core.content.ContextCompat
 import dev.geode.audio.CaptureFailure
-import dev.geode.audio.MicCapture
 import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
 import dev.geode.cast.CastService
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +22,7 @@ import kotlinx.coroutines.withContext
 
 data class MicState(
     val active: Boolean = false,
-    val failure: MicCapture.Failure? = null,
+    val failure: CaptureFailure? = null,
 )
 
 data class ExternalAudioState(
@@ -59,8 +63,6 @@ internal class CaptureController(
         val micReactivePref: Boolean
     }
 
-    private val micCapture = MicCapture(application, micRing)
-
     private val _micState = MutableStateFlow(MicState())
 
     val micState: StateFlow<MicState> = _micState
@@ -83,7 +85,7 @@ internal class CaptureController(
      * dropped, and a paused player counts as the source again.
      */
     private fun stopMic() {
-        micCapture.stop()
+        GeodeNative.micStop()
         micRing.beginEpoch()
         CastService.setMicWanted(application, false)
     }
@@ -91,13 +93,13 @@ internal class CaptureController(
     /**
      * The app left the screen. Live input exists to drive visuals someone is looking at, and
      * without a microphone foreground service Android gives a background app silence anyway,
-     * so the AudioRecord and its reader thread are released instead of reading zeros. The
+     * so the native input stream is closed instead of reading zeros. The
      * preference and the on-screen state stay as they are for [onForeground] to resume.
      * A cast is still somebody looking: while it holds the microphone type the mic keeps going.
      */
     fun onBackground() {
         inBackground = true
-        if (!micCapture.active || CastService.micHeld.value) return
+        if (!GeodeNative.micActive() || CastService.micHeld.value) return
         pauseMicInBackground()
     }
 
@@ -129,13 +131,13 @@ internal class CaptureController(
         // mic toggle but never read back, so a restart silently dropped it. Never request the
         // permission here: if it has since been revoked, leave the pref as-is and stay silent —
         // the person can re-enable it from the mic control, which will prompt as usual.
-        if (host.micReactivePref && !micCapture.active && hasMicPermission()) {
+        if (host.micReactivePref && !GeodeNative.micActive() && hasMicPermission()) {
             setMicEnabled(true)
         }
         // The cast ended (or lost the microphone type) with the app away: Android would hand the mic silence.
         scope.launch {
             CastService.micHeld.collect { held ->
-                if (!held && inBackground && micCapture.active) pauseMicInBackground()
+                if (!held && inBackground && GeodeNative.micActive()) pauseMicInBackground()
             }
         }
         scope.launch {
@@ -167,7 +169,7 @@ internal class CaptureController(
      * The mic as a layer over playback: it writes its own ring, so the player keeps playing and keeps its
      * ring, and the visuals hear both. Only a capture of another app still gives way to it.
      */
-    fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
+    fun setMicEnabled(enabled: Boolean): CaptureFailure? {
         if (!enabled) {
             micPausedInBackground = false
             stopMic()
@@ -175,11 +177,11 @@ internal class CaptureController(
             host.setMicReactivePref(false)
             return null
         }
-        if (micCapture.active) return null
+        if (GeodeNative.micActive()) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         // A new epoch before the first block: nothing an earlier run left in the ring is heard.
         micRing.beginEpoch()
-        val failure = micCapture.start()
+        val failure = startMic()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
             return failure
@@ -190,7 +192,17 @@ internal class CaptureController(
         return null
     }
 
-    fun hasMicPermission(): Boolean = micCapture.hasPermission()
+    /** The mic's stream is native (`core/audio/ingest/MicInput`); this hands it the ring and the device's answers. */
+    private fun startMic(): CaptureFailure? {
+        if (!hasMicPermission()) return CaptureFailure.PERMISSION
+        val audio = application.getSystemService(AudioManager::class.java)
+        val rate = audio?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull() ?: 0
+        val unprocessed = audio?.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
+        return if (GeodeNative.micStart(micRing.handle, rate, unprocessed)) null else CaptureFailure.UNAVAILABLE
+    }
+
+    fun hasMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(application, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     fun noteExternalAudioConsentPending() {
         _externalAudio.update { it.copy(awaitingConsent = true, failure = null) }
@@ -203,14 +215,14 @@ internal class CaptureController(
     }
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
-        if (!micCapture.hasPermission()) {
+        if (!hasMicPermission()) {
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
             }
             return
         }
         host.pausePlayback()
-        if (micCapture.active) setMicEnabled(false)
+        if (GeodeNative.micActive()) setMicEnabled(false)
         host.resetSound(playerOwnsRing = false)
         val failure = playbackCapture.start(projection)
         host.resetSound(!externalAudioOwnsRing())
@@ -275,10 +287,10 @@ internal class CaptureController(
     }
 
     fun refreshMicState() {
-        if (!_micState.value.active || micCapture.active) return
+        if (!_micState.value.active || GeodeNative.micActive()) return
         micRing.beginEpoch()
         CastService.setMicWanted(application, false)
-        _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
+        _micState.value = MicState(active = false, failure = CaptureFailure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }
 

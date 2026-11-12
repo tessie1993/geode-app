@@ -40,6 +40,7 @@ Resource named(std::string_view name) {
     if (name == kPlaylistName) return Resource::Playlist;
     if (name == kInitName) return Resource::Init;
     if (name == kStreamName) return Resource::Stream;
+    if (name == kRtcName) return Resource::Rtc;
     if (segmentSequence(name) >= 0) return Resource::Segment;
     return Resource::None;
 }
@@ -49,7 +50,10 @@ const char* reasonPhrase(int status) {
         case 200: return "OK";
         case 204: return "No Content";
         case 308: return "Permanent Redirect";
+        case 400: return "Bad Request";
         case 405: return "Method Not Allowed";
+        case 411: return "Length Required";
+        case 413: return "Content Too Large";
         case 414: return "URI Too Long";
         case 431: return "Request Header Fields Too Large";
         case 503: return "Service Unavailable";
@@ -67,6 +71,7 @@ const char* contentType(Resource r) {
         case Resource::Init:
         case Resource::Segment:
         case Resource::Stream: return "video/mp4";
+        case Resource::Rtc: return "application/sdp";
         default: return nullptr;
     }
 }
@@ -209,7 +214,9 @@ Route route(std::string_view method, std::string_view target, std::string_view t
         if (resource == Resource::Segment) sequence = segmentSequence(name);
     }
     const bool read = method == "GET" || method == "HEAD";
-    if (method == "OPTIONS" && resource != Resource::Redirect && resource != Resource::Stream) {
+    if (resource == Resource::Rtc) {
+        r.status = method == "POST" ? 200 : 405;
+    } else if (method == "OPTIONS" && resource != Resource::Redirect && resource != Resource::Stream) {
         r.status = 204;
     } else if (read) {
         r.status = resource == Resource::Redirect ? 308 : 200;
@@ -252,7 +259,11 @@ std::string responseHead(int status, Resource resource, int64_t length, std::str
         if (status == 204) h += "Access-Control-Allow-Private-Network: true\r\n";
         h += "Accept-Ranges: none\r\n";
     }
-    if (status == 405) h += resource == Resource::Stream ? "Allow: GET, HEAD\r\n" : "Allow: GET, HEAD, OPTIONS\r\n";
+    if (status == 405) {
+        h += resource == Resource::Rtc      ? "Allow: POST\r\n"
+             : resource == Resource::Stream ? "Allow: GET, HEAD\r\n"
+                                            : "Allow: GET, HEAD, OPTIONS\r\n";
+    }
     if (status == 503) h += "Retry-After: 2\r\n";
     if (status == 308 && validToken(token)) {
         h += "Location: /";
@@ -304,6 +315,72 @@ std::string masterPlaylist(const uint8_t* init, size_t n) {
     out += kPlaylistName;
     out += '\n';
     return out;
+}
+
+int64_t bodyLength(const std::string_view* headers, size_t count, int64_t max) {
+    const auto isHeader = [](std::string_view line, std::string_view name) {
+        if (line.size() <= name.size() || line[name.size()] != ':') return false;
+        for (size_t i = 0; i < name.size(); ++i) {
+            const char c = line[i] >= 'A' && line[i] <= 'Z' ? static_cast<char>(line[i] + 32) : line[i];
+            if (c != name[i]) return false;
+        }
+        return true;
+    };
+    int64_t length = kNoBody;
+    for (size_t k = 0; headers && k < count; ++k) {
+        const std::string_view line = headers[k];
+        if (isHeader(line, "transfer-encoding")) return kBadBody;
+        if (!isHeader(line, "content-length")) continue;
+        if (length != kNoBody) return kBadBody;
+        std::string_view v = line.substr(15);
+        while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) v.remove_prefix(1);
+        while (!v.empty() && (v.back() == ' ' || v.back() == '\t')) v.remove_suffix(1);
+        if (v.empty() || v.size() > 12) return kBadBody;
+        int64_t n = 0;
+        for (char c : v) {
+            if (c < '0' || c > '9') return kBadBody;
+            n = n * 10 + (c - '0');
+        }
+        length = n;
+    }
+    if (length > max) return kBadBody;
+    return length;
+}
+
+int rtcStatus(int answerResult) {
+    if (answerResult >= 0) return 200;
+    // GEODE_WEBRTC_REFUSED_FULL (-4) and _NOT_READY (-5): the phone is busy, not the offer at fault.
+    if (answerResult == -4 || answerResult == -5) return 503;
+    return 400;
+}
+
+std::string shareUrl(uint32_t address, int port, std::string_view token) {
+    if (address == 0 || port < 1 || port > 65535 || !validToken(token)) return {};
+    std::string url = "http://";
+    url += std::to_string(address);
+    url += ':';
+    url += std::to_string(port);
+    url += '/';
+    url += token;
+    url += '/';
+    return url;
+}
+
+std::string friendlyLabel(std::string_view token) {
+    static constexpr const char* kFirst[16] = {"Amber", "Blue",  "Coral", "Dusk",  "Ember", "Frost", "Gold",  "Indigo",
+                                               "Jade",  "Lunar", "Mint",  "Neon",  "Opal",  "Ruby",  "Silver", "Violet"};
+    static constexpr const char* kSecond[16] = {"Comet", "Delta", "Echo",  "Fern",  "Glow",  "Harbor", "Lake",  "Meteor",
+                                                "Nova",  "Orbit", "Pulse", "Quartz", "River", "Spark", "Tide",  "Wave"};
+    // FNV-1a over the token: a stable pick that tells nothing useful about the token itself.
+    uint32_t h = 2166136261u;
+    for (char c : token) {
+        h ^= static_cast<unsigned char>(c);
+        h *= 16777619u;
+    }
+    std::string label = kFirst[h & 15u];
+    label += ' ';
+    label += kSecond[(h >> 4) & 15u];
+    return label;
 }
 
 int step(int* state, int event, int arg) {

@@ -17,9 +17,13 @@ sealed interface LinkState {
     /** The stream is starting; the link is not served yet. */
     data object Starting : LinkState
 
-    /** A browser on the same Wi-Fi can open [url] now. */
+    /**
+     * A browser on the same Wi-Fi can open [url] now: the link as shown, copied and shared, its host written as one
+     * number instead of the dotted address (native, `geode_link_share_url`); [label] is its short name for the sheet.
+     */
     data class Live(
         val url: String,
+        val label: String = "",
     ) : LinkState
 
     /** The share stopped by itself; [reason] is a GEODE_LINK_REASON_* the UI words. */
@@ -44,6 +48,7 @@ sealed interface LinkState {
 object ComputerLink {
     private val machine = IntArray(GeodeNative.LINK_STATE)
     private var url: String? = null
+    private var label: String = ""
     private val mutableState = MutableStateFlow<LinkState>(LinkState.Idle)
 
     val state: StateFlow<LinkState> = mutableState.asStateFlow()
@@ -80,9 +85,13 @@ object ComputerLink {
         step(GeodeNative.LINK_EVENT_SHOWN, 0)
     }
 
-    /** [CastService]: the stream is ready and the page is at [pageUrl]. */
-    internal fun onReady(pageUrl: String) {
-        url = pageUrl
+    /** [CastService]: the stream is ready; the page's link as the user sees it is [shareUrl], named [shareLabel]. */
+    internal fun onReady(
+        shareUrl: String,
+        shareLabel: String,
+    ) {
+        url = shareUrl
+        label = shareLabel
         step(GeodeNative.LINK_EVENT_READY, 0)
     }
 
@@ -104,7 +113,7 @@ object ComputerLink {
         mutableState.value =
             when (machine[0]) {
                 GeodeNative.LINK_PHASE_STARTING -> LinkState.Starting
-                GeodeNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it) } ?: LinkState.Starting
+                GeodeNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it, label) } ?: LinkState.Starting
                 GeodeNative.LINK_PHASE_ENDED -> LinkState.Ended(machine[1])
                 else -> LinkState.Idle
             }

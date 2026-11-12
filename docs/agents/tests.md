@@ -86,6 +86,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
 - `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
 - `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
+- `mod_controls_test.cpp`: `core/viz/ModControls`: which wave and envelope controls Customize shows for each source, timing, moment and Macro target, and nothing for a slot out of range.
 - `musical_test.cpp`: the sound engine's musical layer.
 - `note_response_test.cpp`: Note & key reactions.
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.

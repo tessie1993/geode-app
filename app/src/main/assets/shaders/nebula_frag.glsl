@@ -22,6 +22,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // NEBULA - a volumetric fbm cloud, lit from inside.
 //
@@ -533,6 +534,19 @@ vec3 nebWarpCoord(vec3 p) {
     return p * NEB_DENSITY_SCALE + w * gWarpAmp;
 }
 
+/** The octave count the density is read with this step (it falls with depth). */
+int gOct;
+
+/** The density pattern, fbm3 of the warped coordinate, as a field of q alone. */
+float nebField(vec3 q) {
+    return fbm3(q, gOct);
+}
+
+/** The pattern the march reads: nebField, through lib_shell's hook (the identity until the shell drives it). */
+float nebPattern(vec3 q) {
+    return SHELL_FIELD3(q, nebField);
+}
+
 void main() {
     // view() first, so Zoom, Rotation, Drift, Kaleidoscope, Tile, Pixelate,
     // Shake, Twist, Warp, Ripple, Morph, Turbulence and the beat pulse all
@@ -570,13 +584,29 @@ void main() {
     float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
     float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
     float beatEnv = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float hueBase = NEB_HUE_BASE + 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
-    float ambient = NEB_AMBIENT_EMIT * (1.0 + (clamp(uKnob[4], 0.0, 1.0) - 0.5));
-    float falloff = NEB_CORE_FALLOFF / (1.0 + 0.8 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
-    gWarpAmp = NEB_WARP_AMP + 0.8 * (clamp(uKnob[2], 0.0, 1.0) - 0.5);
-    gToneThr = 0.12 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nVein = clamp(uKnob[1], 0.0, 1.0);
+    float nWarp = clamp(uKnob[2], 0.0, 1.0);
+    float nGrain = clamp(uKnob[3], 0.0, 1.0);
+    float nAmbient = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the veins' bar, the domain warp's depth, the palette
+    // position and the density bar, the medium's own glow, and how far the
+    // core's light reaches.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float veinDrop = shellMap(nVein, -0.08, 0.0, 0.08);
+    float hueBase = shellMap(nGrain, NEB_HUE_BASE - 0.3, NEB_HUE_BASE, NEB_HUE_BASE + 0.3);
+    float ambient = NEB_AMBIENT_EMIT * shellMap(nAmbient, 0.5, 1.0, 1.5);
+    float falloff = NEB_CORE_FALLOFF / shellMap(nReach, 0.6, 1.0, 1.4);
+    gWarpAmp = shellMap(nWarp, NEB_WARP_AMP - 0.4, NEB_WARP_AMP, NEB_WARP_AMP + 0.4);
+    gToneThr = shellMap(nGrain, -0.06, 0.0, 0.06);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -738,7 +768,8 @@ void main() {
         // changing the brightness and no seam appears where the count steps.
         float lod = clamp((t - tNear) / max(span, 1e-3), 0.0, 1.0);
         int oct = NEB_MAX_OCTAVES - int(lod * float(NEB_MAX_OCTAVES - NEB_MIN_OCTAVES) + 0.5);
-        float f = fbm3(q, oct);
+        gOct = oct;
+        float f = nebPattern(q);
 
         // ---- how much medium is here --------------------------------------
         float well = 0.0;
@@ -823,7 +854,7 @@ void main() {
             // bright veins along the spine of each strand. Squared, so the
             // light lands on a line and not on the region around it - which is
             // also why treble reads as detail here rather than as brightness.
-            float vein = smoothstep(NEB_VEIN_THRESHOLD - 0.16 * kTexture, NEB_VEIN_TOP, f);
+            float vein = smoothstep(NEB_VEIN_THRESHOLD - veinDrop, NEB_VEIN_TOP, f);
 
             // pal() may sample the cyclic-palette atlas, and this is inside
             // non-uniform control flow, where GLSL ES leaves an implicit-LOD
@@ -888,5 +919,5 @@ void main() {
     // a third of the frame.
     col *= mix(NEB_VIGNETTE_FLOOR, 1.0, smoothstep(NEB_VIGNETTE_OUTER, NEB_VIGNETTE_INNER, length(uv)));
 
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

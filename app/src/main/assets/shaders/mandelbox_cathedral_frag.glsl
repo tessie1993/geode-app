@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_shell
 
 // Mandelbox Cathedral: a slow flight down the nave of an endless gothic
 // church. Clustered piers of glass-chrome carry a pointed arcade; above them
@@ -62,6 +63,29 @@ out vec4 fragColor;
 // macro's field of view is the rig's (camFly): wide is a sweeping nave,
 // narrow a flat, ornate telephoto.
 //
+// ---- shape inputs (lib_shell) ------------------------------------------------
+//
+// The church's own constants are normalized inputs, mapped to their range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off. Only knobs drive them:
+// Morph and Warp move all the time (above), and the knobs move at a musical
+// rate. Music reaches these only through the knobs (the reaction matrix);
+// none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sRib        k0 PULSE         the ribs' thickness 0.6 .. 1 .. 1.6
+//   sIter       k1 TEXTURE       the aisles' fold iterations 5 .. 8 .. 11 (whole)
+//   sPetals     k3 TONE          the far rose's petals 12 .. 16 .. 24 (whole, so they close)
+//   gSpring     k4 BUILD         the springing line 0.05 .. 0.2 .. 0.4
+//   sPier       k4 BUILD         the clustered piers' girth 0.75 .. 1 .. 1.3
+//   gHalfW      k5 SPACE         the nave's half-width 0.9 .. 1.1 .. 1.4
+//   sFog        k5 SPACE         the haze's density 0.09 .. 0.06 .. 0.035
+//
+// The fold scale stays in its narrow band (see Morph above), the bay (2), the
+// fractal period (8) and the tile (16) stay: they divide the 16 the eye is
+// rebased by. The church goes through SHELL_FIELD3 and the far rose through
+// SHELL_FIELD2, so the shell's spawn, fractal, front and back hooks reach both.
+//
 // ---- sound ---------------------------------------------------------------------
 //
 // - SND_KICK_ENV runs light down the nave: the transverse ribs flare one
@@ -88,7 +112,8 @@ out vec4 fragColor;
 
 #define MC_MAX_STEPS 120
 #define MC_REFL_STEPS 36
-#define MC_ITER 8
+/** The most fold iterations TEXTURE can ask for (8 at rest, sIter). */
+#define MC_ITER 11
 #define MC_FAR 40.0
 #define MC_TAU 6.2831853
 /** World to fractal: the fractal cell (2 units) is MC_PERIOD world units. */
@@ -124,6 +149,14 @@ float gRibD;
 float gRibKind;
 /** The kick's ring of light: where it is along the nave, and how bright. */
 vec2 gRing;
+/** Shape inputs (see the header): the nave's half-width and springing line, and the rest. */
+float gHalfW;
+float gSpring;
+float sRib;
+float sIter;
+float sPetals;
+float sPier;
+float sFog;
 
 /**
  * The neon ramp: electric blue -> violet -> magenta -> orange -> acid green
@@ -175,7 +208,7 @@ vec2 naveAxis(float z) {
 
 /** The nave's cross-section: negative inside the vault. */
 float naveSd(vec2 q) {
-    return arch2(q, MC_HALF_W, gArchC, MC_SPRING);
+    return arch2(q, gHalfW, gArchC, gSpring);
 }
 
 /** The arcade opening in the bay-local (z, y) plane. */
@@ -195,6 +228,7 @@ float fractal(vec3 pw) {
     float dr = 1.0;
     vec4 trap = vec4(1e3);
     for (int i = 0; i < MC_ITER; i++) {
+        if (float(i) >= sIter) break;
         p = clamp(p, -1.0, 1.0) * 2.0 - p;
         // Turbulence: a small turn inside every fold, an isometry, so the
         // estimate stays a bound.
@@ -214,7 +248,7 @@ float fractal(vec3 pw) {
     return length(p) / abs(dr) / MC_WORLD;
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 q = p.xy - naveAxis(p.z);
     float ax = abs(q.x);
     // Bay-local z: piers at +-1 (the bay ends), the opening and window at 0.
@@ -227,20 +261,20 @@ float map(vec3 p) {
     float stone = max(max(-nave, nave - MC_WALL), -arcade);
 
     // Clustered piers standing proud of the wall line at the bay ends.
-    vec2 pp = vec2(ax - (MC_HALF_W - 0.06), abs(zl) - 0.5 * MC_BAY);
-    float pier = length(pp) - 0.16;
+    vec2 pp = vec2(ax - (gHalfW - 0.06), abs(zl) - 0.5 * MC_BAY);
+    float pier = length(pp) - 0.16 * sPier;
     vec2 ps = abs(pp);
-    pier = min(pier, min(length(vec2(ps.x - 0.18, pp.y)), length(vec2(pp.x, ps.y - 0.18))) - 0.06);
+    pier = min(pier, min(length(vec2(ps.x - 0.18 * sPier, pp.y)), length(vec2(pp.x, ps.y - 0.18 * sPier))) - 0.06 * sPier);
     pier = max(pier, q.y - 1.4);
     stone = min(stone, pier);
 
     // Ribs, as tubes along curves on the vault (only above the springing line).
-    float above = MC_SPRING - 0.05 - q.y;
-    float tr = max(length(vec2(nave, abs(zl) - 0.5 * MC_BAY)) - 0.07, above);
-    float k = 0.5 * MC_BAY / MC_HALF_W;
-    float dg = max(length(vec2(nave, (abs(zl) - ax * k) * inversesqrt(1.0 + k * k))) - 0.045, above);
-    float ridge = length(vec2(nave, q.x)) - 0.04;
-    float moulding = max(length(vec2(arcade, ax - MC_HALF_W)) - 0.045, MC_FLOOR + 0.1 - q.y);
+    float above = gSpring - 0.05 - q.y;
+    float tr = max(length(vec2(nave, abs(zl) - 0.5 * MC_BAY)) - 0.07 * sRib, above);
+    float k = 0.5 * MC_BAY / gHalfW;
+    float dg = max(length(vec2(nave, (abs(zl) - ax * k) * inversesqrt(1.0 + k * k))) - 0.045 * sRib, above);
+    float ridge = length(vec2(nave, q.x)) - 0.04 * sRib;
+    float moulding = max(length(vec2(arcade, ax - gHalfW)) - 0.045 * sRib, MC_FLOOR + 0.1 - q.y);
     float rib = min(min(tr, dg), min(ridge, moulding));
     gRibD = rib;
     gRibKind = tr <= rib ? 0.0 : dg <= rib ? 1.0 : 2.0;
@@ -250,11 +284,16 @@ float map(vec3 p) {
     // the nearest thing, which spares it for every ray down the nave.
     float floorD = q.y - MC_FLOOR;
     float near = min(min(stone, rib), floorD);
-    float fr = MC_HALF_W + 0.45 - ax;
+    float fr = gHalfW + 0.45 - ax;
     if (fr < near) fr = max(fractal(p), fr);
     float d = min(near, fr);
     gMat = d == floorD ? MAT_FLOOR : d == rib ? MAT_RIB : d == fr ? MAT_FRACTAL : MAT_STONE;
     return d;
+}
+
+/** The church as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mapField);
 }
 
 vec3 calcNormal(vec3 p, float t) {
@@ -431,7 +470,25 @@ vec3 stoneColour(vec3 rd, vec3 n, float y, float occ) {
     return (vec3(0.025, 0.012, 0.05) + irid * 0.12 + env * fres * 0.9) * occ;
 }
 
+/** The great rose at the end of the nave, in its plane rp: rings and petals, a 2D pattern (SHELL_FIELD2). */
+float mcRose(vec2 rp) {
+    float rr = length(rp);
+    float ra = atan(rp.y, rp.x) + uTime * 0.03;
+    float petal = abs(fract(ra / MC_TAU * sPetals) - 0.5);
+    return inlay(rr - 0.55, 0.02) + inlay(rr - 0.35, 0.015) + inlay(rr - 0.12, 0.02)
+        + inlay(petal * rr * 2.0 - 0.02, 0.01) * step(rr, 0.55) * step(0.12, rr);
+}
+
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sRib = shellMap(shellKnob(0), 0.6, 1.0, 1.6);
+    sIter = floor(shellMap(shellKnob(1), 5.0, 8.0, 11.0) + 0.5);
+    sPetals = floor(shellMap(shellKnob(3), 12.0, 16.0, 24.0) + 0.5);
+    gSpring = shellMap(shellKnob(4), 0.05, MC_SPRING, 0.4);
+    sPier = shellMap(shellKnob(4), 0.75, 1.0, 1.3);
+    gHalfW = shellMap(shellKnob(5), 0.9, MC_HALF_W, 1.4);
+    sFog = shellMap(shellKnob(5), 0.09, 0.06, 0.035);
+
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
@@ -515,10 +572,7 @@ void main() {
     if (rd.z > 0.0) {
         vec2 rp = rd.xy / rd.z * 4.0 - vec2(0.0, 0.25);
         float rr = length(rp);
-        float ra = atan(rp.y, rp.x) + uTime * 0.03;
-        float petal = abs(fract(ra / MC_TAU * 16.0) - 0.5);
-        float rose = inlay(rr - 0.55, 0.02) + inlay(rr - 0.35, 0.015) + inlay(rr - 0.12, 0.02)
-            + inlay(petal * rr * 2.0 - 0.02, 0.01) * step(rr, 0.55) * step(0.12, rr);
+        float rose = SHELL_FIELD2(rp, mcRose);
         float beat = 0.7 + 0.6 * kick + 1.2 * surge;
         fogCol += neon(0.3 + rr * 0.6 + stain) * rose * smoothstep(0.75, 0.2, rr) * 0.6 * beat * awake * glowGain;
     }
@@ -567,14 +621,14 @@ void main() {
             col = stoneColour(rd, n, q.y, occ);
             float ax = abs(q.x);
             float h = bayHue(p.z);
-            bool pierHit = abs(abs(zl) - 0.5 * MC_BAY) < 0.3 && ax < MC_HALF_W + 0.05;
+            bool pierHit = abs(abs(zl) - 0.5 * MC_BAY) < 0.3 && ax < gHalfW + 0.05;
             if (pierHit) {
                 // Veined marble shafts, a gilded capital at the springing line, a lit plinth.
                 col += vec3(0.08, 0.07, 0.12) * veins(vec2(atan(n.x, n.z) * 2.0, q.y * 3.0)) * occ;
-                float cap = inlay(q.y - MC_SPRING, 0.025) + 0.6 * inlay(q.y - MC_SPRING + 0.08, 0.012);
+                float cap = inlay(q.y - gSpring, 0.025) + 0.6 * inlay(q.y - gSpring + 0.08, 0.012);
                 col += neon(h + 0.6) * cap * 0.9 * glowGain * awake;
                 col += neon(h + 0.6) * inlay(q.y - MC_FLOOR - 0.12, 0.02) * 0.5 * glowGain * awake;
-            } else if (ax > MC_HALF_W - 0.03) {
+            } else if (ax > gHalfW - 0.03) {
                 // Ashlar courses, staggered.
                 float course = floor(q.y / 0.22);
                 float jz = mod(p.z + 0.22 * mod(course, 2.0), 0.44);
@@ -588,7 +642,7 @@ void main() {
             }
             // Stained glass in the clerestory: the window's own light.
             float win = windowSd(zl, q.y);
-            if (win < 0.0 && abs(q.x) > MC_HALF_W - 0.4) {
+            if (win < 0.0 && abs(q.x) > gHalfW - 0.4) {
                 vec2 w = vec2(zl, q.y - 1.2) / 0.34;
                 float id = floor(p.z / MC_BAY) + (q.x > 0.0 ? 101.0 : 0.0);
                 col = glass(w, stain + bayHue(p.z), mod(id, 8.0)) * glassGain * 1.8;
@@ -596,7 +650,7 @@ void main() {
                 col *= 0.4;
             }
         }
-        float fog = 1.0 - exp(-t * 0.06);
+        float fog = 1.0 - exp(-t * sFog);
         col = mix(col, fogCol, fog);
     }
     col += glow * 0.02 * (1.0 + surge);

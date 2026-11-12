@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Mandala Dome: the tapestry hall, now a real room. A great hemispherical
 // dome stands over a round floor, and every surface is the same tapestry of
@@ -188,7 +189,7 @@ vec2 sphereCells(vec3 n, float spin, float cells) {
     return vec2(lon, lat) * (cells / MD_TAU);
 }
 
-float map(vec3 p) {
+float mdField(vec3 p) {
     // The centre sphere, floating at the origin.
     float dS = length(p - gSC) - gR;
     // The hall: the inside of a sphere about the floor's centre.
@@ -211,6 +212,14 @@ float map(vec3 p) {
     return max(d, MD_BUBBLE - length(p - gEye));
 }
 
+/**
+ * The field every march, normal and occlusion tap reads: mdField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, mdField);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -227,23 +236,37 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     // sndShaped(SND_HIGH) straight into a glow term was the flash in the 2D style: keep it gentle.
     float glow = 0.4 * sndShaped(SND_HIGH);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTex = clamp(uKnob[1], 0.0, 1.0);
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
-    float split = 0.012 * (0.4 + 1.2 * kTex);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nSwell = clamp(uKnob[0], 0.0, 1.0);
+    float nSplit = clamp(uKnob[1], 0.0, 1.0);
+    float nFloat = clamp(uKnob[3], 0.0, 1.0);
+    float nInner = clamp(uKnob[4], 0.0, 1.0);
+    float nOrbit = clamp(uKnob[5], 0.0, 1.0);
+    // The fringe split, the kick's swell of the sphere, where the sphere
+    // floats, its inner light, and the orbit's radius.
+    float split = shellMap(nSplit, 0.0048, 0.012, 0.0192);
+    float swellK = shellMap(nSwell, 0.4, 1.0, 1.6);
+    float lift = shellMap(nFloat, -0.9, 0.0, 0.9);
+    float innerK = shellMap(nInner, 0.75, 1.0, 1.25);
+    float orbitR = shellMap(nOrbit, 4.6, 5.2, 5.8);
+    float hue = shellMap(nFloat, -0.1, 0.0, 0.1);
     // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
     float spin = uTime * 0.175;
     float finger = touchFalloff(uv, 0.5);
 
-    gR = MD_SPHERE * (1.0 + 0.16 * kick * (0.4 + 1.2 * kPulse));
+    gR = MD_SPHERE * (1.0 + 0.16 * kick * swellK);
     gDomeR = MD_DOME_R * (1.0 + 0.04 * kick);
-    gSC = vec3(0.0, 1.8 * kTone, 0.0);
+    gSC = vec3(0.0, lift, 0.0);
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, mix(4.6, 5.8, kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbitR, 2.0 * CAM_SPIN_UNIT, ro, rd);
     // Lift the eye a little so the floor's mandala shows, and hold it above
     // the side domes' tops (so it is never inside one) and well inside the
     // hall (orbit at most 5.8 * 1.35 out, 4.5 up) whatever the rig's pitch does.
@@ -264,9 +287,8 @@ void main() {
         if (t > MD_FAR) break;
     }
 
-    float hue = 0.2 * kTone;
     // The inner light: the drop floods the hall, BUILD raises its floor.
-    float inner = (0.75 + 0.5 * kBuild) * (1.0 + 1.6 * dropBump) * (0.85 + 0.25 * swell);
+    float inner = innerK * (1.0 + 1.6 * dropBump) * (0.85 + 0.25 * swell);
     vec3 lightCol = mix(pal(0.5 + hue), vec3(1.0, 0.9, 1.0), 0.35);
     vec3 fogCol = pal(0.22 + hue) * 0.05 + vec3(0.006, 0.003, 0.012);
     vec3 col = fogCol;

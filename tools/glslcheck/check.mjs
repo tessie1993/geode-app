@@ -181,8 +181,8 @@ const SHADER_VALUES = {
   uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
   // Grow and layers (lib_scene_uniforms) at their defaults, where every family library draws as before.
   uSpawn: 0, uFractal: 0, uFrontLayer: 0, uBackLayer: 0, uFormula: 0,
-  // The shape graph (lib_scene_uniforms, core/viz/ShapeGraph) with Shapes at its default: off, no shape packed.
-  uShapeCount: 0, uShapes: [0, 0, 0, 0], uShapeMix: 0, uShapeFold: [0, 0, 0, 0], uShapeMelt: 0,
+  // Shapes (lib_scene_uniforms) at its default: off, every style its own form.
+  uShapeMix: 0,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

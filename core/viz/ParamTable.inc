@@ -594,7 +594,7 @@ GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
 
 // Shapes (Customize › Shape › Grow): how far a raymarched style's own form takes in the morphing shape graph
-// (viz/ShapeGraph, lib_shapes): up to eight primitives that union, melt, cut and mask one another, whose colours
+// (viz/ShapeGraph; ShaderScene uploads it as uShapeMix): up to eight primitives that union, melt, cut and mask one another, whose colours
 // melt where they blend, built from the play's seed, Spawn, Morph, Formula and Fractal, and gliding to a new
 // graph whenever one of them changes. 0 is off: the style's own distance and colour, exactly as before, until
 // the user, a macro knob, a wave, an envelope or a route raises it (LfoTarget::Shapes, a structural target like

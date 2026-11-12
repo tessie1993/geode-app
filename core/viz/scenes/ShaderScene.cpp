@@ -211,6 +211,8 @@ void ShaderScene::uploadParams() {
     set1f("uBackLayer", p.backLayer);
     // Which of the style's own distance formulas draws it, 0 its first (the styles in Scope::Formula read it).
     set1f("uFormula", p.formula);
+    // How far the shape graph melts into the style's form, 0 the style untouched (the styles in Scope::Shapes read it).
+    set1f("uShapeMix", p.shapes);
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);

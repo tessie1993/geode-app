@@ -53,6 +53,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
 - Customize › Motion's Spin (field `motionDrift`, the old Spin drift's wire name) scales the turn of the styles `catalogue::spinRate` lists, shows only on them (scope `SPIN`, per style), holds them still at 0 and is never rolled.
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
+- `ShapeGraph` (`core/viz/ShapeGraph`) is the morphing shape graph: up to 8 primitives that union, blend, cut and mask in a one-level CSG list, packed as 8 × 4 vec4.
+- Its target is a pure function of the play seed, Spawn, Morph, Formula, Fractal and Shapes; numbers glide, primitive and operation changes crossfade by weight, shapes grow from and shrink to 0, and heads drift (translation only) on a Speed-scaled clock.
+- `ShapeGraph::sample` mirrors the shader's distance and colour maths for host tests; no renderer ticks it and no style draws it yet.
+- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`, empty until a style reads it).
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack; `Renderer::uploadPaletteRamp` bakes it into one 256-texel ramp that every shader style reads through `pal()` (`uPalLut`).
 - A shader style with no stack set draws the look's own palette (`palette`, its hue overrides or your colours' stops).
 - Retired with the stack in place: Palette 2 and Palette blend (`palette2`, `paletteMix`, their overrides), Colour map (`paletteLut`) and Color cycle (`colorCycle`, `cycleSpeed`); an old look naming them loads and draws its own palette.

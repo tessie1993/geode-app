@@ -41,7 +41,7 @@ out vec4 fragColor;
 // Speed scales the Earth's clouds and its slow rise. Complexity
 // (uMorph) fades in an octave of ground. Chaos (uWarp, uTurbulence, uTwist)
 // bends the ground and its craters (terraChaos). Energy (uIntensity) scales
-// the ejecta's glow. Colour is pal() in the regolith and the Earth. Space is
+// the ejecta's glow. Colour is terraPal() in the regolith and the Earth. Space is
 // the rig.
 
 #define MN_MAX_STEPS 112
@@ -72,7 +72,7 @@ vec2 crater(vec2 xz, float scale, vec2 seed, float chance) {
     return vec2(prof * rr * 2.0 / scale, d);
 }
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     xz = terraChaos(terraWrap(xz));
     float h = 0.45 * terraFbm(xz, gOct);
     h += crater(xz, 1.0, vec2(0.0), 0.4).x;
@@ -86,8 +86,11 @@ float height(vec2 xz) {
     return h;
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
     float t0 = terraTime();
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
@@ -119,7 +122,7 @@ void main() {
         vec2 sp = e * 2.5;
         float land = smoothstep(0.52, 0.58, terraNoise(sp + vec2(t0 * 0.01, 3.0)));
         float cloud = smoothstep(0.5, 0.8, terraNoise(sp * 2.0 + vec2(t0 * (0.02 + 0.03 * SND_BASS_PRESENCE), 9.0)));
-        vec3 surf = mix(mix(vec3(0.05, 0.18, 0.45), pal(0.6) * 0.5, 0.2), vec3(0.25, 0.38, 0.18), land);
+        vec3 surf = mix(mix(vec3(0.05, 0.18, 0.45), terraPal(0.6) * 0.5, 0.2), vec3(0.25, 0.38, 0.18), land);
         surf = mix(surf, vec3(0.95), cloud * 0.8);
         float limb = pow(e2, 3.0);
         col = surf * lit + vec3(0.3, 0.55, 1.0) * limb * lit * 0.6;
@@ -137,7 +140,7 @@ void main() {
             if (t > span.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -153,19 +156,19 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.008);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.008);
         vec2 w = terraChaos(terraWrap(p.xz));
         float dif = max(dot(n, sun), 0.0);
         float albedo = 0.32 + 0.12 * terraNoise(w * 3.0);
-        vec3 grey = mix(vec3(albedo), pal(0.6) * albedo, 0.08);
+        vec3 grey = mix(vec3(albedo), terraPal(0.6) * albedo, 0.08);
         col = grey * dif * 1.6 + grey * vec3(0.3, 0.4, 0.6) * 0.04 * (0.5 + 0.5 * n.y);
         col *= terraStepAO(used);
         // Ejecta: a bright ring spreading from the newest craters' rims.
         float d = crater(w + 2.0, 1.0, vec2(gGen.x * 17.0, gGen.x * 31.0), 0.12).y;
         float ringR = 1.0 + 0.6 * (1.0 - onset);
         float ring = exp(-pow((d - ringR) * 7.0, 2.0)) * (1.0 - smoothstep(1.55, 1.8, d)) * onset;
-        col += mix(vec3(1.0, 0.85, 0.6), pal(0.08), 0.3) * ring * 0.7 * min(energy, 1.5);
-        col *= exp(-hitT * 0.025);
+        col += mix(vec3(1.0, 0.85, 0.6), terraPal(0.08), 0.3) * ring * 0.7 * min(energy, 1.5);
+        col *= exp(-hitT * 0.025 / gTerraReach);
     }
 
     col *= 0.85 + 0.17 * swell;

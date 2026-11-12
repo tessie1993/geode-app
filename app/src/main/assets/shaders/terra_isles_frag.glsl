@@ -36,7 +36,7 @@ out vec4 fragColor;
 // Speed scales the swell's drift. Complexity (uMorph) fades in an
 // octave of coastline. Chaos (uWarp, uTurbulence, uTwist) bends the islands
 // (terraChaos). Energy (uIntensity) scales the tide and the chop. Colour is
-// pal() in the sea, the foliage and the sky. Space is the rig.
+// terraPal() in the sea, the foliage and the sky. Space is the rig.
 
 #define IS_MAX_STEPS 112
 #define IS_FAR 40.0
@@ -48,14 +48,22 @@ const vec2 IS_SWELL_A = vec2(3.0, 5.0);
 const vec2 IS_SWELL_B = vec2(-4.0, 3.0);
 
 float gOct;
+/** How far the land sinks under the sea: IS_SINK at rest, FLOW raising or lowering the sea. */
+float gSink;
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     float f = terraFbm(terraChaos(terraWrap(xz)), gOct);
-    return IS_AMP * (f - IS_SINK);
+    return IS_AMP * (f - gSink);
 }
+
+//#include lib_terra_field
 
 void main() {
     vec2 uv = view();
+    terraSetup();
+    // This style's own inputs (lib_terra's shell), mapped once: FLOW the sea level, TEXTURE the surf's width.
+    gSink = IS_SINK + terraShift(gTerraIn.level, 0.1);
+    float surfW = 0.05 * gTerraWidth;
     float t0 = terraTime();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = terraEnergy();
@@ -63,7 +71,7 @@ void main() {
     float chop = clamp(sndShaped(SND_HIGH) * energy, 0.0, 1.0);
     float sea = 0.02 + 0.07 * bass * min(energy, 1.5);
     gOct = terraOctaves(4.0);
-    float hMax = IS_AMP * (1.0 - IS_SINK);
+    float hMax = IS_AMP * (1.0 - gSink);
 
     vec3 ro;
     vec3 rd;
@@ -71,8 +79,8 @@ void main() {
 
     vec3 sun = normalize(vec3(0.6, 0.45, 0.7));
     vec3 sunCol = vec3(1.0, 0.94, 0.82);
-    vec3 zenith = mix(vec3(0.15, 0.40, 0.78), pal(0.6) * 0.6, 0.2);
-    vec3 horizon = mix(vec3(0.72, 0.84, 0.92), pal(0.5), 0.12);
+    vec3 zenith = mix(vec3(0.15, 0.40, 0.78), terraPal(0.6) * 0.6, 0.2);
+    vec3 horizon = mix(vec3(0.72, 0.84, 0.92), terraPal(0.5), 0.12);
 
     // The sea plane caps the march: past it the ray is in the water.
     float tSea = rd.y < 0.0 ? (sea - ro.y) / rd.y : IS_FAR;
@@ -86,7 +94,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > span.y) break;
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -103,12 +111,12 @@ void main() {
     vec3 col = terraSky(rd, sun, zenith, horizon, sunCol);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.01);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.01);
         float above = p.y - sea;
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
         vec3 sand = vec3(0.86, 0.78, 0.58);
-        vec3 green = mix(vec3(0.16, 0.38, 0.12), pal(0.3) * 0.4, 0.3);
+        vec3 green = mix(vec3(0.16, 0.38, 0.12), terraPal(0.3) * 0.4, 0.3);
         vec3 rock = vec3(0.42, 0.40, 0.36);
         vec3 base = mix(sand, green, smoothstep(0.03, 0.10, above) * smoothstep(0.55, 0.8, n.y));
         base = mix(base, rock, smoothstep(0.45, 0.7, above / hMax));
@@ -123,15 +131,15 @@ void main() {
         float amp = (0.05 + 0.08 * chop) * exp(-tSea * 0.05);
         vec2 slope = amp * (normalize(IS_SWELL_A) * cos(pa) + normalize(IS_SWELL_B) * cos(pb));
         vec3 wn = normalize(vec3(-slope.x, 1.0, -slope.y));
-        float depth = sea - height(p.xz);
+        float depth = sea - terraField(p.xz);
         float fres = 0.04 + 0.96 * pow(1.0 - max(dot(wn, -rd), 0.0), 5.0);
         vec3 refl = terraSky(reflect(rd, wn), sun, zenith, horizon, sunCol);
-        vec3 deepC = mix(vec3(0.02, 0.10, 0.22), pal(0.62) * 0.2, 0.3);
-        vec3 shallowC = mix(vec3(0.10, 0.62, 0.60), pal(0.48) * 0.7, 0.2);
+        vec3 deepC = mix(vec3(0.02, 0.10, 0.22), terraPal(0.62) * 0.2, 0.3);
+        vec3 shallowC = mix(vec3(0.10, 0.62, 0.60), terraPal(0.48) * 0.7, 0.2);
         vec3 water = mix(deepC, shallowC, exp(-max(depth, 0.0) * 5.0));
         col = mix(water, refl, fres);
         // Surf: a broken white line where the water is thinnest.
-        float surf = (1.0 - smoothstep(0.0, 0.05, depth)) * (0.6 + 0.4 * sin(pa * 2.0 + wob * 6.0));
+        float surf = (1.0 - smoothstep(0.0, surfW, depth)) * (0.6 + 0.4 * sin(pa * 2.0 + wob * 6.0));
         col = mix(col, vec3(0.92, 0.96, 1.0), clamp(surf, 0.0, 1.0) * 0.8);
         col = terraFog(col, rd, tSea, 0.03, horizon, sun, sunCol);
     }

@@ -59,12 +59,12 @@ out vec4 fragColor;
 // irregular warp into the crystal's edges. Twist (uTwist) winds the arms into
 // a pinwheel, more at the rim. Colour: ice, glow and sky from
 // pal(). Energy: uIntensity scales the treble growth and the kick pulse.
-// Space: camAround, the rig's look and dolly. Knobs (lib_arbor's roles,
-// offsets from 0.5 so off is the tuned look): k0 PULSE the plate's swell, k1
-// TEXTURE the growth rings' grain, k2 FLOW the crystal's sway, k3 TONE the
-// ice's hue, k4 BUILD the glow round the limbs, k5 SPACE the orbit radius
-// (inside the first flake cylinder at every setting). The mids open the side
-// arms' angle a little (arbMidBow), which moves no tip past CF_BOUND.
+// Space: camAround, the rig's look and dolly. Knobs (lib_arbor's roles, offsets
+// from 0.5 so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the
+// dendrite's girth, k2 FLOW added to the Chaos bend, k3 TONE the palette
+// position, k4 BUILD the glow round the limbs, k5 SPACE the reach through the
+// sky's haze. The mids open the side arms' angle a little (arbMidBow), which
+// moves no tip past CF_BOUND.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -97,6 +97,8 @@ vec3 gHab;
 float gGrow;
 float gPlateR;
 float gChaos;
+/** k1 TEXTURE on the dendrite's girth. */
+float gGirth;
 float gT;
 mat2 gYaw;
 mat2 gPitch;
@@ -127,7 +129,7 @@ float crystal2(vec2 p) {
     p = rot2(3.0 * uTwist * r) * p;
     vec2 q = hexFold(p);
     float plate = q.x - gPlateR;
-    float arm = arborDendrite2(vec2(q.y, q.x - gPlateR * 0.6), gHab.x, gHab.y, gHab.z, CF_LEN, 0.10, gGrow);
+    float arm = arborDendrite2(vec2(q.y, q.x - gPlateR * 0.6), gHab.x, gHab.y, gHab.z, CF_LEN, 0.10 * gGirth, gGrow);
     gPlate = plate - arm;
     return min(plate, arm) / ((1.0 + 0.6 * gChaos) * (1.0 + 3.0 * abs(uTwist) * r));
 }
@@ -193,35 +195,35 @@ float flakeLayer(vec3 ro, vec3 rd, float R, float cells, float seed, out float t
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    gT = t;
-    float energy = uIntensity;
-    gChaos = arbChaos();
-    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
-    float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
-    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
-
     float kPulse = arbKnob(0);
     float kTexture = arbKnob(1);
     float kFlow = arbKnob(2);
     float kTone = arbKnob(3);
     float kBuild = arbKnob(4);
     float kSpace = arbKnob(5);
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
+    gT = t;
+    float energy = uIntensity;
+    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
+    gGirth = 1.0 + 0.5 * kTexture;
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     gHab = mix(habit(SND_CUT_COUNT - 1.0), habit(SND_CUT_COUNT), morphIn);
     gHab.x += arbMidBow();
-    gPlateR = 0.075 + 0.025 * kick + 0.015 * kPulse;
+    gPlateR = 0.075 + 0.025 * kick;
     gGrow = arbLevels(2.5 + 4.5 * clamp(treb, 0.0, 1.2), 1.0);
-    float sway = 1.0 + 0.6 * kFlow;
-    gYaw = rot2(0.45 * sway * sin(t * 0.11));
-    gPitch = rot2(0.28 * sway * sin(t * 0.077 + 1.0));
+    gYaw = rot2(0.45 * sin(t * 0.11));
+    gPitch = rot2(0.28 * sin(t * 0.077 + 1.0));
     gRoll = rot2(t * 0.03);
 
-    float hue = 0.58 + 0.04 * sin(t * 0.03) + 0.3 * kTone;
+    float hue = 0.58 + 0.04 * sin(t * 0.03) + 0.6 * kTone;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, CF_EYE * (1.0 + 0.25 * kSpace), 0.0, ro, rd);
+    camAround(uv, CF_EYE, 0.0, ro, rd);
 
     // ---- sky and falling flakes (uniform control flow: fwidth inside) -----
     vec3 sky = skyColour(rd, hue);
@@ -286,7 +288,7 @@ void main() {
             vec3 ice = mix(vec3(0.85, 0.95, 1.0), pal(hue + 0.02), 0.35);
             // Spine: deep inside the outline, along every limb's centre.
             float spine = smoothstep(-0.002, -0.012, hd2);
-            float rings = (0.5 + 0.5 * sin(length(hc) * (260.0 * (1.0 + 0.4 * kTexture)))) * step(hPlate, 0.0);
+            float rings = (0.5 + 0.5 * sin(length(hc) * 260.0)) * step(hPlate, 0.0);
             // Fake refraction with dispersion: the bent ray reads the palette
             // at three staggered offsets, and what is behind shows through.
             vec3 rf = refract(rd, n, 0.76);
@@ -303,11 +305,13 @@ void main() {
             float spark = (1.0 - smoothstep(0.0, 0.006, tip)) * step(gGrow - 2.0, lvl);
             spark *= 0.5 + 0.5 * sin(t * 3.0 + hash11(path * 0.37) * 40.0);
             col += vec3(1.0) * spark * 0.5;
-            col = mix(col, sky, 1.0 - exp(-max(hitT - 3.0, 0.0) * 0.04));
+            col = mix(col, sky, 1.0 - exp(-max(hitT - 3.0, 0.0) * 0.04 / (1.0 + 0.4 * kSpace)));
         }
     }
 
     col *= 0.88 + 0.15 * swell;
     col *= 0.8 + 0.2 * smoothstep(2.0, 0.3, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

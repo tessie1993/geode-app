@@ -43,9 +43,10 @@ out vec4 fragColor;
 // paper and the seal are fixed accents. Energy: uIntensity scales the harmony
 // wash and the kick breath. Space: camAround, the rig's orbit and dolly.
 // Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned look): k0
-// PULSE the pads' swell, k1 TEXTURE the brush's grain, k2 FLOW the trunk's
-// sinuous warp, k3 TONE the ink and wash hue, k4 BUILD how dark the wash
-// lays, k5 SPACE the orbit radius. The mids bow the limbs (arbMidBow).
+// PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW added to the Chaos
+// bend, k3 TONE the palette position of the ink and the wash, k4 BUILD how deep
+// the wash lays (paper has no glow), k5 SPACE the reach of the orbit. The mids
+// bow the limbs (arbMidBow).
 
 #define BN_MAX_STEPS 104
 #define BN_FAR 16.0
@@ -87,29 +88,29 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float energy = uIntensity;
-    float chaos = arbChaos();
-    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float harmony = clamp(uHarmony, 0.0, 1.0) * energy;
-    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
     float kPulse = arbKnob(0);
     float kTexture = arbKnob(1);
     float kFlow = arbKnob(2);
     float kTone = arbKnob(3);
     float kBuild = arbKnob(4);
     float kSpace = arbKnob(5);
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
+    float energy = uIntensity;
+    float chaos = max(arbChaos() + 0.5 * kFlow, 0.0);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float harmony = clamp(uHarmony, 0.0, 1.0) * energy;
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     vec4 form = mix(formFor(SND_CUT_COUNT - 1.0), formFor(SND_CUT_COUNT), morphIn);
     gGrow = arbLevels(form.x, 1.0);
-    gF = ArborForm(2.0, form.y, form.w + arbMidBow(), form.z + 0.5 * uTwist, 0.68, 0.72, 0.17, 0.68);
-    gPad = 0.15 + 0.02 * sin(t * 0.5) + 0.035 * kick + 0.04 * kPulse;
-    gGnarl = 0.10 + 0.12 * chaos + 0.06 * kFlow;
+    gF = ArborForm(2.0, form.y, form.w + arbMidBow(), form.z + 0.5 * uTwist, 0.68, 0.72, 0.17 * (1.0 + 0.5 * kTexture), 0.68);
+    gPad = 0.15 + 0.02 * sin(t * 0.5) + 0.035 * kick;
+    gGnarl = 0.10 + 0.12 * chaos;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 5.0 * (1.0 + 0.25 * kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, 5.0 * (1.0 + 0.4 * kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
 
     // ---- paper, wash and seal ----------------------------------------------
     float grain = fbm3(vec3(uv * 18.0, 3.0), 3);
@@ -143,15 +144,15 @@ void main() {
 
     vec3 col = paper;
     // A soft shadow wash on the paper under the tray.
-    vec3 inkCol = pal(0.62 + 0.3 * kTone) * 0.10 + vec3(0.03, 0.03, 0.04);
-    vec3 washCol = mix(vec3(0.25, 0.32, 0.26), pal(0.30 + 0.3 * kTone) * 0.5, 0.5);
+    vec3 inkCol = pal(0.62 + 0.6 * kTone) * 0.10 + vec3(0.03, 0.03, 0.04);
+    vec3 washCol = mix(vec3(0.25, 0.32, 0.26), pal(0.30 + 0.6 * kTone) * 0.5, 0.5);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
         vec3 l = normalize(vec3(-0.5, 0.8, 0.4));
         vec3 lit = arbLight(n, rd, l, 0.3, 12.0);
         float ao = arbStepAO(used, uSteps);
-        float brush = 0.85 + 0.3 * fbm3(p * (9.0 * (1.0 + 0.5 * kTexture)), 2);
+        float brush = 0.85 + 0.3 * fbm3(p * 9.0, 2);
         float ink;
         vec3 tone;
         if (isTray > 0.5) {
@@ -170,5 +171,7 @@ void main() {
     }
 
     col *= 0.94 + 0.06 * swell;
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

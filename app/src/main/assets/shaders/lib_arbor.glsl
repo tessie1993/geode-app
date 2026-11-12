@@ -21,13 +21,15 @@
 // arbView() reads vUv, so include this file only in a fragment style that
 // declares `in vec2 vUv` (every style does).
 //
-// The six style knobs are each style's own, read as offsets from 0.5 (arbKnob)
-// so with Note & key reactions off the style is its tuned self, with one
-// role per knob in all twelve: k0 PULSE the beat's or the kick's swell (the
-// drums through the user's own Notes & key mapping), k1 TEXTURE the fine
-// grain (pads, threads, lead, rain, brush), k2 FLOW the sway, k3 TONE the
-// hue, k4 BUILD the glow or halo, k5 SPACE the orbit or the haze. The mid
-// band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
+// The six style knobs are read in each style as offsets from 0.5 (arbKnob),
+// so with Note & key reactions off the style is its tuned self. Willow,
+// Coral, Frost, Bonsai, Canopy, Spire and Synapse give them lib_flame's,
+// lib_opal's and lib_hollow's roles: k0 PULSE the emission, k1 TEXTURE the
+// limbs' girth, k2 FLOW added to the Chaos bend, k3 TONE the palette position,
+// k4 BUILD the glow, k5 SPACE the reach (the haze, or the orbit). The older
+// five (Grove, Bolt, Roots, Rosette, Sakura) still spend them their own way.
+//
+// The mid band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
 // added to a 3D form's bend, a 2D form's lean or a dendrite's side angle, so
 // the boughs give while the mids climb and lift back as they fall. A tree
 // never turns (trees hold still), so this is Arbor's form of the mid band's

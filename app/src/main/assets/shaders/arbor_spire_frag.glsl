@@ -45,9 +45,10 @@ out vec4 fragColor;
 // light from pal(), stepped by branch index. Energy: uIntensity scales the
 // timbre wind, the kick lift and the hat beads. Space: camAround, the rig's
 // orbit and dolly. Knobs (lib_arbor's roles, offsets from 0.5 so off is the
-// tuned look): k0 PULSE lifts the branches as the kick does, k1 TEXTURE the
-// floor grid's grain, k2 FLOW winds the spiral further, k3 TONE the tubes'
-// hue, k4 BUILD the light bleeding round the limbs, k5 SPACE the orbit radius.
+// tuned look): k0 PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW
+// added to the Chaos bend, k3 TONE the palette position, k4 BUILD the light
+// bleeding round the limbs, k5 SPACE the floor grid's reach. The mids bow the
+// branches (arbMidBow).
 
 #define SP_MAX_STEPS 104
 #define SP_FAR 22.0
@@ -109,31 +110,31 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
-    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float energy = uIntensity;
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
-    float bright = clamp(uMotionBright, 0.0, 1.0);
-    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
-    float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
     float kPulse = arbKnob(0);
     float kTexture = arbKnob(1);
     float kFlow = arbKnob(2);
     float kTone = arbKnob(3);
     float kBuild = arbKnob(4);
     float kSpace = arbKnob(5);
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
+    float energy = uIntensity;
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
+    float bright = clamp(uMotionBright, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
 
-    gChaos = arbChaos();
-    gDiv = 2.39996 + 0.16 * (bright - 0.5) * 2.0 * energy + 0.08 * kFlow;
-    gLift = 0.30 * kick + 0.1 * kPulse;
+    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
+    gDiv = 2.39996 + 0.16 * (bright - 0.5) * 2.0 * energy;
+    gLift = 0.30 * kick;
     gBead = 0.035 + 0.035 * hat;
     gGrow = arbLevels(4.0, 1.0);
-    gF = ArborForm(2.0, 0.55, 0.0, 1.57 + 0.6 * uTwist, 0.66, 0.75, 0.07, 0.66);
+    gF = ArborForm(2.0, 0.55, arbMidBow(), 1.57 + 0.6 * uTwist, 0.66, 0.75, 0.07 * (1.0 + 0.5 * kTexture), 0.66);
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 7.5 * (1.0 + 0.25 * kSpace), 4.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, 7.5, 4.0 * CAM_SPIN_UNIT, ro, rd);
 
-    float hue = 0.80 + 0.002 * t + 0.3 * kTone;
+    float hue = 0.80 + 0.002 * t + 0.6 * kTone;
 
     float tPlane = rd.y < -1e-4 ? (SP_BOTTOM - ro.y) / rd.y : 1e9;
     float tMax = min(SP_FAR, tPlane);
@@ -173,15 +174,17 @@ void main() {
         if (idx < 0.0) col = tube * (0.05 + 0.9 * lit.y);
     } else if (tPlane < SP_FAR) {
         vec3 p = ro + rd * tPlane;
-        vec2 g = abs(fract(p.xz * (1.0 + 0.5 * kTexture) + vec2(0.0, t * 0.05)) - 0.5);
+        vec2 g = abs(fract(p.xz * 1.0 + vec2(0.0, t * 0.05)) - 0.5);
         float line = 1.0 - smoothstep(0.0, 0.03 + 0.004 * tPlane, min(g.x, g.y));
-        col = pal(hue + 0.4) * line * 0.25 * exp(-tPlane * 0.12);
+        col = pal(hue + 0.4) * line * 0.25 * exp(-tPlane * 0.12 / (1.0 + 0.4 * kSpace));
         // The spire's own light pooled on the floor.
         col += pal(hue) * 0.12 * exp(-length(p.xz) * 0.9);
     }
-    col += glow * (0.8 + 0.3 * swell + 0.5 * kBuild);
+    col += glow * (0.8 + 0.3 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

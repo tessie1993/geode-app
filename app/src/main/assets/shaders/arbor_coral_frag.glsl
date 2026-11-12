@@ -42,9 +42,9 @@ out vec4 fragColor;
 // Colour: coral, polyps, sand and water from pal(). Energy: uIntensity scales
 // the polyp swell, the surge and the shimmer. Space: camFly, the rig's path.
 // Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned look): k0
-// PULSE the polyps' swell, k1 TEXTURE the caustic threads' sharpness, k2 FLOW
-// the current's sway, k3 TONE the reef's hue, k4 BUILD the polyps' glow, k5
-// SPACE the water's murk. The mids bow the branches (arbMidBow).
+// PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW added to the Chaos
+// bend, k3 TONE the palette position, k4 BUILD the polyps' glow, k5 SPACE the
+// reach through the water. The mids bow the branches (arbMidBow).
 
 #define CR_MAX_STEPS 104
 #define CR_FAR 20.0
@@ -99,6 +99,12 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = arbView();
+    float kPulse = arbKnob(0);
+    float kTexture = arbKnob(1);
+    float kFlow = arbKnob(2);
+    float kTone = arbKnob(3);
+    float kBuild = arbKnob(4);
+    float kSpace = arbKnob(5);
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
@@ -107,25 +113,19 @@ void main() {
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
     float lowmid = clamp(sndSpectrum(0.41), 0.0, 1.0) * energy;
-    float kPulse = arbKnob(0);
-    float kTexture = arbKnob(1);
-    float kFlow = arbKnob(2);
-    float kTone = arbKnob(3);
-    float kBuild = arbKnob(4);
-    float kSpace = arbKnob(5);
 
-    gChaos = arbChaos();
-    gSurge = 0.9 * dropBump + 0.08 * (1.0 + kFlow) * sin(t * 0.3);
+    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
+    gSurge = 0.9 * dropBump + 0.08 * sin(t * 0.3);
     gGrow = arbLevels(4.0, 1.0);
-    gPolyp = 0.022 + 0.035 * kick + 0.02 * kPulse;
-    gF = ArborForm(3.0, 0.72, -0.38 + arbMidBow(), 0.75 + 0.5 * uTwist, 0.80, 0.60, 0.12, 0.80);
+    gPolyp = 0.022 + 0.035 * kick;
+    gF = ArborForm(3.0, 0.72, -0.38 + arbMidBow(), 0.75 + 0.5 * uTwist, 0.80, 0.60, 0.12 * (1.0 + 0.5 * kTexture), 0.80);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.55 + 0.03 * sin(t * 0.05) + 0.3 * kTone;
+    float hue = 0.55 + 0.03 * sin(t * 0.05) + 0.6 * kTone;
     vec3 water = pal(hue) * 0.18 + vec3(0.0, 0.03, 0.05);
     vec3 fogCol = water * (0.6 + 0.9 * pow(max(rd.y * 0.5 + 0.5, 0.0), 3.0));
 
@@ -162,7 +162,7 @@ void main() {
         // Caustics: two crossed travelling sines, sharpened, from above only.
         float c1 = sin(p.x * 3.7 + sin(p.z * 2.3 + t * 0.9) + t * 0.6);
         float c2 = sin(p.z * 4.1 + sin(p.x * 2.9 - t * 0.7) - t * 0.5);
-        float caust = pow(clamp(0.5 + 0.5 * c1 * c2, 0.0, 1.0), 3.0 + 4.0 * lowmid + 3.0 * kTexture) * max(n.y, 0.0);
+        float caust = pow(clamp(0.5 + 0.5 * c1 * c2, 0.0, 1.0), 3.0 + 4.0 * lowmid) * max(n.y, 0.0);
         vec3 base;
         if (mat < -0.5) {
             base = mix(vec3(0.55, 0.50, 0.40), pal(hue + 0.1), 0.3) * 0.7;
@@ -174,7 +174,7 @@ void main() {
         col = base * (0.15 + 0.8 * lit.x) * ao + base * caust * 0.9;
         col += pal(hue + 0.2) * lit.y * 0.2 * ao + vec3(lit.z) * 0.1;
         col += pal(hue + 0.7 + 0.3 * colonyHue) * max(mat, 0.0) * 0.18;
-        col = mix(col, fogCol, 1.0 - exp(-hitT * (0.16 - 0.04 * swell) * (1.0 + 1.2 * kSpace)));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * (0.16 - 0.04 * swell) / (1.0 + 0.4 * kSpace)));
     }
     col += pal(hue + 0.6) * glow * (1.0 + kBuild);
     // Light shafts from the surface: a soft brightening looking up.
@@ -182,5 +182,7 @@ void main() {
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

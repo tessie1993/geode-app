@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.toSize
 import dev.geode.R
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.data.Preset
+import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.FeatureGate
 import dev.geode.render.TouchField
 import dev.geode.ui.theme.StoneHaptics
@@ -772,9 +775,10 @@ internal fun rememberVisualA11yActions(
 }
 
 /**
- * Preset step for a gesture: the next or previous preset the user may apply, after the one on
- * stage (matched by style and params), in the Presets page's order. Locked presets are skipped,
- * as the style step skips locked styles, so a swipe never lands on the paywall.
+ * Preset step for a gesture (and the style step on the Presets tab, [stepStage]): the next or
+ * previous preset the user may apply, after the one on stage, in the Presets page's order. Locked
+ * presets are left out, as the style step skips locked styles, so a swipe never lands on the
+ * paywall. The walk is native (`geode_stage_step_index`).
  */
 internal fun stepPreset(
     viewModel: PlayerViewModel,
@@ -782,17 +786,22 @@ internal fun stepPreset(
     step: Int,
 ) {
     val viz = viewModel.vizState.value
-    val open = viz.presets.filter { gate.allowsStyle(it.sceneId) }
-    if (open.isEmpty()) return
-    val here = open.indexOfFirst { it.sceneId == viz.sceneId && it.params == viz.params }
-    val next =
-        when {
-            here >= 0 -> Math.floorMod(here + step, open.size)
-            step > 0 -> 0
-            else -> open.lastIndex
-        }
-    viewModel.applyPreset(open[next])
+    val open = openLooks(viz, gate)
+    val next = GeodeNative.stageStepIndex(BooleanArray(open.size) { true }, lookOnStage(viz, open), step)
+    if (next >= 0) viewModel.applyPreset(open[next])
 }
+
+/** The saved looks the user may apply, in the Presets page's order. */
+internal fun openLooks(
+    viz: VizUiState,
+    gate: FeatureGate,
+): List<Preset> = viz.presets.filter { gate.allowsStyle(it.sceneId) }
+
+/** Which of [looks] the stage shows (its style and params as saved), or -1. */
+internal fun lookOnStage(
+    viz: VizUiState,
+    looks: List<Preset>,
+): Int = looks.indexOfFirst { it.sceneId == viz.sceneId && it.params == viz.params }
 
 /** How far a one-finger swipe, or a two-finger drag, must travel to count. */
 private const val SWIPE_DP = 72f

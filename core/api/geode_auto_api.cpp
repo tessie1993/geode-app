@@ -1,4 +1,5 @@
 #include "api/geode_api.h"
+#include "viz/AutoDraw.hpp"
 #include "viz/AutoTimer.hpp"
 #include "viz/TransitionChoice.hpp"
 
@@ -20,5 +21,7 @@ double geode_auto_timer_hold_s(void) { return auto_timer::liveHoldSeconds(); }
 void geode_auto_mark_change(const char* key) {
     if (key) geode::viz::transition_choice::markAuto(key);
 }
+
+int geode_auto_pick(int count, int on_screen) { return geode::viz::auto_draw::pick(count, on_screen); }
 
 }  // extern "C"

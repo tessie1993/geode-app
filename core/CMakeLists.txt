@@ -17,6 +17,7 @@ add_library(geode_core STATIC
     util/QrCode.cpp
     api/geode_surface_api.cpp
     api/geode_auto_api.cpp
+    api/geode_stage_step_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
     api/geode_audio_out_api.cpp

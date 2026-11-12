@@ -50,6 +50,10 @@ bool PerformanceMonitor::keepingUp() const {
 float PerformanceMonitor::effectiveTargetFps() const {
     const float paced = pacedFps_.load();
     if (paced <= 0.0f) return targetFps_;
+    // Above the rate the target was tuned at (50 of 60), it scales with the cap: a 90 or 120 fps live cap
+    // (Settings › Performance on a fast panel) drawn at 55 is not keeping up, and stepping it a rung down is
+    // the fps-first ladder doing its job. Continuous at 60, so every cap of 60 and under reads as before.
+    if (paced > kTargetTunedAtFps) return targetFps_ * paced / kTargetTunedAtFps;
     return std::min(targetFps_, paced * kKeepingUpFraction);
 }
 

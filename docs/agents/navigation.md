@@ -77,6 +77,8 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Default: a tap anywhere wakes the chrome.
 - Default: double tap hides or brings back the sheet.
 - Default: sideways swipe is next/previous style (‹ › step the same).
+- That step walks what the open tab lists (native `core/viz/StageStep`, owner 2026-11-12): the `.milk` presets from MilkDrop or Textures (with a history, so previous retraces the steps), the saved looks from Presets, the styles elsewhere.
+- With the sheet hidden, the tab holds only while what is on screen still comes from it.
 - Default: swipe up is the mini player.
 - Default: swipe down is `MacrosDrawer` (the macro bank's knobs; its edit icon opens Customize).
 - Default: a hold through a red ring (~0.8 s) records a video.

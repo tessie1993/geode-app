@@ -20,7 +20,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
-- `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration.
+- `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
 - `cache_sentinels_test.cpp`: `core/viz/CacheSentinels`, the program-binary cache's crash sentinel.
 - `cast_audio_test.cpp`: `core/viz/frame/CastAudio`, Cast's audio pump, as counts.
@@ -100,6 +100,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `sound_test.cpp`: the sound engine.
 - `sound_test.cpp` and `musical_test.cpp` also play click tracks from 60 to 190 BPM, each read as itself and treated alike, and an ambiguous beat read at the same level at every tempo.
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
+- `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.
 - `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.
 - `style_reads_test.cpp` also checks every Customize control each style shows against what its shader or scene reads or a shared pass applies; the known gaps are `core/tests/style_param_gaps.txt`, which only shrinks; `--matrix` prints them.
 - `style_schedule_test.cpp`: an export segment's style schedule, which drops the styles the entitlement locks.

@@ -146,7 +146,8 @@ add_library(geode SHARED
     app/src/main/cpp/geode_stage_jni.cpp
     app/src/main/cpp/geode_milk_jni.cpp
     app/src/main/cpp/geode_render_plan_jni.cpp
-    app/src/main/cpp/geode_export_audio_jni.cpp)
+    app/src/main/cpp/geode_export_audio_jni.cpp
+    app/src/main/cpp/geode_palette_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

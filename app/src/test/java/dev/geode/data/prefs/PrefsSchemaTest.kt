@@ -36,6 +36,8 @@ import dev.geode.data.MEDIA_ROOTS_PREF_KEYS
 import dev.geode.data.MacroBankCodec
 import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseCodec
+import dev.geode.data.PaletteStackCodec
+import dev.geode.data.PaletteStackStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
@@ -126,6 +128,9 @@ class PrefsSchemaTest {
                 CustomizeGroupsCodec.save(it[general], CustomizeGroups(open = setOf("LOOK/basics"), tab = "LOOK"))
             },
             Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroBankCodec { bank -> bank }.save(it[general], "macrobank|1|1\n") },
+            Owner("$DATA/PaletteStackStore.kt", PaletteStackStore.PREF_KEYS) {
+                PaletteStackCodec { stack -> stack }.save(it[general], "palettestack|1\n")
+            },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
                 val store = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 store.save(store.load())

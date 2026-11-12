@@ -281,15 +281,6 @@ object GeodeNative {
         sampleRate: Int,
     )
 
-    /**
-     * The live feed: the renderer takes what the ring at [ring] (a [pcmRingCreate] handle; 0 for none)
-     * gained since its last call straight into its sound engine, resetting it on a restart. Render thread.
-     */
-    external fun vizFeedRing(
-        handle: Long,
-        ring: Long,
-    )
-
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,
@@ -506,13 +497,13 @@ object GeodeNative {
     )
 
     /**
-     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays) under the hand
-     * [mask] (geode_viz_set_user_reactions). Native resolves what plays from these, the scene and `reactSeed`.
+     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays)
+     * (geode_viz_set_user_reactions). Native resolves what plays from these, the scene, `reactSeed` and the hand
+     * mask ([handSet], or an export's pin), which it reads itself. Any thread.
      */
     external fun vizSetUserReactions(
         handle: Long,
         routes: FloatArray?,
-        mask: Int,
     )
 
     /**
@@ -621,8 +612,8 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*); core/viz/GyroLook makes the look. */
-    external fun vizGyroSample(
+    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*), latched for the next [vizFrame]. Any thread. */
+    external fun vizGyroPush(
         handle: Long,
         x: Float,
         y: Float,
@@ -631,60 +622,58 @@ object GeodeNative {
         displayRotation: Int,
     )
 
-    /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
-    external fun vizGyroReset(handle: Long)
+    /** The gyro stopped: the next frame recentres the look; the next reading starts a new baseline. Any thread. */
+    external fun vizGyroOff(handle: Long)
 
-    /**
-     * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
-     * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
-     * is the rate this surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap it
-     * asked for (the same for a fixed rate); the thermal step is taken from [capFps] natively. The rest is
-     * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
-     * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
-     * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
-     * exactly those before [vizRender]. Answers a bitmask of the `FRAME_*` bits.
-     */
-    external fun vizFrameBegin(
+    /** The style a live surface draws, latched: each [vizFrame] asks for it until the renderer can draw it. Any thread. */
+    external fun vizRequestScene(
         handle: Long,
-        pacedFps: Float,
-        capFps: Float,
+        sceneId: String,
+    )
+
+    /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
+    external fun vizSetQuality(
+        handle: Long,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
-        paramsVersion: Long,
-        lfoVersion: Long,
-        adsrVersion: Long,
-        tuningVersion: Long,
+    )
+
+    /**
+     * One whole live frame into framebuffer 0 (geode_viz_frame, `core/viz/frame/LiveFrame`), GL thread: the
+     * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the rate this
+     * surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap (the same for a fixed
+     * rate). Answers the `FRAME_*` events; act on a bit only when it is set.
+     */
+    external fun vizFrame(
+        handle: Long,
+        ring: Long,
+        pacedFps: Float,
+        capFps: Float,
     ): Int
+
+    /** What Liquid mode ran when a frame last said [FRAME_LIQUID_CHANGED]: 0 off, 1 full, 2 lite, 3 warp, 4 paused. */
+    external fun vizLiquidMode(handle: Long): Int
 
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_THERMAL_DUE: ask PowerManager's headroom and call [thermalPush]. */
-    const val FRAME_THERMAL_DUE: Int = 0x2
-
-    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [vizLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
     /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
     const val FRAME_ERROR_CHANGED: Int = 0x8
 
-    /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
-    fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
+    /** Mirrors GEODE_FRAME_MILK_LOADED: MilkDrop finished loading a preset; take it with [vizTakeMilkPresetLoaded]. */
+    const val FRAME_MILK_LOADED: Int = 0x10
 
-    /** Mirrors GEODE_FRAME_PUSH_PARAMS: push the scene params ([vizSetParams]). */
-    const val FRAME_PUSH_PARAMS: Int = 0x10
+    /** Mirrors GEODE_FRAME_DIRECTOR_MOMENT: take the moments with [vizTakeDirectorStyleMoments]. */
+    const val FRAME_DIRECTOR_MOMENT: Int = 0x20
 
-    /** Mirrors GEODE_FRAME_PUSH_LFO: push every LFO slot ([vizSetLfo]). */
-    const val FRAME_PUSH_LFO: Int = 0x20
-
-    /** Mirrors GEODE_FRAME_PUSH_ADSR: push every ADSR slot ([vizSetAdsr]). */
-    const val FRAME_PUSH_ADSR: Int = 0x40
-
-    /** Mirrors GEODE_FRAME_PUSH_TUNING: push the sound tuning ([vizSetSoundTuning]). */
-    const val FRAME_PUSH_TUNING: Int = 0x80
+    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([vizStillSize], [vizStillRead]). */
+    const val FRAME_STILL_READY: Int = 0x40
 
     /**
      * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
@@ -2439,13 +2428,7 @@ object GeodeNative {
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal); a headroom is due on FRAME_THERMAL_DUE.
-
-    /** One PowerManager reading: status (< 0 = none this time) and headroom (NaN = none this time). */
-    external fun thermalPush(
-        platformStatus: Int,
-        headroom: Float,
-    )
+    // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
 
     /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
     external fun thermalTakeWarmNote(

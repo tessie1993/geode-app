@@ -35,7 +35,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `MilkStarterPack` | 50 | pending |
 | `BuildStyleReactionsUseCase` | 51 | pending |
 | `PcmTap` | 55 | pending |
-| `AiffPcm` | 57 | pending |
+| `AiffPcm` | 57 | **deleted**: a handle over `geode_aiff_*` whose last caller is `export/AudioTranscoder`, which now opens the descriptor and holds the handle itself; the export's track opens AIFF natively (`core/audio/ingest/TrackPump`). |
 | `LookSnapshot` | 70 | pending |
 | `SceneIds` | 70 | pending |
 | `SoundTuning` | 76 | pending |

@@ -20,7 +20,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **Moved in**
 - `SampleRing.kt`, `SoundCursor.kt` (now handle holders in `engine/audio-core`), `SoundInput.kt` and `PcmSink.kt` (gone: the rate was a separate volatile beside the ring, now it is in each write)
 - the per-sample loops of `PcmTap.kt` (16-bit and float from the tap's buffer), `AudioCapturePump.kt` (int16 to float), `OutputMixCapture.kt` (8-bit to float), Cast's float to int16 (`CastStream.kt`, now `geode_pcm_cursor_take_s16`) and the wallpaper's level snapshot (`SoundSource.kt`, now `geode_pcm_ring_heard_at`)
-- the decode loop, per-sample loops and pre-roll cut of `render/offscreen/TrackAudio.kt` (gone) and the AIFF header walk and sample conversion of `dev.geode.audio.AiffPcm` (now a handle over `AiffReader`)
+- the decode loop, per-sample loops and pre-roll cut of `render/offscreen/TrackAudio.kt` (gone) and the AIFF header walk and sample conversion of `dev.geode.audio.AiffPcm` (gone: `export/AudioTranscoder` holds the `geode_aiff_*` handle itself)
 - the peak scan of `MicCapture.kt` and `PlaybackCapture.kt`: a write returns the block's peak
 - ~~`app/.../audio/PcmRingBuffer.kt`~~ gone earlier (#486)
 

@@ -52,7 +52,6 @@ allowed=(
     "$C/bridge/GeodeNative.kt"
     "$S/analysis/PlaybackMath.kt"
     "$S/analysis/SearchMatcher.kt"
-    "$S/audio/AiffPcm.kt"
     "$S/render/Adsr.kt"
     "$S/render/BlendMode.kt"
     "$S/render/EventRecipe.kt"

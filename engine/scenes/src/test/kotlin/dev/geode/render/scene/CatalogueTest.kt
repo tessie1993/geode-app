@@ -30,7 +30,7 @@ class CatalogueTest {
         assertEquals("silk_web", Catalogue.styles.first().id)
         assertEquals(SceneKind.SILK, Catalogue.kindOf(SceneIds.DEFAULT))
         assertEquals(SceneKind.SILK, Catalogue.kindOf("no_such_style"))
-        assertEquals(244, Catalogue.styles.size)
+        assertEquals(274, Catalogue.styles.size)
     }
 
     @Test
@@ -50,6 +50,16 @@ class CatalogueTest {
     }
 
     @Test
+    fun thePickerIsOneFlatLevelOverEveryStyle() {
+        assertEquals(Catalogue.styles.map { it.id }, Catalogue.picker.values.flatten())
+        assertEquals(listOf("silk", "life", "mycelium", "morphing", "shaders"), Catalogue.picker.keys.take(5))
+        assertTrue("neon_chrome_sea" in Catalogue.picker.getValue("shaders"))
+        StyleFamilies.all.forEach { assertEquals(it.ids, Catalogue.picker[it.name]) }
+        assertEquals(listOf(SceneIds.MILKDROP), Catalogue.picker["milkdrop"])
+        assertEquals("MilkDrop", VisualStyleCatalog.familyLabel("milkdrop"))
+    }
+
+    @Test
     fun everyDedicatedRendererStyleHasALabel() {
         val labelled = setOf(SceneKind.SILK, SceneKind.LIFE, SceneKind.MYCELIUM, SceneKind.ACID, SceneKind.FLUID, SceneKind.CYMATICS)
         Catalogue.styles.filter { it.kind in labelled }.forEach { style ->
@@ -61,8 +71,10 @@ class CatalogueTest {
 
     @Test
     fun everyScopedControlIsAParamKey() {
-        // The native table lists 80 controls that are not universal; all of them must be the same
-        // strings Kotlin labels, locks and searches by, or a control would silently go universal.
+        // 80 of the native table's controls that are not universal are ParamKeys (the other six are
+        // Customize's own keys: Fluid quality, its auto switch, Progression, the two fluid layers and
+        // Water ripples on); each must be the same string Kotlin labels, locks and searches by, or a
+        // control would silently go universal.
         assertEquals(80, paramKeys.count { ParamScope.of(it) != ParamScope.UNIVERSAL })
         assertEquals(ParamScope.MARCH_DETAIL, ParamScope.of(ParamKeys.MARCH_DETAIL))
         assertEquals(ParamScope.UNIVERSAL, ParamScope.of(ParamKeys.ZOOM))

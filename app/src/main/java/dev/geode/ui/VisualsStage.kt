@@ -1,7 +1,9 @@
 package dev.geode.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -22,11 +24,20 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
@@ -36,6 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
@@ -45,10 +57,8 @@ import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneCapabilities
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
-import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.cast.CastButton
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
@@ -70,6 +80,8 @@ import kotlin.math.roundToInt
  * [tapSplitPx] is where a tap stops counting as the top of the visual (quick settings) and starts
  * counting as the bottom (the mini player): the middle of what the options leave in view. [onPinch]
  * is Settings › Gestures & controls › Touch's pinch and twist (null while it is off).
+ *
+ * [remote] is given on a TV only ([stageRemote]): the stage then takes focus and the remote's keys.
  */
 @Composable
 internal fun BoxScope.VisualsStage(
@@ -80,6 +92,7 @@ internal fun BoxScope.VisualsStage(
     tapSplitPx: () -> Float,
     onTapDown: (Long) -> Unit,
     onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
+    remote: StageRemote? = null,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -97,7 +110,7 @@ internal fun BoxScope.VisualsStage(
                 onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
                 onTapDown = onTapDown,
-            ),
+            ).then(if (remote != null) Modifier.stageRemote(remote, behaviour, actions) else Modifier),
     )
     HoldRing(ring)
 }
@@ -200,16 +213,18 @@ internal fun BoxScope.StageIcons(
     // landscape panel open › sits mid-window, and in the expanded shell ‹ sits beside the rail, so a
     // fixed `windowInsetsPadding(safeGestures)` would push them in for nothing (and, being made of
     // insets the shell's `safeDrawingPadding` did not consume, by the wrong amount). The
-    // `WindowInsetsRulers.SafeGestures` rulers give each strip's inner edge in this layout's own
+    // `WindowInsetsRulers.SafeContent` rulers give each strip's inner edge in this layout's own
     // coordinates (Compose reference, `WindowInsetsRulers`; the edge-to-edge skill's rulers route),
-    // so the visible area is cut only by the part of a strip that overlaps it. Rulers are read in
+    // so the visible area is cut only by the part of a strip that overlaps it. SafeContent, not
+    // SafeGestures: in landscape the camera cutout sits mid-way down a side edge, exactly where an
+    // arrow centres, and with three-button navigation no gesture strip covers it. Rulers are read in
     // the placement block, which is why the child is measured there (the reference's own sample).
     Box(
         Modifier
             .matchParentSize()
             .layout { measurable, constraints ->
                 layout(constraints.maxWidth, constraints.maxHeight) {
-                    val strips = WindowInsetsRulers.SafeGestures.current
+                    val strips = WindowInsetsRulers.SafeContent.current
                     val end = endPx().roundToInt()
                     val ltr = layoutDirection == LayoutDirection.Ltr
                     // The visible part of the stage, in physical px: the panel is on the end side.
@@ -277,6 +292,57 @@ internal fun BoxScope.StageIcons(
         tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
+
+/**
+ * What the stage needs to take a TV remote: [stage] is its own focus, [options] the options'
+ * (a focus group the remote enters), [optionsShown] whether they are up and [side] whether they
+ * are the landscape panel at the end side rather than the sheet below.
+ */
+internal class StageRemote(
+    val stage: FocusRequester,
+    val options: FocusRequester,
+    val optionsShown: Boolean,
+    val side: Boolean,
+)
+
+/**
+ * The stage as a focus target on a TV: the keys of [stageKeyGesture] run their gesture's action
+ * from the map, first press only (a held key does not race through every style). The stage covers
+ * the window, so spatial search can never find the options lying over it: while they are up the
+ * arrow toward them (the end side for the panel, down for the sheet) is set to enter them, and
+ * left still finds the rail beside the stage. Focused under the options it draws the accent's
+ * hairline round the visual, so the remote's place is never invisible; full screen draws nothing.
+ */
+@Composable
+private fun Modifier.stageRemote(
+    remote: StageRemote,
+    behaviour: BehaviourPrefs,
+    actions: VisualActions,
+): Modifier {
+    var focused by remember { mutableStateOf(false) }
+    val ring = MaterialTheme.colorScheme.primary
+    return focusRequester(remote.stage)
+        .focusProperties {
+            if (remote.optionsShown) {
+                if (remote.side) end = remote.options else down = remote.options
+            }
+        }.onFocusChanged { focused = it.isFocused }
+        .onKeyEvent { event ->
+            val key = event.nativeKeyEvent
+            val gesture = stageKeyGesture(key.keyCode, remote.optionsShown)
+            when {
+                gesture == null -> false
+                event.type != KeyEventType.KeyDown -> true
+                else -> {
+                    if (key.repeatCount == 0) actions.run(behaviour.actionFor(gesture.first), gesture.second)
+                    true
+                }
+            }
+        }.focusable()
+        .then(if (focused && remote.optionsShown) Modifier.border(STAGE_FOCUS_RING, ring) else Modifier)
+}
+
+private val STAGE_FOCUS_RING = 2.dp
 
 /** Which of the stage's icons the options leave room for: the top row, ‹ ›, and Record. */
 internal data class StageIconRoom(
@@ -373,8 +439,8 @@ private fun StageIconButton(
  * What the visual's gestures can do here, for the gesture map to choose from ([VisualActions]).
  * Randomize everything is a new style, a preset for it and every Customize category rolled
  * (`randomizeEverything`, native core/viz/RandomizeAll). Everyone gets the style and preset among
- * what they may keep; the roll is Pro, as Customize's Randomize is, so a free user's preset stays as
- * made and no paywall interrupts a gesture that already did something.
+ * what they may keep; without Pro the roll follows Customize's dice (native's `#PRO` lock): the free
+ * Basics roll, the rest stays as the preset made it, and no paywall interrupts the gesture.
  */
 @Composable
 internal fun rememberStageActions(
@@ -400,7 +466,7 @@ internal fun rememberStageActions(
         stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
-        randomizeAll = { visualsViewModel.randomizeEverything(rollParams = gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
+        randomizeAll = { visualsViewModel.randomizeEverything(basicsOnly = !gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
         touchPulse = touchPulse,
         playPause = viewModel::togglePlayPause,
     )
@@ -410,16 +476,11 @@ internal fun rememberStageActions(
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /**
- * Every style the stage swipes through, in the order the Styles page lists them. MilkDrop is left
- * out: its presets are a library of their own, picked from the MilkDrop page.
+ * Every style the stage swipes through, in the order the Styles page lists them (the native
+ * picker's families one after another). MilkDrop is left out: its presets are a library of their
+ * own, picked from the MilkDrop page.
  */
-internal fun stageStyleOrder(): List<String> =
-    (
-        StyleFamilies.ids +
-            VisualStyleCatalog.silkIds + VisualStyleCatalog.lifeIds + VisualStyleCatalog.mycoIds + VisualStyleCatalog.acidIds +
-            SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids } +
-            VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER) + VisualStyleCatalog.cymaticsIds
-    ).distinct()
+internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
 
 /**
  * The style [step] places (+1 next, -1 previous) from [current] in [order], wrapping at the ends

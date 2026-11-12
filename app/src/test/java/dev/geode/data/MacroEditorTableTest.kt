@@ -21,7 +21,14 @@ class MacroEditorTableTest {
         assertEquals(12, state.maxLinks)
         assertEquals(24, state.maxNameBytes)
         assertTrue(state.canAdd)
+        assertTrue(state.canShow)
         assertFalse(state.isDefault)
+    }
+
+    @Test
+    fun `the library is what Add macro offers back`() {
+        assertEquals(listOf(MacroLibraryKnob(6, false, "Spare", "")), state.library)
+        assertTrue(state.knobs.none { it.name == "Spare" })
     }
 
     @Test

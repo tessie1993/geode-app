@@ -1,5 +1,5 @@
 // Host-side checks for core/viz/frame/ExportPassMath (#442): the maths of the export post-passes that moved
-// from Kotlin GL to native Passes (the watermark, a loop's seam, a Studio transition). Built and run by CI
+// from Kotlin GL to native Passes (the watermark and a loop's seam). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
 // What is pinned: every value equals what the Kotlin computed before the move (the expected numbers below
@@ -14,7 +14,6 @@
 
 namespace wm = geode::viz::frame::exportmath::watermark;
 namespace seam = geode::viz::frame::exportmath::seam;
-namespace tr = geode::viz::frame::exportmath::transition;
 
 namespace {
 
@@ -104,25 +103,6 @@ void seamWeightReachesBothEnds() {
     }
 }
 
-void transitionProgressFromTheFirstFrame() {
-    check(same(tr::progress(1'000'000, 1'000'000, 500'000), 0.0f), "the clip's first frame is the start");
-    check(same(tr::progress(1'250'000, 1'000'000, 500'000), 0.5f), "half way through the duration is 0.5");
-    check(same(tr::progress(1'500'000, 1'000'000, 500'000), 1.0f), "the end is 1");
-    check(same(tr::progress(9'000'000, 1'000'000, 500'000), 1.0f), "past the end stays 1");
-    check(same(tr::progress(900'000, 1'000'000, 500'000), 0.0f), "an earlier time clamps to 0");
-    check(same(tr::progress(5, 0, 0), 1.0f), "no duration is already over");
-    check(same(tr::progress(33'333, 0, 1'000'000), static_cast<float>(33'333) / static_cast<float>(1'000'000)),
-          "long to float, then float division, as Kotlin");
-}
-
-void transitionRatioAndPassthrough() {
-    check(same(tr::ratio(1920, 1080), 1920.0f / 1080.0f), "ratio is width over height");
-    check(same(tr::ratio(640, 0), 640.0f), "a zero height reads as one pixel");
-    check(tr::passthrough(false, 0.3f), "no outgoing frame draws the clip plain");
-    check(tr::passthrough(true, 1.0f), "the end draws the clip plain");
-    check(!tr::passthrough(true, 0.99f), "inside the window it blends");
-}
-
 // ---- Added by the mutation pass on #552. Every expected value is a hand-worked literal. ----
 
 // Kills: truncate -> round or ceil (95.2 * 1.35 = 128.52 would round up past 128); kTileSpacing nudged
@@ -208,34 +188,97 @@ void seamWeightsMirrorAndStepEvenly() {
     check(seam::weight(3, -4) == 1.0f, "a negative seam length weighs one, like no seam");
 }
 
-// Kills: `durationUs <= 0` -> `< 0` (zero duration at the origin is 0 / 0 = NaN, which std::clamp passes
-// through) or `== 0` (a negative duration would run backwards and clamp to 0).
-void transitionWithNoDurationIsOverAtEveryFrame() {
-    check(tr::progress(1'000'000, 1'000'000, 0) == 1.0f, "zero duration on the clip's first frame is already over");
-    check(tr::progress(1'000'005, 1'000'000, -1) == 1.0f, "a negative duration is already over");
-    check(tr::progress(999'000, 1'000'000, -500'000) == 1.0f, "even before the origin");
-}
 
-// Kills: float(pts) - float(origin) in place of float(pts - origin). An hour into a render the microsecond
-// clock is 3.6e12, where a float's step is 262144 us, so converting before subtracting loses a whole
-// half-second transition; the difference must be taken in 64 bits first, as the Kotlin did.
-void transitionProgressHoldsAnHourIntoTheRender() {
-    const int64_t hour = 3'600'000'000'000LL;
-    check(tr::progress(hour, hour, 500'000) == 0.0f, "an hour in, the clip's first frame is still the start");
-    check(tr::progress(hour + 250'000, hour, 500'000) == 0.5f, "and half its duration later is 0.5");
-    check(tr::progress(hour + 125'000, hour, 500'000) == 0.25f, "and a quarter of it is 0.25");
-}
+// ---- The watermark preference (Settings › Preferences): placement, layout, the end card. ----
 
-// Kills: either clamp bound dropped or swapped; passthrough's end test moved to the start (progress >= 0).
-void transitionProgressRisesFromZeroToOne() {
-    float last = -1.0f;
-    for (int64_t t = -100'000; t <= 700'000; t += 12'500) {
-        const float p = tr::progress(t, 0, 500'000);
-        check(p >= 0.0f && p <= 1.0f, "progress stays inside 0..1");
-        check(p >= last, "and never falls back");
-        last = p;
+void placementIsMarkedOnlyWhenRequiredOrAddedAndNeedsAnEndForTheCard() {
+    for (int p = -1; p <= 4; p++) {
+        for (int use = wm::kWhole; use <= wm::kLive; use++) {
+            check(wm::placement(false, false, p, use) == wm::kNone, "neither required nor added: no mark");
+        }
     }
-    check(!tr::passthrough(true, 0.0f), "the first frame of a transition with an outgoing frame blends");
+    check(wm::placement(true, false, wm::kTiled, wm::kWhole) == wm::kTiled, "the free default stays the tiled pattern");
+    check(wm::placement(true, false, wm::kCorner, wm::kLoop) == wm::kCorner, "a corner anywhere");
+    check(wm::placement(false, true, wm::kCorner, wm::kLive) == wm::kCorner, "Pro's own mark, where Pro asks");
+    check(wm::placement(true, false, wm::kEndCard, wm::kWhole) == wm::kEndCard, "an end card on a whole video");
+    check(wm::placement(true, false, wm::kEndCard, wm::kSegment) == wm::kCorner, "a segment's end is not the video's");
+    check(wm::placement(true, false, wm::kEndCard, wm::kLoop) == wm::kCorner, "a loop has no end");
+    check(wm::placement(true, false, wm::kEndCard, wm::kLive) == wm::kCorner, "a recording's end is not known");
+    check(wm::placement(true, false, wm::kNone, wm::kWhole) == wm::kTiled, "required never reads as none");
+    check(wm::placement(true, false, 9, wm::kWhole) == wm::kTiled, "an unknown code is the tiled pattern");
+}
+
+void theTiledRasterIsUnchangedAndASingleMarkHugsItsText() {
+    check(wm::textPx(1080, wm::kTiled) == wm::textPx(1080) && wm::textPx(1080, wm::kCorner) == wm::textPx(1080),
+          "tiled and corner keep the pattern's text size");
+    check(std::fabs(wm::textPx(1080, wm::kEndCard) - 97.2f) < 1e-3f, "the end card's wordmark is 9 % of the short side");
+    check(wm::textPx(100, wm::kEndCard) == 28.0f, "with twice the pattern's floor");
+    check(wm::angleDegrees(wm::kTiled) == -24.0f && wm::angleDegrees(wm::kCorner) == 0.0f && wm::angleDegrees(wm::kEndCard) == 0.0f,
+          "only the pattern is diagonal");
+    check(wm::textAlpha(wm::kTiled) == 92, "the pattern's alpha is the Kotlin overlay's 92");
+    check(wm::textAlpha(wm::kCorner) > 92 && wm::textAlpha(wm::kEndCard) <= 255, "a single mark is more solid, within a byte");
+    check(wm::tileWidth(300.0f, 48.6f, wm::kTiled) == wm::tileWidth(300.0f) && wm::tileHeight(512, 48.6f, wm::kTiled) == 256,
+          "the pattern's tile is the power-of-two one");
+    // 300 + 2 × 0.4 × 48.6 = 338.88 -> 339 wide; 1.8 × 48.6 = 87.48 -> 88 high.
+    check(wm::tileWidth(300.0f, 48.6f, wm::kCorner) == 339, "a corner tile is the text plus its shadow's room");
+    check(wm::tileHeight(339, 48.6f, wm::kCorner) == 88, "and 1.8 text heights high");
+    check(wm::tileWidth(0.0f, 0.0f, wm::kEndCard) == 1 && wm::tileHeight(0, 0.0f, wm::kEndCard) == 1, "never an empty tile");
+}
+
+void theTiledLayoutIsThePatternAndACornerMarkSitsInsideItsMargin() {
+    const auto tiled = wm::layout(wm::kTiled, wm::kTopLeft, 1920, 1080, 512, 256);
+    const auto t = wm::tiles(1920, 1080, 512, 256);
+    check(tiled.originU == 0.0f && tiled.originV == 0.0f && tiled.tilesU == t.u && tiled.tilesV == t.v && !tiled.clip,
+          "tiled: origin 0, the old tile counts, no clip");
+    const int frames[][2] = {{1920, 1080}, {1080, 1920}, {3840, 2160}, {1081, 1919}};
+    for (const auto& f : frames) {
+        const int fw = f[0];
+        const int fh = f[1];
+        const float margin = static_cast<float>(std::min(fw, fh)) * wm::kCornerMargin;
+        for (int c = wm::kTopLeft; c <= wm::kBottomRight; c++) {
+            const auto at = wm::layout(wm::kCorner, c, fw, fh, 339, 88);
+            check(at.clip, "a corner mark is drawn once");
+            // The shader maps pixel p to (p / frame - origin) × tiles: the mark spans origin to origin + 1 / tiles.
+            const float x0 = at.originU * static_cast<float>(fw);
+            const float y0 = at.originV * static_cast<float>(fh);
+            const float x1 = (at.originU + 1.0f / at.tilesU) * static_cast<float>(fw);
+            const float y1 = (at.originV + 1.0f / at.tilesV) * static_cast<float>(fh);
+            check(std::fabs(x1 - x0 - 339.0f) < 0.05f && std::fabs(y1 - y0 - 88.0f) < 0.05f, "drawn 1:1");
+            const bool right = c == wm::kTopRight || c == wm::kBottomRight;
+            const bool bottom = c == wm::kBottomLeft || c == wm::kBottomRight;
+            const float gapX = right ? static_cast<float>(fw) - x1 : x0;
+            const float gapY = bottom ? static_cast<float>(fh) - y1 : y0;
+            check(std::fabs(gapX - margin) < 0.05f && std::fabs(gapY - margin) < 0.05f, "the margin from its two edges");
+        }
+    }
+    const auto bad = wm::layout(wm::kCorner, 7, 1920, 1080, 339, 88);
+    const auto br = wm::layout(wm::kCorner, wm::kBottomRight, 1920, 1080, 339, 88);
+    check(bad.originU == br.originU && bad.originV == br.originV, "an unknown corner is the bottom right");
+    const auto card = wm::layout(wm::kEndCard, wm::kTopLeft, 1920, 1080, 600, 176);
+    check(card.originU == 660.0f / 1920.0f && card.originV == 452.0f / 1080.0f && card.clip, "the end card is centred");
+    const auto none = wm::layout(wm::kCorner, wm::kTopLeft, 1920, 1080, 0, 88);
+    check(none.tilesU == 0.0f && none.tilesV == 0.0f, "no tile, nothing drawn");
+}
+
+void theEndCardFadesInOverTheLastSeconds() {
+    check(wm::endCardAlpha(56'999, 60'000) == 0.0f && wm::endCardAlpha(57'000, 60'000) == 0.0f, "nothing before the last 3 s");
+    check(wm::endCardAlpha(57'250, 60'000) == 0.5f, "half way through its half-second fade");
+    check(wm::endCardAlpha(57'500, 60'000) == 1.0f && wm::endCardAlpha(59'967, 60'000) == 1.0f, "then held to the end");
+    check(wm::endCardAlpha(1'250, 2'000) == 0.5f, "a 2 s video's card is its last half");
+    check(wm::endCardAlpha(0, 999) == 1.0f && wm::endCardAlpha(0, 0) == 1.0f, "under a second or unknown: throughout");
+    check(wm::opacity(wm::kTiled, 0, 60'000) == 1.0f && wm::opacity(wm::kCorner, 0, 60'000) == 1.0f, "only the card fades");
+    check(wm::opacity(wm::kEndCard, 0, 60'000) == 0.0f, "the card is not there at the start");
+    check(wm::dim(wm::kTiled) == 0.0f && wm::dim(wm::kCorner) == 0.0f && wm::dim(wm::kEndCard) > 0.0f, "only the card dims");
+    // Equal at every frame rate: the card's frames are the ones whose time is in its window.
+    for (int fps : {24, 30, 60, 120}) {
+        float last = 0.0f;
+        for (int frame = 0; frame * 1000 / fps < 60'000; frame++) {
+            const float a = wm::endCardAlpha(static_cast<int64_t>(frame) * 1000 / fps, 60'000);
+            check(a >= last, "the card only fades in");
+            last = a;
+        }
+        check(last == 1.0f, "and is whole by the last frame");
+    }
 }
 
 }  // namespace
@@ -246,17 +289,17 @@ int main() {
     tileIsAPowerOfTwoAboveTheText();
     tilesCountFramePixelsOverTilePixels();
     seamWeightReachesBothEnds();
-    transitionProgressFromTheFirstFrame();
-    transitionRatioAndPassthrough();
     tileWidthTruncatesTextPlusGapBeforeRounding();
     tileWidthStaysAPositivePowerOfTwoForAbsurdWidths();
     tileHeightIsHalfTheTileWidth();
     textPxAtFourKAndOddFrames();
     tilesAtFourKAndOddFramesBothOrientations();
     seamWeightsMirrorAndStepEvenly();
-    transitionWithNoDurationIsOverAtEveryFrame();
-    transitionProgressHoldsAnHourIntoTheRender();
-    transitionProgressRisesFromZeroToOne();
+    placementIsMarkedOnlyWhenRequiredOrAddedAndNeedsAnEndForTheCard();
+    theTiledRasterIsUnchangedAndASingleMarkHugsItsText();
+    theTiledLayoutIsThePatternAndACornerMarkSitsInsideItsMargin();
+    theEndCardFadesInOverTheLastSeconds();
+
     if (failures == 0) std::printf("export_passes_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

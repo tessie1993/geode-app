@@ -220,6 +220,17 @@ const Seed* seedOf(int id) {
     return id >= 1 && id <= static_cast<int>(seeds().size()) ? &seeds()[static_cast<size_t>(id - 1)] : nullptr;
 }
 
+std::vector<Knob>::iterator findKnob(Bank& bank, int id) {
+    return std::find_if(bank.knobs.begin(), bank.knobs.end(), [id](const Knob& k) { return k.id == id; });
+}
+
+const Knob* knobIn(const Bank& bank, int id) {
+    for (const Knob& knob : bank.knobs) {
+        if (knob.id == id) return &knob;
+    }
+    return nullptr;
+}
+
 // A knob's definition (what Reset puts back) against the built-in one: its value is the user's turn, not part of it.
 bool asBuilt(const Knob& knob) {
     const Knob* built = nullptr;
@@ -307,6 +318,7 @@ bool isBase(int id) { return seedOf(id) != nullptr; }
 Bank normalized(const Bank& bank) {
     Bank out;
     int maxId = 0;
+    int onScreen = 0;
     for (const Knob& in : bank.knobs) {
         if (static_cast<int>(out.knobs.size()) >= kMaxKnobs) break;
         if (in.id < 1 || in.id > kMaxId || knobById(out, in.id)) continue;
@@ -315,7 +327,9 @@ Bank normalized(const Bank& bank) {
         knob.name = cleanText(in.name, kMaxNameBytes);
         if (knob.name.empty()) knob.name = "Knob " + std::to_string(in.id);
         knob.hint = cleanText(in.hint, kMaxHintBytes);
-        knob.value = unit(in.value);
+        knob.shown = in.shown && onScreen < kMaxShown;
+        knob.value = knob.shown ? unit(in.value) : 0.0f;
+        if (knob.shown) ++onScreen;
         for (const Link& link : in.links) {
             if (!linkable(link.target)) continue;
             const Link fixed{link.target, unit(link.up), unit(link.down), validCurve(link.curve)};
@@ -333,10 +347,19 @@ Bank normalized(const Bank& bank) {
     return out;
 }
 
+int shownCount(const Bank& bank) {
+    return static_cast<int>(std::count_if(bank.knobs.begin(), bank.knobs.end(), [](const Knob& k) { return k.shown; }));
+}
+
+bool roomForNew(const Bank& bank) {
+    const Bank valid = normalized(bank);
+    return static_cast<int>(valid.knobs.size()) < kMaxKnobs && shownCount(valid) < kMaxShown && valid.nextId <= kMaxId;
+}
+
 Bank setValue(const Bank& bank, int id, float value) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
-    if (knob && std::isfinite(value)) knob->value = unit(value);
+    if (knob && knob->shown && std::isfinite(value)) knob->value = unit(value);
     return out;
 }
 
@@ -352,7 +375,7 @@ Bank rename(const Bank& bank, int id, std::string_view name) {
 
 Bank addKnob(const Bank& bank, std::string_view name) {
     Bank out = normalized(bank);
-    if (static_cast<int>(out.knobs.size()) >= kMaxKnobs || out.nextId > kMaxId) return out;
+    if (!roomForNew(out)) return out;
     Knob knob;
     knob.id = out.nextId++;
     knob.name = cleanText(name, kMaxNameBytes);
@@ -363,9 +386,10 @@ Bank addKnob(const Bank& bank, std::string_view name) {
 
 Bank duplicateKnob(const Bank& bank, int id) {
     Bank out = normalized(bank);
-    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
-    if (at == out.knobs.end() || static_cast<int>(out.knobs.size()) >= kMaxKnobs || out.nextId > kMaxId) return out;
+    const auto at = findKnob(out, id);
+    if (at == out.knobs.end() || !roomForNew(out)) return out;
     Knob copy = *at;
+    copy.shown = true;
     copy.id = out.nextId++;
     copy.name = cleanText(cleanText(at->name, kMaxNameBytes - 2) + " 2", kMaxNameBytes);
     copy.hint.clear();
@@ -375,16 +399,21 @@ Bank duplicateKnob(const Bank& bank, int id) {
 
 Bank moveKnob(const Bank& bank, int id, int delta) {
     Bank out = normalized(bank);
-    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
-    if (at == out.knobs.end()) return out;
-    const int last = static_cast<int>(out.knobs.size()) - 1;
-    const int from = static_cast<int>(at - out.knobs.begin());
-    const int to = static_cast<int>(std::clamp<long long>(static_cast<long long>(from) + delta, 0, last));
-    if (to < from) {
-        std::rotate(out.knobs.begin() + to, at, at + 1);
-    } else if (to > from) {
-        std::rotate(at, at + 1, out.knobs.begin() + to + 1);
+    const auto at = findKnob(out, id);
+    if (at == out.knobs.end() || !at->shown) return out;
+    // Steps count the knobs on screen only, so a move is always one the screen shows.
+    std::vector<int> screen;
+    for (const Knob& knob : out.knobs) {
+        if (knob.shown) screen.push_back(knob.id);
     }
+    const int from = static_cast<int>(std::find(screen.begin(), screen.end(), id) - screen.begin());
+    const int to =
+        static_cast<int>(std::clamp<long long>(static_cast<long long>(from) + delta, 0, static_cast<long long>(screen.size()) - 1));
+    if (to == from) return out;
+    Knob moving = std::move(*at);
+    out.knobs.erase(at);
+    const auto beside = findKnob(out, screen[static_cast<size_t>(to)]);
+    out.knobs.insert(to < from ? beside : beside + 1, std::move(moving));
     return out;
 }
 
@@ -393,6 +422,38 @@ Bank removeKnob(const Bank& bank, int id) {
     if (isBase(id)) return out;
     std::erase_if(out.knobs, [id](const Knob& knob) { return knob.id == id; });
     return out;
+}
+
+Bank hideKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob || !knob->shown) return out;
+    knob->shown = false;
+    knob->value = 0.0f;
+    return out;
+}
+
+Bank showKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    if (shownCount(out) >= kMaxShown) return out;
+    const auto at = findKnob(out, id);
+    Knob knob;
+    if (at != out.knobs.end()) {
+        if (at->shown) return out;
+        knob = std::move(*at);
+        out.knobs.erase(at);
+    } else {
+        const Seed* seed = seedOf(id);
+        if (!seed || static_cast<int>(out.knobs.size()) >= kMaxKnobs) return out;
+        knob.id = id;
+        knob.name = seed->name;
+        knob.hint = seed->hint;
+        knob.links = seed->links;
+    }
+    knob.shown = true;
+    knob.value = 0.0f;
+    out.knobs.push_back(std::move(knob));
+    return normalized(out);
 }
 
 Bank resetKnob(const Bank& bank, int id) {
@@ -484,6 +545,31 @@ Bank roll(const Bank& bank, int id, std::uint64_t seed) {
     return normalized(out);
 }
 
+Bank rollValues(const Bank& bank, std::uint64_t reach, std::uint64_t seed) {
+    Bank out = normalized(bank);
+    for (Knob& knob : out.knobs) {
+        if (!knob.shown) continue;
+        // Each knob's draw comes from the seed and its id alone, so one knob's reach never shifts another's turn.
+        std::uint64_t state = seed ^ (static_cast<std::uint64_t>(knob.id) * 0xD1B54A32D192ED03ull);
+        const bool upward = (splitmix(state) & 1u) != 0;
+        const float amount = between(state, kRollMin, 1.0f);
+        bool up = false;
+        bool down = false;
+        for (const Link& link : knob.links) {
+            if (((reach >> static_cast<int>(link.target)) & std::uint64_t{1}) == 0) continue;
+            up = up || link.up != 0.0f;
+            down = down || link.down != 0.0f;
+        }
+        if (!up && !down) continue;
+        knob.value = (up && down ? upward : up) ? amount : -amount;
+    }
+    return out;
+}
+
+Bank rollValues(const Bank& bank, const std::string& styleId, std::uint64_t seed) {
+    return rollValues(bank, reachMask(styleId), seed);
+}
+
 Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
@@ -511,7 +597,7 @@ SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
     int knobs = 0;
     for (const Knob& knob : bank.knobs) {
         if (knobs++ >= kMaxKnobs) break;
-        if (!std::isfinite(knob.value) || knob.value == 0.0f) continue;
+        if (!knob.shown || !std::isfinite(knob.value) || knob.value == 0.0f) continue;
         const float value = std::clamp(knob.value, -1.0f, 1.0f);
         for (const Link& link : knob.links) {
             const TargetInfo* info = infoOf(link.target);
@@ -561,6 +647,7 @@ std::string encode(const Bank& bank) {
     std::string out = "macrobank|" + std::to_string(kTextVersion) + "|" + std::to_string(b.nextId) + "\n";
     for (const Knob& knob : b.knobs) {
         out += "knob|" + std::to_string(knob.id) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" + knob.hint + "\n";
+        if (!knob.shown) out += "shelf|" + std::to_string(knob.id) + "\n";
         for (const Link& link : knob.links) {
             out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down);
             if (link.curve != Curve::Linear) out += std::string("|") + name(link.curve);
@@ -611,6 +698,12 @@ Bank decode(std::string_view text) {
             if (link.target == LfoTarget::None || !parseFloat(f[2], link.up) || !parseFloat(f[3], link.down)) continue;
             if (f.size() == 5) link.curve = curveNamed(f[4]).value_or(Curve::Linear);
             bank.knobs.back().links.push_back(link);
+        } else if (f[0] == "shelf" && f.size() == 2) {
+            int id = 0;
+            if (!parseInt(f[1], id)) continue;
+            for (Knob& knob : bank.knobs) {
+                if (knob.id == id) knob.shown = false;
+            }
         }
     }
     if (!header) return defaultBank();
@@ -639,6 +732,7 @@ std::string liveText(const Bank& bank, const std::string& styleId) {
     const Bank valid = normalized(bank);
     std::string out;
     for (const Knob& knob : valid.knobs) {
+        if (!knob.shown) continue;
         bool up = false;
         bool down = false;
         for (const Link& link : knob.links) {
@@ -655,15 +749,16 @@ std::string editorText(const Bank& bank, const std::string& styleId) {
     const std::uint64_t reach = reachMask(styleId);
     const auto reaches = [reach](LfoTarget target) { return ((reach >> static_cast<int>(target)) & std::uint64_t{1}) != 0; };
     const Bank valid = normalized(bank);
-    const bool room = static_cast<int>(valid.knobs.size()) < kMaxKnobs && valid.nextId <= kMaxId;
     bool pristine = valid.knobs.size() == defaultBank().knobs.size();
     for (size_t i = 0; pristine && i < valid.knobs.size(); ++i) {
-        pristine = valid.knobs[i].id == defaultBank().knobs[i].id && asBuilt(valid.knobs[i]);
+        pristine = valid.knobs[i].id == defaultBank().knobs[i].id && valid.knobs[i].shown && asBuilt(valid.knobs[i]);
     }
     std::string out = "macroeditor|" + std::to_string(kTextVersion) + "\n";
-    out += "caps|" + std::to_string(kMaxKnobs) + "|" + std::to_string(kMaxLinks) + "|" + std::to_string(kMaxNameBytes) + "\n";
-    out += std::string("bank|") + flag(room) + "|" + flag(pristine) + "\n";
+    out += "caps|" + std::to_string(kMaxShown) + "|" + std::to_string(kMaxLinks) + "|" + std::to_string(kMaxNameBytes) + "\n";
+    out += std::string("bank|") + flag(roomForNew(valid)) + "|" + flag(pristine) + "\n";
+    out += std::string("screen|") + flag(shownCount(valid) < kMaxShown) + "\n";
     for (const Knob& knob : valid.knobs) {
+        if (!knob.shown) continue;
         out += "knob|" + std::to_string(knob.id) + "|" + flag(isBase(knob.id)) + "|" + flag(asBuilt(knob)) + "|" +
                flag(static_cast<int>(knob.links.size()) < kMaxLinks) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" +
                knob.hint + "\n";
@@ -680,6 +775,20 @@ std::string editorText(const Bank& bank, const std::string& styleId) {
         if (linkable(target)) out += std::string("target|") + modtargets::name(target) + "|" + flag(reaches(target)) + "\n";
     }
     for (const char* curve : kCurveNames) out += std::string("curve|") + curve + "\n";
+    const auto libraryRow = [&out](const Knob& knob) {
+        out += "library|" + std::to_string(knob.id) + "|" + flag(isBase(knob.id)) + "|" + knob.name + "|" + knob.hint + "\n";
+    };
+    for (const Knob& built : defaultBank().knobs) {
+        const Knob* knob = knobIn(valid, built.id);
+        if (!knob) {
+            libraryRow(built);
+        } else if (!knob->shown) {
+            libraryRow(*knob);
+        }
+    }
+    for (const Knob& knob : valid.knobs) {
+        if (!knob.shown && !isBase(knob.id)) libraryRow(knob);
+    }
     return out;
 }
 

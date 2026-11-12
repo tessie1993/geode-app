@@ -1,5 +1,7 @@
 #include "viz/Params.hpp"
 
+#include "viz/Colour.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -25,15 +27,29 @@ const SceneParams::Palette& paletteAt(int index) {
 }
 }  // namespace
 
-float SceneParams::paletteBase() const { return paletteBaseOverride >= 0.0f ? paletteBaseOverride : paletteAt(palette).base; }
-float SceneParams::paletteRange() const { return paletteRangeOverride >= 0.0f ? paletteRangeOverride : paletteAt(palette).range; }
+int SceneParams::paletteStopCount() const {
+    const auto stops = paletteStops();
+    return colour::count(stops.data(), static_cast<int>(stops.size()));
+}
+
+// Your colours win over a saved hue gradient and the built-in: the first stop's hue, the stops' span.
+float SceneParams::paletteBase() const {
+    const auto stops = paletteStops();
+    if (paletteStopCount() > 0) return colour::baseHue(stops.data(), static_cast<int>(stops.size()));
+    return paletteBaseOverride >= 0.0f ? paletteBaseOverride : paletteAt(palette).base;
+}
+float SceneParams::paletteRange() const {
+    const auto stops = paletteStops();
+    if (paletteStopCount() > 0) return colour::hueSpan(stops.data(), static_cast<int>(stops.size()));
+    return paletteRangeOverride >= 0.0f ? paletteRangeOverride : paletteAt(palette).range;
+}
 float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
 float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
 // The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
 // but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs
 // rewriting (params_schema_test --write): a row added to viz/ParamTable.inc fails here first, on purpose.
-static_assert(SceneParams::kFieldCount == 173, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
+static_assert(SceneParams::kFieldCount == 178, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
 
 namespace {
 

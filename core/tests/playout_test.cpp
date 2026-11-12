@@ -258,6 +258,9 @@ void offsetShiftsThePicture() {
         check(s.frame() == s.newest(), "offset -1000 ms: never past the newest sample written");
         s.offset(5'000);
         checkNear(s.frame(), f0 - 48'000, 1, "offset is clamped to 1000 ms");
+        check(geode_playout_max_offset_ms() == 1'000, "the bound Settings offers is the clamp");
+        s.offset(geode_playout_max_offset_ms());
+        checkNear(s.frame(), f0 - 48'000, 1, "offset at the offered bound: not clamped further");
         s.offset(0);
         check(s.frame() == f0, "offset 0: the speaker's sample again");
 

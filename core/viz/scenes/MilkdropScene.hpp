@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "viz/Framebuffer.hpp"
+#include "viz/MilkShown.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
@@ -90,6 +91,8 @@ private:
     // the app never shows: until this is set the scene draws black, and the first load is a hard
     // cut, because a soft cut would fade in from that idle preset.
     bool engineHasPreset_ = false;
+    // The last load, reported as loaded only once it has drawn (milk::ShownReport).
+    milk::ShownReport shown_;
     int width_ = 0;
     int height_ = 0;
     bool reportedCreateFailure_ = false;

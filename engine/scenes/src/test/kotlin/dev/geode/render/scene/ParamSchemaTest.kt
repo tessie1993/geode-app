@@ -16,7 +16,7 @@ import org.junit.Test
 class ParamSchemaTest {
     @Test
     fun everySlotHoldsItsRowInOrder() {
-        assertEquals(173, ParamSchema.params.size)
+        assertEquals(178, ParamSchema.params.size)
         ParamSchema.params.forEachIndexed { slot, spec ->
             assertEquals(slot, spec.slot)
             assertSame(spec, ParamSchema[slot])
@@ -72,7 +72,7 @@ class ParamSchemaTest {
 
     @Test
     fun parseReadsAMinimalTable() {
-        val text = "params|2|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\n"
+        val text = "params|3|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\n"
         assertEquals(
             listOf(
                 ParamSpec(0, "a", ParamSpec.Kind.FLOAT, 0.5f, 0f..1f, fades = true),
@@ -85,11 +85,18 @@ class ParamSchemaTest {
     @Test
     fun parseRefusesWhatItCannotTrust() {
         val row = "param|0|a|FLOAT|0.5|0|1|FADE|LIVE"
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|1|1\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\n$row") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("catalogue|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|2\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|2\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("") }
+    }
+
+    @Test
+    fun thePaletteNamesComeFromTheTable() {
+        assertEquals(21, SceneParams.PALETTES.size)
+        assertEquals("Spectrum", SceneParams.PALETTES.first())
+        assertEquals("Yellow", SceneParams.PALETTES.last())
     }
 }

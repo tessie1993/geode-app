@@ -141,7 +141,8 @@ internal fun CustomizePanel(
                         viewModel = viewModel,
                         visualizerView = visualizerView,
                         category = category,
-                        canRoll = category == null || "${category.name}:roll" in shown,
+                        canRoll =
+                            category == null || category == CustomizeCategory.QUICK_KNOBS || "${category.name}:roll" in shown,
                         proLock = proLock,
                         searching = searching,
                         onSearching = { on ->
@@ -218,8 +219,9 @@ private class RouteCustomizeNav(
  * The one row above the list: how far the look is from as styled, then search, Randomize, Undo
  * and ⋯ (Redo, Reset this category, Reset everything, Save as preset, Show tips). Randomize rolls
  * the open [category], or every category from the list; without Pro it rolls the free Basics, and
- * offers Pro where a category has none to roll. Reset acts on the open category, or on Quick knobs
- * from the list. Native decides what each one moves and whether a category has a roll ([canRoll]).
+ * offers Pro where a category has none to roll. Quick knobs' Randomize is free: new turns for the
+ * knobs on screen. Reset acts on the open category, or on Quick knobs from the list. Native decides
+ * what each one moves and whether a category has a roll ([canRoll]).
  */
 @Composable
 private fun CustomizeHeader(
@@ -249,8 +251,13 @@ private fun CustomizeHeader(
     val nudge = LocalTourNudge.current
     val randomize = {
         nudge(GestureTip.SWIRL_RANDOMIZE)
-        val rolled = visualsViewModel.randomizeParams(category, basicsOnly = !proLock.unlocked)
-        if (!rolled && !proLock.unlocked) proLock.onLocked()
+        if (category == CustomizeCategory.QUICK_KNOBS) {
+            // The knobs' turns, as before the bank (#1001): free, and native rolls them (core/viz/MacroBank).
+            macroStore.rollValues(viewModel.vizState.value.sceneId)
+        } else {
+            val rolled = visualsViewModel.randomizeParams(category, basicsOnly = !proLock.unlocked)
+            if (!rolled && !proLock.unlocked) proLock.onLocked()
+        }
     }
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -272,7 +279,6 @@ private fun CustomizeHeader(
                     stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
-        // The knobs have no roll: the bank is the user's own (core/viz/MacroBank).
         IconButton(onClick = randomize, enabled = canRoll, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
             Icon(
                 Icons.Filled.Casino,

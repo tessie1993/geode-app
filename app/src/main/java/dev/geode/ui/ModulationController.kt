@@ -136,9 +136,10 @@ internal class ModulationController(
     /**
      * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
      * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
-     * ones; this only carries the frame there and back. The knobs are not params, and Quick
-     * knobs has no roll. [basicsOnly] is the roll without Pro: native holds everything below a
-     * Basics (its `#PRO` lock) and the waves stay. True when the look changed.
+     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
+     * rolls their turns through MacroStore, and has no roll here. [basicsOnly] is the roll
+     * without Pro: native holds everything below a Basics (its `#PRO` lock) and the waves stay.
+     * True when the look changed.
      */
     fun randomizeParams(
         category: CustomizeCategory? = null,
@@ -162,21 +163,22 @@ internal class ModulationController(
 
     /**
      * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen:
-     * the controls Customize keeps go back to their values in [before], then, with [rollCategories],
-     * every category is rolled from [seed] and the steady waves already on with it. One undo entry.
+     * the controls Customize keeps go back to their values in [before], then every category is rolled
+     * from [seed] and the steady waves already on with it. One undo entry. [basicsOnly] is the dice's
+     * free rule, as in [randomizeParams]: native's `#PRO` lock rolls the free Basics only, and the waves stay.
      */
     fun randomizeAllRoll(
         before: SceneParams,
         seed: Long,
-        rollCategories: Boolean,
+        basicsOnly: Boolean,
     ) {
         val out = FloatArray(SceneParamsCodec.FIELDS)
-        val locked = _lockedParams.value.joinToString("\n")
+        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
         val base = SceneParamsCodec.pack(host.params)
-        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, rollCategories, SceneParamsCodec.pack(before), base, out)) {
+        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, true, SceneParamsCodec.pack(before), base, out)) {
             commitSceneParams(SceneParamsCodec.unpack(out, host.params))
         }
-        if (rollCategories) randomizeWaves(all = false)
+        if (!basicsOnly) randomizeWaves(all = false)
     }
 
     /**

@@ -21,13 +21,19 @@ import java.io.File
  */
 object ParamSchema {
     /** The table version this shell reads; core/viz/Params.hpp's `kSchemaTextVersion`. */
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
 
     const val TEXT_FILE_PROPERTY: String = "geode.paramsSchema"
 
-    private val table: List<ParamSpec> by lazy {
-        parse(System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.paramsSchemaText())
+    private val text: String by lazy {
+        val fixture = System.getProperty(TEXT_FILE_PROPERTY)
+        if (fixture != null) File(fixture).readText() else GeodeNative.paramsSchemaText()
     }
+
+    private val table: List<ParamSpec> by lazy { parse(text) }
+
+    /** The built-in palettes' names, in `palette` index order (the table's `palette|index|name` rows). */
+    val paletteNames: List<String> by lazy { text.lines().filter { it.startsWith("palette|") }.map { it.substringAfterLast('|') } }
 
     private val byName: Map<String, ParamSpec> by lazy { table.associateBy { it.name } }
 
@@ -42,12 +48,13 @@ object ParamSchema {
 
     /**
      * Reads the `geode_params_schema_text` table: a `params|<version>|<count>` header, then one
-     * `param|slot|name|KIND|default|min|max|FADE|HOLD|LIVE|RETIRED` row per slot, in slot order. Throws on a
+     * `param|slot|name|KIND|default|min|max|FADE|HOLD|LIVE|RETIRED` row per slot, in slot order, then the
+     * palette names ([paletteNames]). Throws on a
      * version this shell does not read, a row out of order or a count that disagrees, since a
      * misread schema would put every param in the wrong wire slot.
      */
     internal fun parse(text: String): List<ParamSpec> {
-        val rows = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
+        val rows = text.lines().filter { it.isNotBlank() && !it.startsWith("palette|") }.map { it.split('|') }
         val header = rows.firstOrNull().orEmpty()
         check(header.size == 3 && header[0] == "params" && header[1] == VERSION.toString()) {
             "native params schema is $header, this shell reads version $VERSION"

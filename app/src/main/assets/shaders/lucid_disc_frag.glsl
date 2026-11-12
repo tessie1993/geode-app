@@ -226,12 +226,12 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5) * uIntensity;
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * uIntensity;
     float seed = lucidSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);
     float energy = clamp(uIntensity, 0.0, 1.5) * clamp(1.0 + 1.2 * kPulse, 0.3, 1.6);
-    float kickB = lucidBump(SND_KICK_ENV) * energy;
-    float snareB = lucidBump(SND_SNARE_ENV) * energy;
+    float kickB = lucidBump(SND_KICK_ENV * uSoundDrive) * energy;
+    float snareB = lucidBump(SND_SNARE_ENV * uSoundDrive) * energy;
     float dropB = lucidBump(SND_HELD_SURGE);
 
     // The relief. Both tile heights stay under LD_HMAX, the dome under 0.42:

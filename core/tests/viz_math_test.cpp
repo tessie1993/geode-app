@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 
+#include "viz/BandTrim.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
@@ -1773,7 +1774,31 @@ void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
     check(std::isfinite(again), "random glide is deterministic and finite");
 }
 
+// Bass, Mid and Treble gain reach every band read a style makes: level, att, shaped, presence and flux.
+void bandTrimsReachEveryBandRead() {
+    GeodeSoundFrame f{};
+    f.bass = f.mid = f.treble = 1.2f;
+    f.bassAtt = f.midAtt = f.trebleAtt = 0.9f;
+    f.low = f.middle = f.high = 0.6f;
+    f.bassPresence = f.midPresence = f.treblePresence = 0.4f;
+    f.fluxLow = f.fluxMid = f.fluxHigh = 1.5f;
+    f.kickEnv = 0.7f;
+    f.bassTime = 33.0f;
+    SceneParams p;
+    const GeodeSoundFrame same = bandTrimmed(f, p);
+    check(same.midPresence == f.midPresence && same.fluxHigh == f.fluxHigh, "band trims at 1 leave the frame alone");
+    p.bassGain = 2.0f;
+    p.midGain = 0.5f;
+    p.trebGain = 0.0f;
+    const GeodeSoundFrame t = bandTrimmed(f, p);
+    check(t.bass == 2.4f && t.bassAtt == 1.8f && t.low == 1.0f && t.bassPresence == 0.8f && t.fluxLow == 3.0f, "Bass gain trims every bass read");
+    check(t.mid == 0.6f && t.midAtt == 0.45f && t.middle == 0.3f && t.midPresence == 0.2f && t.fluxMid == 0.75f, "Mid gain trims every mid read");
+    check(t.treble == 0.0f && t.high == 0.0f && t.treblePresence == 0.0f && t.fluxHigh == 0.0f, "Treble gain trims every treble read");
+    check(t.kickEnv == f.kickEnv && t.bassTime == f.bassTime, "the trims leave drums and clocks alone");
+}
+
 int main() {
+    bandTrimsReachEveryBandRead();
     foldIsBoundedAndContinuous();
     followRouteTracksSource();
     circularHelpersTakeTheShortWay();

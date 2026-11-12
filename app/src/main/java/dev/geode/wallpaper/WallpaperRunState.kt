@@ -17,6 +17,9 @@ enum class WallpaperRunMode {
     DARK,
 }
 
+/** Why the surface is not moving, the native rule's first reason. The order is the native code. */
+enum class WallpaperStillReason { NONE, HIDDEN, ENTITLEMENT, REDUCED_MOTION, BATTERY_SAVER, SILENCE }
+
 /**
  * What the shell observed, handed whole to the native run rule (`core/viz/SurfaceRun`), which owns
  * every decision: the priority order, the preview's exemptions, when to listen, and when a trial's
@@ -60,6 +63,9 @@ data class WallpaperConditions(
         }
 
     fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
+
+    fun stillReason(nowMs: Long): WallpaperStillReason =
+        WallpaperStillReason.entries[GeodeNative.surfaceReason(flags, animateUntilMs, nowMs)]
 
     fun listening(nowMs: Long): Boolean = GeodeNative.surfaceListening(flags, animateUntilMs, nowMs)
 

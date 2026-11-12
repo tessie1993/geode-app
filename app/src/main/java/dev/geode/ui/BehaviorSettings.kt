@@ -28,11 +28,11 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
+import dev.geode.geodeContainer
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.pro.PaywallViewModel
@@ -64,7 +64,7 @@ internal class BehaviourPrefsHolder(
 @Composable
 internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
     val ctx = LocalContext.current
-    val store = remember { BehaviourStore(GeodePrefsFiles(ctx).general) }
+    val store = remember { BehaviourStore(ctx.geodeContainer.prefsFiles.general) }
     var prefs by remember { mutableStateOf<BehaviourPrefs?>(null) }
     LaunchedEffect(store) { prefs = withContext(Dispatchers.IO) { store.load() } }
     return BehaviourPrefsHolder(prefs) { next ->
@@ -266,11 +266,8 @@ internal fun TouchSmearRow(viewModel: SettingsViewModel) {
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
         if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
                 value = gui.touchSmearStrength,
                 onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
                 valueRange = 0.2f..2f,

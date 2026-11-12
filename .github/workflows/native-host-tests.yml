@@ -42,6 +42,9 @@ jobs:
           # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o params_schema_test
           ./params_schema_test
+          # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o colour_test
+          ./colour_test
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
@@ -88,6 +91,9 @@ jobs:
           ./absolute_level_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
           ./musical_test
+          # The meter: 3/4 and 4/4 accents at 93 and 141 BPM each read as themselves; a backbeat and an even pulse never become 3.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/meter_test.cpp core/sound/*.cpp -o meter_test
+          ./meter_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp \
@@ -140,7 +146,7 @@ jobs:
           # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp -o cast_clock_test
           ./cast_clock_test
-          # The export post-passes' maths: watermark tiling, seam weights, transition progress (#442).
+          # The export post-passes' maths: watermark tiling, seam weights (#442).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_passes_test.cpp -o export_passes_test
           ./export_passes_test
           # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
@@ -178,6 +184,9 @@ jobs:
           # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
           ./milk_shader_note_test
+          # A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shown_test.cpp -o milk_shown_test
+          ./milk_shown_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test
@@ -243,7 +252,13 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
-          # The config params schema (#423): LFO, envelope, palette, look, clip and morph rows; Lfo and Adsr clamp as before; the store conversions equal Kotlin's; the text.
+          # Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o link_share_test
+          ./link_share_test
+          # Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
+          ./qr_code_test
+          # The config params schema (#423): LFO, envelope, palette, look and morph rows; Lfo and Adsr clamp as before; the store conversions equal Kotlin's; the text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o config_schema_test
@@ -254,17 +269,21 @@ jobs:
 
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
-      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
+      # meta rows, hence Params), ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
-          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads.
+          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads,
+          # and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
-            core/viz/scenes/StyleCatalog.cpp -o style_reads_test
-          ./style_reads_test app/src/main/assets/
+            core/viz/scenes/StyleCatalog.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            -o style_reads_test
+          ./style_reads_test app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
           # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp -o visual_gate
           # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.
@@ -323,15 +342,14 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
 
-      # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
-      # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
-      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too; and a recorded take's
-      # limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
+      # Export planning and PCM maths ported from Kotlin (ADR 0003, ADR 0006 core/output): frame clock,
+      # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
+      # take's limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
       - name: Native export planning tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/LoudnessAdvice.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
-          for t in output_test record_plan_test timeline_test clip_media_test; do
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/LoudnessAdvice.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+          for t in output_test record_plan_test export_pcm_test; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t
           done
@@ -380,6 +398,15 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
           ./sound_rate_test
+
+      # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
+      # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
+      - name: Export pre-roll
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp \
+            core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_preroll_test
+          ./export_preroll_test
 
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
       - name: Sound golden vector

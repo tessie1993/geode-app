@@ -23,6 +23,9 @@ interface LibraryRepository {
     /** "Hide tracks shorter than", in seconds; 0 lists everything. */
     val minTrackSeconds: StateFlow<Int>
 
+    /** How many MediaStore tracks [minTrackSeconds] left out of the last query. */
+    val hiddenShortTracks: StateFlow<Int>
+
     val mediaRoots: StateFlow<Set<String>>
 
     val libraryScanning: StateFlow<Boolean>

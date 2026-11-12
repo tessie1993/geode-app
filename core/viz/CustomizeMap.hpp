@@ -80,6 +80,11 @@ inline constexpr char kCategoryLockPrefix = '#';
 inline constexpr const char* kProLock = "#PRO";
 std::set<std::string> expandLocks(const std::set<std::string>& locked);
 
+// What Keep holds in a lock set: expandLocks without "#PRO". "#PRO" only narrows a roll to the free
+// Basics; it is not the user keeping those controls, so a step that puts kept controls back (Randomize
+// everything over a new preset) leaves the controls it names as the new look made them.
+std::set<std::string> expandKeeps(const std::set<std::string>& locked);
+
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);
 

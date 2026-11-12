@@ -28,7 +28,17 @@ enum class StoneHapticCue(
     internal fun waveform(): VibrationEffect = VibrationEffect.createWaveform(longArrayOf(0) + fallbackMs, -1)
 }
 
+/**
+ * Settings › Look › "Vibrate on touch", set by the theme. Process-wide rather than a composition
+ * local because the cues are fired from click lambdas through a [View], dialogs' views included.
+ */
+object StoneHaptics {
+    @Volatile
+    var enabled: Boolean = true
+}
+
 fun View.performStoneHaptic(cue: StoneHapticCue) {
+    if (!StoneHaptics.enabled) return
     if (cue.isAvailable()) {
         performHapticFeedback(cue.platformConstant())
         return

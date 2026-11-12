@@ -85,10 +85,9 @@ object VisualStyleCatalog {
             "terrain" to "Terrain",
             "truchet" to "Truchet",
             "foam" to "Sphere Foam",
+            "milkdrop" to "MilkDrop",
         )
 
-    val cymaticsIds: List<String> = idsOf(SceneKind.CYMATICS)
-    val fluidIds: List<String> = idsOf(SceneKind.FLUID)
     val silkIds: List<String> = idsOf(SceneKind.SILK)
     val lifeIds: List<String> = idsOf(SceneKind.LIFE)
     val acidIds: List<String> = idsOf(SceneKind.ACID)

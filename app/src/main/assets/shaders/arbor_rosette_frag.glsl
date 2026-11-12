@@ -57,7 +57,9 @@ out vec4 fragColor;
 // Speed: uTime turns every window (neighbours turn opposite ways) and drifts
 // the hue. Complexity: uMorph adds a fork level to both rings (arbLevels, cut
 // for the Detail budget). Chaos: uTurbulence and uWarp add per-branch jitter,
-// the tracery growing irregular. Colour: every jewel and the light from pal().
+// the tracery growing irregular. Twist (uTwist) leans every fork of both rings
+// one way, winding the tracery into a pinwheel. Colour: every jewel and the
+// light from pal().
 // Energy: uIntensity scales the pitch walk, the key's pull and the hat jewels.
 // Space: the camera rig.
 // Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the jewel
@@ -197,9 +199,9 @@ void main() {
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
+    float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float pitch = clamp(SND_HELD_NOTE_CHANGE * energy, 0.0, 1.0);
-    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
     float key = uKeyHue * clamp(uKeyStrength * energy, 0.0, 1.0);
 
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
@@ -213,8 +215,8 @@ void main() {
     float stepHue = 0.05 + 0.16 * pitch;
 
     float jitter = 0.08 + 0.45 * chaos;
-    gFo = ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), 0.0, jitter, 0.12, 0.10, 0.72);
-    gFi = ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), 0.0, jitter, 0.12, 0.09, 0.70);
+    gFo = ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), 0.18 * uTwist, jitter, 0.12, 0.10, 0.72);
+    gFi = ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), 0.18 * uTwist, jitter, 0.12, 0.09, 0.70);
     gGrowOut = arbLevels(7.0, 1.0);
     gGrowIn = arbLevels(6.0, 1.0);
     gTurn = t * 0.04;

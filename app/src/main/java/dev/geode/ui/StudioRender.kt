@@ -63,7 +63,6 @@ import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
 import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
@@ -77,6 +76,7 @@ import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.RenderPlaylist
 import dev.geode.export.RenderScope
+import dev.geode.geodeContainer
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
@@ -110,7 +110,7 @@ fun StudioHub(
     onSection: (StudioSection) -> Unit,
 ) {
     val context = LocalContext.current
-    val prefs = remember { StudioPrefsStore(GeodePrefsFiles(context).general) }
+    val prefs = remember { StudioPrefsStore(context.geodeContainer.prefsFiles.general) }
     val paywall: PaywallViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
@@ -275,8 +275,8 @@ internal fun StudioRenderTab(
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val store = remember { ExportPrefsStore(GeodePrefsFiles(context).general) }
-    val studioPrefs = remember { StudioPrefsStore(GeodePrefsFiles(context).general) }
+    val store = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general) }
+    val studioPrefs = remember { StudioPrefsStore(context.geodeContainer.prefsFiles.general) }
     var destinationName by rememberSaveable { mutableStateOf<String?>(null) }
     val destination = destinationName?.let { ExportDestination.byName(it) }
     var options by remember { mutableStateOf(store.load()) }

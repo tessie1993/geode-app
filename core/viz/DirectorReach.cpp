@@ -96,7 +96,7 @@ bool glides(int slot) {
 struct Control {
     const char* key;
     std::optional<Category> category;
-    std::array<int, 3> slots;
+    std::array<int, std::tuple_size_v<decltype(randomizer::RolledKey::fields)>> slots;
     bool shuffled;
 };
 
@@ -111,7 +111,8 @@ const Table& table() {
         Table t;
         t.ofSlot.fill(-1);
         for (const auto& roll : randomizer::rolledKeys()) {
-            Control c{roll.key, customize::categoryOf(roll.key), {-1, -1, -1}, false};
+            Control c{roll.key, customize::categoryOf(roll.key), {}, false};
+            c.slots.fill(-1);
             c.shuffled = c.category && std::find(kShuffled.begin(), kShuffled.end(), *c.category) != kShuffled.end();
             for (const char* own : kLooksOwn) c.shuffled = c.shuffled && std::string_view(own) != roll.key;
             for (size_t i = 0; i < roll.fields.size(); ++i) {

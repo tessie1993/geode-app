@@ -9,37 +9,35 @@
 #include "viz/Quad.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/Texture.hpp"
-#include "viz/Transition.hpp"
 #include "viz/frame/Pass.hpp"
 
-// The export post-passes (#442): the non-Pro watermark, a loop render's seam, and a Studio render's GL
-// Transition with the capture that feeds it. They were Kotlin GL (export/WatermarkOverlay.kt, LoopRender's
-// SeamStash, export/GlTransitionEffect.kt); now each is a frame::Pass on Surface::Export, driven through
-// geode_export_* in core/api/geode_api.h, and Kotlin keeps only what has to be Android: the wordmark's
-// Bitmap raster, MediaCodec and EGL, and Media3's GlShaderProgram shell.
+// The export post-passes (#442): the non-Pro watermark and a loop render's seam. They were Kotlin GL
+// (export/WatermarkOverlay.kt, LoopRender's SeamStash); now each is a frame::Pass on Surface::Export,
+// driven through geode_export_* in core/api/geode_api.h, and Kotlin keeps only what has to be Android: the
+// wordmark's Bitmap raster, MediaCodec and EGL. (A Studio render's GL Transition and its capture pass went
+// with the Studio project render, ADR 0007.)
 //
-// Thread: whichever thread has the export's GL context current. For the watermark and the seam that is the
-// export thread with EncoderSurface's context (VideoExporter, LoopRender); for the transition and the
-// capture it is Media3 Transformer's GL thread, inside its own framebuffer and viewport. None of them owns
-// the export clock: they draw the frame they are handed, when they are handed it.
+// Thread: the export thread with EncoderSurface's context current (VideoExporter, LoopRender). Neither
+// pass owns the export clock: they draw the frame they are handed, when they are handed it.
 //
-// GL state: each pass sets what it needs and puts back what a caller relies on (the program, blending, the
-// vertex array, texture unit 0), because both callers draw on after it: the encoder's next scene frame and
-// Media3's own programs, which use client-side vertex arrays and so need GL_ARRAY_BUFFER and the vertex
-// array object unbound.
+// GL state: each pass sets what it needs and puts back what the caller relies on (the program, blending,
+// the vertex array, texture unit 0), because the encoder's next scene frame draws on after it.
 //
-// The maths (placement, weights, progress) is ExportPassMath.hpp, tested on the host.
+// The maths (placement, weights) is ExportPassMath.hpp, tested on the host.
 namespace geode::viz::frame {
 
-// The free tier's wordmark tiled diagonally across the whole frame, over the finished scene in the
-// encoder's default framebuffer. One tile is uploaded once (Kotlin rasterises it: text needs Android's
-// Paint); per frame it is one full-frame draw whose texture coordinates repeat that tile.
+// The wordmark over the finished scene in the encoder's default framebuffer: tiled diagonally across the
+// whole frame, one mark in a corner, or an end card (exportmath::watermark::placement). One tile is uploaded
+// once (Kotlin rasterises it: text needs Android's Paint); per frame it is one full-frame draw whose texture
+// coordinates repeat that tile, or show it once (exportmath::watermark::layout).
 class WatermarkPass final : public Pass {
 public:
     ~WatermarkPass() override { release(); }
 
-    // `rgba` is the tile, tileWidth × tileHeight premultiplied RGBA8, top row first (Bitmap order).
-    bool create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, std::string* error);
+    // `rgba` is the tile, tileWidth × tileHeight premultiplied RGBA8, top row first (Bitmap order). `lengthMs`
+    // is the video's, for the end card; FrameCtx::seconds is the frame's time in it.
+    bool create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, int placement, int corner,
+                int64_t lengthMs, std::string* error);
 
     bool wants(const FrameCtx& ctx) const override;
     void prepare(const FrameCtx& ctx) override;
@@ -53,8 +51,15 @@ private:
     FullscreenTriangle triangle_;
     int tileWidth_ = 0;
     int tileHeight_ = 0;
+    int placement_ = 0;
+    int corner_ = 0;
+    int64_t lengthMs_ = 0;
+    float originU_ = 0.0f;
+    float originV_ = 0.0f;
     float tilesU_ = 0.0f;
     float tilesV_ = 0.0f;
+    float clip_ = 0.0f;
+    float opacity_ = 1.0f;
 };
 
 // A loop render's seam: the loop's opening frames copied straight off the encoder surface into textures,
@@ -96,73 +101,6 @@ private:
     int tail_ = 0;
     int seamFrames_ = 0;
     float alpha_ = 0.0f;
-};
-
-// The frame a Studio clip ended on, kept for the GL Transition that opens the next clip. Each frame is
-// drawn through unchanged and copied into one texture; at the clip's end the last one is read back
-// (readBack), because the next clip's program may live in another context.
-class CapturePass final : public Pass {
-public:
-    ~CapturePass() override { release(); }
-
-    bool create(const ShaderSource& assets, std::string* error);
-    // The clip's frame size; reallocates the copy only when it changes.
-    void configure(int width, int height);
-    // The clip's frame for the next draw (PassInputs::sceneTex carries it there).
-    bool wants(const FrameCtx& ctx) const override;
-    void prepare(const FrameCtx& ctx) override;
-    void draw(const PassInputs& inputs, const PassTarget& target) override;
-    void release() override;
-
-    int width() const { return latest_.width(); }
-    int height() const { return latest_.height(); }
-    // The last frame copied, width × height RGBA8 bottom row first; false when nothing was or it does not fit.
-    bool readBack(void* out, size_t capacity) const;
-
-private:
-    GLuint program_ = 0;
-    UniformCache uniforms_;
-    FullscreenTriangle triangle_;
-    Texture latest_;
-    bool captured_ = false;
-};
-
-// A GL Transition opening a Studio clip: from the previous clip's captured frame to the clip's own picture,
-// over a duration from the clip's first frame. Two inputs, so the outgoing frame comes in through its own
-// setter (setFrom) and the incoming one as PassInputs::sceneTex; without an outgoing frame, an unknown
-// transition id, or past the end, it draws the clip unchanged.
-class TransitionPass final : public Pass {
-public:
-    ~TransitionPass() override { release(); }
-
-    // `id` is a gl_transitions.json name (TransitionCatalog); a built-in or unknown id builds only the copy.
-    bool create(const ShaderSource& assets, const std::string& id, int64_t durationUs, std::string* error);
-    void configure(int width, int height);
-    // The outgoing frame, RGBA8 bottom row first; taken once, as the Kotlin effect took it.
-    void setFrom(const void* rgba, int width, int height);
-    // The presentation time of the next draw; the first one seen is the transition's origin.
-    void setPresentationUs(int64_t ptsUs);
-
-    bool wants(const FrameCtx& ctx) const override;
-    void prepare(const FrameCtx& ctx) override;
-    void draw(const PassInputs& inputs, const PassTarget& target) override;
-    void release() override;
-
-private:
-    GLuint copyProgram_ = 0;
-    GLuint blendProgram_ = 0;
-    UniformCache copyUniforms_;
-    UniformCache blendUniforms_;
-    FullscreenTriangle triangle_;
-    Texture from_;
-    std::string id_;
-    int64_t durationUs_ = 0;
-    int64_t originUs_ = -1;
-    int64_t ptsUs_ = 0;
-    float ratio_ = 1.0f;
-    float progress_ = 1.0f;
-    // The transition's definition; its parameters are uploaded once, after the blend program links.
-    TransitionCatalog::Def def_;
 };
 
 }  // namespace geode::viz::frame

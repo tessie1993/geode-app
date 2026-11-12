@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.prefKeys
 import kotlin.math.roundToInt
 
@@ -33,6 +34,12 @@ data class PlayerPrefs(
      * back to the AudioTrack by itself (`audio/OboeAudioOutput`).
      */
     val nativeOutput: Boolean = false,
+    /**
+     * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
+     * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
+     */
+    val pictureDelayMs: Int = 0,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -74,10 +81,65 @@ data class PlayerPrefs(
     }
 }
 
+/**
+ * The player prefs' synchronous reader and writer, for the one caller that cannot suspend:
+ * `PlaybackSession` applies the saved options while it is built (see `GeodeContainer.warmPlaybackPrefs`).
+ * Everything else goes through [PlayerPrefsRepository].
+ */
 class PlayerPrefsStore(
     private val prefs: SharedPreferences,
 ) {
-    fun load(): PlayerPrefs =
+    fun load(): PlayerPrefs = PlayerPrefsCodec.read(prefs)
+
+    fun save(p: PlayerPrefs) = prefs.edit().also { PlayerPrefsCodec.write(it, p) }.apply()
+
+    internal companion object {
+        val PREF_KEYS get() = PlayerPrefsCodec.keys
+    }
+}
+
+/** How [PlayerPrefs] sit in `geode-player`. */
+object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
+    private const val KEY_SLEEP_FINISH = "sleep_finish_track"
+    private const val KEY_FADE_MS = "fade_ms"
+    private const val KEY_SHUFFLE = "shuffle"
+    private const val KEY_REPEAT = "repeat_mode"
+    private const val KEY_SPEED = "speed"
+    private const val KEY_PITCH = "pitch_semitones"
+    private const val KEY_SKIP_SILENCE = "skip_silence"
+    private const val KEY_NOISY = "pause_on_noisy"
+    private const val KEY_SCREEN_ON = "keep_screen_on"
+    private const val KEY_AUTO_RESUME = "auto_resume"
+    private const val KEY_SLEEP_MIN = "sleep_timer_minutes"
+    private const val KEY_REPLAYGAIN_MODE = "replaygain_mode"
+    private const val KEY_REPLAYGAIN_PREAMP = "replaygain_preamp_db"
+    private const val KEY_REPLAYGAIN_CLIP_GUARD = "replaygain_clip_guard"
+    private const val KEY_RESUME_LONG = "resume_long_tracks"
+    private const val KEY_BIT_PERFECT = "bit_perfect"
+
+    /** Not the native engine's old `crossfade_ms`, removed on write: an install that kept one must not get it back. */
+    private const val KEY_CROSSFADE_MS = "playback_crossfade_ms"
+
+    /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
+    private const val KEY_NATIVE_OUTPUT = "oboe_output"
+
+    const val KEY_PICTURE_DELAY = "picture_delay_ms"
+
+    override val defaults = PlayerPrefs()
+
+    override val keys =
+        prefKeys(GeodePrefsFiles.PLAYER) {
+            portable(PrefType.BOOLEAN, KEY_SHUFFLE, KEY_SKIP_SILENCE, KEY_NOISY, KEY_SCREEN_ON, KEY_AUTO_RESUME, KEY_SLEEP_FINISH)
+            portable(PrefType.BOOLEAN, KEY_REPLAYGAIN_CLIP_GUARD, KEY_RESUME_LONG, KEY_BIT_PERFECT, KEY_NATIVE_OUTPUT)
+            portable(PrefType.INT, KEY_REPEAT, KEY_SLEEP_MIN, KEY_FADE_MS, KEY_REPLAYGAIN_MODE, KEY_CROSSFADE_MS)
+            portable(PrefType.FLOAT, KEY_SPEED, KEY_PITCH, KEY_REPLAYGAIN_PREAMP)
+            device(PrefType.INT, KEY_PICTURE_DELAY)
+            retired(null, "native_engine", "crossfade_ms", "crossfade_curve", "gapless")
+        }
+
+    override fun normalize(value: PlayerPrefs): PlayerPrefs = value.coerced()
+
+    override fun read(prefs: SharedPreferences): PlayerPrefs =
         PlayerPrefs(
             shuffle = prefs.getBoolean(KEY_SHUFFLE, false),
             repeatMode = prefs.getInt(KEY_REPEAT, 0),
@@ -97,69 +159,38 @@ class PlayerPrefsStore(
             bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
             crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
             nativeOutput = prefs.getBoolean(KEY_NATIVE_OUTPUT, false),
+            pictureDelayMs = prefs.getInt(KEY_PICTURE_DELAY, 0),
         ).coerced()
 
-    fun save(p: PlayerPrefs) {
-        prefs
-            .edit()
-            .putBoolean(KEY_SHUFFLE, p.shuffle)
-            .putInt(KEY_REPEAT, p.repeatMode)
-            .putFloat(KEY_SPEED, p.speed)
-            .putFloat(KEY_PITCH, p.pitchSemitones)
-            .putBoolean(KEY_SKIP_SILENCE, p.skipSilence)
-            .putBoolean(KEY_NOISY, p.pauseOnNoisy)
-            .putBoolean(KEY_SCREEN_ON, p.keepScreenOn)
-            .putBoolean(KEY_AUTO_RESUME, p.autoResume)
-            .putInt(KEY_SLEEP_MIN, p.sleepTimerMinutes)
-            .putBoolean(KEY_SLEEP_FINISH, p.sleepFinishTrack)
-            .putInt(KEY_FADE_MS, p.fadeMs)
-            .putInt(KEY_REPLAYGAIN_MODE, p.replayGainMode)
-            .putFloat(KEY_REPLAYGAIN_PREAMP, p.replayGainPreampDb)
-            .putBoolean(KEY_REPLAYGAIN_CLIP_GUARD, p.replayGainClipGuard)
-            .putBoolean(KEY_RESUME_LONG, p.resumeLongTracks)
-            .putBoolean(KEY_BIT_PERFECT, p.bitPerfect)
-            .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
-            .putBoolean(KEY_NATIVE_OUTPUT, p.nativeOutput)
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: PlayerPrefs,
+    ) {
+        editor
+            .putBoolean(KEY_SHUFFLE, value.shuffle)
+            .putInt(KEY_REPEAT, value.repeatMode)
+            .putFloat(KEY_SPEED, value.speed)
+            .putFloat(KEY_PITCH, value.pitchSemitones)
+            .putBoolean(KEY_SKIP_SILENCE, value.skipSilence)
+            .putBoolean(KEY_NOISY, value.pauseOnNoisy)
+            .putBoolean(KEY_SCREEN_ON, value.keepScreenOn)
+            .putBoolean(KEY_AUTO_RESUME, value.autoResume)
+            .putInt(KEY_SLEEP_MIN, value.sleepTimerMinutes)
+            .putBoolean(KEY_SLEEP_FINISH, value.sleepFinishTrack)
+            .putInt(KEY_FADE_MS, value.fadeMs)
+            .putInt(KEY_REPLAYGAIN_MODE, value.replayGainMode)
+            .putFloat(KEY_REPLAYGAIN_PREAMP, value.replayGainPreampDb)
+            .putBoolean(KEY_REPLAYGAIN_CLIP_GUARD, value.replayGainClipGuard)
+            .putBoolean(KEY_RESUME_LONG, value.resumeLongTracks)
+            .putBoolean(KEY_BIT_PERFECT, value.bitPerfect)
+            .putInt(KEY_CROSSFADE_MS, value.crossfadeMs)
+            .putBoolean(KEY_NATIVE_OUTPUT, value.nativeOutput)
+            .putInt(KEY_PICTURE_DELAY, value.pictureDelayMs)
             // The native engine's options, gone with it (ExoPlayer joins tracks gaplessly by itself).
             .remove("native_engine")
             .remove("crossfade_ms")
             .remove("crossfade_curve")
             .remove("gapless")
-            .apply()
-    }
-
-    internal companion object {
-        const val KEY_SLEEP_FINISH = "sleep_finish_track"
-        const val KEY_FADE_MS = "fade_ms"
-        const val KEY_SHUFFLE = "shuffle"
-        const val KEY_REPEAT = "repeat_mode"
-        const val KEY_SPEED = "speed"
-        const val KEY_PITCH = "pitch_semitones"
-        const val KEY_SKIP_SILENCE = "skip_silence"
-        const val KEY_NOISY = "pause_on_noisy"
-        const val KEY_SCREEN_ON = "keep_screen_on"
-        const val KEY_AUTO_RESUME = "auto_resume"
-        const val KEY_SLEEP_MIN = "sleep_timer_minutes"
-        const val KEY_REPLAYGAIN_MODE = "replaygain_mode"
-        const val KEY_REPLAYGAIN_PREAMP = "replaygain_preamp_db"
-        const val KEY_REPLAYGAIN_CLIP_GUARD = "replaygain_clip_guard"
-        const val KEY_RESUME_LONG = "resume_long_tracks"
-        const val KEY_BIT_PERFECT = "bit_perfect"
-
-        /** Not the native engine's old `crossfade_ms`, removed above: an install that kept one must not get it back. */
-        const val KEY_CROSSFADE_MS = "playback_crossfade_ms"
-
-        /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
-        const val KEY_NATIVE_OUTPUT = "oboe_output"
-
-        val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.PLAYER) {
-                portable(PrefType.BOOLEAN, KEY_SHUFFLE, KEY_SKIP_SILENCE, KEY_NOISY, KEY_SCREEN_ON, KEY_AUTO_RESUME, KEY_SLEEP_FINISH)
-                portable(PrefType.BOOLEAN, KEY_REPLAYGAIN_CLIP_GUARD, KEY_RESUME_LONG, KEY_BIT_PERFECT, KEY_NATIVE_OUTPUT)
-                portable(PrefType.INT, KEY_REPEAT, KEY_SLEEP_MIN, KEY_FADE_MS, KEY_REPLAYGAIN_MODE, KEY_CROSSFADE_MS)
-                portable(PrefType.FLOAT, KEY_SPEED, KEY_PITCH, KEY_REPLAYGAIN_PREAMP)
-                retired(null, "native_engine", "crossfade_ms", "crossfade_curve", "gapless")
-            }
     }
 }
 

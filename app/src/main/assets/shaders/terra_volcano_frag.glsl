@@ -73,10 +73,10 @@ float vein(vec2 xz, float width, float t) {
 void main() {
     vec2 uv = view();
     float t0 = terraTime();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float energy = terraEnergy();
-    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
-    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.2);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float bass = clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.2);
     gOct = terraOctaves(3.0);
     float hue = 0.02 + 0.08 * uKeyStrength * sin(TERRA_TAU * uKeyHue);
 

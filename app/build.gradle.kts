@@ -261,8 +261,6 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.common)
     implementation(libs.media3.session)
-    implementation(libs.media3.transformer)
-    implementation(libs.media3.effect)
     implementation(libs.media3.cast)
     implementation(libs.media3.muxer)
     // The native playback output (core/audio/output): liboboe.so, linked by libgeode.so through Prefab.

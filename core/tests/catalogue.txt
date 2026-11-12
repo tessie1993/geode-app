@@ -1,4 +1,4 @@
-catalogue|2
+catalogue|3
 kind|SHADER|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,SHADER_LOOK,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,FLOW_FIELD_SIM,RIPPLE_OVERLAY
 kind|SILK|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TRAIL_TOGGLE,TRAIL_LENGTH,FLOW_FIELD_SIM,RIPPLE_OVERLAY
 kind|LIFE|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,FLOW_FIELD_SIM,RIPPLE_OVERLAY
@@ -230,6 +230,36 @@ style|foam_ink|SHADER|FRACTALS|MARCH_DETAIL
 style|foam_coral|SHADER|FRACTALS|MARCH_DETAIL
 style|foam_ghost|SHADER|FRACTALS|MARCH_DETAIL
 style|foam_show|SHADER|FRACTALS|MARCH_DETAIL
+style|flame_veil|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_spiral|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_orb|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_star|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_lotus|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_helix|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_knot|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_web|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_aurora|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|flame_nova|SHADER|PSYCHEDELIC|MARCH_DETAIL
+style|opal_bubbles|SHADER|GLASS|MARCH_DETAIL
+style|opal_nautilus|SHADER|GLASS|MARCH_DETAIL
+style|opal_melt|SHADER|GLASS|MARCH_DETAIL
+style|opal_domes|SHADER|GLASS|MARCH_DETAIL
+style|opal_pearls|SHADER|GLASS|MARCH_DETAIL
+style|opal_lava|SHADER|GLASS|MARCH_DETAIL
+style|opal_ribbon|SHADER|GLASS|MARCH_DETAIL
+style|opal_cells|SHADER|GLASS|MARCH_DETAIL
+style|opal_rings|SHADER|GLASS|MARCH_DETAIL
+style|opal_drop|SHADER|GLASS|MARCH_DETAIL
+style|hollow_sinew|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_cave|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_ribs|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_coral|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_roots|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_hive|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_throat|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_neuron|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_bone|SHADER|FLY_THROUGH|MARCH_DETAIL
+style|hollow_shell|SHADER|FLY_THROUGH|MARCH_DETAIL
 style|milkdrop|MILKDROP|CLASSIC
 style|fluid|FLUID|FLOWING
 style|fluid_ink|FLUID|FLOWING
@@ -263,6 +293,30 @@ family|nebula|nebula_|lib_nebula|nebula_dust,nebula_spiral,nebula_ring,nebula_ve
 family|terrain|terra_|lib_terra|terra_ridge,terra_dunes,terra_canyon,terra_glacier,terra_isles,terra_mesa,terra_volcano,terra_terraces,terra_moon,terra_night,terra_topo,terra_wire
 family|truchet|truchet_|lib_truchet|truchet_arcs,truchet_hex,truchet_weave,truchet_maze,truchet_tri,truchet_quad,truchet_tubes,truchet_neon,truchet_flow,truchet_knot,truchet_tunnel,truchet_relief
 family|foam|foam_|lib_foam|foam_fall,foam_neon,foam_soap,foam_chrome,foam_ember,foam_ice,foam_orb,foam_kaleido,foam_ink,foam_coral,foam_ghost,foam_show
+family|flame|flame_|lib_flame|flame_veil,flame_spiral,flame_orb,flame_star,flame_lotus,flame_helix,flame_knot,flame_web,flame_aurora,flame_nova
+family|opal|opal_|lib_opal|opal_bubbles,opal_nautilus,opal_melt,opal_domes,opal_pearls,opal_lava,opal_ribbon,opal_cells,opal_rings,opal_drop
+family|hollow|hollow_|lib_hollow|hollow_sinew,hollow_cave,hollow_ribs,hollow_coral,hollow_roots,hollow_hive,hollow_throat,hollow_neuron,hollow_bone,hollow_shell
+picker|silk|silk_web,silk_bloom,silk_weave,silk_shell,silk_spiral,silk_fold,silk_hyper,silk_resonance,silk_curl,silk_pendulum
+picker|life|life_orbium,life_gyre,life_helix,life_pulsar,life_hydro,life_bug,life_mitosis,life_coral,life_labyrinth,life_worms
+picker|mycelium|myco_polycephalum,myco_rivals,myco_symbiosis,myco_predator,myco_ghosts,myco_circuit,myco_silkroad,myco_sporestorm,myco_capillary,myco_frostvein
+picker|morphing|acid_tv,acid_well,acid_kaleid,acid_droste,acid_prism,acid_mosh,acid_scan,acid_solar,acid_mirror,acid_smear
+picker|shaders|julia,tunnel,mandel,kaleido,plasma,bars,ring,scope,liss,warp,grid,voronoi,metaballs,ripples,starfield,waves,hexgrid,spiral,aurora,solar,winter,lava,vanishing,morphogen,nebula,noneuclid,kifs,orb_lattice,rod_tunnel,neon_tiles,chroma_orb,mandala_dome,bead_vortex,merkaba_grid,spiral_eye,blacklight_bloom,fractal_temple,curl_bloom,nectar_flow,crystal_canyon,neon_city,particle_tunnel,chrome_nebula,fractal_dive,aurora_ocean,spectrum_terrain,outrun_drive,menger_core,gyroid_cavern,ringed_planet,jelly_abyss,ribbon_storm,prism_rain,supershape,fractal_tunnel,glow_vortex,neon_chrome_sea,black_hole,hex_hive,mandelbox_cathedral,morph_world
+picker|arbor|arbor_grove,arbor_willow,arbor_coral,arbor_frost,arbor_bolt,arbor_roots,arbor_bonsai,arbor_canopy,arbor_rosette,arbor_spire,arbor_synapse,arbor_sakura
+picker|bulb|bulb_classic,bulb_julia,bulb_slice,bulb_lotus,bulb_ink,bulb_glow,bulb_cavern,bulb_shell,bulb_prism,bulb_contour,bulb_chrome,bulb_hybrid
+picker|chrysanthemum|chrys_bloom,chrys_phyllo,chrys_dahlia,chrys_lotus,chrys_meadow,chrys_corolla,chrys_glass,chrys_ink,chrys_neon,chrys_fall,chrys_kaleido,chrys_tunnel
+picker|lucid|lucid_weave,lucid_mandala,lucid_spiral,lucid_tunnel,lucid_disc,lucid_hive,lucid_ink,lucid_mirror,lucid_bulge,lucid_petal,lucid_lattice,lucid_vortex
+picker|dive|dive_lattice,dive_jewel,dive_mushroom,dive_gyro,dive_mandala,dive_serpent,dive_helix,dive_accordion,dive_orbit,dive_neon,dive_cycle,dive_show
+picker|glass|glass_orb,glass_pool,glass_prism,glass_lens,glass_drops,glass_bubbles,glass_marble,glass_caustic,glass_cubes,glass_gem,glass_ice,glass_knot
+picker|nebula|nebula_dust,nebula_spiral,nebula_ring,nebula_veil,nebula_pulsar,nebula_cluster,nebula_nova,nebula_horizon,nebula_pillars,nebula_flight,nebula_storm,nebula_web
+picker|terrain|terra_ridge,terra_dunes,terra_canyon,terra_glacier,terra_isles,terra_mesa,terra_volcano,terra_terraces,terra_moon,terra_night,terra_topo,terra_wire
+picker|truchet|truchet_arcs,truchet_hex,truchet_weave,truchet_maze,truchet_tri,truchet_quad,truchet_tubes,truchet_neon,truchet_flow,truchet_knot,truchet_tunnel,truchet_relief
+picker|foam|foam_fall,foam_neon,foam_soap,foam_chrome,foam_ember,foam_ice,foam_orb,foam_kaleido,foam_ink,foam_coral,foam_ghost,foam_show
+picker|flame|flame_veil,flame_spiral,flame_orb,flame_star,flame_lotus,flame_helix,flame_knot,flame_web,flame_aurora,flame_nova
+picker|opal|opal_bubbles,opal_nautilus,opal_melt,opal_domes,opal_pearls,opal_lava,opal_ribbon,opal_cells,opal_rings,opal_drop
+picker|hollow|hollow_sinew,hollow_cave,hollow_ribs,hollow_coral,hollow_roots,hollow_hive,hollow_throat,hollow_neuron,hollow_bone,hollow_shell
+picker|milkdrop|milkdrop
+picker|fluid|fluid,fluid_ink,fluid_oilslick,fluid_neon,fluid_chrome,fluid_smoke,fluid_lava,fluid_marble,fluid_aurora,curlflow,water
+picker|cymatics|cymatics,chladni_sand,bessel_drum,harmonograph,faraday,harmonic_shell,caustic_sheet,levitator,standing_chamber,rosensweig,kundt_tube
 override|chladni_sand|Geometry|1
 override|bessel_drum|Geometry|0
 override|faraday|Geometry|0
@@ -272,47 +326,56 @@ override|standing_chamber|Geometry|1
 override|rosensweig|Geometry|0
 override|kundt_tube|Geometry|1
 key|Speed|SCENE_CLOCK
-key|Audio drive|AUDIO_DRIVE
-key|Bass gain|BASS_BAND
-key|Mid gain|MID_BAND
-key|Treble gain|TREBLE_BAND
-key|Detail|MARCH_DETAIL
-key|Morph|SHADER_LOOK
-key|Colour map|SHADER_LOOK
-key|Palette 2|SHADER_LOOK
-key|Palette blend|SHADER_LOOK
-key|Duotone|SHADER_LOOK
 key|Endless zoom|ENDLESS_ZOOM
 key|Dive speed|ENDLESS_ZOOM
-key|Ring spacing|ENDLESS_ZOOM
-key|Tunnel shape|ENDLESS_ZOOM
-key|Dive blend|ENDLESS_ZOOM
-key|Depth fade|ENDLESS_ZOOM
-key|Dive twist|ENDLESS_ZOOM
-key|Dive aim X|ENDLESS_ZOOM
-key|Dive aim Y|ENDLESS_ZOOM
-key|Dive lens|ENDLESS_ZOOM
-key|Music follow|ENDLESS_ZOOM
+key|Audio drive|AUDIO_DRIVE
 key|Turbulence|TURBULENCE
 key|Density|DYE_DENSITY
+key|Detail|MARCH_DETAIL
 key|Trails|TRAIL_TOGGLE
 key|Trail length|TRAIL_LENGTH
 key|Trail zoom (echo in/out)|TRAIL_ECHO
 key|Trail warp (liquid echo)|TRAIL_ECHO
+key|Morph|SHADER_LOOK
 key|Particle shape|PARTICLE_SPRITE
 key|Particle size|PARTICLE_SPRITE
-key|Particle life (s)|PARTICLE_SPRITE
-key|Particle drag|PARTICLE_SPRITE
+key|Palette 2|SHADER_LOOK
+key|Palette blend|SHADER_LOOK
+key|Colour map|SHADER_LOOK
 key|MilkDrop palette tint|MILKDROP
 key|Blend preset changes|MILKDROP
+key|Duotone|SHADER_LOOK
+key|Bass gain|BASS_BAND
+key|Mid gain|MID_BAND
+key|Treble gain|TREBLE_BAND
+key|Fluid quality|EMITTERS
+key|Lower the quality when the phone struggles|EMITTERS
 key|Solver iterations|FLUID_SIM
 key|Pressure|FLUID_SIM
 key|Fluid curl|FLUID_SIM
 key|Motion fade|FLUID_SIM
 key|Fluid fade|FLUID_SIM
 key|Chromatic aging|FLUID_SIM
+key|Fluid splat radius|EMITTERS
+key|Fluid splat force|EMITTERS
+key|Hit pattern|EMITTERS
+key|Hit splats|EMITTERS
+key|Stirrers|EMITTERS
+key|Stirrer speed|EMITTERS
+key|Bass pump|EMITTERS
 key|Palette cycle|FLUID_SIM
+key|Treble sparkle|EMITTERS
+key|Path|JOURNEY
+key|Spawn points|JOURNEY
+key|Progression|JOURNEY
+key|Catch points|JOURNEY
+key|Catch pull|JOURNEY
+key|Catch radius|JOURNEY
+key|Particle layer|FLUID_SIM
+key|Particle life (s)|PARTICLE_SPRITE
+key|Particle drag|PARTICLE_SPRITE
 key|Particle brightness|FLUID_SIM
+key|Ink layer|FLUID_SIM
 key|Shading (embossed ink)|FLUID_SIM
 key|Glow (fluid)|FLUID_SIM
 key|Fluid glow|FLUID_SIM
@@ -322,20 +385,7 @@ key|Sunrays weight|FLUID_SIM
 key|Curl from mids|FLUID_SIM
 key|Glow from loudness|FLUID_SIM
 key|Fade when quiet|FLUID_SIM
-key|Hit pattern|EMITTERS
-key|Hit splats|EMITTERS
-key|Stirrers|EMITTERS
-key|Stirrer speed|EMITTERS
-key|Fluid splat radius|EMITTERS
-key|Fluid splat force|EMITTERS
-key|Bass pump|EMITTERS
-key|Treble sparkle|EMITTERS
 key|Radius on hit|EMITTERS
-key|Path|JOURNEY
-key|Spawn points|JOURNEY
-key|Catch points|JOURNEY
-key|Catch pull|JOURNEY
-key|Catch radius|JOURNEY
 key|Flow force|FLOW_FIELD_SIM
 key|Flow curl|FLOW_FIELD_SIM
 key|Ripple strength|WATER
@@ -345,21 +395,31 @@ key|Flow drift|WATER
 key|Liquid|WATER
 key|Liquid flow|WATER
 key|Liquid fade|WATER
-key|Ripple overlay strength|RIPPLE_OVERLAY
-key|Ripple glint|RIPPLE_OVERLAY
 key|Geometry|CYMATICS
 key|Fundamental (Hz)|CYMATICS
 key|Standing waves|CYMATICS
-key|Tonal focus|CYMATICS
 key|Plate ring|CYMATICS
+key|Tonal focus|CYMATICS
 key|Field scale|CYMATICS
-key|Wave flow|CYMATICS
-key|Field swirl|CYMATICS
 key|Fill|CYMATICS
 key|Nodal lines|CYMATICS
 key|Nodal glow|CYMATICS
 key|Iridescence|CYMATICS
 key|Caustic sheen|CYMATICS
+key|Wave flow|CYMATICS
+key|Field swirl|CYMATICS
+key|Water ripples on|RIPPLE_OVERLAY
+key|Ripple overlay strength|RIPPLE_OVERLAY
+key|Ripple glint|RIPPLE_OVERLAY
+key|Ring spacing|ENDLESS_ZOOM
+key|Dive twist|ENDLESS_ZOOM
+key|Dive aim X|ENDLESS_ZOOM
+key|Dive aim Y|ENDLESS_ZOOM
+key|Tunnel shape|ENDLESS_ZOOM
+key|Dive blend|ENDLESS_ZOOM
+key|Depth fade|ENDLESS_ZOOM
+key|Dive lens|ENDLESS_ZOOM
+key|Music follow|ENDLESS_ZOOM
 range|Detail|0.25|1.5
 range|Fundamental (Hz)|40|440
 range|Standing waves|1|8

@@ -2,14 +2,20 @@ package dev.geode.data
 
 import android.content.Context
 import dev.geode.render.scene.SceneParams
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/**
+ * A saved palette: your colours ([stops], packed 0xRRGGBB, at most [MAX_STOPS]), or, for one saved
+ * before the colour picker, only a hue gradient ([baseHue], [hueSpan]) with no stops.
+ */
 data class CustomPalette(
     val id: String,
     val name: String,
     val baseHue: Float,
     val hueSpan: Float,
+    val stops: List<Int> = emptyList(),
 )
 
 class PaletteStore(
@@ -57,7 +63,8 @@ class PaletteStore(
     }
 
     companion object {
-        const val PREVIEW_STOPS: Int = 9
+        const val MAX_STOPS: Int = 5
+        private const val WHITE = 0xFFFFFF
 
         fun idFor(name: String): String = sanitize(name)
 
@@ -66,6 +73,11 @@ class PaletteStore(
             baseHue: Float,
             hueSpan: Float,
         ): CustomPalette = sanitized(CustomPalette(idFor(name), name, baseHue, hueSpan))
+
+        fun create(
+            name: String,
+            stops: List<Int>,
+        ): CustomPalette = sanitized(CustomPalette(idFor(name), name, 0f, 0f, stops))
 
         fun applyGradient(
             p: SceneParams,
@@ -79,15 +91,28 @@ class PaletteStore(
             return if (second) {
                 p.copy(palette2BaseOverride = base, palette2RangeOverride = span, customPalette2Id = id)
             } else {
-                p.copy(paletteBaseOverride = base, paletteRangeOverride = span, customPaletteId = id)
+                p.withPaletteStops(emptyList()).copy(paletteBaseOverride = base, paletteRangeOverride = span, customPaletteId = id)
             }
         }
 
+        /** A saved palette on a slot. Your colours fit the first slot only; on the second a palette with stops is its gradient. */
         fun applyPalette(
             p: SceneParams,
             palette: CustomPalette,
             second: Boolean = false,
-        ): SceneParams = applyGradient(p, palette.baseHue, palette.hueSpan, palette.id, second)
+        ): SceneParams =
+            if (palette.stops.isNotEmpty() && !second) {
+                applyStops(p, palette.stops, palette.id)
+            } else {
+                applyGradient(clear(p, second), palette.baseHue, palette.hueSpan, palette.id, second)
+            }
+
+        /** Your colours on the first slot, the hue overrides off; [id] names the saved palette they came from, if any. */
+        fun applyStops(
+            p: SceneParams,
+            stops: List<Int>,
+            id: String = SceneParams.NO_CUSTOM_PALETTE,
+        ): SceneParams = clear(p).withPaletteStops(stops.take(MAX_STOPS)).copy(customPaletteId = id)
 
         fun clear(
             p: SceneParams,
@@ -105,38 +130,6 @@ class PaletteStore(
             return out
         }
 
-        fun sampleHue(
-            baseHue: Float,
-            hueSpan: Float,
-            index: Int,
-            stops: Int = PREVIEW_STOPS,
-        ): Float {
-            val t = if (stops <= 1) 0f else index.toFloat() / (stops - 1).toFloat()
-            val h = baseHue + hueSpan * t
-            return ((h % 1f) + 1f) % 1f
-        }
-
-        fun hueRgb(
-            hue: Float,
-            saturation: Float = 0.85f,
-            value: Float = 1f,
-        ): Triple<Float, Float, Float> {
-            val h = (((hue % 1f) + 1f) % 1f) * 6f
-            val sector = h.toInt() % 6
-            val f = h - h.toInt()
-            val lo = value * (1f - saturation)
-            val fall = value * (1f - saturation * f)
-            val rise = value * (1f - saturation * (1f - f))
-            return when (sector) {
-                0 -> Triple(value, rise, lo)
-                1 -> Triple(fall, value, lo)
-                2 -> Triple(lo, value, rise)
-                3 -> Triple(lo, fall, value)
-                4 -> Triple(rise, lo, value)
-                else -> Triple(value, lo, fall)
-            }
-        }
-
         internal fun sanitize(name: String): String =
             PresetStore
                 .safeFileName(name)
@@ -149,6 +142,7 @@ class PaletteStore(
                 name = c.name.trim().ifEmpty { "Palette" },
                 baseHue = c.baseHue.coerceIn(0f, 1f),
                 hueSpan = c.hueSpan.coerceIn(0f, 1f),
+                stops = c.stops.filter { it in 0..WHITE }.take(MAX_STOPS),
             )
 
         internal fun toJson(c: CustomPalette): String =
@@ -157,6 +151,7 @@ class PaletteStore(
                 .put("name", c.name)
                 .put("baseHue", c.baseHue.toDouble())
                 .put("hueSpan", c.hueSpan.toDouble())
+                .put("stops", JSONArray(c.stops))
                 .toString(2)
 
         internal fun fromJson(json: String): CustomPalette {
@@ -167,6 +162,14 @@ class PaletteStore(
                 name = name,
                 baseHue = o.optDouble("baseHue", 0.0).toFloat().coerceIn(0f, 1f),
                 hueSpan = o.optDouble("hueSpan", 1.0).toFloat().coerceIn(0f, 1f),
+                stops =
+                    o
+                        .optJSONArray("stops")
+                        ?.let { a ->
+                            List(a.length()) { a.optInt(it, -1) }
+                        }.orEmpty()
+                        .filter { it in 0..WHITE }
+                        .take(MAX_STOPS),
             )
         }
     }

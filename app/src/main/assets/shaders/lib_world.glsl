@@ -42,11 +42,11 @@
 // however far it morphs, traps the camera in matter. core/tests/world_genome_test checks that on
 // a CPU port of this exact function (WorldGenome.cpp, sdf()); keep the two in step.
 //
-// THREE WAYS TO SEE IT, all over the same world(): worldSurface() sphere-traces a hard surface
-// (normals, light, trap occlusion, fog); worldGlow() marches through the surfaces on |d| with a
-// minimum step and gathers light near them (translucent glowing plates); worldDensity() gathers a
-// thin iso-band around the surfaces as glowing sheets. The style blends them by the genome's
-// mode weights and skips a mode whose weight is nil, so a steady world pays for one march.
+// THREE WAYS TO SEE IT, all over the same world() (worldRender()): a sphere-traced hard surface
+// (normals, light, trap occlusion, fog); a glow-through march on |d| with a minimum step that
+// gathers light near the surfaces (translucent glowing plates); a density that gathers a thin
+// iso-band around the surfaces as glowing sheets. They are blended by the genome's mode weights,
+// a mode whose weight is nil is skipped, and all of them run in one loop around one world() call.
 //
 // THE CAMERA'S FEEL (worldCamera()): the eye is the shared rig's, but each world banks and
 // focuses its own way: WG_ROLL_ANGLE turns the view about its forward axis (a slow barrel roll,
@@ -167,6 +167,15 @@ uniform vec4 uWorld[24];
 #define WG_GAZE_Y uWorld[23].w
 
 /**
+ * The optional parts compiled in (MorphDriver::parts(), ShaderScene builds the style with them): bit i
+ * the primitive WG_P_* number i in uWorld order (1 the box ... 32768 the KIFS), 65536 the landscape.
+ * A part left out has no weight in the world now or the one it glides to. Without it, every part.
+ */
+#ifndef WG_PARTS
+#define WG_PARTS 131071
+#endif
+
+/**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): twenty-four models as signed
  * distance volumes, one 32^3 tile each in a 6 x 4 atlas side by side in x and y (192 x 128 x 32, R8,
  * linear, clamped; ShaderScene repacks the file's z-stacked slabs at upload so no side passes the
@@ -229,6 +238,20 @@ vec2 wRot(vec2 v, float a) {
     float c = cos(a);
     float s = sin(a);
     return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+/** v turned by the angle whose cos and sin are cs. */
+vec2 wTurn(vec2 v, vec2 cs) { return vec2(cs.x * v.x - cs.y * v.y, cs.y * v.x + cs.x * v.y); }
+
+/** The cos and sin of the genome's fixed turns: once per pixel (worldPrepare()), not in every world() call. */
+vec2 gWIfsA;
+vec2 gWIfsB;
+vec2 gWTilt;
+vec2 gWYaw;
+void worldPrepare() {
+    gWIfsA = vec2(cos(WG_IFS_ANG_A), sin(WG_IFS_ANG_A));
+    gWIfsB = vec2(cos(WG_IFS_ANG_B), sin(WG_IFS_ANG_B));
+    gWTilt = vec2(cos(WG_LATTICE_TILT), sin(WG_LATTICE_TILT));
+    gWYaw = vec2(cos(WG_LATTICE_YAW), sin(WG_LATTICE_YAW));
 }
 
 float wBox(vec3 q, float b) {
@@ -450,22 +473,54 @@ float wPrims(vec3 q) {
     float t = WG_PRIM_THICK;
     vec3 a = abs(q);
     float d = 0.0;
+#if (WG_PARTS & 1) != 0
     if (WG_P_BOX > 0.0) d += WG_P_BOX * (wBox(q, s * 0.6) - t * 0.3);
+#endif
+#if (WG_PARTS & 2) != 0
     if (WG_P_BAR > 0.0) d += WG_P_BAR * (min(max(a.x, a.y), min(max(a.y, a.z), max(a.z, a.x))) - t);
+#endif
+#if (WG_PARTS & 4) != 0
     if (WG_P_TUBE > 0.0) d += WG_P_TUBE * (abs(length(q.xy) - s) - t);
+#endif
+#if (WG_PARTS & 8) != 0
     if (WG_P_TORUS > 0.0) d += WG_P_TORUS * (length(vec2(length(q.xy) - s, q.z)) - t);
+#endif
+#if (WG_PARTS & 16) != 0
     if (WG_P_SHELL > 0.0) d += WG_P_SHELL * (abs(length(q) - s) - t);
+#endif
+#if (WG_PARTS & 32) != 0
     if (WG_P_SLAB > 0.0) d += WG_P_SLAB * (a.y - t);
+#endif
+#if (WG_PARTS & 64) != 0
     if (WG_P_MESH > 0.0) d += WG_P_MESH * wMesh(q);
+#endif
+#if (WG_PARTS & 128) != 0
     if (WG_P_GYROID > 0.0) d += WG_P_GYROID * wGyroid(q, WG_GYRO_SCALE, t);
+#endif
+#if (WG_PARTS & 256) != 0
     if (WG_P_MENGER > 0.0) d += WG_P_MENGER * wMenger(q, s);
+#endif
+#if (WG_PARTS & 512) != 0
     if (WG_P_BULB > 0.0) d += WG_P_BULB * wBulb(q, s, WG_BULB_POWER);
+#endif
+#if (WG_PARTS & 1024) != 0
     if (WG_P_MANDELBOX > 0.0) d += WG_P_MANDELBOX * wMandelbox(q, s, WG_BOX_SCALE);
+#endif
+#if (WG_PARTS & 2048) != 0
     if (WG_P_SIERP > 0.0) d += WG_P_SIERP * wSierp(q, s);
+#endif
+#if (WG_PARTS & 4096) != 0
     if (WG_P_APOLLO > 0.0) d += WG_P_APOLLO * wApollo(q, s);
+#endif
+#if (WG_PARTS & 8192) != 0
     if (WG_P_JULIA > 0.0) d += WG_P_JULIA * wJulia(q, s, vec4(WG_JULIA_CX, WG_JULIA_CY, WG_JULIA_CZ, WG_JULIA_CW));
+#endif
+#if (WG_PARTS & 16384) != 0
     if (WG_P_KLEIN > 0.0) d += WG_P_KLEIN * wKlein(q, s, WG_KLEIN_BOX, t);
+#endif
+#if (WG_PARTS & 32768) != 0
     if (WG_P_KIFS > 0.0) d += WG_P_KIFS * wKifs(q, s, WG_KIFS_SCALE);
+#endif
     return d;
 }
 
@@ -618,8 +673,8 @@ float world(vec3 p) {
         // period, so the tipped lattice fills the whole slab instead of a band; everything here
         // reads only the folded z, so the travel axis' repeat above stays periodic. The corridor
         // is carved in unrotated eye space (worldCarved()), so the way stays open.
-        w.yz = wRot(w.yz, WG_LATTICE_TILT);
-        w.zx = wRot(w.zx, WG_LATTICE_YAW);
+        w.yz = wTurn(w.yz, gWTilt);
+        w.zx = wTurn(w.zx, gWYaw);
         w.z = wCell(w.z, pz);
     }
     float sxy = WG_CELL_XY / max(WG_REP_XY, 0.08);
@@ -640,8 +695,8 @@ float world(vec3 p) {
         float f = WG_IFS * clamp(steps - float(i), 0.0, 1.0);
         if (f <= 0.0) break;
         vec3 r = abs(q);
-        r.xy = wRot(r.xy, WG_IFS_ANG_A);
-        r.yz = wRot(r.yz, WG_IFS_ANG_B);
+        r.xy = wTurn(r.xy, gWIfsA);
+        r.yz = wTurn(r.yz, gWIfsB);
         r = r * sc - off * (sc - 1.0);
         q = mix(q, r, f);
         k *= 1.0 + f * (sc - 1.0);
@@ -664,7 +719,9 @@ float world(vec3 p) {
         gWFloor = WG_FLOOR * (1.0 - h);
         d = mix(d, wSmin(d, fd, WG_FLOOR_BLEND), WG_FLOOR);
     }
+#if (WG_PARTS & 65536) != 0
     if (WG_TERRAIN > 0.0) d = wWithTerrain(p, d);
+#endif
     return d;
 }
 
@@ -715,13 +772,6 @@ float worldDetailFlat(vec3 p) {
 /** How far the eye sees: the fog's visibility, capped so a march ends. */
 float worldFar() { return min(4.0 / max(WG_FOG, 0.015), 70.0); }
 
-vec3 worldNormal(vec3 p, float t) {
-    float e = 0.0015 * (1.0 + t);
-    vec2 h = vec2(1.0, -1.0);
-    return normalize(h.xyy * worldCarved(p + h.xyy * e) + h.yyx * worldCarved(p + h.yyx * e)
-                     + h.yxy * worldCarved(p + h.yxy * e) + h.xxx * worldCarved(p + h.xxx * e));
-}
-
 /**
  * The air's colour along rd: what an escaped ray shows and what the fog fades toward. A dark tint
  * of the world's own palette, crossfaded by WG_SKY into the sky's gradient (brightest at the
@@ -741,120 +791,197 @@ vec3 worldFogColour(vec3 rd) {
     return col;
 }
 
-/**
- * What the glossy ground mirrors: a short sphere trace along the reflected ray r from p, the
- * world's colour where it lands (lit flat, fogged), else the air. `budget` steps, at most 24.
- */
-vec3 worldMirror(vec3 p, vec3 r, float budget) {
-    float far = worldFar();
-    float t = 0.08;
-    for (int i = 0; i < 24; i++) {
-        if (float(i) >= budget) break;
-        float d = worldCarved(p + r * t);
-        if (d < 0.004 * (1.0 + t)) {
-            vec3 c = pal(worldHue(gWTrap)) * (0.2 + 0.4 * WG_EMISSION);
-            return mix(c, worldFogColour(r), 1.0 - exp(-t * WG_FOG));
-        }
-        t += d * 0.85;
-        if (t > far) break;
-    }
-    return worldFogColour(r);
+/** Where worldRender() is: a mode's march, the hit's four normal taps, or the glossy ground's mirror. */
+#define WR_SURFACE 0
+#define WR_NORMAL 1
+#define WR_MIRROR 2
+#define WR_GLOW 3
+#define WR_DENSITY 4
+#define WR_DONE 5
+/** The most evaluations one pixel can take: the surface march, 4 taps, the mirror, the glow and the density. */
+#define WR_MAX_STEPS 252
+
+/** The first mode at or after `from` that has weight, else WR_DONE. */
+int worldNextMode(int from, float wS, float wG, float wD) {
+    if (from <= WR_SURFACE && wS > 0.01) return WR_SURFACE;
+    if (from <= WR_GLOW && wG > 0.01) return WR_GLOW;
+    if (from <= WR_DENSITY && wD > 0.01) return WR_DENSITY;
+    return WR_DONE;
 }
 
 /**
- * The hard surface: sphere-traced to a hit, lit by a light that rides above the eye, a rim and an
- * edge glow, occluded by the trap and the step count, fogged. `budget` is the step budget.
+ * The world seen three ways, crossfaded by the genome's mode weights (a weight under 0.01 is not
+ * marched, the rest are rescaled so the skip never dims the frame):
+ *
+ * - the hard surface: sphere-traced to a hit (`budget` steps), lit by a light that rides above the
+ *   eye, a rim and an edge glow, occluded by the trap and the step count, fogged; a glossy ground
+ *   mirrors the world along the reflected ray (a short trace, a quarter of the budget, at most 24);
+ * - glow-through: marched on |d| with a minimum step, so the ray passes through matter and gathers
+ *   light from every surface it nears (translucent glowing plates), half the budget, at most 56;
+ * - emissive density: a thin band about the iso-surface (WG_DENS_BAND wide) as glowing sheets,
+ *   emission-absorption at even steps from a jittered start, 0.35 of the budget, at most 40.
+ *
+ * All of it is one loop around one worldCarved() call: each pass evaluates the world once, where
+ * the stage it is in asks, then the stage steps or hands over. A GPU compiler inlines world() at every
+ * call site, and world() is the whole chain and sixteen primitives: nine call sites (three marches,
+ * four normal taps, the hit's trap, the mirror) made a shader ten times the size of any other style's.
  */
-vec3 worldSurface(vec3 ro, vec3 rd, float budget) {
+vec3 worldRender(vec3 ro, vec3 rd, float budget, float jitter) {
+    float wS = WG_M_SURFACE;
+    float wG = WG_M_GLOW;
+    float wD = WG_M_DENSITY;
     float far = worldFar();
-    float t = 0.05;
-    bool hit = false;
-    float used = 0.0;
-    for (int i = 0; i < 128; i++) {
-        if (float(i) >= budget) break;
-        float d = worldCarved(ro + rd * t);
-        used = float(i);
-        if (d < 0.0012 * (1.0 + t)) {
-            hit = true;
-            break;
-        }
-        t += d * 0.75;
-        if (t > far) break;
-    }
     vec3 fogCol = worldFogColour(rd);
-    if (!hit) return fogCol;
-    vec3 p = ro + rd * t;
-    vec3 n = worldNormal(p, t);
-    world(p);
-    vec4 trap = gWTrap;
-    float ground = gWFloor;
-    float detail = worldDetail(p, n);
-    vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
-    // The ground takes the world's palette, darker, so the structures stand on it, not in it.
-    base *= 1.0 - 0.45 * ground;
-    float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
-    vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
-    float diff = max(dot(n, l), 0.0);
-    float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
-    float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
-    // The far ground is seen at a grazing angle, where the rim would light all of it: damp it there.
-    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern * (1.0 - 0.7 * ground);
-    float spec = pow(max(dot(reflect(rd, n), l), 0.0), 24.0);
-    col += vec3(spec) * 0.25 * occ;
-    float gloss = ground * WG_FLOOR_GLOSS;
-    if (gloss > 0.02) {
-        // A glossy ground: Schlick's fresnel weighs what it mirrors, more at grazing angles.
-        vec3 r = reflect(rd, n);
-        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
-        col = mix(col, worldMirror(p + n * 0.01, r, budget * 0.25), gloss * (0.25 + 0.75 * fres));
-    }
-    return mix(col, fogCol, 1.0 - exp(-t * WG_FOG));
-}
+    vec3 col = vec3(0.0);
 
-/**
- * Glow-through: marched on |d| with a minimum step, so the ray passes through matter and gathers
- * light from every surface it nears: translucent glowing plates. `budget` steps.
- */
-vec3 worldGlow(vec3 ro, vec3 rd, float budget, float jitter) {
-    float far = worldFar() * 0.8;
-    float t = 0.1 + 0.15 * jitter;
-    vec3 acc = vec3(0.0);
-    for (int i = 0; i < 64; i++) {
-        if (float(i) >= budget) break;
-        vec3 p = ro + rd * t;
-        float d = abs(worldCarved(p));
-        float stepLen = max(d * 0.6, 0.06 + t * 0.012);
-        float pattern = WG_TEX_EMIT > 0.01 ? mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT) : 1.0;
-        acc += pal(worldHue(gWTrap)) * exp(-d * 9.0) * stepLen * exp(-t * WG_FOG) * pattern;
-        t += stepLen;
-        if (t > far) break;
-    }
-    return acc * 0.6 * WG_EMISSION + worldFogColour(rd);
-}
-
-/**
- * Emissive density: a thin band about the iso-surface (WG_DENS_BAND wide) as glowing sheets,
- * emission-absorption at even steps from a jittered start. `budget` steps.
- */
-vec3 worldDensity(vec3 ro, vec3 rd, float budget, float jitter) {
-    float far = worldFar() * 0.6;
-    float n = max(budget, 8.0);
-    float dt = far / n;
-    float t = 0.1 + dt * jitter;
+    int mode = worldNextMode(WR_SURFACE, wS, wG, wD);
+    int i = 0;          // the stage's step
+    float t = 0.0;      // the stage's distance along its ray
+    vec3 o = ro;        // the stage's ray
+    vec3 dir = rd;
+    // The surface: its hit, its normal, its colour before the mirror.
+    float tHit = 0.0;
+    float used = 0.0;
+    vec3 n = vec3(0.0);
+    vec3 surf = vec3(0.0);
+    vec4 trap = vec4(0.0);
+    float ground = 0.0;
+    float mix_ = 0.0;
+    // The volume modes.
+    float stepCap = 0.0;
+    float dt = 0.0;
     float trans = 1.0;
     vec3 acc = vec3(0.0);
-    float band = WG_DENS_BAND;
-    for (int i = 0; i < 48; i++) {
-        if (float(i) >= n) break;
-        vec3 p = ro + rd * t;
+    vec2 h = vec2(1.0, -1.0);
+    bool enter = true;
+    worldPrepare();
+
+    for (int k = 0; k < WR_MAX_STEPS; k++) {
+        if (mode == WR_DONE) break;
+        if (enter) {
+            // A mode's march starts on the eye's ray (the volumes from a jittered start).
+            enter = false;
+            o = ro;
+            dir = rd;
+            i = 0;
+            acc = vec3(0.0);
+            if (mode == WR_SURFACE) {
+                t = 0.05;
+            } else if (mode == WR_GLOW) {
+                t = 0.1 + 0.15 * jitter;
+            } else {
+                stepCap = max(min(budget * 0.35, 40.0), 8.0);
+                dt = far * 0.6 / stepCap;
+                t = 0.1 + dt * jitter;
+                trans = 1.0;
+            }
+        }
+        vec3 p = o + dir * t;
         float d = worldCarved(p);
-        float dens = exp(-(d * d) / (band * band)) * (0.6 + 0.6 * clamp(1.0 - sqrt(gWTrap.w) * 0.3, 0.0, 1.0));
-        if (WG_TEX_EMIT > 0.01) dens *= mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT);
-        float a = 1.0 - exp(-dens * dt * 1.4);
-        acc += trans * a * pal(worldHue(gWTrap)) * exp(-t * WG_FOG * 0.5);
-        trans *= 1.0 - a * 0.5;
-        t += dt;
-        if (trans < 0.03) break;
+        int next = mode;
+
+        if (mode == WR_SURFACE) {
+            used = float(i);
+            if (d < 0.0012 * (1.0 + t)) {
+                // A hit: keep what world() said here (the trap, the ground), then take the normal.
+                tHit = t;
+                trap = gWTrap;
+                ground = gWFloor;
+                o = p;
+                next = WR_NORMAL;
+            } else {
+                t += d * 0.75;
+                i++;
+                if (t > far || float(i) >= min(budget, 128.0)) {
+                    col += wS * fogCol;
+                    next = worldNextMode(WR_GLOW, wS, wG, wD);
+                }
+            }
+            if (next == WR_NORMAL) {
+                i = 0;
+                n = vec3(0.0);
+                t = 0.0015 * (1.0 + tHit);
+                dir = h.xyy;
+            }
+        } else if (mode == WR_NORMAL) {
+            n += dir * d;
+            i++;
+            if (i < 4) {
+                dir = i == 1 ? h.yyx : (i == 2 ? h.yxy : h.xxx);
+            } else {
+                n = normalize(n);
+                vec3 hp = o;
+                float detail = worldDetail(hp, n);
+                vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
+                // The ground takes the world's palette, darker, so the structures stand on it, not in it.
+                base *= 1.0 - 0.45 * ground;
+                float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
+                vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
+                float diff = max(dot(n, l), 0.0);
+                float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+                float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
+                // The far ground is seen at a grazing angle, where the rim would light all of it: damp it there.
+                surf = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern * (1.0 - 0.7 * ground);
+                float spec = pow(max(dot(reflect(rd, n), l), 0.0), 24.0);
+                surf += vec3(spec) * 0.25 * occ;
+                float gloss = ground * WG_FLOOR_GLOSS;
+                if (gloss > 0.02) {
+                    // A glossy ground: Schlick's fresnel weighs what it mirrors, more at grazing angles.
+                    float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+                    mix_ = gloss * (0.25 + 0.75 * fres);
+                    o = hp + n * 0.01;
+                    dir = reflect(rd, n);
+                    t = 0.08;
+                    i = 0;
+                    next = WR_MIRROR;
+                } else {
+                    col += wS * mix(surf, fogCol, 1.0 - exp(-tHit * WG_FOG));
+                    next = worldNextMode(WR_GLOW, wS, wG, wD);
+                }
+            }
+        } else if (mode == WR_MIRROR) {
+            // What the glossy ground mirrors: the world's colour where the reflected ray lands (lit
+            // flat, fogged), else the air.
+            bool landed = d < 0.004 * (1.0 + t);
+            if (!landed) {
+                t += d * 0.85;
+                i++;
+            }
+            if (landed || t > far || float(i) >= min(budget * 0.25, 24.0)) {
+                vec3 seen = worldFogColour(dir);
+                if (landed) seen = mix(pal(worldHue(gWTrap)) * (0.2 + 0.4 * WG_EMISSION), seen, 1.0 - exp(-t * WG_FOG));
+                col += wS * mix(mix(surf, seen, mix_), fogCol, 1.0 - exp(-tHit * WG_FOG));
+                next = worldNextMode(WR_GLOW, wS, wG, wD);
+            }
+        } else if (mode == WR_GLOW) {
+            float ad = abs(d);
+            float stepLen = max(ad * 0.6, 0.06 + t * 0.012);
+            float pattern = WG_TEX_EMIT > 0.01 ? mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT) : 1.0;
+            acc += pal(worldHue(gWTrap)) * exp(-ad * 9.0) * stepLen * exp(-t * WG_FOG) * pattern;
+            t += stepLen;
+            i++;
+            if (t > far * 0.8 || float(i) >= min(budget * 0.5, 56.0)) {
+                col += wG * (acc * 0.6 * WG_EMISSION + fogCol);
+                next = worldNextMode(WR_DENSITY, wS, wG, wD);
+            }
+        } else {
+            float band = WG_DENS_BAND;
+            float dens = exp(-(d * d) / (band * band)) * (0.6 + 0.6 * clamp(1.0 - sqrt(gWTrap.w) * 0.3, 0.0, 1.0));
+            if (WG_TEX_EMIT > 0.01) dens *= mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT);
+            float a = 1.0 - exp(-dens * dt * 1.4);
+            acc += trans * a * pal(worldHue(gWTrap)) * exp(-t * WG_FOG * 0.5);
+            trans *= 1.0 - a * 0.5;
+            t += dt;
+            i++;
+            if (trans < 0.03 || float(i) >= stepCap) {
+                col += wD * (acc * 0.9 * WG_EMISSION + fogCol * trans);
+                next = WR_DONE;
+            }
+        }
+
+        enter = next != mode && next != WR_NORMAL && next != WR_MIRROR;
+        mode = next;
     }
-    return acc * 0.9 * WG_EMISSION + worldFogColour(rd) * trans;
+    float kept = (wS > 0.01 ? wS : 0.0) + (wG > 0.01 ? wG : 0.0) + (wD > 0.01 ? wD : 0.0);
+    return col / max(kept, 0.01);
 }

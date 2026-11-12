@@ -18,7 +18,7 @@ namespace geode::sound {
 //      (each band's log over its own mean still feeds the drum accents)
 //      onset envelope ─► minus its local mean ─► 6 s ring ─┬► normalised autocorrelation ─► period
 //                                                          └► Fourier at that period, whole bars ─► phase
-//      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat slot ─► downbeat
+//      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat ─► meter, downbeat
 //
 // The tempo comes from the music alone. No tempo is preferred, weighted or assumed: every lag in the
 // search range is scored by the same normalised autocorrelation, the beat is the fastest lag about as
@@ -90,7 +90,8 @@ private:
     void advance();
     void finishBeatAccent(int64_t beat);
     void snapPhase();
-    int slotOf(int64_t beat) const { return static_cast<int>(((beat % 4) + 4) % 4); }
+    void measureMeter(int64_t beat);
+    int slotOf(int64_t beat) const { return static_cast<int>(((beat % meter_) + meter_) % meter_); }
 
     int sampleRateHz_ = 48000;
     int hop_ = 480;
@@ -140,6 +141,14 @@ private:
     float snareMean_ = 0.0f;
     bool accentSeeded_ = false;
     std::array<float, 4> slotScore_{};
+    // Meter: each beat's accent (as slotScore_ adds it) over the last kMeterBeats, indexed by beat, and how
+    // much of their spread a pattern repeating every 3 or every 4 beats explains. The bar is 4 beats until
+    // the music shows 3, and changes only after a run of beats that all say so.
+    static constexpr int kMeterBeats = 24;  // whole bars of 3 and of 4
+    std::array<float, kMeterBeats> beatAccent_{};
+    int accentBeats_ = 0;  // consecutive beats in beatAccent_
+    int meter_ = 4;
+    int meterVotes_ = 0;
     int downSlot_ = 0;
     int pendingDownSlot_ = -1;
     int pendingVotes_ = 0;

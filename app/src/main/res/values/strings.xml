@@ -167,6 +167,10 @@
     <string name="notice_dismiss">Dismiss</string>
     <string name="notice_dismiss_description">Dismiss playback message</string>
 
+    <plurals name="library_short_hidden">
+        <item quantity="one">%1$d short track hidden · Settings</item>
+        <item quantity="other">%1$d short tracks hidden · Settings</item>
+    </plurals>
     <plurals name="track_count">
         <item quantity="one">%1$d track</item>
         <item quantity="other">%1$d tracks</item>
@@ -378,22 +382,7 @@
         <item quantity="other">%1$d clips</item>
     </plurals>
 
-    <string name="studio_brightness">Brightness</string>
-    <string name="studio_contrast">Contrast</string>
-    <string name="studio_saturation">Saturation</string>
-    <string name="studio_hue_shift">Hue shift</string>
-    <string name="studio_speed">Speed</string>
-    <string name="studio_rotate">Rotate</string>
-    <string name="studio_as_shot">As shot</string>
     <string name="studio_render">Render</string>
-
-    <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
-    <string name="studio_look_punch">Punch</string>
-    <string name="studio_look_bleach">Bleach</string>
-    <string name="studio_look_neon">Neon</string>
-    <string name="studio_look_night">Night</string>
-    <string name="studio_look_mono">Mono</string>
-    <string name="studio_look_invert">Invert</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>
@@ -422,6 +411,8 @@
     <string name="playback_bit_perfect">Bit-perfect USB output</string>
     <string name="playback_bit_perfect_explainer">Asks Android to hand the stream to a USB DAC untouched by the system mixer, at the track\'s own sample rate. Only DACs that offer that path take it; a track the DAC cannot take bit-perfect plays as usual. System sounds are muted on the DAC while it plays.</string>
     <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness, crossfeed and the limiter. The visuals still react.</string>
+    <string name="playback_picture_delay">Picture delay: %1$+d ms</string>
+    <string name="playback_picture_delay_explainer">If the visual runs ahead of or behind what you hear on a headset or car speaker, move this until the beats line up. Positive waits for the sound; negative shows the picture sooner.</string>
     <string name="playback_native_output">Native output (Oboe)</string>
     <string name="playback_native_output_explainer">Experimental. Plays through Oboe instead of Android\'s AudioTrack, and falls back automatically for anything it cannot play, such as surround files or bit-perfect USB.</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
@@ -641,7 +632,7 @@
     <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. BeatRealms leaves the level as it is.</string>
     <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. BeatRealms leaves the level as it is.</string>
 
-    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <!-- Export: failure messages. Shared by VideoExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
     <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
@@ -649,13 +640,6 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/BeatRealms.</string>
-    <string name="export_error_studio_start">The export could not be started.</string>
-    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
-    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
-    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">BeatRealms does not have permission to read that file.</string>
-    <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
     <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
@@ -694,6 +678,26 @@
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
     <string name="look_boot_animation">Boot animation</string>
+    <string name="look_accent_follows_visual">Accent follows the visual</string>
+    <string name="look_accent_follows_visual_hint">Off keeps the accent light blue whatever the visual shows.</string>
+    <string name="look_haptics">Vibrate on touch</string>
+    <string name="look_haptics_hint">Small taps you feel on buttons, tabs and gestures. Follows the system touch-feedback setting.</string>
+    <string name="look_tab_labels">Tab bar labels</string>
+    <string name="look_knob_size">Knob size</string>
+    <string name="look_knob_size_small">Small</string>
+    <string name="look_knob_size_medium">Medium</string>
+    <string name="look_knob_size_large">Large</string>
+    <string name="look_tab_labels_auto">Automatic</string>
+    <string name="look_tab_labels_always">Always</string>
+    <string name="look_tab_labels_selected">Selected tab only</string>
+    <string name="look_tab_labels_never">Icons only</string>
+    <string name="look_show_time_left">Show time left</string>
+    <string name="look_show_time_left_hint">The Player shows the time left in the track instead of its length.</string>
+    <string name="look_screen_rotation">Screen rotation</string>
+    <string name="look_screen_rotation_follow">Follow phone</string>
+    <string name="look_screen_rotation_portrait">Lock portrait</string>
+    <string name="look_screen_rotation_landscape">Lock landscape</string>
+    <string name="look_screen_rotation_hint">Locked, the app stays put while you move the phone. Tablets and unfolded phones always turn with the device.</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>
@@ -751,28 +755,8 @@
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
 
-    <!-- Studio clip preview. -->
-    <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
-    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
-    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
-    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
-    <string name="render_video_label">Rendering your video</string>
-    <plurals name="render_skip_overlay">
-        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
-        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
-    </plurals>
-    <plurals name="render_skip_no_song">
-        <item quantity="one">%1$d visual clip with no song under it</item>
-        <item quantity="other">%1$d visual clips with no song under them</item>
-    </plurals>
-    <plurals name="render_skip_past_song">
-        <item quantity="one">the end of %1$d visual clip, past its song</item>
-        <item quantity="other">the ends of %1$d visual clips, past their song</item>
-    </plurals>
-    <plurals name="render_skip_wrong_lane">
-        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
-        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
-    </plurals>
+    <!-- The one-tap Render: a part of the song too short to draw over. -->
+    <string name="editor_export_nothing">Nothing to render: the part of the song you chose is too short.</string>
 
     <!-- Shared verbs. One definition each, so a translator sees them once. -->
     <string name="action_save">Save</string>
@@ -810,6 +794,9 @@
     <string name="link_offer_replace_title">Replace template?</string>
     <string name="link_offer_replace_body">A link opened BeatRealms with another version of your template \"%1$s\". Importing replaces yours.</string>
     <string name="link_offer_untitled_template">Shared template</string>
+    <string name="link_offer_milk_title">Open MilkDrop preset?</string>
+    <string name="link_offer_milk_body">Another app opened BeatRealms with the MilkDrop preset \"%1$s\". Opening adds it to your MilkDrop presets and plays it.</string>
+    <string name="link_offer_open">Open</string>
     <string name="link_offer_import">Import</string>
     <string name="link_offer_replace">Replace</string>
     <string name="template_entry_point">Video templates</string>
@@ -832,18 +819,37 @@
     <string name="template_updated">Updated \"%1$s\".</string>
     <string name="template_share_subject">BeatRealms template: %1$s</string>
     <string name="template_untitled">Template</string>
-    <string name="palette_base_hue">Base hue %1$s</string>
-    <string name="palette_hue_span">Hue span %1$s</string>
-    <string name="palette_apply_gradient">Apply gradient</string>
-    <string name="palette_from_current">From current</string>
+    <!-- Your colours (Customize › Look): the colour picker, the eyedropper and saved palettes. -->
+    <string name="customize_your_colours">Your colours</string>
+    <string name="palette_explainer">Pick up to five colours: tap a swatch, then drag in the square and along the hue strip, type a hex code, or take a colour with the eyedropper. The visual loops through them as you go; Save keeps them beside the built-in palettes and in every preset you save.</string>
+    <string name="palette_stop">Colour %1$d of %2$d, %3$s</string>
+    <string name="palette_stop_add">Add a colour</string>
+    <string name="palette_stop_remove">Remove this colour</string>
+    <string name="palette_sv_square">Saturation and brightness</string>
+    <string name="palette_sv_state">Saturation %1$d%%, brightness %2$d%%</string>
+    <string name="palette_more_saturated">More saturated</string>
+    <string name="palette_less_saturated">Less saturated</string>
+    <string name="palette_brighter">Brighter</string>
+    <string name="palette_darker">Darker</string>
+    <string name="palette_hue_strip">Hue</string>
+    <string name="palette_hex_label">Hex</string>
+    <string name="palette_hex_invalid">Six hex digits, like #FF8800</string>
+    <string name="palette_pick_visual">Pick from the visual</string>
+    <string name="palette_pick_artwork">Pick from the artwork</string>
+    <string name="palette_pick_hint">Drag to the colour you want, then let go</string>
+    <string name="palette_pick_centre">Take the colour in the middle</string>
+    <string name="palette_pick_cancel">Cancel picking</string>
+    <string name="palette_pick_image">The picture to pick a colour from</string>
+    <string name="palette_from_current">Start from this palette</string>
     <string name="palette_name_label">Palette name</string>
     <string name="palette_save">Save palette</string>
-    <string name="palette_saved_heading">Saved palettes</string>
-    <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
+    <string name="palette_saved_heading">Your palettes</string>
+    <string name="palette_none_yet">None yet: make one above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
-    <!-- Palette maker and the palette taken from a track's artwork. -->
-    <string name="palette_explainer">Build a gradient: the base hue is where it starts, the span is how far around the colour wheel it sweeps (0 = one flat colour). Apply auditions it on the scene; Save adds it to the palette row above and to every preset you save afterwards.</string>
+    <string name="palette_second">Second palette</string>
+    <string name="palette_second_previous">Previous second palette</string>
+    <string name="palette_second_next">Next second palette</string>
     <string name="palette_art_nothing_playing">Nothing is playing.</string>
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>
@@ -854,7 +860,11 @@
     <!-- Live wallpaper options (wallpaper/*, ui/wallpaper/WallpaperOptionsActivity), opened from the system wallpaper picker. -->
     <string name="wallpaper_options_title">Wallpaper options</string>
     <string name="wallpaper_options_close">Close</string>
+    <string name="wallpaper_options_still_pro">Still frame: moving wallpaper is Pro</string>
+    <string name="wallpaper_options_still_motion">Still frame: Android\'s Remove animations is on</string>
+    <string name="wallpaper_options_still_saver">Still frame: battery saver is on</string>
     <string name="wallpaper_options_group_sound">Sound</string>
+    <string name="wallpaper_options_mix_refused">This phone doesn\'t share its sound with wallpapers. Play your music in BeatRealms, or turn on the mic there, and the wallpaper follows it.</string>
     <string name="wallpaper_options_other_apps">React to any app</string>
     <string name="wallpaper_options_other_apps_hint">Reacts to whatever your phone is playing, from any app. Android lists this under the microphone permission; the wallpaper only reads the sound your phone plays, and nothing is recorded or kept.</string>
     <string name="wallpaper_options_open_settings">Allow in Android settings</string>
@@ -1044,6 +1054,21 @@
     <string name="record_size_lowered">Recording stops there. A recording is about %1$s at most; the quality is lowered to keep one this long under 4 GB.</string>
     <string name="record_free_cap">In the trial a recording stops after a minute, with the watermark.</string>
     <string name="record_stopped_at_max">Recording stopped at the maximum length (%1$s) and was saved</string>
+    <string name="settings_group_preferences">Preferences</string>
+    <string name="settings_group_preferences_summary">Your watermark and other small choices</string>
+    <string name="watermark_hint_free">Where the BeatRealms watermark goes on your videos and recordings. Free and trial videos always carry it.</string>
+    <string name="watermark_hint_pro">Pro videos and recordings are clean. Add the BeatRealms watermark if you want them signed.</string>
+    <string name="watermark_pro_adds">Add the watermark</string>
+    <string name="watermark_placement">Watermark placement</string>
+    <string name="watermark_placement_tiled">Tiled across the frame</string>
+    <string name="watermark_placement_corner">Corner</string>
+    <string name="watermark_placement_end_card">End card</string>
+    <string name="watermark_corner">Corner</string>
+    <string name="watermark_corner_top_left">Top left</string>
+    <string name="watermark_corner_top_right">Top right</string>
+    <string name="watermark_corner_bottom_left">Bottom left</string>
+    <string name="watermark_corner_bottom_right">Bottom right</string>
+    <string name="watermark_end_card_hint">The end card fades in over the last seconds of a video. Loops, recordings and Studio projects of several scenes get the corner mark instead.</string>
     <string name="settings_group_help_about">Backup, help &amp; about</string>
     <string name="settings_group_help_about_summary">Back up your settings, replay the tour, how things work, licences</string>
     <string name="settings_section_speed_pitch">Speed &amp; pitch</string>

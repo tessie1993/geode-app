@@ -1,7 +1,7 @@
 package dev.geode.wallpaper
 
-import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
@@ -54,7 +54,7 @@ data class WallpaperSettings(
 )
 
 /**
- * Keeps [WallpaperSettings] in their own preference file.
+ * Keeps [WallpaperSettings] in their own preference file, `GeodePrefsFiles.wallpaper`.
  *
  * Their own file, not `GeodePrefsFiles.general`, so the wallpaper's options never share a key
  * space with the app's stores and a future backup row can take or leave them as one piece.
@@ -62,11 +62,8 @@ data class WallpaperSettings(
  * caches the file after the first read, so a re-read costs a map lookup.
  */
 class WallpaperPrefsStore(
-    context: Context,
+    private val prefs: SharedPreferences,
 ) {
-    private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
     fun load(): WallpaperSettings {
         val d = WallpaperSettings()
         return WallpaperSettings(
@@ -91,19 +88,27 @@ class WallpaperPrefsStore(
             .apply()
     }
 
+    /** The last output-mix capture this phone refused ([OutputMixCapture.start]); cleared when one opens. */
+    fun mixRefused(): Boolean = prefs.getBoolean(KEY_MIX_REFUSED, false)
+
+    fun saveMixRefused(refused: Boolean) {
+        if (mixRefused() != refused) prefs.edit().putBoolean(KEY_MIX_REFUSED, refused).apply()
+    }
+
     private fun look(
         key: String,
         fallback: WallpaperLook,
     ): WallpaperLook = prefs.getString(key, null)?.let { name -> WallpaperLook.entries.firstOrNull { it.name == name } } ?: fallback
 
     internal companion object {
-        const val FILE = "geode-wallpaper"
+        const val FILE = GeodePrefsFiles.WALLPAPER
         const val KEY_REST = "rest_when_silent"
         const val KEY_SAVER = "pause_in_battery_saver"
         const val KEY_OTHER_APPS = "hear_other_apps"
         const val KEY_HOME_LOOK = "home_look"
         const val KEY_LOCK_LOOK = "lock_look"
         const val KEY_FPS = "fps"
+        const val KEY_MIX_REFUSED = "mix_refused"
 
         /** No backup section holds this file, so its choices stay on this phone for now. */
         val PREF_KEYS =
@@ -111,6 +116,7 @@ class WallpaperPrefsStore(
                 device(PrefType.BOOLEAN, KEY_REST, KEY_SAVER, KEY_OTHER_APPS)
                 device(PrefType.STRING, KEY_HOME_LOOK, KEY_LOCK_LOOK)
                 device(PrefType.INT, KEY_FPS)
+                device(PrefType.BOOLEAN, KEY_MIX_REFUSED)
             }
     }
 }

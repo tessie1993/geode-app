@@ -205,6 +205,8 @@ class LibraryViewModel
 
         fun setMinTrackSeconds(seconds: Int) = libraryRepository.setMinTrackSeconds(seconds)
 
+        val hiddenShortTracks: StateFlow<Int> get() = libraryRepository.hiddenShortTracks
+
         val mediaRoots: StateFlow<Set<String>> get() = libraryRepository.mediaRoots
 
         // Migration debt. [uiState] is the canonical read surface; these are the raw session flows

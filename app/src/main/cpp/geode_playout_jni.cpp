@@ -48,6 +48,10 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSetOffset
     geode_playout_set_offset_ms(playoutOf(handle), ms);
 }
 
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutMaxOffsetMs(JNIEnv*, jobject) {
+    return geode_playout_max_offset_ms();
+}
+
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSpeakerFrame(JNIEnv*, jobject, jlong handle,
                                                                                     jlong nowNs) {
     return geode_playout_speaker_frame(playoutOf(handle), nowNs);

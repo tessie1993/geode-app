@@ -45,11 +45,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroBankState
-import dev.geode.data.MacroKnob
+import dev.geode.data.MacroEditorKnob
 import dev.geode.data.MacroStore
+import dev.geode.model.KnobSize
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -59,8 +62,10 @@ import kotlin.math.roundToInt
  * names, hints and values come from the bank, and every turn is a native edit through [MacroStore].
  *
  * Drag a knob up or down, double-tap it back to centre, long-press it (or TalkBack's Edit knob) for its
- * editor ([KnobEditorDialog]). New macro under them makes an empty knob to fill and save ([NewMacroButton]).
- * Editing is the knob editor's, so [lock] gates it as it gates Edit knobs.
+ * editor ([KnobEditorDialog]); its ⋮ takes it off screen into the bank's library. Add macro under them
+ * ([AddMacroButton]) makes a new one or puts one back from the library. The knobs on screen are native's
+ * (the editor text), drawn at Settings › Look's knob size. Editing is the knob editor's, so [lock] gates it as
+ * it gates Edit knobs.
  */
 @Composable
 internal fun MacrosTab(
@@ -71,25 +76,31 @@ internal fun MacrosTab(
 ) {
     var editing by rememberSaveable { mutableIntStateOf(NO_KNOB) }
     val editAllowed = lock.allows(EDITOR_KEY)
+    val settings: SettingsViewModel = geodeViewModel()
+    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    val dial = dialOf(gui.knobSize)
+    val editor = remember(state, sceneId) { store.editor(sceneId) }
+    val draftId = state.draft?.id
     Column {
         // No caption over the knobs (UI V2 rule 3): each knob's ⋮ › What is this says what it does.
-        state.knobs.chunked(KNOBS_PER_ROW).forEach { row ->
+        editor.knobs.filter { it.id != draftId }.chunked(dial.perRow).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 row.forEach { knob ->
                     MacroKnobDial(
                         knob = knob,
+                        dial = dial,
                         onChange = { store.setValue(knob.id, it, persist = false) },
                         onCommit = store::commit,
                         onSet = { store.setValue(knob.id, it) },
                         onEdit = { if (editAllowed) editing = knob.id else lock.onLocked() },
+                        onRemove = { store.hide(knob.id) },
                         modifier = Modifier.weight(1f),
                     )
                 }
-                repeat(KNOBS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
+                repeat(dial.perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        val room = remember(state, sceneId) { store.editor(sceneId).canAdd }
-        NewMacroButton(state, store, sceneId, enabled = room, allowed = editAllowed, onLocked = lock.onLocked)
+        AddMacroButton(state, editor, store, sceneId, allowed = editAllowed, onLocked = lock.onLocked)
     }
     if (editing != NO_KNOB) KnobEditorDialog(editing, state, store, sceneId) { editing = NO_KNOB }
 }
@@ -99,13 +110,29 @@ private const val NO_KNOB = -1
 /** Centre, or how far off it, for the label and TalkBack. */
 private fun knobText(v: Float): String = if (abs(v) < KNOB_EPSILON) "as styled" else "%+d%%".format((v * PERCENT).roundToInt())
 
+/** A dial's drawn size and stroke, and how many share a row. */
+private class Dial(
+    val size: Dp,
+    val stroke: Dp,
+    val perRow: Int,
+)
+
+private fun dialOf(size: KnobSize): Dial =
+    when (size) {
+        KnobSize.SMALL -> Dial(KNOB_SIZE / 2, KNOB_STROKE / 2, KNOBS_PER_ROW_SMALL)
+        KnobSize.MEDIUM -> Dial(KNOB_SIZE * MEDIUM_SCALE, KNOB_STROKE * MEDIUM_SCALE, KNOBS_PER_ROW_MEDIUM)
+        KnobSize.LARGE -> Dial(KNOB_SIZE, KNOB_STROKE, KNOBS_PER_ROW)
+    }
+
 @Composable
 private fun MacroKnobDial(
-    knob: MacroKnob,
+    knob: MacroEditorKnob,
+    dial: Dial,
     onChange: (Float) -> Unit,
     onCommit: () -> Unit,
     onSet: (Float) -> Unit,
     onEdit: () -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val edit by rememberUpdatedState(onEdit)
@@ -120,7 +147,7 @@ private fun MacroKnobDial(
     Column(modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .size(KNOB_SIZE)
+                .size(dial.size)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(onDragEnd = onCommit) { c, dy ->
                         c.consume()
@@ -140,8 +167,8 @@ private fun MacroKnobDial(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.size(KNOB_SIZE)) {
-                val stroke = KNOB_STROKE.toPx()
+            Canvas(Modifier.size(dial.size)) {
+                val stroke = dial.stroke.toPx()
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 val topLeft = Offset(inset, inset)
@@ -160,18 +187,20 @@ private fun MacroKnobDial(
                 about = knob.hint,
                 centred = abs(knob.value) < KNOB_EPSILON,
                 onReset = { onSet(0f) },
+                onRemove = onRemove,
             )
         }
     }
 }
 
-/** A knob's ⋮: What is this (when the knob has a hint) and Reset (while it is off centre). */
+/** A knob's ⋮: What is this (when the knob has a hint), Reset (while it is off centre) and Remove from screen. */
 @Composable
 private fun KnobMenu(
     title: String,
     about: String,
     centred: Boolean,
     onReset: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
@@ -194,12 +223,19 @@ private fun KnobMenu(
                 open = false
                 onReset()
             })
+            DropdownMenuItem(text = { Text(stringResource(R.string.macro_remove_from_screen)) }, onClick = {
+                open = false
+                onRemove()
+            })
         }
     }
     if (explaining) AboutDialog(title, about) { explaining = false }
 }
 
 private const val KNOBS_PER_ROW = 2
+private const val KNOBS_PER_ROW_MEDIUM = 3
+private const val KNOBS_PER_ROW_SMALL = 4
+private const val MEDIUM_SCALE = 0.75f
 private val KNOB_SIZE = 72.dp
 private val KNOB_STROKE = 6.dp
 private val KNOB_DRAG_PER_UNIT = 110.dp

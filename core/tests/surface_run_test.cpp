@@ -335,6 +335,27 @@ void whatCountsAsSound() {
     check(geode_silence_heard_at(one, 2, 0, t, t - 10'000) == t - 10'000, "an empty poll hears nothing");
 }
 
+// A capture's digital silence (geode_capture_*): a refused capture writes exact zeros, so anything above
+// digital zero is sound, and 4 s of only zeros since the start or the last sound is quiet. Kills: > -> >=
+// in quiet, the 4 s off by a ms, a dropped fabs, a floor raised to the wallpaper's -42 dBFS.
+void captureQuietAfterFourSecondsOfZeros() {
+    const long long t0 = kWall;
+    long long heardAt = t0;  // the capture's start
+    for (long long t = t0; t <= t0 + 4'000; t += 21) {
+        heardAt = geode_capture_heard_at(0.0f, t, heardAt);
+        check(geode_capture_quiet(t, heardAt) == 0, "zeros for up to 4 s: not yet quiet");
+    }
+    heardAt = geode_capture_heard_at(0.0f, t0 + 4'001, heardAt);
+    check(geode_capture_quiet(t0 + 4'001, heardAt) == 1, "zeros past 4 s: quiet");
+    heardAt = geode_capture_heard_at(0.004f, t0 + 4'020, heardAt);
+    check(heardAt == t0 + 4'020 && geode_capture_quiet(t0 + 4'020, heardAt) == 0,
+          "quiet music (-48 dBFS) is sound to a capture");
+    check(geode_capture_heard_at(-0.5f, t0, t0 - 9'000) == t0, "a negative peak is sound");
+    check(geode_capture_heard_at(1e-7f, t0, t0 - 9'000) == t0 - 9'000, "dither under digital zero is not");
+    check(geode_capture_quiet(t0 + 8'020, t0 + 4'020) == 0 && geode_capture_quiet(t0 + 8'021, t0 + 4'020) == 1,
+          "the 4 s restart from the last sound");
+}
+
 // The trial runs out during a silent rest: the still frame stays, and the capture is released, so music
 // coming back after the end does not move it. Kills: listening ignoring the entitlement during a rest.
 void trialEndsDuringASilentRest() {
@@ -557,6 +578,29 @@ void connectedDisplay() {
     }
 }
 
+// The reason a settings page names agrees with the mode on every combination, and each reason is the first
+// that holds: the entitlement before reduced motion, reduced motion before battery saver and silence.
+void reasonNamesTheMode() {
+    constexpr int kNone = 0, kHidden = 1, kEntitlement = 2, kReduced = 3, kSaver = 4, kSilence = 5;
+    for (const Entitlement& e : kEntitlements) {
+        for (unsigned f = 0; f <= 0x3FFu; ++f) {
+            const int m = geode_surface_run_mode(f, e.until, kWall);
+            const int r = geode_surface_reason(f, e.until, kWall);
+            checkAt((r == kNone) == (m == kAnimated), "no reason exactly when moving", f, e.until);
+            checkAt((r == kHidden) == (m == kStopped), "hidden exactly when stopped", f, e.until);
+            if (m == kDark) checkAt(r == kSilence, "dark only for silence", f, e.until);
+        }
+    }
+    const unsigned rest = GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER;
+    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_REDUCED_MOTION, kFree, kNow) == kEntitlement,
+          "free: the entitlement first");
+    check(geode_surface_reason(kOnScreen | kDefaults | rest | GEODE_SURFACE_REDUCED_MOTION, kPro, kNow) == kReduced,
+          "reduced motion before battery saver and silence");
+    check(geode_surface_reason(kOnScreen | kDefaults | rest, kPro, kNow) == kSaver, "battery saver before silence");
+    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_SILENT, kPro, kNow) == kSilence, "a silent rest");
+    check(geode_surface_reason(kOnScreen | GEODE_SURFACE_BATTERY_SAVER, kPro, kNow) == kNone, "saver off: moving");
+}
+
 int main() {
     connectedDisplay();
     priorityOrder();
@@ -570,12 +614,14 @@ int main() {
     restateLandsJustAfterEveryTrialEnd();
     silenceRestsAfterSixSecondsAndSoundWakesIt();
     whatCountsAsSound();
+    captureQuietAfterFourSecondsOfZeros();
     trialEndsDuringASilentRest();
     reducedMotion();
     dreamGoesDarkInSilence();
     settle();
     fps();
     stage();
+    reasonNamesTheMode();
     if (failures == 0) std::printf("surface_run_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -108,10 +108,10 @@ void main() {
     vec2 uv = arbView();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float bright = clamp(uMotionBright, 0.0, 1.0);
-    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
-    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     gChaos = arbChaos();
     gDiv = 2.39996 + 0.16 * (bright - 0.5) * 2.0 * energy;

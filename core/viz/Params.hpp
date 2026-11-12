@@ -34,6 +34,24 @@ enum class ParamSlot : int {
 inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,  ParamSlot::shake,     ParamSlot::flash,      ParamSlot::glitch,
                                                ParamSlot::strobe, ParamSlot::formDrive, ParamSlot::motionOrbit};
 
+namespace catalogue {
+enum class Scope;
+}
+
+// A meta row's flags (ParamTable.inc): kMod, an LfoTarget writes the field.
+inline constexpr unsigned kMod = 1u << 0;
+
+// A live row's meta row, as the engine's tables read it (ParamTable.inc says what each column means).
+// A retired row's is empty: no label, Universal, no flags, no roll range, live false.
+struct ParamMeta {
+    bool live;
+    const char* label;
+    catalogue::Scope scope;
+    unsigned flags;
+    float rollLo;
+    float rollHi;
+};
+
 // One row, as the shell and the clamps read it. Ints and bools travel as floats, like the wire.
 struct ParamSpec {
     const char* name;
@@ -47,6 +65,7 @@ struct ParamSpec {
 struct SceneParams {
     static constexpr float kUnsetOverride = -1.0f;
     static constexpr int kNoPaletteLut = -1;
+    static constexpr int kNoStop = -1;
     static constexpr int kDefaultSymmetryFolds = 6;
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
@@ -64,6 +83,9 @@ struct SceneParams {
     float paletteRange() const;
     float palette2Base() const;
     float palette2Range() const;
+    // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
+    std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
+    int paletteStopCount() const;
 
     // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParamsCodec.FIELDS).
     static constexpr int kFieldCount = static_cast<int>(ParamSlot::kCount);
@@ -71,6 +93,9 @@ struct SceneParams {
     // The table, one ParamSpec per wire slot. Built once; the reference lives for the process.
     static const std::array<ParamSpec, kFieldCount>& schema();
     static const ParamSpec& spec(ParamSlot slot) { return schema()[static_cast<size_t>(slot)]; }
+    // The meta rows, one per wire slot (a retired slot's empty). Built once; the reference lives for the process.
+    static const std::array<ParamMeta, kFieldCount>& metaTable();
+    static const ParamMeta& meta(ParamSlot slot) { return metaTable()[static_cast<size_t>(slot)]; }
     // The wire slot of a field name, -1 for an unknown one.
     static int slotOf(std::string_view name);
     static constexpr bool retired(ParamSlot slot) {
@@ -83,7 +108,8 @@ struct SceneParams {
     //   params|<kSchemaTextVersion>|<kFieldCount>
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    static constexpr int kSchemaTextVersion = 2;
+    // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
+    static constexpr int kSchemaTextVersion = 3;
     static const std::string& schemaText();
 
     // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired

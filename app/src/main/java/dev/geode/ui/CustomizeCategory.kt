@@ -68,7 +68,7 @@ private val SECTION_TITLES =
         "colour_detail" to "Colour detail",
         "colour_cycle" to "Colour cycle",
         "light_detail" to "Light detail",
-        "palette_maker" to "Make a palette",
+        "palette_maker" to "Your colours",
         "form" to "Form",
         "symmetry" to "Symmetry",
         "particles" to "Particles",

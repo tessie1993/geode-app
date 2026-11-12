@@ -105,11 +105,8 @@ internal fun EqualizerCard(
             }
         }
         fx.bands.forEachIndexed { i, band ->
-            Text(
-                stringResource(R.string.eq_band, band.label, AudioFxFormat.dbLabel(band.levelMb)),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.eq_band, band.label, AudioFxFormat.dbLabel(band.levelMb)),
                 value = band.levelMb.toFloat(),
                 onValueChange = { onBand(i, it.toInt()) },
                 valueRange = band.minMb.toFloat()..band.maxMb.toFloat(),
@@ -117,11 +114,8 @@ internal fun EqualizerCard(
             )
         }
         if (fx.bassAvailable) {
-            Text(
-                stringResource(R.string.eq_bass_boost, fx.bassBoost / 10),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.eq_bass_boost, fx.bassBoost / 10),
                 value = fx.bassBoost.toFloat(),
                 onValueChange = { onBassBoost(it.toInt()) },
                 valueRange = 0f..1000f,
@@ -129,11 +123,8 @@ internal fun EqualizerCard(
             )
         }
         if (fx.loudnessAvailable) {
-            Text(
-                stringResource(R.string.eq_loudness, AudioFxFormat.dbLabel(fx.loudness)),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.eq_loudness, AudioFxFormat.dbLabel(fx.loudness)),
                 value = fx.loudness.toFloat(),
                 onValueChange = { onLoudness(it.toInt()) },
                 valueRange = 0f..1000f,

@@ -27,8 +27,9 @@ out vec4 fragColor;
 // closes on the eye.
 //
 // Three renderings of the same world, crossfaded by the genome's mode weights: a hard surface, a
-// glow-through volume and an emissive density. A mode with no weight is never marched; the glow
-// and the density take fewer steps than the surface, all from the Detail budget (uSteps).
+// glow-through volume and an emissive density (lib_world's worldRender, one loop around one world()
+// call). A mode with no weight is never marched; the glow and the density take fewer steps than the
+// surface, all from the Detail budget (uSteps).
 //
 // A world may stand on a ground under a sky (lib_world: the genome's Floor, its gloss, the Sky
 // and the Horizon glow): the floor is matter like the rest, so all three modes see it, and every
@@ -56,18 +57,7 @@ void main() {
     vec3 rd;
     worldCamera(uv, ro, rd);
 
-    float jitter = worldJitter(gl_FragCoord.xy);
-    float wS = WG_M_SURFACE;
-    float wG = WG_M_GLOW;
-    float wD = WG_M_DENSITY;
-    vec3 col = vec3(0.0);
-    if (wS > 0.01) col += wS * worldSurface(ro, rd, uSteps);
-    if (wG > 0.01) col += wG * worldGlow(ro, rd, min(uSteps * 0.5, 56.0), jitter);
-    if (wD > 0.01) col += wD * worldDensity(ro, rd, min(uSteps * 0.35, 40.0), jitter);
-    // A mode under 1% was skipped; the rest are rescaled so the skip never dims the frame.
-    float kept = (wS > 0.01 ? wS : 0.0) + (wG > 0.01 ? wG : 0.0) + (wD > 0.01 ? wD : 0.0);
-    col /= max(kept, 0.01);
-
+    vec3 col = worldRender(ro, rd, uSteps, worldJitter(gl_FragCoord.xy));
     col *= WG_GAIN;
     // A soft shoulder, so the glow's piled-up light rolls off instead of clipping.
     col = col / (1.0 + 0.35 * max(col.r, max(col.g, col.b)));

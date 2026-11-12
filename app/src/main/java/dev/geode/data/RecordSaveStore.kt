@@ -66,7 +66,7 @@ class RecordSaveStore(
 
     internal companion object {
         const val TAG = "RecordSave"
-        const val FILE = "geode-record"
+        const val FILE = GeodePrefsFiles.RECORD
         const val KEY_TARGET = "save_target"
         const val GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 

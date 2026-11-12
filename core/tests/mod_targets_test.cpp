@@ -8,7 +8,8 @@
 //
 // The fixture is what the shell's JVM tests read in place of geode_mod_targets_text (the geode.modTargets
 // property, dev.geode.render.ModTable). The expected scopes below are the Kotlin LfoTarget table this
-// replaced, so the port changed no target's reach.
+// replaced, so the port changed no target's reach; since the scopes are read from the params schema's meta
+// rows (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -53,8 +54,10 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"LFO3_RATE", "UNIVERSAL"}, {"LFO3_DEPTH", "UNIVERSAL"},
     {"CAM_FLY", "UNIVERSAL"}, {"CAM_ORBIT", "UNIVERSAL"}, {"CAM_PUSH", "UNIVERSAL"}, {"CAM_YAW", "UNIVERSAL"},
     {"CAM_PITCH", "UNIVERSAL"}, {"CAM_ROLL", "UNIVERSAL"}, {"CAM_FOV", "UNIVERSAL"}, {"CAM_SHAKE", "UNIVERSAL"},
-    {"FLOW_CURL", "UNIVERSAL"}, {"FLOW_FORCE", "UNIVERSAL"}, {"DIVE_SPEED", "UNIVERSAL"},
-    // Appended after the port: the dive's spiral and aim.
+    // Were UNIVERSAL while this table kept its own scopes; now each is its Customize control's (Flow curl,
+    // Flow force, Dive speed), so a wave is offered exactly where the slider is shown.
+    {"FLOW_CURL", "FLOW_FIELD_SIM"}, {"FLOW_FORCE", "FLOW_FIELD_SIM"}, {"DIVE_SPEED", "ENDLESS_ZOOM"},
+    // Appended after the port: the dive's spiral and aim, on Dive speed's scope.
     {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
 };
 
@@ -75,6 +78,28 @@ void onlyTheRetiredSlotsAreHidden() {
     for (int i = 0; i < modtargets::kTargetCount; ++i) {
         const auto t = static_cast<LfoTarget>(i);
         check(modtargets::offered(t) == (t != LfoTarget::Retired5 && t != LfoTarget::Retired25), std::string("offered ") + modtargets::name(t));
+    }
+}
+
+// A target's scope and whether it is offered are its field's meta row (viz/ParamTable.inc): kMod is set on
+// exactly the rows a target writes, a target's scope is its Customize control's, and a retired field's
+// target is offered nowhere.
+void targetsFollowTheirMetaRow() {
+    std::vector<int> writers(SceneParams::kFieldCount, 0);
+    for (int i = 0; i < modtargets::kTargetCount; ++i) {
+        const auto t = static_cast<LfoTarget>(i);
+        const int slot = paramSlotOf(t);
+        if (slot < 0) continue;
+        ++writers[static_cast<size_t>(slot)];
+        const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+        check(m.live, std::string(modtargets::name(t)) + " writes a live field");
+        check(modtargets::scopeOf(t) == catalogue::scopeOf(m.label), std::string(modtargets::name(t)) + " has its control's scope");
+    }
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const ParamMeta& m = SceneParams::meta(static_cast<ParamSlot>(slot));
+        const std::string field = SceneParams::fieldNames()[static_cast<size_t>(slot)];
+        check(((m.flags & kMod) != 0) == (writers[static_cast<size_t>(slot)] > 0), field + ": kMod iff a target writes it");
+        check(writers[static_cast<size_t>(slot)] <= 1, field + ": one target per field");
     }
 }
 
@@ -215,6 +240,7 @@ int main(int argc, char** argv) {
     }
     everyTargetKeepsItsNameAndScope();
     onlyTheRetiredSlotsAreHidden();
+    targetsFollowTheirMetaRow();
     reachFollowsTheScope();
     musicActionsReachWhatTheirTargetsReach();
     chainedTargetsSteerTheirSlot();

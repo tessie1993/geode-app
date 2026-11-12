@@ -11,6 +11,17 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Three new style families, ten styles each (274 styles).** Flame
+  (`flame_*`, `lib_flame`): fractal-flame veils and threads on black. Opal
+  (`opal_*`, `lib_opal`): oil-film bubbles, shells and melting drops. Hollow
+  (`hollow_*`, `lib_hollow`): blacklight flights through sinew, caves, ribs
+  and bone. All thirty are 3D on the camera rig, bounded by Detail, and read
+  Morph, Warp, Turbulence, Intensity, the six knobs and the palette through
+  `lib_neon`; none reads the sound. The first of each (Flame Veil, Opal
+  Bubbles, Hollow Sinew) is free. A family now carries its own count in the
+  native catalogue (`catalogue::Family::ids` is a span; it was an array of
+  twelve).
+
 - **Summary of the work since v1.8.0, newest first.** The entries below this
   one are kept as written; several describe code that has since been replaced.
   - **Oboe is back, as the playback output only.** Settings › Playback ›

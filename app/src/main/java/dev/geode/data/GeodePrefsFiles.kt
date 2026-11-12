@@ -6,6 +6,13 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.render.MilkPresetMemory
 
+/**
+ * The registry of the app's SharedPreferences files: every file the app keeps is named here, and
+ * one instance is built per process, by `GeodeContainer` (read it as `context.geodeContainer.prefsFiles`).
+ * Outside `data/` and the container nothing opens a prefs file or builds this class
+ * (`tools/layer-gate.sh`), so a later change of storage or of who owns a file has one place to go
+ * (#1009, PR 2). `:engine:scenes`' `MilkPresetMemory` is the one opener outside `:app`.
+ */
 class GeodePrefsFiles(
     context: Context,
 ) {
@@ -20,6 +27,15 @@ class GeodePrefsFiles(
     val library: SharedPreferences by lazy { open(LIBRARY) }
     val background: SharedPreferences by lazy { open(BACKGROUND) }
 
+    /** The live wallpaper's own options (`wallpaper/WallpaperPrefsStore`). */
+    val wallpaper: SharedPreferences by lazy { open(WALLPAPER) }
+
+    /** The home screen widget's cache (`widget/WidgetState`). */
+    val widget: SharedPreferences by lazy { open(WIDGET) }
+
+    /** The Pro purchase cache and the trial (`billing/EntitlementStore`, `billing/StoredTrialRepository`). */
+    val pro: SharedPreferences by lazy { open(PRO) }
+
     private fun open(name: String): SharedPreferences = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     companion object {
@@ -31,6 +47,15 @@ class GeodePrefsFiles(
         const val MODULATION = "geode-mod"
         const val LIBRARY = "geode-library"
         const val BACKGROUND = "geode-background"
+        const val WALLPAPER = "geode-wallpaper"
+        const val WIDGET = "geode-widget"
+        const val PRO = "geode-pro"
+
+        /**
+         * Record's ask-once save target. `RecordSaveStore` opens it itself (it is in `data/` and
+         * needs the context for the folder grant anyway), so there is no property for it here.
+         */
+        const val RECORD = "geode-record"
 
         /** `:engine:scenes`' [MilkPresetMemory] writes this one; it cannot name the schema, so it is listed here. */
         internal val MILK_PRESET_PREF_KEYS =

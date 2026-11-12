@@ -19,7 +19,7 @@ out vec4 fragColor;
 // ahead passing between the rows.
 //
 // Morph feeds the net: the fibres thicken and the cell bodies swell toward
-// each other. Worst case 72 steps, no noise.
+// each other. Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     vec3 q = p + vec3(1.0, 1.0, 0.0);

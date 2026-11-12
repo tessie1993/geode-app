@@ -62,6 +62,11 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
 
+## Native stage
+
+- `core/stage` is the native stage: one render thread, EGL context and window surface per surface, and one process-wide vsync thread; its design is [native-stage.md](native-stage.md).
+- The stage's C ABI is `core/api/geode_stage_api.h`; no JNI calls it yet.
+
 ## Per-frame chain
 
 The renderer runs these in order each frame.

@@ -11,7 +11,7 @@
 
 /** The gathered light along one ray. */
 vec3 flameMarch(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(FLAME_MAX_STEPS));
+    float n = FLAME_STEPS;
     float w = gFlameWidth;
     vec3 acc = vec3(0.0);
     float tPrev = 0.0;

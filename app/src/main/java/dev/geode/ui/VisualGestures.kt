@@ -737,6 +737,7 @@ internal fun rememberVisualA11yActions(
     actionFor: (CanvasGesture) -> GestureAction,
     actions: VisualActions,
     recording: Boolean,
+    styleStepLabels: Pair<String, String>,
 ): List<CustomAccessibilityAction> {
     val labels =
         mapOf(
@@ -751,7 +752,7 @@ internal fun rememberVisualA11yActions(
         )
     val steps =
         mapOf(
-            GestureAction.STEP_STYLE to (stringResource(R.string.a11y_next_style) to stringResource(R.string.a11y_previous_style)),
+            GestureAction.STEP_STYLE to styleStepLabels,
             GestureAction.STEP_PRESET to
                 (stringResource(R.string.visuals_gesture_next_preset) to stringResource(R.string.visuals_gesture_previous_preset)),
             GestureAction.STEP_PLAYLIST to

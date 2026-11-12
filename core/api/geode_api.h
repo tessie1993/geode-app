@@ -922,7 +922,7 @@ GEODE_API int             geode_stage_pick_display(const int* ids, const unsigne
 GEODE_API int             geode_stage_presents(unsigned flags);
 
 /* What the stage's "next / previous style" steps (core/viz/StageStep; owner 2026-11-12: it walks what the open
- * Visuals tab lists). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
+ * Visuals tab lists, and the .milk presets from any tab while MilkDrop is on screen and two are listed). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
  * milk_count the .milk presets listed and look_count the saved looks the user may apply; the answer is
  * GEODE_STAGE_STEP_STYLES, _LOOKS or _MILK. index: the item step (+1 next, -1 previous) places from here among
  * count items, wrapping, skipping here and every open[i] == 0 (open null: all open), from an end when here is

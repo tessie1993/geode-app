@@ -5,7 +5,9 @@
 // - on the MilkDrop tab (and Textures, under it) the step walks the user's .milk presets while MilkDrop can play
 //   and one is listed; with the sheet hidden only while MilkDrop is still on screen;
 // - on Presets it walks the saved looks the same way, with the sheet hidden only while one is on screen;
-// - everywhere else, and whenever that list is empty or MilkDrop is locked or missing, it walks the styles;
+// - while MilkDrop is on screen it walks the .milk presets from every tab but a Presets tab stepping looks
+//   (owner, 2026-11-12: a swipe on MilkDrop surfs presets instead of leaving it);
+// - everywhere else, and whenever fewer than two .milk are listed or MilkDrop is locked or missing, the styles;
 // - the walk wraps, skips what is on screen and what is locked, starts from an end when nothing listed is on
 //   screen, and says -1 when nothing else is open (the old Kotlin nextStageStyle's cases, StageStyleTest);
 // - the .milk walk's previous retraces the steps taken, a hand pick or a removed preset ends that chain, and the
@@ -41,6 +43,8 @@ void milkTabStepsMilk() {
     check(step::target(step::kPageMilkdrop, step::kMilkOpen, 5, 3) == step::kStyles,
           "full screen after the MilkDrop tab, another style on (Auto moved on): styles");
     check(step::target(step::kPageMilkdrop, shown, 0, 3) == step::kStyles, "no .milk listed: styles");
+    check(step::target(step::kPageMilkdrop, shown | step::kOnMilk, 1, 3) == step::kStyles, "one .milk listed: styles");
+    check(step::target(step::kPageMilkdrop, shown, 2, 3) == step::kMilk, "two .milk listed: .milk");
     check(step::target(step::kPageMilkdrop, step::kSheetShown | step::kOnMilk, 5, 3) == step::kStyles,
           "MilkDrop locked or not built in: styles");
 }
@@ -55,13 +59,28 @@ void presetsTabStepsLooks() {
 }
 
 void otherTabsStepStyles() {
-    const uint32_t all = step::kSheetShown | step::kOnMilk | step::kOnLook | step::kMilkOpen;
-    check(step::target(step::kPageStyles, all, 5, 4) == step::kStyles, "Styles: styles, MilkDrop on screen or not");
-    check(step::target(step::kPageStyles, step::kMilkOpen | step::kOnMilk, 5, 4) == step::kStyles,
-          "full screen after Styles with MilkDrop on: styles (the types stay reachable)");
-    check(step::target(step::kPageCustomize, all, 5, 4) == step::kStyles, "Customize: styles");
-    check(step::target(step::kPageSettings, all, 5, 4) == step::kStyles, "Visuals › Settings: styles");
-    check(step::target(42, all, 5, 4) == step::kStyles, "an unknown page: styles");
+    const uint32_t notMilk = step::kSheetShown | step::kOnLook | step::kMilkOpen;
+    check(step::target(step::kPageStyles, notMilk, 5, 4) == step::kStyles, "Styles, another style on: styles");
+    check(step::target(step::kPageStyles, step::kMilkOpen, 5, 4) == step::kStyles, "full screen after Styles: styles");
+    check(step::target(step::kPageCustomize, notMilk, 5, 4) == step::kStyles, "Customize: styles");
+    check(step::target(step::kPageSettings, notMilk, 5, 4) == step::kStyles, "Visuals › Settings: styles");
+    check(step::target(42, notMilk, 5, 4) == step::kStyles, "an unknown page: styles");
+}
+
+void milkOnScreenStepsMilk() {
+    const uint32_t on = step::kOnMilk | step::kMilkOpen;
+    const int pages[] = {step::kPageStyles, step::kPageCustomize, step::kPageSettings, 42};
+    for (const int page : pages) {
+        check(step::target(page, on | step::kSheetShown, 5, 4) == step::kMilk, "MilkDrop on, sheet up: .milk on any tab");
+        check(step::target(page, on, 5, 4) == step::kMilk, "MilkDrop on, full screen: .milk");
+        check(step::target(page, on, 2, 4) == step::kMilk, "two .milk are enough");
+        check(step::target(page, on, 1, 4) == step::kStyles, "one .milk: styles, as before");
+        check(step::target(page, on, 0, 4) == step::kStyles, "no .milk: styles, as before");
+        check(step::target(page, step::kOnMilk, 5, 4) == step::kStyles, "MilkDrop locked (trial over) or missing: styles");
+    }
+    check(step::target(step::kPagePresets, on, 5, 4) == step::kMilk, "Presets left hidden, no look on screen: .milk");
+    check(step::target(step::kPagePresets, on | step::kSheetShown, 5, 0) == step::kMilk, "Presets with no look to step: .milk");
+    check(step::target(step::kPagePresets, on | step::kOnLook, 5, 4) == step::kLooks, "a saved look on screen: its walk");
 }
 
 void indexWrapsAndSkipsLocked() {
@@ -182,6 +201,7 @@ int main() {
     milkTabStepsMilk();
     presetsTabStepsLooks();
     otherTabsStepStyles();
+    milkOnScreenStepsMilk();
     indexWrapsAndSkipsLocked();
     indexFromOutsideTheList();
     indexNothingElseOpen();

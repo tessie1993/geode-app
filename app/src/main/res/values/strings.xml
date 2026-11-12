@@ -148,8 +148,6 @@
     <string name="visuals_sheet_handle">Options sheet</string>
     <string name="visuals_sheet_expand">Show more options</string>
     <string name="visuals_sheet_collapse">Show fewer options</string>
-    <string name="visuals_previous_style">Previous style</string>
-    <string name="visuals_next_style">Next style</string>
 
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>
@@ -215,6 +213,8 @@
     <string name="a11y_state_off">Off</string>
     <string name="a11y_next_style">Next style</string>
     <string name="a11y_previous_style">Previous style</string>
+    <string name="a11y_next_milk_preset">Next MilkDrop preset</string>
+    <string name="a11y_previous_milk_preset">Previous MilkDrop preset</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>

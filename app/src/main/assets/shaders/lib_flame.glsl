@@ -32,8 +32,24 @@
 //   k0 PULSE the emission, k1 TEXTURE the veils' sharpness, k2 FLOW the bend,
 //   k3 TONE the palette position, k4 BUILD how many veils show, k5 SPACE the reach.
 //
-// No style here reads the sound: what moves on a hit is the reaction matrix,
-// through those params. uTime stops in silence, and so does everything here.
+// THE SOUND, heard the way the older families hear it (lib_dive, lib_neon):
+// lib_sound's shaped reads, in flameSetup(), on the motion only, never on a
+// colour, a brightness or a beat.
+//
+//   gFlameTurn   the mid band, sndShaped(SND_MIDDLE), pushes the whole structure
+//   round about the way ahead while the mids climb and eases back as they
+//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
+//   gFlameSwell  the low band, sndShaped(SND_LOW), widens the Warp's sideways sway,
+//   never past the Warp's own reach.
+//
+// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// MUCH moves follows how loud and dense the music is, never the song's own
+// average, and the band only shapes the push. sndShaped scales both by Audio
+// drive (uSoundDrive). Spin drift turns the picture through uRotation in
+// view(): MotionField's drift at the catalogue's spin rate (catalogue::spinRate).
+//
+// What moves on a hit is the reaction matrix, through the params above. uTime
+// stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 //
 // The world repeats along z every FLAME_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (FLAME_RATE).
@@ -51,6 +67,9 @@
 float gFlameForm;
 float gFlameFlow;
 float gFlameChaos;
+/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
+float gFlameTurn;
+float gFlameSwell;
 /** A veil's half-width as a share of the gap to the next one. */
 float gFlameWidth;
 /** How far the march reaches, world units. */
@@ -102,14 +121,18 @@ void flameSetup() {
     gFlameThread = 0.0;
     gFlameTone = 0.6 * neonKnob(3);
     gFlameGate = 0.12 - 0.24 * neonKnob(4);
+    // The sound (see the header): the absolute drive sets how much, the band only the shape.
+    float drive = clamp(SND_DRIVE, 0.0, 1.0);
+    gFlameTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
+    gFlameSwell = sndShaped(SND_LOW) * drive;
     for (int i = 0; i < 5; i++) gFlamePal[i] = pal(0.25 * float(i));
 }
 
-/** Warp and Turbulence on the structure: a twist about z that comes and goes along the way, a sideways sway, a ripple. */
+/** Warp and Turbulence on the structure: a twist about z that comes and goes along the way (and the mids' push), a sideways sway (and the lows' swell), a ripple. */
 vec3 flameBend(vec3 p) {
     float zc = p.z * (FLAME_TAU / FLAME_PERIOD);
-    p.xy = flameRot(gFlameFlow * 1.1 * sin(zc + uTime * FLAME_RATE(170))) * p.xy;
-    p.x += gFlameFlow * 0.55 * sin(2.0 * zc + 0.9 * p.y + uTime * FLAME_RATE(240));
+    p.xy = flameRot(gFlameFlow * 1.1 * sin(zc + uTime * FLAME_RATE(170)) + gFlameTurn) * p.xy;
+    p.x += 0.55 * min(gFlameFlow + 0.3 * gFlameSwell, 1.0) * sin(2.0 * zc + 0.9 * p.y + uTime * FLAME_RATE(240));
     p.y += gFlameFlow * 0.4 * cos(zc - 0.7 * p.x);
     p += gFlameChaos * 0.09 * sin(p.yzx * 3.3 + uTime * FLAME_RATE(1900) + vec3(0.0, 2.1, 4.2));
     return p;

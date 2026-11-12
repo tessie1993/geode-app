@@ -206,7 +206,13 @@ void spinRateAndShaderStyleAgree() {
         "bead_vortex", "merkaba_grid", "tunnel", "rod_tunnel", "particle_tunnel", "lucid_mandala", "lucid_mirror",
         "lucid_spiral", "lucid_vortex", "lucid_tunnel", "lucid_disc", "chrys_kaleido", "chrys_tunnel",
         // The neon set's two turning looks, added after the port.
-        "glow_vortex", "hex_hive"};
+        "glow_vortex", "hex_hive",
+        // Fractal Flame, Opal and Hollows hear Spin drift like the turning families (2026-11-12).
+        "flame_veil", "flame_spiral", "flame_orb", "flame_star", "flame_lotus", "flame_helix", "flame_knot",
+        "flame_web", "flame_aurora", "flame_nova", "opal_bubbles", "opal_nautilus", "opal_melt", "opal_domes",
+        "opal_pearls", "opal_lava", "opal_ribbon", "opal_cells", "opal_rings", "opal_drop", "hollow_sinew",
+        "hollow_cave", "hollow_ribs", "hollow_coral", "hollow_roots", "hollow_hive", "hollow_throat",
+        "hollow_neuron", "hollow_bone", "hollow_shell"};
     std::set<std::string> spinning;
     int shaders = 0;
     for (const auto& id : catalogue::allIds()) {

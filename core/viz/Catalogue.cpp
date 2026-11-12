@@ -206,7 +206,7 @@ struct Spin {
     const char* id;
     float rate;
 };
-constexpr std::array<Spin, 22> kSpinning = {{
+constexpr std::array<Spin, 52> kSpinning = {{
     {"kaleido", 1.0f},        {"mandala_dome", 0.45f},  {"orb_lattice", 0.7f},   {"chroma_orb", -0.6f},
     {"kifs", 0.8f},           {"spiral", 1.2f},         {"spiral_eye", -0.9f},   {"bead_vortex", 1.4f},
     {"merkaba_grid", 0.4f},   {"tunnel", -0.5f},        {"rod_tunnel", 0.6f},    {"particle_tunnel", -0.8f},
@@ -215,6 +215,18 @@ constexpr std::array<Spin, 22> kSpinning = {{
     // The neon set's two turning looks: the vortex winds against its own arms, the hive's bore rolls slowly.
     // The sea, the hole and the nave keep still: a horizon, a disc plane or a nave axis only tips over in a roll.
     {"glow_vortex", -1.1f},   {"hex_hive", 0.3f},
+    // Fractal Flame, Opal and Hollows (owner, 2026-11-12: "Audio same as other styles"): each is flown
+    // through or turned about, so Spin drift and the mids roll it as they do the turning families, slowly.
+    // Spirals, helices and novas wind fastest, veils, domes and lava barely creep, the hollows counter.
+    {"flame_veil", 0.3f},     {"flame_spiral", 0.9f},   {"flame_orb", -0.45f},   {"flame_star", 0.55f},
+    {"flame_lotus", -0.4f},   {"flame_helix", 0.7f},    {"flame_knot", -0.5f},   {"flame_web", 0.35f},
+    {"flame_aurora", -0.25f}, {"flame_nova", 0.65f},
+    {"opal_bubbles", 0.3f},   {"opal_nautilus", -0.75f}, {"opal_melt", 0.25f},   {"opal_domes", 0.2f},
+    {"opal_pearls", -0.35f},  {"opal_lava", -0.2f},     {"opal_ribbon", 0.5f},   {"opal_cells", -0.3f},
+    {"opal_rings", 0.6f},     {"opal_drop", 0.4f},
+    {"hollow_sinew", -0.45f}, {"hollow_cave", -0.25f},  {"hollow_ribs", 0.4f},   {"hollow_coral", -0.3f},
+    {"hollow_roots", 0.35f},  {"hollow_hive", -0.5f},   {"hollow_throat", 0.55f}, {"hollow_neuron", -0.4f},
+    {"hollow_bone", 0.3f},    {"hollow_shell", -0.6f},
 }};
 
 constexpr const char* kMilkdrop = "milkdrop";

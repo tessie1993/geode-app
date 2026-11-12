@@ -67,11 +67,21 @@ GEODE_API void        geode_director_keep_set(const char* keys);
  * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
-/* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like
- * geode_director_set, so live, export, the wallpaper and the dream all draw it. "" (or null) = no layer; mix
- * 0..1; blend_mode is an index into geode_layer_blend_names. An export pins the layer it started with
- * (geode_viz_set_offscreen). */
-GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend_mode);
+/* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
+ * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. The layer is
+ * one line the shell stores as it is, "layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|<mix>"; where its
+ * style comes from (SOURCE: USER, the user's pick or one native picks to suit the style on screen; DIRECTOR,
+ * Auto Director's pick at its style moments; MACRO, a knob's turn) is turned into a style by each renderer.
+ * set: every renderer draws it from its next frame; an export pins the layer it started with
+ * (geode_viz_set_offscreen). normalize: the text made valid (any other text is the default layer, off).
+ * edit: one field changed, the rest kept: "on" 0/1, "source" a SOURCE, "style" an id ("" for native's pick),
+ * "knob" an id (0 the first on screen), "blend" an index into geode_layer_blend_names, "mix" 0..1.
+ * editor: what Customize › Layers draws over active_style (viz/LayerPick::editorText's rows). The returned
+ * texts are valid until this thread's next layer call. */
+GEODE_API void        geode_layer_set(const char* layer);
+GEODE_API const char* geode_layer_normalize(const char* layer);
+GEODE_API const char* geode_layer_edit(const char* layer, const char* field, const char* value);
+GEODE_API const char* geode_layer_editor(const char* layer, const char* active_style);
 /* The blends a layer takes (core/viz/VisualSafety), in blend_mode order, each label followed by '\n'. Static. */
 #define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on */
 GEODE_API const char* geode_layer_blend_names(void);

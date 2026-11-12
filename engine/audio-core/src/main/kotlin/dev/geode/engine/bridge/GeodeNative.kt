@@ -342,12 +342,24 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer; [blendMode] indexes [layerBlendNames]. */
-    external fun layerSet(
-        sceneId: String,
-        mix: Float,
-        blendMode: Int,
-    )
+    /** Customize › Layers, process-wide (core/viz/LayerState): every renderer draws [layer], the text native keeps it as. */
+    external fun layerSet(layer: String)
+
+    /** [layer] made valid; any other text is the default layer, off. */
+    external fun layerNormalize(layer: String): String
+
+    /** [layer] with one field changed (`geode_layer_edit`: on, source, style, knob, blend, mix). */
+    external fun layerEdit(
+        layer: String,
+        field: String,
+        value: String,
+    ): String
+
+    /** What Customize › Layers draws and offers over [activeStyle] (core/viz/LayerPick editorText's rows). */
+    external fun layerEditor(
+        layer: String,
+        activeStyle: String,
+    ): String
 
     /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
     external fun layerBlendNames(): String

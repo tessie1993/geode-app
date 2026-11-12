@@ -53,10 +53,10 @@ import dev.geode.geodeContainer
 import dev.geode.model.MilkFile
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.render.scene.styleFamilyLabel
 import dev.geode.render.scene.styleLabel
+import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -98,7 +98,7 @@ import dev.geode.ui.theme.performStoneHaptic
 @Composable
 internal fun StylesTab(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     milkFiles: List<MilkFile>,
 ) {
     val context = LocalContext.current
@@ -167,7 +167,7 @@ internal fun StylesTab(
     val shuffle: () -> Unit = {
         val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
         // MilkDrop's own variety, which Family only rolls inside when MilkDrop is its family's one style.
-        val milkPlays = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
+        val milkPlays = visualizerView.stage.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
         val milk = if (milkPlays && viz.sceneId == GeodeNative.STYLE_MILKDROP) milkFiles else emptyList()
         val milkHere = milk.indexOfFirst { it.path == viewModel.activeMilkPath.value }
         val next = GeodeNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)

@@ -16,8 +16,6 @@ import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
-import dev.geode.render.PacedRate
-import dev.geode.render.VisualizerRenderer
 import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
@@ -145,7 +143,7 @@ internal class CastStream(
 
     /**
      * Reads the saved look on [lookReader], never on the render thread (it parses JSON and asks Settings for reduced
-     * motion), keeping every part that did not change as the same object: [VisualizerRenderer] re-pushes a part
+     * motion), keeping every part that did not change as the same object: [CastFallback] re-pushes a part
      * by identity, and each read used to make every part new, so any store write (a track change, a slider's save)
      * re-sent all the waves, envelopes and tuning and had native resolve the reactions again.
      */
@@ -191,7 +189,7 @@ internal class CastStream(
         val encoder = CastEncoder(server.sink, webrtc::video)
         val egl = EncoderSurface(encoder.surface)
         val audio = AudioPump(encoder, musicInput, webrtc)
-        var fallback: VisualizerRenderer? = null
+        var fallback: CastFallback? = null
         var fallbackDrewNs = 0L
         var tee = 0L
         try {
@@ -220,11 +218,11 @@ internal class CastStream(
                 if (!fromStage) {
                     val renderer = fallback ?: fallbackRenderer(encoder).also { fallback = it }
                     syncLook(renderer)
-                    renderer.onDrawFrame(null)
+                    renderer.draw()
                     fallbackDrewNs = now
                 } else if (fallback != null && now - fallbackDrewNs > FALLBACK_IDLE_NS) {
                     // The stage has led for a while: give the fallback's scenes and sound engine back.
-                    bestEffort(TAG, "fallback.releaseScenes()") { fallback?.releaseScenes() }
+                    bestEffort(TAG, "fallback.release()") { fallback?.release() }
                     fallback = null
                 }
                 egl.setPresentationTimeNs(ptsNs)
@@ -235,7 +233,7 @@ internal class CastStream(
             CastMirror.setStreaming(false)
             GeodeNative.playoutSetBypass(PlaybackEngine.playout, false)
             if (tee != 0L) bestEffort(TAG, "castTeeClose()") { GeodeNative.castTeeClose(tee) }
-            bestEffort(TAG, "fallback.releaseScenes()") { fallback?.releaseScenes() }
+            bestEffort(TAG, "fallback.release()") { fallback?.release() }
             audio.close()
             egl.release()
             encoder.release()
@@ -243,16 +241,8 @@ internal class CastStream(
     }
 
     /** The renderer that draws while the stage does not; made on this thread, its context current. */
-    private fun fallbackRenderer(encoder: CastEncoder): VisualizerRenderer {
-        val renderer = VisualizerRenderer(appContext)
-        renderer.soundInput = { AudioBus.soundInput }
-        // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
-        // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
-        val castFps = CastEncoder.FPS.toFloat()
-        renderer.pacedRate = PacedRate { castFps }
-        renderer.onDirectorStyleMoment = CastMirror::directorMoment
-        renderer.onSurfaceCreated(null, null)
-        renderer.onSurfaceChanged(null, encoder.width, encoder.height)
+    private fun fallbackRenderer(encoder: CastEncoder): CastFallback {
+        val renderer = CastFallback(appContext, encoder.width, encoder.height)
         // A new renderer starts from the whole look and the stage's preset.
         applied = null
         mirrored = null
@@ -261,7 +251,7 @@ internal class CastStream(
     }
 
     /** The saved look when the app saves one, then the stage's style and params on top while [CastMirror] has them. */
-    private fun syncLook(renderer: VisualizerRenderer) {
+    private fun syncLook(renderer: CastFallback) {
         val saved = savedLook
         if (saved != null && saved !== applied) {
             applied = saved

@@ -76,6 +76,15 @@ inline std::array<float, 3> toHsv(Rgb c) {
     return {h, hi > 0.0f ? d / hi : 0.0f, hi};
 }
 
+// The shell's accent for a palette: the middle of its hue span (base + range / 2, wrapped) at HSL saturation 0.85
+// and lightness 0.6, bright enough to read on black. Ported from the Kotlin AppShell it replaces.
+inline Rgb paletteAccent(float base, float range) {
+    constexpr float kSaturation = 0.85f;
+    constexpr float kLightness = 0.6f;
+    const float v = kLightness + kSaturation * std::min(kLightness, 1.0f - kLightness);
+    return fromHsv(base + range / 2.0f, 2.0f * (1.0f - kLightness / v), v);
+}
+
 // "#RRGGBB", "RRGGBB", "#RGB" or "RGB", either case, spaces around ignored; kNone for anything else.
 inline int parseHex(std::string_view text) {
     while (!text.empty() && text.front() == ' ') text.remove_prefix(1);

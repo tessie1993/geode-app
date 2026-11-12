@@ -53,6 +53,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The fluid solver's pure maths is `FluidMath`.
 - `FlowField` is the velocity field Liquid mode reads, kicked by touch and drops.
 - The touch smear (`core/viz/TouchSmear`, Settings › Touch › Smear): touch play's fingers kick the shared `FlowField` and the composite bends the finished picture by it (`uFlow`).
+- The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
 - `liquid/LiquidMath` is Liquid mode's pure maths: thermal modes, inject weight, the random endless dive, gestures, born clock.
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
@@ -61,6 +62,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - Expert › Shader code shows on Fluid only (`core/viz/CustomizeMap`, `Show::ShaderCode`), with the custom force and dye editors; a shader style has no box for its own fragment shader any more.
 - A look's saved custom shader still applies (`core/viz/ShaderOverrides`, `geode_shader_override_*`).
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
+- The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
 
@@ -126,6 +128,7 @@ The renderer runs these in order each frame.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
 - `core/audio/dsp/EqPresets` is the built-in equalizer curves; the settings save a curve by its index, so their order is saved data.
+- `core/audio/ingest/CapturePlan` orders the formats a capture asks AudioRecord for and sizes its buffer (`geode_capture_plan`, `geode_capture_buffer_bytes`); the mic and playback capture only make the AudioRecord calls.
 - `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
 - `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end (`core/api/geode_bookmark_api.cpp`).
@@ -135,6 +138,7 @@ The renderer runs these in order each frame.
 - `OboeOutput` is the stream, reopened after a route change.
 - `OboeOutput` is the one file that includes Oboe, the Prefab AAR `com.google.oboe:oboe`, whose prebuilt `liboboe.so` libgeode links.
 - The output's C ABI is `geode_audio_out_*`.
+- `RetryBackoff` (`core/audio/output`) is the 60 s window after a failed output stream; `OboeAudioOutput` only reports the failure and asks.
 - ExoPlayer keeps decoding, the queue and its whole `DefaultAudioSink`.
 
 ## `core/library` and `core/scene/object`
@@ -147,6 +151,9 @@ The renderer runs these in order each frame.
 - Misspellings match only when nothing else matches.
 - `SearchIndex` orders and searches the Library screen (`geode_library_index_*`).
 - `geode_library_search` answers voice "play X" and Android Auto.
+- `core/library/Playlist` reads a picked M3U, PLS or XSPF file (`geode_playlist_parse`); a DOCTYPE in an XSPF is refused.
+- Writing playlist files has no caller, so it does not exist.
+- `data/PlaylistFormats.kt` only splits the parse text and matches entries to the library by lower-cased file name.
 - `core/scene/object` is `geode::scene::object`, #302's object kinds.
 - `GltfImport` checks the user's .glb against #455's limits, decimates it with meshoptimizer when up to 4× over, refuses it otherwise, and makes a low-detail copy and its materials.
 - `ModelTextures` downscales the model's PNG, JPEG or KTX2 images to the role caps, mipmaps them, encodes to UASTC and transcodes to ASTC 4x4 and ETC2, fitted to the texture memory per model, the simplified mode a later mip base.
@@ -201,5 +208,5 @@ The renderer runs these in order each frame.
 ## UI blur
 
 - The UI blur (`core/viz/UiBlurPass`, `ui_blur_frag` and `ui_blur_mask_frag`) frosts the live visual under the app's glass sheet after the composite.
-- Its region is a rounded rect set by `VisualizerView.setUiBlurRegion` (0..1, y down; `geode_viz_set_ui_blur_region`).
+- Its region is a rounded rect set by `StageView.setUiBlurRegion` (0..1, y down; `geode_viz_set_ui_blur_region`).
 - It blurs at quarter resolution, is free at strength 0 and is never drawn offscreen.

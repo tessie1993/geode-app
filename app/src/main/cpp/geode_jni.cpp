@@ -20,6 +20,11 @@ Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong ha
     return geode_dsp_configure(dspOf(handle), sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspRuns(JNIEnv*, jobject, jint encoding, jint channels) {
+    return geode_dsp_runs(encoding, channels) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspFlush(JNIEnv*, jobject, jlong handle) {
     geode_dsp_flush(dspOf(handle));
@@ -185,6 +190,11 @@ Java_dev_geode_engine_bridge_GeodeNative_bookmarkVerdict(JNIEnv*, jobject, jlong
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_bookmarkResumesFrom(JNIEnv*, jobject, jlong currentPositionMs) {
     return geode_bookmark_resumes_from(currentPositionMs) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackErrorAction(JNIEnv*, jobject, jint consecutiveFailures, jboolean hasNext) {
+    return geode_playback_error_action(consecutiveFailures, hasNext == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL

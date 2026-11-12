@@ -7,7 +7,6 @@ import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,7 +106,7 @@ class VisualizerRenderer(
     val milkdropAvailable: Boolean
         get() {
             nativeViz.create()
-            return nativeViz.knows(SceneIds.MILKDROP)
+            return nativeViz.knows(GeodeNative.STYLE_MILKDROP)
         }
 
     fun availableSceneIds(): List<String> {

@@ -25,7 +25,6 @@ import dev.geode.render.HandReactions
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -46,7 +45,7 @@ class ReactivityTabTest {
     val compose = createComposeRule()
 
     private val dna = BuildStyleReactionsUseCase()
-    private val sceneId = SceneIds.KIFS
+    private val sceneId = "kifs"
 
     private var params by mutableStateOf(SceneParams.DEFAULT)
     private var reactions by mutableStateOf<List<ReactionRoute>?>(null)

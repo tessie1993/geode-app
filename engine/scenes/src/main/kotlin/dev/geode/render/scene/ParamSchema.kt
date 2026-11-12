@@ -9,7 +9,7 @@ import java.io.File
  *
  * Every fact here is native (core/viz/ParamTable.inc, #346): the table is written once, in C++, and
  * the shell asks for it once through [GeodeNative.paramsSchemaText] and parses the line table it gets
- * back, the way [Catalogue] reads the style catalogue. This is the one place Kotlin learns a param's
+ * back. This is the one place Kotlin learns a param's
  * name, kind, default, range or slot: the wire codec (`render/bridge/SceneParamsCodec`) packs by it,
  * the slider and keyframe ranges read it (`model/ControlRange` in :app), and preset JSON is to, so
  * nothing in Kotlin keeps a second copy that could drift. What stays Kotlin is what is not engine: labels and page placement.

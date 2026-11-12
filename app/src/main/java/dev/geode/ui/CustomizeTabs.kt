@@ -61,8 +61,8 @@ import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.abs
 import kotlin.reflect.KProperty1
@@ -78,7 +78,7 @@ val LocalParamLocks =
  * tab's signature is what makes that automatic — a new control is gated the moment it is given a
  * [ParamKeys] name, instead of when somebody remembers to thread another boolean through.
  */
-val LocalSceneId = compositionLocalOf { SceneIds.DEFAULT }
+val LocalSceneId = compositionLocalOf { StyleCatalogue.DEFAULT_ID }
 
 /** The panel-wide parameter search. Blank shows the tab as authored. */
 val LocalParamQuery = compositionLocalOf { "" }

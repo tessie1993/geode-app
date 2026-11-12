@@ -6,7 +6,6 @@ import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
 import dev.geode.render.TransitionStyle
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 
 /**
@@ -26,7 +25,7 @@ import dev.geode.render.scene.SceneParams
  */
 data class LookSnapshot(
     /** Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID), not a Pro one. */
-    val sceneId: String = SceneIds.NEON_CHROME_SEA,
+    val sceneId: String = "neon_chrome_sea",
     val params: SceneParams = SceneParams.DEFAULT,
     val lfos: List<LfoConfig> = List(LfoEngine.SLOTS) { LfoConfig() },
     val adsrs: List<AdsrConfig> = List(AdsrEngine.COUNT) { AdsrConfig() },

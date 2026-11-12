@@ -12,9 +12,9 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 
 | Class (file) | Lines | Status |
 |---|---|---|
-| `ReactionRouteCodec` | 77 | **ported**: `core/viz/ReactionText`, `geode_reactions_text_encode/decode` (`core/api/geode_reaction_text_api.h`), test `core/tests/reaction_text_test.cpp` (the JVM test's cases, plus the text the Kotlin codec wrote). `LfoStore` hands the saved string across; the saved format is unchanged. |
+| `ReactionRouteCodec` | 77 | **ported**: `core/viz/ReactionText`, read through `geode_mod_reactions_read` (`core/api/geode_modulation_api.h`), test `core/tests/reaction_text_test.cpp` (the JVM test's cases, plus the text the Kotlin codec wrote). `LfoStore` hands the saved string across; the saved format is unchanged. |
 | `MilkdropEngine` | 12 | **deleted**: `available` was "libgeode loaded", from when MilkDrop was a library of its own. `GeodeNative` loads the same library and each of its three callers calls native right beside the check, so it was always true where it was read; the three checks are gone. |
-| `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test that holds the `ReactSource` mirror to the native catalogue now compares the lines themselves. |
+| `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test now checks the `react` rows of `geode_mod_catalog_text`, which Customize reads alone. |
 | `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the one constant in use, the tuning's 30 floats, is `SoundTuning.FLOATS`, still held to the header by `SoundTuningTest`. |
 | `TransitionStyle` | 9 | pending |
 | `TouchField` | 13 | pending |
@@ -26,14 +26,14 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `UnderlayBlend` | 22 | pending |
 | `BlendMode` | 24 | pending |
 | `StyleSchedule` | 31 | pending |
-| `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
+| `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |
 | `StyleFamilies` | 37 | pending |
 | `ThermalGovernor` | 38 | pending |
 | `SoundCursor` | 39 | pending |
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending |
-| `BuildStyleReactionsUseCase` | 51 | pending |
+| `BuildStyleReactionsUseCase` | 51 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `PcmTap` | 55 | pending |
 | `AiffPcm` | 57 | pending |
 | `LookSnapshot` | 70 | pending |
@@ -41,8 +41,8 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `SoundTuning` | 76 | pending |
 | `TransitionCatalog` | 79 | pending |
 | `SceneParamsCodec` | 80 | pending |
-| `ModConfigCodec` | 81 | pending |
-| `EventRecipe` | 86 | pending |
+| `ModConfigCodec` | 81 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
+| `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `ParamSchema` | 90 | pending |
 | `PerformanceSettings` | 94 | pending |
 | `ParamScope` | 94 | pending |
@@ -56,9 +56,9 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ParamFormat` | 153 | pending |
 | `TrackAudio` | 158 | pending |
 | `ParamKeys` | 158 | pending |
-| `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | pending |
+| `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `VisualizerView` | 220 | pending |
-| `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | pending |
+| `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). `HandMask`, the process-wide push of the mask, is in `render/look/LookApplier.kt`. |
 | `FramePacer` | 248 | pending |
 | `SceneParams` | 272 | pending |
 | `VisualizerRenderer` | 313 | pending |

@@ -150,7 +150,7 @@ No Android page prescribes this; the JNI guide's four rules are the brief [R htt
 
 ### 1.10 Hand-kept Kotlin copies of native tables → generated or queried
 
-- The repository already has the pattern the scan calls "allowed": native emits a versioned text table (`geode_catalogue_text`, `geode_params_schema_text`, `geode_mod_targets_text`), a host test pins it against a checked-in copy, Kotlin parses it once. That already satisfies the JNI guide (one call, one string, no per-item marshalling). Extend it to `ReactSource`, `SceneIds`, `ParamKeys`, enum labels (scan step 2). No external tool is needed.
+- The repository already has the pattern the scan calls "allowed": native emits a versioned text table (`geode_catalogue_text`, `geode_params_schema_text`, `geode_mod_catalog_text`), a host test pins it against a checked-in copy, Kotlin parses it once. That already satisfies the JNI guide (one call, one string, no per-item marshalling). Extend it to `ReactSource`, `SceneIds`, `ParamKeys`, enum labels (scan step 2). No external tool is needed.
 - If compile-time Kotlin constants are wanted (for `when` exhaustiveness on ids), generate a Kotlin file from the same text in a Gradle task or a checked-in file with a CI "regenerate and diff" gate, the way `params_schema_test --write` works. Generated constants still count as Kotlin lines for `tools/engine-kotlin-gate.sh`, so prefer the query [I].
 - The 132 `const val` mirrors of `GEODE_*` in `GeodeNative` are the same problem: generate them from `geode_api.h` or check them with a script (section 4).
 

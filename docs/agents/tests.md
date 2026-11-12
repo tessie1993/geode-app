@@ -67,7 +67,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `meter_test.cpp`: `Rhythm`'s bar of 3 or 4 beats from the accents: 3/4 and 4/4 at 93 and 141 BPM read as themselves, a backbeat or an even pulse never 3.
 - `milk_shader_note_test.cpp`: the note a .milk preset gets when projectM swapped one of its shaders for the default (`core/viz/MilkShaderNote`).
 - `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
-- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`, read through `geode.modTargets`; `--write` regenerates it.
+- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
+- `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
 - `musical_test.cpp`: the sound engine's musical layer.
 - `note_response_test.cpp`: Note & key reactions.
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.

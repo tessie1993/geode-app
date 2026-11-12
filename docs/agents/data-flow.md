@@ -40,8 +40,8 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Customize › Music's hand mask sits beside the user's routes: the user's routes play only on the moments they set, the live DNA on the rest.
 - The hand mask is `hand::` in `core/viz/Reactions`; `mergeHand` and the Music page's edits are in `core/viz/ReactionDna`; it is pushed process-wide as `HandMask`.
 - The style's DNA is built natively by `core/viz/ReactionDna`: a personality for each side of the groove plus layers, each drawing its source from the sound frame.
-- DNA draws from the 117 `ReactSource`s, one per `GeodeSoundFrame` value.
-- DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
+- DNA draws from the 117 reaction sources (`ReactSource` in `core/viz/Reactions`), one per `GeodeSoundFrame` value.
+- A renderer is handed the user's saved routes and the hand mask (`geode_viz_set_reactions`) and resolves what plays itself, from those, the style and `reactSeed`.
 - `OffscreenSceneRenderer` resolves reactions the same way, so exports react like the screen.
 - `GyroLook` (in `VisualizerView`) feeds the camera's look while it is visible: the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.

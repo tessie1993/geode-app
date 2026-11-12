@@ -411,6 +411,15 @@ key|Field swirl|CYMATICS
 key|Water ripples on|RIPPLE_OVERLAY
 key|Ripple overlay strength|RIPPLE_OVERLAY
 key|Ripple glint|RIPPLE_OVERLAY
+key|Ring spacing|ENDLESS_ZOOM
+key|Dive twist|ENDLESS_ZOOM
+key|Dive aim X|ENDLESS_ZOOM
+key|Dive aim Y|ENDLESS_ZOOM
+key|Tunnel shape|ENDLESS_ZOOM
+key|Dive blend|ENDLESS_ZOOM
+key|Depth fade|ENDLESS_ZOOM
+key|Dive lens|ENDLESS_ZOOM
+key|Music follow|ENDLESS_ZOOM
 range|Detail|0.25|1.5
 range|Fundamental (Hz)|40|440
 range|Standing waves|1|8

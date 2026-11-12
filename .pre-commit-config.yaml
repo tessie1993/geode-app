@@ -1,0 +1,57 @@
+# Optional local hooks for https://pre-commit.com (pip install pre-commit, then `pre-commit install`).
+# They run the repository's own fast scripts, the ones CI's Architecture gates and ktlint step run, so a
+# broken rule shows in seconds instead of after a CI run. None runs Gradle, a compiler or an emulator.
+# The two slower ones (ktlint, which fetches its pinned jar once, and the engine Kotlin gate, which needs
+# origin/main) run only before a push. CI stays the judge: these hooks only save a round trip.
+default_install_hook_types: [pre-commit, pre-push]
+repos:
+  - repo: local
+    hooks:
+      - id: layer-gate
+        name: Nothing below ui names ui; prefs files opened only in data/
+        entry: bash tools/layer-gate.sh
+        language: system
+        pass_filenames: false
+        files: '\.kt$'
+      - id: no-bpm-bias-gate
+        name: No tempo prior, preferred tempo or default BPM
+        entry: bash tools/no-bpm-bias-gate.sh
+        language: system
+        pass_filenames: false
+      - id: actions-pin-gate
+        name: Every action is pinned to a commit SHA
+        entry: bash tools/actions-pin-gate.sh
+        language: system
+        pass_filenames: false
+        files: '^\.github/workflows/'
+      - id: network-gate
+        name: Sockets and network headers only in cast/ and core/cast/
+        entry: bash tools/network-gate.sh
+        language: system
+        pass_filenames: false
+      - id: notices-copy
+        name: The notices file equals the shipped asset
+        entry: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt
+        language: system
+        pass_filenames: false
+        files: '(^THIRD_PARTY_NOTICES$|^app/src/main/assets/third_party_notices\.txt$)'
+      - id: store-check
+        name: Play listing text within Play's limits
+        entry: bash tools/store-check.sh
+        language: system
+        pass_filenames: false
+        files: '^fastlane/metadata/'
+      - id: ktlint-changed
+        name: ktlint on the Kotlin changed against origin/main
+        entry: bash tools/ktlint-changed.sh
+        language: system
+        pass_filenames: false
+        files: '\.kts?$'
+        stages: [pre-push]
+      - id: engine-kotlin-gate
+        name: Engine Kotlin only shrinks (against origin/main)
+        entry: bash -c 'git diff --numstat -M "$(git merge-base origin/main HEAD)" HEAD | bash tools/engine-kotlin-gate.sh'
+        language: system
+        pass_filenames: false
+        files: '\.kt$'
+        stages: [pre-push]

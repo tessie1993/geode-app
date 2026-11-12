@@ -208,7 +208,8 @@ internal class CastStream(
                 val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 val now = System.nanoTime()
                 val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, encoder.width, encoder.height)
-                if (!fromStage && tee != 0L && fallback == null && now - teeOpenedNs < STAGE_FIRST_COPY_NS) {
+                val stageDue = tee != 0L && fallback == null && now - teeOpenedNs < STAGE_FIRST_COPY_NS
+                if (!fromStage && stageDue) {
                     // The stage's first copy is a frame away: wait for it rather than build a second renderer.
                     audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
                     continue

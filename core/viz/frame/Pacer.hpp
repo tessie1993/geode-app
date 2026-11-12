@@ -10,10 +10,9 @@
 // the dt each drawn frame steps the engine by. Pure, with no GL and no Android, so the host can test
 // it (core/tests/pacer_test.cpp).
 //
-// Android keeps only the Choreographer callback (render/FramePacer.kt): each vsync it hands
-// `frameTimeNanos` and the surface's cap in, and draws when the answer is a dt above zero. The state
-// is plain integers in a Kotlin-owned array, so stepping it allocates nothing and needs no handle to
-// free (geode_pacer_on_vsync).
+// The stage's vsync thread (core/stage/StagePacing) hands each vsync's `frameTimeNanos` and the
+// surface's cap in, and draws when the answer is a dt above zero. The state is plain integers, so
+// stepping it allocates nothing.
 namespace geode::viz::frame {
 
 // One dt rule for every clock (#436). Before, Kotlin clamped to 0.001..1/15 s and the renderer to

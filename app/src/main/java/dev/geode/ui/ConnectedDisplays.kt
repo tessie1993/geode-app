@@ -26,7 +26,7 @@ import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 
 /**
@@ -171,7 +171,7 @@ internal fun ConnectedDisplayWatch() {
 @Composable
 fun SecondScreenCanvas(
     display: Display,
-    view: VisualizerView,
+    view: StageView,
 ) {
     val context = LocalContext.current
     val host = LocalView.current

@@ -60,8 +60,8 @@ import dev.geode.model.MilkFile
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.StyleCatalogue
+import dev.geode.stage.StageView
 import dev.geode.ui.cast.CastButton
 import dev.geode.ui.cast.ComputerLinkButton
 import dev.geode.ui.theme.GeodeGlass
@@ -89,7 +89,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 internal fun BoxScope.VisualsStage(
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     behaviour: BehaviourPrefs,
     actions: VisualActions,
     recording: Boolean,
@@ -99,7 +99,7 @@ internal fun BoxScope.VisualsStage(
     styleStepLabels: Pair<String, String>,
     remote: StageRemote? = null,
 ) {
-    // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
+    // The visual itself is not drawn here: the shell hosts the one StageView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
     val ring = remember { HoldRingState() }
     Box(
@@ -111,7 +111,7 @@ internal fun BoxScope.VisualsStage(
                 tapSplitPx = tapSplitPx,
                 holdArmed = !(recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
-                onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
+                onTouchPoints = visualizerView.stage::submitTouchPoints,
                 onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording, styleStepLabels),
                 onTapDown = onTapDown,
@@ -464,7 +464,7 @@ private fun StageIconButton(
 @Composable
 internal fun rememberStageActions(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     stepStyle: (Int) -> Unit,
     onShowMiniPlayer: () -> Unit,
     onQuickSettings: () -> Unit,
@@ -473,7 +473,7 @@ internal fun rememberStageActions(
     onRecord: () -> Unit,
 ): VisualActions {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val touchPulse = rememberTouchPulse(visualizerView.visualizerRenderer::submitTouchPoints)
+    val touchPulse = rememberTouchPulse(visualizerView.stage::submitTouchPoints)
     val gate = { viewModel.gate.value }
     return VisualActions(
         showMiniPlayer = onShowMiniPlayer,
@@ -509,14 +509,14 @@ internal fun stageStyleOrder(): List<String> = StyleCatalogue.picker.values.flat
  */
 internal fun stageStepTarget(
     viz: VizUiState,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     gate: FeatureGate,
     page: VisualsPage,
     sheetShown: Boolean,
     milkCount: Int,
 ): Int {
     val looks = openLooks(viz, gate)
-    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
+    val milkOpen = visualizerView.stage.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
     var flags = 0
     if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
     if (viz.sceneId == GeodeNative.STYLE_MILKDROP) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
@@ -531,7 +531,7 @@ internal fun stageStepTarget(
  */
 internal fun stepStage(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     gate: FeatureGate,
     page: VisualsPage,
     sheetShown: Boolean,

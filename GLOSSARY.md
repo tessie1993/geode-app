@@ -44,7 +44,7 @@ The one flag every detector reads: opens when the momentary loudness reaches -55
 How dense the music is, 0..1, on fixed scales: onsets a second (8 = 1), kicks and snares a second, and how sure the beat is.
 
 **Drive**:
-How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.7 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
+How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.5 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
 _Avoid_: Audio drive (the user's Customize amount, which scales the reach of the music further)
 
 **Feature timeline**:
@@ -143,7 +143,7 @@ The per-control lock that holds a control still when Randomize rolls its page.
 _Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
-One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
+One line of the reaction matrix: a sound (band, level, event or musical value) moves one scene param, by following, stepping, adding up, jumping or toggling.
 _Avoid_: Binding, mapping
 
 **Jump**:
@@ -152,12 +152,25 @@ A route mode: each hit holds a new random value for its target (sample and hold)
 **Toggle**:
 A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
 
+**Jump, settled**:
+A route mode: a Jump that takes a hit only once its last value has had its glide (attack + release), so busy hits cannot flicker it.
+
+**Add up**:
+A route mode (saved as SPIN): the source is added up over time, so a held value carries the target on instead of pushing it out and back.
+
+**Bar count**:
+A reaction source counted on the music's own bars, every bar, 2, 4 or every phrase: a hold (a new value kept until the next count), a pulse or a flip (0 and 1 in turn). Only a locked beat counts; with none heard they stay still.
+_Avoid_: Beat timer, tempo clock (nothing here runs on a tempo it has not heard)
+
+**Melody contour**:
+Whether the tune is climbing or falling, -1..1: a fast follower of the pitch over a slow one, resting at 0 when no note sounds. A reaction source.
+
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
 _Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
-The reaction routes a style plays until the user edits them, generated from the style id and a seed.
+The reaction routes a style plays until the user edits them, generated from the style id and a seed: the groove (its beat personalities, big moments, body, colour, texture and a transient route), then one route each on the bars, the tune, the harmony and form, and the feel and timbre. No default route follows the absolute loudness.
 
 **Macro**:
 One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Shape, Motion, Colour, Depth), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.

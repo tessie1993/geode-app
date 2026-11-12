@@ -42,6 +42,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
+- `director_test.cpp` also plays one song at four tempos and checks the feeling is identical, and that no axis turns the reaction matrix's amount.
 - `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
 - `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `GeodeNative.AUDIO_OUT_*`, pinned.
 - `dsp_runs_test.cpp`: which formats the playback DSP runs (`geode_dsp_runs`: 16-bit or float, mono or stereo); `NativeDspProcessor` steps aside for the rest.
@@ -166,12 +167,15 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `track_pump_test.cpp`: an export's track pump (`core/audio/ingest/TrackPump`): the decode rule over a fake decoder, the hand-out order, the AIFF-first open over a descriptor.
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
 - `transient_test.cpp`: transient detection (`core/sound/Transient`, the frame's `transient`, `transientEnv`, `transientSharpness`): clicks and plucks fire, swells, crescendos, held tones, silence and near-silent clicks never, the same at every sample and frame rate.
+- `transient_test.cpp` also pins the onset flux's maximum filter (`core/sound/OnsetFlux`) on hand-made spectra.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
 - `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
 - `transition_library_test.cpp` also covers the picker table the shell splits (`geode_transition_picker`), on the shipped asset too.
 - `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).
+- `viz_math_test.cpp` also pins the bar counts, the melody line, the feeling sources, the settled Jump, the tension's rise and MotionField's bar wave.
+- `viz_math_test.cpp` checks every style's DNA has its bar, tune, harmony-and-form and feel-and-timbre routes, no loudness drive, and variety within each Styles family.
 - `wallpaper_window_test.cpp`: the wallpaper's on-screen window and fps pick.
 - `webrtc_rule_test.cpp`: Show on a computer over WebRTC (`core/viz/frame/WebRtcRule`): the H.264 sent, the offer read, LAN-only candidates, the RTP clock.
 - `widget_glow_test.cpp`: the widget's generated glow (`core/viz/WidgetGlow`): light positions per tick, hues from the cover or the style hash, span clamps.

@@ -4,9 +4,11 @@
 // What is pinned: one value every renderer reads (live, export, wallpaper, dream), so a layer set once is
 // what each of them draws; the generation moves on a real change and only then, so a renderer re-reads it
 // exactly when it changed; a renderer made after the set still sees it; and an export's pinned copy keeps
-// the layer it started with while the live one moves on.
+// the layer it started with while the live one moves on. And the text the shell saves it as: it round trips,
+// any other text is the default layer (off), an edit changes one field, and nothing out of range gets through.
 #include <cstdio>
 #include <limits>
+#include <string>
 
 #include "viz/LayerState.hpp"
 
@@ -104,6 +106,52 @@ void pinnedCopyIgnoresLaterSets() {
     check(live.poll(out) && out.sceneId == "silk", "a live follower beside it moves on");
 }
 
+void theTextRoundTrips() {
+    check(ls::decode("") == ls::Layer{} && !ls::decode("").on, "no text is the default layer, off");
+    check(ls::encode(ls::Layer{}) == "layer|1|0|USER||0|1|0.5", "the default layer's text");
+    ls::Layer l;
+    l.on = true;
+    l.source = ls::Source::Macro;
+    l.sceneId = "kifs";
+    l.knob = 3;
+    l.blend = 5;
+    l.mix = 0.3f;
+    check(ls::decode(ls::encode(l)) == l, "a layer round trips");
+    check(ls::decode(ls::encode(l) + "\n") == l, "a trailing line break is read too");
+    for (const char* bad : {"layer|2|1|USER|kifs|0|1|0.5", "layer|1|1|NOPE|kifs|0|1|0.5", "layer|1|2|USER|kifs|0|1|0.5",
+                            "layer|1|1|USER|kifs|0|1|x", "layer|1|1|USER|kifs|0|1", "palettestack|1"}) {
+        check(ls::decode(bad) == ls::Layer{}, std::string("unreadable text is the default layer: ") + bad);
+    }
+    const ls::Layer wild = ls::decode("layer|1|1|DIRECTOR|a|b\nc|-4|99|7");
+    check(wild == ls::Layer{}, "a field split by a separator is unreadable");
+    const ls::Layer held = ls::decode("layer|1|1|DIRECTOR|kifs|-4|99|7");
+    check(held.on && held.source == ls::Source::Director && held.knob == 0 && held.blend == ls::kDefaultBlend && held.mix == 1.0f,
+          "a negative knob is 0, a blend past the list Screen, the mix held to 1");
+}
+
+void anEditChangesOneField() {
+    const ls::Layer base{};
+    check(ls::edit(base, "on", "1").on, "on");
+    check(ls::edit(base, "source", "DIRECTOR").source == ls::Source::Director, "source");
+    check(ls::edit(base, "source", "nope") == base, "an unknown source changes nothing");
+    check(ls::edit(base, "style", "kifs").sceneId == "kifs" && ls::edit(ls::edit(base, "style", "kifs"), "style", "").sceneId.empty(),
+          "style, and back to native's pick");
+    check(ls::edit(base, "style", "a|b").sceneId == "ab", "an id loses a separator");
+    check(ls::edit(base, "knob", "4").knob == 4 && ls::edit(base, "knob", "x") == base, "knob");
+    check(ls::edit(base, "blend", "3").blend == 3 && ls::edit(base, "blend", "8").blend == ls::kDefaultBlend, "blend");
+    check(ls::edit(base, "mix", "0.25").mix == 0.25f && ls::edit(base, "mix", "2").mix == 1.0f, "mix, held to 0..1");
+    check(ls::edit(base, "nothing", "1") == base, "an unknown field changes nothing");
+    const ls::Layer on = ls::edit(ls::edit(base, "on", "1"), "mix", "0.75");
+    check(on.on && on.mix == 0.75f && on.blend == base.blend && on.source == base.source, "the rest is kept");
+}
+
+void theShownStyleIsShared() {
+    ls::publishShown("kifs");
+    check(ls::shown() == "kifs", "what a renderer drew is what the page reads");
+    ls::publishShown("");
+    check(ls::shown().empty(), "and none");
+}
+
 }  // namespace
 
 int main() {
@@ -111,6 +159,9 @@ int main() {
     generationMovesOnChangeOnly();
     followerFollows();
     pinnedCopyIgnoresLaterSets();
+    theTextRoundTrips();
+    anEditChangesOneField();
+    theShownStyleIsShared();
     if (failures) {
         std::printf("%d layer state check(s) failed\n", failures);
         return 1;

@@ -145,6 +145,7 @@ add_library(geode_core STATIC
     viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
+    viz/LayerPick.cpp
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp

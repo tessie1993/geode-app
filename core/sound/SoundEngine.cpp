@@ -7,6 +7,7 @@
 #include <numbers>
 
 #include "sound/DriveGain.hpp"
+#include "sound/OnsetFlux.hpp"
 #include "sound/Tuning.hpp"
 
 namespace geode::sound {
@@ -165,6 +166,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
+    fluxReach_.resize(logMag_.size());
+    for (size_t k = 0; k < fluxReach_.size(); k++) fluxReach_[k] = onsetflux::reachOf(static_cast<int>(k));
     waveSrc_.assign(static_cast<size_t>((GEODE_SOUND_WAVEFORM_POINTS + kWaveSlack) * waveBlock_), 0.0f);
     harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
@@ -557,8 +560,10 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got than fluxLag_ hops ago (~30 ms), on a log scale, as a relative
-    // level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (~30 ms), on a log scale, as a
+    // relative level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // The earlier spectrum is kept maximum-filtered along frequency (sound/OnsetFlux), so a note whose pitch only
+    // wobbles (vibrato, a slide) does not read as a new start on every wobble.
     const size_t stride = logMag_.size();
     float* now = logMag_.data();
     const float* then = fluxCount_ >= fluxLag_ ? prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride : nullptr;
@@ -582,7 +587,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
             rise += band / static_cast<float>(to - from);
         }
     }
-    std::copy(logMag_.begin(), logMag_.end(), prevLogMag_.begin() + static_cast<std::ptrdiff_t>(fluxHead_ * stride));
+    onsetflux::maxFilter(now, prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride, fluxBins_.from, fluxBins_.to, fluxReach_.data());
     fluxHead_ = (fluxHead_ + 1) % fluxLag_;
     fluxCount_ = std::min(fluxCount_ + 1, fluxLag_);
     if (then) {

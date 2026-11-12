@@ -2760,6 +2760,16 @@ object GeodeNative {
     /** The shortest part a render is offered. */
     external fun exportRangeMinMs(): Long
 
+    /** The indices of [uris] a batch renders, in order, each URI once. */
+    external fun renderBatchOrder(uris: Array<String>): IntArray
+
+    /** A batch's whole progress, 0..1: [done] of [total] tracks plus the share [within] of the one rendering. */
+    external fun renderBatchProgress(
+        done: Int,
+        total: Int,
+        within: Float,
+    ): Float
+
     // An export's platform audio work (core/api/geode_export_audio_api.h): blocking, on the caller's thread.
 
     /**

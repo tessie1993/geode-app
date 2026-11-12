@@ -21,6 +21,12 @@ GEODE_API void    geode_export_range_capped(int64_t start_ms, int64_t duration_m
                                             int64_t* out_start_ms, int64_t* out_duration_ms);
 GEODE_API int64_t geode_export_range_min_ms(void);
 
+/* A batch render (output/RenderBatch). order writes into out_keep (room for count) the indices of the tracks the
+   batch renders, in order, each URI once, and returns how many; a NULL URI reads as empty. progress is
+   the whole batch's, 0..1. */
+GEODE_API int     geode_render_batch_order(const char* const* uris, int count, int32_t* out_keep);
+GEODE_API float   geode_render_batch_progress(int done, int total, float within_current);
+
 #ifdef __cplusplus
 }
 #endif

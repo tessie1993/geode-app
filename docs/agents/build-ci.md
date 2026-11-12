@@ -11,6 +11,7 @@ One fact per line. Add a fact as a new bullet in its group.
 - `native-host-tests.yml` (the `core/tests` host tests) runs on every PR too.
 - `shader-check.yml` (`tools/check_shaders.py` through NDK 28's glslc) runs on every PR that touches the shaders, `ShaderIncludes.inc`, `ShaderSource*`, `SimGlsl*`, the checker or `tools/glslcheck`.
 - `arch-map.yml` runs `tools/layer-gate.sh`, `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh`, `tools/network-gate.sh` (sockets and WebRTC headers only in `cast/` and `core/cast/`, no other networking submodule) and `tools/actions-pin-gate.sh` (every action pinned to a commit SHA) on every PR.
+- `arch-map.yml` runs `tools/jni-parity-gate.sh` too: every Kotlin `external fun` has its `Java_…` function in `app/src/main/cpp/` (JNI name escaping, `JNIEXPORT`, `extern "C"`, the file named in `CMakeLists.txt`) and every `Java_…` function a declaration. A text check: it does not compare parameter or return types.
 - `arch-map.yml` also checks that `THIRD_PARTY_NOTICES` equals the shipped `assets/third_party_notices.txt`.
 - Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 

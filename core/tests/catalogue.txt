@@ -410,6 +410,7 @@ key|Dive blend|ENDLESS_ZOOM
 key|Depth fade|ENDLESS_ZOOM
 key|Dive lens|ENDLESS_ZOOM
 key|Music follow|ENDLESS_ZOOM
+key|Palette 2 amount|SHADER_LOOK
 range|Detail|0.25|1.5
 range|Fundamental (Hz)|40|440
 range|Standing waves|1|8

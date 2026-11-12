@@ -38,6 +38,8 @@ bool offsettable(int slot) {
     const ParamMeta& meta = SceneParams::meta(at);
     const ParamSpec& spec = SceneParams::spec(at);
     const bool glides = (spec.kind == ParamKind::Float || spec.kind == ParamKind::Circular) && spec.fade == ParamFade::Fade;
+    // The old Palette blend is linked through Palette 2's amount, which carries it (palette::carryBlend).
+    if (at == ParamSlot::paletteMix) return false;
     return meta.live && glides && meta.label != nullptr && meta.label[0] != '\0' && meta.label[0] != '@';
 }
 

@@ -131,6 +131,7 @@ The renderer runs these in order each frame.
 - `core/audio/ingest/CapturePlan` orders the formats a capture asks AudioRecord for and sizes its buffer (`geode_capture_plan`, `geode_capture_buffer_bytes`); the mic and playback capture only make the AudioRecord calls.
 - `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
 - `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
+- `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end (`core/api/geode_bookmark_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.
 - Oboe is back as the output only (`core/audio/output`, off by default).
 - `OutputFifo` is the lock-free FIFO between Media3's sink and the device callback: 16-bit to float, underrun count, volume ramp, the position the sink reads.

@@ -20,7 +20,9 @@ val() { grep -E "^\s*$1\s*=" "$2" | head -1 | sed -E 's/.*=\s*//'; }
 
 echo "styles                      $styles"
 echo "  by kind                   $(grep '^style|' "$cat" | cut -d'|' -f3 | sort | uniq -c | sort -rn | awk '{printf "%s %s, ", $2, $1}' | sed 's/, $//')"
-echo "style families              $families ($family_styles styles, $((family_styles / families)) each)"
+# A family carries its own count: "10 x 12, 3 x 10" is ten families of twelve and three of ten.
+family_sizes=$(grep '^family|' "$cat" | cut -d'|' -f5 | awk -F, '{print NF}' | sort -rn | uniq -c | awk '{printf "%s%d x %d", (NR > 1 ? ", " : ""), $1, $2}')
+echo "style families              $families ($family_styles styles: $family_sizes)"
 echo "free styles                 $free (shader $shader - family non-openers $((family_styles - families)) - neon Pro $neon_pro)"
 echo "Pro-only styles             $((styles - free))"
 echo "bundled looks (presets)     $((loose * generic + variants)) ($generic generic x $loose loose shader styles + $variants hand-tuned)"

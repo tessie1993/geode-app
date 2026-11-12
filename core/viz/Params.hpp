@@ -65,6 +65,7 @@ struct ParamSpec {
 struct SceneParams {
     static constexpr float kUnsetOverride = -1.0f;
     static constexpr int kNoPaletteLut = -1;
+    static constexpr int kNoStop = -1;
     static constexpr int kDefaultSymmetryFolds = 6;
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
@@ -82,6 +83,9 @@ struct SceneParams {
     float paletteRange() const;
     float palette2Base() const;
     float palette2Range() const;
+    // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
+    std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
+    int paletteStopCount() const;
 
     // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParamsCodec.FIELDS).
     static constexpr int kFieldCount = static_cast<int>(ParamSlot::kCount);
@@ -104,7 +108,8 @@ struct SceneParams {
     //   params|<kSchemaTextVersion>|<kFieldCount>
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    static constexpr int kSchemaTextVersion = 2;
+    // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
+    static constexpr int kSchemaTextVersion = 3;
     static const std::string& schemaText();
 
     // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired

@@ -333,38 +333,6 @@ internal fun ControlLabelRow(
 }
 
 /**
- * A palette pick ([second] for the blend's second slot) as one dropdown row, the built-in palettes then
- * the user's own, with the gradient it paints under it. The chip wall it replaces is still
- * [PaletteSlotSelector] in the palette maker, which owns that page.
- */
-@Composable
-internal fun PaletteDropdown(
-    lockKey: String,
-    name: String,
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-    palettes: SavedPalettes,
-    second: Boolean,
-) {
-    val saved = palettes.items
-    val labels = SceneParams.PALETTES + saved.map { it.name }
-    Column {
-        DropdownRow(
-            name = name,
-            options = labels,
-            selectedIndex = paletteChipIndex(p, saved, second),
-            lockKey = lockKey,
-            placeholder = stringResource(R.string.look_summary_custom),
-        ) { i -> onChange(paletteChipSelected(p, saved, i, second)) }
-        GradientPreview(
-            baseHue = if (second) p.palette2Base else p.paletteBase,
-            hueSpan = if (second) p.palette2Range else p.paletteRange,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-/**
  * A pick from a list as one row: "Name   value ▾  ⋮" (UI V2 rule 2: dropdowns, not chip walls).
  *
  * A tap anywhere on the name or value opens the options as a menu with the current one checked, so

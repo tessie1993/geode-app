@@ -6,6 +6,7 @@
 
 #include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -64,6 +65,7 @@ void ShaderScene::init() {
     motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
+    worldParts_ = 0;
     {
         std::lock_guard<std::mutex> lock(pendingLock_);
         pendingFragment_ = currentFragment_;
@@ -94,7 +96,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
             world_->reset(seed);
             worldSeeded_ = true;
         }
-        world::DriverInput in = world::DriverInput::fromSound(sound);
+        world::DriverInput in = world::DriverInput::fromSound(sound, p.audioDrive);
         in.morph = p.morph;
         in.warp = p.warp;
         in.turbulence = p.turbulence;
@@ -112,6 +114,7 @@ void ShaderScene::draw(float timeSeconds) {
     (void) timeSeconds;
     compilePendingIfAny();
     if (program_ == 0) return;
+    specializeWorld();
     glDisable(GL_BLEND);
     glUseProgram(program_);
     uploadParams();
@@ -158,6 +161,19 @@ void ShaderScene::uploadParams() {
     set1f("uPal2Base", p.palette2Base());
     set1f("uPal2Range", p.palette2Range());
     set1f("uPaletteMix", p.paletteMix);
+    {
+        const auto stops = p.paletteStops();
+        const int count = p.paletteStopCount();
+        std::array<float, 3 * colour::kMaxStops> rgb{};
+        for (int i = 0; i < count; ++i) {
+            const colour::Rgb c = colour::unpack(stops[static_cast<size_t>(i)]);
+            rgb[static_cast<size_t>(3 * i)] = c.r;
+            rgb[static_cast<size_t>(3 * i + 1)] = c.g;
+            rgb[static_cast<size_t>(3 * i + 2)] = c.b;
+        }
+        set1f("uPalStopCount", static_cast<float>(count));
+        glUniform3fv(uniforms_.loc("uPalStops"), colour::kMaxStops, rgb.data());
+    }
     set1f("uDuotone", flag(p.duotone));
     set1f("uBloom", p.bloom);
     set1f("uWarp", p.warp);
@@ -308,6 +324,28 @@ void ShaderScene::uploadWorld() {
     glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
 }
 
+void ShaderScene::specializeWorld() {
+    // A user's shader override keeps its own source.
+    if (!world_ || currentFragment_ != stockFragment_) return;
+    const uint32_t want = world_->parts();
+    if (want == world::MorphDriver::kAllParts || (worldParts_ != 0 && (want & ~worldParts_) == 0)) return;
+    // Built here, in the frame that retargeted, before it draws: an export renders the same frames, and
+    // a retarget's new parts are never missing from the frame that first needs them.
+    std::string error;
+    const GLuint built = program::build(vertexSrc_, world::withParts(stockFragment_, want), cache_, &error);
+    // On a failure the stock program, which has every part, keeps drawing; marking the parts done
+    // keeps a broken driver from being asked again every frame.
+    worldParts_ = want;
+    if (built == 0) {
+        GEODE_LOGW(kTag, "Morph World parts %u did not build, drawing every part: %s", want, error.c_str());
+        return;
+    }
+    glDeleteProgram(program_);
+    program_ = built;
+    uniforms_ = UniformCache(built);
+    drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+}
+
 void ShaderScene::set1f(const char* name, float value) {
     glUniform1f(uniforms_.loc(name), value);
 }
@@ -338,6 +376,7 @@ void ShaderScene::compilePendingIfAny() {
     program_ = built;
     uniforms_ = UniformCache(built);
     drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+    worldParts_ = 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
 }

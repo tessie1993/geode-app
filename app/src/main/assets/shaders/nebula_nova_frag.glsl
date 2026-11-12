@@ -111,8 +111,8 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     gE = nebEnergy();
-    float swell = clamp(0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE), 0.0, 1.5);
-    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float swell = clamp(0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive), 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     gOct = nebVolOctaves(3.0);
 
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;

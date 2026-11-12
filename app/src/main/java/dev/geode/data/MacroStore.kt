@@ -106,6 +106,15 @@ class MacroStore internal constructor(
     /** A new random set of links for the knob, a new roll each call. */
     fun roll(id: Int) = edit { GeodeNative.macroBankRoll(it, id, Random.nextLong()) }
 
+    /** A new turn for every knob on screen that moves something on [styleId], a new roll each call. */
+    fun rollValues(styleId: String) = edit { GeodeNative.macroBankRollValues(it, styleId, Random.nextLong()) }
+
+    /** Off screen into the bank's library; Add macro offers it back. */
+    fun hide(id: Int) = edit { GeodeNative.macroBankHideKnob(it, id) }
+
+    /** From the library back on screen, last. */
+    fun show(id: Int) = edit { GeodeNative.macroBankShowKnob(it, id) }
+
     /** The copy's id, or null when the bank is full. */
     fun duplicate(id: Int): Int? = added { GeodeNative.macroBankDuplicateKnob(it, id) }
 

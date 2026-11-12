@@ -115,7 +115,7 @@ float lineOn(float f, float w) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
     float nod = 4.0 * beat * (1.0 - beat);
     float harmony = clamp(uHarmony, 0.0, 1.0);

@@ -86,7 +86,7 @@ struct geode_viz {
         if (!recorder || recordPtsNs < 0) return;
         bool ok = recordTap.begin(fbo, width, height);
         if (ok) {
-            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height());
+            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height(), 0);
             ok = recordTap.present(recordPtsNs, fbo);
         }
         if (!ok) recorder->stop(geode::output::record::Stop::Failed, geode_record_now_ns());
@@ -674,9 +674,9 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+void geode_viz_gyro_sample(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
     if (!v) return;
-    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    const GyroLook::Look look = v->gyro.sampleScreen(x, y, z, w, display_rotation);
     v->renderer.setLook(look.yaw, look.pitch);
 }
 

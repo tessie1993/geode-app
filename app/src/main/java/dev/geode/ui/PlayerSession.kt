@@ -24,6 +24,7 @@ import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MusicLibraryRepository
+import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsCodec
 import dev.geode.data.PlayerPrefsRepository
@@ -69,6 +70,7 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -323,6 +325,10 @@ class PlayerSession internal constructor(
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
     private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+
+    /** Settings › Preferences › Watermark; the provider folds it into [renderLimits]. */
+    internal val watermarkPrefs: dev.geode.data.WatermarkPrefsRepository =
+        PrefsSettingsRepository(prefsFiles.general, dev.geode.data.WatermarkPrefsCodec, storeScope)
     private val exportPrefs = dev.geode.data.ExportPrefsStore(prefsFiles.general)
 
     internal val record: RecordController =
@@ -401,7 +407,7 @@ class PlayerSession internal constructor(
                 durationMs = player.duration.coerceAtLeast(0),
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
-                    player.mediaMetadata.title?.toString()
+                    (player.mediaMetadata.title ?: player.mediaMetadata.displayTitle)?.toString()
                         ?: uri
                             ?.lastPathSegment
                             ?.substringAfterLast('/')
@@ -573,6 +579,30 @@ class PlayerSession internal constructor(
         startUri: String,
     ) = queueController.playFrom(tracks, startUri)
 
+    // Completed once attachPlayback has run, so a file opened on a cold start is not replaced by the restore.
+    private val playbackAttached = CompletableDeferred<Unit>()
+
+    /**
+     * Plays an audio file another app opened ("Open with") as a one-item queue, after
+     * [dev.geode.data.OpenedAudioSource] has checked the uri off the main thread. [onResult] is false
+     * when it was refused.
+     */
+    fun openAudio(
+        uri: Uri,
+        onResult: (Boolean) -> Unit,
+    ) {
+        scope.launch {
+            val inspection = container.openedAudio.inspect(uri)
+            if (inspection !is OpenedAudioSource.Inspection.Playable) {
+                onResult(false)
+                return@launch
+            }
+            playbackAttached.await()
+            queueController.playOpened(uri, inspection.name ?: application.getString(dev.geode.R.string.opened_audio_untitled))
+            onResult(true)
+        }
+    }
+
     fun playAll(
         tracks: List<QueueTrack>,
         shuffled: Boolean = false,
@@ -612,8 +642,8 @@ class PlayerSession internal constructor(
     internal var onStyleLocked: () -> Unit = {}
 
     /**
-     * The entitlement's export limits for every project render (a take, Studio's Render), set by the
-     * provider like [allowsStyle]; open until set.
+     * The entitlement's export limits for a recording (Record's cap), set by the provider like
+     * [allowsStyle]; open until set.
      */
     internal var renderLimits: () -> dev.geode.pro.RenderLimits = { dev.geode.pro.RenderLimits.NONE }
 
@@ -775,8 +805,6 @@ class PlayerSession internal constructor(
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
 
                 override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
-
-                override fun renderLimits() = this@PlayerSession.renderLimits()
             },
         )
 
@@ -803,7 +831,7 @@ class PlayerSession internal constructor(
         destination: Uri? = null,
         range: ExportRange? = null,
         codec: ExportCodec = ExportCodec.H264,
-        watermark: Boolean = false,
+        watermark: dev.geode.model.WatermarkChoice = dev.geode.model.WatermarkChoice.NONE,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
 
     fun deleteStudioClip(
@@ -883,7 +911,11 @@ class PlayerSession internal constructor(
         // The playback session records plays (#371); this only tells history screens to re-read.
         scope.launch { playback.playsRecorded.drop(1).collect { listening.onPlayRecorded() } }
         scope.launch {
-            attachPlayback()
+            try {
+                attachPlayback()
+            } finally {
+                playbackAttached.complete(Unit)
+            }
             pollPlaybackState()
         }
     }

@@ -42,7 +42,7 @@
     <string name="pro_row_fps_free">30 fps</string>
     <string name="pro_row_fps_pro">60 fps</string>
     <string name="pro_row_watermark">Watermark</string>
-    <string name="pro_row_watermark_free">Across the video</string>
+    <string name="pro_row_watermark_free">On every video</string>
     <string name="pro_row_length">Export length</string>
     <string name="pro_row_length_free">1 minute</string>
     <string name="pro_row_length_pro">Full track</string>

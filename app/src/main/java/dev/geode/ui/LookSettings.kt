@@ -38,6 +38,7 @@ import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GuiPrefs
 import dev.geode.geodeContainer
+import dev.geode.model.KnobSize
 import dev.geode.model.TabLabels
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +58,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: corners, tab bar labels, the Player's time and the boot animation. */
+/** Settings › Look › Layout: corners, tab bar labels, the Player's time, screen rotation, Quick knobs' size and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -226,8 +227,23 @@ private fun LayoutGroup(
         checked = gui.showTimeLeft,
         onCheckedChange = { viewModel.setGuiPrefs(gui.copy(showTimeLeft = it)) },
     )
+    ScreenRotationRow(gui, viewModel::setGuiPrefs)
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_knob_size),
+        options = KnobSize.entries,
+        selected = gui.knobSize,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.setGuiPrefs(gui.copy(knobSize = it)) },
+    )
     BootAnimationRow()
 }
+
+private fun KnobSize.labelRes(): Int =
+    when (this) {
+        KnobSize.SMALL -> R.string.look_knob_size_small
+        KnobSize.MEDIUM -> R.string.look_knob_size_medium
+        KnobSize.LARGE -> R.string.look_knob_size_large
+    }
 
 private fun TabLabels.labelRes(): Int =
     when (this) {

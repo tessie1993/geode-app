@@ -13,6 +13,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
@@ -244,8 +245,8 @@ class LoopRender(
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
-        // The free tier's corner wordmark; see WatermarkOverlay.
-        watermark: Boolean = false,
+        // The wordmark, as the render pinned it at its start; see WatermarkOverlay.
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
         // The track the loop is cut from: the export's sound engine hears it.
         audioUri: Uri,
         // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
@@ -265,7 +266,7 @@ class LoopRender(
                     look = look,
                     drift = drift,
                     paramsAt = paramsAt,
-                    watermarkText = if (watermark) context.getString(R.string.pro_watermark_text) else null,
+                    watermark = watermark,
                     audioUri = audioUri,
                 ),
                 onProgress,
@@ -282,7 +283,7 @@ class LoopRender(
         val look: LookSnapshot,
         val drift: TimeOfDayDrift,
         val paramsAt: ((Long) -> SceneParams)?,
-        val watermarkText: String?,
+        val watermark: WatermarkChoice,
         val audioUri: Uri,
     )
 
@@ -394,9 +395,7 @@ class LoopRender(
             val sourceFrames = loopFrames + seamFrames
             val scene = prepareRenderer(job, stop, sourceFrames).also { renderer = it }
             scene.prepare()
-            job.watermarkText?.let { text ->
-                mark = WatermarkOverlay(text, context.assets).apply { prepare(job.aspect.width, job.aspect.height) }
-            }
+            mark = WatermarkOverlay(job.watermark, context, WatermarkChoice.USE_LOOP).apply { prepare(job.aspect.width, job.aspect.height) }
 
             val outcome =
                 drawFrames(

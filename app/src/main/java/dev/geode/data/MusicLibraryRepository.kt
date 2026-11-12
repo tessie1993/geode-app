@@ -70,7 +70,7 @@ internal val MEDIA_ROOTS_PREF_KEYS =
         device(PrefType.STRING_SET, KEY_ROOTS)
     }
 
-private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
+private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "aiff", "aif")
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MusicLibraryRepository(
@@ -150,14 +150,18 @@ internal class MusicLibraryRepository(
         refreshDeviceTracks()
     }
 
+    private val _hiddenShortTracks = MutableStateFlow(0)
+
+    override val hiddenShortTracks: StateFlow<Int> = _hiddenShortTracks
+
     override fun refreshDeviceTracks() {
         scope.launch(Dispatchers.IO) {
-            _deviceTracks.value = queryDeviceTracksBlocking()
+            val scan = DeviceTrackQuery.scan(application, _minTrackSeconds.value)
+            _deviceTracks.value = scan.tracks
+            _hiddenShortTracks.value = scan.hiddenShort
             _deviceTracksLoaded.value = true
         }
     }
-
-    private fun queryDeviceTracksBlocking(): List<DeviceTrack> = DeviceTrackQuery.query(application, _minTrackSeconds.value)
 
     /**
      * A file MediaStore indexes while the app runs (a download, a copy over USB, a scan finishing)

@@ -138,9 +138,9 @@ void main() {
     vec2 uv = view();
     float t = nebTime();
     float e = nebEnergy();
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
+    float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
     float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
@@ -148,7 +148,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
     // Clamped: an ignited disc may not outgrow its cell, whatever the Energy.
-    float onset = clamp(SND_ONSET_ENV * e * (1.0 + kPulse), 0.0, 1.0);
+    float onset = clamp(SND_ONSET_ENV * uSoundDrive * e * (1.0 + kPulse), 0.0, 1.0);
     float oct = min(nebVolOctaves(2.0), 3.0);
     float key = nebKeyShift(0.1) + 0.2 * kTone;
     float wander = clamp(nebChaos() * 0.02 + 0.02 * kFlow, 0.0, 0.03);

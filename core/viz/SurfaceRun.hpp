@@ -64,18 +64,31 @@ inline bool has(uint32_t flags, Flag f) { return (flags & f) != 0; }
 // Whether the entitlement lets the visual move at nowMs.
 inline bool entitled(int64_t animateUntilMs, int64_t nowMs) { return nowMs < animateUntilMs; }
 
-inline RunMode mode(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
-    if (!has(flags, kHasSurface) || !has(flags, kVisible)) return RunMode::Stopped;
+// Why the surface is not moving: the rule's first reason that holds, None when it moves. Settings pages
+// name it, so a still wallpaper never looks broken.
+enum class Reason : int { None = 0, Hidden = 1, Entitlement = 2, ReducedMotion = 3, BatterySaver = 4, Silence = 5 };
+
+inline Reason reason(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
+    if (!has(flags, kHasSurface) || !has(flags, kVisible)) return Reason::Hidden;
     const bool preview = has(flags, kPreview);
-    if (has(flags, kCovered) && !preview) return RunMode::Stopped;
-    if (!entitled(animateUntilMs, nowMs)) return RunMode::Still;
+    if (has(flags, kCovered) && !preview) return Reason::Hidden;
+    if (!entitled(animateUntilMs, nowMs)) return Reason::Entitlement;
     const bool rest = has(flags, kSilent) && has(flags, kRestWhenSilent);
-    if (rest && has(flags, kDarkWhenSilent) && !preview) return RunMode::Dark;
-    if (has(flags, kReducedMotion)) return RunMode::Still;
-    if (preview) return RunMode::Animated;
-    if (has(flags, kBatterySaver) && has(flags, kPauseInBatterySaver)) return RunMode::Still;
-    if (rest) return RunMode::Still;
-    return RunMode::Animated;
+    if (rest && has(flags, kDarkWhenSilent) && !preview) return Reason::Silence;
+    if (has(flags, kReducedMotion)) return Reason::ReducedMotion;
+    if (preview) return Reason::None;
+    if (has(flags, kBatterySaver) && has(flags, kPauseInBatterySaver)) return Reason::BatterySaver;
+    if (rest) return Reason::Silence;
+    return Reason::None;
+}
+
+inline RunMode mode(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
+    switch (reason(flags, animateUntilMs, nowMs)) {
+        case Reason::None: return RunMode::Animated;
+        case Reason::Hidden: return RunMode::Stopped;
+        case Reason::Silence: return has(flags, kDarkWhenSilent) && !has(flags, kPreview) ? RunMode::Dark : RunMode::Still;
+        default: return RunMode::Still;
+    }
 }
 
 // Whether the surface should be hearing sound: whenever it would move if there were sound, cover

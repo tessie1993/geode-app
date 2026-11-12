@@ -439,6 +439,22 @@ GEODE_PARAM_META(liquidSurface, "Surface", Universal, 0, 0, 0)
 GEODE_PARAM(Float, camFlat, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camFlat, "Travel zoom", Universal, 0, 0, 0)
 
+// Your colours (Customize › Look): the first palette's own colour stops, each a packed 0xRRGGBB
+// (viz/Colour.hpp), kNoStop (-1) unset. Set from paletteStop0 on, they replace that slot's ramp: the
+// stops evenly round a loop (lib_palette's palStops), the first stop's hue for the styles that colour by
+// one hue. Appended so every wire index survives; a float carries 0xFFFFFF exactly, as reactSeed's max.
+// They belong to the Palette control: its roll and Reset clear them, Keep holds them, borrow copies them.
+GEODE_PARAM(Int, paletteStop0, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop0, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop1, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop1, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop2, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop2, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop3, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop3, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop4, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop4, "Palette", Universal, 0, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

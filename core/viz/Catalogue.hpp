@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -14,8 +15,8 @@
 namespace geode::viz::catalogue {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-// 2: the style row carries its look group.
-constexpr int kTextVersion = 2;
+// 2: the style row carries its look group. 3: picker rows.
+constexpr int kTextVersion = 3;
 
 // Which scene class an id builds. One per renderer, not per style. Names match Kotlin's SceneKind.
 enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Water, Cymatics };
@@ -63,14 +64,14 @@ struct Range {
     float max;
 };
 
-// Twelve fragment styles on one shared GLSL library (GLOSSARY "Style family"). ids[0] opens the
-// family: the first and most basic style.
+// Fragment styles on one shared GLSL library (GLOSSARY "Style family"). A family carries its own
+// count (twelve in the first ten, ten since); ids[0] opens it: the first and most basic style.
 struct Family {
     const char* name;
     const char* prefix;
     const char* library;  // on core/viz/ShaderSource.cpp's include allow-list
     Look look;            // every style of the family is shown in this group
-    std::array<const char*, 12> ids;
+    std::span<const char* const> ids;
     const char* opener() const { return ids[0]; }
 };
 
@@ -100,10 +101,20 @@ bool fliesCamera(const std::string& id);
 // How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
-const std::array<Family, 10>& families();
+std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.
 Look lookOf(const std::string& id);
+
+// The Styles page's families, one flat level in this order (owner, 2026-11-11: one dropdown, no
+// family inside a family). A shader family is one; every loose shader style is in "shaders"; any
+// other renderer's styles are one per kind, Fluid, Curl Flow and Water together as "fluid". Every
+// style is in exactly one, and their ids in this order are allIds(), the order the stage swipes.
+struct PickerFamily {
+    std::string name;
+    std::vector<std::string> ids;
+};
+const std::vector<PickerFamily>& pickerFamilies();
 
 // The scope of a Customize control, named by its ParamKeys string: the scope column of its fields'
 // meta rows in viz/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
@@ -120,6 +131,7 @@ const char* name(Look look);
 //   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail never: it is per style)
 //   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]   allIds() order; the extra field lists per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
+//   picker|<name>|<id>,<id>,...           pickerFamilies() order
 //   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control, in the wire order of its first field
 //   range|<ParamKeys string>|<min>|<max>

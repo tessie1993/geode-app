@@ -60,7 +60,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Twelve fragment-shader styles built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet and Sphere Foam.
+Ten or twelve fragment-shader styles (a family carries its own count) built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet, Sphere Foam, Flame, Opal and Hollow.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -92,6 +92,15 @@ The tiling style family: randomly turned tiles whose arcs and lines join into co
 
 **Sphere Foam**:
 The sphere-packing style family (`foam_*`, `lib_foam`): falls down a curving bore through, or orbits a ball of, a 3D Apollonian foam of spheres inside spheres, one material per style. Not Fractal Tunnel, the loose style ported from the same PR #7 shader, which keeps the rig's own flight.
+
+**Flame**:
+The fractal-flame style family (`flame_*`, `lib_flame`), ten styles: thin luminous veils and threads on black, each style one closed-form field whose level surfaces are the veils, flown through or turned about. Nothing is solid; the light of every veil a ray crosses is added.
+
+**Opal**:
+The oil-film style family (`opal_*`, `lib_opal`), ten styles: clear bubbles, shells and melting drops whose skins are thin films, the colour running through the palette with the viewing angle; a ray passes through up to four skins.
+
+**Hollow**:
+The Hollows style family (`hollow_*`, `lib_hollow`), ten styles: flights through the inside of things (sinew, caves, ribs, bone), dark walls under blacklight with their carving cut as real relief and glowing.
 
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.

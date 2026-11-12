@@ -7,6 +7,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.PlaybackPendingIntentBuilder
@@ -39,7 +41,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
 import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
+import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
+import dev.geode.ui.theme.isTelevision
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
@@ -296,8 +303,10 @@ class MainActivity : ComponentActivity() {
         runCatching { setPictureInPictureParams(buildPipParams()) }
     }
 
+    // Never on a TV: TV PiP must start from the user's own action (TV app quality, TV-IE).
     private fun autoEnterPipEligible(): Boolean =
-        settingsViewModel.guiPrefs.value.autoEnterPip &&
+        !isTelevision() &&
+            settingsViewModel.guiPrefs.value.autoEnterPip &&
             VisualizerPipCoordinator.visualizerShowing &&
             playerViewModel.uiState.value.isPlaying
 
@@ -353,8 +362,28 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSharedLink(intent)
+        receiveAudioFile(this, intent, playerViewModel)
         receiveMilkFile(intent)
         playFromSearch(intent)
+    }
+
+    /**
+     * Settings › Look › Screen rotation, live. No recreation follows a forced turn (`configChanges`
+     * in the manifest), so Visuals' route and sheet stay as they were. Android ignores the request in
+     * multi-window and, from targetSdk 36, on screens 600 dp and wider; a Presentation on a
+     * connected display is another display and never turns with it.
+     */
+    private fun followScreenRotation() {
+        lifecycleScope.launch {
+            settingsViewModel.guiPrefs.map { it.screenRotation }.distinctUntilChanged().collect {
+                requestedOrientation =
+                    when (it) {
+                        ScreenRotation.FOLLOW -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        ScreenRotation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+                        ScreenRotation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+                    }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -372,11 +401,13 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
+        followScreenRotation()
         setContent {
             AppRoot()
         }
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
+            receiveAudioFile(this, intent, playerViewModel)
             receiveMilkFile(intent)
             playFromSearch(intent)
         }

@@ -5,6 +5,7 @@ add_library(geode_core STATIC
     api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_colour_api.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
@@ -58,9 +59,6 @@ add_library(geode_core STATIC
     output/RecordPlan.cpp
     output/Recorder.cpp
     output/Chapters.cpp
-    signal/timeline/Keyframes.cpp
-    signal/timeline/SpeedRamp.cpp
-    util/CubeLut.cpp
     api/geode_output_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
@@ -103,7 +101,6 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
-    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp

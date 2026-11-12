@@ -84,6 +84,7 @@ class WireLayoutTest {
                 noteDrums = 1.75f,
                 liquidSurface = 1,
                 camFlat = 0.5f,
+                paletteStop4 = 0xFFFFFF,
             )
         val out = SceneParamsCodec.pack(p)
         assertEquals(1.25f, out[slot("camFly")])
@@ -93,18 +94,20 @@ class WireLayoutTest {
         assertEquals(1.75f, out[slot("noteDrums")])
         assertEquals(1f, out[slot("liquidSurface")])
         assertEquals(0.5f, out[slot("camFlat")])
+        assertEquals(16_777_215f, out[slot("paletteStop4")])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 
     @Test
     fun appendedFieldsKeepTheirSlots() {
         // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
-        assertEquals(164, SceneParamsCodec.FIELDS)
+        assertEquals(169, SceneParamsCodec.FIELDS)
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
+        assertEquals(163, slot("camFlat"))
         val tail = ParamSchema.params.takeLast(5).map { it.name }
-        assertEquals(listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface", "camFlat"), tail)
+        assertEquals(listOf("paletteStop0", "paletteStop1", "paletteStop2", "paletteStop3", "paletteStop4"), tail)
     }
 
     @Test

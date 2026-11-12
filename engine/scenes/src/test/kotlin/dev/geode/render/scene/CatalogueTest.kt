@@ -30,7 +30,7 @@ class CatalogueTest {
         assertEquals("silk_web", Catalogue.styles.first().id)
         assertEquals(SceneKind.SILK, Catalogue.kindOf(SceneIds.DEFAULT))
         assertEquals(SceneKind.SILK, Catalogue.kindOf("no_such_style"))
-        assertEquals(244, Catalogue.styles.size)
+        assertEquals(274, Catalogue.styles.size)
     }
 
     @Test
@@ -47,6 +47,16 @@ class CatalogueTest {
         assertEquals("FRACTALS", Catalogue.style("mandelbox_cathedral")?.look)
         assertEquals(setOf(ParamScope.MARCH_DETAIL), Catalogue.style("mandelbox_cathedral")?.scopes)
         assertEquals(emptySet<ParamScope>(), Catalogue.style("ribbon_storm")?.scopes)
+    }
+
+    @Test
+    fun thePickerIsOneFlatLevelOverEveryStyle() {
+        assertEquals(Catalogue.styles.map { it.id }, Catalogue.picker.values.flatten())
+        assertEquals(listOf("silk", "life", "mycelium", "morphing", "shaders"), Catalogue.picker.keys.take(5))
+        assertTrue("neon_chrome_sea" in Catalogue.picker.getValue("shaders"))
+        StyleFamilies.all.forEach { assertEquals(it.ids, Catalogue.picker[it.name]) }
+        assertEquals(listOf(SceneIds.MILKDROP), Catalogue.picker["milkdrop"])
+        assertEquals("MilkDrop", VisualStyleCatalog.familyLabel("milkdrop"))
     }
 
     @Test

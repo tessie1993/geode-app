@@ -20,6 +20,10 @@ int geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long
     return static_cast<int>(surface::mode(flags, animate_until_ms, now_ms));
 }
 
+int geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms) {
+    return static_cast<int>(surface::reason(flags, animate_until_ms, now_ms));
+}
+
 int geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms) {
     return surface::listening(flags, animate_until_ms, now_ms) ? 1 : 0;
 }

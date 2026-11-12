@@ -55,6 +55,8 @@ class PresetGoldenTest {
         assertEquals("palette-a", p.customPaletteId)
         assertEquals("palette-b", p.customPalette2Id)
         assertEquals(12.5f, p.flowCurl)
+        // Your colours: white and black are colours, not sentinels, and survive the float wire exactly.
+        assertEquals(listOf(0xFF8800, 0x2233FF, 0x10E0A0, 0xFFFFFF, 0x000000), p.paletteStops)
     }
 
     @Test

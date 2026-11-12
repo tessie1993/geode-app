@@ -85,7 +85,7 @@ vec3 normalAt(vec3 p, float e) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
     gTwist = 0.32 * dropBump * bulbEnergy();

@@ -6,6 +6,12 @@ import android.provider.MediaStore
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
+/** One MediaStore read: the tracks kept, and how many the minimum length left out. */
+data class DeviceTrackScan(
+    val tracks: List<DeviceTrack>,
+    val hiddenShort: Int,
+)
+
 /**
  * The music MediaStore already indexes, read the same way for the library screen, voice search and
  * the Android Auto tree.
@@ -21,14 +27,20 @@ object DeviceTrackQuery {
     fun query(
         context: Context,
         minTrackSeconds: Int,
-    ): List<DeviceTrack> {
+    ): List<DeviceTrack> = scan(context, minTrackSeconds).tracks
+
+    fun scan(
+        context: Context,
+        minTrackSeconds: Int,
+    ): DeviceTrackScan {
         val permission = android.Manifest.permission.READ_MEDIA_AUDIO
         val granted =
             androidx.core.content.ContextCompat
                 .checkSelfPermission(context, permission) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (!granted) return emptyList()
+        if (!granted) return DeviceTrackScan(emptyList(), 0)
         val out = mutableListOf<DeviceTrack>()
+        var hidden = 0
         val proj =
             arrayOf(
                 MediaStore.Audio.Media._ID,
@@ -57,7 +69,10 @@ object DeviceTrackQuery {
                     val ad = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     while (c.moveToNext()) {
                         val durationMs = c.getLong(du)
-                        if (!MinTrackLength.keeps(durationMs, minTrackSeconds)) continue
+                        if (!MinTrackLength.keeps(durationMs, minTrackSeconds)) {
+                            hidden++
+                            continue
+                        }
                         val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, c.getLong(id))
                         val path = c.getString(da).orEmpty()
                         out +=
@@ -73,7 +88,7 @@ object DeviceTrackQuery {
                     }
                 }
         }
-        return out
+        return DeviceTrackScan(out, hidden)
     }
 
     /**

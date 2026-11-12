@@ -182,9 +182,9 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float trend = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV * uIntensity * (1.0 + kPulse), 0.0, 1.5);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
+    float trend = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * uIntensity * (1.0 + kPulse), 0.0, 1.5);
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0) * clamp(1.0 + kTexture, 0.3, 1.7);
     gCurl = clamp(uTwist, -1.0, 1.0);
     gRings = 5.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);

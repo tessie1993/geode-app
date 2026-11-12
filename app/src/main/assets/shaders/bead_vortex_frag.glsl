@@ -202,10 +202,10 @@ void main() {
     // the last spike aimed, as the flat style did.
     vec2 uv = fluidWarp(view(), 1.0, 0.04);
 
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
-    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
+    float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);

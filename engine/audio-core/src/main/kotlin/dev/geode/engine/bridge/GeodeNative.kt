@@ -401,6 +401,25 @@ object GeodeNative {
         seed: Long,
     ): String
 
+    /** A new turn for every knob on screen that moves something on [styleId]; the same [seed], the same turns. */
+    external fun macroBankRollValues(
+        bank: String,
+        styleId: String,
+        seed: Long,
+    ): String
+
+    /** The knob off screen into the bank's library, centred. */
+    external fun macroBankHideKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    /** A knob from the library back on screen, last; refused when the screen is full. */
+    external fun macroBankShowKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
     /** The name native offers when the knob is saved (a name, not a bank). */
     external fun macroBankAutoName(
         bank: String,
@@ -574,11 +593,14 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
+    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,
-        azimuth: Float,
-        pitch: Float,
+        x: Float,
+        y: Float,
+        z: Float,
+        w: Float,
+        displayRotation: Int,
     )
 
     /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
@@ -811,6 +833,48 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
+    external fun colourFromHsv(
+        h: Float,
+        s: Float,
+        v: Float,
+    ): Int
+
+    /** Hue, saturation and value (0..1) of a packed 0xRRGGBB into [out] (`geode_colour_to_hsv`). Pure. */
+    external fun colourToHsv(
+        rgb: Int,
+        out: FloatArray,
+    )
+
+    /** "#RRGGBB", "RRGGBB", "#RGB" or "RGB" as a packed colour, -1 if it is none (`geode_colour_parse_hex`). Pure. */
+    external fun colourParseHex(text: String): Int
+
+    /** A packed colour as "#RRGGBB" (`geode_colour_hex`). Pure. */
+    external fun colourHex(rgb: Int): String
+
+    /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
+    external fun colourAverageArgb(argb: IntArray): Int
+
+    /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
+    external fun paletteRamp(
+        stops: IntArray,
+        samples: Int,
+    ): IntArray
+
+    /** A hue gradient as [count] (<= 5) stops, where the loop puts them (`geode_palette_stops_from_hues`). Pure. */
+    external fun paletteStopsFromHues(
+        base: Float,
+        range: Float,
+        count: Int,
+    ): IntArray
+
+    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    external fun paramsPalettePreview(
+        params: FloatArray,
+        second: Boolean,
+        samples: Int,
+    ): IntArray
+
     /**
      * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
      * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
@@ -1035,8 +1099,8 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
-    // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
-    // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
+    // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
+    // thread; the Kotlin exporters only marshal through these.
 
     /** Frames a render of [durationUs] draws at [fps], at least 1. */
     external fun exportTotalFrames(
@@ -1361,46 +1425,6 @@ object GeodeNative {
         totalMs: Long,
     ): LongArray
 
-    /**
-     * A keyframed clip speed as Media3 segments. Keys are parallel arrays: [keyTimesMs], [keyKinds]
-     * (0 scalar, 1 vector2, 2 colour, 3 toggle, 4 choice), [keyInterps] (0 hold, 1 linear, 2 bezier),
-     * four [keyValues] and four [keyCurves] floats per key. Returns [source span µs, segment starts µs…]
-     * with the speeds written to [speedsOut]; null when there are no keys.
-     */
-    external fun speedRampBuild(
-        keyTimesMs: LongArray,
-        keyKinds: IntArray,
-        keyValues: FloatArray,
-        keyInterps: IntArray,
-        keyCurves: FloatArray,
-        clipStartMs: Long,
-        clipDurationMs: Long,
-        stepMs: Long,
-        speedsOut: FloatArray,
-    ): LongArray?
-
-    /** A saved clip speed made safe: NaN, infinite, 0 or negative is 1x, else 0.25..4. */
-    external fun clipSpeedSanitize(speed: Float): Float
-
-    /** The clip grade as a column-major 4x4 into [out] (16 floats). */
-    external fun clipGradeMatrix(
-        brightness: Float,
-        contrast: Float,
-        saturationPercent: Float,
-        hueDegrees: Float,
-        out: FloatArray,
-    )
-
-    /** A .cube file's ARGB entries, size^3 in [r][g][b] order; null when it is not a usable cube. */
-    external fun cubeLutParse(text: ByteArray): IntArray?
-
-    external fun cubeLutGamma(
-        red: Float,
-        green: Float,
-        blue: Float,
-        size: Int,
-    ): IntArray
-
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(
         input: ShortArray,
@@ -1458,6 +1482,19 @@ object GeodeNative {
 
     /** Whether a surface may rest: nothing heard for 6 s. */
     external fun silenceResting(
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Boolean
+
+    /** A capture's last sound: [nowMs] when [peak] (a ring write's answer) is above digital zero, else [heardAtMs]. */
+    external fun captureHeardAt(
+        peak: Float,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** Whether a capture has heard only digital zero for 4 s since [heardAtMs]. */
+    external fun captureQuiet(
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
@@ -1559,36 +1596,71 @@ object GeodeNative {
 
     /** The Cast stream's format into [out] ([CAST_FORMAT_INTS] ints): width, height, fps, keyframe interval (s), video and audio bit/s. */
     external fun castFormat(out: IntArray)
-    // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
-    // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
+    // Export post-passes (core/viz/frame/ExportPasses): the watermark and a loop's seam. [assets] is the
+    // app's AssetManager (typed as Any, as for [vizCreate]); every call but the watermark's pure calls
+    // (placement to tile size) and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
 
     external fun exportPassDestroy(handle: Long)
 
+    /**
+     * Whether a render's frames carry the wordmark and where (`exportmath::watermark::placement`): 0 for
+     * none, else the placement code (`dev.geode.model.WatermarkChoice`), an end card becoming a corner
+     * mark on frames of a [use] whose end is not known.
+     */
+    external fun exportWatermarkPlacement(
+        required: Boolean,
+        proAdds: Boolean,
+        placement: Int,
+        use: Int,
+    ): Int
+
     /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
-    external fun exportWatermarkTextPx(shortSide: Int): Float
+    external fun exportWatermarkTextPx(
+        shortSide: Int,
+        placement: Int,
+    ): Float
 
-    /** The power-of-two tile width for the wordmark measured at [textWidth] pixels. */
-    external fun exportWatermarkTileWidth(textWidth: Float): Int
+    /** The tile's rotation in degrees, and the text's alpha (0..255). */
+    external fun exportWatermarkAngle(placement: Int): Float
 
-    external fun exportWatermarkTileHeight(tileWidth: Int): Int
+    external fun exportWatermarkAlpha(placement: Int): Int
 
-    /** [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer). */
+    /** The tile width for the wordmark measured at [textWidth] pixels (a power of two for the tiled pattern). */
+    external fun exportWatermarkTileWidth(
+        textWidth: Float,
+        textPx: Float,
+        placement: Int,
+    ): Int
+
+    external fun exportWatermarkTileHeight(
+        tileWidth: Int,
+        textPx: Float,
+        placement: Int,
+    ): Int
+
+    /**
+     * [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer).
+     * [lengthMs] is the video's, for an end card; 0 when unknown.
+     */
     external fun exportWatermarkCreate(
         assets: Any,
         rgba: java.nio.ByteBuffer,
         tileWidth: Int,
         tileHeight: Int,
+        placement: Int,
+        corner: Int,
+        lengthMs: Long,
     ): Long
 
-    /** Over the default framebuffer, after the scene. */
+    /** Over the default framebuffer, after the scene; [timeMs] is the frame's time in the video. */
     external fun exportWatermarkDraw(
         handle: Long,
         frameWidth: Int,
         frameHeight: Int,
+        timeMs: Long,
     )
 
     external fun exportSeamCreate(
@@ -1642,53 +1714,6 @@ object GeodeNative {
         seamFrames: Int,
         fps: Int,
     ): Long
-
-    /** [id]: a GL Transitions name; an unknown one only copies. */
-    external fun exportTransitionCreate(
-        assets: Any,
-        id: String,
-        durationUs: Long,
-    ): Long
-
-    external fun exportTransitionConfigure(
-        handle: Long,
-        width: Int,
-        height: Int,
-    )
-
-    /** [rgba]: a direct buffer, RGBA8 bottom row first; the first one is kept. */
-    external fun exportTransitionSetFrom(
-        handle: Long,
-        rgba: java.nio.ByteBuffer,
-        width: Int,
-        height: Int,
-    )
-
-    /** Into the framebuffer and viewport Media3 bound for this program's output. */
-    external fun exportTransitionDraw(
-        handle: Long,
-        inputTex: Int,
-        ptsUs: Long,
-    )
-
-    external fun exportCaptureCreate(assets: Any): Long
-
-    external fun exportCaptureConfigure(
-        handle: Long,
-        width: Int,
-        height: Int,
-    )
-
-    external fun exportCaptureDraw(
-        handle: Long,
-        inputTex: Int,
-    )
-
-    /** Writes the last frame drawn (RGBA8, bottom row first) into the direct buffer [out]; false when none or it is too small. */
-    external fun exportCaptureRead(
-        handle: Long,
-        out: java.nio.ByteBuffer,
-    ): Boolean
 
     /**
      * The GL Transitions library as UTF-8 bytes, in the control-separated table of
@@ -1758,6 +1783,13 @@ object GeodeNative {
 
     /** 0 stopped, 1 a still frame, 2 moving, 3 dark (no visual). */
     external fun surfaceRunMode(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Int
+
+    /** Why it is not moving: 0 moving, 1 hidden, 2 the entitlement, 3 reduced motion, 4 battery saver, 5 silence. */
+    external fun surfaceReason(
         flags: Int,
         animateUntilMs: Long,
         nowMs: Long,
@@ -2105,11 +2137,14 @@ object GeodeNative {
         speed: Float,
     )
 
-    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    /** The user's A/V offset, clamped to ±[playoutMaxOffsetMs]; positive shows the picture later. */
     external fun playoutSetOffsetMs(
         handle: Long,
         ms: Int,
     )
+
+    /** The offset's bound in ms, for Settings' Picture delay slider. */
+    external fun playoutMaxOffsetMs(): Int
 
     /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
     external fun playoutSpeakerFrame(

@@ -139,10 +139,10 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
    Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
 GEODE_API const char* geode_mod_targets_text(void);
-/* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
-   reset is the baseline; viz/GyroLook turns the tilt from it into the -1..1 look per axis the camera reads only while
-   camGyro is on. GL thread. */
-GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
+/* One game rotation vector reading (quaternion x, y, z, w) on a screen at display_rotation (Surface.ROTATION_*, 0..3).
+   viz/GyroLook reads it as the screen's azimuth and pitch; the first after a reset or a new rotation is the baseline,
+   and the tilt from it is the -1..1 look per axis the camera reads only while camGyro is on. GL thread. */
+GEODE_API void        geode_viz_gyro_sample(geode_viz*, float x, float y, float z, float w, int display_rotation);
 /* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
@@ -424,6 +424,23 @@ GEODE_API const char* geode_params_schema_text(void);
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
+ * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
+ * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
+ * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper). */
+GEODE_API int         geode_colour_from_hsv(float h, float s, float v);
+GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
+GEODE_API int         geode_colour_parse_hex(const char* text);
+GEODE_API const char* geode_colour_hex(int rgb);
+GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+/* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
+ * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
+ * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the
+ * geode_viz_set_params frame `params` paints before Hue shift and Hue range: its stops when set, else the
+ * cosine ramp of its hue base and span. */
+GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
+GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
+GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
@@ -490,11 +507,14 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * the target's range; geode_macro_bank_add_link links a target the knob does not move yet at the starting weights. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
  * that way moves anything on style_id. geode_macro_bank_editor is the knob editor's one read (MacroBank.hpp's
  * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
- * geode_macro_bank_move_knob steps a knob delta places along the bank. geode_macro_bank_set_curve sets how a link
+ * geode_macro_bank_move_knob steps a knob delta places along the screen. geode_macro_bank_set_curve sets how a link
  * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
  * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
  * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
- * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_auto_name
+ * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_roll_values
+ * gives every knob on screen that moves something on style_id a new turn (the same seed, the same turns).
+ * geode_macro_bank_hide_knob takes a knob off screen into the bank's library and geode_macro_bank_show_knob puts one
+ * back (a built-in knob too, as built, when the bank lacks it). geode_macro_bank_auto_name
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
  * adds to its params each frame, after the director and the note layer and before the LFOs. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
@@ -515,6 +535,9 @@ GEODE_API const char* geode_macro_bank_set_curve(const char* bank, int knob_id, 
 GEODE_API const char* geode_macro_bank_add_knob_for(const char* bank, const char* control);
 GEODE_API const char* geode_macro_bank_controls(const char* bank);
 GEODE_API const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed);
+GEODE_API const char* geode_macro_bank_roll_values(const char* bank, const char* style_id, long long seed);
+GEODE_API const char* geode_macro_bank_hide_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
@@ -575,8 +598,8 @@ GEODE_API int             geode_encoder_attempts(int requested_fps, int bit_rate
                                                  int codec_count, int* out_codec, int* out_fps,
                                                  int* out_bit_rate, int capacity);
 
-/* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
- * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure
+/* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark and a loop render's seam, each a
+ * frame::Pass on the export surface. The pure
  * calls (text_px, tile_*, seam_weight) run anywhere; every other call needs the export's GL context current
  * on the calling thread, destroy included (it deletes GL names). A create always returns a handle (NULL only
  * when out of memory); geode_export_pass_error says whether it built ("" when it did). None of them times a
@@ -584,14 +607,36 @@ GEODE_API int             geode_encoder_attempts(int requested_fps, int bit_rate
 typedef struct geode_export_pass geode_export_pass;
 GEODE_API const char*         geode_export_pass_error(const geode_export_pass*);   /* "" when clean or NULL */
 GEODE_API void                geode_export_pass_destroy(geode_export_pass*);
-/* The wordmark's text size for a frame's short side, and the power-of-two tile for the measured text width. */
-GEODE_API float               geode_export_watermark_text_px(int short_side);
-GEODE_API int                 geode_export_watermark_tile_width(float text_width);
-GEODE_API int                 geode_export_watermark_tile_height(int tile_width);
-/* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). */
-GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h);
-/* Over the default framebuffer (the encoder surface), frame_w x frame_h pixels, after the scene. */
-GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h);
+/* Watermark placement (Settings › Preferences) and corner, and what the frames are (`use`). */
+#define GEODE_WATERMARK_NONE 0
+#define GEODE_WATERMARK_TILED 1
+#define GEODE_WATERMARK_CORNER 2
+#define GEODE_WATERMARK_END_CARD 3
+#define GEODE_WATERMARK_TOP_LEFT 0
+#define GEODE_WATERMARK_TOP_RIGHT 1
+#define GEODE_WATERMARK_BOTTOM_LEFT 2
+#define GEODE_WATERMARK_BOTTOM_RIGHT 3
+#define GEODE_WATERMARK_USE_WHOLE 0   /* a whole video, its end known */
+#define GEODE_WATERMARK_USE_SEGMENT 1 /* a Studio scene segment, layered later */
+#define GEODE_WATERMARK_USE_LOOP 2
+#define GEODE_WATERMARK_USE_LIVE 3    /* Record */
+/* Whether frames are marked (the entitlement requires it, or Pro adds it) and where: GEODE_WATERMARK_NONE, or
+ * the placement asked for, an end card becoming a corner mark where the video's end is not known. Pure. */
+GEODE_API int                 geode_export_watermark_placement(int required, int pro_adds, int placement, int use);
+/* The raster the placement wants: the text size for a frame's short side, its rotation in degrees and alpha
+ * (0..255), and the tile for the measured text width (the tiled pattern's is a power of two). Pure. */
+GEODE_API float               geode_export_watermark_text_px(int short_side, int placement);
+GEODE_API float               geode_export_watermark_angle(int placement);
+GEODE_API int                 geode_export_watermark_alpha(int placement);
+GEODE_API int                 geode_export_watermark_tile_width(float text_width, float text_px, int placement);
+GEODE_API int                 geode_export_watermark_tile_height(int tile_width, float text_px, int placement);
+/* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). length_ms
+ * is the video's (an end card's last seconds), 0 when unknown. */
+GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h,
+                                                            int placement, int corner, int64_t length_ms);
+/* Over the default framebuffer (the encoder surface), frame_w x frame_h pixels, after the scene; time_ms is the
+ * frame's time in the video. */
+GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h, int64_t time_ms);
 /* Loop seam: up to `requested` full-frame textures of stash (returns how many fitted), filled by capture from
  * the default framebuffer and laid back over it by blend at closing frame `tail` of `seam_frames`. */
 GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width, int height);
@@ -612,18 +657,6 @@ GEODE_API int64_t             geode_export_seam_budgeted_crossfade_ms(int64_t cr
  * rising in 0..1 and exactly 1 on the last frame. reported_crossfade_ms: seam_frames at fps in whole ms. */
 GEODE_API float               geode_export_loop_progress(int stop, int stops, int frame, int loop_frames, int seam_frames);
 GEODE_API int64_t             geode_export_loop_reported_crossfade_ms(int seam_frames, int fps);
-/* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
- * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
-GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);
-GEODE_API void                geode_export_transition_configure(geode_export_pass*, int width, int height);
-GEODE_API void                geode_export_transition_set_from(geode_export_pass*, const uint8_t* rgba, int width, int height);
-GEODE_API void                geode_export_transition_draw(geode_export_pass*, unsigned input_tex, int64_t pts_us);
-/* A clip's last frame for the next clip's transition: draws input_tex through unchanged and keeps a copy;
- * read writes it (width x height RGBA8, bottom row first) and returns 1, or 0 when none or capacity is short. */
-GEODE_API geode_export_pass*  geode_export_capture_create(AAssetManager*);
-GEODE_API void                geode_export_capture_configure(geode_export_pass*, int width, int height);
-GEODE_API void                geode_export_capture_draw(geode_export_pass*, unsigned input_tex);
-GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint8_t* out, size_t capacity);
 
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
@@ -632,6 +665,11 @@ GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+/* A capture's digital silence (sound/Silence): heard_at moved to now when the peak of the block it just wrote
+ * (the ring's write answer) is above digital zero; quiet is 4 s of none since then. Start heard_at at the
+ * capture's start. Pure, any thread. */
+GEODE_API long long       geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms);
+GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_at_ms);     /* 1 = quiet */
 
 /* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
  * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets
@@ -709,6 +747,9 @@ GEODE_API int             geode_surface_run_mode(unsigned flags, long long anima
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+/* Why it is not moving, the rule's first reason: 0 moving, 1 hidden or covered, 2 the entitlement, 3 reduced
+ * motion, 4 battery saver, 5 silence. */
+GEODE_API int             geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms);
 /* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
  * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
 GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
@@ -793,11 +834,10 @@ GEODE_API void            geode_thermal_push(int platform_status, float headroom
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
    that is paused draws no frame: it sheds them at its pause instead (geode_viz_trim_spares). Any thread. */
 GEODE_API void            geode_memory_trim(int android_level);
-/* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
- * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
- * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the
- * maths themselves; the classes behind them are output/FrameClock, LoopPlan, EncodePlan, Chapters,
- * signal/timeline/Keyframes, SpeedRamp, viz/ClipGrade, util/CubeLut, audio/dsp/PcmConvert and PcmTiming. */
+/* ── Export planning and PCM maths (ADR 0006: core/output; ADR 0003 ports) ──────────────────────────────────
+ * Pure functions, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender, LoopExtend,
+ * AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are
+ * output/FrameClock, LoopPlan, EncodePlan, Chapters, audio/dsp/PcmConvert and PcmTiming. */
 
 /* Frame clock (output/FrameClock): each value from the frame index alone, so nothing accumulates. */
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
@@ -934,44 +974,6 @@ GEODE_API int     geode_chapters_from_markers(const int64_t* markers_ms, int cou
                                               int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
                                               int capacity);
 
-/* Keyframe tracks (signal/timeline/Keyframes). kind: 0 scalar, 1 vector2, 2 colour (4 floats), 3 toggle,
- * 4 choice; interp: 0 hold, 1 linear, 2 bezier (c1x, c1y, c2x, c2y; the Ease presets are beziers too).
- * A key at a time that already has one replaces it. One thread at a time per track. */
-typedef struct geode_track geode_track;
-GEODE_API geode_track* geode_track_create(void);
-GEODE_API void         geode_track_destroy(geode_track*);
-GEODE_API void         geode_track_clear(geode_track*);
-GEODE_API void         geode_track_add_key(geode_track*, int64_t at_ms, int kind, const float* value4, int interp,
-                                           float c1x, float c1y, float c2x, float c2y);
-/* 1 and the value (kind, 4 floats) at t_ms; 0 when the track has no keys. */
-GEODE_API int          geode_track_value_at(const geode_track*, int64_t t_ms, int* out_kind, float* out_value4);
-GEODE_API float        geode_bezier_eval(float c1x, float c1y, float c2x, float c2y, float x);
-
-/* Clip speed ramps (signal/timeline/SpeedRamp) for Media3's SpeedProvider, which asks in source time. */
-typedef struct geode_speed_ramp geode_speed_ramp;
-GEODE_API geode_speed_ramp* geode_speed_ramp_create(const geode_track* speed_track, int64_t clip_start_ms,
-                                                    int64_t clip_duration_ms, int64_t step_ms); /* NULL: no keys */
-GEODE_API void              geode_speed_ramp_destroy(geode_speed_ramp*);
-GEODE_API float             geode_speed_ramp_speed_at(const geode_speed_ramp*, int64_t source_us);
-GEODE_API int64_t           geode_speed_ramp_next_change_us(const geode_speed_ramp*, int64_t source_us); /* -1: none */
-GEODE_API int64_t           geode_speed_ramp_source_span_us(const geode_speed_ramp*);
-/* Copies min(count, capacity) segment starts (source µs) and speeds; returns the segment count. */
-GEODE_API int               geode_speed_ramp_segments(const geode_speed_ramp*, int64_t* out_starts_us, float* out_speeds,
-                                                      int capacity);
-GEODE_API float             geode_clip_speed_sanitize(float speed);  /* NaN/<=0 -> 1, else 0.25..4 */
-
-/* Clip grade (viz/ClipGrade): hue . saturation . contrast . brightness as a column-major 4x4. */
-GEODE_API void    geode_clip_grade_matrix(float brightness, float contrast, float saturation_percent,
-                                          float hue_degrees, float* out16);
-
-/* Colour cubes (util/CubeLut): size^3 opaque ARGB, [r][g][b]. */
-typedef struct geode_cube_lut geode_cube_lut;
-GEODE_API geode_cube_lut* geode_cube_lut_parse(const char* text, size_t length);   /* NULL: not a usable .cube */
-GEODE_API geode_cube_lut* geode_cube_lut_gamma(float red, float green, float blue, int size);
-GEODE_API void            geode_cube_lut_destroy(geode_cube_lut*);
-GEODE_API int             geode_cube_lut_size(const geode_cube_lut*);
-GEODE_API const uint32_t* geode_cube_lut_argb(const geode_cube_lut*);              /* size^3 entries */
-
 /* PCM conversions (audio/dsp/PcmConvert). downmix returns the frames written (0: not a downmix). */
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,
                                         int16_t* out);
@@ -1007,6 +1009,8 @@ GEODE_API void           geode_playout_flush(geode_playout*);           /* a see
 GEODE_API void           geode_playout_speed(geode_playout*, float speed);   /* media per wall time; > 0 */
 /* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
 GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
+/* The offset's bound in ms: geode_playout_set_offset_ms takes -max..+max (Settings' Picture delay). */
+GEODE_API int            geode_playout_max_offset_ms(void);
 /* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
  * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
 GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);

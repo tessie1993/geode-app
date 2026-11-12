@@ -395,6 +395,7 @@ void ReactSignals::reset() {
     feelingKind_ = -1;
     seenSections_ = 0;
     lastSection_ = -1;
+    sectionPending_ = false;
     lastSectionBars_ = 0.0f;
     barsInSection_ = 0.0f;
     sectionLength_ = kFirstSectionBars;
@@ -531,16 +532,26 @@ void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::
     const int state = std::clamp(static_cast<int>(std::lround(clean(f.sectionState))), 0, static_cast<int>(kSectionStates.size()) - 1);
     for (size_t k = 0; k < kSectionStates.size(); ++k) values_[static_cast<size_t>(kSectionStates[k])] = static_cast<int>(k) == state ? 1.0f : 0.0f;
 
-    // A section comes back: Form gives a new section the number of one it heard before (it never names the one
-    // just left again, so a changed number is always a new section, an old number a return).
+    // A section comes back: after a section change Form gives the new section the number of one it heard before
+    // (it never names the one just left again, so a changed number is always a new section, an old number a
+    // return). A number that changes with no section change before it is Form starting over (a seek, a new
+    // track), whose old numbers mean nothing now: it forgets them rather than reading a return.
+    const bool changed = clean(f.sectionChange) > 0.0f;
+    if (changed) sectionPending_ = true;
     const int section = std::clamp(static_cast<int>(std::lround(clean(f.sectionId))), 0, kSectionIds - 1);
-    if (lastSection_ >= 0 && section != lastSection_ && (seenSections_ & (1u << section)) != 0u) fire(ReactSource::SectionReturn, 1.0f);
+    if (lastSection_ >= 0 && section != lastSection_) {
+        if (!sectionPending_) {
+            seenSections_ = 0u;
+        } else if ((seenSections_ & (1u << section)) != 0u) {
+            fire(ReactSource::SectionReturn, 1.0f);
+        }
+        sectionPending_ = false;
+    }
     seenSections_ |= 1u << section;
     lastSection_ = section;
 
     // How far through the section.
     const float bars = std::clamp(clean(f.sectionBars), 0.0f, ReactSignals::kCountWrap);
-    const bool changed = clean(f.sectionChange) > 0.0f;
     const bool turned = sectionPrimed_ && bars < lastSectionBars_;
     if (sectionPrimed_ && (changed || turned)) {
         if (barsInSection_ >= kShortestSection) {

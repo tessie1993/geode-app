@@ -174,9 +174,11 @@ private:
     float tensionSlow_ = 0.0f;
     // The leading kind of feeling (Emotion::Gems), -1 before any feeling is heard.
     int feelingKind_ = -1;
-    // The sections Form has named so far (a bit per sectionId) and the last one, -1 before the first frame.
+    // The sections Form has named so far (a bit per sectionId), the last one (-1 before the first frame), and
+    // whether a section change waits for its name.
     unsigned int seenSections_ = 0;
     int lastSection_ = -1;
+    bool sectionPending_ = false;
     // Section progress: the frame's sectionBars last frame, the bars since the section began, and how long this
     // song's sections have run (bars, learned at each boundary; two phrases until the first boundary is heard).
     static constexpr float kFirstSectionBars = 16.0f;

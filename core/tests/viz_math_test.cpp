@@ -413,6 +413,9 @@ void songFormSourcesRead() {
     check(returned, "section 0 coming back fires a return");
     progressLast = s.value(ReactSource::SectionProgress);
     check(progressLast < 0.3f, "and its progress starts again");
+    returned = false;
+    bar(42, 1, false);  // renamed with no section change before it: Form started over (a seek, a new track)
+    check(!returned, "a section renamed with no section change is not a return");
 
     // The chords' motion: still on a held chord, moving with chord changes, the same across the circle's seam.
     const auto motion = [&](float from, float to) {

@@ -66,6 +66,7 @@ add_library(geode_core STATIC
     output/FrameClock.cpp
     output/ExportFrame.cpp
     output/LoopPlan.cpp
+    output/LoopRender.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp

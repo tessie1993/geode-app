@@ -43,11 +43,11 @@ import androidx.compose.ui.unit.dp
  * never the whole screen, and it is not animated: the blurred layer only refers to the backdrop's
  * RenderNode, so the backdrop changing does not recompose or re-record the glass.
  *
- * What it cannot reach: the live visual. VisualizerView is a GLSurfaceView, a surface of its own that
+ * What it cannot reach: the live visual. StageView is a SurfaceView, a surface of its own that
  * SurfaceFlinger composites under the window, so it is not in any RenderNode a view can sample. A
  * blurred visual under the sheet has to come from the renderer itself (a native pass over the sheet's
  * rectangle, ADR 0003), which keeps the visual's frame rate the renderer's business. Never wrap the
- * VisualizerView in [glassBackdrop]: its hole would be recorded, and it would be drawn twice.
+ * StageView in [glassBackdrop]: its hole would be recorded, and it would be drawn twice.
  *
  * The one rule: the glass must not sit inside its own backdrop, or the layer would draw itself.
  * Wrap the content beside and under the glass ([glassBackdrop]) and provide it through

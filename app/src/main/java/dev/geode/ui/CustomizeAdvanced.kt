@@ -50,12 +50,12 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
-import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneIcon
@@ -71,7 +71,7 @@ import kotlin.reflect.KProperty1
 internal class AdvancedHost(
     val viewModel: PlayerViewModel,
     val visualsViewModel: VisualsViewModel,
-    val visualizerView: VisualizerView,
+    val visualizerView: StageView,
 )
 
 /**
@@ -634,7 +634,7 @@ internal fun ShaderCodePage(host: AdvancedHost) {
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
     if (StyleCatalogue.isFluid(viz.sceneId)) {
         InjectionShaderEditors(viz.shaderError) { force, dye ->
-            host.visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
+            host.visualizerView.stage.submitFluidInjectionShaders(force, dye)
         }
     }
 }

@@ -503,3 +503,11 @@ jobs:
         run: |
           g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
           ./sound_bench --quick
+
+      # A render's plan (core/output/ExportRange): the part of a track a render covers and the free tier's cap.
+      - name: Render plan host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/render_plan_test.cpp \
+            core/output/ExportRange.cpp core/api/geode_render_plan_api.cpp -o render_plan_test
+          ./render_plan_test

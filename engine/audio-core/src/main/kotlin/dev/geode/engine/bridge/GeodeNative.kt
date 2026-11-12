@@ -2778,4 +2778,25 @@ object GeodeNative {
         fragment: ByteArray,
         decodeTimes: LongArray,
     ): ByteArray?
+
+    // A render's plan (core/api/geode_render_plan_api.h).
+
+    /** The part between slider fractions [start] and [end] of [trackMs] into [out] (start ms, duration ms); false: the whole track. */
+    external fun exportRangeOf(
+        start: Float,
+        end: Float,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** A range ([durationMs] 0: the whole track) under the free tier's [capMs] (<= 0: none) into [out]; out[1] 0 is still the whole track. */
+    external fun exportRangeCapped(
+        startMs: Long,
+        durationMs: Long,
+        capMs: Long,
+        out: LongArray,
+    )
+
+    /** The shortest part a render is offered. */
+    external fun exportRangeMinMs(): Long
 }

@@ -67,6 +67,7 @@ import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -675,16 +676,10 @@ internal data class RenderLength(
     val start: Float = 0f,
     val end: Float = 1f,
 ) {
-    fun rangeFor(trackDurationMs: Long): ExportRange? =
-        if (!segment || trackDurationMs <= 0) {
-            null
-        } else {
-            ExportRange.of(
-                startMs = (start * trackDurationMs).toLong(),
-                endMs = (end * trackDurationMs).toLong(),
-                trackDurationMs = trackDurationMs,
-            )
-        }
+    fun rangeFor(trackDurationMs: Long): ExportRange? {
+        val out = LongArray(2)
+        return if (segment && GeodeNative.exportRangeOf(start, end, trackDurationMs, out)) ExportRange(out[0], out[1]) else null
+    }
 }
 
 private val RenderLengthSaver =
@@ -773,7 +768,7 @@ private fun RenderLengthGroup(
                 val range = length.rangeFor(trackDurationMs)
                 OptionHint(
                     if (range == null) {
-                        stringResource(R.string.export_segment_hint, (ExportRange.MIN_DURATION_MS / 1000).toInt())
+                        stringResource(R.string.export_segment_hint, (GeodeNative.exportRangeMinMs() / 1000).toInt())
                     } else {
                         stringResource(
                             R.string.export_segment_summary,

@@ -70,6 +70,12 @@ class EncoderAttempt(
     val bitRate: Int,
 )
 
+/** The part of a track a render covers, as native picked it (`GeodeNative.exportRangeOf`, `exportRangeCapped`). */
+data class ExportRange(
+    val startMs: Long,
+    val durationMs: Long,
+)
+
 enum class ExportQuality(
     val shortSide: Int,
     val bitRate: Int,

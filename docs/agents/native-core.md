@@ -134,6 +134,7 @@ The renderer runs these in order each frame.
 - `OboeOutput` is the stream, reopened after a route change.
 - `OboeOutput` is the one file that includes Oboe, the Prefab AAR `com.google.oboe:oboe`, whose prebuilt `liboboe.so` libgeode links.
 - The output's C ABI is `geode_audio_out_*`.
+- `RetryBackoff` (`core/audio/output`) is the 60 s window after a failed output stream; `OboeAudioOutput` only reports the failure and asks.
 - ExoPlayer keeps decoding, the queue and its whole `DefaultAudioSink`.
 
 ## `core/library` and `core/scene/object`

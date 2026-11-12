@@ -1,6 +1,5 @@
-// Host-side checks for the saved text of the user's reaction routes (core/viz/ReactionText), which replaced
-// Kotlin's ReactionRouteCodec. The cases are that codec's JVM test, so text the old build saved reads back
-// the same: version line, dropped lines, defaults, clamps, the 12-route cap. Built and run by CI
+// Host-side checks for the saved text of the user's reaction routes (core/viz/ReactionText):
+// text an earlier build saved reads back the same, version line, dropped lines, defaults, clamps, the 12-route cap. Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Reaction text host tests"); no GL.
 #include <cstdio>
 #include <cstring>
@@ -68,8 +67,8 @@ const std::vector<Route> kDna = {
     {false, ReactSource::Kick4, LfoTarget::Rotation, ReactMode::Step, -0.2f, ModCurve::Linear, 0.12f, 0.12f},
 };
 
-// What the Kotlin codec wrote for kDna (Float.toString for the numbers).
-const char* const kKotlinText =
+// kDna as installs have it saved.
+const char* const kSavedText =
     "reactions/2\n"
     "true|KICK|COLOR_SHIFT|JUMP|0.35|LINEAR|0.08|0.35\n"
     "true|SNARE_2|WARP|FOLLOW|0.6|SMOOTH|0.03|0.45\n"
@@ -79,12 +78,12 @@ const char* const kKotlinText =
 void roundTrip() {
     const std::vector<float> packed = pack(kDna);
     const std::string text = reactiontext::encode(packed.data(), static_cast<int>(kDna.size()));
-    check(text == kKotlinText, "encode writes the text the Kotlin codec wrote: " + text);
+    check(text == kSavedText, "encode writes the saved text: " + text);
     const Decoded d = decode(text);
     check(d.count == static_cast<int>(kDna.size()), "every route reads back");
     check(d.count > 0 && std::memcmp(d.routes, packed.data(), packed.size() * sizeof(float)) == 0, "the routes round-trip exactly");
-    const Decoded old = decode(kKotlinText);
-    check(old.count == d.count && std::memcmp(old.routes, d.routes, sizeof d.routes) == 0, "text the Kotlin codec saved reads the same");
+    const Decoded old = decode(kSavedText);
+    check(old.count == d.count && std::memcmp(old.routes, d.routes, sizeof d.routes) == 0, "saved text reads the same");
 }
 
 void emptyAndMissing() {
@@ -122,7 +121,7 @@ void unknownNames() {
     if (d.count != 1) return;
     const float* r = d.at(0);
     check(r[1] == static_cast<float>(ReactSource::Hat) && r[2] == static_cast<float>(LfoTarget::Twist), "the known route is read");
-    check(r[0] == 1.0f, "a flag that is not true/false is on, the Kotlin route's default");
+    check(r[0] == 1.0f, "a flag that is not true/false is on, a route's default");
     check(r[3] == static_cast<float>(ReactMode::Follow), "an unknown mode is Follow");
     check(r[5] == static_cast<float>(ModCurve::Linear), "an unknown curve is Linear");
     check(r[4] == 0.4f, "its numbers are still read");
@@ -173,19 +172,19 @@ void encodeSkipsWhatItCannotName() {
 void abi() {
     const std::vector<float> packed = pack(kDna);
     const size_t need = geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), nullptr, 0);
-    check(need == std::strlen(kKotlinText), "the ABI reports the text's length");
+    check(need == std::strlen(kSavedText), "the ABI reports the text's length");
     std::vector<char> small(need, '#');
     geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), small.data(), small.size());
     check(small[0] == '#', "a buffer too small for the NUL is left alone");
     std::vector<char> buffer(need + 1, '#');
     geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), buffer.data(), buffer.size());
-    check(std::strcmp(buffer.data(), kKotlinText) == 0, "the ABI writes the text");
+    check(std::strcmp(buffer.data(), kSavedText) == 0, "the ABI writes the text");
     float out[kRoom] = {};
     check(geode_reactions_text_decode(nullptr, out, kRoom) == -1, "null text is no list");
     check(geode_reactions_text_decode("reactions/1", out, kRoom) == -1, "another version is no list");
-    check(geode_reactions_text_decode(kKotlinText, out, kRoom) == 4, "the ABI reads the routes");
+    check(geode_reactions_text_decode(kSavedText, out, kRoom) == 4, "the ABI reads the routes");
     check(std::memcmp(out, packed.data(), packed.size() * sizeof(float)) == 0, "in the routes layout");
-    check(geode_reactions_text_decode(kKotlinText, out, 2 * kFloats) == 2, "never past the capacity");
+    check(geode_reactions_text_decode(kSavedText, out, 2 * kFloats) == 2, "never past the capacity");
     check(geode_reactions_text_encode(nullptr, 0, nullptr, 0) == std::strlen("reactions/2"), "no routes is the version line");
 }
 

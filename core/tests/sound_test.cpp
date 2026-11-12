@@ -558,8 +558,8 @@ void testBoundaryEvent() {
     CHECK(f.sectionChange == 0.0f, "once, read %f on the next frame", f.sectionChange);
 }
 
-// Settings › Audio's tuning schema (sound/Tuning), pinned to the Kotlin SoundTuning it replaced: its
-// defaults, its ranges, and its wire order (the slots are GeodeSoundTuning's fields).
+// Settings › Audio's tuning schema (sound/Tuning), pinned: its defaults, its ranges, and its wire order
+// (the slots are GeodeSoundTuning's fields).
 float slotOf(const GeodeSoundTuning& t, int i) {
     float v[geode::sound::tuning::kSlots];
     std::memcpy(v, &t, sizeof v);
@@ -573,7 +573,7 @@ void testTuningSchema() {
         int slot;
         float def, lo, hi;
     };
-    // The old Kotlin defaults and ranges, slot by slot in its toFloats order.
+    // The defaults and ranges saved tunings were written under, slot by slot in wire order.
     const Old old[] = {
         {0, 1.0f, 0.0f, 4.0f},     {1, 1.0f, 0.0f, 4.0f},     {2, 1.0f, 0.0f, 4.0f},       // gain
         {3, 0.0f, 0.0f, 1.0f},     {4, 0.0f, 0.0f, 1.0f},     {5, 0.0f, 0.0f, 1.0f},       // threshold
@@ -632,7 +632,7 @@ void testTuningSchema() {
     wild.attack[2] = 5.0f;
     const GeodeSoundTuning c = tuning::clamp(wild);
     CHECK(c.reactivity == 3.0f && c.speed == 1.0f && c.attack[0] == 0.0f && c.attack[1] == 0.03f && c.attack[2] == 1.0f,
-          "the struct clamps as the old Kotlin clamped() did");
+          "the struct clamps slot by slot");
 }
 
 // The engine clamps whatever it is handed, so no surface can feed it a NaN or an out-of-range knob.
@@ -660,7 +660,7 @@ std::string shaderName(const char* field) {
     return out;
 }
 
-// The cases of the old SoundFrameLayoutTest: the scalars sit in declaration order at the front of the
+// The frame's layout as shaders read it: the scalars sit in declaration order at the front of the
 // frame, and lib_sound.glsl names each one in its slot, four to a vec4.
 void testShaderLibraryNamesEveryScalarInItsSlot() {
     using namespace geode::sound::test;

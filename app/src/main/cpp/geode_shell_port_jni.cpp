@@ -1,5 +1,4 @@
-// JNI for the engine classes ported out of the Kotlin engine modules (docs/agents/engine-kotlin-audit.md).
-// Marshals only.
+// JNI for the saved text of the user's reaction routes (core/viz/ReactionText). Marshals only.
 #include <jni.h>
 
 #include <string>

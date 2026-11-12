@@ -35,7 +35,7 @@ ABIs arm64-v8a and x86_64. The full version history is in
   Transitions between clips, speed ramps, `.cube` LUTs and per-channel gamma,
   captions from lyrics or SRT (import and export). The visualizer export
   steps its own sound engine through the track at 1/fps
-  (`render/offscreen/TrackAudio`), so it reacts exactly like the screen; the cut export runs on Media3
+  (`core/output/ExportFrame`), so it reacts exactly like the screen; the cut export runs on Media3
   Transformer. Both encode H.264 or HEVC, with H.264 as the fallback when a
   device has no HEVC encoder.
 - **Live wallpaper** — the visualizer as a home-screen wallpaper, hearing the
@@ -67,7 +67,7 @@ Gradle modules, package `dev.geode`:
 |---|---|
 | `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`; the handle on the native PCM ring (`SampleRing`, `SoundCursor`; the ring is `core/audio/ingest`), the sound frame layout and the presentation clock |
 | `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
-| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export (`TrackAudio` feeds it the track), the style catalogue as Kotlin reads it |
+| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, the style catalogue as Kotlin reads it |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root

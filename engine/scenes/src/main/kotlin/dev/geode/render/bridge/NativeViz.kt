@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -42,6 +41,9 @@ class NativeViz(
     // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
     private var handle = 0L
+
+    /** The `geode_viz` handle for the native export job, which drives this renderer itself; 0 before [create]. */
+    val nativeHandle: Long get() = handle
 
     // The handle again, for the Cleaner (#999). A teardown queues the release on the GL thread and waits
     // 200 ms (VisualizerView, the wallpaper engine); when the wait runs out, the queued job dies with the
@@ -139,7 +141,7 @@ class NativeViz(
         if (l.params !== was?.params) setParams(l.params)
         if (l.lfos !== was?.lfos) setLfoConfigs(l.lfos)
         if (l.adsrs !== was?.adsrs) setAdsrConfigs(l.adsrs)
-        if (l.soundTuning !== was?.soundTuning) setSoundTuning(l.soundTuning)
+        if (was == null || l.soundTuning !== was.soundTuning) setSoundTuning(l.soundTuning)
         if (was == null || l.reactions !== was.reactions) setUserReactions(l.reactions)
         if (l.reducedMotion != was?.reducedMotion) setReducedMotion(l.reducedMotion)
         if (l.transitionId != was?.transitionId || l.transitionMs != was?.transitionMs) setTransition(l.transitionId, l.transitionMs)
@@ -259,9 +261,9 @@ class NativeViz(
     /** What Liquid mode ran when a frame last said `FRAME_LIQUID_CHANGED` (`liquid::Mode`). */
     fun liquidMode(): Int = if (handle == 0L) 0 else GeodeNative.vizLiquidMode(handle)
 
-    /** Settings › Audio. The floats are read here, not by the caller: the defaults are native. */
-    fun setSoundTuning(tuning: SoundTuning) {
-        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, tuning.toFloats())
+    /** Settings › Audio's saved tuning, null for the defaults; native resolves and clamps it. */
+    fun setSoundTuning(saved: List<Float>?) {
+        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, saved?.toFloatArray())
     }
 
     fun setLfoConfigs(configs: List<LfoConfig>) {

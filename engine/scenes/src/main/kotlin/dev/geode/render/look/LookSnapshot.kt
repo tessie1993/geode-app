@@ -1,13 +1,11 @@
 package dev.geode.render.look
 
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
 import dev.geode.render.TransitionStyle
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 
 /**
@@ -27,13 +25,14 @@ import dev.geode.render.scene.SceneParams
  */
 data class LookSnapshot(
     /** Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID), not a Pro one. */
-    val sceneId: String = SceneIds.NEON_CHROME_SEA,
+    val sceneId: String = "neon_chrome_sea",
     val params: SceneParams = SceneParams.DEFAULT,
     val lfos: List<LfoConfig> = List(LfoEngine.SLOTS) { LfoConfig() },
     val adsrs: List<AdsrConfig> = List(AdsrEngine.COUNT) { AdsrConfig() },
     /** The user's own reaction routes, or null to play the style's DNA (native merges under the hand mask). */
     val reactions: List<ReactionRoute>? = null,
-    val soundTuning: SoundTuning = SoundTuning(),
+    /** Settings › Audio's saved tuning, null for the engine's defaults. */
+    val soundTuning: List<Float>? = null,
     /** Vestibular accessibility, and the dream's gentle flight; the flash clamp is native and unconditional. */
     val reducedMotion: Boolean = false,
     /** A requested cut becomes a fade natively (core/viz/VisualSafety); an offscreen renderer cuts for real, natively. */

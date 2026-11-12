@@ -77,7 +77,7 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
@@ -413,15 +413,35 @@ GEODE_API void        geode_library_index_destroy(geode_library_index*);
 GEODE_API int         geode_library_index_order(const geode_library_index*, int sort, int* out, int max_out);
 GEODE_API int         geode_library_index_search(const geode_library_index*, const char* query, int* out, int max_out);
 
-/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
- * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
- * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
- * process; the shell parses it once. Display labels and the Pro rule are not in it. */
-GEODE_API const char* geode_catalogue_text(void);
+/* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
+ * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
+ * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro
+ * rule are not here.
+ * _style_ids: the styles with a trait, in the order the picker lists them ("" for an unknown trait).
+ * _picker_names / _picker_ids: the Styles page's families in order, then one family's styles.
+ * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
+ * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
+ * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
+ * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
+ * _override: the value a style holds a control at, NaN when the control is the user's. */
+#define GEODE_STYLE_ANY 0
+#define GEODE_STYLE_SHADER 1
+#define GEODE_STYLE_FAMILY_FOLLOWER 2 /* in a shader family and not its opener */
+#define GEODE_STYLE_AUTO_DRAW 3       /* what Auto's random step draws from */
+#define GEODE_STYLE_FLUID 4
+#define GEODE_STYLE_CYMATICS 5
+GEODE_API const char* geode_catalogue_style_ids(int trait);
+GEODE_API const char* geode_catalogue_picker_names(void);
+GEODE_API const char* geode_catalogue_picker_ids(const char* family);
+GEODE_API const char* geode_catalogue_resolve(const char* style_id);
+GEODE_API const char* geode_catalogue_preset_style(const char* style_id);
+GEODE_API const char* geode_catalogue_scope_of(const char* param_key);
+GEODE_API int         geode_catalogue_reaches(const char* scope_name, const char* style_id);
+GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
 
 /* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
  * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
- * '|'-separated line table (see CataloguePresets.hpp for the rows). Static, like geode_catalogue_text. */
+ * '|'-separated line table (see CataloguePresets.hpp for the rows). Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_catalogue_presets_text(void);
 
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
@@ -786,13 +806,15 @@ GEODE_API int             geode_sound_source_step(long long* state, long long no
 GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
- * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
- * infinity into the slot's default. The engine clamps whatever it is given; the shell clamps too, so a
- * slider never shows a value the engine would not use. */
+ * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
+ * infinity becoming the slot's default. The shell keeps only the saved floats (NULL for the defaults) and
+ * resolves them here, so a slider never shows a value the engine would not use. Resolve writes every
+ * slot to out: a save of GEODE_SOUND_TUNING_FLOATS slots, or one short (from before the input trim, which
+ * then reads 0 dB), clamped; any other save the defaults. Returns 1 when the save was used. */
 GEODE_API int             geode_sound_tuning_slots(void);
 GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
 GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
-GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
+GEODE_API int             geode_sound_tuning_resolve(const float* saved, int count, float* out);
 
 /* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
  * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.
@@ -1416,6 +1438,9 @@ GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buf
 #define GEODE_LINK_STREAM   9   /* stream.mp4: the browser's live feed, init then each fragment as it is cut */
 #define GEODE_LINK_MAX_STREAMS 3   /* browsers fed at once; past it 503 (the page retries) */
 #define GEODE_LINK_RTC     10   /* rtc: POST the browser's WebRTC offer (application/sdp), the answer comes back */
+#define GEODE_LINK_PAIR_PAGE   11   /* "/": the typed path's page, off the token (geode_link_pair_*) */
+#define GEODE_LINK_PAIR_SCRIPT 12   /* "/pair.js" */
+#define GEODE_LINK_PAIR        13   /* "/pair": POST the typed code, the token's path comes back */
 /* A request's method and request-target against the token: returns the status (200, 204, 308, 404, 405) and
  * fills *resource (GEODE_LINK_*) and *sequence (a segment's, else -1). */
 GEODE_API int             geode_link_route(const char* method, const char* target, const char* token, int* resource,
@@ -1424,7 +1449,8 @@ GEODE_API int             geode_link_route(const char* method, const char* targe
  * convention of geode_hls_playlist (returns the length; nothing written when length + 1 > cap). */
 GEODE_API int             geode_link_response_head(int status, int resource, int64_t length, const char* token,
                                                    char* out, int cap);
-/* A static file's bytes (GEODE_LINK_PAGE, _SCRIPT or _STYLE), UTF-8, *size set; null for any other resource. */
+/* A static file's bytes (GEODE_LINK_PAGE, _SCRIPT, _STYLE, _PAIR_PAGE or _PAIR_SCRIPT), UTF-8, *size set; null
+ * for any other resource. */
 GEODE_API const char*     geode_link_asset(int resource, size_t* size);
 /* The master playlist for an init segment (CODECS read from its avcC and esds), same convention; 0 = not yet. */
 GEODE_API int             geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out, int cap);
@@ -1466,6 +1492,22 @@ GEODE_API int             geode_link_rtc_status(int answer_result);
 GEODE_API int             geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap);
 /* A short friendly name for the token ("Blue Comet"), the sheet's label beside the QR code; same convention. */
 GEODE_API int             geode_link_label(const char* token, char* out, int cap);
+/* The typed path (viz/frame/LinkPair, for a computer with no scanner): the short link with no token, the host
+ * as one number (size-query convention, 0 on the terms of geode_link_share_url), and the code that unlocks it.
+ * One pairing per process, any thread. open (1) starts it with a fresh code from the OS's secure random, a no-op
+ * while open; open (0) closes it. code: the code to show now ("ABC-DEF"; size-query convention, 0 while
+ * closed), a new one once the last has lived GEODE_LINK_PAIR_CODE_LIFE_MS. try: one POST on GEODE_LINK_PAIR,
+ * its body as typed (at most GEODE_LINK_PAIR_BODY_MAX bytes); returns the status (200 right: a single-session
+ * code, spent at once; 403 wrong; 404 closed; 429 too soon after a wrong try or locked out) and on 200 writes
+ * the token's path "/<token>/" into out, NUL-terminated (cap at least GEODE_LINK_TOKEN_CHARS + 3; a try spends
+ * the code, so it is no size query). Clocks
+ * are one monotonic clock in ms. */
+#define GEODE_LINK_PAIR_BODY_MAX     64
+#define GEODE_LINK_PAIR_CODE_LIFE_MS 300000
+GEODE_API int             geode_link_pair_url(uint32_t address, int port, char* out, int cap);
+GEODE_API void            geode_link_pair_open(int open, int64_t now_ms);
+GEODE_API int             geode_link_pair_code(int64_t now_ms, char* out, int cap);
+GEODE_API int             geode_link_pair_try(const char* typed, int64_t now_ms, const char* token, char* out, int cap);
 /* Who may connect, by source address, before a byte is read (LinkShare's admit): IPv4 in host order, 0 =
  * unknown; prefix the bound address's prefix length; wants GEODE_LINK_WANT_* bits. A TV cast admits the Cast
  * device's address alone (the bound subnet when the SDK names none), a live link any site-local peer on the

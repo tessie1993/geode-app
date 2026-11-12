@@ -1,8 +1,7 @@
 package dev.geode.pro
 
-import dev.geode.render.scene.SceneCapabilities
-import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.render.scene.StyleCatalogue
 
 /**
  * The shape of the free tier, in one place, meant to be edited by hand.
@@ -17,7 +16,7 @@ object FreeTier {
      * Every style-family style but its opener. The native catalogue says which style opens a family
      * (core/viz/Catalogue); this file is what makes the opener the free one.
      */
-    val familyProIds: Set<String> = StyleFamilies.all.flatMapTo(mutableSetOf()) { it.ids - it.opener }
+    val familyProIds: Set<String> by lazy { StyleCatalogue.ids(GeodeNative.STYLE_FAMILY_FOLLOWER).toSet() }
 
     /**
      * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
@@ -26,15 +25,15 @@ object FreeTier {
      * app's first style for everyone ([FIRST_STYLE_ID]), so the first thing a new listener sees is a
      * showpiece they keep. Hex Hive, the opener before it, went Pro in the swap.
      */
-    val neonOpener: String = SceneIds.NEON_CHROME_SEA
+    const val NEON_OPENER: String = "neon_chrome_sea"
 
-    /** The four neon showcase styles behind Pro: every one but [neonOpener]. */
+    /** The four neon showcase styles behind Pro: every one but [NEON_OPENER]. */
     val neonProIds: Set<String> =
-        setOf(SceneIds.GLOW_VORTEX, SceneIds.HEX_HIVE, SceneIds.BLACK_HOLE, SceneIds.MANDELBOX_CATHEDRAL)
+        setOf("glow_vortex", "hex_hive", "black_hole", "mandelbox_cathedral")
 
     /**
      * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
-     * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
+     * ring, scope, plasma, nebula and the rest of the catalogue's shader styles), so a loose
      * shader style added later is free too, minus [familyProIds]. A style family gives away its
      * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
      * family, and buying Pro is what opens the range. Everything else (silk, fluid, MilkDrop,
@@ -42,13 +41,13 @@ object FreeTier {
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> = SceneCapabilities.SHADER_SCENES.keys - familyProIds - neonProIds
+    val freeStyleIds: Set<String> by lazy { StyleCatalogue.ids(GeodeNative.STYLE_SHADER).toSet() - familyProIds - neonProIds }
 
     /**
      * The style a fresh install opens on, for everyone: one free showpiece, not a Pro default that a
      * free user is then swapped off. It is the free neon opener, so it is in [freeStyleIds].
      */
-    const val FIRST_STYLE_ID: String = SceneIds.NEON_CHROME_SEA
+    const val FIRST_STYLE_ID: String = "neon_chrome_sea"
 
     /**
      * Where a free user lands when the style on screen is no longer theirs (a saved look from a Pro

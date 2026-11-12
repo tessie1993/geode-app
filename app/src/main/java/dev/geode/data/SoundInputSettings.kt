@@ -5,14 +5,13 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.audio.SoundTuning
 
 /** What the visual hears and how (#1009, PR 5; was part of `GuiPrefs`). */
 data class SoundInputSettings(
     /** The microphone as a layer under the player; a restored backup turns the request on. */
     val micReactive: Boolean = false,
-    /** The sound engine's tuning (Settings › Audio): every surface and the export read it. */
-    val soundTuning: SoundTuning = SoundTuning(),
+    /** The sound engine's tuning (Settings › Audio) as saved, null for the engine's defaults; native resolves it. */
+    val soundTuning: List<Float>? = null,
 )
 
 typealias SoundInputSettingsRepository = SettingsRepository<SoundInputSettings>
@@ -42,18 +41,14 @@ object SoundInputSettingsCodec : PrefsCodec<SoundInputSettings> {
     ) {
         editor.putBoolean(KEY_MIC_REACTIVE, value.micReactive)
         // The engine's defaults save as no key, so they follow native's schema when it changes.
-        val tuning = value.soundTuning.savedFloats()
+        val tuning = value.soundTuning
         if (tuning == null) editor.remove(KEY_SOUND_TUNING) else editor.putString(KEY_SOUND_TUNING, tuning.joinToString(","))
     }
 
-    /** The saved tuning, or the engine's defaults when there is none or it does not parse. */
-    fun readSoundTuning(prefs: SharedPreferences): SoundTuning {
-        val floats =
-            prefs
-                .getString(KEY_SOUND_TUNING, null)
-                ?.split(',')
-                ?.map { it.toFloatOrNull() ?: return SoundTuning() }
-                ?.toFloatArray() ?: return SoundTuning()
-        return SoundTuning.fromFloats(floats)
-    }
+    /** The saved tuning, or null (the engine's defaults) when there is none or it does not parse. */
+    fun readSoundTuning(prefs: SharedPreferences): List<Float>? =
+        prefs
+            .getString(KEY_SOUND_TUNING, null)
+            ?.split(',')
+            ?.map { it.toFloatOrNull() ?: return null }
 }

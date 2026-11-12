@@ -240,11 +240,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizEndPreRoll(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
-    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
-    GeodeSoundTuning t{};
-    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
-    geode_viz_set_sound_tuning(vizOf(handle), &t);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray saved) {
+    std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
+    if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
+    geode_viz_set_sound_tuning(vizOf(handle), saved ? in.data() : nullptr, static_cast<int>(in.size()));
 }
 
 JNIEXPORT jstring JNICALL
@@ -781,8 +780,51 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jl
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_catalogue_text());
+Java_dev_geode_engine_bridge_GeodeNative_catalogueStyleIds(JNIEnv* env, jobject, jint trait) {
+    return env->NewStringUTF(geode_catalogue_style_ids(trait));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePickerNames(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_catalogue_picker_names());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePickerIds(JNIEnv* env, jobject, jstring family) {
+    Utf8Chars name(env, family);
+    return env->NewStringUTF(geode_catalogue_picker_ids(name.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueResolve(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_catalogue_resolve(style.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetStyle(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_catalogue_preset_style(style.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueScopeOf(JNIEnv* env, jobject, jstring paramKey) {
+    Utf8Chars key(env, paramKey);
+    return env->NewStringUTF(geode_catalogue_scope_of(key.get()));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueReaches(JNIEnv* env, jobject, jstring scope, jstring styleId) {
+    Utf8Chars name(env, scope);
+    Utf8Chars style(env, styleId);
+    return geode_catalogue_reaches(name.get(), style.get()) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueOverride(JNIEnv* env, jobject, jstring styleId, jstring paramKey) {
+    Utf8Chars style(env, styleId);
+    Utf8Chars key(env, paramKey);
+    return geode_catalogue_override(style.get(), key.get());
 }
 
 JNIEXPORT jstring JNICALL
@@ -1488,6 +1530,40 @@ Java_dev_geode_engine_bridge_GeodeNative_linkLabel(JNIEnv* env, jobject, jstring
     std::vector<char> text(static_cast<size_t>(geode_link_label(k.get(), nullptr, 0)) + 1);
     geode_link_label(k.get(), text.data(), static_cast<int>(text.size()));
     return geode::jni::utf8String(env, text.data());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairUrl(JNIEnv* env, jobject, jint address, jint port) {
+    char text[64];
+    return geode_link_pair_url(static_cast<uint32_t>(address), port, text, sizeof text) > 0 ? geode::jni::utf8String(env, text)
+                                                                                          : nullptr;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairOpen(JNIEnv*, jobject, jboolean open, jlong nowMs) {
+    geode_link_pair_open(open ? 1 : 0, nowMs);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairCode(JNIEnv* env, jobject, jlong nowMs) {
+    char text[32];
+    geode_link_pair_code(nowMs, text, sizeof text);
+    return geode::jni::utf8String(env, text);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkPairTry(JNIEnv* env, jobject, jstring typed, jlong nowMs, jstring token,
+                                                     jobjectArray path) {
+    if (!path || env->GetArrayLength(path) < 1) return 404;
+    geode::jni::Utf8Chars t(env, typed), k(env, token);
+    char out[GEODE_LINK_TOKEN_CHARS + 3];
+    const int status = geode_link_pair_try(t.get(), nowMs, k.get(), out, sizeof out);
+    if (status == 200) {
+        jstring s = geode::jni::utf8String(env, out);
+        env->SetObjectArrayElement(path, 0, s);
+        if (s) env->DeleteLocalRef(s);
+    }
+    return status;
 }
 
 JNIEXPORT jint JNICALL

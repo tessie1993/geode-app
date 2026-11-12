@@ -63,7 +63,6 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -195,7 +194,7 @@ private fun VisualsHubContent(
     val view = LocalView.current
     // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
     // The MilkDrop page shows it itself.
-    val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
+    val milkError = viz.shaderError?.takeIf { viz.sceneId == GeodeNative.STYLE_MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
         if (milkError != null && !pip && !onMilkPage) {

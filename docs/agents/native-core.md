@@ -41,7 +41,8 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 
 - `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/` and `compute/`.
 - `Catalogue` is the style catalogue: every style id, kind, family, param scope and control range.
-- Kotlin reads the catalogue as one text table, `geode_catalogue_text`.
+- Kotlin asks the catalogue one question at a time (`geode_catalogue_style_ids`, `_picker_names`, `_picker_ids`, `_resolve`, `_preset_style`, `_scope_of`, `_reaches`, `_override`).
+- `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack, the one colour source to be; no renderer reads it yet.
 - A stack holds up to 8 palettes of up to 16 colours, each Smooth or Steps, Mirror or Loop, RGB, hue or OKLab, a place per colour and one colour's Shades, Flat or To black; Share (Soft or Hard edges) or Mix by amount, full range off.
@@ -116,6 +117,8 @@ The renderer runs these in order each frame.
 - `core/audio/ingest/PcmRing` is the lock-free ring each source writes, every block with its rate, int16 and 8-bit made float inside.
 - `Cursor` (in `core/audio/ingest/PcmRing`) reads each sample once per reader; a take ends where the rate changes.
 - The ingest ABI is `geode_pcm_ring_*`, `geode_pcm_cursor_*`, and `geode_viz_feed_ring` for a live renderer's own cursor.
+- `core/audio/ingest/TrackPump` decodes an export's track as each frame asks; its platform decoder is `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, `mediandk`).
+- `core/output/ExportFrame` is an export's render order behind `geode_export_job_*` (`core/api/geode_export_job_api.h`): prepare, pre-roll, one call per frame.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.

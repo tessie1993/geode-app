@@ -4,9 +4,10 @@
 //   catalogue_test core/tests/catalogue.txt           checks, including text() against the fixture
 //   catalogue_test --write core/tests/catalogue.txt   rewrites the fixture after a deliberate change
 //
-// The fixture is what the JVM tests parse (they cannot load libgeode), so this test is what keeps
-// them honest. The expectations below were taken from the Kotlin tables this catalogue replaced
-// (VisualStyleCatalog, StyleFamilies, SceneCapabilities, ParamScope), so the port changed no number.
+// The fixture is the catalogue as one table, which the tools read (tools/store-stats.sh, tools/glslcheck).
+// The shell reads none of it: it asks one question at a time, and the answers it gets are checked here
+// against the same tables. The expectations below are the catalogue's numbers from before it lived in
+// core, so no number moved.
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -15,6 +16,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "viz/Catalogue.hpp"
@@ -50,7 +52,7 @@ std::string join(std::initializer_list<std::string> parts) {
     return out;
 }
 
-// One line per style in the old Kotlin field order (label dropped, null geometry = -1).
+// One line per style in the order the rows below were written in (no label, no held geometry = -1).
 std::string describe(const std::string& id) {
     using std::to_string;
     if (const auto* s = styles::cymatics(id)) {
@@ -87,7 +89,7 @@ std::string describe(const std::string& id) {
     return "missing " + id;
 }
 
-// The old VisualStyleCatalog.kt, every row, in its order.
+// Every style's tuning row from before the tables lived in core, in that order.
 const char* const kOldTuning[] = {
     "cymatics cymatics 0 -1 1 1 1 1 1 1 1 1 0 1 8",
     "cymatics chladni_sand 1 1 1.08 0.2 1.28 0.58 0.18 0.25 0.35 1 0.06 0.45 8",
@@ -347,7 +349,7 @@ void everyStyleKeepsItsOldLookGroup() {
                                          "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC"};
     std::set<std::string> used;
     for (int l = 0; l < catalogue::kLookCount; ++l) used.insert(catalogue::name(static_cast<catalogue::Look>(l)));
-    check(used == names, "look names are Kotlin's StyleLook entries");
+    check(used == names, "look names are the Styles page's groups");
     std::map<std::string, std::string> familyOf;
     for (const auto& family : catalogue::families()) {
         for (const char* id : family.ids) familyOf[id] = family.name;
@@ -453,6 +455,100 @@ void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
     check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
 }
 
+// What the shell asks through core/api: every answer has to be the tables', in allIds() order.
+void theShellsQuestionsAgreeWithTheTables() {
+    using catalogue::Trait;
+    const auto& all = catalogue::allIds();
+    const auto ids = [](Trait trait) { return split(catalogue::idsText(trait), '\n'); };
+    check(ids(Trait::Any) == all, "every style, in order");
+    check(std::set<std::string>(all.begin(), all.end()).size() == all.size(), "no style is listed twice");
+
+    std::vector<std::string> shader, follower, autoDraw, fluid, cymatics;
+    std::set<std::string> openers;
+    for (const auto& family : catalogue::families()) openers.insert(family.opener());
+    for (const auto& id : all) {
+        const Kind kind = catalogue::kindOf(id);
+        bool inFamily = false;
+        for (const auto& family : catalogue::families()) {
+            inFamily = inFamily || std::find(family.ids.begin(), family.ids.end(), id) != family.ids.end();
+        }
+        if (kind == Kind::Shader) shader.push_back(id);
+        if (inFamily && openers.count(id) == 0) follower.push_back(id);
+        if (kind == Kind::Shader || kind == Kind::Silk || kind == Kind::Life || kind == Kind::Mycelium || kind == Kind::Acid) {
+            autoDraw.push_back(id);
+        }
+        if (kind == Kind::Fluid) fluid.push_back(id);
+        if (kind == Kind::Cymatics) cymatics.push_back(id);
+    }
+    check(ids(Trait::Shader) == shader, "the shader styles");
+    check(ids(Trait::FamilyFollower) == follower, "every family style but the openers");
+    check(!follower.empty() && follower.size() < shader.size(), "followers are some of the shader styles");
+    for (const auto& opener : openers) check(!catalogue::has(Trait::FamilyFollower, opener), opener + " opens its family");
+    check(ids(Trait::AutoDraw) == autoDraw, "what Auto draws from");
+    check(!catalogue::has(Trait::AutoDraw, "milkdrop") && !catalogue::has(Trait::AutoDraw, "fluid"),
+          "Auto draws no MilkDrop or Fluid");
+    check(ids(Trait::Fluid) == fluid && fluid == styles::fluidIds(), "the Fluid looks");
+    check(!catalogue::has(Trait::Fluid, "curlflow"), "Curl Flow is not a Fluid look");
+    check(ids(Trait::Cymatics) == cymatics && cymatics == styles::cymaticsIds(), "the cymatics styles");
+    for (int t = 0; t < catalogue::kTraitCount; ++t) {
+        check(!catalogue::has(static_cast<Trait>(t), "no_such_style"), "an unknown id has no trait");
+    }
+
+    std::vector<std::string> names;
+    for (const auto& picker : catalogue::pickerFamilies()) {
+        names.push_back(picker.name);
+        check(split(catalogue::pickerIdsText(picker.name), '\n') == picker.ids, "picker ids of " + picker.name);
+    }
+    check(split(catalogue::pickerNamesText(), '\n') == names, "picker names");
+    check(catalogue::pickerIdsText("no_such_family").empty(), "an unknown family has no ids");
+
+    for (const auto& id : all) {
+        const Kind kind = catalogue::kindOf(id);
+        const std::string want = kind == Kind::Fluid ? "fluid" : kind == Kind::Cymatics ? "cymatics" : id;
+        check(catalogue::presetStyle(id) == want, "saved looks of " + id + " are filed under " + want);
+    }
+    check(catalogue::presetStyle("no_such_style") == "no_such_style", "an unknown id is its own shelf");
+
+    // The table's override rows are every held control, so each answer is checked against them.
+    std::map<std::string, std::string> held;
+    for (const auto& line : split(catalogue::text(), '\n')) {
+        const auto f = split(line, '|');
+        if (f.size() == 4 && f[0] == "override") {
+            check(f[2] == "Geometry", "only Geometry is held: " + line);
+            held[f[1]] = f[3];
+        }
+    }
+    check(held.count("kundt_tube") == 1 && held["kundt_tube"] == "1", "the tube is held to the second plate geometry");
+    for (const auto& id : all) {
+        const auto value = catalogue::overrideOf(id, "Geometry");
+        check(value.has_value() == (held.count(id) == 1), "whether " + id + " holds Geometry");
+        if (value && held.count(id) == 1) check(num(*value) == held[id], "the Geometry " + id + " holds");
+        check(!catalogue::overrideOf(id, "Speed"), id + " holds no other control");
+    }
+    check(!catalogue::overrideOf("no_such_style", "Geometry"), "an unknown id holds nothing");
+
+    for (int s = 0; s < catalogue::kScopeCount; ++s) {
+        const auto scope = static_cast<Scope>(s);
+        check(catalogue::scopeNamed(catalogue::name(scope)) == scope, std::string("scope by name: ") + catalogue::name(scope));
+    }
+    check(!catalogue::scopeNamed("") && !catalogue::scopeNamed("universal"), "any other text names no scope");
+    // The scopes a screen names outright (render/scene/StyleCatalogue.kt): a rename here would hide nothing there.
+    const std::pair<const char*, Scope> shell[] = {
+        {"UNIVERSAL", Scope::Universal},
+        {"BAND_GAINS", Scope::BandGains},
+        {"SHADER_LOOK", Scope::ShaderLook},
+        {"MARCH_DETAIL", Scope::MarchDetail},
+        {"ENDLESS_ZOOM", Scope::EndlessZoom},
+        {"FLUID_SIM", Scope::FluidSim},
+        {"EMITTERS", Scope::Emitters},
+        {"JOURNEY", Scope::Journey},
+        {"CYMATICS", Scope::Cymatics},
+    };
+    for (const auto& [text, scope] : shell) {
+        check(catalogue::scopeNamed(text) == scope, std::string("the shell's name for a scope: ") + text);
+    }
+}
+
 std::string readFile(const char* path) {
     std::ifstream in(path, std::ios::binary);
     std::stringstream buf;
@@ -496,6 +592,7 @@ int main(int argc, char** argv) {
     paramScopesMatchTheOldParamScope();
     everyStyleKeepsItsOldLookGroup();
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();
+    theShellsQuestionsAgreeWithTheTables();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

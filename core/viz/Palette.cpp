@@ -252,6 +252,28 @@ Amounts amountsOf(const SceneParams& p) {
 
 Amounts defaultAmounts() { return amountsOf(SceneParams{}); }
 
+bool Ramp::update(std::shared_ptr<const Stack> stack, const Amounts& amounts) {
+    if (!stack || isUnset(*stack)) {
+        const bool was = active();
+        stack_.reset();
+        return was;
+    }
+    Amounts read{};
+    for (size_t i = 0; i < std::min(stack->layers.size(), read.size()); ++i) read[i] = amountOf(amounts, i);
+    if (stack == stack_ && read == amounts_) return false;
+    stack_ = std::move(stack);
+    amounts_ = read;
+    const std::vector<colour::Rgb> colours = compose(*stack_, amounts_);
+    bytes_.resize(colours.size() * 3);
+    for (size_t i = 0; i < colours.size(); ++i) {
+        const int rgb = colour::pack(colours[i]);
+        bytes_[3 * i] = static_cast<std::uint8_t>((rgb >> 16) & 0xFF);
+        bytes_[3 * i + 1] = static_cast<std::uint8_t>((rgb >> 8) & 0xFF);
+        bytes_[3 * i + 2] = static_cast<std::uint8_t>(rgb & 0xFF);
+    }
+    return true;
+}
+
 const char* name(Interp v) { return nameIn(kInterpNames, v); }
 const char* name(Wrap v) { return nameIn(kWrapNames, v); }
 const char* name(Space v) { return nameIn(kSpaceNames, v); }

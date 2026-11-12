@@ -134,6 +134,10 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         reachKnown_ = true;
     }
     SceneParams p = director_.applyAxes(director_.apply(directorReach_.applyShuffle(displayed_)));
+    // A look without a palette stack: what moves Palette 2's amount moves its old Palette blend.
+    const bool ownColours = !settings.palettes;
+    const float ownAmount = p.paletteAmount1;
+    if (ownColours) p = viz::palette::carryBlend(p);
     p = directorReach_.applyModulation(p);
     if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_, &frame_.knobMods);
     p = lfo_.apply(p, lfoValues);
@@ -148,6 +152,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     motionField_.step(sound, dt);
     p = motionField_.apply(p, settings.reducedMotion, style.spin);
     p = viz::safety::apply(p, settings.reducedMotion);
+    if (ownColours) p = viz::palette::settleBlend(p, ownAmount);
     frame_.params = p;
     frame_.cameraMoves = director_.moves();
     return frame_;

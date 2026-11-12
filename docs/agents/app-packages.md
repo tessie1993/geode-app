@@ -63,6 +63,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
+- The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.
 - `CustomizeMapTable` splits the map's rows.
 - `CustomizeControls` draws each control by name.
 - Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
@@ -213,6 +214,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The track list is `TrackLibrary`.
 - The music library over it is `LibraryRepository`, implemented by `MusicLibraryRepository`: device tracks, folders, playlists, tags; what `LibraryViewModel` takes.
 - A track's lyrics: `Lyrics`, `LyricsLoader` (an attached .lrc, a sidecar or the tags).
+- `LyricsLoader` only finds and reads the text; the parse and `Lyrics.indexAt` are native (`core/library/Lyrics`, `geode_lyrics_*`).
 - `DocumentUris` is the one place a picked document's grant is kept and its display name asked (`persistGrant`, `displayNameOf`).
 - `DeviceTrackQuery` is the MediaStore query; it leaves out tracks under the user's minimum.
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.

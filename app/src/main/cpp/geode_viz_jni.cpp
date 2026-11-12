@@ -786,6 +786,14 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_customizeChangedCount(JNIEnv* env, jobject, jfloatArray in) {
+    if (!in || env->GetArrayLength(in) < geode_viz_param_count()) return 0;
+    std::vector<float> input(static_cast<size_t>(geode_viz_param_count()));
+    env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
+    return geode_customize_changed_count(input.data());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeBorrow(JNIEnv* env, jobject, jstring category, jfloatArray in, jfloatArray from,
                                                          jfloatArray out) {

@@ -1040,6 +1040,24 @@ Java_dev_geode_engine_bridge_GeodeNative_perfModeForDevice(JNIEnv*, jobject, jlo
     return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_perfModeOf(JNIEnv*, jobject, jfloat renderScale, jint fpsCap, jfloat marchScale,
+                                                   jboolean postFx, jboolean adaptive) {
+    return geode_perf_mode_of(renderScale, fpsCap, marchScale, postFx ? 1 : 0, adaptive ? 1 : 0);
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_perfScaleChoices(JNIEnv* env, jobject) {
+    float values[GEODE_PERF_SCALE_CHOICES];
+    const int n = geode_perf_scale_choices(values, GEODE_PERF_SCALE_CHOICES);
+    jfloatArray out = env->NewFloatArray(n);
+    if (out) env->SetFloatArrayRegion(out, 0, n, values);
+    return out;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_perfLiquidHot(JNIEnv*, jobject, jint stored) { return geode_perf_liquid_hot(stored); }
+
 // The background image bake (core/viz/Underlay). The rect comes back as a new int[4] (x, y, width, height).
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_underlayCropRect(JNIEnv* env, jobject, jint srcW, jint srcH, jint targetW, jint targetH) {

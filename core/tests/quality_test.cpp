@@ -1,11 +1,12 @@
 // Host-side checks for core/viz/frame/Quality (#437): Settings › Performance's tiers and the
 // first-run pick for this phone. Built and run by CI ("Native host tests" in
-// .github/workflows/android.yml) with the system compiler; no GL. Ported from the JVM
-// PerformanceSettingsTest, with the same values as the Kotlin it replaces.
+// .github/workflows/native-host-tests.yml) with the system compiler; no GL. Ported from the JVM
+// PerformanceSettingsTest, with the same values as the Kotlin it replaces; the C ABI too.
 #include <algorithm>
 #include <cstdio>
 #include <iterator>
 
+#include "api/geode_api.h"
 #include "viz/frame/Quality.hpp"
 
 using namespace geode::viz::frame;
@@ -21,10 +22,8 @@ void check(bool ok, const char* what) {
     }
 }
 
-// The choices Settings › Performance offers (render/PerformanceSettings.kt RENDER_SCALES and MARCH_SCALES,
-// and the fps caps every display is offered, core/viz/frame/LiveFps: 90 and 120 only on fast panels). Every
-// tier value must be one of them, so picking a tier never shows a value the tab can't.
-constexpr float kScales[] = {0.5f, 0.75f, 1.0f};
+// The fps caps every display is offered (core/viz/frame/LiveFps: 90 and 120 only on fast panels). Every tier
+// value must be a choice the tab offers, so picking a tier never shows a value the tab can't.
 constexpr float kCaps[] = {30.0f, 60.0f};
 
 bool offered(const float* first, const float* last, float v) { return std::find(first, last, v) != last; }
@@ -41,9 +40,11 @@ void tiersMatchTheKotlinTheyReplace() {
 
 void tiersUseOfferedValues() {
     for (const QualityTier& t : kQualityTiers) {
-        check(offered(std::begin(kScales), std::end(kScales), t.renderScale), "render scale is a choice the tab offers");
+        check(offered(kScaleChoices.data(), kScaleChoices.data() + kScaleChoices.size(), t.renderScale),
+              "render scale is a choice the tab offers");
         check(offered(std::begin(kCaps), std::end(kCaps), t.fpsCap), "fps cap is a choice the tab offers");
-        check(offered(std::begin(kScales), std::end(kScales), t.marchScale), "march scale is a choice the tab offers");
+        check(offered(kScaleChoices.data(), kScaleChoices.data() + kScaleChoices.size(), t.marchScale),
+              "march scale is a choice the tab offers");
     }
 }
 
@@ -68,6 +69,34 @@ void devicePick() {
     check(modeForDevice(4 * gb, false, 31) == QualityMode::High, "exactly performance class 31 is High");
 }
 
+// The tab's "Custom": a preset only while every compared value is the tier's.
+void presetMatch() {
+    check(modeOf(0.5f, 30, 0.5f, false, true) == 0, "Saver's values are Saver");
+    check(modeOf(0.75f, 60, 0.75f, true, true) == 1, "Balanced's values are Balanced");
+    check(modeOf(1.0f, 60, 1.0f, true, false) == 2, "High's values are High");
+    check(modeOf(1.0f, 30, 1.0f, true, false) == -1, "High at 30 fps is Custom");
+    check(modeOf(1.0f, GEODE_LIVE_FPS_FOLLOW, 1.0f, true, false) == -1, "Follow device is no tier's cap");
+    check(modeOf(0.5f, 30, 0.75f, false, true) == -1, "Saver with a medium march is Custom");
+    check(modeOf(0.75f, 60, 0.75f, false, true) == -1, "Balanced without post FX is Custom");
+    check(modeOf(1.0f, 60, 1.0f, true, true) == -1, "High with adaptive on is Custom");
+}
+
+void throughTheAbi() {
+    check(geode_perf_mode_of(0.75f, 60, 0.75f, 1, 1) == 1 && geode_perf_mode_of(0.6f, 60, 0.75f, 1, 1) == -1, "geode_perf_mode_of");
+    float scales[GEODE_PERF_SCALE_CHOICES + 1] = {};
+    check(geode_perf_scale_choices(scales, GEODE_PERF_SCALE_CHOICES + 1) == 3 && scales[0] == 0.5f && scales[1] == 0.75f &&
+              scales[2] == 1.0f,
+          "the scale choices, ascending");
+    check(geode_perf_scale_choices(scales, 1) == 1 && geode_perf_scale_choices(nullptr, 3) == 0, "scale choices fit the capacity");
+    float tier[GEODE_PERF_TIER_FLOATS] = {};
+    check(geode_perf_tier(1, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[1] == 60.0f && tier[4] == 1.0f,
+          "geode_perf_tier writes Balanced");
+    check(geode_perf_tier(3, tier, GEODE_PERF_TIER_FLOATS) == 0, "no fourth tier");
+    // The Liquid hot-phone policy as stored: its three values as they are, a newer build's falls back to Simplify.
+    check(geode_perf_liquid_hot(0) == 0 && geode_perf_liquid_hot(1) == 1 && geode_perf_liquid_hot(2) == 2, "known policies");
+    check(geode_perf_liquid_hot(99) == 0 && geode_perf_liquid_hot(-1) == 0, "an unknown policy is Simplify");
+}
+
 }  // namespace
 
 int main() {
@@ -75,6 +104,8 @@ int main() {
     tiersUseOfferedValues();
     saverIsCheaperThanHigh();
     devicePick();
+    presetMatch();
+    throughTheAbi();
     if (failures == 0) std::printf("quality_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

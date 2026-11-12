@@ -48,6 +48,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `Catalogue` is the style catalogue: every style id, kind, family, param scope and control range.
 - Kotlin asks the catalogue one question at a time (`geode_catalogue_style_ids`, `_picker_names`, `_picker_ids`, `_resolve`, `_preset_style`, `_scope_of`, `_reaches`, `_override`).
 - `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
+- Customize › Motion's Spin (field `motionDrift`, the old Spin drift's wire name) scales the turn of the styles `catalogue::spinRate` lists, shows only on them (scope `SPIN`, per style), holds them still at 0 and is never rolled.
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack, the one colour source to be; no renderer reads it yet.
 - A stack holds up to 8 palettes of up to 16 colours, each Smooth or Steps, Mirror or Loop, RGB, hue or OKLab, a place per colour and one colour's Shades, Flat or To black; Share (Soft or Hard edges) or Mix by amount, full range off.
@@ -208,6 +209,7 @@ The renderer runs these in order each frame.
 - In Liquid mode a 3D style dives by the endless zoom stage.
 - In Liquid mode touch moves the liquid.
 - In Liquid mode a hot phone follows Settings › Performance.
+- `core/viz/frame/Quality` is Settings › Performance's tiers, scale choices, preset match and first-run pick (`core/api/geode_perf_api.cpp`).
 
 ## UI blur
 

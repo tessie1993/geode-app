@@ -226,7 +226,7 @@ private fun MotionControl(
             LabeledSlider(key, p, SceneParams::motionAmount) { onChange(p.copy(motionAmount = it)) }
         ParamKeys.MOTION_BREATH ->
             LabeledSlider(key, p, SceneParams::motionBreath) { onChange(p.copy(motionBreath = it)) }
-        ParamKeys.MOTION_DRIFT -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
+        ParamKeys.SPIN -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
         ParamKeys.CAM_PATH ->
             ParamChips(key, SceneParams.CAMERA_PATHS, p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex), ParamScope.UNIVERSAL) {
                 onChange(p.copy(camPath = it))

@@ -66,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -76,6 +77,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -108,8 +110,10 @@ import dev.geode.R
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.PlaylistImportResult
 import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryStartTab
 import dev.geode.model.LibraryTrack
 import dev.geode.model.QueueTrack
+import dev.geode.model.TrackTap
 import dev.geode.playback.PlaybackQueue
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -121,6 +125,23 @@ import kotlin.math.roundToInt
 /** Playlists sit last and behave differently: hand-ordered, so search and sort do not apply. */
 private const val PLAYLISTS_TAB = 4
 private const val DUPLICATES_TAB = 5
+
+/** The tab row's position of each tab Settings › Preferences can open Library on. */
+private fun LibraryStartTab.tabIndex(): Int =
+    when (this) {
+        LibraryStartTab.TRACKS -> 0
+        LibraryStartTab.ALBUMS -> 1
+        LibraryStartTab.ARTISTS -> 2
+        LibraryStartTab.FOLDERS -> 3
+        LibraryStartTab.PLAYLISTS -> PLAYLISTS_TAB
+    }
+
+/**
+ * Settings › Preferences › Library's tap on a track, provided once by [LibraryScreen]: the rows sit
+ * four lists deep (tracks, an album or artist, search, favourites), and none of the lists between
+ * has any other use for it.
+ */
+private val LocalTrackTap = staticCompositionLocalOf { TrackTap.PLAY_LIST }
 
 /**
  * The pane width from which a landscape or expanded window splits the library into two columns
@@ -167,6 +188,23 @@ fun LibraryScreen(
     onOpenFolders: () -> Unit = {},
     onOpenVisuals: () -> Unit = {},
 ) {
+    val settings: SettingsViewModel = geodeViewModel()
+    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalTrackTap provides gui.trackTap) {
+        LibraryContent(onOpenFolders, onOpenVisuals, gui.libraryStartTab)
+    }
+}
+
+/**
+ * [startTab] is where the tabs stand until one is picked; read live rather than seeded once, since
+ * the prefs may finish loading after the screen first draws.
+ */
+@Composable
+private fun LibraryContent(
+    onOpenFolders: () -> Unit,
+    onOpenVisuals: () -> Unit,
+    startTab: LibraryStartTab,
+) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
     val permission = Manifest.permission.READ_MEDIA_AUDIO
@@ -183,7 +221,8 @@ fun LibraryScreen(
     val duplicates by libraryViewModel.duplicates.collectAsStateWithLifecycle()
     val hiddenShort by libraryViewModel.hiddenShortTracks.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
-    var tab by rememberSaveable { mutableStateOf(0) }
+    var pickedTab by rememberSaveable { mutableStateOf<Int?>(null) }
+    val tab = pickedTab ?: startTab.tabIndex()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     // A query kept across process death reopens the search it belongs to.
     val searching = searchOpen || query.isNotEmpty()
@@ -268,13 +307,13 @@ fun LibraryScreen(
                 modifier = Modifier.weight(1f),
             )
             HiddenShortTracks(hiddenShort, onOpenFolders)
-            TextButton(onClick = { tab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
+            TextButton(onClick = { pickedTab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(stringResource(R.string.library_tab_playlists))
             }
             return
         }
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
-            tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { tab = i }, text = { Text(t) }) }
+            tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { pickedTab = i }, text = { Text(t) }) }
         }
         // Measured below the tabs, where the lists live: the pane's own width decides the split.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
@@ -426,6 +465,22 @@ private fun TrackList(
     }
 }
 
+/** A tap on [track] as Settings › Preferences › Library says; with nothing loaded every choice plays. */
+private fun PlayerViewModel.tapTrack(
+    tap: TrackTap,
+    track: DeviceTrack,
+    queue: List<QueueTrack>,
+) {
+    val loaded = uiState.value.hasMedia
+    when {
+        tap == TrackTap.PLAY_NEXT && loaded -> playNext(track.uri)
+        tap == TrackTap.ADD_TO_QUEUE && loaded -> enqueue(track.uri)
+        tap == TrackTap.PLAY_ALONE -> playFrom(listOf(PlaybackQueue.queueTrack(track)), track.uri)
+        queue.isEmpty() -> playTrack(track.uri)
+        else -> playFrom(queue, track.uri)
+    }
+}
+
 @Composable
 private fun TrackRow(
     t: DeviceTrack,
@@ -449,12 +504,12 @@ private fun TrackRow(
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf(false) }
+    val tap = LocalTrackTap.current
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable {
-                if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri)
-            }.padding(horizontal = 16.dp, vertical = 8.dp),
+            .clickable { viewModel.tapTrack(tap, t, queue) }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp, decodeSize = 44.dp)

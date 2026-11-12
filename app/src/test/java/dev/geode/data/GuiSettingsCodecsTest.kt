@@ -1,33 +1,84 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefsCodec
+import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.model.TourChapter
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ThemeStoreTest {
+/** `GuiPrefs` split by subject (#1009, PR 5): the old answers still read, and each repository writes only its own keys. */
+@OptIn(ExperimentalCoroutinesApi::class)
+class GuiSettingsCodecsTest {
+    private fun <T> PrefsCodec<T>.save(
+        prefs: SharedPreferences,
+        value: T,
+    ) = prefs.edit().also { write(it, value) }.apply()
+
     @Test
     fun aSaveMidSetupDoesNotMarkSetupDone() {
-        val store = ThemeStore(MapPrefs())
-        store.saveGui(store.loadGui().copy(safetyAcknowledged = true))
-        assertFalse(store.loadGui().setupDone)
+        val prefs = MapPrefs()
+        AppStateCodec.save(prefs, AppStateCodec.read(prefs).copy(safetyAcknowledged = true))
+        assertFalse(AppStateCodec.read(prefs).setupDone)
     }
 
     @Test
     fun anAnsweredLegacyIntentStillCountsAsSetupDone() {
-        val prefs = MapPrefs().apply { values[ThemeStore.KEY_INTENT] = "LISTENING" }
-        assertTrue(ThemeStore(prefs).loadGui().setupDone)
+        val prefs = MapPrefs().apply { values[AppStateCodec.KEY_INTENT] = "LISTENING" }
+        assertTrue(AppStateCodec.read(prefs).setupDone)
+    }
+
+    @Test
+    fun theOldTourEndedFlagCountsEveryChapterAndIsFoldedInOnTheNextWrite() {
+        val prefs = MapPrefs().apply { values[AppStateCodec.KEY_TUTORIAL_SEEN] = true }
+        val state = AppStateCodec.read(prefs)
+        assertEquals(TourChapter.entries.toSet(), state.tourProgress.done)
+        AppStateCodec.save(prefs, state)
+        assertFalse(prefs.contains(AppStateCodec.KEY_TUTORIAL_SEEN))
+        assertEquals(TourChapter.entries.toSet(), AppStateCodec.read(prefs).tourProgress.done)
     }
 
     @Test
     fun theRetiredReducedMotionSwitchIsDroppedOnTheNextSave() {
         // The app's own switch is gone (#336): reduced motion follows Android's "Remove animations"
         // alone, so an old answer must not linger in the prefs file (or a backup made from it).
-        val prefs = MapPrefs().apply { values[ThemeStore.KEY_REDUCED_MOTION] = true }
-        val store = ThemeStore(prefs)
-        store.saveGui(store.loadGui())
-        assertFalse(prefs.contains(ThemeStore.KEY_REDUCED_MOTION))
+        val prefs = MapPrefs().apply { values[GeneralSettingsCodec.KEY_REDUCED_MOTION] = true }
+        GeneralSettingsCodec.save(prefs, GeneralSettingsCodec.read(prefs))
+        assertFalse(prefs.contains(GeneralSettingsCodec.KEY_REDUCED_MOTION))
     }
+
+    @Test
+    fun theOldWhiteFontReadsAsWhiteUntilAColourIsChosenThenStaysGone() {
+        val prefs = MapPrefs().apply { values[GeneralSettingsCodec.KEY_WHITE_FONT] = true }
+        assertEquals(FontColorChoice.WHITE_ARGB, GeneralSettingsCodec.read(prefs).fontColorArgb)
+        GeneralSettingsCodec.save(prefs, GeneralSettings(fontColorArgb = null))
+        assertFalse(prefs.contains(GeneralSettingsCodec.KEY_WHITE_FONT))
+        assertNull(GeneralSettingsCodec.read(prefs).fontColorArgb)
+    }
+
+    @Test
+    fun theSubjectsShareOneFileWithoutWritingOverEachOther() =
+        runTest {
+            val prefs = MapPrefs()
+            val io = StandardTestDispatcher(testScheduler)
+            val general = PrefsSettingsRepository(prefs, GeneralSettingsCodec, this, io)
+            val appState = PrefsSettingsRepository(prefs, AppStateCodec, this, io)
+            val visuals = PrefsSettingsRepository(prefs, VisualsSettingsCodec, this, io)
+            appState.update { it.copy(safetyAcknowledged = true) }
+            general.update { it.copy(uiSounds = true) }
+            visuals.update { it.copy(secondScreen = false) }
+            assertTrue(AppStateCodec.read(prefs).safetyAcknowledged)
+            assertTrue(GeneralSettingsCodec.read(prefs).uiSounds)
+            assertFalse(VisualsSettingsCodec.read(prefs).secondScreen)
+            assertFalse(prefs.contains(SoundInputSettingsCodec.KEY_MIC_REACTIVE))
+            assertFalse(prefs.contains(LibrarySettingsCodec.KEY_PRESET_MIRROR_URI))
+        }
 
     /** In-memory [SharedPreferences]: the platform one is a stub in local unit tests. */
     private class MapPrefs : SharedPreferences {

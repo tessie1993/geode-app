@@ -306,7 +306,7 @@ class MainActivity : ComponentActivity() {
     // Never on a TV: TV PiP must start from the user's own action (TV app quality, TV-IE).
     private fun autoEnterPipEligible(): Boolean =
         !isTelevision() &&
-            settingsViewModel.guiPrefs.value.autoEnterPip &&
+            settingsViewModel.general.value.autoEnterPip &&
             VisualizerPipCoordinator.visualizerShowing &&
             playerViewModel.uiState.value.isPlaying
 
@@ -375,7 +375,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun followScreenRotation() {
         lifecycleScope.launch {
-            settingsViewModel.guiPrefs.map { it.screenRotation }.distinctUntilChanged().collect {
+            settingsViewModel.general.map { it.screenRotation }.distinctUntilChanged().collect {
                 requestedOrientation =
                     when (it) {
                         ScreenRotation.FOLLOW -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

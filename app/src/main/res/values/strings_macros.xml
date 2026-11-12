@@ -32,8 +32,18 @@
     <string name="macro_pick_close">Close</string>
     <string name="macro_new_knob">New macro</string>
     <string name="macro_new_title">New macro</string>
-    <string name="macro_empty_hint">Add parameters one by one, or press Random for a surprise.</string>
-    <string name="macro_random">Random</string>
+    <string name="macro_empty_hint">Add parameters one by one, or let Add random pick some for a surprise.</string>
+    <string name="macro_random_ranges">New ranges</string>
+    <string name="macro_random_ranges_a11y">New random ranges for what %1$s moves</string>
+    <string name="macro_add_random">Add random</string>
+    <string name="macro_add_random_fewer">Add fewer</string>
+    <string name="macro_add_random_more">Add more</string>
+    <string name="macro_add_random_count_a11y">How many random parameters to add</string>
+    <string name="macro_add_random_none">Nothing left to add on this style.</string>
+    <plurals name="macro_add_random_go">
+        <item quantity="one">Add %1$d</item>
+        <item quantity="other">Add %1$d</item>
+    </plurals>
     <string name="macro_save_as">Save macro as</string>
     <string name="macro_save">Save</string>
     <string name="macro_discard">Discard</string>

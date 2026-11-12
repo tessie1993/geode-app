@@ -634,6 +634,36 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsSanitize(JNIEnv* env, jobject, jf
     env->SetFloatArrayRegion(out, 0, count, frame.data());
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsWriteJson(JNIEnv* env, jobject, jfloatArray frame, jstring customPaletteId,
+                                                         jstring customPalette2Id) {
+    FloatElements values(env, frame);
+    Utf8Chars idA(env, customPaletteId);
+    Utf8Chars idB(env, customPalette2Id);
+    if (!values.get()) return nullptr;
+    return geode::jni::utf8String(env, geode_params_write_json(values.get(), values.length(), idA.get(), idB.get()));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsReadJson(JNIEnv* env, jobject, jstring text, jfloatArray out, jobjectArray ids) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!out || env->GetArrayLength(out) < count || !ids || env->GetArrayLength(ids) < 2) return JNI_FALSE;
+    Utf8Chars json(env, text);
+    std::vector<float> frame(static_cast<size_t>(count));
+    const char* idA = nullptr;
+    const char* idB = nullptr;
+    if (!geode_params_read_json(json.get(), frame.data(), count, &idA, &idB)) return JNI_FALSE;
+    env->SetFloatArrayRegion(out, 0, count, frame.data());
+    const char* read[2] = {idA, idB};
+    for (jsize i = 0; i < 2; ++i) {
+        jstring id = geode::jni::utf8String(env, read[i]);
+        if (!id || env->ExceptionCheck()) return JNI_FALSE;
+        env->SetObjectArrayElement(ids, i, id);
+        env->DeleteLocalRef(id);
+    }
+    return JNI_TRUE;
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_colourFromHsv(JNIEnv*, jobject, jfloat h, jfloat s, jfloat v) {
     return geode_colour_from_hsv(h, s, v);

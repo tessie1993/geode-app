@@ -518,6 +518,16 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
+/* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
+ * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
+ * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling
+ * thread's next write_json; NULL for a short frame. read_json: the object read as org.json's opt* read it and
+ * sanitized (geode_params_sanitize) into out_frame, and the ids into *id_a and *id_b ("" when missing; each may be
+ * NULL), valid until the calling thread's next read_json; 1, or 0 with nothing written when text is not a JSON
+ * object or the frame is short. Pure, any thread. */
+GEODE_API const char* geode_params_write_json(const float* frame, int n, const char* id_a, const char* id_b);
+GEODE_API int         geode_params_read_json(const char* text, float* out_frame, int n, const char** id_a,
+                                             const char** id_b);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>

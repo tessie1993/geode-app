@@ -1078,6 +1078,28 @@ object GeodeNative {
         output: FloatArray,
     )
 
+    /**
+     * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
+     * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
+     * (`geode_params_write_json`). Null for a short frame. Pure.
+     */
+    external fun paramsWriteJson(
+        frame: FloatArray,
+        customPaletteId: String,
+        customPalette2Id: String,
+    ): String?
+
+    /**
+     * [text]'s params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two
+     * palette slot ids into [ids] (two slots; "" when missing) (`geode_params_read_json`). False, nothing written,
+     * when [text] is not a JSON object. Pure.
+     */
+    external fun paramsReadJson(
+        text: String,
+        out: FloatArray,
+        ids: Array<String?>,
+    ): Boolean
+
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(
         h: Float,

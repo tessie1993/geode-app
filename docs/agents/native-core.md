@@ -74,6 +74,7 @@ The renderer runs these in order each frame.
 - `NoteResponse` writes no scene param and no colour, so what moves on a note, chord or a drop is the reaction matrix alone.
 - Then the director's axes.
 - Then the macro bank (`core/viz/MacroBank`): the user's global knobs, each an offset on the params it links, `geode_macro_bank_set`.
+- A knob may link any float a Customize control sets; the knob editor's Add random and New ranges are native rolls.
 - Then LFO, then ADSR.
 - Then `Reactions` (the reaction matrix).
 - Then `MotionField`.

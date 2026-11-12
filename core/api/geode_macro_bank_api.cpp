@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "api/geode_api.h"
+#include "viz/CustomizeMap.hpp"
 #include "viz/MacroBank.hpp"
 
 namespace macrobank = geode::viz::macrobank;
@@ -88,6 +89,16 @@ const char* geode_macro_bank_add_knob_for(const char* bank, const char* control)
 
 const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed) {
     return handOut(macrobank::roll(bankOf(bank), knob_id, static_cast<std::uint64_t>(seed)));
+}
+
+const char* geode_macro_bank_roll_ranges(const char* bank, int knob_id, long long seed) {
+    return handOut(macrobank::rollRanges(bankOf(bank), knob_id, static_cast<std::uint64_t>(seed)));
+}
+
+const char* geode_macro_bank_add_random(const char* bank, int knob_id, const char* style_id, int count, long long seed) {
+    const auto kept = geode::viz::customize::kept();
+    const macrobank::Reach reach = macrobank::reachMask(std::string(style_id ? style_id : ""));
+    return handOut(macrobank::addRandom(bankOf(bank), knob_id, count, reach, *kept, static_cast<std::uint64_t>(seed)));
 }
 
 const char* geode_macro_bank_roll_values(const char* bank, const char* style_id, long long seed) {

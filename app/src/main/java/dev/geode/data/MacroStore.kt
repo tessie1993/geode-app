@@ -115,8 +115,15 @@ class MacroStore internal constructor(
     /** The name native offers when the knob is saved. */
     fun autoName(id: Int): String = runCatching { GeodeNative.macroBankAutoName(_state.value.working, id) }.getOrDefault("")
 
-    /** A new random set of links for the knob, a new roll each call. */
-    fun roll(id: Int) = edit { GeodeNative.macroBankRoll(it, id, Random.nextLong()) }
+    /** New ranges and curves for the links the knob has, a new roll each call. */
+    fun rollRanges(id: Int) = edit { GeodeNative.macroBankRollRanges(it, id, Random.nextLong()) }
+
+    /** Up to [count] more params on the knob, picked at random on [styleId], a new roll each call. */
+    fun addRandom(
+        id: Int,
+        styleId: String,
+        count: Int,
+    ) = edit { GeodeNative.macroBankAddRandom(it, id, styleId, count, Random.nextLong()) }
 
     /** A new turn for every knob on screen that moves something on [styleId], a new roll each call. */
     fun rollValues(styleId: String) = edit { GeodeNative.macroBankRollValues(it, styleId, Random.nextLong()) }

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -83,6 +84,11 @@ std::set<std::string> expandLocks(const std::set<std::string>& locked);
 // Basics; it is not the user keeping those controls, so a step that puts kept controls back (Randomize
 // everything over a new preset) leaves the controls it names as the new look made them.
 std::set<std::string> expandKeeps(const std::set<std::string>& locked);
+
+// Customize's keep set, process-wide (geode_director_keep_set): one control key or "#CATEGORY" a line, expanded
+// by expandLocks. The director's reach and the knob editor's Add random keep off it. Never null.
+void setKept(std::string_view lines);
+std::shared_ptr<const std::set<std::string>> kept();
 
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);

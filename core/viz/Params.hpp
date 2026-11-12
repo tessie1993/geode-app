@@ -64,7 +64,9 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::palette2RangeOverride,
                                                // Color cycle and Cycle speed: the old hue cycle.
                                                ParamSlot::colorCycle,
-                                               ParamSlot::cycleSpeed};
+                                               ParamSlot::cycleSpeed,
+                                               // Colour map: the colour maps are palettes of the stack.
+                                               ParamSlot::paletteLut};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
@@ -181,7 +183,7 @@ struct SceneParams {
     //   params|<kSchemaTextVersion>|<kFieldCount>
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
+    // Then one row per listed built-in palette (0..kListedPalettes-1), in `palette` index order: palette|<index>|<name> (version 3).
     // Then one row per picker label, by field in slot order, each in index order: choice|<name>|<index>|<label> (version 4).
     static constexpr int kSchemaTextVersion = 4;
     static const std::string& schemaText();

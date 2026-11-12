@@ -636,13 +636,6 @@ Stack fromLegacy(const SceneParams& p, Amounts& amounts) {
     // Old ramps never met another under Share; Hard keeps that so, whatever the look becomes later.
     s.edge = Edge::Hard;
     const auto& lib = library();
-    if (p.paletteLut >= 0) {
-        // A colour map replaced the whole ramp.
-        const int index = kColourMapFirst + std::min(p.paletteLut, kColourMapCount - 1);
-        s.layers.push_back(lib[static_cast<size_t>(index)].palette);
-        amounts[0] = 1.0f;
-        return normalized(std::move(s));
-    }
     const auto stops = p.paletteStops();
     const int count = p.paletteStopCount();
     if (count > 0) {

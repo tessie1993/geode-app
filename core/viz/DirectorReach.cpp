@@ -33,8 +33,8 @@ constexpr std::array<Category, 7> kShuffled{Category::Look,   Category::Shape,  
 // look already decides from the feeling (a roll there would undo it), and the two full-frame luminance
 // flips, which a section change must not fire.
 constexpr const char* kLooksOwn[] = {
-    "Palette", "Colour map", "Hue shift", "Hue range", "Temperature", "Saturation", "Brightness",
-    "Contrast", "Gamma",     "Breath",    "Invert",    "Solarize",
+    "Palette",  "Hue shift", "Hue range", "Temperature", "Saturation", "Brightness",
+    "Contrast", "Gamma",     "Breath",    "Invert",      "Solarize",
 };
 
 // What a modulator may move: sliders with a visible, continuous effect. Colour is the look's.

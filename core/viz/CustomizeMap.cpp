@@ -25,9 +25,10 @@ const std::vector<Section>& table() {
         {C::QuickKnobs, "knob_editor", false, S::Always, {"@macro_editor"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
-        // Your colours: the colour picker and eyedropper, first under the one palette list they add to.
+        // Your colours: the colour picker and eyedropper, first under the one palette list they add to. The
+        // colour maps are palettes of that list (the stack's library), so they have no control of their own.
         {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
-        {C::Look, "colour_detail", false, S::Always, {"Colour map", "Hue shift", "Hue range", "Temperature"}},
+        {C::Look, "colour_detail", false, S::Always, {"Hue shift", "Hue range", "Temperature"}},
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity"}},
 
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},

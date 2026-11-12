@@ -250,7 +250,6 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
         {"palette", -3.0f},
         {"particleShape", 2.0f},
         {"reactSeed", 99999999.0f},
-        {"paletteLut", 9.0f},
         {"brightness", 1.875f},
         {"bloom", 0.625f},
         {"intensity", 3.0f},
@@ -264,7 +263,7 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
     check(p.endlessZoomSpeed == kDefaults.endlessZoomSpeed && p.camFov == kDefaults.camFov, "hostile: NaN reads as the default");
     check(p.trails, "hostile: a flag over 0.5 is on");
     check(p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
-    check(p.reactSeed == 16777215 && p.paletteLut == 4, "hostile: wide ints held to their ranges");
+    check(p.reactSeed == 16777215, "hostile: wide ints held to their ranges");
     check(p.brightness == 1.875f && p.bloom == 0.625f && p.intensity == 2.0f, "hostile: the schema's range, not the slider's");
     check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f && p.kaleidoFolds == 16.0f, "hostile: floats held to their ranges");
     check(p.colorShift == 1.5f, "hostile: a circular value wraps where it is drawn and is not clamped");

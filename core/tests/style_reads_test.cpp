@@ -379,7 +379,6 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop2", {"uPalStops"}},
         {"paletteStop3", {"uPalStops"}},
         {"paletteStop4", {"uPalStops"}},
-        {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},

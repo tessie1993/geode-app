@@ -218,11 +218,10 @@ private:
     std::vector<std::uint8_t> bytes_;
 };
 
-// An old look's colours as a stack, so it draws as it did: its stops (your colours), else its hue gradient
-// (a saved override or built-in `palette`) sampled to stops; a colour map (`paletteLut`), which replaced the
-// ramp, as the only layer. The old second palette (Palette 2 under Palette blend) is retired: a look that
-// saved one reads its first palette alone. Every layer Loops, as the old ramps did, and palettes meet Hard.
-// `amounts` gets the layers' amounts.
+// An old look's colours as a stack: its stops (your colours), else its hue gradient (a saved override or
+// built-in `palette`) sampled to stops, as the one layer. The old second palette (Palette 2 under Palette
+// blend) and colour map (`paletteLut`) are retired: a look that saved one reads its own palette alone. The
+// layer Loops, as the old ramps did, and palettes meet Hard. `amounts` gets the layers' amounts.
 Stack fromLegacy(const SceneParams& p, Amounts& amounts);
 // The old cosine ramp (base, range) as kMaxStops stops, in RGB, looped: at i/kMaxStops for a ramp of whole
 // turns, which meets itself; else from base to base + range inclusive, so t just short of 1 is the ramp's end.

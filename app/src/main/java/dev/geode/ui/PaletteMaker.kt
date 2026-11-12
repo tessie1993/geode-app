@@ -133,7 +133,8 @@ internal fun paletteChipIndex(
     p: SceneParams,
     saved: List<CustomPalette>,
 ): Int {
-    if (!p.usesCustomPalette) return p.palette
+    // A retired built-in (not in the native list) still draws; the list shows no row for it.
+    if (!p.usesCustomPalette) return p.palette.takeIf { it in ParamSchema.paletteNames.indices } ?: -1
     val index = saved.indexOfFirst { it.id == p.customPaletteId }
     return if (index < 0) -1 else ParamSchema.paletteNames.size + index
 }
@@ -176,8 +177,8 @@ internal fun PaletteSwatch(
 }
 
 /**
- * The one palette list (UI V2 rule 2: a dropdown, not a chip wall): the built-in palettes, then the user's
- * own, with what the look's palette paints under it.
+ * The one palette list on the styles the stack does not draw (UI V2 rule 2: a dropdown, not a chip wall):
+ * the built-in palettes native lists, then the user's own, with what the look's palette paints under it.
  */
 @Composable
 internal fun PaletteDropdown(

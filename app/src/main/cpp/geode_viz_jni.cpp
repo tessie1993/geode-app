@@ -720,11 +720,6 @@ Java_dev_geode_engine_bridge_GeodeNative_widgetGlow(JNIEnv* env, jobject, jfloat
     return out;
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteColourMapName(JNIEnv* env, jobject, jint index) {
-    return env->NewStringUTF(geode_palette_colour_map_name(index));
-}
-
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paletteRamp(JNIEnv* env, jobject, jintArray stops, jint samples) {
     const jsize n = stops ? std::min<jsize>(env->GetArrayLength(stops), 5) : 0;

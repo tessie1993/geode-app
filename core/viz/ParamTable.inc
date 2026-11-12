@@ -144,9 +144,9 @@ GEODE_PARAM_META(paletteRangeOverride, "Palette", Universal, 0, 0, 0)
 // Retired with Palette 2: its hue overrides.
 GEODE_PARAM(Float, palette2BaseOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
 GEODE_PARAM(Float, palette2RangeOverride, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, 1.0f, Hold)
-// A cyclic colour map row (five: CyclicPalettes.NAMES); kNoPaletteLut (-1) = off.
+// Retired (SceneParams::retired): Colour map, the five cyclic colour maps as a list of their own. They are
+// palettes of the stack's library now (PaletteTable.inc rows 21..25), so Look has one palette list.
 GEODE_PARAM(Int, paletteLut, SceneParams::kNoPaletteLut, SceneParams::kNoPaletteLut, 4, Hold)
-GEODE_PARAM_META(paletteLut, "Colour map", ShaderLook, 0, 0, 4)
 GEODE_PARAM(Float, milkdropPaletteTint, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(milkdropPaletteTint, "MilkDrop palette tint", Milkdrop, 0, 0.2f, 0.9f)
 GEODE_PARAM(Bool, milkdropBlendPresets, false, 0, 1, Hold)

@@ -58,7 +58,6 @@ object ParamKeys {
     const val TRAIL_ZOOM_ECHO_IN_OUT = "Trail zoom (echo in/out)"
     const val TRAIL_WARP_LIQUID_ECHO = "Trail warp (liquid echo)"
     const val PALETTE = "Palette"
-    const val COLOUR_MAP = "Colour map"
     const val MILKDROP_PALETTE_TINT = "MilkDrop palette tint"
     const val HUE_SHIFT = "Hue shift"
     const val HUE_RANGE = "Hue range"

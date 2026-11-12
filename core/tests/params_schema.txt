@@ -37,7 +37,7 @@ param|34|paletteBaseOverride|FLOAT|-1|-1|1|HOLD|LIVE
 param|35|paletteRangeOverride|FLOAT|-1|-1|1|HOLD|LIVE
 param|36|palette2BaseOverride|FLOAT|-1|-1|1|HOLD|RETIRED
 param|37|palette2RangeOverride|FLOAT|-1|-1|1|HOLD|RETIRED
-param|38|paletteLut|INT|-1|-1|4|HOLD|LIVE
+param|38|paletteLut|INT|-1|-1|4|HOLD|RETIRED
 param|39|milkdropPaletteTint|FLOAT|0|0|1|FADE|LIVE
 param|40|milkdropBlendPresets|BOOL|0|0|1|HOLD|LIVE
 param|41|colorShift|CIRCULAR|0|0|1|FADE|LIVE
@@ -199,15 +199,6 @@ palette|8|Sunset
 palette|9|Ice
 palette|10|Vapor
 palette|11|Toxic
-palette|12|Royal
-palette|13|Blush
-palette|14|Copper
-palette|15|Mint
-palette|16|Galaxy
-palette|17|Cherry
-palette|18|Cyan
-palette|19|Magenta
-palette|20|Yellow
 choice|particleShape|0|Dot
 choice|particleShape|1|Ring
 choice|particleShape|2|Star

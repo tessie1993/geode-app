@@ -202,12 +202,12 @@ void aBrokenWireKeepsTheDefaults() {
     wire[static_cast<size_t>(ParamSlot::speed)] = 2.5f;
     wire[static_cast<size_t>(ParamSlot::zoom)] = inf;
     wire[static_cast<size_t>(ParamSlot::fluidBeatSplats)] = 1e30f;
-    wire[static_cast<size_t>(ParamSlot::paletteLut)] = -1e30f;
+    wire[static_cast<size_t>(ParamSlot::fluidQuality)] = -1e30f;
     wire[static_cast<size_t>(ParamSlot::fluidIterations)] = 12.6f;
     const SceneParams p = SceneParams::fromWire(wire.data());
     check(p.speed == 2.5f && p.zoom == SceneParams{}.zoom, "one bad float leaves its neighbours alone");
     check(p.fluidBeatSplats == static_cast<int>(SceneParams::spec(ParamSlot::fluidBeatSplats).max), "an int over its row is held to the row's max");
-    check(p.paletteLut == SceneParams::kNoPaletteLut, "an int under its row is held to the row's min");
+    check(p.fluidQuality == static_cast<int>(SceneParams::spec(ParamSlot::fluidQuality).min), "an int under its row is held to the row's min");
     check(p.fluidIterations == 13, "an int in range still rounds");
 }
 
@@ -404,7 +404,7 @@ void theTextIsTheTable() {
             const int at = f.size() == 4 ? SceneParams::slotOf(f[1]) : -1;
             const auto& labels = SceneParams::choices(static_cast<ParamSlot>(at < 0 ? SceneParams::kFieldCount : at));
             const size_t index = f.size() == 4 ? std::strtoul(f[2].c_str(), nullptr, 10) : labels.size();
-            check(palette == SceneParams::palettes().size(), "the choice rows follow the palette names: " + line);
+            check(palette == static_cast<size_t>(SceneParams::kListedPalettes), "the choice rows follow the palette names: " + line);
             check(index < labels.size() && f[3] == labels[index], "a choice row names the picker's label at its index: " + line);
             ++choiceRows;
             continue;
@@ -440,7 +440,7 @@ void theTextIsTheTable() {
         ++slot;
     }
     check(slot == kWireFloats, "one row per slot");
-    check(palette == SceneParams::palettes().size(), "one name per built-in palette");
+    check(palette == static_cast<size_t>(SceneParams::kListedPalettes), "one name per listed built-in palette, none for a retired one");
     size_t labels = 0;
     for (int s = 0; s < SceneParams::kFieldCount; ++s) labels += SceneParams::choices(static_cast<ParamSlot>(s)).size();
     check(choiceRows == labels, "one choice row per picker label");
@@ -568,8 +568,9 @@ void everyLiveRowHasOneMeta() {
         check(m.scope == scope && m.rollLo == 0.0f && m.rollHi == 0.0f && (m.flags & kMod) != 0,
               std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": a target, never dealt by the param roll");
     }
-    check(!SceneParams::meta(ParamSlot::paletteMix).live && !SceneParams::meta(ParamSlot::palette2).live,
-          "Palette blend and Palette 2 are retired: the stack draws more than one palette");
+    check(!SceneParams::meta(ParamSlot::paletteMix).live && !SceneParams::meta(ParamSlot::palette2).live &&
+              !SceneParams::meta(ParamSlot::paletteLut).live,
+          "Palette blend, Palette 2 and Colour map are retired: the stack draws more than one palette and the colour maps");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
     const ParamMeta& kaleido = SceneParams::meta(ParamSlot::kaleidoFolds);
     check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&

@@ -120,8 +120,6 @@ const std::vector<Roll>& rolls() {
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
              p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;
          }},
-        {T::Color, "Colour map",
-         [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? counted(r, ParamSlot::paletteLut) : SceneParams::kNoPaletteLut; }},
         {T::Color, "MilkDrop palette tint",
          [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
         {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
@@ -334,6 +332,8 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         // Color cycle and Cycle speed, retired: the old hue cycle.
         {"colorCycle", "retired"},
         {"cycleSpeed", "retired"},
+        // Colour map, retired: the colour maps are palettes of the stack.
+        {"paletteLut", "retired"},
     };
     return kNever;
 }

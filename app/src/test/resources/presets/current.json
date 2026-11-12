@@ -100,7 +100,6 @@
   "flowStrength": 0.5,
   "flowForce": 1.5,
   "flowCurl": 12.5,
-  "paletteLut": 0,
   "cymaticsGeometry": 1,
   "cymaticsFundamental": 240,
   "cymaticsModes": 6,

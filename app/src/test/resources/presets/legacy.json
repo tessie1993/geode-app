@@ -31,6 +31,7 @@
   "palette2RangeOverride": 0.2,
   "colorCycle": true,
   "cycleSpeed": 0.2,
+  "paletteLut": 3,
   "beatFlash": 0.5,
   "customPaletteId": "old-palette"
 }

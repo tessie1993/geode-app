@@ -85,20 +85,6 @@ private fun LookControl(
             LabeledSlider(key, p, "brightness", onChange = onChange)
         ParamKeys.SATURATION -> LabeledSlider(key, p, "saturation", onChange = onChange)
         ParamKeys.BLOOM -> LabeledSlider(key, p, "bloom", display = "Glow", onChange = onChange)
-        ParamKeys.COLOUR_MAP ->
-            if (visible(key, ParamScope.SHADER_LOOK)) {
-                val maps = remember { colourMapNames() }
-                val selected = maps.getOrNull(p.paletteLut) ?: "Off"
-                ProGated(key, value = selected) {
-                    DropdownRow(
-                        name = key,
-                        options = listOf("Off") + maps,
-                        selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
-                        lockKey = key,
-                        about = "Even colour steps that loop, so a wrap has no seam.",
-                    ) { i -> onChange(p.copy(paletteLut = if (i == 0) SceneParams.NO_PALETTE_LUT else i - 1)) }
-                }
-            }
         ParamKeys.HUE_SHIFT -> LabeledSlider(key, p, "colorShift", onChange = onChange)
         ParamKeys.HUE_RANGE -> LabeledSlider(key, p, "hueRange", onChange = onChange)
         ParamKeys.TEMPERATURE -> LabeledSlider(key, p, "temperature", display = "Warmth", onChange = onChange)
@@ -432,7 +418,10 @@ private fun PanelPiece(
     }
 }
 
-/** Look's palette, with "Take the colours from the artwork" over it (the same free control). */
+/**
+ * Look's palette, with "Take the colours from the artwork" over it (the same free control). One palette list:
+ * where the stack draws (the shader styles) it is the stack card, elsewhere the look's own palette.
+ */
 @Composable
 private fun PaletteControl(
     host: AdvancedHost,
@@ -451,10 +440,13 @@ private fun PaletteControl(
         artNote?.let { ControlHint(it) }
     }
     if (visible(ParamKeys.PALETTE, ParamScope.UNIVERSAL)) {
-        ProGated(ParamKeys.PALETTE) {
-            PaletteDropdown(ParamKeys.PALETTE, p, onChange, rememberSavedPalettes())
+        if (ParamScope.SHADER_LOOK.appliesTo(LocalSceneId.current)) {
+            PaletteStackCard(p, onChange)
+        } else {
+            ProGated(ParamKeys.PALETTE) {
+                PaletteDropdown(ParamKeys.PALETTE, p, onChange, rememberSavedPalettes())
+            }
         }
-        PaletteStackCard(p, onChange)
     }
 }
 
@@ -551,10 +543,6 @@ private fun ChoiceChips(
 
 /** The Kaleidoscope slider's scene param (core/viz/ParamTable.inc). */
 private const val KALEIDO_FOLDS = "kaleidoFolds"
-
-/** The colour maps' names in `paletteLut` order, from the native palette library. */
-private fun colourMapNames(): List<String> =
-    generateSequence(0) { it + 1 }.map(GeodeNative::paletteColourMapName).takeWhile { it.isNotEmpty() }.toList()
 
 // Names of panel controls that are not ParamKeys, as core/viz/CustomizeMap spells them.
 internal const val REACTION_DNA = "Reaction DNA"

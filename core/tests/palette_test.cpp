@@ -354,10 +354,11 @@ void anOldLookKeepsItsColours() {
     yours.paletteStop1 = -1;
     check(packed(pl::at(pl::fromLegacy(yours, amounts), amounts, 0.4f)) == 0xFF0000, "one of your colours was flat");
 
+    // Colour map is retired too: the colour maps are palettes of the stack, and a look that saved one reads its own.
     SceneParams mapped = p;
     mapped.paletteLut = 3;
     s = pl::fromLegacy(mapped, amounts);
-    check(s.layers.size() == 1 && s.layers[0].ref == "romao" && amounts[0] == 1.0f, "a colour map replaced the whole ramp");
+    check(s.layers.size() == 1 && s.layers[0].ref == "fire" && amounts[0] == 1.0f, "a retired colour map: the look's own palette");
 
     float wire[SceneParams::kFieldCount];
     p.toWire(wire);

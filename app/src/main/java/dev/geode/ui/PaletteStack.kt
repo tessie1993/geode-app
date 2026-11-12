@@ -44,16 +44,17 @@ private const val SWATCH_SAMPLES = 24
 private val BLENDS = listOf("SHARE", "MIX")
 
 /**
- * Customize › Look › Palettes: the stack every shader style takes its colours from. Each layer is a
- * palette of the native library with its amount; + adds the next one. With no layer the style keeps
- * its own palette. Which palettes exist, what a layer paints and how they combine are all native.
+ * Customize › Look › Palettes: the stack every shader style takes its colours from, and Look's one palette
+ * list on those styles. Each layer is a palette of the native library with its amount; + adds the next one.
+ * With no layer the style keeps its own palette. Which palettes exist, what a layer paints and how they
+ * combine are all native.
  */
 @Composable
 internal fun PaletteStackCard(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    if (!sectionVisible(ParamScope.SHADER_LOOK)) return
+    if (!ParamScope.SHADER_LOOK.appliesTo(LocalSceneId.current)) return
     val context = LocalContext.current
     val store = remember { context.geodeContainer.paletteStack }
     val stack by store.state.collectAsStateWithLifecycle()

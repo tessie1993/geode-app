@@ -411,7 +411,6 @@ key|Trail warp (liquid echo)|TRAIL_ECHO
 key|Morph|SHADER_LOOK
 key|Particle shape|PARTICLE_SPRITE
 key|Particle size|PARTICLE_SPRITE
-key|Colour map|SHADER_LOOK
 key|MilkDrop palette tint|MILKDROP
 key|Blend preset changes|MILKDROP
 key|Duotone|SHADER_LOOK

@@ -136,10 +136,11 @@ void ShaderScene::draw(float timeSeconds) {
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
-    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t).
+    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t). Without a
+    // stack the look's own palette draws (Colour map, which once chose a row of the atlas here, is retired).
     const GLuint ramp = host_.paletteRamp ? host_.paletteRamp() : 0;
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
-    const bool lutSelected = ramp != 0 || (p.paletteLut >= 0 && paletteLutTex_ != 0);
+    const bool lutSelected = ramp != 0;
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
@@ -147,7 +148,7 @@ void ShaderScene::draw(float timeSeconds) {
         glActiveTexture(GL_TEXTURE0);
     }
     set1f("uPalLutMix", flag(lutSelected));
-    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(std::max(p.paletteLut, 0)));
+    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(0));
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();

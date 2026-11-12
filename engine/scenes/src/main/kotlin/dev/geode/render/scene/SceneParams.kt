@@ -34,7 +34,6 @@ data class SceneParams(
     val paletteBaseOverride: Float = UNSET_OVERRIDE,
     val paletteRangeOverride: Float = UNSET_OVERRIDE,
     val customPaletteId: String = NO_CUSTOM_PALETTE,
-    val paletteLut: Int = NO_PALETTE_LUT,
     val milkdropPaletteTint: Float = 0f,
     val milkdropBlendPresets: Boolean = false,
     val colorShift: Float = 0f,
@@ -197,8 +196,6 @@ data class SceneParams(
         const val UNSET_OVERRIDE: Float = -1f
 
         const val NO_CUSTOM_PALETTE: String = ""
-
-        const val NO_PALETTE_LUT: Int = -1
 
         const val NO_STOP: Int = -1
 

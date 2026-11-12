@@ -394,7 +394,7 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
                                            "waterLiquid", "waterLiquidFlow", "waterLiquidFade", "rippleOverlayEnabled",
                                            "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive", "motionOrbit",
                                            "symmetry", "kaleidoscope", "palette2", "paletteMix", "palette2BaseOverride",
-                                           "palette2RangeOverride", "colorCycle", "cycleSpeed"};
+                                           "palette2RangeOverride", "colorCycle", "cycleSpeed", "paletteLut"};
     std::set<std::string> retiredNow;
     const auto legacyWire = wire(legacy);
     for (ParamSlot r : viz::kRetiredParams) {
@@ -402,8 +402,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
         retiredNow.insert(SceneParams::schema()[slot].name);
         check(legacyWire[slot] == defaults[slot], std::string("legacy.json: retired ") + SceneParams::schema()[slot].name);
     }
-    check(retiredNow == retired,
-          "the retired rows are the twenty PresetGoldenTest named, the old Kaleidoscope pair, Palette 2's four and the colour cycle's two");
+    check(retiredNow == retired, "the retired rows are the twenty PresetGoldenTest named, the old Kaleidoscope pair, Palette 2's four, "
+                                 "the colour cycle's two and Colour map");
     const auto legacyWritten = entries(viz::writeParamsJson(legacy, a, b));
     for (const auto& name : retired) check(legacyWritten.count(name) == 0, "legacy.json: " + name + " not written again");
     check(legacyWritten.count("beatFlash") == 0, "legacy.json: an unknown key is not written");
@@ -419,7 +419,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
     check(hostile.speed == 4.0f && hostile.zoom == 0.3f, "hostile.json: speed and zoom held to their ranges");
     check(hostile.rotation == kDefaults.rotation && hostile.warp == kDefaults.warp && hostile.camFov == kDefaults.camFov,
           "hostile.json: infinities and NaN read as the default");
-    check(hostile.palette == 0 && hostile.reactSeed == 16777215 && hostile.paletteLut == 4, "hostile.json: ints held to their ranges");
+    check(hostile.palette == 0 && hostile.reactSeed == 16777215, "hostile.json: ints held to their ranges");
+    check(hostile.paletteLut == kDefaults.paletteLut, "hostile.json: the retired colour map is dropped");
     check(hostile.kaleidoFolds == 16.0f, "hostile.json: an old kaleidoscope's count of 40 opens held to 16 folds");
     check(hostile.intensity == 2.0f && hostile.cymaticsFundamental == 40.0f && hostile.flowCurl == 50.0f,
           "hostile.json: floats held to their ranges");

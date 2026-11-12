@@ -918,6 +918,15 @@ GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_
 GEODE_API int             geode_capture_plan(int device_rate_hz, int stereo, int* out, int capacity);
 GEODE_API int             geode_capture_buffer_bytes(int min_buffer_bytes, int channels);
 GEODE_API int             geode_capture_read_frames(void);
+/* Live input (audio/ingest/MicInput): the microphone as a native input stream whose callback writes the
+ * process's mic ring (geode_pcm_ring_shared(GEODE_PCM_RING_MIC)), declared below.
+ * Opens the first format of the capture plan the device gives (mono, device_rate_hz first, <= 0 unknown),
+ * with the UNPROCESSED source when unprocessed != 0, else VOICE_RECOGNITION; reopens after a disconnect.
+ * Call only once RECORD_AUDIO is granted. start: 1 when running (also when it already was). stop: no write
+ * after it returns. active: 0 after stop or once a closed stream could not be opened again. Main thread. */
+GEODE_API int             geode_mic_start(int device_rate_hz, int unprocessed);
+GEODE_API void            geode_mic_stop(void);
+GEODE_API int             geode_mic_active(void);
 
 /* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
  * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets

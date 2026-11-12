@@ -1970,6 +1970,21 @@ object GeodeNative {
     /** The frames one capture read takes. */
     external fun captureReadFrames(): Int
 
+    /**
+     * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
+     * once RECORD_AUDIO is granted. [deviceRateHz] goes first (0 unknown); [unprocessed] when the device supports it.
+     */
+    external fun micStart(
+        deviceRateHz: Int,
+        unprocessed: Boolean,
+    ): Boolean
+
+    /** Stops live input; no block is written after it returns. */
+    external fun micStop()
+
+    /** False after [micStop], or once the stream closed and could not be opened again. */
+    external fun micActive(): Boolean
+
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
     /**

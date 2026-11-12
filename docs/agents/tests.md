@@ -67,6 +67,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `hidden_hits_test.cpp`'s gaps list is the scenes still reading drums on their own, which only shrinks; shaders are not covered.
 - `hls_segments_test.cpp`: Cast's HLS timing: media-time EXTINF, TARGETDURATION, the playlist, the fragment rewrite.
 - `capture_plan_test.cpp`: `core/audio/ingest/CapturePlan`, the mic's and other apps' capture formats in try order and the AudioRecord buffer, pinned to the Kotlin ladders it replaced.
+- `mic_input_test.cpp`: `core/audio/ingest/MicInput` over a fake stream: the mono ladder and source preset, a refused start, ring writes with their rate, nothing after stop, disconnect reopens within the budget.
 - `layer_blend_test.cpp`: Customize › Layers' blends (`core/viz/VisualSafety`, `geode_layer_blend_names`): one label each in wire order, Screen as the default, a `composite_frag.glsl` case for each.
 - `layer_mix_test.cpp`: `core/audio/ingest/LayerMix`, the mic layered over the player's ring, mixed at the reader.
 - `layer_state_test.cpp`: the process-wide Customize layer (`core/viz/LayerState`).

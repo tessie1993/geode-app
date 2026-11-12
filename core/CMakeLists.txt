@@ -47,6 +47,7 @@ add_library(geode_core STATIC
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
     api/geode_capture_api.cpp
+    api/geode_mic_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
@@ -72,6 +73,8 @@ add_library(geode_core STATIC
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
     audio/ingest/CapturePlan.cpp
+    audio/ingest/MicInput.cpp
+    audio/ingest/android/OboeMic.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -225,7 +228,8 @@ target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
 # AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
-# The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
+# The playback output's stream (audio/output/OboeOutput.cpp) and the mic's (audio/ingest/android/OboeMic.cpp);
+# found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
 # mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC mediandk)

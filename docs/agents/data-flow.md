@@ -7,6 +7,9 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - ExoPlayer runs `MvzAudioProcessorChain` on its playback thread.
 - The `PcmTap` there comes first, before any DSP.
 - `NativeDspProcessor` sits after the tap and steps aside (inactive, not throwing) for formats its chain cannot run, such as 5.1 files; native decides which (`geode_dsp_runs`).
+- A capture of another app uses one `AudioCapturePump` worker thread.
+- The mic has no JVM thread: a native input stream (`core/audio/ingest/MicInput`, Oboe) writes its ring from the audio callback.
+- The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
 - Mic and capture use one `AudioCapturePump` worker thread each.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, the process's player ring (`geode_pcm_ring_shared`, `core/audio/ingest/RingKinds`); stereo, what every sound engine hears.
 - The player's and the mic's rings are made on first use and never freed, so a surface or writer that outlives its session never reaches a freed ring.

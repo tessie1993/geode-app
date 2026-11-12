@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.audio.MicCapture
+import dev.geode.audio.CaptureFailure
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.engine.bridge.GeodeNative
 import kotlin.math.roundToInt
@@ -107,10 +107,10 @@ private fun MicToggleRow(
 @Composable
 private fun MicStatusNotice(
     permission: PermissionRequestState,
-    failure: MicCapture.Failure?,
+    failure: CaptureFailure?,
 ) {
     when {
-        permission.refused || failure == MicCapture.Failure.PERMISSION -> {
+        permission.refused || failure == CaptureFailure.PERMISSION -> {
             Text(
                 stringResource(R.string.audio_mic_denied),
                 style = MaterialTheme.typography.bodySmall,
@@ -122,7 +122,7 @@ private fun MicStatusNotice(
                 }
             }
         }
-        failure == MicCapture.Failure.UNAVAILABLE ->
+        failure == CaptureFailure.UNAVAILABLE ->
             Text(
                 stringResource(R.string.audio_mic_busy),
                 style = MaterialTheme.typography.bodySmall,

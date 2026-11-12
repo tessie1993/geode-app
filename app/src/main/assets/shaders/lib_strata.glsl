@@ -11,7 +11,10 @@
 //   FOREGROUND  the style's own map, marched by lib_<family>_march. A style
 //               builds it from strataFold (a kaleidoscope, a Mandelbox's
 //               box and sphere fold, an Apollonian inversion or a Menger
-//               cut) where it wants a fractal, its iterations gStrataIters.
+//               cut) where it wants a fractal, its iterations gStrataIters,
+//               from strataSponge and strataHoles (a Menger sponge to
+//               intersect or to cut with) or from strataNest (shells within
+//               shells, a geometric repetition about the middle).
 //   MIDDLE      strataHaze: a gyroid-sheet haze, its domain warped twice
 //               over (a sine warp on a sine warp), sampled STRATA_HAZE_N
 //               times between the eye and the form. Light, no surface.

@@ -96,51 +96,78 @@ constexpr std::array<LooseLook, 61> kLooseLooks = {{
     {"morph_world", Look::FlyThrough},
 }};
 
-constexpr std::array<Family, 10> kFamilies = {{
-    // Fractal trees: branching folded distance fields, flown through or orbited.
-    {"arbor", "arbor_", "lib_arbor", Look::Fractals,
-     {"arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_bonsai", "arbor_canopy",
-      "arbor_rosette", "arbor_spire", "arbor_synapse", "arbor_sakura"}},
-    // Ray-marched power-N Mandelbulbs and their Julia relatives.
-    {"bulb", "bulb_", "lib_bulb", Look::Fractals,
-     {"bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
-      "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid"}},
-    // Polar petal fields and mandalas that bloom out of a glowing core.
-    {"chrysanthemum", "chrys_", "lib_chrys", Look::Psychedelic,
-     {"chrys_bloom", "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_corolla", "chrys_glass", "chrys_ink",
-      "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel"}},
-    // Nested domain warps, often folded into a kaleidoscope.
-    {"lucid", "lucid_", "lib_lucid", Look::Psychedelic,
-     {"lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror",
-      "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex"}},
-    // Fly-through dives along five camera paths.
-    {"dive", "dive_", "lib_dive", Look::FlyThrough,
-     {"dive_lattice", "dive_jewel", "dive_mushroom", "dive_gyro", "dive_mandala", "dive_serpent", "dive_helix",
-      "dive_accordion", "dive_orbit", "dive_neon", "dive_cycle", "dive_show"}},
-    // Ray-traced glass: refraction, dispersion, thin films and caustic light.
-    {"glass", "glass_", "lib_glass", Look::Glass,
-     {"glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops", "glass_bubbles", "glass_marble", "glass_caustic",
-      "glass_cubes", "glass_gem", "glass_ice", "glass_knot"}},
-    // Galaxies and gas clouds.
-    {"nebula", "nebula_", "lib_nebula", Look::Space,
-     {"nebula_dust", "nebula_spiral", "nebula_ring", "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova",
-      "nebula_horizon", "nebula_pillars", "nebula_flight", "nebula_storm", "nebula_web"}},
-    // Ray-marched heightfield landscapes.
-    {"terrain", "terra_", "lib_terra", Look::FlyThrough,
-     {"terra_ridge", "terra_dunes", "terra_canyon", "terra_glacier", "terra_isles", "terra_mesa", "terra_volcano",
-      "terra_terraces", "terra_moon", "terra_night", "terra_topo", "terra_wire"}},
-    // Truchet tilings whose paths rewire on the beat.
-    {"truchet", "truchet_", "lib_truchet", Look::Patterns,
-     {"truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes",
-      "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel", "truchet_relief"}},
-    // Falls and orbits through a 3D Apollonian sphere packing (after PR #7), one material each.
-    {"foam", "foam_", "lib_foam", Look::Fractals,
-     {"foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice", "foam_orb",
-      "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"}},
-}};
+// Each family lists its own styles, so it carries its own count; the opener is first.
+// Fractal trees: branching folded distance fields, flown through or orbited.
+constexpr const char* kArborIds[] = {
+    "arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_bonsai", "arbor_canopy",
+    "arbor_rosette", "arbor_spire", "arbor_synapse", "arbor_sakura"};
+// Ray-marched power-N Mandelbulbs and their Julia relatives.
+constexpr const char* kBulbIds[] = {
+    "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
+    "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid"};
+// Polar petal fields and mandalas that bloom out of a glowing core.
+constexpr const char* kChrysanthemumIds[] = {
+    "chrys_bloom", "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_corolla", "chrys_glass", "chrys_ink",
+    "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel"};
+// Nested domain warps, often folded into a kaleidoscope.
+constexpr const char* kLucidIds[] = {
+    "lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror",
+    "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex"};
+// Fly-through dives along five camera paths.
+constexpr const char* kDiveIds[] = {
+    "dive_lattice", "dive_jewel", "dive_mushroom", "dive_gyro", "dive_mandala", "dive_serpent", "dive_helix",
+    "dive_accordion", "dive_orbit", "dive_neon", "dive_cycle", "dive_show"};
+// Ray-traced glass: refraction, dispersion, thin films and caustic light.
+constexpr const char* kGlassIds[] = {
+    "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops", "glass_bubbles", "glass_marble", "glass_caustic",
+    "glass_cubes", "glass_gem", "glass_ice", "glass_knot"};
+// Galaxies and gas clouds.
+constexpr const char* kNebulaIds[] = {
+    "nebula_dust", "nebula_spiral", "nebula_ring", "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova",
+    "nebula_horizon", "nebula_pillars", "nebula_flight", "nebula_storm", "nebula_web"};
+// Ray-marched heightfield landscapes.
+constexpr const char* kTerrainIds[] = {
+    "terra_ridge", "terra_dunes", "terra_canyon", "terra_glacier", "terra_isles", "terra_mesa", "terra_volcano",
+    "terra_terraces", "terra_moon", "terra_night", "terra_topo", "terra_wire"};
+// Truchet tilings whose paths rewire on the beat.
+constexpr const char* kTruchetIds[] = {
+    "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes",
+    "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel", "truchet_relief"};
+// Falls and orbits through a 3D Apollonian sphere packing (after PR #7), one material each.
+constexpr const char* kFoamIds[] = {
+    "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice", "foam_orb",
+    "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"};
+// Fractal-flame wisps: thin luminous veils and filaments gathered along the ray, on black.
+constexpr const char* kFlameIds[] = {
+    "flame_veil", "flame_spiral", "flame_orb", "flame_star", "flame_lotus",
+    "flame_helix", "flame_knot", "flame_web", "flame_aurora", "flame_nova"};
+// Iridescent glass and liquid: clear shells seen through each other, thin-film colour at the rims.
+constexpr const char* kOpalIds[] = {
+    "opal_bubbles", "opal_nautilus", "opal_melt", "opal_domes", "opal_pearls",
+    "opal_lava", "opal_ribbon", "opal_cells", "opal_rings", "opal_drop"};
+// Organic tunnels: sinew, bone and carved cave walls whose relief glows under blacklight.
+constexpr const char* kHollowIds[] = {
+    "hollow_sinew", "hollow_cave", "hollow_ribs", "hollow_coral", "hollow_roots",
+    "hollow_hive", "hollow_throat", "hollow_neuron", "hollow_bone", "hollow_shell"};
+
+constexpr Family kFamilies[] = {
+    {"arbor", "arbor_", "lib_arbor", Look::Fractals, kArborIds},
+    {"bulb", "bulb_", "lib_bulb", Look::Fractals, kBulbIds},
+    {"chrysanthemum", "chrys_", "lib_chrys", Look::Psychedelic, kChrysanthemumIds},
+    {"lucid", "lucid_", "lib_lucid", Look::Psychedelic, kLucidIds},
+    {"dive", "dive_", "lib_dive", Look::FlyThrough, kDiveIds},
+    {"glass", "glass_", "lib_glass", Look::Glass, kGlassIds},
+    {"nebula", "nebula_", "lib_nebula", Look::Space, kNebulaIds},
+    {"terrain", "terra_", "lib_terra", Look::FlyThrough, kTerrainIds},
+    {"truchet", "truchet_", "lib_truchet", Look::Patterns, kTruchetIds},
+    {"foam", "foam_", "lib_foam", Look::Fractals, kFoamIds},
+    {"flame", "flame_", "lib_flame", Look::Psychedelic, kFlameIds},
+    {"opal", "opal_", "lib_opal", Look::Glass, kOpalIds},
+    {"hollow", "hollow_", "lib_hollow", Look::FlyThrough, kHollowIds},
+};
 
 // The family styles that march.
-constexpr std::array<const char*, 120> kFamilyMarched = {
+constexpr std::array kFamilyMarched = {
     "arbor_willow", "arbor_coral", "arbor_bonsai", "arbor_canopy", "arbor_spire", "arbor_synapse",
     "bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
     "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid",
@@ -164,6 +191,12 @@ constexpr std::array<const char*, 120> kFamilyMarched = {
     "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo", "truchet_arcs", "truchet_hex", "truchet_weave",
     "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot",
     "truchet_tunnel",
+    // Fractal Flame, Opal and Hollows: every style flies the rig and marches.
+    "flame_veil", "flame_spiral", "flame_orb", "flame_star", "flame_lotus", "flame_helix",
+    "flame_knot", "flame_web", "flame_aurora", "flame_nova", "opal_bubbles", "opal_nautilus",
+    "opal_melt", "opal_domes", "opal_pearls", "opal_lava", "opal_ribbon", "opal_cells",
+    "opal_rings", "opal_drop", "hollow_sinew", "hollow_cave", "hollow_ribs", "hollow_coral",
+    "hollow_roots", "hollow_hive", "hollow_throat", "hollow_neuron", "hollow_bone", "hollow_shell",
 };
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
@@ -433,7 +466,7 @@ float spinRate(const std::string& id) {
     return 0.0f;
 }
 
-const std::array<Family, 10>& families() { return kFamilies; }
+std::span<const Family> families() { return kFamilies; }
 
 Look lookOf(const std::string& id) {
     for (const auto& family : kFamilies) {

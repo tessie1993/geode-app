@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -63,14 +64,14 @@ struct Range {
     float max;
 };
 
-// Twelve fragment styles on one shared GLSL library (GLOSSARY "Style family"). ids[0] opens the
-// family: the first and most basic style.
+// Fragment styles on one shared GLSL library (GLOSSARY "Style family"). A family carries its own
+// count (twelve in the first ten, ten since); ids[0] opens it: the first and most basic style.
 struct Family {
     const char* name;
     const char* prefix;
     const char* library;  // on core/viz/ShaderSource.cpp's include allow-list
     Look look;            // every style of the family is shown in this group
-    std::array<const char*, 12> ids;
+    std::span<const char* const> ids;
     const char* opener() const { return ids[0]; }
 };
 
@@ -100,7 +101,7 @@ bool fliesCamera(const std::string& id);
 // How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
-const std::array<Family, 10>& families();
+std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.
 Look lookOf(const std::string& id);

@@ -13,13 +13,29 @@ class StyleFamiliesTest {
             .first { File(it, "settings.gradle.kts").exists() }
 
     @Test
-    fun everyFamilyHasTwelveStylesUnderItsOwnPrefixOpenerFirst() {
+    fun everyFamilyHasItsOwnCountOfStylesUnderItsOwnPrefixOpenerFirst() {
         assertEquals(
-            listOf("arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam"),
+            listOf(
+                "arbor",
+                "bulb",
+                "chrysanthemum",
+                "lucid",
+                "dive",
+                "glass",
+                "nebula",
+                "terrain",
+                "truchet",
+                "foam",
+                "flame",
+                "opal",
+                "hollow",
+            ),
             StyleFamilies.all.map { it.name },
         )
+        // The first ten families hold twelve styles, the ones after them ten.
+        val tens = setOf("flame", "opal", "hollow")
         StyleFamilies.all.forEach { family ->
-            assertEquals(family.name, 12, family.ids.toSet().size)
+            assertEquals(family.name, if (family.name in tens) 10 else 12, family.ids.toSet().size)
             assertEquals(family.ids.first(), family.opener)
             family.ids.forEach { assertTrue(it, it.startsWith(family.prefix)) }
         }

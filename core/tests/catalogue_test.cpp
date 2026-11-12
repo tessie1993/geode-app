@@ -173,15 +173,20 @@ void everyOldStyleKeepsItsNumbersAndKind() {
           "per-kind style counts");
 }
 
-void familiesHaveTwelveStylesAndAnOpener() {
+void familiesCarryTheirOwnCountAndAnOpener() {
     const char* const openers[] = {"arbor_grove", "bulb_classic", "chrys_bloom",  "lucid_weave", "dive_lattice",
-                                   "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall"};
-    const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam"};
+                                   "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall",
+                                   "flame_veil",  "opal_bubbles", "hollow_sinew"};
+    const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam",
+                                 "flame", "opal",  "hollow"};
+    // The first ten families have twelve styles, the ones since ten: the count is the family's own.
+    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10};
     std::set<std::string> seen;
     int i = 0;
     for (const auto& family : catalogue::families()) {
         check(std::string(family.name) == names[i], std::string("family order at ") + names[i]);
         check(std::string(family.opener()) == openers[i], std::string("opener of ") + family.name);
+        check(family.ids.size() == counts[i], std::string("style count of ") + family.name);
         check(std::string(family.library) == std::string("lib_") + std::string(family.prefix).substr(0, std::strlen(family.prefix) - 1),
               std::string("library of ") + family.name);
         for (const char* id : family.ids) {
@@ -191,8 +196,8 @@ void familiesHaveTwelveStylesAndAnOpener() {
         }
         ++i;
     }
-    check(i == 10, "ten families");
-    check(seen.size() == 10 * 12, "120 distinct family styles");
+    check(i == 13, "thirteen families");
+    check(seen.size() == 10 * 12 + 3 * 10, "150 distinct family styles");
 }
 
 void spinRateAndShaderStyleAgree() {
@@ -210,12 +215,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 181, "181 shader styles (61 loose + 120 family), got " + std::to_string(shaders));
+    check(shaders == 211, "211 shader styles (61 loose + 150 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 244, "244 ids");
+    check(catalogue::allIds().size() == 274, "274 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -247,11 +252,18 @@ void marchedStylesMatchTheOldSet() {
         "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
         "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
         "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
+    std::set<std::string> want = old;
+    // Every style of the families added since marches.
+    for (const char* family : {"flame", "opal", "hollow"}) {
+        for (const auto& f : catalogue::families()) {
+            if (std::string(f.name) == family) want.insert(f.ids.begin(), f.ids.end());
+        }
+    }
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
     }
-    check(marched == old, "the marched styles are the old MARCHED_SCENES");
+    check(marched == want, "the marched styles are the old MARCHED_SCENES and the new families");
 }
 
 void paramScopesMatchTheOldParamScope() {
@@ -295,6 +307,8 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
     {"bulb", "FRACTALS"}, {"arbor", "FRACTALS"}, {"foam", "FRACTALS"},       {"dive", "FLY_THROUGH"},
     {"terrain", "FLY_THROUGH"}, {"nebula", "SPACE"}, {"glass", "GLASS"},     {"truchet", "PATTERNS"},
     {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
+    // Added after the tags moved here.
+    {"flame", "PSYCHEDELIC"},   {"opal", "GLASS"},   {"hollow", "FLY_THROUGH"},
 };
 const std::map<Kind, std::string> kOldKindLooks = {
     {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"}, {Kind::Water, "FLOWING"},
@@ -378,7 +392,8 @@ void textRoundTrips() {
             ++kinds;
         } else if (f[0] == "family") {
             ++families;
-            check(split(f[4], ',').size() == 12, "family row lists twelve ids");
+            const size_t n = split(f[4], ',').size();
+            check(n == 12 || n == 10, "family row lists its twelve or ten ids");
         } else if (f[0] == "picker") {
             const auto& p = catalogue::pickerFamilies()[static_cast<size_t>(pickers++)];
             check(f.size() == 3 && f[1] == p.name && split(f[2], ',') == p.ids, "picker row of " + f[1]);
@@ -397,7 +412,7 @@ void textRoundTrips() {
     // 86 keys: the 80 of the old hand list plus the six held controls whose scope Customize kept to itself
     // (Fluid quality and its auto switch, Progression, the two fluid layers, Water ripples on) until the
     // params schema's meta rows carried every control's scope (#1005 PR 4a).
-    check(kinds == catalogue::kKindCount && families == 10 && keys == 86 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 13 && keys == 86 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.
@@ -468,7 +483,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     everyOldStyleKeepsItsNumbersAndKind();
-    familiesHaveTwelveStylesAndAnOpener();
+    familiesCarryTheirOwnCountAndAnOpener();
     spinRateAndShaderStyleAgree();
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();

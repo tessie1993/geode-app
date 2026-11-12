@@ -1,7 +1,7 @@
 package dev.geode.render.scene
 
 /**
- * Twelve fragment-shader styles that share one GLSL library and one idea, each with its own
+ * Ten or twelve fragment-shader styles that share one GLSL library and one idea, each with its own
  * geometry, camera and way of hearing the music (see GLOSSARY "Style family").
  *
  * A family is not a renderer: every style in it is a plain [SceneKind.SHADER] style, compiled by

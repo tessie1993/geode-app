@@ -17,6 +17,7 @@ static_assert(Equalizer::kBands == GEODE_DSP_BANDS);
 static_assert(Equalizer::kMinMillibels == GEODE_DSP_MIN_MILLIBELS);
 static_assert(Equalizer::kMaxMillibels == GEODE_DSP_MAX_MILLIBELS);
 static_assert(geode::audio::kSilenceDb == GEODE_DSP_SILENCE_DB);
+static_assert(geode::audio::DspProcessor::kEncodingPcm16 == GEODE_PCM_S16 && geode::audio::DspProcessor::kEncodingFloat == GEODE_PCM_FLOAT);
 static_assert(geode::audio::fx::kBand == GEODE_DSP_FX_BAND && geode::audio::fx::kBassBoost == GEODE_DSP_FX_BASS_BOOST);
 static_assert(geode::audio::fx::kLoudness == GEODE_DSP_FX_LOUDNESS);
 static_assert(geode::audio::kTrackGain == GEODE_TAG_TRACK_GAIN && geode::audio::kTrackPeak == GEODE_TAG_TRACK_PEAK);
@@ -44,6 +45,10 @@ void geode_dsp_destroy(geode_dsp* d) {
 
 int geode_dsp_configure(geode_dsp* d, int sample_rate, int channels) {
     return d && d->processor.configure(sample_rate, channels) ? 1 : 0;
+}
+
+int geode_dsp_runs(int encoding, int channels) {
+    return geode::audio::DspProcessor::runs(encoding, channels) ? 1 : 0;
 }
 
 void geode_dsp_flush(geode_dsp* d) {

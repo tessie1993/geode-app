@@ -13,4 +13,11 @@ float pitchRatio(float semitones);
 // value that is not finite, the value is left as it is.
 float snapToStep(float value, float step);
 
+// What the player does when a track will not play. SkipToNext: another track follows and fewer than
+// kMaxConsecutiveFailures have failed in a row. StopEndOfQueue: nothing follows. StopSourceUnavailable: that
+// many in a row failed (the storage or the folder permission is probably gone); checked first.
+inline constexpr int kMaxConsecutiveFailures = 3;
+enum class ErrorAction : int { SkipToNext = 0, StopEndOfQueue = 1, StopSourceUnavailable = 2 };
+ErrorAction errorAction(int consecutiveFailures, bool hasNext);
+
 }  // namespace geode::audio

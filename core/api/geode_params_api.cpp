@@ -12,6 +12,7 @@
 #include "viz/ModDocument.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
+#include "viz/TouchGesture.hpp"
 #include "viz/TouchTransform.hpp"
 #include "viz/WaveRandomizer.hpp"
 
@@ -89,6 +90,17 @@ const char* geode_config_schema_text(void) { return geode::viz::config::schemaTe
 float geode_touch_zoom(float current, float scale_factor) { return geode::viz::touch::zoom(current, scale_factor); }
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }
+
+void geode_touch_to_ndc(float* xy, int points, float width, float height) { geode::viz::touch::toNdc(xy, points, width, height); }
+
+void geode_touch_pair(const float* start, const float* last, const float* now, float* out) {
+    if (!out) return;
+    const auto r = geode::viz::touch::readPair(start, last, now);
+    const float values[6] = {r.panX, r.panY, r.zoom, r.twist, r.stepFactor, r.stepDegrees};
+    std::memcpy(out, values, sizeof(values));
+}
+
+int geode_touch_pulse(int step, float* xy) { return geode::viz::touch::pulse(step, xy); }
 
 const char* geode_customize_text(void) { return customize::text().c_str(); }
 

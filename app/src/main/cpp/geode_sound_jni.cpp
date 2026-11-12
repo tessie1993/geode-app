@@ -199,11 +199,6 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceRecheckInMs(JNIEnv*, jobject, jl
     return geode_surface_recheck_in_ms(animateUntilMs, nowMs);
 }
 
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceSettleMs(JNIEnv*, jobject, jint previousMode, jint mode) {
-    return geode_surface_settle_ms(previousMode, mode);
-}
-
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);

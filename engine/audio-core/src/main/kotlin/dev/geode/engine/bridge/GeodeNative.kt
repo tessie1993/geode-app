@@ -17,6 +17,12 @@ object GeodeNative {
         channels: Int,
     ): Boolean
 
+    /** Whether the chain runs a format at all: [encoding] (`C.ENCODING_PCM_*`) 16-bit or float, 1 or 2 channels. */
+    external fun dspRuns(
+        encoding: Int,
+        channels: Int,
+    ): Boolean
+
     /** Makes the staged chain live, then clears its filter state. */
     external fun dspFlush(handle: Long)
 
@@ -162,6 +168,12 @@ object GeodeNative {
         step: Float,
     ): Float
 
+    /** What a track that will not play leads to (audio/dsp/PlaybackControls): 0 skip, 1 stop at the end, 2 stop after 3 failures. */
+    external fun playbackErrorAction(
+        consecutiveFailures: Int,
+        hasNext: Boolean,
+    ): Int
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -261,6 +273,16 @@ object GeodeNative {
         query: ByteArray,
     ): IntArray
 
+    /**
+     * A playlist file the user picked (core/library/Playlist, `geode_playlist_parse`): its name and bytes in,
+     * the text out. Record 0 is `O`, name or `E`, reason; then one record per entry: location, title, duration
+     * in ms (-1 unknown) and the file name inside the location. Fields are split by U+001F, records by U+001E.
+     */
+    external fun playlistParse(
+        fileName: ByteArray,
+        data: ByteArray,
+    ): ByteArray
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -292,36 +314,10 @@ object GeodeNative {
         durationMs: Long,
     )
 
-    external fun vizBeginParamMorph(
-        handle: Long,
-        seconds: Float,
-    )
-
-    external fun vizSetTouch(
-        handle: Long,
-        xy: FloatArray,
-        points: Int,
-    )
-
-    /** Settings › Touch › Smear (`core/viz/TouchSmear`): the switch and the strength, clamped natively. */
-    external fun vizSetTouchSmear(
-        handle: Long,
-        on: Boolean,
-        strength: Float,
-    )
-
-    external fun vizSetFluidInjection(
-        handle: Long,
-        force: String?,
-        dye: String?,
-    )
-
     external fun vizLoadMilkPreset(
         handle: Long,
         path: String,
     )
-
-    external fun vizReloadMilkPreset(handle: Long)
 
     external fun vizSetMilkTextureDir(
         handle: Long,
@@ -524,7 +520,7 @@ object GeodeNative {
 
     /**
      * The auto-director (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
-     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
+     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by (pinned natively);
      * [amount] 0 off .. 1 full is what live surfaces drive with now; [seed] is the play's, so a new seed
      * starts the song afresh and an export pinned with it makes the same film.
      */
@@ -552,8 +548,8 @@ object GeodeNative {
      * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
      * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
-     * so the live note response differs every time; an export pins its settings with none
-     * ([vizPinEngineSettings]), so exporting the same play twice draws the same picture, though not the one
+     * so the live note response differs every time; an export pins its settings with none,
+     * so exporting the same play twice draws the same picture, though not the one
      * the screen drew.
      */
     external fun noteResponseSet(enabled: Boolean)
@@ -799,19 +795,6 @@ object GeodeNative {
     /** Mirrors GEODE_MOD_PICKER_REACTION: the route editor's target picker. */
     const val MOD_PICKER_REACTION: Int = -2
 
-    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*), latched for the next [vizFrame]. Any thread. */
-    external fun vizGyroPush(
-        handle: Long,
-        x: Float,
-        y: Float,
-        z: Float,
-        w: Float,
-        displayRotation: Int,
-    )
-
-    /** The gyro stopped: the next frame recentres the look; the next reading starts a new baseline. Any thread. */
-    external fun vizGyroOff(handle: Long)
-
     /** The style a live surface draws, latched: each [vizFrame] asks for it until the renderer can draw it. Any thread. */
     external fun vizRequestScene(
         handle: Long,
@@ -841,13 +824,10 @@ object GeodeNative {
         capFps: Float,
     ): Int
 
-    /** What Liquid mode ran when a frame last said [FRAME_LIQUID_CHANGED]: 0 off, 1 full, 2 lite, 3 warp, 4 paused. */
-    external fun vizLiquidMode(handle: Long): Int
-
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [vizLiquidMode]. */
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [stageLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
     /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
@@ -859,61 +839,18 @@ object GeodeNative {
     /** Mirrors GEODE_FRAME_DIRECTOR_MOMENT: take the moments with [vizTakeDirectorStyleMoments]. */
     const val FRAME_DIRECTOR_MOMENT: Int = 0x20
 
-    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([vizStillSize], [vizStillRead]). */
+    /** Mirrors GEODE_FRAME_STILL_READY: the still asked for is ready ([stageStillSize], [stageStillRead]). */
     const val FRAME_STILL_READY: Int = 0x40
-
-    /**
-     * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
-     * ignores [macroBankSet], [noteResponseSet], [handSet] and [directorSet], so live edits never reach a render
-     * in progress. The director is decided natively from the user's switch, [entitled] and [durationMs].
-     * Returns the pinned hand mask, the one the export's reactions ([vizSetReactions]) then play under.
-     */
-    external fun vizPinEngineSettings(
-        handle: Long,
-        entitled: Boolean,
-        durationMs: Long,
-    ): Int
 
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,
     )
 
-    /** Export: step every frame by exactly 1/[fps] instead of measuring frame times; 0 = live. */
-    external fun vizSetFrameRate(
-        handle: Long,
-        fps: Int,
-    )
-
-    /**
-     * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
-     * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
-     * visual's size); [strength] 0..1, 0 = off and free; [cornerPx] in surface pixels. Ignored offscreen.
-     */
-    external fun vizSetUiBlurRegion(
-        handle: Long,
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        strength: Float,
-        cornerPx: Float,
-    )
-
-    /**
-     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
-     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
-     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
-     */
-    external fun vizSetEdgeGlow(
-        handle: Long,
-        opts: FloatArray?,
-    )
-
     /**
      * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
      * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
-     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [vizSetEdgeGlow] takes them.
+     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [stageSetEdgeGlow] takes them.
      */
     external fun wallpaperWindow(
         surfaceW: Float,
@@ -923,13 +860,6 @@ object GeodeNative {
         offsets: FloatArray?,
         out: FloatArray,
     )
-
-    external fun vizKnows(
-        handle: Long,
-        sceneId: String,
-    ): Boolean
-
-    external fun vizSceneIds(handle: Long): String
 
     external fun vizLastError(handle: Long): String
 
@@ -946,43 +876,11 @@ object GeodeNative {
         sceneId: String,
     ): Boolean
 
-    /**
-     * Export only (Studio 2D): the styles this segment switches to, as timed cues ([atMs] render ms
-     * since the segment began, [sceneIds], [milkPaths] with "" for none, all the same length) and a
-     * beat cut through [cutIds] every [everyBeats] beats. The native renderer decides when
-     * (`core/viz/StyleSchedule`); empty arrays clear it. [lockedIds] is the entitlement: styles this
-     * user may not draw, dropped from the schedule natively (empty for Pro).
-     */
-    external fun vizSetStyleSchedule(
-        handle: Long,
-        atMs: DoubleArray,
-        sceneIds: Array<String>,
-        milkPaths: Array<String>,
-        cutIds: Array<String>,
-        everyBeats: Int,
-        lockedIds: Array<String>,
-    )
-
-    external fun vizWarmTransition(
-        handle: Long,
-        id: String,
-    )
-
-    external fun vizCut(handle: Long)
-
     external fun vizRender(
         handle: Long,
         timeSeconds: Double,
         targetFbo: Int,
     )
-
-    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
-    external fun vizPrepareOffscreen(handle: Long)
-
-    external fun vizReleaseScenes(handle: Long)
-
-    /** Sheds the renderer's spare scenes as a UI_HIDDEN trim does; GL thread, before it pauses (`geode_viz_trim_spares`). */
-    external fun vizTrimSpares(handle: Long)
 
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
@@ -1066,6 +964,21 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The text a Customize control shows for [value] (core/viz/ParamText, `geode_param_text`): a %, ×, s or
+     * ms, Hz or °, and "Default" at [default] (NaN for a control with none). [unit] is a ParamUnit's ordinal;
+     * -1 takes the control's own, by its [key] and then its range [lo]..[hi]. A range below zero signs a
+     * percentage.
+     */
+    external fun paramText(
+        key: String,
+        unit: Int,
+        value: Float,
+        lo: Float,
+        hi: Float,
+        default: Float,
+    ): String
+
+    /**
      * The hue base a palette slot draws: [override] when it is >= 0, else built-in palette [palette]'s, the
      * index clamped into the table (`geode_params_palette_base`, core/viz/Params). Pure.
      */
@@ -1102,8 +1015,26 @@ object GeodeNative {
     /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
     external fun colourAverageArgb(argb: IntArray): Int
 
+    /** The shell's accent for a palette of hue [base] and [range]: a packed 0xRRGGBB (`geode_colour_palette_accent`). Pure. */
+    external fun colourPaletteAccent(
+        base: Float,
+        range: Float,
+    ): Int
+
     /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
     external fun artPaletteExtract(argb: IntArray): FloatArray?
+
+    /**
+     * The widget glow's three lights as 6 floats each: x and y (shares of the bitmap), radius (share of its width), hue in
+     * degrees, saturation, value (`geode_widget_glow`). [styleHash] is the style id's `hashCode`. Pure.
+     */
+    external fun widgetGlow(
+        artHue: Float,
+        artSpan: Float,
+        hasStyle: Boolean,
+        styleHash: Int,
+        tick: Int,
+    ): FloatArray
 
     /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
     external fun paletteColourMapName(index: Int): String
@@ -1146,6 +1077,31 @@ object GeodeNative {
         current: Float,
         degrees: Float,
     ): Float
+
+    /** Rewrites [points] (x, y) px pairs of [xy] in a [width] x [height] view as y-up NDC, in place (core/viz/TouchGesture). */
+    external fun touchToNdc(
+        xy: FloatArray,
+        points: Int,
+        width: Float,
+        height: Float,
+    )
+
+    /**
+     * Two fingers at [start], [last] and [now], each (ax, ay, bx, by) px, into [out] (6 floats): pan x, pan y and
+     * zoom since start, twist in radians since start, and the step since last as a scale factor and degrees.
+     */
+    external fun touchPair(
+        start: FloatArray,
+        last: FloatArray,
+        now: FloatArray,
+        out: FloatArray,
+    )
+
+    /** Touch play's stir: [step]'s two NDC points into [xy] (4 floats) and the ms to hold them; 0 once it is over. */
+    external fun touchPulse(
+        step: Int,
+        xy: FloatArray,
+    ): Int
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -1533,6 +1489,17 @@ object GeodeNative {
     const val LOOP_SPEC_LOOP_DURATION_US = 6
     const val LOOP_SPEC_LONGS = 7
 
+    /** Fields of the long[6] [loopLimits] returns. */
+    const val LOOP_LIMIT_MIN_LOOP_MS = 0
+    const val LOOP_LIMIT_MAX_LOOP_MS = 1
+    const val LOOP_LIMIT_MIN_CROSSFADE_MS = 2
+    const val LOOP_LIMIT_MAX_CROSSFADE_MS = 3
+    const val LOOP_LIMIT_DEFAULT_CROSSFADE_MS = 4
+    const val LOOP_LIMIT_MAX_DRIFT_STOPS = 5
+
+    /** The ranges a loop render takes (`core/output/LoopPlan`), in LOOP_LIMIT_* order. */
+    external fun loopLimits(): LongArray
+
     /** Loose UI numbers clamped into a valid loop spec, written to [out] (LOOP_SPEC_* order). */
     external fun loopSpecOf(
         loopMs: Long,
@@ -1687,7 +1654,7 @@ object GeodeNative {
         fps: Int,
     ): Long
 
-    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and the GL thread's [recordSessionTeeClosed] ran. */
+    /** Once [recordSessionState] is `RECORD_SESSION_SAVED` or `_FAILED` and [stageRecordClosed] says the tee is closed. */
     external fun recordSessionDestroy(session: Long)
 
     /** The encoder's frame into [out]: width, height. */
@@ -1698,32 +1665,6 @@ object GeodeNative {
 
     /** One of `RECORD_SESSION_*`, polled. */
     external fun recordSessionState(session: Long): Int
-
-    /** GL thread, after [vizRecordStop]: the stage no longer draws into the encoder, so its stream may end. */
-    external fun recordSessionTeeClosed(session: Long)
-
-    /**
-     * GL thread. From the next [vizRender] on, the frames the session's clock keeps are copied into its encoder
-     * and the sound the renderer hears goes to the clock. [watermark] is an `exportWatermarkCreate` handle built on
-     * this thread, or 0. False when the driver would not open the encoder's surface or the session already ended.
-     */
-    external fun recordSessionTeeStart(
-        session: Long,
-        handle: Long,
-        watermark: Long,
-    ): Boolean
-
-    /** GL thread, or after its surface went: ends the copy. */
-    external fun vizRecordStop(handle: Long)
-
-    /**
-     * Marks this renderer as the stage the cast carries (`geode_viz_set_cast_source`, core/viz/frame/CastTee): while a
-     * cast's tee is open it copies its finished visual into it, at most once per cast frame. Any thread; the app's stage only.
-     */
-    external fun vizSetCastSource(
-        handle: Long,
-        on: Boolean,
-    )
 
     /**
      * The cast thread, its EGL context current: opens the tee the stage copies into, [width] x [height] at [fps];
@@ -1751,27 +1692,6 @@ object GeodeNative {
         stageDraws: Boolean,
         fallbackMade: Boolean,
         sinceOpenNs: Long,
-    ): Boolean
-
-    /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
-    external fun vizStillRequest(handle: Long)
-
-    /** GL thread: the still's width and height into [out], true once it is ready. */
-    external fun vizStillSize(
-        handle: Long,
-        out: IntArray,
-    ): Boolean
-
-    /** GL thread: the still, RGBA8 rows top first, into the direct buffer [out]; then it is let go. */
-    external fun vizStillRead(
-        handle: Long,
-        out: java.nio.ByteBuffer,
-    ): Boolean
-
-    /** Tap along (`core/viz/TapAlong`): a touch-down at [uptimeNs]; true on the tap that completes a streak on the beat. Any thread. */
-    external fun vizTapAlong(
-        handle: Long,
-        uptimeNs: Long,
     ): Boolean
 
     /** Shake to screenshot's detector (`core/viz/Shake`), one per listener. */
@@ -1904,6 +1824,30 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
+    const val CAPTURE_FORMAT_RATE = 0
+    const val CAPTURE_FORMAT_CHANNELS = 1
+    const val CAPTURE_FORMAT_FLOAT = 2
+    const val CAPTURE_FORMAT_INTS = 3
+
+    /**
+     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
+     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
+     */
+    external fun captureFormats(
+        deviceRateHz: Int,
+        stereo: Boolean,
+    ): IntArray
+
+    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
+    external fun captureBufferBytes(
+        minBufferBytes: Int,
+        channels: Int,
+    ): Int
+
+    /** The frames one capture read takes. */
+    external fun captureReadFrames(): Int
 
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
@@ -2274,15 +2218,6 @@ object GeodeNative {
         nowMs: Long,
     ): Long
 
-    /**
-     * How long to keep pacing after a restate from [previousMode] to [mode] (the run modes' ordinals)
-     * before stopping: the still frame's settle, or 0 when one frame, or plain on and off, is enough.
-     */
-    external fun surfaceSettleMs(
-        previousMode: Int,
-        mode: Int,
-    ): Long
-
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
 
@@ -2363,30 +2298,6 @@ object GeodeNative {
 
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
     const val SURFACE_DEFAULT_FPS = 30
-
-    // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
-
-    /** Nine longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 9
-
-    /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
-    const val PACER_CAP_SLOT = 6
-
-    /** The state slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync). */
-    const val PACER_PACED_SLOT = 7
-
-    /**
-     * One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] is the surface's own cap
-     * (<= 0 draws every vsync); native paces to min([capFps], the thermal cap).
-     */
-    external fun pacerOnVsync(
-        state: LongArray,
-        frameTimeNanos: Long,
-        capFps: Float,
-    ): Double
-
-    /** A start after a stop: forget the gap, keep the panel's period. */
-    external fun pacerResume(state: LongArray)
 
     // AIFF files (core/audio/ingest/AiffReader), for the soundtrack transcoder.
 
@@ -2482,18 +2393,6 @@ object GeodeNative {
         sampleRate: Int,
         dataBytes: Long,
     ): Long
-
-    /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
-    external fun vizHearTrack(
-        handle: Long,
-        feed: Long,
-    ): Boolean
-
-    /** Ends the pre-roll before frame 0; false when renderer [handle]'s engine heard nothing (the render must fail). */
-    external fun vizEndPreRoll(
-        handle: Long,
-        rangeStartMs: Long,
-    ): Boolean
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
     // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
@@ -2684,6 +2583,12 @@ object GeodeNative {
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 
+    /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
+    external fun audioOutNoteFailed(nowMs: Long)
+
+    /** Whether the output may be tried at [nowMs]: false for a minute after [audioOutNoteFailed]. */
+    external fun audioOutMayOpen(nowMs: Long): Boolean
+
     /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
     external fun audioOutSupports(
         encoding: Int,
@@ -2751,9 +2656,6 @@ object GeodeNative {
 
     /** The output's buffer in frames: the FIFO plus the stream's own. */
     external fun audioOutBufferFrames(handle: Long): Long
-
-    /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
-    external fun pacerEffectiveCap(capFps: Float): Float
 
     // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
 
@@ -3050,4 +2952,256 @@ object GeodeNative {
         hasMask: Boolean,
         savedMask: Int,
     ): Int
+
+    // The native stage (core/stage, core/api/geode_stage_api.h): one surface's render thread, EGL context, vsync
+    // and renderer. A handle is an id that is never reused: every call on one that is gone does nothing and
+    // answers 0, from any thread. Native never calls up; the shell polls [stageTakeEvents].
+
+    /** [assets] is the AssetManager (Any, as for [vizCreate]); [kind] a STAGE_KIND_*; [capFps] the surface's cap (<= 0 none). 0 when it failed. */
+    external fun stageCreate(
+        assets: Any,
+        cacheDir: String,
+        milkTextureDir: String,
+        kind: Int,
+        capFps: Float,
+    ): Long
+
+    /** Quits the stage; its thread frees the renderer. Waits at most 200 ms. */
+    external fun stageDestroy(stage: Long)
+
+    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns once the stage let go of the old one (bounded). */
+    external fun stageSetWindow(
+        stage: Long,
+        surface: Any?,
+        width: Int,
+        height: Int,
+    )
+
+    external fun stageSetSize(
+        stage: Long,
+        width: Int,
+        height: Int,
+    )
+
+    /** What the app's view sees of itself: the STAGE_VIEW_* bits. The stage moves while all four hold. */
+    external fun stageSetView(
+        stage: Long,
+        viewFlags: Int,
+    )
+
+    /** The wallpaper and the dream: the SURFACE_* bits through the surface run rule; answers the run mode applied. */
+    external fun stageSetSurface(
+        stage: Long,
+        surfaceFlags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Int
+
+    external fun stagePause(stage: Long)
+
+    external fun stageResume(stage: Long)
+
+    /** surfaceRedrawNeeded: one frame now, even while the vsync is stopped. */
+    external fun stageRedraw(stage: Long)
+
+    external fun stageSetCap(
+        stage: Long,
+        capFps: Float,
+    )
+
+    /** The STAGE_STATE_* bits. */
+    external fun stageState(stage: Long): Int
+
+    /** The rate the stage draws at now; 0 every vsync. */
+    external fun stagePacedFps(stage: Long): Float
+
+    /** The `FRAME_*` events of the frames since the last call, OR-ed. */
+    external fun stageTakeEvents(stage: Long): Int
+
+    /** The ring frames hear (a `SampleRing` handle), or 0. Returns once no frame reads the ring it replaced. */
+    external fun stageSetSound(
+        stage: Long,
+        ring: Long,
+    )
+
+    /**
+     * The user's look. Native passes on only the parts that differ from the look set last. [lfos], [adsrs] and
+     * [reactions] are the saved texts; [reactions] null means the style's own routes.
+     */
+    external fun stageSetLook(
+        stage: Long,
+        sceneId: String,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    /** The picture under the style (ARGB ints, [width] x [height]); null clears it. */
+    external fun stageSetUnderlay(
+        stage: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
+
+    external fun stageSetQuality(
+        stage: Long,
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+        liquidHotPolicy: Int,
+    )
+
+    external fun stageBeginParamMorph(
+        stage: Long,
+        seconds: Float,
+    )
+
+    /** [points] fingers as x, y pairs in NDC; 0 = all lifted. */
+    external fun stageSetTouch(
+        stage: Long,
+        xy: FloatArray,
+        points: Int,
+    )
+
+    external fun stageSetTouchSmear(
+        stage: Long,
+        on: Boolean,
+        strength: Float,
+    )
+
+    external fun stageSetFluidInjection(
+        stage: Long,
+        force: String?,
+        dye: String?,
+    )
+
+    external fun stageLoadMilkPreset(
+        stage: Long,
+        path: String,
+    )
+
+    external fun stageReloadMilkPreset(stage: Long)
+
+    /** After [FRAME_MILK_LOADED]: each loaded preset's path once, in order; null when none waits. */
+    external fun stageTakeMilkLoaded(stage: Long): String?
+
+    /** After [FRAME_DIRECTOR_MOMENT]: the moments since the last call. */
+    external fun stageTakeDirectorMoments(stage: Long): Int
+
+    /** The Liquid mode of the last frame that said [FRAME_LIQUID_CHANGED]. */
+    external fun stageLiquidMode(stage: Long): Int
+
+    /** The renderer's error text as of the last [FRAME_ERROR_CHANGED]; "" when it is clean. */
+    external fun stageError(stage: Long): String?
+
+    external fun stageGyroPush(
+        stage: Long,
+        x: Float,
+        y: Float,
+        z: Float,
+        w: Float,
+        displayRotation: Int,
+    )
+
+    /** Whether the tilt sensor should run now ([wanted] is the user's setting); asked after every view, pause or setting change. */
+    external fun stageGyroListens(
+        stage: Long,
+        wanted: Boolean,
+    ): Boolean
+
+    external fun stageSetUiBlurRegion(
+        stage: Long,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        strength: Float,
+        cornerPx: Float,
+    )
+
+    /** The edge glow's floats, or null for none. */
+    external fun stageSetEdgeGlow(
+        stage: Long,
+        opts: FloatArray?,
+    )
+
+    external fun stageSetCastSource(
+        stage: Long,
+        on: Boolean,
+    )
+
+    external fun stageKnows(
+        stage: Long,
+        sceneId: String,
+    ): Boolean
+
+    /** The scene ids the renderer has, newline-joined. */
+    external fun stageSceneIds(stage: Long): String
+
+    /** Builds a transition's program on the stage thread, once it has a context. */
+    external fun stageWarmTransition(
+        stage: Long,
+        id: String,
+    )
+
+    /**
+     * Opens Record's tee into [session]'s encoder on the stage thread. [tile] (a direct buffer of premultiplied
+     * RGBA8, copied by the call) is the mark, owed when [placement] is not 0. When the tee cannot open, native
+     * stops [recorder] as failed. False when the stage is gone: no tee will open or close.
+     */
+    external fun stageRecordStart(
+        stage: Long,
+        recorder: Long,
+        session: Long,
+        tile: java.nio.ByteBuffer?,
+        tileWidth: Int,
+        tileHeight: Int,
+        placement: Int,
+        corner: Int,
+    ): Boolean
+
+    /** Closes the tee on the stage thread and tells the session; a stage's end does the same. */
+    external fun stageRecordStop(stage: Long)
+
+    /** True when no tee is open or waiting to open (always for a stage that is gone): the recorder and session may be freed. */
+    external fun stageRecordClosed(stage: Long): Boolean
+
+    /** Asks the next frame for a still; [FRAME_STILL_READY] says when it waits. */
+    external fun stageStillRequest(stage: Long)
+
+    /** The waiting still's width and height into [out]; false when none waits. */
+    external fun stageStillSize(
+        stage: Long,
+        out: IntArray,
+    ): Boolean
+
+    /** The still's RGBA8 rows, top first, into a direct buffer of at least width * height * 4 bytes; handed out once. */
+    external fun stageStillRead(
+        stage: Long,
+        out: java.nio.ByteBuffer,
+    ): Boolean
+
+    external fun stageTapAlong(
+        stage: Long,
+        uptimeNs: Long,
+    ): Boolean
+
+    const val STAGE_KIND_VIEW = 0
+    const val STAGE_KIND_SURFACE = 1
+    const val STAGE_VIEW_ATTACHED = 1 shl 0
+    const val STAGE_VIEW_WINDOW_VISIBLE = 1 shl 1
+    const val STAGE_VIEW_SHOWN = 1 shl 2
+    const val STAGE_VIEW_OPAQUE = 1 shl 3
+    const val STAGE_STATE_SURFACE = 1 shl 2
+    const val STAGE_STATE_VSYNC = 1 shl 4
+    const val STAGE_STATE_REFUSED = 1 shl 6
 }

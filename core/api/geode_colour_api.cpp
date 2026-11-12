@@ -48,6 +48,11 @@ const char* geode_colour_hex(int rgb) {
 
 int geode_colour_average_argb(const int32_t* argb, int n) { return colour::averageArgb(argb, n); }
 
+int geode_colour_palette_accent(float base, float range) {
+    if (!std::isfinite(base) || !std::isfinite(range)) return colour::kNone;
+    return colour::pack(colour::paletteAccent(base, range));
+}
+
 void geode_palette_ramp(const int* stops, int count, int samples, int* out) {
     if (!stops) return;
     const int n = std::clamp(count, 0, colour::kMaxStops);

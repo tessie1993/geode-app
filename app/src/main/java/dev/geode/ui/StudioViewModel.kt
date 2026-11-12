@@ -8,7 +8,7 @@ import dev.geode.di.PlayerSessionProvider
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.TrackRef
-import dev.geode.render.VisualizerView
+import dev.geode.stage.Stage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.dropWhile
@@ -41,7 +41,7 @@ class StudioViewModel
         fun stopRecording() = session.record.stop()
 
         /** The stage Record copies from, while it is on screen; null when it goes. */
-        fun attachRecordStage(stage: VisualizerView?) = session.record.attach(stage)
+        fun attachRecordStage(stage: Stage?) = session.record.attach(stage)
 
         /** The ask-once save sheet's answer for the recording waiting in [RecordUiState.pendingSave]. */
         fun chooseRecordSaveTarget(

@@ -4,6 +4,7 @@
 // is filled.
 #include <jni.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -79,6 +80,16 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobFra
 }
 
 // Loops (output/LoopPlan).
+
+JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopLimits(JNIEnv* env, jobject) {
+    int64_t limits[8];
+    const int count = std::min(geode_loop_limits(limits, 8), 8);
+    jlong values[8];
+    for (int i = 0; i < count; ++i) values[i] = limits[i];
+    jlongArray out = env->NewLongArray(count);
+    if (out) env->SetLongArrayRegion(out, 0, count, values);
+    return out;
+}
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecOf(JNIEnv* env, jobject, jlong loopMs,
                                                                             jlong crossfadeMs, jint fps, jlongArray out) {

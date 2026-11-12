@@ -36,7 +36,7 @@ import dev.geode.R
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
@@ -49,7 +49,7 @@ import dev.geode.ui.theme.StoneIconArt
 @Composable
 fun TemplatesSheet(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     onDismiss: () -> Unit,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -118,7 +118,7 @@ fun TemplatesSheet(
                     CrystalButton(onClick = {
                         val trimmed = saveName.trim()
                         if (trimmed.isNotEmpty()) {
-                            val shader = visualizerView.visualizerRenderer.customShaderFor(viz.sceneId)
+                            val shader = visualizerView.stage.customShaderFor(viz.sceneId)
                             visualsViewModel.saveCurrentAsTemplate(trimmed, shader) { result ->
                                 note =
                                     when (result) {

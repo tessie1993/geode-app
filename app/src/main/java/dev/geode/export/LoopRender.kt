@@ -38,47 +38,28 @@ data class LoopSpec(
     val crossfadeMs: Long,
     val fps: Int,
 ) {
-    init {
-        require(loopMs > 0) { "loopMs must be positive, was $loopMs" }
-        require(crossfadeMs > 0) { "crossfadeMs must be positive, was $crossfadeMs" }
-        require(crossfadeMs * 2 <= loopMs) { "crossfadeMs ($crossfadeMs) must not exceed half of loopMs ($loopMs)" }
-        require(fps in MIN_FPS..MAX_FPS) { "fps must be within $MIN_FPS..$MAX_FPS, was $fps" }
+    /** Native (`core/output/LoopPlan`, tested by `core/tests/output_test.cpp`). */
+    val loopDurationUs: Long by lazy {
+        val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
+        GeodeNative.loopSpecDerive(loopMs, crossfadeMs, fps, out)
+        out[GeodeNative.LOOP_SPEC_LOOP_DURATION_US]
     }
-
-    // Frame counts and duration are native (`core/output/LoopPlan`, tested by `core/tests/output_test.cpp`),
-    // derived once per spec.
-    private val derived: LongArray by lazy {
-        LongArray(GeodeNative.LOOP_SPEC_LONGS).also { GeodeNative.loopSpecDerive(loopMs, crossfadeMs, fps, it) }
-    }
-
-    /** Frames the finished loop contains — what the viewer sees once per repeat. */
-    val loopFrames: Int get() = derived[GeodeNative.LOOP_SPEC_LOOP_FRAMES].toInt()
-
-    /** Frames the dissolve spans. Always at least one, never more than half the loop. */
-    val crossfadeFrames: Int get() = derived[GeodeNative.LOOP_SPEC_CROSSFADE_FRAMES].toInt()
-
-    /**
-     * Frames the renderer actually draws. The extra tail past [loopFrames] is the natural
-     * continuation of the loop, which is what the opening frames dissolve out of.
-     */
-    val sourceFrames: Int get() = derived[GeodeNative.LOOP_SPEC_SOURCE_FRAMES].toInt()
-
-    val loopDurationUs: Long get() = derived[GeodeNative.LOOP_SPEC_LOOP_DURATION_US]
 
     companion object {
-        const val MIN_LOOP_MS: Long = 30_000
-        const val MAX_LOOP_MS: Long = 300_000
-        const val MIN_CROSSFADE_MS: Long = 200
-        const val MAX_CROSSFADE_MS: Long = 5_000
-        const val DEFAULT_CROSSFADE_MS: Long = 1_000
-        const val MIN_FPS: Int = 24
-        const val MAX_FPS: Int = 60
+        // The ranges the controls offer are native's (`core/output/LoopPlan`).
+        private val limits: LongArray by lazy { GeodeNative.loopLimits() }
+        val minLoopMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MIN_LOOP_MS]
+        val maxLoopMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MAX_LOOP_MS]
+        val minCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MIN_CROSSFADE_MS]
+        val maxCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MAX_CROSSFADE_MS]
+        val defaultCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_DEFAULT_CROSSFADE_MS]
+        val maxDriftStops: Int get() = limits[GeodeNative.LOOP_LIMIT_MAX_DRIFT_STOPS].toInt()
 
         /** Parses loose UI numbers into a spec, clamping instead of failing (natively, `core/output/LoopPlan`). */
         fun of(
             loopMs: Long,
-            crossfadeMs: Long = DEFAULT_CROSSFADE_MS,
-            fps: Int = MAX_FPS,
+            crossfadeMs: Long,
+            fps: Int,
         ): LoopSpec {
             val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
             GeodeNative.loopSpecOf(loopMs, crossfadeMs, fps, out)
@@ -107,16 +88,8 @@ data class TimeOfDayDrift(
     val warmth: Float,
     val stops: Int,
 ) {
-    init {
-        require(stops in 1..MAX_STOPS) { "stops must be within 1..$MAX_STOPS, was $stops" }
-        require(hueTurns.isFinite()) { "hueTurns must be finite, was $hueTurns" }
-        require(warmth.isFinite()) { "warmth must be finite, was $warmth" }
-    }
-
     companion object {
         val None: TimeOfDayDrift = TimeOfDayDrift(0f, 0f, 1)
-
-        const val MAX_STOPS: Int = 8
     }
 }
 
@@ -151,7 +124,7 @@ class LoopReel(
 /**
  * Renders the visual loop that a long-form video is built from.
  *
- * The renderer draws [LoopSpec.sourceFrames] frames — one loop plus a tail — and dissolves the
+ * The renderer draws the loop's source frames — one loop plus a tail — and dissolves the
  * tail into the stashed opening frames, so the last frame of the encoded loop flows into the
  * first exactly as two consecutive frames would. Repeating that loop is then seamless without
  * anything downstream having to touch pixels again.

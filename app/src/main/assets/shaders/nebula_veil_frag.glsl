@@ -135,6 +135,37 @@ vec3 vvWarp(vec3 p, float t) {
                               0.5 * (sin(p.x * 1.1) + cos(p.y * 1.3 + t * 0.06)));
 }
 
+/** The frame's gas motion, set in main() before the march: the drift along the front and the churn along z. */
+float gDrift;
+float gChurn;
+
+/**
+ * What the field holds at a point (lib_nebula_field): the band across the shock front (its density
+ * here), the distance across the front, and the lace's noise there (0.5 off the band).
+ */
+struct NebHit {
+    float dens;
+    float across;
+    float n;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    vec2 rel = p.xy - VV_C;
+    float R = length(rel);
+    float v = dot(rel, VV_TAN);
+    NebHit h;
+    h.across = R - gR0 - frontShift(v, p.z);
+    h.dens = exp(-(h.across * h.across) / (VV_W * VV_W));
+    h.n = 0.5;
+    if (h.dens > 0.004) {
+        vec3 q = vvWarp(vec3(h.across * 1.1, v * 0.32 + gDrift, p.z + gChurn), gT);
+        h.n = nebFbm3(vec3(q.xy, q.z * 0.5), oct);
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
     nebSetup();
@@ -167,8 +198,8 @@ void main() {
     gRipA = min(0.3, 0.22 * kick * kPulse * min(e, 1.5));
 
     // Gas drifts along the front on the flow clock; it churns along z slowly.
-    float drift = flow * 0.01 + gT * 0.008;
-    float churn = gT * 0.15;
+    gDrift = flow * 0.01 + gT * 0.008;
+    gChurn = gT * 0.15;
 
     // Highs thin the sheets (sharper threads) and brighten them.
     float w0 = mix(0.06, 0.036, hiN) * kTex;
@@ -193,12 +224,11 @@ void main() {
             tt += max(gap, dt);
             continue;
         }
-        float v = dot(rel, VV_TAN);
-        float across = R - gR0 - frontShift(v, p.z);
-        float band = exp(-(across * across) / (VV_W * VV_W));
+        NebHit at = nebField(p, oct);
+        float across = at.across;
+        float band = at.dens;
         if (band > 0.004) {
-            vec3 q = vvWarp(vec3(across * 1.1, v * 0.32 + drift, p.z + churn), gT);
-            float n = nebFbm3(vec3(q.xy, q.z * 0.5), oct);
+            float n = at.n;
             // Far sheets are drawn wider: the steps there are longer.
             float w = w0 * (1.0 + 0.05 * tt);
             float sa = (n - 0.5) / w;

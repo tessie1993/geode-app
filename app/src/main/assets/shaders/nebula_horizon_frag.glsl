@@ -188,6 +188,24 @@ vec3 skyAt(vec3 d, float hats) {
     return col + hzStars(d, hats);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the hot haze over the disk, its density there.
+ * The disk itself is a surface, met where a bent ray crosses its plane (diskAt), not a field.
+ */
+struct NebHit {
+    float dens;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    float rhoH = length(p.xz);
+    float wH = 0.35 + 0.09 * rhoH;
+    NebHit h;
+    h.dens = exp(-p.y * p.y / (wH * wH)) * smoothstep(HZ_RIN * 0.8, HZ_RIN * 1.6, rhoH) * exp(-rhoH * 0.28);
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
     nebSetup();
@@ -239,10 +257,7 @@ void main() {
         minR = min(minR, rn);
 
         // The hot haze over the disk: a smooth glow, lensed like everything else.
-        float rhoH = length(pn.xz);
-        float wH = 0.35 + 0.09 * rhoH;
-        float hz = exp(-pn.y * pn.y / (wH * wH)) * smoothstep(HZ_RIN * 0.8, HZ_RIN * 1.6, rhoH)
-                 * exp(-rhoH * 0.28);
+        float hz = nebField(pn, gOct).dens;
         col += trans * haze * hz * 0.05 * feed * dt;
 
         // Crossing the disk plane between p and pn.

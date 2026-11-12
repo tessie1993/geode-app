@@ -97,6 +97,80 @@ float torusShape(float c, float s) {
     return exp(-dot(d, d) / (gTorusW * gTorusW));
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the torus's dust (its density here) and its
+ * envelope, the light reaching it from the star, the jets' envelope, knots, beat pulse and halo, the
+ * squared radius (the wind nebula), the filament cage's sheet and mask, and the distance across the axis.
+ */
+struct NebHit {
+    float dens;
+    float tor;
+    float lit;
+    float jetEnv;
+    float knots;
+    float pulse;
+    float halo;
+    float r2;
+    float sheet;
+    float cageMask;
+    float c;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    vec3 q = nebWarp3(p, gT);
+    h.r2 = dot(q, q);
+
+    // The jets' frame: s along the axis, c across it.
+    float s = dot(q, gAxis);
+    float sa = abs(s);
+    vec3 across = q - gAxis * s;
+    float c = length(across);
+    h.c = c;
+
+    // Jets: a cone, knotted, fading with distance from the star.
+    float width = 0.03 + 0.085 * sa;
+    float core = exp(-(c * c) / (width * width));
+    float reachFade = 1.0 - smoothstep(0.7 * gReach, gReach, sa);
+    h.jetEnv = core * exp(-sa * 1.5) * smoothstep(0.03, 0.09, sa) * reachFade;
+    h.knots = 0.0;
+    h.pulse = 0.0;
+    h.halo = 0.0;
+    if (h.jetEnv > 0.004) {
+        float side = step(0.0, s) * 5.0;
+        h.knots = nebValue3(vec3(sa * 7.0 - gFlow * 0.6 - gT * 0.15,
+                                 dot(across, gAcrossU) / width * 0.8,
+                                 dot(across, gAcrossV) / width * 0.8 + side));
+        h.pulse = exp(-pow((sa - gPulsePos) / 0.08, 2.0)) * gPulse * reachFade;
+        // The knot's wider glow just around the cone.
+        h.halo = exp(-(c * c) / (9.0 * width * width));
+    }
+
+    // The torus, square to the jets, lit from the star at its centre.
+    h.tor = torusShape(c, s);
+    h.dens = 0.0;
+    h.lit = 0.0;
+    if (h.tor > 0.01) {
+        float tex = nebFbm3(q * (4.5 * gTex) + vec3(gT * 0.02, 0.0, 0.0), oct);
+        h.dens = h.tor * (0.45 + 0.9 * tex);
+        // One tap toward the star: the dust between it and this sample.
+        vec3 inward = q - normalize(q) * 0.09;
+        float sIn = dot(inward, gAxis);
+        h.lit = nebLightTap(torusShape(length(inward - gAxis * sIn), sIn), 1.6);
+    }
+
+    // The filament cage: thin sheets of warm gas, faint, round the star.
+    h.cageMask = exp(-sqrt(h.r2) * 1.6) * (1.0 - smoothstep(1.5, PU_BOUND, sqrt(h.r2)));
+    h.sheet = 0.0;
+    if (h.cageMask > 0.02) {
+        float n = nebFbm3(q * (1.9 * gTex) + vec3(3.1, 7.7, 1.3), min(oct, 3.0));
+        h.sheet = pow(max(1.0 - abs(2.0 * n - 1.0) * 3.0, 0.0), 2.0);
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
     nebSetup();
@@ -147,59 +221,31 @@ void main() {
             if (tt > tEnd) break;
             vec3 p = ro + rd * tt;
             float dt = nebVolDt(tt - tb.x, 0.024, 0.014);
-            vec3 q = nebWarp3(p, gT);
-            float r2 = dot(q, q);
-
-            // The jets' frame: s along the axis, c across it.
-            float s = dot(q, gAxis);
-            float sa = abs(s);
-            vec3 across = q - gAxis * s;
-            float c = length(across);
+            NebHit at = nebField(p, gOct);
             // Near the narrow jets, take finer steps so the cones do not alias.
-            dt *= mix(0.55, 1.0, smoothstep(0.0, 0.2, c));
+            dt *= mix(0.55, 1.0, smoothstep(0.0, 0.2, at.c));
 
             vec3 emit = vec3(0.0);
             float sigma = 0.0;
 
             // Jets: a cone, knotted, fading with distance from the star.
-            float width = 0.03 + 0.085 * sa;
-            float core = exp(-(c * c) / (width * width));
-            float reachFade = 1.0 - smoothstep(0.7 * gReach, gReach, sa);
-            float jetEnv = core * exp(-sa * 1.5) * smoothstep(0.03, 0.09, sa) * reachFade;
-            if (jetEnv > 0.004) {
-                float side = step(0.0, s) * 5.0;
-                float knots = nebValue3(vec3(sa * 7.0 - gFlow * 0.6 - gT * 0.15,
-                                             dot(across, gAcrossU) / width * 0.8,
-                                             dot(across, gAcrossV) / width * 0.8 + side));
-                float pulse = exp(-pow((sa - gPulsePos) / 0.08, 2.0)) * gPulse * reachFade;
-                emit += jetCol * jetEnv * (0.5 + 0.9 * knots) * (0.95 + 1.8 * pulse) * 9.0;
+            if (at.jetEnv > 0.004) {
+                emit += jetCol * at.jetEnv * (0.5 + 0.9 * at.knots) * (0.95 + 1.8 * at.pulse) * 9.0;
                 // The knot's wider glow just around the cone.
-                emit += jetCol * pulse * exp(-(c * c) / (9.0 * width * width)) * 1.4;
+                emit += jetCol * at.pulse * at.halo * 1.4;
             }
 
             // The torus, square to the jets, lit from the star at its centre.
-            float tor = torusShape(c, s);
-            if (tor > 0.01) {
-                float tex = nebFbm3(q * (4.5 * gTex) + vec3(gT * 0.02, 0.0, 0.0), gOct);
-                float dens = tor * (0.45 + 0.9 * tex);
-                // One tap toward the star: the dust between it and this sample.
-                vec3 inward = q - normalize(q) * 0.09;
-                float sIn = dot(inward, gAxis);
-                float lit = nebLightTap(torusShape(length(inward - gAxis * sIn), sIn), 1.6);
-                emit += torusCol * dens * (0.35 + 0.9 * lit) * build * 5.0;
-                sigma += dens * 3.0;
+            if (at.tor > 0.01) {
+                emit += torusCol * at.dens * (0.35 + 0.9 * at.lit) * build * 5.0;
+                sigma += at.dens * 3.0;
             }
 
             // The inner wind nebula: a soft glow round the star.
-            emit += torusCol * exp(-r2 * 7.0) * 0.45;
+            emit += torusCol * exp(-at.r2 * 7.0) * 0.45;
 
             // The filament cage: thin sheets of warm gas, faint, round the star.
-            float cageMask = exp(-sqrt(r2) * 1.6) * (1.0 - smoothstep(1.5, PU_BOUND, sqrt(r2)));
-            if (cageMask > 0.02) {
-                float n = nebFbm3(q * (1.9 * gTex) + vec3(3.1, 7.7, 1.3), min(gOct, 3.0));
-                float sheet = pow(max(1.0 - abs(2.0 * n - 1.0) * 3.0, 0.0), 2.0);
-                emit += cageCol * sheet * cageMask * 0.55;
-            }
+            if (at.cageMask > 0.02) emit += cageCol * at.sheet * at.cageMask * 0.55;
 
             nebVolEmit(acc, emit, sigma, dt);
             if (acc.a < NEB_TRANS_MIN) break;

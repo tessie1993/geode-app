@@ -134,6 +134,30 @@ float clKing(float r2) {
     return 1.0 / (1.0 + r2 / CL_RC2);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the unresolved stars' King profile (their density
+ * here, faded to exactly zero at the support sphere) and the glow's grain there (0.5 where it is empty).
+ * The point stars are walked cell by cell (clStep), not read from a field.
+ */
+struct NebHit {
+    float dens;
+    float grain;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    float r2 = dot(p, p);
+    NebHit h;
+    h.dens = clKing(r2) * (1.0 - smoothstep(0.55 * CL_R * CL_R, CL_R * CL_R, r2));
+    h.grain = 0.5;
+    if (h.dens > 0.004) {
+        float t = nebTime();
+        h.grain = nebFbm3(nebWarp3(p, t) * CL_GRAIN + vec3(t * 0.01, 0.0, 0.0), oct);
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
     nebSetup();
@@ -179,12 +203,11 @@ void main() {
         float core = 0.0;
         for (int i = 0; i < CL_GLOW_MAX; i++) {
             if (float(i) >= nGlow) break;
-            vec3 p = ro + rd * tt;
-            float r2 = dot(p, p);
+            NebHit at = nebField(ro + rd * tt, oct);
             // Faded to exactly zero at the support sphere, so the trim never shows.
-            float k = clKing(r2) * (1.0 - smoothstep(0.55 * CL_R * CL_R, CL_R * CL_R, r2));
+            float k = at.dens;
             if (k > 0.004) {
-                float g = nebFbm3(nebWarp3(p, t) * CL_GRAIN + vec3(t * 0.01, 0.0, 0.0), oct);
+                float g = at.grain;
                 glow += k * (0.16 + 0.1 * grainK * (g - 0.5) * 2.0 + 0.05) * dt;
                 core += k * k * dt;
             }

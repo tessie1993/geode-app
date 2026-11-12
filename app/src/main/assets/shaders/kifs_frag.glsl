@@ -438,7 +438,10 @@ float kifsField(vec3 p) {
     // what makes the background nearly free: a ray that never enters costs one
     // length() per step instead of seven rounds of folding.
     float outside = length(p) - gBound;
-    if (outside > 0.0) return outside;
+    // While a lib_shell hook is on, rays also come at a ball from outside (a grown copy's, read at the moved
+    // point), and the bare distance would close on its invisible surface and stop there; a step just past
+    // the march's epsilon carries them in. The bare distance at rest, where every ray starts inside.
+    if (outside > 0.0) return shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? outside : outside + 0.02;
 
     // The user's Symmetry/Kaleidoscope controls, in 3D. view() has already
     // folded the SCREEN into uSymmetry wedges; this folds the WORLD into the
@@ -705,8 +708,13 @@ void main() {
     // Entered analytically at the escape ball rather than from the camera. A
     // ray that misses the ball is a background pixel and skips the loop
     // entirely, which on a typical frame is most of them.
+    //
+    // The grown cathedral (lib_shell's Spawn twin, Fractal's children, a layer opened) reaches out of the
+    // ball by the shell's slack, so the march enters and leaves a ball that much wider while a hook is on;
+    // gBound itself at rest. The field's own early-out keeps gBound: it is read at the moved point.
+    float marchBound = gBound + SHELL_SLACK(gBound);
     float bq = dot(ro, rd);
-    float cq = dot(ro, ro) - gBound * gBound;
+    float cq = dot(ro, ro) - marchBound * marchBound;
     float hq = bq * bq - cq;
     float tEnter = 0.0;
     float tExit = -1.0;

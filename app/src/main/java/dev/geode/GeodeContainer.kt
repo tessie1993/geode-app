@@ -86,9 +86,9 @@ class GeodeContainer(
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
-    /** The `ContentResolver` source the screens reach their consent requests and picked-folder grants through. */
+    /** The `ContentResolver` source the screens and controllers reach consent requests, grants and picked documents through. */
     val mediaStore: MediaStoreSource by lazy {
-        MediaStoreSource(context.applicationContext.contentResolver, Dispatchers.IO)
+        MediaStoreSource(context.applicationContext, Dispatchers.IO)
     }
 
     /** The checks an audio file another app opened passes before it plays ("Open with"). */

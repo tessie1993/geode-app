@@ -117,13 +117,6 @@ float gG;
 float gInfl;
 float gT;
 vec3 gEye;
-/** Set by map(): 1 on a bubble, 0 on the film; the side; the bubble's frame. */
-float gMat;
-float gSgn;
-vec3 gLoc;
-float gR;
-float gRim;
-float gCellH;
 
 /** The billow of the film (in |y|), z rates LB_U and 2 LB_U. Slope at most gB * 0.632. */
 float billow(vec2 xz, float sgn) {
@@ -138,8 +131,8 @@ float sminP(float a, float b, float k) {
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-/** The film on side `sgn` (-1 floor, +1 ceiling) with its bubbles. Sets the g* hit globals. */
-float sheet(vec3 p, float sgn) {
+/** The film on side `sgn` (-1 floor, +1 ceiling) with its bubbles. Hands what it found back in `found`. */
+float sheet(vec3 p, float sgn, inout LucidHit found) {
     float ys = abs(p.y);
     // The ceiling's cells sit half a cell over, so the films are not one mirror.
     vec2 shift = sgn > 0.0 ? vec2(0.5 * LB_CELL) : vec2(0.0);
@@ -169,27 +162,31 @@ float sheet(vec3 p, float sgn) {
     vec2 la = abs(a - (cell + 0.5) * LB_CELL);
     d = min(d, 0.5 * LB_CELL - max(la.x, la.y) + LB_GAP - 0.25 * LB_MEN);
 
-    gMat = dS < dP ? 1.0 : 0.0;
-    gSgn = sgn;
-    gLoc = loc;
-    gR = max(R, 1e-3);
-    gRim = length(l) - sqrt(max(R * R - e * e, 0.0));
-    gCellH = h1 + h3;
+    found.mat = dS < dP ? 1.0 : 0.0;
+    found.a.x = sgn;
+    found.b.xyz = loc;
+    found.a.y = max(R, 1e-3);
+    found.a.z = length(l) - sqrt(max(R * R - e * e, 0.0));
+    found.a.w = h1 + h3;
     return d;
 }
 
-float map(vec3 p) {
+float mapAt(vec3 p, inout LucidHit found) {
     float sgn = p.y < 0.0 ? -1.0 : 1.0;
     // The other film lies at least gG beyond y = 0.
-    float d = min(sheet(p, sgn), abs(p.y) + gG);
+    float d = min(sheet(p, sgn, found), abs(p.y) + gG);
     return max(d, LB_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_lucid_field
 
 /** The film colour at a hue walk; periodic in `walk` with period 1 (film phase and channel order both wrap). */
 vec3 walkFilm(float thick, float walk) {
@@ -198,32 +195,29 @@ vec3 walkFilm(float thick, float walk) {
 }
 
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(true);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float chaos = lucidChaos();
 
-    float kPulse = uKnob[0] - 0.5;
-    float kTex = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     // The walk is never scaled (a scaled circular hue would jump where it
     // wraps); key confidence instead blends the walked film with the resting one.
-    float walk = uKeyHue + 0.2 * lucidBump(SND_HELD_NOTE_CHANGE) * uIntensity + 0.4 * kTone;
-    float rest = 0.4 * kTone;
+    float walk = uKeyHue + 0.2 * lucidBump(SND_HELD_NOTE_CHANGE) * uIntensity + lucidSpan(N.tone, 0.0, -0.2, 0.2);
+    float rest = lucidSpan(N.tone, 0.0, -0.2, 0.2);
     float keyed = clamp(uKeyStrength, 0.0, 1.0);
-    float orders = 1.0 + 0.8 * clamp(uMorph, 0.0, 1.0);
+    float orders = lucidSpan(N.depth, 1.0, 1.0, 1.8);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.0);
 
     gT = t;
     float breath = (clamp(uBreath, 0.9, 1.1) - 1.0) * clamp(uIntensity, 0.0, 2.0);
-    gInfl = clamp(1.0 + breath + 0.08 * bass * (1.0 + 1.6 * kPulse), 0.8, LB_INFL);
-    gH = 4.4 * (1.0 + 0.5 * kSpace);
-    gB = clamp(0.3 * (1.0 + 0.9 * kFlow), 0.0, 0.5);
+    gInfl = clamp(1.0 + breath + 0.08 * bass * lucidSpan(N.emit, 1.0, 0.2, 1.8), 0.8, LB_INFL);
+    gH = 4.4 * lucidSpan(N.reach, 1.0, 0.75, 1.25);
+    gB = clamp(0.3 * lucidSpan(N.flow, 1.0, 0.55, 1.45), 0.0, 0.5);
     gPh = flow * 0.3 + t * 0.04;
     gLipB = 1.0 + gB * 0.632;
     // Tallest dome above its film: 0.8 R at full rise.
@@ -244,7 +238,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LB_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -260,10 +255,10 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 nrm = normalAt(p, max(0.0012, 0.001 * hitT));
+        vec3 nrm = lucidNormal(p, max(0.0012, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
-        float sgn = gSgn;
+        fld = lucidField(p);
+        float sgn = fld.a.x;
         float ndv = clamp(dot(nrm, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);
@@ -271,22 +266,22 @@ void main() {
         vec3 L = normalize(vec3(-0.45, -0.8 * sgn, 0.4));
         float dif = max(dot(nrm, L), 0.0);
         float spec = pow(max(dot(reflect(rd, nrm), L), 0.0), 40.0);
-        float glow = 1.0 + 1.2 * kBuild;
+        float glow = 1.0 + lucidSpan(N.glow, 0.0, -0.6, 0.6);
         // The ceiling's film reads one interference order further on.
         float sideShift = sgn > 0.0 ? 0.17 : 0.0;
 
         vec3 surf;
-        if (gMat > 0.5) {
+        if (fld.mat > 0.5) {
             int depth = lucidDetail(4, 3);
             int oct = lucidDetail(3, 2);
             // The bubble's own frame: local y points away from the gap, so the
             // pole (the crown) is -y. Arc length from the pole compresses the rim.
-            vec3 ns = gLoc / gR;
+            vec3 ns = fld.b.xyz / fld.a.y;
             float up = clamp(-ns.y, -1.0, 1.0);
             vec2 s = vec2(ns.x, ns.z * -sgn);
             float rs = length(s);
-            vec2 q = s * (asin(min(rs, 0.9999)) / max(rs, 1e-4)) * 2.2 * (1.0 + 0.8 * kTex);
-            q += vec2(t * 0.12, t * 0.03) + 9.0 * vec2(gCellH, fract(gCellH * 3.7));
+            vec2 q = s * (asin(min(rs, 0.9999)) / max(rs, 1e-4)) * 2.2 * lucidSpan(N.scale, 1.0, 0.6, 1.4);
+            q += vec2(t * 0.12, t * 0.03) + 9.0 * vec2(fld.a.w, fract(fld.a.w * 3.7));
             q += lucidJitter(q, t);
             vec4 n = lucidNest(q, depth, 1.35 * chaos, t * 0.2, LUCID_SIMPLEX, oct);
             // View angle thickens the optical path; the film drains to the foot.
@@ -301,7 +296,7 @@ void main() {
         } else {
             // The flat film: same colouring, two levels, dimmer, read through the
             // conformal annulus map so it repeats with the 256 wrap.
-            float sc = 0.45 * (1.0 + 0.8 * kTex);
+            float sc = 0.45 * lucidSpan(N.scale, 1.0, 0.6, 1.4);
             float th = p.z * LB_K + (sgn > 0.0 ? 3.14159265 : 0.0);
             vec2 q = (sc / LB_K) * exp(clamp(p.x, -60.0, 60.0) * LB_K) * vec2(cos(th), sin(th));
             q += vec2(-flow * 0.05, t * 0.02);
@@ -312,7 +307,7 @@ void main() {
             surf = film * 0.32 * smoothstep(-0.7, 0.9, n.z) * (0.55 + 0.45 * dif) * ao;
             surf += vec3(spec) * 0.12 * glow + pal(0.5 + rest) * fres * 0.08;
             // Contact shadow where a bubble meets the film.
-            surf *= 0.25 + 0.75 * smoothstep(-0.2, 0.9, gRim);
+            surf *= 0.25 + 0.75 * smoothstep(-0.2, 0.9, fld.a.z);
         }
         surf = lucidCubic(surf, 0.45);
         col = mix(surf, fogCol, 1.0 - exp(-hitT * fogK));

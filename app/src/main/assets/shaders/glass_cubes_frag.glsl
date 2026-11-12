@@ -39,7 +39,10 @@ out vec4 fragColor;
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the turning. Complexity deepens the tints. Chaos ripples the
-// faces. Energy scales every reaction. Space is the rig (camFly).
+// faces. Energy scales every reaction. Space is the rig (camFly). Knobs
+// (lib_glass's roles, offsets from 0.5 so off is the tuned look): k0 PULSE the
+// emission, k1 TEXTURE the blocks' width, k2 FLOW added to Chaos's ripple, k3
+// TONE the palette position, k4 BUILD the world's glow, k5 SPACE the reach.
 //
 // ---- cost -------------------------------------------------------------------
 //
@@ -113,11 +116,20 @@ void main() {
     vec2 uv = view();
     float t = glassTime();
     gT = t;
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gGlassFlow = kFlow;
     GlassEar ear = glassListen();
-    float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    lk.glow *= 1.0 + kBuild;
+    float reachFar = CB_FAR * (1.0 + 0.4 * kSpace);
     gNod = ear.kick * 0.6;
-    gHalf = 0.38 + 0.05 * clamp(ear.bass, 0.0, 1.2);
+    gHalf = (0.38 + 0.05 * clamp(ear.bass, 0.0, 1.2)) * (1.0 + 0.15 * kTexture);
     gFlip = clamp(SND_SNARE_TOGGLE, 0.0, 1.0) * min(glassEnergy(), 1.0);
     float spread = 0.015 + 0.04 * ear.sharp;
     float frost = ear.frost * 0.6;
@@ -134,7 +146,7 @@ void main() {
     float tm = 0.1;
     for (int i = 0; i < GLASS_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (tm > CB_FAR) break;
+        if (tm > reachFar) break;
         used = float(i);
         float d = map(ro + rd * tm);
         float eps = glassEps(tm);
@@ -181,9 +193,9 @@ void main() {
         vec3 block = (refr * (1.0 - fr) + refl * fr) * glassStepAO(used * 0.4);
         block += glassRim(cosI, hue + glassHash3(c) * 0.6, 1.0);
         block += vec3(1.0) * glassGlint(cellRot(c) * lq, 8.0, ear.hat) * (0.3 + fr);
-        col = mix(block, col, smoothstep(CB_FAR * 0.45, CB_FAR, hitT));
+        col = mix(block, col, smoothstep(reachFar * 0.45, reachFar, hitT));
     }
 
     col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(glassTone(col)), 1.0);
+    fragColor = vec4(grade(glassTone(col * (1.0 + 0.5 * kPulse))), 1.0);
 }

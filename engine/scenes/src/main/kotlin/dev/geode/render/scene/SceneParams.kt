@@ -190,6 +190,15 @@ data class SceneParams(
     val diveFog: Float = 0f,
     val diveLens: Float = 0f,
     val diveFollow: Float = 1f,
+    val paletteAmount0: Float = 1f,
+    val paletteAmount1: Float = 0.5f,
+    val paletteAmount2: Float = 0.5f,
+    val paletteAmount3: Float = 0.5f,
+    val paletteAmount4: Float = 0.5f,
+    val paletteAmount5: Float = 0.5f,
+    val paletteAmount6: Float = 0.5f,
+    val paletteAmount7: Float = 0.5f,
+    val paletteShift: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
@@ -199,8 +208,6 @@ data class SceneParams(
         const val NO_PALETTE_LUT: Int = -1
 
         const val NO_STOP: Int = -1
-
-        val CYCLIC_PALETTES: List<String> = dev.geode.render.CyclicPalettes.NAMES
 
         val DEFAULT: SceneParams = SceneParams()
 
@@ -238,19 +245,12 @@ data class SceneParams(
     val usesCustomPalette2: Boolean
         get() = palette2BaseOverride >= 0f || palette2RangeOverride >= 0f
 
-    // The override when it is set, else the built-in palette's (index clamped into the table): native,
-    // `geode_params_palette_base`/`_range`, the same rule the renderer draws by.
+    // The override when set, else the built-in palette's: native `geode_params_palette_base`/`_range`, as the renderer draws.
     val paletteBase: Float
         get() = GeodeNative.paramsPaletteBase(palette, paletteBaseOverride)
 
     val paletteRange: Float
         get() = GeodeNative.paramsPaletteRange(palette, paletteRangeOverride)
-
-    val palette2Base: Float
-        get() = GeodeNative.paramsPaletteBase(palette2, palette2BaseOverride)
-
-    val palette2Range: Float
-        get() = GeodeNative.paramsPaletteRange(palette2, palette2RangeOverride)
 
     fun withoutCustomPalette(second: Boolean = false): SceneParams =
         if (second) {

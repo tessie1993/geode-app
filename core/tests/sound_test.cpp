@@ -6,16 +6,21 @@
 #include <cstdint>
 #include <memory>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <numbers>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/Tuning.hpp"
+#include "tests/SoundFields.hpp"
 
 using geode::sound::SoundEngine;
 
@@ -553,8 +558,8 @@ void testBoundaryEvent() {
     CHECK(f.sectionChange == 0.0f, "once, read %f on the next frame", f.sectionChange);
 }
 
-// Settings › Audio's tuning schema (sound/Tuning), pinned to the Kotlin SoundTuning it replaced: its
-// defaults, its ranges, and its wire order (the slots are GeodeSoundTuning's fields).
+// Settings › Audio's tuning schema (sound/Tuning), pinned: its defaults, its ranges, and its wire order
+// (the slots are GeodeSoundTuning's fields).
 float slotOf(const GeodeSoundTuning& t, int i) {
     float v[geode::sound::tuning::kSlots];
     std::memcpy(v, &t, sizeof v);
@@ -568,7 +573,7 @@ void testTuningSchema() {
         int slot;
         float def, lo, hi;
     };
-    // The old Kotlin defaults and ranges, slot by slot in its toFloats order.
+    // The defaults and ranges saved tunings were written under, slot by slot in wire order.
     const Old old[] = {
         {0, 1.0f, 0.0f, 4.0f},     {1, 1.0f, 0.0f, 4.0f},     {2, 1.0f, 0.0f, 4.0f},       // gain
         {3, 0.0f, 0.0f, 1.0f},     {4, 0.0f, 0.0f, 1.0f},     {5, 0.0f, 0.0f, 1.0f},       // threshold
@@ -627,7 +632,7 @@ void testTuningSchema() {
     wild.attack[2] = 5.0f;
     const GeodeSoundTuning c = tuning::clamp(wild);
     CHECK(c.reactivity == 3.0f && c.speed == 1.0f && c.attack[0] == 0.0f && c.attack[1] == 0.03f && c.attack[2] == 1.0f,
-          "the struct clamps as the old Kotlin clamped() did");
+          "the struct clamps slot by slot");
 }
 
 // The engine clamps whatever it is handed, so no surface can feed it a NaN or an out-of-range knob.
@@ -642,6 +647,49 @@ void testEngineClampsTuning() {
     CHECK(e.tuning().reactivity == 1.0f, "NaN reactivity is the default, %f", static_cast<double>(e.tuning().reactivity));
     CHECK(e.tuning().speed == 4.0f && e.tuning().silenceDb == -30.0f && e.tuning().gain[1] == 0.0f,
           "out-of-range slots clamp in the engine");
+}
+
+// SND_BASS for bass, SND_MID_HIGH_ATT for midHighAtt, SND_KICK2 for kick2.
+std::string shaderName(const char* field) {
+    std::string out = "SND_";
+    for (const char* c = field; *c; ++c) {
+        const bool upper = *c >= 'A' && *c <= 'Z';
+        if (upper && c != field && !(c[-1] >= 'A' && c[-1] <= 'Z')) out += '_';
+        out += upper ? *c : static_cast<char>(*c >= 'a' && *c <= 'z' ? *c - 'a' + 'A' : *c);
+    }
+    return out;
+}
+
+// The frame's layout as shaders read it: the scalars sit in declaration order at the front of the
+// frame, and lib_sound.glsl names each one in its slot, four to a vec4.
+void testShaderLibraryNamesEveryScalarInItsSlot() {
+    using namespace geode::sound::test;
+    GeodeSoundFrame f{};
+    for (int k = 0; k < kFieldCount; k++) {
+        const auto at = &(f.*kFields[k].member) - reinterpret_cast<float*>(&f);
+        CHECK(at == k, "%s is float %d, listed as %d", kFields[k].name, static_cast<int>(at), k);
+    }
+    std::ifstream in("app/src/main/assets/shaders/lib_sound.glsl");
+    CHECK(in.good(), "lib_sound.glsl not found: run from the repository root");
+    const std::string uniform = "uniform vec4 uSound[";
+    std::string line;
+    int slot = 0;
+    int vec4s = -1;
+    while (std::getline(in, line)) {
+        if (line.rfind(uniform, 0) == 0) vec4s = std::atoi(line.c_str() + uniform.size());
+        if (line.rfind("#define SND_", 0) != 0) continue;
+        std::istringstream words(line);
+        std::string define, name, value;
+        words >> define >> name >> value;
+        if (value.rfind("uSound[", 0) != 0) continue;
+        const std::string want = slot < kFieldCount ? shaderName(kFields[slot].name) : "nothing";
+        const std::string at = "uSound[" + std::to_string(slot / 4) + "]." + "xyzw"[slot % 4];
+        CHECK(name == want && value == at, "slot %d: %s %s, want %s %s", slot, name.c_str(), value.c_str(), want.c_str(),
+              at.c_str());
+        slot++;
+    }
+    CHECK(slot == kFieldCount, "%d of %d scalars named", slot, kFieldCount);
+    CHECK(vec4s == (GEODE_SOUND_SCALARS + 3) / 4, "uSound[%d]", vec4s);
 }
 
 }  // namespace
@@ -668,6 +716,7 @@ int main() {
     testBoundaryEvent();
     testTuningSchema();
     testEngineClampsTuning();
+    testShaderLibraryNamesEveryScalarInItsSlot();
     if (failures == 0) std::printf("sound_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

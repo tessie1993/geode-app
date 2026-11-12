@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
 import dev.geode.render.AdsrConfig
@@ -95,11 +96,12 @@ private fun LookControl(
         ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, SceneParams::paletteMix) { onChange(p.copy(paletteMix = it)) }
         ParamKeys.COLOUR_MAP ->
             if (visible(key, ParamScope.SHADER_LOOK)) {
-                val selected = SceneParams.CYCLIC_PALETTES.getOrNull(p.paletteLut) ?: "Off"
+                val maps = remember { colourMapNames() }
+                val selected = maps.getOrNull(p.paletteLut) ?: "Off"
                 ProGated(key, value = selected) {
                     DropdownRow(
                         name = key,
-                        options = listOf("Off") + SceneParams.CYCLIC_PALETTES,
+                        options = listOf("Off") + maps,
                         selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
                         lockKey = key,
                         about = "Even colour steps that loop, so a wrap has no seam.",
@@ -679,6 +681,10 @@ private fun DirectorSwitch() {
 
 /** Above this the second palette is in the picture, so its controls show. */
 private const val PALETTE_MIX_SHOWN = 0.001f
+
+/** The colour maps' names in `paletteLut` order, from the native palette library. */
+private fun colourMapNames(): List<String> =
+    generateSequence(0) { it + 1 }.map(GeodeNative::paletteColourMapName).takeWhile { it.isNotEmpty() }.toList()
 
 // Names of panel controls that are not ParamKeys, as core/viz/CustomizeMap spells them.
 internal const val REACTION_DNA = "Reaction DNA"

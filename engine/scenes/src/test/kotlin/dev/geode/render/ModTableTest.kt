@@ -52,5 +52,8 @@ class ModTableTest {
         assertFalse(ModTable.offeredTo(LfoTarget.MACRO, "julia", ModTable.REACTION))
         assertTrue(ModTable.offeredTo(LfoTarget.MACRO, "milkdrop", ModTable.ENVELOPE))
         assertTrue(ModTable.offeredTo(LfoTarget.MACRO, "silk_web", 2))
+        // Past ordinal 63: the masks are wider than a Long.
+        assertTrue(ModTable.offeredTo(LfoTarget.PALETTE_SHIFT, "julia", ModTable.REACTION))
+        assertTrue(ModTable.offeredTo(LfoTarget.PALETTE_AMOUNT_8, "milkdrop", 2))
     }
 }

@@ -32,7 +32,13 @@ enum class LfoTarget {
     // Appended: a macro knob (viz/MacroBank), the one LfoConfig::knob / AdsrConfig::knob names. It writes no param:
     // the resolver adds the wave or the envelope to the knob's turn, and the knob moves what it links.
     Macro,
+    // Appended: the palette stack's amounts (Palette 1, 3..8; Palette 2's is PaletteMix's once the renderer draws
+    // the stack) and where along it the colours sit (viz/Palette.hpp).
+    PaletteAmount1, PaletteAmount3, PaletteAmount4, PaletteAmount5, PaletteAmount6, PaletteAmount7, PaletteAmount8,
+    PaletteShift,
 };
+// The last ordinal: the wire's range for a target.
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::PaletteShift;
 
 struct ModChain {
     int slot;

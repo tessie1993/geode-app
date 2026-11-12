@@ -168,6 +168,11 @@ void Renderer::notePresetLoaded(const std::string& path) {
     milkPresetLoaded_ = path;
 }
 
+bool Renderer::milkPresetLoadedPending() const {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    return !milkPresetLoaded_.empty();
+}
+
 std::string Renderer::takeMilkPresetLoaded() {
     std::lock_guard<std::mutex> lock(stateLock_);
     std::string out;

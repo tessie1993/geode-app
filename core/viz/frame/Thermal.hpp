@@ -20,11 +20,10 @@
 // read "no forecast" and settled on Full while the first was easing off (#387). Now one state holds the
 // readings and the settled tier; every renderer's governor reads it, and the pacer applies its fps cap.
 //
-// Android keeps only the reads. The status is never polled: PowerManager's status listener pushes it when
-// it changes. The headroom is asked every ten seconds: a live renderer's one per-frame call
-// (`geode_viz_frame_begin`) claims the slot and says GEODE_FRAME_THERMAL_DUE; only then does
-// `ThermalGovernor.kt` ask PowerManager and call `geode_thermal_push`. The cadence, the NaN rule, the dwell
-// and the ladder are all decided here.
+// The platform's reads are viz/frame/ThermalSource (the NDK's thermal manager). The status is never polled:
+// its listener pushes it when it changes. The headroom is asked every ten seconds: a live renderer's frame
+// (`geode_viz_frame`) claims the slot and, when it wins one with a headroom due, asks the platform. The
+// cadence, the NaN rule, the dwell and the ladder are all decided here.
 namespace geode::viz {
 
 enum class ThermalTier { Full, Eased, Reduced, Minimal };
@@ -68,7 +67,7 @@ class ThermalState {
 public:
     // The state settles once a second for the whole process, whoever draws.
     static constexpr double kSamplePeriodSeconds = 1.0;
-    // PowerManager's headroom tracks slow skin sensors, and Android's Thermal API guide says to ask no more
+    // The platform's headroom tracks slow skin sensors, and Android's Thermal API guide says to ask no more
     // than once every ten seconds (it answers NaN otherwise), so the whole process asks that often.
     static constexpr double kHeadroomPeriodSeconds = 10.0;
     // A NaN between real readings is a missed window, not a cool phone: the last real headroom holds this
@@ -136,7 +135,7 @@ public:
         settle(std::max(statusTier(status_), headroomTier(headroom_)), step);
     }
 
-    // True once PowerManager has answered with a real status. Until then (and on old phones for good)
+    // True once the platform has answered with a real status. Until then (and on old phones for good)
     // the governors fall back on measured frame time.
     bool platformKnows() const { return platformKnows_.load(std::memory_order_relaxed); }
 
@@ -191,7 +190,7 @@ public:
     }
 
     static ThermalTier statusTier(int status) {
-        // PowerManager.THERMAL_STATUS_*: NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
+        // ATHERMAL_STATUS_* (PowerManager.THERMAL_STATUS_*'s values): NONE 0, LIGHT 1, MODERATE 2, SEVERE 3 and up.
         if (status <= 0) return ThermalTier::Full;
         if (status == 1) return ThermalTier::Eased;
         if (status == 2) return ThermalTier::Reduced;

@@ -25,13 +25,12 @@ class GyroLook(
     private val sensor = sensors?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
     private var listening = false
 
-    /** Registers or unregisters; native recaptures on the next switch on and recentres on off. */
+    /** Registers or unregisters; native recentres on off and recaptures on the first reading after it. */
     fun setActive(on: Boolean) {
         if (on == listening || sensor == null || sensors == null) return
         listening = on
-        renderer.gyroReading = null
+        renderer.nativeViz.gyroOff()
         if (on) {
-            renderer.gyroSession++
             sensors.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME)
         } else {
             sensors.unregisterListener(this)
@@ -39,8 +38,9 @@ class GyroLook(
     }
 
     override fun onSensorChanged(event: SensorEvent) {
+        if (!listening) return // one queued as the sensor stopped would start a new session
         val v = event.values
-        renderer.gyroReading = floatArrayOf(v[0], v[1], v[2], v[3], (display()?.rotation ?: 0).toFloat())
+        renderer.nativeViz.gyroPush(v[0], v[1], v[2], v[3], display()?.rotation ?: 0)
     }
 
     override fun onAccuracyChanged(

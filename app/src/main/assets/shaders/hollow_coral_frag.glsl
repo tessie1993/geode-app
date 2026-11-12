@@ -18,7 +18,7 @@ out vec4 fragColor;
 // offset rows, each a mound with a mouth at its top, ringed like a target.
 //
 // Morph turns the reef inside out: the mounds sink and become pits. Worst
-// case 72 steps, no noise.
+// case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);

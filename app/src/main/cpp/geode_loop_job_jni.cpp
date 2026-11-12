@@ -109,6 +109,7 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetUnderl
                                                                                    jint height, jint blend,
                                                                                    jfloat amount) {
     jint* data = pixels ? env->GetIntArrayElements(pixels, nullptr) : nullptr;
+    if (pixels && !data) return;
     geode_loop_job_set_underlay(jobOf(job), reinterpret_cast<const uint32_t*>(data),
                                 pixels ? env->GetArrayLength(pixels) : 0, width, height, blend, amount);
     if (data) env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);

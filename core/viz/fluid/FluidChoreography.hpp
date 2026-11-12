@@ -40,7 +40,6 @@ public:
 
     const std::array<Anchor, kMaxSpawn>& spawns() const { return spawns_; }
     const std::array<Anchor, kMaxCatch>& catches() const { return catches_; }
-    int hitCount() const { return hitCount_; }
 
     void tick(const GeodeSoundFrame& f, float dt, float aspect);
     void reset();
@@ -58,14 +57,11 @@ private:
 
     std::array<Anchor, kMaxSpawn> spawns_{};
     std::array<Anchor, kMaxCatch> catches_{};
-    int hitCount_ = 0;
     float time_ = 0.0f;
     int lastSection_ = -1;
     float sectionPhase_ = 0.0f;
     bool initialized_ = false;
-    float beatEnv_ = 0.0f;
     float bassEnv_ = 0.0f;
-    live::Edge hitEdge_;
     live::Traverse traverse_;
 };
 

@@ -31,7 +31,6 @@ public:
     static constexpr int kPatternRandom = 2;
     static constexpr int kPatternSpectrumArc = 3;
     static constexpr float kBaseSpeed = 6.0f;
-    static constexpr float kBeatResponseGate = 0.05f;
 
     const Choreography* choreography = nullptr;
     int beatPattern = kPatternRing;
@@ -45,7 +44,6 @@ public:
     float paletteCycleSpeed = 0.5f;
     float forceScale = 1.0f;
     float catchSuction = 1.0f;
-    float beatResponse = 1.0f;
 
     void applyParams(const SceneParams& p);
     void tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out);
@@ -66,7 +64,6 @@ private:
 
     std::mt19937 rng_{std::random_device{}()};
     std::uniform_real_distribution<float> uniform_{0.0f, 1.0f};
-    float beatEnvRaw_ = 0.0f;
     float beatEnv_ = 0.0f;
     float bassEnv_ = 0.0f;
     std::array<float, 4> stirrerAngle_{0.0f, 1.7f, 3.4f, 5.1f};

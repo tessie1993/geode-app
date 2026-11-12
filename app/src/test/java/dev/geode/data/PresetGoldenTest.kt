@@ -90,6 +90,7 @@ class PresetGoldenTest {
             setOf(
                 "pulse",
                 "shake",
+                "beatResponse",
                 "flash",
                 "glitch",
                 "strobe",

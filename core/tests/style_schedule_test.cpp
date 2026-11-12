@@ -80,6 +80,45 @@ void proPlaysEveryStyle() {
     check(ids.size() == 2 && ids[0] == "bulb_07" && ids[1] == "plasma", "with nothing locked every switch plays");
 }
 
+// #999 F3, "freeze, same as live": the renderer advances the schedule on the picture's clock. 60 fps, a
+// beat every 30 frames that the tracker's flywheel keeps ticking through the silence, music for 5 s,
+// silence (motionRate 0) for 10 s, music again.
+constexpr int kSilentFrom = 300;
+constexpr int kSilentTo = 900;
+float rateAt(int frame) { return frame >= kSilentFrom && frame < kSilentTo ? 0.0f : 1.0f; }
+
+void aSilentStretchHoldsTheBeatCut() {
+    StyleSchedule schedule;
+    schedule.set({}, {"a", "b", "c"}, 1);
+    int inSilence = 0;
+    int before = 0;
+    int after = 0;
+    for (int f = 0; f < 1200; ++f) {
+        const auto beat = static_cast<float>(f / 30);
+        if (!schedule.advance(1.0f / 60.0f, rateAt(f), beat)) continue;
+        if (f < kSilentFrom) ++before;
+        else if (f < kSilentTo) ++inSilence;
+        else ++after;
+    }
+    check(before > 0, "the beat cut cuts while the music plays");
+    check(inSilence == 0, "no cut in a silent stretch: the picture is still, so is the schedule");
+    // Ten beats are heard after the silence (frames 900, 930, ... 1170), and every one cuts: none of the
+    // twenty the flywheel ticked through the silence is counted or bursts out at its end.
+    check(after == 10, "after the silence the cut follows the beats heard, one each");
+}
+
+void aSilentStretchHoldsTheTimedCues() {
+    StyleSchedule schedule;
+    // At 6 s of the picture's clock: 5 s of music, 10 s still, then 1 s more, so render frame 960.
+    schedule.set({cue(6'000, "plasma")}, {}, 4);
+    int at = -1;
+    for (int f = 0; f < 1200 && at < 0; ++f) {
+        if (schedule.advance(1.0f / 60.0f, rateAt(f), static_cast<float>(f / 30))) at = f;
+    }
+    check(at >= 959 && at <= 961, "a timed cue keeps the picture's time: it lands 1 s after the silence, not in it");
+    check(schedule.clockMs() > 6'000.0 && schedule.clockMs() < 6'100.0, "the schedule's clock did not run while still");
+}
+
 }  // namespace
 
 int main() {
@@ -87,6 +126,8 @@ int main() {
     beatCutSkipsLockedStyles();
     allLockedLeavesNothingToDraw();
     proPlaysEveryStyle();
+    aSilentStretchHoldsTheBeatCut();
+    aSilentStretchHoldsTheTimedCues();
     if (failures == 0) std::printf("style_schedule_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

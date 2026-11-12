@@ -29,8 +29,8 @@ precision highp float;
 // living matter, Gray-Scott over the four neighbours weighted by v.
 //
 // Audio enters as MATTER and as a breathing RULE (LifeScene steers both from
-// the sound frame): the kick envelope drops reagent at the birth orbit, the
-// melody buds where its pitch points, hats sprinkle spores; the snare and a
+// the sound frame): the melody buds where its pitch points, hats sprinkle
+// spores (the kick's lump on every hit was a hidden reaction, gone); the snare and a
 // surge widen the growth window, and the rule morphs between the style's
 // presets on kick16 and hard cuts. uDt carries the activity rate (quiet
 // music freezes the colonies), uShift a whole-texel drift on the sound clock
@@ -57,9 +57,6 @@ uniform float uAniso;      // 0 isotropic; >0 favours x growth (frost)
 uniform float uSeed;       // 1 on reset, decays; scatters a starting culture
 uniform float uSeedJitter; // seed lattice scale
 uniform float uSeedSalt;   // moves the seed lattice so every re-seed scatters a new culture
-uniform float uKick;       // kick lump this frame (one per kick, sized by its envelope peak)
-uniform vec2 uKickPos;     // kick blob position, uv
-uniform float uKickSize;   // kick blob radius scale (kick random)
 uniform float uBud;        // melody bud strength this frame (note strike, glide trail)
 uniform vec2 uBudPos;      // where the melody points, uv
 uniform float uInk;        // melody ink stamped into new matter, 0..1
@@ -71,7 +68,7 @@ uniform float uTime;
 // ---- the finger as a seed --------------------------------------------------
 //
 // Audio enters this world as matter; so does a finger. It seeds the SAME
-// channel the beat kick seeds - A for Lenia, v for Gray-Scott - so what grows
+// channel the seeds and buds feed - A for Lenia, v for Gray-Scott - so what grows
 // out from under a fingertip is the organism this species actually makes, not
 // a decoration painted over one. See SceneTouch.kt for the packing (xy is
 // y-up NDC, aspect NOT applied). LifeScene zeroes uTouchCount on every substep
@@ -196,20 +193,8 @@ void main() {
             fresh = max(fresh, inCell);
         }
     }
-    if (uKick > 0.0) {
-        vec2 dpos = (vUv - uKickPos) * vec2(aspect, 1.0) / max(uKickSize, 0.2);
-        float blob = exp(-dot(dpos, dpos) * 900.0) * uKick;
-        if (uRule == 0) {
-            // Half strength: a saturated disc every beat floods a Lenia world
-            // into one mass; a soft lump buds a new organism instead.
-            newA = clamp(newA + blob * 0.5, 0.0, 1.0);
-        } else {
-            newV = clamp(newV + blob, 0.0, 1.0);
-        }
-        fresh = max(fresh, blob);
-    }
     if (uBud > 0.0) {
-        // The melody's bud: smaller and tighter than the kick's, so a run of
+        // The melody's bud: small and tight, so a run of
         // notes reads as a strand of spores following the line.
         vec2 dpos = (vUv - uBudPos) * vec2(aspect, 1.0);
         float bud = exp(-dot(dpos, dpos) * 1800.0) * uBud;

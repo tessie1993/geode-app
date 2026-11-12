@@ -25,7 +25,6 @@ uniform float uBaseHue;
 uniform float uHueSpan;
 uniform float uExposure;
 uniform float uEnergy;
-uniform float uBeat;
 
 vec3 hsv2rgb(vec3 c) {
     vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
@@ -65,7 +64,7 @@ void main() {
         float traces = smoothstep(0.18, 0.32, tone);
         float pads = smoothstep(0.75, 0.95, tone);
         color = vec3(0.008, 0.02, 0.012) + mixed * traces * 0.75;
-        color += cA * pads * (0.8 + 0.6 * uBeat);
+        color += cA * pads * 0.8;
     } else if (uLook == 4) {
         float heat = pow(tone, 1.4) * (0.8 + 0.4 * uEnergy);
         color = vec3(heat * 1.7, heat * heat * 1.15, heat * heat * heat);

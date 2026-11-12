@@ -49,6 +49,7 @@ class ParamSchemaTest {
             listOf(
                 "pulse",
                 "shake",
+                "beatResponse",
                 "flash",
                 "glitch",
                 "strobe",

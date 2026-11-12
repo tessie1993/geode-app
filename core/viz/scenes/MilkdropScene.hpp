@@ -106,7 +106,6 @@ private:
     GLuint postVao_ = 0;
     float rotationAngle_ = 0.0f;
     float cyclePhase_ = 0.0f;
-    float beatPulse_ = 0.0f;
     double lastLoadSeconds_ = 0.0;
     uint64_t seenAutoMark_ = 0;  // the last of Auto's marks a load here took (transition_choice::takeAuto)
     SceneParams params_;

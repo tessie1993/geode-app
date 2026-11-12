@@ -187,7 +187,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 1.3f,
                             audioDrive = 1.6f,
-                            beatResponse = 1.9f,
                             bloom = 0.6f,
                             contrast = 1.2f,
                             intensity = 1.15f,
@@ -225,7 +224,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 0.5f,
                             audioDrive = 0.85f,
-                            beatResponse = 0.45f,
                             trails = true,
                             trailLength = 0.8f,
                             saturation = 0.8f,
@@ -287,7 +285,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 0.8f,
                             audioDrive = 1.1f,
-                            beatResponse = 1.0f,
                             saturation = 1.1f,
                             bloom = 0.3f,
                             vignette = 0.5f,
@@ -339,7 +336,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 1.0f,
                             audioDrive = 1.25f,
-                            beatResponse = 1.3f,
                             trails = true,
                             trailLength = 0.45f,
                             contrast = 1.1f,
@@ -397,7 +393,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 0.9f,
                             audioDrive = 1.0f,
-                            beatResponse = 0.6f,
                             saturation = 0.7f,
                             brightness = 0.95f,
                             midGain = 1.25f,
@@ -455,7 +450,6 @@ object BundledTemplates {
                         SceneParams(
                             speed = 1.0f,
                             audioDrive = 1.2f,
-                            beatResponse = 1.1f,
                             bloom = 0.45f,
                             contrast = 1.05f,
                             paramFadeSec = 0.9f,

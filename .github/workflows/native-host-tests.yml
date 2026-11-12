@@ -140,9 +140,13 @@ jobs:
           # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/gyro_look_test.cpp -o gyro_look_test
           ./gyro_look_test
-          # An export segment's style schedule: every later style is gated by the entitlement (#357).
+          # An export segment's style schedule: every later style is gated by the entitlement (#357), and it holds in silence (#999 F3).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # No hidden hit reactions (owner, 2026-11-12): no core source reads the retired beatResponse, and under
+          # core/viz a hit is read only behind a control the user sets (the scenes still listed are known gaps).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror core/tests/hidden_hits_test.cpp -o hidden_hits_test
+          ./hidden_hits_test core/
           # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp -o cast_clock_test
           ./cast_clock_test
@@ -423,11 +427,13 @@ jobs:
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
+      # And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.
       - name: Export pre-roll
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp \
-            core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_preroll_test
+            core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/StyleSchedule.cpp \
+            -o export_preroll_test
           ./export_preroll_test
 
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.

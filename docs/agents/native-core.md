@@ -70,6 +70,15 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
+- `core/viz/CustomizeMap`'s text (version 2) carries each category's tab title and each section's header (`title`, `sectionTitle`).
+- `core/viz/CustomizeRows` is what each Customize control draws as (`geode_customize_rows`): widget, field, words, value, range, default, unit and steps.
+- `CustomizeRows` also holds when a control hides: Catch pull and radius without catch points, Liquid's sliders with Liquid off, Dive speed with neither the endless zoom nor Liquid, Fluid's glow and sunray sliders with those off.
+- `CustomizeRows` hides the whole pages (Your colours, waves, envelopes, shader code, the artwork button) while the panel's search holds text, and matches the rest by key or words.
+- A Cymatics style that holds its plate shows a tip naming it (`catalogue::overrideOf`) where the Geometry pick would be.
+- `core/viz/PanelText` holds the panel's words by their old resource id (`geode_panel_text`); `panel::format` fills `%1$s` placeholders.
+- `core/viz/StyleNames` holds the style and family display names (`geode_style_label`, `geode_style_family_label`); a style with none reads as its id in words.
+- `core/viz/PalettePanel` is Your colours' stop editor as text (`geode_palette_maker_*`), the stack card's rows (`geode_palette_stack_card`) and the palette list (`geode_palette_list_view`).
+- An old hue gradient opens in Your colours as 4 stops (`kMakerHueStops`) and goes on the stack as 5 (`kStackHueStops`).
 - Expert › Shader code shows on Fluid only (`core/viz/CustomizeMap`, `Show::ShaderCode`), with the custom force and dye editors; a shader style has no box for its own fragment shader any more.
 - A look's saved custom shader still applies (`core/viz/ShaderOverrides`, `geode_shader_override_*`).
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.

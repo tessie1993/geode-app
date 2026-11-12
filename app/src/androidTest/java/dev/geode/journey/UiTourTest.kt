@@ -773,7 +773,7 @@ class UiTourTest {
 
         /**
          * Customize's category tabs in order, each with the groups the walk opens: the native map's
-         * sections (core/viz/CustomizeMap) by their titles in `ui/CustomizeCategory.kt`. Engine is
+         * sections (core/viz/CustomizeMap) by their native titles (`sectionTitle`). Engine is
          * left out: it shows only on a style with an engine of its own.
          */
         val CUSTOMIZE_TABS =

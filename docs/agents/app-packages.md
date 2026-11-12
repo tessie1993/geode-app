@@ -49,13 +49,16 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
+- It is a scrollable row of eleven category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list per style: the Palettes card on the shader styles (they draw the stack), else `PaletteDropdown` (the listed built-ins, then the user's own).
 - Look's Your colours (`PaletteMaker`, `ColourPicker`): up to five colour stops, picked Photoshop-style or with an eyedropper on a still of the visual (`geode_viz_still_request`) or the artwork.
+- Your colours' editor is native text (`geode_palette_maker_*`): the stops, the selected one, Add and Remove and their limits; `PaletteMaker` holds the text and draws its rows.
+- The palette list on a style the stack does not draw is native's rows (`geode_palette_list_view`): its options, the one the look holds, its swatch.
 - The stops are scene params `paletteStop0..4` that loop natively (see native-core.md); the user's palettes are saved in `files/palettes/`.
 - Look's Palettes card (`ui/PaletteStack.kt`, shader styles) is the palette stack: layers from the native library or the user's saved palettes, + to add one, an amount each (`paletteAmount0..7`), Side by side or Mixed. `data/PaletteStackStore` keeps the stack text (`palette_stack` in `geode-prefs`, Creative in a backup) and pushes it process-wide (`geode_palette_stack_set`); every edit and the card's rows are native (`geode_palette_stack_editor`). Presets do not carry the stack yet.
+- The Palettes card draws native's rows (`geode_palette_stack_card`): its words, each layer's amount param, swatch and move-up, and whether Blend and Add show.
 - Which control is where, what is free, which styles show what, and each category's Randomize and Reset are native (`core/viz/CustomizeMap`).
 - A roll moves only what the panel offers on the style, and keeps or opens Dive's and Liquid's own switch.
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
@@ -65,8 +68,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.
-- `CustomizeMapTable` splits the map's rows.
-- `CustomizeControls` draws each control by name.
+- `CustomizeMapTable` splits the map's rows, titles included.
+- `CustomizeControls` draws native's rows (`geode_customize_rows`): one per control that draws on the look and style, with its widget, words, value, range, default, unit and steps.
+- `CustomizeControls` keeps a `when` over the row types and over the panel pieces' ids, which pick the composable; nothing in it reads a param to decide.
+- The panel's words that are not a control's label are `panelText(id)` (`core/viz/PanelText`), not string resources.
 - Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
 - `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
 - Customize › Music's action menu takes its order and dividers from `ModCatalog`'s `music` rows (`MusicMoments.chips`).
@@ -269,7 +274,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
 - `render/scene/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
-- `render/scene/StyleLabels` maps a style or family id to its string resource (`style_<id>`, `style_family_<name>`).
+- A style's and a family's display name are native (`GeodeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.

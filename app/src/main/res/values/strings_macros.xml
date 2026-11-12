@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Customize › Quick knobs › Edit knobs (ui/MacroEditor.kt): the macro bank's knob editor. -->
-    <string name="macro_editor_title">Edit knobs</string>
     <plurals name="macro_knob_moves">
         <item quantity="one">Moves %1$d parameter</item>
         <item quantity="other">Moves %1$d parameters</item>

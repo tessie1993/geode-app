@@ -603,6 +603,19 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
           ./customize_test core/tests/customize.txt
 
+      # What Customize draws (core/viz/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
+      # range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
+      - name: Customize rows host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelText.cpp core/viz/StyleNames.cpp \
+            core/viz/PalettePanel.cpp core/viz/Palette.cpp core/api/geode_customize_rows_api.cpp core/api/geode_palette_api.cpp \
+            core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/customize_rows_test.cpp $ROWS_SRC -o customize_rows_test
+          ./customize_rows_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/palette_panel_test.cpp $ROWS_SRC -o palette_panel_test
+          ./palette_panel_test
+
       # The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
       - name: Randomize everything host tests
         working-directory: ${{ env.PROJECT_DIR }}

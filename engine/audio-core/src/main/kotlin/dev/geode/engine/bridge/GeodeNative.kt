@@ -1435,6 +1435,89 @@ object GeodeNative {
     )
 
     /**
+     * What each control in [keys] (one Customize map key a line) draws as on the look [params] and [styleId]: rows of
+     * widget, field, words, value, range, default, unit and steps, or none where it hides (core/viz/CustomizeRows).
+     * [query] is the panel's search, [transition] whether a style transition is chosen, [liquidMode] the renderer's.
+     */
+    external fun customizeRows(
+        styleId: String,
+        keys: String,
+        query: String,
+        transition: Boolean,
+        liquidMode: Int,
+        params: FloatArray,
+    ): String
+
+    /** A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. */
+    external fun panelText(id: String): String
+
+    /** A style's display name (core/viz/StyleNames). */
+    external fun styleLabel(styleId: String): String
+
+    /** A Styles page family's display name (core/viz/StyleNames). */
+    external fun styleFamilyLabel(family: String): String
+
+    /** Your colours' editor state on the look [params]' own colours (core/viz/PalettePanel). */
+    external fun paletteMakerStart(params: FloatArray): String
+
+    /** Your colours' editor state on the look [params]' hue ramp alone. */
+    external fun paletteMakerFromLook(params: FloatArray): String
+
+    /** Your colours' editor state on a saved palette: its [stops], else its [base] and [span] as a ramp. */
+    external fun paletteMakerOpen(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** [state] after [op] (`PALETTE_MAKER_*`) with [arg]: the stop to select or the selected stop's new colour. */
+    external fun paletteMakerEdit(
+        state: String,
+        op: Int,
+        arg: Int,
+    ): String
+
+    /** The packed colours of an editor [state]. */
+    external fun paletteMakerStops(state: String): IntArray
+
+    /** An editor [state] as Your colours draws it (rows in core/viz/PalettePanel.hpp). */
+    external fun paletteMakerView(state: String): String
+
+    /** A saved palette's colours as a stack layer: its [stops], else its ramp. */
+    external fun paletteSavedColours(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): IntArray
+
+    /** A saved palette's strip: "RRGGBB" joined by ','. */
+    external fun paletteSavedSwatch(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** Look's palette list on a style the stack does not draw ([savedIds] and [savedNames] one a line). */
+    external fun paletteListView(
+        params: FloatArray,
+        customId: String,
+        savedIds: String,
+        savedNames: String,
+    ): String
+
+    /** The palette stack card on the look [params]; [savedCount] is how many palettes the user saved. */
+    external fun paletteStackCard(
+        stack: String,
+        params: FloatArray,
+        savedCount: Int,
+    ): String
+
+    const val PALETTE_MAKER_SELECT: Int = 0
+    const val PALETTE_MAKER_SET: Int = 1
+    const val PALETTE_MAKER_ADD: Int = 2
+    const val PALETTE_MAKER_REMOVE: Int = 3
+
+    /**
      * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
      * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
      * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one

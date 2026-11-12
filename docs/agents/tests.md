@@ -12,7 +12,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
 - `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
-- `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name Customize's screens pass as text to a live row of the params schema fixture.
+- `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name `CustomizeAdvanced` and `CustomizeTabs` pass as text to a live row of the params schema fixture; the controls' own names are held natively by `customize_rows_test`.
 - `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
 - Put new pure tests in a JVM module where you can.
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).
@@ -41,6 +41,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
 - `control_range_test.cpp`: the range a Customize slider offers for a scene param (`core/viz/ControlRange`): the schema's, cut short by the flash clamp's depth and Fly's stop; the old `ControlRangeTest` cases.
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
+- `customize_rows_test.cpp`: each control's widget and live field, its words, range, default, unit and steps, when it hides, the search, the panel's words, the style names and the map's titles and owner's layout (`core/viz/CustomizeRows`, `PanelText`, `StyleNames`).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
 - `director_test.cpp` also plays one song at four tempos and checks the feeling is identical, and that no axis turns the reaction matrix's amount.
@@ -108,6 +109,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
 - `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
 - `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
+- `palette_panel_test.cpp`: Your colours' stop editor and its limits, the stack card's rows and the palette list's pick (`core/viz/PalettePanel`).
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place.
 - `params_json_test.cpp` also pins the stored text read as org.json parsed it (a long literal's low 32 bits, a double saturating, the fallback for text that is not standard JSON) and object or array ids as org.json prints them.

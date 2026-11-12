@@ -27,7 +27,7 @@
 namespace geode::viz::customize {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-constexpr int kTextVersion = 1;
+constexpr int kTextVersion = 2;
 
 // In panel order. Names match Kotlin's CustomizeCategory.
 enum class Category { QuickKnobs, Look, Shape, Motion, Dive, Camera, Music, Effects, Liquid, Engine, Expert };
@@ -71,6 +71,11 @@ const std::vector<HeldControl>& heldControls();
 std::optional<Category> categoryNamed(std::string_view name);
 const char* name(Category category);
 const char* name(Show show);
+
+// The words the panel shows: a category's tab title, and a section's group header by its id (the same id
+// in two categories, "basics", reads the same). The shell keeps no words of its own for either.
+const char* title(Category category);
+std::string sectionTitle(std::string_view sectionId);
 
 // A kept category, after MilkDrop's mash-up bins, each of which can be locked against the next
 // random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
@@ -135,8 +140,8 @@ int changedCount(const SceneParams& current);
 
 // The map as the shell reads it. Rows, '|'-separated, one per line, in this order:
 //   customize|<kTextVersion>
-//   category|<CATEGORY>|<SHOW>                        panel order
-//   section|<CATEGORY>|<id>|BASICS or PRO|<SHOW>|<key>,<key>,...   sections() order
+//   category|<CATEGORY>|<SHOW>|<title>                        panel order
+//   section|<CATEGORY>|<id>|BASICS or PRO|<SHOW>|<key>,<key>,...|<title>   sections() order
 // Built once; the reference lives for the process.
 const std::string& text();
 

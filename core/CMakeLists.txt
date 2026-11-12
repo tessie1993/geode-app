@@ -17,6 +17,7 @@ add_library(geode_core STATIC
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
+    api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
@@ -176,6 +177,10 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/CustomizeRows.cpp
+    viz/PanelText.cpp
+    viz/PalettePanel.cpp
+    viz/StyleNames.cpp
     viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp

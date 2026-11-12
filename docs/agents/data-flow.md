@@ -59,6 +59,8 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - DNA draws from the 155 `ReactSource`s.
 - Every style's groove ends on one route from the transient detector (`Transient` or `TransientEnv`).
+- Every style's groove starts on the drums: the kick side hears `KICK`, `KICK_2` or `KICK_ENV`, the snare side `SNARE`, `SNARE_2`, `SNARE_ENV` or `HAT` (`viz_math_test` pins it per catalogue style).
+- No pulse personality turns the picture: the kick or snare side moves a target every style reads, never a rotation.
 - After the groove every style's DNA has four musical routes: the bars, the tune, harmony and form, feel and timbre (`viz_math_test` pins each).
 - No default route's continuous source is the absolute loudness (`Level`, `Loudness`, `Vol`, `VolAtt`, `Intensity`), nor the felt energy, which carries it.
 - The DNA's harmony-and-form layer is harmony for half the styles (chords, their motion, tension, key, scale tension) and form for the other half (sections, their return and progress, the song part, builds, drops, novelty).

@@ -4,11 +4,18 @@
 // Why a second file: no style in the app declares a function ahead of its body
 // (style_reads_test: noStyleDeclaresAFunctionAhead), as lib_hollow_march says.
 //
-// INCLUDE ORDER: after lib_fluor and after the style's fluorMap.
+// Round the relief it draws lib_strata's two other layers: the warped haze before it and the far
+// fractal at the open end of the way.
+//
+// INCLUDE ORDER: after lib_strata, lib_fluor and the style's fluorMap.
 
 vec2 fluorField(vec3 p) {
     float k = growOpen(p, 0.15);
-    vec3 q = growOpened(fluorBend(p), k);
+    vec3 q = fluorBend(p);
+    // A second, finer warp on the Warp's bend (lib_strata's gStrataWarp: Warp, k2 FLOW and the
+    // mids): the carving sways in place. Along the way a whole number of cycles per 16.
+    q += 0.03 * gStrataWarp * sin(q.yzx * vec3(1.7, 1.5708, 1.7) + vec3(0.0, 2.0, 4.0) + uTime * FLUOR_RATE(110));
+    q = growOpened(q, k);
     vec2 m = fluorMap(q);
     // Grow and layers (lib_grow), each off at its default: Spawn slides a second carving off the first
     // along the way (half a tile at full), so every boss, spiral and panel doubles; Fractal carves the relief
@@ -94,5 +101,14 @@ vec3 fluorTrace(vec3 ro, vec3 rd) {
     float air = exp(-3.0 * depth);
     // Light skims the relief the ray passes close to, and the far end of the way is never quite dark.
     col = col * air + fluorCol(hue + 0.5) * (0.025 * (1.0 - air) + 0.02 * exp(-6.0 * max(near, 0.0)));
+    // The middle layer (lib_strata): the warped haze between the eye and the relief.
+    float dz = fluorDither();
+    vec2 haze = strataHaze(ro, rd, 0.3, hit ? t : gFluorFar, dz);
+    col += fluorCol(gFluorTone + 0.3 + haze.y) * haze.x * gStrataHazeGlow;
+    // The far layer, where the ray met no relief: the open end of the way.
+    if (!hit) {
+        vec3 far = strataFar(ro, rd, 0.6 * gFluorFar, 1.8 * gFluorFar, dz);
+        col += fluorCol(gFluorTone + 0.65 + far.y) * far.x * gStrataFarGlow;
+    }
     return col;
 }

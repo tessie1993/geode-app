@@ -153,6 +153,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - That includes the native-output switch: on, and not bit-perfect, it lets `audio/TapRenderersFactory` hand the sink the Oboe output.
 - `BitPerfectOutput` is USB DAC bit-perfect via `setPreferredMixerAttributes`, API 34+.
 - `PlaybackService` is a MediaLibraryService.
+- Media browsers (Bluetooth, Assistant; Android Auto is not declared in 1.0) browse `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Android Auto browses `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Queue, sleep timer and ReplayGain live here.
 - `AutoDirectorFeed` is the auto-director's play feed: a seed per track, the position for the free taste.
@@ -189,6 +190,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
 - The bundled looks: `BuiltInPresets`.
 - `MediaStoreSource`: the screens' consent requests and picked-folder grants; main-safe on IO.
+- `MediaStoreSource` also owns the controllers' picked-document I/O: the background image's grant and readability, preset, template and .milk reads, a .milk folder walk, the preset mirror folder's copies and deletes, a queued file's display name. No `*Controller` in `ui/` calls the `ContentResolver` (#896 step 1).
 - Template and preset formats.
 - What was `GuiPrefs`, split by subject: `GeneralSettings`, `SoundInputSettings`, `VisualsSettings`, `LibrarySettings`, and `AppState` (onboarding and the tour, not a preference); each a codec over `geode-prefs` under its old keys.
 - Track favourites: `FavouritesRepository` over `FavouritesStore`, file `geode-favourites`, keyed by the track's URI.

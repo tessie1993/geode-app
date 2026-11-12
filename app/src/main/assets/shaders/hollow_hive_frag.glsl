@@ -19,7 +19,7 @@ out vec4 fragColor;
 // nest's paper.
 //
 // Morph opens the gates until the chambers run together into one pipe. Worst
-// case 72 steps, no noise.
+// case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);

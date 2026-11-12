@@ -6,7 +6,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import dev.geode.data.displayNameOf
+import dev.geode.data.MediaStoreSource
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.model.OpenedAudio
@@ -33,6 +33,7 @@ data class AbLoop(
 
 internal class QueueController(
     private val application: Application,
+    private val mediaStore: MediaStoreSource,
     private val host: Host,
 ) {
     interface Host {
@@ -292,8 +293,8 @@ internal class QueueController(
             ).build()
     }
 
-    private fun metadataQuick(uri: Uri): Pair<String, String> {
-        val name = application.contentResolver.displayNameOf(uri)?.substringBeforeLast('.')
+    private suspend fun metadataQuick(uri: Uri): Pair<String, String> {
+        val name = mediaStore.displayName(uri)?.substringBeforeLast('.')
         return (name ?: application.getString(dev.geode.R.string.library_untitled_track)) to ""
     }
 

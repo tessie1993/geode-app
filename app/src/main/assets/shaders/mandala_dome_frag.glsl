@@ -40,9 +40,9 @@ out vec4 fragColor;
 //                              hump, so it rises and settles.
 // Bass (SND_BASS_ATT)          the halo around the sphere widens.
 // Treble (SND_TREBLE_PRESENCE) the dust shells around the sphere sparkle.
-// Spin                         integrated (uFlowPhase): energy sets the rate,
-//                              never the angle; the sphere and the side domes
-//                              counter-turn, the floor creeps.
+// Spin                         time alone, never the sound (owner 2026-11-12,
+//                              no style spins to the music); the sphere and the
+//                              side domes counter-turn, the floor creeps.
 // Touch                        the finger lights the centre sphere, as before.
 // SND_ENERGY_TREND             overall level.
 // Knobs: k0 PULSE the kick swell, k1 TEXTURE the fringe split, k3 TONE where
@@ -233,8 +233,8 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0);
     float kSpace = clamp(uKnob[5], 0.0, 1.0);
     float split = 0.012 * (0.4 + 1.2 * kTex);
-    // Integrated spin: energy sets the rate, never the angle.
-    float spin = uFlowPhase * 0.5 + uTime * 0.025;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    float spin = uTime * 0.175;
     float finger = touchFalloff(uv, 0.5);
 
     gR = MD_SPHERE * (1.0 + 0.16 * kick * (0.4 + 1.2 * kPulse));

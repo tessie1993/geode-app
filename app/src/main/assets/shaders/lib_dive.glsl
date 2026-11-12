@@ -105,7 +105,7 @@
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion,
 // lib_camera, lib_palette and lib_scene_grade. It reads uSteps,
-// uMorph, uWarp, uTurbulence, uIntensity, uFlowPhase,
+// uMorph, uWarp, uTurbulence, uIntensity,
 // the lib_sound events, the rig and vUv (diveIris), and calls pal().
 // It includes nothing itself and defines its own small helpers (dive_*), so
 // it does not depend on lib_sdf3.
@@ -303,9 +303,9 @@ void diveSetup(int scene) {
     gDiveBreath = 1.0;
     gDiveKick = clamp(SND_KICK_ENV * e, 0.0, 1.0);
     gDiveBeam = 0.13 + 0.05 * gDiveKick;
-    // Loudness sets the rate (uFlowPhase only ever advances). No sound band pushes the
-    // rings round on top (owner 2026-11-12, no style spins to the music).
-    gDiveSpin = diveTime() * 0.45 + uFlowPhase * 0.6;
+    // The rings turn on time alone, at the rate the loudness clock (uFlowPhase) used to add at
+    // a typical level: no sound turns them (owner 2026-11-12, no style spins to the music).
+    gDiveSpin = diveTime() * 0.63;
     gDiveFolds = 6.0 + 6.0 * diveMorph();
     gDivePetal = 1.0 + 0.3 * clamp(SND_KICK_TOGGLE * e, 0.0, 1.0);
     // FLOW adds to Warp's share, floored at none: a negative amplitude would undo diveMap's stretch bound.

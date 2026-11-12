@@ -63,7 +63,8 @@ out vec4 fragColor;
 // - depth: SND_BUILD_UP narrows the throat, zooms the central eye in and lifts
 //   the fog; the drop (SND_HELD_SURGE) narrows it further and wakes the pits
 //   (deeper, brighter) while the rig itself dives.
-// - spread: the pits orbit around the bore on SND_MID_TIME; the bore widens
+// - spread: the pits orbit around the bore on time alone (owner 2026-11-12,
+//   no style spins to the music); the bore widens
 //   in silence (neonQuiet). A hard cut (SND_CUT_COUNT) re-deals their orbits.
 // - SND_HAT_ENV sparkles the ribbons. Intensity (neonGlow) is the emission.
 // - The six style knobs (neonKnob) ride on the looks they name.
@@ -263,7 +264,7 @@ void main() {
     gLip = 1.1 * (1.0 + ridgeLip + 0.86 * gDim / gDimS) * gBendLip;
 
     // The pits orbit around the bore (2D: the secondary eyes' orbits).
-    float tOrb = uTime * 0.03 + SND_MID_TIME * 0.05 + deal;
+    float tOrb = uTime * 0.08 + deal;
     for (int i = 0; i < GV_EYES; i++) {
         float fi = float(i);
         float a = tOrb * (0.7 + 0.2 * fi) + fi * 2.1 + chaos * 0.25 * sin(uTime * 2.3 + fi * 4.1);

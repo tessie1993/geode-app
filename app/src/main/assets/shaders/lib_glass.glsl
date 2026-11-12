@@ -67,7 +67,9 @@
 // shaped values every style draws on, each meaning one physical thing so the
 // family hears alike:
 //
-//   pan     SND_STEREO_PAN    the key light's yaw: the highlight walks with the mix
+//   pan     SND_STEREO_PAN    a sideways shift where a style places things by the mix;
+//                             nothing turns on it (owner 2026-11-12, no style spins to
+//                             the music), the key light included
 //   height  SND_PITCH_HEIGHT  the key light's elevation, eased by pitch confidence
 //   sharp   SND_CENTROID      edge sharpness: bright mixes cut crisp highlights and
 //                             wider dispersion, dark ones soften
@@ -426,7 +428,7 @@ vec3 glassTone(vec3 c) {
 
 /**
  * How a style looks into its world. `env` picks one of GLASS_ENV_*; `hue`
- * offsets the palette; `yaw` and `height` aim the key light (radians, 0..1);
+ * offsets the palette; `height` raises the key light (0..1);
  * `rough` widens every light edge and lowers its peak to keep its energy (the
  * frosted lookup); `spread` pulls the side lights apart (stereo width); `glow`
  * scales the lights (Energy and slow trend, never SND_LEVEL).
@@ -434,7 +436,6 @@ vec3 glassTone(vec3 c) {
 struct GlassLook {
     int env;
     float hue;
-    float yaw;
     float height;
     float rough;
     float spread;
@@ -448,7 +449,6 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     GlassLook l;
     l.env = env;
     l.hue = hue;
-    l.yaw = 0.7 * e.pan;
     l.height = e.height;
     l.rough = 0.1 * e.frost * (1.0 - 0.6 * e.sharp);
     l.spread = e.width;
@@ -464,13 +464,13 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
 
 /**
  * The key light's direction for a look: above and BEHIND the subject, a little
- * to the left, turned by yaw and raised by height. A back key is how glass is
+ * to the left, raised by height. A back key is how glass is
  * lit: it rims the top edge (where Fresnel is strongest) and throws the
  * caustic forward onto the floor where the viewer sees it.
  */
 vec3 glassKeyDir(GlassLook l) {
     float el = mix(0.45, 1.25, clamp(l.height, 0.0, 1.0));
-    float az = -0.45 + l.yaw;
+    float az = -0.45;
     return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
 }
 
@@ -735,14 +735,17 @@ vec3 glassFractal(vec3 d, GlassLook l) {
         // The membrane: a soft coloured haze where the orbit lingered, filling the gaps.
         col += glassVivid(tint, 0.5) * 0.02 * acc;
     }
-    // Spirals: a log-spiral lattice round the key's direction, the eye of the vortex.
+    // Spirals: a log-spiral lattice round the key's direction, the eye of the vortex. They
+    // turn on time alone, at l.flow's typical rate: no sound turns them (owner 2026-11-12,
+    // no style spins to the music).
+    float spin = 0.12 * glassTime();
     vec3 key = glassKeyDir(l);
     vec3 ax = normalize(cross(key, vec3(0.0, 1.0, 0.001)));
     vec3 ay = cross(key, ax);
     vec2 sp = vec2(dot(d, ax), dot(d, ay));
     float sr = length(sp) + 1e-3;
     float sa = atan(sp.y, sp.x);
-    float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - l.flow * 2.0), 8.0);
+    float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - spin * 2.0), 8.0);
     col += glassVivid(pal(l.hue + 0.6 + log(sr) * 0.3), 0.6) * spiral * 1.2 * exp(-sr * 1.2) * (1.0 - rough);
     if (glassMarchBounces()) {
         // HIGH ONLY. Spirals inside spirals: the vortex's log-polar plane tiled into cells, a small
@@ -752,7 +755,7 @@ vec3 glassFractal(vec3 d, GlassLook l) {
         vec2 lf = fract(lp) - 0.5;
         float lr = length(lf) + 1e-3;
         float la = atan(lf.y, lf.x);
-        float small = pow(0.5 + 0.5 * cos(la * 2.0 + log(lr) * 7.0 + l.flow * 3.0 + glassHash(lc) * 6.0), 10.0);
+        float small = pow(0.5 + 0.5 * cos(la * 2.0 + log(lr) * 7.0 + spin * 3.0 + glassHash(lc) * 6.0), 10.0);
         small *= 1.0 - smoothstep(0.25, 0.5, lr);
         col += glassVivid(pal(l.hue + glassHash(lc) * 0.8), 0.8) * small * 0.5 * exp(-sr * 0.8) * (1.0 - rough);
         // Cells inside cells: a two-level cell web on the view plane, its walls glowing, the inner
@@ -827,7 +830,7 @@ vec3 glassAurora(vec3 d, GlassLook l) {
     float wash = 0.5 + 0.5 * sin(q.y * 1.3 + q.x * 0.7 + f);
     vec3 glow = mix(pal(l.hue + 0.5 + 0.1 * q.y), pal(l.hue + 0.2 + 0.1 * q.x), wash) * (0.04 + 0.1 * wash * wash);
     vec3 col = glow + c * fil * 1.4 + c2 * fil2 * 0.9 + mix(c, vec3(1.0), 0.6) * core * 2.5;
-    // A brighter band where the key light sits, so the pan and pitch still steer it.
+    // A brighter band where the key light sits, so the pitch still steers it.
     col *= 0.6 + 0.8 * pow(max(dot(d, glassKeyDir(l)), 0.0), 2.0);
     return col * l.glow;
 }

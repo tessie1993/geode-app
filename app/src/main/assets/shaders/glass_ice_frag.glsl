@@ -36,7 +36,7 @@ out vec4 fragColor;
 //   flatness     rime climbs toward the tips;
 //   centroid     dispersion;
 //   hat          the druzy rind sparkles;
-//   pan, pitch   steer the brightest band of the light beyond the walls.
+//   pitch        steers the brightest band of the light beyond the walls.
 //
 // ---- macros -----------------------------------------------------------------
 //

@@ -46,18 +46,20 @@ out vec4 fragColor;
 // Pitch (SND_HELD_NOTE_CHANGE) slides the palette, as a hump, so it glides.
 // Band presences             light the bokeh between the orbs, as before.
 // SND_ENERGY_TREND           overall level.
-// uFlowPhase                 spins the kaleidoscope and drifts the bore rings:
-//                            loudness changes the RATE, never the angle.
+// uFlowPhase                 drifts the bore rings: loudness changes the RATE.
+//                            The kaleidoscope turns on time alone (owner
+//                            2026-11-12, no style spins to the music).
 //
 // Morph turns each sphere into a cut gem (an octahedron, its vertices on the
 // bore axis so the diamond hole still lines up). Warp twists the bore and the
 // skin about the axis, more toward the ends. Turbulence ripples the glass.
 // Intensity drives the dots' emission. Knobs: PULSE kick swell, TEXTURE
-// lattice density, FLOW extra twist, TONE the orbs' figure and a small hue
+// lattice density, TONE the orbs' figure and a small hue
 // offset (a high melody draws each orb out along the flight into a long egg,
 // a low one flattens it into a wide lens; the scale only ever shrinks a
 // coordinate, so the field stays a lower bound, and the longest orb still
-// ends before the gap), BUILD fringe width, SPACE fog.
+// ends before the gap), BUILD fringe width, SPACE fog. FLOW no longer twists
+// the bore (a knob is the notes', and no sound turns a style).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -216,9 +218,9 @@ void main() {
     float hue = 0.2 * pitchBump + 0.25 * knob(3);
 
     gFolds = foldCount();
-    // Integrated, so loudness changes the spin RATE instead of jumping its angle.
-    gSpin = uFlowPhase * 0.55 + uTime * 0.03;
-    gTwist = 0.02 * (clamp(uWarp, 0.0, 1.0) * 3.0 + knob(2) * 2.0);
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.195;
+    gTwist = 0.06 * clamp(uWarp, 0.0, 1.0);
     gShape = vec3(vec2(1.0 - 0.58 * max(-knob(3), 0.0)), 1.0 - 0.58 * max(knob(3), 0.0));
     // A lens (TONE low) reaches further out in xy, where the bore's twist moves faster.
     float rMax = CO_RMAX / gShape.x;

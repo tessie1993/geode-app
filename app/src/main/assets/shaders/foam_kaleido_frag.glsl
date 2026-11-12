@@ -22,7 +22,7 @@ out vec4 fragColor;
 //
 // lib_foam's defaults, with the section change doing more: each new section
 // doubles a wedge count of 3 to 8 (6 to 16 wedges), morphed across the held
-// cut. The mid clock turns the mandala three times as fast as Foam Fall.
+// cut. Time turns the mandala three times as fast as Foam Fall.
 // The user's Kaleidoscope control, when on, sets the count instead.
 
 void main() {

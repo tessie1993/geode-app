@@ -130,9 +130,6 @@ void AcidScene::conduct(const GeodeSoundFrame& f, float dt) {
     calm_ = ease(calm_, calmTarget, 1.5f, dt);
     const float motion = 1.0f - 0.75f * calm_;
 
-    // The kick toggle reverses the local vortex; the eased toggle (~60 ms) is slowed further so the
-    // whirlpool swings round over a third of a second instead of flipping in one frame.
-    twistDir_ = ease(twistDir_, 2.0f * std::clamp(f.kickToggle, 0.0f, 1.0f) - 1.0f, 5.0f, dt);
 
     // Counted kicks: every 16th swaps the source recipe and nudges the palette. (The 4th's zoom lunge and
     // the 8th's spin surge were hidden hit reactions scaled by the retired beat-response slot, and are gone.)
@@ -203,10 +200,12 @@ void AcidScene::draw(float timeSeconds) {
     const float frames = dt * 60.0f;
     const float zoomStep = 1.0f + (style_.zoom - 1.0f) * motion + (0.02f * surge + 0.012f * cutHeld) * motion;
     const float zoom = std::pow(std::clamp(zoomStep, 0.97f, 1.08f), frames);
-    // Spin: the style's rate times the sound clock's rate, in the style's own direction, so the frame
-    // never turns backwards.
-    const float rotate = style_.rotate * speed * (0.35f + 0.65f * std::min(spinRate_, 2.0f)) * motion * frames;
-    const float twist = twistDir_ * 0.004f * motion * frames;
+    // Spin and the local vortex: the style's own rate and direction at Speed, on time alone. No sound
+    // turns them (owner 2026-11-12, no style spins to the music): the curved clock's rate and the
+    // silence calm used to set the spin, and the kick toggle reversed the vortex; this is the rate
+    // the clock gave at a typical level and the vortex's resting direction.
+    const float rotate = style_.rotate * speed * frames;
+    const float twist = -0.004f * frames;
     const float hueShift = style_.hueRate * dt * speed * (0.5f + 0.5f * std::min(spinRate_, 2.0f));
     const float feedback = std::pow(std::min(style_.feedback + feedbackTrim_, kFeedbackCap), frames);
     const float flux = std::clamp(finiteOr(f.flux, 1.0f), 0.0f, 2.0f);

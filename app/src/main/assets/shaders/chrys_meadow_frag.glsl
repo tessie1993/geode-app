@@ -57,7 +57,8 @@ out vec4 fragColor;
 // uWarp vary petal lengths and fray their edges; uTwist curls every flower.
 // Energy: uIntensity scales how far the spectrum opens them. Colour: pal()
 // throughout. Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the
-// opening gain, k1 TEXTURE the fray, k2 FLOW the drift and turning, k3 TONE the
+// opening gain, k1 TEXTURE the fray, k2 FLOW the drift (not the turning: a
+// knob is the notes', and no sound turns a style), k3 TONE the
 // hue, k4 BUILD the stem height, k5 SPACE the mist (positive clears it).
 //
 // ---- why the distance estimate is safe ----------------------------------------
@@ -238,7 +239,7 @@ void main() {
     gTwist = 3.0 * clamp(uTwist, -1.0, 1.0);
     gKeep = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
     gStemK = 1.0 + 0.8 * kBuild;
-    gTurnK = 1.0 + 1.4 * kFlow;
+    gTurnK = 1.0;
     gDriftX = 1.7 * sin(t0 * 0.031) * (1.0 + kFlow);
     gLip = 1.6 + 0.4 * abs(gTwist) + 0.6 * gChaos;
     // Stem top plus the bloom lift, the bowl's rise and the centre.

@@ -35,10 +35,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The BEAT nods the room. Each beat (SND_KICK_TOGGLE, 0.3 s) tips the vessel
-// about the eye and back on a bump envelope, so the walls bob in time, while
-// the accumulated rotation uDrift (eased across sections) turns the room
-// slowly round. Tonal passages (uHarmony) multiply the brushwork, percussive
+// No beat tips the room any more (owner 2026-11-12, no style spins to the
+// music); the accumulated rotation uDrift turns the room slowly round. Tonal passages (uHarmony) multiply the brushwork, percussive
 // ones thin it. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -46,7 +44,7 @@ out vec4 fragColor;
 // Speed scales the room's idle turn. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps
 // the clay before it is inverted (bulbChaos in q, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the beat nod. Colour is tone(),
+// bulbChaosLip). Colour is tone(),
 // the delft ramp pal() tints. Space is the rig: travel drifts the eye round a
 // small loop at the room's centre, look and shake ride on top (bulbAim).
 
@@ -116,10 +114,9 @@ float lineOn(float f, float w) {
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
-    float nod = 4.0 * beat * (1.0 - beat);
+
     float harmony = clamp(uHarmony, 0.0, 1.0);
-    gPose = rotX(-0.18 * nod * bulbEnergy() - 0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
+    gPose = rotX(-0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
     // Four iterations, as in Cavern: inverted, the finest crust is a fur the
     // march never resolves; fewer leave smooth porcelain to draw on.
     gIters = bulbIters(4);

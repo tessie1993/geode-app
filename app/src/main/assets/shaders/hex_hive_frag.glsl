@@ -35,7 +35,8 @@ out vec4 fragColor;
 // - hue: the key (neonKeyTurn) turns the ramp; SND_CHORD_HUE colours the
 //   portal.
 // - portal: SND_BUILD_UP opens the mandala at the end and lifts the fog; the
-//   drop (SND_HELD_SURGE) throws it wide. The mandala turns on SND_MID_TIME.
+//   drop (SND_HELD_SURGE) throws it wide. The mandala turns on time alone
+//   (owner 2026-11-12, no style spins to the music).
 // - bore: the bore widens in silence (neonQuiet) and narrows on the drop.
 // - SND_HAT_ENV sparkles the facets. Intensity (neonGlow) is the emission.
 //
@@ -158,7 +159,7 @@ vec3 mandala(vec2 p) {
     float r = length(p);
     float a = atan(p.y, p.x);
     float seg = HH_TAU / 12.0;
-    float fa = abs(mod(a + SND_MID_TIME * 0.08, seg) - 0.5 * seg);
+    float fa = abs(mod(a + uTime * 0.08, seg) - 0.5 * seg);
     float lr = log(max(r, 1e-4));
     vec3 col = vec3(0.0);
     col += neon(0.1 + lr * 0.3) * exp(-abs(fract(lr * 3.0 - uTime * 0.2) - 0.5) * 30.0) * 0.7;

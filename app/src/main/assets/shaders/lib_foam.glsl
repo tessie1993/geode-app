@@ -62,10 +62,10 @@
 // - Section change: the kaleidoscope's wedge count steps (3, 4, 5, 6, 8; two
 //   neighbouring sections never share one), the packing slides to a new
 //   seat and the palette turns, all morphed across SND_HELD_HARD_CUT.
-// - Mid clock: the cross-section turns slowly about the bore.
 // - Key: uKeyHue, eased, slides the palette.
-// - Mid band: no push round the bore (owner 2026-11-12, no style spins to the
-//   music); only the mid clock above turns it.
+// - No sound turns the bore, the cross-section or the light's rays (owner
+//   2026-11-12, no style spins to the music): they turn slowly on time alone,
+//   at the rate the mid clock (SND_MID_TIME) used to set at a typical level.
 //
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -268,7 +268,7 @@ void foamSetup() {
     gFoamFold = rot2(0.06 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.08 * morph + 0.14 * flux);
     float slide = 0.4 * (1.0 + 0.5 * chaos);
     gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
-    gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
+    gFoamSpin = uTime * FOAM_SCENE_RATE(473.0);
     gFoamShell = 0.012 * (1.0 + 0.8 * gFoamKick);
     float detail = foamSat((uSteps - 64.0) / 64.0);
     // Detail only: it is a quality setting, not a live control. Complexity moving a whole
@@ -324,7 +324,7 @@ float foamMap(vec3 p) {
     float cutD;
     vec3 q;
     if (gFoamShape == FOAM_BALL) {
-        // The packing inside a ball, folded about the y axis, spun on the mid clock.
+        // The packing inside a ball, folded about the y axis, spun on time alone.
         vec2 xz = rot2(gFoamSpin) * p.xz;
         cutD = length(p) - gFoamRadius;
         if (cutD > FOAM_BORE_MARGIN) {
@@ -476,7 +476,7 @@ vec3 foamBackdrop(vec3 rd) {
     float c = foamSat(dot(rd, gFoamFwd));
     float core = pow(c, 40.0);
     vec3 endLight = foamColor(0.62);
-    // Rays fanning out of the light, turning slowly on the mid clock; they
+    // Rays fanning out of the light, turning slowly on time alone; they
     // swell with the drop. Off the axis only: atan has no angle on it.
     vec3 side = rd - gFoamFwd * c;
     vec3 ax = normalize(cross(gFoamFwd, abs(gFoamFwd.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
@@ -484,7 +484,7 @@ vec3 foamBackdrop(vec3 rd) {
     float rays = 0.0;
     if (dot(side, side) > 1.0e-8) {
         float a = atan(dot(side, ay), dot(side, ax));
-        float spin = SND_MID_TIME * FOAM_RATE(120.0);
+        float spin = uTime * FOAM_SCENE_RATE(237.0);
         rays = pow(0.5 + 0.5 * cos(a * 9.0 + spin), 6.0) * 0.6 + pow(0.5 + 0.5 * cos(a * 23.0 - 1.7 * spin), 10.0) * 0.4;
     }
     float halo = pow(c, 8.0);

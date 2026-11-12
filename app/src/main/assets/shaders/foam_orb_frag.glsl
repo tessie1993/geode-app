@@ -17,7 +17,7 @@ out vec4 fragColor;
 // Foam Orb: the packing cut into a ball and seen from outside, orbited by the
 // rig's object camera and backlit, so its silhouette is a halo. The ball's
 // surface shows the circles it cuts from every shell; the wedge fold works
-// about the vertical axis, so the orb is a kaleidoscope turned on the mid clock.
+// about the vertical axis, so the orb is a kaleidoscope turned on time alone.
 //
 // ---- audio ------------------------------------------------------------------
 //

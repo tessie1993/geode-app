@@ -41,8 +41,9 @@ out vec4 fragColor;
 // held for the section, unless the user has set Kaleido's arms. Nothing keys
 // brightness off a raw envelope.
 //
-// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight, k2 FLOW
-// how fast the floaters tumble, k3 TONE the fold's own offsets and a small ink
+// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight (k2 FLOW
+// no longer sets how fast the floaters tumble: a knob is the notes', and no
+// sound turns a style; they tumble on time alone), k3 TONE the fold's own offsets and a small ink
 // hue offset (the melody's height re-cuts the tapestry: each fold steps its
 // copies apart differently, so a rising line grows a different lattice), k4 BUILD how many
 // floaters there are, k5 SPACE the hall's width. Morph turns the folds (a
@@ -279,7 +280,7 @@ void main() {
     gRotB = rot2(0.27 + 0.25 * uTurbulence + 0.05 * sin(uTime * 0.05 + 1.0));
     gBar = (0.34 + 0.16 * min(bass, 1.0)) * (0.8 + 0.4 * uKnob[1]);
     gTube = 2.6 * (0.85 + 0.3 * uKnob[5]);
-    gSpin = uTime * (0.25 + 0.5 * uKnob[2]);
+    gSpin = uTime * 0.5;
     gDensity = 0.25 + 0.5 * uKnob[4];
     float split = (0.012 + 0.016 * treb);
     float hue = 0.12 * pitchBump + 0.2 * (uKnob[3] - 0.5);

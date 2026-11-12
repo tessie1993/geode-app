@@ -51,8 +51,9 @@ out vec4 fragColor;
 //   bass             the bubbles breathe (radius);
 //   hat              glints on the films;
 //   onsets           the light chases from arch to arch, one arch per onset, eased;
-//   pan, width       the arches roll with the pan and stand wider with the
-//                    stereo width (and the fractal world's key and lights, as before);
+//   width            the arches stand wider with the stereo width (and the
+//                    fractal world's lights, as before). The pan no longer rolls
+//                    them (owner 2026-11-12, no style spins to the music);
 //   flatness         a frost on the reflections (the films go milky in noise).
 //
 // ---- macros and knobs ---------------------------------------------------------
@@ -112,7 +113,6 @@ float gSize;
 float gBreath;
 float gSway;
 float gHalfX;
-float gRoll;
 float gChase;
 float gHue;
 float gNeonGain;
@@ -124,9 +124,9 @@ float gNeonD;
 float gArch;
 int gMat;
 
-/** Distance in the arch plane to the rectangle's outline, rolled by the pan. */
+/** Distance in the arch plane to the rectangle's outline. */
 float archOutline(vec2 xy) {
-    vec2 q = glassRot(gRoll) * (xy - vec2(0.0, BB_ARCH_CY));
+    vec2 q = xy - vec2(0.0, BB_ARCH_CY);
     vec2 e = abs(q) - vec2(gHalfX, BB_ARCH_HY);
     return abs(length(max(e, 0.0)) + min(max(e.x, e.y), 0.0));
 }
@@ -262,7 +262,6 @@ void main() {
     gBreath = 0.92 + 0.08 * bass * clamp(2.0 * uKnob[0], 0.0, 2.0);
     gSway = 0.25 * (0.5 + clamp(uKnob[2], 0.0, 1.0));
     gHalfX = 13.5 + 2.0 * ear.width;
-    gRoll = 0.06 * clamp(ear.pan, -2.0, 2.0);
     gChase = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV);
     gNeonGain = (0.9 + 0.1 * ear.trend) * (1.0 + clamp(uKnob[4] - 0.5, -0.5, 0.5));
 

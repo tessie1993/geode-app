@@ -39,7 +39,8 @@ out vec4 fragColor;
 // ---- audio: one sound, one property -----------------------------------------
 //
 // Flow (uFlowPhase) and the bass clock (uSoundTimeSped.x) stream the beads
-//                      along their strands into the core and turn the weave.
+//                      along their strands into the core. The weave turns on
+//                      time alone (owner 2026-11-12, no style spins to the music).
 // Kick (SND_KICK_ENV)  a swell runs down the tunnel: the beads it passes grow
 //                      and glow, and the ring recedes as the envelope falls.
 // Snare (SND_SNARE_ENV) the outer layer's rims light in the contrasting hue.
@@ -220,7 +221,8 @@ void main() {
 
     // Integrated clocks only, so a change of rate never slides the beads.
     float travel = uFlowPhase * 4.0 + uTime * 0.9;
-    gSpin = travel * 0.12;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.252;
     gFlow = travel * 1.2 + uSoundTimeSped.x * 0.8;
     gScale = (0.85 + 0.3 * uKnob[5]) * (1.0 + 0.25 * dropBump);
     gSpread = vec2(1.0 - 0.6 * (uKnob[3] - 0.5), 1.0 + 0.3 * (uKnob[3] - 0.5));

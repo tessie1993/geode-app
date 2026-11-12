@@ -35,9 +35,8 @@ out vec4 fragColor;
 //                         bright mix sprays wider rainbows;
 //   pitch height          raises the key light: the play of light walks across
 //                         the crown as the melody climbs;
-//   pan                   turns the key round the stone;
-//   onsets                each onset turns the stone one notch (glassGlide), on
-//                         top of its slow spin, so the flashes follow the beat;
+//   (no sound turns the stone or the key round it: its slow spin is time
+//                         alone, owner 2026-11-12, no style spins to the music);
 //   bass                  the IOR 1.95 -> 2.25: deeper stones sparkle harder;
 //   hat                   glints on the facets, and flickers the starburst of
 //                         spectral rays the stone throws into the dark round it.
@@ -150,7 +149,7 @@ void main() {
     int bounces = 2 + int(floor(glassQuality() * 2.0 + 0.5));
 
     buildCut();
-    float turn = t * 0.18 + 0.45 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    float turn = t * 0.18;
     gRot = glassEuler(vec3(0.42 + 0.05 * sin(t * 0.3), turn, 0.08 * sin(t * 0.23)));
 
     vec3 ro;

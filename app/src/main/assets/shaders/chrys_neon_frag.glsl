@@ -46,9 +46,9 @@ out vec4 fragColor;
 // SND_CUT_COUNT, so every section has its own figure, held until the next.
 // When a section changes, the old figure's tubes thin and dim while the new
 // figure's thicken and brighten across the section envelope
-// (SND_HELD_HARD_CUT), the rings swirling round as they trade places and
-// cupping a little deeper on the way (chrysBump, so the swirl starts from
-// rest). The old figure is the hash of the previous count, which is what the
+// (SND_HELD_HARD_CUT), cupping a little deeper on the way (chrysBump, so it
+// starts from rest); they no longer swirl round as they trade places (owner
+// 2026-11-12, no style spins to the music). The old figure is the hash of the previous count, which is what the
 // screen was already showing, so nothing pops, and the two weights sum to one
 // so the total light stays constant. The presence band (sndSpectrum(0.80))
 // stretches the chasing lights into long trails. The rings counter-rotate on
@@ -61,7 +61,7 @@ out vec4 fragColor;
 // longer rings (six at most). Chaos: uTurbulence + uWarp bend the tubes into
 // hand-made, wobbly glass, now in and out of their cup as well as across it;
 // uTwist curls every petal into a spiral. Energy: uIntensity scales the
-// section swirl and the trail stretch. Colour: pal() for every tube (white-hot
+// section cupping and the trail stretch. Colour: pal() for every tube (white-hot
 // cores are a fixed accent). Knobs, as offsets from 0.5 so off is the tuned
 // look: k0 PULSE how hard the presence swell brightens, k1 TEXTURE extra
 // wobble, k2 FLOW the chase trail length, k3 TONE the hue, k4 BUILD the cup
@@ -82,7 +82,7 @@ out vec4 fragColor;
 // bound, slope at most about 1 in the plane, a little more with uTwist's
 // curl), lifted onto the cup surface y = c r^2. The tube is the set where
 // length(d2, y - c r^2) is below its radius. The cup's slope 2 c r stays
-// under ~1.1 at the largest cup the knobs and the swirl allow (c r^2 at most
+// under ~1.1 at the largest cup the knobs and the section allow (c r^2 at most
 // ~0.8 at r ~1.5), so the field's gradient stays under ~1.7, and the march
 // steps 0.6 of it. The chaos wobble is a few hundredths of a unit at most.
 // The steps have a floor (eps) so a ray grazing a tube creeps past it rather
@@ -207,12 +207,12 @@ void main() {
 
     gWNew = 1.0 - smoothstep(0.1, 0.85, sectEnv);
     float bump = chrysBump(sectEnv);
-    float swirl = bump * 0.9 * uIntensity;
+
     gCupK = clamp(1.0 + kBuild, 0.5, 1.5) * (1.0 + 0.4 * bump * clamp(uIntensity, 0.0, 1.0));
     for (int i = 0; i < NE_MAX_RINGS; i++) {
         float k = float(i);
         float dir = mod(k, 2.0) < 0.5 ? 1.0 : -1.0;
-        gRot[i] = dir * (uDrift * 0.12 + gT * 0.03 + swirl) + k * 0.4;
+        gRot[i] = dir * (uDrift * 0.12 + gT * 0.03) + k * 0.4;
         gCntNew[i] = neonCount(SND_CUT_COUNT, k);
         gCntOld[i] = neonCount(SND_CUT_COUNT - 1.0, k);
         gCol[i] = pal(hue + 0.24 * k);

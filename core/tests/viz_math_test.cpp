@@ -1401,7 +1401,7 @@ void followerScalesASoundClockWithoutJumps() {
 // wrapped drift angle itself: the spin climbed to the clamp, then reversed in one frame at the wrap.
 void motionFieldDriftSpinIsBoundedAndContinuous() {
     GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // the loudest mids: the fastest drift
+    f.midAtt = 2.0f;  // the loudest mids, which no longer speed the drift
     SceneParams p;
     p.rotation = 0.0f;
     p.motionDrift = 1.0f;
@@ -1413,7 +1413,7 @@ void motionFieldDriftSpinIsBoundedAndContinuous() {
     bool bounded = true;
     bool smooth = true;
     for (int k = 0; k < 60 * 300; ++k) {   // five minutes at 60 fps: past two old wrap cycles
-        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // re-aim the drift's sign now and then
+        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // big moments, which no longer re-aim the drift
         m.step(f, 1.0f / 60.0f);
         const float r = m.apply(p, false, spin).rotation;
         if (!(std::fabs(r) <= bound)) bounded = false;
@@ -1433,10 +1433,10 @@ void motionFieldReducedMotionScalesRatesOnce() {
     GeodeSoundFrame f = playing();
     f.midAtt = 1.0f;
     f.trebleAtt = 2.0f;
-    f.hitTime = 0.3f;  // a bar phase off zero, so sway has a term
+    f.hitTime = 0.3f;  // a bar phase off zero
     SceneParams p;
     p.rotation = 0.0f;
-    p.sway = 0.0f;
+    p.sway = 0.3f;  // the user's sway: the bar wave no longer adds to it (no sound turns a style)
     p.turbulence = 0.2f;
     p.motionAmount = 1.0f;
     p.motionDrift = 1.0f;
@@ -1457,12 +1457,12 @@ void motionFieldReducedMotionScalesRatesOnce() {
 void motionFieldDriftWrapNeverPopsAStyle() {
     const float multipliers[] = {0.07f, 0.08f, 0.1f, 0.12f, 0.15f, 0.25f, 0.3f, 0.35f, 0.5f};
     GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // the fastest drift, so the wrap comes soonest
+    f.midAtt = 2.0f;  // loud mids, which no longer change the drift's one rate
     MotionField m;
     float prev = m.state().drift;
     bool wrapped = false;
     bool seamless = true;
-    for (int k = 0; k < 50000; ++k) {  // 5000 s at dt 0.1: past one wrap at the fastest rate
+    for (int k = 0; k < 70000; ++k) {  // 7000 s at dt 0.1: past one wrap at the drift's one rate (6283 s)
         m.step(f, 0.1f);
         const float d = m.state().drift;
         if (d < prev - 1.0f) wrapped = true;
@@ -1879,7 +1879,7 @@ void driveScalesTheMagnitudeOfMotion() {
         quiet.step(pad, 1.0f / 60.0f);
     }
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
-    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
+    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the mid level");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
     // Speed used to follow the loudness whatever the dial said. It is under the Motion dial like every
     // other term: at 0 the music leaves the user's Speed alone.
@@ -1908,19 +1908,19 @@ void driveScalesTheMagnitudeOfMotion() {
 
     SceneParams p;
     p.camFly = 1.0f;
+    // The bass's lens breath (bassAtt 2 above): no sound turns the view any more, so the breath is
+    // the camera's own move measured here.
     CameraRig loudRig;
     CameraRig quietRig;
-    float loudSwing = 0.0f;
-    float quietSwing = 0.0f;
-    fat.midTime = pad.midTime = 3.0f;
+    CameraRig deafRig;
     for (int k = 0; k < 600; ++k) {
-        fat.midTime = pad.midTime = 0.05f * static_cast<float>(k);
         loudRig.step(p, {}, 1.0f / 60.0f, false, true, &fat);
         quietRig.step(p, {}, 1.0f / 60.0f, false, true, &pad);
-        loudSwing = std::max(loudSwing, std::fabs(loudRig.pose().yaw));
-        quietSwing = std::max(quietSwing, std::fabs(quietRig.pose().yaw));
+        deafRig.step(p, {}, 1.0f / 60.0f, false, true, nullptr);
     }
-    check(loudSwing > 0.0f && quietSwing < 0.5f * loudSwing, "the camera's own moves follow the drive");
+    const float loudBreath = loudRig.pose().focal - deafRig.pose().focal;
+    const float quietBreath = quietRig.pose().focal - deafRig.pose().focal;
+    check(loudBreath > 0.0f && quietBreath < 0.5f * loudBreath, "the camera's own moves follow the drive");
 
     GeodeSoundFrame gone = pad;
     gone.drive = NAN;

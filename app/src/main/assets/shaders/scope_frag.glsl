@@ -49,7 +49,8 @@ out vec4 fragColor;
 // waveform as a radius around the corridor's axis, mirrored so it has no
 // seam); Warp twists the frames about the axis into a slow helix; Turbulence
 // jitters the beam. Knobs: k0 PULSE the kick's pinch, k1 TEXTURE the
-// graticule, k2 FLOW the helix, k3 TONE where the beam rides (a high melody
+// graticule (k2 FLOW no longer twists the helix: a knob is the notes', and no
+// sound turns a style), k3 TONE where the beam rides (a high melody
 // lifts every trace toward the ceiling, the ring scope widens; a low one drops
 // them to the floor; plus a small hue offset), k4 BUILD the halo and how the
 // traces grow taller down the tube ahead (a build stacks rising frames),
@@ -233,7 +234,7 @@ void main() {
         float base = rd.z > 0.0 ? floor(ro.z / SC_FRAME_SP) + 1.0 : ceil(ro.z / SC_FRAME_SP) - 1.0;
         int frames = uSteps < 80.0 ? 6 : SC_FRAMES;
         float morph = clamp(uMorph, 0.0, 1.0);
-        float helix = clamp(uWarp, 0.0, 2.0) * 0.9 + 0.8 * scKnob(2);
+        float helix = clamp(uWarp, 0.0, 2.0) * 0.9;
         float haloK = (0.30 + 0.55 * snare) * clamp(1.0 + 1.5 * scKnob(4), 0.2, 2.5);
         // TONE: where the beam rides in the tube; BUILD: how much taller each frame
         // ahead stands than the last, so a build reads as a rising stack in depth.

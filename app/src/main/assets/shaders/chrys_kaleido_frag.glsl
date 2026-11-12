@@ -37,10 +37,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The beat (SND_KICK_ENV) SWINGS THE MIRRORS: the fold twists away and back
-// across each beat's envelope (chrysBump, from rest), more toward the walls
-// than at the axis, so on a steady groove the whole bouquet rocks in time
-// while the flowers keep streaming (k0 PULSE scales the swing). The bar
+// No sound turns the mirrors: the beat's swing is gone (owner 2026-11-12, no
+// style spins to the music), and they turn on time alone. The bar
 // oscillator (uBarOsc, phase-locked and confidence-gated) breathes the
 // kaleidoscope's magnification over each bar: it moves the lens's focal
 // length, not the world. The high-mid band (sndLevel(SND_MID_HIGH_ATT))
@@ -53,20 +51,18 @@ out vec4 fragColor;
 // Complexity: uMorph fills more of the cells with flowers (five in nine at 0,
 // every cell at 1, as the flat style went from five flowers to nine). Chaos:
 // uTurbulence + uWarp give the petals uneven lengths and ragged edges;
-// uTwist curls every flower. Energy: uIntensity scales the mirror swing and
-// the bar breathing. Colour: pal() for every flower, the glass and the light.
+// uTwist curls every flower. Energy: uIntensity scales the bar breathing.
+// Colour: pal() for every flower, the glass and the light.
 // Space: uZoom via view(); Symmetry is the mirror count. Knobs (offsets from
-// 0.5): k0 PULSE swing depth, k1 TEXTURE petal width, k2 FLOW petal flutter,
-// k3 TONE hue, k4 BUILD the hearts' glow, k5 SPACE tube width.
+// 0.5): k1 TEXTURE petal width, k2 FLOW petal flutter,
+// k3 TONE hue, k4 BUILD the hearts' glow, k5 SPACE tube width (k0 PULSE was
+// the swing's depth and is spent nowhere now).
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
 // The angular fold is a piecewise isometry and the mirror count an integer,
 // so the folded tube wall (a plane at the apothem) is exact. The time spin is
-// an isometry; the beat swing turns xy by an angle that grows with radius,
-// whose Lipschitz bound is sqrt(1 + (r * dangle/dr)^2) <= sqrt(1 + (1.42 *
-// swing)^2) inside the tube (r up to the corner, apothem * sqrt 2 for N >= 4),
-// computed per frame as gLip. A flower's petals are lib_chrys's 2D ring bound
+// an isometry. A flower's petals are lib_chrys's 2D ring bound
 // extruded into a thin slab whose height bends with rho^2 (the cup); the cup's
 // slope, the curl's shear and the ragged edge are each bounded and their
 // product divides the flower term (gFLip). Each cell measures only its own
@@ -94,8 +90,8 @@ out vec4 fragColor;
 float gSeg;
 float gR;
 float gSpin;
-float gSwing;
-float gLip;
+
+
 float gFLip;
 float gChaos;
 float gCurl;
@@ -130,7 +126,7 @@ vec3 ckFold(vec3 p) {
     float r = length(p.xy);
     // atan(0, 0) is undefined in GLSL ES; the fold is continuous at r = 0 anyway.
     float a = r > 1e-5 ? atan(p.y, p.x) : 0.0;
-    a += gSpin + gSwing * (0.4 + r / gR);
+    a += gSpin;
     a = abs(mod(a, gSeg) - 0.5 * gSeg);
     return vec3(r * cos(a), r * sin(a), p.z);
 }
@@ -207,7 +203,7 @@ float map(vec3 p) {
     gFh = h1;
     gCup = cup;
     gPet = pet;
-    return max(d / gLip, CK_BUBBLE - length(p - gEye));
+    return max(d, CK_BUBBLE - length(p - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -247,16 +243,13 @@ void main() {
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float beat = clamp(SND_KICK_ENV, 0.0, 1.0);
+
     float mirrors = clamp(floor(uSymmetry + 0.5), 3.0, 12.0);
 
     gSeg = CHRYS_TAU / mirrors;
     gR = max(3.4, CK_R + 2.4 * ckKnob(5));
     gSpin = t * 0.02;
-    gSwing = 0.3 * clamp(uIntensity, 0.0, 2.0) * (1.0 + 1.4 * ckKnob(0)) * chrysBump(beat);
-    // The corner radius is apothem / cos(pi / N); r / gR there is at most 2 (N = 3).
-    float rr = mirrors < 3.5 ? 2.0 : 1.4142136;
-    gLip = sqrt(1.0 + rr * rr * gSwing * gSwing);
+
     gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
     gCurl = uTwist * 4.0;
     gShare = (5.0 + 4.0 * clamp(uMorph, 0.0, 1.0)) / 9.0;

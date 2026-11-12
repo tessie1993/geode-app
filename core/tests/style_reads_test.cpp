@@ -401,7 +401,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"invert", {"uInvert"}},
         // Audio drive is lib_sound's uSoundDrive (SoundUniforms::upload). The band trims scale the frame's
         // band fields (viz/BandTrim) before the style, its MotionField (uBassRel ..) and the
-        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence, mids turn the drift.
+        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence. The mids no longer
+        // turn the drift (owner 2026-11-12, no style spins to the music).
         {"audioDrive", {"uSoundDrive"}},
         {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW", "uBassRel", "uZoom"}},
         {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID", "uMidRel"}},
@@ -503,10 +504,9 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
-    // MotionField's spin only turns a style the catalogue gives a spin rate; mids turn it too.
+    // MotionField's spin only turns a style the catalogue gives a spin rate; no sound turns it.
     const bool spins = catalogue::spinRate(styleId) != 0.0f;
     if (field == "motionDrift") return spins && words.count("uRotation") != 0;
-    if (field == "midGain" && spins && words.count("uRotation") != 0) return true;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);

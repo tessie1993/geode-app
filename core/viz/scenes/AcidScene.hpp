@@ -86,7 +86,7 @@ private:
     float clock_ = 0.0f;          // sound clock: only ever advances, faster when the music is loud
     float spinRate_ = 0.0f;       // eased rate of the curved clock, 0..3 (1 = typical loudness)
     float lastCurved_ = -1.0f;    // last frame's curvedTime, for its rate (-1 = not primed)
-    float twistDir_ = 1.0f;       // eased -1..1, follows the kick toggle
+
     int kick16Count_ = 0;         // every 16th kick: the source recipe swaps
     float centreX_ = 0.0f;        // eased vanishing point, q units
     float centreY_ = 0.0f;

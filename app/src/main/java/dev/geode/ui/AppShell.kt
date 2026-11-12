@@ -1042,8 +1042,7 @@ private class SearchSheetRows(
     private val presetNames = utf8(presets)
 
     /** Three counts (tracks, playlists, presets), then those rows, best first. */
-    fun search(query: String): IntArray =
-        GeodeNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
+    fun search(query: String): IntArray = GeodeNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
 
     private fun utf8(texts: List<String>): Array<ByteArray?> = Array(texts.size) { texts[it].encodeToByteArray() }
 }

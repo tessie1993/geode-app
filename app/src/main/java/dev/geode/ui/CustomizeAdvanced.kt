@@ -516,7 +516,14 @@ private class TransitionChoices(
 private fun transitionChoices(context: Context): TransitionChoices {
     val table = runCatching { String(GeodeNative.transitionPicker(context.assets), Charsets.UTF_8) }.getOrDefault("")
     val lists = table.split('\u001e')
-    fun list(i: Int) = lists.getOrNull(i).orEmpty().split('\u001f').filter { it.isNotEmpty() }
+
+    fun list(i: Int) =
+        lists
+            .getOrNull(i)
+            .orEmpty()
+            .split('\u001f')
+            .filter { it.isNotEmpty() }
+
     return TransitionChoices(builtIn = list(0), library = list(1))
 }
 

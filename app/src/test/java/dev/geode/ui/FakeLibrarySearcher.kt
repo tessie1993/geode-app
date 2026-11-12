@@ -44,8 +44,7 @@ class FakeLibrarySearcher(
     ): Boolean = fields(tracks[row]).any { fold(it).contains(term) }
 
     /** Lower case with the accents dropped, enough for the tests' tags ("Beyoncé", "Élan"). */
-    private fun fold(text: String): String =
-        Normalizer.normalize(text, Normalizer.Form.NFD).replace(MARKS, "").lowercase(Locale.ROOT)
+    private fun fold(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFD).replace(MARKS, "").lowercase(Locale.ROOT)
 
     private companion object {
         val MARKS = Regex("\\p{Mn}+")

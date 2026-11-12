@@ -110,7 +110,9 @@ public:
         const ssize_t at = AMediaCodec_dequeueOutputBuffer(codec_, &got, 0);
         if (at >= 0) {
             *index = static_cast<int>(at);
-            *info = {got.offset, got.size, got.presentationTimeUs, got.flags};
+            // The sample starts at the buffer's pointer: up to API level 35 the info's offset is not valid and is
+            // ignored (NdkMediaCodec, AMediaCodec_dequeueOutputBuffer); later it is always 0.
+            *info = {0, got.size, got.presentationTimeUs, got.flags};
             return Out::Sample;
         }
         if (at == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) return Out::FormatChanged;

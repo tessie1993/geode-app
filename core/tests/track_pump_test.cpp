@@ -334,9 +334,9 @@ void aiffOpen() {
     check(::fcntl(fd, F_GETFD) != -1, "the span's descriptor stays open: each source reads a duplicate");
 
     // A declared span inside a larger descriptor (an asset's offset and length).
-    std::vector<uint8_t> padded(512, 0xAB);
-    padded.insert(padded.end(), file.begin(), file.end());
-    padded.insert(padded.end(), 64, 0xCD);
+    std::vector<uint8_t> padded(512 + file.size() + 64, 0xAB);
+    std::copy(file.begin(), file.end(), padded.begin() + 512);
+    std::fill(padded.end() - 64, padded.end(), static_cast<uint8_t>(0xCD));
     const int fd2 = tempFile(padded);
     auto inside = openTrack(TrackSpan{fd2, 512, static_cast<int64_t>(file.size())}, 0, never);
     check(inside != nullptr, "an AIFF inside a declared span opens");

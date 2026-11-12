@@ -11,7 +11,6 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.WatermarkOverlay
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.RenderLimits
-import dev.geode.record.RecordEncoder
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,12 +38,13 @@ data class RecordUiState(
  * Record (Pro): a video of what is on the stage and what it hears, captured live until the user
  * stops it. The stage's GL thread copies each finished frame into an H.264 encoder's surface and
  * hands every block its sound engine took (the song, the mic layer, another app's audio) to the
- * native clock (`core/output/Recorder`), which times the whole file; [RecordEncoder] moves the bytes
- * into the MP4. This class only starts and stops it, says why it ended, and saves the result:
+ * native clock (`core/output/Recorder`), which times the whole file; the native session
+ * (`core/output/RecordSession`) encodes and muxes on its own thread. This class only starts and
+ * stops it, polls it, says why it ended, and saves the result:
  * straight into the place chosen in `RecordSaveSheet`, asked after the first recording, and onto
  * My videos as a project ([Host.keep]).
  *
- * Main thread, apart from the encoder thread's two callbacks, which hop back.
+ * Main thread, apart from the tee events it queues on the GL thread.
  */
 internal class RecordController(
     private val application: Application,
@@ -76,21 +76,23 @@ internal class RecordController(
 
     private class Active(
         val recorder: Long,
-        val encoder: RecordEncoder,
+        val session: Long,
+        val size: IntArray,
         val output: RecordFiles.Output,
         val stage: VisualizerView,
         val watermark: WatermarkOverlay?,
         val track: TrackRef?,
     ) {
-        /** Set once [finished] ran, which can beat [start]'s own bookkeeping when the encoder fails at once. */
-        var done = false
         val teeClosing = AtomicBoolean(false)
 
-        // Two owners of the native handle: the GL thread's queued tee events and [finished]; the last one frees it.
+        // Two owners of the native handles: the GL thread's queued tee events and [finished]; the last one frees them.
         private val owners = AtomicInteger(2)
 
         fun release() {
-            if (owners.decrementAndGet() == 0) GeodeNative.recorderDestroy(recorder)
+            if (owners.decrementAndGet() == 0) {
+                GeodeNative.recordSessionDestroy(session)
+                GeodeNative.recorderDestroy(recorder)
+            }
         }
     }
 
@@ -133,12 +135,17 @@ internal class RecordController(
                 showNote(application.getString(R.string.record_failed))
                 return@launch
             }
-            if (started.done) return@launch
             active = started
             tee(started)
             ticker =
                 scope.launch {
                     while (isActive) {
+                        val phase = GeodeNative.recordSessionState(started.session)
+                        if (phase >= GeodeNative.RECORD_SESSION_CLOSING) closeTee(started)
+                        if (phase >= GeodeNative.RECORD_SESSION_SAVED) {
+                            scope.launch { finished(started, phase == GeodeNative.RECORD_SESSION_SAVED) }
+                            break
+                        }
                         _state.update { it.copy(recordedMs = GeodeNative.recorderRecordedMs(started.recorder, GeodeNative.recordNowNs())) }
                         delay(TICK_MS)
                     }
@@ -146,10 +153,11 @@ internal class RecordController(
         }
     }
 
-    /** Ends the recording; the encoder thread finishes the file and [finished] saves it. */
+    /** Ends the recording; the session finishes the file and [finished] saves it. */
     fun stop() {
         val a = active ?: return
         GeodeNative.recorderStop(a.recorder, GeodeNative.RECORD_STOP_USER, GeodeNative.recordNowNs())
+        closeTee(a)
     }
 
     private suspend fun open(
@@ -164,26 +172,16 @@ internal class RecordController(
             val recorder = GeodeNative.recorderCreate(width, height, prefs.fps, prefs.maxLengthSec, limits.capMs ?: 0L)
             if (recorder == 0L) return@withContext null
             val output = files.open(System.currentTimeMillis())
-            val encoder = output?.let { RecordEncoder.open(it.fd, recorder, width, height, prefs.quality.shortSide, prefs.fps) }
-            if (output == null || encoder == null) {
+            val shortSide = prefs.quality.shortSide
+            val session = output?.let { GeodeNative.recordSessionOpen(recorder, it.rawFd, width, height, shortSide, prefs.fps) } ?: 0L
+            if (output == null || session == 0L) {
                 output?.finish(keep = false)
                 GeodeNative.recorderDestroy(recorder)
                 return@withContext null
             }
+            val size = IntArray(2).also { GeodeNative.recordSessionSize(session, it) }
             val watermark = WatermarkOverlay(limits.watermark, application, WatermarkChoice.USE_LIVE)
-            val a = Active(recorder, encoder, output, view, watermark, track)
-            val running =
-                encoder.start(
-                    onStopping = { closeTee(a) },
-                    onFinished = { saved -> scope.launch { finished(a, saved) } },
-                )
-            if (running) {
-                a
-            } else {
-                output.finish(keep = false)
-                GeodeNative.recorderDestroy(recorder)
-                null
-            }
+            Active(recorder, session, size, output, view, watermark, track)
         }
     }
 
@@ -193,21 +191,21 @@ internal class RecordController(
         a.stage.queueEvent {
             val teed =
                 runCatching {
-                    a.watermark?.prepare(a.encoder.width, a.encoder.height)
-                    renderer.recordStart(a.recorder, a.encoder.surface, a.encoder.width, a.encoder.height, a.watermark?.handle ?: 0L)
+                    a.watermark?.prepare(a.size[0], a.size[1])
+                    renderer.recordStart(a.session, a.watermark?.handle ?: 0L)
                 }.getOrDefault(false)
             if (!teed) GeodeNative.recorderStop(a.recorder, GeodeNative.RECORD_STOP_FAILED, GeodeNative.recordNowNs())
         }
     }
 
-    /** Encoder thread, once stopped: the stage lets go of the surface, then the video stream may end. */
+    /** Once stopped: the stage lets go of the encoder's surface, then the video stream may end. Any thread. */
     private fun closeTee(a: Active) {
         if (a.teeClosing.getAndSet(true)) return
         val renderer = a.stage.visualizerRenderer
         a.stage.queueEvent {
             renderer.recordStop()
             a.watermark?.release()
-            a.encoder.teeClosed()
+            GeodeNative.recordSessionTeeClosed(a.session)
             a.release()
         }
     }
@@ -216,7 +214,6 @@ internal class RecordController(
         a: Active,
         saved: Boolean,
     ) {
-        a.done = true
         ticker?.cancel()
         ticker = null
         val now = GeodeNative.recordNowNs()

@@ -201,7 +201,6 @@ Cast
 - `cast/WebRtcLink.kt` (145), `ComputerLink.kt` (123), `CastMirror.kt` (100).
 
 Record, wallpaper, viz, playback
-- `record/RecordEncoder.kt` (268): encoder and muxer thread (clock native).
 - `wallpaper/VisualizerWallpaperService.kt` (472): its own GLSurfaceView subclass and FramePacer; `VisualizerDreamService.kt` (352); `WallpaperRenderer.kt` (36).
 - `wallpaper/OutputMixCapture.kt` (126): `Visualizer` capture into the ring; `SoundSource.kt` (148); `WallpaperRunState.kt` (83).
 - `viz/BackgroundImage.kt` (119): decode and crop on a worker.

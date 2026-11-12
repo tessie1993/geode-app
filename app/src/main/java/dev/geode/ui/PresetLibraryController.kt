@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import dev.geode.data.BuiltInPresets
+import dev.geode.data.MediaStoreSource
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
@@ -21,6 +22,7 @@ import kotlinx.coroutines.withContext
 internal class PresetLibraryController(
     private val application: Application,
     private val presets: PresetRepository,
+    private val mediaStore: MediaStoreSource,
     private val scope: CoroutineScope,
     private val storeScope: CoroutineScope,
     private val host: Host,
@@ -104,26 +106,11 @@ internal class PresetLibraryController(
     private fun mirrorPresetToChosenFolder(name: String) {
         val uriStr = host.presetMirrorUri ?: return
         scope.launch(Dispatchers.IO) {
-            runCatching {
-                val tree =
-                    androidx.documentfile.provider.DocumentFile
-                        .fromTreeUri(application, Uri.parse(uriStr))
-                        ?: return@runCatching
-
-                fun copyInto(
-                    src: java.io.File,
-                    mime: String,
-                ) {
-                    if (!src.exists()) return
-                    tree.findFile(src.name)?.delete()
-                    val dest = tree.createFile(mime, src.name) ?: return
-                    application.contentResolver.openOutputStream(dest.uri)?.use { out ->
-                        src.inputStream().use { it.copyTo(out) }
-                    }
-                }
-                presets.fileOf(name)?.let { copyInto(it, "application/json") }
-                milkFileFor(name).let { copyInto(it, "text/plain") }
-            }
+            val files =
+                runCatching {
+                    listOfNotNull(presets.fileOf(name)?.let { it to "application/json" }, milkFileFor(name) to "text/plain")
+                }.getOrNull() ?: return@launch
+            mediaStore.copyIntoFolder(Uri.parse(uriStr), files)
         }
     }
 
@@ -156,12 +143,7 @@ internal class PresetLibraryController(
         onResult: (String?) -> Unit,
     ) {
         scope.launch {
-            val json =
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        application.contentResolver.openInputStream(uri)?.use(ReadCap.PRESET::text)
-                    }.getOrNull()
-                }
+            val json = runCatching { mediaStore.read(uri, ReadCap.PRESET::text) }.getOrNull()
             onResult(json?.let { importPresetJson(it) })
         }
     }
@@ -273,15 +255,6 @@ internal class PresetLibraryController(
         milkName: String?,
     ) {
         val uriStr = host.presetMirrorUri ?: return
-        scope.launch(Dispatchers.IO) {
-            runCatching {
-                val tree =
-                    androidx.documentfile.provider.DocumentFile
-                        .fromTreeUri(application, Uri.parse(uriStr))
-                        ?: return@runCatching
-                jsonName?.let { tree.findFile(it)?.delete() }
-                milkName?.let { tree.findFile(it)?.delete() }
-            }
-        }
+        scope.launch { mediaStore.deleteFromFolder(Uri.parse(uriStr), listOfNotNull(jsonName, milkName)) }
     }
 }

@@ -39,7 +39,8 @@ inline Step step(int frame, int loopFrames, int seamFrames) {
     return {};
 }
 
-// Whole nanoseconds per frame, truncated (a 30 fps frame is 33 333 333 ns). No frame rate reads as one frame a second rather than a division by zero.
+// Whole nanoseconds per frame, truncated (a 30 fps frame is 33 333 333 ns). No frame rate reads
+// as one frame a second rather than a division by zero.
 inline int64_t frameDurationNs(int fps) { return 1'000'000'000LL / (fps > 0 ? fps : 1); }
 
 // The presentation time of a presented source frame: the output frame's index times the truncated frame

@@ -79,8 +79,8 @@ struct Stack {
     std::vector<Palette> layers;
     Blend blend = Blend::Share;
     Edge edge = Edge::Soft;
-    // Off: colour cycles, hue shift and moment colours walk the stack's colours only. On (the user's
-    // opt-in): they may turn the whole hue wheel.
+    // Off: hue shift and moment colours walk the stack's colours only. On (the user's opt-in): they may
+    // turn the whole hue wheel.
     bool fullRange = false;
     bool operator==(const Stack&) const = default;
 };

@@ -217,7 +217,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     uploadPaletteRamp(p);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
-    postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
     return p;
 }
 
@@ -367,7 +366,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.timeSeconds = timeSeconds_;
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
-    in.postCyclePhase = postCyclePhase_;
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();

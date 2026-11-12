@@ -43,8 +43,6 @@ data class SceneParams(
     val brightness: Float = 1f,
     val contrast: Float = 1f,
     val gamma: Float = 1f,
-    val colorCycle: Boolean = false,
-    val cycleSpeed: Float = 0.1f,
     val invert: Boolean = false,
     val intensity: Float = 1f,
     val duotone: Boolean = false,

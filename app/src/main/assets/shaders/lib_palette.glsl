@@ -57,7 +57,7 @@ vec3 palProcedural(float t) {
 vec3 pal(float t) {
     vec3 procedural = palProcedural(t);
     if (uPalLutMix <= 0.001) return procedural;
-    // Hue shift and the colour cycle stay meaningful on a colour map: they
+    // Hue shift and Palette position stay meaningful on a colour map: they
     // rotate the position along the ramp rather than the hue wheel, which for
     // a CYCLIC map is the same gesture and lands back where it started.
     //

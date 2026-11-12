@@ -165,10 +165,10 @@ GEODE_PARAM(Float, contrast, 1.0f, 0.3f, 1.25f, Fade)
 GEODE_PARAM_META(contrast, "Contrast", Universal, 0, 0.8f, 1.25f)
 GEODE_PARAM(Float, gamma, 1.0f, 0.3f, 2.5f, Fade)
 GEODE_PARAM_META(gamma, "Gamma", Universal, 0, 0.8f, 1.3f)
+// Retired (SceneParams::retired): Color cycle and Cycle speed, the old hue cycle that turned every colour round
+// the wheel. A wave or an envelope on Palette position walks the palette stack instead.
 GEODE_PARAM(Bool, colorCycle, false, 0, 1, Hold)
-GEODE_PARAM_META(colorCycle, "Color cycle", Universal, 0, 0, 0)
 GEODE_PARAM(Float, cycleSpeed, 0.1f, 0.02f, 0.6f, Fade)
-GEODE_PARAM_META(cycleSpeed, "Cycle speed", Universal, 0, 0.02f, 0.3f)
 GEODE_PARAM(Bool, invert, false, 0, 1, Hold)
 GEODE_PARAM_META(invert, "Invert", Universal, 0, 0, 0)
 // As brightness: the slider stops at 1.25, the LFO reaches 2.
@@ -522,8 +522,8 @@ GEODE_PARAM(Float, paletteAmount6, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount6, "Palette 7 amount", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, paletteAmount7, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount7, "Palette 8 amount", Universal, kMod, 0, 0)
-// Where along the stack's ramp the colours sit: the walk Hue shift, the colour cycle and moment colours will
-// drive, so colour moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
+// Where along the stack's ramp the colours sit: the walk Hue shift and moment colours will drive, so colour
+// moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
 GEODE_PARAM(Circular, paletteShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 

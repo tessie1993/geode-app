@@ -227,8 +227,6 @@ object BundledTemplates {
                             trailLength = 0.8f,
                             saturation = 0.8f,
                             brightness = 0.9f,
-                            colorCycle = true,
-                            cycleSpeed = 0.025f,
                             palette = 3,
                             sway = 0.35f,
                             vignette = 0.4f,

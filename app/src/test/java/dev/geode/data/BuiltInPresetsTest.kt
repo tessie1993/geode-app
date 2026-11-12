@@ -16,7 +16,7 @@ class BuiltInPresetsTest {
         listOf(
             "presets|1|2|3",
             "look|Chill|0.4|0.06|speed=0.5,audioDrive=0.85,trails=1,trailLength=0.8,saturation=0.8," +
-                "brightness=0.9,colorCycle=1,cycleSpeed=0.025,palette=3,sway=0.35,vignette=0.4,paramFadeSec=1.5",
+                "brightness=0.9,palette=3,sway=0.35,vignette=0.4,paramFadeSec=1.5",
             "preset|julia · Chill|julia|Chill",
             "preset|lava · Chill|lava|Chill",
             "look|cymatics · Chladni plate|0.35|0.45|cymaticsGeometry=1,cymaticsFundamental=82,cymaticsModes=4," +
@@ -39,8 +39,6 @@ class BuiltInPresetsTest {
                 trailLength = 0.8f,
                 saturation = 0.8f,
                 brightness = 0.9f,
-                colorCycle = true,
-                cycleSpeed = 0.025f,
                 palette = 3,
                 sway = 0.35f,
                 vignette = 0.4f,

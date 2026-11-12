@@ -56,6 +56,8 @@ class ParamSchemaTest {
                 "paletteMix",
                 "palette2BaseOverride",
                 "palette2RangeOverride",
+                "colorCycle",
+                "cycleSpeed",
                 "flash",
                 "glitch",
                 "strobe",

@@ -125,8 +125,6 @@ const std::vector<Roll>& rolls() {
          [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
         {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
         {T::Color, "Hue range", [](SceneParams& p, Rng& r) { p.hueRange = drawn(r, ParamSlot::hueRange); }},
-        {T::Color, "Color cycle", [](SceneParams& p, Rng& r) { p.colorCycle = r.chance(0.3f); }},
-        {T::Color, "Cycle speed", [](SceneParams& p, Rng& r) { p.cycleSpeed = drawn(r, ParamSlot::cycleSpeed); }},
         {T::Color, "Saturation", [](SceneParams& p, Rng& r) { p.saturation = drawn(r, ParamSlot::saturation); }},
         {T::Color, "Brightness", [](SceneParams& p, Rng& r) { p.brightness = drawn(r, ParamSlot::brightness); }},
         {T::Color, "Contrast", [](SceneParams& p, Rng& r) { p.contrast = drawn(r, ParamSlot::contrast); }},
@@ -332,6 +330,9 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"paletteMix", "retired"},
         {"palette2BaseOverride", "retired"},
         {"palette2RangeOverride", "retired"},
+        // Color cycle and Cycle speed, retired: the old hue cycle.
+        {"colorCycle", "retired"},
+        {"cycleSpeed", "retired"},
     };
     return kNever;
 }

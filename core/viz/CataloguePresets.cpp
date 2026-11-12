@@ -35,12 +35,12 @@ struct Variant {
 const std::vector<GenericLook>& genericLooks() {
     static const std::vector<GenericLook> kLooks = {
         {"Chill", 0.4f, 0.06f, {{"speed", 0.5f}, {"audioDrive", 0.85f}, {"trails", 1},
-            {"trailLength", 0.8f}, {"saturation", 0.8f}, {"brightness", 0.9f}, {"colorCycle", 1}, {"cycleSpeed", 0.025f},
+            {"trailLength", 0.8f}, {"saturation", 0.8f}, {"brightness", 0.9f},
             {"palette", 3}, {"sway", 0.35f}, {"vignette", 0.4f}, {"paramFadeSec", 1.5f}}},
         {"Punchy", 0.85f, 0.24f, {{"speed", 1.4f}, {"audioDrive", 1.6f}, {"bloom", 0.5f},
             {"contrast", 1.2f}, {"intensity", 1.15f}, {"palette", 1}, {"bassGain", 1.4f}}},
         {"Hypno", 0.5f, 0.1f, {{"endlessZoom", 1}, {"endlessZoomSpeed", 0.35f}, {"kaleidoFolds", 6.0f},
-            {"colorCycle", 1}, {"cycleSpeed", 0.07f}, {"turbulence", 0.35f}, {"palette", 7}, {"warp", 0.3f}}},
+            {"turbulence", 0.35f}, {"palette", 7}, {"warp", 0.3f}}},
         {"Vivid", 0.6f, 0.12f, {{"saturation", 1.35f}, {"intensity", 1.2f}, {"bloom", 0.4f}, {"palette", 5},
             {"hueRange", 1.25f}, {"warp", 0.25f}, {"chromaAb", 0.3f}}},
         {"Retro", 0.55f, 0.14f, {{"speed", 0.9f}, {"palette", 2}, {"scanlines", 0.6f}, {"grain", 0.35f}, {"vignette", 0.5f},
@@ -112,7 +112,7 @@ const std::vector<Variant>& variants() {
             {"fluidCatchPoints", 1}, {"fluidCatchPull", 1.6f}, {"fluidCatchRadius", 0.1f}}},
         {"fluid · Spectrum", "fluid", 0.6f, 0.35f, {{"fluidBeatPattern", 3}, {"fluidBeatSplats", 6}, {"fluidStirrers", 0},
             {"fluidBassPump", 1}, {"fluidSunrays", 1}, {"fluidSunraysWeight", 1.2f}, {"fluidFadeAudio", 1.0f},
-            {"fluidPaletteCycleSpeed", 1.2f}, {"colorCycle", 1}, {"cycleSpeed", 0.05f}, {"palette", 3},
+            {"fluidPaletteCycleSpeed", 1.2f}, {"palette", 3},
             {"fluidSpawnPath", 1}, {"fluidSpawnPoints", 4}, {"fluidCatchPoints", 0}}},
         {"fluid · Nebula", "fluid", 0.4f, 0.55f, {{"fluidDyeEnabled", 0}, {"fluidParticlesEnabled", 1},
             {"fluidParticleDrag", 0.6f}, {"fluidParticleBrightness", 1.6f}, {"fluidCurl", 40.0f}, {"fluidStirrers", 3},
@@ -131,7 +131,7 @@ const std::vector<Variant>& variants() {
         {"fluid · Journey", "fluid", 0.45f, 0.45f, {{"fluidSpawnPath", 2}, {"fluidSpawnPoints", 4},
             {"fluidSpawnProgress", 1.0f}, {"fluidCatchPoints", 2}, {"fluidCatchPull", 1.4f}, {"fluidCatchRadius", 0.12f},
             {"fluidParticleLife", 7.0f}, {"fluidBeatPattern", 1}, {"fluidBeatSplats", 3}, {"fluidStirrers", 2},
-            {"fluidChromaticAging", 0.4f}, {"fluidCurl", 35.0f}, {"colorCycle", 1}, {"cycleSpeed", 0.03f},
+            {"fluidChromaticAging", 0.4f}, {"fluidCurl", 35.0f},
             {"palette", 16}}},
         // One preset per styled fluid look. Each names the style's id, so applying it switches to that look;
         // the params only lean on what the look already does (a wash wants slow dye, chrome wants a smooth

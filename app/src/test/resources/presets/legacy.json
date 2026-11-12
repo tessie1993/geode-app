@@ -29,6 +29,8 @@
   "paletteMix": 0.35,
   "palette2BaseOverride": 0.4,
   "palette2RangeOverride": 0.2,
+  "colorCycle": true,
+  "cycleSpeed": 0.2,
   "beatFlash": 0.5,
   "customPaletteId": "old-palette"
 }

@@ -163,7 +163,7 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uPostBright"), grade::brightness(fx.brightness, fx.intensity));
     glUniform1f(p.loc("uPostContrast"), fx.contrast);
     glUniform1f(p.loc("uPostGamma"), fx.gamma);
-    glUniform1f(p.loc("uPostHue"), fx.colorShift + inputs.postCyclePhase);
+    glUniform1f(p.loc("uPostHue"), fx.colorShift);
 }
 
 }  // namespace geode::viz

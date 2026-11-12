@@ -46,8 +46,8 @@ param|43|saturation|FLOAT|1|0|1.5|FADE|LIVE
 param|44|brightness|FLOAT|1|0.2|2|FADE|LIVE
 param|45|contrast|FLOAT|1|0.3|1.25|FADE|LIVE
 param|46|gamma|FLOAT|1|0.3|2.5|FADE|LIVE
-param|47|colorCycle|BOOL|0|0|1|HOLD|LIVE
-param|48|cycleSpeed|FLOAT|0.1|0.02|0.6|FADE|LIVE
+param|47|colorCycle|BOOL|0|0|1|HOLD|RETIRED
+param|48|cycleSpeed|FLOAT|0.1|0.02|0.6|FADE|RETIRED
 param|49|invert|BOOL|0|0|1|HOLD|LIVE
 param|50|intensity|FLOAT|1|0.2|2|FADE|LIVE
 param|51|duotone|BOOL|0|0|1|HOLD|LIVE

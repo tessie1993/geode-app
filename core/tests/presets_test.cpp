@@ -96,7 +96,8 @@ void testChillPinned() {
     const SceneParams& s = p->params;
     check(sameBits(s.speed, 0.5f) && sameBits(s.audioDrive, 0.85f), "Chill motion");
     check(sameBits(s.beatResponse, SceneParams{}.beatResponse), "Chill sets no retired key");
-    check(s.trails && sameBits(s.trailLength, 0.8f) && s.colorCycle && sameBits(s.cycleSpeed, 0.025f), "Chill trails and cycle");
+    check(s.trails && sameBits(s.trailLength, 0.8f), "Chill trails");
+    check(!s.colorCycle && sameBits(s.cycleSpeed, SceneParams{}.cycleSpeed), "Chill sets no retired colour cycle");
     check(s.palette == 3 && sameBits(s.sway, 0.35f) && sameBits(s.vignette, 0.4f) && sameBits(s.paramFadeSec, 1.5f), "Chill look");
     check(sameBits(s.saturation, 0.8f) && sameBits(s.brightness, 0.9f), "Chill grade");
     // What the Kotlin literal left out is SceneParams' default.

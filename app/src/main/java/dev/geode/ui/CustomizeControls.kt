@@ -102,11 +102,6 @@ private fun LookControl(
         ParamKeys.HUE_SHIFT -> LabeledSlider(key, p, "colorShift", onChange = onChange)
         ParamKeys.HUE_RANGE -> LabeledSlider(key, p, "hueRange", onChange = onChange)
         ParamKeys.TEMPERATURE -> LabeledSlider(key, p, "temperature", display = "Warmth", onChange = onChange)
-        ParamKeys.COLOR_CYCLE -> CheckRow(key, p.colorCycle, display = "Cycle the colours") { onChange(p.copy(colorCycle = it)) }
-        ParamKeys.CYCLE_SPEED ->
-            if (p.colorCycle) {
-                LabeledSlider(key, p, "cycleSpeed", onChange = onChange)
-            }
         ParamKeys.CONTRAST -> LabeledSlider(key, p, "contrast", onChange = onChange)
         ParamKeys.GAMMA -> LabeledSlider(key, p, "gamma", display = "Midtones", onChange = onChange)
         ParamKeys.INTENSITY -> LabeledSlider(key, p, "intensity", onChange = onChange)

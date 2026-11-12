@@ -381,8 +381,6 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop4", {"uPalStops"}},
         {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
-        {"colorCycle", {"uColorShift"}},
-        {"cycleSpeed", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},
         {"brightness", {"uBright"}},
@@ -551,7 +549,7 @@ bool compositeApplies(catalogue::Kind kind, const std::string& field) {
     static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
                                                "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
-                                                     "intensity", "contrast", "gamma", "colorShift", "colorCycle", "cycleSpeed"};
+                                                     "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;
     return kind != catalogue::Kind::Milkdrop && kFluidOnly.count(field) != 0;
 }

@@ -512,7 +512,6 @@ void testAxesLeaveTheSliderRoom() {
     };
     const Row rows[] = {{"Intensity", Axis::Energy, &SceneParams::intensity, 1.0f, 1.25f},
                         {"Glow", Axis::Energy, &SceneParams::bloom, 0.0f, 0.25f},
-                        {"Cycle speed", Axis::Speed, &SceneParams::cycleSpeed, 0.1f, 0.6f},
                         {"Speed", Axis::Speed, &SceneParams::speed, 1.0f, 4.0f}};
     for (const Row& r : rows) {
         for (float turn : {0.25f, 0.5f, 0.9f}) {

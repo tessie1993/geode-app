@@ -62,8 +62,6 @@ object ParamKeys {
     const val MILKDROP_PALETTE_TINT = "MilkDrop palette tint"
     const val HUE_SHIFT = "Hue shift"
     const val HUE_RANGE = "Hue range"
-    const val COLOR_CYCLE = "Color cycle"
-    const val CYCLE_SPEED = "Cycle speed"
     const val SATURATION = "Saturation"
     const val BRIGHTNESS = "Brightness"
     const val CONTRAST = "Contrast"

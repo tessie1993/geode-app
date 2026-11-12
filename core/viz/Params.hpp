@@ -61,7 +61,10 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::palette2,
                                                ParamSlot::paletteMix,
                                                ParamSlot::palette2BaseOverride,
-                                               ParamSlot::palette2RangeOverride};
+                                               ParamSlot::palette2RangeOverride,
+                                               // Color cycle and Cycle speed: the old hue cycle.
+                                               ParamSlot::colorCycle,
+                                               ParamSlot::cycleSpeed};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.

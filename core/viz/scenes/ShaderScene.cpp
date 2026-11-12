@@ -85,7 +85,6 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
@@ -170,7 +169,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uColorShift", p.colorShift + cyclePhase_ + p.paletteShift);
+    set1f("uColorShift", p.colorShift + p.paletteShift);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);

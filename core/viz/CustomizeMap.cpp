@@ -28,7 +28,6 @@ const std::vector<Section>& table() {
         // Your colours: the colour picker and eyedropper, first under the one palette list they add to.
         {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
         {C::Look, "colour_detail", false, S::Always, {"Colour map", "Hue shift", "Hue range", "Temperature"}},
-        {C::Look, "colour_cycle", false, S::Always, {"Color cycle", "Cycle speed"}},
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity"}},
 
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
@@ -227,7 +226,6 @@ const std::vector<Gate>& gates() {
           "Dive lens"}},
         {"Flow field on", "flowEnabled", {"Flow strength", "Flow force", "Flow curl", "Born inside", "Colour age", "Surface"}},
         {"Trails", "trails", {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
-        {"Color cycle", "colorCycle", {"Cycle speed"}},
     };
     return kGates;
 }

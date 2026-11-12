@@ -704,19 +704,19 @@ class PlayerSession internal constructor(
      * those [allowsStyle] lets the user keep (Auto's rule, so the paywall never opens), a saved or
      * bundled preset made for it, else on MilkDrop a .milk file, then the roll over that look with
      * Customize's kept controls held. This only lists what the shell knows and applies the pick through
-     * [applyPreset] or [selectScene]. [rollParams] false (the roll is Pro) keeps the preset as it is.
+     * [applyPreset] or [selectScene]. [basicsOnly] (no Pro) is the dice's free rule: the free Basics roll.
      */
-    fun randomizeEverything(rollParams: Boolean) {
+    fun randomizeEverything(basicsOnly: Boolean) {
         // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
         if (MilkdropEngine.available && allowsStyle(SceneIds.MILKDROP)) {
-            milkPresetFilesAsync { randomizeEverything(rollParams, it) }
+            milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
         } else {
-            randomizeEverything(rollParams, emptyList())
+            randomizeEverything(basicsOnly, emptyList())
         }
     }
 
     private fun randomizeEverything(
-        rollParams: Boolean,
+        basicsOnly: Boolean,
         milk: List<MilkFile>,
     ) {
         val seed = Random.nextLong()
@@ -735,7 +735,7 @@ class PlayerSession internal constructor(
         val preset = viz.presets.getOrNull(picks[0])
         if (preset != null) applyPreset(preset) else selectScene(style)
         milk.getOrNull(picks[1])?.let { visual.emitApply(VizApply(milkPath = it.path, sceneId = style)) }
-        modulation.randomizeAllRoll(viz.params, seed, rollParams)
+        modulation.randomizeAllRoll(viz.params, seed, basicsOnly)
     }
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath

@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.model.LibraryStartTab
+import dev.geode.model.TrackTap
 import dev.geode.model.WatermarkChoice
 import dev.geode.ui.pro.PaywallViewModel
 
@@ -64,4 +66,93 @@ private fun cornerLabel(corner: Int): Int =
         WatermarkChoice.TOP_RIGHT -> R.string.watermark_corner_top_right
         WatermarkChoice.BOTTOM_LEFT -> R.string.watermark_corner_bottom_left
         else -> R.string.watermark_corner_bottom_right
+    }
+
+/**
+ * Settings › Preferences › Library: the tab and the order Library opens on, and what a tap on a
+ * track does. Each default is how Library behaved before the choice existed (Tracks, by title,
+ * play with its list), so an existing install opens exactly as it did.
+ */
+@Composable
+internal fun LibraryChoiceRows(settings: SettingsViewModel) {
+    val general by settings.general.collectAsStateWithLifecycle()
+    SettingsChoiceRow(
+        title = stringResource(R.string.prefs_library_start_tab),
+        options = LibraryStartTab.entries,
+        selected = general.libraryStartTab,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { settings.updateGeneral { g -> g.copy(libraryStartTab = it) } },
+    )
+    SettingsChoiceRow(
+        title = stringResource(R.string.prefs_library_sort),
+        options = LibrarySort.entries,
+        selected = LibrarySort.fromName(general.librarySort) ?: LibrarySort.TITLE,
+        label = { stringResource(it.labelRes) },
+        onSelect = { settings.updateGeneral { g -> g.copy(librarySort = it.name) } },
+    )
+    SettingsHint(stringResource(R.string.prefs_library_sort_hint))
+    SettingsChoiceRow(
+        title = stringResource(R.string.prefs_track_tap),
+        options = TrackTap.entries,
+        selected = general.trackTap,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { settings.updateGeneral { g -> g.copy(trackTap = it) } },
+    )
+    SettingsHint(stringResource(R.string.prefs_track_tap_hint))
+}
+
+/** Settings › Preferences › Player & mini player: the A–B loop button, and previous on the floating mini player. */
+@Composable
+internal fun PlayerButtonRows(settings: SettingsViewModel) {
+    val general by settings.general.collectAsStateWithLifecycle()
+    SettingsSwitchRow(
+        title = stringResource(R.string.prefs_show_ab_loop),
+        summary = stringResource(R.string.prefs_show_ab_loop_hint),
+        checked = general.showAbLoop,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(showAbLoop = it) } },
+    )
+    SettingsSwitchRow(
+        title = stringResource(R.string.prefs_mini_player_previous),
+        summary = stringResource(R.string.prefs_mini_player_previous_hint),
+        checked = general.miniPlayerPrevious,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(miniPlayerPrevious = it) } },
+    )
+}
+
+/**
+ * Settings › Preferences › Icons on the visual: ‹ › and Record, for someone who steps and records
+ * by gesture and wants the picture clear. Only the icons go; the gestures stay the gesture map's.
+ */
+@Composable
+internal fun StageIconRows(settings: SettingsViewModel) {
+    val general by settings.general.collectAsStateWithLifecycle()
+    SettingsSwitchRow(
+        title = stringResource(R.string.prefs_stage_arrows),
+        summary = stringResource(R.string.prefs_stage_arrows_hint),
+        checked = general.stageArrows,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(stageArrows = it) } },
+    )
+    SettingsSwitchRow(
+        title = stringResource(R.string.prefs_stage_record),
+        summary = stringResource(R.string.prefs_stage_record_hint),
+        checked = general.stageRecord,
+        onCheckedChange = { settings.updateGeneral { g -> g.copy(stageRecord = it) } },
+    )
+}
+
+private fun LibraryStartTab.labelRes(): Int =
+    when (this) {
+        LibraryStartTab.TRACKS -> R.string.library_tab_tracks
+        LibraryStartTab.ALBUMS -> R.string.library_tab_albums
+        LibraryStartTab.ARTISTS -> R.string.library_tab_artists
+        LibraryStartTab.FOLDERS -> R.string.library_tab_folders
+        LibraryStartTab.PLAYLISTS -> R.string.library_tab_playlists
+    }
+
+private fun TrackTap.labelRes(): Int =
+    when (this) {
+        TrackTap.PLAY_LIST -> R.string.prefs_track_tap_play_list
+        TrackTap.PLAY_ALONE -> R.string.prefs_track_tap_play_alone
+        TrackTap.PLAY_NEXT -> R.string.prefs_track_tap_play_next
+        TrackTap.ADD_TO_QUEUE -> R.string.prefs_track_tap_add_to_queue
     }

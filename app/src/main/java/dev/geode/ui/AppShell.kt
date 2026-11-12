@@ -313,6 +313,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 onHide = chrome::hide,
                 onPlayPause = viewModel::togglePlayPause,
                 onNext = viewModel::next,
+                onPrevious = if (general.miniPlayerPrevious) viewModel::previous else null,
                 modifier = modifier,
             )
         }
@@ -356,6 +357,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                                 showTimeLeft = general.showTimeLeft,
+                                showAbLoop = general.showAbLoop,
                             )
                         GeodeDestination.LIBRARY ->
                             if (twoPane) {
@@ -374,6 +376,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                             onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                             onOpenLibrary = {},
                                             showTimeLeft = general.showTimeLeft,
+                                            showAbLoop = general.showAbLoop,
                                         )
                                     }
                                 }

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -92,6 +93,8 @@ internal class LibraryInputs(
     val library: Flow<LibraryState>,
     val overrides: Flow<Map<String, LibraryTrack>>,
     val scanning: Flow<Boolean>,
+    /** Settings › Preferences › Library's opening order, until the screen picks one of its own. */
+    val defaultSort: Flow<LibrarySort> = flowOf(LibrarySort.TITLE),
 ) {
     companion object {
         fun of(session: PlayerSession) =
@@ -101,6 +104,7 @@ internal class LibraryInputs(
                 library = session.library,
                 overrides = session.musicLibrary.trackOverrides,
                 scanning = session.musicLibrary.libraryScanning,
+                defaultSort = session.container.general.value.map { LibrarySort.fromName(it.librarySort) ?: LibrarySort.TITLE },
             )
     }
 }
@@ -132,16 +136,17 @@ class LibraryViewModel
         private val libraryRepository: LibraryRepository by lazy { session.musicLibrary }
 
         // Search and sort survive process death with the rest of the screen's saved state, so
-        // coming back to a filtered library does not silently reset it.
+        // coming back to a filtered library does not silently reset it. A sort never picked here
+        // follows Settings › Preferences, read live: the prefs load after the screen may have opened.
         private val queryFlow: StateFlow<String> = savedStateHandle.getStateFlow(KEY_QUERY, "")
 
         /** What the search field shows: every keystroke, at once. The results follow [debouncedQuery]. */
         val query: StateFlow<String> get() = queryFlow
 
         private val sortFlow =
-            savedStateHandle
-                .getStateFlow(KEY_SORT, LibrarySort.TITLE.name)
-                .map { stored -> LibrarySort.entries.firstOrNull { it.name == stored } ?: LibrarySort.TITLE }
+            combine(savedStateHandle.getStateFlow<String?>(KEY_SORT, null), inputs.defaultSort) { stored, preferred ->
+                LibrarySort.fromName(stored) ?: preferred
+            }.distinctUntilChanged()
 
         /** A cleared box answers at once; typing waits for a pause, so a burst filters once. */
         @OptIn(FlowPreview::class)

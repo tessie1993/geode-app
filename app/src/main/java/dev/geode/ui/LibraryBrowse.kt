@@ -19,6 +19,12 @@ enum class LibrarySort(
     ALBUM(R.string.library_sort_album),
     DURATION(R.string.library_sort_duration),
     ADDED(R.string.library_sort_added),
+    ;
+
+    companion object {
+        /** An order by its stored name (`GeneralSettings.librarySort`, the saved screen state); null when it names none. */
+        fun fromName(name: String?): LibrarySort? = entries.firstOrNull { it.name == name }
+    }
 }
 
 /**

@@ -87,8 +87,12 @@ enum class SettingsRowKey {
     KEEP_RENDERS,
     RECORD_QUALITY,
 
-    // Preferences: the watermark's placement and Pro's switch are one block
+    // Preferences: the watermark's placement and Pro's switch are one block, as are Library's
+    // opening tab, order and tap, the Player's buttons and the visual's icons
     WATERMARK,
+    LIBRARY_PREFS,
+    PLAYER_PREFS,
+    STAGE_PREFS,
 
     // Backup, help & about
     BACKUP,

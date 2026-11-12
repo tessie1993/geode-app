@@ -205,6 +205,7 @@ private fun VisualsHubContent(
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
+    val general by settingsViewModel.general.collectAsStateWithLifecycle()
     // Why a recording ended or was not kept (too short, the maximum length, a failure).
     LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
@@ -332,6 +333,8 @@ private fun VisualsHubContent(
                 chrome = chrome,
                 sheetShown = nav.sheetShown,
                 room = iconRoom,
+                showArrows = general.stageArrows,
+                showRecord = general.stageRecord,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.

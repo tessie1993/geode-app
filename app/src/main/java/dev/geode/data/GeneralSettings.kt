@@ -8,8 +8,10 @@ import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.model.KnobSize
+import dev.geode.model.LibraryStartTab
 import dev.geode.model.ScreenRotation
 import dev.geode.model.TabLabels
+import dev.geode.model.TrackTap
 
 enum class CornerStyle(
     @param:StringRes val labelRes: Int,
@@ -21,7 +23,8 @@ enum class CornerStyle(
 
 /**
  * The app's own look and shell: what every screen draws with, the options glass, the mini player's
- * fade, picture-in-picture and interface sounds (#1009, PR 5; was part of `GuiPrefs`).
+ * fade, picture-in-picture and interface sounds, and Settings › Preferences' small choices for Library,
+ * the players and the visual's icons (#1009, PR 5; was part of `GuiPrefs`).
  */
 data class GeneralSettings(
     val cornerStyle: CornerStyle = CornerStyle.ROUNDED,
@@ -56,6 +59,24 @@ data class GeneralSettings(
     val showTimeLeft: Boolean = false,
     val screenRotation: ScreenRotation = ScreenRotation.FOLLOW,
     val knobSize: KnobSize = KnobSize.SMALL,
+    /** Settings › Preferences › Library: the tab Library opens on. */
+    val libraryStartTab: LibraryStartTab = LibraryStartTab.TRACKS,
+    /**
+     * Settings › Preferences › Library: the order Library opens in, by `LibrarySort`'s name (that
+     * enum is the screen's, and `data` may not name `ui`). Empty or unknown is the first order,
+     * Title. A sort picked in Library itself still holds for the rest of the visit.
+     */
+    val librarySort: String = "",
+    /** Settings › Preferences › Library: what a tap on a track does. */
+    val trackTap: TrackTap = TrackTap.PLAY_LIST,
+    /** Settings › Preferences › Player: the A–B loop button under the Player's seek bar. */
+    val showAbLoop: Boolean = true,
+    /** Settings › Preferences › Player: a previous button on the floating mini player, beside play and next. */
+    val miniPlayerPrevious: Boolean = false,
+    /** Settings › Preferences › Visuals: ‹ › at the sides of the visual (the sideways swipe still steps). */
+    val stageArrows: Boolean = true,
+    /** Settings › Preferences › Visuals: the Record icon on the visual (the hold still records; a running take keeps its stop). */
+    val stageRecord: Boolean = true,
 ) {
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
@@ -83,6 +104,13 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
     internal const val KEY_SHOW_TIME_LEFT = "gui_show_time_left"
     internal const val KEY_SCREEN_ROTATION = "gui_screen_rotation"
     internal const val KEY_KNOB_SIZE = "gui_knob_size"
+    internal const val KEY_LIBRARY_START_TAB = "gui_library_start_tab"
+    internal const val KEY_LIBRARY_SORT = "gui_library_sort"
+    internal const val KEY_TRACK_TAP = "gui_track_tap"
+    internal const val KEY_SHOW_AB_LOOP = "gui_show_ab_loop"
+    internal const val KEY_MINI_PLAYER_PREVIOUS = "gui_mini_player_previous"
+    internal const val KEY_STAGE_ARROWS = "gui_stage_arrows"
+    internal const val KEY_STAGE_RECORD = "gui_stage_record"
 
     /** The font colour before it was a colour; read while [KEY_FONT_COLOR] is unset, removed on write. */
     internal const val KEY_WHITE_FONT = "gui_white_font"
@@ -102,6 +130,8 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             portable(PrefType.INT, KEY_FONT_COLOR)
             portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
             portable(PrefType.BOOLEAN, KEY_ACCENT_FOLLOWS_VISUAL, KEY_HAPTICS, KEY_SHOW_TIME_LEFT)
+            portable(PrefType.STRING, KEY_LIBRARY_START_TAB, KEY_LIBRARY_SORT, KEY_TRACK_TAP)
+            portable(PrefType.BOOLEAN, KEY_SHOW_AB_LOOP, KEY_MINI_PLAYER_PREVIOUS, KEY_STAGE_ARROWS, KEY_STAGE_RECORD)
             retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
             retired(null, *RETIRED_THEME_KEYS.toTypedArray(), KEY_REDUCED_MOTION)
         }
@@ -128,6 +158,13 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             showTimeLeft = prefs.getBoolean(KEY_SHOW_TIME_LEFT, d.showTimeLeft),
             screenRotation = ScreenRotation.fromName(prefs.getString(KEY_SCREEN_ROTATION, null)),
             knobSize = KnobSize.fromName(prefs.getString(KEY_KNOB_SIZE, null)),
+            libraryStartTab = LibraryStartTab.fromName(prefs.getString(KEY_LIBRARY_START_TAB, null)),
+            librarySort = prefs.getString(KEY_LIBRARY_SORT, null).orEmpty(),
+            trackTap = TrackTap.fromName(prefs.getString(KEY_TRACK_TAP, null)),
+            showAbLoop = prefs.getBoolean(KEY_SHOW_AB_LOOP, d.showAbLoop),
+            miniPlayerPrevious = prefs.getBoolean(KEY_MINI_PLAYER_PREVIOUS, d.miniPlayerPrevious),
+            stageArrows = prefs.getBoolean(KEY_STAGE_ARROWS, d.stageArrows),
+            stageRecord = prefs.getBoolean(KEY_STAGE_RECORD, d.stageRecord),
         )
     }
 
@@ -155,6 +192,13 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             .putBoolean(KEY_SHOW_TIME_LEFT, value.showTimeLeft)
             .putString(KEY_SCREEN_ROTATION, value.screenRotation.name)
             .putString(KEY_KNOB_SIZE, value.knobSize.name)
+            .putString(KEY_LIBRARY_START_TAB, value.libraryStartTab.name)
+            .putString(KEY_LIBRARY_SORT, value.librarySort)
+            .putString(KEY_TRACK_TAP, value.trackTap.name)
+            .putBoolean(KEY_SHOW_AB_LOOP, value.showAbLoop)
+            .putBoolean(KEY_MINI_PLAYER_PREVIOUS, value.miniPlayerPrevious)
+            .putBoolean(KEY_STAGE_ARROWS, value.stageArrows)
+            .putBoolean(KEY_STAGE_RECORD, value.stageRecord)
             .remove(KEY_WHITE_FONT)
             .remove(KEY_REDUCED_MOTION)
         val fontColor = value.fontColorArgb

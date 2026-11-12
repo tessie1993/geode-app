@@ -19,7 +19,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,18 +57,19 @@ internal class BehaviourPrefsHolder(
 /**
  * The container's one [dev.geode.data.BehaviourRepository]: null until its load is back, then its
  * value, and each change applied to the latest value, so a row never writes back a stale copy over
- * the last screen recorded meanwhile or another page's change.
+ * the last screen recorded meanwhile or another page's change. Edits run on the app's scope, so
+ * leaving the page never drops one.
  */
 @Composable
 internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
     val ctx = LocalContext.current
-    val repository = remember { ctx.geodeContainer.behaviour }
-    val scope = rememberCoroutineScope()
+    val container = remember { ctx.geodeContainer }
+    val repository = container.behaviour
     val prefs by produceState<BehaviourPrefs?>(null, repository) {
         repository.loaded()
         repository.value.collect { value = it }
     }
-    return BehaviourPrefsHolder(prefs) { edit -> scope.launch { repository.update(edit) } }
+    return BehaviourPrefsHolder(prefs) { edit -> container.appScope.launch { repository.update(edit) } }
 }
 
 /** One [BehaviourPrefs] row by its key, whichever tab holds it. */

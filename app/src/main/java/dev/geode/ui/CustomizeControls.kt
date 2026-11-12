@@ -218,6 +218,15 @@ private fun MotionControl(
                     onChange(p.copy(endlessZoomSpeed = it))
                 }
             }
+        DIVE_SPACING -> LabeledSlider(key, p, SceneParams::diveSpacing) { onChange(p.copy(diveSpacing = it)) }
+        DIVE_SHAPE -> LabeledSlider(key, p, SceneParams::diveShape) { onChange(p.copy(diveShape = it)) }
+        DIVE_BLEND -> LabeledSlider(key, p, SceneParams::diveBlend, display = "Soft edges") { onChange(p.copy(diveBlend = it)) }
+        DIVE_FOG -> LabeledSlider(key, p, SceneParams::diveFog) { onChange(p.copy(diveFog = it)) }
+        DIVE_TWIST -> LabeledSlider(key, p, SceneParams::diveTwist, display = "Spiral") { onChange(p.copy(diveTwist = it)) }
+        DIVE_AIM_X -> LabeledSlider(key, p, SceneParams::diveAimX, display = "Aim sideways") { onChange(p.copy(diveAimX = it)) }
+        DIVE_AIM_Y -> LabeledSlider(key, p, SceneParams::diveAimY, display = "Aim up and down") { onChange(p.copy(diveAimY = it)) }
+        DIVE_LENS -> LabeledSlider(key, p, SceneParams::diveLens, display = "Lens") { onChange(p.copy(diveLens = it)) }
+        DIVE_FOLLOW -> LabeledSlider(key, p, SceneParams::diveFollow) { onChange(p.copy(diveFollow = it)) }
         ParamKeys.MOTION_AMOUNT ->
             LabeledSlider(key, p, SceneParams::motionAmount) { onChange(p.copy(motionAmount = it)) }
         ParamKeys.MOTION_BREATH ->
@@ -722,6 +731,15 @@ private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"
 private const val LIQUID_ON = "Flow field on"
+private const val DIVE_SPACING = "Ring spacing"
+private const val DIVE_SHAPE = "Tunnel shape"
+private const val DIVE_BLEND = "Dive blend"
+private const val DIVE_FOG = "Depth fade"
+private const val DIVE_TWIST = "Dive twist"
+private const val DIVE_AIM_X = "Dive aim X"
+private const val DIVE_AIM_Y = "Dive aim Y"
+private const val DIVE_LENS = "Dive lens"
+private const val DIVE_FOLLOW = "Music follow"
 private const val RIPPLES_ON = "Water ripples on"
 private const val GLIDE_TIME = "Glide time"
 private const val TRANSITION_LENGTH = "Transition length"

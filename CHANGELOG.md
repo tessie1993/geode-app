@@ -11,6 +11,19 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Six new style families, ten styles each (334 styles).** Prism
+  (`prism_*`, `lib_prism`): kaleidoscope portals in liquid chrome. Fluor
+  (`fluor_*`, `lib_fluor`): carved ornament under blacklight, its raised
+  edges glowing. Loom (`loom_*`, `lib_loom`): woven light, threads, nets and
+  skins. Shard (`shard_*`, `lib_shard`): broken glass with thin-film faces.
+  Petal (`petal_*`, `lib_petal`): translucent petals lit from within. Fold
+  (`fold_*`, `lib_fold` and five `lib_fold_march_*`): fractals made by
+  folding space, each drawn by its own march. All sixty are 3D on the camera
+  rig, bounded by Detail, and hear the sound as Flame, Opal and Hollow do;
+  none spins. The first of each (Prism Portal, Fluor Whorl, Loom Braid, Shard
+  Splinter, Petal Rose, Fold Lace) is free. A family whose every style
+  marches is now named once in the native catalogue (`kMarchedFamilies`).
+
 - **Three new style families, ten styles each (274 styles).** Flame
   (`flame_*`, `lib_flame`): fractal-flame veils and threads on black. Opal
   (`opal_*`, `lib_opal`): oil-film bubbles, shells and melting drops. Hollow

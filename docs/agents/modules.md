@@ -19,17 +19,9 @@ One fact per line. Add a fact as a new bullet under its module.
 
 ## `:engine:scenes`
 
-- Packages: `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util`.
-- `render/bridge/NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`:app` `stage/`).
-- Packages: `dev.geode.render.*`, `dev.geode.audio`, `dev.geode.util`.
-- The GL adapter: `VisualizerView`, `VisualizerRenderer`, `render/bridge/NativeViz`.
+- Packages: `dev.geode.analysis`, `dev.geode.render.*`, `dev.geode.audio`.
+- Packages: `dev.geode.render.*`, `dev.geode.audio`.
 - `MilkPresetMemory` is the one MilkDrop preset every new native renderer starts on: process-wide, saved across restarts, a bundled preset on first launch.
-- The look snapshot is `render/look` (#345).
-- `LookSnapshot` is the one value every host draws: style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
-- `LookSource.pin` freezes the snapshot for a render.
-- `gentleFlight` is the dream's override.
-- `NativeViz.setLook` pushes the parts of a look that changed, from any thread, into the native handle's latches; a new handle gets the whole look once.
-- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
 - `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).
@@ -48,13 +40,13 @@ One fact per line. Add a fact as a new bullet under its module.
 - `render/EventRecipe` holds the Customize event recipes' titles; their routes, toggle and merge are native in `core/viz/ReactionDna` (`geode_event_recipe_*`, pinned by `viz_math_test`).
 - The value units and a control's value text are native (`core/viz/ParamText`); `:app`'s `render/scene/ParamUnit` names the three a row sets itself.
 - A Customize slider's maths is native (`core/viz/SliderMap`, `geode_slider_*`): the Reset offer, the whole-number snap and the wave period's log track; `ui/CustomizeTabs` and `ui/CustomizeAdvanced` only call it.
-- `render/PerformanceSettings` holds the live quality presets.
 
 ## `:app`
 
 - Package: `dev.geode.*`.
 - Holds everything else: UI, playback service, stores, editor model, export, wallpaper, widget.
 - Its packages are listed in [app-packages.md](app-packages.md).
+- `util/BestEffort` (`bestEffort(TAG, "what")`) lives here; no engine module calls it.
 
 ## Build logic
 

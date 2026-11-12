@@ -1,14 +1,14 @@
 # Stats: the numbers the listing may quote
 
 Every number comes from the code or the catalogue and is recounted by `tools/store-stats.sh`
-(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted at b1ac6a75a, 2026-11-11 (the permission count moved, 13 to 14, with the Cast microphone type). Recounted by hand from the files on 2026-11-12 at 8fd87553d: the style rows with the Flame, Opal and Hollow families (30 styles), and the Customize categories with Dive and Engine (#1065):
+(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted at b1ac6a75a, 2026-11-11 (the permission count moved, 13 to 14, with the Cast microphone type). Recounted by hand from the files on 2026-11-12 at 8fd87553d: the style rows with the Flame, Opal and Hollow families (30 styles), and the Customize categories with Dive and Engine (#1065). The style rows recounted by hand from `core/tests/catalogue.txt` on 2026-11-12 with the Prism, Fluor, Loom, Shard, Petal and Fold families (60 styles; Pool had replaced Water):
 
 ```
-styles                      274
-  by kind                   SHADER 211, CYMATICS 11, SILK 10, MYCELIUM 10, LIFE 10, ACID 10, FLUID 9, WATER 1, MILKDROP 1, CURL_FLOW 1
-style families              13 (150 styles: 10 x 12, 3 x 10)
-free styles                 70 (shader 211 - family non-openers 137 - neon Pro 4)
-Pro-only styles             204
+styles                      334
+  by kind                   SHADER 272, CYMATICS 11, SILK 10, MYCELIUM 10, LIFE 10, ACID 10, FLUID 9, MILKDROP 1, CURL_FLOW 1
+style families              19 (210 styles: 10 x 12, 9 x 10)
+free styles                 77 (shader 272 - family non-openers 191 - neon Pro 4)
+Pro-only styles             257
 bundled looks (presets)     763 (12 generic x 61 loose shader styles + 31 hand-tuned)
 bundled MilkDrop presets    6
 Customize categories        11 (Engine shows only on styles with an engine of their own; Engine and Expert have no free Basics)
@@ -27,9 +27,9 @@ How to read them, and what the listing says:
 
 | Number | Counted from | Command | In the listing as |
 |---|---|---|---|
-| 274 styles | `core/tests/catalogue.txt`, the native catalogue's text, pinned by `core/tests/catalogue_test.cpp` | `grep -c '^style\|' core/tests/catalogue.txt` | "274 visual styles". MilkDrop counts as one style, whatever presets are loaded |
-| 13 families: ten of 12, three of 10 | the same file's `family\|` rows | `grep -c '^family\|' core/tests/catalogue.txt` | "thirteen style families" |
-| 70 free styles | shader styles, minus each family's non-openers (eleven or nine), minus the four Pro neon styles (`pro/FreeTier.kt:20-45`) | the script's arithmetic | "more than 60 styles" free. Rounded down on purpose, so one style moving to Pro does not make the page false |
+| 334 styles | `core/tests/catalogue.txt`, the native catalogue's text, pinned by `core/tests/catalogue_test.cpp` | `grep -c '^style\|' core/tests/catalogue.txt` | "334 visual styles". MilkDrop counts as one style, whatever presets are loaded |
+| 19 families: ten of 12, nine of 10 | the same file's `family\|` rows | `grep -c '^family\|' core/tests/catalogue.txt` | "nineteen style families" |
+| 77 free styles | shader styles, minus each family's non-openers (eleven or nine), minus the four Pro neon styles (`pro/FreeTier.kt:20-45`) | the script's arithmetic | "more than 60 styles" free. Rounded down on purpose, so one style moving to Pro does not make the page false |
 | 763 bundled looks | `core/viz/CataloguePresets.cpp`: 12 generic looks for each of the 61 loose shader styles, plus 31 hand-tuned; `core/tests/presets_test.cpp:73` asserts the same sum | the script | "more than 700 bundled looks" |
 | 6 MilkDrop presets | `app/src/main/assets/milk/` | `find app/src/main/assets/milk -name '*.milk' \| wc -l` | not quoted; the listing says "bring your own .milk files" |
 | 11 Customize categories | `ui/CustomizeCategory.kt:30-40`; which show on a style and which have free Basics is `core/viz/CustomizeMap.cpp` (Basics rows at :22-90; Engine's sections show only where a style has an engine, :105-107) | the script | "up to eleven groups"; free is "the basic controls in Customize (quick knobs included)", not "every group", because Engine and Expert have no Basics |

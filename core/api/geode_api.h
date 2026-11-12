@@ -111,6 +111,27 @@ GEODE_API void        geode_viz_gyro_off(geode_viz*);
    request until the renderer can draw it, and then not again. Also what the reaction matrix deals the DNA
    of. An export, which never calls geode_viz_frame, sets its scene with geode_viz_set_scene. */
 GEODE_API void        geode_viz_request_scene(geode_viz*, const char* scene_id);
+/* The user's look as the shell hands it, whole (core/viz/LookSnapshot). lfos, adsrs and reactions are the saved
+   texts geode_viz_set_lfos, _set_adsrs and _set_reactions read (NULL lfos or adsrs: none saved; NULL reactions:
+   the style's own routes); tuning is the saved sound tuning, none for the engine's defaults. */
+typedef struct geode_viz_look {
+    const char*  scene_id;
+    const float* params;
+    int          param_count;
+    const char*  lfos;
+    const char*  adsrs;
+    const float* tuning;
+    int          tuning_count;
+    const char*  reactions;
+    int          reduced_motion;
+    const char*  transition_id;
+    long long    transition_ms;
+} geode_viz_look;
+/* Any thread. Only the parts that differ from the look set last on this renderer reach it (all of them on a new
+   renderer), so a transition or a scene set again restarts nothing. The scene is a request, as above. */
+GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
+/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
+GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
    simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */

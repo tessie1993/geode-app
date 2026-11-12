@@ -1,4 +1,4 @@
-package dev.geode.render
+package dev.geode.data
 
 import dev.geode.engine.bridge.GeodeNative
 

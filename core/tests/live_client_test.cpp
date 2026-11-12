@@ -1,12 +1,12 @@
 // Host-side checks for core/stage/LiveClient: what a live stage's client does between the stage thread and the
 // threads that talk to it (docs/agents/native-stage.md). The renderer is a model that records every call.
 //
-// What is pinned: a look's parts reach the renderer only when they changed (all of them the first time); a frame
-// hears the ring set last and none after it is cleared; what a frame reported is kept until polled (an error text
-// only when it differs, each loaded preset once and in order, director moments summed, the liquid mode, a still,
-// asked for again when it could not be read); a transition's warm-up waits for a context; a tee opens on the
-// stage thread, fails without a context, and closes exactly once, on its stop or on the stage's release; nothing
-// is queued after the release, and a renderer released is no longer handed to other threads.
+// What is pinned: a frame hears the ring set last and none after it is cleared; what a frame reported is kept
+// until polled (an error text only when it differs, each loaded preset once and in order, director moments summed,
+// the liquid mode, a still, asked for again when it could not be read); a transition's warm-up waits for a
+// context; a tee opens on the stage thread, fails without a context, and closes exactly once, on its stop or on
+// the stage's release; nothing is queued after the release, and a renderer released is no longer handed to other
+// threads. A look's parts: core/tests/look_snapshot_test.cpp.
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -92,37 +92,6 @@ struct Rig {
     Seen seen;
     LiveClient client{std::make_unique<Viz>(seen)};
 };
-
-Look lookAt(float tempo) {
-    Look l;
-    l.sceneId = "tunnel";
-    l.params = {tempo, 0.5f};
-    l.lfos = "wave " + std::to_string(tempo);
-    l.adsrs = "envelope a";
-    l.tuning = {0.5f};
-    l.transitionId = "fade";
-    l.transitionMs = 1200;
-    return l;
-}
-
-void lookParts() {
-    LookLatch latch;
-    check(latch.take(lookAt(77.0f)) == kLookAll, "the first look is every part");
-    check(latch.take(lookAt(77.0f)) == 0, "the same look again is nothing");
-    check(latch.take(lookAt(93.0f)) == (kLookParams | kLookLfos), "only the parts that differ");
-    Look next = lookAt(93.0f);
-    next.sceneId = "bloom";
-    next.transitionMs = 400;
-    check(latch.take(next) == (kLookScene | kLookTransition), "a new scene and a new transition length");
-    next.hasReactions = true;
-    check(latch.take(next) == kLookReactions, "an empty user text is not the style's own");
-    next.reactions = "route a";
-    next.reducedMotion = true;
-    next.tuning = {0.75f};
-    next.adsrs = "envelope b";
-    check(latch.take(next) == (kLookReactions | kLookReducedMotion | kLookTuning | kLookAdsrs), "routes, reduced motion, tuning and envelopes");
-    check(latch.look().sceneId == "bloom" && latch.look().transitionMs == 400, "and it keeps the look last taken");
-}
 
 void soundAndSurface() {
     Rig r;
@@ -247,7 +216,6 @@ void releases() {
 }  // namespace
 
 int main() {
-    lookParts();
     soundAndSurface();
     frameReports();
     warmUps();

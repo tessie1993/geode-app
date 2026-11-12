@@ -8,6 +8,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
+import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundCursor
@@ -16,7 +17,6 @@ import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
-import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress

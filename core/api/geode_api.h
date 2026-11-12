@@ -1059,6 +1059,31 @@ GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
+/* A render's range and time left (output/ExportRange, output/RenderEta). */
+/* The segment a picked start and end cover, held inside a track of track_ms: 1 with the outs filled (either
+ * may be NULL), 0 when there is no segment to render (no track length, under geode_export_range_min_ms left,
+ * or the whole track, which renders as a whole track). */
+GEODE_API int     geode_export_range(int64_t start_ms, int64_t end_ms, int64_t track_ms, int64_t* out_start_ms,
+                                     int64_t* out_duration_ms);
+GEODE_API int64_t geode_export_range_min_ms(void);
+/* The time left, from progress samples. A sample is the bar's 0..1 at at_ms on a monotonic clock; steady 0
+ * marks the quick lead-in (the audio transcode), which says nothing about the render's pace and starts the
+ * estimate over, as progress moving backwards does. Returns whole seconds, or GEODE_RENDER_ETA_UNKNOWN until
+ * the steady render has run long enough to say. Any thread: the handle locks. */
+#define GEODE_RENDER_ETA_UNKNOWN (-1)
+typedef struct geode_render_eta geode_render_eta;
+GEODE_API geode_render_eta* geode_render_eta_create(void);
+GEODE_API void    geode_render_eta_destroy(geode_render_eta*);
+GEODE_API int64_t geode_render_eta_sample(geode_render_eta*, float progress, int64_t at_ms, int steady);
+GEODE_API void    geode_render_eta_reset(geode_render_eta*);
+/* How an estimate is worded: the phrase, and for minutes and hours the rounded number it carries (else 0). */
+#define GEODE_ETA_ALMOST_DONE 0     /* under 30 s */
+#define GEODE_ETA_ABOUT_A_MINUTE 1  /* under 90 s */
+#define GEODE_ETA_MINUTES 2         /* under an hour */
+#define GEODE_ETA_HOURS 3
+GEODE_API int     geode_render_eta_phrase(int64_t seconds_remaining);
+GEODE_API int     geode_render_eta_phrase_count(int64_t seconds_remaining);
+
 /* A recording's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
  * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. The stop itself
  * is the recorder's (geode_recorder_*). */

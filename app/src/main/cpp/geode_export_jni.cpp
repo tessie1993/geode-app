@@ -233,6 +233,51 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(J
     return geode_export_clamp_fps(requestedFps);
 }
 
+// A render's range and time left (output/ExportRange, output/RenderEta). out: [0] start ms, [1] length ms.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRange(JNIEnv* env, jobject, jlong startMs,
+                                                                                jlong endMs, jlong trackMs,
+                                                                                jlongArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return JNI_FALSE;
+    int64_t start = 0;
+    int64_t duration = 0;
+    if (!geode_export_range(startMs, endMs, trackMs, &start, &duration)) return JNI_FALSE;
+    const jlong values[2] = {start, duration};
+    env->SetLongArrayRegion(out, 0, 2, values);
+    return JNI_TRUE;
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinMs(JNIEnv*, jobject) {
+    return geode_export_range_min_ms();
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_render_eta_create());
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_render_eta_destroy(reinterpret_cast<geode_render_eta*>(handle));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaSample(JNIEnv*, jobject, jlong handle,
+                                                                                 jfloat progress, jlong atMs,
+                                                                                 jboolean steady) {
+    return geode_render_eta_sample(reinterpret_cast<geode_render_eta*>(handle), progress, atMs, steady ? 1 : 0);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaReset(JNIEnv*, jobject, jlong handle) {
+    geode_render_eta_reset(reinterpret_cast<geode_render_eta*>(handle));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(JNIEnv*, jobject,
+                                                                                jlong secondsRemaining) {
+    return geode_render_eta_phrase(secondsRemaining);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhraseCount(JNIEnv*, jobject,
+                                                                                     jlong secondsRemaining) {
+    return geode_render_eta_phrase_count(secondsRemaining);
+}
+
 // A recorded take's limits (output/RecordPlan).
 
 JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordMaxLengths(JNIEnv* env, jobject) {

@@ -1315,6 +1315,49 @@ object GeodeNative {
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 
+    /**
+     * A picked segment held inside the track: [out] gets its start and length in ms. False, leaving [out]
+     * alone, when there is no segment to render (no track length, too short, or the whole track).
+     */
+    external fun exportRange(
+        startMs: Long,
+        endMs: Long,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The shortest segment [exportRange] accepts. */
+    external fun exportRangeMinMs(): Long
+
+    /** What [renderEtaSample] answers while it has no estimate yet. */
+    const val RENDER_ETA_UNKNOWN = -1L
+
+    /** A render's estimate of the time left, for one run after another. Freed with [renderEtaDestroy]. */
+    external fun renderEtaCreate(): Long
+
+    external fun renderEtaDestroy(handle: Long)
+
+    /** Feeds one progress sample; the seconds left, or [RENDER_ETA_UNKNOWN]. [steady] false while warming up. */
+    external fun renderEtaSample(
+        handle: Long,
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Long
+
+    external fun renderEtaReset(handle: Long)
+
+    /** How [renderEtaPhrase] words the seconds left; the last two carry [renderEtaPhraseCount]. */
+    const val ETA_ALMOST_DONE = 0
+    const val ETA_ABOUT_A_MINUTE = 1
+    const val ETA_MINUTES = 2
+    const val ETA_HOURS = 3
+
+    external fun renderEtaPhrase(secondsRemaining: Long): Int
+
+    /** The minutes or hours the phrase names; 0 for the other two. */
+    external fun renderEtaPhraseCount(secondsRemaining: Long): Int
+
     /** Why a recording ended ([recorderStopped]); 0 while it runs. `Stop` in core/output/Recorder. */
     const val RECORD_STOP_USER = 1
     const val RECORD_STOP_MAX_LENGTH = 2

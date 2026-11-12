@@ -59,6 +59,7 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_export_run_api.cpp
     api/geode_export_job_api.cpp
     api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
@@ -69,6 +70,7 @@ add_library(geode_core STATIC
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
+    output/RenderEta.cpp
     output/Recorder.cpp
     output/EncodeSink.cpp
     output/RecordSession.cpp

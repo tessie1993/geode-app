@@ -117,7 +117,8 @@ Maker decodeMaker(std::string_view text) {
     if (bar != std::string_view::npos) {
         const std::string_view head = text.substr(0, bar);
         int selected = 0;
-        for (char c : head) selected = (c >= '0' && c <= '9') ? selected * 10 + (c - '0') : selected;
+        // Any count past the stops clamps below, so a long run of digits stops growing at the cap.
+        for (char c : head) selected = (c >= '0' && c <= '9') ? std::min(selected * 10 + (c - '0'), colour::kMaxStops) : selected;
         m.selected = selected;
         std::string_view rest = text.substr(bar + 1);
         while (!rest.empty() && static_cast<int>(m.stops.size()) < colour::kMaxStops) {

@@ -43,6 +43,7 @@
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/ShapeGraph.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
@@ -235,6 +236,7 @@ private:
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
     void uploadPaletteRamp(const SceneParams& p);
+    void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
@@ -374,6 +376,12 @@ private:
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
     GLuint paletteRampTex_ = 0;
+    // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
+    // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
+    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
+    // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh
+    // renderer replays its film from the pinned seed.
+    shapes::ShapeGraph shapeGraph_;
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;

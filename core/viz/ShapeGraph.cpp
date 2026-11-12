@@ -119,7 +119,16 @@ std::array<float, 3> direction(uint64_t seed, int slot) {
     return {x / len, y / len, z / len};
 }
 
-float glideToward(float value, float target, float a) { return value + (target - value) * a; }
+// Within this of its target a glide lands on it: an exponential approach never would, and a fold amount held a
+// hair short of whole would keep lib_shapes evaluating the graph twice for good. A thousandth of a world unit (or
+// of the palette) is far below a pixel; a step of no time moves nothing.
+constexpr float kGlideSnap = 1e-3f;
+
+float glideToward(float value, float target, float a) {
+    if (!(a > 0.0f)) return value;
+    const float next = value + (target - value) * a;
+    return std::fabs(target - next) < kGlideSnap ? target : next;
+}
 
 float rampToward(float value, float target, float step) {
     return value < target ? std::min(value + step, target) : std::max(value - step, target);
@@ -309,16 +318,16 @@ void ShapeGraph::pack() {
         v[7] = s.colour;
         v[8] = static_cast<float>(s.prim.from);
         v[9] = static_cast<float>(s.prim.to);
-        v[10] = s.prim.w;
+        v[10] = s.prim.weight();
         v[11] = presence;
         v[12] = static_cast<float>(s.op.from);
         v[13] = static_cast<float>(s.op.to);
-        v[14] = s.op.w;
+        v[14] = s.op.weight();
         v[15] = s.radius;
         if (presence > 0.0f) packed_.count = i + 1;
     }
     packed_.mix = mix_;
-    packed_.fold = {static_cast<float>(folds_.from), static_cast<float>(folds_.to), folds_.w, foldAmount_};
+    packed_.fold = {static_cast<float>(folds_.from), static_cast<float>(folds_.to), folds_.weight(), foldAmount_};
     packed_.melt = melt_;
 }
 
@@ -384,7 +393,7 @@ Sample smaxCol(Sample a, Sample b, float k) {
 
 Sample opOnto(Sample acc, Sample s, int op, float k, float presence) {
     // A shape on its way in or out is lifted off by up to one and a half blend radii, past the reach of its
-    // own and its group's blends, so at presence 0 it touches nothing (lib_shapes' shapeOp).
+    // own and its group's blends, so at presence 0 it touches nothing (lib_shapes' shpOpOnto).
     const Sample lifted{s.distance + (1.0f - presence) * 1.5f * std::max(k, 1e-4f), s.colour};
     switch (op) {
         case 0: return lifted.distance < acc.distance ? lifted : acc;
@@ -404,33 +413,31 @@ Sample opsOnto(Sample acc, Sample s, const float* o, float presence) {
     return {mixf(a.distance, b.distance, o[2]), mixf(a.colour, b.colour, o[2])};
 }
 
-V3 foldAbout(V3 p, float folds) {
+// An angle about the vertical axis folded into one of `folds` mirrored sectors: into [0, half a sector], by
+// reflection, so the graph repeats round the axis without anything turning. Continuous all the way round for a
+// whole count (both sides of a sector's edge land on the same angle), with a slope of one either way.
+float foldAngle(float ang, float folds) {
     const float n = std::max(folds, 1.0f);
-    const float r = len2(p.x, p.z);
     const float sector = kTwoPi / n;
-    const float ang = std::atan2(p.z, p.x);
     const float m = ang - sector * std::floor(ang / sector);
-    const float folded = std::fabs(m - 0.5f * sector);
-    return {r * std::cos(folded), p.y, r * std::sin(folded)};
+    return std::fabs(m - 0.5f * sector);
 }
 
+// p folded by the counts in g.fold, the count crossfaded A to B on the folded ANGLE: both folded angles lie
+// within a quarter turn, so their mix crosses no seam, the radius and the height are kept, and the angle is
+// only drawn in (a 1-Lipschitz map of space, and no point comes nearer the axis than it was).
 V3 foldSpace(const Packed& g, V3 p) {
-    const float amount = g.fold[3];
-    if (amount <= 0.0f) return p;
-    V3 f = foldAbout(p, g.fold[0]);
-    if (g.fold[2] > 0.0f) {
-        const V3 b = foldAbout(p, g.fold[1]);
-        f = {mixf(f.x, b.x, g.fold[2]), mixf(f.y, b.y, g.fold[2]), mixf(f.z, b.z, g.fold[2])};
-    }
-    return {mixf(p.x, f.x, amount), mixf(p.y, f.y, amount), mixf(p.z, f.z, amount)};
+    const float r = len2(p.x, p.z);
+    // The axis has no angle (lib_shapes guards atan, undefined there on some drivers); any angle lands it on the axis.
+    const float ang = r > 0.0f ? std::atan2(p.z, p.x) : 0.0f;
+    float a = foldAngle(ang, g.fold[0]);
+    if (g.fold[2] > 0.0f) a = mixf(a, foldAngle(ang, g.fold[1]), g.fold[2]);
+    return {r * std::cos(a), p.y, r * std::sin(a)};
 }
 
-}  // namespace
-
-Sample sample(const Packed& g, float x, float y, float z) {
+// The graph's list walked at p (lib_shapes' shpGraph): the scene and its colour.
+Sample graphAt(const Packed& g, V3 p) {
     Sample scene{kFar, 0.0f};
-    if (g.count <= 0) return scene;
-    const V3 p = foldSpace(g, {x, y, z});
     Sample group{kFar, 0.0f};
     const float* land = nullptr;
     float landPresence = 0.0f;
@@ -454,6 +461,21 @@ Sample sample(const Packed& g, float x, float y, float z) {
     }
     if (open) scene = opsOnto(scene, group, land, landPresence);
     return scene;
+}
+
+}  // namespace
+
+Sample sample(const Packed& g, float x, float y, float z) {
+    if (g.count <= 0) return {kFar, 0.0f};
+    const V3 p{x, y, z};
+    const float amount = g.fold[3];
+    if (amount <= 0.0f) return graphAt(g, p);
+    const Sample folded = graphAt(g, foldSpace(g, p));
+    if (amount >= 1.0f) return folded;
+    // Partly folded: the plain and the folded graph's distances crossfaded (a convex mix of two bounds), never
+    // the two points, whose mix would pull far space in onto the axis and draw the graph again out there.
+    const Sample plain = graphAt(g, p);
+    return {mixf(plain.distance, folded.distance, amount), mixf(plain.colour, folded.colour, amount)};
 }
 
 Sample sampleInto(const Packed& g, float d, float colour, float x, float y, float z) {

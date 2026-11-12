@@ -233,9 +233,28 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
     if (!userPostFx) p.fluidBloom = false;
     uploadPaletteRamp(p);
+    stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     return p;
+}
+
+// Once a frame, after the params resolve: the shape graph follows the drawn params (Spawn, Morph, Formula,
+// Fractal, Shapes, Speed), so the reaction matrix, the waves, the envelopes, the macro knobs and the Auto
+// Director move it and nothing else does. Its glides and crossfades run on the wall step, as the resolver's
+// slider glides do; its drift on the music's step times Speed, the uTime rule, so a pause or silence holds it.
+// The seed is the frame's latched play seed (what settingsLatch_.directorSeed() answers, an export's pinned
+// one), so a new play gives the graph new shapes and an export replays the screen's.
+void Renderer::stepShapeGraph(const SceneParams& p, float dt, float wallDt) {
+    shapes::Inputs in;
+    in.seed = frameSettings_.director.seed;
+    in.spawn = p.spawn;
+    in.morph = p.morph;
+    in.formula = p.formula;
+    in.fractal = p.fractal;
+    in.shapes = p.shapes;
+    in.speed = p.speed;
+    shapeGraph_.tick(in, wallDt, dt);
 }
 
 void Renderer::uploadPaletteRamp(const SceneParams& p) {

@@ -29,6 +29,8 @@
 "lib_field3d_march",
 // Grow and layers (Spawn, Fractal, Front layer, Back layer) as the family libraries draw them; lib_scene_uniforms includes it.
 "lib_grow",
+// The shape graph (core/viz/ShapeGraph) as a distance field, melted into a style's own by Shapes; after lib_scene_uniforms.
+"lib_shapes",
 // One library per style family (core/viz/Catalogue.cpp): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",

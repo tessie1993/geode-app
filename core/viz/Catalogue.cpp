@@ -265,9 +265,10 @@ constexpr std::array kFormulaStyles = {
 static_assert(kFormulaStyles.size() == 60, "the six formula families' sixty styles");
 
 // The raymarched styles that melt the shape graph (viz/ShapeGraph) into their own form through lib_shapes'
-// shapesInto, by Shapes (uShapeMix, Scope::Shapes), by id. Empty until a style reads uShapeMix: a style joins
-// here in the commit that hooks it up, and style_reads_test then holds it to reading uShapeMix.
-constexpr std::array<const char*, 0> kShapeStyles{};
+// shapesInto, by Shapes (uShapeMix, Scope::Shapes), by id. A style joins here in the commit that hooks it up,
+// and style_reads_test then holds it to reading uShapeMix. The first three are loose styles built round one
+// subject at the origin, where the graph stands: the sun, the chrome blobs and the vectorscope's beam.
+constexpr std::array kShapeStyles = {"chrome_nebula", "liss", "solar"};
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely

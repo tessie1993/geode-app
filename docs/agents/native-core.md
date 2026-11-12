@@ -55,8 +55,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
 - `ShapeGraph` (`core/viz/ShapeGraph`) is the morphing shape graph: up to 8 primitives that union, blend, cut and mask in a one-level CSG list, packed as 8 × 4 vec4.
 - Its target is a pure function of the play seed, Spawn, Morph, Formula, Fractal and Shapes; numbers glide, primitive and operation changes crossfade by weight, shapes grow from and shrink to 0, and heads drift (translation only) on a Speed-scaled clock.
-- `ShapeGraph::sample` mirrors the shader's distance and colour maths for host tests; no renderer ticks it and no style draws it yet.
-- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`, empty until a style reads it).
+- `ShapeGraph::sample` mirrors lib_shapes' distance and colour maths for the host tests (`core/tests/shape_graph_test`).
+- The renderer ticks one `ShapeGraph` a frame in `resolveParams` (`Renderer::stepShapeGraph`, the frame's play seed), and `ShaderScene::uploadShapes` hands it as `uShapes[32]`, `uShapeCount`, `uShapeFold`, `uShapeMelt` to a program that reads them (`SceneHost::shapeGraph`).
+- `lib_shapes` draws the graph (`shapesScene`, `sminCol`) and melts it into a style's field by `uShapeMix` (`shapesInto`, identity at 0); `shapesHue` gives the hit its palette index.
+- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`: `chrome_nebula`, `liss`, `solar`).
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack; `Renderer::uploadPaletteRamp` bakes it into one 256-texel ramp that every shader style reads through `pal()` (`uPalLut`).
 - A shader style with no stack set draws the look's own palette (`palette`, its hue overrides or your colours' stops).
 - Retired with the stack in place: Palette 2 and Palette blend (`palette2`, `paletteMix`, their overrides), Colour map (`paletteLut`) and Color cycle (`colorCycle`, `cycleSpeed`); an old look naming them loads and draws its own palette.

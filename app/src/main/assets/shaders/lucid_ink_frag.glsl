@@ -127,12 +127,13 @@ float tineDist(vec3 p) {
     return min(max(w.x, w.y), 0.0) + length(max(w, 0.0));
 }
 
+/** The style's world at p: its distance, and in `found` what is there (no slots). */
 float mapAt(vec3 p, inout LucidHit found) {
     float d = min((p.y - waterH(p.xz)) / gLip, tineDist(p));
     return max(d, LI_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);

@@ -139,6 +139,7 @@ float windAt(float z) {
     return z * (LV_TAU / 32.0) + gWind * (z - gEye.z) + gSpin;
 }
 
+/** The style's world at p: its distance, and in `found` what is there (no slots). */
 float mapAt(vec3 p, inout LucidHit found) {
     vec2 c = p.xy - axisAt(p.z);
     float r = length(c);
@@ -149,7 +150,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d, LV_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);

@@ -171,6 +171,7 @@ float sheet(vec3 p, float sgn, inout LucidHit found) {
     return d;
 }
 
+/** The style's world at p: its distance, and in `found` what is there (mat 1 on a bubble, 0 on the film; a.x the side, a.y the bubble's radius, a.z its rim distance, a.w its cell hash, b.xyz the point in the bubble's frame). */
 float mapAt(vec3 p, inout LucidHit found) {
     float sgn = p.y < 0.0 ? -1.0 : 1.0;
     // The other film lies at least gG beyond y = 0.
@@ -178,7 +179,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d, LB_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);
@@ -256,7 +257,7 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 nrm = lucidNormal(p, max(0.0012, 0.001 * hitT));
-        // Restore the hit's globals after the normal taps.
+        // The hit at p again for the shading, after the normal taps.
         fld = lucidField(p);
         float sgn = fld.a.x;
         float ndv = clamp(dot(nrm, -rd), 0.0, 1.0);

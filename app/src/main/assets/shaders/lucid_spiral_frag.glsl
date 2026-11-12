@@ -107,6 +107,7 @@ float gGa;
 float gGz;
 vec3 gEye;
 
+/** The style's world at p: its distance, and in `found` what is there (no slots). */
 float mapAt(vec3 w, inout LucidHit found) {
     float r = length(w.xy);
     // atan(0, 0) is undefined in GLSL ES; the guard only matters on the axis,
@@ -126,7 +127,7 @@ float mapAt(vec3 w, inout LucidHit found) {
     return max(d, LS_BUBBLE - length(w - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);

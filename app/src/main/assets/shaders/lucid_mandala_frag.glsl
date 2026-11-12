@@ -128,7 +128,7 @@ float lmJewel(vec3 q, float lz, float rad, float ang, float ph, float halfSeg, f
     return max(sdOctahedron(s, size), abs(s.z) - 0.42 * size);
 }
 
-/** The bore of `seg`-radian wedges at `p`. Writes the material globals. */
+/** The bore of `seg`-radian wedges at `p`. Hands its material, ring phase and hash back in its out parameters. */
 float lmBore(vec3 p, float seg, out float mat, out float ph, out float gh) {
     vec3 q = lmFold(p, seg);
     float wall = gR - q.x;
@@ -156,6 +156,7 @@ float lmBore(vec3 p, float seg, out float mat, out float ph, out float gh) {
     return min(wall, gem);
 }
 
+/** The style's world at p: its distance, and in `found` what is there (mat 1 on a jewel, 0 on the bore face; a.x the jewel's ring phase (0 at the heart, 1 at the rim), a.y its hash). */
 float mapAt(vec3 p, inout LucidHit found) {
     float m;
     float ph;
@@ -181,7 +182,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d / gLip, LM_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);

@@ -177,6 +177,7 @@ float ldTile(vec2 z, inout LucidHit found) {
     return smoothstep(0.0, LD_BEVEL, e) * pillow;
 }
 
+/** The style's world at p: its distance, and in `found` what is there (mat 0 dish, 1 rim; on the dish a.x the inversions, a.y the tile edge distance, a.z |z|^2, b.xy the folded point). */
 float mapAt(vec3 p, inout LucidHit found) {
     float rw = length(p.xz);
     float dRim = length(vec2(rw - LD_R, p.y + 0.01)) - LD_RIM;
@@ -202,7 +203,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return min(d, dRim);
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);
@@ -304,7 +305,7 @@ void main() {
                 sh = clamp(sh, 0.0, 1.0);
                 sh = 0.35 + 0.65 * sh * sh * (3.0 - 2.0 * sh);
             }
-            // Restore the hit point's globals after the shading taps.
+            // The hit at p again for the shading, after the shading taps.
             fld = lucidField(p);
             float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.6, 0.5, 1.0);
 

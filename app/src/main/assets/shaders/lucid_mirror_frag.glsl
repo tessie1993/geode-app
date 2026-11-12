@@ -147,6 +147,7 @@ float blob(vec2 f, float z, float cell) {
     return length(vec3(f - c, z - cz)) - min(r, 0.5);
 }
 
+/** The style's world at p: its distance, and in `found` what is there (mat 1 on a blob, 0 on the tube; a.x the seam distance, b.xyz the folded point). */
 float mapAt(vec3 p, inout LucidHit found) {
     vec3 w = p;
     w.xy = gAxis + gRoll * (p.xy - gAxis);
@@ -174,7 +175,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d, LM_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);
@@ -253,7 +254,7 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 nrm = lucidNormal(p, max(0.0012, 0.001 * hitT));
-        // Restore the hit's globals after the normal taps.
+        // The hit at p again for the shading, after the normal taps.
         fld = lucidField(p);
         vec3 f = fld.b.xyz;
         float seam = fld.a.x;

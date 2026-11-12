@@ -133,6 +133,7 @@ float radialGap(float r, float R, float rose, float rmn, float rpm) {
     return (R * rose - r) / sqrt(1.0 + s * s);
 }
 
+/** The style's world at p: its distance, and in `found` what is there (mat 1 on a petal; a.x the corolla's index mod 16, a.y its angle, a.z its rose, a.w its sector offset, b.x its opening). */
 float mapAt(vec3 p, inout LucidHit found) {
     float r = length(p.xy);
     float th = atan(p.y, p.x);
@@ -173,7 +174,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d, LP_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);
@@ -254,7 +255,7 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = lucidNormal(p, max(0.0012, 0.001 * hitT));
-        // Restore the hit's globals after the normal taps.
+        // The hit at p again for the shading, after the normal taps.
         fld = lucidField(p);
         float r = length(p.xy);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);

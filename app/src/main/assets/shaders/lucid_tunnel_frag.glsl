@@ -137,6 +137,7 @@ vec2 boreCentre(float z) {
     return gBend * vec2(sin(z * (LT_TAU / 32.0)), cos(z * (LT_TAU / 32.0) + 1.3));
 }
 
+/** The style's world at p: its distance, and in `found` what is there (a.xy the wall's (angle, u) coordinate the paint is read at). */
 float mapAt(vec3 p, inout LucidHit found) {
     vec2 c = p.xy - boreCentre(p.z);
     float r = length(c);
@@ -151,7 +152,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     return max(d, LT_BUBBLE - length(p - gEye));
 }
 
-/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+/** The style's world at p as a hit, for lib_lucid_field. */
 LucidHit lucidMap(vec3 p) {
     LucidHit h = lucidHit(0.0);
     float d = mapAt(p, h);
@@ -235,7 +236,7 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = lucidNormal(p, max(0.0015, 0.0012 * hitT));
-        // Restore the hit point's globals after the normal taps.
+        // The hit at p again for the shading, after the normal taps.
         fld = lucidField(p);
         vec2 q = fld.a.xy;
 

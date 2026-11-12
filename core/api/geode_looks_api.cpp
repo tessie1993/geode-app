@@ -29,6 +29,11 @@ const char* geode_file_safe_name(const char* name) {
     return hold(out, files::safeFileName(textOf(name)));
 }
 
+const char* geode_file_safe_chars(const char* name) {
+    thread_local std::string out;
+    return hold(out, files::safeChars(textOf(name)));
+}
+
 int geode_looks_order(const char* const* names, int count, int caseless, int* out) {
     if (!names || !out || count <= 0) return 0;
     std::vector<std::string> list;
@@ -108,6 +113,44 @@ int geode_saved_palette_apply(const char* text, const float* in, float* out) {
 const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id) {
     thread_local std::string out;
     return hold(out, files::keptPaletteId(textOf(look_id), textOf(deleted_id)));
+}
+
+int geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) {
+    if (!out_frame || n < SceneParams::kFieldCount || !out_text || !out_envelope) return 0;
+    thread_local files::Preset read;
+    const auto p = files::readPreset(textOf(text));
+    if (!p) return 0;
+    read = *p;
+    read.params.toWire(out_frame);
+    out_text[0] = read.name.c_str();
+    out_text[1] = read.sceneId.c_str();
+    out_text[2] = read.customShader ? read.customShader->c_str() : nullptr;
+    out_text[3] = read.milkPreset ? read.milkPreset->c_str() : nullptr;
+    out_text[4] = read.customPaletteId.c_str();
+    out_envelope[0] = read.attack;
+    out_envelope[1] = read.decay;
+    return 1;
+}
+
+const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay, const char* custom_shader,
+                               const char* milk_preset, const float* frame, int n, const char* custom_palette_id) {
+    if (!frame || n < SceneParams::kFieldCount) return nullptr;
+    thread_local std::string out;
+    files::Preset p;
+    p.name = textOf(name);
+    p.sceneId = textOf(scene_id);
+    p.attack = attack;
+    p.decay = decay;
+    if (custom_shader) p.customShader = custom_shader;
+    if (milk_preset) p.milkPreset = milk_preset;
+    p.params = SceneParams::fromWire(frame);
+    p.customPaletteId = textOf(custom_palette_id);
+    return hold(out, files::writePreset(p));
+}
+
+const char* geode_preset_milk_file_name(const char* preset_name) {
+    thread_local std::string out;
+    return hold(out, files::milkFileName(textOf(preset_name)));
 }
 
 }

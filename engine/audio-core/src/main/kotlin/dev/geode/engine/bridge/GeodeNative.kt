@@ -1111,6 +1111,9 @@ object GeodeNative {
     /** A name as a file stem (core/viz/LookFiles, `geode_file_safe_name`). Pure. */
     external fun fileSafeName(name: String): String
 
+    /** [fileSafeName] without the hash: a preset folder's name (`geode_file_safe_chars`). Pure. */
+    external fun fileSafeChars(name: String): String
+
     /** The indices of [names] in list order, [caseless] or by code point, ties kept (`geode_looks_order`). Pure. */
     external fun looksOrder(
         names: Array<String>,
@@ -1163,6 +1166,33 @@ object GeodeNative {
         lookId: String,
         deletedId: String,
     ): String
+
+    /**
+     * A preset's text as org.json read it (core/viz/LookFiles, `geode_preset_read`): its params into [frame], into
+     * [strings] (five slots) the name, scene id, custom shader, milk preset (null when absent) and saved palette id,
+     * into [envelope] the attack and decay. False, nothing written, when it is no preset.
+     */
+    external fun presetRead(
+        text: String,
+        frame: FloatArray,
+        strings: Array<String?>,
+        envelope: FloatArray,
+    ): Boolean
+
+    /** A preset's file text, as org.json wrote it (`geode_preset_write`); null for a short frame. */
+    external fun presetWrite(
+        name: String,
+        sceneId: String,
+        attack: Float,
+        decay: Float,
+        customShader: String?,
+        milkPreset: String?,
+        frame: FloatArray,
+        customPaletteId: String,
+    ): String?
+
+    /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
+    external fun presetMilkFileName(presetName: String): String
 
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live

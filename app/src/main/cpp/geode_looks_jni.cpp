@@ -45,6 +45,11 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_fileSafeName(
     return utf8String(env, geode_file_safe_name(textOf(text)));
 }
 
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_fileSafeChars(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars text(env, name);
+    return utf8String(env, geode_file_safe_chars(textOf(text)));
+}
+
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_looksOrder(JNIEnv* env, jobject, jobjectArray names, jboolean caseless) {
     const std::vector<std::string> list = stringsOf(env, names);
@@ -129,6 +134,49 @@ Java_dev_geode_engine_bridge_GeodeNative_savedPaletteKeptId(JNIEnv* env, jobject
     Utf8Chars look(env, lookId);
     Utf8Chars deleted(env, deletedId);
     return utf8String(env, geode_saved_palette_kept_id(textOf(look), textOf(deleted)));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetRead(JNIEnv* env, jobject, jstring text, jfloatArray frame,
+                                                                             jobjectArray strings, jfloatArray envelope) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!frame || env->GetArrayLength(frame) < count || !strings || env->GetArrayLength(strings) < 5 || !envelope ||
+        env->GetArrayLength(envelope) < 2) {
+        return JNI_FALSE;
+    }
+    Utf8Chars chars(env, text);
+    std::vector<float> values(static_cast<size_t>(count));
+    const char* read[5] = {};
+    float pair[2] = {};
+    if (!geode_preset_read(textOf(chars), values.data(), count, read, pair)) return JNI_FALSE;
+    env->SetFloatArrayRegion(frame, 0, count, values.data());
+    env->SetFloatArrayRegion(envelope, 0, 2, pair);
+    for (jsize i = 0; i < 5; ++i) {
+        jstring s = utf8String(env, read[i]);
+        if (env->ExceptionCheck()) return JNI_FALSE;
+        env->SetObjectArrayElement(strings, i, s);
+        if (s) env->DeleteLocalRef(s);
+    }
+    return JNI_TRUE;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetWrite(JNIEnv* env, jobject, jstring name, jstring sceneId,
+                                                                             jfloat attack, jfloat decay, jstring customShader,
+                                                                             jstring milkPreset, jfloatArray frame,
+                                                                             jstring customPaletteId) {
+    Utf8Chars label(env, name);
+    Utf8Chars scene(env, sceneId);
+    Utf8Chars shader(env, customShader);
+    Utf8Chars milk(env, milkPreset);
+    Utf8Chars paletteId(env, customPaletteId);
+    FloatElements values(env, frame);
+    if (!values.get()) return nullptr;
+    return utf8String(env, geode_preset_write(textOf(label), textOf(scene), attack, decay, shader.get(), milk.get(), values.get(),
+                                              values.length(), textOf(paletteId)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetMilkFileName(JNIEnv* env, jobject, jstring presetName) {
+    Utf8Chars chars(env, presetName);
+    return utf8String(env, geode_preset_milk_file_name(textOf(chars)));
 }
 
 }

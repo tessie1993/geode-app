@@ -5,9 +5,12 @@
 #include <cstdint>
 #include <limits>
 #include <numeric>
+#include <utility>
 
 #include "util/Json.hpp"
+#include "viz/Catalogue.hpp"
 #include "viz/Colour.hpp"
+#include "viz/ParamsJson.hpp"
 #include "viz/ParamsPalette.hpp"
 #include "viz/Sha256.hpp"
 
@@ -103,14 +106,18 @@ std::string trimmed(std::string_view text) {
 
 bool blank(std::string_view text) { return trimmed(text).empty(); }
 
-std::string safeFileName(std::string_view name) {
-    std::string stem;
+std::string safeChars(std::string_view name) {
+    std::string out;
     for (size_t i = 0; i < name.size();) {
         const CodePoint cp = codePointAt(name, i);
-        if (safeChar(cp.value)) stem += static_cast<char>(cp.value);
-        else stem += '_';
+        out += safeChar(cp.value) ? static_cast<char>(cp.value) : '_';
         i += cp.length;
     }
+    return out;
+}
+
+std::string safeFileName(std::string_view name) {
+    const std::string stem = safeChars(name);
     if (stem == name && !blank(name)) return stem;
     Sha256 sha;
     sha.update(name.data(), name.size());
@@ -200,6 +207,74 @@ std::optional<std::string> migratedPalette(std::string_view text) {
     if (!p) return std::nullopt;
     p->id = paletteIdFor(p->name);
     return writePalette(*p);
+}
+
+float finiteOr(double raw, float fallback) {
+    const float narrowed = javaFloat(raw);
+    return std::isfinite(narrowed) ? narrowed : fallback;
+}
+
+float finiteIn(double raw, float lo, float hi) { return std::clamp(finiteOr(raw, lo), lo, hi); }
+
+std::optional<Preset> readPreset(std::string_view text) {
+    const std::string source(text);
+    const std::optional<json::Value> doc = json::parse(source);
+    if (!doc || doc->kind() != json::Value::Kind::Object) return std::nullopt;
+    const auto textAt = [&doc](const char* key) {
+        const json::Value* v = doc->get(key);
+        return v ? json::asString(*v) : std::nullopt;
+    };
+    const auto numberAt = [&doc](const char* key) {
+        const json::Value* v = doc->get(key);
+        return v ? json::asDouble(*v) : std::nullopt;
+    };
+    const auto name = textAt("name");
+    const auto sceneId = textAt("sceneId");
+    const auto attack = numberAt("attack");
+    const auto decay = numberAt("decay");
+    if (!name || !sceneId || !attack || !decay) return std::nullopt;
+    Preset p;
+    p.name = *name;
+    p.sceneId = catalogue::resolveId(*sceneId);
+    p.attack = finiteIn(*attack, kAttackMin, kAttackMax);
+    p.decay = finiteIn(*decay, kDecayMin, kDecayMax);
+    if (doc->get("customShader")) p.customShader = textAt("customShader");
+    if (doc->get("milkPreset")) p.milkPreset = textAt("milkPreset");
+    // The params are read from the stored text itself where it is standard JSON: org.json would print a whole
+    // double as a long first. Anything else org.json took is read as org.json printed it.
+    std::string ignored;
+    if (!readParamsJson(source, "", json::orgJsonText(*doc).value_or(""), p.params, p.customPaletteId, ignored)) return std::nullopt;
+    return p;
+}
+
+std::string writePreset(const Preset& p) {
+    const auto number = [](float v) { return json::numberText(static_cast<double>(std::isfinite(v) ? v : 0.0f)); };
+    std::vector<std::pair<std::string, std::string>> entries = {
+        {"name", json::quoted(p.name)},
+        {"sceneId", json::quoted(p.sceneId)},
+        {"attack", number(p.attack)},
+        {"decay", number(p.decay)},
+    };
+    // The params object's keys beside the envelope's, each as org.json printed it after reading it back.
+    const std::optional<json::Value> params = json::parse(writeParamsJson(p.params, p.customPaletteId, ""));
+    if (params) {
+        for (const std::string& key : params->keys()) {
+            if (const auto value = json::orgJsonText(*params->get(key))) entries.emplace_back(key, *value);
+        }
+    }
+    if (p.customShader) entries.emplace_back("customShader", json::quoted(*p.customShader));
+    if (p.milkPreset) entries.emplace_back("milkPreset", json::quoted(*p.milkPreset));
+    std::string out = "{\n";
+    for (size_t i = 0; i < entries.size(); ++i) line(out, 1, entries[i].first, entries[i].second, i + 1 == entries.size());
+    return out + "}";
+}
+
+std::string milkFileName(std::string_view presetName) {
+    constexpr std::string_view kSuffix = ".milk";
+    if (presetName.size() >= kSuffix.size() && presetName.substr(presetName.size() - kSuffix.size()) == kSuffix) {
+        presetName.remove_suffix(kSuffix.size());
+    }
+    return safeFileName(presetName) + std::string(kSuffix);
 }
 
 }  // namespace geode::viz::files

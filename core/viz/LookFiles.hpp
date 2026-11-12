@@ -20,6 +20,9 @@ namespace geode::viz::files {
 std::string trimmed(std::string_view text);
 bool blank(std::string_view text);
 
+// Every code point but A-Z a-z 0-9 '-' '_' ' ' as '_': a preset folder's name.
+std::string safeChars(std::string_view name);
+
 // A name as a file stem: every code point but A-Z a-z 0-9 '-' '_' ' ' becomes '_'. A name that changed, or a blank
 // one, also gets '-' and the first four bytes of the SHA-256 of its UTF-8 in hex, so two names that sanitize alike
 // stay two files and a blank name never resolves to the folder itself (deleting it once removed every project).
@@ -63,5 +66,45 @@ std::string keptPaletteId(std::string_view lookId, std::string_view deletedId);
 
 // A palette file migrated to its current id rule: the text it should hold, under the stem paletteIdFor(name).
 std::optional<std::string> migratedPalette(std::string_view text);
+
+// ---- Presets -------------------------------------------------------------------------------------------------
+
+// The envelope ranges the Customize sliders offer (attack 5 ms to 1 s, decay 10 ms to 1.5 s). Every preset the app
+// saves sits inside them; a shared link can say anything.
+inline constexpr float kAttackMin = 0.005f;
+inline constexpr float kAttackMax = 1.0f;
+inline constexpr float kDecayMin = 0.01f;
+inline constexpr float kDecayMax = 1.5f;
+
+// `raw` narrowed to a float as Java does, or `fallback` when that is not finite (NaN, an infinity, or 1e39, a finite
+// double that overflows a float): a link anything can send must not put one into the renderer or the writer.
+float finiteOr(double raw, float fallback);
+// finiteOr with the range's low end as the fallback, held to lo..hi.
+float finiteIn(double raw, float lo, float hi);
+
+// A preset (files/presets/**/<name>.json), a geode://preset link's body, or the saved live look.
+struct Preset {
+    std::string name;
+    std::string sceneId;
+    float attack = 0.0f;
+    float decay = 0.0f;
+    std::optional<std::string> customShader;
+    std::optional<std::string> milkPreset;
+    SceneParams params;
+    std::string customPaletteId;
+};
+
+// As org.json read it: "name", "sceneId", "attack" and "decay" required (any value as its text or number; a retired
+// style id opens on the style that replaced it), the envelope through finiteIn, "customShader" and "milkPreset" when
+// present, and the params object's keys beside them (viz/ParamsJson, which reads old looks as they were). nullopt
+// when the text is no object or misses a required key.
+std::optional<Preset> readPreset(std::string_view text);
+
+// The file text, as org.json's toString(2) wrote it: name, sceneId, attack, decay, the params object's keys, then
+// customShader and milkPreset when set.
+std::string writePreset(const Preset& p);
+
+// The MilkDrop file a preset mirrors its .milk source to: its name's stem (a ".milk" suffix dropped) plus ".milk".
+std::string milkFileName(std::string_view presetName);
 
 }  // namespace geode::viz::files

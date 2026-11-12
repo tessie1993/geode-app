@@ -121,7 +121,9 @@ void main() {
     float used = 0.0;
     float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BP_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BP_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BP_BOUND + growSlack(BP_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BP_MAX_STEPS; i++) {
@@ -153,7 +155,8 @@ void main() {
     if (hitT > 0.0) {
         // One flat colour per pane: the trap coordinate quantised.
         float pane = floor(band);
-        vec3 glass = tone(hue + pane / BP_PANES + 0.37 * hash11(pane * 0.731));
+        // Escape colour (lib_shade): the smoothed escape count shades each pane along the ramp.
+        vec3 glass = tone(hue + pane / BP_PANES + 0.37 * hash11(pane * 0.731) + shadeEscape(trap.w));
         // Lead between panes, about two pixels wide, thinner under treble.
         float edge = abs(fract(band) - 0.5);
         float leadW = 0.5 - mix(2.2, 1.2, clamp(treble, 0.0, 1.0)) * fw;
@@ -162,6 +165,8 @@ void main() {
         col = glass * (0.78 + 0.22 * treble) * ao;
         col = mix(col, vec3(0.01), lead);
     }
+    // The step glow (lib_shade): a halo where a ray crept along a stone, by Bloom.
+    col += tone(hue + 0.5) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     fragColor = vec4(grade(col), 1.0);

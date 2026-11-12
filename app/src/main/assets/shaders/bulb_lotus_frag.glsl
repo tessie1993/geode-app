@@ -129,6 +129,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, aim, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.03 * sin(bulbTime() * 0.013);
 
@@ -136,7 +138,9 @@ void main() {
     float used = 0.0;
     float veil = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BL_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BL_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BL_BOUND + growSlack(BL_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BL_MAX_STEPS; i++) {
@@ -167,7 +171,8 @@ void main() {
         float heart = exp(-trap.z * 4.0);
         float thin = (1.0 - smoothstep(0.0, 0.4, trap.y));
         float fold = smoothstep(0.25, 0.85, used / max(uSteps, 1.0));
-        vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x)), vec3(1.0), 0.3);
+        // Escape colour (lib_shade): the smoothed escape count moves the petal along its ramp.
+        vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x) + shadeEscape(trap.w)), vec3(1.0), 0.3);
         col = petal * (0.48 + 0.30 * thin + 0.25 * heart);
         col += glowCol * (0.35 * fold + 0.25 * heart * thin);
         col += glowCol * min(veil, 1.0) * 0.2;

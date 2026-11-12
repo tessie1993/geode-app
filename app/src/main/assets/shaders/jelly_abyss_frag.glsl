@@ -85,7 +85,7 @@ out vec4 fragColor;
 //   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
 //
 // The cell (10 by 10 by 8) stays a constant: 32 of it along z are the 256 the
-// eye is rebased by. The swarm goes through SHELL_FIELD3, so the shell's
+// eye is rebased by. The swarm goes through its shell wrapper, so the shell's
 // spawn, fractal, front and back hooks reach it.
 
 /** Compile-time ceiling. uSteps is the runtime budget. */
@@ -199,9 +199,19 @@ float mapField(vec3 p) {
     return min(min(gDB, gDT) * 0.6, dBound);
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The swarm as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -297,6 +307,8 @@ void main() {
     camFly(uv, ro, rd);
     // Exact (power of two) and invisible: every z term tiles with 256.
     ro.z = mod(ro.z, 256.0);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     // ---- march, integrating the jellies' glow on the way ---------------------
     float t = 0.05;

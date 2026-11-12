@@ -155,7 +155,9 @@ void main() {
 
     float hitT = -1.0;
     float used = 0.0;
-    vec2 tb = glassSphere(ro, rd, vec3(0.0), KN_R + gWind + gTube + 0.25);
+    // The knot's bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float boundR = KN_R + gWind + gTube + 0.25;
+    vec2 tb = glassSphere(ro, rd, vec3(0.0), boundR + growSlack(boundR, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tm = max(tb.x, 0.0);
         for (int i = 0; i < GLASS_MAX_STEPS; i++) {

@@ -206,15 +206,19 @@ void main() {
     float knotGain = (0.7 + 0.6 * mid) * (1.0 + 1.2 * kBuild);
 
     // The march interval: bounding sphere meets the slab.
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), GS_BOUND);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), GS_BOUND + growSlack(GS_BOUND, 1.0, 0.2));
     float rn = dot(rd, GS_N);
     float on = dot(ro, GS_N);
+    // The slab, widened as the sphere is.
+    float slabH = GS_SLAB + growSlack(GS_SLAB, 1.0, 0.2);
     vec2 ts;
     if (abs(rn) < 1e-4) {
-        ts = abs(on) < GS_SLAB ? vec2(0.0, 1e6) : vec2(1.0, -1.0);
+        ts = abs(on) < slabH ? vec2(0.0, 1e6) : vec2(1.0, -1.0);
     } else {
-        float a = (-GS_SLAB - on) / rn;
-        float b = (GS_SLAB - on) / rn;
+        float a = (-slabH - on) / rn;
+        float b = (slabH - on) / rn;
         ts = vec2(min(a, b), max(a, b));
     }
     float t0 = max(tb.x, ts.x);

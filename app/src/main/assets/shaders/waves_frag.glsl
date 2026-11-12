@@ -54,7 +54,7 @@ out vec4 fragColor;
 // and the fog, is one normalized input (lib_shell) set in one block at the top
 // of main and mapped there to its range; at rest each is the constant the hall
 // was tuned with. The ribbons are the field the grow hooks act on
-// (SHELL_FIELD3): Spawn slides a second set of ribbons in between the lanes,
+// (its shell wrapper): Spawn slides a second set of ribbons in between the lanes,
 // Fractal grows ribbons a third the size on them, the layers open the near and
 // far hall.
 //
@@ -116,7 +116,7 @@ float box2(vec2 q, vec2 b) {
     return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
 
-/** The ribbons and the floor: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The ribbons and the floor: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float wavesField(vec3 p) {
     // The lanes bend sideways together (Warp).
     float zw = p.z * (WV_TAU / 32.0);
@@ -172,8 +172,18 @@ float wavesField(vec3 p) {
     return min(min(dRib, dOther), dFloor);
 }
 
+/** wavesField through lib_shell's hooks: exactly wavesField(p) at rest, and wavesField read once, in a loop the compiler cannot unroll. */
+float wavesFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, wavesField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return max(SHELL_FIELD3(p, wavesField), WV_BUBBLE - length(p - gEye));
+    return max(wavesFieldGrown(p), WV_BUBBLE - length(p - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {

@@ -83,9 +83,21 @@ uniform float uBackLayer;
 // along 0..1; 0 is the style's first, as it always drew. ParamTable.inc formula.
 uniform float uFormula;
 // uShapeMix 0..1: how far a raymarched style melts the shape graph (core/viz/ShapeGraph) into its own form;
-// 0 is the style's own distance and colour, untouched. ParamTable.inc shapes. The graph's own uniforms and
-// lib_shapes come with the first style that reads it.
+// 0 is the style's own distance and colour, untouched. ParamTable.inc shapes.
 uniform float uShapeMix;
+// The shape graph itself (ShapeGraph::Packed, ticked once a frame by the renderer and uploaded only to a
+// program that reads it; lib_shapes draws it). uShapes: eight shapes of four vec4, [0] place and role (w 0 a
+// head, 1 a child), [1] size times presence and colour index, [2] primitives A and B, their crossfade and the
+// presence, [3] operations A and B, their crossfade and the blend radius. uShapeCount: how many entries the
+// walk reads. uShapeFold: folds A, folds B, their crossfade, how far space is folded. uShapeMelt: the blend
+// radius the graph melts into the style's own distance with.
+uniform vec4 uShapes[32];
+uniform int uShapeCount;
+uniform vec4 uShapeFold;
+uniform float uShapeMelt;
+// uShadow 0..1, uEscapeColor 0..1: Soft shadows and Escape colour (ParamTable.inc shadow, escapeColor), lib_shade's.
+uniform float uShadow;
+uniform float uEscapeColor;
 // The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
 //#include lib_grow
 

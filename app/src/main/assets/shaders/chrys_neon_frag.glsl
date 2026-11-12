@@ -248,7 +248,10 @@ void main() {
     float hitT = -1.0;
 
     float b = dot(ro, rd);
-    float h = b * b - (dot(ro, ro) - NE_BOUND * NE_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = NE_BOUND + growSlack(NE_BOUND, 1.0, 0.2);
+    float h = b * b - (dot(ro, ro) - boundR * boundR);
     if (h > 0.0) {
         float sq = sqrt(h);
         float t = max(-b - sq, 0.0);

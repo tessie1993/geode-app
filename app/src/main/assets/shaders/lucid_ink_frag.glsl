@@ -181,6 +181,8 @@ void main() {
     // Every march term repeats every 32 in z (see the header): exact and invisible.
     float zBase = LI_ZWRAP * floor(ro.z / LI_ZWRAP);
     ro.z -= zBase;
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;

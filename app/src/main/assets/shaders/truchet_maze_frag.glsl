@@ -231,6 +231,8 @@ void main() {
     camFly(uv, ro, rd);
     // Exact and invisible: see the header's wrap note.
     ro.z = mod(ro.z, TM_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
     gEyeM = ro / TM_CELL;
     gBend0 = mazeBend(gEyeM.z);

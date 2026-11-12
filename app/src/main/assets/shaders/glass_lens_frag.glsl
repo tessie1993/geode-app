@@ -386,6 +386,8 @@ void main() {
     // Every z term tiles with a period dividing 1024 (rows of 256 x 4, the floor's 32), so
     // this rebase is invisible and exact, and highp z keeps its fraction far down the travel.
     ro.z = mod(ro.z, LN_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     gEar = glassListen();
@@ -413,6 +415,8 @@ void main() {
     // March the lenses only; the floor is a plane, so the march ends where it meets it.
     float tFloor = rd.y < -1e-4 ? (LN_FLOOR - ro.y) / rd.y : 1e4;
     float tMax = min(tFloor, LN_FAR);
+    // The lenses' top the march gives up above, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float lensTop = LN_LENS_TOP + growSlack(abs(LN_LENS_TOP - ro.y), 1.0, 0.2);
     float t = 0.02;
     float hitT = -1.0;
     // The field where the ray met a lens.
@@ -424,7 +428,7 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        if (p.y > LN_LENS_TOP && rd.y >= 0.0) break;
+        if (p.y > lensTop && rd.y >= 0.0) break;
         GlassHit at = glassField(p);
         float d = at.d;
         if (d < 0.001 + 0.0008 * t) {

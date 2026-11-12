@@ -73,6 +73,9 @@ jobs:
           # The Pool style's surface: caustics within one safety step, nothing past 3 Hz, true derivatives, still in silence, 30/60/120 fps, wakes.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/pool_test.cpp core/viz/pool/PoolMath.cpp -o pool_test
           ./pool_test
+          # The shape graph (core/viz/ShapeGraph, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, no turn, the colour's blend, 1-Lipschitz, the reach.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shape_graph_test.cpp core/viz/ShapeGraph.cpp -o shape_graph_test
+          ./shape_graph_test
           # The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o feedback_motion_test
           ./feedback_motion_test

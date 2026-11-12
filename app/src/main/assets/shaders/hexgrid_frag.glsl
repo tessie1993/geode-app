@@ -68,7 +68,7 @@ out vec4 fragColor;
 //
 // The lattice (2 / sqrt 3 by 2), its hash wrap (1024) and the twist period
 // (64) stay constants: each is a power of two the 8192 travel wrap relies on.
-// The columns go through SHELL_FIELD3, so the shell's spawn, fractal, front
+// The columns go through its shell wrapper, so the shell's spawn, fractal, front
 // and back hooks reach them.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -199,9 +199,19 @@ float mapField(vec3 pw) {
     return max(d, HG_BUBBLE - length(pw - gEye));
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The hall as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -232,6 +242,8 @@ void main() {
     // travel a highp z has ~0.001 of fraction left and the cells speckle.
     ro.z = mod(ro.z, HG_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, HG_APO, false);
 
     float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;

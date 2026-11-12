@@ -15,6 +15,7 @@ out vec4 fragColor;
 //#include lib_scene_motion
 //#include lib_camera
 //#include lib_shell
+//#include lib_shapes
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -58,10 +59,14 @@ out vec4 fragColor;
 // streamers' sharpness (TEXTURE), is one normalized input (lib_shell) set in
 // one block at the top of main and mapped there to its range; at rest each is
 // the constant the sun was tuned with. The photosphere is the field the grow
-// hooks act on (SHELL_FIELD3, about the sun's centre): Spawn sets a twin sun
+// hooks act on (its shell wrapper, about the sun's centre): Spawn sets a twin sun
 // beside it, Fractal grows suns a third the size on the surface, Front layer
 // swells the sun and Back layer what lies past it. A hook that is on widens
 // the bounding shell the march is clipped to.
+// Shapes melts the shape graph (core/viz/ShapeGraph, lib_shapes) into the
+// photosphere: its shapes swell out of the sun, unturned by the sun's spin,
+// wear its granules and their own index along its palette. The
+// shell widens to SHAPES_REACH while it is on; at 0 the sun is as it was.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -93,8 +98,13 @@ float gStepK;
 vec3 gBoil;
 /** fbm value at the last map() point: 0..1, granule height. */
 float gGran;
+/**
+ * The shape graph's colour at the last map() point (lib_shapes: what shapesInto leaves in a colour handed 0.0),
+ * read with gShapeShare at the hit by shapesHue; 0 while Shapes is off.
+ */
+float gShapeHue;
 
-/** The photosphere: the field the grow hooks act on (sunMap() hands it to SHELL_FIELD3). */
+/** The photosphere: the field the grow hooks act on (sunMap() hands it to its shell wrapper). */
 float sunField(vec3 p) {
     vec3 q = gSpin * p;
     float h = fbm3(q * gFreq + gBoil, 3);
@@ -102,8 +112,20 @@ float sunField(vec3 p) {
     return (length(p) - gR - gA * h) * gStepK;
 }
 
+/** sunField through lib_shell's hooks: exactly sunField(p) at rest, and sunField read once, in a loop the compiler cannot unroll. */
+float sunFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, sunField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The photosphere through the grow hooks, the shape graph melted in by Shapes (lib_shapes; the sun alone at 0). */
 float sunMap(vec3 p) {
-    return SHELL_FIELD3(p, sunField);
+    gShapeHue = 0.0;
+    return shapesInto(sunFieldGrown(p), p, gShapeHue);
 }
 
 vec3 sunNormal(vec3 p) {
@@ -195,9 +217,12 @@ void main() {
 
     // ---- march the photosphere inside its bounding shell ----------------------
     float hitT = -1.0;
-    // A hook that is on reaches past the sun: a twin aside, a layer opened, children on the surface.
+    // A hook that is on reaches past the sun (a twin aside, a layer opened, children on the surface) by
+    // lib_shell's slack, 0 at rest.
     float shellR = gR + gA + 0.01;
-    if (!shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK)) shellR = 1.2 * shellR + 0.8;
+    shellR += SHELL_SLACK(shellR);
+    // Shapes melts the shape graph into the sun (lib_shapes), and the graph reaches past it.
+    if (uShapeMix > 0.0) shellR = max(shellR, SHAPES_REACH);
     vec2 shell = sphereSpan(ro, rd, shellR);
     if (shell.y > 0.0) {
         float t = max(shell.x, 0.0);
@@ -226,7 +251,8 @@ void main() {
         float limb = 0.4 + 0.6 * pow(mu, 0.5);
         float spot = smoothstep(0.64, 0.74, vnoise3(s * 2.6 + vec3(11.0, 3.0, 7.0) + boil * 0.1));
         float flicker = 0.9 + 0.1 * sin(uTime * 9.0 + gGran * 20.0) * high;
-        vec3 surf = pal(hue + 0.03 * gGran) * (0.75 + 0.55 * cell);
+        // Where the shape graph melts in, its shapes take their own index along the sun's palette (lib_shapes).
+        vec3 surf = pal(shapesHue(hue + 0.03 * gGran, hue, gShapeHue, gShapeShare)) * (0.75 + 0.55 * cell);
         surf = mix(surf, vec3(1.0, 0.94, 0.82), 0.22 * cell * mu);
         col = surf * 1.1 * limb * flicker * (1.0 - 0.75 * spot);
     }

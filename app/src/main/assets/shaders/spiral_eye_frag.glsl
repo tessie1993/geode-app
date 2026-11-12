@@ -172,9 +172,22 @@ float seField(vec3 p) {
     return dens(p, gArmsA, gArmsB, gArmBlend, gPitch, gSharp, gFlowAmt, gSwellD, gFilSharp, gR0);
 }
 
-/** The field the march reads: seField, through lib_shell's hook (the identity until the shell drives it). */
+/** The density seField through lib_shell's hooks: exactly seField(p) at rest, and seField read once, in a loop the compiler cannot unroll. */
+float seFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, seField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The density the march reads: seField through lib_shell's density hook (the identity at rest), so a
+ * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
+ */
 float seDensity(vec3 p) {
-    return SHELL_FIELD3(p, seField);
+    return seFieldGrown(p);
 }
 
 /** Larger root of |o + t d| = R in the xy plane, or -1 when the ray never meets it. */
@@ -274,6 +287,12 @@ void main() {
     // Every z term tiles with a period dividing 16 (see the header), so this
     // rebase is exact and invisible.
     ro.z = mod(ro.z, SE_ZWRAP);
+    // The grow hooks open round this eye, in the rebased frame the dye is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
+    // The two skips below are exact for the dye as drawn; a grown dye (a copy slid along, children, a
+    // layer opened) reaches past them by lib_shell's slack, so they relax that much while a hook is on.
+    float rIn = r0 - SHELL_SLACK(r0);
+    float rOut = SE_R1 + SHELL_SLACK(SE_R1);
 
     vec3 warm = pal(0.10 + hue);
     vec3 cool = pal(0.55 + hue);
@@ -294,8 +313,8 @@ void main() {
         vec3 p = ro + rd * t;
         float r = length(p.xy);
         // Exact skips: across the clear channel, and out past the shell.
-        if (r < r0 - 0.05) {
-            float tx = cylExit(ro.xy, rd.xy, r0);
+        if (r < rIn - 0.05) {
+            float tx = cylExit(ro.xy, rd.xy, rIn);
             if (tx < 0.0) {
                 t = SE_FAR + 1.0;
                 break;
@@ -303,7 +322,7 @@ void main() {
             t = max(t + 0.01, tx) + base * 0.35 * jit;
             continue;
         }
-        if (r > SE_R1 && dot(p.xy, rd.xy) > 0.0) break;
+        if (r > rOut && dot(p.xy, rd.xy) > 0.0) break;
 
         // Short steps near the eye, longer far off.
         float dt = base * (0.45 + 1.1 * t / SE_FAR);

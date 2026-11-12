@@ -213,6 +213,8 @@ void main() {
 
     // Keep the eye clear of both boards (the spiral path reaches |y| = 2).
     ro.y = clamp(ro.y, -gGap + 0.45, gGap - 0.45);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
 
     float hue = 0.05 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.12 * kTone;
     vec3 haze = mix(pal(hue + 0.7) * 0.03, pal(hue + 0.55) * 0.09, exp(-abs(rd.y) * 4.0));

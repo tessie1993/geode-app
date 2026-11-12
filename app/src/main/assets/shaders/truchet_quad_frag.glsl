@@ -301,6 +301,8 @@ void main() {
     // Every z term tiles with a period dividing 1024 (see the header), so this
     // shift is exact and invisible, and keeps highp z precise far down the travel.
     ro.z = mod(ro.z, TQ_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float kPulse = gTruchetIn.pulse - 0.5;

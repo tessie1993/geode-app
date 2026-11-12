@@ -101,13 +101,17 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, aim, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.78 + 0.04 * sin(bulbTime() * 0.017);
 
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BW_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BW_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BW_BOUND + growSlack(BW_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BW_MAX_STEPS; i++) {
@@ -159,9 +163,13 @@ void main() {
     if (hitT > 0.0) {
         vec3 glass = vec3(0.012, 0.010, 0.02);
         col = glass + tone(hue + 0.55) * rim * (0.25 + 0.2 * air);
-        col += tone(hue) * lA * (0.9 + 0.3 * air) * ao;
-        col += tone(hue + 0.33) * lB * 0.55 * ao;
+        // Escape colour (lib_shade): the smoothed escape count moves the lines along the ramp.
+        float esc = shadeEscape(trap.w);
+        col += tone(hue + esc) * lA * (0.9 + 0.3 * air) * ao;
+        col += tone(hue + 0.33 + esc) * lB * 0.55 * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the crust, by Bloom.
+    col += tone(hue + 0.55) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.85 + 0.15 * swell;
     fragColor = vec4(grade(col), 1.0);

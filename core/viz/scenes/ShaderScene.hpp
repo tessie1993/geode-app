@@ -78,6 +78,7 @@ private:
     void uploadWorld();
     void uploadPool();
     void uploadField();
+    void uploadShapes();
     pool::Controls poolControls() const;
     void specializeWorld();
     void set1f(const char* name, float value);

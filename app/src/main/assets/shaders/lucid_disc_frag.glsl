@@ -253,6 +253,8 @@ void main() {
     float radius = 4.6 * lucidSpan(N.reach, 1.0, 0.8, 1.2) * (1.0 - 0.35 * uCamDolly);
     vec3 ro = -basis[2] * radius;
     vec3 rd = normalize(basis * vec3(uv, uCamFocal));
+    // Grow and layers (lib_grow): the medallion at the origin is the subject, as camAround would say.
+    growSetup(ro, 1.5 * radius, true);
 
     // Outside the disc: near black, a faint warm halo the medallion sits in.
     float sr = length(uv);
@@ -264,7 +266,10 @@ void main() {
     vec3 bc = vec3(0.0, 0.1, 0.0);
     vec3 oc = ro - bc;
     float b = dot(oc, rd);
-    float disc = b * b - (dot(oc, oc) - LD_BOUND * LD_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = LD_BOUND + growSlack(LD_BOUND, 1.0, 0.2);
+    float disc = b * b - (dot(oc, oc) - boundR * boundR);
     if (disc > 0.0) {
         float sq = sqrt(disc);
         float tm = max(-b - sq, 0.01);

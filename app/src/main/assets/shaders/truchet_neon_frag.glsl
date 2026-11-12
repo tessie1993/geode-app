@@ -242,6 +242,8 @@ void main() {
     // shift is exact and invisible; without it a highp z far down the 8192
     // travel keeps too little fraction for the tubes' thin halos.
     ro.z = mod(ro.z, NE_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float e = truchetEnergy();

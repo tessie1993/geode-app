@@ -36,6 +36,10 @@ const std::vector<Control>& table() {
         {"Contrast", W::Slider, "contrast", nullptr, kOwn, R::Always, false},
         {"Gamma", W::Slider, "gamma", "Midtones", kOwn, R::Always, false},
         {"Intensity", W::Slider, "intensity", nullptr, kOwn, R::Always, false},
+        // The shading pass (lib_shade): the key's soft shadows (catalogue::Scope::Shadow) and the escape colour
+        // (catalogue::Scope::Escape) on the raymarched families.
+        {"Soft shadows", W::Slider, "shadow", nullptr, kOwn, R::Always, false},
+        {"Escape colour", W::Slider, "escapeColor", nullptr, kOwn, R::Always, false},
         // Shape
         {"Morph", W::Slider, "morph", nullptr, kOwn, R::Always, false},
         // Whole folds: native words the value ("Off" at 1, else the count) and rounds it for the shaders.

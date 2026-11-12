@@ -90,15 +90,18 @@ vec4 sailRig(vec3 p, float n, float stagger, float star, float hue) {
 }
 
 vec4 loomMap(vec3 p) {
+    // The three rigs through one sailRig call, in a loop the compiler cannot unroll (it starts at a uniform):
+    // pasted once per formula, this style alone took CI's ES 3.00 check past its compile budget.
     vec4 m = vec4(0.0);
-    if (gLayerPick.x > 0.0) m += gLayerPick.x * sailRig(p, 7.0, 0.0, 0.0, 0.0);
-    if (gLayerPick.y > 0.0) {
-        // Wound once round the way in a period, so the world still repeats; the twist's shear bounds the step.
-        vec3 q = vec3(loomRot(p.z * (LOOM_TAU / LOOM_PERIOD)) * p.xy, p.z);
-        vec4 w = sailRig(q, 5.0, 0.0, 0.0, 0.2);
-        m += gLayerPick.y * vec4(0.75 * w.x, w.y, 0.75 * w.z, w.w);
+    for (int f = min(int(uSteps), 0); f < 3; f++) {
+        float w = f == 0 ? gLayerPick.x : (f == 1 ? gLayerPick.y : gLayerPick.z);
+        if (w <= 0.0) continue;
+        // Formula 1 is wound once round the way in a period, so the world still repeats; the twist's shear bounds the step.
+        vec3 q = f == 1 ? vec3(loomRot(p.z * (LOOM_TAU / LOOM_PERIOD)) * p.xy, p.z) : p;
+        vec4 r = sailRig(q, f == 0 ? 7.0 : (f == 1 ? 5.0 : 10.0), 0.0, f == 2 ? 0.55 : 0.0, f == 0 ? 0.0 : (f == 1 ? 0.2 : 0.45));
+        if (f == 1) r = vec4(0.75 * r.x, r.y, 0.75 * r.z, r.w);
+        m += w * r;
     }
-    if (gLayerPick.z > 0.0) m += gLayerPick.z * sailRig(p, 10.0, 0.0, 0.55, 0.45);
     return m;
 }
 

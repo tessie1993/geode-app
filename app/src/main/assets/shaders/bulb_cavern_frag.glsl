@@ -90,6 +90,8 @@ void main() {
     mat3 frame = bulbFrame(tang, vec3(0.0, 1.0, 0.0));
     vec3 ro = path + frame * vec3(clamp(uCamPos.xy, -2.0, 2.0) * 0.12, 0.0);
     vec3 rd = normalize(frame * (uCamBasis * vec3(uv, uCamFocal)));
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.48 + 0.03 * sin(bulbTime() * 0.019);
     vec3 fog = tone(hue) * 0.09 + vec3(0.01, 0.05, 0.06);
@@ -141,7 +143,8 @@ void main() {
         col += vec3(0.9, 0.95, 1.0) * wet * lamp * 0.5 * ao;
         // Veins: where the orbit hugged the equatorial plane, the rock glows.
         float vein = (1.0 - smoothstep(0.0, 0.05, trap.y)) * (0.6 + 0.4 * sin(sqrt(trap.x) * 9.0 + bulbTime() * 0.3));
-        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
+        // Escape colour (lib_shade): the smoothed escape count moves the veins along the ramp.
+        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x) + shadeEscape(trap.w)) * vein * (0.6 + 0.2 * swell);
         col = mix(col, fog, 1.0 - exp(-hitT * 0.22));
     }
 

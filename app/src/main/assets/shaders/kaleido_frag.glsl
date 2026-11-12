@@ -66,7 +66,7 @@ out vec4 fragColor;
 // (TEXTURE) and the fog (SPACE), is one normalized input (lib_shell) set in one
 // block at the top of main and mapped there to its range; at rest each is the
 // constant the tube was tuned with. The tube and its gems are the field the
-// grow hooks act on (SHELL_FIELD3): Spawn slides a second set of gems and
+// grow hooks act on (its shell wrapper): Spawn slides a second set of gems and
 // mirrors half a cell down the tube, Fractal grows gems a third the size on
 // the glass, the layers open the near and far tube.
 //
@@ -171,7 +171,7 @@ float kalTube(vec3 p, float seg, out float mat) {
     return min(wall, gem);
 }
 
-/** The tube and its gems, both section counts blended: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The tube and its gems, both section counts blended: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float kalField(vec3 p) {
     float m;
     float d = kalTube(p, gSegNew, m);
@@ -186,8 +186,18 @@ float kalField(vec3 p) {
     return d / gLip;
 }
 
+/** kalField through lib_shell's hooks: exactly kalField(p) at rest, and kalField read once, in a loop the compiler cannot unroll. */
+float kalFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, kalField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return max(SHELL_FIELD3(p, kalField), KA_BUBBLE - length(p - gEye));
+    return max(kalFieldGrown(p), KA_BUBBLE - length(p - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {

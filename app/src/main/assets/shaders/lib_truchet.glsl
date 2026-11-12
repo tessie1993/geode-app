@@ -105,8 +105,8 @@
 // hit, and includes lib_truchet_field after it. truchetField(p) there is the
 // one entry the march, the normal (truchetNormal) and the shading read the
 // tiling through; it writes no global, so a normal tap can never overwrite
-// what the hit saw. TRUCHET_GROW is where lib_grow applies once that branch
-// merges.
+// what the hit saw. TRUCHET_GROW is where lib_grow applies (truchetGrow, in
+// lib_truchet_field).
 //
 // No sound band turns the eye's look (owner 2026-11-12, no style spins to the
 // music): grids hold still, and so does the look.
@@ -191,11 +191,16 @@ float truchetMorph() {
 // ---- the normalization shell (see the header) ---------------------------------
 
 /**
- * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the style's
- * plain map; at the merge this line becomes the grown field. Today it is F itself.
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * map F at p grown by truchetGrow (lib_truchet_field, defined after the style's
+ * map, where this expands): exactly F(p) while all four rest.
  */
-#define TRUCHET_GROW(p, F) F(p)
-/** MERGE HOOK, uFormula: 0.0 today (each style's first formula); uFormula at the merge. */
+#define TRUCHET_GROW(p, F) truchetGrow(p)
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
 #define TRUCHET_FORMULA 0.0
 
 /** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */

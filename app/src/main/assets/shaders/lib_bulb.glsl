@@ -99,12 +99,31 @@
 //      to the centre: low in the creases, so it doubles as cheap occlusion)
 //   y  min |z.y|  (distance to the equatorial plane: thin bands)
 //   z  min length(z.xz)  (distance to the pole axis: filaments)
-//   w  escape iteration / iterations, 0..1 (1 = never escaped)
+//   w  escape iteration / iterations, 0..1 (1 = never escaped), smoothed: the
+//      iteration it escaped at, plus how far short of the bailout's next
+//      power it was, so it changes continuously across the iterations
+//
+// THE SHADING PASS (lib_shade, included below). Escape colour: trap.w is the
+// SMOOTHED escape count (bulbDE: the iteration the orbit left at, less how far
+// past the bailout it had already run, so neighbouring escapes meet without a
+// step), and a style moves its main colour along its own ramp by
+// shadeEscape(trap.w), Escape colour (uEscapeColor) setting how far. Soft
+// shadows: a LIT member with a key (Classic, Ink) or a lamp (Shell's sun)
+// shadows it softly through lib_bulb_shade's bulbShadow, which reads the field
+// and so comes after lib_bulb_field. Step glow: a surface member on a dark
+// ground (Classic, Julia, Prism, Chrome, Contour, Shell, Slice) adds
+// shadeStepGlow(used, uSteps) as light in its ramp, by Bloom; the pale-ground
+// members (Ink, Hybrid, Lotus) already draw their step count as ink or folds,
+// Glow is a volume with no surface to skim, and Cavern's rays run out of steps
+// at its walls by design, so those add none.
 //
 // INCLUDE ORDER: after lib_scene_uniforms (uSteps, the macros, the knobs and
 // lib_sound), lib_camera (bulbAim) and lib_palette (bulbRamp). What moves with
 // the music is each style's business, but for one shared hand below: the
 // six style knobs.
+
+// The shading pass's rules (soft shadows, step glow, escape colour).
+//#include lib_shade
 
 /** Compile-time ceiling on fractal iterations. A style's own count is a runtime break below this. */
 #define BULB_MAX_ITERS 8
@@ -301,6 +320,16 @@ vec3 bulbPow(vec3 z, float r, float n, float m, vec2 phase) {
 }
 
 /**
+ * The escape count of an orbit first found past the bailout at iteration i with radius r, power n, smoothed:
+ * from i (it had just run past bail^n, so it all but left a step sooner) to i + 1 (it had only just passed
+ * bail), so trap.w changes continuously from one escape iteration to the next and an escape colour never bands.
+ */
+float bulbSmoothEscape(int i, float r, float bail, float n) {
+    float over = log2(max(log(r) / log(bail), 1.0)) / log2(max(n, 1.5));
+    return float(i) + 1.0 - clamp(over, 0.0, 1.0);
+}
+
+/**
  * The bulb: distance from p to the set of c whose orbit under z^(n,m) + c stays
  * bounded. Negative inside. `iters` from bulbIters().
  */
@@ -317,7 +346,7 @@ float bulbDE(vec3 p, float n, float m, vec2 phase, int iters, out vec4 trap) {
         if (i >= iters) break;
         r = max(length(z), 1e-6);
         if (r > bail) {
-            esc = float(i);
+            esc = bulbSmoothEscape(i, r, bail, n);
             break;
         }
         dr = grow * pow(r, n - 1.0) * dr + 1.0;
@@ -351,7 +380,7 @@ float bulbJuliaDE(vec3 p, vec3 c, float n, int iters, out vec4 trap) {
         if (i >= iters) break;
         r = max(length(z), 1e-6);
         if (r > bail) {
-            esc = float(i);
+            esc = bulbSmoothEscape(i, r, bail, n);
             break;
         }
         dr = grow * pow(r, n - 1.0) * dr;

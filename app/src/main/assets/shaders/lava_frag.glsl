@@ -76,7 +76,7 @@ out vec4 fragColor;
 // (FLOW) and how far rising wax stretches (BUILD), is one normalized input
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range; at rest each is the constant the lamp was tuned with. The wax is the
-// field the grow hooks act on (SHELL_FIELD3): Spawn slides a second lamp's wax
+// field the grow hooks act on (its shell wrapper): Spawn slides a second lamp's wax
 // half a cell down the flight, Fractal grows blobs a third the size on the
 // wax, the layers open the near and far lamp.
 //
@@ -176,7 +176,7 @@ vec2 blob(vec3 p, vec2 cell) {
     return vec2(d, 0.15 + 0.7 * h3);
 }
 
-/** The wax, pool and cap (its hue left in gLvHue): the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The wax, pool and cap (its hue left in gLvHue): the field the grow hooks act on (map() hands it to its shell wrapper). */
 float lavaField(vec3 p) {
     // The molten pool every blob is born from and returns to, breathing.
     float pool = gFloor + 0.1 * gBass
@@ -208,9 +208,19 @@ float lavaField(vec3 p) {
     return min(res.x / gLip, LV_CAP);
 }
 
+/** lavaField through lib_shell's hooks: exactly lavaField(p) at rest, and lavaField read once, in a loop the compiler cannot unroll. */
+float lavaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, lavaField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** (distance, hue) of the whole lamp. */
 vec2 map(vec3 p) {
-    float d = SHELL_FIELD3(p, lavaField);
+    float d = lavaFieldGrown(p);
     d = smax(d, LV_BUBBLE - length(p - gEye), 0.3);
     return vec2(d, gLvHue);
 }

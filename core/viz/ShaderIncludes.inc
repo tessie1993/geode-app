@@ -29,6 +29,8 @@
 "lib_field3d_march",
 // Grow and layers (Spawn, Fractal, Front layer, Back layer) as the family libraries draw them; lib_scene_uniforms includes it.
 "lib_grow",
+// The shape graph (core/viz/ShapeGraph) as a distance field, melted into a style's own by Shapes; after lib_scene_uniforms.
+"lib_shapes",
 // One library per style family (core/viz/Catalogue.cpp): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",
@@ -67,6 +69,8 @@
 "lib_loom_march",
 "lib_shard_march",
 "lib_petal_march",
+// Fold's read of the style's map (foldAt, the one FOLD_AT names), which every Fold march includes first.
+"lib_fold_at",
 // Fold has five marches, one to a kind of fractal; each style includes lib_fold and one of them.
 "lib_fold_march_glow",
 "lib_fold_march_cone",
@@ -85,3 +89,9 @@
 // Every style's shape as normalized inputs (shellMap, shellKnob) and the grow hooks on its own field
 // (SHELL_FIELD3, SHELL_FIELD2); after lib_scene_uniforms.
 "lib_shell",
+// The shading pass (soft shadows, step glow, escape colour) the raymarched families share; lib_strata, lib_loom,
+// lib_petal, lib_fold and lib_bulb include it. Its two halves that read a field come after it: Fold's surface
+// marches include lib_fold_shade, the lit Bulb members lib_bulb_shade after lib_bulb_field.
+"lib_shade",
+"lib_fold_shade",
+"lib_bulb_shade",

@@ -95,6 +95,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye - gN, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.05 * uOrbit.y;
 
@@ -102,7 +104,9 @@ void main() {
     float used = 0.0;
     float cutW = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BS_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BS_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BS_BOUND + growSlack(BS_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BS_MAX_STEPS; i++) {
@@ -129,14 +133,17 @@ void main() {
     if (hitT > 0.0) {
         float heat = clamp(1.6 * sqrt(trap.x) + 0.8 * trap.y, 0.0, 3.0);
         if (cutW > 0.5) {
-            // The scan: the trap as heat, in hard flat bands.
-            float band = floor(heat * BS_BANDS / 3.0) / BS_BANDS;
+            // The scan: the trap as heat, in hard flat bands; Escape colour (lib_shade) adds the smoothed
+            // escape count to the heat, so the bands follow the escape too and stay flat.
+            float band = floor((heat + 3.0 * shadeEscape(trap.w)) * BS_BANDS / 3.0) / BS_BANDS;
             col = tone(hue + 0.9 * band) * 0.95;
         } else {
             // The far half's skin, seen past the plane: flat and dark.
-            col = tone(hue + 0.3 * heat) * 0.16 * bulbStepAO(used);
+            col = tone(hue + 0.3 * heat + shadeEscape(trap.w)) * 0.16 * bulbStepAO(used);
         }
     }
+    // The step glow (lib_shade): a halo where a ray crept along the skin, by Bloom.
+    col += tone(hue + 0.5) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     fragColor = vec4(grade(col), 1.0);

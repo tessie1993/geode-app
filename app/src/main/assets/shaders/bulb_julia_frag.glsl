@@ -97,6 +97,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, aim, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.05 * sin(bulbTime() * 0.017);
 
@@ -104,7 +106,9 @@ void main() {
     float used = 0.0;
     float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BJ_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BJ_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BJ_BOUND + growSlack(BJ_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BJ_MAX_STEPS; i++) {
@@ -135,12 +139,15 @@ void main() {
         float fPoint = sqrt(trap.x);
         float fPlane = smoothstep(0.0, 0.6, trap.y);
         float fAxis = (1.0 - smoothstep(0.0, 0.35, trap.z));
-        vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w));
+        // Escape colour (lib_shade): the smoothed escape count moves the field further along the ramp.
+        vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w) + shadeEscape(trap.w));
         field = mix(field, tone(hue + 0.5 + 0.3 * fPlane), 0.35 * (1.0 - fPlane));
         field = mix(field, vec3(1.0, 0.97, 0.88), 0.45 * fAxis);
         float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.05, 0.7, trap.x));
         col = field * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the body, by Bloom.
+    col += tone(hue + 0.4) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.8 + 0.22 * swell;
     fragColor = vec4(grade(col), 1.0);

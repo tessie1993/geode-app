@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_scene_motion
 //#include lib_camera
 //#include lib_shell
+//#include lib_shapes
 //#include lib_palette
 //#include lib_scene_grade
 
@@ -70,10 +71,15 @@ out vec4 fragColor;
 // graticule's density, is one normalized input (lib_shell) set in one block at
 // the top of main and mapped there to its range; at rest each is the constant
 // the figure was tuned with. The beam is the field the grow hooks act on
-// (SHELL_FIELD3, about the origin): Spawn sets a twin figure beside it, Fractal
+// (its shell wrapper, about the origin): Spawn sets a twin figure beside it, Fractal
 // grows figures a third the size along the tube, the layers swell the figure
 // and what lies past it. A hook that is on turns the ray cull off (a copy is
 // read away from the ray) and widens the bounding sphere.
+// Shapes melts the shape graph (core/viz/ShapeGraph, lib_shapes) into the
+// beam: its shapes stand in the figure, run into the tube where they meet it
+// and wear their own index along the beam's palette. The graph stays inside
+// the bounding sphere, but a ray the cull left no segment still marches while
+// Shapes is on, to find it. At 0 the beam is exactly as it was.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -115,6 +121,11 @@ int gCount;
 float gRad;
 /** Set by map(): the beam parameter 0..1 of the nearest point. */
 float gS;
+/**
+ * The shape graph's colour at the last map() point (lib_shapes: what shapesInto leaves in a colour handed 0.0),
+ * read with gShapeShare at the hit by shapesHue; 0 while Shapes is off.
+ */
+float gShapeHue;
 
 vec3 knotRatios() {
     // A count, so it moves only on a hard cut.
@@ -132,7 +143,7 @@ float capsule(vec3 p, vec3 a, vec3 b, out float h) {
     return length(pa - ba * h);
 }
 
-/** The beam: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The beam: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float lissField(vec3 p) {
     float d = LS_CULL;
     gS = 0.0;
@@ -148,8 +159,20 @@ float lissField(vec3 p) {
     return d;
 }
 
+/** lissField through lib_shell's hooks: exactly lissField(p) at rest, and lissField read once, in a loop the compiler cannot unroll. */
+float lissFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, lissField(shellAt3(i)));
+    }
+    return r;
+}
+
+// The shape graph melts into the beam by Shapes (lib_shapes; the beam alone at 0).
 float map(vec3 p) {
-    return SHELL_FIELD3(p, lissField);
+    gShapeHue = 0.0;
+    return shapesInto(lissFieldGrown(p), p, gShapeHue);
 }
 
 vec3 normalAt(vec3 p) {
@@ -261,14 +284,16 @@ void main() {
 
     // ---- march, only inside the bounding sphere ------------------------------
     float bt = dot(-ro, rd);
-    // A hook that is on may reach past the figure: a twin 0.6 aside, a layer opened 18%.
-    float bound = shellRest ? LS_BOUND : 1.2 * LS_BOUND + 0.6;
+    // A hook that is on may reach past the figure (a twin aside, children out of the tubes, a layer opened)
+    // by lib_shell's slack, 0 at rest.
+    float bound = LS_BOUND + SHELL_SLACK(LS_BOUND);
     float bh = bt * bt - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;
     float md = LS_CULL;
     float mdS = 0.0;
     float haze = 0.0;
-    if (bh > 0.0 && gCount > 0) {
+    // The shape graph (lib_shapes) stands in the figure's sphere whether or not a beam segment crosses the ray.
+    if (bh > 0.0 && (gCount > 0 || uShapeMix > 0.0)) {
         float sq = sqrt(bh);
         float t = max(bt - sq, 0.0);
         float tEnd = bt + sq;
@@ -330,7 +355,8 @@ void main() {
         float sAt = gS;
         float facing = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - facing, 3.0);
-        float hue = hueBase + level * 0.5 + 0.35 * sAt;
+        // Where the shape graph melts in, its shapes take their own index along the beam's palette (lib_shapes).
+        float hue = shapesHue(hueBase + level * 0.5 + 0.35 * sAt, hueBase, gShapeHue, gShapeShare);
         float pers = 0.45 + 0.55 * sAt + 0.6 * hat * smoothstep(0.7, 1.0, sAt);
         vec3 L = normalize(vec3(-0.4, 0.8, 0.45));
         float spec = pow(max(dot(reflect(rd, n), L), 0.0), 40.0);

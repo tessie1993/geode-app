@@ -59,9 +59,16 @@
 // its form hides it. A style's own folds run gStrataIters (1..3, 5 at full
 // Fractal) times, at most STRATA_MAX_FOLDS.
 //
+// ESCAPE COLOUR (lib_shade). The far fractal's orbit trap (the least |q|^2 its folds came to, gStrataTrap)
+// moves its hue along the style's palette by Escape colour (uEscapeColor), in the far trace and in a mirror's
+// glance alike. The families' own soft shadows and step glow are in their marches.
+//
 // INCLUDE ORDER: after lib_scene_uniforms, lib_scene_motion and lib_neon (it
 // reads uFormula, uFractal, uSteps, the knobs and the sound), before lib_<family>.
 // strataSetup() runs once per pixel, before the style's map is first called.
+
+// The shading pass's rules (soft shadows, step glow, escape colour), once for the three families.
+//#include lib_shade
 
 #define STRATA_TAU 6.2831853
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
@@ -89,6 +96,12 @@ float gStrataBreath;
 /** How bright each layer is, the style's own. */
 float gStrataHazeGlow;
 float gStrataFarGlow;
+/**
+ * The orbit trap of the folds strataFold last ran: the least |p|^2 they passed through, each fold's share by
+ * its fraction, so a growing count never pops. strataFractal clears it before its folds and reads it after
+ * (lib_shade's escape colour); a style's own folds write it too, and nothing reads that.
+ */
+float gStrataTrap = 1.0e3;
 
 mat2 strataRot(float a) {
     float c = cos(a);
@@ -219,6 +232,7 @@ vec3 strataFold(vec3 p, float k, float iters, vec3 c, mat2 turn, inout float dr)
             q.xy = turn * q.xy;
             p = mix(p, q, f);
             dr = mix(dr, d1, f);
+            gStrataTrap = mix(gStrataTrap, min(gStrataTrap, dot(p, p)), f);
         }
     } else if (k < 1.5) {
         for (int i = 0; i < STRATA_MAX_FOLDS; i++) {
@@ -229,6 +243,7 @@ vec3 strataFold(vec3 p, float k, float iters, vec3 c, mat2 turn, inout float dr)
             q.xy = turn * q.xy;
             p = mix(p, q, f);
             dr = mix(dr, d1, f);
+            gStrataTrap = mix(gStrataTrap, min(gStrataTrap, dot(p, p)), f);
         }
     } else if (k < 2.5) {
         for (int i = 0; i < STRATA_MAX_FOLDS; i++) {
@@ -239,6 +254,7 @@ vec3 strataFold(vec3 p, float k, float iters, vec3 c, mat2 turn, inout float dr)
             q.xy = turn * q.xy;
             p = mix(p, q, f);
             dr = mix(dr, d1, f);
+            gStrataTrap = mix(gStrataTrap, min(gStrataTrap, dot(p, p)), f);
         }
     } else {
         for (int i = 0; i < STRATA_MAX_FOLDS; i++) {
@@ -249,6 +265,7 @@ vec3 strataFold(vec3 p, float k, float iters, vec3 c, mat2 turn, inout float dr)
             q.xy = turn * q.xy;
             p = mix(p, q, f);
             dr = mix(dr, d1, f);
+            gStrataTrap = mix(gStrataTrap, min(gStrataTrap, dot(p, p)), f);
         }
     }
     return p;
@@ -315,6 +332,7 @@ vec3 strataNest(vec3 p, float r0, float g, float iters, out float s, out float g
  */
 vec2 strataFractal(vec3 p, float k, float iters, float breath, mat2 turn) {
     float dr = 1.0;
+    gStrataTrap = 1.0e3;
     float d;
     vec3 q;
     if (k < 0.5) {
@@ -333,6 +351,7 @@ vec2 strataFractal(vec3 p, float k, float iters, float breath, mat2 turn) {
             n.xy = turn * n.xy;
             q = mix(q, n, f);
             dr = mix(dr, dr * (1.7 + breath) * m + 1.0, f);
+            gStrataTrap = mix(gStrataTrap, min(gStrataTrap, dot(q, q)), f);
         }
         d = (length(q) - 2.0) / abs(dr);
     } else if (k < 2.5) {
@@ -345,7 +364,8 @@ vec2 strataFractal(vec3 p, float k, float iters, float breath, mat2 turn) {
     }
     // Every kind kept in its ball, so the lattice's cells stand apart.
     d = max(d, length(p) - 1.9);
-    return vec2(d, 0.12 * log2(max(dr, 1.0)) + 0.15 * length(q));
+    // Escape colour (lib_shade): the orbit trap, a move along the palette by uEscapeColor.
+    return vec2(d, 0.12 * log2(max(dr, 1.0)) + 0.15 * length(q) + shadeEscape(shadeTrapPoint(gStrataTrap)));
 }
 
 /** The far lattice at world point w, fractal kind k: x the distance (world units), y the orbit. */

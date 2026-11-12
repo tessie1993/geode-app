@@ -123,6 +123,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye + fwd, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.02 * sin(bulbTime() * 0.01);
     vec3 paper = vec3(0.93, 0.92, 0.89);
@@ -167,7 +169,8 @@ void main() {
         float ndv = dot(n, -rd);
         // Porcelain: white, with only a whisper of light to tell the walls apart.
         vec3 body = paper * (0.86 + 0.14 * max(dot(n, normalize(vec3(-0.3, 0.8, -0.4))), 0.0));
-        vec3 cobalt = tone(hue + 0.1 * trap.w);
+        // Escape colour (lib_shade): the smoothed escape count moves the cobalt along its ramp.
+        vec3 cobalt = tone(hue + 0.1 * trap.w + shadeEscape(trap.w));
         body = mix(body, cobalt, brush * 0.85);
         body = mix(body, tone(hue + 0.3), rings * 0.45);
         // Ink: where a wall turns away from the eye, and in the deepest creases.

@@ -54,7 +54,7 @@ out vec4 fragColor;
 // runs (PULSE), is one normalized input (lib_shell) set in one block at the top
 // of main and mapped there to its range; at rest each is the constant the lake
 // was tuned with. The water's vertical gap is the field the grow hooks act on
-// (SHELL_FIELD3): Spawn slides a second lake's waves through the first, Fractal
+// (its shell wrapper): Spawn slides a second lake's waves through the first, Fractal
 // raises waves a third the size on the swells, the layers open the near and
 // far water. A hook that is on starts the march at the eye and takes the
 // normal from the field.
@@ -143,7 +143,7 @@ float lake(vec2 xz) {
     return h;
 }
 
-/** The water's vertical gap at p: the field the grow hooks act on (SHELL_FIELD3); the march steps it by stepK. */
+/** The water's vertical gap at p: the field the grow hooks act on (its shell wrapper); the march steps it by stepK. */
 float rpGap(vec3 p) {
     return p.y - (RP_WATER + lake(p.xz));
 }
@@ -160,6 +160,16 @@ vec3 skyColour(vec3 rd, float hue) {
     float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.997, s);
     col += vec3(0.7) * star * smoothstep(0.05, 0.3, up);
     return col;
+}
+
+/** rpGap through lib_shell's hooks: exactly rpGap(p) at rest, and rpGap read once, in a loop the compiler cannot unroll. */
+float rpGapGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, rpGap(shellAt3(i)));
+    }
+    return r;
 }
 
 void main() {
@@ -248,7 +258,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > RP_FAR) break;
             vec3 p = ro + rd * t;
-            float gap = SHELL_FIELD3(p, rpGap);
+            float gap = rpGapGrown(p);
             if (gap < 0.0015 * t + 0.001) {
                 // Between the last two samples, for a smooth waterline.
                 hitT = mix(tPrev, t, clamp(gPrev / max(gPrev - gap, 1e-4), 0.0, 1.0));
@@ -269,9 +279,9 @@ void main() {
             // A copy may be what was hit: its height is where the ray met it, its normal the field's.
             h0 = p.y - RP_WATER;
             vec2 k = vec2(e, 0.0);
-            n = normalize(vec3(SHELL_FIELD3(p + k.xyy, rpGap) - SHELL_FIELD3(p - k.xyy, rpGap),
-                               SHELL_FIELD3(p + k.yxy, rpGap) - SHELL_FIELD3(p - k.yxy, rpGap),
-                               SHELL_FIELD3(p + k.yyx, rpGap) - SHELL_FIELD3(p - k.yyx, rpGap)));
+            n = normalize(vec3(rpGapGrown(p + k.xyy) - rpGapGrown(p - k.xyy),
+                               rpGapGrown(p + k.yxy) - rpGapGrown(p - k.yxy),
+                               rpGapGrown(p + k.yyx) - rpGapGrown(p - k.yyx)));
         }
         // Far ripples are finer than a pixel: let them settle flat instead of shimmering.
         n = normalize(mix(n, vec3(0.0, 1.0, 0.0), smoothstep(25.0, RP_FAR, hitT)));

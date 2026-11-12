@@ -61,7 +61,7 @@ out vec4 fragColor;
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range: at rest (knobs 0.5, Morph, Warp and Turbulence 0) each is the
 // constant the crown was tuned with. The crown is the field the grow hooks act
-// on (SHELL_FIELD3, about the crown's centre): Spawn sets a twin crown beside
+// on (its shell wrapper, about the crown's centre): Spawn sets a twin crown beside
 // it, Fractal grows crowns a third the size on the blades, Front layer swells
 // the crown and Back layer what lies past it.
 //
@@ -126,7 +126,7 @@ float mirror01(float u) {
     return abs(2.0 * fract(u) - 1.0);
 }
 
-/** The crown, hub and core: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The crown, hub and core: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float ringField(vec3 p) {
     float r = length(p.xz);
     float ang = r > 1e-5 ? atan(p.z, p.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
@@ -184,8 +184,18 @@ float ringField(vec3 p) {
     return d;
 }
 
+/** ringField through lib_shell's hooks: exactly ringField(p) at rest, and ringField read once, in a loop the compiler cannot unroll. */
+float ringFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ringField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return SHELL_FIELD3(p, ringField);
+    return ringFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -280,7 +290,10 @@ void main() {
     float hitT = -1.0;
     float firstPass = 1.0;
     float bOff = dot(ro, rd);
-    float bDisc = bOff * bOff - (dot(ro, ro) - RG_BOUND * RG_BOUND);
+    // The grown crown (a twin aside, children out of the blades, a layer opened) reaches past RG_BOUND
+    // by lib_shell's slack while a hook is on; RG_BOUND itself at rest.
+    float bound = RG_BOUND + SHELL_SLACK(RG_BOUND);
+    float bDisc = bOff * bOff - (dot(ro, ro) - bound * bound);
     if (bDisc > 0.0) {
         float bRoot = sqrt(bDisc);
         float t = max(-bOff - bRoot, 0.0);

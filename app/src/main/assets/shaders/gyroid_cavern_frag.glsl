@@ -75,7 +75,7 @@ out vec4 fragColor;
 //   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
 //
 // The period (8) and the vein ratio (3) stay: both must tile the 16 of the
-// rebase. The sheet goes through SHELL_FIELD3, so the shell's hooks reach it.
+// rebase. The sheet goes through its shell wrapper, so the shell's hooks reach it.
 
 #define GC_MAX_STEPS 104
 #define GC_ZWRAP 16.0
@@ -130,9 +130,19 @@ float mapField(vec3 w) {
     return d;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The cavern as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -209,6 +219,8 @@ void main() {
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 4.0, false);
 
     float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump + 0.6 * kTone;
     float iri = 0.28 * pitchBump + 0.04 * sin(uTime * 0.09);

@@ -173,12 +173,22 @@ float mgField(vec3 p) {
     return d;
 }
 
+/** mgField through lib_shell's hooks: exactly mgField(p) at rest, and mgField read once, in a loop the compiler cannot unroll. */
+float mgFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mgField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: mgField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mgField);
+    return mgFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -307,6 +317,8 @@ void main() {
     // and invisible, and z keeps its precision far down the 8192 travel.
     ro.z = mod(ro.z, MG_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * MG_CELL, false);
 
 
     float t = 0.05;

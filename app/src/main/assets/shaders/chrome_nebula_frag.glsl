@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_shell
+//#include lib_shapes
 
 // Chrome Nebula: liquid-chrome metaballs drifting in space, each one a mirror
 // for a procedural nebula sky. The blobs are smooth-min'd spheres on slow
@@ -58,8 +59,11 @@ out vec4 fragColor;
 //   sCamR       k5 SPACE         the eye's distance 7.59 .. 6.6 .. 5.61
 //
 // A blob blends by gK only once it is at least 0.4 across, as the bud does, so
-// one growing in never leaves a nub. The chrome goes through SHELL_FIELD3, so
+// one growing in never leaves a nub. The chrome goes through its shell wrapper, so
 // the shell's spawn, fractal, front and back hooks reach it.
+// Shapes melts the shape graph (core/viz/ShapeGraph, lib_shapes) into the
+// chrome: its shapes run into the blobs as more chrome, tinted by their own
+// index along the palette. At 0 the blobs are exactly as they were.
 
 #define CN_MAX_STEPS 96
 /** The most blobs TEXTURE can ask for (6 at rest, sBlobs). */
@@ -75,6 +79,11 @@ vec3 gBud;
 float gBudR;
 /** k3 TONE: the blend radius between blobs (CN_K at rest). */
 float gK = CN_K;
+/**
+ * The shape graph's colour at the last map() point (lib_shapes: what shapesInto leaves in a colour handed 0.0),
+ * read with gShapeShare at the hit by shapesHue; 0 while Shapes is off.
+ */
+float gShapeHue;
 
 float mapField(vec3 p) {
     float d = sdSphere(p - gBlob[0], gRad[0]);
@@ -89,9 +98,23 @@ float mapField(vec3 p) {
     return smin(d, sdSphere(p - gBud, gBudR), gK * clamp(gBudR * 2.5, 0.0, 1.0));
 }
 
-/** The chrome as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The chrome as the shell sees it: spawn, fractal, front and back route through here (identity at rest), and
+ * the shape graph melts in by Shapes (lib_shapes; the blobs alone at 0).
+ */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    gShapeHue = 0.0;
+    return shapesInto(mapFieldGrown(p), p, gShapeHue);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -187,6 +210,9 @@ void main() {
     float t = 0.05;
     float hitT = -1.0;
     float near = 1e9;
+    // The shape graph's colour at the hit (lib_shapes), taken before the normal and occlusion taps move it.
+    float shapeHue = 0.0;
+    float shapeShare = 0.0;
     for (int i = 0; i < CN_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > CN_FAR) break;
@@ -194,6 +220,8 @@ void main() {
         float eps = 0.0007 * t + 0.0005;
         if (d < eps) {
             hitT = t;
+            shapeHue = gShapeHue;
+            shapeShare = gShapeShare;
             break;
         }
         near = min(near, d);
@@ -207,7 +235,9 @@ void main() {
         vec3 r = reflect(rd, n);
         // Chrome: a high base reflectance that goes to mirror at grazing.
         float fres = 0.62 + 0.38 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
-        vec3 tint = mix(vec3(1.0), pal(hue + 0.08), 0.22);
+        // Where the shape graph melts in, the chrome is tinted by the shapes' own index along the palette, and a
+        // little more, so the melt reads on a mirror (lib_shapes; exactly the old tint while Shapes is off).
+        vec3 tint = mix(vec3(1.0), pal(shapesHue(hue + 0.08, hue, shapeHue, shapeShare)), 0.22 + 0.4 * shapeShare);
         col = nebula(r, hue, 0.0) * 2.4 * tint * fres;
         vec3 L = normalize(vec3(0.5, 0.8, -0.3));
         col += tint * pow(max(dot(r, L), 0.0), 64.0) * 1.3;

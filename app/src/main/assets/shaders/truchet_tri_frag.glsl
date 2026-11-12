@@ -281,6 +281,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, TT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     // Ease the eye into the inner prism: its farthest reach toward any face
     // is squashed under lim, so it never meets the came.
     float lim = gR - 0.75;
@@ -298,8 +300,10 @@ void main() {
     vec3 sky = pal(hue + 0.3) * 0.035 + pal(hue + 0.05) * (0.16 + 0.12 * swell) * (1.0 + kBuild) * ahead;
     vec3 col = sky;
 
-    float tIn = max(exitT(ro, rd, gR - gLH - 0.02), 0.0);
-    float tOut = exitT(ro, rd, gR);
+    // The empty core skipped and the tunnel's outside given up on, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float slack = growSlack(gR, 1.0, 0.2);
+    float tIn = max(exitT(ro, rd, gR - gLH - 0.02 - slack), 0.0);
+    float tOut = exitT(ro, rd, gR + slack);
     float hitT = -1.0;
     if (tIn < TT_FAR) {
         float tm = tIn;

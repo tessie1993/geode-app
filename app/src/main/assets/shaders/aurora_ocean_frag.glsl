@@ -63,8 +63,8 @@ out vec4 fragColor;
 //
 // Every wavenumber stays a whole multiple of AO_KZ or AO_QK, so the sea and
 // the sky keep tiling the travel wrap. The wave-top plane the march starts on
-// rises with sChop. The sea goes through SHELL_FIELD2 as a height pattern, and
-// each curtain layer's ribbons through SHELL_FIELD2 too, so the shell's spawn,
+// rises with sChop. The sea goes through its shell wrapper as a height pattern, and
+// each curtain layer's ribbons through its shell wrapper too, so the shell's spawn,
 // fractal, front and back hooks reach both.
 
 #define AO_MAX_STEPS 96
@@ -120,18 +120,42 @@ float seaField(vec2 xz) {
     return (h - 0.93) * gAmp;
 }
 
-/** The sea as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
-float sea(vec2 xz) {
-    return SHELL_FIELD2(xz, seaField);
+/** The ground pattern seaField through lib_shell's hooks: exactly seaField(uv) at rest, and seaField read once, in a loop the compiler cannot unroll. */
+float seaFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = seaField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
-/** One curtain layer's ribbons at its plane point q, with their vertical rays: a 2D pattern (SHELL_FIELD2). */
+/** The sea as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float sea(vec2 xz) {
+    return seaFieldGrownW(xz);
+}
+
+/** One curtain layer's ribbons at its plane point q, with their vertical rays: a 2D pattern (its shell wrapper). */
 float aoRibbon(vec2 q) {
     float tm = uTime * 0.06;
     float v = q.x + 0.9 * gBend * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
     float rib = (1.0 - smoothstep(0.0, 0.24 * gRibW, abs(fract(v * 0.35) - 0.5)));
     // Vertical rays inside the ribbon.
     return rib * (0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0));
+}
+
+/** The pattern aoRibbon through lib_shell's hooks: exactly aoRibbon(uv) at rest, and aoRibbon read once, in a loop the compiler cannot unroll. */
+float aoRibbonGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = aoRibbon(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 /** The curtains, plus a dim star field and a horizon glow. `rd.y` must be > 0 for curtains to show. */
@@ -159,7 +183,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             q *= 0.12;
             // The drop leans the curtain: every layer slides further along x.
             q.x += fi * 0.06 * dropLean;
-            float rib = SHELL_FIELD2(q, aoRibbon);
+            float rib = aoRibbonGrown(q);
             // The snare's shimmer: a bright pulse racing along the ribbon's length.
             float run = 0.5 + 0.5 * sin(q.y * (56.0 * AO_QK) - uTime * 7.0);
             rib *= 1.0 + snare * 1.2 * run * run * run * run;
@@ -214,6 +238,8 @@ void main() {
     // a highp z has ~0.001 of fraction left and the normals would speckle.
     vec3 eye = ro;
     ro.z = mod(ro.z, 64.0);
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
     ro.y = max(ro.y, AO_SEA_Y + sea(ro.xz) + 0.45);
     eye.y = ro.y;
 

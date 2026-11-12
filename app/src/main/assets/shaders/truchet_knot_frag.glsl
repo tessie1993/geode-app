@@ -258,6 +258,8 @@ void main() {
     camFly(uv, ro, rd);
     // The vault's middle; z rebased by a period every cell-space term divides.
     ro = vec3(ro.x, 0.0, mod(ro.z, KN_ZWRAP));
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
     gEyeCell = 0.5 * vec2(ro.x + ro.z, ro.z - ro.x);
 
@@ -276,8 +278,10 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     if (ady > 1e-4) {
-        float tm = max(topW / ady, 0.03);
-        float t1 = min(botW / ady, KN_FAR);
+        // The carpet's slab, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+        float slack = growSlack(botW, 1.0, 0.2);
+        float tm = max((topW - slack) / ady, 0.03);
+        float t1 = min((botW + slack) / ady, KN_FAR);
         for (int i = 0; i < KN_MAX_STEPS; i++) {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;

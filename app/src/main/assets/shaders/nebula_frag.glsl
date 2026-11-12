@@ -542,9 +542,19 @@ float nebField(vec3 q) {
     return fbm3(q, gOct);
 }
 
+/** nebField through lib_shell's hooks: exactly nebField(p) at rest, and nebField read once, in a loop the compiler cannot unroll. */
+float nebFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, nebField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The pattern the march reads: nebField, through lib_shell's hook (the identity until the shell drives it). */
 float nebPattern(vec3 q) {
-    return SHELL_FIELD3(q, nebField);
+    return nebFieldGrown(q);
 }
 
 void main() {
@@ -633,6 +643,10 @@ void main() {
     // The mids' steer is a slide of the domain, never a turn (see NEB_MID_STEER).
     vec3 drift = vec3(0.031, -0.047, 0.019) * uTime + NEB_MID_STEER * mid * vec3(0.8, -0.35, 0.5);
     mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime) * rotX(NEB_TUMBLE_X * uTime);
+    // The grow hooks act on the pattern in its own coordinate (nebWarpCoord: world times
+    // NEB_DENSITY_SCALE, slid by the drift), so they are measured from the cloud's centre there, the
+    // volume's radius deep, and not from that coordinate's origin, which the drift leaves behind.
+    shellSetup3(drift * NEB_DENSITY_SCALE, radius * NEB_DENSITY_SCALE, 1.0, true);
 
     // ---- the fingers, hoisted out of the march ----------------------------
     // One uniform branch. Every touch uniform is a literal zero on an

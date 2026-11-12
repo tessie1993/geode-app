@@ -256,6 +256,8 @@ void main() {
     // Every z lattice wraps on BO_ZWRAP (a power of two), so this shift is
     // exact and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, BO_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // ---- the strikes --------------------------------------------------------
@@ -279,13 +281,16 @@ void main() {
     float tm = 0.05;
     float hitT = -1.0;
     float used = 0.0;
+    // The ridges' top, raised by growSlack while a grow control is on (a layer drawn in lifts them toward
+    // the eye, children reach above them); BO_HMAX itself at rest.
+    float hMax = BO_HMAX + growSlack(abs(BO_HMAX - ro.y), 1.0, 0.2);
     for (int i = 0; i < BO_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (tm > BO_FAR) break;
         vec3 p = ro + rd * tm;
         // Climbing above every ridge: nothing left to hit.
-        if (p.y > BO_HMAX && rd.y >= 0.0) break;
+        if (p.y > hMax && rd.y >= 0.0) break;
         used = float(i);
         float d = arborField(p).d;
         float eps = 0.0015 + 0.0012 * tm;

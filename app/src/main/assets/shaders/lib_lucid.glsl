@@ -50,7 +50,7 @@
 // hands back what it found (which part, a cell's hash, a fold's place...) in
 // the hit, each style naming its slots above its mapAt. LUCID_GROW in
 // lib_lucid_field is the one line where Grow (lib_grow: Spawn, Fractal, Front
-// and Back layer) and Formula will wrap the map once they land.
+// and Back layer) wraps the map (lucidGrow); Formula has no alternatives yet.
 //
 // THE NORMALIZATION SHELL
 //

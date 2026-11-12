@@ -68,6 +68,7 @@ BulbHit bulbMap(vec3 p) {
 }
 
 //#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -88,7 +89,9 @@ void main() {
     float used = 0.0;
     float nearPx = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BI_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BI_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BI_BOUND + growSlack(BI_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BI_MAX_STEPS; i++) {
@@ -122,12 +125,15 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.6, 0.7, -0.4));
-        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x));
+        // The key's soft shadow (lib_bulb_shade), by Soft shadows: the cel steps below print it in three tones.
+        float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
+        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x)) * shade;
         // Three tones, hard steps, kept darker than the paper.
         float cel = lit > 0.55 ? 0.78 : (lit > 0.18 ? 0.48 : 0.22);
-        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0);
+        // Escape colour (lib_shade): the smoothed escape count moves the ink's tone along its ramp.
+        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0 + shadeEscape(trap.w));
         col = body * cel;
-        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0);
+        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0) * shade;
         col = mix(col, vec3(1.0, 0.98, 0.94), step(0.6, hl));
         // Ink: grazing silhouette from inside, and the creases.
         float ndv = dot(n, -rd);

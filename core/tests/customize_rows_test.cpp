@@ -139,7 +139,8 @@ void theStyleDecidesWhatShows() {
         check(held ? rowFor(rows, "HINT", "Geometry") != nullptr : rowFor(rows, "CHIPS", "Geometry") != nullptr,
               std::string(id) + ": a held plate is a tip, a free one a pick");
     }
-    const auto* hint = rowFor(rowsOf("Geometry", p, on("chladni_sand")), "HINT", "Geometry");
+    const auto plate = rowsOf("Geometry", p, on("chladni_sand"));
+    const auto* hint = rowFor(plate, "HINT", "Geometry");
     check(hint && (*hint)[2] == "Shape set by this style: Chladni plate.", "the tip names the plate");
     // The stack draws on the shader styles; elsewhere the look's palette is one list.
     check(rowFor(rowsOf("Palette", p, on("julia")), "PIECE", "@palette_stack") != nullptr, "the stack on a shader style");
@@ -170,12 +171,14 @@ void shellSlidersAndNotes() {
     customize::RowContext ctx = on("");
     check(!rowFor(rowsOf("@transition_length", p, ctx), "SHELL", "Transition length"), "no length without a transition");
     ctx.transition = true;
-    const auto* t = rowFor(rowsOf("@transition_length", p, ctx), "SHELL", "Transition length");
+    const auto length = rowsOf("@transition_length", p, ctx);
+    const auto* t = rowFor(length, "SHELL", "Transition length");
     check(t && (*t)[2] == "TRANSITION" && (*t)[4] == "0.3" && (*t)[5] == "5" && (*t)[6] == "2", "the length: 0.3..5 s");
     const auto rise = rowsOf("@rise_fall", p, ctx);
     check(rowFor(rise, "SHELL", "Rise") && rowFor(rise, "SHELL", "Fall"), "rise and fall");
     ctx.liquidMode = 4;
-    const auto* note = rowFor(rowsOf("Flow field on", p, ctx), "NOTE", "Flow field on");
+    const auto hot = rowsOf("Flow field on", p, ctx);
+    const auto* note = rowFor(hot, "NOTE", "Flow field on");
     check(note && (*note)[2] == "Liquid paused: phone is hot", "the hot-phone note");
     ctx.liquidMode = 1;
     check(!rowFor(rowsOf("Flow field on", p, ctx), "NOTE", "Flow field on"), "no note at full Liquid");

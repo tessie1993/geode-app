@@ -55,8 +55,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The catalogue's presets section, `CataloguePresets`, is the bundled looks by param name; `data/BuiltInPresets` reads it through `geode_catalogue_presets_text`.
 - `ShapeGraph` (`core/viz/ShapeGraph`) is the morphing shape graph: up to 8 primitives that union, blend, cut and mask in a one-level CSG list, packed as 8 × 4 vec4.
 - Its target is a pure function of the play seed, Spawn, Morph, Formula, Fractal and Shapes; numbers glide, primitive and operation changes crossfade by weight, shapes grow from and shrink to 0, and heads drift (translation only) on a Speed-scaled clock.
-- `ShapeGraph::sample` mirrors the shader's distance and colour maths for host tests; no renderer ticks it and no style draws it yet.
-- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`, empty until a style reads it).
+- `ShapeGraph::sample` mirrors lib_shapes' distance and colour maths for the host tests (`core/tests/shape_graph_test`).
+- The renderer ticks one `ShapeGraph` a frame in `resolveParams` (`Renderer::stepShapeGraph`, the frame's play seed), and `ShaderScene::uploadShapes` hands it as `uShapes[32]`, `uShapeCount`, `uShapeFold`, `uShapeMelt` to a program that reads them (`SceneHost::shapeGraph`).
+- `lib_shapes` draws the graph (`shapesScene`, `sminCol`) and melts it into a style's field by `uShapeMix` (`shapesInto`, identity at 0); `shapesHue` gives the hit its palette index.
+- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`: `chrome_nebula`, `liss`, `solar`).
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack; `Renderer::uploadPaletteRamp` bakes it into one 256-texel ramp that every shader style reads through `pal()` (`uPalLut`).
 - A shader style with no stack set draws the look's own palette (`palette`, its hue overrides or your colours' stops).
 - Retired with the stack in place: Palette 2 and Palette blend (`palette2`, `paletteMix`, their overrides), Colour map (`paletteLut`) and Color cycle (`colorCycle`, `cycleSpeed`); an old look naming them loads and draws its own palette.
@@ -161,7 +163,8 @@ The renderer runs these in order each frame.
 - A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
 - Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
 - Grow and layers (Customize › Shape › Grow): `spawn`, `fractal` (0..1) and `frontLayer`, `backLayer` (-1..1), appended slots 193..196 after the physics layers, default 0, each a modulation target (`SPAWN` .. `BACK_LAYER`, ordinals 74..77, one unit per unit).
-- Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold).
+- Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold, and the older ten through their `<FAM>_GROW` hooks), but for `kFormSkipped` (Glass Gem and Prism).
+- The loose styles on `lib_shell` reach it too (`kFormLoose`): each hands its field to the hooks through a wrapper of its own, one field read in a pass loop.
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
 - `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
@@ -260,11 +263,18 @@ The renderer runs these in order each frame.
 - Foam's one field entry is `foamField` in `lib_foam`; it returns a `FoamSample` and writes no global.
 - Foam, Glass, Nebula, Terra and Truchet read the params and the six knobs once, normalized, in `<family>In()` (the normalization shell, at rest exactly the tuned constants); `<FAMILY>_GROW` and `<FAMILY>_FORMULA` are the one-line hooks for lib_grow and uFormula.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Each Fold march includes `lib_fold_at` first: `foldAt`, the one read of the style's map (`FOLD_AT`), with the base, Spawn and Fractal passes in one loop so the fractal compiles once per read.
 - Shard, Prism and Fluor also include `lib_strata` before `lib_<family>`: a far fractal lattice and a domain-warped haze round the marched form, and the folds, sponge and nested shells a style's form is built from.
 - `uFormula` (lib_scene_uniforms) picks one of three formulas in a Shard, Prism or Fluor style, crossfaded in two narrow bands (`strataFormula`); 0 is each style's original geometry.
 - Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
 - `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
 - `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
+- `lib_shade` is the shading pass's rules (soft shadows, step glow, escape colour), included once by `lib_strata`, `lib_loom`, `lib_petal`, `lib_fold` and `lib_bulb`.
+- Each family's shadow loop reads its own field after the map: in `lib_<family>_march`, in `lib_fold_shade` (Fold's cone, pair and probe marches) and in `lib_bulb_shade` (after `lib_bulb_field`).
+- Soft shadows (`shadow`, wire slot 199, LfoTarget 80, default 0.6) is uploaded as `uShadow` and scoped to `Scope::Shadow` (`kShadowStyles`, the 59 styles with a key-lit surface).
+- Escape colour (`escapeColor`, wire slot 200, LfoTarget 81, default 0.5) is uploaded as `uEscapeColor` and scoped to `Scope::Escape` (`kEscapeFamilies`: Shard, Prism, Fluor, Loom, Petal, Fold, Bulb).
+- The step glow follows Bloom (`uBloom`) and adds nothing at Bloom 0.
+- The shadow ray runs only at `uSteps` 80 and over (so low Detail and the hot-phone march cut skip it), in a loop bounded by an int from `uSteps` with one field call, so the compiler never unrolls it.
 - Fractal (`uFractal`) also grows `gLayerIter` into its headroom (never past 1) and adds up to two folds to `gStrataIters` and one and a half to `gStrataFarIters`; at 0 both are unchanged.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.

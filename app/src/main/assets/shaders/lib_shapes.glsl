@@ -167,25 +167,32 @@ vec3 shpGraph(vec3 q) {
     float landPresence = 0.0;
     bool inGroup = false;
     bool drew = false;
-    for (int i = 0; i < SHAPES_MAX; i++) {
+    // The loop starts at a uniform so the compiler cannot unroll it, and each shape's distance is read at one
+    // site: unrolled, the eight shapes' primitives were pasted dozens of times, past the GPU's compile budget.
+    for (int i = min(int(uSteps), 0); i < SHAPES_MAX; i++) {
         if (i >= uShapeCount) break;
         vec4 place = uShapes[4 * i];
         vec4 size = uShapes[4 * i + 1];
         vec4 prims = uShapes[4 * i + 2];
         vec4 ops = uShapes[4 * i + 3];
         float presence = prims.w;
-        if (place.w < 0.5) {
+        bool head = place.w < 0.5;
+        if (head) {
             // A head: the group before it lands, and a present head opens the next.
             if (inGroup) scene = shpOpsOnto(scene, group, land, landPresence);
             inGroup = presence > 0.0;
             if (!inGroup) continue;
             drew = true;
-            group = vec2(shpPrimMix(size, prims, q - place.xyz), size.w);
+        } else if (!inGroup || presence <= 0.0) {
+            continue;
+        }
+        vec2 shape = vec2(shpPrimMix(size, prims, q - place.xyz), size.w);
+        if (head) {
+            group = shape;
             land = ops;
             landPresence = presence;
         } else {
-            if (!inGroup || presence <= 0.0) continue;
-            group = shpOpsOnto(group, vec2(shpPrimMix(size, prims, q - place.xyz), size.w), ops, presence);
+            group = shpOpsOnto(group, shape, ops, presence);
         }
     }
     if (inGroup) scene = shpOpsOnto(scene, group, land, landPresence);
@@ -202,11 +209,19 @@ vec3 shpGraph(vec3 q) {
 vec4 shapesScene(vec3 p) {
     if (uShapeCount <= 0) return vec4(SHAPES_FAR, 0.0, 0.0, 0.0);
     float amount = uShapeFold.w;
-    if (amount <= 0.0) return vec4(shpGraph(p), 0.0);
-    vec3 folded = shpGraph(shpFoldSpace(p));
-    if (amount >= 1.0) return vec4(folded, 0.0);
-    vec3 plain = shpGraph(p);
-    return vec4(mix(plain.xy, folded.xy, amount), folded.z, 0.0);
+    bool partway = amount > 0.0 && amount < 1.0;
+    // The graph is walked at one site, in a loop the compiler cannot unroll: pass 0 is the folded graph (the
+    // plain one with no fold), pass 1 the plain one, only while the fold is partway.
+    vec3 first = vec3(0.0);
+    vec3 plain = vec3(0.0);
+    for (int k = min(int(uSteps), 0); k < 2; k++) {
+        if (k == 1 && !partway) break;
+        vec3 g = shpGraph(k == 0 && amount > 0.0 ? shpFoldSpace(p) : p);
+        if (k == 0) first = g;
+        else plain = g;
+    }
+    if (!partway) return vec4(first, 0.0);
+    return vec4(mix(plain.xy, first.xy, amount), first.z, 0.0);
 }
 
 /**

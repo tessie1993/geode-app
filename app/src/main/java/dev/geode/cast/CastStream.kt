@@ -10,7 +10,6 @@ import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.geodeContainer
@@ -58,8 +57,8 @@ import java.util.concurrent.locks.LockSupport
  */
 internal class CastStream(
     context: Context,
-    /** The player's own feed: only its sound goes to the TV (see [AudioPump]). */
-    private val musicInput: SampleRing?,
+    /** The player's ring handle, 0 for none: only its sound goes to the TV (see [AudioPump]). */
+    private val musicInput: Long,
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -280,7 +279,7 @@ internal class CastStream(
      */
     private class AudioPump(
         private val encoder: CastEncoder,
-        musicInput: SampleRing?,
+        musicInput: Long,
         private val webrtc: WebRtcLink,
     ) : AutoCloseable {
         /** The Opus encoder for WebRTC browsers, while one is connected; made and freed here, on the render thread. */
@@ -290,13 +289,13 @@ internal class CastStream(
         /** No Opus encoder could be made: the browser gets the picture alone; not tried again this stream. */
         private var opusMissing = false
 
-        // The pump keeps the ring itself; CastStream holds musicInput for the stream, so its handle stays valid.
-        private var handle = GeodeNative.castAudioCreate(musicInput?.handle ?: 0L, CastEncoder.AUDIO_RATE_HZ, CH)
+        // The pump keeps the ring itself; the player's ring handle is never freed.
+        private var handle = GeodeNative.castAudioCreate(musicInput, CastEncoder.AUDIO_RATE_HZ, CH)
         private var block = ShortArray(CastEncoder.AUDIO_RATE_HZ * CH)
 
         fun pump(untilUs: Long) {
             if (handle == 0L) return
-            val frames = GeodeNative.castAudioPump(handle, AudioBus.soundInput?.handle ?: 0L, untilUs)
+            val frames = GeodeNative.castAudioPump(handle, AudioBus.soundInput, untilUs)
             if (frames <= 0) return
             if (block.size < frames * CH) block = ShortArray(frames * CH)
             GeodeNative.castAudioRead(handle, block)

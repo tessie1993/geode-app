@@ -174,7 +174,7 @@ class CastService : Service() {
 
     private fun startStream() {
         mutePhone()
-        val started = runCatching { CastStream(this, playback?.sampleRing) { handler.post { fail() } }.also { it.start() } }
+        val started = runCatching { CastStream(this, playback?.sampleRing ?: 0L) { handler.post { fail() } }.also { it.start() } }
         started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
         val noLan = started.exceptionOrNull() is CastStream.NoLanAddress
         val s = started.getOrNull() ?: return fail(if (noLan) CastFailure.NO_LAN else CastFailure.STREAM)

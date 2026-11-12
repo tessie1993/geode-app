@@ -5,9 +5,9 @@
 
 #include "api/geode_api.h"
 
-// The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. A ring handle is
-// valid for as long as its Kotlin holder (SampleRing) is reachable, which frees it. The array writes pin
-// the array (critical) for one lock-free copy: no JNI call, no lock and no allocation happens inside.
+// The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. The player's and
+// the mic's handles are never freed; the output mix's is freed by its owner. The array writes pin the
+// array (critical) for one lock-free copy: no JNI call, no lock and no allocation happens inside.
 
 namespace {
 geode_pcm_ring* ringOf(jlong handle) { return reinterpret_cast<geode_pcm_ring*>(handle); }
@@ -15,9 +15,12 @@ geode_pcm_ring* ringOf(jlong handle) { return reinterpret_cast<geode_pcm_ring*>(
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingCreate(JNIEnv*, jobject, jint capacityFrames,
-                                                                               jint channels, jint maxWriteFrames) {
-    return reinterpret_cast<jlong>(geode_pcm_ring_create(capacityFrames, channels, maxWriteFrames));
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingShared(JNIEnv*, jobject, jint kind) {
+    return reinterpret_cast<jlong>(geode_pcm_ring_shared(kind));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingCreateKind(JNIEnv*, jobject, jint kind) {
+    return reinterpret_cast<jlong>(geode_pcm_ring_create_kind(kind));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(JNIEnv*, jobject, jlong handle) {
@@ -80,14 +83,8 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteByte
     return frames;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLayer(JNIEnv*, jobject, jlong handle,
-                                                                                jlong layer) {
-    geode_pcm_ring_set_layer(ringOf(handle), ringOf(layer));
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetSnapshots(JNIEnv*, jobject, jlong handle,
-                                                                                        jboolean on) {
-    return geode_pcm_ring_set_snapshots(ringOf(handle), on ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {
+    return geode_pcm_ring_max_write_frames(ringOf(handle));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {

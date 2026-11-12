@@ -7,12 +7,11 @@ import android.media.AudioFormat
 import android.media.audiofx.Visualizer
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 
 /**
- * Whatever any app is playing, as a [SampleRing] the wallpaper's renderer can hear.
+ * Whatever any app is playing, as a native ring the wallpaper's renderer can hear.
  *
  * The app's own capture path (`audio/PlaybackCaptureService`) needs a MediaProjection consent
  * and a foreground service, which a wallpaper can neither ask for nor keep running. A
@@ -32,12 +31,9 @@ import dev.geode.util.bestEffort
  * same Looper and the ring has one writer. The renderer's GL thread is its one reader.
  */
 class OutputMixCapture {
-    /** What the renderer reads while this runs. Freed with this object, once no renderer holds it. */
-    val soundInput = SampleRing(RING_FRAMES, channelCount = 2)
-
-    init {
-        if (!GeodeNative.pcmRingSetSnapshots(soundInput.handle, true)) RingLog.note(TAG, "no snapshot stitch")
-    }
+    /** The ring handle the renderer reads while this runs (native's output-mix kind): made on the first [start], freed by [release]. */
+    var soundInput = 0L
+        private set
 
     private var rateHz = FALLBACK_RATE_HZ
 
@@ -55,7 +51,7 @@ class OutputMixCapture {
             ) {
                 val bytes = waveform ?: return
                 val n = minOf(bytes.size, captureSize)
-                if (n > 0) soundInput.write(bytes, n, AudioFormat.ENCODING_PCM_8BIT, 1, rateHz)
+                if (n > 0) GeodeNative.pcmRingWriteBytes(soundInput, bytes, n, AudioFormat.ENCODING_PCM_8BIT, 1, rateHz)
             }
 
             override fun onFftDataCapture(
@@ -74,6 +70,8 @@ class OutputMixCapture {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return false
         }
+        if (soundInput == 0L) soundInput = GeodeNative.pcmRingCreateKind(GeodeNative.PCM_RING_OUTPUT_MIX)
+        if (soundInput == 0L) return false
         val created = runCatching { Visualizer(OUTPUT_MIX_SESSION) }
         val v =
             created.getOrElse {
@@ -84,7 +82,7 @@ class OutputMixCapture {
             runCatching {
                 // The capture size can only change while the effect is disabled.
                 v.setEnabled(false)
-                val size = Visualizer.getCaptureSizeRange()[1].coerceAtMost(soundInput.maxWriteFrames)
+                val size = Visualizer.getCaptureSizeRange()[1].coerceAtMost(GeodeNative.pcmRingMaxWriteFrames(soundInput))
                 v.setCaptureSize(size)
                 // As played, not normalized: normalized lifts every capture to full scale, so
                 // a quiet passage hit as hard as a drop and room noise never read as silence.
@@ -100,7 +98,7 @@ class OutputMixCapture {
             return false
         }
         // A new run is a new stream: the renderer's cursor restarts instead of reading a seam.
-        soundInput.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(soundInput)
         visualizer = v
         return true
     }
@@ -114,12 +112,17 @@ class OutputMixCapture {
         }
     }
 
+    /** Stops and frees the ring; a capture still queued on the Looper then writes nowhere. Main thread. */
+    fun release() {
+        stop()
+        val ring = soundInput
+        soundInput = 0L
+        GeodeNative.pcmRingDestroy(ring)
+    }
+
     private companion object {
         const val TAG = "WallpaperMix"
         const val OUTPUT_MIX_SESSION = 0
-
-        // Its runway (a quarter) is the longest gap between captures the native stitch fills: 170 ms at 48 kHz.
-        const val RING_FRAMES = 32_768
         const val FALLBACK_RATE_HZ = 48_000
         const val MILLIHERTZ_PER_HERTZ = 1000
     }

@@ -66,12 +66,4 @@ int geode_playout_lag_ms(const geode_playout* p, int64_t now_ns) {
     return p ? p->clock.lagMs(now_ns) : 0;
 }
 
-int geode_playout_ring_frames(void) {
-    return geode::sound::interp::kPlayerRingFrames;
-}
-
-int geode_playout_ring_runway(void) {
-    return geode::sound::interp::kPlayerRingRunway;
-}
-
 }  // extern "C"

@@ -7,6 +7,7 @@ import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
 import dev.geode.cast.CastService
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,9 +38,9 @@ data class ExternalAudioState(
 internal class CaptureController(
     private val application: Application,
     private val scope: CoroutineScope,
-    capture: dev.geode.engine.audio.SampleRing,
+    capture: Long,
     /** The mic's own ring, layered over the player's natively: the mic never takes [capture]. */
-    private val micRing: dev.geode.engine.audio.SampleRing,
+    private val micRing: Long,
     private val host: Host,
 ) {
     interface Host {
@@ -84,7 +85,7 @@ internal class CaptureController(
      */
     private fun stopMic() {
         micCapture.stop()
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
     }
 
@@ -178,7 +179,7 @@ internal class CaptureController(
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         // A new epoch before the first block: nothing an earlier run left in the ring is heard.
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         val failure = micCapture.start()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
@@ -276,7 +277,7 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
-        micRing.beginEpoch()
+        GeodeNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)

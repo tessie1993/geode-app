@@ -11,7 +11,6 @@ import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
@@ -92,8 +91,8 @@ class Stage(
     /** Lets the UI re-crop the background image to the surface's new pixel size. */
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
-    /** The ring the stage hears, asked every polled frame so a playback session that comes and goes is picked up. */
-    var soundInput: () -> SampleRing? = { null }
+    /** The ring handle the stage hears (0: none), asked every polled frame so a playback session that comes and goes is picked up. */
+    var soundInput: () -> Long = { 0L }
 
     /** This stage is the one a cast carries: the app's stage view sets it, never the wallpaper or the dream. */
     var castSource = false
@@ -116,8 +115,8 @@ class Stage(
     /** What Liquid mode ran last (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused); changes only. */
     val liquidMode: StateFlow<Int> = liquid.asStateFlow()
 
-    // Held while native reads it: a ring's handle is only valid while the ring is reachable.
-    private var heard: SampleRing? = null
+    // The ring handed to native last.
+    private var heard = 0L
     private var sentUnderlay: LookUnderlay? = null
     private var underlaySent = false
     private var stillThen: ((Bitmap) -> Unit)? = null
@@ -139,7 +138,7 @@ class Stage(
         owned.handle = 0L
         if (h == 0L) return
         GeodeNative.stageSetSound(h, 0L)
-        heard = null
+        heard = 0L
         GeodeNative.stageDestroy(h)
     }
 
@@ -345,8 +344,8 @@ class Stage(
         val h = handle
         if (h == 0L) return
         val ring = soundInput()
-        if (ring !== heard) {
-            GeodeNative.stageSetSound(h, ring?.handle ?: 0L)
+        if (ring != heard) {
+            GeodeNative.stageSetSound(h, ring)
             heard = ring
         }
         val events = GeodeNative.stageTakeEvents(h)

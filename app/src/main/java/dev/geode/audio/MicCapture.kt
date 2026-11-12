@@ -10,7 +10,7 @@ import androidx.core.content.ContextCompat
 
 class MicCapture(
     private val context: Context,
-    ring: dev.geode.engine.audio.SampleRing,
+    ring: Long,
     nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) : AudioCapturePump(ring, DEFAULT_RATE, nowMs) {
     enum class Failure {

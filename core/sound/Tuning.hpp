@@ -19,7 +19,7 @@ inline constexpr int kSlots = GEODE_SOUND_TUNING_FLOATS;
 static_assert(sizeof(GeodeSoundTuning) == sizeof(float) * kSlots, "GeodeSoundTuning is its slots, in order");
 
 // The shell names slots by these numbers; each must be its field's place in the struct.
-constexpr bool slotIs(size_t offset, int slot) { return offset == sizeof(float) * static_cast<size_t>(slot); }
+constexpr bool slotIs(std::size_t offset, int slot) { return offset == sizeof(float) * static_cast<std::size_t>(slot); }
 static_assert(slotIs(offsetof(GeodeSoundTuning, gain), GEODE_SOUND_TUNING_GAIN) &&
                   slotIs(offsetof(GeodeSoundTuning, threshold), GEODE_SOUND_TUNING_THRESHOLD) &&
                   slotIs(offsetof(GeodeSoundTuning, offset), GEODE_SOUND_TUNING_OFFSET) &&

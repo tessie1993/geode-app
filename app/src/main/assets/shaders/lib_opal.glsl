@@ -27,8 +27,24 @@
 //   k0 PULSE the emission, k1 TEXTURE the skin lines, k2 FLOW the bend,
 //   k3 TONE the palette position, k4 BUILD the film's bands, k5 SPACE the reach.
 //
-// No style here reads the sound: what moves on a hit is the reaction matrix,
-// through those params. uTime stops in silence, and so does everything here.
+// THE SOUND, heard the way the older families hear it (lib_dive, lib_neon):
+// lib_sound's shaped reads, in opalSetup(), on the motion only, never on a
+// colour, a brightness or a beat.
+//
+//   gOpalTurn   the mid band, sndShaped(SND_MIDDLE), pushes space
+//   round about the way ahead while the mids climb and eases back as they
+//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
+//   gOpalSwell  the low band, sndShaped(SND_LOW), widens the Warp's sideways swell,
+//   never past the Warp's own reach.
+//
+// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// MUCH moves follows how loud and dense the music is, never the song's own
+// average, and the band only shapes the push. sndShaped scales both by Audio
+// drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
+// (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+//
+// What moves on a hit is the reaction matrix, through the params above. uTime
+// stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 //
 // The world repeats along z every OPAL_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (OPAL_RATE).
@@ -47,6 +63,9 @@
 float gOpalForm;
 float gOpalFlow;
 float gOpalChaos;
+/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
+float gOpalTurn;
+float gOpalSwell;
 /** How far the trace reaches, world units. */
 float gOpalFar;
 /** How many times the film's colour runs through the palette from a skin's middle to its rim. */
@@ -92,14 +111,18 @@ void opalSetup() {
     gOpalLines = 0.6 * (1.0 + neonKnob(1));
     gOpalTone = 0.6 * neonKnob(3);
     gOpalStride = 0.85;
+    // The sound (see the header): the absolute drive sets how much, the band only the shape.
+    float drive = clamp(SND_DRIVE, 0.0, 1.0);
+    gOpalTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
+    gOpalSwell = sndShaped(SND_LOW) * drive;
     for (int i = 0; i < 5; i++) gOpalPal[i] = pal(0.25 * float(i));
 }
 
-/** Warp on space: a twist about z that comes and goes along the way, and a sideways swell. */
+/** Warp on space: a twist about z that comes and goes along the way (and the mids' push), and a sideways swell (and the lows'). */
 vec3 opalBend(vec3 p) {
     float zc = p.z * (OPAL_TAU / OPAL_PERIOD);
-    p.xy = opalRot(gOpalFlow * 0.9 * sin(zc + 0.6 * p.y + uTime * OPAL_RATE(150))) * p.xy;
-    p.x += gOpalFlow * 0.5 * sin(2.0 * zc + 1.1 * p.y + uTime * OPAL_RATE(210));
+    p.xy = opalRot(gOpalFlow * 0.9 * sin(zc + 0.6 * p.y + uTime * OPAL_RATE(150)) + gOpalTurn) * p.xy;
+    p.x += 0.5 * min(gOpalFlow + 0.3 * gOpalSwell, 1.0) * sin(2.0 * zc + 1.1 * p.y + uTime * OPAL_RATE(210));
     p.y += gOpalFlow * 0.4 * sin(zc + 1.3 * p.x);
     return p;
 }

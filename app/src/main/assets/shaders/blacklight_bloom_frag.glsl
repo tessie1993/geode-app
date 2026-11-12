@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Blacklight Bloom: a flight down a hall lined with the mirrored UV-ink
 // tapestry, now a real thing in space. The walls are a 3D fold-and-scale
@@ -41,9 +42,10 @@ out vec4 fragColor;
 // held for the section, unless the user has set Kaleido's arms. Nothing keys
 // brightness off a raw envelope.
 //
-// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight (k2 FLOW
-// no longer sets how fast the floaters tumble: a knob is the notes', and no
-// sound turns a style; they tumble on time alone), k3 TONE the fold's own offsets and a small ink
+// Knobs: k0 PULSE the bubble wobble, k1 TEXTURE the ink line weight, k2 FLOW
+// how far the floaters bob (it used to set how fast they tumble, a clock times
+// a live dial that also turned them to the music; they tumble on uTime alone
+// now), k3 TONE the fold's own offsets and a small ink
 // hue offset (the melody's height re-cuts the tapestry: each fold steps its
 // copies apart differently, so a rising line grows a different lattice), k4 BUILD how many
 // floaters there are, k5 SPACE the hall's width. Morph turns the folds (a
@@ -88,6 +90,8 @@ float gBar;
 float gTube;
 float gSpin;
 float gDensity;
+/** How far a floater bobs, world units (0.12 at rest). */
+float gBob;
 vec3 gEye;
 
 /** Set by map(): 0 fractal, 1 outer wall, 2 spiral disc, 3 wire tetrahedron. */
@@ -195,7 +199,7 @@ float floaters(vec3 w, out float type) {
     float ang = h2 * BB_TAU;
     float rad = 0.9 + 0.7 * h3;
     vec3 c = vec3(rad * cos(ang), rad * sin(ang), (cz + 0.5) * BB_CELL + (h4 - 0.5) * 0.7);
-    c.y += 0.12 * sin(uTime * (0.3 + 0.2 * h2) + h3 * 6.0);
+    c.y += gBob * sin(uTime * (0.3 + 0.2 * h2) + h3 * 6.0);
     vec3 q = w - c;
     q.xz = rot2(gSpin * (0.5 + h3) + h2 * BB_TAU) * q.xz;
     q.yz = rot2(gSpin * (0.3 + 0.6 * h4) + h3 * BB_TAU) * q.yz;
@@ -212,7 +216,7 @@ float floaters(vec3 w, out float type) {
     return min(d, bound);
 }
 
-float map(vec3 w) {
+float bbField(vec3 w) {
     float trap;
     float d = tapestry3(w, trap);
     float r = length(w.xy);
@@ -231,6 +235,14 @@ float map(vec3 w) {
         gMat = type;
     }
     return max(d, BB_EYE - length(w - gEye));
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: bbField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, bbField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -271,19 +283,40 @@ void main() {
     gFolds = (uKaleido > 0.5 && uSymmetry >= 2.0) ? floor(uSymmetry) : 6.0 + 2.0 * sectionPick;
     // Kept inside 1.80..1.98: past it the strokes outrun the trap and the
     // tapestry turns to grit.
-    gScale = 1.82 + 0.10 * min(swell, 1.0) + 0.06 * uMorph;
-    // TONE re-cuts the fold (offsets are isometries, so the estimate holds).
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    gOff = vec3(1.0 - 0.3 * kTone, 0.82 + 0.4 * kTone, 0.9 - 0.2 * kTone);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nWobble = clamp(uKnob[0], 0.0, 1.0);
+    float nInk = clamp(uKnob[1], 0.0, 1.0);
+    float nBob = clamp(uKnob[2], 0.0, 1.0);
+    float nCut = clamp(uKnob[3], 0.0, 1.0);
+    float nCount = clamp(uKnob[4], 0.0, 1.0);
+    float nHall = clamp(uKnob[5], 0.0, 1.0);
+    float nFold = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    // The fold's scale (Morph's share; the swell rides on top, all inside
+    // 1.80..1.98), its offsets (TONE re-cuts it; offsets are isometries, so
+    // the estimate holds), the jacks' bar, the hall, the floaters' bob and
+    // count, the bubbles' wobble, the ink's weight and hue.
+    gScale = shellMap(nFold, 1.82, 1.82, 1.88) + 0.10 * min(swell, 1.0);
+    gOff = vec3(shellMap(nCut, 1.15, 1.0, 0.85), shellMap(nCut, 0.62, 0.82, 1.02), shellMap(nCut, 1.0, 0.9, 0.8));
+    float barK = shellMap(nInk, 0.8, 1.0, 1.2);
+    float lineK = shellMap(nInk, 0.7, 1.0, 1.3);
+    float wobbleK = shellMap(nWobble, 0.5, 1.0, 1.5);
+    gBob = 0.12 * shellMap(nBob, 0.25, 1.0, 1.75);
     float turn = 0.42 + 0.30 * uMorph + 0.06 * sin(uTime * 0.07);
     gRotA = rot2(turn);
     gRotB = rot2(0.27 + 0.25 * uTurbulence + 0.05 * sin(uTime * 0.05 + 1.0));
-    gBar = (0.34 + 0.16 * min(bass, 1.0)) * (0.8 + 0.4 * uKnob[1]);
-    gTube = 2.6 * (0.85 + 0.3 * uKnob[5]);
+    gBar = (0.34 + 0.16 * min(bass, 1.0)) * barK;
+    gTube = shellMap(nHall, 2.21, 2.6, 2.99);
+    // The floaters tumble on uTime alone, which follows Speed and never the music.
     gSpin = uTime * 0.5;
-    gDensity = 0.25 + 0.5 * uKnob[4];
+    gDensity = shellMap(nCount, 0.25, 0.5, 0.75);
     float split = (0.012 + 0.016 * treb);
-    float hue = 0.12 * pitchBump + 0.2 * (uKnob[3] - 0.5);
+    float hue = 0.12 * pitchBump + shellMap(nCut, -0.1, 0.0, 0.1);
 
     vec3 ro;
     vec3 rd;
@@ -302,7 +335,7 @@ void main() {
         float m = m0 + float(k);
         float hm = hash11(mod(m, BB_ZWRAP / BB_BUBBLE_GAP) + 3.0);
         float R = 0.85 + 0.05 * min(swell, 1.0)
-                + 0.07 * kick * (0.5 + uKnob[0]) * sin(uTime * 9.0 + hm * 20.0);
+                + 0.07 * kick * wobbleK * sin(uTime * 9.0 + hm * 20.0);
         vec3 c = vec3(0.9 * cos(hm * BB_TAU), 0.7 * sin(hm * BB_TAU), m * BB_BUBBLE_GAP + 0.5 * BB_BUBBLE_GAP);
         vec3 oc = ro - c;
         float b = dot(oc, rd);
@@ -375,7 +408,7 @@ void main() {
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);
         float px = total * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
         float sp = split * (bent ? 1.8 : 1.0);
-        float lineW = (0.012 + 0.010 * min(bass, 1.0)) * (0.7 + 0.6 * uKnob[1]);
+        float lineW = (0.012 + 0.010 * min(bass, 1.0)) * lineK;
 
         if (mat < 0.5) {
             // The ink, three times a hair apart: the trap read at the hit and

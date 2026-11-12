@@ -22,6 +22,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // ===========================================================================
 //  KIFS - a kaleidoscopic crystal cathedral, breathing.
@@ -88,14 +89,17 @@ out vec4 fragColor;
 //  focal), the slow pitch wander, and bass pushing the eye in.
 //
 //  WHAT REACTS TO WHAT: bass breathes the magnification and pushes the eye
-//  in, mids turn the folds, treble sharpens the material, energy lifts the
-//  sky (all slew-limited); the beat (SND_KICK_ENV) lurches the fold angle and
-//  settles. Nothing on a hit changes brightness.
+//  in, mids push the fold centre, treble sharpens the material, energy lifts
+//  the sky (all slew-limited); the beat (SND_KICK_ENV) shoves the fold centre
+//  and it settles. Nothing turns to the music (owner rule): the fold angles
+//  move on uTime and the fingers alone, and sound reshapes the cathedral by
+//  moving the point its folds are taken about instead. Nothing on a hit
+//  changes brightness.
 //
 //  THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its offset
 //  from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
-//  filigree's width (the edge trap's band), k2 FLOW added to the fold angle
-//  (+-0.04, the mids' own size; a fold is an isometry, so the march holds),
+//  filigree's width (the edge trap's band), k2 FLOW added to the fold centre
+//  (+-0.04, inside the centre's clamp, so the model stays in its band),
 //  k3 TONE the palette position and which seed the levels grow from (a high
 //  melody leans the crossfade toward spires, a low one toward piers, within
 //  the crossfade's own range, so the cathedral's architecture follows the
@@ -232,11 +236,15 @@ const float KIFS_FOLD_BASE = 0.21;
 const float KIFS_FOLD_SWING = 0.17;
 const float KIFS_FOLD_RATE = 0.061;
 
-/** Mids steer the fold planes. Small for the same reason KIFS_SCALE_BASS is. */
-const float KIFS_FOLD_MID = 0.05;
+/**
+ * Mids push the fold centre along its (1, 1, 0) diagonal: small for the same
+ * reason KIFS_SCALE_BASS is, and held inside the centre's clamp. They used to
+ * turn the fold planes, which turned the cathedral to the music.
+ */
+const float KIFS_C_MID = 0.05;
 
-/** The beat-locked lurch of the fold angle: the cathedral flinches on the hit and settles. */
-const float KIFS_FOLD_BEAT = 0.045;
+/** The beat's shove of the fold centre: the cathedral flinches on the hit and settles. */
+const float KIFS_C_BEAT = 0.045;
 
 /**
  * Three-plus fingers twist the folds directly.
@@ -421,7 +429,7 @@ float kifsSeed(vec3 p) {
 }
 
 /** The distance estimate, and the orbit trap it leaves in gTrapR/gTrapZ. */
-float kifsMap(vec3 p) {
+float kifsField(vec3 p) {
     gTrapR = KIFS_TRAP_FAR;
     gTrapZ = 1.0;
 
@@ -502,6 +510,14 @@ float kifsMap(vec3 p) {
     return kifsSeed(p) / s;
 }
 
+/**
+ * The field every march and normal tap reads: kifsField, the style's own,
+ * through lib_shell's hook (the identity until the shell drives it).
+ */
+float kifsMap(vec3 p) {
+    return SHELL_FIELD3(p, kifsField);
+}
+
 /** Tetrahedral normal: four kifsMap evaluations rather than the six a central difference needs. */
 vec3 kifsNormal(vec3 p, float e) {
     vec2 k = vec2(1.0, -1.0);
@@ -547,15 +563,31 @@ void main() {
     float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
 
     // The beat event: an accent with an instant rise and a 0.3 s fall, so
-    // the lurch below flinches and settles rather than jittering with a
+    // the shove below flinches and settles rather than jittering with a
     // drum level.
     float hit = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float haze = 0.18 / (1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
-    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nFiligree = clamp(uKnob[1], 0.0, 1.0);
+    float nCentre = clamp(uKnob[2], 0.0, 1.0);
+    float nSeed = clamp(uKnob[3], 0.0, 1.0);
+    float nArcade = clamp(uKnob[4], 0.0, 1.0);
+    float nHaze = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the filigree's band, FLOW's push of the fold centre, the
+    // palette position (and the seed's lean, below), the light through the
+    // arcades, and the depth haze's reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float filigreeW = shellMap(nFiligree, 0.175, 0.35, 0.525);
+    float centreAdd = shellMap(nCentre, -0.04, 0.0, 0.04);
+    float arcadeK = shellMap(nArcade, 0.5, 1.0, 1.5);
+    float haze = 0.18 / shellMap(nHaze, 0.8, 1.0, 1.2);
+    gTone = shellMap(nSeed, -0.3, 0.0, 0.3);
 
     // ---- camera -----------------------------------------------------------
     //
@@ -595,8 +627,10 @@ void main() {
     vec2 anchor = touchAnchor();
     vec3 foldPush = (right * anchor.x + up * anchor.y) * (KIFS_TOUCH_PUSH * touchStrength());
 
+    // Sound and FLOW move the centre (never the fold planes' angle).
+    vec3 soundPush = vec3(0.70710678, 0.70710678, 0.0) * (KIFS_C_MID * midA + KIFS_C_BEAT * hit + centreAdd);
     gFoldC = clamp(
-        KIFS_C_BASE + foldPush + KIFS_C_SWING * vec3(
+        KIFS_C_BASE + foldPush + soundPush + KIFS_C_SWING * vec3(
             sin(uTime * 0.0213),
             sin(uTime * 0.0171 + 1.7),
             sin(uTime * 0.0131 + 3.1)
@@ -647,17 +681,14 @@ void main() {
     // directly. Clamped because TouchField's spin is a rate and a flick can
     // reach its own +-8 limit.
     float spin = clamp(uTouchSpin, -6.0, 6.0);
+    // On uTime and the fingers alone: nothing turns to the music.
     float foldAngle = KIFS_FOLD_BASE
         + KIFS_FOLD_SWING * sin(uTime * KIFS_FOLD_RATE)
-        + KIFS_FOLD_MID * midA
-        + KIFS_FOLD_BEAT * hit
-        + KIFS_TOUCH_SPIN * spin
-        + 0.08 * kFlow;
+        + KIFS_TOUCH_SPIN * spin;
     gFoldRot = rotAxis(foldAxis, foldAngle);
 
     float postAngle = KIFS_POST_BASE
-        + KIFS_POST_SWING * sin(uTime * KIFS_POST_RATE + 1.9)
-        + 0.04 * midA;
+        + KIFS_POST_SWING * sin(uTime * KIFS_POST_RATE + 1.9);
     gPostRot = rot2(postAngle);
 
     gSym = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 0.0;
@@ -665,8 +696,8 @@ void main() {
     // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
     // the extra rounds are what the extra steps are for. (The beat used to
     // step one more round in; that rode the beat response, held at zero since
-    // wave three, and is gone. The beat's lurch in foldAngle above is the
-    // continuous form of the same gesture.)
+    // wave three, and is gone. The beat's shove of the fold centre above is
+    // the continuous form of the same gesture.)
     gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // ---- march ------------------------------------------------------------
@@ -778,7 +809,7 @@ void main() {
 
         // The thin parts are the ones the edge trap found: a small trapZ
         // means the point hugged a fold plane, which is the filigree.
-        float thin = 1.0 - smoothstep(0.0, 0.35 * (1.0 + kTexture), trapZ);
+        float thin = 1.0 - smoothstep(0.0, filigreeW, trapZ);
         col = dmtShade(n, rd, shell, band * 0.6, ao, thin, trebA);
         // The spectrum on the rim, on top of the material's own.
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.5);
@@ -807,7 +838,7 @@ void main() {
         // flat fog. Squared so only the rays that really crawled contribute.
         float threaded = used / budget;
         float glowHue = log(max(glowTrap, 1e-6)) * 0.16 + 0.46 + gTone;
-        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA) * (1.0 + kBuild);
+        col += pal(glowHue) * threaded * threaded * (0.55 + 0.9 * enA) * arcadeK;
     }
 
     // TOUCH, everywhere: the wake. Immediate feedback under the finger, before
@@ -826,5 +857,5 @@ void main() {
     // that give it its scale.
     col *= 0.55 + 0.45 * smoothstep(2.0, 0.4, length(uv));
 
-    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

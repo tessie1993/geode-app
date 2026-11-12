@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Neon Tiles: a flight down a kaleidoscope hall. The hall is a regular N-gon
 // prism (4, 6 or 8 faces), and its cross-section IS the old kaleidoscope fold:
@@ -154,7 +155,7 @@ vec3 wallFrame(vec3 p) {
     return vec3(plane, q.y, p.z);
 }
 
-float map(vec3 p) {
+float ntField(vec3 p) {
     vec3 f = wallFrame(p);
     vec2 m = motif(f.yz);
     // Only the tiles just ahead of the eye answer the kick.
@@ -162,6 +163,14 @@ float map(vec3 p) {
     float lift = gH * push * clamp(-m.x * NT_BEVEL, 0.0, 1.0);
     float d = (f.x - lift) * gLipInv;
     return max(d, NT_BUBBLE - length(p - gEye));
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: ntField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return SHELL_FIELD3(p, ntField);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -266,12 +275,20 @@ void main() {
     float enA = clamp(sndShaped(SND_LEVEL), 0.0, 1.3);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
 
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nPush = clamp(uKnob[0], 0.0, 1.0);
+    float nLine = clamp(uKnob[1], 0.0, 1.0);
+    float nWave = clamp(0.5 + (0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * (uKnob[2] - 0.5)) / 0.66, 0.0, 1.0);
+    float nRelief = clamp(uKnob[3], 0.0, 1.0);
+    float nTiles = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    float nBloom = clamp(uKnob[4], 0.0, 1.0);
+    float nHall = clamp(uKnob[5], 0.0, 1.0);
 
     // Faces: pinned by Symmetry when Kaleido is on, else 4, 6 or 8 per
     // section, crossfaded over the section envelope.
@@ -292,15 +309,20 @@ void main() {
 
     // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
     gSpin = uTime * 0.51;
-    gR = 2.2 * (1.0 + 0.3 * k5);
-    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 1.6 * k3);
-    gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);
-    gKick = 1.2 * kick * clamp(1.0 + 2.0 * k0, 0.0, 2.0);
+    // The hall's apothem, the tiles' height (Morph raises them, TONE scales the
+    // relief), the walls' wave and how far the kick pushes the tiles.
+    gR = shellMap(nHall, 1.87, 2.2, 2.53);
+    gH = shellMap(nTiles, 0.06, 0.06, 0.16) * shellMap(nRelief, 0.2, 1.0, 1.8);
+    gWave = shellMap(nWave, 0.0, 0.0, 0.33);
+    gKick = 1.2 * kick * shellMap(nPush, 0.0, 1.0, 2.0);
     float liftMax = gH * (1.0 + gKick);
     // Bevel slope, wave slope, the kick ramp's z slope, and the twist's stretch.
     gLipInv = 1.0 / ((1.0 + liftMax * NT_BEVEL + gWave * (NT_TAU / 8.0) + gH * gKick * 0.3) * 1.04);
-    gWidth = mix(0.035, 0.1, clamp(trebA, 0.0, 1.0)) * clamp(1.0 + 1.2 * k1, 0.3, 2.0);
-    gHue = 0.15 * k3;
+    // The neon lines' width and the hue's small offset.
+    gWidth = mix(0.035, 0.1, clamp(trebA, 0.0, 1.0)) * shellMap(nLine, 0.4, 1.0, 1.6);
+    gHue = shellMap(nRelief, -0.075, 0.0, 0.075);
+    // The level's bloom.
+    float bloomBase = shellMap(nBloom, 0.1, 0.25, 0.4);
 
     vec3 ro;
     vec3 rd;
@@ -348,7 +370,7 @@ void main() {
     }
 
     col = floor(col * NT_LEVELS + 0.5) / NT_LEVELS;
-    col += clamp(0.25 + 0.4 * enA + 0.3 * k4, 0.0, 1.0) * col * col;
+    col += clamp(bloomBase + 0.4 * enA, 0.0, 1.0) * col * col;
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }

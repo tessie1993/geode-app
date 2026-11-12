@@ -1046,8 +1046,9 @@ void testReducedMotionHasTheLastWordOnSpeed() {
 
 // Auto's style moments: one on the frame the director commits a look at a drop or a new section, none for
 // its first look and none on any other frame. A steady song: the first look by 12 s, a drop at 14 s and a
-// new section at 20 s (6 s after the drop, past the director's 4 s floor) give exactly two moments, on
-// those two frames.
+// new section reported at 20 s (6 s after the drop, past the director's 4 s floor) and named by Form on the
+// next frame give exactly two moments: at the drop, and where the named section is decided (a section waits
+// for its name, to know whether it is back).
 // Kills: Section || Drop -> && (no moments), a reason test inverted (the first look counts), the moment
 // count not reset each frame (a moment every frame after), commits() != seen -> == .
 void testStyleMomentsOnlyAtDropsAndSections() {
@@ -1057,6 +1058,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
     const SceneParams requested;
     constexpr int kDropFrame = 840;      // 14 s
     constexpr int kSectionFrame = 1200;  // 20 s
+    constexpr int kNamedFrame = kSectionFrame + 1;
     int total = 0;
     int firstLookMoments = 0;
     bool firstLookSeen = false;
@@ -1067,6 +1069,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
         GeodeSoundFrame f = frame(static_cast<float>(i) * kDt);
         if (i == kDropFrame) f.drop = 0.8f;
         if (i == kSectionFrame) f.sectionChange = 1.0f;
+        if (i >= kNamedFrame) f.sectionId = 1.0f;
         const int before = r->director().commits();
         const int m = r->step(requested, f, kDt, s, style(kStyle, i == 0)).styleMoments;
         if (i < kDropFrame && r->director().commits() > before) {
@@ -1076,7 +1079,7 @@ void testStyleMomentsOnlyAtDropsAndSections() {
         total += m;
         if (i == kDropFrame) {
             atDrop = m;
-        } else if (i == kSectionFrame) {
+        } else if (i == kNamedFrame) {
             atSection = m;
         } else {
             onlyThere = onlyThere && m == 0;

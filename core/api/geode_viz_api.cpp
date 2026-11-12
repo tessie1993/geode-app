@@ -23,8 +23,10 @@
 #include "sound/Tuning.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
+#include "viz/AutoDraw.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
@@ -651,6 +653,51 @@ void geode_director_set(int on, float amount, long long seed) {
 void geode_director_reach_set(int level) { director::setReach(level); }
 
 void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }
+
+void geode_director_tuning_set(const char* tuning) { director::setTuning(text(tuning)); }
+
+int geode_director_tuning_count(void) { return director::kTunes; }
+
+const char* geode_director_tuning_label(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].label : "";
+}
+
+const char* geode_director_tuning_help(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].help : "";
+}
+
+int geode_director_tuning_range(int index, float* out4) {
+    if (index < 0 || index >= director::kTunes || !out4) return 0;
+    const director::TuneSpec& s = director::tuneSpecs()[static_cast<size_t>(index)];
+    out4[0] = s.min;
+    out4[1] = s.max;
+    out4[2] = s.step;
+    out4[3] = director::isSwitch(s) ? 1.0f : 0.0f;
+    return 1;
+}
+
+float geode_director_tuning_value(const char* tuning, int index) {
+    if (index < 0 || index >= director::kTunes) return 0.0f;
+    return director::parseTuning(text(tuning)).v[static_cast<size_t>(index)];
+}
+
+const char* geode_director_tuning_value_text(const char* tuning, int index) {
+    return layerOut(director::valueText(director::parseTuning(text(tuning)), index));
+}
+
+const char* geode_director_tuning_with(const char* tuning, int index, float value) {
+    return layerOut(director::tuningWith(text(tuning), index, value));
+}
+
+int geode_auto_pick_among(const char* ids, int on_screen, int director_moment) {
+    const std::string pool = text(ids);
+    if (director_moment != 0) {
+        const int pick = director::pickStyle(pool, on_screen);
+        if (pick != director::kNoIntent) return pick;
+    }
+    const int count = pool.empty() ? 0 : static_cast<int>(std::count(pool.begin(), pool.end(), '\n')) + 1;
+    return auto_draw::pick(count, on_screen);
+}
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 

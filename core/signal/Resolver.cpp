@@ -72,7 +72,8 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
 
     // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(settings.director);
+    // With its settings and the style on screen, which a section remembers and a style moment steps on from.
+    director_.configure(settings.director, settings.directorTuning, styleId);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
     if (heard != nullptr) {
         director_.step(sound, *heard, dt);

@@ -74,6 +74,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ScreenRotation
 import dev.geode.ui.cast.ComputerLinkRow
@@ -295,8 +296,66 @@ internal fun AutoDirectorRows() {
         onCheckedChange = director::setEnabled,
         description = stringResource(R.string.visuals_qs_auto_about),
     )
-    if (directorOn) ReachRow(reach, director::setReach)
+    if (directorOn) {
+        ReachRow(reach, director::setReach)
+        DirectorTuningRows(director)
+    }
 }
+
+/**
+ * The Auto Director's settings, folded under one row and drawn as native lists them
+ * (core/viz/DirectorTuning): each row's label, help, range, value and value text come from native, a switch
+ * row is the one native calls a switch, and an edit saves the text native hands back. Nothing is decided here.
+ */
+@Composable
+private fun DirectorTuningRows(director: AutoDirectorStore) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    SwitchRow(
+        stringResource(R.string.visuals_qs_auto_tuning),
+        checked = open,
+        onCheckedChange = { open = it },
+        description = stringResource(R.string.visuals_qs_auto_tuning_about),
+    )
+    if (!open) return
+    val text by director.tuning.collectAsStateWithLifecycle()
+    val count = remember { GeodeNative.directorTuningCount() }
+    for (index in 0 until count) DirectorTuningRow(text, index, director::setTuning)
+}
+
+/** One row of the Auto Director's settings: a switch or a slider, with its help under it. */
+@Composable
+private fun DirectorTuningRow(
+    text: String,
+    index: Int,
+    onChange: (String) -> Unit,
+) {
+    val label = remember(index) { GeodeNative.directorTuningLabel(index) }
+    val help = remember(index) { GeodeNative.directorTuningHelp(index) }
+    val range = remember(index) { GeodeNative.directorTuningRange(index) }
+    val value = GeodeNative.directorTuningValue(text, index)
+    val set = { to: Float -> onChange(GeodeNative.directorTuningWith(text, index, to)) }
+    if (range[TUNING_SWITCH] > 0f) {
+        SwitchRow(label, checked = value > 0f, onCheckedChange = { set(if (it) 1f else 0f) }, description = help)
+        return
+    }
+    SliderRow(
+        label = label,
+        valueText = GeodeNative.directorTuningValueText(text, index),
+        value = value,
+        valueRange = range[TUNING_MIN]..range[TUNING_MAX],
+        onValueChange = set,
+    )
+    Text(
+        help,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+// GeodeNative.directorTuningRange's slots.
+private const val TUNING_MIN = 0
+private const val TUNING_MAX = 1
+private const val TUNING_SWITCH = 3
 
 /** The timer's source as the rows show it, and the user's own pick while the timer is off. */
 private class TimerSourceState(

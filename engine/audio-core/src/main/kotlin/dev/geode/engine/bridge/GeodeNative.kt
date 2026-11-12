@@ -624,6 +624,43 @@ object GeodeNative {
     external fun directorKeepSet(keys: String)
 
     /**
+     * The Auto Director's settings (core/viz/DirectorTuning), process-wide like [directorSet] and pinned with
+     * it by an export: [text] as [directorTuningWith] gave it ("" is every default).
+     */
+    external fun directorTuningSet(text: String)
+
+    /** How many rows the Auto Director's settings table has. */
+    external fun directorTuningCount(): Int
+
+    /** Row [index]'s label, as native names it. */
+    external fun directorTuningLabel(index: Int): String
+
+    /** Row [index]'s one line of help. */
+    external fun directorTuningHelp(index: Int): String
+
+    /** Row [index]'s min, max, step (0 continuous) and 1 when it is a switch (on/off), else 0. */
+    external fun directorTuningRange(index: Int): FloatArray
+
+    /** Row [index]'s value in the saved [text]. */
+    external fun directorTuningValue(
+        text: String,
+        index: Int,
+    ): Float
+
+    /** Row [index]'s value in the saved [text], as the page shows it. */
+    external fun directorTuningValueText(
+        text: String,
+        index: Int,
+    ): String
+
+    /** The saved [text] with row [index] set to [value], held to its range: what the store saves. */
+    external fun directorTuningWith(
+        text: String,
+        index: Int,
+        value: Float,
+    ): String
+
+    /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
      * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
@@ -2416,6 +2453,17 @@ object GeodeNative {
     external fun autoPick(
         count: Int,
         onScreen: Int,
+    ): Int
+
+    /**
+     * Auto's pick among [ids] (the pool's style ids, one a line, in its order). At a [directorMoment] the style
+     * the Auto Director asks for (core/viz/DirectorStyle: a returning section's family, else the next along
+     * the catalogue), -1 to keep the style on screen; otherwise, or with no such ask, [autoPick]'s draw.
+     */
+    external fun autoPickAmong(
+        ids: String,
+        onScreen: Int,
+        directorMoment: Boolean,
     ): Int
 
     /**

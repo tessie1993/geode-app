@@ -275,7 +275,9 @@ class PresetStore(
          * A seam for JVM tests, which have no libgeode; a lambda, so naming it loads nothing.
          */
         @VisibleForTesting
-        internal var sanitize: (FloatArray) -> FloatArray = { frame -> FloatArray(frame.size).also { GeodeNative.paramsSanitize(frame, it) } }
+        internal var sanitize: (FloatArray) -> FloatArray = { frame ->
+            FloatArray(frame.size).also { GeodeNative.paramsSanitize(frame, it) }
+        }
 
         /**
          * Reads scene params from [o] by the schema: each row under its name as its JSON type, its default

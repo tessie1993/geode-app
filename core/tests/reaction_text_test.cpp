@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "api/geode_api.h"
+#include "api/geode_reaction_text_api.h"
 #include "viz/Lfo.hpp"
 #include "viz/ReactionText.hpp"
 #include "viz/Reactions.hpp"

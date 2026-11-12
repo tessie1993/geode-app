@@ -1,7 +1,7 @@
 #include <cstring>
 #include <string>
 
-#include "api/geode_api.h"
+#include "api/geode_reaction_text_api.h"
 #include "viz/ReactionText.hpp"
 #include "viz/Reactions.hpp"
 

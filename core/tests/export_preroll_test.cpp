@@ -6,10 +6,10 @@
 //     core/viz/StyleSchedule.cpp -o export_preroll_test
 //
 // Each case runs the export's start the way the shell and the renderer run it, with no GL: the pre-roll's
-// TrackFeed (the shell's first TrackAudio) into a sound engine made at the first write (Renderer::writeAudio,
+// TrackFeed (ExportFrame's pre-roll decode) into a sound engine made at the first write (Renderer::writeAudio,
 // an export's engine counting as the player), output::endPreRoll (Renderer::endPreRoll), then the range's
 // own TrackFeed frame by frame, each frame hearing the audio up to its end and stepping the engine 1/fps
-// (OffscreenSceneRenderer.renderFrame). The picture's clock is sound::motionRate of the frame (RendererFrame).
+// (output/ExportFrame::frame). The picture's clock is sound::motionRate of the frame (RendererFrame).
 //
 // Before the pre-roll the engine heard its first sample on frame 0, so presence rose from 0 and the clock
 // crawled for the first half second of every export (F2) and of every loop's head, which the seam dissolves
@@ -84,14 +84,14 @@ struct Renderer {
     }
 };
 
-// One TrackAudio from startMs: the decoder lands on the 1024-frame chunk holding the start (its sync frame) and
+// One track decode (TrackPump) from startMs: the decoder lands on the 1024-frame chunk holding the start (its sync frame) and
 // pushes chunk after chunk with their pts, the feed dropping what precedes the start.
 class Decode {
 public:
     Decode(const std::vector<float>& pcm, int64_t startMs) : pcm_(pcm), feed_(startMs) {
         next_ = static_cast<int64_t>(startMs) * kRate / 1000 / kChunk * kChunk;
     }
-    // TrackAudio.deliverUntilMs: everything up to endMs from this decode's start into r.
+    // TrackPump::deliverMs: everything up to endMs from this decode's start into r.
     bool deliverUntilMs(int64_t endMs, Renderer& r) {
         while (!feed_.hasRate() && push()) {
         }

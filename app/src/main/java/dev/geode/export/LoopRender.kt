@@ -17,8 +17,6 @@ import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.offscreen.OffscreenRenderSpec
-import dev.geode.render.offscreen.OffscreenSceneRenderer
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
@@ -241,7 +239,6 @@ class LoopRender(
         // The look the caller pinned when the render started; each drift stop shifts its params.
         look: LookSnapshot,
         drift: TimeOfDayDrift = TimeOfDayDrift.None,
-        paramsAt: ((Long) -> SceneParams)? = null,
         codec: ExportCodec = ExportCodec.H264,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
@@ -265,7 +262,6 @@ class LoopRender(
                     spec = budgeted,
                     look = look,
                     drift = drift,
-                    paramsAt = paramsAt,
                     watermark = watermark,
                     audioUri = audioUri,
                 ),
@@ -282,7 +278,6 @@ class LoopRender(
         val spec: LoopSpec,
         val look: LookSnapshot,
         val drift: TimeOfDayDrift,
-        val paramsAt: ((Long) -> SceneParams)?,
         val watermark: WatermarkChoice,
         val audioUri: Uri,
     )
@@ -377,7 +372,7 @@ class LoopRender(
     ): StopOutcome {
         var writer: StopWriter? = null
         var egl: EncoderSurface? = null
-        var renderer: OffscreenSceneRenderer? = null
+        var renderer: ExportScene? = null
         var stash: SeamStash? = null
         var mark: WatermarkOverlay? = null
         try {
@@ -428,7 +423,7 @@ class LoopRender(
      * time, is the native seam driver's (`core/viz/frame/LoopSeam`): this only presents.
      */
     private fun drawFrames(
-        scene: OffscreenSceneRenderer,
+        scene: ExportScene,
         writer: StopWriter,
         egl: EncoderSurface,
         seam: SeamStash,
@@ -467,30 +462,24 @@ class LoopRender(
         job: RenderJob,
         stop: DriftStop,
         sourceFrames: Int,
-    ): OffscreenSceneRenderer {
-        // Keyframed parameters drift with the stop they are rendered for, so an automated hue
-        // still lands on top of this stop's palette rather than resetting it every repeat.
-        val driftedParamsAt: ((Long) -> SceneParams)? =
-            job.paramsAt?.let { source -> { timeMs: Long -> stop.applyTo(source(timeMs)) } }
-        return OffscreenSceneRenderer(
+    ): ExportScene =
+        ExportScene(
             context = context,
             sceneFactory = job.sceneFactory,
             spec =
-                OffscreenRenderSpec(
+                ExportScene.Spec(
                     width = job.aspect.width,
                     height = job.aspect.height,
                     fps = job.choice.fps,
-                    totalFrames = sourceFrames,
                     rangeStartMs = 0L,
+                    // Each drift stop shifts the pinned look's palette.
                     look = job.look.copy(params = stop.applyTo(job.look.params)),
-                    paramsAt = driftedParamsAt,
                     audioUri = job.audioUri,
                     // Pinned at prepare: live edits and the player moving on never reach the render.
-                    pinDurationMs = sourceFrames * 1000L / job.choice.fps,
+                    durationMs = sourceFrames * 1000L / job.choice.fps,
                     entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
                 ),
         )
-    }
 
     private fun discard(
         rendered: List<RenderedLoop>,

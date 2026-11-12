@@ -121,6 +121,12 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
+          # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
+            core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp \
+            core/output/FrameClock.cpp -o track_pump_test
+          ./track_pump_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
@@ -479,6 +485,12 @@ jobs:
             core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/StyleSchedule.cpp \
             -o export_preroll_test
           ./export_preroll_test
+          # The render order (core/output/ExportFrame): prepare up to the look, the pre-roll's plan, each frame's audio to
+          # its exact end and its draw at its exact time, the failures (no track, nothing heard, a track that ends).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_frame_test.cpp \
+            core/output/ExportFrame.cpp core/output/FrameClock.cpp core/audio/ingest/TrackPump.cpp \
+            core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp -o export_frame_test
+          ./export_frame_test
 
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
       - name: Sound golden vector

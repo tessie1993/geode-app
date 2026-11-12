@@ -39,6 +39,8 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `BuildStyleReactionsUseCase` | 51 | pending |
 | `PcmTap` | 55 | **moved to the shell**: Media3's `TeeAudioProcessor.AudioBufferSink` has no NDK form, so it stays Kotlin, in `:app` under the same package; `:engine:audio-android` is gone. It decides nothing: `owns` is `CaptureController`'s answer (through `PlayerSession`), and a flush starting a ring epoch is the ring's contract (`core/audio/ingest/PcmRing`); no native owner of the source choice for the player exists yet. |
 | `AiffPcm` | 57 | pending |
+| `PcmTap` | 55 | pending |
+| `AiffPcm` | 57 | **deleted**: a handle over `geode_aiff_*` whose last caller is `export/AudioTranscoder`, which now opens the descriptor and holds the handle itself; the export's track opens AIFF natively (`core/audio/ingest/TrackPump`). |
 | `LookSnapshot` | 70 | pending |
 | `SceneIds` | 70 | pending |
 | `SoundTuning` | 76 | **shrunk to a holder** (74): how a saved array reads (30 floats as saved, 29 from before the input trim at 0 dB, any other length the defaults) is `core/sound/Tuning::fromSaved` behind `geode_sound_tuning_from_saved`, pinned by `sound_test.cpp`; the floats stay as stored until read. It stays in `:engine:audio-core` while `LookSnapshot`, `LookApplier` and `NativeViz` carry it. The slot constants Settings › Audio names stay (no `FLOATS`, no `OFFSET`), held to the header by `SoundTuningTest`. |
@@ -61,10 +63,11 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `OffscreenSceneRenderer` | 128 | pending |
 | `SearchMatcher` | 131 | **deleted**: a second search beside `core/library/Search`. The search sheet (`ui/AppShell`) asks native once per query (`geode_search_sheet`): a fourth field after the album, one hit per URI shown as the device's copy, at most 30 tracks, playlists and presets by name; pinned in `core/tests/library_search_test.cpp`. |
 | `Catalogue` | 131 | pending |
+| `OffscreenSceneRenderer` | 128 | **ported**: `core/output/ExportFrame` (the prepare order, the pre-roll, each frame's audio and draw), `geode_export_job_*` (`core/api/geode_export_job_api.h`), test `core/tests/export_frame_test.cpp`. `export/ExportScene` opens the renderer and the track's descriptor and applies the look between the job's two prepare calls. The unused `paramsAt` and `styleSchedule` export parameters are gone. |
 | `SearchMatcher` | 131 | pending |
 | `Catalogue` | 131 | **ported**: the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `ParamFormat` | 153 | pending |
-| `TrackAudio` | 158 | pending |
+| `TrackAudio` | 158 | **ported**: `core/audio/ingest/TrackPump` (the decode and hand-out order, AIFF first) over `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, linked `mediandk`), test `core/tests/track_pump_test.cpp`. Needs a device for the codec path. |
 | `ParamKeys` | 158 | pending |
 | `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | pending |
 | `VisualizerView` | 220 | pending |

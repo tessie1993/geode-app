@@ -22,8 +22,6 @@ import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.model.PresetLink
-import dev.geode.render.AdsrConfig
-import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
@@ -107,11 +105,11 @@ class VisualsViewModel
 
         val textures: StateFlow<List<MilkTexture>> get() = session.textureController.textures
 
-        val lfos: StateFlow<List<LfoConfig>> get() = session.modulation.lfos
+        val lfos: StateFlow<String> get() = session.modulation.lfos
 
-        val adsrs: StateFlow<List<AdsrConfig>> get() = session.adsrs
+        val adsrs: StateFlow<String> get() = session.adsrs
 
-        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.modulation.reactions
+        val reactions: StateFlow<String?> get() = session.modulation.reactions
 
         val handMask: StateFlow<Int> get() = session.handMask
 
@@ -186,17 +184,22 @@ class VisualsViewModel
 
         fun setAdsr(
             index: Int,
-            config: AdsrConfig,
-        ) = session.modulation.setAdsr(index, config)
+            field: Int,
+            value: Float,
+        ) = session.modulation.setAdsr(index, field, value)
 
         fun setLfo(
             index: Int,
-            config: LfoConfig,
-        ) = session.modulation.setLfo(index, config)
+            field: Int,
+            value: Float,
+        ) = session.modulation.setLfo(index, field, value)
 
-        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.modulation.setReactions(routes)
-
-        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.modulation.setHandReactions(edit)
+        fun editReactions(
+            op: Int,
+            a: Int,
+            b: Int,
+            value: Float,
+        ) = session.modulation.editReactions(op, a, b, value)
 
         fun rerollReactions() = session.modulation.rerollReactions()
 

@@ -2,9 +2,6 @@ package dev.geode.render.look
 
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.AdsrConfig
-import dev.geode.render.LfoConfig
-import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -30,16 +27,16 @@ class LookApplierTest {
             seenParams = p
         }
 
-        override fun setLfoConfigs(configs: List<LfoConfig>) {
+        override fun setLfoConfigs(lfos: String) {
             calls += "lfos"
         }
 
-        override fun setAdsrConfigs(configs: List<AdsrConfig>) {
+        override fun setAdsrConfigs(adsrs: String) {
             calls += "adsrs"
         }
 
         override fun setUserReactions(
-            routes: List<ReactionRoute>?,
+            routes: String?,
             mask: Int,
         ) {
             calls += "reactions"

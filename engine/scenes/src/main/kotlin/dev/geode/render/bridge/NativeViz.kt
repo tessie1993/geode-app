@@ -6,14 +6,8 @@ import android.graphics.Bitmap
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
 import dev.geode.render.PacedRate
-import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookTarget
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
@@ -206,23 +200,23 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, tuning.toFloats())
     }
 
-    override fun setLfoConfigs(configs: List<LfoConfig>) {
+    override fun setLfoConfigs(lfos: String) {
         if (handle == 0L) return
-        configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
+        GeodeNative.vizSetLfos(handle, lfos)
     }
 
-    override fun setAdsrConfigs(configs: List<AdsrConfig>) {
+    override fun setAdsrConfigs(adsrs: String) {
         if (handle == 0L) return
-        configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
+        GeodeNative.vizSetAdsrs(handle, adsrs)
     }
 
-    /** The user's routes and hand mask, sent only when [routes] (by identity) or [mask] changes; native resolves what plays. */
+    /** The user's routes and hand mask, sent only when [routes] or [mask] changes; native resolves what plays. */
     override fun setUserReactions(
-        routes: List<ReactionRoute>?,
+        routes: String?,
         mask: Int,
     ) {
         if (handle != 0L && sent.userReactions(routes, mask)) {
-            GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
+            GeodeNative.vizSetReactions(handle, routes, mask)
         }
     }
 
@@ -469,7 +463,7 @@ internal class LastSent {
     private var transitionId: String? = null
     private var transitionMs = -1L
     private var fps = Float.NaN
-    private var routes: List<ReactionRoute>? = null
+    private var routes: String? = null
     private var routesMask = 0
     private var routesSent = false
 
@@ -498,10 +492,10 @@ internal class LastSent {
     fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
 
     fun userReactions(
-        r: List<ReactionRoute>?,
+        r: String?,
         mask: Int,
     ): Boolean {
-        if (routesSent && r === routes && mask == routesMask) return false
+        if (routesSent && r == routes && mask == routesMask) return false
         routes = r
         routesMask = mask
         routesSent = true

@@ -25,7 +25,7 @@
 // ceiling with chained modulation, the envelope's shortest stage on decay and release): they stay in
 // the engine, named, and the comment at each says why.
 
-// ---- LFO slots (viz/Lfo, LfoStore.kt) --------------------------------------------------------------
+// ---- LFO slots (viz/Lfo, viz/ModDocument)----------------------------------------------------------
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
@@ -33,10 +33,10 @@ GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
 GEODE_CONFIG(lfo, target, Int, 0, 0, 67, None)
 // LfoWave: Sine .. RandomGlide.
 GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
-// The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,
-// 60). A slot saved in Hz migrates through config::lfoRateSecondsFromHz.
+// The period, not a frequency (2, 0.05 and 60 s). A slot saved in Hz migrates through
+// config::lfoRateSecondsFromHz.
 GEODE_CONFIG(lfo, rateSeconds, Float, 2.0f, 0.05f, 60.0f, Seconds)
-// Default 0.3 (Lfo.hpp, LfoStore.kt:131). The control range is Customize's slider (CustomizeAdvanced.kt:560);
+// Default 0.3 (Lfo.hpp). The control range is Customize's slider, which reads it from viz/ModCatalog;
 // the engine lets a chained slot push depth up to LfoEngine::kMaxModulatedDepth.
 GEODE_CONFIG(lfo, depth, Float, 0.3f, 0.0f, 1.0f, Fraction)
 // ModPolarity: Bipolar, Positive, Negative.
@@ -51,9 +51,9 @@ GEODE_CONFIG(lfo, knob, Int, 0, 0, 999999, None)
 // On a moment (viz/Reactions Moment: Kick .. Loudness): the wave restarts its cycle on it; -1 runs free.
 GEODE_CONFIG(lfo, moment, Int, -1, -1, 9, None)
 
-// ---- Envelopes (viz/Adsr, LfoStore.kt adsrFromJson) -----------------------------------------------
-// Defaults are Adsr.hpp's (and Adsr.kt's, LfoStore.kt:102-108); ranges are Customize's sliders
-// (CustomizeAdvanced.kt:656-669). The engine's shortest stage is attack's min, for every stage.
+// ---- Envelopes (viz/Adsr, viz/ModDocument) --------------------------------------------------------
+// Defaults are Adsr.hpp's; ranges are Customize's sliders, which read them from viz/ModCatalog.
+// The engine's shortest stage is attack's min, for every stage.
 GEODE_CONFIG(adsr, enabled, Bool, 0, 0, 1, None)
 GEODE_CONFIG(adsr, attack, Float, 0.05f, 0.005f, 1.0f, Seconds)
 GEODE_CONFIG(adsr, decay, Float, 0.25f, 0.01f, 1.5f, Seconds)

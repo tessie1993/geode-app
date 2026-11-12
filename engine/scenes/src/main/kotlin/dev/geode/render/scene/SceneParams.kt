@@ -142,7 +142,7 @@ data class SceneParams(
     val camGyro: Boolean = false,
     /** Global scale of every reaction route, 0..2; 0 leaves only the continuous motion system. */
     val reactAmount: Float = 1f,
-    /** Which variant of the style's reaction DNA ([BuildStyleReactionsUseCase]) plays. */
+    /** Which variant of the style's reaction DNA plays. */
     val reactSeed: Int = 0,
     /**
      * The first of Note & key reactions' fields (core/viz Params.hpp, after [reactSeed]). Each is a

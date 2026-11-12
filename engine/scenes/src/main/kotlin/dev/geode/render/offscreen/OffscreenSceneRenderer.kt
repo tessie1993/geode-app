@@ -3,10 +3,10 @@ package dev.geode.render.offscreen
 import android.content.Context
 import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.HandMask
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.look.HandMask
 import dev.geode.render.look.LookApplier
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneParams

@@ -18,11 +18,6 @@ import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.HandReactions
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
 import dev.geode.render.fluid.FluidQuality
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
@@ -497,14 +492,7 @@ private fun PanelPiece(
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()
-            ProGated(id, "Moments") {
-                EventsTab(
-                    p,
-                    hand = HandReactions(reactions, handMask),
-                    onReactionsChange = vm::setReactions,
-                    onHandChange = vm::setHandReactions,
-                )
-            }
+            ProGated(id, "Moments") { EventsTab(p, reactions, handMask, vm::editReactions) }
         }
         "@rise_fall" -> RiseAndFall(viz.attack, viz.decay, host.viewModel::setReactivity)
         "@notes_key" -> NoteKeyPage(p, onChange)
@@ -522,15 +510,15 @@ private fun PanelPiece(
         "@reactions" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()
-            ProGated(id, "Reactions") { ReactionsSection(p, reactions, vm::setReactions, vm::rerollReactions, handMask) }
+            ProGated(id, "Reactions") { ReactionsSection(p, reactions, handMask, vm::editReactions, vm::rerollReactions) }
         }
         "@envelopes" -> {
             val adsrs by vm.adsrs.collectAsStateWithLifecycle()
             if (sectionVisible()) {
                 ProGated(id, "Envelopes") {
                     Column {
-                        for (i in 0 until AdsrEngine.COUNT) {
-                            AdsrCard(index = i, config = adsrs.getOrElse(i) { AdsrConfig() }, onChange = { vm.setAdsr(i, it) })
+                        for (i in 0 until ModCatalog.count("envelopes")) {
+                            AdsrCard(index = i, adsrs = adsrs, onChange = { field, value -> vm.setAdsr(i, field, value) })
                         }
                     }
                 }
@@ -546,8 +534,8 @@ private fun PanelPiece(
                             sounds.play(UiSound.TAP)
                             vm.randomizeWaves()
                         }) { Text("Randomize waves") }
-                        for (i in 0 until LfoEngine.SLOTS) {
-                            ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { vm.setLfo(i, it) })
+                        for (i in 0 until ModCatalog.count("waves")) {
+                            ModulatorCard(index = i, lfos = lfos, onChange = { field, value -> vm.setLfo(i, field, value) })
                         }
                     }
                 }

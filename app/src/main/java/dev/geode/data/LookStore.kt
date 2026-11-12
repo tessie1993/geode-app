@@ -3,7 +3,7 @@ package dev.geode.data
 import android.content.ContentResolver
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.render.HandMask
+import dev.geode.render.look.HandMask
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookSource
 

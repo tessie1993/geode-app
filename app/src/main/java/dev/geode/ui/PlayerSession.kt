@@ -57,7 +57,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.AdsrConfig
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSource
@@ -257,7 +256,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    val adsrs: StateFlow<List<AdsrConfig>> get() = modulation.adsrs
+    val adsrs: StateFlow<String> get() = modulation.adsrs
     val handMask: StateFlow<Int> get() = modulation.handMask
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
 

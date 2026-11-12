@@ -14,6 +14,7 @@ One fact per line. The design of the native host every live surface draws throug
 - Two kinds of thread, as today: one process-wide vsync thread, and one stage thread per surface.
 - The vsync thread is named `GeodeFramePacer` and runs at nice -4 (`THREAD_PRIORITY_DISPLAY`), the name and priority of the Kotlin `PacerThread` it replaces.
 - It is started on first use and never quit, like the Kotlin one: an idle looper costs nothing, and a thread torn down on every pause would race the next start.
+- Its object is allocated once and never freed, so the thread never runs on an object a static destructor took down at exit.
 - It owns an `ALooper` and the `AChoreographer` of that looper, and serves every stage's pacer, so a preview wallpaper beside the app costs no second clock thread.
 - It never draws, so a slow frame on one surface never delays another surface's vsync and never stops the pacer from hearing every vsync.
 - That is why the clock is not merged into the render thread: `AChoreographer` delivers one callback per looper turn, so a frame longer than a vsync would make the pacer miss vsyncs and change its period estimate and divide (`core/viz/frame/Pacer`), which the owner fixed as unchanged.
@@ -61,12 +62,23 @@ One fact per line. The design of the native host every live surface draws throug
 - The order on a pause is stop vsync, trim spares, destroy surface: the same order as the services' stop, trim, `onPause`.
 - A frame is drawn only on a vsync while the vsync runs, or by a draw-once, and only when the context is current and the client knows the size.
 
+## Stage core (`core/stage/StageCore`)
+
+- Pure: what a stage thread does with each command and on each turn of its loop, host-tested in `core/tests/stage_core_test.cpp`.
+- It holds the `StageCommand` kinds, the command-to-lifecycle mapping, the window references, the hand-over sequence and its acknowledgement, the frame-due gate and the frame-rate restate.
+- A vsync's frame is drawn only while the lifecycle's vsync runs and a frame can be drawn; a request in flight across a stop is dropped.
+- A hand-over is acknowledged after the lifecycle's actions for it ran, so a window that went has no surface left on it.
+- The platform is a `StagePort` (EGL, the window, the vsync thread, the thermal rung, the acknowledgement), which `core/stage/android/StageThread` implements and a model implements in the test.
+- A `kStageService` command has the stage thread call the client's `service(ready)` once, between frames.
+
 ## Commands (`core/stage/CommandQueue`)
 
 - A bounded ring of fixed-size commands under one mutex: no allocation after construction.
 - A command may be pushed as last-wins: it overwrites a pending command of the same kind and target, so a burst of sizes or frame requests costs one slot.
 - A last-wins push never merges across an ordered command (a window hand-over, quit), so the stage sees them in the order they were sent.
-- A full queue refuses the push; the window and quit pushes retry until the hand-over bound.
+- A full queue refuses the push; every push retries for 100 ms, and a dropped one is logged.
+- Quit is also an atomic flag the stage thread reads on every turn, so a full queue cannot lose it.
+- A stage leaving the vsync thread goes on a list under a mutex, not through the queue, so the detach cannot be dropped and no callback re-posts for a stage that is gone.
 - The consumer is woken through a callback, only when the queue turns non-empty; the platform layer passes `ALooper_wake`.
 
 ## Vsync and pacing (`core/stage/StagePacing`)
@@ -102,16 +114,18 @@ One fact per line. The design of the native host every live surface draws throug
 
 ## Context loss and a refused context
 
-- On a lost context the client is told (`contextLost`: its GL names are gone, delete none), the surface and context are destroyed, and both are created again; the client then gets surfaceCreated and surfaceChanged and rebuilds, as after `GLSurfaceView`'s `lostEglContext`.
+- On a lost context the context is released from the thread, the client is told with none current (`contextLost`: its GL names are gone, delete none), the surface and context are destroyed, and both are created again; the client then gets surfaceCreated and surfaceChanged and rebuilds, as after `GLSurfaceView`'s `lostEglContext`.
 - Three losses in a row with no frame drawn between them count as a refused context, so a broken driver cannot loop.
 - A refused context (no display, no ES 3 config, `eglCreateContext` returning `EGL_NO_CONTEXT`) is reported in the state word and retried only for a new window; `GLSurfaceView` threw and crashed the app there.
 - A bad surface is destroyed and not retried until a new window arrives.
 
 ## Teardown and its time bound
 
-- The window hand-over (`geode_stage_set_window`, a window or none) waits until the stage thread has applied it, at most 1000 ms: when it returns with none, the EGL surface on the old window is destroyed and released, which is what `surfaceDestroyed` must guarantee.
+- The window hand-over (`geode_stage_set_window`, a window or none) waits until the stage thread has applied it, at most 1000 ms after at most 100 ms for room in the queue: when it returns with none, the EGL surface on the old window is destroyed and released, which is what `surfaceDestroyed` must guarantee.
+- A hand-over that returns on its bound is a known degradation: the surface may outlive the call for a moment, and the state word's surface bit tells when it is gone.
 - Waiting is bounded so a wedged driver cannot turn a teardown into an ANR; past the bound the stage still holds its own window reference, so the late destroy is safe.
-- `geode_stage_destroy` sends quit and waits at most 200 ms (the bound `VisualizerView.releaseScenesOnGlThread` used) for the thread to finish.
+- `geode_stage_destroy` sends quit and waits at most 200 ms in all, the push included, for the thread to finish.
+- A stage thread that ends on an exception still runs the lifecycle's quit (`StageCore::abandon`): the client is released and the EGL objects freed on that thread.
 - Within the bound the thread is joined; past it the thread is detached and finishes on its own, freeing everything it owns.
 - Either way the client is released on the stage thread with the context current where possible, never on the caller's thread and never contextless when a context exists, which the Kotlin release (run after `GLSurfaceView` had unbound its context) could not promise.
 - The client is owned by the stage from create: release is its last call, after which the stage never touches it.
@@ -125,9 +139,9 @@ One fact per line. The design of the native host every live surface draws throug
 
 ## Files
 
-- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.{hpp,cpp}`, `core/stage/StageClient.hpp`: pure, host-tested.
+- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.{hpp,cpp}`, `core/stage/StageClient.hpp`: pure, host-tested.
 - `core/stage/android/EglWindow.{hpp,cpp}`, `core/stage/android/VsyncThread.{hpp,cpp}`, `core/stage/android/StageThread.{hpp,cpp}`: the platform layer, Android only, in no host-test line, and deciding nothing.
-- Host tests: `stage_lifecycle_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`.
+- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`.
 
 ## What cannot be host-tested
 

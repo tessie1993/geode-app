@@ -183,7 +183,9 @@ class VisualizerDreamService : DreamService() {
         view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(dreamFps).toFloat())
         // applyPerformance just asked the surface for the live cap (up to 120); ask again for the dream's own,
         // since the pacer re-asks only when the cap it paces to moves, and that stays the dream's.
-        view.holder.surface?.takeIf { it.isValid }?.let(view.framePacer::applyTo)
+        view.holder.surface
+            ?.takeIf { it.isValid }
+            ?.let(view.framePacer::applyTo)
     }
 
     override fun onDreamingStarted() {

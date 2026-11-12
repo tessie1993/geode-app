@@ -22,7 +22,7 @@ namespace geode::viz {
 // composite_frag.glsl, right before the dither - so it reads identically on the live view, the
 // wallpaper and the frame-exact offscreen export, all of which share this same pass. It is read
 // every frame via underlayTexOrZero()/underlayBlendMode()/underlayAmount() into
-// CompositePass::Inputs, mirroring how Renderer::composite() already wires uFlow/uRipple.
+// CompositePass::Inputs, mirroring how Renderer::composite() already wires uFlow.
 // It costs nothing beyond the always-valid zeroTex_ until something is actually uploaded; nothing
 // clears itself on its own after that - null clears it explicitly, matching every other Renderer
 // setter.
@@ -36,11 +36,6 @@ public:
         GLuint texB = 0;
         GLuint flowTex = 0;
         float flowStrength = 0.0f;
-        GLuint rippleTex = 0;
-        float rippleTexelW = 0.0f;
-        float rippleTexelH = 0.0f;
-        float rippleStrength = 0.0f;
-        float rippleSpecular = 0.0f;
         float progress = 1.0f;
         float layerMix = 0.5f;
         int blendOrdinal = 0;

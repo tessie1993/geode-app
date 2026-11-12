@@ -10,10 +10,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * The settings the critique found dead and the owner kept: Settings › Visuals › Touch (smear, its
- * strength, pinch and twist), the pinch's gesture key, and the screen saver's "reacts to any app".
- * Each is read back as saved; what they do is native (`core/tests/touch_smear_test.cpp`,
- * `touch_transform_test.cpp`) or the dream's sound source.
+ * The settings the critique found dead and the owner kept: Settings › Visuals › Touch (pinch and
+ * twist; the smear went with Water, #1036), the pinch's gesture key, and the screen saver's "reacts
+ * to any app". Each is read back as saved; what they do is native (`touch_transform_test.cpp`) or
+ * the dream's sound source.
  */
 @RunWith(RobolectricTestRunner::class)
 class TouchAndDreamPrefsTest {
@@ -23,23 +23,29 @@ class TouchAndDreamPrefsTest {
             .getSharedPreferences("touch-dream-prefs-test", Context.MODE_PRIVATE)
 
     @Test
-    fun touchDefaultsAreSmearOffAndPinchOn() {
-        val gui = ThemeStore(prefs).loadGui()
-        assertFalse(gui.touchSmear)
-        assertEquals(1f, gui.touchSmearStrength)
-        assertTrue(gui.touchTransform)
+    fun touchDefaultIsPinchOn() {
+        assertTrue(ThemeStore(prefs).loadGui().touchTransform)
     }
 
     @Test
     fun touchSettingsRoundTripUnderTheirKeys() {
         val store = ThemeStore(prefs)
-        store.saveGui(store.loadGui().copy(touchSmear = true, touchSmearStrength = 1.6f, touchTransform = false))
-        val back = ThemeStore(prefs).loadGui()
-        assertTrue(back.touchSmear)
-        assertEquals(1.6f, back.touchSmearStrength)
-        assertFalse(back.touchTransform)
-        assertTrue(prefs.getBoolean(ThemeStore.KEY_TOUCH_SMEAR, false))
+        store.saveGui(store.loadGui().copy(touchTransform = false))
+        assertFalse(ThemeStore(prefs).loadGui().touchTransform)
         assertFalse(prefs.getBoolean(ThemeStore.KEY_TOUCH_TRANSFORM, true))
+    }
+
+    @Test
+    fun anOldInstallsSmearKeysGoOnTheNextSave() {
+        prefs
+            .edit()
+            .putBoolean(ThemeStore.KEY_TOUCH_SMEAR, true)
+            .putFloat(ThemeStore.KEY_TOUCH_SMEAR_STRENGTH, 1.6f)
+            .commit()
+        val store = ThemeStore(prefs)
+        store.saveGui(store.loadGui())
+        assertFalse(prefs.contains(ThemeStore.KEY_TOUCH_SMEAR))
+        assertFalse(prefs.contains(ThemeStore.KEY_TOUCH_SMEAR_STRENGTH))
     }
 
     @Test

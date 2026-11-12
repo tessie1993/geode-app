@@ -206,7 +206,7 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
 
 // One style of each engine kind the panel treats differently, and the looks a roll starts from.
 const char* const kRollStyles[] = {"julia", "crystal_canyon", "silk_web", "life_orbium", "milkdrop",
-                                   "fluid", "curlflow",       "water",    "cymatics"};
+                                   "fluid", "curlflow",       "pool",     "cymatics"};
 
 std::set<std::string> movedControls(const SceneParams& from, const SceneParams& to) {
     std::set<std::string> out;
@@ -278,14 +278,9 @@ void aSwitchedCategoryRollsWhatShows() {
         check(!kept.endlessZoom, "a kept Endless zoom stays off");
 
         const SceneParams flat = customize::randomize(SceneParams{}, seed, Category::Liquid, "julia", {});
-        check(flat.flowEnabled && !flat.rippleOverlayEnabled, "Liquid's roll opens Liquid mode when nothing of it shows");
+        check(flat.flowEnabled, "Liquid's roll opens Liquid mode when nothing of it shows");
         const SceneParams held = customize::randomize(SceneParams{}, seed, Category::Liquid, "julia", {"Flow field on"});
-        check(!held.flowEnabled && !held.rippleOverlayEnabled, "a kept Liquid switch stays off");
-        const SceneParams water = customize::randomize(SceneParams{}, seed, Category::Liquid, "water", {});
-        check(!water.flowEnabled && !water.rippleOverlayEnabled, "Water reads its roll as it is");
-        SceneParams rippling;
-        rippling.rippleOverlayEnabled = true;
-        check(!customize::randomize(rippling, seed, Category::Liquid, "julia", {}).flowEnabled, "ripples already show the roll");
+        check(!held.flowEnabled, "a kept Liquid switch stays off");
     }
     bool on = false;
     bool off = false;
@@ -410,8 +405,11 @@ void categoriesAndSectionsFollowTheStyle() {
     for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
         check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
     }
-    check(shownSection("water", "LIQUID/water"), "Water section on the Water style");
-    check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
+    // Pool spends Morph, Warp, Turbulence and Intensity on its water, so Shape and Look reach it.
+    check(shownSection("pool", "SHAPE/basics") && shownSection("pool", "SHAPE/form") && shownSection("pool", "LOOK/light_detail"),
+          "Pool's shape and light sections");
+    check(!shownSection("pool", "CAMERA/framing") && !shownSection("pool", "ENGINE/fluid_flow") && !shownSection("pool", "EXPERT/shader_code"),
+          "Pool is a shader style off the rig");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
     check(shownSection("fluid", "ENGINE/fluid_flow") && shownSection("fluid", "ENGINE/fluid_look"), "Fluid's engine in Engine");

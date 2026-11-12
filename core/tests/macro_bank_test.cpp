@@ -1228,12 +1228,14 @@ void everyGlidingParamIsAnOption() {
         const bool want = meta.live && glides && labelled && macrobank::rangeOf(Target::ofSlot(slot)).max > macrobank::rangeOf(Target::ofSlot(slot)).min;
         check(macrobank::linkable(Target::ofSlot(slot)) == want, std::string("linkable is the rule: ") + spec.name);
     }
-    for (const char* in : {"cymaticsRing", "waterSpecular", "grain", "contrast", "diveFog", "reactAmount"}) {
+    for (const char* in : {"cymaticsRing", "fluidPressure", "grain", "contrast", "diveFog", "reactAmount"}) {
         const Target t = macrobank::targetNamed(in);
         check(macrobank::linkable(t) && macrobank::name(t) == in, std::string("a param no target writes is linked by its schema name: ") + in);
     }
     for (const char* out : {"symmetry", "palette", "trails", "paletteBaseOverride", "paramFadeSec", "noteColor", "noteDrums", "beatResponse",
-                            "reactSeed", "fluidIterations", "pulse"}) {
+                            "reactSeed", "fluidIterations", "pulse",
+                            // retired with Water (Pool replaced it): kept slots, no longer params
+                            "waterSpecular", "waterRippleStrength", "rippleOverlayStrength", "WATER_RIPPLE", "RETIRED_38"}) {
         check(!macrobank::linkable(macrobank::targetNamed(out)), std::string("left out: ") + out);
     }
     check(macrobank::targetNamed("warp") == LfoTarget::Warp && macrobank::targetNamed("WARP") == LfoTarget::Warp, "a target's param answers to both names");

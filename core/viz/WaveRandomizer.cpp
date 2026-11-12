@@ -21,8 +21,8 @@ const std::array<std::vector<T>, kKinds>& kinds() {
         {T::Warp, T::Ripple, T::Morph, T::Turbulence, T::Fisheye, T::ChromaAb},
         {T::ColorShift, T::PaletteMix, T::Saturation, T::Temperature, T::Bloom, T::Vignette},
         {T::CamFly, T::CamOrbit, T::CamPush, T::CamYaw, T::CamPitch, T::CamRoll, T::CamFov},
-        {T::ParticleSize, T::TrailLength, T::FluidCurl, T::FluidRadius, T::FluidForce, T::FluidGlow, T::WaterRipple, T::RippleOverlay,
-         T::FlowStrength, T::FlowCurl, T::FlowForce, T::EndlessZoomSpeed},
+        {T::ParticleSize, T::TrailLength, T::FluidCurl, T::FluidRadius, T::FluidForce, T::FluidGlow, T::FlowStrength, T::FlowCurl,
+         T::FlowForce, T::EndlessZoomSpeed},
     }};
     return kTable;
 }

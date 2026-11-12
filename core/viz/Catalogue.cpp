@@ -14,7 +14,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 61> kLooseShaders = {
+constexpr std::array<const char*, 62> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -37,6 +37,8 @@ constexpr std::array<const char*, 61> kLooseShaders = {
     "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
     // Morph World (kMorphWorld): one morphing environment on lib_world, its World Genome eased by core/viz/world.
     "morph_world",
+    // Pool (kPool): a pool's floor under moving water, its surface stepped by core/viz/pool.
+    "pool",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
@@ -72,7 +74,7 @@ struct LooseLook {
     const char* id;
     Look look;
 };
-constexpr std::array<LooseLook, 61> kLooseLooks = {{
+constexpr std::array<LooseLook, 62> kLooseLooks = {{
     {"julia", Look::Fractals},           {"tunnel", Look::FlyThrough},       {"mandel", Look::Fractals},
     {"kaleido", Look::Patterns},         {"plasma", Look::Flowing},          {"bars", Look::Classic},
     {"ring", Look::Classic},             {"scope", Look::Classic},           {"liss", Look::Classic},
@@ -93,7 +95,7 @@ constexpr std::array<LooseLook, 61> kLooseLooks = {{
     {"ribbon_storm", Look::Flowing},     {"prism_rain", Look::Glass},        {"supershape", Look::Fractals},
     {"fractal_tunnel", Look::FlyThrough}, {"glow_vortex", Look::Glass},      {"neon_chrome_sea", Look::Glass},
     {"black_hole", Look::Space},         {"hex_hive", Look::Patterns},       {"mandelbox_cathedral", Look::Fractals},
-    {"morph_world", Look::FlyThrough},
+    {"morph_world", Look::FlyThrough}, {"pool", Look::Flowing},
 }};
 
 // Each family lists its own styles, so it carries its own count; the opener is first.
@@ -219,15 +221,14 @@ constexpr std::array<Spin, 22> kSpinning = {{
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
-constexpr const char* kWater = "water";
 
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",
-                                                "MILKDROP", "FLUID", "CURL_FLOW", "WATER", "CYMATICS"};
+                                                "MILKDROP", "FLUID", "CURL_FLOW", "CYMATICS"};
 constexpr const char* kScopeNames[kScopeCount] = {
     "UNIVERSAL",    "SCENE_CLOCK",     "AUDIO_DRIVE", "BASS_BAND", "MID_BAND",     "TREBLE_BAND", "BAND_GAINS", "SHADER_LOOK",
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
-    "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "WATER",       "CYMATICS",
-    "FLOW_FIELD_SIM", "RIPPLE_OVERLAY",
+    "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
+    "FLOW_FIELD_SIM",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -238,8 +239,7 @@ Look kindLook(Kind k) {
     switch (k) {
         case Kind::Silk:
         case Kind::Fluid:
-        case Kind::CurlFlow:
-        case Kind::Water: return Look::Flowing;
+        case Kind::CurlFlow: return Look::Flowing;
         case Kind::Life:
         case Kind::Mycelium: return Look::Living;
         case Kind::Acid: return Look::Psychedelic;
@@ -267,10 +267,10 @@ bool familyStyle(const std::string& id) {
 
 // Per-band gain reaches only a style that reads that band's envelope; MilkDrop takes raw PCM.
 bool readsBass(Kind k) {
-    return k == Kind::Shader || k == Kind::Silk || k == Kind::Mycelium || k == Kind::Acid || k == Kind::Fluid || k == Kind::Water;
+    return k == Kind::Shader || k == Kind::Silk || k == Kind::Mycelium || k == Kind::Acid || k == Kind::Fluid;
 }
 bool readsMid(Kind k) {
-    return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow || k == Kind::Water;
+    return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow;
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
@@ -296,12 +296,10 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::ParticleSprite: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Milkdrop: return k == Kind::Milkdrop;
         case Scope::FluidSim: return k == Kind::Fluid;
-        case Scope::Emitters: return k == Kind::Fluid || k == Kind::Water;
-        case Scope::Journey: return k == Kind::Fluid || k == Kind::CurlFlow || k == Kind::Water;
-        case Scope::Water: return k == Kind::Water;
+        case Scope::Emitters: return k == Kind::Fluid;
+        case Scope::Journey: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Cymatics: return k == Kind::Cymatics;
         case Scope::FlowFieldSim: return k != Kind::Fluid;
-        case Scope::RippleOverlay: return k != Kind::Water;
     }
     return false;
 }
@@ -316,8 +314,7 @@ const char* pickerName(Kind k) {
         case Kind::Acid: return "morphing";
         case Kind::Milkdrop: return "milkdrop";
         case Kind::Fluid:
-        case Kind::CurlFlow:
-        case Kind::Water: return "fluid";
+        case Kind::CurlFlow: return "fluid";
         case Kind::Cymatics: return "cymatics";
     }
     return "shaders";
@@ -351,6 +348,7 @@ std::string build() {
         if (isMarched(id)) out += "|MARCH_DETAIL";
         out += '\n';
     }
+    for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
     for (const auto& family : kFamilies) {
         out += std::string("family|") + family.name + "|" + family.prefix + "|" + family.library + "|";
         for (size_t i = 0; i < family.ids.size(); ++i) {
@@ -409,7 +407,6 @@ const std::vector<std::string>& allIds() {
         out.emplace_back(kMilkdrop);
         append(out, styles::fluidIds());
         out.emplace_back(kCurlFlow);
-        out.emplace_back(kWater);
         append(out, styles::cymaticsIds());
         return out;
     }();
@@ -437,7 +434,19 @@ bool isShaderStyle(const std::string& id) { return listed(kLooseShaders, id) || 
 
 bool knows(const std::string& id) {
     return isShaderStyle(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) ||
-           styles::myco(id) || styles::fluid(id) || id == kMilkdrop || id == kCurlFlow || id == kWater;
+           styles::myco(id) || styles::fluid(id) || id == kMilkdrop || id == kCurlFlow;
+}
+
+const std::string& resolveId(const std::string& id) {
+    static const std::array<std::string, kRetired.size()> now = [] {
+        std::array<std::string, kRetired.size()> out;
+        for (size_t i = 0; i < kRetired.size(); ++i) out[i] = kRetired[i].now;
+        return out;
+    }();
+    for (size_t i = 0; i < kRetired.size(); ++i) {
+        if (id == kRetired[i].id) return now[i];
+    }
+    return id;
 }
 
 Kind kindOf(const std::string& id) {
@@ -445,7 +454,6 @@ Kind kindOf(const std::string& id) {
     if (id == kMilkdrop) return Kind::Milkdrop;
     if (styles::fluid(id)) return Kind::Fluid;
     if (id == kCurlFlow) return Kind::CurlFlow;
-    if (id == kWater) return Kind::Water;
     if (styles::cymatics(id)) return Kind::Cymatics;
     if (styles::life(id)) return Kind::Life;
     if (styles::myco(id)) return Kind::Mycelium;

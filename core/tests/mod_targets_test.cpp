@@ -49,7 +49,7 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"VIGNETTE", "UNIVERSAL"}, {"RETIRED_25", "UNIVERSAL"}, {"FISHEYE", "UNIVERSAL"}, {"PARTICLE_SIZE", "PARTICLE_SPRITE"},
     {"TRAIL_LENGTH", "TRAIL_LENGTH"}, {"FLUID_CURL", "FLUID_SIM"}, {"FLUID_RADIUS", "EMITTERS"}, {"FLUID_FORCE", "EMITTERS"},
     {"FLUID_GLOW", "FLUID_SIM"}, {"FLUID_FADE", "FLUID_SIM"}, {"FLUID_CATCH_PULL", "JOURNEY"}, {"FLUID_CATCH_RADIUS", "JOURNEY"},
-    {"FLOW_STRENGTH", "UNIVERSAL"}, {"WATER_RIPPLE", "WATER"}, {"RIPPLE_OVERLAY", "RIPPLE_OVERLAY"},
+    {"FLOW_STRENGTH", "UNIVERSAL"}, {"RETIRED_37", "UNIVERSAL"}, {"RETIRED_38", "UNIVERSAL"},
     {"LFO1_RATE", "UNIVERSAL"}, {"LFO1_DEPTH", "UNIVERSAL"}, {"LFO2_RATE", "UNIVERSAL"}, {"LFO2_DEPTH", "UNIVERSAL"},
     {"LFO3_RATE", "UNIVERSAL"}, {"LFO3_DEPTH", "UNIVERSAL"},
     {"CAM_FLY", "UNIVERSAL"}, {"CAM_ORBIT", "UNIVERSAL"}, {"CAM_PUSH", "UNIVERSAL"}, {"CAM_YAW", "UNIVERSAL"},
@@ -76,10 +76,14 @@ void everyTargetKeepsItsNameAndScope() {
           "wire ordinals");
 }
 
+bool retired(LfoTarget t) {
+    return t == LfoTarget::Retired5 || t == LfoTarget::Retired25 || t == LfoTarget::Retired37 || t == LfoTarget::Retired38;
+}
+
 void onlyTheRetiredSlotsAreHidden() {
     for (int i = 0; i < modtargets::kTargetCount; ++i) {
         const auto t = static_cast<LfoTarget>(i);
-        check(modtargets::offered(t) == (t != LfoTarget::Retired5 && t != LfoTarget::Retired25), std::string("offered ") + modtargets::name(t));
+        check(modtargets::offered(t) == !retired(t), std::string("offered ") + modtargets::name(t));
     }
 }
 
@@ -112,8 +116,10 @@ void reachFollowsTheScope() {
     check(modtargets::reaches(LfoTarget::FluidCurl, "fluid"), "Fluid curl reaches Fluid");
     check(!modtargets::reaches(LfoTarget::FluidCurl, "julia"), "Fluid curl does not reach a shader style");
     check(modtargets::reaches(LfoTarget::Lfo2Depth, "milkdrop"), "a chained target reaches every style");
-    check(!modtargets::reaches(LfoTarget::Retired5, "julia") && !modtargets::reaches(LfoTarget::Retired25, "julia"),
-          "a retired slot reaches nothing");
+    for (LfoTarget t : {LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38}) {
+        check(!modtargets::reaches(t, "julia"), "a retired slot reaches nothing");
+    }
+    check(static_cast<int>(LfoTarget::Retired37) == 37 && static_cast<int>(LfoTarget::Retired38) == 38, "the water slots keep their ordinals");
     check(!modtargets::reaches(static_cast<LfoTarget>(99), "julia"), "an unknown target reaches nothing");
 }
 
@@ -209,6 +215,8 @@ void textCarriesEveryRow() {
     check(hasLine(t, "target|10|MORPH|SHADER_LOOK|-1|1"), "a scene target row");
     check(hasLine(t, "target|5|RETIRED_5|UNIVERSAL|-1|0") && hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"),
           "the retired rows are not offered");
+    check(hasLine(t, "target|37|RETIRED_37|UNIVERSAL|-1|0") && hasLine(t, "target|38|RETIRED_38|UNIVERSAL|-1|0"),
+          "nor are the Water style's and the ripple overlay's old slots");
     check(hasLine(t, "target|43|LFO3_RATE|UNIVERSAL|2|1"), "a chained row names its slot");
     check(hasLine(t, "source|0|LFO|BIPOLAR") && hasLine(t, "source|1|BASS|POSITIVE") && hasLine(t, "source|8|STEREO_PAN|BIPOLAR"),
           "source rows carry their natural polarity");

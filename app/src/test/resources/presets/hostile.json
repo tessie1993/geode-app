@@ -18,7 +18,6 @@
   "bloom": 0.625,
   "intensity": 3,
   "cymaticsFundamental": 10,
-  "waterDamping": 0.5,
   "flowCurl": 75,
   "colorShift": 1.5,
   "camFov": NaN

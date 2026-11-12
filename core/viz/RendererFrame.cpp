@@ -20,7 +20,6 @@
 namespace geode::viz {
 
 namespace {
-constexpr float kTouchMinOverlayStrength = 0.35f;
 // Endless zoom fades in and out over this long when it is switched, on the wall clock.
 constexpr float kDiveFadeSeconds = 0.6f;
 // Liquid mode's hand and sound on the flow (clip units per second into FlowField's kicks), and the
@@ -198,9 +197,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
     if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;
-    // The device's masks, after the clamp: the thermal tier and Settings › Performance.
+    // Settings › Performance's extra effects.
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
-    if (!thermalTierInfo(thermal_.tier()).optionalPasses || !userPostFx) p.rippleOverlayEnabled = false;
     // Liquid mode is a mode the user switched on, not an optional pass: a hot phone simplifies or pauses
     // it as Settings › Performance says, and says so (liquidMode), but never drops it silently.
     const auto hot = liquid::hotPolicyFrom(liquidHotPolicy_.load(std::memory_order_relaxed));
@@ -318,14 +316,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     if (liquidTex != 0) in.texA = liquidTex;
     in.flowTex = compositePass_.zeroTex();
     in.flowStrength = 0.0f;
-    fluid::RippleSim* ripple = overlays_.ripple();
-    const bool rippleOn = rippleOverlayOn_ && ripple != nullptr;
-    in.rippleTex = rippleOn ? ripple->heightTex() : compositePass_.zeroTex();
-    in.rippleTexelW = rippleOn ? ripple->texelW() : 0.0f;
-    in.rippleTexelH = rippleOn ? ripple->texelH() : 0.0f;
-    const float rippleStrength = smearing_ ? std::max(p.rippleOverlayStrength, kTouchMinOverlayStrength) : p.rippleOverlayStrength;
-    in.rippleStrength = rippleOn ? std::clamp(rippleStrength, 0.0f, 1.0f) : 0.0f;
-    in.rippleSpecular = rippleOn ? std::clamp(p.rippleOverlaySpecular, 0.0f, 1.0f) : 0.0f;
     in.progress = progress;
     in.layerMix = safety::layerMix(frameLayerMix_, blendModeFromOrdinal(frameLayerBlend_));
     in.blendOrdinal = frameLayerBlend_;
@@ -350,7 +340,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.camTilt = cam.tilt;
     in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
-    // see CompositePass.hpp), the same way uFlow/uRipple above are read from Overlays.
+    // see CompositePass.hpp), the same way uFlow above is read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
@@ -358,20 +348,9 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    smearing_ = overlays_.smearing(monotonicSeconds());
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
-    // Smear: the fingers the touch field holds drag the picture too (viz/TouchSmear), drained just below.
-    const touch::SmearSettings smear{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
-    const double now = monotonicSeconds();
-    smearTrail_.step(touchField_.points(), dt, smear, [&](const touch::SmearStroke& st) {
-        overlays_.queueTouchStroke(st.nx, st.ny, st.ndx, st.ndy, st.dt, st.strength, now);
-    });
-    // In Liquid mode a finger moves the liquid (stepLiquid) instead of dropping ripples.
-    overlays_.drainTouchStrokes(scene, liquidOn());
     stepLiquid(scene, p, dt);
-    rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
-    if (rippleOverlayOn_) overlays_.stepRippleOverlay(bandTrimmed(soundFrame_, p), p, dt);
 }
 
 // After stepOverlays, so the look follows this frame's touch anchor.

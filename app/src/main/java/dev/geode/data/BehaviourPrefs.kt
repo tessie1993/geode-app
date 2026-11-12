@@ -104,7 +104,7 @@ enum class GestureAction {
     RECORD,
     RANDOMIZE_ALL,
 
-    /** Ripples, smear and stirring the liquid. */
+    /** The pool's wakes and stirring the liquid. */
     TOUCH_PLAY,
     PLAY_PAUSE,
 }

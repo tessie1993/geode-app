@@ -37,6 +37,8 @@ bool isLuminanceTarget(LfoTarget target) {
         case LfoTarget::PaletteAmount7: case LfoTarget::PaletteAmount8: case LfoTarget::PaletteShift:
         // A second style blended in and out of the picture changes its light as much as a colour swap.
         case LfoTarget::LayerMix:
+        // The physics layers lay a fluid and particles over or under the picture: as much light as a layer.
+        case LfoTarget::SimFluid: case LfoTarget::SimParticles: case LfoTarget::SimLayerOrder:
             return true;
         default:
             return false;
@@ -140,6 +142,10 @@ bool driveOf(LfoTarget target, Drive& out) {
         // Half the range per unit: a full wave from Off reaches 9 folds, from 8 sweeps the whole 1..16.
         case LfoTarget::KaleidoFolds: GEODE_DRIVE(kaleidoFolds, 8.0f);
         case LfoTarget::LayerMix: GEODE_DRIVE(layerMix, 1.0f);
+        case LfoTarget::SimFluid: GEODE_DRIVE(simFluid, 1.0f);
+        case LfoTarget::SimParticles: GEODE_DRIVE(simParticles, 1.0f);
+        case LfoTarget::SimForce: GEODE_DRIVE(simForce, 1.0f);
+        case LfoTarget::SimLayerOrder: GEODE_DRIVE(simLayerOrder, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

@@ -224,6 +224,12 @@ A second scene drawn over the main one with a mix amount and blend mode.
 Its style comes from a layer source: the user's pick, Auto Director's pick at its style moments, or a macro knob's turn; native never draws the style on screen as its layer.
 _Avoid_: Overlay (overlay is a Studio lane)
 
+**Physics layers**:
+A fluid and particles any style can carry over its finished picture: the fluid behind or over the style, the particles in front.
+The picture is the fluid's ink and stirs it; the particles ride the fluid and take their colour from the picture.
+Waves, envelopes, reaction routes and macro knobs turn them on and move them (`simFluid`, `simParticles`, `simForce`, `simLayerOrder`; `core/viz/physics`).
+_Avoid_: Sim scene (the fluid styles are scenes of their own), overlay
+
 **Transition**:
 How one scene or clip hands over to the next.
 

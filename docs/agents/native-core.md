@@ -47,7 +47,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 
 ## `core/viz`: renderer, scenes, catalogue
 
-- `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/` and `compute/`.
+- `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/`, `physics/` and `compute/`.
 - `Catalogue` is the style catalogue: every style id, kind, family, param scope and control range.
 - Kotlin asks the catalogue one question at a time (`geode_catalogue_style_ids`, `_picker_names`, `_picker_ids`, `_resolve`, `_preset_style`, `_scope_of`, `_reaches`, `_override`).
 - `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
@@ -243,6 +243,22 @@ The renderer runs these in order each frame.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.
 - Ten styles each: `flame_*`, `opal_*`, `hollow_*`, `prism_*`, `fluor_*`, `loom_*`, `shard_*`, `petal_*`, `fold_*`.
+
+## Physics layers
+
+- The physics layers (`core/viz/physics`) lay a fluid and particles over the finished picture of any style, after Trails, Liquid and the dive and before the composite.
+- Their order is back fluid | style | front particles.
+- The fluid is a low-res `fluid::FluidSim`: the picture's contours stir its velocity and its lit parts pour their colour into its ink (`physics_seed_frag`, `FluidSim::applyField`).
+- The fluid sits behind the style (filling its darks) or is screened over it, by `simLayerOrder` (`physics_layer_frag`).
+- The particles are `fluid::Particles` riding the fluid's velocity, or their own curl drift with the fluid off, screened on and coloured from the picture under them (`physics_particle_vert`/`_frag`).
+- Their params are `simFluid`, `simParticles`, `simForce` and `simLayerOrder` (slots 189..192), LfoTargets `SIM_FLUID` .. `SIM_LAYER_ORDER` (ordinals 70..73), on every style.
+- Both mixes are 0 in every look, so a look draws as before and the pass makes no GL call; no roll deals them.
+- The music reaches them only through waves, envelopes, reaction routes and macro knobs; nothing in the layers hears the sound.
+- The two mixes and the fluid's place are luminance targets (3 Hz, route floors); reduced motion slows the force (`safety::apply`).
+- The plan (`PhysicsPlan`): FluidQuality's Low grids on a cool phone, its Min grids at Reduced, no fluid at Minimal; an export is always Full.
+- Grids, particles and the pass's target are made when a layer turns on (live one part a frame, an export whole) and freed 120 frames after it goes off.
+- They step on the music clock: silence holds them, an export's fixed step replays them.
+- During a style transition the same layers are laid over the outgoing style too, so they hold through the fade.
 
 ## Endless zoom, Trails, Liquid
 

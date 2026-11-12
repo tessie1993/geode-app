@@ -87,6 +87,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
+- `physics_layers_test.cpp`: the physics layers' `PhysicsPlan` (`core/viz/physics`): off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the four params and their safety rules.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
 - `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.

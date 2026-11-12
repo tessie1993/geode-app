@@ -71,7 +71,7 @@ out vec4 fragColor;
 //
 // One ray-sphere test against NE_BOUND first: rays that miss the flower never
 // march. Inside it, at most NE_MAX_STEPS steps, broken on uSteps (Detail).
-// map() costs one chrysPetal per ring (four to six), and a second set only
+// mapAt costs one chrysPetal per ring (four to six), and a second set only
 // while the section crossfade still shows the old figure (a uniform-driven,
 // coherent branch). The hit takes four more taps for the normal and the board
 // takes one for the light it catches.
@@ -117,35 +117,36 @@ float gRot[NE_MAX_RINGS];
 float gCntNew[NE_MAX_RINGS];
 float gCntOld[NE_MAX_RINGS];
 vec3 gCol[NE_MAX_RINGS];
-/** Set by map(): the nearest tube's ring, its petal frame (d, u, v, id), its count and figure weight. */
-float gK;
-vec4 gPet;
-float gCnt;
-float gW;
+/** Twist's sweep of the tubes. */
+float gCurl;
 
 vec3 toFlower(vec3 p) {
     return vec3(p.x, dot(p, NE_AXIS), dot(p, NE_SIDE));
 }
 
-/** Distance to one ring's tube, at figure weight `w`. Writes the nearest-tube globals if it wins. */
-float tubeRing(vec3 q, vec2 xz, float r, float k, float count, float w, float best) {
+/**
+ * Distance to one ring's tube, at figure weight `w`. If it wins, hands the nearest tube's ring
+ * (a.x), count (a.y), figure weight (a.z) and petal frame (b: d, u, v, id) back in `found`.
+ */
+float tubeRing(vec3 q, vec2 xz, float r, float k, float count, float w, float best, inout ChrysHit found) {
     float len = 0.28 + 0.19 * k;
-    vec4 pet = chrysPetal(xz, count, 0.035 + 0.05 * k, len, max(0.5 - 0.06 * k, 0.18), uTwist, 0.25, 0.5);
+    vec4 pet = chrysPetal(xz, count, 0.035 + 0.05 * k, len, max(0.5 - 0.06 * k, 0.18), gCurl, 0.25, 0.5);
     float wob = gChaos * sin(pet.y * 9.0 + pet.w * 2.3 + gT * 0.7);
     float d2 = pet.x + 0.012 * wob;
     float cup = (0.42 - 0.05 * k) * gCupK;
     float dy = q.y - cup * r * r - 0.02 * gChaos * sin(pet.w * 2.3 + pet.y * 6.0 + gT * 0.5);
     float d = length(vec2(d2, dy)) - NE_TUBE * mix(0.35, 1.0, w);
     if (d < best) {
-        gK = k;
-        gPet = pet;
-        gCnt = count;
-        gW = w;
+        found.a.x = k;
+        found.b = pet;
+        found.a.y = count;
+        found.a.z = w;
     }
     return d;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (the nearest tube's ring (a.x), petal count (a.y), figure weight (a.z) and petal frame (b: d, u, v, id)). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = toFlower(p);
     float best = 1e9;
     bool both = gWNew < 0.998;
@@ -156,24 +157,28 @@ float map(vec3 p) {
         float r = length(xz);
         // Cheap reject: a ring's tube lives within its own reach of the heart.
         if (r > 0.42 + 0.24 * k && best < r - 0.42 - 0.24 * k) continue;
-        best = min(best, tubeRing(q, xz, r, k, gCntNew[i], gWNew, best));
-        if (both) best = min(best, tubeRing(q, xz, r, k, gCntOld[i], 1.0 - gWNew, best));
+        best = min(best, tubeRing(q, xz, r, k, gCntNew[i], gWNew, best, found));
+        if (both) best = min(best, tubeRing(q, xz, r, k, gCntOld[i], 1.0 - gWNew, best, found));
     }
     return best;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
-/** The chasing light at the nearest tube, from the globals map() left: 0..1. */
-float chaseAt(float trail) {
-    float u = clamp(gPet.y, 0.0, 1.0);
-    float along = gPet.z > 0.0 ? 0.5 * u : 1.0 - 0.5 * u;
-    float id = mod(gPet.w, gCnt);
-    float head = fract(gT * 0.3 + chrysHash1(id + 9.0 * gK));
+//#include lib_chrys_field
+
+/** The chasing light at the nearest tube, `hit` the field there: 0..1. */
+float chaseAt(float trail, ChrysHit hit) {
+    float u = clamp(hit.b.y, 0.0, 1.0);
+    float along = hit.b.z > 0.0 ? 0.5 * u : 1.0 - 0.5 * u;
+    float id = mod(hit.b.w, hit.a.y);
+    float head = fract(gT * 0.3 + chrysHash1(id + 9.0 * hit.a.x));
     float behind = fract(head - along);
     return (1.0 - smoothstep(0.0, trail, behind)) * step(behind, trail);
 }
@@ -187,28 +192,30 @@ vec3 ringColour(float k) {
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    gCurl = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    float trailK = chrysSpan(N.sway, 1.0, 0.4, 1.6);
+    float cupK = chrysSpan(N.glow, 1.0, 0.5, 1.5);
+    float orbit = chrysSpan(N.reach, 3.4, 3.9, 2.9);
+    float swellK = chrysSpan(N.emit, 0.15, 0.025, 0.275);
 
     float swell = clamp(0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE), 0.0, 1.5);
     float sectEnv = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    gChaos = clamp(uTurbulence + uWarp + kTexture, 0.0, 2.0);
-    gRings = 4.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
-    float trail = (0.04 + 0.3 * clamp(sndSpectrum(0.80) * uIntensity, 0.0, 1.5)) * clamp(1.0 + 1.2 * kFlow, 0.3, 1.8);
+    gChaos = clamp(chrysSpan(N.chaos, 0.0, 0.0, 2.0) + chrysSpan(N.fray, 0.0, -0.5, 0.5), 0.0, 2.0);
+    gRings = 4.0 + floor(chrysSpan(N.rings, 0.0, 0.0, 2.0) + 0.5);
+    float trail = (0.04 + 0.3 * clamp(sndSpectrum(0.80) * uIntensity, 0.0, 1.5)) * trailK;
     trail = min(trail, 0.9);
-    float hue = 0.55 + gT * 0.004 + 0.12 * kTone;
+    float hue = 0.55 + gT * 0.004 + chrysSpan(N.tone, 0.0, -0.06, 0.06);
 
     gWNew = 1.0 - smoothstep(0.1, 0.85, sectEnv);
     float bump = chrysBump(sectEnv);
     float swirl = bump * 0.9 * uIntensity;
-    gCupK = clamp(1.0 + kBuild, 0.5, 1.5) * (1.0 + 0.4 * bump * clamp(uIntensity, 0.0, 1.0));
+    gCupK = cupK * (1.0 + 0.4 * bump * clamp(uIntensity, 0.0, 1.0));
     for (int i = 0; i < NE_MAX_RINGS; i++) {
         float k = float(i);
         float dir = mod(k, 2.0) < 0.5 ? 1.0 : -1.0;
@@ -220,7 +227,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 3.4 - 1.0 * kSpace, 4.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 4.0 * CAM_SPIN_UNIT, ro, rd);
 
     // The dark void, with a faint wash of the flower's colour toward its heart.
     float toHeart = max(dot(rd, normalize(-ro)), 0.0);
@@ -251,7 +258,8 @@ void main() {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (t > tEnd) break;
-            float d = map(ro + rd * t);
+            fld = chrysField(ro + rd * t);
+            float d = fld.d;
             float eps = 0.0006 * t + 0.0006;
             if (d < eps) {
                 hitT = t;
@@ -260,12 +268,12 @@ void main() {
             float stepLen = max(d * 0.6, 0.004);
             // The halo the tubes throw into the air, integrated along the ray
             // so it does not depend on how many steps were taken.
-            vec3 tc = ringColour(gK);
+            vec3 tc = ringColour(fld.a.x);
             float dd = max(d, 0.0);
             float halo = 1.0 / (1.0 + (dd / 0.03) * (dd / 0.03));
             float tight = 1.0 / (1.0 + (dd / 0.008) * (dd / 0.008));
-            vec3 g = tc * (2.2 * halo + 3.0 * tight) + mix(tc, vec3(1.0), 0.6) * 6.0 * chaseAt(trail) * tight;
-            g *= gW * stepLen;
+            vec3 g = tc * (2.2 * halo + 3.0 * tight) + mix(tc, vec3(1.0), 0.6) * 6.0 * chaseAt(trail, fld) * tight;
+            g *= fld.a.z * stepLen;
             if (boardMask > 0.0 && t > tb) {
                 glowBack += g;
             } else {
@@ -277,17 +285,17 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0008 * hitT + 0.0006);
-        // Restore the hit tube's globals after the normal taps.
-        map(p);
-        vec3 tc = ringColour(gK);
+        vec3 n = chrysNormal(p, 0.0008 * hitT + 0.0006);
+        // The hit tube again for the shading, after the normal taps.
+        fld = chrysField(p);
+        vec3 tc = ringColour(fld.a.x);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float core = pow(ndv, 3.0);
         float rim = pow(1.0 - ndv, 2.0);
         vec3 tube = tc * (0.55 + 0.6 * core) + vec3(1.0) * 0.45 * core * core + tc * rim * 0.5;
-        tube += mix(tc, vec3(1.0), 0.6) * 0.9 * chaseAt(trail);
+        tube += mix(tc, vec3(1.0), 0.6) * 0.9 * chaseAt(trail, fld);
         // A tube of the fading figure is thin and dim; one of the rising figure grows in.
-        tube *= gW;
+        tube *= fld.a.z;
         // The far side of the flower sits a little deeper in the dark.
         float depth = hitT - length(ro);
         tube *= clamp(1.0 - 0.25 * depth, 0.5, 1.2);
@@ -299,11 +307,12 @@ void main() {
     // from the tubes nearest it (the ring bases and the heart) plus a pool
     // around the heart.
     if (boardMask > 0.0 && (hitT < 0.0 || hitT > tb)) {
-        float dTube = map(pb);
-        vec3 tc = ringColour(gK);
+        fld = chrysField(pb);
+        float dTube = fld.d;
+        vec3 tc = ringColour(fld.a.x);
         vec3 board = vec3(0.006, 0.006, 0.014) + pal(hue + 0.5) * 0.03 * exp(-rb * 1.3);
         board += pal(hue) * 0.02 * (1.0 - smoothstep(0.0, 0.01, abs(fract(rb * 6.0) - 0.5) / 6.0 - 0.002));
-        board += tc * gW * 0.012 / (dTube * dTube + 0.012);
+        board += tc * fld.a.z * 0.012 / (dTube * dTube + 0.012);
         board += mix(pal(hue + 0.1), vec3(1.0), 0.4) * 0.12 * exp(-rb * rb * 18.0);
         col = mix(col, board, boardMask);
         glowBack *= 1.0 - boardMask;
@@ -320,6 +329,6 @@ void main() {
     if (hitT > 0.0 && hitT < tc0) heartGlow *= 0.4;
     col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * 0.5 * heartGlow;
 
-    col *= 0.85 + clamp(0.15 + 0.25 * kPulse, 0.0, 0.4) * swell;
+    col *= 0.85 + swellK * swell;
     fragColor = vec4(grade(col), 1.0);
 }

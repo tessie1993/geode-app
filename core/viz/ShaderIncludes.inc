@@ -51,6 +51,7 @@
 // The five older families' field (the style's map through one entry point, where Grow wraps it).
 "lib_arbor_field",
 "lib_bulb_field",
+"lib_chrys_field",
 "lib_flame_march",
 "lib_opal_march",
 "lib_hollow_march",

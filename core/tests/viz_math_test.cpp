@@ -177,7 +177,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 137, "137 sources: append only, they are saved by name and ordinal");
+    static_assert(kReactSourceCount == 138, "138 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -310,6 +310,45 @@ void melodyLineAndFeelingRead() {
     check(s.value(ReactSource::DegreeAccent) >= 0.5f, "a scale step change is an event");
     s.step(f, 1.0f / 60.0f);
     check(s.value(ReactSource::Valence) == 0.0f && s.value(ReactSource::FeltTension) == 0.0f, "without a feeling heard they rest");
+}
+
+// A settled Jump waits for its glide before the next edge counts: hats four a second cannot flicker it. Its output
+// can turn back only when its held value changes, so it turns back no more often than once a glide.
+void settledJumpWaitsForItsGlide() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::Hat, LfoTarget::Warp, ReactMode::JumpSettled, 1.0f, ModCurve::Linear, 0.2f, 0.4f};
+    GeodeSoundFrame f = silence();
+    float last = 0.0f;
+    float lastStep = 0.0f;
+    int turns = 0;
+    for (int i = 0; i < 180; ++i) {  // three seconds, a hat every quarter second
+        f.hat = i % 15 == 0 ? 1.0f : 0.0f;
+        e.tick(f, 1.0f / 60.0f);
+        const float step = e.output(0) - last;
+        if (step * lastStep < 0.0f) ++turns;
+        if (step != 0.0f) lastStep = step;
+        last = e.output(0);
+    }
+    check(std::fabs(e.output(0)) > 0.0f, "a settled jump still jumps");
+    check(turns <= 5, "twelve hats in three seconds turn a 0.6 s settled jump at most five times");
+}
+
+// The tension's rise: tightening reads up, resolving reads down.
+void tensionRiseFollowsTheChords() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.tension = 0.2f;
+    for (int i = 0; i < 1800; ++i) s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::TensionRise)) < 0.01f, "steady tension neither rises nor eases");
+    for (int i = 0; i < 120; ++i) {
+        f.tension = 0.2f + 0.5f * static_cast<float>(i) / 120.0f;
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::TensionRise) > 0.5f, "tension climbing over two seconds reads rising");
+    f.tension = 0.1f;
+    for (int i = 0; i < 60; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::TensionRise) < -0.3f, "a chord resolving reads easing");
 }
 
 void deterministicForExport() {
@@ -2197,6 +2236,8 @@ int main() {
     sourcesReadTheirFieldsInRange();
     barCountsFollowTheMusicsBars();
     melodyLineAndFeelingRead();
+    settledJumpWaitsForItsGlide();
+    tensionRiseFollowsTheChords();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
     toggleFlipsBetweenZeroAndAmount();

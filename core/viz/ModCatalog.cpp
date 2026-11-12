@@ -46,7 +46,7 @@ constexpr std::array<Words, kBandCount> kBands{{
     {"WIDTH", "Stereo width"},
 }};
 constexpr std::array<Words, kReactModeCount> kModes{{
-    {"FOLLOW", "Follow"}, {"STEP", "Step"}, {"SPIN", "Spin"}, {"JUMP", "Jump"}, {"TOGGLE", "Toggle"},
+    {"FOLLOW", "Follow"}, {"STEP", "Step"}, {"SPIN", "Add up"}, {"JUMP", "Jump"}, {"TOGGLE", "Toggle"}, {"JUMP_SETTLED", "Jump, settled"},
 }};
 
 // The reaction sources' groups (ReactSourceInfo::group), in the order the source picker lists them.

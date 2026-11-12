@@ -70,8 +70,10 @@ enum class ReactSource {
     // The feeling (core/sound/Emotion, as the director heard it): the leading scale degree changed, the mood
     // (-1 sad … 1 happy) and the felt tension.
     DegreeAccent, Valence /* -1..1 */, FeltTension,
+    // How the chord tension is moving: -1 easing … 1 tightening, over the last few seconds.
+    TensionRise /* -1..1 */,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::FeltTension) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::TensionRise) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
@@ -92,18 +94,24 @@ const ReactSourceInfo& reactSourceInfo(ReactSource s);
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue
 //   jump, a quarter turn, a new camera angle), glided by the route smoothing.
-// Spin: the accumulator integrates amount * source per second (keeps turning
-//   while the sound lasts).
+// Spin (shown as "Add up"): the accumulator integrates amount * source per
+//   second, so a held value moves the target on (a melody or a tension
+//   carries a path forward) instead of pushing it out and back.
 // Jump: each rising edge holds a new seeded random value in -amount..amount
 //   (sample and hold), glided by the route smoothing: a new hue, angle or
 //   warp per hit instead of the same push every time.
 // Toggle: each rising edge flips the target between 0 and amount (a palette
 //   swap, a mirror on or off), glided by the route smoothing. Step cannot do
 //   this: an amount of 2 folds back to 0 on every edge.
+// JumpSettled: a Jump that takes a rising edge only once its last value has
+//   had its glide (attack + release) to land, so a busy trigger (a hat, a
+//   chord change after chord change) cannot flicker it: the threshold's
+//   re-arm level is the hysteresis, the glide the minimum gap.
 // Step and Spin accumulators are folded through a triangle wave into -1..1, so
-// a target stepped forever stays bounded and never wraps with a pop.
-enum class ReactMode { Follow, Step, Spin, Jump, Toggle };
-constexpr int kReactModeCount = static_cast<int>(ReactMode::Toggle) + 1;
+// a target stepped forever stays bounded and never wraps with a pop: stepped on
+// a bar count, it zig-zags up and down the range.
+enum class ReactMode { Follow, Step, Spin, Jump, Toggle, JumpSettled };
+constexpr int kReactModeCount = static_cast<int>(ReactMode::JumpSettled) + 1;
 
 struct ReactRoute {
     bool enabled = false;
@@ -144,6 +152,9 @@ private:
     float melodyFast_ = 0.0f;
     float melodySlow_ = 0.0f;
     bool melodyPrimed_ = false;
+    // The chord tension through a fast and a slow follower, for its rise.
+    float tensionFast_ = 0.0f;
+    float tensionSlow_ = 0.0f;
     float onsetCount_ = 0.0f;
     float cutCount_ = 0.0f;
 };
@@ -237,6 +248,8 @@ private:
     float gain_ = 1.0f;
     std::array<bool, kRoutes> high_{};
     std::array<unsigned int, kRoutes> jumpSeed_{};
+    // A settled Jump's wait before its next edge counts, seconds (0: ready).
+    std::array<float, kRoutes> settle_{};
     // A Follow route on a circular source smooths the source on its circle, before the curve and the
     // amount; `circ_` is that smoothed value, `circSource_` the source it follows plus one (0: not primed, so a fresh engine needs no reset).
     std::array<float, kRoutes> circ_{};

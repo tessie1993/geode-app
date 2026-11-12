@@ -103,6 +103,7 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_DER(PhraseHold, 0), GEODE_DER(PhraseFlip, 0),
     GEODE_DER(MelodyContour, 0), GEODE_DER(MelodyNote, 0.4f), GEODE_DER(MelodyPresence, 0),
     GEODE_DER(DegreeAccent, 0.6f), GEODE_DER(Valence, 0), GEODE_DER(FeltTension, 0),
+    GEODE_DER(TensionRise, 0),
 }};
 
 #undef GEODE_SRC
@@ -255,6 +256,7 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"DEGREE_ACCENT", "Scale step change", "MELODY", true},
     {"VALENCE", "Mood (sad to happy)", "HARMONY", false},
     {"FELT_TENSION", "Felt tension", "HARMONY", false},
+    {"TENSION_RISE", "Tension rising or easing", "HARMONY", false},
 }};
 
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength
@@ -303,6 +305,11 @@ constexpr float kContourRestSeconds = 0.6f;
 constexpr float kPresenceRiseSeconds = 0.15f;
 constexpr float kPresenceFallSeconds = 0.8f;
 constexpr float kLineEnds = 0.05f;
+// The tension's rise: a fast follower of the chord tension over a slow one, so a passage tightening over a few
+// seconds reads up to +1 and one resolving down to -1 (kTensionRiseSpan of tension between the two reads 1).
+constexpr float kTensionFastSeconds = 0.4f;
+constexpr float kTensionSlowSeconds = 4.0f;
+constexpr float kTensionRiseSpan = 0.25f;
 
 // A NaN or infinite frame time (a clock glitch) is a frame that did not
 // happen; anything else is clamped to [0, 0.1] s so one long stall cannot
@@ -330,6 +337,8 @@ void ReactSignals::reset() {
     melodyFast_ = 0.0f;
     melodySlow_ = 0.0f;
     melodyPrimed_ = false;
+    tensionFast_ = 0.0f;
+    tensionSlow_ = 0.0f;
     onsetCount_ = 0.0f;
     cutCount_ = 0.0f;
 }
@@ -415,16 +424,22 @@ void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::
     const float note = std::max(clean(f.noteChange), clean(f.reattack));
     if (note > 0.0f) fire(ReactSource::MelodyNote, note);
 
+    // The tension's rise.
+    const float tension = std::clamp(clean(f.tension), 0.0f, 1.0f);
+    tensionFast_ += (tension - tensionFast_) * onePoleK(dt, kTensionFastSeconds);
+    tensionSlow_ += (tension - tensionSlow_) * onePoleK(dt, kTensionSlowSeconds);
+    values_[static_cast<size_t>(ReactSource::TensionRise)] = std::clamp((tensionFast_ - tensionSlow_) / kTensionRiseSpan, -1.0f, 1.0f);
+
     // The feeling, as the director heard it; with none heard its sources rest.
     float valence = 0.0f;
-    float tension = 0.0f;
+    float felt = 0.0f;
     if (feeling != nullptr) {
         if (clean(feeling->degreeAccent) > 0.0f) fire(ReactSource::DegreeAccent, feeling->degreeAccent);
         valence = std::clamp(clean(feeling->valence), -1.0f, 1.0f);
-        tension = std::clamp(clean(feeling->tension), 0.0f, 1.0f);
+        felt = std::clamp(clean(feeling->tension), 0.0f, 1.0f);
     }
     values_[static_cast<size_t>(ReactSource::Valence)] = valence;
-    values_[static_cast<size_t>(ReactSource::FeltTension)] = tension;
+    values_[static_cast<size_t>(ReactSource::FeltTension)] = felt;
 }
 
 void ReactionEngine::reset() {
@@ -436,6 +451,7 @@ void ReactionEngine::reset() {
     circSource_.fill(0);
     circFrom_.fill(0.0f);
     circBlend_.fill(0.0f);
+    settle_.fill(0.0f);
     for (int i = 0; i < kRoutes; ++i) jumpSeed_[static_cast<size_t>(i)] = 0x9E3779B9u * static_cast<unsigned int>(i + 1);
 }
 
@@ -494,6 +510,19 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
             case ReactMode::Jump: {
                 const bool high = src >= 0.5f;
                 if (high && !high_[k]) acc_[k] = nextJump(i);
+                high_[k] = src >= 0.3f && (high || high_[k]);
+                target = acc_[k] * r.amount;
+                break;
+            }
+            case ReactMode::JumpSettled: {
+                // As Jump, but an edge counts only once the last value has had its glide; one that comes
+                // sooner is passed over (it re-arms like any edge), never saved for later.
+                settle_[k] = std::max(0.0f, settle_[k] - dt);
+                const bool high = src >= 0.5f;
+                if (high && !high_[k] && settle_[k] <= 0.0f) {
+                    acc_[k] = nextJump(i);
+                    settle_[k] = std::max(r.attackSeconds, 0.0f) + std::max(r.releaseSeconds, 0.0f);
+                }
                 high_[k] = src >= 0.3f && (high || high_[k]);
                 target = acc_[k] * r.amount;
                 break;

@@ -15,6 +15,7 @@ add_library(geode_core STATIC
     api/geode_frame_api.cpp
     api/geode_link_api.cpp
     viz/frame/LinkShare.cpp
+    viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp
     api/geode_auto_api.cpp
@@ -226,3 +227,11 @@ target_compile_definitions(geode_basisu PRIVATE BASISU_SUPPORT_ASTCENC=0)
 target_compile_options(geode_basisu PRIVATE -fvisibility=hidden -fno-strict-aliasing -w $<$<CONFIG:Release>:-O2>)
 target_sources(geode_core PRIVATE scene/object/ModelTextures.cpp)
 target_link_libraries(geode_core PUBLIC geode_basisu)
+
+# Show on a computer over WebRTC (cast/WebRtcLink, owner 2026-11-12): libdatachannel (MPL-2.0) and its Mbed TLS
+# (Apache-2.0), configured by the root CMakeLists.txt. cast/ is the only native directory that may include them
+# or any socket header (tools/network-gate.sh).
+target_sources(geode_core PRIVATE
+    cast/WebRtcLink.cpp
+    api/geode_webrtc_api.cpp)
+target_link_libraries(geode_core PRIVATE LibDataChannel::LibDataChannelStatic)

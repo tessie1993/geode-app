@@ -70,7 +70,7 @@ import kotlinx.coroutines.flow.map
  *
  * Everything about the controls is native (core/viz/CustomizeMap): which category and section
  * each sits in, which sections are Basics (open at the top, free) and which are Pro, which
- * categories and sections the style on screen has (Camera only on 3D styles, Water on Water,
+ * categories and sections the style on screen has (Camera only on 3D styles,
  * Engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
  * This file wires that to the screen: the free tier through [ProLock] (a Pro control can be
  * tried, then springs back and the paywall offers it), the open category on the Visuals route

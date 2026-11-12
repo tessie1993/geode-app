@@ -89,8 +89,6 @@ private val SECTION_TITLES =
         "film" to "Film",
         "push_swirl" to "Push & swirl",
         "surface" to "Surface",
-        "ripples" to "Ripples",
-        "water" to "Water",
         "transition_detail" to "Transition detail",
         "reactions" to "Reactions",
         "envelopes" to "Envelopes",

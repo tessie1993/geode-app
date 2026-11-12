@@ -387,7 +387,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * The wallpaper's whole input: publish the live pointers, in the same y-up NDC the
          * app publishes, so a scene behaves identically in both hosts.
          *
-         * There is no smear or pinch here on purpose. Those write to the visual params, and
+         * There is no pinch here on purpose. It writes to the visual params, and
          * a wallpaper has no controls to undo them with — a stray pinch on the home screen
          * would leave the wallpaper zoomed with no way back. Publishing pointers is
          * transient by construction: it decays to nothing the moment the finger leaves.

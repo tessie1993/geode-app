@@ -110,7 +110,11 @@ _Avoid_: Settings, knobs
 The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
 
 **Advanced section**:
-One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples, Shader code), opening its own page. All Pro.
+One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field, Shader code), opening its own page. All Pro.
+
+**Pool**:
+The style of a swimming pool's tiled floor seen through moving water, at a slant or from above: waves that stand taller with the level, ripple rings the bass raises, caustics the treble's chop gathers on the floor, a wake where a finger lands. Morph turns the view, Warp deepens the water, Turbulence raises the chop, Intensity brightens the caustics. It replaced the Water style, whose saved looks open on it. Still in silence.
+_Avoid_: Water (the removed style), Ripples (a different style)
 
 **Wave**:
 One of the three modulation slots: an LFO that runs steadily or follows a sound, moving one control.

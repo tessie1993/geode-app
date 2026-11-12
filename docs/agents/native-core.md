@@ -168,7 +168,7 @@ The renderer runs these in order each frame.
 - Liquidity, Push, Swirl and Dive are `flowStrength`, `flowForce`, `flowCurl`, `endlessZoomSpeed`, also LFO targets.
 - In Liquid mode a flat style dives by the liquid's own wandering feedback dive (`liquid::Dive`, inward only, at Dive speed times the same slow follow).
 - In Liquid mode a 3D style dives by the endless zoom stage.
-- In Liquid mode touch moves the liquid instead of drawing ripple strokes.
+- In Liquid mode touch moves the liquid.
 - In Liquid mode a hot phone follows Settings › Performance.
 
 ## UI blur

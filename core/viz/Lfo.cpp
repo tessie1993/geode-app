@@ -111,8 +111,6 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::FluidCatchPull: GEODE_DRIVE(fluidCatchPull, 1.5f);
         case LfoTarget::FluidCatchRadius: GEODE_DRIVE(fluidCatchRadius, 0.12f);
         case LfoTarget::FlowStrength: GEODE_DRIVE(flowStrength, 1.0f);
-        case LfoTarget::WaterRipple: GEODE_DRIVE(waterRippleStrength, 1.0f);
-        case LfoTarget::RippleOverlay: GEODE_DRIVE(rippleOverlayStrength, 1.0f);
         case LfoTarget::CamFly: GEODE_DRIVE(camFly, 1.0f);
         case LfoTarget::CamOrbit: GEODE_DRIVE(camOrbit, 1.0f);
         case LfoTarget::CamPush: GEODE_DRIVE(camPush, 1.0f);

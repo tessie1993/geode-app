@@ -75,6 +75,7 @@
 package dev.geode.data
 
 import dev.geode.model.PresetLink
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import org.json.JSONArray
@@ -324,7 +325,7 @@ object TemplateFormat {
                 ?: SceneParams.DEFAULT
         val bare =
             TemplateLook(
-                sceneId = source?.optString(KEY_SCENE_ID).orEmpty().ifBlank { SceneIds.DEFAULT },
+                sceneId = Catalogue.resolve(source?.optString(KEY_SCENE_ID).orEmpty().ifBlank { SceneIds.DEFAULT }),
                 attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(PresetStore.ATTACK_RANGE),
                 decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(PresetStore.DECAY_RANGE),
                 params = params,

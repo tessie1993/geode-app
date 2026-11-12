@@ -78,6 +78,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
+- `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
 - `presets_test.cpp`: the bundled looks, pinned to the Kotlin literals they replaced.
 - `push_versions_test.cpp`: `core/viz/frame/PushVersions`, which pushed inputs a live frame still owes native.
 - `qr_code_test.cpp`: Show on a computer's QR code (`core/util/QrCode`) against the standard's vectors.
@@ -107,7 +108,6 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `surface_motion_test.cpp`: the wallpaper's and dream's run rule under reduced motion, the still frame's settle, and each surface's fps choice.
 - `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
 - `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier.
-- `touch_smear_test.cpp`: Settings › Gestures & controls › Touch's smear (`core/viz/TouchSmear`): the touch field's fingers as ripple and Water strokes, off, on and the strength.
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).

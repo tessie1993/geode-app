@@ -631,6 +631,23 @@ object GeodeNative {
         value: Float,
     ): String
 
+    /** Which of the wave [slot]'s controls do anything as it stands (geode_mod_lfo_shows): [MOD_SHOWS_WAVE] and the rest. */
+    external fun modLfoShows(
+        lfos: String,
+        slot: Int,
+    ): Int
+
+    /** Which of the envelope [slot]'s controls do anything as it stands (geode_mod_adsr_shows). */
+    external fun modAdsrShows(
+        adsrs: String,
+        slot: Int,
+    ): Int
+
+    // Mirrors of GEODE_MOD_SHOWS_*: the bits [modLfoShows] and [modAdsrShows] return.
+    const val MOD_SHOWS_WAVE: Int = 1
+    const val MOD_SHOWS_RATE: Int = 2
+    const val MOD_SHOWS_KNOB: Int = 4
+
     /** The target ordinals a [picker] (a wave slot, or [MOD_PICKER_REACTION]) lists on [styleId]. */
     external fun modTargetsOffered(
         styleId: String,

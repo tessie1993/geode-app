@@ -1640,6 +1640,18 @@ GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
 
+/* A Customize slider's maths (viz/SliderMap). Pure, any thread.
+ * off_default: 1 when value is more than 1e-4 from def (NaN: no default, 0), so Reset would move it.
+ * int_steps: the ticks between first and last of a whole-number slider. int_value: the whole number a
+ * stepped position means, rounded to the nearest and clamped into first..last.
+ * log_position: value's 0..1 place on a log track over lo..hi (0 < lo < hi); log_value: its inverse,
+ * lo * (hi / lo)^position. A track that is not 0 < lo < hi pins to position 0 and value lo. */
+GEODE_API int             geode_slider_off_default(float value, float def);
+GEODE_API int             geode_slider_int_steps(int first, int last);
+GEODE_API int             geode_slider_int_value(float position, int first, int last);
+GEODE_API float           geode_slider_log_position(float value, float lo, float hi);
+GEODE_API float           geode_slider_log_value(float position, float lo, float hi);
+
 #ifdef __cplusplus
 }
 #endif

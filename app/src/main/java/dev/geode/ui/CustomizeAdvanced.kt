@@ -63,8 +63,6 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.ln
-import kotlin.math.pow
 import kotlin.reflect.KProperty1
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
@@ -185,13 +183,16 @@ private fun ReactionCard(
     val source = route.intAt(GeodeNative.MOD_ROUTE_SOURCE)
     val target = route.intAt(GeodeNative.MOD_ROUTE_TARGET)
     val amount = route.getOrElse(GeodeNative.MOD_ROUTE_AMOUNT) { 0f }
+    // The whole range native accepts: the style's own reactions draw drop surges above 1. Below zero, so signed.
+    val amountRange = ModCatalog.range("route.amount")
+    val amountText = GeodeNative.paramText("", ParamUnit.PERCENT.ordinal, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
     val sourceLabel = ModCatalog.label("react", source)
     val targetLabel = ModCatalog.label("target", target)
     val modeLabel = ModCatalog.label("mode", route.intAt(GeodeNative.MOD_ROUTE_MODE))
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
             Text(
-                "When $sourceLabel → $targetLabel · $modeLabel ${"%+.0f %%".format(amount * 100f)}",
+                "When $sourceLabel → $targetLabel · $modeLabel $amountText",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f).clickable { expanded = !expanded },
             )
@@ -211,8 +212,7 @@ private fun ReactionCard(
                 }
             }
             WordRow("Mode", "mode", route.intAt(GeodeNative.MOD_ROUTE_MODE)) { onSet(GeodeNative.MOD_ROUTE_MODE, it) }
-            // The whole range native accepts: the style's own reactions draw drop surges above 1.
-            LabeledSlider(REACT_DEPTH, amount, ModCatalog.range("route.amount"), scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
+            LabeledSlider(REACT_DEPTH, amount, amountRange, scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
                 onSet(GeodeNative.MOD_ROUTE_AMOUNT, it)
             }
             LabeledSlider(
@@ -367,14 +367,14 @@ private fun RateSecondsSlider(
     val range = ModCatalog.range("lfo.rateSeconds")
     val lo = range.start
     val hi = range.endInclusive
-    val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
+    val t = GeodeNative.sliderLogPosition(seconds, lo, hi)
     val shown = GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = t,
-            onValueChange = { onChange(lo * (hi / lo).pow(it)) },
+            onValueChange = { onChange(GeodeNative.sliderLogValue(it, lo, hi)) },
             valueRange = 0f..1f,
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =

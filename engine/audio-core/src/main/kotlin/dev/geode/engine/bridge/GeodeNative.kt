@@ -3055,4 +3055,39 @@ object GeodeNative {
         handle: Long,
         out: LongArray,
     )
+
+    // A Customize slider's maths (core/viz/SliderMap, `geode_slider_*`): pure, cheap, called per drag event.
+
+    /** True when Reset would move [value] to [default] (NaN for a control with none): more than 1e-4 off it. */
+    external fun sliderOffDefault(
+        value: Float,
+        default: Float,
+    ): Boolean
+
+    /** The ticks between [first] and [last] of a whole-number slider. */
+    external fun sliderIntSteps(
+        first: Int,
+        last: Int,
+    ): Int
+
+    /** The whole number a stepped slider's [position] means: rounded, clamped into [first]..[last]. */
+    external fun sliderIntValue(
+        position: Float,
+        first: Int,
+        last: Int,
+    ): Int
+
+    /** [value]'s 0..1 place on a log track over [lo]..[hi]. */
+    external fun sliderLogPosition(
+        value: Float,
+        lo: Float,
+        hi: Float,
+    ): Float
+
+    /** The value at 0..1 [position] on a log track over [lo]..[hi]: lo * (hi / lo)^position. */
+    external fun sliderLogValue(
+        position: Float,
+        lo: Float,
+        hi: Float,
+    ): Float
 }

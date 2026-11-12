@@ -743,6 +743,30 @@ Java_dev_geode_engine_bridge_GeodeNative_paramText(JNIEnv* env, jobject, jstring
     return env->NewStringUTF(text);
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_sliderOffDefault(JNIEnv*, jobject, jfloat value, jfloat def) {
+    return geode_slider_off_default(value, def) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_sliderIntSteps(JNIEnv*, jobject, jint first, jint last) {
+    return geode_slider_int_steps(first, last);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_sliderIntValue(JNIEnv*, jobject, jfloat position, jint first, jint last) {
+    return geode_slider_int_value(position, first, last);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_sliderLogPosition(JNIEnv*, jobject, jfloat value, jfloat lo, jfloat hi) {
+    return geode_slider_log_position(value, lo, hi);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_sliderLogValue(JNIEnv*, jobject, jfloat position, jfloat lo, jfloat hi) {
+    return geode_slider_log_value(position, lo, hi);
+}
+
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteBase(JNIEnv*, jobject, jint palette, jfloat override) {
     return geode_params_palette_base(palette, override);

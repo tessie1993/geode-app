@@ -2575,28 +2575,6 @@ object GeodeNative {
         heardAtMs: Long,
     ): Long
 
-    /** A reader's place in the ring at [ring]; [maxFrames] 0 is the ring's runway. Freed with [pcmCursorDestroy]. */
-    external fun pcmCursorCreate(
-        ring: Long,
-        maxFrames: Int,
-    ): Long
-
-    external fun pcmCursorDestroy(handle: Long)
-
-    /** The most frames one take hands out. */
-    external fun pcmCursorMaxFrames(handle: Long): Int
-
-    /**
-     * What the ring gained since the last take, as interleaved 16-bit frames in [out] (which must hold
-     * [pcmCursorMaxFrames] frames); returns the frames. [info] gets 1 at [0] on a restart and the rate the
-     * frames were written at in [1].
-     */
-    external fun pcmCursorTakeS16(
-        handle: Long,
-        out: ShortArray,
-        info: IntArray,
-    ): Int
-
     // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
 
     /** One clock per player, freed with [playoutDestroy]. */
@@ -2745,32 +2723,33 @@ object GeodeNative {
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 
-    // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
+    // Cast's sound (core/output/CastAudioPump): the ring read, resampled, held and padded natively; the shell
+    // hands each block to the encoders.
 
-    /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */
-    const val CAST_AUDIO_STATE = 3
-
-    /** Size of one step's result (GEODE_CAST_AUDIO_STEP): evict, skip, keep, take, pad, PTS in µs. */
-    const val CAST_AUDIO_STEP = 6
-
-    /** Starts [state] at [rateHz]; returns the hold's capacity in frames (half a second). */
-    external fun castAudioStart(
-        state: LongArray,
+    /** A pump over the player's ring [music] (0: silence throughout) at [rateHz] and [channels]; 0 on bad args. */
+    external fun castAudioCreate(
+        music: Long,
         rateHz: Int,
-    ): Int
+        channels: Int,
+    ): Long
+
+    external fun castAudioDestroy(handle: Long)
 
     /**
-     * One frame of the pump: [gainedFrames] just resampled from the ring and the frame clock's cut
-     * [untilUs]. Fills [out] (CAST_AUDIO_STEP longs), applied in order: evict the oldest held, skip at
-     * the head of the gained, append the next keep, then queue take frames from the hold and pad
-     * silence after them, stamped with the PTS.
+     * One video frame up to the frame clock's cut [untilUs]; [current] is the ring the visuals hear now
+     * (0 for none), only compared with the music's. Returns the frames of the block to queue (0: none).
      */
-    external fun castAudioStep(
-        state: LongArray,
-        gainedFrames: Int,
+    external fun castAudioPump(
+        handle: Long,
+        current: Long,
         untilUs: Long,
-        out: LongArray,
-    )
+    ): Int
+
+    /** Copies the last pump's block into [out]; returns its frames, 0 when [out] is too small. */
+    external fun castAudioRead(
+        handle: Long,
+        out: ShortArray,
+    ): Int
 
     /** Size of the encoder feed's state (GEODE_CAST_AUDIO_FEED_STATE): frames taken or dropped, pending, rate. */
     const val CAST_AUDIO_FEED_STATE = 3

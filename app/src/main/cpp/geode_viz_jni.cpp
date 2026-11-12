@@ -1133,27 +1133,34 @@ Java_dev_geode_engine_bridge_GeodeNative_memoryTrim(JNIEnv*, jobject, jint level
     geode_memory_trim(level);
 }
 
-// Cast's audio pump: the state is a caller-owned long[GEODE_CAST_AUDIO_STATE], a step's result a long[GEODE_CAST_AUDIO_STEP].
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_castAudioStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {
-    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE) return 0;
-    int64_t s[GEODE_CAST_AUDIO_STATE] = {};
-    const int capacity = geode_cast_audio_start(s, rateHz);
-    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
-    return capacity;
+// Cast's sound (core/output/CastAudioPump): rings are geode_pcm_ring handles; current is only compared.
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioCreate(JNIEnv*, jobject, jlong music, jint rateHz, jint channels) {
+    return reinterpret_cast<jlong>(
+        geode_cast_audio_create(reinterpret_cast<const geode_pcm_ring*>(music), rateHz, channels));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlongArray state, jint gainedFrames,
-                                                       jlong untilUs, jlongArray out) {
-    if (!state || !out || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE ||
-        env->GetArrayLength(out) < GEODE_CAST_AUDIO_STEP) return;
-    int64_t s[GEODE_CAST_AUDIO_STATE];
-    int64_t o[GEODE_CAST_AUDIO_STEP] = {};
-    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<jlong*>(s));
-    geode_cast_audio_step(s, gainedFrames, untilUs, o);
-    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
-    env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
+Java_dev_geode_engine_bridge_GeodeNative_castAudioDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_cast_audio_destroy(reinterpret_cast<geode_cast_audio*>(handle));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioPump(JNIEnv*, jobject, jlong handle, jlong current, jlong untilUs) {
+    return geode_cast_audio_pump(reinterpret_cast<geode_cast_audio*>(handle),
+                                 reinterpret_cast<const geode_pcm_ring*>(current), untilUs);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioRead(JNIEnv* env, jobject, jlong handle, jshortArray out) {
+    if (!out) return 0;
+    const jsize capacity = env->GetArrayLength(out);
+    void* data = env->GetPrimitiveArrayCritical(out, nullptr);
+    if (!data) return 0;
+    const int frames =
+        geode_cast_audio_read(reinterpret_cast<const geode_cast_audio*>(handle), static_cast<int16_t*>(data), capacity);
+    env->ReleasePrimitiveArrayCritical(out, data, 0);
+    return frames;
 }
 
 // The AAC encoder's backlog (core/viz/frame/CastAudio, CastAudioFeed): a caller-owned long[GEODE_CAST_AUDIO_FEED_STATE].

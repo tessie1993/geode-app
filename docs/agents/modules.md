@@ -13,7 +13,6 @@ One fact per line. Add a fact as a new bullet under its module.
 - `GeodeNative` holds every JNI `external fun`.
 - `SampleRing` is the PCM ring's handle; the ring, its writers' int16 and 8-bit conversions and its readers are native (`core/audio/ingest/PcmRing`).
 - `SampleRing` is freed when the holder is collected.
-- `SoundCursor` is Cast's 16-bit reader of the ring.
 - `SoundTuning` is the user tuning (Settings › Audio, kept in `SoundInputSettings`): a float holder.
 - `SoundTuning`'s defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
 

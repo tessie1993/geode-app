@@ -22,6 +22,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - So behind the player's sink a renderer's cursor reads only up to the sample the speaker plays now (`core/sound/interp/SpeakerSync`).
 - `SpeakerSync` reads the process's one playout clock, `PlaybackEngine.playout`, which `audio/PlayoutSink` reports the sink to.
 - The mic, a capture and a cast read the newest sample instead.
+- Cast's sound reads the player's ring through its own native cursor, resamples, holds and pads it to each frame's cut (`core/output/CastAudioPump`, `geode_cast_audio_*`); `CastStream` only hands each block to the encoders.
 - There is no analysis thread: every renderer's own `core/sound` engine hears the ring on its GL thread through its own native cursor (`geode_viz_feed_ring`).
 - The cursor resets the engine on a new epoch (a tap flush, a source switch).
 

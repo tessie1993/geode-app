@@ -27,6 +27,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
 - `cache_sentinels_test.cpp`: `core/viz/CacheSentinels`, the program-binary cache's crash sentinel.
 - `cast_audio_test.cpp`: `core/viz/frame/CastAudio`, Cast's audio pump, as counts.
+- `cast_audio_test.cpp` also holds `core/output/CastAudioPump` sample for sample to the Kotlin pump it replaced (44.1 and 48 kHz, pauses, a burst, the mic, mono), the 44.1 kHz stream to the export resampler, underrun hold and pad, frame boundaries at 25, 30 and 60 fps, the layouts and no allocation per frame.
 - `cast_clock_test.cpp`: Cast's frame clock: steady slots, drop not burst, monotonic PTS, the audio cut.
 - `cast_tee_test.cpp`: Cast's tee: the stage-to-stream hand-off, the fallback after a stale copy, one copy per cast frame, the placement: a portrait stage turned and cropped, a landscape one cropped.
 - `cast_same_visual_test.cpp`: the stage's host while casting (`core/viz/StageRun`): drawing on every tab and before Visuals was ever laid out, no bars; every stage shape filling the stream; a new stream waiting for the stage's first copy.

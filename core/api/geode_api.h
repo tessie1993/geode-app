@@ -1561,6 +1561,18 @@ GEODE_API void            geode_cast_audio_step(int64_t* state, int64_t gained_f
 GEODE_API int             geode_cast_audio_feed_start(int64_t* state, int rate_hz);
 GEODE_API int64_t         geode_cast_audio_feed_add(int64_t* state, int64_t frames);
 GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us);
+/* Cast's sound (output/CastAudioPump): the player's ring `music` (NULL: silence throughout) read through its
+ * own cursor, resampled to out_rate_hz (audio/dsp/PcmResampler), held and padded to each frame's audio cut by
+ * the rule above. Create returns NULL for a rate or channel count <= 0. A pump is one video frame: `current`
+ * is the ring the visuals hear now, only compared with `music` and never read (another ring or NULL takes
+ * nothing and the cut is padded with silence); until_us is geode_frame_clock_audio_until_us. It returns the
+ * frames of the block to queue (0: none this frame). Read copies that block into out (capacity int16s) and
+ * returns its frames, 0 when out is too small. One thread; nothing allocates per frame. */
+typedef struct geode_cast_audio geode_cast_audio;
+GEODE_API geode_cast_audio* geode_cast_audio_create(const geode_pcm_ring* music, int out_rate_hz, int channels);
+GEODE_API void            geode_cast_audio_destroy(geode_cast_audio*);
+GEODE_API int             geode_cast_audio_pump(geode_cast_audio*, const geode_pcm_ring* current, int64_t until_us);
+GEODE_API int             geode_cast_audio_read(const geode_cast_audio*, int16_t* out, int capacity);
 
 /* Show on a computer (viz/frame/LinkShare, LinkPage): the browser link's routes, headers, page, master playlist
  * and state; core/cast/LiveServer owns only the socket and the bytes. Every path sits under a token of

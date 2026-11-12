@@ -359,6 +359,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
+- Cast's sound (the ring read, the resample to 48 kHz, the hold and the silence pad) is native in `core/output/CastAudioPump`; `CastStream`'s `AudioPump` hands each block to `CastEncoder` and `OpusFeed`.
 - `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
 - `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.

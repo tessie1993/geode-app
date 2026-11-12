@@ -88,7 +88,13 @@ float geode_params_palette_range(int palette, float range_override) {
     return p.paletteRange();
 }
 
-int geode_params_kaleidoscope_folds(int on, int symmetry) { return SceneParams::kaleidoscopeFolds(on != 0, symmetry); }
+const char* geode_customize_kaleidoscope(int on, int symmetry) {
+    thread_local std::string menu;
+    menu = SceneParams::kaleidoscopeMenu(on != 0, symmetry);
+    return menu.c_str();
+}
+
+int geode_params_kaleidoscope_pick(int row) { return SceneParams::kaleidoscopePick(row); }
 
 const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
 

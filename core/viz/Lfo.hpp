@@ -38,9 +38,13 @@ enum class LfoTarget {
     PaletteShift,
     // Appended: the kaleidoscope's folds (1 off .. 16), the one slider that replaced its switch and count.
     KaleidoFolds,
+    // Appended: Grow and layers (viz/ParamTable.inc), drawn by the family libraries. Ordinals 69..72 for now: a
+    // target appended on another branch at the same time takes the next free ones at the merge, with every
+    // ordinal-pinned fixture (mod_targets.txt, mod_targets_test, ConfigTable.inc's lfo target max) moving with it.
+    Spawn, Fractal, FrontLayer, BackLayer,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::KaleidoFolds;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::BackLayer;
 
 struct ModChain {
     int slot;

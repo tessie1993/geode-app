@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 188;
+constexpr int kWireFloats = 192;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -72,7 +72,11 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
           "the palette amounts follow it, the primary first");
     check(static_cast<int>(ParamSlot::paletteShift) == 186, "paletteShift keeps its slot");
-    check(static_cast<int>(ParamSlot::kaleidoFolds) == kWireFloats - 1, "kaleidoFolds is the wire's last float");
+    check(static_cast<int>(ParamSlot::kaleidoFolds) == 187, "kaleidoFolds keeps its slot");
+    check(static_cast<int>(ParamSlot::spawn) == 188 && static_cast<int>(ParamSlot::fractal) == 189 &&
+              static_cast<int>(ParamSlot::frontLayer) == 190,
+          "Grow and layers follow it");
+    check(static_cast<int>(ParamSlot::backLayer) == kWireFloats - 1, "backLayer is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -267,6 +271,9 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
     {LfoTarget::DiveTwist, "diveTwist", -1.0f, 1.0f},   {LfoTarget::DiveAimX, "diveAimX", -0.6f, 0.6f},
     {LfoTarget::DiveAimY, "diveAimY", -0.6f, 0.6f},
+    // Grow and layers: Spawn and Fractal 0..1, the two layers -1..1 about their 0.
+    {LfoTarget::Spawn, "spawn", 0.0f, 1.0f},            {LfoTarget::Fractal, "fractal", 0.0f, 1.0f},
+    {LfoTarget::FrontLayer, "frontLayer", -1.0f, 1.0f}, {LfoTarget::BackLayer, "backLayer", -1.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -576,6 +583,15 @@ void everyLiveRowHasOneMeta() {
     check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&
               !SceneParams::meta(ParamSlot::symmetry).live && !SceneParams::meta(ParamSlot::kaleidoscope).live,
           "Kaleidoscope is kaleidoFolds alone, a modulation target on every style");
+    // Grow and layers: a modulation target each, on the family libraries' scope, never rolled, and at its default
+    // the picture as designed (0, the libraries' old path).
+    for (const char* name : {"spawn", "fractal", "frontLayer", "backLayer"}) {
+        const auto slot = static_cast<ParamSlot>(SceneParams::slotOf(name));
+        const ParamMeta& m = SceneParams::meta(slot);
+        check(m.live && m.scope == catalogue::Scope::FamilyForm && (m.flags & kMod) != 0 && m.rollLo == 0.0f && m.rollHi == 0.0f &&
+                  SceneParams::spec(slot).defaultValue == 0.0f,
+              std::string(name) + ": a target on the family scope, 0 by default, never dealt by the param roll");
+    }
 }
 
 int main(int argc, char** argv) {

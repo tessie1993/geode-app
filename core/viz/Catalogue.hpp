@@ -51,8 +51,9 @@ enum class Scope {
     Cymatics,
     FlowFieldSim,   // Fluid drives its field from its own solver instead
     Spin,           // per STYLE, like MarchDetail: only the styles spinRate turns
+    FamilyForm,     // per STYLE: Spawn, Fractal and the two layers, drawn by the family libraries that honour them
 };
-constexpr int kScopeCount = 23;
+constexpr int kScopeCount = 24;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside the
@@ -113,6 +114,9 @@ bool fliesCamera(const std::string& id);
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll). The
 // user's Spin control (Scope::Spin) scales it, and shows only where it is not 0.
 float spinRate(const std::string& id);
+// Its family library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm); style_reads_test
+// holds every such style to reading their uniforms.
+bool drawsFamilyForm(const std::string& id);
 std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.

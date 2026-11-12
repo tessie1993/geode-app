@@ -84,6 +84,10 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "PALETTE_AMOUNT_8",
     "PALETTE_SHIFT",
     "KALEIDO_FOLDS",
+    "SPAWN",
+    "FRACTAL",
+    "FRONT_LAYER",
+    "BACK_LAYER",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};

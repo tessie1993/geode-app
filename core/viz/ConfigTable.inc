@@ -29,8 +29,8 @@
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
-// LfoTarget: None .. KaleidoFolds (kLastLfoTarget; ordinal 25 is the retired Glitch).
-GEODE_CONFIG(lfo, target, Int, 0, 0, 68, None)
+// LfoTarget: None .. BackLayer (kLastLfoTarget; ordinal 25 is the retired Glitch).
+GEODE_CONFIG(lfo, target, Int, 0, 0, 72, None)
 // LfoWave: Sine .. RandomGlide.
 GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (2, 0.05 and 60 s). A slot saved in Hz migrates through

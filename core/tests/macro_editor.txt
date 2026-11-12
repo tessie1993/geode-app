@@ -93,6 +93,10 @@ target|PALETTE_AMOUNT_7|1|Palette 7 amount
 target|PALETTE_AMOUNT_8|1|Palette 8 amount
 target|PALETTE_SHIFT|1|Palette position
 target|KALEIDO_FOLDS|1|Kaleidoscope
+target|SPAWN|0|Spawn
+target|FRACTAL|0|Fractal
+target|FRONT_LAYER|0|Front layer
+target|BACK_LAYER|0|Back layer
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail

@@ -62,6 +62,23 @@ uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
 
+// ---- grow and layers --------------------------------------------------------
+//
+// Customize › Shape › Grow (core/viz/ParamTable.inc spawn .. backLayer), for the
+// music to drive through the reaction routes, waves, envelopes and knobs. The
+// family libraries draw them; each library takes its old path at the default,
+// so a style that ignores them (or sits at 0) draws exactly what it drew.
+// None of them may touch a colour, a brightness or a turn.
+//
+// uSpawn 0..1: more of the subject, a second copy splitting off and easing away.
+// uFractal 0..1: smaller self-similar copies growing on the subject's surface.
+// uFrontLayer, uBackLayer -1..1: how far the foreground (the subject) and the
+// background (the sky, the field) open (up) or draw in (down); 0 as designed.
+uniform float uSpawn;
+uniform float uFractal;
+uniform float uFrontLayer;
+uniform float uBackLayer;
+
 // ---- the style knobs --------------------------------------------------------
 //
 // Six per-style controls, each 0..1, whose meaning each style names in its own

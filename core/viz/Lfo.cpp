@@ -137,6 +137,11 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
         // Half the range per unit: a full wave from Off reaches 9 folds, from 8 sweeps the whole 1..16.
         case LfoTarget::KaleidoFolds: GEODE_DRIVE(kaleidoFolds, 8.0f);
+        // The whole of Spawn and Fractal per unit; the layers' half range, so a full wave from 0 reaches either end.
+        case LfoTarget::Spawn: GEODE_DRIVE(spawn, 1.0f);
+        case LfoTarget::Fractal: GEODE_DRIVE(fractal, 1.0f);
+        case LfoTarget::FrontLayer: GEODE_DRIVE(frontLayer, 1.0f);
+        case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

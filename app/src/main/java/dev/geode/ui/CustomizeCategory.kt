@@ -70,6 +70,7 @@ private val SECTION_TITLES =
         "palette_maker" to "Your colours",
         "form" to "Form",
         "symmetry" to "Symmetry",
+        "grow" to "Grow & layers",
         "particles" to "Particles",
         "journey" to "Journey",
         "emitters" to "Emitters",

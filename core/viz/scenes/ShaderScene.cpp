@@ -204,6 +204,11 @@ void ShaderScene::uploadParams() {
         set1f("uKaleido", k.on);
     }
     set1f("uMorph", p.morph);
+    // Grow and layers (ParamTable.inc), resolved: the family libraries draw them and take their old path at 0.
+    set1f("uSpawn", p.spawn);
+    set1f("uFractal", p.fractal);
+    set1f("uFrontLayer", p.frontLayer);
+    set1f("uBackLayer", p.backLayer);
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);

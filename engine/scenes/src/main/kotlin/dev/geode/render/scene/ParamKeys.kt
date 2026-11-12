@@ -128,5 +128,4 @@ object ParamKeys {
     const val NODAL_GLOW = "Nodal glow"
     const val IRIDESCENCE = "Iridescence"
     const val CAUSTIC_SHEEN = "Caustic sheen"
-    const val MELT = "Melt"
 }

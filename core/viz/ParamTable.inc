@@ -535,6 +535,29 @@ GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, kaleidoFolds, 1.0f, 1.0f, 16.0f, Fade)
 GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 
+// Grow and layers (Customize › Shape): four shape params the music can drive, each a modulation target
+// (LfoTarget::Spawn .. BackLayer), so a reaction route, a wave, an envelope or a macro knob can move it. Drawn
+// by the style family libraries (catalogue::Scope::FamilyForm names which), never by a colour: none of them
+// touches the palette, a brightness or a contrast, and none turns the picture. Each default is the picture
+// as it was, which every library keeps by taking its old path there. No roll deals them (ParamRandomizer).
+//
+// Spawn: more of the family's subject. A second copy of the world splits off the first and eases away,
+// smaller, as it rises (the petals, shards, bulbs, rings or cells double, then drift between the first).
+GEODE_PARAM(Float, spawn, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(spawn, "Spawn", FamilyForm, kMod, 0, 0)
+// Fractal: the subject fractals out. Smaller self-similar copies of it grow on its own surface, out to a
+// shell that thickens as it rises (an extra fold, octave or recursion where the family has one).
+GEODE_PARAM(Float, fractal, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(fractal, "Fractal", FamilyForm, kMod, 0, 0)
+// Front layer and Back layer: how far the family's own foreground (the subject: shell, petals, chrome,
+// filaments) and its background (the sky, the field, the backdrop) open or draw in. 0 is as designed;
+// up opens and swells that layer, down draws it in. Two rows, so a route can move one layer alone: the
+// subject pulses with the kick while only the backdrop breathes with the chord.
+GEODE_PARAM(Float, frontLayer, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(frontLayer, "Front layer", FamilyForm, kMod, 0, 0)
+GEODE_PARAM(Float, backLayer, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

@@ -112,6 +112,10 @@ private fun ShapeControl(
         ParamKeys.MIRROR -> CheckRow(key, p.mirror) { onChange(p.copy(mirror = it)) }
         ParamKeys.TILE -> LabeledSlider(key, p, "tile", onChange = onChange)
         ParamKeys.PIXELATE -> LabeledSlider(key, p, "pixelate", onChange = onChange)
+        SPAWN -> LabeledSlider(key, p, "spawn", onChange = onChange)
+        FRACTAL -> LabeledSlider(key, p, "fractal", onChange = onChange)
+        FRONT_LAYER -> LabeledSlider(key, p, "frontLayer", onChange = onChange)
+        BACK_LAYER -> LabeledSlider(key, p, "backLayer", onChange = onChange)
         ParamKeys.PARTICLE_SHAPE -> ChoiceChips(key, "particleShape", p, onChange = onChange)
         ParamKeys.PARTICLE_SIZE -> LabeledSlider(key, p, "particleSize", onChange = onChange)
         ParamKeys.DENSITY -> LabeledSlider(key, p, "density", onChange = onChange)
@@ -547,6 +551,10 @@ private const val KALEIDO_FOLDS = "kaleidoFolds"
 // Names of panel controls that are not ParamKeys, as core/viz/CustomizeMap spells them.
 internal const val REACTION_DNA = "Reaction DNA"
 private const val PROGRESSION = "Progression"
+private const val SPAWN = "Spawn"
+private const val FRACTAL = "Fractal"
+private const val FRONT_LAYER = "Front layer"
+private const val BACK_LAYER = "Back layer"
 private const val FLUID_QUALITY = "Fluid quality"
 private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"

@@ -137,8 +137,7 @@ data class SceneParams(
     /**
      * The first of Note & key reactions' fields (core/viz Params.hpp, after [reactSeed]). Each is a
      * per-style Customize control, inert while Settings › Behaviour › Note & key reactions is off, and the
-     * ParamRandomizer never rolls them. (The note blooms' `bloomLook` and `noteBloom` are gone with the
-     * blooms; a preset or link that still carries them loads, and the keys are ignored.)
+     * ParamRandomizer never rolls them.
      *
      * How strongly the key and notes tint the palette, 0..2 (1 = as designed).
      */
@@ -191,12 +190,14 @@ data class SceneParams(
     val paletteShift: Float = 0f,
     // Customize › Shape › Kaleidoscope: 1 off, 2..16 folds (core/viz/ParamTable.inc kaleidoFolds).
     val kaleidoFolds: Float = 1f,
+    val spawn: Float = 0f, // Customize › Shape › Grow, to backLayer: the family libraries draw them (ParamTable.inc).
+    val fractal: Float = 0f,
+    val frontLayer: Float = 0f,
+    val backLayer: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
-
         const val NO_CUSTOM_PALETTE: String = ""
-
         const val NO_STOP: Int = -1
 
         val DEFAULT: SceneParams = SceneParams()

@@ -33,6 +33,14 @@
     <string name="link_sheet_live">Live. Click Play in the browser to start the picture and sound.</string>
     <string name="link_sheet_sound">The sound plays on the computer; the phone stays silent.</string>
     <string name="link_sheet_open">Anyone on this Wi-Fi with this link can watch.</string>
+    <string name="link_sheet_plain">The link is plain http: it is not encrypted, so share it only on a Wi-Fi you trust. Each start makes a new link.</string>
+    <string name="link_copy">Copy link</string>
+    <string name="link_share">Share</string>
+    <string name="link_share_title">Send the link to your computer</string>
+    <string name="link_share_none">No app here can share the link. Copy it instead.</string>
+    <string name="link_button">Share to PC</string>
+    <string name="link_button_live">Share to PC: on. Show the link</string>
+    <string name="quick_pc_on">Sharing to PC</string>
     <string name="link_qr_description">QR code of the link</string>
     <string name="link_stop">Stop sharing</string>
     <string name="link_notification_title">Showing on a computer</string>

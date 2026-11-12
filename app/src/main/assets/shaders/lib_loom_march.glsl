@@ -9,7 +9,11 @@
 // INCLUDE ORDER: after lib_loom and after the style's loomMap.
 
 vec4 loomField(vec3 p) {
-    return loomMap(loomBend(p));
+    // A domain warp over the bend: always a little, more with Warp (and k2 FLOW) and Turbulence (lib_layers).
+    float amt = 0.05 + 0.14 * gLoomFlow + 0.08 * gLoomChaos;
+    vec4 m = loomMap(layerWarp(loomBend(p), amt));
+    float slack = layerWarpSlack(amt);
+    return vec4(m.x * slack, m.y, m.z * slack, m.w);
 }
 
 /** The strand's normal at p, unit length; straight back along the ray where the field is flat. */
@@ -23,6 +27,7 @@ vec3 loomNormal(vec3 p, vec3 rd, float eps) {
 
 /** The light along one ray: sphere traced through the skins to a strand, then the strand lit. */
 vec3 loomTrace(vec3 ro, vec3 rd) {
+    layerSetup(gLoomPal0, gLoomPal1, gLoomPal2, gLoomPal3, gLoomPal4, gLoomTone, gLoomFlow, gLoomSwell);
     float n = LOOM_STEPS;
     float t = 0.02 + 0.05 * loomDither();
     vec4 m = vec4(1.0, 0.0, 1.0e3, 0.0);
@@ -103,6 +108,8 @@ vec3 loomTrace(vec3 ro, vec3 rd) {
     float passAir = exp(-3.0 * passT / gLoomFar) * smoothstep(0.05, 0.6, passT);
     vec3 glow = loomCol(gLoomTone + 0.4 * passT / gLoomFar + passHue) * 0.22 * gLoomSkin * exp(-14.0 * max(pass, 0.0)) * passAir;
     // What lies behind the skins is dimmed by them; the far end of the way is never quite dark.
-    return (col * air + glow) * through + acc + loomCol(gLoomTone + 0.6) * veil * gLoomSkin +
+    vec3 lit = (col * air + glow) * through + acc + loomCol(gLoomTone + 0.6) * veil * gLoomSkin +
         loomCol(hue + 0.5) * 0.03 * (1.0 - air);
+    // The midground haze in front of the strand, the far layer wherever nothing was hit (lib_layers).
+    return layerCompose(lit, ro, rd, t, gLoomFar, hit ? 0.0 : through);
 }

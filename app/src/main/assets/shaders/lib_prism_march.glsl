@@ -6,10 +6,16 @@
 // ahead: every function is defined before any call (style_reads_test:
 // noStyleDeclaresAFunctionAhead).
 //
-// INCLUDE ORDER: after lib_prism and after the style's prismMap.
+// Round the chrome it draws lib_strata's two other layers: the warped haze before it and the far
+// fractal where a ray meets no chrome, which the mirror also sees once along its reflection.
+//
+// INCLUDE ORDER: after lib_strata, lib_prism and the style's prismMap.
 
 vec2 prismField(vec3 p) {
     vec3 q = prismBend(p);
+    // A second, finer warp on the Warp's bend (lib_strata's gStrataWarp: Warp, k2 FLOW and the
+    // mids): the chrome flows in place. Along the way a whole number of cycles per 16.
+    q += 0.04 * gStrataWarp * sin(q.yzx * vec3(1.9, 1.5708, 1.9) + vec3(0.0, 2.0, 4.0) + uTime * PRISM_RATE(110));
     vec2 m = prismMap(q);
     vec3 s = sin(q * 4.0 + uTime * PRISM_RATE(1600) + vec3(0.0, 2.1, 4.2));
     m.x += gPrismChaos * 0.04 * (s.x * s.y + s.z);
@@ -84,6 +90,9 @@ vec3 prismTrace(vec3 ro, vec3 rd) {
             u += max(k.x * gPrismStride, 0.002);
         }
         vec3 seen = prismSky(r, hue);
+        // The far layer (lib_strata) seen in the mirror, once along the reflection.
+        vec2 glance = strataGlance(from, r, 0.7 * gPrismFar);
+        seen += prismCol(hue + 0.6 + glance.y) * glance.x * gStrataFarGlow;
         if (echo) {
             vec3 p2 = from + r * u;
             vec3 nor2 = prismNormal(p2, r, 0.006);
@@ -93,5 +102,15 @@ vec3 prismTrace(vec3 ro, vec3 rd) {
         // Nothing lights right at the eye: flying into the chrome must not fill the frame.
         col = prismSkin(p, rd, nor, seen, m.y, hue, 0.02 + 0.004 * t) * exp(-2.6 * depth) * smoothstep(0.05, 0.5, t);
     }
-    return col + prismCol(hue + 0.6) * glow;
+    col += prismCol(hue + 0.6) * glow;
+    // The middle layer (lib_strata): the warped haze between the eye and the chrome.
+    float dz = prismDither();
+    vec2 haze = strataHaze(ro, rd, 0.3, hit ? t : gPrismFar, dz);
+    col += prismCol(gPrismTone + 0.3 + haze.y) * haze.x * gStrataHazeGlow;
+    // The far layer, where the ray met no chrome.
+    if (!hit) {
+        vec3 far = strataFar(ro, rd, 0.6 * gPrismFar, 1.8 * gPrismFar, dz);
+        col += prismCol(gPrismTone + 0.65 + far.y) * far.x * gStrataFarGlow;
+    }
+    return col;
 }

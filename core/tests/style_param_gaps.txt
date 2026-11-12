@@ -224,16 +224,6 @@ petal_scales: midGain
 petal_seed: midGain
 petal_stair: midGain
 plasma: midGain
-prism_arcade: midGain
-prism_braid: midGain
-prism_crown: midGain
-prism_facet: midGain
-prism_fan: midGain
-prism_jewel: midGain
-prism_mercury: midGain
-prism_nest: midGain
-prism_portal: midGain
-prism_rosette: midGain
 ribbon_storm: midGain
 ringed_planet: midGain
 scope: midGain

@@ -38,10 +38,10 @@ object SceneParamsCodec {
     fun pack(p: SceneParams): FloatArray = FloatArray(FIELDS).also { pack(p, it) }
 
     /**
-     * The inverse of [pack]: a frame back into parameters, ints rounded and flags over 0.5. The two
-     * Kotlin-only fields (the saved palette slots' ids, [SceneParams.NOT_RENDERED]) come from [base];
-     * an id is dropped when the frame cleared the hue overrides it stands for, since a saved palette
-     * IS its overrides (see [SceneParams.withoutCustomPalette]).
+     * The inverse of [pack]: a frame back into parameters, ints rounded and flags over 0.5. The
+     * Kotlin-only field (the saved palette's id, [SceneParams.NOT_RENDERED]) comes from [base]; the id
+     * is dropped when the frame cleared the hue overrides it stands for, since a saved palette IS its
+     * overrides (see [SceneParams.withoutCustomPalette]).
      */
     fun unpack(
         values: FloatArray,
@@ -61,7 +61,6 @@ object SceneParamsCodec {
         }
         var result = out
         if (!result.usesCustomPalette) result = result.copy(customPaletteId = SceneParams.NO_CUSTOM_PALETTE)
-        if (!result.usesCustomPalette2) result = result.copy(customPalette2Id = SceneParams.NO_CUSTOM_PALETTE)
         return result
     }
 

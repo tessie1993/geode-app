@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.Remove
@@ -134,12 +132,9 @@ internal fun rememberSavedPalettes(): SavedPalettes {
 internal fun paletteChipIndex(
     p: SceneParams,
     saved: List<CustomPalette>,
-    second: Boolean,
 ): Int {
-    val custom = if (second) p.usesCustomPalette2 else p.usesCustomPalette
-    if (!custom) return if (second) p.palette2 else p.palette
-    val id = if (second) p.customPalette2Id else p.customPaletteId
-    val index = saved.indexOfFirst { it.id == id }
+    if (!p.usesCustomPalette) return p.palette
+    val index = saved.indexOfFirst { it.id == p.customPaletteId }
     return if (index < 0) -1 else ParamSchema.paletteNames.size + index
 }
 
@@ -147,13 +142,12 @@ internal fun paletteChipSelected(
     p: SceneParams,
     saved: List<CustomPalette>,
     index: Int,
-    second: Boolean,
 ): SceneParams {
     val builtInCount = ParamSchema.paletteNames.size
     return if (index < builtInCount) {
-        PaletteStore.clear(if (second) p.copy(palette2 = index) else p.copy(palette = index), second)
+        PaletteStore.clear(p.copy(palette = index))
     } else {
-        PaletteStore.applyPalette(p, saved[index - builtInCount], second)
+        PaletteStore.applyPalette(p, saved[index - builtInCount])
     }
 }
 
@@ -164,11 +158,9 @@ internal fun packedColour(rgb: Int): Color = Color(OPAQUE or rgb)
 
 private const val OPAQUE = 0xFF000000.toInt()
 
-/** What a slot of [p] paints, before Hue shift (native: its stops, else its hue ramp). */
-internal fun slotSwatch(
-    p: SceneParams,
-    second: Boolean = false,
-): List<Color> = GeodeNative.paramsPalettePreview(SceneParamsCodec.pack(p), second, SWATCH_SAMPLES).map(::packedColour)
+/** What the look's own palette paints, before Hue shift (native: its stops, else its hue ramp). */
+internal fun slotSwatch(p: SceneParams): List<Color> =
+    GeodeNative.paramsPalettePreview(SceneParamsCodec.pack(p), SWATCH_SAMPLES).map(::packedColour)
 
 private fun savedSwatch(palette: CustomPalette): List<Color> = slotSwatch(PaletteStore.applyPalette(SceneParams.DEFAULT, palette))
 
@@ -185,8 +177,7 @@ internal fun PaletteSwatch(
 
 /**
  * The one palette list (UI V2 rule 2: a dropdown, not a chip wall): the built-in palettes, then the user's
- * own, with what the first slot paints under it. The blend's second slot steps through the built-ins
- * beside it ([SecondPaletteStepper]) instead of showing the list again.
+ * own, with what the look's palette paints under it.
  */
 @Composable
 internal fun PaletteDropdown(
@@ -200,35 +191,11 @@ internal fun PaletteDropdown(
         DropdownRow(
             name = lockKey,
             options = ParamSchema.paletteNames + saved.map { it.name },
-            selectedIndex = paletteChipIndex(p, saved, second = false),
+            selectedIndex = paletteChipIndex(p, saved),
             lockKey = lockKey,
             placeholder = stringResource(R.string.look_summary_custom),
-        ) { i -> onChange(paletteChipSelected(p, saved, i, second = false)) }
+        ) { i -> onChange(paletteChipSelected(p, saved, i)) }
         PaletteSwatch(slotSwatch(p), Modifier.fillMaxWidth())
-    }
-}
-
-/** The blend's second palette: ‹ name › over the built-ins, and what it paints. */
-@Composable
-internal fun SecondPaletteStepper(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val names = ParamSchema.paletteNames
-    val label = if (p.usesCustomPalette2) stringResource(R.string.look_summary_custom) else names.getOrElse(p.palette2) { "" }
-    val step = { by: Int -> onChange(PaletteStore.clear(p.copy(palette2 = Math.floorMod(p.palette2 + by, names.size)), second = true)) }
-    Column {
-        Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.palette_second), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = { step(-1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.palette_second_previous))
-            }
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            IconButton(onClick = { step(1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.palette_second_next))
-            }
-        }
-        PaletteSwatch(slotSwatch(p, second = true), Modifier.fillMaxWidth())
     }
 }
 

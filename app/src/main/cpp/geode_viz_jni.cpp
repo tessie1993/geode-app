@@ -743,12 +743,12 @@ Java_dev_geode_engine_bridge_GeodeNative_paletteStopsFromHues(JNIEnv* env, jobje
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsPalettePreview(JNIEnv* env, jobject, jfloatArray params, jboolean second, jint samples) {
+Java_dev_geode_engine_bridge_GeodeNative_paramsPalettePreview(JNIEnv* env, jobject, jfloatArray params, jint samples) {
     std::vector<int> out(static_cast<size_t>(std::clamp<jint>(samples, 0, kMaxSwatch)));
     if (!params || env->GetArrayLength(params) < geode_viz_param_count()) return toJava(env, out);
     std::vector<float> wire(static_cast<size_t>(env->GetArrayLength(params)));
     env->GetFloatArrayRegion(params, 0, static_cast<jsize>(wire.size()), wire.data());
-    geode_params_palette_preview(wire.data(), second ? 1 : 0, static_cast<int>(out.size()), out.data());
+    geode_params_palette_preview(wire.data(), static_cast<int>(out.size()), out.data());
     return toJava(env, out);
 }
 

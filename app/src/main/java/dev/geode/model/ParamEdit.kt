@@ -38,12 +38,12 @@ fun SceneParams.int(name: String): Int = get(name).roundToInt()
 /** On/off param [name]. */
 fun SceneParams.flag(name: String): Boolean = get(name) > 0.5f
 
-/** `copy(name = value)`: these params with [name] set, the saved palettes' ids kept as `copy` keeps them. */
+/** `copy(name = value)`: these params with [name] set, the saved palette's id kept as `copy` keeps it. */
 fun SceneParams.with(
     name: String,
     value: Float,
 ): SceneParams {
     val frame = frameOf(this).copyOf()
     frame[slotOf(name)] = value
-    return SceneParamsCodec.unpack(frame, this).copy(customPaletteId = customPaletteId, customPalette2Id = customPalette2Id)
+    return SceneParamsCodec.unpack(frame, this).copy(customPaletteId = customPaletteId)
 }

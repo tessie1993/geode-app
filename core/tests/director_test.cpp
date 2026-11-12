@@ -241,7 +241,6 @@ void testNeverTouchesColour() {
     user.palette = 6;
     user.paletteBaseOverride = 0.31f;
     user.paletteRangeOverride = 0.22f;
-    user.paletteMix = 0.4f;
     user.hueRange = 0.7f;
     user.saturation = 0.6f;
     user.brightness = 1.1f;

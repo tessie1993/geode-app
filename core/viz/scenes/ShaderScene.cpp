@@ -180,9 +180,6 @@ void ShaderScene::uploadParams() {
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
-    set1f("uPal2Base", p.palette2Base());
-    set1f("uPal2Range", p.palette2Range());
-    set1f("uPaletteMix", p.paletteMix);
     {
         const auto stops = p.paletteStops();
         const int count = p.paletteStopCount();

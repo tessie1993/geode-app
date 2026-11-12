@@ -52,6 +52,10 @@ class ParamSchemaTest {
                 "beatResponse",
                 "symmetry",
                 "kaleidoscope",
+                "palette2",
+                "paletteMix",
+                "palette2BaseOverride",
+                "palette2RangeOverride",
                 "flash",
                 "glitch",
                 "strobe",
@@ -80,11 +84,9 @@ class ParamSchemaTest {
     @Test
     fun theBuiltInPalettesSpanThePaletteRange() {
         // The names are the shell's labels; their colours are native. The index range must name every row.
-        for (field in listOf("palette", "palette2")) {
-            val range = requireNotNull(ParamSchema[field]).range
-            assertEquals(0f, range.start)
-            assertEquals((ParamSchema.paletteNames.size - 1).toFloat(), range.endInclusive)
-        }
+        val range = requireNotNull(ParamSchema["palette"]).range
+        assertEquals(0f, range.start)
+        assertEquals((ParamSchema.paletteNames.size - 1).toFloat(), range.endInclusive)
     }
 
     @Test
@@ -141,7 +143,7 @@ class ParamSchemaTest {
     @Test
     fun theSentinelsAreTheSchemas() {
         // SceneParams keeps them as constants for its field defaults, so building one needs no libgeode.
-        val overrides = listOf("paletteBaseOverride", "paletteRangeOverride", "palette2BaseOverride", "palette2RangeOverride")
+        val overrides = listOf("paletteBaseOverride", "paletteRangeOverride")
         val rows = overrides.map { it to SceneParams.UNSET_OVERRIDE } + (0..4).map { "paletteStop$it" to SceneParams.NO_STOP.toFloat() }
         (rows + ("paletteLut" to SceneParams.NO_PALETTE_LUT.toFloat())).forEach { (name, sentinel) ->
             val spec = requireNotNull(ParamSchema[name])

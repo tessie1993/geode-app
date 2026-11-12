@@ -33,7 +33,7 @@ constexpr std::array<Category, 7> kShuffled{Category::Look,   Category::Shape,  
 // look already decides from the feeling (a roll there would undo it), and the two full-frame luminance
 // flips, which a section change must not fire.
 constexpr const char* kLooksOwn[] = {
-    "Palette",    "Palette 2",  "Palette blend", "Colour map",  "Hue shift", "Hue range", "Temperature",
+    "Palette",    "Colour map",  "Hue shift", "Hue range", "Temperature",
     "Color cycle", "Cycle speed", "Saturation",    "Brightness",  "Contrast",  "Gamma",     "Breath",
     "Invert",      "Solarize",
 };

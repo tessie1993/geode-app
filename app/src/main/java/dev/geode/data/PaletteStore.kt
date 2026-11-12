@@ -84,27 +84,21 @@ class PaletteStore(
             baseHue: Float,
             hueSpan: Float,
             id: String = SceneParams.NO_CUSTOM_PALETTE,
-            second: Boolean = false,
         ): SceneParams {
             val base = baseHue.coerceIn(0f, 1f)
             val span = hueSpan.coerceIn(0f, 1f)
-            return if (second) {
-                p.copy(palette2BaseOverride = base, palette2RangeOverride = span, customPalette2Id = id)
-            } else {
-                p.withPaletteStops(emptyList()).copy(paletteBaseOverride = base, paletteRangeOverride = span, customPaletteId = id)
-            }
+            return p.withPaletteStops(emptyList()).copy(paletteBaseOverride = base, paletteRangeOverride = span, customPaletteId = id)
         }
 
-        /** A saved palette on a slot. Your colours fit the first slot only; on the second a palette with stops is its gradient. */
+        /** A saved palette as the look's own: its colours, else its gradient. */
         fun applyPalette(
             p: SceneParams,
             palette: CustomPalette,
-            second: Boolean = false,
         ): SceneParams =
-            if (palette.stops.isNotEmpty() && !second) {
+            if (palette.stops.isNotEmpty()) {
                 applyStops(p, palette.stops, palette.id)
             } else {
-                applyGradient(clear(p, second), palette.baseHue, palette.hueSpan, palette.id, second)
+                applyGradient(clear(p), palette.baseHue, palette.hueSpan, palette.id)
             }
 
         /** Your colours on the first slot, the hue overrides off; [id] names the saved palette they came from, if any. */
@@ -114,10 +108,7 @@ class PaletteStore(
             id: String = SceneParams.NO_CUSTOM_PALETTE,
         ): SceneParams = clear(p).withPaletteStops(stops.take(MAX_STOPS)).copy(customPaletteId = id)
 
-        fun clear(
-            p: SceneParams,
-            second: Boolean = false,
-        ): SceneParams = p.withoutCustomPalette(second)
+        fun clear(p: SceneParams): SceneParams = p.withoutCustomPalette()
 
         fun forgetDeleted(
             p: SceneParams,
@@ -126,7 +117,6 @@ class PaletteStore(
             if (deletedId == SceneParams.NO_CUSTOM_PALETTE) return p
             var out = p
             if (out.customPaletteId == deletedId) out = out.copy(customPaletteId = SceneParams.NO_CUSTOM_PALETTE)
-            if (out.customPalette2Id == deletedId) out = out.copy(customPalette2Id = SceneParams.NO_CUSTOM_PALETTE)
             return out
         }
 

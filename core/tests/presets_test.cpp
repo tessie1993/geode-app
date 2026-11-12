@@ -101,7 +101,7 @@ void testChillPinned() {
     check(sameBits(s.saturation, 0.8f) && sameBits(s.brightness, 0.9f), "Chill grade");
     // What the Kotlin literal left out is SceneParams' default.
     const SceneParams d{};
-    check(sameBits(s.zoom, d.zoom) && s.palette2 == d.palette2 && sameBits(s.kaleidoFolds, d.kaleidoFolds), "Chill leaves the rest at default");
+    check(sameBits(s.zoom, d.zoom) && s.paletteLut == d.paletteLut && sameBits(s.kaleidoFolds, d.kaleidoFolds), "Chill leaves the rest at default");
     // Every loose style's Chill is the same look.
     const auto* other = find("lava · Chill");
     check(other && sameParams(other->params, s) && sameBits(other->attack, 0.4f), "lava · Chill is julia's Chill");
@@ -112,7 +112,7 @@ void testVariantsPinned() {
     check(deep && deep->sceneId == "orb_lattice" && sameBits(deep->attack, 0.45f) && sameBits(deep->decay, 0.1f), "Deep Sea row");
     if (deep) {
         const SceneParams& s = deep->params;
-        check(s.palette == 3 && s.palette2 == 6 && sameBits(s.paletteMix, 0.35f) && sameBits(s.chromaAb, 0.2f) &&
+        check(s.palette == 3 && sameBits(s.paletteMix, SceneParams{}.paletteMix) && sameBits(s.chromaAb, 0.2f) &&
                   sameBits(s.paramFadeSec, 1.0f),
               "Deep Sea values");
     }

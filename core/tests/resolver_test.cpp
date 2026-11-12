@@ -275,7 +275,6 @@ void testNoColourNarrowingNoFixedReactions() {
     s.noteEntropy = 0xABCDull;
     SceneParams requested;
     requested.palette = 6;
-    requested.paletteMix = 0.4f;
     requested.hueRange = 0.7f;
     requested.saturation = 0.6f;
     requested.brightness = 1.1f;
@@ -290,7 +289,7 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.paletteAmount0 = 0.8f;
     requested.paletteAmount1 = 0.3f;
     requested.paletteShift = 0.2f;
-    static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "paletteMix", "hueRange", "saturation",
+    static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "hueRange", "saturation",
                                           "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint",
                                           "paletteStop0", "paletteStop1", "paletteStop2",
                                           "paletteAmount0", "paletteAmount1", "paletteAmount2", "paletteAmount3", "paletteAmount4",
@@ -685,10 +684,6 @@ struct OldChain {
         AdsrEngine::lfoOffsets(adsr.configs, envValues, envRate, envDepth);
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
         SceneParams p = director.applyAxes(director.apply(displayedParams));
-        // The old chain's Palette blend target wrote paletteMix; it writes Palette 2's amount now, which a
-        // look without a stack carries the blend on.
-        const float ownAmount = p.paletteAmount1;
-        p = geode::viz::palette::carryBlend(p);
         if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
         p = lfo.apply(p, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
@@ -697,7 +692,6 @@ struct OldChain {
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);
-        p = geode::viz::palette::settleBlend(p, ownAmount);
         params = p;
         // Renderer::stepCamera, after the chain.
         cameraMoves = director.moves();
@@ -805,7 +799,7 @@ SceneParams randomRequested(Rng& g) {
     p.motionDrift = g.unit();
     p.motionHue = g.unit();
     p.reactAmount = g.range(0.0f, 2.0f);
-    p.paletteMix = g.unit();
+    g.unit();  // once the retired Palette blend's draw; drawn still, so the runs keep their sequence
     p.noteColor = g.range(0.0f, 2.0f);
     p.notePitch = g.range(0.0f, 2.0f);
     p.noteIntervals = g.range(0.0f, 2.0f);
@@ -1606,14 +1600,12 @@ void testEveryLookControlReachesTheResolvedParams() {
             for (float amount : {0.0f, 1.0f}) {
                 const SceneParams ra = resolved(a, amount);
                 const SceneParams rb = resolved(b, amount);
-                const bool moved = field == "palette"    ? ra.paletteBase() != rb.paletteBase()
-                                   : field == "palette2" ? ra.palette2Base() != rb.palette2Base()
-                                                         : ra.get(field) != rb.get(field);
+                const bool moved = field == "palette" ? ra.paletteBase() != rb.paletteBase() : ra.get(field) != rb.get(field);
                 check(moved, std::string(control) + " does not move " + field + (amount > 0.0f ? " with the director" : ""));
             }
         }
     }
-    check(controls >= 14, "Look has its controls");
+    check(controls >= 10, "Look has its controls");
 }
 
 int main() {

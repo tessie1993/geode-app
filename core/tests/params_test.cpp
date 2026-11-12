@@ -185,7 +185,7 @@ void rollsStayInsideTheSchemasRanges() {
 // A choice roll picks from the whole schema range, so a value added to ParamTable.inc is rolled too
 // (the camera's drive, fall and rise paths were left out by a count kept beside the schema).
 void choiceRollsReachEverySchemaValue() {
-    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::palette2, ParamSlot::camPath}) {
+    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::camPath}) {
         const ParamSpec& spec = SceneParams::spec(slot);
         std::set<int> rolled;
         for (uint64_t seed = 0; seed < 2000; ++seed) {

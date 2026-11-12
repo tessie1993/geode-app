@@ -254,9 +254,8 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
 // Customize › Look on a shader style is the style's own grade() and pal(): the composite leaves the shader
 // family ungraded (grade::gateFor), so a style that stops reading one of these uniforms leaves its control dead.
 void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
-    static const char* const kLook[] = {"uPalBase",    "uPalRange", "uPal2Base", "uPaletteMix", "uPalLutMix",
-                                        "uColorShift", "uHueRange", "uSat",      "uBright",     "uContrast",
-                                        "uGamma",      "uIntensity", "uTemperature", "uBloom"};
+    static const char* const kLook[] = {"uPalBase", "uPalRange",  "uPalLutMix", "uColorShift",  "uHueRange", "uSat", "uBright",
+                                        "uContrast", "uGamma", "uIntensity", "uTemperature", "uBloom"};
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     for (const std::string& id : catalogue::allIds()) {
@@ -380,10 +379,6 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop2", {"uPalStops"}},
         {"paletteStop3", {"uPalStops"}},
         {"paletteStop4", {"uPalStops"}},
-        {"palette2", {"uPal2Base"}},
-        {"palette2BaseOverride", {"uPal2Base"}},
-        {"palette2RangeOverride", {"uPal2Range"}},
-        {"paletteMix", {"uPaletteMix"}},
         {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
         {"colorCycle", {"uColorShift"}},

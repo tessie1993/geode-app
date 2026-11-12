@@ -85,11 +85,6 @@ private fun LookControl(
             LabeledSlider(key, p, "brightness", onChange = onChange)
         ParamKeys.SATURATION -> LabeledSlider(key, p, "saturation", onChange = onChange)
         ParamKeys.BLOOM -> LabeledSlider(key, p, "bloom", display = "Glow", onChange = onChange)
-        ParamKeys.PALETTE_2 ->
-            if (p.paletteMix > PALETTE_MIX_SHOWN && visible(key, ParamScope.SHADER_LOOK)) {
-                ProGated(key) { SecondPaletteStepper(p, onChange) }
-            }
-        ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, "paletteMix", onChange = onChange)
         ParamKeys.COLOUR_MAP ->
             if (visible(key, ParamScope.SHADER_LOOK)) {
                 val maps = remember { colourMapNames() }
@@ -558,9 +553,6 @@ private fun ChoiceChips(
     if (labels.isEmpty()) return
     ParamChips(key, labels, p.int(name).coerceIn(0, labels.lastIndex), scope) { onChange(p.with(name, it.toFloat())) }
 }
-
-/** Above this the second palette is in the picture, so its controls show. */
-private const val PALETTE_MIX_SHOWN = 0.001f
 
 /** The Kaleidoscope slider's scene param (core/viz/ParamTable.inc). */
 private const val KALEIDO_FOLDS = "kaleidoFolds"

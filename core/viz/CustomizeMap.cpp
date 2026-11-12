@@ -27,12 +27,7 @@ const std::vector<Section>& table() {
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
         // Your colours: the colour picker and eyedropper, first under the one palette list they add to.
         {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
-        // The blend before its second palette, which only shows once the blend is up.
-        {C::Look,
-         "colour_detail",
-         false,
-         S::Always,
-         {"Palette blend", "Palette 2", "Colour map", "Hue shift", "Hue range", "Temperature"}},
+        {C::Look, "colour_detail", false, S::Always, {"Colour map", "Hue shift", "Hue range", "Temperature"}},
         {C::Look, "colour_cycle", false, S::Always, {"Color cycle", "Cycle speed"}},
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity"}},
 

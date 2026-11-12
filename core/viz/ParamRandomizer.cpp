@@ -121,13 +121,6 @@ const std::vector<Roll>& rolls() {
          }},
         {T::Color, "Colour map",
          [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? counted(r, ParamSlot::paletteLut) : SceneParams::kNoPaletteLut; }},
-        {T::Color, "Palette 2",
-         [](SceneParams& p, Rng& r) {
-             p.palette2 = choice(r, ParamSlot::palette2);
-             p.palette2BaseOverride = SceneParams::kUnsetOverride;
-             p.palette2RangeOverride = SceneParams::kUnsetOverride;
-         }},
-        {T::Color, "Palette blend", [](SceneParams& p, Rng& r) { p.paletteMix = maybe(r, 0.5f, ParamSlot::paletteMix); }},
         {T::Color, "MilkDrop palette tint",
          [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
         {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
@@ -334,6 +327,11 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         // The Kaleidoscope switch and its count, retired for kaleidoFolds (rolled under Kaleidoscope).
         {"symmetry", "retired"},
         {"kaleidoscope", "retired"},
+        // Palette 2 and Palette blend, retired: the palette stack draws more than one palette.
+        {"palette2", "retired"},
+        {"paletteMix", "retired"},
+        {"palette2BaseOverride", "retired"},
+        {"palette2RangeOverride", "retired"},
     };
     return kNever;
 }

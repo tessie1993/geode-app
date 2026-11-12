@@ -25,6 +25,10 @@
   "strobe": 0.5,
   "formDrive": 0.2,
   "motionOrbit": 0.9,
+  "palette2": 6,
+  "paletteMix": 0.35,
+  "palette2BaseOverride": 0.4,
+  "palette2RangeOverride": 0.2,
   "beatFlash": 0.5,
   "customPaletteId": "old-palette"
 }

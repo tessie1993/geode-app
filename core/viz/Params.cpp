@@ -43,8 +43,6 @@ float SceneParams::paletteRange() const {
     if (paletteStopCount() > 0) return colour::hueSpan(stops.data(), static_cast<int>(stops.size()));
     return paletteRangeOverride >= 0.0f ? paletteRangeOverride : paletteAt(palette).range;
 }
-float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
-float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
 // The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
 // but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs

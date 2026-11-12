@@ -577,12 +577,12 @@ GEODE_API int         geode_colour_palette_accent(float base, float range);
 GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, float* out);
 /* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
  * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
- * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the
+ * placed where ramp() puts them. params_palette_preview: what the look's own palette in the
  * geode_viz_set_params frame `params` paints before Hue shift and Hue range: its stops when set, else the
  * cosine ramp of its hue base and span. */
 GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
 GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
-GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
+GEODE_API void        geode_params_palette_preview(const float* params, int samples, int* out);
 /* The palette stack (viz/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
  * up to 16 colours with its options (SMOOTH|STEPS, MIRROR|LOOP, RGB|HUE|OKLAB, a position per stop, and for one
  * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, meeting at a

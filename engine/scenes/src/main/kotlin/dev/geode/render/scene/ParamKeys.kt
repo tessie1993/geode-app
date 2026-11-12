@@ -59,8 +59,6 @@ object ParamKeys {
     const val TRAIL_WARP_LIQUID_ECHO = "Trail warp (liquid echo)"
     const val PALETTE = "Palette"
     const val COLOUR_MAP = "Colour map"
-    const val PALETTE_2 = "Palette 2"
-    const val PALETTE_BLEND = "Palette blend"
     const val MILKDROP_PALETTE_TINT = "MilkDrop palette tint"
     const val HUE_SHIFT = "Hue shift"
     const val HUE_RANGE = "Hue range"

@@ -31,12 +31,12 @@ param|28|particleSize|FLOAT|1|0.3|2.5|FADE|LIVE
 param|29|tile|FLOAT|1|1|6|FADE|LIVE
 param|30|twist|FLOAT|0|-1|1|FADE|LIVE
 param|31|palette|INT|0|0|20|HOLD|LIVE
-param|32|palette2|INT|1|0|20|HOLD|LIVE
-param|33|paletteMix|FLOAT|0|0|1|FADE|LIVE
+param|32|palette2|INT|1|0|20|HOLD|RETIRED
+param|33|paletteMix|FLOAT|0|0|1|FADE|RETIRED
 param|34|paletteBaseOverride|FLOAT|-1|-1|1|HOLD|LIVE
 param|35|paletteRangeOverride|FLOAT|-1|-1|1|HOLD|LIVE
-param|36|palette2BaseOverride|FLOAT|-1|-1|1|HOLD|LIVE
-param|37|palette2RangeOverride|FLOAT|-1|-1|1|HOLD|LIVE
+param|36|palette2BaseOverride|FLOAT|-1|-1|1|HOLD|RETIRED
+param|37|palette2RangeOverride|FLOAT|-1|-1|1|HOLD|RETIRED
 param|38|paletteLut|INT|-1|-1|4|HOLD|LIVE
 param|39|milkdropPaletteTint|FLOAT|0|0|1|FADE|LIVE
 param|40|milkdropBlendPresets|BOOL|0|0|1|HOLD|LIVE

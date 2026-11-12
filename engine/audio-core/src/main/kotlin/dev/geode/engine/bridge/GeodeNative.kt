@@ -1158,10 +1158,9 @@ object GeodeNative {
         count: Int,
     ): IntArray
 
-    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    /** [samples] colours of what a params frame's own palette paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
     external fun paramsPalettePreview(
         params: FloatArray,
-        second: Boolean,
         samples: Int,
     ): IntArray
 

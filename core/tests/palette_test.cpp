@@ -330,17 +330,16 @@ void anOldLookKeepsItsColours() {
     pl::Stack s = pl::fromLegacy(p, amounts);
     check(s.layers.size() == 1 && s.layers[0].ref == "spectrum" && s.layers[0].wrap == pl::Wrap::Loop, "the default look: Spectrum, looped");
 
+    // Palette 2 and Palette blend are retired: a look that saved a second palette draws its first alone.
     p.palette = 2;
     p.palette2 = 3;
     p.paletteMix = 0.3f;
     s = pl::fromLegacy(p, amounts);
-    check(s.layers.size() == 2 && s.blend == pl::Blend::Mix && s.edge == pl::Edge::Hard, "a second palette: two layers, mixed, hard edges");
-    check(std::fabs(amounts[0] - 0.7f) < 1e-6f && std::fabs(amounts[1] - 0.3f) < 1e-6f, "weighted 1 - mix and mix");
+    check(s.layers.size() == 1 && s.layers[0].ref == "fire" && s.edge == pl::Edge::Hard && amounts[0] == 1.0f,
+          "a retired second palette: the first palette alone");
     for (float t : {0.0f, 0.25f, 0.5f, 0.8f}) {
-        const colour::Rgb a = colour::procedural(p.paletteBase(), p.paletteRange(), t);
-        const colour::Rgb b = colour::procedural(p.palette2Base(), p.palette2Range(), t);
-        const colour::Rgb want{a.r + (b.r - a.r) * 0.3f, a.g + (b.g - a.g) * 0.3f, a.b + (b.b - a.b) * 0.3f};
-        check(near(pl::at(s, amounts, t), want, 4.0f / 255.0f), "mix(first, second, paletteMix) at " + std::to_string(t));
+        check(near(pl::at(s, amounts, t), colour::procedural(p.paletteBase(), p.paletteRange(), t), 4.0f / 255.0f),
+              "the first palette's own ramp at " + std::to_string(t));
     }
 
     SceneParams yours;
@@ -364,7 +363,7 @@ void anOldLookKeepsItsColours() {
     p.toWire(wire);
     float out[pl::kMaxLayers] = {};
     const std::string text = geode_palette_stack_from_params(wire, out);
-    check(pl::decode(text).layers.size() == 2 && std::fabs(out[1] - 0.3f) < 1e-6f, "the ABI reads the params frame");
+    check(pl::decode(text).layers.size() == 1 && out[0] == 1.0f, "the ABI reads the params frame");
 }
 
 void recentColours() {
@@ -415,17 +414,6 @@ void theRampARendererUploads() {
     moved[1] = 0.1f;
     check(ramp.update(stack, moved), "a layer's amount composes again");
     check(ramp.update(std::make_shared<const pl::Stack>(), moved) && !ramp.active(), "an unset stack hands the look back to its old colours");
-}
-
-void anOldBlendRidesPaletteTwosAmount() {
-    SceneParams look;
-    look.paletteMix = 0.3f;
-    look.paletteAmount1 = 0.8f;
-    SceneParams carried = pl::carryBlend(look);
-    check(carried.paletteAmount1 == 0.3f && carried.paletteMix == 0.3f, "the blend rides the row its target writes");
-    carried.paletteAmount1 = 0.65f;
-    const SceneParams settled = pl::settleBlend(carried, look.paletteAmount1);
-    check(settled.paletteMix == 0.65f && settled.paletteAmount1 == 0.8f, "what moved it lands on the blend; the row gets its own value back");
 }
 
 void theStackAsLookDrawsIt() {
@@ -484,7 +472,6 @@ int main(int argc, char** argv) {
     anOldLookKeepsItsColours();
     recentColours();
     theRampARendererUploads();
-    anOldBlendRidesPaletteTwosAmount();
     theStackAsLookDrawsIt();
     libraryTextEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/palettes.txt");
     if (failures) {

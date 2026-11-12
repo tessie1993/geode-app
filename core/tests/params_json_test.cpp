@@ -393,7 +393,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
                                            "waterDamping", "waterRippleStrength", "waterDepth", "waterSpecular", "waterFlow",
                                            "waterLiquid", "waterLiquidFlow", "waterLiquidFade", "rippleOverlayEnabled",
                                            "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive", "motionOrbit",
-                                           "symmetry", "kaleidoscope"};
+                                           "symmetry", "kaleidoscope", "palette2", "paletteMix", "palette2BaseOverride",
+                                           "palette2RangeOverride"};
     std::set<std::string> retiredNow;
     const auto legacyWire = wire(legacy);
     for (ParamSlot r : viz::kRetiredParams) {
@@ -401,7 +402,7 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
         retiredNow.insert(SceneParams::schema()[slot].name);
         check(legacyWire[slot] == defaults[slot], std::string("legacy.json: retired ") + SceneParams::schema()[slot].name);
     }
-    check(retiredNow == retired, "the retired rows are the twenty PresetGoldenTest named and the old Kaleidoscope pair");
+    check(retiredNow == retired, "the retired rows are the twenty PresetGoldenTest named, the old Kaleidoscope pair and Palette 2's four");
     const auto legacyWritten = entries(viz::writeParamsJson(legacy, a, b));
     for (const auto& name : retired) check(legacyWritten.count(name) == 0, "legacy.json: " + name + " not written again");
     check(legacyWritten.count("beatFlash") == 0, "legacy.json: an unknown key is not written");

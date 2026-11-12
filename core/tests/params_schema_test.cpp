@@ -499,31 +499,22 @@ void palettesAreTheShellsOldTable() {
     const ParamSpec& palette = SceneParams::spec(ParamSlot::palette);
     check(static_cast<int>(palette.max) == kRows - 1 && static_cast<int>(palette.min) == 0,
           "the palette field's range is the table's rows");
-    auto at = [&](int palette, float baseOverride, float rangeOverride, bool second) {
+    auto at = [&](int palette, float baseOverride, float rangeOverride) {
         SceneParams p;
-        if (second) {
-            p.palette2 = palette;
-            p.palette2BaseOverride = baseOverride;
-            p.palette2RangeOverride = rangeOverride;
-            return Row{p.palette2Base(), p.palette2Range()};
-        }
         p.palette = palette;
         p.paletteBaseOverride = baseOverride;
         p.paletteRangeOverride = rangeOverride;
         return Row{p.paletteBase(), p.paletteRange()};
     };
-    for (int second = 0; second < 2; ++second) {
-        for (int i = -3; i < kRows + 3; ++i) {
-            const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
-            const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, second != 0);
-            check(got.base == want.base && got.range == want.range,
-                  "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
-        }
-        const Row custom = at(4, 0.31f, 0.0f, second != 0);
-        check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
-        const Row half = at(4, 0.31f, -1.0f, second != 0);
-        check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
+    for (int i = -3; i < kRows + 3; ++i) {
+        const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
+        const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride);
+        check(got.base == want.base && got.range == want.range, "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
     }
+    const Row custom = at(4, 0.31f, 0.0f);
+    check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
+    const Row half = at(4, 0.31f, -1.0f);
+    check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
 }
 
 // The meta rows (#1005 PR 4a): every live row has one, a retired row none (ParamsFields.cpp also asserts
@@ -577,7 +568,8 @@ void everyLiveRowHasOneMeta() {
         check(m.scope == scope && m.rollLo == 0.0f && m.rollHi == 0.0f && (m.flags & kMod) != 0,
               std::string(SceneParams::spec(static_cast<ParamSlot>(slot)).name) + ": a target, never dealt by the param roll");
     }
-    check((SceneParams::meta(ParamSlot::paletteMix).flags & kMod) == 0, "no target writes the old Palette blend");
+    check(!SceneParams::meta(ParamSlot::paletteMix).live && !SceneParams::meta(ParamSlot::palette2).live,
+          "Palette blend and Palette 2 are retired: the stack draws more than one palette");
     check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
     const ParamMeta& kaleido = SceneParams::meta(ParamSlot::kaleidoFolds);
     check(std::string(kaleido.label) == "Kaleidoscope" && kaleido.scope == catalogue::Scope::Universal && (kaleido.flags & kMod) != 0 &&

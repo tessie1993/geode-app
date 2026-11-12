@@ -56,7 +56,12 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::motionOrbit,
                                                // The Kaleidoscope switch and its count: kaleidoFolds replaced both.
                                                ParamSlot::symmetry,
-                                               ParamSlot::kaleidoscope};
+                                               ParamSlot::kaleidoscope,
+                                               // Palette 2 and Palette blend: the palette stack draws more than one palette.
+                                               ParamSlot::palette2,
+                                               ParamSlot::paletteMix,
+                                               ParamSlot::palette2BaseOverride,
+                                               ParamSlot::palette2RangeOverride};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
@@ -143,8 +148,6 @@ struct SceneParams {
 
     float paletteBase() const;
     float paletteRange() const;
-    float palette2Base() const;
-    float palette2Range() const;
     // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
     std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
     int paletteStopCount() const;

@@ -1,5 +1,8 @@
 package dev.geode.export
 
+import android.content.res.Resources
+import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,7 +21,8 @@ object ExportRun {
         val secondsRemaining: Long? = null,
     )
 
-    private val eta = RenderEta()
+    /** The native estimate of the time left (core/output/RenderEta), made by the first sample of the process. */
+    private val eta = lazy { GeodeNative.renderEtaCreate() }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
@@ -65,14 +69,14 @@ object ExportRun {
     }
 
     fun begin(label: String) {
-        eta.reset()
+        resetEta()
         cancelRequested = false
         _state.value = State(running = true, progress = null, label = label)
     }
 
     /**
      * [steady] is false for the quick lead-in phase (the audio transcode): it moves the
-     * bar but says nothing about how fast the render will go, so [RenderEta] skips it.
+     * bar but says nothing about how fast the render will go, so the estimate skips it.
      */
     fun publish(
         progress: Float,
@@ -82,12 +86,32 @@ object ExportRun {
         val current = _state.value
         if (!current.running) return
         val clamped = progress.coerceIn(0f, 1f)
-        _state.value = current.copy(progress = clamped, secondsRemaining = eta.sample(clamped, atMs, steady))
+        val seconds = GeodeNative.renderEtaSample(eta.value, clamped, atMs, steady)
+        _state.value =
+            current.copy(progress = clamped, secondsRemaining = seconds.takeIf { it != GeodeNative.RENDER_ETA_UNKNOWN })
+    }
+
+    /** The time left in the user's words; which phrase and its count are native's (core/output/RenderEta). */
+    fun describeEta(
+        res: Resources,
+        secondsRemaining: Long,
+    ): String {
+        val count = GeodeNative.renderEtaPhraseCount(secondsRemaining)
+        return when (GeodeNative.renderEtaPhrase(secondsRemaining)) {
+            GeodeNative.ETA_ALMOST_DONE -> res.getString(R.string.export_eta_almost_done)
+            GeodeNative.ETA_ABOUT_A_MINUTE -> res.getString(R.string.export_eta_one_minute)
+            GeodeNative.ETA_MINUTES -> res.getQuantityString(R.plurals.export_eta_minutes, count, count)
+            else -> res.getQuantityString(R.plurals.export_eta_hours, count, count)
+        }
+    }
+
+    private fun resetEta() {
+        if (eta.isInitialized()) GeodeNative.renderEtaReset(eta.value)
     }
 
     fun finish() {
         job = null
-        eta.reset()
+        resetEta()
         _state.value = State()
     }
 }

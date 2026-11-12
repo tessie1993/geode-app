@@ -177,6 +177,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
+- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
 ## `engine/audioandroid`
@@ -278,11 +280,14 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Loop render and chapters.
 - Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
+- The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
+- A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.
 - Whether there is a watermark, where (tiled, a corner, an end card), its size, its opacity and the end card's timing are native (`exportmath::watermark`).
 - An end card is a corner on a loop, a recording or a layered Studio segment.
 - The watermark's compositing and the loop seam are native Passes in `core/viz/frame/ExportPasses`.
-- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, called through `geode_export_*`.
+- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, driven by the native loop job.
+- `LoopRender` hands the native loop job (`loopJob*`) its values, polls its progress every 50 ms, passes a cancel on and words its outcome.
 - `MuxerBudget` caps the bit rate so a long render stays under MediaMuxer's 4 GB.
 
 ## `viz`

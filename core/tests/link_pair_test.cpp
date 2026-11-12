@@ -50,44 +50,44 @@ struct Counter {
 };
 
 void testCode() {
-    const uint8_t zeros[5] = {0, 0, 0, 0, 0};
-    const uint8_t ones[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    const uint8_t mixed[5] = {0x08, 0x86, 0x42, 0x98, 0xE8};
-    check(pairing::codeFrom(zeros) == "00000000", "all-zero bytes");
-    check(pairing::codeFrom(ones) == "ZZZZZZZZ", "all-one bytes");
-    check(pairing::codeFrom(mixed) == "12345678", "5 bits a symbol, high bits first");
-    check(pairing::display("ABCD2345") == "ABCD-2345", "shown as two groups of four");
+    const uint8_t zeros[4] = {0, 0, 0, 0};
+    const uint8_t ones[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    const uint8_t mixed[4] = {0x02, 0x21, 0x90, 0xA6};
+    check(pairing::codeFrom(zeros) == "000000", "all-zero bytes");
+    check(pairing::codeFrom(ones) == "ZZZZZZ", "all-one bytes");
+    check(pairing::codeFrom(mixed) == "123456", "5 bits a symbol, high bits first");
+    check(pairing::display("ABC234") == "ABC-234", "shown as two groups of three");
     for (int b = 0; b < 256; ++b) {
-        const uint8_t bytes[5] = {static_cast<uint8_t>(b), static_cast<uint8_t>(b * 7), static_cast<uint8_t>(b * 13),
-                                  static_cast<uint8_t>(b * 29), static_cast<uint8_t>(b * 31)};
+        const uint8_t bytes[4] = {static_cast<uint8_t>(b), static_cast<uint8_t>(b * 7), static_cast<uint8_t>(b * 13),
+                                  static_cast<uint8_t>(b * 29)};
         const std::string c = pairing::codeFrom(bytes);
         bool clean = c.size() == static_cast<size_t>(pairing::kCodeChars);
         for (char ch : c) clean = clean && ch != 'I' && ch != 'L' && ch != 'O' && ch != 'U';
-        check(clean, "eight symbols, never I, L, O or U");
+        check(clean, "six symbols, never I, L, O or U");
         check(pairing::codeMatches(c, c) && pairing::codeMatches(pairing::display(c), c), "a code matches itself, dash or not");
     }
 
     char out[pairing::kCodeChars];
-    check(pairing::normalize("abcd-2345", out) && std::memcmp(out, "ABCD2345", 8) == 0, "typed lowercase");
-    check(pairing::normalize(" A B C D 2 3 4 5 ", out), "spaces skipped");
-    check(pairing::normalize("oOiIlL00", out) && std::memcmp(out, "00111100", 8) == 0, "O read as 0, I and L as 1");
-    check(!pairing::normalize("ABCD234", out) && !pairing::normalize("ABCD23456", out) && !pairing::normalize("", out),
-          "exactly eight symbols");
-    check(!pairing::normalize("ABCD-234U", out) && !pairing::normalize("ABCD_2345", out) && !pairing::normalize("ABCD\n2345", out),
+    check(pairing::normalize("abc-234", out) && std::memcmp(out, "ABC234", 6) == 0, "typed lowercase");
+    check(pairing::normalize(" A B C 2 3 4 ", out), "spaces skipped");
+    check(pairing::normalize("oOiIlL", out) && std::memcmp(out, "001111", 6) == 0, "O read as 0, I and L as 1");
+    check(!pairing::normalize("ABC23", out) && !pairing::normalize("ABC2345", out) && !pairing::normalize("", out),
+          "exactly six symbols");
+    check(!pairing::normalize("ABC-23U", out) && !pairing::normalize("ABC_234", out) && !pairing::normalize("ABC\n234", out),
           "anything else refuses the whole");
-    check(!pairing::normalize("ABCD2345\xC3\xA9", out), "non-ASCII refuses it");
+    check(!pairing::normalize("ABC234\xC3\xA9", out), "non-ASCII refuses it");
 
-    check(!pairing::codeMatches("ABCD2346", "ABCD2345") && !pairing::codeMatches("BBCD2345", "ABCD2345"), "first or last differs");
-    check(!pairing::codeMatches("", "ABCD2345") && !pairing::codeMatches("ABCD", "ABCD2345"), "short never matches");
-    check(!pairing::codeMatches("", "") && !pairing::codeMatches("ABCD2345", ""), "no code never matches");
-    check(!pairing::codeMatches("ABCD2345ABCD2345", "ABCD2345"), "a repeat never matches");
+    check(!pairing::codeMatches("ABC235", "ABC234") && !pairing::codeMatches("BBC234", "ABC234"), "first or last differs");
+    check(!pairing::codeMatches("", "ABC234") && !pairing::codeMatches("ABC", "ABC234"), "short never matches");
+    check(!pairing::codeMatches("", "") && !pairing::codeMatches("ABC234", ""), "no code never matches");
+    check(!pairing::codeMatches("ABC234ABC234", "ABC234"), "a repeat never matches");
 }
 
 void testSession() {
     Counter random;
     pairing::Pairing p([&random](uint8_t* out, size_t n) { return random(out, n); });
     check(!p.isOpen() && p.code(0).empty(), "closed: no code");
-    check(p.attempt("00000000", 0) == pairing::kClosed, "closed: 404");
+    check(p.attempt("000000", 0) == pairing::kClosed, "closed: 404");
     p.open(1'000);
     const std::string first = p.code(1'000);
     check(p.isOpen() && first.size() == static_cast<size_t>(pairing::kCodeChars), "open: a code");
@@ -126,13 +126,13 @@ void testLimits() {
     p.open(0);
     const std::string code = p.code(0);
     int64_t t = 10'000;
-    check(p.attempt("ZZZZZZZZ", t) == pairing::kWrong, "a wrong try: 403");
+    check(p.attempt("ZZZZZZ", t) == pairing::kWrong, "a wrong try: 403");
     check(p.attempt(code, t + pairing::kGapMs - 1) == pairing::kThrottled, "even the right code waits out the gap");
     check(p.code(t) == code, "a throttled try is not compared or counted");
     t += pairing::kGapMs;
-    for (int i = 1; i < pairing::kTriesPerCode - 1; ++i, t += pairing::kGapMs) check(p.attempt("ZZZZZZZZ", t) == pairing::kWrong, "wrong");
+    for (int i = 1; i < pairing::kTriesPerCode - 1; ++i, t += pairing::kGapMs) check(p.attempt("ZZZZZZ", t) == pairing::kWrong, "wrong");
     check(p.code(t) == code, "the code holds until its last try");
-    check(p.attempt("ZZZZZZZZ", t) == pairing::kWrong, "the last wrong try");
+    check(p.attempt("ZZZZZZ", t) == pairing::kWrong, "the last wrong try");
     check(p.code(t) != code, "spends the code: a new one shows");
     t += pairing::kGapMs;
     check(p.attempt(code, t) == pairing::kWrong, "the spent code is wrong");
@@ -142,7 +142,7 @@ void testLimits() {
     q.open(0);
     t = 1'000;
     for (int spent = 0; spent < pairing::kSpentBeforeLock; ++spent)
-        for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) q.attempt("ZZZZZZZZ", t);
+        for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) q.attempt("ZZZZZZ", t);
     const int64_t locked = t - pairing::kGapMs;
     const std::string now = q.code(t);
     check(q.attempt(now, t) == pairing::kThrottled, "locked: even the right code waits");
@@ -153,11 +153,11 @@ void testLimits() {
     pairing::Pairing r([&random](uint8_t* out, size_t n) { return random(out, n); });
     r.open(0);
     t = 1'000;
-    for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) r.attempt("ZZZZZZZZ", t);
+    for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) r.attempt("ZZZZZZ", t);
     check(r.attempt(r.code(t), t) == pairing::kPaired, "pairs after one spent code");
     t += pairing::kGapMs;
     for (int spent = 0; spent < pairing::kSpentBeforeLock - 1; ++spent)
-        for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) r.attempt("ZZZZZZZZ", t);
+        for (int i = 0; i < pairing::kTriesPerCode; ++i, t += pairing::kGapMs) r.attempt("ZZZZZZ", t);
     check(r.attempt(r.code(t), t) == pairing::kPaired, "not locked: the count started over");
 
     // Guessing at the fastest pace allowed: a bounded number of compares a minute.
@@ -165,7 +165,7 @@ void testLimits() {
     g.open(0);
     int compared = 0;
     for (int64_t ms = 0; ms < 60'000; ms += 10)
-        if (g.attempt("ZZZZZZZZ", ms) == pairing::kWrong) ++compared;
+        if (g.attempt("ZZZZZZ", ms) == pairing::kWrong) ++compared;
     check(compared <= pairing::kTriesPerCode * pairing::kSpentBeforeLock, "at most the tries before a lock in a minute");
 
     // No secure random: closed, never a guessable code.
@@ -173,7 +173,7 @@ void testLimits() {
     broken.fail = true;
     pairing::Pairing b([&broken](uint8_t* out, size_t n) { return broken(out, n); });
     b.open(0);
-    check(!b.isOpen() && b.code(0).empty() && b.attempt("00000000", 0) == pairing::kClosed, "no random: closed");
+    check(!b.isOpen() && b.code(0).empty() && b.attempt("000000", 0) == pairing::kClosed, "no random: closed");
     pairing::Pairing none(nullptr);
     none.open(0);
     check(!none.isOpen(), "no source at all: closed");
@@ -276,11 +276,11 @@ void testAbi() {
     char path[64];
     geode_link_pair_open(0, 0);
     check(geode_link_pair_code(0, code, sizeof code) == 0 && code[0] == '\0', "abi: closed, no code");
-    check(geode_link_pair_try("00000000", 0, kToken.c_str(), path, sizeof path) == 404, "abi: closed, 404");
+    check(geode_link_pair_try("000000", 0, kToken.c_str(), path, sizeof path) == 404, "abi: closed, 404");
     geode_link_pair_open(1, 1'000);
-    check(geode_link_pair_code(1'000, code, sizeof code) == 9 && code[4] == '-', "abi: a code from the OS's random, shown ABCD-EFGH");
+    check(geode_link_pair_code(1'000, code, sizeof code) == 7 && code[3] == '-', "abi: a code from the OS's random, shown ABC-DEF");
     const std::string first = code;
-    check(geode_link_pair_code(1'000, nullptr, 0) == 9, "abi: size query");
+    check(geode_link_pair_code(1'000, nullptr, 0) == 7, "abi: size query");
     check(geode_link_pair_try(first.c_str(), 2'000, kToken.c_str(), path, 10) == 404, "abi: no room for the path, no try");
     check(geode_link_pair_try(first.c_str(), 2'000, "ABC", path, sizeof path) == 404, "abi: a malformed token, no try");
     check(geode_link_pair_try(first.c_str(), 2'000, kToken.c_str(), path, sizeof path) == 200 && std::string(path) == "/" + kToken + "/",

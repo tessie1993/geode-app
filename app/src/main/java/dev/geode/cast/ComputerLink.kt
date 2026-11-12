@@ -106,7 +106,7 @@ object ComputerLink {
     }
 
     /**
-     * The code a computer types after the short link ("ABCD-EFGH"), "" while nothing is shared: single-session,
+     * The code a computer types after the short link ("ABC-DEF"), "" while nothing is shared: single-session,
      * replaced once used or after a few minutes (native, `geode_link_pair_code`), so the sheet reads it again often.
      */
     fun pairCode(): String = GeodeNative.linkPairCode(SystemClock.elapsedRealtime())

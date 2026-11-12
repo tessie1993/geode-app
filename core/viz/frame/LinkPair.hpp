@@ -14,7 +14,7 @@ namespace geode::viz::frame::link::pair {
 // with the token's path, so no stream byte reaches a browser that has not shown the code.
 //
 // The code: kCodeChars symbols of Crockford's base32 (no I, L, O or U; typed case-free, O read as 0, I and L
-// as 1, dashes and spaces ignored), kCodeBytes random bytes from the OS, shown as two groups of four. It is
+// as 1, dashes and spaces ignored), kCodeBytes random bytes from the OS, shown as two groups of three. It is
 // single-session: a right code is spent at once and a new one shown. A code lives kCodeLifeMs, then a new one
 // replaces it. Guessing is held back three ways: kTriesPerCode wrong tries spend a code; a try within kGapMs
 // of the last wrong one is not compared at all; kSpentBeforeLock codes spent by wrong tries lock every try out
@@ -23,8 +23,8 @@ namespace geode::viz::frame::link::pair {
 // What it does not do: the typed code, like the rest of the page, crosses plain http (LinkShare's note), so it
 // keeps out whoever has only the short link, not someone reading the Wi-Fi's traffic.
 
-inline constexpr int kCodeChars = 8;
-inline constexpr int kCodeBytes = 5;   // 40 bits, 5 per symbol
+inline constexpr int kCodeChars = 6;
+inline constexpr int kCodeBytes = 4;   // 30 bits used, 5 per symbol
 inline constexpr int64_t kCodeLifeMs = 5 * 60'000;
 inline constexpr int kTriesPerCode = 5;
 inline constexpr int64_t kGapMs = 1'000;
@@ -36,10 +36,10 @@ inline constexpr int64_t kBodyMax = 64;
 // HTTP statuses of a try: the token's path follows a 200.
 enum Result : int { kPaired = 200, kWrong = 403, kClosed = 404, kThrottled = 429 };
 
-// kCodeChars symbols from kCodeBytes bytes (5 bits each, high bits first).
+// kCodeChars symbols from kCodeBytes bytes (5 bits each, the low 30 bits, high first).
 std::string codeFrom(const uint8_t* bytes);
 
-// The code as the sheet shows it: "ABCD-EFGH".
+// The code as the sheet shows it: "ABC-DEF".
 std::string display(std::string_view code);
 
 // What was typed, read into kCodeChars symbols; false when it is not exactly kCodeChars of them.

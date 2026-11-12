@@ -1447,7 +1447,7 @@ GEODE_API int             geode_link_label(const char* token, char* out, int cap
 /* The typed path (viz/frame/LinkPair, for a computer with no scanner): the short link with no token, the host
  * as one number (size-query convention, 0 on the terms of geode_link_share_url), and the code that unlocks it.
  * One pairing per process, any thread. open (1) starts it with a fresh code from the OS's secure random, a no-op
- * while open; open (0) closes it. code: the code to show now ("ABCD-EFGH"; size-query convention, 0 while
+ * while open; open (0) closes it. code: the code to show now ("ABC-DEF"; size-query convention, 0 while
  * closed), a new one once the last has lived GEODE_LINK_PAIR_CODE_LIFE_MS. try: one POST on GEODE_LINK_PAIR,
  * its body as typed (at most GEODE_LINK_PAIR_BODY_MAX bytes); returns the status (200 right: a single-session
  * code, spent at once; 403 wrong; 404 closed; 429 too soon after a wrong try or locked out) and on 200 writes

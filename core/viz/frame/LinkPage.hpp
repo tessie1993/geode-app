@@ -366,7 +366,7 @@ inline constexpr std::string_view kPairHtml = R"HTML(<!doctype html>
 <body>
 <form id="pair" autocomplete="off">
 <label for="code">Type the code the phone shows</label>
-<input id="code" type="text" maxlength="16" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX" autofocus>
+<input id="code" type="text" maxlength="12" autocapitalize="characters" spellcheck="false" placeholder="XXX-XXX" autofocus>
 <button id="go" type="submit">Watch</button>
 </form>
 <p id="note"></p>

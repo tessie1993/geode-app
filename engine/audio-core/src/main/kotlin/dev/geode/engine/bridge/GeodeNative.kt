@@ -2537,7 +2537,7 @@ object GeodeNative {
         nowMs: Long,
     )
 
-    /** The code to show now ("ABCD-EFGH"), "" while closed; a new one once the last has lived its time. */
+    /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
     external fun linkPairCode(nowMs: Long): String
 
     /**

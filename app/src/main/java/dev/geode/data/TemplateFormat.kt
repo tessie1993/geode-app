@@ -178,7 +178,7 @@ object TemplateFormat {
         // A template link is anything anyone sends, so nothing in reading it may throw past
         // here: the confirm dialog decodes on the main thread. The readers already fall back
         // field by field; this catches whatever a future field forgets to.
-        return runCatching { TemplateParse.Parsed(readTemplate(root)) }
+        return runCatching { TemplateParse.Parsed(readTemplate(root, body)) }
             .getOrElse { TemplateParse.Malformed("the template could not be read") }
     }
 
@@ -285,12 +285,15 @@ object TemplateFormat {
             .put(KEY_EXPORT, exportOf(template.export))
             .mergeForeign(template.foreign)
 
-    private fun readTemplate(root: JSONObject): VideoTemplate {
+    private fun readTemplate(
+        root: JSONObject,
+        body: String,
+    ): VideoTemplate {
         val bare =
             VideoTemplate(
                 id = TemplateId.parse(root.optString(KEY_ID)) ?: TemplateId.random(),
                 name = root.optString(KEY_NAME).trim().ifBlank { DEFAULT_NAME },
-                look = readLook(root.optJSONObject(KEY_LOOK)),
+                look = readLook(root.optJSONObject(KEY_LOOK), body),
                 layout = readLayout(root.optJSONObject(KEY_LAYOUT)),
                 text = readText(root.optJSONObject(KEY_TEXT)),
                 export = readExport(root.optJSONObject(KEY_EXPORT)),
@@ -316,11 +319,14 @@ object TemplateFormat {
             .also { out -> look.milkPreset?.let { out.put(KEY_MILK_PRESET, it) } }
             .mergeForeign(look.foreign)
 
-    private fun readLook(source: JSONObject?): TemplateLook {
+    private fun readLook(
+        source: JSONObject?,
+        body: String,
+    ): TemplateLook {
         val paramsSource = source?.optJSONObject(KEY_PARAMS)
         val params =
             paramsSource
-                ?.let { runCatching { PresetStore.paramsFromJson(it) }.getOrDefault(SceneParams.DEFAULT) }
+                ?.let { o -> runCatching { PresetStore.paramsFromJson(o, body, PARAMS_PATH) }.getOrDefault(SceneParams.DEFAULT) }
                 ?: SceneParams.DEFAULT
         val bare =
             TemplateLook(
@@ -555,6 +561,9 @@ object TemplateFormat {
     private const val KEY_ATTACK = "attack"
     private const val KEY_DECAY = "decay"
     private const val KEY_PARAMS = "params"
+
+    /** Where a template's params object sits in its text, for native's read of that text ([PresetStore.paramsFromJson]). */
+    private const val PARAMS_PATH = "$KEY_LOOK\n$KEY_PARAMS"
     private const val KEY_CUSTOM_SHADER = "customShader"
     private const val KEY_MILK_PRESET = "milkPreset"
 

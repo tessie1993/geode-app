@@ -1078,14 +1078,29 @@ object GeodeNative {
     external fun paramsKaleidoscopePick(row: Int): Int
 
     /**
-     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
-     * retired slots to their defaults, every row held to its schema range but a circular one
-     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
+     * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
+     * (`geode_params_write_json`). Null for a short frame. Pure.
      */
-    external fun paramsSanitize(
-        input: FloatArray,
-        output: FloatArray,
-    )
+    external fun paramsWriteJson(
+        frame: FloatArray,
+        customPaletteId: String,
+        customPalette2Id: String,
+    ): String?
+
+    /**
+     * A params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two palette slot
+     * ids into [ids] (two slots; "" when missing) (`geode_params_read_json`): the object at [path] (nested keys,
+     * newline-separated, "" for the top) of [document], the text org.json parsed, when that is standard JSON, else
+     * [fallback], the object as org.json printed it. False, nothing written, when neither holds an object. Pure.
+     */
+    external fun paramsReadJson(
+        document: String?,
+        path: String,
+        fallback: String?,
+        out: FloatArray,
+        ids: Array<String?>,
+    ): Boolean
 
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(

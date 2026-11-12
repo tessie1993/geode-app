@@ -566,6 +566,11 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
           ./params_test
+          # The params object of a preset, link, template look and saved look (core/viz/ParamsJson), with the app's preset fixtures.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/params_json_test.cpp core/viz/ParamsJson.cpp \
+            core/api/geode_params_json_api.cpp core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp \
+            core/viz/VisualSafety.cpp -o params_json_test
+          ./params_json_test app/src/test/resources/presets
           # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
           ./param_text_test

@@ -634,14 +634,39 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsKaleidoscopePick(JNIEnv*, jobject
     return geode_params_kaleidoscope_pick(row);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsSanitize(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsWriteJson(JNIEnv* env, jobject, jfloatArray frame, jstring customPaletteId,
+                                                         jstring customPalette2Id) {
+    FloatElements values(env, frame);
+    Utf8Chars idA(env, customPaletteId);
+    Utf8Chars idB(env, customPalette2Id);
+    if (!values.get()) return nullptr;
+    return geode::jni::utf8String(env, geode_params_write_json(values.get(), values.length(), idA.get(), idB.get()));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsReadJson(JNIEnv* env, jobject, jstring document, jstring path, jstring fallback,
+                                                        jfloatArray out, jobjectArray ids) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());
-    if (!in || !out || env->GetArrayLength(in) < count || env->GetArrayLength(out) < count) return;
+    if (!out || env->GetArrayLength(out) < count || !ids || env->GetArrayLength(ids) < 2) return JNI_FALSE;
+    Utf8Chars documentText(env, document);
+    Utf8Chars pathText(env, path);
+    Utf8Chars fallbackText(env, fallback);
     std::vector<float> frame(static_cast<size_t>(count));
-    env->GetFloatArrayRegion(in, 0, count, frame.data());
-    geode_params_sanitize(frame.data(), frame.data());
+    const char* idA = nullptr;
+    const char* idB = nullptr;
+    if (!geode_params_read_json(documentText.get(), pathText.get(), fallbackText.get(), frame.data(), count, &idA, &idB)) {
+        return JNI_FALSE;
+    }
     env->SetFloatArrayRegion(out, 0, count, frame.data());
+    const char* read[2] = {idA, idB};
+    for (jsize i = 0; i < 2; ++i) {
+        jstring id = geode::jni::utf8String(env, read[i]);
+        if (!id || env->ExceptionCheck()) return JNI_FALSE;
+        env->SetObjectArrayElement(ids, i, id);
+        env->DeleteLocalRef(id);
+    }
+    return JNI_TRUE;
 }
 
 JNIEXPORT jint JNICALL

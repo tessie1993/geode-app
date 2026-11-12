@@ -29,7 +29,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |
 | `StyleFamilies` | 37 | pending |
-| `ThermalGovernor` | 38 | pending |
+| `ThermalGovernor` | 38 | **ported**: `core/viz/frame/ThermalSource` reads the NDK's `AThermal_*` (status listener, 30 s headroom on the won slot) into `ThermalState`; `geode_thermal_push` is gone. |
 | `SoundCursor` | 39 | pending |
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending: shell glue (copies the bundled `.milk` assets once), but `MilkPresetMemory` in `:engine:scenes` installs it, so it moves when that does. |
@@ -47,7 +47,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `PerformanceSettings` | 94 | pending |
 | `ParamScope` | 94 | pending |
 | `SampleRing` | 95 | pending |
-| `LookApplier` | 97 | pending |
+| `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
 | `OffscreenSceneRenderer` | 128 | pending |

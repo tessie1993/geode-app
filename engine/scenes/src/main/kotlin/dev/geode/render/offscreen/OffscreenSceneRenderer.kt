@@ -3,11 +3,9 @@ package dev.geode.render.offscreen
 import android.content.Context
 import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.HandMask
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
-import dev.geode.render.look.LookApplier
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
@@ -60,10 +58,6 @@ class OffscreenSceneRenderer(
 
     // The factory's style opens the range (a take's opening style); the schedule switches natively after.
     private val look = spec.look.copy(sceneId = sceneFactory.sceneId)
-    private val looks = LookApplier()
-
-    // The hand mask the route merge uses: the native pin's for an export, else the process's live one.
-    private var pinnedHandMask: Int? = null
 
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
@@ -79,9 +73,9 @@ class OffscreenSceneRenderer(
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
-        // Pinned first: the hand mask the pin returns is what the routes merge under (an export's, not the live one).
-        pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
-        looks.apply(look, viz, handMask = pinnedHandMask ?: HandMask.current)
+        // Pinned before the first frame: native then merges the routes under the pinned hand mask, not the live one.
+        spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
+        viz.setLook(look)
         native = viz
         // The pre-roll (core/output/PreRoll): the engine hears the track before frame 0, so the render opens warm, as live
         // plays on. A track it cannot hear fails the render; it used to export a picture the silence rule froze (#999 F1).
@@ -105,8 +99,8 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
-        // Keyframed params ride in the look; reactSeed among them, so native re-deals the DNA when keyframes change it.
-        looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz, handMask = pinnedHandMask ?: HandMask.current)
+        // Keyframed params, reactSeed among them, so native re-deals the DNA when keyframes change it.
+        spec.paramsAt?.let { viz.setParams(it(timeMs)) }
         // Exactly the audio up to the end of this frame, to the sample (#999 F6), then a render steps the engine by 1/fps.
         audio?.deliverUntil(viz) { GeodeNative.trackFeedTargetFrame(it, frame.toLong(), fps) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.

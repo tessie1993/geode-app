@@ -26,7 +26,8 @@ One fact per line. Add a fact as a new bullet under its module.
 - `LookSnapshot` is the one value every host draws: style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
 - `LookSource.pin` freezes the snapshot for a render.
 - `gentleFlight` is the dream's override.
-- `LookApplier` pushes through `LookTarget`, which `NativeViz` implements: the live renderer on the frame bits native asks for, an export on what changed.
+- `NativeViz.setLook` pushes the parts of a look that changed, from any thread, into the native handle's latches; a new handle gets the whole look once.
+- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
 - `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).

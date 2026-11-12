@@ -8,7 +8,10 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
+
+#include <time.h>
 
 #include <EGL/egl.h>
 
@@ -33,11 +36,11 @@
 #include "viz/Transition.hpp"
 #include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
-#include "viz/frame/Cadence.hpp"
 #include "viz/frame/LiveFps.hpp"
+#include "viz/frame/LiveFrame.hpp"
 #include "viz/frame/Pacer.hpp"
-#include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
+#include "viz/frame/ThermalSource.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
@@ -98,6 +101,7 @@ struct geode_viz {
         }
         stillWidth = width;
         stillHeight = height;
+        stillFresh = true;
     }
 
     // Record's tee (geode_viz_record_start): the finished visual into the encoder's surface, when the
@@ -120,14 +124,18 @@ struct geode_viz {
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
     // Set by geode_viz_prepare_offscreen: every set_params then carries the export's pinned params.
     std::atomic<bool> offline{false};
-    // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
-    geode::viz::frame::FrameCadence cadence;
-    // Which of the shell's pushed inputs this surface has applied (geode_viz_frame_begin); GL thread only.
-    geode::viz::frame::PushVersions pushes;
-    // What the reaction matrix plays (#750): scene, reactSeed, the user's routes and hand mask in, resolved
-    // on the render thread only when one changed. reactLock guards it: set_params may come from any thread.
+    // The live frame (geode_viz_frame): its order, and the scene, quality and gyro latched for it from any
+    // thread. Everything else of the look is latched by the renderer itself, and a new surface keeps it all
+    // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
+    // shell never sends the look again for a new surface.
+    geode::viz::frame::LiveFrame live;
+    // What the reaction matrix plays (#750): scene, reactSeed, the user's routes and the hand mask in,
+    // resolved on the render thread only when one changed. The mask is read before each render (the
+    // process's, or an export's pin), so a Customize › Music edit reaches every renderer with no push of its
+    // own. reactLock guards both: set_params and set_user_reactions may come from any thread.
     std::mutex reactLock;
     geode::viz::ReactionResolve reactions{&styleTraits};
+    geode::viz::HandRoutes userHand;
     // The live feed (geode_viz_feed_ring): the ring this renderer hears and its place in it. The cursor is
     // declared after the ring it refers to. Render thread only.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
@@ -149,6 +157,8 @@ struct geode_viz {
     std::vector<uint8_t> still;
     int stillWidth = 0;
     int stillHeight = 0;
+    // Read back since the last live frame told the shell (GEODE_FRAME_STILL_READY). Render thread only.
+    bool stillFresh = false;
     // Tap along: the beat as the last frame heard it, against the shell's taps. tapLock: taps come from the UI thread.
     std::mutex tapLock;
     geode::viz::TapAlong tapAlong;
@@ -172,16 +182,12 @@ static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
-static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
-static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
-static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
-static_assert(frame::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
-static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
-static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
-static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
-static_assert(frame::kFramePushTuning == GEODE_FRAME_PUSH_TUNING);
-static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the push bits sit below the Liquid field");
-static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
+static_assert(frame::kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
+static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
+static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
+static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
+static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(kLastLfoTarget) + 1;
@@ -192,6 +198,14 @@ constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 // between calls matter, and steady_clock never jumps with the wall clock.
 double monotonicSeconds() {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// A live frame's time: CLOCK_BOOTTIME, since boot with deep sleep counted, the clock SystemClock.elapsedRealtimeNanos
+// reads, so the picture's clock runs on as it did when the shell stamped each frame.
+double bootSeconds() {
+    timespec ts{};
+    clock_gettime(CLOCK_BOOTTIME, &ts);
+    return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) * 1e-9;
 }
 constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
 constexpr int kEnvBandCount = static_cast<int>(EnvBand::Width) + 1;
@@ -520,10 +534,6 @@ float geode_pacer_effective_cap(float cap_fps) {
     return geode::viz::ThermalState::process().capFor(cap_fps);
 }
 
-void geode_thermal_push(int platform_status, float headroom) {
-    geode::viz::ThermalState::process().push(platform_status, headroom, monotonicSeconds());
-}
-
 int geode_thermal_take_warm_note(float cap_fps, float paced_fps) {
     return geode::viz::ThermalState::process().takeWarmNote(cap_fps, paced_fps);
 }
@@ -596,9 +606,48 @@ HandRoutes handOf(const float* user, int user_floats, int has_user, unsigned mas
 // Before a render: what plays, worked out again only when the scene, seed, routes or mask changed.
 void syncReactions(geode_viz* v) {
     RouteArray routes{};
+    const std::uint32_t mask = v->renderer.handMask();
     std::lock_guard<std::mutex> lock(v->reactLock);
+    HandRoutes user = v->userHand;
+    user.mask = user.user ? (mask & hand::kAll) : 0u;
+    v->reactions.setHand(user);
     if (v->reactions.resolve(routes)) v->renderer.setReactionRoutes(routes);
 }
+
+// The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
+class VizStages final : public frame::LiveStages {
+public:
+    VizStages(geode_viz& v, const geode_pcm_ring* ring) : v_(v), ring_(ring) {}
+
+    void setPacedFps(float pacedFps, float capFps) override { v_.renderer.thermal().setPacedFps(pacedFps, capFps); }
+    void applyQuality(const frame::UserQuality& q) override {
+        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx, q.adaptive);
+        v_.renderer.setLiquidHotPolicy(q.liquidHotPolicy);
+    }
+    void clearToBlack() override { v_.renderer.clearToBlack(0); }
+    bool claimThermal() override { return ThermalState::process().headroomDue(monotonicSeconds()); }
+    void sampleThermal() override { thermal_source::sampleHeadroom(monotonicSeconds()); }
+    int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
+    void gyroReset() override {
+        const GyroLook::Look look = v_.gyro.reset();
+        v_.renderer.setLook(look.yaw, look.pitch);
+    }
+    void gyroSample(const frame::GyroReading& r) override {
+        const GyroLook::Look look = v_.gyro.sampleScreen(r.x, r.y, r.z, r.w, r.rotation);
+        v_.renderer.setLook(look.yaw, look.pitch);
+    }
+    bool setScene(const std::string& id) override { return geode_viz_set_scene(&v_, id.c_str()) != 0; }
+    void feedRing() override { geode_viz_feed_ring(&v_, ring_); }
+    void render() override { geode_viz_render(&v_, bootSeconds(), 0); }
+    std::string lastError() override { return v_.renderer.lastError(); }
+    bool milkPresetLoaded() override { return v_.renderer.milkPresetLoadedPending(); }
+    bool directorMomentsPending() override { return v_.renderer.directorStyleMomentsPending(); }
+    bool stillReady() override { return std::exchange(v_.stillFresh, false); }
+
+private:
+    geode_viz& v_;
+    const geode_pcm_ring* ring_;
+};
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
 static_assert(kMusicActionCount == GEODE_MUSIC_ACTIONS);
@@ -608,11 +657,12 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 
 extern "C" {
 
-void geode_viz_set_user_reactions(geode_viz* v, const float* routes, int count, int has_user, unsigned mask) {
+void geode_viz_set_user_reactions(geode_viz* v, const float* routes, int count, int has_user) {
     if (!v) return;
-    const HandRoutes h = handOf(routes, count, has_user, mask);
+    // The mask is filled in before each render (syncReactions).
+    const HandRoutes h = handOf(routes, count, has_user, 0u);
     std::lock_guard<std::mutex> lock(v->reactLock);
-    v->reactions.setHand(h);
+    v->userHand = h;
 }
 
 void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
@@ -731,40 +781,41 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_gyro_sample(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
-    if (!v) return;
-    const GyroLook::Look look = v->gyro.sampleScreen(x, y, z, w, display_rotation);
-    v->renderer.setLook(look.yaw, look.pitch);
+void geode_viz_gyro_push(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
+    if (v) v->live.gyroPush(frame::GyroReading{x, y, z, w, display_rotation});
 }
 
-void geode_viz_gyro_reset(geode_viz* v) {
-    if (!v) return;
-    const GyroLook::Look look = v->gyro.reset();
-    v->renderer.setLook(look.yaw, look.pitch);
+void geode_viz_gyro_off(geode_viz* v) {
+    if (v) v->live.gyroOff();
 }
 
-int geode_viz_frame_begin(geode_viz* v, float paced_fps, float cap_fps, float render_scale, float march_scale,
-                          int post_fx, int adaptive, int liquid_hot_policy, long long params_version,
-                          long long lfo_version, long long adsr_version, long long tuning_version) {
+void geode_viz_request_scene(geode_viz* v, const char* scene_id) {
+    if (!v || !scene_id) return;
+    try {
+        v->live.requestScene(scene_id);
+    } catch (...) {
+        // No memory for the id: the scene drawn stays until the next request.
+    }
+}
+
+void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive,
+                           int liquid_hot_policy) {
+    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy});
+}
+
+int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
     if (!v) return 0;
-    Renderer& r = v->renderer;
-    r.thermal().setPacedFps(paced_fps, cap_fps);
-    const frame::UserQuality quality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy};
-    if (v->cadence.offerQuality(quality)) {
-        r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
-        r.setLiquidHotPolicy(quality.liquidHotPolicy);
+    try {
+        VizStages stages(*v, ring);
+        return static_cast<int>(v->live.run(stages, paced_fps, cap_fps));
+    } catch (...) {
+        // Nothing to tell the shell this frame; the next one starts over.
+        return 0;
     }
-    uint32_t due = v->cadence.step([] { return ThermalState::process().headroomDue(monotonicSeconds()); },
-                                         [&r] { return r.takeLiquidMode(); });
-    if (due & frame::kFrameClearOnly) {
-        // The shell returns at once on this frame, so nothing it would push may count as applied yet.
-        r.clearToBlack(0);
-        return static_cast<int>(due);
-    }
-    // An error raised while a frame drew is told on the next one, so the shell asks for the text only then.
-    if (v->cadence.offerError(r.lastError())) due |= frame::kFrameErrorChanged;
-    const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
-    return static_cast<int>(due | want);
+}
+
+int geode_viz_liquid_mode(geode_viz* v) {
+    return v ? v->live.liquidMode() : 0;
 }
 
 unsigned geode_viz_pin_engine_settings(geode_viz* v, int entitled, long long duration_ms) {
@@ -863,8 +914,12 @@ const char* geode_viz_last_error(geode_viz* v) {
 void geode_viz_surface_created(geode_viz* v) {
     if (!v) return;
     v->renderer.onSurfaceCreated();
-    v->cadence.surfaceCreated();
-    v->pushes.surfaceCreated();
+    v->live.surfaceCreated();
+    // A new surface starts its engine on a full window, not the tail of the last: the next frame's cursor is a
+    // new one.
+    geode_viz_feed_ring(v, nullptr);
+    // The platform's status listener, once for the process (the first surface to come up).
+    geode::viz::thermal_source::attach();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {

@@ -240,13 +240,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizEndPreRoll(JNIEnv*, jobject, jlong h
     return geode_viz_end_pre_roll(vizOf(handle), rangeStartMs) ? JNI_TRUE : JNI_FALSE;
 }
 
-// The live feed: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is
-// valid while its Kotlin holder is reachable, and the caller holds it for this call.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizFeedRing(JNIEnv*, jobject, jlong handle, jlong ring) {
-    geode_viz_feed_ring(vizOf(handle), reinterpret_cast<const geode_pcm_ring*>(ring));
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
     if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
@@ -470,10 +463,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetLfo(JNIEnv* env, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray routes, jint mask) {
+Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray routes) {
     FloatElements data(env, routes);
     if (routes && !data.get()) return;  // could not read the list: keep the last one
-    geode_viz_set_user_reactions(vizOf(handle), data.get(), data.length(), routes ? 1 : 0, static_cast<unsigned>(mask));
+    geode_viz_set_user_reactions(vizOf(handle), data.get(), data.length(), routes ? 1 : 0);
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -580,30 +573,45 @@ Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject,
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong handle, jfloat x, jfloat y, jfloat z,
-                                                      jfloat w, jint displayRotation) {
-    geode_viz_gyro_sample(vizOf(handle), x, y, z, w, displayRotation);
+Java_dev_geode_engine_bridge_GeodeNative_vizGyroPush(JNIEnv*, jobject, jlong handle, jfloat x, jfloat y, jfloat z, jfloat w,
+                                                    jint displayRotation) {
+    geode_viz_gyro_push(vizOf(handle), x, y, z, w, displayRotation);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizGyroReset(JNIEnv*, jobject, jlong handle) {
-    geode_viz_gyro_reset(vizOf(handle));
+Java_dev_geode_engine_bridge_GeodeNative_vizGyroOff(JNIEnv*, jobject, jlong handle) {
+    geode_viz_gyro_off(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizRequestScene(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
+    Utf8Chars id(env, sceneId);
+    geode_viz_request_scene(vizOf(handle), id.get());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale, jfloat marchScale,
+                                                      jboolean postFx, jboolean adaptive, jint liquidHotPolicy) {
+    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0, adaptive == JNI_TRUE ? 1 : 0,
+                          liquidHotPolicy);
+}
+
+// The live frame: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is valid
+// while its Kotlin holder is reachable, and the caller holds it for this call.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizFrame(JNIEnv*, jobject, jlong handle, jlong ring, jfloat pacedFps, jfloat capFps) {
+    return geode_viz_frame(vizOf(handle), reinterpret_cast<const geode_pcm_ring*>(ring), pacedFps, capFps);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizLiquidMode(JNIEnv*, jobject, jlong handle) {
+    return geode_viz_liquid_mode(vizOf(handle));
 }
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong handle, jint slot, jfloatArray config) {
     FloatElements data(env, config);
     if (data.get()) geode_viz_set_adsr(vizOf(handle), slot, data.get(), data.length());
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps, jfloat capFps,
-                                                       jfloat renderScale, jfloat marchScale, jboolean postFx,
-                                                       jboolean adaptive, jint liquidHotPolicy, jlong paramsVersion,
-                                                       jlong lfoVersion, jlong adsrVersion, jlong tuningVersion) {
-    return geode_viz_frame_begin(vizOf(handle), pacedFps, capFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
-                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy, paramsVersion, lfoVersion,
-                                 adsrVersion, tuningVersion);
 }
 
 JNIEXPORT jint JNICALL
@@ -1281,11 +1289,6 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayBlurMax(JNIEnv*, jobject) {
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfloat capFps) {
     return geode_pacer_effective_cap(capFps);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint status, jfloat headroom) {
-    geode_thermal_push(status, headroom);
 }
 
 JNIEXPORT jint JNICALL

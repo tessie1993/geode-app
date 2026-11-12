@@ -58,7 +58,7 @@ sealed interface SaveTarget {
 /**
  * Where a video is meant to go. Each destination has its own export defaults in Settings › Export,
  * which start from the platform's [preset] (or plain [ExportDefaults] for [CUSTOM]) and are then the
- * user's to change. A new project copies its destination's defaults; see `editor/StudioProject.create`.
+ * user's to change. A new project copies its destination's defaults; see `ui/EditorController`.
  *
  * Declared in [ExportPresets.ALL]'s order, which [preset] relies on.
  */

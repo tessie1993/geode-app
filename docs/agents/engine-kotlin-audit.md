@@ -56,7 +56,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `TransitionCatalog` | 79 | **deleted**: native hands Customize's picker its lists (`geode_transition_picker`: the built-ins offered, from `TransitionCatalog::builtInIds` and `transition_choice::pickerIds`, then the library's names); `ui/CustomizeAdvanced` only splits them. The full-table read and its parser are gone, as is `VizUiState.transitionStyle`, which nothing read. Pinned in `transition_library_test.cpp` and `transition_choice_test.cpp`. |
 | `SceneIds` | 70 | **deleted**: the id list is native; the shell names an id as text where a rule is about one style. |
 | `TransitionCatalog` | 79 | pending |
-| `SceneParamsCodec` | 80 | pending |
+| `SceneParamsCodec` | 80 | **deleted**: `SceneParams` holds the native wire frame itself; nothing packs by reflection. |
 | `ModConfigCodec` | 81 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `ParamSchema` | 90 | pending |
@@ -75,12 +75,12 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `Catalogue` | 131 | **ported**: the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `ParamFormat` | 153 | **ported**: `core/viz/ParamText` (the unit each control reads in, and its value text), `geode_param_text`, test `core/tests/param_text_test.cpp` (the JVM test's cases). The three units a row names itself are `ParamUnit` in `:app`. The unreachable tempo and count units are gone. |
 | `TrackAudio` | 158 | **ported**: `core/audio/ingest/TrackPump` (the decode and hand-out order, AIFF first) over `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, linked `mediandk`), test `core/tests/track_pump_test.cpp`. Needs a device for the codec path. |
-| `ParamKeys` | 158 | pending |
+| `ParamKeys` | 158 | **deleted**: a control's key is its meta row's label in `core/viz/ParamTable.inc`. |
 | `Lfo` (`LfoTarget`, `LfoConfig`, `ModTable`, …) | 219 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `VisualizerView` | 220 | pending |
 | `Reactions` (`ReactSource`, `ReactionRoute`, `HandMask`) | 229 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`). The process-wide push of the hand mask is `LfoStore.pushHand`. |
 | `FramePacer` | 248 | pending |
-| `SceneParams` | 254 | **in progress** (#1150): its option label lists are gone; every picker's labels are `GEODE_PARAM_CHOICES` rows in `core/viz/ParamTable.inc`, read through `ParamSchema.choices` (test `core/tests/params_schema_test.cpp`). The kaleidoscope is one slider, `kaleidoFolds`, whose roll, rounding and migration are native (`SceneParams::kSymmetryFolds`, `kaleidoUniforms`, `kaleidoFoldsOf`). The fields, defaults (the sentinel constants kept for them, pinned by `ParamSchemaTest`) and the palette slot rules remain. |
+| `SceneParams` | 254 | **deleted** as a field mirror: an opaque holder of the native frame in `ParamSchema.kt`; its palette rules are `core/viz/ParamsPalette` (test `core/tests/look_files_test.cpp`). |
 | `VisualizerRenderer` | 313 | pending |
 | `NativeViz` | 522 | **moved to `:app`** (`viz/NativeViz`, for Cast's fallback, the export scene and the render tests): the look crosses whole and native passes on only the parts that changed (`geode_viz_set_look`, `core/viz/LookSnapshot.hpp`'s `LookLatch`, test `core/tests/look_snapshot_test.cpp`; the stage's look takes the same latch); `pollError`'s change check is gone (`lastError`; a live frame reports the change). |
 | `GeodeNative` | 2,736 | declarations; its non-declaration members pending |

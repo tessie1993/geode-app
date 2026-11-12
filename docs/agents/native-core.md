@@ -75,6 +75,11 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
 - The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
 - `core/viz/ParamsJson` (`geode_params_write_json`, `_read_json`) writes and reads the scene params object of presets, links, template looks and the saved look, in the text org.json wrote.
+- `core/viz/ParamsPalette` is the look's own palette in its params: whether it draws one, clearing it, your colours, a hue gradient (`geode_params_uses_custom_palette`, `_palette_stops`, `_clear_custom_palette`, `_apply_stops`, `_apply_gradient`).
+- `core/viz/LookFiles` holds the user's look files, text in and text out: the file stem rule (`geode_file_safe_name`, `_safe_chars`) and list order (`geode_looks_order`).
+- `LookFiles` reads and writes saved palettes (`geode_saved_palette_*`): the id rule, defaults and clamps, the old-id migration, applying one to a look.
+- `LookFiles` reads and writes presets (`geode_preset_read`, `_write`, `_milk_file_name`): the envelope beside the params object, its slider ranges and the number guard, retired styles resolved.
+- `LookFiles` names the template library's files, makes an import's name unique and holds the bundled starter templates (`geode_template_*`).
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - Customize › Layers is `core/viz/LayerState`: on, source, picked style, knob, blend and mix, process-wide, one text line (`geode_layer_set`, `_normalize`, `_edit`); an export pins it.
 - A layer's source is the user's pick (USER), Auto Director's pick at its style moments (DIRECTOR) or a knob's turn (MACRO), the owner's three choices (2026-11-12).

@@ -118,9 +118,9 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetSound(JNIEnv*, jobject, jlong s
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlong stage, jstring sceneId, jfloatArray params,
-                                                      jfloatArray lfos, jint lfoSlots, jfloatArray adsrs, jint adsrSlots,
-                                                      jfloatArray tuning, jfloatArray reactions, jboolean reducedMotion,
-                                                      jstring transitionId, jlong transitionMs) {
+                                                      jfloatArray lfos, jint lfoSlots, jfloatArray adsrs, jfloatArray tuning,
+                                                      jfloatArray reactions, jboolean reducedMotion, jstring transitionId,
+                                                      jlong transitionMs) {
     Utf8Chars scene(env, sceneId);
     Utf8Chars transition(env, transitionId);
     FloatElements paramData(env, params);
@@ -137,7 +137,6 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlon
     look.lfo_slots = lfoSlots;
     look.lfo_floats = lfoData.length();
     look.adsrs = adsrData.get();
-    look.adsr_slots = adsrSlots;
     look.adsr_floats = adsrData.length();
     look.tuning = tuningData.get();
     look.tuning_count = tuningData.length();
@@ -238,9 +237,9 @@ Java_dev_geode_engine_bridge_GeodeNative_stageGyroPush(JNIEnv*, jobject, jlong s
     geode_viz_gyro_push(StageViz(stage), x, y, z, w, displayRotation);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageGyroOff(JNIEnv*, jobject, jlong stage) {
-    geode_viz_gyro_off(StageViz(stage));
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageGyroListens(JNIEnv*, jobject, jlong stage, jboolean wanted) {
+    return geode_stage_gyro_listens(stageOf(stage), wanted == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

@@ -2777,8 +2777,9 @@ object GeodeNative {
     )
 
     /**
-     * The user's look. Native passes on only the parts that differ from the look set last. [lfos] and [adsrs] are
-     * their slots one after another; [reactions] null means the style's own routes.
+     * The user's look. Native passes on only the parts that differ from the look set last. [lfos] are their slots
+     * one after another; [adsrs] each slot's float count and then its floats; [reactions] null means the style's
+     * own routes.
      */
     external fun stageSetLook(
         stage: Long,
@@ -2787,7 +2788,6 @@ object GeodeNative {
         lfos: FloatArray,
         lfoSlots: Int,
         adsrs: FloatArray,
-        adsrSlots: Int,
         tuning: FloatArray,
         reactions: FloatArray?,
         reducedMotion: Boolean,
@@ -2834,8 +2834,8 @@ object GeodeNative {
 
     external fun stageSetFluidInjection(
         stage: Long,
-        force: String,
-        dye: String,
+        force: String?,
+        dye: String?,
     )
 
     external fun stageLoadMilkPreset(
@@ -2866,7 +2866,11 @@ object GeodeNative {
         displayRotation: Int,
     )
 
-    external fun stageGyroOff(stage: Long)
+    /** Whether the tilt sensor should run now ([wanted] is the user's setting); asked after every view, pause or setting change. */
+    external fun stageGyroListens(
+        stage: Long,
+        wanted: Boolean,
+    ): Boolean
 
     external fun stageSetUiBlurRegion(
         stage: Long,

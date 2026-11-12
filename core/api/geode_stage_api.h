@@ -74,6 +74,10 @@ GEODE_API int      geode_stage_set_surface(geode_stage*, unsigned surface_flags,
 /* The host's pause and resume (the view's onPause and onResume). */
 GEODE_API void     geode_stage_pause(geode_stage*);
 GEODE_API void     geode_stage_resume(geode_stage*);
+/* Whether the shell's tilt sensor should run now: `wanted` (the user's setting) on a view somebody can see in
+   a host that is not paused. Asked after every set_view, pause, resume and change of the setting. When the
+   answer changes, the renderer's tilt session ends here, so the next reading starts a new one. */
+GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 /* surfaceRedrawNeeded: one frame now, even while the vsync is stopped. */
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
@@ -99,8 +103,9 @@ GEODE_API void     geode_stage_viz_unlock(void);
 /* The ring frames hear, or NULL. Returns once no frame reads the ring it replaced, which may then be freed. */
 GEODE_API void     geode_stage_set_sound(geode_stage*, const geode_pcm_ring* ring);
 
-/* The user's look as the shell packs it. lfos and adsrs are their slots one after another, each the same
-   number of floats; has_reactions 0 means the style's own routes. */
+/* The user's look as the shell packs it. lfos are their slots one after another, each the same number of
+   floats; adsrs are each slot's float count and then its floats (a slot's targets vary in number);
+   has_reactions 0 means the style's own routes. */
 typedef struct geode_stage_look {
     const char*  scene_id;
     const float* params;
@@ -109,7 +114,6 @@ typedef struct geode_stage_look {
     int          lfo_slots;
     int          lfo_floats;
     const float* adsrs;
-    int          adsr_slots;
     int          adsr_floats;
     const float* tuning;
     int          tuning_count;

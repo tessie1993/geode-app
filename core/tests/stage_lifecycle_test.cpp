@@ -223,6 +223,10 @@ void viewPaths() {
     lc.setMode(viewMode(kViewAttached | kViewWindowVisible | kViewShown | kViewOpaque), 0);
     same(settle(lc, m), {Act::StartVsync}, "a watched view paces");
     check(lc.canDraw() && lc.vsyncOn(), "and draws");
+    constexpr uint32_t watched = kViewAttached | kViewWindowVisible | kViewShown | kViewOpaque;
+    check(gyroListens(watched, false, true), "the tilt sensor runs for a watched, resumed view that wants it");
+    check(!gyroListens(watched, false, false) && !gyroListens(watched, true, true) && !gyroListens(watched & ~kViewOpaque, false, true),
+          "and not when it is off, the host is paused or nobody can see the view");
 
     lc.pause();
     same(settle(lc, m), {Act::StopVsync, Act::ClientTrimSpares, Act::DestroySurface}, "a pause stops, trims, then lets the surface go");

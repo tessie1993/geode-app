@@ -1,6 +1,7 @@
 #include "api/geode_stage_api.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -135,6 +136,10 @@ struct Stage {
     stage::LookLatch look;
     std::mutex stillLock;
     std::optional<stage::Still> still;
+    // What the view last said, for the tilt sensor's rule.
+    std::atomic<uint32_t> viewFlags{0};
+    std::atomic<bool> paused{false};
+    std::atomic<bool> gyroOn{false};
 };
 
 // Handles are ids, never addresses: a call on a stage already destroyed finds nothing and does nothing.
@@ -194,6 +199,19 @@ void eachSlot(const std::vector<float>& list, int limit, Set set) {
     for (int slot = 0; slot < count; ++slot) set(slot, list.data() + 1 + slot * each, each);
 }
 
+// Slots of their own lengths: each one's float count, then its floats. A count that runs past the list ends it.
+template <typename Set>
+void eachSizedSlot(const std::vector<float>& list, int limit, Set set) {
+    size_t at = 0;
+    for (int slot = 0; slot < limit && at < list.size(); ++slot) {
+        const float size = list[at];
+        if (!(size >= 0.0f) || size > static_cast<float>(list.size() - at - 1)) return;
+        const auto count = static_cast<size_t>(size);
+        set(slot, list.data() + at + 1, static_cast<int>(count));
+        at += 1 + count;
+    }
+}
+
 void applyLook(geode_viz* v, const stage::Look& l, uint32_t parts) {
     if ((parts & stage::kLookScene) != 0) geode_viz_request_scene(v, l.sceneId.c_str());
     if ((parts & stage::kLookParams) != 0 && !l.params.empty()) geode_viz_set_params(v, l.params.data(), static_cast<int>(l.params.size()));
@@ -201,7 +219,7 @@ void applyLook(geode_viz* v, const stage::Look& l, uint32_t parts) {
         eachSlot(l.lfos, GEODE_LFO_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_lfo(v, slot, config, count); });
     }
     if ((parts & stage::kLookAdsrs) != 0) {
-        eachSlot(l.adsrs, GEODE_ADSR_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_adsr(v, slot, config, count); });
+        eachSizedSlot(l.adsrs, GEODE_ADSR_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_adsr(v, slot, config, count); });
     }
     if ((parts & stage::kLookTuning) != 0 && l.tuning.size() >= static_cast<size_t>(GEODE_SOUND_TUNING_FLOATS)) {
         GeodeSoundTuning tuning{};
@@ -288,7 +306,19 @@ void geode_stage_set_size(geode_stage* s, int width, int height) {
 }
 
 void geode_stage_set_view(geode_stage* s, unsigned view_flags) {
+    if (const std::shared_ptr<Stage> stage = find(s)) stage->viewFlags.store(view_flags);
     onThread(s, "geode_stage_set_view", [&](StageThread& t) { t.setMode(stage::viewMode(view_flags)); });
+}
+
+int geode_stage_gyro_listens(geode_stage* s, int wanted) {
+    const std::shared_ptr<Stage> stage = find(s);
+    if (!stage) return 0;
+    const bool on = stage::gyroListens(stage->viewFlags.load(), stage->paused.load(), wanted != 0);
+    if (stage->gyroOn.exchange(on) != on) {
+        geode_viz_gyro_off(geode_stage_viz_lock(s));
+        geode_stage_viz_unlock();
+    }
+    return on ? 1 : 0;
 }
 
 int geode_stage_set_surface(geode_stage* s, unsigned surface_flags, long long animate_until_ms, long long now_ms) {
@@ -298,10 +328,12 @@ int geode_stage_set_surface(geode_stage* s, unsigned surface_flags, long long an
 }
 
 void geode_stage_pause(geode_stage* s) {
+    if (const std::shared_ptr<Stage> stage = find(s)) stage->paused.store(true);
     onThread(s, "geode_stage_pause", [](StageThread& t) { t.setPaused(true); });
 }
 
 void geode_stage_resume(geode_stage* s) {
+    if (const std::shared_ptr<Stage> stage = find(s)) stage->paused.store(false);
     onThread(s, "geode_stage_resume", [](StageThread& t) { t.setPaused(false); });
 }
 
@@ -372,7 +404,7 @@ void geode_stage_set_look(geode_stage* s, const geode_stage_look* look) {
         next.sceneId = look->scene_id ? look->scene_id : "";
         next.params = floats(look->params, look->param_count);
         next.lfos = slots(look->lfos, look->lfo_slots, look->lfo_floats);
-        next.adsrs = slots(look->adsrs, look->adsr_slots, look->adsr_floats);
+        next.adsrs = floats(look->adsrs, look->adsr_floats);
         next.tuning = floats(look->tuning, look->tuning_count);
         next.hasReactions = look->has_reactions != 0;
         if (next.hasReactions) next.reactions = floats(look->reactions, look->reaction_count);

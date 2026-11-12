@@ -538,6 +538,10 @@ GEODE_API const char* geode_config_schema_text(void);
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
+/* The range Customize's slider offers for the scene param `name` (core/viz/ControlRange): its schema range, cut
+ * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
+ * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
+GEODE_API int         geode_params_control_range(const char* name, float* out);
 
 /* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in

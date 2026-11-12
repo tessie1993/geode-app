@@ -1148,6 +1148,15 @@ object GeodeNative {
     ): Float
 
     /**
+     * The range Customize's slider offers for the scene param [name] (core/viz/ControlRange): min and max into
+     * [out] (two floats). False, [out] untouched, for a name the schema lacks.
+     */
+    external fun paramsControlRange(
+        name: String,
+        out: FloatArray,
+    ): Boolean
+
+    /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed

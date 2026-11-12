@@ -184,44 +184,43 @@ float mazeDist(vec3 q) {
     return d;
 }
 
-/** World-unit distance at w, and its maze-unit distance and maze point through the outs. */
-float map(vec3 w, out float dq, out vec3 q) {
-    q = mazePoint(w);
-    dq = mazeDist(q);
-    float d = dq / (gS * gLip);
-    return max(d, TM_BUBBLE - length(w - gEye));
-}
-
-float mapOnly(vec3 w) {
+/** What the field holds at a point (lib_truchet_field): the world-unit distance, the maze-unit distance and the maze point. */
+struct TruchetHit {
+    float d;
     float dq;
     vec3 q;
-    return map(w, dq, q);
+};
+
+TruchetHit truchetMap(vec3 w) {
+    TruchetHit h;
+    h.q = mazePoint(w);
+    h.dq = mazeDist(h.q);
+    float d = h.dq / (gS * gLip);
+    h.d = max(d, TM_BUBBLE - length(w - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * mapOnly(p + k.xyy * eps) + k.yyx * mapOnly(p + k.yyx * eps)
-                   + k.yxy * mapOnly(p + k.yxy * eps) + k.xxx * mapOnly(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     float t = truchetTime();
     float e = truchetEnergy();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     // Cells per world unit: Complexity packs, SPACE thins, the bass breathes.
     gS = (1.0 + 0.5 * morph) * (1.0 - 0.4 * kSpace) * truchetBreath(SND_BASS_PRESENCE) / TM_CELL;
-    gBendA = 0.8 * clamp(uWarp, 0.0, 2.0);
-    gBendB = 0.3 * clamp(uTurbulence, 0.0, 2.0);
+    gBendA = 0.8 * (2.0 * gTruchetIn.warp);
+    gBendB = 0.3 * (2.0 * gTruchetIn.chaos);
     gLip = 1.0 + gBendA * TM_ZW * 3.0 + gBendB * TM_ZW * 8.0;
     gR = 0.06 * (1.0 + 0.8 * kBuild);
     gHits = uint(max(floor(SND_ONSET_COUNT), 0.0));
@@ -258,9 +257,10 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tr > TM_FAR) break;
         used = float(i);
-        float dq;
-        vec3 q;
-        float d = map(ro + rd * tr, dq, q);
+        TruchetHit at = truchetField(ro + rd * tr);
+        float dq = at.dq;
+        vec3 q = at.q;
+        float d = at.d;
         float eps = 0.0008 * tr + 0.0006;
         if (d < eps) {
             hitT = tr;
@@ -287,7 +287,7 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        vec3 n = truchetNormal(p, max(0.0015, 0.0012 * hitT));
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);

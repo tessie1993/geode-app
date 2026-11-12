@@ -676,7 +676,7 @@ void playBeats(ReactionEngine& e, int beats, int& count) {
 }
 
 void jumpHoldsANewSeededValuePerHit() {
-    static_assert(kReactModeCount == 5, "dev.geode.render.ReactMode has 5 entries");
+    static_assert(kReactModeCount == 6, "Follow, Step, Add up, Jump, Toggle and Jump settled: the shell lists them from ModCatalog");
     ReactionEngine a;
     ReactionEngine b;
     a.reset();

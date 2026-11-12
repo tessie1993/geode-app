@@ -13,11 +13,13 @@ namespace out = geode::output;
 
 extern "C" {
 
-int geode_export_range_of(float start, float end, int64_t track_ms, int64_t* out_start_ms, int64_t* out_duration_ms) {
+int geode_export_range_of(float start, float end, int64_t track_ms, int64_t* out_start_ms, int64_t* out_duration_ms,
+                          int64_t* out_end_ms) {
     out::ExportRange range;
     if (!out::rangeFromFractions(start, end, track_ms, &range)) return 0;
     if (out_start_ms) *out_start_ms = range.startMs;
     if (out_duration_ms) *out_duration_ms = range.durationMs;
+    if (out_end_ms) *out_end_ms = range.endMs();
     return 1;
 }
 

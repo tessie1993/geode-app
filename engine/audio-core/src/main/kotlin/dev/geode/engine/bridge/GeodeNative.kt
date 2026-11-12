@@ -244,6 +244,13 @@ object GeodeNative {
         points: Int,
     )
 
+    /** Settings › Touch › Smear (`core/viz/TouchSmear`): the switch and the strength, clamped natively. */
+    external fun vizSetTouchSmear(
+        handle: Long,
+        on: Boolean,
+        strength: Float,
+    )
+
     external fun vizSetFluidInjection(
         handle: Long,
         force: String?,

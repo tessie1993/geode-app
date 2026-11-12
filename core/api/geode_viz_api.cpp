@@ -256,6 +256,10 @@ void geode_viz_set_touch(geode_viz* v, const float* xy_ndc, int points) {
     v->renderer.submitTouchPoints(xy_ndc ? xy_ndc : nullptr, xy_ndc ? std::max(points, 0) : 0);
 }
 
+void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
+    if (v) v->renderer.setTouchSmear(on != 0, strength);
+}
+
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
 }

@@ -69,6 +69,7 @@ enum class SettingsRowKey {
 
     // Gestures & controls
     GESTURE_MAP,
+    TOUCH_SMEAR,
     TOUCH_TRANSFORM,
 
     // Look: the accent and interface sounds, text colour and size, and the layout are blocks

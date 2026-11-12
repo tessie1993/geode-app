@@ -43,6 +43,7 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
+#include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
@@ -103,6 +104,11 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
+    // Settings › Gestures & controls › Touch › Smear (viz/TouchSmear): any thread; the GL thread reads it per frame.
+    void setTouchSmear(bool on, float strength) {
+        smearOn_.store(on, std::memory_order_relaxed);
+        smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);
+    }
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
     // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
@@ -233,6 +239,8 @@ private:
     void stepCamera(const SceneParams& p, float dt);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
     void stepLiquid(Scene& scene, const SceneParams& p, float dt);
+    // The smear: the fingers' kicks into the flow field and this frame's bend (smearWarp_), Liquid off only.
+    void stepSmear(float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
@@ -279,6 +287,11 @@ private:
     std::string quadVert_;
 
     TouchField touchField_;
+    touch::SmearTrail smearTrail_;
+    touch::SmearLinger smearLinger_;
+    std::atomic<bool> smearOn_{false};
+    std::atomic<float> smearStrength_{touch::kSmearStrengthDefault};
+    float smearWarp_ = 0.0f;
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;

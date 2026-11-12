@@ -180,6 +180,17 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
+## `engine/audioandroid`
+
+- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
+- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
+
+## `render`
+
+- The engine module's package, for the shell's own pieces of it.
+- `UnderlayBlend` is the background image's blend, saved by name; its ordinal is the underlay's wire int.
+- `fluid/FluidShaderTemplate` reads the fluid splat shader asset that Expert › Shader code starts from.
+
 ## `audio/dsp`
 
 - Open first: `MvzAudioProcessorChain`.

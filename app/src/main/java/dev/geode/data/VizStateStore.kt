@@ -1,8 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
-import dev.geode.render.MilkPresetMemory
-import dev.geode.render.TransitionCatalog
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.render.VisualizerRenderer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -15,13 +15,16 @@ internal class VizStateStore(
     private val prefs: SharedPreferences,
     private val scope: CoroutineScope,
     autoVisualsPrefsStore: AutoVisualsPrefsStore,
-    private val milkPresets: MilkPresetMemory,
 ) {
     val state = MutableStateFlow(restore(autoVisualsPrefsStore))
 
+    init {
+        VisualizerRenderer.seedMilkMemory(prefs)
+    }
+
     // Starts on the preset the last run showed: the renderer restores that one itself (from the
-    // same MilkPresetMemory), and the Styles list, templates and takes must agree with the screen.
-    private val _activeMilkPath = MutableStateFlow(milkPresets.lastShown)
+    // same native memory), and the Styles list, templates and takes must agree with the screen.
+    private val _activeMilkPath = MutableStateFlow(GeodeNative.milkMemoryLastShown())
     val activeMilkPath: StateFlow<String?> = _activeMilkPath
 
     /**
@@ -41,16 +44,8 @@ internal class VizStateStore(
 
     private fun restore(store: AutoVisualsPrefsStore): VizUiState {
         var base = store.applyTo(VizUiState(presets = BuiltInPresets.ALL))
-        // Restore the transition id first, then re-derive the style from it (falling back to
-        // whatever default the style key carries) so the two never disagree after a restore.
         val transitionId = prefs.getString(KEY_TRANSITION_ID, null)
-        if (transitionId != null) {
-            base =
-                base.copy(
-                    transitionId = transitionId,
-                    transitionStyle = TransitionCatalog.builtIn(transitionId) ?: base.transitionStyle,
-                )
-        }
+        if (transitionId != null) base = base.copy(transitionId = transitionId)
         if (prefs.contains(KEY_TRANSITION_DURATION_SEC)) {
             base = base.copy(transitionDurationSec = prefs.getFloat(KEY_TRANSITION_DURATION_SEC, base.transitionDurationSec))
         }
@@ -88,14 +83,14 @@ internal class VizStateStore(
             .commit()
     }
 
-    /** The renderer reported [path]; it has already saved it in [MilkPresetMemory]. */
+    /** The renderer reported [path]; it has already saved it. */
     fun noteMilkPreset(path: String) {
         _activeMilkPath.value = path
     }
 
     fun dropRemovedMilkPaths(paths: List<String>) {
         if (_activeMilkPath.value in paths) _activeMilkPath.value = null
-        milkPresets.forget(paths)
+        if (GeodeNative.milkMemoryForget(paths.toTypedArray())) VisualizerRenderer.saveMilkPath(prefs, null)
     }
 
     private companion object {

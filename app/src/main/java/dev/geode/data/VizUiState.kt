@@ -2,7 +2,6 @@ package dev.geode.data
 
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FreeTier
-import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
 
 data class VizUiState(
@@ -16,8 +15,8 @@ data class VizUiState(
     val vizPlaylist: List<VizPlaylistEntry> = emptyList(),
     val vizPlaylistEnabled: Boolean = false,
     val vizPlaylistIntervalSec: Int = 30,
-    val transitionStyle: TransitionStyle = TransitionStyle.FADE,
-    val transitionId: String = TransitionStyle.FADE.name.lowercase(),
+    /** Native's transition id (a built-in such as "fade", "random", or a gl-transitions name). */
+    val transitionId: String = "fade",
     val transitionDurationSec: Float = 1.2f,
     val randomEnabled: Boolean = false,
     val randomIntervalSec: Int = 20,

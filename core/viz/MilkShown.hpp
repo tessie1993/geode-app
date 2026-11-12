@@ -4,7 +4,7 @@
 #include <utility>
 
 // A .milk preset counts as shown, and is reported (and so remembered for every renderer's next start,
-// MilkPresetMemory), only once the engine has drawn it for kShownFrames frames without an error. A preset
+// MilkMemory), only once the engine has drawn it for kShownFrames frames without an error. A preset
 // that compiled but crashes or hangs while it draws is then never the one the app, the wallpaper or the
 // dream comes back on.
 namespace geode::viz::milk {

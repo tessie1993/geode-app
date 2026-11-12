@@ -36,8 +36,6 @@ class TrackLibrary(
         comment: String,
     ): List<LibraryTrack>? = mutate { upsertInfo(it, uri, title, artist, album, genre, year, trackNo, comment) }
 
-    fun remove(uri: String): List<LibraryTrack>? = mutate { current -> current.filterNot { it.uri == uri } }
-
     private fun mutate(block: (List<LibraryTrack>) -> List<LibraryTrack>): List<LibraryTrack>? {
         synchronized(lock) {
             val current = readLocked() ?: return null

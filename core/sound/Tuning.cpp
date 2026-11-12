@@ -52,6 +52,17 @@ void clamp(float* values, int count) {
     }
 }
 
+bool resolve(const float* saved, int count, float* out) {
+    if (!out) return false;
+    const bool usable = saved && (count == kSlots || count == kSlots - 1);
+    for (int i = 0; i < kSlots; ++i) {
+        const auto slot = static_cast<size_t>(i);
+        out[i] = !usable ? kTable[slot].def : i < count ? saved[i] : 0.0f;
+    }
+    if (usable) clamp(out, kSlots);
+    return usable;
+}
+
 GeodeSoundTuning defaults() {
     float v[kSlots];
     for (int i = 0; i < kSlots; ++i) v[i] = kTable[static_cast<size_t>(i)].def;

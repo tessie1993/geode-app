@@ -101,6 +101,8 @@ void geode_sound_tuning_ranges(float* min_out, float* max_out, int count) {
     }
 }
 
-void geode_sound_tuning_clamp(float* values, int count) { geode::sound::tuning::clamp(values, count); }
+int geode_sound_tuning_resolve(const float* saved, int count, float* out) {
+    return geode::sound::tuning::resolve(saved, count, out) ? 1 : 0;
+}
 
 }  // extern "C"

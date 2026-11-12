@@ -123,6 +123,7 @@ The renderer runs these in order each frame.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
 - `core/audio/dsp/EqPresets` is the built-in equalizer curves; the settings save a curve by its index, so their order is saved data.
 - `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
+- `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.
 - Oboe is back as the output only (`core/audio/output`, off by default).
 - `OutputFifo` is the lock-free FIFO between Media3's sink and the device callback: 16-bit to float, underrun count, volume ramp, the position the sink reads.

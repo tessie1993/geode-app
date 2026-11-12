@@ -67,6 +67,17 @@ inline std::string pick(const std::vector<std::string>& ids, const std::string& 
     return *choices[nextRandom(state) % choices.size()];
 }
 
+// The built-in transitions the Customize picker offers above the library, in `builtIns` order: every one
+// but "cut" (safety plays it as a fade, so offering it would lie), then "random".
+inline std::vector<std::string> pickerIds(const std::vector<std::string>& builtIns) {
+    std::vector<std::string> out;
+    for (const auto& id : builtIns) {
+        if (id != kCutId && id != kRandomId && !id.empty()) out.push_back(id);
+    }
+    out.emplace_back(kRandomId);
+    return out;
+}
+
 // Auto's marks: which style or preset its next change brings, and when. A mark is good for kMarkWindowS
 // (a new style is staged over a few frames before it switches) and is read once by each reader.
 inline constexpr double kMarkWindowS = 5.0;

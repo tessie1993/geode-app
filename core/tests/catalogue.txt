@@ -417,3 +417,4 @@ range|Zoom|0.3|3
 range|Rotation|-3|3
 value|fluidTiers|5
 value|touchRotationPerDegree|0.012
+value|touchPoints|5

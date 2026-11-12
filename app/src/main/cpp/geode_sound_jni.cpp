@@ -74,14 +74,16 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStartFailed(JNIEnv* env, job
     env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundTuningClamp(JNIEnv* env, jobject, jfloatArray values) {
-    if (!values) return;
-    const int n = std::min(static_cast<int>(env->GetArrayLength(values)), geode_sound_tuning_slots());
-    std::vector<float> v(static_cast<size_t>(n));
-    env->GetFloatArrayRegion(values, 0, n, v.data());
-    geode_sound_tuning_clamp(v.data(), n);
-    env->SetFloatArrayRegion(values, 0, n, v.data());
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundTuningResolve(JNIEnv* env, jobject, jfloatArray saved) {
+    std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
+    if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
+    float out[GEODE_SOUND_TUNING_FLOATS];
+    geode_sound_tuning_resolve(saved ? in.data() : nullptr, static_cast<int>(in.size()), out);
+    jfloatArray result = env->NewFloatArray(GEODE_SOUND_TUNING_FLOATS);
+    if (!result) return nullptr;
+    env->SetFloatArrayRegion(result, 0, GEODE_SOUND_TUNING_FLOATS, out);
+    return result;
 }
 
 // The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.

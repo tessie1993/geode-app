@@ -4,7 +4,7 @@ import dev.geode.data.prefs.PrefsSettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,7 +26,12 @@ class MacroStoreTest {
         return MacroStore(repository, backgroundScope, push = { pushes += it }).also { settle() }
     }
 
-    private fun TestScope.settle() = advanceUntilIdle()
+    /**
+     * The store and its repository run in [TestScope.backgroundScope], as they run in the process
+     * scope; `advanceUntilIdle` stops once only background work is queued, so it never ran them.
+     * [runCurrent] runs every task due now, background ones included (nothing here waits on time).
+     */
+    private fun TestScope.settle() = runCurrent()
 
     @Test
     fun `a new install loads what native calls the default and pushes it once`() =

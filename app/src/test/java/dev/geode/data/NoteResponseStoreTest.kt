@@ -5,14 +5,18 @@ import dev.geode.data.prefs.PrefsSettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The switch on its repository (#1009, PR 6): nothing reaches the engine before the saved value is read. */
+/**
+ * The switch on its repository (#1009, PR 6): nothing reaches the engine before the saved value is read.
+ * The store collects for ever, so it runs in [TestScope.backgroundScope]; `advanceUntilIdle` skips
+ * background work, so each case lets it run with [runCurrent] (nothing here waits on time).
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NoteResponseStoreTest {
     private val pushes = mutableListOf<Boolean>()
@@ -27,7 +31,7 @@ class NoteResponseStoreTest {
         runTest {
             val store = store(MapPrefs())
             assertEquals(emptyList<Boolean>(), pushes)
-            advanceUntilIdle()
+            runCurrent()
             assertTrue(store.enabled.value)
             assertEquals(listOf(true), pushes)
         }
@@ -38,7 +42,7 @@ class NoteResponseStoreTest {
             val prefs = MapPrefs()
             prefs.values[NoteResponseCodec.KEY_ENABLED] = false
             val store = store(prefs)
-            advanceUntilIdle()
+            runCurrent()
             assertFalse(store.enabled.value)
             assertEquals(listOf(false), pushes)
         }
@@ -48,10 +52,10 @@ class NoteResponseStoreTest {
         runTest {
             val prefs = MapPrefs()
             store(prefs).setEnabled(false)
-            advanceUntilIdle()
+            runCurrent()
             assertEquals(false, prefs.values[NoteResponseCodec.KEY_ENABLED])
             val again = store(prefs)
-            advanceUntilIdle()
+            runCurrent()
             assertFalse(again.enabled.value)
         }
 
@@ -59,10 +63,10 @@ class NoteResponseStoreTest {
     fun `each change reaches the engine and repeats push nothing`() =
         runTest {
             val store = store(MapPrefs())
-            advanceUntilIdle()
+            runCurrent()
             for (on in listOf(true, false, false, true)) {
                 store.setEnabled(on)
-                advanceUntilIdle()
+                runCurrent()
             }
             assertEquals(listOf(true, false, true), pushes)
         }

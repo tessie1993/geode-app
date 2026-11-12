@@ -9,12 +9,16 @@ import dev.geode.model.StyleShelf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The process-wide stores on their repositories (#1009, PR 6): same keys and values as before. */
+/**
+ * The process-wide stores on their repositories (#1009, PR 6): same keys and values as before. The
+ * stores run in [TestScope.backgroundScope], which `advanceUntilIdle` does not run, so the cases use
+ * [runCurrent] (nothing here waits on time).
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProcessStoresRepositoryTest {
     private val file = RecordingPrefs()
@@ -29,17 +33,17 @@ class ProcessStoresRepositoryTest {
     fun styleShelfEditsInARowEachApplyToTheLatestShelfAndANewStoreReadsThem() =
         runTest {
             val store = shelf()
-            advanceUntilIdle()
+            runCurrent()
             store.toggleFavourite("plasma")
             store.pushRecent("tunnel")
             store.pushRecent("plasma")
-            advanceUntilIdle()
+            runCurrent()
             val expected = StyleShelf(favourites = setOf("plasma"), recents = listOf("plasma", "tunnel"))
             assertEquals(expected, store.shelf.value)
             assertEquals(setOf("plasma"), file.values["style_favourites"])
             assertEquals("plasma,tunnel", file.values["style_recents"])
             val again = shelf()
-            advanceUntilIdle()
+            runCurrent()
             assertEquals(expected, again.shelf.value)
         }
 

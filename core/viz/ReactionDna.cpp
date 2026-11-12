@@ -73,10 +73,12 @@ bool allowed(Personality p, const StyleTraits& t) {
 class Builder {
 public:
     StyleDna dna;
+    // How many routes the layers being drawn may fill: the groove's room, then the whole DNA's.
+    int cap = StyleDna::kGrooveRoutes;
 
     void add(ReactSource source, LfoTarget target, ReactMode mode, float amount, float attack, float release,
              ModCurve curve = ModCurve::Linear) {
-        if (dna.count >= StyleDna::kMaxRoutes) return;
+        if (dna.count >= cap) return;
         for (int i = 0; i < dna.count; ++i) {
             const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
             if (r.source == source && r.target == target) return;
@@ -280,7 +282,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // the style does not already move, are drawn like any layer's; Camera shake is never taken above, so there
     // is always one free.
     {
-        if (b.dna.count >= StyleDna::kMaxRoutes) b.dna.count = StyleDna::kMaxRoutes - 1;
+        if (b.dna.count >= StyleDna::kGrooveRoutes) b.dna.count = StyleDna::kGrooveRoutes - 1;
         const ReactSource attack = pick(d, std::array{ReactSource::Transient, ReactSource::TransientEnv});
         const std::array attacks = {LfoTarget::Ripple, LfoTarget::Warp, LfoTarget::Twist, LfoTarget::ChromaAb, LfoTarget::CamShake};
         switch (b.freeTarget(d, attacks, traits)) {
@@ -289,6 +291,59 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
             case LfoTarget::Twist: b.add(attack, LfoTarget::Twist, ReactMode::Follow, d.range(0.15f, 0.3f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::ChromaAb: b.add(attack, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.6f), 0.01f, 0.2f); break;
             case LfoTarget::CamShake: b.add(attack, LfoTarget::CamShake, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
+            default: break;
+        }
+    }
+
+    // The owner: react to transients "but also to longer things like 8 beats or 16, or melody lines". So after the
+    // groove every style has two more ordinary routes, drawn like any layer and seen and edited like any route:
+    // one on the music's bars and one on its tune. They come after every draw above, so the groove is what it was.
+    b.cap = StyleDna::kMaxRoutes;
+
+    // The song's long time: every 4 bars or every phrase (Rhythm's own bars, counted only while a beat is heard),
+    // the shape settles somewhere new and holds it. A hold followed, or a pulse jumping to a new value in the
+    // route's range, glided over a second or more, onto something structural the style does not move yet: depth,
+    // field of view, the shape, the turbulence. Never a colour, never a turn, and no tempo is weighed: the bars
+    // come from the music or not at all. Turbulence is never taken above, so there is always one free.
+    {
+        ReactSource bars = ReactSource::Bar4Hold;
+        ReactMode mode = ReactMode::Follow;
+        switch (d.below(4)) {
+            case 0: break;
+            case 1: bars = ReactSource::PhraseHold; break;
+            case 2: bars = ReactSource::Bar4Pulse; mode = ReactMode::Jump; break;
+            default: bars = ReactSource::Phrase; mode = ReactMode::Jump; break;
+        }
+        const std::array longs = {LfoTarget::Zoom, LfoTarget::CamFov, LfoTarget::Morph, LfoTarget::Turbulence};
+        const float rise = d.range(1.0f, 2.0f);
+        const float fall = d.range(1.2f, 2.5f);
+        switch (b.freeTarget(d, longs, traits)) {
+            case LfoTarget::Zoom: b.add(bars, LfoTarget::Zoom, mode, d.range(0.08f, 0.15f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::CamFov: b.add(bars, LfoTarget::CamFov, mode, d.range(0.2f, 0.35f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Morph: b.add(bars, LfoTarget::Morph, mode, d.range(0.3f, 0.5f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Turbulence: b.add(bars, LfoTarget::Turbulence, mode, d.range(0.2f, 0.4f), rise, fall, ModCurve::Smooth); break;
+            default: break;
+        }
+    }
+
+    // The tune: the melody's line rising and falling, its height, each new note, or simply whether one sounds,
+    // onto a look the style does not move yet. Speed is never taken above, so there is always one free.
+    {
+        const ReactSource line = pick(d, std::array{ReactSource::MelodyContour, ReactSource::MelodyContour, ReactSource::PitchHeight,
+                                                    ReactSource::MelodyNote, ReactSource::MelodyPresence});
+        const bool note = line == ReactSource::MelodyNote;
+        const float rise = note ? 0.02f : d.range(0.25f, 0.5f);
+        const float fall = note ? d.range(0.3f, 0.5f) : d.range(0.6f, 1.2f);
+        const std::array tunes = {LfoTarget::CamPitch, LfoTarget::Warp, LfoTarget::Ripple, LfoTarget::Fisheye,
+                                  LfoTarget::Zoom, LfoTarget::CamFov, LfoTarget::Speed};
+        switch (b.freeTarget(d, tunes, traits)) {
+            case LfoTarget::CamPitch: b.add(line, LfoTarget::CamPitch, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Warp: b.add(line, LfoTarget::Warp, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Ripple: b.add(line, LfoTarget::Ripple, ReactMode::Follow, d.range(0.2f, 0.4f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Fisheye: b.add(line, LfoTarget::Fisheye, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Zoom: b.add(line, LfoTarget::Zoom, ReactMode::Follow, d.range(0.05f, 0.1f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::CamFov: b.add(line, LfoTarget::CamFov, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
+            case LfoTarget::Speed: b.add(line, LfoTarget::Speed, ReactMode::Follow, d.range(0.15f, 0.3f), rise, fall, ModCurve::Smooth); break;
             default: break;
         }
     }

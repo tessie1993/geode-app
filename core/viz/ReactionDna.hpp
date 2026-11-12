@@ -15,8 +15,10 @@ namespace geode::viz {
 // style changes hue, a Flash style blooms, a Swing style looks somewhere new, a
 // Warp style bends. It draws a second one from another group for the snare
 // side of the groove, then layers for the big moments, the sustained levels,
-// the top end, colour over the song, rises and the melody, and last the
-// transients, which every style hears. No layer has a
+// the top end, colour over the song, rises and the melody, then the
+// transients, which every style hears, and last the song's long time (every
+// 4 bars or every phrase, counted on the music's own bars) and its tune (the
+// melody's line, height, notes or presence), which every style hears too. No layer has a
 // fixed source: each draws its own from a pool of GeodeSoundFrame sources
 // (which kick, which level, what drives hue), so styles that share a
 // personality still listen to different parts of the music.
@@ -53,6 +55,11 @@ struct StyleDna {
     // The DNA leaves the last slots free, so the user and the Events tab's
     // recipes can add routes without removing any.
     static constexpr int kMaxRoutes = ReactionEngine::kRoutes - 3;
+    // The groove's layers (the pulse … the transient) keep the room they had
+    // before the musical-time layers came, so they draw what they drew; the
+    // bar-count and melody layers come after, within kMaxRoutes.
+    static constexpr int kGrooveRoutes = 9;
+    static_assert(kGrooveRoutes + 2 <= kMaxRoutes, "the bar-count and melody layers fit after the groove");
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;

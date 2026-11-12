@@ -800,10 +800,11 @@ void dnaLeavesRoomAndStaysInRange() {
 // transient detector, whatever its traits and seed, within the cap, and the layer comes last: without it the
 // routes before it are what they were.
 void everyStyleHearsTransients() {
+    // The transient layer is the groove's last; the bar-count and melody layers follow it (everyStyleHearsTheSongsTime).
     const auto heard = [](const StyleDna& dna) {
         for (int r = 0; r < dna.count; ++r) {
             const ReactSource s = dna.routes[static_cast<size_t>(r)].source;
-            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 1;
+            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 3;
         }
         return false;
     };
@@ -813,7 +814,7 @@ void everyStyleHearsTransients() {
         for (int seed = 0; seed < 4; ++seed) {
             for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
                 const StyleDna dna = buildStyleDna(id, seed, t);
-                check(heard(dna), "every style's DNA ends on one transient route");
+                check(heard(dna), "every style's groove ends on one transient route");
                 check(dna.count <= StyleDna::kMaxRoutes, "the transient layer keeps the DNA within its cap");
             }
         }
@@ -822,9 +823,51 @@ void everyStyleHearsTransients() {
     std::set<int> targets;
     for (int i = 0; i < kStyleCount; ++i) {
         const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
-        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 1)].target));
+        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 3)].target));
     }
     check(targets.size() >= 3, "the transient layer's target is the style's own, not one for every style");
+}
+
+// The owner: react to transients "but also to longer things like 8 beats or 16, or melody lines". Every style's DNA
+// ends on one route on the song's long time (every 4 bars or every phrase) and one on its tune, ordinary routes the
+// user sees and edits. Neither moves a colour or turns anything, and the groove before them keeps its room.
+void everyStyleHearsTheSongsTime() {
+    const auto longTime = [](ReactSource s) {
+        return s == ReactSource::Bar4Hold || s == ReactSource::PhraseHold || s == ReactSource::Bar4Pulse || s == ReactSource::Phrase;
+    };
+    const auto tune = [](ReactSource s) {
+        return s == ReactSource::MelodyContour || s == ReactSource::PitchHeight || s == ReactSource::MelodyNote ||
+               s == ReactSource::MelodyPresence;
+    };
+    const auto calm = [](LfoTarget t) {
+        return !isLuminanceTarget(t) && t != LfoTarget::Rotation && t != LfoTarget::CamRoll && t != LfoTarget::CamOrbit &&
+               t != LfoTarget::Twist && t != LfoTarget::Sway;
+    };
+    std::set<int> longSources;
+    std::set<int> longTargets;
+    std::set<int> tuneSources;
+    std::set<int> tuneTargets;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
+                const StyleDna dna = buildStyleDna(id, seed, t);
+                check(dna.count >= 3 && dna.count <= StyleDna::kMaxRoutes, "the DNA stays within its cap");
+                const ReactRoute& bars = dna.routes[static_cast<size_t>(dna.count - 2)];
+                const ReactRoute& line = dna.routes[static_cast<size_t>(dna.count - 1)];
+                check(bars.enabled && longTime(bars.source), "every style has a route on every 4 bars or every phrase");
+                check(line.enabled && tune(line.source), "every style has a route on the melody");
+                check(calm(bars.target) && calm(line.target), "the long and tune routes move no colour and turn nothing");
+                check(bars.attackSeconds >= 1.0f && bars.releaseSeconds >= 1.0f, "the long route glides over a second or more");
+                check(dna.count - 3 <= StyleDna::kGrooveRoutes, "the groove keeps the room it had");
+                longSources.insert(static_cast<int>(bars.source));
+                longTargets.insert(static_cast<int>(bars.target));
+                tuneSources.insert(static_cast<int>(line.source));
+                tuneTargets.insert(static_cast<int>(line.target));
+            }
+        }
+    }
+    check(longSources.size() >= 3 && longTargets.size() >= 2, "the long route's source and target are drawn per style");
+    check(tuneSources.size() >= 3 && tuneTargets.size() >= 3, "the tune route's source and target are drawn per style");
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -2114,6 +2157,7 @@ int main() {
     dnaRespectsStyleTraits();
     dnaLeavesRoomAndStaysInRange();
     everyStyleHearsTransients();
+    everyStyleHearsTheSongsTime();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

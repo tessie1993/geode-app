@@ -3015,6 +3015,16 @@ object GeodeNative {
     )
 
     /**
+     * The hand mask for the saved routes [reactions] (null: none saved): 0 with none, [HAND_ALL] when no mask was saved
+     * beside them ([hasMask] false), else [savedMask]; -1 when the text is no route list any more (geode_mod_hand_load).
+     */
+    external fun modHandLoad(
+        reactions: String?,
+        hasMask: Boolean,
+        savedMask: Int,
+    ): Int
+
+    /**
      * The range Customize's slider offers for the scene param [name] (core/viz/ControlRange): min and max into
      * [out] (two floats). False, [out] untouched, for a name the schema lacks.
      */

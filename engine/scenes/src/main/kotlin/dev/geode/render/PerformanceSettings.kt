@@ -15,7 +15,7 @@ import dev.geode.engine.bridge.GeodeNative
 data class PerformanceSettings(
     /** Fraction of the surface's pixels the scene is drawn at, then upscaled. Below 1 also drops supersampling. */
     val renderScale: Float,
-    /** The frame-rate cap handed to the pacer. */
+    /** The live frame-rate cap handed to the pacer: 30 to 120, snapped to the display where it is applied. */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
@@ -35,13 +35,12 @@ data class PerformanceSettings(
         get() = PerformanceMode.entries.firstOrNull { it.settings == copy(liquidHot = it.settings.liquidHot) }
 
     companion object {
-        // Tiers and first-run pick are native (core/viz/frame/Quality.hpp, ADR 0008); Kotlin keeps the tab's choices.
+        // Tiers, first-run pick and the fps caps a display is offered are native (core/viz/frame/Quality, LiveFps; ADR 0008).
         val SAVER get() = PerformanceMode.SAVER.settings
         val BALANCED get() = PerformanceMode.BALANCED.settings
         val HIGH get() = PerformanceMode.HIGH.settings
 
         val RENDER_SCALES = listOf(0.5f, 0.75f, 1f)
-        val FPS_CAPS = listOf(30, 60)
         val MARCH_SCALES = listOf(0.5f, 0.75f, 1f)
 
         internal val tiers by lazy {

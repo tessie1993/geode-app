@@ -27,6 +27,8 @@ public:
 
 private:
     static constexpr float kKeepingUpFraction = 0.85f;
+    // The paced rate the default target (50) was tuned against.
+    static constexpr float kTargetTunedAtFps = 60.0f;
     float effectiveTargetFps() const;
 
     float targetFps_;
@@ -51,12 +53,23 @@ public:
     // not depend on how warm the phone was.
     ThermalTier tier() const { return offscreenDepth_.load() > 0 ? ThermalTier::Full : shared_.tier(); }
     const ThermalTierInfo& tierInfo() const { return thermalTierInfo(tier()); }
-    // The surface's own cap (Settings › Performance, the wallpaper's, the dream's), 0 when free-running.
-    void setPacedFps(float fps) { pacedFps_.store(fps); }
+    // The surface's own cap (Settings › Performance, the wallpaper's, the dream's, Cast's fixed rate), 0 when
+    // free-running, as the rate it is paced at too.
+    void setPacedFps(float fps) { setPacedFps(fps, fps); }
+    // The rate the surface's pacer last drew at (the thermal step already in it, or the next whole divide of
+    // the panel under the cap) and the surface's own cap apart. The thermal step walks a 120 cap down a rung a
+    // tier, which is not idempotent, so it is taken from the own cap and only min'd with the paced rate: a
+    // 120 cap paced at the Eased 90 stays 90, where stepping the 90 again would read 60.
+    void setPacedFps(float pacedFps, float ownCapFps) {
+        pacedFps_.store(pacedFps);
+        ownCapFps_.store(ownCapFps);
+    }
     // The rate this surface really draws at: its cap under the thermal one, as the pacer applies it.
     // The fluid scenes and the measured fallback read this, so a 30 fps thermal cap is never mistaken
     // for a phone that cannot keep up with 60.
-    float pacedFps() const { return frame::effectiveCapFps(pacedFps_.load(), tierInfo().fpsCap); }
+    float pacedFps() const {
+        return frame::effectiveCapFps(pacedFps_.load(), frame::thermalStepCapFps(ownCapFps_.load(), tierInfo().fpsRungsDown));
+    }
     // Settings › Performance "Adapt to frame time": any sustained frame-time deficit steers the tier
     // even when the platform reports thermals, and a sustained run of kept-up frames steps it back up.
     // Off (the High preset) full quality is the user's choice, so a mild deficit is left alone; only
@@ -91,6 +104,7 @@ private:
     ThermalState& shared_;
     std::atomic<int> offscreenDepth_{0};
     std::atomic<float> pacedFps_{0.0f};
+    std::atomic<float> ownCapFps_{0.0f};
     std::atomic<bool> adaptive_{false};
     float settleHoldSeconds_ = 0.0f;
     float keptUpSeconds_ = 0.0f;

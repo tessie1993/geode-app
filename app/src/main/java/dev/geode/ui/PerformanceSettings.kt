@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.view.View
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -7,14 +8,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.render.LiquidHotPolicy
 import dev.geode.render.PerformanceMode
@@ -89,11 +94,18 @@ private fun PerformanceDetailControls(
         PerformanceSettings.RENDER_SCALES.map { "${(it * 100).toInt()}%" },
         PerformanceSettings.RENDER_SCALES.indexOf(settings.renderScale),
     ) { onChange(settings.copy(renderScale = PerformanceSettings.RENDER_SCALES[it])) }
-    Choice(
-        stringResource(R.string.perf_fps_cap),
-        PerformanceSettings.FPS_CAPS.map { stringResource(R.string.perf_fps_value, it) },
-        PerformanceSettings.FPS_CAPS.indexOf(settings.fpsCap),
-    ) { onChange(settings.copy(fpsCap = PerformanceSettings.FPS_CAPS[it])) }
+    val refreshRates = rememberSeamlessRefreshRates()
+    val fpsCaps = remember(refreshRates) { liveFpsCaps(refreshRates) }
+    Column {
+        Choice(
+            stringResource(R.string.perf_fps_cap),
+            fpsCaps.map { stringResource(R.string.perf_fps_value, it) },
+            // The stored pick as this display runs it (a 120 picked on a foldable's inner screen reads 60 outside).
+            fpsCaps.indexOf(GeodeNative.liveFpsCap(settings.fpsCap, refreshRates)),
+        ) { onChange(settings.copy(fpsCap = fpsCaps[it])) }
+        Spacer(Modifier.height(6.dp))
+        Hint(stringResource(R.string.perf_fps_cap_hint))
+    }
     Choice(
         stringResource(R.string.perf_march),
         listOf(
@@ -133,6 +145,32 @@ private fun PerformanceDetailControls(
         Hint(stringResource(R.string.perf_liquid_hot_hint))
     }
     Hint(stringResource(R.string.perf_export_note))
+}
+
+/**
+ * The refresh rates the display under [view] can switch to without a blank: its current mode's and that mode's
+ * seamless alternatives (`Display.Mode.getAlternativeRefreshRates`), the set the pacer's two-argument
+ * `Surface.setFrameRate` can reach. Empty before the view has a display. Only a read: which caps they allow,
+ * and how a stored cap snaps to them, is native (`core/viz/frame/LiveFps`).
+ */
+internal fun seamlessRefreshRates(view: View): FloatArray {
+    val mode = view.display?.mode ?: return FloatArray(0)
+    return floatArrayOf(mode.refreshRate) + mode.alternativeRefreshRates
+}
+
+/** [seamlessRefreshRates] of this window's display, read again when the configuration changes (a fold, a move). */
+@Composable
+internal fun rememberSeamlessRefreshRates(): FloatArray {
+    val view = LocalView.current
+    val configuration = LocalConfiguration.current
+    return remember(view, configuration) { seamlessRefreshRates(view) }
+}
+
+/** The live caps Settings › Performance offers on a display with [refreshRates], ascending (native). */
+private fun liveFpsCaps(refreshRates: FloatArray): List<Int> {
+    val out = IntArray(GeodeNative.LIVE_FPS_MAX_CHOICES)
+    val count = GeodeNative.liveFpsChoices(refreshRates, out)
+    return out.take(count.coerceIn(0, out.size))
 }
 
 @Composable

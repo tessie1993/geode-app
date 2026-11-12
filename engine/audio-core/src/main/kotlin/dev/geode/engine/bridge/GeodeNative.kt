@@ -609,7 +609,8 @@ object GeodeNative {
     /**
      * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
-     * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
+     * is the rate this surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap it
+     * asked for (the same for a fixed rate); the thermal step is taken from [capFps] natively. The rest is
      * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
      * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
      * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
@@ -618,6 +619,7 @@ object GeodeNative {
     external fun vizFrameBegin(
         handle: Long,
         pacedFps: Float,
+        capFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
@@ -1732,6 +1734,25 @@ object GeodeNative {
         mode: Int,
         out: FloatArray,
     ): Boolean
+
+    /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
+    const val LIVE_FPS_MAX_CHOICES = 4
+
+    /**
+     * Settings › Performance's live frame-rate caps (core/viz/frame/LiveFps) on a display that can switch to
+     * [refreshRates] seamlessly, ascending into [out]; returns how many. 30 and 60 always, 90 and 120 where
+     * the display shows them. The in-app stage only: the wallpaper, dream, export and Cast keep their own.
+     */
+    external fun liveFpsChoices(
+        refreshRates: FloatArray,
+        out: IntArray,
+    ): Int
+
+    /** The stored live cap as a display with [refreshRates] runs it: offered as is, else the nearest offered. */
+    external fun liveFpsCap(
+        storedFps: Int,
+        refreshRates: FloatArray,
+    ): Int
 
     /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(

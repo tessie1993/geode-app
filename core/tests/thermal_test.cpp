@@ -2,7 +2,9 @@
 // CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
 // What is pinned: the owner's fps-first ladder (ADR 0008: fps, then render scale, then march, then post
-// FX), the thermal cap reaching the pacer as min(surface cap, thermal cap), two renderers' governors
+// FX), the thermal cap reaching the pacer as min(surface cap, thermal cap) for a cap of 60 and under and as a
+// walk down the rungs for a live 90 or 120 (core/viz/frame/LiveFps), the governor stepping the surface's own
+// cap and not the rate already paced, two renderers' governors
 // reading one state (#387: the second used to read NaN headroom and stay at Full), the once-a-second
 // cadence across threads with a headroom asked every ten seconds, the NaN rule (a missed window keeps the
 // last real headroom a while), the dwell both ways, and the measured fallback raising the floor for every
@@ -625,6 +627,74 @@ void theShellsPacerArrayHoldsTheCap() {
     }
 }
 
+// The owner's "Offer 90 and 120 in Performance" (2026-11-12): a live cap above 60 walks down a rung per hot
+// tier, 120 to 90, 60, 30, so fps still goes first. Kills: a hot tier that drops a 120 cap straight to 30
+// (the old flat cap) or not at all, and a 60 cap that no longer drops to 30 when warm.
+void aHighCapWalksDownTheLadder() {
+    const float expected120[] = {120.0f, 90.0f, 60.0f, 30.0f};
+    const float expected90[] = {90.0f, 60.0f, 30.0f, 30.0f};
+    const int statuses[] = {0, 1, 2, 3};  // NONE, LIGHT, MODERATE, SEVERE: Full .. Minimal
+    for (int i = 0; i < 4; ++i) {
+        ThermalState s;
+        pushFor(s, statuses[i], NAN, 100.0, 3);
+        check(s.tier() == kTiers[i], "three readings settle on the status's tier");
+        check(s.capFor(120.0f) == expected120[i], "a 120 cap walks 120, 90, 60, 30");
+        check(s.capFor(90.0f) == expected90[i], "a 90 cap walks 90, 60, 30");
+        check(s.capFor(60.0f) == (i == 0 ? 60.0f : 30.0f), "a 60 cap still drops to 30 when warm");
+        check(s.capFor(0.0f) == (i == 0 ? 0.0f : 30.0f), "and a free-running surface to the floor");
+    }
+    // Each rung of the ladder is still smoothness first: the render scale only goes once fps has gone twice.
+    check(thermalTierInfo(ThermalTier::Eased).fpsRungsDown == 1 && thermalTierInfo(ThermalTier::Eased).renderScale == 1.0f,
+          "Eased costs one rung of fps and nothing else");
+}
+
+// The shell hands the rate the pacer last drew at (the thermal step already in it) beside the surface's own cap.
+// Kills: the governor stepping the paced rate again (a 120 cap paced at the Eased 90 read as 60, so MilkDrop
+// presets ran at the wrong rate and the measured fallback watched the wrong target).
+void theGovernorStepsTheOwnCapNotThePacedRate() {
+    ThermalState shared;
+    pushFor(shared, 1, NAN, 100.0, 3);  // Eased
+    ThermalGovernor g(shared);
+    g.setPacedFps(90.0f, 120.0f);
+    check(g.pacedFps() == 90.0f, "a 120 cap paced at the Eased 90 draws at 90, not 60");
+    g.setPacedFps(60.0f, 120.0f);
+    check(g.pacedFps() == 60.0f, "a 120 Hz panel that kept its mode divides the 90 down to 60, and 60 it reads");
+    g.setPacedFps(120.0f, 120.0f);
+    check(g.pacedFps() == 90.0f, "before the pacer says, the own cap's step caps the paced rate");
+    g.setPacedFps(60.0f);
+    check(g.pacedFps() == 30.0f, "one value is both, as Cast and the tests hand it: a 60 cap draws the warm 30");
+    ThermalState cool;
+    cool.push(0, NAN, 100.0);
+    ThermalGovernor c(cool);
+    c.setPacedFps(45.0f, 60.0f);
+    check(c.pacedFps() == 45.0f, "cool, the pacer's 45 for a 60 cap on a 90 Hz panel stands");
+}
+
+// Kills: a frame-time target that stays at 50 above a 60 cap (a 120 cap drawn at 70 would never step down),
+// and one that moved for caps of 60 and under. Worked by hand: under a 120 cap the target is 50 x 120 / 60 =
+// 100, so 90 fps is a 10 % deficit, a mild one: with Adapt on it raises the floor a rung after 2.5 s, which
+// steps the cap to 90, whose target (75) 90 fps meets.
+void aHighCapThatCannotKeepUpStepsDownARung() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setAdaptive(true);
+    g.setPacedFps(120.0f, 120.0f);
+    for (int i = 0; i < 90 * 5; ++i) g.onFrame(1.0f / 90.0f);  // 90 fps under a 120 cap for 5 s
+    check(shared.measuredFloor() == ThermalTier::Eased, "90 fps under a 120 cap steps one rung");
+    check(g.pacedFps() == 90.0f && shared.capFor(120.0f) == 90.0f, "and the cap walks to 90");
+    for (int i = 0; i < 90 * 20; ++i) g.onFrame(1.0f / 90.0f);
+    check(shared.measuredFloor() == ThermalTier::Eased, "90 fps under the 90 it now asks for keeps up");
+
+    ThermalState sixty;
+    sixty.push(0, NAN, 100.0);
+    ThermalGovernor s(sixty);
+    s.setAdaptive(true);
+    s.setPacedFps(60.0f);
+    for (int i = 0; i < 52 * 10; ++i) s.onFrame(1.0f / 52.0f);  // 52 fps under a 60 cap: over the old 50
+    check(sixty.measuredFloor() == ThermalTier::Full, "a 60 cap's target is still 50");
+}
+
 // Kills: a per-thread or per-renderer state behind ThermalState::process() (#387: the wallpaper read its
 // own copy and stayed at Full). Uses the real process state, so main runs it last.
 void everySurfaceInTheProcessReadsOneState() {
@@ -679,6 +749,9 @@ int main() {
     aBurstOfStyleChangesUsedToRaiseTheFloor();
     aBurstOfStyleChangesIsNotADeficit();
     theShellsPacerArrayHoldsTheCap();
+    aHighCapWalksDownTheLadder();
+    theGovernorStepsTheOwnCapNotThePacedRate();
+    aHighCapThatCannotKeepUpStepsDownARung();
     everySurfaceInTheProcessReadsOneState();  // last: it uses the real process state
     if (failures == 0) std::printf("thermal_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

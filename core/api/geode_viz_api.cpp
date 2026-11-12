@@ -31,6 +31,7 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Cadence.hpp"
+#include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Pacer.hpp"
 #include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
@@ -448,6 +449,16 @@ int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media
     return static_cast<int>(geode::viz::frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class));
 }
 
+int geode_live_fps_choices(const float* rates, int count, int* out, int capacity) {
+    static_assert(geode::viz::frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
+    static_assert(static_cast<int>(geode::viz::frame::kLiveFpsRungs.size()) == GEODE_LIVE_FPS_MAX_CHOICES);
+    return geode::viz::frame::liveFpsChoices(rates, std::max(count, 0), out, std::max(capacity, 0));
+}
+
+int geode_live_fps_cap(int stored_fps, const float* rates, int count) {
+    return geode::viz::frame::liveFpsCap(stored_fps, rates, std::max(count, 0));
+}
+
 double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
     namespace frame = geode::viz::frame;
     static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
@@ -686,12 +697,12 @@ void geode_viz_gyro_reset(geode_viz* v) {
     v->renderer.setLook(look.yaw, look.pitch);
 }
 
-int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
-                          int adaptive, int liquid_hot_policy, long long params_version, long long lfo_version,
-                          long long adsr_version, long long tuning_version) {
+int geode_viz_frame_begin(geode_viz* v, float paced_fps, float cap_fps, float render_scale, float march_scale,
+                          int post_fx, int adaptive, int liquid_hot_policy, long long params_version,
+                          long long lfo_version, long long adsr_version, long long tuning_version) {
     if (!v) return 0;
     Renderer& r = v->renderer;
-    r.thermal().setPacedFps(paced_fps);
+    r.thermal().setPacedFps(paced_fps, cap_fps);
     const frame::UserQuality quality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy};
     if (v->cadence.offerQuality(quality)) {
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);

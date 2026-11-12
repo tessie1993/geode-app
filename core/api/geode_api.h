@@ -147,8 +147,11 @@ GEODE_API void        geode_viz_gyro_sample(geode_viz*, float x, float y, float 
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
-   paced_fps is the rate this surface's pacer draws at (GEODE_PACER_PACED_SLOT; 0 = free-running; the thermal
-   cap is applied under it natively);
+   paced_fps is the rate this surface's pacer draws at (GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps
+   the surface's own cap the pacer was asked for (Settings › Performance's, the wallpaper's or the dream's; the
+   same as paced_fps where nothing paces it but a fixed rate, Cast's): the thermal step is taken from cap_fps
+   (frame::thermalStepCapFps walks a 120 cap down a rung a hot tier, which is not idempotent) and applied under
+   paced_fps natively;
    the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
    1 full, 2 pause: liquid::HotPolicy). The four *_version arguments are the shell's version counters (each
    grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
@@ -166,8 +169,8 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 #define GEODE_FRAME_PUSH_LFO       0x20 /* push every LFO slot (geode_viz_set_lfo) */
 #define GEODE_FRAME_PUSH_ADSR      0x40 /* push every ADSR slot (geode_viz_set_adsr) */
 #define GEODE_FRAME_PUSH_TUNING    0x80 /* push the sound tuning (geode_viz_set_sound_tuning) */
-GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
-                                            int post_fx, int adaptive, int liquid_hot_policy,
+GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float cap_fps, float render_scale,
+                                            float march_scale, int post_fx, int adaptive, int liquid_hot_policy,
                                             long long params_version, long long lfo_version,
                                             long long adsr_version, long long tuning_version);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
@@ -728,6 +731,16 @@ GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
 /* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
 GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
+/* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
+   wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
+   seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
+   an unknown display. choices: the caps offered, ascending, into out (up to capacity); returns how many: 30
+   and 60 always, 90 and 120 where the display shows them evenly. cap: the stored pick as this display runs
+   it, an offered cap as it is, anything else the nearest offered (the lower on a tie), <= 0 the default. */
+#define GEODE_LIVE_FPS_DEFAULT 60
+#define GEODE_LIVE_FPS_MAX_CHOICES 4
+GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
+GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
 /* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
  * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
  * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
@@ -813,12 +826,12 @@ GEODE_API int             geode_stage_presents(unsigned flags);
    it to geode_viz_frame_begin as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync); the pacer applies min(cap_fps, the thermal cap). */
+   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
-/* The cap a surface asking for cap_fps runs at now, min(cap_fps, the thermal cap); 0 = none. For
-   Surface.setFrameRate. */
+/* The cap a surface asking for cap_fps runs at now: cap_fps stepped down a rung per hot thermal tier (120 to
+   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate. */
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The

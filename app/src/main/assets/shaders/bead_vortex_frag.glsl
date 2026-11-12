@@ -274,6 +274,8 @@ void main() {
     // rebase is exact, and z keeps its precision far down the 8192 travel.
     ro.z = mod(ro.z, BV_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
     // The swell leaves just ahead of the eye and recedes as the envelope falls.
     gRingZ = ro.z + 2.0 + 16.0 * (1.0 - kick);
 

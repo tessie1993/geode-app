@@ -259,6 +259,8 @@ void main() {
     // exact and invisible, and keeps highp z precise far down the travel.
     ro.z = mod(ro.z, MC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     float t = 0.03;
     float hitT = -1.0;

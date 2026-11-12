@@ -505,8 +505,9 @@ void main() {
 
     // ---- outside march, inside the scene sphere only ----
     float b = dot(ro, rd);
-    // A hook that is on reaches past the scene: a twin 0.6 aside, a layer opened 18%.
-    float sceneR = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? SS_SCENE_R : 1.2 * SS_SCENE_R + 0.6;
+    // A hook that is on reaches past the scene (a twin aside, children out of the surface, a layer
+    // opened) by lib_shell's slack, 0 at rest.
+    float sceneR = SS_SCENE_R + SHELL_SLACK(SS_SCENE_R);
     float disc = b * b - (dot(ro, ro) - sceneR * sceneR);
     float hitT = -1.0;
     float used = 0.0;

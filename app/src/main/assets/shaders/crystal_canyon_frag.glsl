@@ -210,6 +210,8 @@ void main() {
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, CC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);

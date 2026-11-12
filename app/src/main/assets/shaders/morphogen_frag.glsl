@@ -940,7 +940,11 @@ void main() {
     // is most of the screen, and the difference between this style running on
     // a phone and not.
     float b = dot(ro, rd);
-    float cc = dot(ro, ro) - SCENE_BOUND * SCENE_BOUND;
+    // The grown body (lib_shell's twin, Fractal's children, a layer opened) reaches out of the scene's
+    // sphere by the shell's slack while a hook is on; SCENE_BOUND itself at rest. The body's own clip is
+    // read at the moved point and moves with it.
+    float sceneBound = SCENE_BOUND + SHELL_SLACK(SCENE_BOUND);
+    float cc = dot(ro, ro) - sceneBound * sceneBound;
     float h = b * b - cc;
 
     // The palette coordinate walks with the morph clock rather than with the

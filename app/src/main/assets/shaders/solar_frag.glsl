@@ -195,9 +195,10 @@ void main() {
 
     // ---- march the photosphere inside its bounding shell ----------------------
     float hitT = -1.0;
-    // A hook that is on reaches past the sun: a twin aside, a layer opened, children on the surface.
+    // A hook that is on reaches past the sun (a twin aside, a layer opened, children on the surface) by
+    // lib_shell's slack, 0 at rest.
     float shellR = gR + gA + 0.01;
-    if (!shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK)) shellR = 1.2 * shellR + 0.8;
+    shellR += SHELL_SLACK(shellR);
     vec2 shell = sphereSpan(ro, rd, shellR);
     if (shell.y > 0.0) {
         float t = max(shell.x, 0.0);

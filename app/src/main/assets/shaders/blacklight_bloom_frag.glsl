@@ -325,6 +325,8 @@ void main() {
     // and invisible, and z keeps its precision far down the 8192 travel.
     ro.z = mod(ro.z, BB_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * BB_CELL, false);
 
     // ---- the bubbles, analytically -------------------------------------------
     float tb = 1e9;

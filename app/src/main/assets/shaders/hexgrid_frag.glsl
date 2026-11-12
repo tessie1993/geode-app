@@ -232,6 +232,8 @@ void main() {
     // travel a highp z has ~0.001 of fraction left and the cells speckle.
     ro.z = mod(ro.z, HG_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, HG_APO, false);
 
     float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;

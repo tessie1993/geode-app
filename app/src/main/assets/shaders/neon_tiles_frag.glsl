@@ -331,6 +331,8 @@ void main() {
     // and invisible (power of two), and z keeps its precision.
     ro.z = mod(ro.z, NT_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
     float pxScale = 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
 
     // The orb: analytic, at the centre of the view.

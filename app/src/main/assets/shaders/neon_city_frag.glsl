@@ -229,6 +229,8 @@ void main() {
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, NC_ZWRAP * NC_CELL);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * NC_CELL, false);
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
@@ -240,6 +242,9 @@ void main() {
     gHiMax = min(NC_GROUND + NC_MAX_HEIGHT * gStretch * max(sBlockH, 1.0), gCap);
     float glowY = 0.02 + 0.16 * drop;
 
+    // The roof the march gives up above, widened by lib_shell's slack while a grow hook is on (a layer
+    // drawn in lifts the roofs toward the eye, children reach above them); exactly gHiMax + 0.1 at rest.
+    float roofY = gHiMax + 0.1 + SHELL_SLACK(abs(gHiMax - ro.y));
     float t = 0.05;
     float hitT = -1.0;
     for (int i = 0; i < NC_MAX_STEPS; i++) {
@@ -247,7 +252,7 @@ void main() {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
         // Above every roof and climbing: nothing left to hit.
-        if (rd.y >= 0.0 && p.y > gHiMax + 0.1) break;
+        if (rd.y >= 0.0 && p.y > roofY) break;
         float d = map(p);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;

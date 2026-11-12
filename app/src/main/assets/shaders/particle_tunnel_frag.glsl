@@ -118,6 +118,8 @@ void main() {
     // travel a highp z has ~0.001 of fraction left: every sample and the
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, PT_ZWRAP);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);

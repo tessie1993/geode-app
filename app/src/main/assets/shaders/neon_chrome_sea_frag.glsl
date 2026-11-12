@@ -137,7 +137,7 @@ float ocSeaField(vec2 p) {
 
 float ocHeight(vec2 p, int count) {
     gCount = count;
-    return OC_SEA_Y + gAmp * SHELL_FIELD2(p, ocSeaField);
+    return OC_SEA_Y + gAmp * SHELL_FIELD2W(p, ocSeaField);
 }
 
 vec3 ocNormal(vec2 p, float eps) {
@@ -254,6 +254,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, 64.0);
+    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
 
     // The six looks the sea was drawn around, each 0..1 with 0.5 as tuned,
     // now driven: see "what moves it" above.

@@ -220,6 +220,8 @@ void main() {
     // little fraction left for the cells and the normals.
     ro.z = mod(ro.z, OL_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     float t = 0.04;
     float hitT = -1.0;

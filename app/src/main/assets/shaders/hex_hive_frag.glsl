@@ -258,6 +258,8 @@ void main() {
     float er = length(ro.xy);
     float maxR = gR - 1.9;
     if (er > maxR) ro.xy *= maxR / er;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     float t = 0.05;
     vec4 m = vec4(0.0);

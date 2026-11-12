@@ -303,13 +303,31 @@ float shellDensityChild3(float d, float fractal) {
 // brighter or denser: a brightness, a colour, a density. A style whose field is
 // a distance hands its negation (or a glow of it). The layers are radial: the
 // centre of the frame is the front layer (the subject), the edge the back.
+//
+// A pattern laid on the world's ground (a height map, a floor's lines, a sea)
+// is read at world xz, far from any origin on a flown world, and rebased with
+// the eye's wrap. Its layers are measured round the eye instead: the style
+// says where the eye stands on that ground with shellSetup2 and reads the
+// pattern through SHELL_FIELD2W. Opening round a fixed origin would slide the
+// whole ground under the eye and jump at every wrap.
 
-/** uv with the near (centre) and far (edge) bands zoomed by the layers, up to ~18%; uv itself while both are 0. */
-vec2 shellOpen2(vec2 uv, float front, float back) {
+/** Where a ground pattern's layers are measured from (the eye on the ground), and how far its front reaches. */
+vec2 gShellCentre2 = vec2(0.0);
+float gShellReach2 = 1.0;
+
+/** Tell SHELL_FIELD2W where the eye stands on the ground (world units) and the reach: front within 0.3 x, back from 1.2 x. */
+void shellSetup2(vec2 centre, float reach) {
+    gShellCentre2 = centre;
+    gShellReach2 = reach;
+}
+
+/** uv with the near and far bands round centre c zoomed by the layers, up to ~18%; uv itself while both are 0. */
+vec2 shellOpen2(vec2 uv, vec2 c, float reach, float front, float back) {
     if (front == 0.0 && back == 0.0) return uv;
-    float layer = mix(front, back, smoothstep(0.3, 1.2, length(uv)));
+    vec2 r = uv - c;
+    float layer = mix(front, back, smoothstep(0.3 * reach, 1.2 * reach, length(r)));
     layer *= layer < 0.0 ? 0.6 : 1.0;
-    return uv / (1.0 + 0.18 * layer);
+    return c + r / (1.0 + 0.18 * layer);
 }
 
 /** Spawn's copy: mirrored across the vertical axis and slid aside by up to half a screen height. */
@@ -327,12 +345,19 @@ float shellBlend2(float a, float b, float w) { return mix(a, max(a, b), clamp(w,
 vec3 shellBlend2(vec3 a, vec3 b, float w) { return mix(a, max(a, b), clamp(w, 0.0, 1.0)); }
 vec4 shellBlend2(vec4 a, vec4 b, float w) { return mix(a, max(a, b), clamp(w, 0.0, 1.0)); }
 
-#define SHELL_F2_A(uv, F) F(shellOpen2((uv), SHELL_FRONT, SHELL_BACK))
-#define SHELL_F2_B(uv, F) F(shellSpawn2(shellOpen2((uv), SHELL_FRONT, SHELL_BACK), SHELL_SPAWN))
-#define SHELL_F2_C(uv, F) F(shellFold2(shellOpen2((uv), SHELL_FRONT, SHELL_BACK)))
+#define SHELL_F2_A(uv, c, r, F) F(shellOpen2((uv), c, r, SHELL_FRONT, SHELL_BACK))
+#define SHELL_F2_B(uv, c, r, F) F(shellSpawn2(shellOpen2((uv), c, r, SHELL_FRONT, SHELL_BACK), SHELL_SPAWN))
+#define SHELL_F2_C(uv, c, r, F) F(shellFold2(shellOpen2((uv), c, r, SHELL_FRONT, SHELL_BACK)))
 
 /**
- * The style's pattern F (float, vec3 or vec4 F(vec2)) at uv with the hooks applied: exactly F(uv)
- * while all are 0, read once. Pass uv as a variable: it is named more than once.
+ * The style's pattern F (float, vec3 or vec4 F(vec2)) at uv with the hooks applied, the layers measured
+ * round c with reach r: exactly F(uv) while all are 0, read once. Pass uv as a variable: it is named
+ * more than once.
  */
-#define SHELL_FIELD2(uv, F) (shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? F(uv) : (SHELL_SPAWN > 0.0 ? (SHELL_FRACTAL > 0.0 ? shellBlend2(shellBlend2(SHELL_F2_A(uv, F), SHELL_F2_B(uv, F), SHELL_SPAWN), SHELL_F2_C(uv, F), SHELL_FRACTAL) : shellBlend2(SHELL_F2_A(uv, F), SHELL_F2_B(uv, F), SHELL_SPAWN)) : (SHELL_FRACTAL > 0.0 ? shellBlend2(SHELL_F2_A(uv, F), SHELL_F2_C(uv, F), SHELL_FRACTAL) : SHELL_F2_A(uv, F))))
+#define SHELL_FIELD2_ROUND(uv, c, r, F) (shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? F(uv) : (SHELL_SPAWN > 0.0 ? (SHELL_FRACTAL > 0.0 ? shellBlend2(shellBlend2(SHELL_F2_A(uv, c, r, F), SHELL_F2_B(uv, c, r, F), SHELL_SPAWN), SHELL_F2_C(uv, c, r, F), SHELL_FRACTAL) : shellBlend2(SHELL_F2_A(uv, c, r, F), SHELL_F2_B(uv, c, r, F), SHELL_SPAWN)) : (SHELL_FRACTAL > 0.0 ? shellBlend2(SHELL_F2_A(uv, c, r, F), SHELL_F2_C(uv, c, r, F), SHELL_FRACTAL) : SHELL_F2_A(uv, c, r, F))))
+
+/** A screen pattern (uv about the frame's centre, aspect-corrected): the layers round the centre. */
+#define SHELL_FIELD2(uv, F) SHELL_FIELD2_ROUND(uv, vec2(0.0), 1.0, F)
+
+/** A ground pattern at world xz: the layers round the eye shellSetup2 named. */
+#define SHELL_FIELD2W(xz, F) SHELL_FIELD2_ROUND(xz, gShellCentre2, gShellReach2, F)

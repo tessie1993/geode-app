@@ -275,6 +275,8 @@ void main() {
     // exact and invisible, and keeps z precise for the cells and the normals.
     ro.z = mod(ro.z, VC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * VC_CELL, false);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);

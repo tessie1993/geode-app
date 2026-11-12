@@ -297,6 +297,8 @@ void main() {
     camFly(uv, ro, rd);
     // Exact (power of two) and invisible: every z term tiles with 256.
     ro.z = mod(ro.z, 256.0);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     // ---- march, integrating the jellies' glow on the way ---------------------
     float t = 0.05;

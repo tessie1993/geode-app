@@ -222,6 +222,8 @@ void main() {
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TN_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * TN_RIB, false);
 
     // Skip the empty middle: no part of the shell comes nearer the axis than
     // the bore minus every inward term at its current size. Only while the

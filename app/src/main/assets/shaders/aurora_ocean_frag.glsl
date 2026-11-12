@@ -122,7 +122,7 @@ float seaField(vec2 xz) {
 
 /** The sea as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float sea(vec2 xz) {
-    return SHELL_FIELD2(xz, seaField);
+    return SHELL_FIELD2W(xz, seaField);
 }
 
 /** One curtain layer's ribbons at its plane point q, with their vertical rays: a 2D pattern (SHELL_FIELD2). */
@@ -214,6 +214,8 @@ void main() {
     // a highp z has ~0.001 of fraction left and the normals would speckle.
     vec3 eye = ro;
     ro.z = mod(ro.z, 64.0);
+    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
     ro.y = max(ro.y, AO_SEA_Y + sea(ro.xz) + 0.45);
     eye.y = ro.y;
 

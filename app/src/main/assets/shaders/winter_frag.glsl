@@ -381,6 +381,10 @@ void main() {
     // (power of two) and keeps z precise for the hashes and the normals.
     ro.z = mod(ro.z, WI_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * WI_TC, false);
+    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
@@ -447,9 +451,9 @@ void main() {
             // they never alias into sparkle near the horizon.
             float amp = 0.05 * (1.0 + 0.8 * kick + 2.0 * (uKnob[0] - 0.5)) * exp(-hitT * 0.05) * water;
             float e = 0.03;
-            float w0 = SHELL_FIELD2(p.xz, wiRippleField);
-            float wx = SHELL_FIELD2(p.xz + vec2(e, 0.0), wiRippleField);
-            float wz = SHELL_FIELD2(p.xz + vec2(0.0, e), wiRippleField);
+            float w0 = SHELL_FIELD2W(p.xz, wiRippleField);
+            float wx = SHELL_FIELD2W(p.xz + vec2(e, 0.0), wiRippleField);
+            float wz = SHELL_FIELD2W(p.xz + vec2(0.0, e), wiRippleField);
             vec3 n = normalize(vec3(-(wx - w0) / e * amp, 1.0, -(wz - w0) / e * amp));
             float ndv = clamp(dot(n, -rd), 0.0, 1.0);
             vec3 rf = reflect(rd, n);
@@ -465,7 +469,7 @@ void main() {
             // Ice: frosted (a blurred, dimmer reflection), crazed with cracks
             // that glint on treble, brightest at the crystals' feature points.
             float density = sFrost;
-            vec2 fr = SHELL_FIELD2(p.xz, wiFrostField).xy;
+            vec2 fr = SHELL_FIELD2W(p.xz, wiFrostField).xy;
             float pxw = 2.0 * hitT / (uResolution.y * uCamFocal * max(abs(rd.y), 0.08)) * density;
             float crack = 1.0 - smoothstep(0.0, 0.05 + pxw, fr.y);
             float glint = pow(1.0 - clamp(fr.x, 0.0, 1.0), 8.0);

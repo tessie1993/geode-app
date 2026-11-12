@@ -209,6 +209,8 @@ void main() {
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 4.0, false);
 
     float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump + 0.6 * kTone;
     float iri = 0.28 * pitchBump + 0.04 * sin(uTime * 0.09);

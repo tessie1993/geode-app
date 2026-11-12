@@ -247,6 +247,10 @@ void main() {
     // has ~0.001 of fraction left and the grid lines quantise into speckle.
     ro.z = mod(ro.z, GR_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
+    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    shellSetup2(vec2(ro.x - bendX(ro.z), ro.z), 5.0);
 
     for (int i = 0; i < GR_BANDS; i++) {
         float b = (float(i) + 0.5) / float(GR_BANDS);
@@ -303,7 +307,7 @@ void main() {
         vec3 p = ro + rd * tPlane;
         vec2 w = vec2(p.x - bendX(p.z), p.z);
         gFp = tPlane * pix / max(abs(rd.y), 0.03);
-        float line = SHELL_FIELD2(w, floorLines);
+        float line = SHELL_FIELD2W(w, floorLines);
         // The band under the line, as the flat style read it across x.
         int bi = int(mod(floor(abs(w.x) * 0.12 * float(GR_BANDS)), float(GR_BANDS)));
         float hb = gSpec[bi];

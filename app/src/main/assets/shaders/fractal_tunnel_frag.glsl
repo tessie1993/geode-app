@@ -304,6 +304,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, FT_PERIOD);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
     gEyeXY = ro.xy;
     gEyeZ = ro.z;
     gRingZ = ro.z + 1.2 + 9.0 * (1.0 - kick);

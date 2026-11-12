@@ -270,6 +270,8 @@ void main() {
     // and keeps highp z precise far down the 8192 travel.
     ro.z = mod(ro.z, CO_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * CO_SPACING, false);
 
     float t = 0.03;
     float hitT = -1.0;

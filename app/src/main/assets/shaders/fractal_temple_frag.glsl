@@ -339,6 +339,8 @@ void main() {
     // 8192 travel.
     ro.z = mod(ro.z, TF_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * TF_BAY, false);
 
     float t = 0.05;
     float hitT = -1.0;

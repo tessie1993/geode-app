@@ -154,7 +154,7 @@ float terrainField(vec2 xz) {
 
 /** The land as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float terrain(vec2 xz) {
-    return SHELL_FIELD2(xz, terrainField);
+    return SHELL_FIELD2W(xz, terrainField);
 }
 
 void main() {
@@ -213,6 +213,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, ST_ZWRAP);
+    // The ground's grow hooks (lib_shell's SHELL_FIELD2W) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
     // The ring rises a few units ahead and spreads as the kick decays.
     gRipC = ro.xz + vec2(0.0, 4.0);
     gRipR = 1.5 + 18.0 * (1.0 - kick);

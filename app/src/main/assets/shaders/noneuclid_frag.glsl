@@ -573,6 +573,8 @@ void main() {
     // chosen mutually irrational-ish (0.061 / 0.043) so the two axes do not
     // relock into a straight line every few seconds.
     gCenter = vec3(0.22 * sin(uTime * 0.061), 0.17 * sin(uTime * 0.043 + 1.1), camZ);
+    // The grow hooks act round the ball the structure is clipped to, not round the eye at the origin.
+    shellSetup3(gCenter, BALL_R, 0.5 * BALL_R, true);
 
     // The pole. Idle, it drifts on its own inside the ball, which is the
     // ambient motion this style has to have with the audio at zero: a lens of
@@ -662,6 +664,9 @@ void main() {
     // and this app has a photosensitivity budget.
     float jitter = hash13(vec3(gl_FragCoord.xy, 7.0));
     float t = 0.35 + jitter * 0.03;
+    // Past FAR nothing is drawn; a grown structure (a twin aside, a layer opened) reaches past the ball's
+    // far side by lib_shell's slack while a hook is on, FAR itself at rest.
+    float farT = FAR + SHELL_SLACK(BALL_R);
 
     float hitT = -1.0;
     float hitTrapO = 1.0;
@@ -704,7 +709,7 @@ void main() {
         glowTrapO += w * gTrapO;
         glowTrapA += w * gTrapA;
         t += step;
-        if (t > FAR) break;
+        if (t > farT) break;
     }
 
     // The bank, marched on its own around the ball's centre. Its hit is

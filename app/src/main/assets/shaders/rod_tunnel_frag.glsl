@@ -209,6 +209,8 @@ void main() {
     float fly = ro.z;
     gFly = fly;
     ro.xy = dmtTunnelPath(fly) + vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // The grow hooks (lib_shell) open round this eye, back on the tube's centreline, not the rig's.
+    shellSetup3(ro, 3.0, 0.5 * ROD_CELL, false);
     // Framing: the bend's tangent and the old slow roll, so the horizon of the
     // tube turns as it banks. The rig's own look is applied inside it.
     float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);

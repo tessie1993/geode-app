@@ -158,6 +158,8 @@ void main() {
     // (power of two). Without it, far down the 8192 travel a highp z has only
     // ~0.001 of fraction left, which quantises every sample and the normals.
     ro.z = mod(ro.z, 4.0);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     float t = 0.02;
     float hitT = -1.0;

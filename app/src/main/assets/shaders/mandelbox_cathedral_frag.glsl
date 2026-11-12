@@ -494,6 +494,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, MC_TILE);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * MC_PERIOD, false);
 
     // Note & key reactions' style knobs ride on top (lib_neon): PULSE the
     // ribs, TEXTURE the form, FLOW the sway, TONE the ramp, BUILD the light.

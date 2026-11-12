@@ -870,10 +870,6 @@ void geode_wallpaper_window(float surface_w, float surface_h, float display_w, f
     out[3] = w.height;
 }
 
-float geode_wallpaper_fps(float target_fps, float cap_fps) {
-    return geode::viz::frame::wallpaper::frameRate(target_fps, cap_fps);
-}
-
 int geode_viz_knows(geode_viz* v, const char* scene_id) {
     return (v && scene_id && v->renderer.knows(scene_id)) ? 1 : 0;
 }

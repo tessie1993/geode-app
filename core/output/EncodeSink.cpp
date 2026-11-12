@@ -107,10 +107,17 @@ int EncodeSink::drain(int track) {
         case Out::Sample:
             break;
     }
-    const uint8_t* data = codec.outputBuffer(index);
+    size_t capacity = 0;
+    const uint8_t* data = codec.outputBuffer(index, &capacity);
+    // A size the buffer cannot hold, or bytes with no buffer, is a broken codec: stopping beats reading past
+    // the buffer or leaving a hole in the file.
+    if (info.size < 0 || (info.size > 0 && (!data || static_cast<size_t>(info.size) > capacity))) {
+        codec.releaseOutput(index);
+        return -1;
+    }
     // A codec-config buffer (SPS/PPS, the AAC header) is already in the output format the muxer was given.
     const bool config = (info.flags & kFlagCodecConfig) != 0;
-    if (data && info.size > 0 && !config) {
+    if (info.size > 0 && !config) {
         if (track == kVideo) host_.videoEncoded();
         if (!write(track, data, info)) return -1;
     }
@@ -121,11 +128,10 @@ int EncodeSink::drain(int track) {
 bool EncodeSink::write(int track, const uint8_t* data, const BufferInfo& info) {
     if (!muxing_) {
         // Out before every format is known: kept as a copy, since the codec takes its buffer back.
-        Held held;
-        held.track = track;
-        held.bytes.assign(data + info.offset, data + info.offset + info.size);
-        held.info = {0, info.size, info.ptsUs, info.flags};
-        held_.push_back(std::move(held));
+        const size_t size = static_cast<size_t>(info.size);
+        if (size > kHeldLimitBytes - heldBytes_.size()) return false;
+        held_.push_back({track, heldBytes_.size(), info});
+        heldBytes_.insert(heldBytes_.end(), data, data + size);
         return true;
     }
     if (!muxer_.writeSample(tracks_[track], data, info)) return false;
@@ -146,9 +152,10 @@ bool EncodeSink::startMuxerWhenReady() {
     muxing_ = true;
     // What waited goes in as it came out, both tracks interleaved in arrival order.
     for (const Held& held : held_) {
-        if (!write(held.track, held.bytes.data(), held.info)) return false;
+        if (!write(held.track, heldBytes_.data() + held.at, held.info)) return false;
     }
     std::vector<Held>().swap(held_);
+    std::vector<uint8_t>().swap(heldBytes_);
     return true;
 }
 

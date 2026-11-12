@@ -38,9 +38,9 @@ inline constexpr uint32_t kFlagKeyFrame = 1;
 inline constexpr uint32_t kFlagCodecConfig = 2;
 inline constexpr uint32_t kFlagEndOfStream = 4;
 
-// One buffer: the sample is bytes [offset, offset + size) of the buffer it came with.
+// One sample: `size` bytes from the pointer it comes with. There is no offset: whoever hands a sample over
+// points at its first byte, so no layer has to agree with another on where a codec's buffer starts.
 struct BufferInfo {
-    int32_t offset = 0;
     int32_t size = 0;
     int64_t ptsUs = 0;
     uint32_t flags = 0;
@@ -111,8 +111,9 @@ public:
     virtual uint8_t* inputBuffer(int index, size_t* capacity) = 0;
     virtual bool queueInput(int index, size_t bytes, int64_t ptsUs, uint32_t flags) = 0;
     virtual Out dequeueOutput(int* index, BufferInfo* info) = 0;
-    // The output buffer's start (the sample at info.offset); null when the codec gives none.
-    virtual const uint8_t* outputBuffer(int index) = 0;
+    // The sample's first byte, and in *capacity how many bytes the codec's buffer holds from there; null when
+    // the codec gives none.
+    virtual const uint8_t* outputBuffer(int index, size_t* capacity) = 0;
     virtual bool releaseOutput(int index) = 0;
     virtual std::unique_ptr<TrackFormat> outputFormat() = 0;
 };
@@ -123,7 +124,7 @@ public:
     // The track's index, or < 0 when refused.
     virtual int addTrack(const TrackFormat& format) = 0;
     virtual bool start() = 0;
-    // data is the buffer's start; the sample is info.offset .. + info.size.
+    // data is the sample's first byte, info.size bytes long, and only valid during the call.
     virtual bool writeSample(int track, const uint8_t* data, const BufferInfo& info) = 0;
     virtual bool stop() = 0;
 };
@@ -174,6 +175,10 @@ class EncodeSink {
 public:
     // The most PCM frames one audio input buffer is given.
     static constexpr int kPcmFrames = 4096;
+    // The most encoded bytes kept while the muxer waits for both formats. They arrive within the first few
+    // buffers, so this is seconds of the highest bit rate; a codec that never names its format fails the
+    // stream here instead of growing until the process dies.
+    static constexpr size_t kHeldLimitBytes = size_t{32} << 20;
 
     EncodeSink(Codecs& codecs, Muxer& muxer, Host& host) : codecs_(codecs), muxer_(muxer), host_(host) {}
     ~EncodeSink();
@@ -207,9 +212,10 @@ private:
     static constexpr int kVideo = 0;
     static constexpr int kAudio = 1;
 
+    // A sample that came out before the muxer started: info.size bytes at heldBytes_[at].
     struct Held {
         int track = 0;
-        std::vector<uint8_t> bytes;
+        size_t at = 0;
         BufferInfo info;
     };
 
@@ -239,6 +245,7 @@ private:
     int64_t ptsUs_ = 0;
     int64_t written_ = 0;
     std::vector<Held> held_;
+    std::vector<uint8_t> heldBytes_;  // every held sample back to back: one block, not one per sample
     std::vector<int16_t> pcm_;  // only when a codec's input buffer is not aligned for s16
 };
 

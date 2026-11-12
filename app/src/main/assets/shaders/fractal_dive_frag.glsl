@@ -34,7 +34,9 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the
 // filigree's trap glow, k2 FLOW a bend of the whole world along the way (a
 // corkscrew of period 4, so the wrap holds; its slope divides the estimate),
-// k3 TONE the palette position, k4 BUILD the light threaded past the walls,
+// k3 TONE the palette position and the inversion's scale (a high melody
+// spins the walls out into finer filigree, a low one thickens them into heavy
+// arches), k4 BUILD the light threaded past the walls,
 // k5 SPACE the reach (the far plane and the fog).
 
 #define FD_MAX_STEPS 96
@@ -109,7 +111,7 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float sectBump = sin(3.14159 * sect);
 
-    gS = 1.22 + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick;
+    gS = 1.22 + 0.10 * uOrbit.x + 0.03 * sin(uTime * 0.11) + 0.035 * kick + 0.12 * kTone;
     gBox = 1.0 + 0.10 * uOrbit.y + 0.04 * sin(uTime * 0.07 + 0.8) + 0.10 * sectBump;
     // Untwisted at rest: any standing rotation compounds over the folds into
     // noise, so only the drop turns them.

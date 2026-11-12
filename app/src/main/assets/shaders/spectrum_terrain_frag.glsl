@@ -45,7 +45,9 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the contour lines'
 // width, k2 FLOW a winding of the valley along z (period 64, which divides the
-// 1024 tile), k3 TONE the palette position, k4 BUILD the contours' glow, k5
+// 1024 tile), k3 TONE the palette position and the ridges' rhythm across the
+// valley (a high melody crowds more, narrower crests into the land, a low one
+// broadens them into fewer, rolling ones), k4 BUILD the contours' glow, k5
 // SPACE the reach (far plane and fog).
 
 #define ST_MAX_STEPS 112
@@ -66,6 +68,8 @@ float gRipR;
 float gRipA;
 /** k2 FLOW: how far the valley winds sideways, world units (0 at rest). */
 float gWind = 0.0;
+/** k3 TONE: crests across the valley's span (6 at rest). */
+float gCrests = 6.0;
 
 /** Distance across the valley from its winding floor line: the ridges and the shading read it. */
 float valleyX(vec2 xz) {
@@ -106,7 +110,7 @@ float terrain(vec2 xz) {
     // Spectrum ridges: one crest per band across x, scaled along z by the
     // "history" noise so the land ahead is not a copy of now.
     float u = clamp((ax - 1.0) / ST_SPAN, 0.0, 1.0);
-    float crest = 0.7 + 0.3 * cos(ST_TAU * u * 6.0);
+    float crest = 0.7 + 0.3 * cos(ST_TAU * u * gCrests);
     float hist = tnoise(vec2(xz.x * 0.5, xz.y * 0.25), 256.0, 9.0);
     h += (0.1 + bandAt(u)) * crest * (0.35 + 0.65 * hist) * (0.3 + 2.4 * valley) * gSpecAmp;
     // The kick's shock ring.
@@ -124,6 +128,7 @@ void main() {
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
     gWind = 3.0 * kFlow;
+    gCrests = 6.0 * (1.0 + 0.6 * kTone);
     float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);

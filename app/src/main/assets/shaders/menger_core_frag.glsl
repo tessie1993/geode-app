@@ -53,7 +53,9 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the seams' width, k2
 // FLOW added to the inner levels' twist (a turn of each bar's cross-section,
-// an isometry, so the estimate holds), k3 TONE the palette position, k4 BUILD
+// an isometry, so the estimate holds), k3 TONE the palette position and the
+// inner levels' holes (a high melody opens them into lace, a low one closes
+// them toward solid stone; the outer level keeps its shape), k4 BUILD
 // the seams' halo and the light bleeding off them, k5 SPACE the reach (far
 // plane and fog).
 
@@ -197,7 +199,7 @@ void main() {
     vec3 onOff = mix(mcOnsetOffset(mod(SND_ONSET_COUNT - 1.0, 4096.0)), mcOnsetOffset(SND_ONSET_COUNT), og);
 
     gHole0 = 0.333 + 0.05 * kick;
-    gHoleIn = vr.x * (1.0 + 0.24 * kick);
+    gHoleIn = vr.x * (1.0 + 0.24 * kick) * (1.0 + 0.6 * kTone);
     gRound = vr.y;
     gOff = secOff + 0.16 * onOff + 0.05 * vec3(sin(uTime * 0.07), cos(uTime * 0.05), sin(uTime * 0.04 + 1.3));
     float twist = 0.38 * snare + 0.06 * sin(uTime * 0.13) + 0.4 * kFlow;

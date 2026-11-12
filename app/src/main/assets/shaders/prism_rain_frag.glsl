@@ -55,7 +55,9 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the rainbow rims' width,
 // k2 FLOW how far the rain sways as it falls (0.2..0.3 per axis), k3 TONE the
-// palette position, k4 BUILD the light's glow in the sky, k5 SPACE the reach
+// palette position and the crystals' habit (a high melody draws them out into
+// long needles, a low one squats them into short tablets; the longest still
+// tumbles inside its cell), k4 BUILD the light's glow in the sky, k5 SPACE the reach
 // (far plane and haze).
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -88,6 +90,8 @@ float gFront;
 /** k2 FLOW: the sway per axis, world units (0.25 at rest); k4 BUILD: the light's glow, 0.5..1.5. */
 float gSway = 0.25;
 float gGlow = 1.0;
+/** k3 TONE: the prisms' length scale (1 at rest). */
+float gHabit = 1.0;
 
 /** The hit prism's own hash, its local coordinates and the shockwave on it. */
 float gH;
@@ -147,7 +151,7 @@ float map(vec3 p) {
     q.yz = rot2(h2 * 3.0 + 0.17 * worldY) * q.yz;
     // The snare step, about the long axis.
     q.xy = rot2(gSpin + h0 * PR_TAU) * q.xy;
-    float hl = 1.5 * s;
+    float hl = 1.5 * s * gHabit;
     float dp = mix(prTri(q, s, hl), prHex(q, 0.62 * s, hl), gMorph);
     // A shrunk-away prism is no prism: without this the march would stop on
     // specks of dust.
@@ -232,6 +236,7 @@ void main() {
     float odd = mod(floor(floor(SND_HIT_TIME) + 0.5), 2.0);
     gMorph = smoothstep(0.0, 1.0, odd > 0.5 ? 1.0 - onset : onset);
     gDensity = 0.32 + 0.55 * lowB + 0.10 * swell;
+    gHabit = 1.0 + 0.9 * kTone;
     gDrop = drop;
     gFront = 1.5 + 30.0 * (1.0 - drop);
 

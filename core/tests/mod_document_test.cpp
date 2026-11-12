@@ -559,6 +559,14 @@ void abi() {
     check(geode_mod_reactions_read("[]", big, sizeof big) == 0 && big[0] == '\0', "text that is no route list is Auto");
     check(geode_mod_reactions_read(nullptr, big, sizeof big) == 0, "no saved routes is Auto");
 
+    const int handAll = static_cast<int>(hand::kAll);
+    check(geode_mod_hand_load(nullptr, 0, 0) == 0 && geode_mod_hand_load(nullptr, 1, 5) == 0, "no routes saved: the mask is 0");
+    check(geode_mod_hand_load(kSavedReactions, 0, 0) == handAll, "routes saved before the mask existed are a whole list of the user's");
+    check(geode_mod_hand_load(kSavedReactions, 1, 5) == 5, "routes with a saved mask keep it");
+    check(geode_mod_hand_load(kSavedReactions, 1, -1) == handAll, "a damaged saved mask stays inside the mask bits and never reads as a drop");
+    check(geode_mod_hand_load("[]", 1, 5) == -1 && geode_mod_hand_load("reactions/1|junk", 0, 0) == -1,
+          "routes that no longer read are dropped, whatever mask sat beside them");
+
     geode_mod_lfo_edit(nullptr, 2, GEODE_MOD_LFO_DEPTH, 5.0f, big, sizeof big);
     float lfo[GEODE_MOD_LFO_VALUES] = {};
     check(geode_mod_lfo_values(big, 2, nullptr, lfo, GEODE_MOD_LFO_VALUES) == GEODE_MOD_LFO_VALUES &&

@@ -107,6 +107,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
+- `playback_controls_test.cpp`: Settings › Playback's rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step, the saved options' ranges and defaults (`PlayerPrefs.coerced` reads them), the crossfade slider's rounding.
 - `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
 - `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.

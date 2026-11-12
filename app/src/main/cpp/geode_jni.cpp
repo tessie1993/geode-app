@@ -189,6 +189,25 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackPitchRatio(JNIEnv*, jobject, jf
     return geode_playback_pitch_ratio(semitones);
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackRange(JNIEnv* env, jobject, jint control) {
+    float range[4];
+    if (!geode_playback_range(control, range)) return nullptr;
+    jfloatArray out = env->NewFloatArray(4);
+    if (out) env->SetFloatArrayRegion(out, 0, 4, range);
+    return out;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackClamp(JNIEnv*, jobject, jint control, jfloat value) {
+    return geode_playback_clamp(control, value);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_playbackCrossfadeMs(JNIEnv*, jobject, jfloat seconds) {
+    return geode_playback_crossfade_ms(seconds);
+}
+
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_playbackSnap(JNIEnv*, jobject, jfloat value, jfloat step) {
     return geode_playback_snap(value, step);

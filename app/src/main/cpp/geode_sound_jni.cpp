@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -126,6 +127,43 @@ Java_dev_geode_engine_bridge_GeodeNative_stagePresents(JNIEnv*, jobject, jint fl
     return geode_stage_presents(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageStepTarget(JNIEnv*, jobject, jint page, jint flags, jint milkCount,
+                                                         jint lookCount) {
+    return geode_stage_step_target(page, static_cast<unsigned>(flags), milkCount, lookCount);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageStepIndex(JNIEnv* env, jobject, jbooleanArray open, jint here,
+                                                        jint step) {
+    if (open == nullptr) return -1;
+    const jsize count = env->GetArrayLength(open);
+    std::vector<jboolean> raw(static_cast<size_t>(count));
+    if (count > 0) env->GetBooleanArrayRegion(open, 0, count, raw.data());
+    std::vector<unsigned char> flags(raw.begin(), raw.end());
+    return geode_stage_step_index(flags.data(), count, here, step);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageStepMilk(JNIEnv* env, jobject, jobjectArray paths, jstring current,
+                                                       jint step) {
+    if (paths == nullptr) return -1;
+    const jsize count = env->GetArrayLength(paths);
+    std::vector<std::string> texts;
+    texts.reserve(static_cast<size_t>(count));
+    for (jsize i = 0; i < count; ++i) {
+        auto path = static_cast<jstring>(env->GetObjectArrayElement(paths, i));
+        const geode::jni::Utf8Chars chars(env, path);
+        texts.emplace_back(chars.get() != nullptr ? chars.get() : "");
+        env->DeleteLocalRef(path);
+    }
+    std::vector<const char*> ptrs;
+    ptrs.reserve(texts.size());
+    for (const auto& t : texts) ptrs.push_back(t.c_str());
+    const geode::jni::Utf8Chars on(env, current);
+    return geode_stage_step_milk(ptrs.data(), count, on.get() != nullptr ? on.get() : "", step);
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
                                                           jlong nowMs) {
@@ -169,6 +207,11 @@ Java_dev_geode_engine_bridge_GeodeNative_autoMarkChange(JNIEnv* env, jobject, js
     if (!chars) return;
     geode_auto_mark_change(chars);
     env->ReleaseStringUTFChars(key, chars);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoPick(JNIEnv*, jobject, jint count, jint onScreen) {
+    return geode_auto_pick(count, onScreen);
 }
 
 }  // extern "C"

@@ -53,13 +53,17 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.GestureTip
+import dev.geode.model.MilkFile
 import dev.geode.model.TourSpot
+import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.cast.CastButton
+import dev.geode.ui.cast.ComputerLinkButton
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -187,6 +191,8 @@ internal fun BoxScope.StageIcons(
                 )
             }
         }
+        // Share to PC, beside Cast (owner): the browser link's sheet, with Copy and Share.
+        ComputerLinkButton(enabled = rowOn)
         // A connected display (HDMI, USB-C, a wireless display): only while one is there; filled while on.
         val display = rememberConnectedDisplayControl()
         display.display?.let { connected ->
@@ -399,8 +405,8 @@ internal fun stageIconRoom(
     )
 }
 
-/** The top row's icons: Cast, Settings, Studio and Full screen. */
-private const val TOP_ROW_ICONS = 4
+/** The top row's icons: Cast, Share to PC, Settings, Studio and Full screen. */
+private const val TOP_ROW_ICONS = 5
 
 /** The layer's alpha from [alpha], read in the draw pass, so a fade never recomposes the icons. */
 private fun Modifier.faded(alpha: State<Float>): Modifier = graphicsLayer { this.alpha = alpha.value }
@@ -489,32 +495,71 @@ internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_P
 /**
  * Every style the stage swipes through, in the order the Styles page lists them (the native
  * picker's families one after another). MilkDrop is left out: its presets are a library of their
- * own, picked from the MilkDrop page.
+ * own, which the step walks from the MilkDrop tab ([stepStage]).
  */
 internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
 
 /**
- * The style [step] places (+1 next, -1 previous) from [current] in [order], wrapping at the ends
- * and skipping [locked] ones: a swipe that opened the paywall would stop the browse dead. A style
- * outside [order] (MilkDrop) starts from the first. Null when nothing else is open to the user.
+ * The stage's "next / previous style" ([GestureAction.STEP_STYLE]: whichever gesture the map gives it, ‹ ›,
+ * TalkBack's action). What it walks is native (`core/viz/StageStep`; owner, 2026-11-12: the open Visuals
+ * tab's list): the user's .milk presets from the MilkDrop tab, the saved looks from Presets, the styles from
+ * everywhere else. With the options hidden the tab they were left on holds only while what is on screen still
+ * comes from it. This gathers the facts and loads what native picked; [step] is +1 next, -1 previous.
  */
-internal fun nextStageStyle(
-    order: List<String>,
-    current: String,
+internal fun stepStage(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    gate: FeatureGate,
+    page: VisualsPage,
+    sheetShown: Boolean,
+    milkFiles: List<MilkFile>,
     step: Int,
-    locked: (String) -> Boolean,
-): String? {
-    if (order.isEmpty()) return null
-    val here = order.indexOf(current)
-    val start =
-        when {
-            here >= 0 -> here
-            step > 0 -> -1
-            else -> 0
+) {
+    val viz = viewModel.vizState.value
+    val looks = openLooks(viz, gate)
+    val onMilk = viz.sceneId == SceneIds.MILKDROP
+    val milkOpen = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(SceneIds.MILKDROP)
+    var flags = 0
+    if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
+    if (onMilk) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
+    if (lookOnStage(viz, looks) >= 0) flags = flags or GeodeNative.STAGE_STEP_ON_LOOK
+    if (milkOpen) flags = flags or GeodeNative.STAGE_STEP_MILK_OPEN
+    when (GeodeNative.stageStepTarget(page.stepPage, flags, milkFiles.size, looks.size)) {
+        GeodeNative.STAGE_STEP_MILK -> {
+            val current = if (onMilk) viewModel.activeMilkPath.value.orEmpty() else ""
+            val next = GeodeNative.stageStepMilk(Array(milkFiles.size) { milkFiles[it].path }, current, step)
+            if (next >= 0) selectMilk(viewModel, visualizerView, milkFiles[next].path)
         }
-    for (i in 1..order.size) {
-        val id = order[Math.floorMod(start + step * i, order.size)]
-        if (id != current && !locked(id)) return id
+        GeodeNative.STAGE_STEP_LOOKS -> stepPreset(viewModel, gate, step)
+        else -> stepStageStyle(viewModel, gate, step)
     }
-    return null
 }
+
+/**
+ * The style [step] places from the one on screen in [stageStyleOrder], wrapping and skipping locked
+ * ones (a swipe that opened the paywall would stop the browse dead); MilkDrop, outside the order,
+ * starts from an end. Nothing when no other style is open to the user. The walk is native
+ * (`geode_stage_step_index`).
+ */
+internal fun stepStageStyle(
+    viewModel: PlayerViewModel,
+    gate: FeatureGate,
+    step: Int,
+) {
+    val order = stageStyleOrder()
+    val here = order.indexOf(viewModel.vizState.value.sceneId)
+    val next = GeodeNative.stageStepIndex(BooleanArray(order.size) { gate.allowsStyle(order[it]) }, here, step)
+    if (next >= 0) viewModel.selectScene(order[next])
+}
+
+/** The open page as native's step rule numbers it. */
+private val VisualsPage.stepPage: Int
+    get() =
+        when (this) {
+            VisualsPage.STYLES -> GeodeNative.STAGE_STEP_PAGE_STYLES
+            VisualsPage.CUSTOMIZE -> GeodeNative.STAGE_STEP_PAGE_CUSTOMIZE
+            VisualsPage.PRESETS -> GeodeNative.STAGE_STEP_PAGE_PRESETS
+            VisualsPage.MILKDROP -> GeodeNative.STAGE_STEP_PAGE_MILKDROP
+            VisualsPage.TEXTURES -> GeodeNative.STAGE_STEP_PAGE_TEXTURES
+            VisualsPage.SETTINGS -> GeodeNative.STAGE_STEP_PAGE_SETTINGS
+        }

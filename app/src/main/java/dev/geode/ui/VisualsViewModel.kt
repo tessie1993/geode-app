@@ -288,7 +288,13 @@ class VisualsViewModel
             folder: String,
         ) = session.presetLibrary.movePresetToFolder(name, folder)
 
-        fun userMilkPresets(): List<File> = session.presetLibrary.userMilkPresets()
+        /**
+         * The user's .milk presets, newest first: the MilkDrop page's list, the one the stage's step walks
+         * and Auto draws from (MilkImportController.files). [relistMilk] reads it again.
+         */
+        val milkFiles: StateFlow<List<dev.geode.model.MilkFile>> get() = session.milkImport.files
+
+        fun relistMilk() = session.milkImport.relist()
 
         fun noteMilkPreset(path: String) = session.vizStateStore.noteMilkPreset(path)
 

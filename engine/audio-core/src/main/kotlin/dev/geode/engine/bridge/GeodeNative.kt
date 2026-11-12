@@ -631,7 +631,8 @@ object GeodeNative {
     /**
      * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
-     * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
+     * is the rate this surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap it
+     * asked for (the same for a fixed rate); the thermal step is taken from [capFps] natively. The rest is
      * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
      * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
      * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
@@ -640,6 +641,7 @@ object GeodeNative {
     external fun vizFrameBegin(
         handle: Long,
         pacedFps: Float,
+        capFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
@@ -1382,6 +1384,36 @@ object GeodeNative {
     /** GL thread, or after its surface went: ends the copy. */
     external fun vizRecordStop(handle: Long)
 
+    /**
+     * Marks this renderer as the stage the cast carries (`geode_viz_set_cast_source`, core/viz/frame/CastTee): while a
+     * cast's tee is open it copies its finished visual into it, at most once per cast frame. Any thread; the app's stage only.
+     */
+    external fun vizSetCastSource(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /**
+     * The cast thread, its EGL context current: opens the tee the stage copies into, [width] x [height] at [fps];
+     * 0 when the driver lacks what it needs (the cast then renders on its own).
+     */
+    external fun castTeeOpen(
+        width: Int,
+        height: Int,
+        fps: Int,
+    ): Long
+
+    /** The cast thread: blits the stage's newest copy into the encoder surface; false while the stage draws nothing. */
+    external fun castTeeDraw(
+        tee: Long,
+        nowNs: Long,
+        width: Int,
+        height: Int,
+    ): Boolean
+
+    /** The cast thread, its context still current: closes the tee. */
+    external fun castTeeClose(tee: Long)
+
     /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
     external fun vizStillRequest(handle: Long)
 
@@ -1755,6 +1787,32 @@ object GeodeNative {
         out: FloatArray,
     ): Boolean
 
+    /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
+    const val LIVE_FPS_MAX_CHOICES = 5
+
+    /**
+     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap and handed
+     * to the pacer as one. The stage runs at the rate the display runs now and states no rate of its own.
+     */
+    const val LIVE_FPS_FOLLOW = -1
+
+    /**
+     * Settings › Performance's live frame-rate caps (core/viz/frame/LiveFps) on a display that can switch to
+     * [refreshRates] seamlessly, ascending into [out]; returns how many. 30 and 60 always, 90 and 120 where
+     * the display shows them, then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper, dream, export and
+     * Cast keep their own.
+     */
+    external fun liveFpsChoices(
+        refreshRates: FloatArray,
+        out: IntArray,
+    ): Int
+
+    /** The stored live cap as a display with [refreshRates] runs it: offered as is, else the nearest offered. */
+    external fun liveFpsCap(
+        storedFps: Int,
+        refreshRates: FloatArray,
+    ): Int
+
     /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(
         totalRamBytes: Long,
@@ -1798,6 +1856,49 @@ object GeodeNative {
     const val STAGE_PRESENT_WANTED = 1 shl 0
     const val STAGE_PRESENT_ENTITLED = 1 shl 1
     const val STAGE_PRESENT_FOUND = 1 shl 2
+
+    /**
+     * What the stage's next/previous style steps (core/viz/StageStep): [page] is the open Visuals page
+     * (STAGE_STEP_PAGE_*), [flags] the STAGE_STEP_* facts, [milkCount] the .milk presets listed and
+     * [lookCount] the saved looks the user may apply. One of [STAGE_STEP_STYLES], [STAGE_STEP_LOOKS], [STAGE_STEP_MILK].
+     */
+    external fun stageStepTarget(
+        page: Int,
+        flags: Int,
+        milkCount: Int,
+        lookCount: Int,
+    ): Int
+
+    /** The item [step] places from [here] among [open]'s, wrapping, skipping [here] and the closed ones; -1 for none. */
+    external fun stageStepIndex(
+        open: BooleanArray,
+        here: Int,
+        step: Int,
+    ): Int
+
+    /**
+     * The index in [paths] (the MilkDrop page's order) of the .milk [step] loads from [current] ("" when MilkDrop
+     * is not on screen), previous retracing the steps taken; -1 for none.
+     */
+    external fun stageStepMilk(
+        paths: Array<String>,
+        current: String,
+        step: Int,
+    ): Int
+
+    const val STAGE_STEP_PAGE_STYLES = 0
+    const val STAGE_STEP_PAGE_CUSTOMIZE = 1
+    const val STAGE_STEP_PAGE_PRESETS = 2
+    const val STAGE_STEP_PAGE_MILKDROP = 3
+    const val STAGE_STEP_PAGE_TEXTURES = 4
+    const val STAGE_STEP_PAGE_SETTINGS = 5
+    const val STAGE_STEP_SHEET_SHOWN = 1 shl 0
+    const val STAGE_STEP_ON_MILK = 1 shl 1
+    const val STAGE_STEP_ON_LOOK = 1 shl 2
+    const val STAGE_STEP_MILK_OPEN = 1 shl 3
+    const val STAGE_STEP_STYLES = 0
+    const val STAGE_STEP_LOOKS = 1
+    const val STAGE_STEP_MILK = 2
 
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
@@ -1874,6 +1975,12 @@ object GeodeNative {
      */
     external fun autoMarkChange(key: String)
 
+    /** Auto's random draw (core/viz/AutoDraw): an index in 0 until [count], never [onScreen] while count > 1; -1 for none. */
+    external fun autoPick(
+        count: Int,
+        onScreen: Int,
+    ): Int
+
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
 
@@ -1898,8 +2005,8 @@ object GeodeNative {
 
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
-    /** Eight longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 8
+    /** Nine longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 9
 
     /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
     const val PACER_CAP_SLOT = 6
@@ -2342,6 +2449,12 @@ object GeodeNative {
     const val LINK_PLAYLIST = 5
     const val LINK_INIT = 6
     const val LINK_SEGMENT = 7
+
+    /** stream.mp4: the browser's live feed, the init segment then each fragment as it is cut, held open. */
+    const val LINK_STREAM = 9
+
+    /** Browsers fed at once (GEODE_LINK_MAX_STREAMS); past it the feed answers 503 and the page retries. */
+    const val LINK_MAX_STREAMS = 3
 
     /**
      * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)

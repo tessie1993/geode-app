@@ -21,8 +21,9 @@ void check(bool ok, const char* what) {
     }
 }
 
-// The choices Settings › Performance offers (render/PerformanceSettings.kt RENDER_SCALES, FPS_CAPS,
-// MARCH_SCALES). Every tier value must be one of them, so picking a tier never shows a value the tab can't.
+// The choices Settings › Performance offers (render/PerformanceSettings.kt RENDER_SCALES and MARCH_SCALES,
+// and the fps caps every display is offered, core/viz/frame/LiveFps: 90 and 120 only on fast panels). Every
+// tier value must be one of them, so picking a tier never shows a value the tab can't.
 constexpr float kScales[] = {0.5f, 0.75f, 1.0f};
 constexpr float kCaps[] = {30.0f, 60.0f};
 

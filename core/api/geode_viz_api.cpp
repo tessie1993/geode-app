@@ -31,11 +31,13 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Cadence.hpp"
+#include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Pacer.hpp"
 #include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/frame/RecordTap.hpp"
+#include "viz/frame/CastTee.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
@@ -51,8 +53,24 @@ struct geode_viz {
         });
         renderer.setCompositeHook([this](GLuint fbo, int width, int height) {
             recordFrame(fbo, width, height);
+            castFrame(fbo, width, height);
             stillFrame(fbo, width, height);
         });
+    }
+
+    // Cast's tee (geode_viz_set_cast_source): the stage's finished visual into the running cast's tee, at most once
+    // per cast frame (the tee decides). A tee that ended, or a renderer no longer the source, frees its
+    // textures here, in this context. Render thread only, apart from the flag.
+    void castFrame(GLuint fbo, int width, int height) {
+        std::shared_ptr<geode::viz::frame::CastTee> now =
+            castSource.load(std::memory_order_relaxed) ? geode::viz::frame::CastTee::current() : nullptr;
+        if (now != castTee) {
+            if (castTee) castTee->releaseWriter();
+            castTee = std::move(now);
+        }
+        if (!castTee) return;
+        const auto since = std::chrono::steady_clock::now().time_since_epoch();
+        castTee->publish(fbo, width, height, std::chrono::duration_cast<std::chrono::nanoseconds>(since).count());
     }
 
     // Shake to screenshot (geode_viz_still_request): the finished visual read back once, flipped to rows
@@ -120,6 +138,10 @@ struct geode_viz {
     geode::viz::frame::RecordTap recordTap;
     geode_export_pass* recordWatermark = nullptr;
     int64_t recordPtsNs = -1;
+    // Cast's tee (geode_viz_set_cast_source): whether this renderer is the stage the cast carries, and the tee it
+    // last copied into (render thread only).
+    std::atomic<bool> castSource{false};
+    std::shared_ptr<geode::viz::frame::CastTee> castTee;
     std::atomic<bool> stillWanted{false};
     std::vector<uint8_t> still;
     int stillWidth = 0;
@@ -460,6 +482,18 @@ int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media
     return static_cast<int>(geode::viz::frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class));
 }
 
+int geode_live_fps_choices(const float* rates, int count, int* out, int capacity) {
+    static_assert(geode::viz::frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
+    static_assert(geode::viz::frame::kLiveFpsFollow == GEODE_LIVE_FPS_FOLLOW);
+    // Every rung, then Follow device.
+    static_assert(static_cast<int>(geode::viz::frame::kLiveFpsRungs.size()) + 1 == GEODE_LIVE_FPS_MAX_CHOICES);
+    return geode::viz::frame::liveFpsChoices(rates, std::max(count, 0), out, std::max(capacity, 0));
+}
+
+int geode_live_fps_cap(int stored_fps, const float* rates, int count) {
+    return geode::viz::frame::liveFpsCap(stored_fps, rates, std::max(count, 0));
+}
+
 double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
     namespace frame = geode::viz::frame;
     static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
@@ -468,14 +502,18 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
     static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
     static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
     frame::PacerState s = frame::unpack(wire);
-    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008).
-    const float cap = geode::viz::ThermalState::process().capFor(cap_fps);
+    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008); Follow device
+    // takes its cap from the panel the state has measured (frame::followCapFps).
+    const float cap = frame::pacerCapFps(s, cap_fps, geode::viz::ThermalState::process().fpsRungsDown());
     const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
     frame::pack(s, wire);
     return dt;
 }
 
 float geode_pacer_effective_cap(float cap_fps) {
+    // Follow device states no rate, hot or cool: the system keeps choosing the panel's mode (setFrameRate(0)
+    // is the platform's "no preference"), and a hot phone's step is the pacer's divide of whatever it chose.
+    if (geode::viz::frame::isLiveFpsFollow(cap_fps)) return 0.0f;
     return geode::viz::ThermalState::process().capFor(cap_fps);
 }
 
@@ -698,12 +736,12 @@ void geode_viz_gyro_reset(geode_viz* v) {
     v->renderer.setLook(look.yaw, look.pitch);
 }
 
-int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
-                          int adaptive, int liquid_hot_policy, long long params_version, long long lfo_version,
-                          long long adsr_version, long long tuning_version) {
+int geode_viz_frame_begin(geode_viz* v, float paced_fps, float cap_fps, float render_scale, float march_scale,
+                          int post_fx, int adaptive, int liquid_hot_policy, long long params_version,
+                          long long lfo_version, long long adsr_version, long long tuning_version) {
     if (!v) return 0;
     Renderer& r = v->renderer;
-    r.thermal().setPacedFps(paced_fps);
+    r.thermal().setPacedFps(paced_fps, cap_fps);
     const frame::UserQuality quality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy};
     if (v->cadence.offerQuality(quality)) {
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
@@ -914,6 +952,10 @@ int geode_viz_record_start(geode_viz* v, const geode_recorder* recorder, void* n
     v->recordWatermark = watermark;
     v->recordPtsNs = -1;
     return 1;
+}
+
+void geode_viz_set_cast_source(geode_viz* v, int on) {
+    if (v) v->castSource.store(on != 0, std::memory_order_relaxed);
 }
 
 void geode_viz_record_stop(geode_viz* v) {

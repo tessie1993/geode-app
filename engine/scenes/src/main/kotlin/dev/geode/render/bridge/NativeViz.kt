@@ -10,6 +10,7 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
+import dev.geode.render.PacedRate
 import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookTarget
 import dev.geode.render.scene.BuildStyleReactionsUseCase
@@ -79,6 +80,7 @@ class NativeViz(
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
                 if (stillThen != null) GeodeNative.vizStillRequest(handle)
                 if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
+                if (castSource) GeodeNative.vizSetCastSource(handle, true)
                 onCreated()
             }
         }
@@ -233,9 +235,12 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizGyroReset(handle)
     }
 
-    /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */
+    /**
+     * One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. [paced] hands over
+     * both the rate the surface last drew at and its own cap, which native keeps apart for the thermal step.
+     */
     fun frameBegin(
-        pacedFps: Float,
+        paced: PacedRate,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
@@ -249,7 +254,8 @@ class NativeViz(
         if (handle == 0L) return 0
         return GeodeNative.vizFrameBegin(
             handle,
-            pacedFps,
+            paced.fps(),
+            paced.capFps(),
             renderScale,
             marchScale,
             postFx,
@@ -310,6 +316,17 @@ class NativeViz(
         uiBlur[5] = cornerPx
         applyUiBlur()
     }
+
+    /**
+     * This renderer is the stage a cast carries ([GeodeNative.vizSetCastSource]): the app's one stage view sets it,
+     * never the wallpaper, the dream or an export. Any thread; latched for every new handle.
+     */
+    @Volatile
+    var castSource = false
+        @Synchronized set(on) {
+            field = on
+            if (handle != 0L) GeodeNative.vizSetCastSource(handle, on)
+        }
 
     /** The wallpaper's edge glow; see [GeodeNative.vizSetEdgeGlow]. Any thread; latched before the handle exists. */
     @Synchronized

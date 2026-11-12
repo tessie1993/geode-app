@@ -18,7 +18,7 @@ out vec4 fragColor;
 // winds outward from the way ahead, turn inside turn, and turns as it goes, so
 // the chambers sweep round the eye.
 //
-// Morph winds the wall from two loose turns to many tight ones. Worst case 72
+// Morph winds the wall from two loose turns to many tight ones. Worst case 90
 // steps, no noise.
 
 vec2 hollowMap(vec3 p) {

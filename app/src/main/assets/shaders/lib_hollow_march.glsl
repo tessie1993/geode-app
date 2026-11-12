@@ -20,7 +20,7 @@ vec2 hollowField(vec3 p) {
 
 /** The light along one ray. */
 vec3 hollowTrace(vec3 ro, vec3 rd) {
-    float n = min(uSteps, float(HOLLOW_MAX_STEPS));
+    float n = HOLLOW_STEPS;
     float t = 0.02 + 0.05 * hollowDither();
     vec2 m = vec2(1.0, 0.0);
     bool hit = false;

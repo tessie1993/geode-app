@@ -19,7 +19,7 @@ out vec4 fragColor;
 // the ribs spring from.
 //
 // Morph leans the ribs over from hoops into one long spiral, and fattens
-// them. Worst case 72 steps, no noise.
+// them. Worst case 90 steps, no noise.
 
 vec2 hollowMap(vec3 p) {
     vec2 o = p.xy * vec2(0.8, 1.0);

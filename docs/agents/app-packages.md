@@ -308,7 +308,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `CastController` (`state`, `consumed`, `stop()`), `ComputerLink`, `CastService`, `CastStream`, `CastMirror`.
 - Cast to TV and Show on a computer (Pro, the only internet use): Media3 Cast to Google's Default Media Receiver.
-- The phone renders its own `VisualizerRenderer` (the stage's look and its .milk preset through `CastMirror`, previews included) into an H.264+AAC encoder (`CastStream`, `CastEncoder`).
+- The stream is the stage's own frames, not a second render: the stage's renderer (`NativeViz.castSource`) copies its composite into GPU buffers both contexts share (`core/viz/frame/CastTee`, rules in `CastTeeRule`, `geode_cast_tee_*`).
+- The cast thread blits the newest of them into an H.264+AAC encoder (`CastStream`, `CastEncoder`).
+- While a cast streams the stage keeps drawing on every tab (`CastMirror.streaming`).
+- Only while the stage draws nothing (the app in the background) does a fallback `VisualizerRenderer` draw the saved look and the stage's last style and .milk (`CastMirror`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
 - `LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
@@ -317,8 +320,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
 - Show on a computer (`ComputerLink`) serves the same stream, with or without a TV, to a browser on the Wi-Fi.
-- Its row is in Visuals › Settings and its sheet is `ui/cast/ComputerLinkSheet`: the link as text and as a QR code from `core/util/QrCode`.
-- The computer's page comes from `core/viz/frame/LinkPage` and plays the stream by its own MSE loader (CODECS read from the encoder's init segment) or natively.
+- Its doors (`ComputerLinkDoor`) are Visuals › Settings' row, the stage's Share to PC icon beside Cast and the Player's tile.
+- Its sheet is `ui/cast/ComputerLinkSheet`: the link as text, a QR code from `core/util/QrCode`, Copy and Share.
+- It is served over plain HTTP. The computer's page comes from `core/viz/frame/LinkPage`: it reads one long-lived `stream.mp4` (init, then each fragment as it is cut) into MSE and holds half a second in hand (CODECS read from the encoder's init segment), or plays the HLS natively.
 - Show on a computer's state is native (`geode_link_step`); it stops on Stop, a network change or Pro's end.
 - A TV that errors, goes idle or never fetches ends the TV's part (`geode_link_receiver_health`).
 - Sound plays on the TV or computer only (phone muted); nothing else in the app changes while casting.

@@ -12,7 +12,8 @@ namespace qr = geode::util::qr;
 static_assert(share::kTokenChars == GEODE_LINK_TOKEN_CHARS && share::kStateInts == GEODE_LINK_STATE);
 static_assert(static_cast<int>(share::Resource::Segment) == GEODE_LINK_SEGMENT &&
               static_cast<int>(share::Resource::Redirect) == GEODE_LINK_REDIRECT &&
-              static_cast<int>(share::Resource::Page) == GEODE_LINK_PAGE);
+              static_cast<int>(share::Resource::Page) == GEODE_LINK_PAGE &&
+              static_cast<int>(share::Resource::Stream) == GEODE_LINK_STREAM && share::kMaxStreams == GEODE_LINK_MAX_STREAMS);
 static_assert(share::kEnded == GEODE_LINK_PHASE_ENDED && share::kTrialEnded == GEODE_LINK_REASON_TRIAL &&
               share::kNetwork == GEODE_LINK_REASON_NETWORK && share::kShown == GEODE_LINK_EVENT_SHOWN);
 static_assert(share::kStartStream == GEODE_LINK_DO_START_STREAM && share::kStopStream == GEODE_LINK_DO_STOP_STREAM &&
@@ -51,7 +52,7 @@ int geode_link_route(const char* method, const char* target, const char* token, 
 }
 
 int geode_link_response_head(int status, int resource, int64_t length, const char* token, char* out, int cap) {
-    const auto r = resource >= 0 && resource <= GEODE_LINK_REDIRECT ? static_cast<share::Resource>(resource) : share::Resource::None;
+    const auto r = resource >= 0 && resource <= GEODE_LINK_STREAM ? static_cast<share::Resource>(resource) : share::Resource::None;
     return copyOut(share::responseHead(status, r, length, token ? token : ""), out, cap);
 }
 

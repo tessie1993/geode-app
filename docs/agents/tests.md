@@ -25,6 +25,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `cache_sentinels_test.cpp`: `core/viz/CacheSentinels`, the program-binary cache's crash sentinel.
 - `cast_audio_test.cpp`: `core/viz/frame/CastAudio`, Cast's audio pump, as counts.
 - `cast_clock_test.cpp`: Cast's frame clock: steady slots, drop not burst, monotonic PTS, the audio cut.
+- `cast_tee_test.cpp`: Cast's tee: the stage-to-stream hand-off, the fallback after a stale copy, one copy per cast frame, the fit.
 - `catalogue_test.cpp`: the catalogue against the old Kotlin tables, and its text against `core/tests/catalogue.txt`.
 - `core/tests/catalogue.txt` is the copy JVM tests read through the `geode.catalogue` property; regenerate it with `catalogue_test --write`.
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.

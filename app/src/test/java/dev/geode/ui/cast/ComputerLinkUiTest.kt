@@ -32,6 +32,15 @@ class ComputerLinkUiTest {
     }
 
     @Test
+    fun theStageIconSaysWhetherItShares() {
+        assertEquals(R.string.link_button, linkButtonLabel(LinkState.Idle, locked = false))
+        assertEquals(R.string.link_row_locked, linkButtonLabel(LinkState.Idle, locked = true))
+        assertEquals(R.string.link_button_live, linkButtonLabel(live, locked = false))
+        assertEquals(R.string.link_button_live, linkButtonLabel(LinkState.Starting, locked = true))
+        assertEquals(R.string.link_button, linkButtonLabel(LinkState.Ended(GeodeNative.LINK_REASON_STREAM), locked = false))
+    }
+
+    @Test
     fun theSheetNamesStartingAndLive() {
         assertEquals(R.string.link_sheet_live, linkSheetStatus(live))
         assertEquals(R.string.link_sheet_starting, linkSheetStatus(LinkState.Starting))

@@ -63,6 +63,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `live_segments_test.cpp`: Cast's segment window: the muxer's bytes cut at any write size, the window of six, the playlist's exact text.
+- `live_http_test.cpp`: Cast's HTTP answers: the request reader's bounds and deadlines, hostile requests, every response, the per-address limit.
 - `library_search_test.cpp` also covers the global search sheet (`geode_search_sheet`): a fourth field, one hit per URI, the 30-track cap, playlists and presets.
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.

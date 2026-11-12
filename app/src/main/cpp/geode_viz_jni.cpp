@@ -1358,84 +1358,8 @@ Java_dev_geode_engine_bridge_GeodeNative_castAudioFeedTake(JNIEnv* env, jobject,
     return static_cast<jint>(n);
 }
 
-// Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.
-JNIEXPORT jdouble JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject, jbyteArray init, jbyteArray fragment) {
-    if (!init || !fragment) return 0.0;
-    const jsize initSize = env->GetArrayLength(init);
-    const jsize fragmentSize = env->GetArrayLength(fragment);
-    auto* i = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(init, nullptr));
-    auto* f = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(fragment, nullptr));
-    const double seconds = (i && f) ? geode_hls_fragment_seconds(i, static_cast<size_t>(initSize), f, static_cast<size_t>(fragmentSize)) : 0.0;
-    if (f) env->ReleasePrimitiveArrayCritical(fragment, const_cast<uint8_t*>(f), JNI_ABORT);
-    if (i) env->ReleasePrimitiveArrayCritical(init, const_cast<uint8_t*>(i), JNI_ABORT);
-    return seconds;
-}
-
-// A fragment rewritten into a self-contained segment; the decode times are a caller-owned long[GEODE_HLS_TRACKS].
-JNIEXPORT jbyteArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_hlsRewriteFragment(JNIEnv* env, jobject, jbyteArray init, jlong moofAt,
-                                                            jbyteArray fragment, jlongArray decodeTimes) {
-    if (!init || !fragment || !decodeTimes || env->GetArrayLength(decodeTimes) < GEODE_HLS_TRACKS) return nullptr;
-    std::vector<uint8_t> i(static_cast<size_t>(env->GetArrayLength(init)));
-    std::vector<uint8_t> f(static_cast<size_t>(env->GetArrayLength(fragment)));
-    env->GetByteArrayRegion(init, 0, static_cast<jsize>(i.size()), reinterpret_cast<jbyte*>(i.data()));
-    env->GetByteArrayRegion(fragment, 0, static_cast<jsize>(f.size()), reinterpret_cast<jbyte*>(f.data()));
-    int64_t times[GEODE_HLS_TRACKS];
-    env->GetLongArrayRegion(decodeTimes, 0, GEODE_HLS_TRACKS, reinterpret_cast<jlong*>(times));
-    std::vector<uint8_t> out(f.size() + GEODE_HLS_FRAGMENT_GROWTH);
-    const size_t n = geode_hls_rewrite_fragment(i.data(), i.size(), moofAt, f.data(), f.size(), times, out.data(), out.size());
-    if (n == 0) return nullptr;
-    env->SetLongArrayRegion(decodeTimes, 0, GEODE_HLS_TRACKS, reinterpret_cast<const jlong*>(times));
-    jbyteArray result = env->NewByteArray(static_cast<jsize>(n));
-    if (result) env->SetByteArrayRegion(result, 0, static_cast<jsize>(n), reinterpret_cast<const jbyte*>(out.data()));
-    return result;
-}
-
-// Show on a computer (core/viz/frame/LinkShare, LinkPage) and its QR code (core/util/QrCode): marshalling only.
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkRoute(JNIEnv* env, jobject, jstring method, jstring target, jstring token,
-                                                   jlongArray out) {
-    if (!out || env->GetArrayLength(out) < 2) return 404;
-    geode::jni::Utf8Chars m(env, method), t(env, target), k(env, token);
-    int resource = GEODE_LINK_NONE;
-    int64_t sequence = -1;
-    const int status = geode_link_route(m.get(), t.get(), k.get(), &resource, &sequence);
-    const jlong values[2] = {resource, sequence};
-    env->SetLongArrayRegion(out, 0, 2, values);
-    return status;
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkResponseHead(JNIEnv* env, jobject, jint status, jint resource, jlong length,
-                                                          jstring token) {
-    geode::jni::Utf8Chars k(env, token);
-    std::vector<char> text(static_cast<size_t>(geode_link_response_head(status, resource, length, k.get(), nullptr, 0)) + 1);
-    geode_link_response_head(status, resource, length, k.get(), text.data(), static_cast<int>(text.size()));
-    return geode::jni::utf8String(env, text.data());
-}
-
-JNIEXPORT jbyteArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkAsset(JNIEnv* env, jobject, jint resource) {
-    size_t size = 0;
-    const char* data = geode_link_asset(resource, &size);
-    if (!data) return nullptr;
-    jbyteArray out = env->NewByteArray(static_cast<jsize>(size));
-    if (out) env->SetByteArrayRegion(out, 0, static_cast<jsize>(size), reinterpret_cast<const jbyte*>(data));
-    return out;
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkMasterPlaylist(JNIEnv* env, jobject, jbyteArray init) {
-    if (!init) return nullptr;
-    std::vector<uint8_t> i(static_cast<size_t>(env->GetArrayLength(init)));
-    env->GetByteArrayRegion(init, 0, static_cast<jsize>(i.size()), reinterpret_cast<jbyte*>(i.data()));
-    std::vector<char> text(static_cast<size_t>(geode_link_master_playlist(i.data(), i.size(), nullptr, 0)) + 1);
-    return geode_link_master_playlist(i.data(), i.size(), text.data(), static_cast<int>(text.size())) > 0
-               ? geode::jni::utf8String(env, text.data())
-               : nullptr;
-}
-
+// Show on a computer's state and typed code (core/viz/frame/LinkShare, LinkPair) and its QR code
+// (core/util/QrCode): marshalling only. The server and its routes are native (geode_cast_jni.cpp).
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_linkStep(JNIEnv* env, jobject, jintArray state, jint event, jint arg) {
     if (!state || env->GetArrayLength(state) < GEODE_LINK_STATE) return 0;
@@ -1446,82 +1370,11 @@ Java_dev_geode_engine_bridge_GeodeNative_linkStep(JNIEnv* env, jobject, jintArra
     return actions;
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkAdmit(JNIEnv*, jobject, jint peer, jint bound, jint prefix, jint tv, jint wants) {
-    return geode_link_admit(static_cast<uint32_t>(peer), static_cast<uint32_t>(bound), prefix, static_cast<uint32_t>(tv), wants);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkBodyLength(JNIEnv* env, jobject, jobjectArray headers, jlong max) {
-    const jsize n = headers ? env->GetArrayLength(headers) : 0;
-    std::vector<std::string> lines;
-    lines.reserve(static_cast<size_t>(n));
-    for (jsize i = 0; i < n; ++i) {
-        auto line = static_cast<jstring>(env->GetObjectArrayElement(headers, i));
-        geode::jni::Utf8Chars c(env, line);
-        lines.emplace_back(c.get() ? c.get() : "");
-        if (line) env->DeleteLocalRef(line);
-    }
-    std::vector<const char*> pointers;
-    pointers.reserve(lines.size());
-    for (const std::string& l : lines) pointers.push_back(l.c_str());
-    return geode_link_body_length(pointers.data(), static_cast<int>(pointers.size()), max);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkRtcStatus(JNIEnv*, jobject, jint answerResult) {
-    return geode_link_rtc_status(answerResult);
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkShareUrl(JNIEnv* env, jobject, jint address, jint port, jstring token) {
-    geode::jni::Utf8Chars k(env, token);
-    std::vector<char> text(static_cast<size_t>(geode_link_share_url(static_cast<uint32_t>(address), port, k.get(), nullptr, 0)) + 1);
-    return geode_link_share_url(static_cast<uint32_t>(address), port, k.get(), text.data(), static_cast<int>(text.size())) > 0
-               ? geode::jni::utf8String(env, text.data())
-               : nullptr;
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkLabel(JNIEnv* env, jobject, jstring token) {
-    geode::jni::Utf8Chars k(env, token);
-    std::vector<char> text(static_cast<size_t>(geode_link_label(k.get(), nullptr, 0)) + 1);
-    geode_link_label(k.get(), text.data(), static_cast<int>(text.size()));
-    return geode::jni::utf8String(env, text.data());
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkPairUrl(JNIEnv* env, jobject, jint address, jint port) {
-    char text[64];
-    return geode_link_pair_url(static_cast<uint32_t>(address), port, text, sizeof text) > 0 ? geode::jni::utf8String(env, text)
-                                                                                          : nullptr;
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkPairOpen(JNIEnv*, jobject, jboolean open, jlong nowMs) {
-    geode_link_pair_open(open ? 1 : 0, nowMs);
-}
-
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_linkPairCode(JNIEnv* env, jobject, jlong nowMs) {
     char text[32];
     geode_link_pair_code(nowMs, text, sizeof text);
     return geode::jni::utf8String(env, text);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_linkPairTry(JNIEnv* env, jobject, jstring typed, jlong nowMs, jstring token,
-                                                     jobjectArray path) {
-    if (!path || env->GetArrayLength(path) < 1) return 404;
-    geode::jni::Utf8Chars t(env, typed), k(env, token);
-    char out[GEODE_LINK_TOKEN_CHARS + 3];
-    const int status = geode_link_pair_try(t.get(), nowMs, k.get(), out, sizeof out);
-    if (status == 200) {
-        jstring s = geode::jni::utf8String(env, out);
-        env->SetObjectArrayElement(path, 0, s);
-        if (s) env->DeleteLocalRef(s);
-    }
-    return status;
 }
 
 JNIEXPORT jint JNICALL
@@ -1541,26 +1394,6 @@ Java_dev_geode_engine_bridge_GeodeNative_qrEncode(JNIEnv* env, jobject, jstring 
                                      static_cast<int>(modules.size()));
     if (side > 0) env->SetByteArrayRegion(out, 0, side * side, reinterpret_cast<const jbyte*>(modules.data()));
     return side;
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_hlsWindow(JNIEnv*, jobject) {
-    return geode_hls_window();
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong firstSequence, jdoubleArray durations,
-                                                     jstring initUri, jstring segmentPrefix, jstring segmentSuffix) {
-    if (!durations) return nullptr;
-    std::vector<double> d(static_cast<size_t>(env->GetArrayLength(durations)));
-    env->GetDoubleArrayRegion(durations, 0, static_cast<jsize>(d.size()), d.data());
-    geode::jni::Utf8Chars uri(env, initUri), prefix(env, segmentPrefix), suffix(env, segmentSuffix);
-    const auto write = [&](char* out, int cap) {
-        return geode_hls_playlist(firstSequence, d.data(), static_cast<int>(d.size()), uri.get(), prefix.get(),
-                                  suffix.get(), out, cap);
-    };
-    std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
-    return write(text.data(), static_cast<int>(text.size())) > 0 ? geode::jni::utf8String(env, text.data()) : nullptr;
 }
 
 // Record (output/Recorder, viz/frame/RecordTap): a live video of the visual and its sound.

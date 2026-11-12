@@ -1482,8 +1482,8 @@ GEODE_API int64_t         geode_cast_audio_feed_add(int64_t* state, int64_t fram
 GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us);
 
 /* Show on a computer (viz/frame/LinkShare, LinkPage): the browser link's routes, headers, page, master playlist
- * and state; cast/LiveHttpServer owns only the socket and the bytes. Every path sits under a token of
- * GEODE_LINK_TOKEN_CHARS lowercase hex characters (16 bytes from SecureRandom), compared in constant time. */
+ * and state; core/cast/LiveServer owns only the socket and the bytes. Every path sits under a token of
+ * GEODE_LINK_TOKEN_CHARS lowercase hex characters (16 random bytes from the kernel), compared in constant time. */
 #define GEODE_LINK_TOKEN_CHARS 32
 #define GEODE_LINK_NONE     0   /* 404 */
 #define GEODE_LINK_PAGE     1   /* /<token>/ and /<token>/index.html */
@@ -1542,7 +1542,8 @@ GEODE_API int             geode_link_step(int* state, int event, int arg);
 #define GEODE_LINK_NO_BODY  (-1)
 #define GEODE_LINK_BAD_BODY (-2)
 GEODE_API int64_t         geode_link_body_length(const char* const* headers, int count, int64_t max);
-/* The HTTP status for a POST on GEODE_LINK_RTC from geode_webrtc_answer's result: 200, 503 (busy: no picture
+/* The HTTP status for a POST on GEODE_LINK_RTC from the WebRTC link's answer (a length or a
+ * GEODE_WEBRTC_REFUSED_*): 200, 503 (busy: no picture
  * yet, or GEODE_WEBRTC_MAX_PEERS browsers), else 400. */
 GEODE_API int             geode_link_rtc_status(int answer_result);
 /* The link the user sees, copies and shares: the page's address with its IPv4 host as one decimal number (the
@@ -1589,12 +1590,10 @@ GEODE_API int             geode_link_receiver_health(int64_t now_ms, int64_t loa
 /* Show on a computer over WebRTC (core/cast/WebRtcLink, rules in viz/frame/WebRtcRule; libdatachannel): the
  * browser's low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream, bound to the
  * phone's Wi-Fi or Ethernet address (dotted, and in host order with its prefix length, as geode_link_admit
- * reads it); no STUN or TURN server, host candidates on that address only. Any thread; every call is cheap
- * except answer, which waits up to GEODE_WEBRTC_GATHER_MS for the phone's candidate.
- *   answer: the browser's offer in, the answer NUL-terminated into out (cap bytes; GEODE_WEBRTC_ANSWER_CAP is
- *           always enough); returns its length, or a negative GEODE_WEBRTC_REFUSED_* (the page then falls back
- *           to the fMP4 feed). Not a size query: each call makes a peer, so an answer that does not fit is
- *           refused and that peer closed.
+ * reads it); no STUN or TURN server, host candidates on that address only. Any thread; every call is cheap.
+ * A browser's offer is answered inside native (the cast's server, geode_cast_server_open, asks the link): the
+ * answer, or a negative GEODE_WEBRTC_REFUSED_* (the page then falls back to the fMP4 feed), after up to
+ * GEODE_WEBRTC_GATHER_MS for the phone's candidate.
  *   video: one encoded H.264 frame as MediaCodec wrote it (Annex B), its PTS, whether it is a keyframe; config
  *          the codec config buffer (SPS and PPS), kept for keyframes that come without it.
  *   audio: one Opus packet and its PTS (48 kHz stereo).
@@ -1612,11 +1611,53 @@ GEODE_API int             geode_link_receiver_health(int64_t now_ms, int64_t loa
 #define GEODE_WEBRTC_REFUSED_FAILED    (-6)   /* the stack refused it or no candidate came */
 GEODE_API int64_t         geode_webrtc_open(const char* bound_dotted, uint32_t bound, int prefix);
 GEODE_API void            geode_webrtc_close(int64_t handle);
-GEODE_API int             geode_webrtc_answer(int64_t handle, const char* offer, char* out, int cap);
 GEODE_API void            geode_webrtc_video(int64_t handle, const uint8_t* data, size_t size, int64_t pts_us, int key);
 GEODE_API void            geode_webrtc_video_config(int64_t handle, const uint8_t* data, size_t size);
 GEODE_API void            geode_webrtc_audio(int64_t handle, const uint8_t* data, size_t size, int64_t pts_us);
 GEODE_API int             geode_webrtc_peers(int64_t handle);
+
+/* The cast's HTTP server (core/cast/LiveServer, LiveHttp, LiveSegments): the live stream served on the phone's
+ * own Wi-Fi or Ethernet address (bound_dotted, and bound in host order with its prefix length, as
+ * geode_link_admit reads them) on a port the OS picks, under a random path token. It cuts the muxer's
+ * fragmented MP4 into the init segment and the fragments, keeps the window, writes the playlist, and reads and
+ * answers every request under hard bounds. One handle per cast stream, 0 = none; any thread.
+ *   open:  webrtc is the stream's geode_webrtc_open handle (0 = none), asked for the answer to a browser's
+ *          offer; it must outlive this handle (close this one first).
+ *   start: binds and serves; the port, or 0 when the address could not be bound.
+ *   stop:  ends every connection and joins the server's threads; the texts and state stay readable.
+ *   close: stops and frees.
+ *   admit: who the stream is for (GEODE_LINK_WANT_* bits) and the Cast device's address (0 = none named). It
+ *          opens the typed path's pairing (geode_link_pair_open, on CLOCK_BOOTTIME ms) while a browser link is
+ *          wanted and closes it otherwise; stop closes it too. POST /pair is answered by geode_link_pair_try.
+ *   write: the next bytes of the muxer's output, in whatever pieces they come.
+ *   text:  GEODE_CAST_TEXT_* NUL-terminated into out (GEODE_CAST_TEXT_CAP is always enough); its length, 0 and
+ *          "" when there is none: the playlist's URL as the TV loads it, the link a user is shown
+ *          (geode_link_share_url, else the dotted page), the link's short name, after stop a note of what
+ *          was refused (counts and the first refused address, never a path or the token), and the short link
+ *          a computer types (geode_link_pair_url, else the dotted address).
+ *   state: GEODE_CAST_STATE int64s into out: when the TV last got a file (CLOCK_BOOTTIME ms, Android's
+ *          elapsedRealtime; 0 = never), ms since the last segment was cut, 1 once the playlist lists enough to
+ *          start on, fragments kept as the muxer wrote them, 1 once the muxer's bytes could not be cut. */
+#define GEODE_CAST_TEXT_PLAYLIST_URL 0
+#define GEODE_CAST_TEXT_SHARE_URL    1
+#define GEODE_CAST_TEXT_LABEL        2
+#define GEODE_CAST_TEXT_REFUSALS     3
+#define GEODE_CAST_TEXT_PAIR_URL     4
+#define GEODE_CAST_TEXT_CAP 256
+#define GEODE_CAST_STATE 5
+#define GEODE_CAST_STATE_LAST_FETCH_MS  0
+#define GEODE_CAST_STATE_SEGMENT_AGE_MS 1
+#define GEODE_CAST_STATE_READY          2
+#define GEODE_CAST_STATE_AS_MUXED       3
+#define GEODE_CAST_STATE_BROKEN         4
+GEODE_API int64_t         geode_cast_server_open(const char* bound_dotted, uint32_t bound, int prefix, int64_t webrtc);
+GEODE_API int             geode_cast_server_start(int64_t handle);
+GEODE_API void            geode_cast_server_stop(int64_t handle);
+GEODE_API void            geode_cast_server_close(int64_t handle);
+GEODE_API void            geode_cast_server_admit(int64_t handle, uint32_t tv, int wants);
+GEODE_API void            geode_cast_server_write(int64_t handle, const uint8_t* data, size_t size);
+GEODE_API int             geode_cast_server_text(int64_t handle, int which, char* out, int cap);
+GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

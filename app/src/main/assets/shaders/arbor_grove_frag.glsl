@@ -58,7 +58,7 @@ out vec4 fragColor;
 // Space: the rig's orbit, look and dolly. Knobs (offsets from 0.5, so off is
 // the tuned look): k0 PULSE the kick puff, k1 TEXTURE the leaf pads' size,
 // k2 FLOW the gust's rate and depth, k3 TONE the sky's hue, k4 BUILD the
-// sun's halo, k5 SPACE the haze.
+// sun's halo, k5 SPACE the haze. The mids bow the limbs (arbMidBow).
 //
 // ---- why the distance estimate is safe ----------------------------------------------
 //
@@ -218,7 +218,7 @@ void main() {
 
     gGrow = arbLevels(8.0, 1.0);
     float twist = 2.25 + 0.6 * uTwist + 0.07 * lean + chaos * 0.12 * sin(t * 3.1 + 0.4);
-    gF = ArborForm(2.0, 0.50, 0.05 + 0.02 * lean, twist, 0.72, 1.15, 0.085, 0.72);
+    gF = ArborForm(2.0, 0.50, 0.05 + 0.02 * lean + arbMidBow(), twist, 0.72, 1.15, 0.085, 0.72);
     gPad = clamp(0.10 * (1.0 + 1.2 * kTexture), 0.02, 0.18);
     gTreeY = groundH(vec2(0.0)) - 0.05;
 

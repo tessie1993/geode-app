@@ -123,6 +123,20 @@
 // uTurbulence 0) wobbles surfaces as if the glass were poured and not yet set,
 // Energy (uIntensity 1) scales how far the music moves a style. Colour is pal();
 // Space is the rig.
+//
+// The style knobs are read in each style as offsets from 0.5, so off is the
+// tuned look. Cubes, Gem, Ice and Knot give them lib_flame's, lib_opal's and
+// lib_hollow's roles: k0 PULSE the emission, k1 TEXTURE the width of a block,
+// a crystal, the tube or the fire's rays, k2 FLOW added to Warp's share of
+// Chaos (gGlassFlow, which glassChaos reads), k3 TONE the palette position,
+// k4 BUILD the world's glow (GlassLook.glow), k5 SPACE the reach. The older
+// eight still spend them their own way.
+//
+// The mid band: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE, as lib_flame's
+// gFlameTurn, turns the world every glass shows (glassLook's turn, applied in
+// glassEnv) and its key light (glassKeyDir) about the vertical while the mids
+// climb and eases them back as they fall, so every reflection, refraction and
+// highlight swings with them. Mid gain scales it. One 2x2 turn per lookup.
 
 /** Animation time under the Speed macro. */
 float glassTime() {
@@ -134,9 +148,15 @@ float glassEnergy() {
     return clamp(uIntensity, 0.0, 2.0);
 }
 
-/** The Chaos macro, 0 at default, up to 2. */
+/**
+ * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles; 0 in
+ * every other style, where glassChaos is what it always was.
+ */
+float gGlassFlow = 0.0;
+
+/** The Chaos macro, 0 at default, up to 2: FLOW adds to Warp's share, never below none. */
 float glassChaos() {
-    return 0.6 * clamp(uWarp, 0.0, 2.0) + 0.4 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.6 * max(clamp(uWarp, 0.0, 2.0) + 0.5 * gGlassFlow, 0.0) + 0.4 * clamp(uTurbulence, 0.0, 2.0);
 }
 
 /** The Complexity macro, 0..1. */
@@ -425,6 +445,8 @@ struct GlassLook {
     float flow;
     float warp;
     float detail;
+    /** The mid band's turn of the world about the vertical, radians (see the macros). */
+    float turn;
 };
 
 GlassLook glassLook(int env, float hue, GlassEar e) {
@@ -442,6 +464,7 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     l.warp = 0.75 + 0.5 * e.snare + 0.25 * glassChaos();
     // Fractal iterations follow the quality tier: about 8 on Balanced, 11 on High, 6 on Saver.
     l.detail = 0.25 + 0.75 * glassQuality();
+    l.turn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
     return l;
 }
 
@@ -453,7 +476,8 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
  */
 vec3 glassKeyDir(GlassLook l) {
     float el = mix(0.45, 1.25, clamp(l.height, 0.0, 1.0));
-    float az = -0.45 + l.yaw;
+    // The mid band's turn carries the key with the world glassEnv turns (the same sense).
+    float az = -0.45 + l.yaw + l.turn;
     return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
 }
 
@@ -817,6 +841,7 @@ vec3 glassAurora(vec3 d, GlassLook l) {
 
 /** The world in direction `d`, as the look picks it. */
 vec3 glassEnv(vec3 d, GlassLook l) {
+    if (l.turn > 1e-4) d.xz = glassRot(l.turn) * d.xz;
     if (l.env == GLASS_ENV_NEON) return glassNeon(d, l);
     if (l.env == GLASS_ENV_DUSK) return glassDusk(d, l);
     if (l.env == GLASS_ENV_DEEP) return glassDeep(d, l);

@@ -13,6 +13,7 @@
 #include "sound/Rhythm.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
+#include "sound/Transient.hpp"
 
 namespace geode::sound {
 
@@ -81,8 +82,8 @@ public:
     }
     // Samples per analysis hop.
     int hopSamples() const { return rhythm_.hopSamples(); }
-    // The one-hop triggers held from hop to step (kick … drop): > 0 on the frame that follows their hop.
-    static constexpr int kTriggers = 23;
+    // The one-hop triggers held from hop to step (kick … drop, transient): > 0 on the frame that follows their hop.
+    static constexpr int kTriggers = 24;
     static constexpr double kHitFloorLufs = -45.0;
     // Clamped to sound/Tuning's ranges, whatever the caller hands in (a NaN slot is its default).
     void setTuning(const GeodeSoundTuning& tuning);
@@ -181,6 +182,8 @@ private:
         float presenceFade = 0.0f;
         std::array<RelativeLevel, 3> bandFlux;  // low, mid, high
         RelativeLevel hfc;
+        Envelope transientEnv;
+        float transientSharpness = 0.0f;  // the last heard attack's, held
     };
 
     BinRange bins(float loHz, float hiHz) const;
@@ -195,12 +198,13 @@ private:
     void waveform(float* out);
     void descriptors(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void drums(float dt, bool silent, GeodeSoundFrame& out);
+    void transients(float dt, bool silent, GeodeSoundFrame& out);
     void events(float dt, bool warm, GeodeSoundFrame& out);
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
     void musical(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void absolute(float dt, GeodeSoundFrame& out);
-    // A kick, snare, onset or hard cut may fire: the gate is open and the momentary loudness is above the
+    // A kick, snare, onset, transient or hard cut may fire: the gate is open and the momentary loudness is above the
     // floor a hit needs, so a soft swell in a quiet ambient passage cannot fire a full-strength hit.
     bool hitsAllowed() const { return meter_.open() && meter_.momentaryLufs() >= kHitFloorLufs; }
     void estimatePitch(float held, float& midi, float& confidence, float& evenness);
@@ -245,6 +249,7 @@ private:
     std::array<float, kSlices> sliceNow_{};   // this hop's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held
     std::array<int64_t, kSlices> punchAt_{};  // and when, in samples
+    Transient transient_;  // per sample on the bank's low, middle and high bands and the whole mix
     double silenceCarry_ = 0.0;  // the fraction of a sample of silence still owed while starved
 
     // The analysis hop.

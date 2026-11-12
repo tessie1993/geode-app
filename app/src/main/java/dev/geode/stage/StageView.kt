@@ -8,8 +8,8 @@ import android.hardware.SensorManager
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.PerformanceSettings
 
 /**
  * The surface a [Stage] draws into. It tells native what Android tells it (the surface, its size, whether the

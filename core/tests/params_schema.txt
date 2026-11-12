@@ -1,4 +1,4 @@
-params|3|187
+params|4|187
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -207,3 +207,48 @@ palette|17|Cherry
 palette|18|Cyan
 palette|19|Magenta
 palette|20|Yellow
+choice|particleShape|0|Dot
+choice|particleShape|1|Ring
+choice|particleShape|2|Star
+choice|particleShape|3|Square
+choice|particleShape|4|Spark
+choice|particleShape|5|Hex
+choice|particleShape|6|Bubble
+choice|fluidQuality|0|Ultra
+choice|fluidQuality|1|High
+choice|fluidQuality|2|Medium
+choice|fluidQuality|3|Low
+choice|fluidQuality|4|Min
+choice|fluidBeatPattern|0|Center
+choice|fluidBeatPattern|1|Ring
+choice|fluidBeatPattern|2|Random
+choice|fluidBeatPattern|3|Spectrum
+choice|fluidSpawnPath|0|Orbit
+choice|fluidSpawnPath|1|Lissajous
+choice|fluidSpawnPath|2|Rose
+choice|fluidSpawnPath|3|Bloom
+choice|fluidSpawnPath|4|Drift
+choice|cymaticsGeometry|0|Water dish
+choice|cymaticsGeometry|1|Chladni plate
+choice|camPath|0|Glide
+choice|camPath|1|Spiral
+choice|camPath|2|Orbit
+choice|camPath|3|Hover
+choice|camPath|4|Drive
+choice|camPath|5|Fall
+choice|camPath|6|Rise
+choice|camPath|7|Weave
+choice|camPath|8|Corkscrew
+choice|camPath|9|Swoop
+choice|camPath|10|Strafe
+choice|camPath|11|Pendulum
+choice|liquidBorn|0|Live style
+choice|liquidBorn|1|Style re-rolled
+choice|liquidBorn|2|Next style
+choice|liquidBorn|3|Forms
+choice|liquidAge|0|Pure palette
+choice|liquidAge|1|Fade deep
+choice|liquidAge|2|Ink bleed
+choice|liquidSurface|0|Ink
+choice|liquidSurface|1|Gloss
+choice|liquidSurface|2|Glass

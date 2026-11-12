@@ -23,6 +23,10 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - How much the music is comes from absolute loudness, never from the song's own average.
 - `LufsMeter` (fosfora's) gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
+- `Transient` (`core/sound/Transient`) hears the sharp start of any sound per sample: a fast follower over a slow one in the bank's low, middle and high bands and the whole mix, past a threshold read from the last second (median plus MAD), no tempo.
+- Its frame fields are `transient` (a trigger), `transientEnv` and `transientSharpness`, gated and weighted like a hit.
+- The reaction sources `Transient`, `TransientEnv` and `TransientSharpness` read those fields.
+- The LFO source Transient (`ModSource::Transient`) follows `transientEnv`; it followed the flux onset's `onsetEnv` before.
 - `drive` = loudness × texture.
 - `sound/DriveGain` turns `drive` into the gain that `MotionField`, `CameraRig`, `NoteResponse` and `Reactions` multiply the magnitude of audio-driven motion by.
 - The relative bass/mid/treble ratios only shape the pulse.
@@ -100,7 +104,9 @@ The renderer runs these in order each frame.
 - In an export the renderer also steps `StyleSchedule` (the segment's style switches, by time and by beat, on the picture's clock, so it holds in silence).
 - Then it steps `CameraRig`, the one camera every render path shares, which also reads the sound frame for its own cuts, trauma shake and clock-driven orbit.
 - `CameraRig` has twelve paths (`camPath` 0..11): glide, spiral, orbit, hover, drive, fall, rise, weave, corkscrew, swoop, strafe, pendulum.
-- The Camera path chips' labels are `SceneParams.CAMERA_PATHS` in `:engine:scenes`, by `camPath` index.
+- The Camera path chips' labels are `camPath`'s `GEODE_PARAM_CHOICES` row in `core/viz/ParamTable.inc`, by index.
+- `CameraRig.cpp` static_asserts that row's count (`choiceCount`) against `CameraRig::kPathCount`.
+- Every picker's labels (`GEODE_PARAM_CHOICES`) reach the shell as `choice|name|index|label` rows of `geode_params_schema_text` (version 4), read by `ParamSchema.choices`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.
@@ -187,9 +193,12 @@ The renderer runs these in order each frame.
 - The composite applies no geometry, mirror or grade to a scene that draws the rig itself (`grade::gateFor`, `Scene::drawsCamera`).
 - A held simulation that draws the rig redraws its held field when the rig moves (`Scene::redrawHeld`); it is not stepped.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
-- Flame, Opal and Hollows also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Flame, Opal, Hollows, Prism, Fluor, Loom, Shard and Petal also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
+- Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
+- A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.
-- Ten styles each: `flame_*`, `opal_*`, `hollow_*`.
+- Ten styles each: `flame_*`, `opal_*`, `hollow_*`, `prism_*`, `fluor_*`, `loom_*`, `shard_*`, `petal_*`, `fold_*`.
 
 ## Endless zoom, Trails, Liquid
 

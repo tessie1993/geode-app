@@ -7,9 +7,6 @@ import android.os.Build
 import androidx.core.content.edit
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.render.LiquidHotPolicy
-import dev.geode.render.PerformanceMode
-import dev.geode.render.PerformanceSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

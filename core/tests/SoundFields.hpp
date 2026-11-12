@@ -23,7 +23,7 @@ namespace geode::sound::test {
     X(fluxMid) X(fluxHigh) X(hfc) X(keyHue) X(keyRoot) X(keyMajor) X(keyClarity) X(chordHue) X(tension)     \
     X(harmonicChange) X(scale) X(scaleRoot) X(scaleBrightness) X(scaleTension) X(scaleFit) X(novelty)       \
     X(sectionChange) X(sectionId) X(sectionState) X(sectionBars) X(buildUp) X(drop) X(fadeGain)            \
-    X(loudnessM) X(loudnessS) X(busy) X(drive)
+    X(loudnessM) X(loudnessS) X(busy) X(drive) X(transient) X(transientEnv) X(transientSharpness)
 
 struct Field {
     const char* name;

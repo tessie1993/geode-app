@@ -229,7 +229,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids turn the look aside (lib_truchet's truchetTurn).
+    camFly(uv - vec2(truchetTurn(), 0.0), ro, rd);
     // Exact and invisible: see the header's wrap note.
     ro.z = mod(ro.z, TM_ZWRAP);
     gEye = ro;

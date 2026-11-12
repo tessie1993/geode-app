@@ -421,7 +421,7 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("crystal_canyon", "CAMERA/framing") && shownSection("crystal_canyon", "CAMERA/feel"),
           "framing and feel on a style on the rig");
     for (const char* id : {"outrun_drive", "ringed_planet", "ribbon_storm"}) {
-        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig without a march");
+        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig, remade as a march");
     }
     check(shownSection("life_orbium", "CAMERA/framing") && shownSection("life_orbium", "CAMERA/feel") &&
               shownSection("life_orbium", "SHAPE/basics"),

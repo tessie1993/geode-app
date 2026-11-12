@@ -200,7 +200,8 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids roll the view about the way ahead (lib_chrys's chrysMidTurn).
+    camFly(chrysTurn(chrysMidTurn()) * uv, ro, rd);
     // Every z term tiles with a period dividing 256 (power of two), so this
     // shift is exact and invisible, and highp keeps its fraction far down the
     // rig's 8192 travel.

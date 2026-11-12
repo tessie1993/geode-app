@@ -3,9 +3,9 @@ package dev.geode.cast
 import android.content.Context
 import dev.geode.audio.AudioBus
 import dev.geode.data.MilkPathPrefs
+import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.PerformanceSettings
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.look.LookSnapshot
 import java.io.File
@@ -37,7 +37,7 @@ internal class CastFallback(
             GeodeNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)?.let(viz::loadMilkPreset)
         }
         viz.setLook(look)
-        viz.setQuality(PerformanceSettings.HIGH)
+        PerformanceSettings.HIGH.run { viz.setQuality(renderScale, marchScale, postFx, adaptive, liquidHot.native) }
         viz.surfaceCreated()
         viz.surfaceChanged(width, height)
     }

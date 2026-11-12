@@ -222,6 +222,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
+- `PerformanceSettings` is the value it keeps, with `PerformanceMode` and `LiquidHotPolicy`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
 - The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.

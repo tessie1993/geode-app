@@ -41,10 +41,27 @@
 "lib_flame",
 "lib_opal",
 "lib_hollow",
+"lib_prism",
+"lib_fluor",
+"lib_loom",
+"lib_shard",
+"lib_petal",
+"lib_fold",
 // Their second halves, included after the style's own map: the march that calls it (no prototypes).
 "lib_flame_march",
 "lib_opal_march",
 "lib_hollow_march",
+"lib_prism_march",
+"lib_fluor_march",
+"lib_loom_march",
+"lib_shard_march",
+"lib_petal_march",
+// Fold has five marches, one to a kind of fractal; each style includes lib_fold and one of them.
+"lib_fold_march_glow",
+"lib_fold_march_cone",
+"lib_fold_march_slice",
+"lib_fold_march_pair",
+"lib_fold_march_probe",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).

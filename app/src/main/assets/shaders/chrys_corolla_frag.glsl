@@ -48,7 +48,11 @@ out vec4 fragColor;
 // length and lift, a shaggy, wind-tossed head; uTwist swirls the rings into
 // a pinwheel around the axis. Energy: uIntensity scales the drop unfold and
 // the bass breath. Colour: pal() for petals, core and backdrop. Camera: the
-// rig, via camAround (uZoom still applies through view()).
+// rig, via camAround (uZoom still applies through view()). Knobs (lib_flame's
+// roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission,
+// k1 TEXTURE the petals' width, k2 FLOW added to Warp's share of the shag, k3
+// TONE the palette position, k4 BUILD the near-miss glow, k5 SPACE the reach
+// of the orbit. The mids turn the head on its axis (chrysMidTurn).
 
 #define CO_MAX_STEPS 112
 #define CO_BOUND 1.8
@@ -66,6 +70,8 @@ float gMat;
 float gU;
 float gChaos;
 float gRings;
+/** k1 TEXTURE on the petals' width. */
+float gWide;
 
 vec3 toFlower(vec3 p) {
     // The head's visual mass sits up its axis from the core, so the core is
@@ -118,7 +124,7 @@ float map(vec3 p) {
         float elev = mix(mix(1.2, 1.5, t), mix(0.1, 0.95, t), gOpen);
         float bend = mix(mix(1.5, 2.6, t), mix(-0.6, -0.15, t), gOpen);
         float count = max(16.0 - 3.0 * k, 6.0);
-        vec2 pr = petalRing(q, count, 0.26 - 0.045 * k, max(1.3 - 0.3 * k, 0.45), 0.42 + 0.04 * k, elev, bend, k * 0.37);
+        vec2 pr = petalRing(q, count, 0.26 - 0.045 * k, max(1.3 - 0.3 * k, 0.45), (0.42 + 0.04 * k) * gWide, elev, bend, k * 0.37);
         if (pr.x < d) {
             d = pr.x;
             gMat = 1.0 + k;
@@ -136,20 +142,27 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gWide = 1.0 + 0.4 * kTexture;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     gBass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);
-    gSpin = t * 0.04 + uDrift * 0.1;
+    gSpin = t * 0.04 + uDrift * 0.1 + chrysMidTurn();
     gLowQ = uSteps < 72.0;
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
+    gChaos = clamp(uTurbulence + max(uWarp + 0.5 * kFlow, 0.0), 0.0, 2.0);
     gRings = 3.0 + step(0.5, uMorph);
-    float hue = 0.04 + 0.03 * sin(t * 0.025);
+    float hue = 0.04 + 0.03 * sin(t * 0.025) + 0.6 * kTone;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 3.6, 6.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, 3.6 * (1.0 + 0.3 * kSpace), 6.0 * CAM_SPIN_UNIT, ro, rd);
 
     vec3 bg = pal(hue + 0.6) * 0.025 + pal(hue + 0.52) * 0.09 * exp(-length(uv) * 1.4);
     vec3 col = bg;
@@ -204,9 +217,10 @@ void main() {
             col *= ao;
             col = mix(col, bg, smoothstep(2.0, 6.0, hitT) * 0.5);
         }
-        col += pal(hue + 0.08) * glow;
+        col += pal(hue + 0.08) * glow * (1.0 + kBuild);
     }
 
     col *= 0.85 + 0.15 * swell;
+    col *= 1.0 + 0.5 * kPulse;
     fragColor = vec4(grade(col), 1.0);
 }

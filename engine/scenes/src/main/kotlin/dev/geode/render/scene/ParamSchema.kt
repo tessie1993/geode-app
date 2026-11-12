@@ -12,7 +12,7 @@ import java.io.File
  * back. This is the one place Kotlin learns a param's
  * name, kind, default, range or slot: the wire codec (`render/bridge/SceneParamsCodec`) packs by it,
  * the slider and keyframe ranges read it (`model/ControlRange` in :app), and preset JSON is to, so
- * nothing in Kotlin keeps a second copy that could drift. What stays Kotlin is what is not engine: labels and page placement.
+ * nothing in Kotlin keeps a second copy that could drift. The pickers' and palettes' labels come with it.
  *
  * JVM unit tests cannot load libgeode. The build sets the [TEXT_FILE_PROPERTY] system property on
  * every unit-test task to `core/tests/params_schema.txt`, a checked-in copy of the table that the
@@ -21,7 +21,7 @@ import java.io.File
  */
 object ParamSchema {
     /** The table version this shell reads; core/viz/Params.hpp's `kSchemaTextVersion`. */
-    const val VERSION: Int = 3
+    const val VERSION: Int = 4
 
     const val TEXT_FILE_PROPERTY: String = "geode.paramsSchema"
 
@@ -34,6 +34,17 @@ object ParamSchema {
 
     /** The built-in palettes' names, in `palette` index order (the table's `palette|index|name` rows). */
     val paletteNames: List<String> by lazy { text.lines().filter { it.startsWith("palette|") }.map { it.substringAfterLast('|') } }
+
+    private val choiceLabels: Map<String, List<String>> by lazy {
+        text
+            .lines()
+            .filter { it.startsWith("choice|") }
+            .map { it.split('|', limit = 4) }
+            .groupBy({ it[1] }, { it[3] })
+    }
+
+    /** The labels of picker [name]'s values, in index order (the table's `choice|name|index|label` rows); empty for no picker. */
+    fun choices(name: String): List<String> = choiceLabels[name].orEmpty()
 
     private val byName: Map<String, ParamSpec> by lazy { table.associateBy { it.name } }
 
@@ -49,12 +60,12 @@ object ParamSchema {
     /**
      * Reads the `geode_params_schema_text` table: a `params|<version>|<count>` header, then one
      * `param|slot|name|KIND|default|min|max|FADE|HOLD|LIVE|RETIRED` row per slot, in slot order, then the
-     * palette names ([paletteNames]). Throws on a
+     * palette names ([paletteNames]) and the picker labels ([choices]). Throws on a
      * version this shell does not read, a row out of order or a count that disagrees, since a
      * misread schema would put every param in the wrong wire slot.
      */
     internal fun parse(text: String): List<ParamSpec> {
-        val rows = text.lines().filter { it.isNotBlank() && !it.startsWith("palette|") }.map { it.split('|') }
+        val rows = text.lines().filter { it.isNotBlank() && !it.startsWith("palette|") && !it.startsWith("choice|") }.map { it.split('|') }
         val header = rows.firstOrNull().orEmpty()
         check(header.size == 3 && header[0] == "params" && header[1] == VERSION.toString()) {
             "native params schema is $header, this shell reads version $VERSION"

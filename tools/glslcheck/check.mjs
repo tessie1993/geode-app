@@ -374,8 +374,9 @@ function liquidJobs(args, registry) {
 // ---- Endless zoom (--dive <style>) ------------------------------------------
 //
 // The style, then dive_frag.glsl over its picture (core/viz/DivePass): --frames snapshots spread over
-// one octave of travel at --speed octaves a second (negative rises out), so the first and the one
-// after the last are the same picture. Look at them in order: every copy only grows, none pops.
+// one step of travel at --speed octaves a second (negative rises out), so the first and the one
+// after the last are the same picture. --look <name>=<value> sets a Dive control (spacing, twist, aimX,
+// aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.
 function diveJob(args, registry) {
   const W = args.size, H = args.height ?? args.size;
   const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
@@ -388,13 +389,31 @@ function diveJob(args, registry) {
   const n = args.frames === 240 ? 8 : args.frames;
   const speed = args.speed ?? 0.3;
   const t0 = args.time ?? 37;
+  // endless::tunnel::lookFor: the Dive category's params as dive_frag's uniforms.
+  const d = { spacing: 1, twist: 0, aimX: 0, aimY: 0, shape: 0.5, blend: 0.75, fog: 0, lens: 0 };
+  for (const kv of args.diveLook) {
+    const [k, v] = kv.split('=');
+    if (!(k in d)) throw new Error(`unknown --look ${k}; one of ${Object.keys(d).join(', ')}`);
+    d[k] = Number(v);
+  }
+  const step = Math.min(Math.max(d.spacing, 0.5), 2);
+  const shape = Math.pow(2, 1 + 2 * d.shape);
+  const ax = Math.abs(d.aimX), ay = Math.abs(d.aimY), aspect = W / H;
+  let reach = Math.pow(2, 1 / shape);
+  if (d.twist !== 0) reach = Math.max(reach, Math.hypot((1 + ax) * aspect, 1 + ay) / Math.min((1 - ax) * aspect, 1 - ay));
+  const fade = Math.max(d.blend * (1 - Math.pow(2, -step)), 0.004);
+  const look = {
+    uAspect: aspect, uInner: Math.ceil(5 / step), uBase: Math.max(1, Math.ceil(Math.log2(reach * 1.02 / (1 - fade)) / step)),
+    uStep: step, uTwist: d.twist * Math.PI / 2, uCentre: [d.aimX, d.aimY], uShape: shape, uBlend: d.blend, uFog: 1.5 * d.fog,
+    uLens: d.lens,
+  };
   const frames = [];
   for (let i = 0; i < n; i++) {
     const travelled = i / n;
     const phase = speed >= 0 ? travelled : (1 - travelled) % 1;
     frames.push({
       style: plan(styleU, { ...SHADER_VALUES, uTime: t0 + travelled / Math.max(Math.abs(speed), 0.01) }, SHADER_TEXTURES, W, H),
-      dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1 }, { uScene: 'style' }, W, H),
+      dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1, ...look }, { uScene: 'style' }, W, H),
     });
   }
   return { vert: quadVert, styleFrag, diveFrag, frames, width: W, height: H };
@@ -587,7 +606,7 @@ async function runStills(args, registry) {
 function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
-    liquid: null, dive: null, speed: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
+    liquid: null, dive: null, diveLook: [], speed: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
     sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -602,6 +621,7 @@ function parseArgs(argv) {
     else if (v === '--time') a.time = Number(argv[++i]);
     else if (v === '--liquid') a.liquid = argv[++i];
     else if (v === '--dive') a.dive = argv[++i];
+    else if (v === '--look') a.diveLook.push(argv[++i]);
     else if (v === '--speed') a.speed = Number(argv[++i]);
     else if (v === '--frames') a.frames = Number(argv[++i]);
     else if (v === '--born') a.born = Number(argv[++i]);

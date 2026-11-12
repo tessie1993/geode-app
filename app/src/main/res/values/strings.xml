@@ -947,6 +947,7 @@
     <string name="customize_a11y_close_search">Close search</string>
     <string name="customize_a11y_search">Search every control</string>
     <string name="customize_a11y_randomize">Randomize %1$s</string>
+    <string name="customize_a11y_randomize_all">Randomize every group</string>
     <string name="customize_a11y_undo">Undo</string>
     <string name="customize_a11y_more_options">More options</string>
     <string name="customize_summary_as_styled">As styled</string>

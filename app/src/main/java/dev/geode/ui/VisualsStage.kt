@@ -439,8 +439,8 @@ private fun StageIconButton(
  * What the visual's gestures can do here, for the gesture map to choose from ([VisualActions]).
  * Randomize everything is a new style, a preset for it and every Customize category rolled
  * (`randomizeEverything`, native core/viz/RandomizeAll). Everyone gets the style and preset among
- * what they may keep; the roll is Pro, as Customize's Randomize is, so a free user's preset stays as
- * made and no paywall interrupts a gesture that already did something.
+ * what they may keep; without Pro the roll follows Customize's dice (native's `#PRO` lock): the free
+ * Basics roll, the rest stays as the preset made it, and no paywall interrupts the gesture.
  */
 @Composable
 internal fun rememberStageActions(
@@ -466,7 +466,7 @@ internal fun rememberStageActions(
         stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
-        randomizeAll = { visualsViewModel.randomizeEverything(rollParams = gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
+        randomizeAll = { visualsViewModel.randomizeEverything(basicsOnly = !gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
         touchPulse = touchPulse,
         playPause = viewModel::togglePlayPause,
     )

@@ -231,6 +231,55 @@ void keptControlsHoldThroughThePresetAndTheRoll() {
     check(sameWire(SceneParams::fromWire(o), expected), "ABI: roll_categories 0 is keep-only");
 }
 
+// Without Pro the gesture follows the dice's free rule (owner, 2026-11-12): the shell adds "#PRO" to the
+// lock set, as Customize's Randomize does, so the roll moves the free Basics only. #PRO is not Keep: the
+// controls below a Basics stay as the new preset made them, never put back to the look before.
+void theFreeRollIsTheDicesFreeRule() {
+    std::set<std::string> basics;
+    std::set<std::string> below;
+    for (const auto& section : customize::sections()) {
+        for (const char* control : section.controls) (section.basics ? basics : below).insert(control);
+    }
+    check(customize::expandKeeps({customize::kProLock}).empty(), "#PRO keeps nothing");
+    check(customize::expandLocks({customize::kProLock}) == below, "#PRO holds exactly what is below a Basics");
+    for (const auto& style : {std::string("neon_chrome_sea"), std::string("julia"), catalogue::allIds()[0]}) {
+        const SceneParams before = randomizer::randomize(SceneParams{}, 99, std::nullopt, style, {});
+        const SceneParams base = randomizer::randomize(SceneParams{}, 1234, std::nullopt, style, {});  // the preset
+        bool movedAny = false;
+        for (uint64_t seed = 1; seed <= 24; ++seed) {
+            const SceneParams out = randomize_all::roll(before, base, seed, style, {customize::kProLock});
+            for (const auto& roll : randomizer::rolledKeys()) {
+                if (basics.count(roll.key)) continue;
+                for (const char* field : roll.fields) {
+                    if (field) check(out.get(field) == base.get(field), std::string("the free roll leaves the preset's ") + roll.key);
+                }
+            }
+            for (const auto& key : basics) {
+                for (const char* field : customize::fieldsOf(key)) movedAny = movedAny || out.get(field) != base.get(field);
+            }
+        }
+        check(movedAny, "the free roll moves the Basics on " + style);
+
+        // A kept category still goes back to its value from before; #PRO beside it changes nothing there.
+        const std::set<std::string> lockedLook = {customize::kProLock, "#LOOK"};
+        const SceneParams kept = randomize_all::roll(before, base, 7, style, lockedLook);
+        for (const auto& key : customize::expandKeeps({"#LOOK"})) {
+            for (const char* field : customize::fieldsOf(key)) {
+                check(kept.get(field) == before.get(field), std::string("a kept Look holds through the free roll: ") + field);
+            }
+        }
+
+        // The ABI carries the same "#PRO" line the dice's geode_params_randomize reads.
+        float b[SceneParams::kFieldCount];
+        float s[SceneParams::kFieldCount];
+        float o[SceneParams::kFieldCount];
+        before.toWire(b);
+        base.toWire(s);
+        geode_randomize_all_roll(style.c_str(), "#PRO\n#LOOK", 7, 1, b, s, o);
+        check(sameWire(SceneParams::fromWire(o), kept), "ABI: the free roll equals the pure one");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -242,6 +291,7 @@ int main() {
     rollIsAFunctionOfItsSeed();
     everyCategoryMoves();
     keptControlsHoldThroughThePresetAndTheRoll();
+    theFreeRollIsTheDicesFreeRule();
     if (failures == 0) std::printf("randomize_all_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

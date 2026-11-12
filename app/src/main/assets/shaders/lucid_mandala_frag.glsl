@@ -234,6 +234,8 @@ void main() {
     camFly(uv, ro, rd);
     // Every z term has a period dividing 128, so this rebase is exact.
     ro.z = mod(ro.z, LM_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;

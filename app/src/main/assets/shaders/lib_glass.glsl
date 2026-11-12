@@ -169,17 +169,22 @@
 // reads at the hit, and includes lib_glass_field after it: glassField(p) there
 // is the one entry its outside march, its interior march, its normal
 // (glassNormal) and its shading read the glass through. It writes no global.
-// GLASS_GROW is where lib_grow applies once that branch merges. Gem and Prism
+// GLASS_GROW is where lib_grow applies (glassGrow, in lib_glass_field). Gem and Prism
 // trace their bodies in closed form (planes, a 2D prism), with no distance
 // field; they take the shell's inputs, and their own index and spread through
 // glassIor and glassSpread.
 
 /**
- * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the style's
- * plain map; at the merge this line becomes the grown field. Today it is F itself.
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * map F at p grown by glassGrow (lib_glass_field, defined after the style's
+ * map, where this expands): exactly F(p) while all four rest.
  */
-#define GLASS_GROW(p, F) F(p)
-/** MERGE HOOK, uFormula: 0.0 today (each style's first formula); uFormula at the merge. */
+#define GLASS_GROW(p, F) (growIdle() ? F(p) : glassGrow(p))
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
 #define GLASS_FORMULA 0.0
 
 /** The normalized inputs (see above): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */

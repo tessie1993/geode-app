@@ -255,6 +255,8 @@ void main() {
     // shift is exact and invisible, and z keeps its precision.
     ro.z = mod(ro.z, WV_ZWRAP);
     gEye = ro;
+    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is.
+    growSetup(ro, 3.0, false);
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.3 * k3;
     vec3 fwd = normalize(vec3(uCamBasis[2].x, 0.0, uCamBasis[2].z) + vec3(0.0, 0.0, 1e-4));

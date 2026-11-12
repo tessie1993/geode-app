@@ -246,6 +246,8 @@ void main() {
     camFly(uv, ro, rd);
     // Every z term has a period dividing 16 (header), so this is exact.
     ro.z = mod(ro.z, LAT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float hue0 = lucidSpan(N.tone, 0.0, -0.15, 0.15) + 0.03 * sin(t * 0.021);

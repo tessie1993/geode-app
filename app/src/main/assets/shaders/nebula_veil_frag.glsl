@@ -192,6 +192,8 @@ void main() {
     camFly(uv, ro, rd);
     // Every z term below has a period dividing VV_ZWRAP (see the header).
     ro.z = mod(ro.z, VV_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
 
     // The kick's ripple: born just ahead of the eye, running away as it fades.
     gRipZ = ro.z + 2.0 + 16.0 * (1.0 - kick);

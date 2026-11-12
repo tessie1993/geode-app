@@ -204,6 +204,8 @@ void main() {
     camFly(uv, ro, rd);
     // Every z term repeats every 16 units (see the header): exact and invisible.
     ro.z = mod(ro.z, LW_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;

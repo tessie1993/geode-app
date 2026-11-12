@@ -202,7 +202,10 @@ ChrysHit chrysMap(vec3 p) {
 vec2 boundSpan(vec3 ro, vec3 rd) {
     vec3 oc = ro - vec3(0.0, LO_BASE_Y + LO_BOUND_UP, 0.0);
     float b = dot(oc, rd);
-    float c = dot(oc, oc) - LO_BOUND_R * LO_BOUND_R;
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = LO_BOUND_R + growSlack(LO_BOUND_R, 1.0, 0.2);
+    float c = dot(oc, oc) - boundR * boundR;
     float h = b * b - c;
     if (h < 0.0) return vec2(1.0, -1.0);
     float s = sqrt(h);

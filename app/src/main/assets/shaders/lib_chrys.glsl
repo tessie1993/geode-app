@@ -29,7 +29,7 @@
 // its id...) in the hit, and each style says what its slots hold, so a
 // normal's taps never clobber the hit's material. CHRYS_GROW in
 // lib_chrys_field is the one line where Grow (lib_grow: Spawn, Fractal, Front
-// and Back layer) and Formula will wrap the map once they land.
+// and Back layer) wraps the map (chrysGrow); Formula has no alternatives yet.
 //
 // ---- the normalization shell ----------------------------------------------
 //

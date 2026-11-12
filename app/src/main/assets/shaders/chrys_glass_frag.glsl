@@ -330,6 +330,8 @@ void main() {
     // Held inside the nave whatever the rig's wander does.
     ro.x = clamp(ro.x, -(gW - 1.0), gW - 1.0);
     ro.y = clamp(ro.y, CG_FLOOR + 0.9, CG_SPRING + 1.5);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);

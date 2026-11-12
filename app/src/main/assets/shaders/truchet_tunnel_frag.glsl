@@ -220,6 +220,8 @@ void main() {
     // Every z term tiles with a period dividing 64 (header), so this shift is
     // exact and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // Skip the empty middle: nothing of the shell comes nearer the axis than this.

@@ -280,7 +280,10 @@ void main() {
     vec3 col = bg;
 
     float b = dot(ro, rd);
-    float h = b * b - (dot(ro, ro) - PH_BOUND * PH_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = PH_BOUND + growSlack(PH_BOUND, 1.0, 0.2);
+    float h = b * b - (dot(ro, ro) - boundR * boundR);
     if (h > 0.0) {
         float sq = sqrt(h);
         float tm = max(-b - sq, 0.01);

@@ -252,6 +252,8 @@ void main() {
     ro.z = mod(ro.z, PL_ZWRAP);
     // Skim, never dive: the eye stays over the water and the floats.
     ro.y = max(ro.y, PL_WATER + 0.45);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float kPulse = gGlassIn.pulse - 0.5;
@@ -291,12 +293,14 @@ void main() {
     // ---- the march ----
     float t = 0.02;
     float hitT = -1.0;
+    // Below the deck the world draws the sea; the deck's depth is widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float deckLow = PL_WATER - 2.5 - growSlack(abs(PL_WATER - 2.5 - ro.y), 1.0, 0.2);
     for (int i = 0; i < PL_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
         // Past the infinity edge and below the deck: the dusk sea, drawn by the world.
-        if (p.y < PL_WATER - 2.5) break;
+        if (p.y < deckLow) break;
         float d = glassField(p).d;
         if (d < glassEps(t)) {
             hitT = t;

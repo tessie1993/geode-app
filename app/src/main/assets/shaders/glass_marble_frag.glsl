@@ -245,6 +245,8 @@ void main() {
     // and invisible; without it a highp z far down the 8192 travel keeps too
     // little fraction for the cell hash and the hit.
     ro.z = mod(ro.z, MD_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     vec3 sky = glassEnv(rd, lk);

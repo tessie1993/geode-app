@@ -283,6 +283,8 @@ void main() {
     // Every z term tiles with a period dividing 64 (see the header), so this
     // shift is exact and invisible, and it keeps highp z small far down the travel.
     ro.z = mod(ro.z, BB_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     vec3 fogCol = pal(gHue + 0.7) * 0.03;

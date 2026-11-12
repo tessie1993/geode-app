@@ -220,6 +220,8 @@ void main() {
 
     float eyeH = 1.3 + 0.5 * k5;
     vec3 ro = vec3(uCamPos.x, eyeH, mod(uCamPos.z, TH_ZWRAP));
+    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is.
+    growSetup(ro, 3.0, false);
     // The rig's view, pitched down toward the floor.
     vec3 v = vec3(uv, uCamFocal);
     const float pitch = 0.5;
@@ -238,8 +240,10 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     if (rd.y < -0.002) {
-        float tm = max((ro.y - slabTop) / -rd.y, 0.0);
-        float t1 = min((ro.y + slabBot) / -rd.y, TH_FAR);
+        // The slab, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+        float slack = growSlack(abs(ro.y + slabBot), 1.0, 0.2);
+        float tm = max((ro.y - (slabTop + slack)) / -rd.y, 0.0);
+        float t1 = min((ro.y + slabBot + slack) / -rd.y, TH_FAR);
         for (int i = 0; i < TH_MAX_STEPS; i++) {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;

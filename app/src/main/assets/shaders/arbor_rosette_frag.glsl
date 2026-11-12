@@ -233,6 +233,8 @@ void main() {
     // 16 divides the 8192 wrap, so the rebase is exact and invisible, and it
     // keeps highp z's fraction intact far down the travel.
     ro.z = mod(ro.z, RS_PERIOD);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // The nave wall bounds the march from inside.

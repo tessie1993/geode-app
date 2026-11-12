@@ -359,7 +359,10 @@ void main() {
     float heart = 0.0;
     vec3 oc = ro - IK_BOUND_C;
     float b = dot(oc, rd);
-    float h = b * b - (dot(oc, oc) - IK_BOUND_R * IK_BOUND_R);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = IK_BOUND_R + growSlack(IK_BOUND_R, 1.0, 0.2);
+    float h = b * b - (dot(oc, oc) - boundR * boundR);
     if (h > 0.0) {
         float sq = sqrt(h);
         float tm = max(-b - sq, 0.01);

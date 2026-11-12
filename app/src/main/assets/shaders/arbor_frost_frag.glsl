@@ -246,7 +246,10 @@ void main() {
 
     // ---- the crystal --------------------------------------------------------
     float bb = dot(toC, rd);
-    float disc = bb * bb - dot(toC, toC) + CF_BOUND * CF_BOUND;
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = CF_BOUND + growSlack(CF_BOUND, 1.0, 0.2);
+    float disc = bb * bb - dot(toC, toC) + boundR * boundR;
     vec3 col = back;
     if (disc > 0.0) {
         float sq = sqrt(disc);

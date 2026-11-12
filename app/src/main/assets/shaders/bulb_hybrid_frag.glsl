@@ -123,6 +123,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye + fwd, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.02 * sin(bulbTime() * 0.01);
     vec3 paper = vec3(0.93, 0.92, 0.89);

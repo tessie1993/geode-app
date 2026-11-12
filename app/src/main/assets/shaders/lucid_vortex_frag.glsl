@@ -236,6 +236,8 @@ void main() {
     // Every z term tiles with a period dividing 32 (see the header), so this
     // shift is exact and invisible, and z keeps its precision.
     ro.z = mod(ro.z, LV_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;

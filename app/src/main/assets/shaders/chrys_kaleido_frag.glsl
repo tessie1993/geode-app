@@ -269,6 +269,8 @@ void main() {
     rd = normalize(uCamBasis * vec3(uv, uCamFocal * zoom));
     // The flower cells hash by index mod 16 (64 units), so this rebase is exact.
     ro.z = mod(ro.z, CK_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float hue = 0.3 + t * 0.003 + chrysSpan(N.tone, 0.0, -0.15, 0.15);

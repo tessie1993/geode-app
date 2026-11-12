@@ -140,7 +140,7 @@ param|137|motionOrbit|FLOAT|0.5|0|1|FADE|RETIRED
 param|138|motionDrift|FLOAT|0.5|0|1|FADE|LIVE
 param|139|motionHue|FLOAT|0.4|0|1|FADE|LIVE
 param|140|camFly|FLOAT|0.5|-2.5|2.5|FADE|LIVE
-param|141|camPath|INT|0|0|6|HOLD|LIVE
+param|141|camPath|INT|0|0|11|HOLD|LIVE
 param|142|camOrbit|FLOAT|0.35|0|1|FADE|LIVE
 param|143|camPush|FLOAT|0|-1|1|FADE|LIVE
 param|144|camYaw|FLOAT|0|-1|1|FADE|LIVE

@@ -188,12 +188,12 @@ data class SceneParams(
     val paletteAmount6: Float = 0.5f,
     val paletteAmount7: Float = 0.5f,
     val paletteShift: Float = 0f,
-    // Customize › Shape › Kaleidoscope: 1 off, 2..16 folds (core/viz/ParamTable.inc kaleidoFolds).
-    val kaleidoFolds: Float = 1f,
-    val spawn: Float = 0f, // Customize › Shape › Grow, to backLayer: the family libraries draw them (ParamTable.inc).
+    val kaleidoFolds: Float = 1f, // Customize › Shape › Kaleidoscope: 1 off, 2..16 folds (core/viz/ParamTable.inc).
+    val spawn: Float = 0f, // Customize › Shape › Grow, to formula (core/viz/ParamTable.inc); 0 draws as designed.
     val fractal: Float = 0f,
     val frontLayer: Float = 0f,
     val backLayer: Float = 0f,
+    val formula: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

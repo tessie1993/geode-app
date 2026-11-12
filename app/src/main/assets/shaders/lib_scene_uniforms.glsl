@@ -78,6 +78,10 @@ uniform float uSpawn;
 uniform float uFractal;
 uniform float uFrontLayer;
 uniform float uBackLayer;
+// uFormula 0..1: which of a raymarched style's own distance formulas draws it
+// (another fold operator, primitive or iteration rule), crossfaded or stepped
+// along 0..1; 0 is the style's first, as it always drew. ParamTable.inc formula.
+uniform float uFormula;
 
 // ---- the style knobs --------------------------------------------------------
 //

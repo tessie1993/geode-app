@@ -19,7 +19,7 @@ section|LOOK|light_detail|PRO|ALWAYS|Contrast,Gamma,Intensity
 section|SHAPE|basics|BASICS|ALWAYS|Morph,Kaleidoscope,Detail
 section|SHAPE|form|PRO|ALWAYS|Domain warp,Twist,Ripple,Turbulence
 section|SHAPE|symmetry|PRO|ALWAYS|Mirror,Tile,Pixelate
-section|SHAPE|grow|PRO|ALWAYS|Spawn,Fractal,Front layer,Back layer
+section|SHAPE|grow|PRO|ALWAYS|Spawn,Fractal,Front layer,Back layer,Formula
 section|SHAPE|particles|PRO|PARTICLES|Particle shape,Particle size,Density,Particle life (s),Particle drag
 section|SHAPE|journey|PRO|ALWAYS|Path,Spawn points,Progression,Catch points,Catch pull,Catch radius
 section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle

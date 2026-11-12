@@ -241,6 +241,11 @@ constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fl
 constexpr std::array kFormFamilies = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain",
                                       "truchet", "foam", "prism", "fluor", "loom", "shard", "petal", "fold"};
 
+// The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
+// (uFormula, Scope::Formula), by id. Empty until a style reads uFormula: a style joins here in the commit that gives
+// it its formulas, and style_reads_test then holds it to reading uFormula.
+constexpr std::array<const char*, 0> kFormulaStyles{};
+
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
 // creeps, tunnels counter. The user's Spin control scales the rate, and at 0 these hold still too.
@@ -271,7 +276,7 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "UNIVERSAL",    "SCENE_CLOCK",     "AUDIO_DRIVE", "BASS_BAND", "MID_BAND",     "TREBLE_BAND", "BAND_GAINS", "SHADER_LOOK",
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
     "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
-    "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",
+    "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",   "FORMULA",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -328,7 +333,8 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
-// Whether a scope reaches every style of a kind. MarchDetail, Spin and FamilyForm are per style, so no kind has them.
+// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm and Formula are per style, so no
+// kind has them.
 bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
@@ -356,7 +362,8 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::Cymatics: return k == Kind::Cymatics;
         case Scope::FlowFieldSim: return k != Kind::Fluid;
         case Scope::Spin:
-        case Scope::FamilyForm: return false;
+        case Scope::FamilyForm:
+        case Scope::Formula: return false;
     }
     return false;
 }
@@ -405,6 +412,7 @@ std::string build() {
         if (isMarched(id)) out += "|MARCH_DETAIL";
         if (spinRate(id) != 0.0f) out += "|SPIN";
         if (drawsFamilyForm(id)) out += "|FAMILY_FORM";
+        if (hasFormulas(id)) out += "|FORMULA";
         out += '\n';
     }
     for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
@@ -611,6 +619,8 @@ bool drawsFamilyForm(const std::string& id) {
     return false;
 }
 
+bool hasFormulas(const std::string& id) { return listed(kFormulaStyles, id); }
+
 std::span<const Family> families() { return kFamilies; }
 
 Look lookOf(const std::string& id) {
@@ -637,6 +647,7 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::MarchDetail) return isMarched(styleId);
     if (scope == Scope::Spin) return spinRate(styleId) != 0.0f;
     if (scope == Scope::FamilyForm) return drawsFamilyForm(styleId);
+    if (scope == Scope::Formula) return hasFormulas(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
 

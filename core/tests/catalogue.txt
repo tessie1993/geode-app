@@ -485,6 +485,7 @@ key|Spawn|FAMILY_FORM
 key|Fractal|FAMILY_FORM
 key|Front layer|FAMILY_FORM
 key|Back layer|FAMILY_FORM
+key|Formula|FORMULA
 range|Detail|0.25|1.5
 range|Fundamental (Hz)|40|440
 range|Standing waves|1|8

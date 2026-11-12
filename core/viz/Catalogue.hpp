@@ -52,8 +52,9 @@ enum class Scope {
     FlowFieldSim,   // Fluid drives its field from its own solver instead
     Spin,           // per STYLE, like MarchDetail: only the styles spinRate turns
     FamilyForm,     // per STYLE: Spawn, Fractal and the two layers, drawn by the family libraries that honour them
+    Formula,        // per STYLE: the styles that keep alternative distance formulas and read uFormula
 };
-constexpr int kScopeCount = 24;
+constexpr int kScopeCount = 25;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside the
@@ -117,6 +118,8 @@ float spinRate(const std::string& id);
 // Its family library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm); style_reads_test
 // holds every such style to reading their uniforms.
 bool drawsFamilyForm(const std::string& id);
+// It keeps alternative distance formulas and steps through them by Formula (Scope::Formula, uFormula).
+bool hasFormulas(const std::string& id);
 std::span<const Family> families();
 // The group a style is shown in: a family style by its family, a dedicated renderer's style by its
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.

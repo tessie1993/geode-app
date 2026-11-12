@@ -294,6 +294,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"fractal", "a shape the music drives through the routes"},
         {"frontLayer", "a shape the music drives through the routes"},
         {"backLayer", "a shape the music drives through the routes"},
+        {"formula", "which of a style's formulas draws it: the music steps it through the routes"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},

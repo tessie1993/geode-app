@@ -68,6 +68,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"KALEIDO_FOLDS", "UNIVERSAL"},
     // Grow and layers: on the family libraries' scope, the styles whose library draws them.
     {"SPAWN", "FAMILY_FORM"}, {"FRACTAL", "FAMILY_FORM"}, {"FRONT_LAYER", "FAMILY_FORM"}, {"BACK_LAYER", "FAMILY_FORM"},
+    // Which of a style's own distance formulas draws it: on the styles that keep formulas.
+    {"FORMULA", "FORMULA"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -82,13 +84,16 @@ void everyTargetKeepsItsNameAndScope() {
               static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59 &&
               static_cast<int>(LfoTarget::PaletteAmount1) == 60 && static_cast<int>(LfoTarget::PaletteShift) == 67 &&
               static_cast<int>(LfoTarget::KaleidoFolds) == 68 && static_cast<int>(LfoTarget::Spawn) == 69 &&
-              static_cast<int>(LfoTarget::BackLayer) == 72 && kLastLfoTarget == LfoTarget::BackLayer,
+              static_cast<int>(LfoTarget::BackLayer) == 72 && static_cast<int>(LfoTarget::Formula) == 73 &&
+              kLastLfoTarget == LfoTarget::Formula,
           "wire ordinals");
     check(paramSlotOf(LfoTarget::Spawn) == static_cast<int>(ParamSlot::spawn) &&
               paramSlotOf(LfoTarget::Fractal) == static_cast<int>(ParamSlot::fractal) &&
               paramSlotOf(LfoTarget::FrontLayer) == static_cast<int>(ParamSlot::frontLayer) &&
               paramSlotOf(LfoTarget::BackLayer) == static_cast<int>(ParamSlot::backLayer),
           "each Grow target writes its own row");
+    check(paramSlotOf(LfoTarget::Formula) == static_cast<int>(ParamSlot::formula) && !isLuminanceTarget(LfoTarget::Formula),
+          "Formula writes its row, a structural target like Morph and no luminance target");
     for (LfoTarget t : {LfoTarget::Spawn, LfoTarget::Fractal, LfoTarget::FrontLayer, LfoTarget::BackLayer}) {
         check(!isLuminanceTarget(t) && modtargets::reaches(t, "petal_rose") && !modtargets::reaches(t, "plasma") &&
                   !modtargets::reaches(t, "flame_veil"),
@@ -267,7 +272,7 @@ void textCarriesEveryRow() {
         for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) out += "|" + modtargets::hex(modtargets::offerMask(id, picker));
         return out;
     };
-    check(hasLine(t, "target|72|BACK_LAYER|FAMILY_FORM|-1|1"), "the last target row");
+    check(hasLine(t, "target|73|FORMULA|FORMULA|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

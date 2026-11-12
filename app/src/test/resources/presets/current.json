@@ -34,6 +34,7 @@
   "fractal": 0.5,
   "frontLayer": -0.5,
   "backLayer": 0.75,
+  "formula": 0.5,
   "morph": 0.5,
   "pixelate": 0.5,
   "posterize": 0.5,

@@ -142,6 +142,8 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::Fractal: GEODE_DRIVE(fractal, 1.0f);
         case LfoTarget::FrontLayer: GEODE_DRIVE(frontLayer, 1.0f);
         case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
+        // The whole of Formula per unit, as Morph: a structural target, never a luminance one.
+        case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

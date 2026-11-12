@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 192;
+constexpr int kWireFloats = 193;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -76,7 +76,8 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::spawn) == 188 && static_cast<int>(ParamSlot::fractal) == 189 &&
               static_cast<int>(ParamSlot::frontLayer) == 190,
           "Grow and layers follow it");
-    check(static_cast<int>(ParamSlot::backLayer) == kWireFloats - 1, "backLayer is the wire's last float");
+    check(static_cast<int>(ParamSlot::backLayer) == 191, "backLayer keeps its slot");
+    check(static_cast<int>(ParamSlot::formula) == kWireFloats - 1, "formula is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -274,6 +275,7 @@ constexpr OldClamp kOldClamps[] = {
     // Grow and layers: Spawn and Fractal 0..1, the two layers -1..1 about their 0.
     {LfoTarget::Spawn, "spawn", 0.0f, 1.0f},            {LfoTarget::Fractal, "fractal", 0.0f, 1.0f},
     {LfoTarget::FrontLayer, "frontLayer", -1.0f, 1.0f}, {LfoTarget::BackLayer, "backLayer", -1.0f, 1.0f},
+    {LfoTarget::Formula, "formula", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -592,6 +594,11 @@ void everyLiveRowHasOneMeta() {
                   SceneParams::spec(slot).defaultValue == 0.0f,
               std::string(name) + ": a target on the family scope, 0 by default, never dealt by the param roll");
     }
+    // Formula: a target on its own scope (the styles that keep formulas), the first formula by default, never rolled.
+    const ParamMeta& formula = SceneParams::meta(ParamSlot::formula);
+    check(std::string(formula.label) == "Formula" && formula.scope == catalogue::Scope::Formula && (formula.flags & kMod) != 0 &&
+              formula.rollLo == 0.0f && formula.rollHi == 0.0f && SceneParams::spec(ParamSlot::formula).defaultValue == 0.0f,
+          "Formula: a target on its own scope, 0 by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {

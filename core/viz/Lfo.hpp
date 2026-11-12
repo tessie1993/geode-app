@@ -42,9 +42,11 @@ enum class LfoTarget {
     // target appended on another branch at the same time takes the next free ones at the merge, with every
     // ordinal-pinned fixture (mod_targets.txt, mod_targets_test, ConfigTable.inc's lfo target max) moving with it.
     Spawn, Fractal, FrontLayer, BackLayer,
+    // Appended: which of a style's own distance formulas draws it (viz/ParamTable.inc formula), ordinal 73 for now.
+    Formula,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::BackLayer;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Formula;
 
 struct ModChain {
     int slot;

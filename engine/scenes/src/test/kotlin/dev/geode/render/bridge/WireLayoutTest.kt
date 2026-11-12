@@ -111,7 +111,7 @@ class WireLayoutTest {
     @Test
     fun appendedFieldsKeepTheirSlots() {
         // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
-        assertEquals(192, SceneParamsCodec.FIELDS)
+        assertEquals(193, SceneParamsCodec.FIELDS)
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
@@ -119,6 +119,6 @@ class WireLayoutTest {
         assertEquals(168, slot("paletteStop4"))
         assertEquals(177, slot("diveFollow"))
         val tail = ParamSchema.params.takeLast(3).map { it.name }
-        assertEquals(listOf("fractal", "frontLayer", "backLayer"), tail)
+        assertEquals(listOf("frontLayer", "backLayer", "formula"), tail)
     }
 }

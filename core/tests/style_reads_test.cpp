@@ -372,6 +372,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"fractal", {"uFractal"}},
         {"frontLayer", {"uFrontLayer"}},
         {"backLayer", {"uBackLayer"}},
+        // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
+        {"formula", {"uFormula"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},

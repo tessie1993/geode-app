@@ -88,6 +88,7 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "FRACTAL",
     "FRONT_LAYER",
     "BACK_LAYER",
+    "FORMULA",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};

@@ -558,6 +558,15 @@ GEODE_PARAM_META(frontLayer, "Front layer", FamilyForm, kMod, 0, 0)
 GEODE_PARAM(Float, backLayer, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
 
+// Formula (Customize › Shape › Grow): which of a raymarched style's own distance formulas draws it, 0 the
+// style's first. A style that keeps two to four alternatives (another fold operator, primitive or iteration
+// rule) crossfades or steps between them along 0..1 as uFormula, so the music can change the shader's formula as
+// well as its shape (owner: "music changes shape but also shader formula"). A structural target like Morph:
+// LfoTarget::Formula, no luminance limit. It reaches the styles listed in Catalogue.cpp's kFormulaStyles
+// (Scope::Formula), none until a style reads uFormula; at 0 every style draws its first formula, as before.
+GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

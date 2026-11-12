@@ -730,12 +730,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
-    external fun wallpaperFps(
-        targetFps: Float,
-        capFps: Float,
-    ): Float
-
     external fun vizKnows(
         handle: Long,
         sceneId: String,

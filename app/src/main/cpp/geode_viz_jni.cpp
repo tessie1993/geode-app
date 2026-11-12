@@ -658,11 +658,6 @@ Java_dev_geode_engine_bridge_GeodeNative_wallpaperWindow(JNIEnv* env, jobject, j
     env->SetFloatArrayRegion(out, 0, 4, reinterpret_cast<const jfloat*>(window));
 }
 
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_wallpaperFps(JNIEnv*, jobject, jfloat targetFps, jfloat capFps) {
-    return geode_wallpaper_fps(targetFps, capFps);
-}
-
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizKnows(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
     Utf8Chars id(env, sceneId);

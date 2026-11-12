@@ -194,16 +194,14 @@ GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float
  * frame. Off by default; an offscreen (export) renderer never draws it. */
 #define GEODE_EDGE_GLOW_FLOATS 5
 GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
-/* The live wallpaper's window and frame rate (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
+/* The live wallpaper's window (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
  * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
  * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
  * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
- * as geode_viz_set_edge_glow takes them) to out[4]. geode_wallpaper_fps: the wallpaper's target fps lowered
- * to the Performance cap (<= 0 or NaN = no cap); never 0 or NaN. Any thread. */
+ * as geode_viz_set_edge_glow takes them) to out[4]. Any thread. */
 #define GEODE_WALLPAPER_OFFSETS 6
 GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
                                              const float* offsets, int count, float* out);
-GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
  * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
  * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch

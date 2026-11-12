@@ -38,7 +38,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the snare squash. Colour is tone(), the print ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BI_MAX_STEPS 128
 #define BI_BOUND 1.75
@@ -85,7 +85,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BI_CAM_R, BI_SPIN, ro, rd);
+    camAround(uv, BI_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BI_SPIN, ro, rd);
 
     float hue = 0.58 + 0.03 * sin(bulbTime() * 0.02);
 

@@ -77,9 +77,10 @@
 // coarse surface with the fine normal is the cheap way to get detail.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms and lib_camera (terraFly). It
-// reads uTime, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist,
-// each only inside the helper that needs it. No audio uniform is read here:
-// what the music moves is each style's business.
+// reads uTime, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist and the
+// style knobs, each only inside the helper that needs it. What the music moves
+// is each style's business, but for the mid band's turn of the look
+// (terraTurn, below).
 
 #define TERRA_TAU 6.2831853
 /** World-z tile. A power of two that divides the rig's 8192 travel wrap. */
@@ -101,6 +102,27 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 // (uWarp, uTurbulence, uTwist) warps the ground plane before the field reads
 // it (terraChaos), Energy (uIntensity) scales how far the music moves the
 // land, Colour is pal(), Space is the rig.
+//
+// The style knobs (uKnob), with the roles lib_flame, lib_opal and lib_hollow
+// give them as far as a landscape has them, each read as its offset from 0.5
+// (terraKnob), so with Note & key reactions off every term is exactly zero: k0
+// PULSE the emission of the sun's glow and the stars (terraSky, terraStars),
+// k1 TEXTURE the ground's grain, up to a third of an octave (terraOctaves: a
+// landscape has no line to widen), k2 FLOW added to Warp's bend
+// (terraChaosAmp), k4 BUILD the sun's glow in the fog (terraFog), k5 SPACE the
+// reach (terraFog's density divides by it). k3 TONE has no shared hand here:
+// each style mixes pal() into its own fixed materials.
+//
+// The mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, turns the eye's look
+// aside while the mids climb and eases it back as they fall (terraTurn, read by
+// terraFly and by a style on camAround), as lib_flame's gFlameTurn pushes its
+// structure. The look turns, never the ground: landscapes hold still, and a
+// screen offset costs nothing per step. Mid gain scales it.
+
+/** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
+float terraKnob(int i) {
+    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+}
 
 /** Animation time under the Speed macro. */
 float terraTime() {
@@ -120,7 +142,7 @@ float terraEnergy() {
  * Call once in main(): a uniform-only decision.
  */
 float terraOctaves(float hi) {
-    float n = hi + clamp(uMorph, 0.0, 1.0) - (uSteps < 80.0 ? 1.0 : 0.0);
+    float n = hi + clamp(uMorph, 0.0, 1.0) + 0.6 * terraKnob(1) - (uSteps < 80.0 ? 1.0 : 0.0);
     return clamp(n, 2.0, float(TERRA_MAX_OCT));
 }
 
@@ -213,9 +235,9 @@ float terraRidged(vec2 xz, float oct) {
 
 // ---- Chaos: a warp of the ground plane --------------------------------------
 
-/** Warp amplitude in world units for the Chaos macro. */
+/** Warp amplitude in world units for the Chaos macro, k2 FLOW added to Warp's share, floored at none. */
 float terraChaosAmp() {
-    return 0.9 * uWarp + 0.6 * uTurbulence + 0.4 * abs(uTwist);
+    return 0.9 * max(uWarp + 0.5 * terraKnob(2), 0.0) + 0.6 * uTurbulence + 0.4 * abs(uTwist);
 }
 
 /**
@@ -243,6 +265,11 @@ float terraChaosLip() {
 
 // ---- the camera -------------------------------------------------------------
 
+/** The mid band's turn of the look, in screen units (about radians / focal), 0.15 at most (see the macros above). */
+float terraTurn() {
+    return 0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+}
+
 /**
  * camFly for a landscape: the eye `eye` units up, keeping a third of the
  * path's vertical wander, and the view tipped `tilt` (screen units, about
@@ -250,7 +277,7 @@ float terraChaosLip() {
  * and the horizon sits high.
  */
 void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
-    camFly(uv - vec2(0.0, tilt), ro, rd);
+    camFly(uv - vec2(terraTurn(), tilt), ro, rd);
     ro.y = eye + 0.35 * ro.y;
 }
 
@@ -305,14 +332,16 @@ vec3 terraSky(vec3 rd, vec3 sun, vec3 zenith, vec3 horizon, vec3 sunCol) {
     float h = clamp(rd.y, 0.0, 1.0);
     vec3 c = mix(horizon, zenith, pow(h, 0.45));
     float s = max(dot(rd, sun), 0.0);
-    c += sunCol * (0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0) + 1.2 * smoothstep(0.9990, 0.9996, s));
+    // k0 PULSE the emission of the glow and the halo, never the disc.
+    c += sunCol * ((0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0)) * (1.0 + 0.5 * terraKnob(0)) + 1.2 * smoothstep(0.9990, 0.9996, s));
     return c;
 }
 
 /** Distance fog toward fogCol, warmed toward the sun's colour when looking into it (the in-scatter). */
 vec3 terraFog(vec3 col, vec3 rd, float t, float density, vec3 fogCol, vec3 sun, vec3 sunCol) {
-    float f = 1.0 - exp(-t * density);
-    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0);
+    // k5 SPACE the reach, k4 BUILD the sun's glow in the haze.
+    float f = 1.0 - exp(-t * density / (1.0 + 0.4 * terraKnob(5)));
+    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0) * (1.0 + terraKnob(4));
     return mix(col, fc, f);
 }
 
@@ -323,5 +352,5 @@ float terraStars(vec3 rd, float density) {
     float h = terraHash3(i);
     float on = step(1.0 - density, h);
     float d = length(c - i - 0.5);
-    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0));
+    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0)) * (1.0 + 0.5 * terraKnob(0));
 }

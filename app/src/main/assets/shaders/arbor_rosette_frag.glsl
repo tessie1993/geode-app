@@ -64,7 +64,8 @@ out vec4 fragColor;
 // Space: the camera rig.
 // Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the jewel
 // swell, k1 TEXTURE the lead's width, k2 FLOW the light bleeding round the
-// glass, k3 TONE the hue, k4 BUILD the backlight, k5 SPACE the fog.
+// glass, k3 TONE the hue, k4 BUILD the backlight, k5 SPACE the fog. The
+// mids lean the tracery's forks (arbMidBow).
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -215,8 +216,9 @@ void main() {
     float stepHue = 0.05 + 0.16 * pitch;
 
     float jitter = 0.08 + 0.45 * chaos;
-    gFo = ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), 0.18 * uTwist, jitter, 0.12, 0.10, 0.72);
-    gFi = ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), 0.18 * uTwist, jitter, 0.12, 0.09, 0.70);
+    float bow = arbMidBow();
+    gFo = ArborForm2(vec2(0.44, 0.44), vec2(0.70, 0.70), 0.18 * uTwist + bow, jitter, 0.12, 0.10, 0.72);
+    gFi = ArborForm2(vec2(0.58, 0.58), vec2(0.66, 0.66), 0.18 * uTwist + bow, jitter, 0.12, 0.09, 0.70);
     gGrowOut = arbLevels(7.0, 1.0);
     gGrowIn = arbLevels(6.0, 1.0);
     gTurn = t * 0.04;

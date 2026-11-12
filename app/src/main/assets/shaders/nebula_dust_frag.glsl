@@ -106,7 +106,8 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids roll the view about the way ahead (lib_nebula's nebMidTurn).
+    camFly(nebRot(nebMidTurn()) * uv, ro, rd);
 
     vec3 col = vec3(0.0);
     vec3 trans = vec3(1.0);

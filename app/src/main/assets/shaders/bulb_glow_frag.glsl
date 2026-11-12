@@ -42,7 +42,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the flux hue spread. Colour is tone(), the nebula ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BG_MAX_STEPS 96
 #define BG_BOUND 1.5
@@ -94,7 +94,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BG_CAM_R, BG_SPIN, ro, rd);
+    camAround(uv, BG_CAM_R * (1.0 + 0.4 * bulbKnob(5)), BG_SPIN, ro, rd);
 
     float hue = 0.72 + 0.06 * sin(bulbTime() * 0.011);
     float spread = 0.45 + 0.5 * flux * bulbEnergy();

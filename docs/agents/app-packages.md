@@ -270,7 +270,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Whether there is a watermark, where (tiled, a corner, an end card), its size, its opacity and the end card's timing are native (`exportmath::watermark`).
 - An end card is a corner on a loop, a recording or a layered Studio segment.
 - The watermark's compositing and the loop seam are native Passes in `core/viz/frame/ExportPasses`.
-- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, called through `geode_export_*`.
+- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, driven by the native loop job.
+- `LoopRender` hands the native loop job (`loopJob*`) its values, polls its progress every 50 ms, passes a cancel on and words its outcome.
 - `MuxerBudget` caps the bit rate so a long render stays under MediaMuxer's 4 GB.
 
 ## `viz`

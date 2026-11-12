@@ -64,7 +64,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
-- `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; `LoopRender` only presents.
+- `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
+- `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.
 - `loudness_test.cpp`: export DSP, the BS.1770 meter.
 - `macro_bank_test.cpp`: `core/viz/MacroBank`: the user's knobs as weighted offsets on scene params, their edits and text, the process-wide bank, C ABI `geode_macro_bank_*`.
 - `macro_bank_test.cpp` also covers the knob editor's copy, move, reset, links with range and curve, the random roll, the dice's seeded turns, the screen and its library, a knob from a slider and its name.

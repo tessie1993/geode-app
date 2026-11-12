@@ -164,7 +164,7 @@ std::optional<float> overrideOf(const std::string& styleId, const std::string& p
 // A size the shell's controls quote, by its name in text()'s value rows; nothing for any other name.
 std::optional<float> valueOf(const std::string& name);
 
-// The scope of a Customize control, named by its ParamKeys string: the scope column of its fields'
+// The scope of a Customize control, named by its Customize key: the scope column of its fields'
 // meta rows in viz/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
 Scope scopeOf(const std::string& paramKey);
 bool reaches(Scope scope, const std::string& styleId);
@@ -183,9 +183,9 @@ std::optional<Scope> scopeNamed(const std::string& name);
 //   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL][|SPIN]   allIds() order; the extra fields are its per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
 //   picker|<name>|<id>,<id>,...           pickerFamilies() order
-//   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value
-//   key|<ParamKeys string>|<SCOPE>         every non-Universal control, in the wire order of its first field
-//   range|<ParamKeys string>|<min>|<max>
+//   override|<id>|<Customize key>|<value>   the style holds that control at that value
+//   key|<Customize key>|<SCOPE>         every non-Universal control, in the wire order of its first field
+//   range|<Customize key>|<min>|<max>
 //   value|<name>|<number>
 const std::string& text();
 

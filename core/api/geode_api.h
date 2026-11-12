@@ -546,7 +546,7 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
  * _picker_names / _picker_ids: the Styles page's families in order, then one family's styles.
  * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
  * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
- * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
+ * _scope_of: the name of the scope a Customize control (its Customize key) has; "UNIVERSAL" if none.
  * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
  * _override: the value a style holds a control at, NaN when the control is the user's.
  * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
@@ -574,7 +574,7 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
- * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
+ * handle; the same arguments always give the same result. Controls are named by their Customize keys, tabs
  * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
  * style_id NULL or empty = any style; tab NULL = every tab; locked = newline-joined control names, NULL = none.
  * Returns 1 when the roll changed something, 0 when out is a copy of in. */
@@ -791,13 +791,13 @@ GEODE_API int         geode_touch_pulse(int step, float* xy);
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines, plus "CATEGORY:roll" where the category's roll has
  * something to move); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
- * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * nothing), holding every other control and the newline-joined Customize keys in locked; 1 when it changed something.
  * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category and
  * "#PRO" every control below a Basics (the roll without Pro). With tab NULL geode_params_randomize rolls what the
  * panel offers on the style, as every category's roll does.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
-/* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
+/* 1 when the control named key (a Customize key) is one a roll can move, so the panel offers to keep it. */
 GEODE_API int         geode_customize_lockable(const char* key);
 /* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
 GEODE_API const char* geode_customize_lockable_keys(void);
@@ -875,7 +875,7 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
  * geode_macro_bank_move_knob steps a knob delta places along the screen. geode_macro_bank_set_curve sets how a link
  * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
- * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
+ * makes a knob that moves one Customize control (a Customize key), named by native after it; geode_macro_bank_controls
  * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
  * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_roll_values
  * gives every knob on screen that moves something on style_id a new turn (the same seed, the same turns).

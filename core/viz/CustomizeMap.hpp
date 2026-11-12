@@ -18,7 +18,7 @@
 // against, and the shell only draws what it says. Every control the panel shows lands in exactly
 // one section (core/tests/customize_test proves it against randomizer::rolledKeys()).
 //
-// A control is named by its ParamKeys string, the key the user locks by. Panel pieces that are not
+// A control is named by its Customize key, the key the user locks by. Panel pieces that are not
 // one SceneParams value (the macro bank's knobs, the moment rows, the route editor, shader code) are named
 // "@<id>"; the shell draws each one with the composable it already has.
 //

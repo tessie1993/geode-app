@@ -269,7 +269,7 @@ constexpr std::array<Spin, 22> kSpinning = {{
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
-// The Customize control a cymatics style can hold (its ParamKeys string).
+// The Customize control a cymatics style can hold (its Customize key).
 constexpr const char* kGeometryKey = "Geometry";
 
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",

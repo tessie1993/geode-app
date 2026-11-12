@@ -33,15 +33,6 @@ const char* blendModeLabel(BlendMode mode) {
     return "Screen";
 }
 
-const std::string& blendModeLabels() {
-    static const std::string labels = [] {
-        std::string out;
-        for (int i = 0; i < kBlendModes; ++i) out += std::string(blendModeLabel(static_cast<BlendMode>(i))) + '\n';
-        return out;
-    }();
-    return labels;
-}
-
 namespace safety {
 
 SceneParams apply(const SceneParams& p, bool reducedMotion) {

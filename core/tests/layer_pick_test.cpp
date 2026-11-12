@@ -5,13 +5,12 @@
 // from: "User chooses. Or director or macro." What is pinned: the layer never draws the style on screen while there
 // is another; with nothing picked it suits the style on screen rather than taking the catalogue's first style for
 // everyone; the user's pick is kept; Auto Director picks a new one at each style moment and only then, the same
-// way for the same play seed; a knob walks a fixed list with a dead band; and the page's rows list every style
-// but the one on screen, once, by family, with the sources, the blends and the knobs.
+// way for the same play seed; a knob walks a fixed list with a dead band; and the page's editor offers every
+// style but the one on screen, once, by family, opens on the family of the style drawn now, and names the sources.
 #include <cmath>
 #include <cstdio>
 #include <map>
 #include <set>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -32,19 +31,6 @@ void check(bool ok, const std::string& what) {
         std::printf("FAIL: %s\n", what.c_str());
         ++failures;
     }
-}
-
-std::vector<std::vector<std::string>> rows(const std::string& text, const std::string& tag) {
-    std::vector<std::vector<std::string>> out;
-    std::istringstream in(text);
-    for (std::string line; std::getline(in, line);) {
-        std::vector<std::string> f;
-        std::istringstream cells(line);
-        for (std::string cell; std::getline(cells, cell, '|');) f.push_back(cell);
-        if (line.size() > 0 && line.back() == '|') f.emplace_back();
-        if (!f.empty() && f[0] == tag) out.push_back(f);
-    }
-    return out;
 }
 
 ls::Layer on(ls::Source source, const std::string& id = "") {
@@ -154,41 +140,48 @@ void thePickerFollowsItsSource() {
     check(k.pick(knob, active, 0, 1, std::nanf("")) == pick::suggest(active), "no knob on screen picks as nothing picked does");
 }
 
-void theEditorListsWhatThePageShows() {
+void theEditorHoldsWhatThePageShows() {
     const std::string active = "kifs";
     ls::Layer l = on(ls::Source::User);
     l.knob = 2;
-    const std::vector<std::string> blends{"Normal", "Screen"};
-    const std::vector<std::pair<int, std::string>> knobs{{1, "Glow"}, {2, "He|at\n"}};
-    const std::string text = pick::editorText(l, active, "ignored", blends, knobs);
-    check(text.rfind("layers|" + std::to_string(pick::kTextVersion) + "\n", 0) == 0, "the header first");
-    const auto state = rows(text, "state");
-    check(state.size() == 1 && state[0].size() == 7 && state[0][1] == "1" && state[0][2] == "USER" && state[0][3].empty() &&
-              state[0][4] == "2" && state[0][5] == "1" && state[0][6] == "0.5",
-          "the state row");
-    const auto shown = rows(text, "shown");
-    check(shown.size() == 1 && shown[0].size() == 2 && shown[0][1] == pick::suggest(active), "User shows the style it draws");
-    const std::string directed = pick::editorText(on(ls::Source::Director), active, "plasma", blends, knobs);
-    check(rows(directed, "shown")[0][1] == "plasma", "Auto Director and a knob show what the renderer drew");
-    l.on = false;
-    check(rows(pick::editorText(l, active, "plasma", blends, knobs), "shown")[0][1].empty(), "off shows none");
-    const auto sources = rows(text, "source");
-    check(sources.size() == 3 && sources[0][1] == "USER" && sources[1][1] == "DIRECTOR" && sources[2][1] == "MACRO" &&
-              sources[0][2] == "You" && sources[1][2] == "Auto Director" && sources[2][2] == "Macro",
+    const std::vector<int> knobs{1, 2};
+    const pick::Editor page = pick::editor(l, active, "ignored", -1, knobs);
+    check(page.layer == ls::normalized(l), "the layer, as native keeps it");
+    check(page.shown == pick::suggest(active), "User shows the style it draws");
+    check(pick::editor(on(ls::Source::Director), active, "plasma", -1, knobs).shown == "plasma",
+          "Auto Director and a knob show what the renderer drew");
+    ls::Layer off = l;
+    off.on = false;
+    check(pick::editor(off, active, "plasma", -1, knobs).shown.empty(), "off shows none");
+    check(page.knob == 1, "the knob, by its place among the knobs on screen");
+    l.knob = 9;
+    check(pick::editor(l, active, "", -1, knobs).knob == 0, "a knob not on screen is the first");
+    check(std::string(pick::sourceLabel(ls::Source::User)) == "You" &&
+              std::string(pick::sourceLabel(ls::Source::Director)) == "Auto Director" &&
+              std::string(pick::sourceLabel(ls::Source::Macro)) == "Macro",
           "the three sources, as the page names them");
-    const auto blendRows = rows(text, "blend");
-    check(blendRows.size() == 2 && blendRows[1][1] == "1" && blendRows[1][2] == "Screen", "the blends, by ordinal");
+
+    // Every style but the one on screen, once, across the families the page offers.
     std::map<std::string, int> listed;
-    for (const auto& family : rows(text, "family")) {
-        std::istringstream ids(family[2]);
-        for (std::string id; std::getline(ids, id, ',');) ++listed[id];
+    for (int f = 0; f < static_cast<int>(page.families.size()); ++f) {
+        const pick::Editor opened = pick::editor(l, active, "", f, knobs);
+        check(opened.family == f, "the page's family is the one it asked for");
+        check(!opened.styles.empty(), "a family offered has a style to pick");
+        for (const std::string& id : opened.styles) ++listed[id];
     }
     check(!listed.count(active), "the style on screen is not offered");
     for (const std::string& id : catalogue::allIds()) {
         if (id != active) check(listed[id] == 1, "every other style is offered once: " + id);
     }
-    const auto knobRows = rows(text, "knob");
-    check(knobRows.size() == 2 && knobRows[1][1] == "2" && knobRows[1][2] == "He at ", "the knobs, one line each");
+
+    // Unasked, the picker opens on the family of the style drawn now, with the user's pick found in it.
+    const std::string picked = page.shown;
+    const ls::Layer chose = on(ls::Source::User, picked);
+    const pick::Editor mine = pick::editor(chose, active, "", -1, knobs);
+    check(mine.style >= 0 && mine.styles[static_cast<size_t>(mine.style)] == picked, "the pick, by its place in its family");
+    check(pick::editor(chose, active, "", static_cast<int>(page.families.size()), knobs).family == mine.family,
+          "a family past the list opens on the drawn style's");
+    check(pick::editor(on(ls::Source::User), active, "", -1, knobs).style == -1, "nothing picked is no place");
 }
 
 }  // namespace
@@ -199,7 +192,7 @@ int main() {
     theUsersPickIsKept();
     theKnobWalksWithADeadBand();
     thePickerFollowsItsSource();
-    theEditorListsWhatThePageShows();
+    theEditorHoldsWhatThePageShows();
     if (failures) {
         std::printf("%d layer pick check(s) failed\n", failures);
         return 1;

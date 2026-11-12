@@ -15,8 +15,9 @@ namespace geode::viz::layer_state {
 // style itself (viz/LayerPick), since what suits it depends on the style that renderer shows. The main thread
 // writes; GL threads read, so a mutex is enough.
 //
-// The shell keeps it as one opaque line (encode) and hands it back (decode, edit), as it keeps the macro bank
-// and the palette stack, so it is saved with the look and reaches the wallpaper and the dream after a restart.
+// Native keeps it: Customize › Layers' edits change it here (change), and the shell only saves the line native
+// hands back (encode) and hands it back at the next start (decode), so it is saved with the look and reaches the
+// wallpaper and the dream after a restart.
 
 // Where the layer's style comes from. The owner, 2026-11-12, asked what the layer should choose from: "User
 // chooses. Or director or macro."
@@ -61,15 +62,21 @@ void reset();
 void publishShown(const std::string& sceneId);
 std::string shown();
 
-// The layer as the shell stores it, one line:
+// The layer as the shell saves it, one line native hands back after each edit:
 //   layer|<kTextVersion>|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend ordinal>|<mix>
 // decode never fails: any other text (an empty one, an older version) is the default layer, off.
 constexpr int kTextVersion = 1;
 std::string encode(const Layer& layer);
 Layer decode(std::string_view text);
-// One field changed, the rest kept: on (0/1), source (USER, DIRECTOR, MACRO), style (an id, "" for native's
-// pick), knob (an id), blend (an ordinal), mix (0..1). An unknown field or a value it cannot read changes nothing.
-Layer edit(const Layer& layer, std::string_view field, std::string_view value);
+
+// What Customize › Layers changes; the ordinals are geode_api.h's GEODE_LAYER_ON..GEODE_LAYER_STYLE.
+enum class Field { On, Source, Knob, Blend, Mix, Style };
+// One field changed, the rest kept, the result normalized: On (0 off, else on), Source (an ordinal), Knob (an id),
+// Blend (an ordinal), Mix (0..1), Style (`id`, "" for native's pick). A value it cannot take (a source past the
+// list, a number that is not finite) changes nothing.
+Layer edit(const Layer& layer, Field field, float value, std::string_view id = {});
+// The stored layer edited so, as set does; true when it changed.
+bool change(Field field, float value, std::string_view id = {});
 
 // One renderer's view of the store. A live renderer follows it; an export pins the layer it started with
 // (geode_viz_set_offscreen), so an edit made in Customize while a background render runs never reaches that

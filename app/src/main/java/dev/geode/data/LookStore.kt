@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.ContentResolver
+import androidx.core.content.edit
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
@@ -52,15 +53,26 @@ class LookStore(
     fun pushProcessWide() {
         val modulation = LfoStore(prefsFiles.general)
         modulation.pushHand(modulation.loadHandMask(), modulation.loadReactions() != null)
-        // The saved Customize › Layers layer, read here on the caller's thread so the first frame draws it
-        // (the container's LayerStore pushes the same line once its own read is back).
-        bestEffort(TAG, "push saved layer") { GeodeNative.layerSet(LayerCodec().read(prefsFiles.general)) }
+        pushLayer()
         // Seam: once #498 lands, the saved custom shader code (geode_shader_override_set), a process-wide
         // native store nothing pushes from the stores when the process starts without UI.
     }
 
+    /**
+     * Hands native the saved Customize › Layers line, read on the caller's thread so the first frame draws it.
+     * Native keeps the layer and reads the line itself (core/viz/LayerState; any other text is the layer off).
+     */
+    fun pushLayer() = bestEffort(TAG, "push saved layer") { GeodeNative.layerSet(prefsFiles.general.getString(KEY_LAYER, null).orEmpty()) }
+
+    /** Saves the line native hands back after a Customize › Layers edit, as it is. */
+    fun saveLayer(line: String) = prefsFiles.general.edit { putString(KEY_LAYER, line) }
+
     internal companion object {
         private const val TAG = "LookStore"
+
+        /** Customize › Layers' line in `geode-prefs`; a backup files it under Creative, with the looks it is drawn over. */
+        const val KEY_LAYER = "customize_layer"
+        val LAYER_KEYS: Set<String> = setOf(KEY_LAYER)
 
         // The session's keys (VizStateStore writes them); one spelling, here below `ui`.
         const val KEY_LIVE_STATE = "live_state"
@@ -72,6 +84,6 @@ class LookStore(
             prefKeys(GeodePrefsFiles.VIZ) {
                 portable(PrefType.STRING, KEY_LIVE_STATE, KEY_TRANSITION_ID)
                 portable(PrefType.FLOAT, KEY_TRANSITION_DURATION_SEC)
-            }
+            } + prefKeys(GeodePrefsFiles.GENERAL) { portable(PrefType.STRING, KEY_LAYER) }
     }
 }

@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "viz/AutoDraw.hpp"
@@ -13,9 +12,6 @@
 // turns it into a style id each frame, per renderer, since what suits a layer depends on the style that renderer
 // shows. Pure apart from the catalogue: no GL, no JNI. Host-tested in core/tests/layer_pick_test.cpp.
 namespace geode::viz::layer_pick {
-
-// Bumped whenever a row of editorText changes meaning.
-constexpr int kTextVersion = 1;
 
 // The styles Auto Director and a knob pick a layer from, in the catalogue's order: Auto's own draw (the
 // generative renderers and the shader styles, catalogue::Trait::AutoDraw), so a layer never starts a fluid
@@ -58,17 +54,23 @@ private:
     int macroIndex_ = -1;
 };
 
-// What Customize › Layers draws and offers for `layer` over `activeId`, so the shell decides none of it. Rows,
-// '|'-separated, one per line:
-//   layers|<kTextVersion>
-//   state|<on 0/1>|<SOURCE>|<picked style id>|<knob id>|<blend ordinal>|<mix>
-//   shown|<style id>                    what the layer draws now: the User pick resolved, else `shown` as given
-//   source|<SOURCE>|<label>             every source, in the order the page offers them
-//   blend|<ordinal>|<label>             every blend (`blends`, BlendMode's labels in ordinal order)
-//   family|<picker family name>|<id>,<id>,...   every Styles page family with a style the user can pick (every
-//                                       style but `activeId`), in the Styles page's order
-//   knob|<id>|<name>                    every knob on screen (`knobs`, bank order), the Macro source's choice
-std::string editorText(const layer_state::Layer& layer, const std::string& activeId, const std::string& shown,
-                       const std::vector<std::string>& blends, const std::vector<std::pair<int, std::string>>& knobs);
+// What the page calls `source` (You, Auto Director, Macro).
+const char* sourceLabel(layer_state::Source source);
+
+// What Customize › Layers draws and offers for a layer over the style on screen, so the shell decides none of it;
+// geode_layer_values, _list and _shown hand it across as values and lists.
+struct Editor {
+    layer_state::Layer layer;  // normalized
+    std::string shown;         // what the layer draws now: the User pick resolved, else `shown` as given; "" when off
+    int knob = 0;              // the layer's knob's place among the knobs on screen; 0 when it is not on screen
+    int family = 0;            // the style picker's family, a place in `families`
+    int style = -1;            // the picked style's place in `styles`, -1 when it is not there
+    std::vector<std::string> families;  // every Styles page family with a style the user can pick, by name, in order
+    std::vector<std::string> styles;    // that family's styles but the one on screen, by id
+};
+// `family` is the picker's family as the page holds it; -1 (or a place past the list) opens on the family holding
+// the style drawn now, else the first. `knobIds` are the knobs on screen, in bank order.
+Editor editor(const layer_state::Layer& layer, const std::string& activeId, const std::string& shown, int family,
+              const std::vector<int>& knobIds);
 
 }  // namespace geode::viz::layer_pick

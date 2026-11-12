@@ -8,8 +8,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - Instrumented tests live in `app/src/androidTest`.
 - `engine/scenes/src/test/` covers wire layouts, the saved-reactions codec, the catalogue, the params schema and the modulation-target table as Kotlin reads them.
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
-- `app/src/androidTest/.../ui/SceneTabLayersTest.kt`: "Layers enabled" on the Layers page turns the container's `LayerStore` on, and a search for "layer" finds it.
-- `app/src/test/.../data/LayerStoreTest.kt` splits native's Customize › Layers rows (`LayersEditor.parse`).
+- `app/src/androidTest/.../ui/SceneTabLayersTest.kt`: "Layers enabled" on the Layers page turns native's layer on, and a search for "layer" finds it.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
 - `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
@@ -71,10 +70,10 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `hls_segments_test.cpp`: Cast's HLS timing: media-time EXTINF, TARGETDURATION, the playlist, the fragment rewrite.
 - `capture_plan_test.cpp`: `core/audio/ingest/CapturePlan`, the mic's and other apps' capture formats in try order and the AudioRecord buffer, pinned to the Kotlin ladders it replaced.
 - `mic_input_test.cpp`: `core/audio/ingest/MicInput` over a fake stream: the mono ladder and source preset, a refused start, ring writes with their rate, nothing after stop, disconnect reopens within the budget.
-- `layer_blend_test.cpp`: Customize › Layers' blends (`core/viz/VisualSafety`, `geode_layer_blend_names`): one label each in wire order, Screen as the default, a `composite_frag.glsl` case for each.
+- `layer_blend_test.cpp`: Customize › Layers' blends (`core/viz/VisualSafety`, `geode_layer_list`'s BLENDS): one label each, Screen as the default, a `composite_frag.glsl` case for each.
 - `layer_mix_test.cpp`: `core/audio/ingest/LayerMix`, the mic layered over the player's ring, mixed at the reader.
-- `layer_state_test.cpp`: the process-wide Customize layer (`core/viz/LayerState`) and its text: round trip, unreadable text is the layer off, one field per edit.
-- `layer_pick_test.cpp`: which style the layer draws (`core/viz/LayerPick`): never the active style, a suggestion that suits it, Auto Director's draw per moment and seed, a knob's dead band, the page's rows.
+- `layer_state_test.cpp`: the process-wide Customize layer (`core/viz/LayerState`) and its text: round trip, unreadable text is the layer off, one field per edit, an edit of the stored layer.
+- `layer_pick_test.cpp`: which style the layer draws (`core/viz/LayerPick`): never the active style, a suggestion that suits it, Auto Director's draw per moment and seed, a knob's dead band, the page's editor (families, styles, knob place).
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".

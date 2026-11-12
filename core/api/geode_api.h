@@ -68,23 +68,49 @@ GEODE_API void        geode_director_keep_set(const char* keys);
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
- * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. The layer is
- * one line the shell stores as it is, "layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|<mix>"; where its
- * style comes from (SOURCE: USER, the user's pick or one native picks to suit the style on screen; DIRECTOR,
- * Auto Director's pick at its style moments; MACRO, a knob's turn) is turned into a style by each renderer.
- * set: every renderer draws it from its next frame; an export pins the layer it started with
- * (geode_viz_set_offscreen). normalize: the text made valid (any other text is the default layer, off).
- * edit: one field changed, the rest kept: "on" 0/1, "source" a SOURCE, "style" an id ("" for native's pick),
- * "knob" an id (0 the first on screen), "blend" an index into geode_layer_blend_names, "mix" 0..1.
- * editor: what Customize › Layers draws over active_style (viz/LayerPick::editorText's rows). The returned
- * texts are valid until this thread's next layer call. */
+ * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. Native keeps the
+ * layer; the shell only saves the line edit hands back ("layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|
+ * <mix>") and hands it to set at the next start. Where its style comes from (GEODE_LAYER_SOURCE_USER, the user's
+ * pick or one native picks to suit the style on screen; _DIRECTOR, Auto Director's pick at its style moments;
+ * _MACRO, a knob's turn) is turned into a style by each renderer.
+ * set: the saved line (any other text is the default layer, off); every renderer draws it from its next frame,
+ *   and an export pins the layer it started with (geode_viz_set_offscreen).
+ * edit: one field of the layer changed, `field` GEODE_LAYER_ON..GEODE_LAYER_STYLE: ON 0/1, SOURCE a
+ *   GEODE_LAYER_SOURCE_*, KNOB a place in the KNOBS list, BLEND a place in the BLENDS list (Screen,
+ *   GEODE_LAYER_BLEND_DEFAULT, for a new layer), MIX 0..1, STYLE `style_id` ("" for native's pick). Returns the
+ *   line to save, "" when nothing changed.
+ * values: what Customize › Layers draws over active_style, out[GEODE_LAYER_VALUES] by GEODE_LAYER_*: ON, SOURCE,
+ *   KNOB, BLEND and MIX as edit takes them; FAMILY the style picker's family, a place in the FAMILIES list (`family`
+ *   as the page holds it, or -1 for the one holding the style drawn now); STYLE the picked style's place in that
+ *   family's STYLES (-1 none); PICKED 1 when the user picked a style. Returns the count written, 0 when it cannot.
+ * list: a GEODE_LAYER_LIST_* list over active_style, each entry followed by '\n': the sources' labels, the blends'
+ *   labels, the Styles page families with a style other than active_style (by name), `family`'s styles but
+ *   active_style (by id; `family` as values takes it), the knobs on screen (by name).
+ * shown: the style the layer draws now over active_style, "" for none.
+ * The returned texts are valid until this thread's next layer call. */
+#define GEODE_LAYER_ON 0
+#define GEODE_LAYER_SOURCE 1
+#define GEODE_LAYER_KNOB 2
+#define GEODE_LAYER_BLEND 3
+#define GEODE_LAYER_MIX 4
+#define GEODE_LAYER_STYLE 5
+#define GEODE_LAYER_FAMILY 6
+#define GEODE_LAYER_PICKED 7
+#define GEODE_LAYER_VALUES 8
+#define GEODE_LAYER_SOURCE_USER 0
+#define GEODE_LAYER_SOURCE_DIRECTOR 1
+#define GEODE_LAYER_SOURCE_MACRO 2
+#define GEODE_LAYER_LIST_SOURCES 0
+#define GEODE_LAYER_LIST_BLENDS 1
+#define GEODE_LAYER_LIST_FAMILIES 2
+#define GEODE_LAYER_LIST_STYLES 3
+#define GEODE_LAYER_LIST_KNOBS 4
+#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on (core/viz/VisualSafety) */
 GEODE_API void        geode_layer_set(const char* layer);
-GEODE_API const char* geode_layer_normalize(const char* layer);
-GEODE_API const char* geode_layer_edit(const char* layer, const char* field, const char* value);
-GEODE_API const char* geode_layer_editor(const char* layer, const char* active_style);
-/* The blends a layer takes (core/viz/VisualSafety), in blend_mode order, each label followed by '\n'. Static. */
-#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on */
-GEODE_API const char* geode_layer_blend_names(void);
+GEODE_API const char* geode_layer_edit(int field, float value, const char* style_id);
+GEODE_API int         geode_layer_values(const char* active_style, int family, float* out, int capacity);
+GEODE_API const char* geode_layer_list(int list, const char* active_style, int family);
+GEODE_API const char* geode_layer_shown(const char* active_style);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);

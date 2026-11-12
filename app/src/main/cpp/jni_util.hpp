@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "api/geode_api.h"
 
@@ -54,6 +55,28 @@ inline jstring utf8String(JNIEnv* env, const char* text) {
     env->DeleteLocalRef(charset);
     env->DeleteLocalRef(type);
     env->DeleteLocalRef(bytes);
+    return out;
+}
+
+// A Java String[] from a list that crosses the C ABI as standard UTF-8 entries, each followed by '\n'. Null when
+// out of memory.
+inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
+    std::vector<std::string> entries;
+    for (const char* at = text ? text : ""; *at;) {
+        const char* end = std::strchr(at, '\n');
+        if (!end) end = at + std::strlen(at);
+        entries.emplace_back(at, end);
+        at = *end ? end + 1 : end;
+    }
+    jclass type = env->FindClass("java/lang/String");
+    jobjectArray out = type ? env->NewObjectArray(static_cast<jsize>(entries.size()), type, nullptr) : nullptr;
+    env->DeleteLocalRef(type);
+    for (size_t i = 0; out && i < entries.size(); ++i) {
+        jstring entry = utf8String(env, entries[i].c_str());
+        if (!entry) return nullptr;
+        env->SetObjectArrayElement(out, static_cast<jsize>(i), entry);
+        env->DeleteLocalRef(entry);
+    }
     return out;
 }
 

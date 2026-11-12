@@ -6,7 +6,6 @@
 #include <map>
 
 #include "viz/Catalogue.hpp"
-#include "viz/TableNumber.hpp"
 
 namespace geode::viz::layer_pick {
 
@@ -43,13 +42,6 @@ int familyOf(const std::string& id) {
     }();
     const auto it = kFamilyOf.find(id);
     return it == kFamilyOf.end() ? -1 : it->second;
-}
-
-// One line's field: no separator and no line break can get into a row from a name.
-std::string field(const std::string& s) {
-    std::string out = s;
-    std::replace_if(out.begin(), out.end(), [](char c) { return c == '|' || c == '\n' || c == '\r'; }, ' ');
-    return out;
 }
 
 }  // namespace
@@ -160,29 +152,40 @@ void Picker::reset() {
     macroIndex_ = -1;
 }
 
-std::string editorText(const Layer& layer, const std::string& activeId, const std::string& shown,
-                       const std::vector<std::string>& blends, const std::vector<std::pair<int, std::string>>& knobs) {
-    const Layer l = layer_state::normalized(layer);
+const char* sourceLabel(Source source) {
+    const int i = static_cast<int>(source);
+    return i >= 0 && i < layer_state::kSources ? kSourceLabels[static_cast<size_t>(i)] : "";
+}
+
+Editor editor(const Layer& layer, const std::string& activeId, const std::string& shown, int family,
+              const std::vector<int>& knobIds) {
+    Editor out;
+    out.layer = layer_state::normalized(layer);
+    const Layer& l = out.layer;
     const std::string& active = catalogue::resolveId(activeId);
-    std::string out = "layers|" + std::to_string(kTextVersion) + "\n";
-    out += std::string("state|") + (l.on ? "1" : "0") + "|" + layer_state::name(l.source) + "|" + l.sceneId + "|" +
-           std::to_string(l.knob) + "|" + std::to_string(l.blend) + "|" + tableNumber(l.mix) + "\n";
-    const std::string now = !l.on ? std::string() : l.source == Source::User ? userPick(l.sceneId, active) : shown;
-    out += "shown|" + field(now) + "\n";
-    for (int i = 0; i < layer_state::kSources; ++i) {
-        out += std::string("source|") + layer_state::name(static_cast<Source>(i)) + "|" + kSourceLabels[static_cast<size_t>(i)] + "\n";
-    }
-    for (size_t i = 0; i < blends.size(); ++i) out += "blend|" + std::to_string(i) + "|" + field(blends[i]) + "\n";
-    for (const catalogue::PickerFamily& family : catalogue::pickerFamilies()) {
-        std::string ids;
-        for (const std::string& id : family.ids) {
-            if (id == active) continue;
-            if (!ids.empty()) ids += ",";
-            ids += id;
+    out.shown = !l.on ? std::string() : l.source == Source::User ? userPick(l.sceneId, active) : shown;
+    const auto knob = std::find(knobIds.begin(), knobIds.end(), l.knob);
+    out.knob = knob == knobIds.end() ? 0 : static_cast<int>(knob - knobIds.begin());
+    std::vector<std::vector<std::string>> offered;
+    int holdingShown = -1;
+    for (const catalogue::PickerFamily& f : catalogue::pickerFamilies()) {
+        std::vector<std::string> ids;
+        for (const std::string& id : f.ids) {
+            if (id != active) ids.push_back(id);
         }
-        if (!ids.empty()) out += "family|" + family.name + "|" + ids + "\n";
+        if (ids.empty()) continue;
+        if (holdingShown < 0 && std::find(ids.begin(), ids.end(), out.shown) != ids.end()) {
+            holdingShown = static_cast<int>(offered.size());
+        }
+        out.families.push_back(f.name);
+        offered.push_back(std::move(ids));
     }
-    for (const auto& [id, name] : knobs) out += "knob|" + std::to_string(id) + "|" + field(name) + "\n";
+    const int count = static_cast<int>(offered.size());
+    out.family = family >= 0 && family < count ? family : std::max(holdingShown, 0);
+    if (count == 0) return out;
+    out.styles = std::move(offered[static_cast<size_t>(out.family)]);
+    const auto picked = std::find(out.styles.begin(), out.styles.end(), l.sceneId);
+    out.style = picked == out.styles.end() ? -1 : static_cast<int>(picked - out.styles.begin());
     return out;
 }
 

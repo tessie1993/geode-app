@@ -29,6 +29,12 @@ repos:
         entry: bash tools/network-gate.sh
         language: system
         pass_filenames: false
+      - id: jni-parity-gate
+        name: Every external fun has its JNI function, and the reverse
+        entry: bash tools/jni-parity-gate.sh
+        language: system
+        pass_filenames: false
+        files: '(\.kt$|^app/src/main/cpp/|^CMakeLists\.txt$)'
       - id: notices-copy
         name: The notices file equals the shipped asset
         entry: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt

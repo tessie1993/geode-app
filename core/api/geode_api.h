@@ -444,6 +444,10 @@ GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
 GEODE_API int         geode_colour_parse_hex(const char* text);
 GEODE_API const char* geode_colour_hex(int rgb);
 GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+/* The artwork palette (viz/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
+ * Returns 1 and writes out[3] = base hue (0..1), span (0.06..1 of a turn) and confidence (the share of coloured
+ * pixels); 0, out untouched, when no pixel is coloured (greys, near-blacks, blown highlights) or n <= 0. */
+GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, float* out);
 /* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
  * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
  * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the

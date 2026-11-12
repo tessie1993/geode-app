@@ -9,8 +9,8 @@
 //   ./hidden_hits_test core/
 //
 // A hit read is live::hit() or live::Edge (the onset envelope and the onset trigger the scenes were
-// tuned on), or a member read of the frame's onset and drum fields (onsetEnv, kick, kickEnv, kick16,
-// kickToggle, ...). Comments do not count. Three rules:
+// tuned on), or a member read of the frame's onset, transient and drum fields (onsetEnv, transient,
+// transientEnv, kick, kickEnv, kick16, kickToggle, ...). Comments do not count. Three rules:
 //
 // 1. Nothing in core/ reads the retired beatResponse field (SceneParams::retired). It only ever scaled
 //    the hidden hit reactions: MilkDrop's zoom kick and the simulations' beat pulses, glitches, drum
@@ -51,7 +51,7 @@ void check(bool ok, const std::string& what) {
 const std::map<std::string, const char*> kAllowed = {
     {"LiveSignal.hpp", "defines live::hit and live::Edge"},
     {"Reactions.cpp", "the reaction matrix itself: the user's routes and the style DNA under the hand mask"},
-    {"Lfo.cpp", "an LFO the user set on the Transient source"},
+    {"Lfo.cpp", "an LFO the user set on the Transient source (the transient envelope)"},
     {"Adsr.cpp", "an envelope the user set, triggered on the onset"},
     {"NoteResponse.cpp", "Note & key reactions, the user's switch (Settings > Behaviour) and drum amount"},
     {"MotionField.cpp", "the Motion dials the user sets; at 0 nothing hears the sound (resolver_test)"},
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
     }
     const std::regex retiredRead(R"((\.|->)beatResponse\b)");
     const std::regex hitRead(
-        R"(live::hit\s*\(|live::Edge|(\.|->)(onsetEnv|onset|kickEnv|snareEnv|hatEnv|kick|snare|hat|kick4|kick8|kick16|kickToggle|snareToggle|kickRandom)\b)");
+        R"(live::hit\s*\(|live::Edge|(\.|->)(onsetEnv|onset|transient|transientEnv|transientSharpness|kickEnv|snareEnv|hatEnv|kick|snare|hat|kick4|kick8|kick16|kickToggle|snareToggle|kickRandom)\b)");
 
     int scanned = 0;
     std::set<std::string> gapsSeen;

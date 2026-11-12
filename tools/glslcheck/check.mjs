@@ -169,7 +169,7 @@ const SOUND_SCALARS = [
   0.7, 0.2, 0, 1, //            SCALE_FIT NOVELTY SECTION_CHANGE SECTION_ID
   1, 8, 0.2, 0, //              SECTION_STATE SECTION_BARS BUILD_UP DROP
   1, 0.7, 0.65, 0.5, //        FADE_GAIN LOUDNESS_M LOUDNESS_S BUSY
-  0.5, 0, 0, 0, //             DRIVE (and the vec4's padding)
+  0.5, 0, 0.2, 0.6, //         DRIVE TRANSIENT TRANSIENT_ENV TRANSIENT_SHARPNESS
 ];
 
 const SHADER_VALUES = {

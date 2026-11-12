@@ -155,6 +155,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.
 - `track_pump_test.cpp`: an export's track pump (`core/audio/ingest/TrackPump`): the decode rule over a fake decoder, the hand-out order, the AIFF-first open over a descriptor.
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
+- `transient_test.cpp`: transient detection (`core/sound/Transient`, the frame's `transient`, `transientEnv`, `transientSharpness`): clicks and plucks fire, swells, crescendos, held tones, silence and near-silent clicks never, the same at every sample and frame rate.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
 - `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
 - `transition_library_test.cpp` also covers the picker table the shell splits (`geode_transition_picker`), on the shipped asset too.

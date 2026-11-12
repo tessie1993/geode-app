@@ -282,6 +282,10 @@ The player telling the engine a new track (or the same one again) has begun, wit
 **Fade gain**:
 The player's fades (pause, skip and sleep fades times the crossfade), 0..1, told to the engine because the tap sits before the volume and never hears them. A reaction source; 1 while the mic or another app's audio is the source, and always 1 in an export.
 
+**Transient**:
+The sharp start of any sound (a pluck, a click, a struck chord, a consonant, a drum), heard per sample within a few milliseconds by `core/sound/Transient`: a fast follower of a band's power jumping over a slow one, past a threshold the last second of the music sets. A trigger, its envelope and the attack's sharpness, all reaction sources; every style's DNA has a route from it. Nothing about it knows a tempo.
+_Avoid_: Onset (the frame's `onset` is the slower spectral-flux note start), hit (a hit is a drum's)
+
 **Section state**:
 The song part a section is read as: intro, verse, build, drop, breakdown or outro.
 

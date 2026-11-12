@@ -339,8 +339,11 @@ GEODE_PARAM(Float, motionBreath, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(motionBreath, "Breath", Universal, 0, 0.2f, 0.9f)
 // Retired: never had a reader or a control.
 GEODE_PARAM(Float, motionOrbit, 0.5f, 0.0f, 1.0f, Fade)
+// Spin: how far a turning style (catalogue::spinRate) turns with the mids; 0 holds it still. The old Spin
+// drift control under its wire name, so a saved look keeps its value. Shown only where a style turns, and
+// never rolled: whether a style spins is the user's choice (owner, 2026-11-12).
 GEODE_PARAM(Float, motionDrift, 0.5f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(motionDrift, "Spin drift", Universal, 0, 0.1f, 0.9f)
+GEODE_PARAM_META(motionDrift, "Spin", Spin, 0, 0, 0)
 GEODE_PARAM(Float, motionHue, 0.4f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 

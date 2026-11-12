@@ -35,7 +35,7 @@ constexpr std::array<Category, 7> kShuffled{Category::Look,   Category::Shape,  
 constexpr const char* kLooksOwn[] = {
     "Palette",    "Palette 2",  "Palette blend", "Colour map",  "Hue shift", "Hue range", "Temperature",
     "Color cycle", "Cycle speed", "Saturation",    "Brightness",  "Contrast",  "Gamma",     "Breath",
-    "Spin drift", "Invert",      "Solarize",
+    "Invert",      "Solarize",
 };
 
 // What a modulator may move: sliders with a visible, continuous effect. Colour is the look's.

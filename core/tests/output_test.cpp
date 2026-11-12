@@ -187,8 +187,7 @@ void loopExtend() {
     check(geode_loop_fitting_bit_rate(100'000'000, 4'000'000, 1'000'000) == 240'000, "ABI fitting bit rate");
     geode_loop_spec s{};
     geode_loop_spec_of(60'000, 1'000, 60, &s);
-    geode_loop_spec_budgeted(&s, 3200, 2000, &s);
-    check(s.crossfade_frames == 7 && s.loop_frames == 3600 && s.source_frames == 3607, "ABI loop spec, aliased");
+    check(s.crossfade_frames == 60 && s.loop_frames == 3600 && s.source_frames == 3660, "ABI loop spec");
     geode_loop_spec raw{};
     raw.loop_ms = 1000;
     raw.crossfade_ms = 100;
@@ -277,22 +276,16 @@ void drift() {
     check(!driftMoves(0.2f, 0.0f, 1) && driftMoves(0.0f, -0.1f, 2), "drifts as the Kotlin property read");
 
     float o[2] = {};
-    geode_loop_drift_apply(0.5f, 0.0f, 0.25f, 0.5f, o);
+    applyDrift(0.5f, 0.0f, 0.25f, 0.5f, &o[0], &o[1]);
     check(o[0] == 0.75f && o[1] == 0.5f, "a stop moves colorShift and temperature");
-    geode_loop_drift_apply(0.9f, 0.8f, 0.25f, 0.5f, o);
+    applyDrift(0.9f, 0.8f, 0.25f, 0.5f, &o[0], &o[1]);
     check(o[0] == (0.9f + 0.25f) - std::floor(0.9f + 0.25f) && o[0] > 0.149f && o[0] < 0.151f,
           "colorShift wraps past a whole turn");
     check(o[1] == 1.0f, "temperature holds at 1");
-    geode_loop_drift_apply(0.0f, -0.9f, -0.25f, -0.5f, o);
+    applyDrift(0.0f, -0.9f, -0.25f, -0.5f, &o[0], &o[1]);
     check(o[0] == 0.75f && o[1] == -1.0f, "a negative hue wraps up into the turn, temperature holds at -1");
-    geode_loop_drift_apply(0.25f, 0.0f, 0.75f, 0.0f, o);
+    applyDrift(0.25f, 0.0f, 0.75f, 0.0f, &o[0], &o[1]);
     check(o[0] == 0.0f, "exactly a whole turn is 0");
-
-    float hues[kMaxDriftStops] = {};
-    float warms[kMaxDriftStops] = {};
-    check(geode_loop_drift_stops(0.25f, 0.5f, 5, hues, warms, kMaxDriftStops) == 5 && hues[4] == 0.25f && warms[2] == 0.25f,
-          "the C ABI writes each stop");
-    check(geode_loop_drift_stops(0.25f, 0.5f, 5, nullptr, nullptr, 0) == 5, "a count without arrays");
 }
 
 // Loudness advice, pinned to the Kotlin LoudnessTargets.normalise and the LoudnessAdvice decisions it

@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/DspProcessor.hpp"
+#include "audio/dsp/EqPresets.hpp"
 
 struct geode_dsp {
     geode::audio::DspProcessor processor;
@@ -49,6 +50,17 @@ void geode_dsp_flush(geode_dsp* d) {
 float geode_dsp_band_center_hz(int band) {
     if (band < 0 || band >= Equalizer::kBands) return 0.0f;
     return Equalizer::centersHz()[static_cast<size_t>(band)];
+}
+
+int geode_dsp_eq_preset_count(void) {
+    return geode::audio::kEqPresets;
+}
+
+int geode_dsp_eq_preset_levels(int preset, int32_t* out, int capacity) {
+    if (!out || preset < 0 || preset >= geode::audio::kEqPresets || capacity < Equalizer::kBands) return 0;
+    const auto& levels = geode::audio::kEqPresetLevels[static_cast<size_t>(preset)];
+    std::copy(levels.begin(), levels.end(), out);
+    return Equalizer::kBands;
 }
 
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {

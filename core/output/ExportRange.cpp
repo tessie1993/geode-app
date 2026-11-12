@@ -21,12 +21,7 @@ int64_t fractionMs(float fraction, int64_t trackMs) {
 
 bool rangeFromFractions(float start, float end, int64_t trackMs, ExportRange* out) {
     if (!out || trackMs <= 0) return false;
-    const int64_t from = fractionMs(start, trackMs);
-    const int64_t to = fractionMs(end, trackMs);
-    if (to - from < kMinRangeMs) return false;
-    if (from == 0 && to >= trackMs) return false;
-    *out = {from, to - from};
-    return true;
+    return exportRangeOf(fractionMs(start, trackMs), fractionMs(end, trackMs), trackMs, out);
 }
 
 ExportRange cappedRange(ExportRange range, int64_t capMs) {

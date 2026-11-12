@@ -87,18 +87,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecOf(JNIEn
     writeLoopSpec(env, s, out);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecBudgeted(JNIEnv* env, jobject, jlong loopMs,
-                                                                                  jlong crossfadeMs, jint fps, jint width,
-                                                                                  jint height, jlongArray out) {
-    geode_loop_spec in{};
-    in.loop_ms = loopMs;
-    in.crossfade_ms = crossfadeMs;
-    in.fps = fps;
-    geode_loop_spec s{};
-    geode_loop_spec_budgeted(&in, width, height, &s);
-    writeLoopSpec(env, s, out);
-}
-
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecDerive(JNIEnv* env, jobject, jlong loopMs,
                                                                                 jlong crossfadeMs, jint fps, jlongArray out) {
     geode_loop_spec s{};
@@ -125,33 +113,6 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtend
     return result;
 }
 
-// Time-of-day drift stops as (hue offset, warmth offset) pairs.
-JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftStops(JNIEnv* env, jobject,
-                                                                                      jfloat hueTurns, jfloat warmth,
-                                                                                      jint stops) {
-    const int count = geode_loop_drift_stops(hueTurns, warmth, stops, nullptr, nullptr, 0);
-    std::vector<float> hue(static_cast<size_t>(count));
-    std::vector<float> warm(static_cast<size_t>(count));
-    const int written = geode_loop_drift_stops(hueTurns, warmth, stops, hue.data(), warm.data(), count);
-    std::vector<jfloat> flat(static_cast<size_t>(written) * 2);
-    for (int i = 0; i < written; ++i) {
-        flat[static_cast<size_t>(i) * 2] = hue[static_cast<size_t>(i)];
-        flat[static_cast<size_t>(i) * 2 + 1] = warm[static_cast<size_t>(i)];
-    }
-    jfloatArray result = env->NewFloatArray(static_cast<jsize>(flat.size()));
-    if (result && !flat.empty()) env->SetFloatArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
-    return result;
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftApply(JNIEnv* env, jobject, jfloat colorShift,
-                                                                               jfloat temperature, jfloat hueOffset,
-                                                                               jfloat warmthOffset, jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < 2) return;
-    float values[2] = {};
-    geode_loop_drift_apply(colorShift, temperature, hueOffset, warmthOffset, values);
-    env->SetFloatArrayRegion(out, 0, 2, values);
-}
-
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopEstimatedBytes(JNIEnv*, jobject, jlong loopUs,
                                                                                      jlong totalUs, jlong loopBytes,
                                                                                      jlong soundtrackBytes) {
@@ -171,11 +132,6 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportCappedVide
     return geode_export_capped_video_bps(requestedBps, durationUs, audioBytes, limitBytes);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportAudioBytes(JNIEnv*, jobject, jlong durationUs,
-                                                                                   jint bps) {
-    return geode_export_audio_bytes(durationUs, bps);
-}
-
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportMuxerHardLimitBytes(JNIEnv*, jobject) {
     return geode_export_muxer_hard_limit_bytes();
 }
@@ -190,6 +146,35 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(JNIEnv*, jobject, jint requestedFps) {
     return geode_export_clamp_fps(requestedFps);
+}
+
+// A render's time left (output/RenderEta).
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_render_eta_create());
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_render_eta_destroy(reinterpret_cast<geode_render_eta*>(handle));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaSample(JNIEnv*, jobject, jlong handle,
+                                                                                 jfloat progress, jlong atMs,
+                                                                                 jboolean steady) {
+    return geode_render_eta_sample(reinterpret_cast<geode_render_eta*>(handle), progress, atMs, steady ? 1 : 0);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaReset(JNIEnv*, jobject, jlong handle) {
+    geode_render_eta_reset(reinterpret_cast<geode_render_eta*>(handle));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(JNIEnv*, jobject,
+                                                                                jlong secondsRemaining) {
+    return geode_render_eta_phrase(secondsRemaining);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhraseCount(JNIEnv*, jobject,
+                                                                                     jlong secondsRemaining) {
+    return geode_render_eta_phrase_count(secondsRemaining);
 }
 
 // A recorded take's limits (output/RecordPlan).

@@ -24,6 +24,15 @@ object GeodeNative {
 
     external fun dspBandCenterHz(band: Int): Float
 
+    /** How many built-in equalizer curves there are. */
+    external fun dspEqPresetCount(): Int
+
+    /** Curve [preset]'s band levels in millibels into [out]; the bands written, 0 for no such curve. */
+    external fun dspEqPresetLevels(
+        preset: Int,
+        out: IntArray,
+    ): Int
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,
@@ -1242,7 +1251,160 @@ object GeodeNative {
         targetFbo: Int,
     ): Boolean
 
-    /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
+    // A loop render (core/output/LoopRender, core/api/geode_loop_job_api.h): the encoder it settles on, each
+    // drift stop's frames, seam and presentation times and the scratch file each stop goes into are native.
+    // The shell fills the job in, runs it on a worker thread and polls it from another; native never calls back.
+
+    /** A job to fill in, 0 when out of memory. Freed with [loopJobDestroy] once no call is in flight. */
+    external fun loopJobCreate(): Long
+
+    external fun loopJobDestroy(job: Long)
+
+    /**
+     * The frame, the bit rate asked for, the loop and its crossfade, how long the extended file will run
+     * ([longFormMs] 0: unknown) and the directory the scratch files go in.
+     */
+    external fun loopJobSetOutput(
+        job: Long,
+        cacheDir: String,
+        width: Int,
+        height: Int,
+        bitRate: Int,
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        longFormMs: Long,
+    )
+
+    /** The palette drift across the reel: [stops] loops, the last one [hueTurns] and [warmth] from the first. */
+    external fun loopJobSetDrift(
+        job: Long,
+        hueTurns: Float,
+        warmth: Float,
+        stops: Int,
+    )
+
+    /** A codec to try, in the order added: its MIME type and the device's top frame rate for it (<= 0: unsaid). */
+    external fun loopJobAddCodec(
+        job: Long,
+        mime: String,
+        topFps: Int,
+    )
+
+    /** The track every stop hears: [fd] is native's from here on; [length] < 0 is the whole descriptor. */
+    external fun loopJobSetTrack(
+        job: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+    )
+
+    /** The renderer's inputs. [assets] is the AssetManager (typed as Any because this module has no Android SDK). */
+    external fun loopJobSetScene(
+        job: Long,
+        assets: Any,
+        milkTextureDir: String,
+        sceneId: String,
+        milkPath: String?,
+        entitled: Boolean,
+    )
+
+    external fun loopJobSetParams(
+        job: Long,
+        values: FloatArray,
+    )
+
+    external fun loopJobSetLfo(
+        job: Long,
+        slot: Int,
+        config: FloatArray,
+    )
+
+    external fun loopJobSetAdsr(
+        job: Long,
+        slot: Int,
+        config: FloatArray,
+    )
+
+    external fun loopJobSetSoundTuning(
+        job: Long,
+        tuning: FloatArray,
+    )
+
+    /** [routes] null: the user set no reactions of their own. */
+    external fun loopJobSetUserReactions(
+        job: Long,
+        routes: FloatArray?,
+    )
+
+    external fun loopJobSetMotion(
+        job: Long,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    external fun loopJobSetUnderlay(
+        job: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
+
+    /** The wordmark's tile, a direct buffer of [tileWidth] * [tileHeight] * 4 bytes; false when it is not one. */
+    external fun loopJobSetMark(
+        job: Long,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+        placement: Int,
+        corner: Int,
+    ): Boolean
+
+    /** Renders every stop on the calling thread; returns once the job is rendered, cancelled or failed. */
+    external fun loopJobRun(job: Long)
+
+    /** From any thread. */
+    external fun loopJobCancel(job: Long)
+
+    /** 0..1 across the whole reel; from any thread. */
+    external fun loopJobProgress(job: Long): Float
+
+    /** One of the `LOOP_JOB_*` states; from any thread. */
+    external fun loopJobState(job: Long): Int
+
+    /** Why a failed job failed, one of `LOOP_FAILURE_*`; [loopJobDetail] is the text it is shown with. */
+    external fun loopJobFailure(job: Long): Int
+
+    external fun loopJobDetail(job: Long): String?
+
+    /** The frame rate the encoder took. */
+    external fun loopJobFps(job: Long): Int
+
+    /** The crossfade the stops kept. */
+    external fun loopJobCrossfadeMs(job: Long): Long
+
+    /** One file per stop, in order, once the job is rendered. */
+    external fun loopJobFileCount(job: Long): Int
+
+    external fun loopJobFile(
+        job: Long,
+        index: Int,
+    ): String?
+
+    const val LOOP_JOB_RENDERED = 2
+    const val LOOP_JOB_CANCELLED = 3
+    const val LOOP_FAILURE_ENCODER_REJECTED = 1
+    const val LOOP_FAILURE_SHADER_COMPILE = 2
+    const val LOOP_FAILURE_LOW_GPU_MEMORY = 3
+    const val LOOP_FAILURE_NO_OUTPUT = 4
+    const val LOOP_FAILURE_STALLED = 5
+    const val LOOP_FAILURE_ENCODER_FAILED = 6
+    const val LOOP_FAILURE_CACHE_WRITE = 7
+
+    /** Fields of the long[7] [loopSpecOf] and [loopSpecDerive] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
     const val LOOP_SPEC_CROSSFADE_MS = 1
     const val LOOP_SPEC_FPS = 2
@@ -1268,41 +1430,12 @@ object GeodeNative {
         out: LongArray,
     )
 
-    /** The spec with its dissolve shortened to what the seam stash holds at [width] x [height]. */
-    external fun loopSpecBudgeted(
-        loopMs: Long,
-        crossfadeMs: Long,
-        fps: Int,
-        width: Int,
-        height: Int,
-        out: LongArray,
-    )
-
     /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
     external fun loopExtendPlan(
         loopUs: Long,
         totalUs: Long,
         loops: Int,
     ): LongArray
-
-    /**
-     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
-     * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
-     */
-    external fun loopDriftStops(
-        hueTurns: Float,
-        warmth: Float,
-        stops: Int,
-    ): FloatArray
-
-    /** One drift stop on a look: [out] gets the wrapped colorShift, then the temperature held to -1..1. */
-    external fun loopDriftApply(
-        colorShift: Float,
-        temperature: Float,
-        hueOffset: Float,
-        warmthOffset: Float,
-        out: FloatArray,
-    )
 
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
@@ -1327,11 +1460,6 @@ object GeodeNative {
         limitBytes: Long,
     ): Int
 
-    external fun exportAudioBytes(
-        durationUs: Long,
-        bps: Int,
-    ): Long
-
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
 
@@ -1345,6 +1473,35 @@ object GeodeNative {
 
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
+
+    /** What [renderEtaSample] answers while it has no estimate yet. */
+    const val RENDER_ETA_UNKNOWN = -1L
+
+    /** A render's estimate of the time left, for one run after another. Freed with [renderEtaDestroy]. */
+    external fun renderEtaCreate(): Long
+
+    external fun renderEtaDestroy(handle: Long)
+
+    /** Feeds one progress sample; the seconds left, or [RENDER_ETA_UNKNOWN]. [steady] false while warming up. */
+    external fun renderEtaSample(
+        handle: Long,
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Long
+
+    external fun renderEtaReset(handle: Long)
+
+    /** How [renderEtaPhrase] words the seconds left; the last two carry [renderEtaPhraseCount]. */
+    const val ETA_ALMOST_DONE = 0
+    const val ETA_ABOUT_A_MINUTE = 1
+    const val ETA_MINUTES = 2
+    const val ETA_HOURS = 3
+
+    external fun renderEtaPhrase(secondsRemaining: Long): Int
+
+    /** The minutes or hours the phrase names; 0 for the other two. */
+    external fun renderEtaPhraseCount(secondsRemaining: Long): Int
 
     /** Why a recording ended ([recorderStopped]); 0 while it runs. `Stop` in core/output/Recorder. */
     const val RECORD_STOP_USER = 1
@@ -1529,6 +1686,31 @@ object GeodeNative {
         videoBps: Int,
         lengthSec: Int,
     ): Boolean
+
+    /**
+     * A Studio project's edit (timeline, markers, keyframes; core/studio) read from the JSON project.json keeps
+     * under "edit", as canonical JSON to store as it is; null when it is no edit. A null [json] is the empty edit.
+     */
+    external fun studioEditRead(json: String?): String?
+
+    /** A project's kind read from its "kind" JSON, canonical; null when unknown. A null [json] is the standard kind. */
+    external fun studioKindRead(json: String?): String?
+
+    /**
+     * A new project's edit: the song [songUri] (null for none) on an audio lane and, with [sceneId], the look over
+     * the song or the render ([renderMs]), whichever is longer. Null only when native could not make it.
+     */
+    external fun studioEditNew(
+        songUri: String?,
+        songTitle: String,
+        songMs: Long,
+        sceneId: String?,
+        milkPath: String?,
+        renderMs: Long,
+    ): String?
+
+    /** The shortest clip native makes: a render range shorter than this has no stretch of song to draw over. */
+    external fun studioMinClipMs(): Long
 
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(
@@ -1786,58 +1968,6 @@ object GeodeNative {
         frameHeight: Int,
         timeMs: Long,
     )
-
-    external fun exportSeamCreate(
-        assets: Any,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /** Returns how many of [requested] stash frames fitted on the GPU. */
-    external fun exportSeamAllocate(
-        handle: Long,
-        requested: Int,
-    ): Int
-
-    /**
-     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
-     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
-     * in ns at [fps] (core/viz/frame/LoopSeam).
-     */
-    external fun exportSeamFrame(
-        handle: Long,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-        fps: Int,
-    ): Long
-
-    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
-    external fun exportSeamBudgetedCrossfadeMs(
-        crossfadeMs: Long,
-        crossfadeFrames: Int,
-        fps: Int,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /**
-     * The fraction of a whole loop render done once source [frame] of stop [stop] of [stops] is drawn,
-     * rising in 0..1 and exactly 1 on the last frame (core/viz/frame/LoopSeam). Pure.
-     */
-    external fun exportLoopProgress(
-        stop: Int,
-        stops: Int,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-    ): Float
-
-    /** The crossfade a finished reel reports: [seamFrames] at [fps] in whole milliseconds. Pure. */
-    external fun exportLoopReportedCrossfadeMs(
-        seamFrames: Int,
-        fps: Int,
-    ): Long
 
     /**
      * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
@@ -2168,6 +2298,71 @@ object GeodeNative {
         handle: Long,
         out: ShortArray,
     ): Int
+
+    /** What [aiffScanStep] answers: feed it again, the header is read, or this is not an AIFF that plays. */
+    const val AIFF_SCAN_MORE = 0
+    const val AIFF_SCAN_DONE = 1
+    const val AIFF_SCAN_INVALID = -1
+
+    /** The most [aiffScanRead] asks for at once. */
+    const val AIFF_SCAN_MAX_READ = 22
+
+    /** Where [aiffScanHeader] puts each value. */
+    const val AIFF_HEADER_CHANNELS = 0
+    const val AIFF_HEADER_SAMPLE_RATE = 1
+    const val AIFF_HEADER_PCM = 2
+    const val AIFF_HEADER_BYTES_PER_FRAME = 3
+    const val AIFF_HEADER_FRAMES = 4
+    const val AIFF_HEADER_DATA_START = 5
+    const val AIFF_HEADER_DATA_BYTES = 6
+    const val AIFF_HEADER_COUNT = 7
+
+    /** The header's `AIFF_HEADER_PCM`: how the samples lie, 0 for a layout the player has no encoding for. */
+    const val AIFF_PCM_S16_LE = 1
+    const val AIFF_PCM_S16_BE = 2
+    const val AIFF_PCM_S24_BE = 3
+    const val AIFF_PCM_S32_BE = 4
+
+    /**
+     * The AIFF header walk for a caller that holds the file itself (the player's extractor): skip
+     * [aiffScanSkip] bytes, read [aiffScanRead] bytes, hand them to [aiffScanStep], and repeat while it
+     * answers [AIFF_SCAN_MORE]. Freed with [aiffScanDestroy].
+     */
+    external fun aiffScanCreate(): Long
+
+    external fun aiffScanDestroy(handle: Long)
+
+    external fun aiffScanSkip(handle: Long): Long
+
+    external fun aiffScanRead(handle: Long): Int
+
+    /** The first [n] bytes of [bytes], which must be the count [aiffScanRead] asked for. */
+    external fun aiffScanStep(
+        handle: Long,
+        bytes: ByteArray,
+        n: Int,
+    ): Int
+
+    /** Fills [out] (`AIFF_HEADER_COUNT` values); false before [AIFF_SCAN_DONE]. */
+    external fun aiffScanHeader(
+        handle: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The start time of the frame [bytes] into the samples lies in. */
+    external fun aiffTimeUs(
+        bytes: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+    ): Long
+
+    /** The byte offset into the samples of the frame playing at [timeUs], held inside [dataBytes]. */
+    external fun aiffSeekOffset(
+        timeUs: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+        dataBytes: Long,
+    ): Long
 
     /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
     external fun vizHearTrack(

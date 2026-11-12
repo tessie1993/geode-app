@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.export.ExportRun
-import dev.geode.export.RenderEta
 import dev.geode.model.TourSpot
 import dev.geode.ui.tour.tourTarget
 
@@ -108,7 +107,7 @@ private fun RenderProgress(
     Text(
         listOfNotNull(
             stringResource(R.string.export_rendering_offline),
-            run.secondsRemaining?.let { RenderEta.describe(LocalResources.current, it) },
+            run.secondsRemaining?.let { ExportRun.describeEta(LocalResources.current, it) },
         ).joinToString(" · "),
         style = MaterialTheme.typography.bodyMedium,
     )

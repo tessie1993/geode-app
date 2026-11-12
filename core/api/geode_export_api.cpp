@@ -47,15 +47,6 @@ void geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_lo
     if (o) fill(out::LoopSpec::of(loop_ms, crossfade_ms, fps), o);
 }
 
-void geode_loop_spec_budgeted(const geode_loop_spec* in, int width, int height, geode_loop_spec* o) {
-    if (!in || !o) return;
-    out::LoopSpec s;
-    s.loopMs = in->loop_ms;
-    s.crossfadeMs = in->crossfade_ms;
-    s.fps = in->fps;
-    fill(s.budgeted(width, height), o);
-}
-
 void geode_loop_spec_fill(geode_loop_spec* spec) {
     if (!spec) return;
     out::LoopSpec s;
@@ -90,21 +81,6 @@ int geode_loudness_advise(int target, int gated, double lufs, double true_peak_d
     return a.kind;
 }
 
-int geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth, int capacity) {
-    out::DriftStop all[out::kMaxDriftStops];
-    const int count = out::driftStops(hue_turns, warmth, stops, all, out::kMaxDriftStops);
-    const int writable = std::min({count, std::max(capacity, 0), out::kMaxDriftStops});
-    for (int i = 0; i < writable; ++i) {
-        if (out_hue) out_hue[i] = all[i].hueOffset;
-        if (out_warmth) out_warmth[i] = all[i].warmthOffset;
-    }
-    return count;
-}
-
-void geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset, float* out2) {
-    if (out2) out::applyDrift(color_shift, temperature, hue_offset, warmth_offset, &out2[0], &out2[1]);
-}
-
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
                            int capacity) {
     const auto plan = out::LoopExtendPlan::of(loop_us, total_us, loops);
@@ -129,8 +105,6 @@ int geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_
     return out::encode::cappedVideoBps(requested_bps, duration_us, audio_bytes,
                                        limit_bytes > 0 ? limit_bytes : out::encode::kTargetBytes);
 }
-
-int64_t geode_export_audio_bytes(int64_t duration_us, int bps) { return out::encode::audioBytes(duration_us, bps); }
 
 int64_t geode_export_muxer_hard_limit_bytes(void) { return out::encode::kMuxerHardLimitBytes; }
 

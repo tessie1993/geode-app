@@ -10,7 +10,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -36,6 +35,7 @@ import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalTelevision
+import dev.geode.ui.theme.LocalTextScale
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneHaptics
 import dev.geode.ui.theme.geodeColorScheme
@@ -72,6 +72,7 @@ internal fun CrystalMaterialTheme(
         )
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
+    val textScale = general.textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX)
     SideEffect { StoneHaptics.enabled = general.haptics }
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
@@ -79,11 +80,12 @@ internal fun CrystalMaterialTheme(
         LocalReducedMotion provides reducedMotion,
         LocalGeodeMotion provides geodeMotionScheme(reducedMotion),
         LocalUiSounds provides rememberUiSounds(general.uiSounds),
+        LocalTextScale provides textScale,
     ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = general.cornerStyle.shapes(),
-            typography = crystalTypography(general.textScale),
+            typography = geodeTypography(textScale),
         ) {
             // A remote's focus, lit in the accent on a TV (televisionRipple); a phone keeps Material's.
             if (LocalTelevision.current) {
@@ -94,11 +96,6 @@ internal fun CrystalMaterialTheme(
         }
     }
 }
-
-fun crystalTypography(textScale: Float = 1f): Typography =
-    geodeTypography(
-        textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX),
-    )
 
 fun crystalShardShape(
     cut: Dp = 12.dp,

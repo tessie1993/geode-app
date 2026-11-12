@@ -36,17 +36,16 @@
 // lib_sound's shaped reads, in prismSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gPrismTurn   the mid band, sndShaped(SND_MIDDLE), pushes the twist about
-//   the way ahead while the mids climb and eases back as they fall, as
-//   lib_dive's gDiveSpin does. Mid gain scales it.
 //   gPrismSwell  the low band, sndShaped(SND_LOW), deepens the Warp's swell
 //   and pinch, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -75,8 +74,7 @@
 float gPrismForm;
 float gPrismFlow;
 float gPrismChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gPrismTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gPrismSwell;
 /** How far the trace reaches, world units. */
 float gPrismFar;
@@ -163,7 +161,6 @@ void prismSetup() {
     gPrismBore = 0.3;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gPrismTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gPrismSwell = sndShaped(SND_LOW) * drive;
     gPrismPal0 = pal(0.0);
     gPrismPal1 = pal(0.25);
@@ -172,10 +169,10 @@ void prismSetup() {
     gPrismPal4 = pal(1.0);
 }
 
-/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes (and the mids' push), and a swell and pinch (and the lows'). */
+/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes, and a swell and pinch (and the lows'). */
 vec3 prismBend(vec3 p) {
     float zc = p.z * (PRISM_TAU / PRISM_PERIOD);
-    p.xy = prismRot(gPrismFlow * 1.1 * sin(zc + uTime * PRISM_RATE(130)) + gPrismTurn) * p.xy;
+    p.xy = prismRot(gPrismFlow * 1.1 * sin(zc + uTime * PRISM_RATE(130))) * p.xy;
     p.xy *= 1.0 + 0.3 * min(gPrismFlow + 0.3 * gPrismSwell, 1.0) * sin(2.0 * zc + uTime * PRISM_RATE(180));
     return p;
 }

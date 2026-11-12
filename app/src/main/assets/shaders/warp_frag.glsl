@@ -45,11 +45,6 @@ out vec4 fragColor;
 // Per streak, sndEq at its hashed band sets the brightness, as in the 2D.
 // Pitch change (SND_HELD_NOTE_CHANGE) slides the field's hue.
 // SND_ENERGY_TREND sets the overall level.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-//   it back as they fall, as lib_terra's terraTurn and lib_truchet's
-//   truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0
-//   in silence), the gFlameTurn band on a structure that holds still. Mid gain
-//   scales it.
 //
 // ---- params and knobs -------------------------------------------------------
 //
@@ -173,8 +168,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The world tiles every 1024 along z (a power of two), so this shift is
     // invisible and exact. Without it, far down the 8192 travel a highp z has
     // ~0.001 of fraction left and the thin streaks quantise into speckle.

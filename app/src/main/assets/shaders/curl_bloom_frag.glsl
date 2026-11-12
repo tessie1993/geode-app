@@ -53,11 +53,7 @@ out vec4 fragColor;
 // SND_LEVEL inflates the body, SND_BASS_PRESENCE deepens the stir, sndShaped(SND_HIGH)
 // sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
 // the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
-// keys brightness off a raw envelope, so nothing here can flash. The mid band
-// (SND_MIDDLE) turns the body about its vertical while the mids climb and eases
-// it back as they fall: lib_flame's gFlameTurn, 0.6 x sndShaped x SND_DRIVE
-// (0.9 rad at most, 0 in silence), spent on the orbit so the eye goes the
-// other way. Mid gain scales it.
+// keys brightness off a raw envelope, so nothing here can flash.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -163,9 +159,7 @@ void main() {
     // a new angle every second even in silence, and a spike banks the orbit
     // toward the new travel direction.
     vec3 ro = vec3(0.0, 0.0, -3.1 * (1.0 - 0.2 * kSpace));
-    // The mids turn the body about its vertical (see the header): the orbit goes the other way.
-    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9 + midTurn) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 

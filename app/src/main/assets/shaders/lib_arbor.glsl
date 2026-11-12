@@ -32,8 +32,8 @@
 // The mid band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
 // added to a 3D form's bend, a 2D form's lean or a dendrite's side angle, so
 // the boughs give while the mids climb and lift back as they fall. A tree
-// never turns (trees hold still), so this is Arbor's form of the mid band's
-// push that turns lib_flame's structure. Mid gain scales it.
+// never turns (trees hold still, and no style spins to the music, owner
+// 2026-11-12): the bow bends the limbs, never the whole tree. Mid gain scales it.
 //
 // ---- why a fold, not a recursion ---------------------------------------------
 //

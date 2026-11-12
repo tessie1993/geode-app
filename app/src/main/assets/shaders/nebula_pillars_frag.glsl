@@ -48,8 +48,7 @@ out vec4 fragColor;
 // roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission, k1
 // TEXTURE the columns' width, k2 FLOW added to Warp's swirl, k3 TONE the
 // palette position, k4 BUILD the gas wall's glow, k5 SPACE the reach of the
-// eye. The mids turn the group about its vertical axis (nebMidTurn), one 2x2
-// turn per sample; the cluster's light holds still.
+// eye.
 
 #define PL_CAM_R 3.6
 #define PL_BASE -2.3
@@ -60,8 +59,7 @@ const vec3 PL_CENTRE = vec3(0.0, -0.7, 0.1);
 
 float gT;
 float gOct;
-/** The mid band's turn of the group, and k1 TEXTURE's factor on the columns' width. */
-mat2 gTurn;
+/** k1 TEXTURE's factor on the columns' width. */
 float gWidth;
 
 /** A tapered, leaning capsule with a swollen head. Negative inside, roughly a distance. */
@@ -82,7 +80,6 @@ float shapeDist(vec3 p) {
 
 /** Dust density 0..1 and, through sd, the capsules' distance (for skipping empty space). */
 float density(vec3 p, float oct, out float sd) {
-    p.xz = gTurn * p.xz;
     sd = shapeDist(p);
     if (sd > 0.32) return 0.0;
     vec3 q = nebWarp3(p, gT) * 2.4 + vec3(0.0, 0.0, -gT * 0.02);
@@ -106,7 +103,6 @@ void main() {
     float kSpace = nebKnob(5);
     float key = nebKeyShift(0.12) + 0.6 * kTone;
     gOct = nebVolOctaves(3.0);
-    gTurn = nebRot(nebMidTurn());
     gWidth = 1.0 + 0.25 * kTexture;
     gNebFlow = kFlow;
 

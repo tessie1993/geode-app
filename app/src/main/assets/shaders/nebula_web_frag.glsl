@@ -49,8 +49,7 @@ out vec4 fragColor;
 // (lib_nebula's roles, offsets from 0.5 so off is the tuned look): k0 PULSE
 // the emission, k1 TEXTURE the filaments' width, k2 FLOW added to Warp's
 // bend, k3 TONE the palette position, k4
-// BUILD the knots' fire, k5 SPACE how far the glow reaches. The mids roll the
-// view about the way ahead (nebMidTurn), as lib_flame's turn does.
+// BUILD the knots' fire, k5 SPACE how far the glow reaches.
 
 #define WB_FAR 30.0
 /** World units per lattice cell: q = p * WB_SCALE, a power of two so the lattice wraps with the rig. */
@@ -104,7 +103,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(nebRot(nebMidTurn()) * uv, ro, rd);
+    camFly(uv, ro, rd);
 
     vec3 filCol = nebEmission(0.6 + key, 0.1);
     vec3 knotCol = nebEmission(0.08 + 0.35 * knotHue, 0.55);

@@ -30,10 +30,6 @@ out vec4 fragColor;
 // sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
 // sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
 // one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -161,8 +157,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The sky parallaxes on the true eye; the sea is marched with z rebased
     // into one 64 tile (exact, power of two), since far down the 8192 travel
     // a highp z has ~0.001 of fraction left and the normals would speckle.

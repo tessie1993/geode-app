@@ -50,11 +50,6 @@ out vec4 fragColor;
 //   - sub bass (SND_SUB_ATT) shifts the escape bands, and each band is lit by
 //     its own analyser band (sndSpectrum of the band's iteration fraction).
 //   - overall level rides SND_ENERGY_TREND.
-//   - the mids (SND_MIDDLE) turn the eye's look aside while the
-//     mids climb and ease it back as they fall, as lib_terra's terraTurn and
-//     lib_truchet's truchetTurn do: 0.1 x sndShaped x SND_DRIVE screen units
-//     (0.15 at most, 0 in silence), the gFlameTurn band on a structure that
-//     holds still. Mid gain scales it.
 // Controls: Morph eases the cliffs from steep to gentle, Turbulence (+ k1
 // TEXTURE) cuts the escape-band terraces, Warp waves the c-plane. Knobs:
 // k2 FLOW band scroll, k3 TONE hue, k4 BUILD glow, k5 SPACE fog.
@@ -234,8 +229,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The landscape tiles every 32 along z, so this shift is invisible and
     // exact (power of two). Without it, far down the 8192 travel a highp z
     // has ~0.001 of fraction left and every sample quantises.

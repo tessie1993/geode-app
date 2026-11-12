@@ -48,10 +48,7 @@ out vec4 fragColor;
 // - SND_BASS_TIME streams the foam toward the eye (an extra fall on top of
 //   the rig's flight) and breathes the inversion radius: spheres grow, split
 //   and merge on the bass clock.
-// - SND_MID_TIME turns the whole cross-section slowly about the bore, and the
-//   mid band (SND_MIDDLE) pushes it round on top while the mids climb, easing
-//   back as they fall: lib_flame's gFlameTurn, 0.6 x sndShaped x SND_DRIVE
-//   (0.9 rad at most, 0 in silence). Mid gain scales it.
+// - SND_MID_TIME turns the whole cross-section slowly about the bore.
 // - SND_FLUX (sndLevel) WRITHES the packing: it turns the folds between the
 //   inversions on two axes, and the turn compounds down the levels, so a busy,
 //   changing spectrum sets the foam squirming while a held chord hangs still.
@@ -260,8 +257,7 @@ void main() {
     // The stream wraps on the foam's own z span, so the cell hash wraps with it.
     gShift = vec3(1.6 * seed.x, 1.6 * seed.y, mod(SND_BASS_TIME * 0.9, FT_FOAM_SPAN));
     // Mid clock spin, wrapped on the wedge (invisible); the snare's one-wedge step on top.
-    gSpin = mod(SND_MID_TIME * 0.12, wedge) + wedge * (1.0 - snare * snare)
-          + 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    gSpin = mod(SND_MID_TIME * 0.12, wedge) + wedge * (1.0 - snare * snare);
     gShell = FT_SHELL * (1.0 + 2.2 * sub) * (1.0 + kTexture);
     float detail = clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
     gIters = 6.0 + floor(detail * 2.0 + 0.5);

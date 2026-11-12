@@ -36,17 +36,16 @@
 // lib_sound's shaped reads, in fluorSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gFluorTurn   the mid band, sndShaped(SND_MIDDLE), pushes the carving
-//   round about the way ahead while the mids climb and eases back as they
-//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
 //   gFluorSwell  the low band, sndShaped(SND_LOW), deepens the Warp's swell
 //   and sink, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -73,8 +72,7 @@
 float gFluorForm;
 float gFluorFlow;
 float gFluorChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gFluorTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gFluorSwell;
 /** How far the trace reaches, world units. */
 float gFluorFar;
@@ -155,7 +153,6 @@ void fluorSetup() {
     gFluorBore = 0.3;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gFluorTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFluorSwell = sndShaped(SND_LOW) * drive;
     gFluorPal0 = pal(0.0);
     gFluorPal1 = pal(0.25);
@@ -164,11 +161,11 @@ void fluorSetup() {
     gFluorPal4 = pal(1.0);
 }
 
-/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes (and the mids' push), and a swell and sink (and the lows'). */
+/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes, and a swell and sink (and the lows'). */
 vec3 fluorBend(vec3 p) {
     float zc = p.z * (FLUOR_TAU / FLUOR_PERIOD);
     float r = length(p.xy);
-    p.xy = fluorRot(gFluorFlow * 1.1 * sin(zc + 0.5 * r + uTime * FLUOR_RATE(130)) + gFluorTurn) * p.xy;
+    p.xy = fluorRot(gFluorFlow * 1.1 * sin(zc + 0.5 * r + uTime * FLUOR_RATE(130))) * p.xy;
     p.xy *= 1.0 + 0.3 * min(gFluorFlow + 0.3 * gFluorSwell, 1.0) * sin(2.0 * zc + 1.5 * p.y + uTime * FLUOR_RATE(170));
     return p;
 }

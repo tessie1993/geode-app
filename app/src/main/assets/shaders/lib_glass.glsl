@@ -132,11 +132,8 @@
 // k4 BUILD the world's glow (GlassLook.glow), k5 SPACE the reach. The older
 // eight still spend them their own way.
 //
-// The mid band: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE, as lib_flame's
-// gFlameTurn, turns the world every glass shows (glassLook's turn, applied in
-// glassEnv) and its key light (glassKeyDir) about the vertical while the mids
-// climb and eases them back as they fall, so every reflection, refraction and
-// highlight swings with them. Mid gain scales it. One 2x2 turn per lookup.
+// No sound band turns the world every glass shows (owner 2026-11-12, no style
+// spins to the music): glassEnv looks it up as it stands.
 
 /** Animation time under the Speed macro. */
 float glassTime() {
@@ -445,8 +442,6 @@ struct GlassLook {
     float flow;
     float warp;
     float detail;
-    /** The mid band's turn of the world about the vertical, radians (see the macros). */
-    float turn;
 };
 
 GlassLook glassLook(int env, float hue, GlassEar e) {
@@ -464,7 +459,6 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     l.warp = 0.75 + 0.5 * e.snare + 0.25 * glassChaos();
     // Fractal iterations follow the quality tier: about 8 on Balanced, 11 on High, 6 on Saver.
     l.detail = 0.25 + 0.75 * glassQuality();
-    l.turn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
     return l;
 }
 
@@ -476,8 +470,7 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
  */
 vec3 glassKeyDir(GlassLook l) {
     float el = mix(0.45, 1.25, clamp(l.height, 0.0, 1.0));
-    // The mid band's turn carries the key with the world glassEnv turns (the same sense).
-    float az = -0.45 + l.yaw + l.turn;
+    float az = -0.45 + l.yaw;
     return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
 }
 
@@ -841,7 +834,6 @@ vec3 glassAurora(vec3 d, GlassLook l) {
 
 /** The world in direction `d`, as the look picks it. */
 vec3 glassEnv(vec3 d, GlassLook l) {
-    if (l.turn > 1e-4) d.xz = glassRot(l.turn) * d.xz;
     if (l.env == GLASS_ENV_NEON) return glassNeon(d, l);
     if (l.env == GLASS_ENV_DUSK) return glassDusk(d, l);
     if (l.env == GLASS_ENV_DEEP) return glassDeep(d, l);

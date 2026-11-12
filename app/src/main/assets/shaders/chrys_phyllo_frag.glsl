@@ -268,10 +268,6 @@ void main() {
     vec3 ro;
     vec3 rd;
     camAround(uv, 3.9 * (1.0 + 0.25 * kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
-    // The mids turn the flower about the orbit's vertical (lib_chrys's chrysMidTurn): the eye and its ray turn the other way.
-    mat2 midTurn = chrysTurn(chrysMidTurn());
-    ro.xz = midTurn * ro.xz;
-    rd.xz = midTurn * rd.xz;
 
     float rUv = length(uv);
     vec3 bg = mix(pal(hue + 0.62) * 0.03, pal(hue + 0.5) * 0.08, exp(-rUv * 1.2));

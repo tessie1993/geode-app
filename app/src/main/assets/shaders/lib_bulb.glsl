@@ -96,8 +96,8 @@
 //
 // INCLUDE ORDER: after lib_scene_uniforms (uSteps, the macros, the knobs and
 // lib_sound), lib_camera (bulbAim) and lib_palette (bulbRamp). What moves with
-// the music is each style's business, but for two shared hands below: the
-// six style knobs and the mid band's turn.
+// the music is each style's business, but for one shared hand below: the
+// six style knobs.
 
 /** Compile-time ceiling on fractal iterations. A style's own count is a runtime break below this. */
 #define BULB_MAX_ITERS 8
@@ -135,9 +135,8 @@ int bulbIters(int hi) {
 // (bulbRamp), k5 SPACE the reach: the eye backs off the body (bulbAim, and the
 // WHOLE members' orbit radius). k4 BUILD has no shared hand here yet.
 //
-// The mid band: 0.6 * sndShaped(SND_MIDDLE) * SND_DRIVE turns the body about
-// its pole while the mids climb and eases it back as they fall, as lib_flame's
-// gFlameTurn does (bulbChaos; a rigid turn, so no stretch). Mid gain scales it.
+// No sound band turns the body about its pole (owner 2026-11-12, no style
+// spins to the music).
 
 /** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
 float bulbKnob(int i) {
@@ -147,11 +146,6 @@ float bulbKnob(int i) {
 /** k1 TEXTURE as a scale on the fractal's domain: under 1 thickens the body (by about 3% at most). */
 float bulbWidthScale() {
     return 1.0 - 0.06 * bulbKnob(1);
-}
-
-/** The mid band's turn about the pole, radians (see above). */
-float bulbTurn() {
-    return 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
 }
 
 /** Animation time under the Speed macro. */
@@ -174,17 +168,11 @@ float bulbChaosAmp() {
  * Chaos: a slow sine warp (uWarp, uTurbulence) and a twist about the pole
  * (uTwist) applied to p before the fractal. Neither is rigid, so the caller
  * divides its estimate by bulbChaosLip(). At default the branch is skipped
- * and p comes back untouched. Before them, k1 TEXTURE's scale and the mid
- * band's turn (see the macros above); both are identity at rest.
+ * and p comes back untouched. Before them, k1 TEXTURE's scale (see the
+ * macros above), identity at rest.
  */
 vec3 bulbChaos(vec3 p) {
     p *= bulbWidthScale();
-    float turn = bulbTurn();
-    if (turn > 1e-4) {
-        float tc = cos(turn);
-        float ts = sin(turn);
-        p.xz = mat2(tc, -ts, ts, tc) * p.xz;
-    }
     float amp = bulbChaosAmp();
     if (amp > 1e-4) {
         float t = bulbTime() * 0.4;

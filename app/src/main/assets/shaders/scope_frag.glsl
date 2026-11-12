@@ -44,12 +44,6 @@ out vec4 fragColor;
 // Treble (SND_TREBLE_ATT)       the graticule glows brighter.
 // Pitch (SND_HELD_NOTE_CHANGE)  slides the hue of the whole tube.
 // SND_ENERGY_TREND              the overall level, as everywhere.
-// Mids (SND_MIDDLE)             turn the eye's look aside while the mids climb
-//                               and ease it back as they fall, as lib_terra's
-//                               terraTurn and lib_truchet's truchetTurn do: 0.1
-//                               x sndShaped x SND_DRIVE screen units (0.15 at
-//                               most, 0 in silence), the gFlameTurn band on a
-//                               structure that holds still. Mid gain scales it.
 //
 // Controls: Morph bends each trace from the flat line into a ring scope (the
 // waveform as a radius around the corridor's axis, mirrored so it has no
@@ -154,8 +148,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64, so this shift is exact
     // and invisible, and z keeps its fraction far down the rig's travel.
     ro.z = mod(ro.z, SC_ZWRAP);

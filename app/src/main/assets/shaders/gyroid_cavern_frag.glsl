@@ -41,12 +41,6 @@ out vec4 fragColor;
 // Section count        the surface itself: gyroid, Schwarz-P, diamond or a
 //                      gyroid-diamond blend, crossfaded over the section envelope.
 // SND_INTENSITY               overall level, as everywhere.
-// Mids (SND_MIDDLE)    turn the eye's look aside while the mids climb and ease
-//                      it back as they fall, as lib_terra's terraTurn and
-//                      lib_truchet's truchetTurn do: 0.1 x sndShaped x
-//                      SND_DRIVE screen units (0.15 at most, 0 in silence), the
-//                      gFlameTurn band on a structure that holds still. Mid
-//                      gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -175,8 +169,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // The surface, the veins and the motes all tile with periods dividing 16
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);

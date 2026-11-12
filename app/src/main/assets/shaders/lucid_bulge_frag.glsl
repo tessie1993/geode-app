@@ -231,8 +231,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The mids roll the view about the way ahead (lib_lucid's lucidMidTurn).
-    camFly(lucidRot(lucidMidTurn()) * uv, ro, rd);
+    camFly(uv, ro, rd);
     // Every z term repeats every 256 units (see the header): exact and invisible.
     ro.z = mod(ro.z, LB_ZWRAP);
     gEye = ro;

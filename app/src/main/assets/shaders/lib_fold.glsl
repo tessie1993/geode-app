@@ -53,17 +53,16 @@
 // lib_sound's shaped reads, in foldSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gFoldTurn   the mid band, sndShaped(SND_MIDDLE), pushes space round about
-//   the way ahead while the mids climb and eases back as they fall, as
-//   lib_dive's gDiveSpin does. Mid gain scales it.
 //   gFoldSwell  the low band, sndShaped(SND_LOW), widens the Warp's sway (or a
 //   corridor's swell), never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -99,8 +98,7 @@
 float gFoldForm;
 float gFoldFlow;
 float gFoldChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gFoldTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gFoldSwell;
 /** How far a march reaches, world units. */
 float gFoldFar;
@@ -214,7 +212,6 @@ void foldSetup() {
     gFoldDense = 0.5;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gFoldTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFoldSwell = sndShaped(SND_LOW) * drive;
     gFoldPal0 = pal(0.0);
     gFoldPal1 = pal(0.25);
@@ -224,14 +221,14 @@ void foldSetup() {
 }
 
 /**
- * Warp and Turbulence on space: a twist about z that comes and goes along the way (and the mids' push),
+ * Warp and Turbulence on space: a twist about z that comes and goes along the way,
  * a sideways sway (and the lows' swell), or for a corridor a swell and pinch about the axis, and a ripple.
  */
 vec3 foldBend(vec3 p) {
     float zc = p.z * (FOLD_TAU / FOLD_PERIOD);
     float reach = min(gFoldFlow + 0.3 * gFoldSwell, 1.0);
     float side = 1.0 - gFoldAxial;
-    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160)) + gFoldTurn) * p.xy;
+    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160))) * p.xy;
     p.xy *= 1.0 + gFoldAxial * 0.3 * reach * sin(3.0 * zc + uTime * FOLD_RATE(200));
     p.x += side * 0.5 * reach * sin(2.0 * zc + 0.9 * p.y + uTime * FOLD_RATE(230));
     p.y += side * gFoldFlow * 0.4 * cos(zc - 0.7 * p.x);

@@ -79,8 +79,7 @@
 // INCLUDE ORDER: last, after lib_scene_uniforms and lib_camera (terraFly). It
 // reads uTime, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist and the
 // style knobs, each only inside the helper that needs it. What the music moves
-// is each style's business, but for the mid band's turn of the look
-// (terraTurn, below).
+// is each style's business.
 
 #define TERRA_TAU 6.2831853
 /** World-z tile. A power of two that divides the rig's 8192 travel wrap. */
@@ -113,11 +112,8 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 // reach (terraFog's density divides by it). k3 TONE has no shared hand here:
 // each style mixes pal() into its own fixed materials.
 //
-// The mid band: sndShaped(SND_MIDDLE), times SND_DRIVE, turns the eye's look
-// aside while the mids climb and eases it back as they fall (terraTurn, read by
-// terraFly and by a style on camAround), as lib_flame's gFlameTurn pushes its
-// structure. The look turns, never the ground: landscapes hold still, and a
-// screen offset costs nothing per step. Mid gain scales it.
+// No sound band turns the eye's look (owner 2026-11-12, no style spins to the
+// music): landscapes hold still, and so does the look.
 
 /** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
 float terraKnob(int i) {
@@ -265,11 +261,6 @@ float terraChaosLip() {
 
 // ---- the camera -------------------------------------------------------------
 
-/** The mid band's turn of the look, in screen units (about radians / focal), 0.15 at most (see the macros above). */
-float terraTurn() {
-    return 0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
-}
-
 /**
  * camFly for a landscape: the eye `eye` units up, keeping a third of the
  * path's vertical wander, and the view tipped `tilt` (screen units, about
@@ -277,7 +268,7 @@ float terraTurn() {
  * and the horizon sits high.
  */
 void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
-    camFly(uv - vec2(terraTurn(), tilt), ro, rd);
+    camFly(uv - vec2(0.0, tilt), ro, rd);
     ro.y = eye + 0.35 * ro.y;
 }
 

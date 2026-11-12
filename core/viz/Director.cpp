@@ -54,7 +54,9 @@ struct AxisField {
 // middle of its range: an axis turned up pulled it toward +1 and one turned down toward -1, so
 // Complexity twisted the picture whichever way it went, on every look ("almost all visuals have a
 // yin-yang curve"). Twist stays the user's slider and the style's own reactions.
-constexpr std::array<AxisField, 23> kAxisFields = {{
+// Spin (motionDrift) is not here either: it is the user's turn of a turning style and the director never
+// reaches it (#1181); a Speed axis scaling it set every turning style spinning faster under Auto.
+constexpr std::array<AxisField, 22> kAxisFields = {{
     {Axis::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
     {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
@@ -63,7 +65,6 @@ constexpr std::array<AxisField, 23> kAxisFields = {{
     {Axis::Speed, &SceneParams::speed, 0.05f, 4.0f, false},
     {Axis::Speed, &SceneParams::camFly, 0.0f, 2.0f, false},
     {Axis::Speed, &SceneParams::cycleSpeed, 0.02f, 0.6f, false},
-    {Axis::Speed, &SceneParams::motionDrift, 0.0f, 1.0f, false},
     {Axis::Complexity, &SceneParams::tile, 1.0f, 6.0f, false},
     {Axis::Complexity, &SceneParams::warp, 0.0f, 1.0f, false},
     {Axis::Complexity, &SceneParams::morph, 0.0f, 1.0f, false},
@@ -293,9 +294,9 @@ Director::Axes Director::axes() const {
 
 SceneParams Director::applyAxes(const SceneParams& p) const {
     SceneParams o = director::applyAxes(p, axes());
-    // Energy, Speed and Space turn the Motion dials too, but a dial held at 0 is the music's push
-    // switched off, and stays off: the director never switches on a reaction the user switched off.
-    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath, &SceneParams::motionDrift}) {
+    // Energy and Space turn the Motion dials too, but a dial held at 0 is the music's push switched
+    // off, and stays off: the director never switches on a reaction the user switched off.
+    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath}) {
         if (p.*dial <= 0.0f) o.*dial = 0.0f;
     }
     return o;

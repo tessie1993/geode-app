@@ -445,8 +445,9 @@ void textRoundTrips() {
     // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
-    // took over Spin drift's field on the turning styles' own scope.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 87 && overrides == 8, "row counts");
+    // took over Spin drift's field on the turning styles' own scope; 84 once Palette 2, Palette blend and
+    // Colour map retired (the palette stack draws two palettes, and the colour map is a library row of it).
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 84 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

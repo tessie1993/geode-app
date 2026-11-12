@@ -81,7 +81,9 @@ out vec4 fragColor;
 // Knobs (Flame's, Opal's and Hollow's roles, each read as its offset from 0.5
 // so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the spectrum
 // rings' width, k2 FLOW added to the writhe (gLip follows it), k3 TONE the
-// palette position, k4 BUILD the glow gathered along the ray, k5 SPACE the
+// palette position and the poles' sharpness (a high melody draws the body up
+// into spires at its poles, a low one rounds it into a squat bloom; gLip
+// follows it too), k4 BUILD the glow gathered along the ray, k5 SPACE the
 // eye's distance (4.3..5.3) and the depth fog's reach.
 //
 // Every motion runs on a clock (the SND_*_TIME clocks and uFlowPhase), so it
@@ -423,7 +425,7 @@ void main() {
     float n1 = mix(2.3, 0.5, flatn) * (1.0 - 0.5 * kick);
     gN = vec3(clamp(n1, 0.3, 3.0), mix(5.0, 1.3, cent), mix(1.3, 5.0, cent));
     gNorm = sfNorm(gN);
-    gNe = vec3(mix(0.9, 2.6, hs2), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
+    gNe = vec3(clamp(mix(0.9, 2.6, hs2) * (1.0 - 1.2 * kTone), 0.4, 3.4), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
     gNormE = sfNorm(gNe);
     gR = 1.0 * (1.0 + 0.05 * kick + 0.16 * surgeBump);
     gWrithe = max(0.85 * flux + 0.3 * kFlow, 0.0);

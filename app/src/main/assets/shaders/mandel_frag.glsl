@@ -52,7 +52,9 @@ out vec4 fragColor;
 //   - overall level rides SND_ENERGY_TREND.
 // Controls: Morph eases the cliffs from steep to gentle, Turbulence (+ k1
 // TEXTURE) cuts the escape-band terraces, Warp waves the c-plane. Knobs:
-// k2 FLOW band scroll, k3 TONE hue, k4 BUILD glow, k5 SPACE fog.
+// k2 FLOW band scroll, k3 TONE the relief (a high melody raises the cliffs
+// into steep spires and gorges, a low one lays them down as soft dunes; plus a
+// small hue offset), k4 BUILD glow, k5 SPACE fog.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -61,7 +63,8 @@ out vec4 fragColor;
 // h = MB_TOP - K dw + A sin(MB_TERR dw), dw = G / MB_CS; its slope is at most
 // L = K + A MB_TERR, so (y - h) / sqrt(1 + L^2) is 1-Lipschitz and a lower
 // bound, and the march still steps at 0.8 of it for the warp's stretch and the
-// estimate's own wobble. A <= K / MB_TERR keeps h <= MB_TOP, so y - MB_TOP is
+// estimate's own wobble. A <= K / MB_TERR (A is scaled down with K when TONE
+// takes K under 2) keeps h <= MB_TOP, so y - MB_TOP is
 // a second lower bound; above the mesa map() returns it without iterating.
 // The floor is a plane. A tile only measures its own island, so each tile
 // also ramps its cliffs down below the floor within MB_SEAM of its seams
@@ -220,9 +223,9 @@ void main() {
     // Morph eases the cliffs from steep to gentle; K stays >= 2, which the
     // terrace limit relies on. The kick only steepens.
     float morph = clamp(uMorph, 0.0, 1.0);
-    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0)));
+    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0))) * (1.0 + 0.9 * mbKnob(3));
     // A <= 2 / MB_TERR <= K / MB_TERR: the terraces never rise above the mesa.
-    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0);
+    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0) * min(gK * 0.5, 1.0);
     gWarp = clamp(uWarp, 0.0, 1.0);
     // 0.03 of c is 0.3 world units: a nudge on screen, as the flat glide was.
     gGlide = pitchGlide() * 0.03;

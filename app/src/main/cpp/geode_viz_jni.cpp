@@ -777,6 +777,11 @@ Java_dev_geode_engine_bridge_GeodeNative_colourAverageArgb(JNIEnv* env, jobject,
     return geode_colour_average_argb(px.data(), n);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourPaletteAccent(JNIEnv*, jobject, jfloat base, jfloat range) {
+    return geode_colour_palette_accent(base, range);
+}
+
 JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_artPaletteExtract(JNIEnv* env, jobject, jintArray argb) {
     if (!argb) return nullptr;

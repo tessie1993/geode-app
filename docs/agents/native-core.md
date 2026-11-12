@@ -61,6 +61,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - Expert › Shader code shows on Fluid only (`core/viz/CustomizeMap`, `Show::ShaderCode`), with the custom force and dye editors; a shader style has no box for its own fragment shader any more.
 - A look's saved custom shader still applies (`core/viz/ShaderOverrides`, `geode_shader_override_*`).
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
+- The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - `core/viz/Shake` and `core/viz/TapAlong` decide the easter eggs: a firm shake, four taps on the heard beat.
 

@@ -1102,6 +1102,12 @@ object GeodeNative {
     /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
     external fun colourAverageArgb(argb: IntArray): Int
 
+    /** The shell's accent for a palette of hue [base] and [range]: a packed 0xRRGGBB (`geode_colour_palette_accent`). Pure. */
+    external fun colourPaletteAccent(
+        base: Float,
+        range: Float,
+    ): Int
+
     /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
     external fun artPaletteExtract(argb: IntArray): FloatArray?
 

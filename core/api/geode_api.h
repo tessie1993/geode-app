@@ -460,12 +460,15 @@ GEODE_API float       geode_params_palette_range(int palette, float range_overri
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
- * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper). */
+ * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper).
+ * palette_accent: the shell's accent for a palette of hue base and range (0..1 of a turn each): the middle of its
+ * hue span, bright enough to read on black; -1 for a non-finite input. */
 GEODE_API int         geode_colour_from_hsv(float h, float s, float v);
 GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
 GEODE_API int         geode_colour_parse_hex(const char* text);
 GEODE_API const char* geode_colour_hex(int rgb);
 GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+GEODE_API int         geode_colour_palette_accent(float base, float range);
 /* The artwork palette (viz/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
  * Returns 1 and writes out[3] = base hue (0..1), span (0.06..1 of a turn) and confidence (the share of coloured
  * pixels); 0, out untouched, when no pixel is coloured (greys, near-blacks, blown highlights) or n <= 0. */

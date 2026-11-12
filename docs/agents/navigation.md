@@ -102,7 +102,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 ## Visuals: Styles and Presets
 
 - Styles (`StylesTab` in `ui/StylesPage.kt`) is one family dropdown over a plain list of that family's styles (no stills, no search, no family inside a family).
-- The families are one flat level in the native catalogue's order (`Catalogue.picker`, `picker` rows of `core/viz/Catalogue`): Silk, Life, Mycelium, Morphing, Shaders for every shader style outside a family, each shader family, MilkDrop, Fluid, Cymatics.
+- The families are one flat level in the native catalogue's order (`StyleCatalogue.picker`, `picker` rows of `core/viz/Catalogue`): Silk, Life, Mycelium, Morphing, Shaders for every shader style outside a family, each shader family, MilkDrop, Fluid, Cymatics.
 - The stage swipes styles in the same order.
 - Your styles (on screen, favourites, recent, kept by `data/StyleShelfStore`) is the dropdown's first entry, with Random the icon beside it.
 - The style on screen leads every list: first in Your styles, its family next in the dropdown, first in that family's list (owner 2026-11-12).

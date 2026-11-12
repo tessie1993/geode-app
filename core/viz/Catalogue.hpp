@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -8,22 +9,24 @@
 // builds it, the style families, which Customize parameters reach which styles (scopes), and the
 // few ranges the shell's controls quote. Pure: no GL, no JNI, so the host tests build it.
 //
-// The shell reads all of it through one call, text(): a versioned, line-based table that Kotlin
-// (render/scene/Catalogue.kt) parses once. Display labels are not here; they stay in Kotlin, keyed
-// by id, so Android can translate them. Neither is the Pro rule: the catalogue says which style
-// opens a family, pro/FreeTier decides what a free user gets.
+// The shell asks it one question at a time through core/api/geode_catalogue_api.cpp and keeps the
+// answers; text() is the same catalogue as one table for the tools and the fixture. Display labels
+// are not here: they are Android string resources keyed by id, so Android can translate them.
+// Neither is the Pro rule: the catalogue says which style opens a family, pro/FreeTier decides what
+// a free user gets.
 namespace geode::viz::catalogue {
 
-// Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
+// Bumped whenever a row type or field changes meaning, so a reader of the table can refuse one it
+// does not know.
 // 2: the style row carries its look group. 3: picker rows.
 constexpr int kTextVersion = 3;
 
-// Which scene class an id builds. One per renderer, not per style. Names match Kotlin's SceneKind.
+// Which scene class an id builds. One per renderer, not per style.
 enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Cymatics };
 constexpr int kKindCount = 9;
 
 // Which styles a Customize parameter can move (R4: no dead controls; a control that cannot move
-// the style on screen is hidden). Names and order match Kotlin's ParamScope.
+// the style on screen is hidden). The shell names a scope by name(Scope).
 enum class Scope {
     Universal,      // applied to the finished frame by the composite pass, so every style
     SceneClock,     // MilkDrop presets pace themselves
@@ -51,8 +54,7 @@ enum class Scope {
 constexpr int kScopeCount = 22;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
-// (the owner's groups, 2026-11-02). Names and order match Kotlin's model/StyleLook, which keeps the
-// labels people read. Per-style metadata is engine data (ADR 0003), so the tags live here beside the
+// (the owner's groups, 2026-11-02). Per-style metadata is engine data (ADR 0003), so the tags live here beside the
 // kind and family they mostly follow, and a style the engine moves between families moves group too.
 enum class Look { Flowing, Living, Psychedelic, Fractals, Space, FlyThrough, Glass, Patterns, Classic };
 constexpr int kLookCount = 9;
@@ -123,6 +125,35 @@ struct PickerFamily {
     std::vector<std::string> ids;
 };
 const std::vector<PickerFamily>& pickerFamilies();
+// The family names, then one family's ids, each followed by a newline: how a list crosses the C ABI.
+// An unknown family has no ids.
+const std::string& pickerNamesText();
+std::string pickerIdsText(const std::string& name);
+
+// The questions the shell asks about a set of styles rather than one.
+enum class Trait {
+    Any,             // every style
+    Shader,          // a fragment style: loose or in a family
+    FamilyFollower,  // in a shader family and not its opener
+    AutoDraw,        // what Auto's random step draws from: the generative renderers and the shader styles
+    Fluid,           // the Fluid solver's looks (Curl Flow is its own renderer)
+    Cymatics,
+};
+constexpr int kTraitCount = 6;
+bool has(Trait trait, const std::string& id);
+// The styles with a trait in allIds() order, each followed by a newline. Built once.
+const std::string& idsText(Trait trait);
+
+// The style a saved look of this one is filed under: Fluid's and Cymatics' looks share one shelf
+// each, named by the kind's first style; every other id is its own.
+std::string presetStyle(const std::string& id);
+
+// The value a style holds a Customize control at, so the panel shows it instead of a dead control:
+// a cymatics style drawn on one plate geometry holds Geometry.
+std::optional<float> overrideOf(const std::string& styleId, const std::string& paramKey);
+
+// A size the shell's controls quote, by its name in text()'s value rows; nothing for any other name.
+std::optional<float> valueOf(const std::string& name);
 
 // The scope of a Customize control, named by its ParamKeys string: the scope column of its fields'
 // meta rows in viz/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
@@ -132,6 +163,8 @@ bool reaches(Scope scope, const std::string& styleId);
 const char* name(Kind kind);
 const char* name(Scope scope);
 const char* name(Look look);
+// The scope with that name(Scope); none for any other text.
+std::optional<Scope> scopeNamed(const std::string& name);
 
 // The whole catalogue as the shell reads it. Built once; the reference lives for the process.
 // Rows, '|'-separated, one per line, in this order:

@@ -310,8 +310,8 @@ jobs:
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
-      # meta rows, hence Params), ranges, and
-      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      # meta rows, hence Params), ranges, the answers the shell asks for one at a time, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the tools read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |

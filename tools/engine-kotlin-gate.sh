@@ -71,17 +71,11 @@ allowed=(
     "$S/render/offscreen/OffscreenSceneRenderer.kt"
     "$S/render/offscreen/TrackAudio.kt"
     "$S/render/scene/BuildStyleReactionsUseCase.kt"
-    "$S/render/scene/Catalogue.kt"
     "$S/render/scene/MilkStarterPack.kt"
     "$S/render/scene/ParamFormat.kt"
     "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"
-    "$S/render/scene/ParamScope.kt"
-    "$S/render/scene/SceneCapabilities.kt"
-    "$S/render/scene/SceneIds.kt"
     "$S/render/scene/SceneParams.kt"
-    "$S/render/scene/StyleFamilies.kt"
-    "$S/render/scene/VisualStyleCatalog.kt"
     "$S/util/BestEffort.kt"
 )
 

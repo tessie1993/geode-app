@@ -51,7 +51,6 @@ import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.FeatureGate
-import dev.geode.render.scene.Catalogue
 import dev.geode.ui.theme.StoneHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -197,7 +196,7 @@ internal fun Modifier.visualGestures(
     return this
         .windowPlacement(placement)
         .pointerInput(edges, direction, doubleSlop) {
-            val points = FloatArray(Catalogue.value("touchPoints").toInt() * 2)
+            val points = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
             // Read per down, not once: the strips change with rotation and the navigation mode.
             val ours = { local: Offset ->
                 val safe =

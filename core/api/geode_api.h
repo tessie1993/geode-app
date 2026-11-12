@@ -432,15 +432,38 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
-/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
- * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
- * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
- * process; the shell parses it once. Display labels and the Pro rule are not in it. */
-GEODE_API const char* geode_catalogue_text(void);
+/* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
+ * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
+ * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro
+ * rule are not here.
+ * _style_ids: the styles with a trait, in the order the picker lists them ("" for an unknown trait).
+ * _picker_names / _picker_ids: the Styles page's families in order, then one family's styles.
+ * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
+ * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
+ * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
+ * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
+ * _override: the value a style holds a control at, NaN when the control is the user's.
+ * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
+ *   (the fingers geode_viz_set_touch takes), "touchRotationPerDegree"; NaN for any other name. */
+#define GEODE_STYLE_ANY 0
+#define GEODE_STYLE_SHADER 1
+#define GEODE_STYLE_FAMILY_FOLLOWER 2 /* in a shader family and not its opener */
+#define GEODE_STYLE_AUTO_DRAW 3       /* what Auto's random step draws from */
+#define GEODE_STYLE_FLUID 4
+#define GEODE_STYLE_CYMATICS 5
+GEODE_API const char* geode_catalogue_style_ids(int trait);
+GEODE_API const char* geode_catalogue_picker_names(void);
+GEODE_API const char* geode_catalogue_picker_ids(const char* family);
+GEODE_API const char* geode_catalogue_resolve(const char* style_id);
+GEODE_API const char* geode_catalogue_preset_style(const char* style_id);
+GEODE_API const char* geode_catalogue_scope_of(const char* param_key);
+GEODE_API int         geode_catalogue_reaches(const char* scope_name, const char* style_id);
+GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
+GEODE_API float       geode_catalogue_value(const char* name);
 
 /* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
  * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
- * '|'-separated line table (see CataloguePresets.hpp for the rows). Static, like geode_catalogue_text. */
+ * '|'-separated line table (see CataloguePresets.hpp for the rows). Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_catalogue_presets_text(void);
 
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams

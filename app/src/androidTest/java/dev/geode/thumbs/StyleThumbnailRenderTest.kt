@@ -13,11 +13,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -152,9 +152,7 @@ class StyleThumbnailRenderTest {
                 ?.toSet()
                 .orEmpty()
         val ids =
-            Catalogue.styles
-                .filter { it.kind != SceneKind.MILKDROP }
-                .map { it.id }
+            (StyleCatalogue.ids - GeodeNative.STYLE_MILKDROP)
                 .filter { only == null || it in only }
                 .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())

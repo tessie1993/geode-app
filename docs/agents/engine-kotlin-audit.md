@@ -27,6 +27,9 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
 | `StyleSchedule` | 31 | pending |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
+| `SceneCapabilities` (`SceneKind`) | 37 | **ported**: `core/viz/Catalogue` (`Trait`); the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
+| `StyleFamilies` | 37 | **ported**: `core/viz/Catalogue` (`Trait::FamilyFollower`); `pro/FreeTier` asks for the followers. |
+| `ThermalGovernor` | 38 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |
 | `StyleFamilies` | 37 | pending |
 | `ThermalGovernor` | 38 | **ported**: `core/viz/frame/ThermalSource` reads the NDK's `AThermal_*` (status listener, 30 s headroom on the won slot) into `ThermalState`; `geode_thermal_push` is gone. |
@@ -40,19 +43,26 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `SceneIds` | 70 | pending |
 | `SoundTuning` | 76 | **shrunk to a holder** (74): how a saved array reads (30 floats as saved, 29 from before the input trim at 0 dB, any other length the defaults) is `core/sound/Tuning::fromSaved` behind `geode_sound_tuning_from_saved`, pinned by `sound_test.cpp`; the floats stay as stored until read. It stays in `:engine:audio-core` while `LookSnapshot`, `LookApplier` and `NativeViz` carry it. The slot constants Settings › Audio names stay (no `FLOATS`, no `OFFSET`), held to the header by `SoundTuningTest`. |
 | `TransitionCatalog` | 79 | **deleted**: native hands Customize's picker its lists (`geode_transition_picker`: the built-ins offered, from `TransitionCatalog::builtInIds` and `transition_choice::pickerIds`, then the library's names); `ui/CustomizeAdvanced` only splits them. The full-table read and its parser are gone, as is `VizUiState.transitionStyle`, which nothing read. Pinned in `transition_library_test.cpp` and `transition_choice_test.cpp`. |
+| `SceneIds` | 70 | **deleted**: the id list is native; the shell names an id as text where a rule is about one style. |
+| `SoundTuning` | 76 | pending |
+| `TransitionCatalog` | 79 | pending |
 | `SceneParamsCodec` | 80 | pending |
 | `ModConfigCodec` | 81 | pending |
 | `EventRecipe` | 86 | pending |
 | `ParamSchema` | 90 | pending |
 | `PerformanceSettings` | 94 | pending |
-| `ParamScope` | 94 | pending |
+| `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
 | `SampleRing` | 95 | pending |
+| `LookApplier` | 97 | pending |
+| `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |
 | `LookApplier` | 97 | **ported**: the live frame is `geode_viz_frame` (`core/viz/frame/LiveFrame`, test `core/tests/live_frame_test.cpp`); `NativeViz.setLook` pushes a look's changed parts when they change; `PushVersions` and `LastSent` are gone. |
 | `VisualStyleCatalog` | 106 | pending |
 | `MilkPresetMemory` | 116 | pending |
 | `OffscreenSceneRenderer` | 128 | pending |
 | `SearchMatcher` | 131 | **deleted**: a second search beside `core/library/Search`. The search sheet (`ui/AppShell`) asks native once per query (`geode_search_sheet`): a fourth field after the album, one hit per URI shown as the device's copy, at most 30 tracks, playlists and presets by name; pinned in `core/tests/library_search_test.cpp`. |
 | `Catalogue` | 131 | pending |
+| `SearchMatcher` | 131 | pending |
+| `Catalogue` | 131 | **ported**: the shell asks `geode_catalogue_*` one question at a time (`render/scene/StyleCatalogue` in `:app`), test `core/tests/catalogue_test.cpp`. |
 | `ParamFormat` | 153 | pending |
 | `TrackAudio` | 158 | pending |
 | `ParamKeys` | 158 | pending |

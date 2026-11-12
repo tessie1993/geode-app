@@ -26,7 +26,6 @@ import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
 import dev.geode.render.VisualizerRenderer
-import dev.geode.render.scene.Catalogue
 import dev.geode.util.bestEffort
 
 class VisualizerWallpaperService : WallpaperService() {
@@ -108,7 +107,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Reused across touch events: a wallpaper is touched at the panel's rate, and this
          * runs on the main thread the launcher is also drawing on.
          */
-        private val touchPoints = FloatArray(Catalogue.value("touchPoints").toInt() * 2)
+        private val touchPoints = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
 
         /**
          * The surface, not the display: a wallpaper surface is often wider than the screen

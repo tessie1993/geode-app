@@ -119,7 +119,6 @@ import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneIds
 import dev.geode.ui.cast.CastHost
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
@@ -281,7 +280,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
-            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+            val onMilk = viz.sceneId == GeodeNative.STYLE_MILKDROP
+            if (onMilk) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
     }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.

@@ -70,8 +70,8 @@ import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneIcon
@@ -592,7 +592,7 @@ internal fun liquidHotNote(liquidMode: Int): String? =
 @Composable
 internal fun ShaderCodePage(host: AdvancedHost) {
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
-    if (SceneCapabilities.isFluid(viz.sceneId)) {
+    if (StyleCatalogue.isFluid(viz.sceneId)) {
         InjectionShaderEditors(viz.shaderError) { force, dye ->
             host.visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
         }

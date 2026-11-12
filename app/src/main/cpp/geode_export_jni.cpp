@@ -254,6 +254,10 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacRateFor(JNIEn
     return geode_aac_rate_for(sourceRate);
 }
 
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_mixRateHz(JNIEnv*, jobject) {
+    return geode_mix_rate();
+}
+
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacEndUs(JNIEnv*, jobject, jlong lastPtsUs,
                                                                            jint sampleRate) {
     return geode_aac_end_us(lastPtsUs, sampleRate);

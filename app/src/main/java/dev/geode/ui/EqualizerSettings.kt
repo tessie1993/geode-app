@@ -16,7 +16,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.audio.AudioFxFormat
 import dev.geode.audio.AudioFxState
 
 @Composable
@@ -106,7 +105,7 @@ internal fun EqualizerCard(
         }
         fx.bands.forEachIndexed { i, band ->
             CrystalSlider(
-                label = stringResource(R.string.eq_band, band.label, AudioFxFormat.dbLabel(band.levelMb)),
+                label = stringResource(R.string.eq_band, band.label, band.levelLabel),
                 value = band.levelMb.toFloat(),
                 onValueChange = { onBand(i, it.toInt()) },
                 valueRange = band.minMb.toFloat()..band.maxMb.toFloat(),
@@ -124,7 +123,7 @@ internal fun EqualizerCard(
         }
         if (fx.loudnessAvailable) {
             CrystalSlider(
-                label = stringResource(R.string.eq_loudness, AudioFxFormat.dbLabel(fx.loudness)),
+                label = stringResource(R.string.eq_loudness, fx.loudnessLabel),
                 value = fx.loudness.toFloat(),
                 onValueChange = { onLoudness(it.toInt()) },
                 valueRange = 0f..fx.loudnessMax.toFloat(),

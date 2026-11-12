@@ -151,6 +151,23 @@ int64_t aiffSeekOffset(int64_t timeUs, int bytesPerFrame, int sampleRate, int64_
     return (frame < frames ? frame : frames) * bytesPerFrame;
 }
 
+int64_t aiffGapBytes(int64_t position, int64_t dataStart) { return position < dataStart ? dataStart - position : 0; }
+
+int aiffReadBytes(int64_t position, int64_t dataStart, int64_t dataBytes) {
+    const int64_t left = dataStart + dataBytes - position;
+    if (left <= 0) return 0;
+    return left < kAiffMaxSampleBytes ? static_cast<int>(left) : kAiffMaxSampleBytes;
+}
+
+int aiffWholeBytes(int pending, int bytesPerFrame) {
+    if (pending <= 0 || bytesPerFrame <= 0) return 0;
+    return pending / bytesPerFrame * bytesPerFrame;
+}
+
+int64_t aiffPendingTimeUs(int64_t position, int64_t dataStart, int pending, int bytesPerFrame, int sampleRate) {
+    return aiffTimeUs(position - dataStart - pending, bytesPerFrame, sampleRate);
+}
+
 FdSource::FdSource(int fd, int64_t startOffset, int64_t length) : fd_(fd), remaining_(length < 0 ? -1 : length) {
     if (fd_ < 0 || length < 0 || startOffset <= 0) return;
     // An asset descriptor's start offset is from the file's start, wherever a shared descriptor was left.

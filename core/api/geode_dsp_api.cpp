@@ -104,6 +104,15 @@ int geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capa
     return geode::api::textOut(geode::audio::fx::encodeBandLevels(levels, count), out, capacity);
 }
 
+int geode_dsp_band_label(int band, char* out, int capacity) {
+    const int milliHz = static_cast<int>(geode_dsp_band_center_hz(band) * 1000.0f);
+    return geode::api::textOut(geode::audio::fx::freqLabel(milliHz), out, capacity);
+}
+
+int geode_dsp_db_label(int millibels, char* out, int capacity) {
+    return geode::api::textOut(geode::audio::fx::dbLabel(millibels), out, capacity);
+}
+
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {
     if (d) d->processor.setEnabled(enabled != 0);
 }

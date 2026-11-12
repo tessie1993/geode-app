@@ -195,6 +195,28 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffSeekOffset(
     return geode_aiff_seek_offset(timeUs, bytesPerFrame, sampleRate, dataBytes);
 }
 
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffGapBytes(JNIEnv*, jobject, jlong position,
+                                                                              jlong dataStart) {
+    return geode_aiff_gap_bytes(position, dataStart);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffReadBytes(JNIEnv*, jobject, jlong position,
+                                                                              jlong dataStart, jlong dataBytes) {
+    return geode_aiff_read_bytes(position, dataStart, dataBytes);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffWholeBytes(JNIEnv*, jobject, jint pending,
+                                                                               jint bytesPerFrame) {
+    return geode_aiff_whole_bytes(pending, bytesPerFrame);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffPendingTimeUs(JNIEnv*, jobject, jlong position,
+                                                                                   jlong dataStart, jint pending,
+                                                                                   jint bytesPerFrame,
+                                                                                   jint sampleRate) {
+    return geode_aiff_pending_time_us(position, dataStart, pending, bytesPerFrame, sampleRate);
+}
+
 // A capture's format plan (core/audio/ingest/CapturePlan): GEODE_CAPTURE_FORMAT_INTS ints a format.
 JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureFormats(JNIEnv* env, jobject,
                                                                                    jint deviceRateHz, jboolean stereo) {

@@ -145,6 +145,8 @@ void geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* o) { geode
 
 int geode_aac_rate_for(int source_rate) { return geode::audio::aacRateFor(source_rate); }
 
+int geode_mix_rate(void) { return geode::audio::kMixRateHz; }
+
 int64_t geode_aac_end_us(int64_t last_pts_us, int sample_rate) { return geode::audio::aacEndUs(last_pts_us, sample_rate); }
 
 int64_t geode_pcm_s16_bytes_to_us(int64_t bytes, int rate, int channels) {

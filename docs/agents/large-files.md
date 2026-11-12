@@ -5,7 +5,7 @@ Kotlin files over 640 lines under `app/src/main/java/dev/geode/`, largest first,
 - `ui/LibraryScreen.kt` 1472
 - `ui/AppShell.kt` 1311
 - `ui/PlayerScreen.kt` 1012
-- `ui/PlayerSession.kt` 995
+- `ui/PlayerSession.kt` 991
 - `ui/StudioRender.kt` 872
 - `ui/pro/PaywallScreen.kt` 856
 - `ui/VisualGestures.kt` 827

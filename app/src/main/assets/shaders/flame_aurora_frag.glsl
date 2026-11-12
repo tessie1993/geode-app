@@ -18,7 +18,7 @@ out vec4 fragColor;
 // folded along the way, each with a ragged hem, and combed into fine upright
 // fibres where planes across the way cut them.
 //
-// Morph deepens the folds from flat drapes to tight pleats. Worst case 72
+// Morph deepens the folds from flat drapes to tight pleats. Worst case 90
 // samples, no folds, no noise.
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {

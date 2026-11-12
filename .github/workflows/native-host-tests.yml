@@ -410,6 +410,17 @@ jobs:
             core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o recorder_test
           ./recorder_test
 
+      # The encode sink (core/output/EncodeSink) and Record's session on it (core/output/RecordSession), on a fake
+      # codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, the end of stream,
+      # errors, no sample written twice or dropped, and the stop through the stage's tee.
+      - name: Encode sink host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub \
+            core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
+            core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
+          ./encode_sink_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

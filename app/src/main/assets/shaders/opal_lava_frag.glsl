@@ -18,7 +18,7 @@ out vec4 fragColor;
 // they touch and pulling apart again. Turned about.
 //
 // Morph gathers them: from separate small drops to one heavy mass. Worst case
-// 80 steps and 4 skins, no noise.
+// 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
     float d = 1.0e3;

@@ -18,7 +18,7 @@ out vec4 fragColor;
 // each ruled round its tube. Turned about.
 //
 // Morph thickens the rings and tips them, from thin hoops to fat links that
-// press together. Worst case 80 steps and 4 skins, no noise.
+// press together. Worst case 100 steps and 4 skins, no noise.
 
 float ring(vec3 p, float big, float small, out float skin) {
     vec2 t = vec2(length(p.xy) - big, p.z);

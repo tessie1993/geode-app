@@ -50,14 +50,6 @@ object AudioFxFormat {
             else -> "0 dB"
         }
     }
-
-    fun encodeBandLevels(levels: List<Int>): String = levels.joinToString(",")
-
-    fun decodeBandLevels(csv: String?): List<Int> =
-        csv
-            ?.split(',')
-            ?.mapNotNull { it.trim().toIntOrNull() }
-            .orEmpty()
 }
 
 /** A named set of band levels in millibels, low band first. */
@@ -67,7 +59,7 @@ data class AudioFxPreset(
 )
 
 /**
- * The effects' ranges, clamps and saved-levels resolve. They are native (`core/audio/dsp/FxRanges`); the
+ * The effects' ranges, clamps and saved-levels text. They are native (`core/audio/dsp/FxRanges`); the
  * interface is only the seam JVM tests, which have no libgeode, hand a stand-in through.
  */
 interface AudioFxLimits {
@@ -82,10 +74,13 @@ interface AudioFxLimits {
         value: Int,
     ): Int
 
+    /** The band levels a session starts on from the saved text ([encodeBands]'s), curve [preset] first. */
     fun restoreBands(
         preset: Int,
-        stored: List<Int>,
+        csv: String?,
     ): List<Int>
+
+    fun encodeBands(levels: List<Int>): String
 
     object Native : AudioFxLimits {
         override val bandCount: Int get() = GeodeNative.dspBandCount()
@@ -101,8 +96,10 @@ interface AudioFxLimits {
 
         override fun restoreBands(
             preset: Int,
-            stored: List<Int>,
-        ): List<Int> = IntArray(bandCount).also { GeodeNative.dspRestoreBands(preset, stored.toIntArray(), it) }.toList()
+            csv: String?,
+        ): List<Int> = IntArray(bandCount).also { GeodeNative.dspRestoreBandsText(preset, csv, it) }.toList()
+
+        override fun encodeBands(levels: List<Int>): String = GeodeNative.dspEncodeBands(levels.toIntArray())
     }
 }
 
@@ -152,7 +149,7 @@ class AudioFxController(
         prefs
             .edit()
             .putInt(KEY_PRESET, -1)
-            .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(levels))
+            .putString(KEY_BANDS, limits.encodeBands(levels))
             .apply()
         return true
     }
@@ -165,7 +162,7 @@ class AudioFxController(
         prefs
             .edit()
             .putInt(KEY_PRESET, i)
-            .putString(KEY_BANDS, AudioFxFormat.encodeBandLevels(preset.levelsMb))
+            .putString(KEY_BANDS, limits.encodeBands(preset.levelsMb))
             .apply()
         return true
     }
@@ -213,10 +210,9 @@ class AudioFxController(
     }
 
     private fun restored(): DspSettings {
-        val stored = AudioFxFormat.decodeBandLevels(prefs.getString(KEY_BANDS, null))
         return dsp.settings.copy(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
-            bandsMb = limits.restoreBands(prefs.getInt(KEY_PRESET, -1), stored),
+            bandsMb = limits.restoreBands(prefs.getInt(KEY_PRESET, -1), prefs.getString(KEY_BANDS, null)),
             bassBoost = limits.clamp(GeodeNative.DSP_FX_BASS_BOOST, prefs.getInt(KEY_BASS, 0)),
             loudnessMb = limits.clamp(GeodeNative.DSP_FX_LOUDNESS, prefs.getInt(KEY_LOUDNESS, 0)),
         )

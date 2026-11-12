@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "audio/dsp/EqPresets.hpp"
 
@@ -46,6 +49,56 @@ constexpr void restoreBands(int preset, const int32_t* stored, int storedCount, 
         }
         out[band] = clamp(kBand, level);
     }
+}
+
+// The saved band levels: millibels, comma separated, low band first ("0,-200,350"). An entry that is not
+// a whole number in int range (empty, "abc", "1.5", "99999999999") is dropped and the ones after it move
+// up; blanks around an entry are ignored, a leading + or - is a sign.
+inline std::vector<int32_t> parseBandLevels(std::string_view csv) {
+    std::vector<int32_t> levels;
+    size_t at = 0;
+    while (at <= csv.size()) {
+        size_t end = csv.find(',', at);
+        if (end == std::string_view::npos) end = csv.size();
+        std::string_view part = csv.substr(at, end - at);
+        at = end + 1;
+        const auto blank = [](char c) { return c == ' ' || (c >= '\t' && c <= '\r'); };
+        while (!part.empty() && blank(part.front())) part.remove_prefix(1);
+        while (!part.empty() && blank(part.back())) part.remove_suffix(1);
+        bool negative = false;
+        if (!part.empty() && (part.front() == '-' || part.front() == '+')) {
+            negative = part.front() == '-';
+            part.remove_prefix(1);
+        }
+        if (part.empty()) continue;
+        int64_t magnitude = 0;
+        bool valid = true;
+        for (const char c : part) {
+            if (c < '0' || c > '9' || magnitude > INT32_MAX) {
+                valid = false;
+                break;
+            }
+            magnitude = magnitude * 10 + (c - '0');
+        }
+        if (!valid || magnitude > (negative ? int64_t{INT32_MAX} + 1 : int64_t{INT32_MAX})) continue;
+        levels.push_back(static_cast<int32_t>(negative ? -magnitude : magnitude));
+    }
+    return levels;
+}
+
+inline std::string encodeBandLevels(const int32_t* levels, int count) {
+    std::string text;
+    for (int i = 0; levels && i < count; ++i) {
+        if (i > 0) text += ',';
+        text += std::to_string(levels[i]);
+    }
+    return text;
+}
+
+// restoreBands from the saved text; no text (null) is nothing saved.
+inline void restoreBandsText(int preset, std::string_view csv, int32_t* out) {
+    const std::vector<int32_t> stored = parseBandLevels(csv);
+    restoreBands(preset, stored.data(), static_cast<int>(stored.size()), out);
 }
 
 }  // namespace geode::audio::fx

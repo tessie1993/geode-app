@@ -1,5 +1,8 @@
 #include <jni.h>
 
+#include <string>
+#include <vector>
+
 #include "api/geode_api.h"
 
 namespace {
@@ -79,6 +82,27 @@ Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBands(JNIEnv* env, jobject, j
     if (saved) env->ReleaseIntArrayElements(stored, saved, JNI_ABORT);
     env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
     return n;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBandsText(JNIEnv* env, jobject, jint preset, jstring csv, jintArray out) {
+    if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
+    const char* text = csv ? env->GetStringUTFChars(csv, nullptr) : nullptr;
+    int32_t levels[GEODE_DSP_BANDS] = {};
+    const int n = geode_dsp_restore_bands_text(preset, text, levels, GEODE_DSP_BANDS);
+    if (text) env->ReleaseStringUTFChars(csv, text);
+    env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
+    return n;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, jintArray levels) {
+    const jsize count = levels ? env->GetArrayLength(levels) : 0;
+    std::vector<jint> values(static_cast<size_t>(count));
+    if (count > 0) env->GetIntArrayRegion(levels, 0, count, values.data());
+    std::string text(static_cast<size_t>(geode_dsp_encode_bands(values.data(), count, nullptr, 0)) + 1, '\0');
+    geode_dsp_encode_bands(values.data(), count, text.data(), static_cast<int>(text.size()));
+    return env->NewStringUTF(text.c_str());
 }
 
 JNIEXPORT void JNICALL

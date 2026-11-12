@@ -60,6 +60,19 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
+    /**
+     * [dspRestoreBands] from the saved text (millibels, comma separated, low band first; null for none). An entry
+     * that is not a whole number is dropped and the rest move up. The bands written.
+     */
+    external fun dspRestoreBandsText(
+        preset: Int,
+        csv: String?,
+        out: IntArray,
+    ): Int
+
+    /** The saved text for [levels]: millibels, comma separated. */
+    external fun dspEncodeBands(levels: IntArray): String
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,

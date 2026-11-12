@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "api/geode_api.h"
+#include "api/geode_text_out.hpp"
 #include "audio/dsp/DspProcessor.hpp"
 #include "audio/dsp/EqPresets.hpp"
 #include "audio/dsp/FxRanges.hpp"
@@ -86,6 +87,16 @@ int geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count,
     if (!out || capacity < Equalizer::kBands) return 0;
     geode::audio::fx::restoreBands(preset, stored, stored_count, out);
     return Equalizer::kBands;
+}
+
+int geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity) {
+    if (!out || capacity < Equalizer::kBands) return 0;
+    geode::audio::fx::restoreBandsText(preset, csv ? csv : "", out);
+    return Equalizer::kBands;
+}
+
+int geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity) {
+    return geode::api::textOut(geode::audio::fx::encodeBandLevels(levels, count), out, capacity);
 }
 
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {

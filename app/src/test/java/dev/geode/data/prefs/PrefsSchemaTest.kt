@@ -381,6 +381,8 @@ private object UnclampedFx : AudioFxLimits {
 
     override fun restoreBands(
         preset: Int,
-        stored: List<Int>,
-    ) = List(bandCount) { stored.getOrElse(it) { 0 } }
+        csv: String?,
+    ) = List(bandCount) { 0 }
+
+    override fun encodeBands(levels: List<Int>) = levels.joinToString(",")
 }

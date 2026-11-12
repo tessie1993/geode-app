@@ -283,6 +283,12 @@ GEODE_API int        geode_dsp_fx_min(int control);
 GEODE_API int        geode_dsp_fx_max(int control);
 GEODE_API int        geode_dsp_fx_clamp(int control, int value);
 GEODE_API int        geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count, int32_t* out, int capacity);
+/* The same from the text the settings save the levels as: millibels, comma separated, low band first. An entry
+ * that is not a whole number in int range is dropped and the rest move up; NULL is nothing saved.
+ * _encode_bands writes that text for `count` levels (NUL-terminated, cut to fit) and returns the length the
+ * whole text needs, so a short buffer asks again with room. */
+GEODE_API int        geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity);
+GEODE_API int        geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity);
 GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /* the equalizer and bass boost */
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */

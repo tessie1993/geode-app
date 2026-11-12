@@ -175,7 +175,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
 - **Engine logic in Kotlin (ADR 0003).** Engine internals belong in `core/`; GLOSSARY › Code has the words.
 - Native already runs the touch field, the pinch and twist (`core/viz/TouchTransform`, #654), Customize's randomizer, reset and category map, the flash clamp, the cymatics plate, the export resampler and the BS.1770 loudness meter (their Kotlin copies are gone).
-- Native also runs the export's track audio and AIFF reads (`core/audio/ingest/TrackFeed`, `AiffReader`; `TrackAudio` only drives MediaCodec), the loop render's drift stops and the export loudness advice (`core/output`), and the built-in palettes' hues.
+- Native also runs the export's track audio and AIFF reads (`core/audio/ingest/TrackFeed`, `AiffReader`; `TrackAudio` only drives MediaCodec), the loop render's drift stops and the export loudness advice (`core/output`), the built-in palettes' hues and the artwork palette (`core/viz/ArtPalette`).
 - The playout clock is native (`core/sound/interp/PlayoutClock`; the dead Kotlin clock is gone) and wired: the sink feeds it, the live feed reads it.
 - The PCM ring is native (`core/audio/ingest`, read on the GL threads until `core/sound/hop` exists).
 - Still Kotlin: the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.

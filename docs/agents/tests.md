@@ -20,6 +20,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
+- `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
 - `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
 - `cache_sentinels_test.cpp`: `core/viz/CacheSentinels`, the program-binary cache's crash sentinel.

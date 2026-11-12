@@ -821,6 +821,19 @@ Java_dev_geode_engine_bridge_GeodeNative_colourAverageArgb(JNIEnv* env, jobject,
     return geode_colour_average_argb(px.data(), n);
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_artPaletteExtract(JNIEnv* env, jobject, jintArray argb) {
+    if (!argb) return nullptr;
+    const jsize n = env->GetArrayLength(argb);
+    std::vector<int32_t> px(static_cast<size_t>(n));
+    env->GetIntArrayRegion(argb, 0, n, reinterpret_cast<jint*>(px.data()));
+    float got[3];
+    if (!geode_art_palette_extract(px.data(), n, got)) return nullptr;
+    jfloatArray out = env->NewFloatArray(3);
+    if (out) env->SetFloatArrayRegion(out, 0, 3, got);
+    return out;
+}
+
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paletteRamp(JNIEnv* env, jobject, jintArray stops, jint samples) {
     const jsize n = stops ? std::min<jsize>(env->GetArrayLength(stops), 5) : 0;

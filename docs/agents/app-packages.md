@@ -270,8 +270,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `viz`
 
-- Open first: `BackgroundImage`.
+- Open first: `BackgroundImage`, `ArtPalette`.
 - The background image layer.
+- The artwork palette's shell (`ArtPalette`): a cover's pixels to native `core/viz/ArtPalette`, `geode_art_palette_extract`.
+- Customize › Look's "Take the colours from the artwork" and the widget's glow read it.
 
 ## `wallpaper`
 

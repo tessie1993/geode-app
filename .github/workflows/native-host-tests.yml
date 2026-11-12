@@ -404,6 +404,13 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp -o easter_eggs_test
           ./easter_eggs_test
 
+      # The artwork palette (core/viz/ArtPalette): a cover's base hue, span and confidence, pinned to the Kotlin it replaced.
+      - name: Artwork palette
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/art_palette_test.cpp core/viz/ArtPalette.cpp core/api/geode_art_palette_api.cpp -o art_palette_test
+          ./art_palette_test
+
       # The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
       - name: Sound across frame rates
         working-directory: ${{ env.PROJECT_DIR }}

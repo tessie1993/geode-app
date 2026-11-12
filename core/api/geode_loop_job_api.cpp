@@ -147,35 +147,35 @@ void geode_loop_job_set_params(geode_loop_job* h, const float* values, int count
     }
 }
 
-void geode_loop_job_set_lfo(geode_loop_job* h, int slot, const float* config, int count) {
-    if (!h || slot < 0 || slot >= GEODE_LFO_SLOTS) return;
-    try {
-        assign(h->setup.lfos[slot], config, count);
-    } catch (...) {
-    }
-}
-
-void geode_loop_job_set_adsr(geode_loop_job* h, int slot, const float* config, int count) {
-    if (!h || slot < 0 || slot >= GEODE_ADSR_SLOTS) return;
-    try {
-        assign(h->setup.adsrs[slot], config, count);
-    } catch (...) {
-    }
-}
-
-void geode_loop_job_set_sound_tuning(geode_loop_job* h, const float* tuning, int count) {
+void geode_loop_job_set_lfos(geode_loop_job* h, const char* lfos) {
     if (!h) return;
     try {
-        assign(h->setup.soundTuning, tuning, count);
+        h->setup.lfos = lfos ? lfos : "";
     } catch (...) {
     }
 }
 
-void geode_loop_job_set_user_reactions(geode_loop_job* h, const float* routes, int count, int has_user) {
+void geode_loop_job_set_adsrs(geode_loop_job* h, const char* adsrs) {
     if (!h) return;
     try {
-        assign(h->setup.reactions, routes, count);
-        h->setup.hasReactions = has_user != 0;
+        h->setup.adsrs = adsrs ? adsrs : "";
+    } catch (...) {
+    }
+}
+
+void geode_loop_job_set_sound_tuning(geode_loop_job* h, const float* saved, int count) {
+    if (!h) return;
+    try {
+        assign(h->setup.soundTuning, saved, count);
+    } catch (...) {
+    }
+}
+
+void geode_loop_job_set_reactions(geode_loop_job* h, const char* reactions) {
+    if (!h) return;
+    try {
+        h->setup.reactions = reactions ? reactions : "";
+        h->setup.hasReactions = reactions != nullptr;
     } catch (...) {
     }
 }

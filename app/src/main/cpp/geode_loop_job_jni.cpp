@@ -72,29 +72,28 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetParams
     geode_loop_job_set_params(jobOf(job), data.get(), data.length());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetLfo(JNIEnv* env, jobject, jlong job, jint slot,
-                                                                              jfloatArray config) {
-    FloatElements data(env, config);
-    geode_loop_job_set_lfo(jobOf(job), slot, data.get(), data.length());
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetLfos(JNIEnv* env, jobject, jlong job,
+                                                                               jstring lfos) {
+    Utf8Chars text(env, lfos);
+    geode_loop_job_set_lfos(jobOf(job), text.get());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetAdsr(JNIEnv* env, jobject, jlong job,
-                                                                               jint slot, jfloatArray config) {
-    FloatElements data(env, config);
-    geode_loop_job_set_adsr(jobOf(job), slot, data.get(), data.length());
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetAdsrs(JNIEnv* env, jobject, jlong job,
+                                                                                jstring adsrs) {
+    Utf8Chars text(env, adsrs);
+    geode_loop_job_set_adsrs(jobOf(job), text.get());
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetSoundTuning(JNIEnv* env, jobject, jlong job,
-                                                                                      jfloatArray tuning) {
-    FloatElements data(env, tuning);
+                                                                                      jfloatArray saved) {
+    FloatElements data(env, saved);
     geode_loop_job_set_sound_tuning(jobOf(job), data.get(), data.length());
 }
 
-// A null list means the user set no reactions of their own, which is not the same as an empty one.
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetUserReactions(JNIEnv* env, jobject, jlong job,
-                                                                                        jfloatArray routes) {
-    FloatElements data(env, routes);
-    geode_loop_job_set_user_reactions(jobOf(job), data.get(), data.length(), routes ? 1 : 0);
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetReactions(JNIEnv* env, jobject, jlong job,
+                                                                                    jstring reactions) {
+    Utf8Chars text(env, reactions);
+    geode_loop_job_set_reactions(jobOf(job), text.get());
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopJobSetMotion(JNIEnv* env, jobject, jlong job,

@@ -16,12 +16,11 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `MilkdropEngine` | 12 | **deleted**: `available` was "libgeode loaded", from when MilkDrop was a library of its own. `GeodeNative` loads the same library and each of its three callers calls native right beside the check, so it was always true where it was read; the three checks are gone. |
 | `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test now checks the `react` rows of `geode_mod_catalog_text`, which Customize reads alone. |
 | `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the one constant in use, the tuning's 30 floats, is `SoundTuning.FLOATS`, still held to the header by `SoundTuningTest`. |
-| `TransitionStyle` | 9 | pending |
 | `TouchField` | 13 | pending |
 | `FluidQuality` | 13 | pending |
 | `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test that holds the `ReactSource` mirror to the native catalogue now compares the lines themselves. |
 | `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the tuning's slots are native's (`core/sound/Tuning`). |
-| `TransitionStyle` | 9 | pending: its one engine reader is `LookSnapshot`'s default id; the shell no longer names it. |
+| `TransitionStyle` | 9 | **deleted**: its one reader was `LookSnapshot`'s default id, now the text `"fade"`; the ids are native (`core/viz/Transition`, `core/viz/VisualSafety`). |
 | `TouchField` | 13 | **deleted**: the finger slots are native's (`TouchField::kMaxPoints`), published as the catalogue's `touchPoints` value; the gestures and the wallpaper size their buffer by it. Pinned in `catalogue_test.cpp` and the fixture. |
 | `FluidQuality` | 13 | **moved to UI**: the chips' names are private to `ui/CustomizeControls`, shown for the catalogue's `fluidTiers`. |
 | `SceneFactory` | 14 | pending |
@@ -59,7 +58,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ModConfigCodec` | 81 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `ParamSchema` | 90 | pending |
-| `PerformanceSettings` | 94 | pending |
+| `PerformanceSettings` | 94 | **shrunk** (97, a value holder): the preset match, the scale choices and the Liquid policy fallback are `core/viz/frame/Quality` and `liquid::hotPolicyFrom` through `core/api/geode_perf_api.cpp`, test `core/tests/quality_test.cpp`. |
 | `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
 | `SampleRing` | 95 | pending |
 | `VisualStyleCatalog` | 106 | **moved to UI**: labels are string resources (`render/scene/StyleLabels` in `:app`); its id lists are native. |

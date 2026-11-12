@@ -204,6 +204,7 @@ The renderer runs these in order each frame.
 - In Liquid mode a 3D style dives by the endless zoom stage.
 - In Liquid mode touch moves the liquid.
 - In Liquid mode a hot phone follows Settings › Performance.
+- `core/viz/frame/Quality` is Settings › Performance's tiers, scale choices, preset match and first-run pick (`core/api/geode_perf_api.cpp`).
 
 ## UI blur
 

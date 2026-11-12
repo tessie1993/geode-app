@@ -51,7 +51,6 @@ allowed=(
     "$S/render/BlendMode.kt"
     "$S/render/PerformanceSettings.kt"
     "$S/render/SceneFactory.kt"
-    "$S/render/TransitionStyle.kt"
     "$S/render/bridge/NativeViz.kt"
     "$S/render/bridge/SceneParamsCodec.kt"
     "$S/render/bridge/StyleSchedule.kt"

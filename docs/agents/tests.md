@@ -86,6 +86,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.
 - `output_test.cpp`: export planning (`core/output`: `FrameClock`, `LoopPlan`, `EncodePlan`, `Chapters`) and its C ABI.
 - `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
+- `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
+- `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
 - `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.

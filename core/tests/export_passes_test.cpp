@@ -223,6 +223,20 @@ void theTiledRasterIsUnchangedAndASingleMarkHugsItsText() {
     check(wm::tileWidth(300.0f, 48.6f, wm::kCorner) == 339, "a corner tile is the text plus its shadow's room");
     check(wm::tileHeight(339, 48.6f, wm::kCorner) == 88, "and 1.8 text heights high");
     check(wm::tileWidth(0.0f, 0.0f, wm::kEndCard) == 1 && wm::tileHeight(0, 0.0f, wm::kEndCard) == 1, "never an empty tile");
+
+    // The paint and the text's place in the tile: the Kotlin overlay's constants and its float arithmetic.
+    const auto paint = wm::paint(1080, wm::kTiled);
+    check(paint.textPx == wm::textPx(1080) && paint.alpha == 92 && paint.letterSpacingEm == 0.04f &&
+              paint.shadowRadiusPx == wm::textPx(1080) * 0.12f && paint.shadowAlpha == 70,
+          "the paint: size, alpha 92, 0.04 em, a shadow 0.12 of the size at alpha 70");
+    check(wm::paint(1080, wm::kEndCard).alpha == wm::textAlpha(wm::kEndCard), "the end card's alpha");
+    const auto corner = wm::raster(300.0f, -45.0f, 12.0f, 48.6f, wm::kCorner);
+    check(corner.width == 339 && corner.height == 88 && corner.angleDegrees == 0.0f, "a corner raster's tile");
+    check(corner.pivotX == 169.5f && corner.pivotY == 44.0f, "turned about the tile's centre");
+    check(corner.textX == 19.5f && corner.textY == 60.5f, "the text centred across and on its ascent..descent");
+    const auto tiled = wm::raster(300.0f, -45.0f, 12.0f, 48.6f, wm::kTiled);
+    check(tiled.width == wm::tileWidth(300.0f) && tiled.height == wm::tileHeight(tiled.width) && tiled.angleDegrees == -24.0f,
+          "the pattern's raster keeps its power-of-two tile and its slant");
 }
 
 void theTiledLayoutIsThePatternAndACornerMarkSitsInsideItsMargin() {

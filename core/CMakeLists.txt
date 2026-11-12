@@ -91,6 +91,11 @@ add_library(geode_core STATIC
     api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp
+    output/ExportRange.cpp
+    output/RenderBatch.cpp
+    api/geode_render_plan_api.cpp
+    output/LoudnessScan.cpp
+    api/geode_export_audio_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp

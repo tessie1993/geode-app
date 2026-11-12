@@ -2,12 +2,10 @@
 // argument checks and copies live here; the rules are in output/ and audio/dsp/PcmConvert and PcmTiming,
 // each host-tested in core/tests.
 #include <algorithm>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
 #include "audio/dsp/PcmTiming.hpp"
-#include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
@@ -27,19 +25,6 @@ void fill(const out::LoopSpec& s, geode_loop_spec* o) {
     o->crossfade_frames = s.crossfadeFrames();
     o->source_frames = s.sourceFrames();
     o->loop_duration_us = s.loopDurationUs();
-}
-
-int copyChapters(const std::vector<out::ChapterSpan>& spans, int64_t* start, int64_t* duration, int32_t* source,
-                 int capacity) {
-    const int n = static_cast<int>(spans.size());
-    const int writable = std::min(n, std::max(capacity, 0));
-    for (int i = 0; i < writable; ++i) {
-        const auto& c = spans[static_cast<size_t>(i)];
-        if (start) start[i] = c.startMs;
-        if (duration) duration[i] = c.durationMs;
-        if (source) source[i] = c.source;
-    }
-    return n;
 }
 
 }  // namespace
@@ -141,18 +126,6 @@ int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowe
     const auto estimate = out::record::estimate(video_bps, length_sec);
     if (out_lowered) *out_lowered = estimate.lowered ? 1 : 0;
     return estimate.bytes;
-}
-
-int geode_chapters_from_clips(const int64_t* starts_ms, const int64_t* durations_ms, int count, int64_t* out_start_ms,
-                              int64_t* out_duration_ms, int32_t* out_source, int capacity) {
-    return copyChapters(out::chaptersFromClips(starts_ms, durations_ms, count), out_start_ms, out_duration_ms, out_source,
-                        capacity);
-}
-
-int geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t total_ms, int64_t* out_start_ms,
-                                int64_t* out_duration_ms, int32_t* out_source, int capacity) {
-    return copyChapters(out::chaptersFromMarkers(markers_ms, count, total_ms), out_start_ms, out_duration_ms, out_source,
-                        capacity);
 }
 
 size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels, int16_t* o) {

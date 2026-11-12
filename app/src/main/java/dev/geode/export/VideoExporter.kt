@@ -2,6 +2,7 @@ package dev.geode.export
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
@@ -18,6 +19,8 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.LoudnessAdvice
+import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
@@ -76,6 +79,12 @@ class EncoderAttempt(
     val bitRate: Int,
 )
 
+/** The part of a track a render covers, as native picked it (`GeodeNative.exportRangeOf`, `exportRangeCapped`). */
+data class ExportRange(
+    val startMs: Long,
+    val durationMs: Long,
+)
+
 enum class ExportQuality(
     val shortSide: Int,
     val bitRate: Int,
@@ -128,6 +137,9 @@ class VideoExporter(
         private const val TIMEOUT_US: Long = 10_000
 
         private const val FLUSH_ATTEMPT_LIMIT = 1_000
+
+        // The double[] exportLoudnessMeasure fills.
+        private const val LOUDNESS_DOUBLES = 9
 
         /**
          * Share of [export]'s progress spent transcoding the audio before the first frame. Public
@@ -306,15 +318,12 @@ class VideoExporter(
      * Measures the audio Geode just muxed into [uri] and, if it decoded, turns that measurement
      * into advice for [target].
      *
-     * This deliberately re-decodes the finished file rather than the source: [LoudnessMeter] is
-     * built to measure "the thing that will actually be uploaded", and by the time [encodeInto]
-     * has run, the AAC track already lives inside a container [LoudnessMeter] can open directly —
-     * unlike [AudioTranscoder]'s intermediate `.bin`, which is a raw elementary stream with no
-     * container framing for [android.media.MediaExtractor] to parse. Geode does not yet have
-     * anywhere upstream to apply the resulting gain: [AudioTranscoder] owns the only PCM Geode
-     * ever holds for this file, and turning [LoudnessAdvice.gainDb] into an actual correction
-     * means scaling samples inside its decode loop, which this unit does not touch. So today this
-     * only reports what a platform would do to the file as exported.
+     * This deliberately re-decodes the finished file rather than the source: it measures "the thing
+     * that will actually be uploaded", and by the time [encodeInto] has run, the AAC track lives
+     * inside a container the platform extractor opens, unlike [AudioTranscoder]'s raw `.bin`. Geode
+     * does not yet apply the resulting gain: [AudioTranscoder] owns the only PCM Geode ever holds for
+     * this file, so today this only reports what a platform would do to the file as exported. The
+     * decode, the meter and the advice are native (`GeodeNative.exportLoudnessMeasure`).
      *
      * A file the encoder just finished writing successfully is not allowed to be reported as a
      * failed export over a problem in this purely-informational re-read, so any exception here is
@@ -324,18 +333,28 @@ class VideoExporter(
     private suspend fun measureLoudness(
         uri: Uri,
         target: LoudnessTarget,
-    ): LoudnessAdvice? {
-        val result =
-            try {
-                LoudnessMeter(context).measure(uri)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Post-export loudness measurement failed", e)
-                return null
+    ): LoudnessAdvice? =
+        try {
+            withContext(Dispatchers.IO) {
+                context.contentResolver.openAssetFileDescriptor(uri, "r")?.let { afd ->
+                    val length = afd.declaredLength
+                    val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
+                    val out = DoubleArray(LOUDNESS_DOUBLES)
+                    val fd = afd.parcelFileDescriptor.detachFd()
+                    val sentence = GeodeNative.exportLoudnessMeasure(fd, offset, length, target.nativeIndex, out)
+                    if (sentence < 0) {
+                        null
+                    } else {
+                        LoudnessAdvice(target, sentence, out[0], out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] != 0.0)
+                    }
+                }
             }
-        return (result as? LoudnessResult.Measured)?.let { LoudnessTargets.advise(it.report, target) }
-    }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Post-export loudness measurement failed", e)
+            null
+        }
 
     @Suppress("NestedBlockDepth", "LongParameterList")
     private fun encodeInto(

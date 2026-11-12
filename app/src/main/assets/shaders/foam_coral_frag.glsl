@@ -29,7 +29,7 @@ void main() {
     gFoamFall = 0.5;
     gFoamRadius *= 1.15;
     gFoamInvS += 0.08;
-    gFoamShell = 0.032 * (1.0 + 0.7 * gFoamKick);
+    gFoamShell = 0.032 * gFoamThick * (1.0 + 0.7 * gFoamKick);
     gFoamShift.xy += 0.4 * vec2(sin(SND_MID_TIME * FOAM_RATE(41.0)), cos(SND_BASS_TIME * FOAM_RATE(29.0)));
     vec3 ro;
     vec3 rd;

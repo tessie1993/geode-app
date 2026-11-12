@@ -191,6 +191,18 @@ window.__render = async function (job) {
     gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
     out.firstDrawMs = t2 - t1;
     out.drawMs = performance.now() - t2;
+    if (job.later) {
+      // The same frame one second on: how much of the picture moved (mean channel change, 0..1).
+      for (const u of job.later) upload(program, u);
+      const next = new Uint8Array(px.length);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, next);
+      let moved = 0;
+      for (let i = 0; i < px.length; i++) moved += Math.abs(next[i] - px[i]);
+      out.moved = moved / (px.length * 255);
+      for (const u of job.uniforms) upload(program, u);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     const err = gl.getError();
     out.glError = err === gl.NO_ERROR ? 0 : err;
     Object.assign(out, frameStats(px, job.width * job.height));

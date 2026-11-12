@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.Catalogue
@@ -206,7 +205,7 @@ class StyleThumbnailRenderTest {
             viz.surfaceChanged(RENDER_SIZE, RENDER_SIZE)
             check(viz.setScene(id)) { "native renderer cannot draw it" }
             viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
-            viz.setSoundTuning(SoundTuning())
+            viz.setSoundTuning(null)
             // Default Customize values: the thumb shows the style as a new user first meets it.
             val params = SceneParams(fluidAutoQuality = false)
             // No user routes: native resolves the style's DNA for this scene and reactSeed before the first render.

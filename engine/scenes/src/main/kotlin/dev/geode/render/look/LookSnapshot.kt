@@ -1,6 +1,5 @@
 package dev.geode.render.look
 
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
@@ -33,7 +32,8 @@ data class LookSnapshot(
     val adsrs: List<AdsrConfig> = List(AdsrEngine.COUNT) { AdsrConfig() },
     /** The user's own reaction routes, or null to play the style's DNA (native merges under the hand mask). */
     val reactions: List<ReactionRoute>? = null,
-    val soundTuning: SoundTuning = SoundTuning(),
+    /** Settings › Audio's saved tuning, null for the engine's defaults. */
+    val soundTuning: List<Float>? = null,
     /** Vestibular accessibility, and the dream's gentle flight; the flash clamp is native and unconditional. */
     val reducedMotion: Boolean = false,
     /** A requested cut becomes a fade natively (core/viz/VisualSafety); an offscreen renderer cuts for real, natively. */

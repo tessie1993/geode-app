@@ -52,7 +52,7 @@ import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
-import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
 import dev.geode.model.StyleShelf
@@ -93,7 +93,7 @@ class PrefsSchemaTest {
                 GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
             },
             Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
-                val tuning = SoundTuning.fromFloats(FloatArray(SoundTuning.FLOATS))
+                val tuning = List(GeodeNative.SOUND_TUNING_FLOATS) { 0f }
                 SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
             },
             Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {

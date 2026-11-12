@@ -1,31 +1,13 @@
 package dev.geode.ui
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
+/**
+ * The stage's style order. The walk through it (wrap, locked styles, MilkDrop outside the order) and
+ * what the step walks per tab are native now, pinned by core/tests/stage_step_test.cpp.
+ */
 class StageStyleTest {
-    private val order = listOf("a", "b", "c", "d")
-
-    @Test
-    fun swipesWrapAndSkipLockedStyles() {
-        assertEquals("b", nextStageStyle(order, "a", 1) { false })
-        assertEquals("a", nextStageStyle(order, "d", 1) { false })
-        assertEquals("d", nextStageStyle(order, "a", -1) { false })
-        assertEquals("d", nextStageStyle(order, "b", 1) { it == "c" })
-    }
-
-    @Test
-    fun aStyleOutsideTheOrderStartsAtAnEnd() {
-        assertEquals("a", nextStageStyle(order, "milkdrop", 1) { false })
-        assertEquals("d", nextStageStyle(order, "milkdrop", -1) { false })
-    }
-
-    @Test
-    fun nothingWhenEveryOtherStyleIsLocked() {
-        assertNull(nextStageStyle(order, "a", 1) { it != "a" })
-    }
-
     @Test
     fun theRealOrderHasNoDuplicates() {
         val real = stageStyleOrder()

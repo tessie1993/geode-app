@@ -159,6 +159,8 @@ class PlayerSession internal constructor(
 
                 override val presetMirrorUri: String? get() = container.library.value.value.presetMirrorUri
                 override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
+
+                override fun onMilkFilesChanged() = milkImport.relist()
             },
         )
 
@@ -237,6 +239,8 @@ class PlayerSession internal constructor(
             object : TextureController.Host {
                 override fun onGeneratedPresetsRemoved(paths: List<String>) {
                     vizStateStore.dropRemovedMilkPaths(paths)
+                    // The MilkDrop page, the stage's step and Auto all read the one list: never a deleted preset.
+                    milkImport.relist()
                 }
             },
         )
@@ -469,7 +473,11 @@ class PlayerSession internal constructor(
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
 
-                override fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkPresetFilesAsync(onDone)
+                override val milkFiles: List<MilkFile> get() = milkImport.files.value
+
+                override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
+
+                override fun relistMilk() = milkImport.relist()
             },
         )
 
@@ -893,7 +901,11 @@ class PlayerSession internal constructor(
         }
         scope.launch {
             WidgetStyles.steps(application).collect { step ->
-                nextStageStyle(stageStyleOrder(), chosenSceneId, step) { !allowsStyle(it) }?.let(::selectScene)
+                // The widget has no tab: it steps the styles, by the stage's native walk.
+                val order = stageStyleOrder()
+                val next =
+                    GeodeNative.stageStepIndex(BooleanArray(order.size) { allowsStyle(order[it]) }, order.indexOf(chosenSceneId), step)
+                if (next >= 0) selectScene(order[next])
             }
         }
         // The playback session records plays (#371); this only tells history screens to re-read.

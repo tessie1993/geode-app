@@ -19,7 +19,7 @@ The vector stays wherever a single flat colour is needed:
 | Launcher background layer (hidden under the opaque foreground), themed icon, status-bar icon | Vector, `tools/brand_assets.py` | `res/drawable/ic_launcher_background.xml`, `ic_launcher_monochrome.xml`, `ic_stat_muzviz.xml` |
 | Wordmark on the system splash (its branding image, 200×80 dp) and in the app (`ui/theme/Wordmark`, BootIntro) | Outlined Pacifico and Orbitron, `tools/wordmark.py` | `res/drawable/splash_wordmark.xml` |
 | Vector masters | Vector, `tools/brand_assets.py` | `beatrealms-icon.svg`, `beatrealms-mark.svg`, `beatrealms-monochrome.svg` |
-| Play feature graphic, 1024×500, no alpha | The neon eye over an indigo ground with the splash's outlined wordmark, `tools/feature_graphic.py` | `beatrealms-feature-graphic.svg` → `beatrealms-feature-graphic-1024x500.png` |
+| Play feature graphic, 1024×500, no alpha | The neon eye beside the wordmark (read from `splash_wordmark.xml`, gradients and rims included) over an indigo ground, `tools/feature_graphic.py` | `beatrealms-feature-graphic.svg` → `beatrealms-feature-graphic-1024x500.png` |
 
 The raster icon puts the render at 75% of the canvas on brand void (`#06050B`, the render's own
 background), with a wide feather. The eye then fits the adaptive icon's 72dp visible area and the
@@ -76,7 +76,7 @@ const { chromium } = require('playwright');
 
 The ground is indigo, not the app's black: Play asks feature graphics to avoid pure black,
 white and dark grey, which blend into the store. Everything that matters sits in the middle
-60 %. Alt text for the Console: "The BeatRealms 3D eye logo, made of sound waves, over a
+80 %. Rerun both steps whenever `tools/wordmark.py` changes the wordmark. Alt text for the Console: "The BeatRealms 3D eye logo, made of sound waves, over a
 spectrum of light".
 
 `beatrealms-icon-512.png` is `flow/icon-neon.jpg` resized to 512 and saved as RGBA by `tools/brand_raster.sh`. `flow/icon-art.jpg` is the earlier Flow render, kept for the record.

@@ -2,6 +2,8 @@ package dev.geode.store
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.ui.semantics.SemanticsActions
@@ -152,7 +154,7 @@ internal class StoreSetup(
  * What a capture does with the running app: plays the demo groove, opens Visuals, clears the
  * options and the chrome off the visual, and writes the screenshot or the screen recording.
  *
- * Screenshots are the system compositor's (UiAutomation), so they hold the GL surface's frame,
+ * Screenshots are the system compositor's (`screencap`, see [screen]), so they hold the GL surface's frame,
  * and they are written without an alpha channel: Play takes "JPEG or 24-bit PNG (no alpha)"
  * (support.google.com/googleplay/android-developer/answer/9866151). Files go through
  * [TestStorage] under `store-shots/<form>/`, which survives Orchestrator's clearPackageData.
@@ -205,7 +207,7 @@ internal class StoreStage(
 
     fun shot() {
         runCatching { compose.waitForIdle() }
-        val raw = checkNotNull(TourDevice.automation.takeScreenshot()) { "the system gave no screenshot" }
+        val raw = checkNotNull(screen()) { "screencap gave no picture" }
         val opaque = raw.copy(Bitmap.Config.ARGB_8888, true)
         opaque.setHasAlpha(false)
         val file = String.format(Locale.US, "store-shots/%s/%02d-%s.png", setup.form, setup.shot.index, setup.shot.name)
@@ -214,6 +216,22 @@ internal class StoreStage(
         raw.recycle()
         opaque.recycle()
     }
+
+    /**
+     * The display as SurfaceFlinger composes it, through the shell's `screencap -p`, read as a PNG.
+     *
+     * Not `UiAutomation.takeScreenshot()`: it gives up and returns null when SurfaceFlinger takes
+     * longer than 4 s (`ScreenCapture.SCREENSHOT_WAIT_TIME_S` times `ro.hw_timeout_multiplier`, 1 on
+     * the emulator), and on the CI emulator SwiftShader composes the whole 2560 x 1600 panel on the
+     * CPU while the visual draws, so a capture often takes longer (run 43112454833: every null was
+     * "ScreenCapture: Timed out waiting for screenshot results" 4 s after WindowManager's
+     * captureDisplay, beside "RanchuHwc: presentDisplay waited on fence for 3000 ms"). `screencap`
+     * asks SurfaceFlinger for the same capture and waits for it to finish (SyncScreenCaptureListener).
+     */
+    private fun screen(): Bitmap? =
+        ParcelFileDescriptor.AutoCloseInputStream(TourDevice.automation.executeShellCommand("screencap -p")).use {
+            BitmapFactory.decodeStream(it)
+        }
 
     /**
      * Records the screen for [seconds] with the device's own `screenrecord`, as the shell user;

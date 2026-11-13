@@ -148,7 +148,7 @@ internal fun LibraryEmptyHost(
                 playerViewModel.noteExternalAudioConsentPending()
                 projectionLauncher.launch(context.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
             } else {
-                playerViewModel.noteExternalAudioConsentDenied()
+                playerViewModel.noteExternalAudioPermissionDenied()
             }
         }
     LibraryEmpty(

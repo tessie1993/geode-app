@@ -214,6 +214,13 @@ internal class CaptureController(
         }
     }
 
+    /** The mic permission was refused before Android's capture dialog: a different refusal, with Settings as the way back. */
+    fun noteExternalAudioPermissionDenied() {
+        _externalAudio.update {
+            it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
+        }
+    }
+
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
         if (!hasMicPermission()) {
             _externalAudio.update {

@@ -25,8 +25,16 @@ class HistoryStore(
         var listenedMs: Long = 0L,
     )
 
-    init {
-        synchronized(lock) { readLocked() }
+    /**
+     * The file is read and parsed on [writer], not in the constructor: [dev.geode.playback.PlaybackSession]
+     * builds this on Main the first time the UI or the service acquires the player, and the JSON parse of a
+     * few hundred plays was disk I/O plus a parse on that thread at cold start. Every reader waits for it
+     * ([awaitLoad]), normally long finished by then; every write is queued on the same thread after it.
+     */
+    private val loaded = writer.submit { synchronized(lock) { readLocked() } }
+
+    private fun awaitLoad() {
+        runCatching { loaded.get() }
     }
 
     private fun readLocked() {
@@ -72,6 +80,7 @@ class HistoryStore(
         title: String,
         artist: String = "",
     ) {
+        awaitLoad()
         synchronized(lock) {
             val e = entries.getOrPut(uri) { Entry(uri, 0L, 0, title) }
             e.lastPlayedMs = maxOf(System.currentTimeMillis(), newestStamp() + 1)
@@ -87,6 +96,7 @@ class HistoryStore(
         deltaMs: Long,
     ) {
         if (deltaMs <= 0) return
+        awaitLoad()
         synchronized(lock) {
             entries[uri]?.let { it.listenedMs += deltaMs }
             dirty = true
@@ -110,10 +120,15 @@ class HistoryStore(
 
     private fun newestStamp(): Long = entries.values.maxOfOrNull { it.lastPlayedMs } ?: 0L
 
-    fun recentlyPlayed(limit: Int = 20): List<Entry> =
-        synchronized(lock) { entries.values.sortedByDescending { it.lastPlayedMs }.take(limit) }
+    fun recentlyPlayed(limit: Int = 20): List<Entry> {
+        awaitLoad()
+        return synchronized(lock) { entries.values.sortedByDescending { it.lastPlayedMs }.take(limit) }
+    }
 
-    fun entryFor(uri: String): Entry? = synchronized(lock) { entries[uri] }
+    fun entryFor(uri: String): Entry? {
+        awaitLoad()
+        return synchronized(lock) { entries[uri] }
+    }
 
     private fun persist() {
         if (!writeQueued.compareAndSet(false, true)) return

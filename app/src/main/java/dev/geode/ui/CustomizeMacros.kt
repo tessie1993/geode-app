@@ -20,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -89,8 +90,10 @@ internal fun MacrosTab(
     val editor = remember(state, sceneId) { store.editor(sceneId) }
     val draftId = state.draft?.id
     // The knobs' live modulation, polled while they are on screen; under reduced motion read once, for the still range.
+    // Held as a State and read only inside each dial's draw (and a derived source kind), never here: a ~30 Hz poll
+    // read in this scope recomposed the whole tab, every row and every knob, on each tick.
     val reduced = LocalReducedMotion.current
-    val live by produceState(emptyMap<Int, MacroLiveMod>(), reduced, state) {
+    val liveMods = produceState(emptyMap<Int, MacroLiveMod>(), reduced, state) {
         value = store.liveMods()
         while (!reduced) {
             delay(LIVE_POLL_MS)
@@ -104,7 +107,7 @@ internal fun MacrosTab(
                 row.forEach { knob ->
                     MacroKnobDial(
                         knob = knob,
-                        live = live[knob.id],
+                        live = { liveMods.value[knob.id] },
                         reduced = reduced,
                         dial = dial,
                         onChange = { store.setValue(knob.id, it, persist = false) },
@@ -156,9 +159,9 @@ private fun modColour(sources: Int): Color =
  * a state description that changes many times a second is re-announced each time. The arc shows where it is now.
  */
 @Composable
-private fun liveText(live: MacroLiveMod?): String? {
-    live ?: return null
-    return when (live.sources) {
+private fun liveText(sources: Int?): String? {
+    sources ?: return null
+    return when (sources) {
         MacroLiveMod.WAVE -> stringResource(R.string.macro_knob_moved_by_wave)
         MacroLiveMod.ENVELOPE -> stringResource(R.string.macro_knob_moved_by_envelope)
         else -> stringResource(R.string.macro_knob_moved_by_both)
@@ -192,7 +195,7 @@ private fun DrawScope.drawModulation(
 @Composable
 private fun MacroKnobDial(
     knob: MacroEditorKnob,
-    live: MacroLiveMod?,
+    live: () -> MacroLiveMod?,
     reduced: Boolean,
     dial: Dial,
     onChange: (Float) -> Unit,
@@ -211,7 +214,10 @@ private fun MacroKnobDial(
     val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val arc = MaterialTheme.colorScheme.primary
     val text = knobText(knob.value)
-    val spoken = liveText(live)?.let { "$text, $it" } ?: text
+    // Only who moves the knob reaches composition (it changes rarely); the live value is read in the Canvas's draw.
+    val liveNow by rememberUpdatedState(live)
+    val liveSources by remember { derivedStateOf { liveNow()?.sources } }
+    val spoken = liveText(liveSources)?.let { "$text, $it" } ?: text
     Column(modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
@@ -244,7 +250,7 @@ private fun MacroKnobDial(
                 drawArc(track, START_DEG, SWEEP_DEG, false, topLeft, arcSize, style = line)
                 // From the top (centre) toward the turn.
                 drawArc(arc, CENTRE_DEG, knob.value * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
-                if (live != null) drawModulation(live, knob.value, reduced, stroke)
+                live()?.let { drawModulation(it, knob.value, reduced, stroke) }
             }
         }
         // Name and value, then the ⋮: no caption (UI V2 rule 3), and the knobs keep one height.

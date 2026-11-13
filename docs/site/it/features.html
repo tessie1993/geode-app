@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Funzioni di BeatRealms 3D</title>
+<meta name="description" content="Tutto ciò che offre BeatRealms 3D: effetti visivi 3D che sentono la canzone, modalità Auto, Customize, esportazione video, registrazione dal vivo, sfondo animato, Cast e cosa includono la versione gratuita e Pro.">
+<meta name="theme-color" content="#06050B">
+<link rel="canonical" href="https://beatrealms3d.pages.dev/it/features.html">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BeatRealms 3D: tutte le funzioni">
+<meta property="og:description" content="Effetti visivi 3D che si muovono con la tua musica, uno studio che li trasforma in video, e cosa includono la versione gratuita e Pro.">
+<meta property="og:image" content="https://beatrealms3d.pages.dev/assets/og-image.png">
+<meta property="og:image:alt" content="Il logo di BeatRealms 3D, un occhio fatto di onde sonore, su uno spettro di luce">
+<meta name="twitter:card" content="summary_large_image">
+<!-- i18n:alternates -->
+<link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html">
+<link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html">
+<link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html">
+<link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html">
+<link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html">
+<link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html">
+<link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html">
+<link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html">
+<!-- /i18n:alternates -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": [
+    "SoftwareApplication",
+    "MobileApplication"
+  ],
+  "name": "BeatRealms 3D",
+  "description": "A music player with 3D visuals that react to your songs, and a studio that renders them to video. Offline, no account, no ads.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 13 or newer",
+  "image": "https://beatrealms3d.pages.dev/assets/og-image.png",
+  "url": "https://beatrealms3d.pages.dev/",
+  "installUrl": "https://play.google.com/store/apps/details?id=com.beatrealms3d.app",
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+
+  .promo-hero { padding: 7.5rem 0 3rem; background: radial-gradient(60rem 36rem at 50% 30%, rgba(124, 77, 255, .25), transparent 65%), var(--void); }
+  .promo-hero .wrap { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: center; }
+  .eyebrow { font: 600 .75rem/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; margin: 0 0 .75rem; }
+  .promo-hero h1 { font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; margin: 0 0 1rem; }
+  .facts { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.5rem 0; padding: 0; list-style: none; }
+  .facts li { border: 1px solid var(--line); border-radius: 999px; padding: .3rem .8rem; font-size: .85rem; color: var(--muted); }
+
+  /* Three phones in perspective; the pointer tilts them a little. */
+  .fan { position: relative; height: min(70vw, 34rem); perspective: 1200px; }
+  .fan img {
+    position: absolute; top: 50%; left: 50%; width: min(30vw, 15rem); height: auto; aspect-ratio: 720 / 1403; object-fit: cover;
+    border-radius: 1.6rem; border: 1px solid rgba(199, 146, 234, .35);
+    box-shadow: 0 30px 80px rgba(124, 77, 255, .35);
+    transition: transform .6s cubic-bezier(.16, 1, .3, 1);
+  }
+  .fan img:nth-child(1) { transform: translate(-115%, -48%) rotateY(28deg) rotateZ(-4deg) scale(.86); }
+  .fan img:nth-child(2) { transform: translate(-50%, -50%) translateZ(60px); z-index: 2; }
+  .fan img:nth-child(3) { transform: translate(15%, -48%) rotateY(-28deg) rotateZ(4deg) scale(.86); }
+  .fan-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .4s ease-out; }
+
+  .jump { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+  .jump a { display: inline-block; border: 1px solid rgba(124, 77, 255, .6); border-radius: 999px; padding: .4rem .9rem; color: var(--text); text-decoration: none; font-size: .9rem; }
+  .jump a:hover { box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(137, 221, 255, .35); }
+
+  .feature, .promo-hero { overflow-x: clip; }
+  .feature .wrap { display: grid; gap: 3rem; grid-template-columns: 1.1fr .9fr; align-items: center; }
+  .feature.flip .wrap > .shot { order: -1; }
+  .feature h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); line-height: 1.1; }
+  .feature p { color: var(--muted); }
+  .feature ul { color: var(--muted); padding-left: 1.2rem; }
+  .feature li + li { margin-top: .4rem; }
+  .shot { justify-self: center; position: relative; }
+  .shot.pair { display: flex; gap: 1rem; align-items: flex-start; }
+  .shot.pair img { width: min(40vw, 15rem); }
+  .shot.pair img + img { margin-top: 3rem; }
+  .shot img { width: min(72vw, 19rem); height: auto; aspect-ratio: 720 / 1403; object-fit: cover; border-radius: 1.8rem; display: block; border: 1px solid rgba(199, 146, 234, .35); box-shadow: 0 0 2px rgba(247, 210, 251, .6), 0 30px 80px rgba(124, 77, 255, .3); }
+  .shot::before { content: ""; position: absolute; inset: 12% -10%; border-radius: 50%; background: conic-gradient(var(--violet), var(--cyan), var(--lilac), var(--violet)); filter: blur(60px); opacity: .35; z-index: -1; animation: spin 18s linear infinite; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em; border-radius: 999px; padding: .15rem .55rem; vertical-align: middle; margin-left: .35rem; }
+  .tag.pro { color: #1b1206; background: var(--amber); }
+  .tag.free { color: #04121a; background: var(--cyan); }
+
+  .specs { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); margin: 1.25rem 0; }
+  .specs div { border: 1px solid var(--line); border-radius: 1rem; padding: .9rem 1rem; background: rgba(31, 17, 69, .45); }
+  .specs b { display: block; font: 600 .7rem/1.2 ui-monospace, Menlo, monospace; letter-spacing: .12em; color: var(--cyan); text-transform: uppercase; margin-bottom: .3rem; }
+
+  .gallery { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+  .gallery img { width: 100%; height: auto; aspect-ratio: 720 / 1403; object-fit: cover; border-radius: 1.25rem; border: 1px solid var(--line); display: block; transition: transform .3s ease; }
+  .gallery img:hover { transform: translateY(-6px) scale(1.02); }
+  .caption { color: var(--muted); font-size: .85rem; margin-top: 1rem; }
+
+  .table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 1.25rem; }
+  table { width: 100%; border-collapse: collapse; min-width: 34rem; }
+  th, td { text-align: left; padding: .85rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-size: .95rem; background: rgba(31, 17, 69, .6); }
+  thead th:nth-child(2) { color: var(--cyan); }
+  thead th:nth-child(3) { color: var(--amber); }
+  tbody th { font-weight: 600; width: 34%; }
+  tbody td { color: var(--muted); }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+  .yes { color: var(--text); }
+  .no { color: #8d84a8; }
+
+  details { border: 1px solid var(--line); border-radius: 1rem; padding: 1rem 1.25rem; background: rgba(14, 6, 32, .6); }
+  details + details { margin-top: .75rem; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p, details ul { color: var(--muted); margin: .75rem 0 0; }
+  details li + li { margin-top: .35rem; }
+  details b { color: var(--text); }
+
+  .cta-band { text-align: center; }
+  .cta-band .cta { justify-content: center; }
+
+  @media (max-width: 52rem) {
+    .promo-hero .wrap, .feature .wrap { grid-template-columns: 1fr; }
+    .feature.flip .wrap > .shot { order: 0; }
+    .promo-hero { text-align: center; }
+    .facts, .promo-hero .cta { justify-content: center; }
+    .fan img { width: min(38vw, 13rem); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fan-inner { transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Vai al contenuto</a>
+
+<nav class="nav" aria-label="Principale">
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="./"><img src="../assets/wordmark.svg" alt="Home di BeatRealms 3D" width="100" height="40"></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#menu"/></svg></button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#visuals"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg>Visuals</a></li>
+      <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+      <li><a href="#studio"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#film"/></svg>Video</a></li>
+      <li><a href="#everything"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>Everything</a></li>
+      <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+      <li><a class="nav-cta" href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#download"/></svg>Get the app</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="promo-hero" aria-labelledby="top">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg> Music visualizer, player and video studio</p>
+      <h1 id="top">Tutte le funzioni di BeatRealms 3D</h1>
+      <p class="lede">Ascolta la tua musica e guardala muoversi in 3D. Gli effetti visivi sentono la canzone stessa, non solo il suo volume, e puoi trasformare ciò che vedi in un video. Offline, senza account e senza pubblicità.</p>
+      <ul class="facts" aria-label="In breve">
+        <li>334 stili visivi</li>
+        <li>700+ look</li>
+        <li>Video fino a 4K 60</li>
+        <li>Niente pubblicità, nessun tracciamento</li>
+        <li>Android 13+</li>
+      </ul>
+      <div class="cta"><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="../assets/badges/it.png" alt="Disponibile su Google Play" width="186" height="72"></a> <small>Installazione gratuita. Pro è un unico acquisto.</small></div>
+    </div>
+    <div class="fan" aria-hidden="true">
+      <canvas class="vortex" data-vortex></canvas>
+      <div class="fan-inner" id="fan">
+        <img src="../assets/shots/visuals-glass.webp" alt="">
+        <img src="../assets/shots/visuals-star.webp" alt="">
+        <img src="../assets/shots/visuals-tunnel.webp" alt="">
+      </div>
+    </div>
+  </div>
+</section>
+
+<main id="main">
+  <section aria-label="Sezioni">
+    <div class="wrap">
+      <ul class="jump">
+        <li><a href="#visuals">Effetti visivi che ascoltano</a></li>
+        <li><a href="#styles">334 stili</a></li>
+        <li><a href="#auto">Modalità Auto</a></li>
+        <li><a href="#customize">Customize</a></li>
+        <li><a href="#player">Lettore musicale</a></li>
+        <li><a href="#studio">Crea un video</a></li>
+        <li><a href="#record">Registrazione dal vivo</a></li>
+        <li><a href="#beyond">Oltre il telefono</a></li>
+        <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg> What's included</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="feature" id="visuals" aria-labelledby="h-visuals">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wave"/></svg> 01 · Visuals that listen</p>
+        <h2 id="h-visuals">Sente la canzone, non solo il volume</h2>
+        <p>Gli effetti visivi reagiscono al suono stesso, mentre suona:</p>
+        <ul>
+          <li>Volume, bassi, medi e alti</li>
+          <li>Colpi di batteria: cassa, rullante e charleston</li>
+          <li>Note, accordi e tonalità della canzone</li>
+          <li>I crescendo e i drop</li>
+        </ul>
+        <p>Niente suono, niente immagini: quando la musica si ferma, l'immagine si placa. Se lo attivi, gli effetti visivi possono anche seguire il microfono o il suono di un'altra app.</p>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/teal-kaleido.webp" alt="Un tunnel caleidoscopico verde acqua e ambra, a schermo intero nell'app" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section id="styles" aria-labelledby="h-styles">
+    <div class="wrap">
+      <p class="eyebrow reveal"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg> 02 · 334 styles</p>
+      <h2 id="h-styles" class="reveal">Attraversalo in volo, tuffatici dentro</h2>
+      <p class="intro reveal">Scene 3D da attraversare in volo, frattali, nebulose, paesaggi, vetro, simulazioni di fluidi e particelle, in diciannove famiglie. In più oltre 700 look inclusi e, con Pro, i tuoi file di preset .milk.</p>
+      <div class="gallery">
+        <img class="reveal" src="../assets/shots/ember-spire.webp" alt="Una guglia rosso brace di luce ripiegata" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/ribbon-vortex.webp" alt="Nastri di luce verde e viola che girano a spirale verso il centro" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/neon-flowers.webp" alt="Fiori al neon blu che girano a spirale nel buio" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/teal-kaleido.webp" alt="Un tunnel caleidoscopico verde acqua e ambra" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/visuals-gold.webp" alt="Un'esplosione caleidoscopica dorata nella schermata Visuals" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/amber-web.webp" alt="Una rete ambrata di linee di luce che si ripiega verso il centro" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/fire-storm.webp" alt="Luce arancione che scorre come fuoco" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/visuals-kaleido.webp" alt="Anelli di luce colorata nella schermata Visuals" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/visuals-star.webp" alt="Una stella rosa e arancione che sboccia nella schermata Visuals" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/magenta-bloom.webp" alt="Un fiore di luce magenta attorno a un esagono luminoso" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/ribbon-storm.webp" alt="Una tempesta di nastri arcobaleno che attraversa lo schermo" loading="lazy" width="720" height="1403">
+        <img class="reveal" src="../assets/shots/visuals-blue.webp" alt="Un tunnel di cristallo blu nella schermata Visuals" loading="lazy" width="720" height="1403">
+      </div>
+      <p class="caption">Screenshot dell'app su un telefono, durante la riproduzione di musica.</p>
+    </div>
+  </section>
+
+  <section class="feature flip" id="auto" aria-labelledby="h-auto">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg> 03 · Auto mode</p>
+        <h2 id="h-auto">Un regista che segue la canzone</h2>
+        <p>La modalità Auto cambia lo stile, la telecamera e il movimento mentre la canzone passa da una parte all'altra. I tuoi colori restano tuoi: non restringe mai la tavolozza che hai scelto.</p>
+        <p><span class="tag free">Gratis</span> il primo minuto di ogni canzone <span class="tag pro">Pro</span> tutta la canzone</p>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/visuals-tunnel.webp" alt="Un tunnel dorato di scie luminose nella schermata Visuals" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section class="feature" id="customize" aria-labelledby="h-customize">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg> 04 · Customize</p>
+        <h2 id="h-customize">Ogni effetto visivo, a modo tuo</h2>
+        <p>Parti da una manopola o scendi fino a undici gruppi di controlli. Tutto ciò che cambi si può salvare, condividere e ripristinare.</p>
+        <ul class="checks">
+          <li><b>Quattro manopole rapide.</b> Glow, Heat, Bend e Flow cambiano tutta l'atmosfera con un solo giro.</li>
+          <li><b>Manopole tutte tue</b> <span class="tag pro inline">Pro</span>. Collega qualsiasi parametro a una manopola, modellala con una curva (ease in, ease out, curva a S) e lascia che un'onda o un inviluppo la giri.</li>
+          <li><b>Scegli tu cosa reagisce.</b> Guarda e modifica cosa si muove su una cassa, una nota o un drop; mescolalo a caso, o torna alle impostazioni dello stile.</li>
+          <li><b>Undici gruppi di controlli.</b> Telecamera, movimento, il tuffo senza fine, effetti, transizioni e altro.</li>
+          <li><b>I tuoi colori.</b> Prendi la tavolozza dalla copertina dell'album, o scegli la tua.</li>
+          <li><b>Toccala.</b> Pizzica e ruota l'immagine, spalmala con le dita o spingi in giro la modalità liquida.</li>
+          <li><b>Preset e modelli.</b> Salva un look, prendi parti da un altro, condividilo come modello e apri quelli condivisi.</li>
+          <li><b>Rendi tutto casuale</b> <span class="tag pro inline">Pro</span>, poi tieni ciò che ti piace.</li>
+        </ul>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/visuals-blue.webp" alt="Un tunnel di cristallo blu nella schermata Visuals" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section class="feature flip" id="player" aria-labelledby="h-player">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg> 05 · Music player <span class="tag free">Gratis</span></p>
+        <h2 id="h-player">Prima di tutto, un vero lettore musicale</h2>
+        <ul>
+          <li>Brani, album, artisti, cartelle e playlist, con ricerca</li>
+          <li>Coda, riproduzione casuale, ripetizione e timer di spegnimento</li>
+          <li>ReplayGain, un equalizzatore e dissolvenze tra i brani</li>
+          <li>Testi da un file .lrc o dai tag del brano</li>
+          <li>Un widget per la schermata Home e un riquadro nelle Impostazioni rapide</li>
+        </ul>
+      </div>
+      <div class="shot pair reveal" data-drift="0.07"><img src="../assets/shots/screen-player.webp" alt="La schermata Player: copertina, barra di avanzamento con ripetizione A-B e controlli di riproduzione" loading="lazy" width="720" height="1403"><img src="../assets/shots/screen-settings.webp" alt="Le impostazioni con BeatRealms Pro sbloccato e le sezioni Playback, Sound and equalizer, Output e Library" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section class="feature" id="studio" aria-labelledby="h-studio">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#film"/></svg> 06 · Make a video</p>
+        <h2 id="h-studio">Esporta in video l'effetto visivo di una canzone</h2>
+        <p>Trasforma qualsiasi canzone sul tuo telefono in un MP4, pronto per un feed, una diretta o un grande schermo.</p>
+        <div class="specs">
+          <div><b>Risoluzione</b>720p, 1080p o 4K</div>
+          <div><b>Frequenza fotogrammi</b>da 24 a 60 fps</div>
+          <div><b>Codec</b>H.264 o HEVC</div>
+          <div><b>Formato</b>16:9, 9:16, 1:1, 4:5, 4:3 o 21:9</div>
+        </div>
+        <p><span class="tag free">Gratis</span> fino a 1080p a 30 fps, un minuto, con filigrana. <span class="tag pro">Pro</span> 4K, 60 fps, durata completa, senza filigrana, più esportazioni in loop e di un'intera coda o playlist.</p>
+        <p class="caption">La frequenza fotogrammi massima per ogni risoluzione, e HEVC, dipendono da ciò che può fare il codificatore video del tuo telefono.</p>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/screen-studio.webp" alt="Studio, scheda Render: il brano sorgente, il look e il formato impostato su 4K a 60 fps" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section class="feature flip" id="record" aria-labelledby="h-record">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#record"/></svg> 07 · Record <span class="tag pro">Pro</span></p>
+        <h2 id="h-record">Tieni premuto per registrare dal vivo</h2>
+        <p>Tieni un dito sull'effetto visivo per registrare un video dal vivo di ciò che mostra e sente, finché non ti fermi. Gli screenshot sono gratis.</p>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/ribbon-vortex.webp" alt="Nastri di luce verde e viola, a schermo intero nell'app" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section class="feature" id="beyond" aria-labelledby="h-beyond">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#cast"/></svg> 08 · Beyond the phone <span class="tag pro">Pro</span></p>
+        <h2 id="h-beyond">Sullo sfondo, sulla TV, sul portatile</h2>
+        <ul>
+          <li>Uno sfondo animato e un salvaschermo che reagiscono a ciò che stai ascoltando</li>
+          <li>Trasmetti l'effetto visivo e la musica su una TV con Google Cast</li>
+          <li>Mostra l'effetto visivo in un browser web su un computer collegato alla stessa rete Wi-Fi, tramite un link o un codice QR</li>
+          <li>Mostralo su uno schermo collegato: HDMI, USB-C o schermo wireless</li>
+        </ul>
+      </div>
+      <div class="shot reveal" data-drift="0.07"><img src="../assets/shots/neon-flowers.webp" alt="Fiori al neon blu che girano a spirale nel buio, a schermo intero nell'app" loading="lazy" width="720" height="1403"></div>
+    </div>
+  </section>
+
+  <section id="everything" aria-labelledby="h-everything">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg> Everything in BeatRealms</p>
+        <h2 id="h-everything">Tutto nel dettaglio</h2>
+        <p class="intro">Ogni funzione, in base a ciò che ci fai. Quelle contrassegnate con Pro richiedono lo sblocco una tantum; il resto è gratis.</p>
+      </div>
+      <div class="rundown">
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg></span>Play</h3>
+          <ul class="checks">
+            <li>Coda, riproduzione casuale, ripetizione e loop A–B</li>
+            <li>Dissolvenza incrociata, dissolvenze tra i brani e velocità di riproduzione</li>
+            <li>Timer di spegnimento e scelta di cosa succede quando la coda finisce</li>
+            <li>Riprendi l'ultima cosa che hai ascoltato</li>
+            <li>Preferiti e ascoltati di recente</li>
+            <li>Testi sincronizzati da un file .lrc o dai tag del brano; tocca una riga per saltarci</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#library"/></svg></span>Library</h3>
+          <ul class="checks">
+            <li>Brani, album, artisti, cartelle e playlist</li>
+            <li>Cerca titoli, artisti e album</li>
+            <li>Ordina per titolo, artista, album, durata o data di aggiunta</li>
+            <li>Scegli le cartelle della tua musica e nascondi i brani molto brevi</li>
+            <li>Modifica i dettagli di un brano</li>
+            <li>Trova i brani duplicati</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wave"/></svg></span>Sound</h3>
+          <ul class="checks">
+            <li>Equalizzatore con preset: Flat, Bass, Treble, Vocal, Rock, Electronic</li>
+            <li>Potenziamento dei bassi e loudness</li>
+            <li>ReplayGain</li>
+            <li>Impostazioni per le cuffie e i pulsanti delle notifiche</li>
+            <li>Uscita bit-perfect verso un DAC USB</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg></span>Visuals</h3>
+          <ul class="checks">
+            <li>334 stili in 19 famiglie</li>
+            <li>Reagisce a volume, bassi, medi e alti, cassa, rullante e charleston, note, accordi, tonalità, crescendo e drop</li>
+            <li>La modalità Auto dirige stile, telecamera e movimento lungo la canzone</li>
+            <li>Colori presi dalla copertina dell'album</li>
+            <li>I tuoi preset .milk e le tue texture <span class="tag pro inline">Pro</span></li>
+            <li>Picture in picture, attivato in automatico se vuoi</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg></span>Customize</h3>
+          <ul class="checks">
+            <li>Manopole rapide Glow, Heat, Bend e Flow</li>
+            <li>Manopole tutte tue, con curve, onde e inviluppi <span class="tag pro inline">Pro</span></li>
+            <li>Modifica cosa reagisce alla musica, o mescolalo a caso</li>
+            <li>Undici gruppi di controlli</li>
+            <li>Più di 700 look inclusi</li>
+            <li>Salva preset, condividi e importa modelli</li>
+            <li>Rendi tutto casuale <span class="tag pro inline">Pro</span></li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#phone"/></svg></span>Touch</h3>
+          <ul class="checks">
+            <li>Pizzica e ruota l'immagine</li>
+            <li>Spalma gli effetti visivi con le dita, con l'intensità che scegli</li>
+            <li>Una modalità liquida da spingere in giro</li>
+            <li>Vibrazione al tocco e tre dimensioni per le manopole</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#film"/></svg></span>Studio</h3>
+          <ul class="checks">
+            <li>Esporta una canzone in MP4: 720p, 1080p o 4K, da 24 a 60 fps, H.264 o HEVC</li>
+            <li>Formati: 16:9, 9:16, 1:1, 4:5, 4:3 e 21:9</li>
+            <li>Preset in un tocco: YouTube, Shorts, TikTok, Feed, Square e Master</li>
+            <li>Un livello di loudness di riferimento, con consigli per YouTube, Shorts e TikTok</li>
+            <li>Esportazioni in loop con dissolvenza incrociata senza stacchi e tavolozza che varia piano <span class="tag pro inline">Pro</span></li>
+            <li>Esporta un'intera coda o playlist <span class="tag pro inline">Pro</span></li>
+            <li>Salva nella cartella Movies o in una cartella a tua scelta, poi condividi o carica</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#record"/></svg></span>Record and capture</h3>
+          <ul class="checks">
+            <li>Tieni premuto per registrare dal vivo l'effetto visivo e il suo suono <span class="tag pro inline">Pro</span></li>
+            <li>Screenshot, gratis</li>
+            <li>Fai seguire agli effetti visivi il suono di un'altra app</li>
+            <li>Oppure il microfono e la stanza intorno a te</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#cast"/></svg></span>Beyond the phone</h3>
+          <ul class="checks">
+            <li>Sfondo animato e salvaschermo <span class="tag pro inline">Pro</span></li>
+            <li>Trasmetti l'effetto visivo e la musica su una TV <span class="tag pro inline">Pro</span></li>
+            <li>Mostralo in un browser su un computer, tramite link o codice QR <span class="tag pro inline">Pro</span></li>
+            <li>Schermi HDMI, USB-C e wireless <span class="tag pro inline">Pro</span></li>
+            <li>La stessa app su Android TV</li>
+            <li>Android Auto, un widget per la schermata Home e un riquadro nelle Impostazioni rapide</li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg></span>Your data</h3>
+          <ul class="checks">
+            <li>Nessun account, niente pubblicità, nessuno strumento di analisi</li>
+            <li>Funziona offline; la rete serve solo per Cast e il collegamento al computer</li>
+            <li>Backup e ripristino di playlist, preferiti, cronologia, modifiche ai brani, impostazioni e preset importati</li>
+            <li>Guida integrata per ogni parte dell'app</li>
+            <li>Rispetta l'impostazione "Rimuovi animazioni" di Android</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="included" aria-labelledby="h-included">
+    <div class="wrap">
+      <p class="eyebrow reveal">Cosa è incluso</p>
+      <h2 id="h-included" class="reveal">Gratis e Pro, a confronto</h2>
+      <p class="intro reveal">Niente pubblicità in nessuna delle due. Pro è un unico acquisto in-app, non un abbonamento, e puoi provarlo per un'ora prima di acquistarlo. I video esportati o registrati durante la prova mantengono il limite di un minuto e la filigrana.</p>
+      <div class="table-box reveal">
+        <table>
+          <caption class="skip">Cosa includono l'app gratuita e Pro</caption>
+          <thead><tr><th scope="col">Funzione</th><th scope="col">Gratis</th><th scope="col">Pro</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Lettore musicale</th><td class="yes">Tutto</td><td class="yes">Tutto</td></tr>
+            <tr><th scope="row">Stili visivi</th><td class="yes">Più di 60, il primo di ciascuna delle diciannove famiglie</td><td class="yes">Tutti i 334</td></tr>
+            <tr><th scope="row">I tuoi preset .milk</th><td class="no">No</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Reazioni a note e tonalità</th><td class="yes">Sì</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Modalità Auto</th><td class="yes">Il primo minuto di ogni canzone</td><td class="yes">Tutta la canzone</td></tr>
+            <tr><th scope="row">Customize</th><td class="yes">Controlli di base e manopole rapide</td><td class="yes">Ogni controllo, manopole tutte tue, rendi tutto casuale</td></tr>
+            <tr><th scope="row">Esportazione video</th><td class="yes">Fino a 1080p, 30 fps, un minuto, filigrana</td><td class="yes">Fino a 4K, 60 fps, durata completa, senza filigrana</td></tr>
+            <tr><th scope="row">Esportazioni in loop e di playlist</th><td class="no">No</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Registrazione dal vivo</th><td class="no">No</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Screenshot</th><td class="yes">Sì</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Sfondo animato e salvaschermo</th><td class="no">No</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Cast, visualizzazione su computer, schermi collegati</th><td class="no">No</td><td class="yes">Sì</td></tr>
+            <tr><th scope="row">Pubblicità</th><td class="yes">Nessuna</td><td class="yes">Nessuna</td></tr>
+            <tr><th scope="row">Prezzo</th><td class="yes">Gratis</td><td class="yes">Un unico acquisto, non un abbonamento</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="h-faq">
+    <div class="wrap">
+      <h2 id="h-faq" class="reveal">Domande</h2>
+      <details class="reveal">
+        <summary>Pro è un abbonamento?</summary>
+        <p>No. Pro è un unico acquisto in-app tramite Google Play. Puoi prima provarlo per un'ora.</p>
+      </details>
+      <details class="reveal">
+        <summary>Serve internet o un account?</summary>
+        <p>Nessun account, mai. L'app funziona offline. Internet si usa solo per Cast sulla TV e per mostrare l'effetto visivo su un computer, tramite la tua rete Wi-Fi. Il componente Google Cast invia a Google log di utilizzo anonimi; l'informativa sulla privacy lo spiega.</p>
+      </details>
+      <details class="reveal">
+        <summary>Quali autorizzazioni chiede, e perché?</summary>
+        <p>Ognuna viene chiesta la prima volta che ti serve, spiegandoti prima il motivo.</p>
+        <ul>
+          <li><b>Musica e audio</b>: per trovare e riprodurre la musica sul tuo telefono, la prima volta che apri Library.</li>
+          <li><b>Notifiche</b>: controlli di riproduzione e avanzamento mentre si esporta un video o è in corso una trasmissione Cast.</li>
+          <li><b>Microfono</b> (facoltativo): solo se lasci che gli effetti visivi seguano la stanza o il suono di un'altra app, o che lo sfondo animato senta le altre app. Il suono viene analizzato sul telefono e non viene mai inviato da nessuna parte.</li>
+          <li><b>Acquisizione di schermo e audio</b> (facoltativo): la finestra di dialogo di Android stesso, ogni volta che inizi a visualizzare un'altra app.</li>
+          <li><b>Accesso alle notifiche</b> (facoltativo): per mostrare il nome di una canzone riprodotta da un'altra app. Vengono lette solo le sessioni multimediali.</li>
+          <li><b>Rete</b>: solo per Cast sulla TV e per mostrare l'effetto visivo su un computer, sulla tua rete Wi-Fi.</li>
+        </ul>
+        <p>Mai richiesti: fotocamera, posizione, contatti, telefono, SMS o accesso a tutti i file.</p>
+      </details>
+      <details class="reveal">
+        <summary>Su quali telefoni funziona?</summary>
+        <p>Android 13 o versioni successive.</p>
+      </details>
+      <details class="reveal">
+        <summary>Dove finiscono i miei video?</summary>
+        <p>Nella cartella Movies del tuo telefono. Nulla di ciò che crei lascia il telefono, a meno che tu non lo condivida.</p>
+      </details>
+      <details class="reveal">
+        <summary>Come ottengo aiuto?</summary>
+        <p>Scrivi a <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>. Indica quale telefono e quale versione di Android hai, e cosa stavi facendo.</p>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-safety">
+    <div class="wrap">
+      <div class="warning reveal" role="note">
+        <h2 id="h-safety">Avviso di fotosensibilità</h2>
+        <p>Gli effetti visivi sono luminosi, veloci e a schermo intero, e possono lampeggiare. Un piccolo numero di persone può avere una crisi convulsiva quando vede luci o motivi lampeggianti, anche senza precedenti di epilessia. L'app limita quanto e quanto velocemente i suoi effetti possono cambiare la luminosità e rispetta l'impostazione "Rimuovi animazioni" di Android, ma non misura l'immagine finale, e per i preset .milk c'è solo un limite di luminosità: i lampi che disegnano da soli non vengono limitati. Non può rendere gli effetti visivi sicuri per tutti. Se tu o chiunque stia guardando siete sensibili alle luci lampeggianti, non usare gli effetti visivi e interrompi subito se non ti senti bene.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band" aria-label="Scarica l'app">
+    <div class="wrap">
+      <h2 class="reveal">Ascolta. Guarda. Crea.</h2>
+      <div class="cta reveal"><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="../assets/badges/it.png" alt="Disponibile su Google Play" width="186" height="72"></a> <small>Android 13 o versioni successive</small></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="wm" src="../assets/wordmark.svg" alt="BeatRealms 3D" width="100" height="40">
+        <p>Un lettore musicale, un visualizzatore che ascolta e uno studio per i tuoi video musicali. Per Android 13 e versioni successive.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="../assets/badges/it.png" alt="Disponibile su Google Play" width="155" height="60" style="height:60px;width:auto"></a>
+      </div>
+      <div>
+        <h4>Esplora</h4>
+        <ul>
+          <li><a href="./"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg>Home</a></li>
+          <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+          <li><a href="#everything"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>Everything</a></li>
+          <li><a href="#included"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Aiuto</h4>
+        <ul>
+          <li><a href="#faq"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#lyrics"/></svg>Questions</a></li>
+          <li><a href="mailto:CONTACT_EMAIL"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#mail"/></svg>Contact</a></li>
+          <li><a href="../privacy-policy.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg>Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Scaricala</h4>
+        <ul>
+          <li><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#android"/></svg>Google Play</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- i18n:switcher -->
+    <nav aria-label="Lingua">
+      <ul class="langs">
+        <li><a href="../../features.html" lang="en" hreflang="en">English</a></li>
+        <li><a href="../../de/features.html" lang="de" hreflang="de">Deutsch</a></li>
+        <li><a href="../../fr/features.html" lang="fr" hreflang="fr">Français</a></li>
+        <li><a href="../../es/features.html" lang="es" hreflang="es">Español</a></li>
+        <li><a href="../../pt-br/features.html" lang="pt-BR" hreflang="pt-BR">Português (Brasil)</a></li>
+        <li><a href="../../ja/features.html" lang="ja" hreflang="ja">日本語</a></li>
+        <li><a href="../../it/features.html" lang="it" hreflang="it" aria-current="page">Italiano</a></li>
+      </ul>
+    </nav>
+    <!-- /i18n:switcher -->
+    <div class="foot-legal">
+      <p>Gli screenshot mostrano l'app su un telefono durante la riproduzione di musica. I titoli dei brani sono sfocati.</p>
+      <p>Google Play e il logo Google Play sono marchi di Google LLC.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const seen = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('seen'); seen.unobserve(e.target); }
+  }), { threshold: .12 });
+  document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
+
+  const fan = document.getElementById('fan');
+  if (!still && matchMedia('(pointer: fine)').matches) {
+    addEventListener('pointermove', e => {
+      const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+      fan.style.transform = `rotateY(${x * 10}deg) rotateX(${-y * 8}deg)`;
+    }, { passive: true });
+  }
+</script>
+<script src="../assets/nav.js"></script>
+<script type="module" src="../assets/vortex.js"></script>
+<script src="../assets/vendor/motion.min.js"></script>
+<script src="../assets/motion.js"></script>
+</body>
+</html>

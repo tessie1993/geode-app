@@ -52,21 +52,23 @@
 //     float fGrown(vec3 p) {                      // a distance field
 //         shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 //         float r = 0.0;
-//         for (int i = SHELL_FROM; i < 4; i++) {
+//         for (int i = SHELL_FROM; i < 7; i++) {
 //             if (shellPass3(i)) r = shellKeep3(i, f(shellAt3(i)));
 //         }
 //         return r;
 //     }
 //
-// a density takes shellKeepDensity3 and three passes; a 2D pattern of type T
+// a density takes shellKeepDensity3 and six passes; a 2D pattern of type T
 // takes shellStart2, shellPass2, shellAt2 (round the frame's centre, or round
 // the eye on the ground: SHELL_ROUND2 or SHELL_GROUND2) and shellBlend2 over
-// three passes. Pass 0 reads the first copy; passes 1, 2 and 3 (Spawn's copy,
-// Fractal's child, the nearest extra copy read again so the globals F leaves
-// are its) run only while their hook is on.
+// six passes. Pass 0 reads the first copy; passes 1 and 2 (Spawn's copy,
+// Fractal's child) run only while their hook is on, passes 3, 4 and 5 (Life's
+// births, lib_grow) only while each birth lives, and a distance's pass 6 (the
+// nearest extra copy read again so the globals F leaves are its) only when an
+// extra copy is nearest.
 //
 // THE DEFAULT IS THE OLD PICTURE: every control rests at exactly 0, and with
-// every hook at 0 a wrapper reads F once, at the point it was given, and
+// every hook and Life at 0 a wrapper reads F once, at the point it was given, and
 // returns what F returned; SHELL_SLACK(extent) is 0.0. No hook turns
 // anything (the owner removed spin) or touches colour. The music reaches them
 // only through their params (routes, waves, envelopes, knobs): nothing here
@@ -282,7 +284,8 @@ void shellAmounts(float spawn, float fractal, float front, float back) {
     gShellFractal = fractal;
     gShellFront = front;
     gShellBack = back;
-    gShellIdle = shellIdle(spawn, fractal, front, back);
+    // Life's births are passes too: while any can live, the wrapper runs its passes.
+    gShellIdle = shellIdle(spawn, fractal, front, back) && !(uLife > 0.0);
 }
 
 /** Start a wrapper's read of a distance (or a density) at p: the amounts, and the opened read point while a hook is on. */
@@ -293,14 +296,21 @@ void shellStart3(vec3 p, float spawn, float fractal, float front, float back) {
     if (!gShellIdle) shellBegin3(p, front, back);
 }
 
-/** Whether pass i runs: 0 always (the first copy); 1 Spawn's copy, 2 Fractal's child, 3 the nearest extra copy again, each while it is on. */
+/**
+ * Whether pass i runs: 0 always (the first copy); 1 Spawn's copy, 2 Fractal's child, 3..5 Life's births,
+ * 6 the nearest extra copy again, each while it is on.
+ */
 bool shellPass3(int i) {
     if (i == 0) return true;
     if (i < 0 || gShellIdle) return false;
     if (i == 1) return gShellSpawn > 0.0;
     if (i == 2) return gShellFractal > 0.0;
+    if (i < 6) return growBorn(i - 3);
     return gShellWin > 0.5;
 }
+
+/** Where the birth in flight is read (lib_grow's growBirthIn, from the unopened point in the hooks' frame). */
+vec3 gShellBirth = vec3(0.0);
 
 /** Where pass i reads the field: the point given while every hook rests. */
 vec3 shellAt3(int i) {
@@ -308,6 +318,10 @@ vec3 shellAt3(int i) {
     if (i == 0) return gShellQ;
     if (i == 1) return shellSpawnAt(gShellSpawn);
     if (i == 2) return shellChildAt();
+    if (i < 6) {
+        gShellBirth = growBirthIn(i - 3, gShellP, gShellEye, gShellNear, gShellAround);
+        return gShellBirth;
+    }
     return gShellWP;
 }
 
@@ -320,6 +334,9 @@ float shellKeep3(int i, float d) {
         shellTake3(d, shellSpawnAt(gShellSpawn));
     } else if (i == 2) {
         shellTakeChild3(d, gShellFractal);
+    } else if (i < 6) {
+        // A birth's distance is in world units already: the layers' factor shellTake3 applies is undone.
+        shellTake3(growBirthDist(d) / gShellK, gShellBirth);
     }
     return gShellD;
 }
@@ -331,15 +348,21 @@ float shellKeep3(int i, float d) {
  * a bound's radius, a slab's half-height, a give-up height or distance, each measured from where the
  * layers are (the subject, or the eye's axis). Spawn's copy slides by its shift, Fractal's children
  * reach half a feature size out of the surface, and a layer opens what lies within the bound by up to
- * 18% (draws it in by 11%, which moves a bound off the centre toward it by as much). Exactly 0.0 while
- * all four hooks are off, so `extent + slack` is `extent`, bit for bit.
+ * 18% (draws it in by 11%, which moves a bound off the centre toward it by as much); Life's births
+ * reach growBirthSlack farther. Exactly 0.0 while all four hooks and Life are off, so `extent + slack`
+ * is `extent`, bit for bit.
  */
 float shellSlack(float extent, float spawn, float fractal, float front, float back) {
-    if (shellIdle(spawn, fractal, front, back)) return 0.0;
+    float born = 0.0;
+    if (uLife > 0.0) {
+        shellFrame3();
+        born = growBirthSlack(gShellNear, gShellAround);
+    }
+    if (shellIdle(spawn, fractal, front, back)) return born;
     shellFrame3();
     float shift = gShellAround ? 0.3 * gShellNear * spawn : gShellSize * spawn;
     float grown = shift + 0.5 * gShellSize * fractal;
-    return grown + 0.18 * max(abs(front), abs(back)) * (abs(extent) + grown);
+    return born + grown + 0.18 * max(abs(front), abs(back)) * (abs(extent) + grown);
 }
 
 /** shellSlack with the hooks' amounts: add it to a march shortcut of size `extent` (0.0 at rest). */
@@ -360,8 +383,9 @@ float shellDensityChild3(float d, float fractal) {
 }
 
 /**
- * Pass i's density d kept (passes 0..2; start with shellStart3): the first copy's, then Spawn times the
- * copy's and Fractal's children's share added; d itself while every hook rests.
+ * Pass i's density d kept (passes 0..5; start with shellStart3): the first copy's, then Spawn times the
+ * copy's, Fractal's children's share and each birth's density within its ball added; d itself while
+ * every hook rests.
  */
 float shellKeepDensity3(int i, float d) {
     if (gShellIdle) return d;
@@ -372,6 +396,8 @@ float shellKeepDensity3(int i, float d) {
         gShellD += gShellSpawn * d;
     } else if (i == 2) {
         gShellD += shellDensityChild3(d, gShellFractal);
+    } else if (i < 6) {
+        gShellD += d * growBirthMask();
     }
     return gShellD;
 }
@@ -432,25 +458,28 @@ void shellStart2(float spawn, float fractal, float front, float back) {
     shellAmounts(spawn, fractal, front, back);
 }
 
-/** Whether pass i runs: 0 always (the pattern, opened by the layers); 1 Spawn's copy, 2 Fractal's, each while it is on. */
+/** Whether pass i runs: 0 always (the pattern, opened by the layers); 1 Spawn's copy, 2 Fractal's, 3..5 Life's births, each while it is on. */
 bool shellPass2(int i) {
     if (i == 0) return true;
     if (i < 0 || gShellIdle) return false;
     if (i == 1) return gShellSpawn > 0.0;
-    return i == 2 && gShellFractal > 0.0;
+    if (i == 2) return gShellFractal > 0.0;
+    return i < 6 && growBorn(i - 3);
 }
 
 /** Where pass i reads the pattern given uv, its layers round c with reach r: uv itself while every hook rests. */
 vec2 shellAt2(vec2 uv, int i, vec2 c, float r) {
     if (gShellIdle) return uv;
+    if (i > 2) return growBirth2(i - 3, uv, c, r);
     vec2 o = shellOpen2(uv, c, r, gShellFront, gShellBack);
     if (i == 1) return shellSpawn2(o, gShellSpawn);
     if (i == 2) return shellFold2(o);
     return o;
 }
 
-/** How far pass i's copy is laid over the pattern so far. */
+/** How far pass i's copy is laid over the pattern so far: a birth by its ball (growBirth2 just read it). */
 float shellWeight2(int i) {
+    if (i > 2) return growBirthMask();
     return i == 1 ? gShellSpawn : gShellFractal;
 }
 

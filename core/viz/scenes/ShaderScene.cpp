@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "util/Log.hpp"
+#include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
@@ -217,6 +218,13 @@ void ShaderScene::uploadParams() {
     // The shading pass (lib_shade): the soft shadows' darkness (Scope::Shadow) and the escape colour's reach (Scope::Escape).
     set1f("uShadow", p.shadow);
     set1f("uEscapeColor", p.escapeColor);
+    // Life's births (viz/Births) on the scene's own clock, already Speed-integrated: all 0 at Life 0, so lib_grow's
+    // birth passes are all skipped.
+    set1f("uLife", p.life);
+    {
+        const auto b = births::compute(shaderTime_, p.life);
+        glUniform4fv(uniforms_.loc("uBirths"), uniforms_.arrayCount("uBirths", 2 * births::kBirths), b.data());
+    }
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);

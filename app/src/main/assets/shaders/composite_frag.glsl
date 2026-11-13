@@ -167,6 +167,40 @@ vec2 camFlat(vec2 c) {
 // Identity inside 0..1.
 vec2 mirrorUv(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
 
+// Customize › Life on a scene with no shader of its own to run births in (the simulations, the fluids,
+// Milkdrop): core/viz/Births's births, laid over the finished picture the way lib_grow's growBirths2 lays
+// them over a 2D style's (the composite does not include lib_grow, so this is its own copy of that law:
+// birth units 0.3 of the half-height, a ball of 2 units, Implode's shrink, Fold back's reflection, Cave
+// in's hollow). uPostLife is 0 unless Life is up, and geo() then skips this (a bitwise no-op), as it does
+// on every scene whose gate.x is 0: a shader style and a 3D present draw their own births.
+uniform float uPostLife;
+uniform vec4 uPostBirths[6];
+
+// Centred c (-0.5..0.5) in, centred c out: inside each living birth's ball the picture is read from its
+// middle at the birth's scale, eased in at the rim. Translation, scale and reflection only.
+vec2 postBirths(vec2 c) {
+    vec2 uv = vec2(c.x * uRatio, c.y) * 2.0;
+    vec2 q = uv;
+    const float ball = 0.6;
+    for (int b = 0; b < 3; b++) {
+        vec4 at = uPostBirths[2 * b];
+        vec4 how = uPostBirths[2 * b + 1];
+        if (!(at.w > 0.0)) continue;
+        float s = max(how.x < 0.5 ? at.w * (1.0 - how.y) : at.w, 1.0e-3);
+        vec2 r = (uv - at.xy * 0.3) / s;
+        if (how.x > 0.5 && how.x < 1.5) {
+            float h = ball * (1.0 - 2.0 * how.y);
+            float t = dot(r, how.zw);
+            if (t > h) r -= 2.0 * (t - h) * how.zw;
+        }
+        float m = 1.0 - smoothstep(0.8 * ball, ball, length(r));
+        float cave = how.x > 1.5 ? 2.0 * ball * how.y : 0.0;
+        if (cave > 0.0) m *= smoothstep(0.0, 0.2 * ball, length(r - how.zw * ball) - cave);
+        q = mix(q, r, m);
+    }
+    return vec2(q.x / uRatio, q.y) * 0.5;
+}
+
 vec2 geo(vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool mirrorOn = gate.y > 0.5;
@@ -207,6 +241,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
         float r = length(c);
         c *= 1.0 + uPostRipple * 0.12 * sin(r * 16.0 - uTime * 3.0);
     }
+    if (geoOn && uPostLife > 0.0) c = postBirths(c);
     vec2 p = c + 0.5;
     if (geoOn && abs(uPostDriftX) + abs(uPostDriftY) > 0.001) {
         // Wrap so the image scrolls instead of smearing at the clamped edge.

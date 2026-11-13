@@ -440,8 +440,9 @@ float terraEps(float t) {
 float terraStep(float dy, float t, float k) {
     float lip = terraChaosLip() * gTerraSteep;
     // A grown land is steeper (terraGrow: Fractal's children add their own slope, a layer drawn in packs
-    // the hills closer); the step shortens by as much while a grow control is on, and is as it was at rest.
-    if (!growIdle()) lip *= 1.15 + clamp(uFractal, 0.0, 1.0);
+    // the hills closer, a birth's rim rises fast); the step shortens by as much while a grow control or Life
+    // is on, and is as it was at rest.
+    if (!growIdle() || uLife > 0.0) lip *= 1.15 + clamp(uFractal, 0.0, 1.0);
     return max(dy * k * (1.0 + 0.02 * t) / lip, 0.004 + 0.003 * t);
 }
 

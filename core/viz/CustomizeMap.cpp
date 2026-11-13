@@ -32,7 +32,7 @@ const std::vector<Section>& table() {
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity", "Soft shadows"}},
 
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
-        {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},
+        {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence", "Life"}},
         {C::Shape, "symmetry", false, S::Always, {"Mirror", "Tile", "Pixelate"}},
         // Grow and layers: what the family libraries draw (catalogue::Scope::FamilyForm), for the music to move.
         {C::Shape, "grow", false, S::Always, {"Spawn", "Fractal", "Front layer", "Back layer", "Formula", "Shapes"}},
@@ -166,6 +166,8 @@ const std::vector<HeldControl>& held() {
         // The shading pass: no roll deals them (ParamRandomizer's neverRolled); their scope is their meta row's.
         {"Soft shadows", {"shadow"}, std::nullopt},
         {"Escape colour", {"escapeColor"}, std::nullopt},
+        // Births (viz/Births): Universal, no roll deals it.
+        {"Life", {"life"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
         {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},

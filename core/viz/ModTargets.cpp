@@ -97,6 +97,7 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "SHAPES",
     "SHADOW",
     "ESCAPE_COLOR",
+    "LIFE",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};

@@ -52,9 +52,11 @@ enum class LfoTarget {
     // Appended: the soft shadows' darkness and the escape colour's reach (viz/ParamTable.inc shadow, escapeColor),
     // ordinals 80 and 81.
     Shadow, EscapeColor,
+    // Appended: how much the picture is born and dies (viz/ParamTable.inc life, viz/Births), ordinal 82.
+    Life,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::EscapeColor;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Life;
 
 struct ModChain {
     int slot;

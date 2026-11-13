@@ -55,6 +55,7 @@ add_library(geode_core STATIC
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
+    viz/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
     sound/Fft.cpp

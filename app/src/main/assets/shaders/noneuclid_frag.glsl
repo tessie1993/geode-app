@@ -420,7 +420,7 @@ float neField(vec3 p) {
 float neFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 4; i++) {
+    for (int i = SHELL_FROM; i < 7; i++) {
         if (shellPass3(i)) r = shellKeep3(i, neField(shellAt3(i)));
     }
     return r;

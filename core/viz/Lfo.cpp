@@ -160,6 +160,8 @@ bool driveOf(LfoTarget target, Drive& out) {
         // The whole of Soft shadows and of Escape colour per unit: a full wave from 0 reaches either end.
         case LfoTarget::Shadow: GEODE_DRIVE(shadow, 1.0f);
         case LfoTarget::EscapeColor: GEODE_DRIVE(escapeColor, 1.0f);
+        // The whole of Life per unit: how much is born, a structural target, never a luminance one.
+        case LfoTarget::Life: GEODE_DRIVE(life, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

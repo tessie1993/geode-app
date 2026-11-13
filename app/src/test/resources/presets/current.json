@@ -38,6 +38,7 @@
   "shapes": 0.25,
   "shadow": 0.25,
   "escapeColor": 0.75,
+  "life": 0.5,
   "morph": 0.5,
   "pixelate": 0.5,
   "posterize": 0.5,

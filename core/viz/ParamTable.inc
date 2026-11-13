@@ -624,6 +624,19 @@ GEODE_PARAM_META(shadow, "Soft shadows", Shadow, kMod, 0, 0)
 GEODE_PARAM(Float, escapeColor, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(escapeColor, "Escape colour", Escape, kMod, 0, 0)
 
+// Life (Customize › Shape › Form): how much the picture is born and dies on its own. At 0 nothing is born and
+// every style draws exactly as before. Above 0, up to three births (viz/Births: native, on the Speed clock alone,
+// no sound or tempo in it) each take a seeded spawn point off the centre, grow from nothing, drift away by
+// translation only, then collapse by a kind that rotates from birth to birth: implode (shrinks to its own
+// centre), fold back (folds in on itself across a line) or cave in (hollows from the inside). Life sets how many
+// are present and how far they drift. Births change what is drawn, never where the eye looks: a 3D family draws
+// each as one more iteration of its own field loop (lib_grow's births), a 2D style as a copy of its own picture
+// (view()), and every other scene through the composite's geometry. Geometry only: no colour, no turn. Universal,
+// so every style has it; a structural target (LfoTarget::Life), no luminance limit. No roll deals it. Appended
+// at wire slot 201 so every wire index survives.
+GEODE_PARAM(Float, life, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(life, "Life", Universal, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

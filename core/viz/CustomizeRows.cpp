@@ -49,6 +49,8 @@ const std::vector<Control>& table() {
         {"Twist", W::Slider, "twist", nullptr, kOwn, R::Always, false},
         {"Ripple", W::Slider, "ripple", nullptr, kOwn, R::Always, false},
         {"Turbulence", W::Slider, "turbulence", nullptr, kOwn, R::Always, false},
+        // Births on every style (viz/Births): 0 draws as before.
+        {"Life", W::Slider, "life", nullptr, kOwn, R::Always, false},
         {"Mirror", W::Check, "mirror", nullptr, kOwn, R::Always, false},
         {"Tile", W::Slider, "tile", nullptr, kOwn, R::Always, false},
         {"Pixelate", W::Slider, "pixelate", nullptr, kOwn, R::Always, false},

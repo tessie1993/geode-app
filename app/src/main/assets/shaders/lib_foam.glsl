@@ -507,18 +507,20 @@ FoamSample foamGrow(vec3 p) {
         reach = growFractalReach(0.2);
     }
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
-    // Spawn's copy and Fractal's child while each is on. Inlined copies put a style past the GPU's
-    // compile budget, and WebGL refuses ?: on a struct, so the nearer hit is chosen with an if.
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Inlined copies put a style past the GPU's compile budget, and WebGL refuses ?: on a struct,
+    // so the nearer hit is chosen with an if.
     FoamSample h;
-    for (int i = min(int(uSpawn), 0); i < 3; i++) {
-        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
-        FoamSample c = foamMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+        if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
+        FoamSample c = foamMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             h = c;
             continue;
         }
         if (i == 2) c.d = growFractalChild(c.d / 3.0, h.d, reach);
-        if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
+        if (i > 2) c.d = growBirthDist(c.d);
+        else if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
         if (c.d < h.d) h = c;
     }
     // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
@@ -558,11 +560,14 @@ void foamCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     float roll = -0.9 * fwd.x;
     vec3 up = vec3(sin(roll), cos(roll), 0.0);
     vec3 right = normalize(cross(up, fwd));
-    rd = normalize(mat3(right, cross(fwd, right), fwd) * camRayDir(uv));
+    mat3 frame = mat3(right, cross(fwd, right), fwd);
+    rd = normalize(frame * camRayDir(uv));
     gFoamEye = ro;
     gFoamFwd = fwd;
-    // Grow and layers (lib_grow) open round this eye, which rides the bore's path, not the rig's.
+    // Grow and layers (lib_grow) open round this eye, which rides the bore's path, not the rig's; Life's
+    // births hang ahead of it in the path's frame.
     growSetup(ro, 3.0, false);
+    gGrowBasis = frame;
     gFoamEpsPerT = FOAM_EPS_PIXELS * 2.0 / (max(uResolution.y, 1.0) * max(uCamFocal, 0.3));
 }
 

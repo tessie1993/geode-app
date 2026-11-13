@@ -33,18 +33,20 @@ vec3 shardField(vec3 p) {
     // along the way, Fractal splinters glass a third the size off every face, and the layers open the
     // glass round the eye (front) and down the way (back), k at 1 while they rest.
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
-    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
-    // GPU's compile budget (CI lost its WebGL context on them).
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Three inlined calls put the families past the GPU's compile budget (CI lost its WebGL
+    // context on them).
     float reach = growFractalReach(0.15);
     vec3 m = vec3(0.0);
-    for (int i = min(int(uSteps), 0); i < 3; i++) {
-        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
-        vec3 c = shardMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.5) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSteps), 0); i < 6; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)) || (i > 2 && !growBorn(i - 3))) continue;
+        vec3 c = shardMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.5) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             m = c;
             continue;
         }
-        if (i == 1) c.x = growClearEye(c.x, p, 0.8);
+        if (i > 2) c = vec3(growBirthDist(c.x), c.y, c.z * gGrowBirthS);
+        else if (i == 1) c.x = growClearEye(c.x, p, 0.8);
         else c = vec3(growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.8), c.y, c.z / 3.0);
         if (c.x < m.x) m = c;
     }

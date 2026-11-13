@@ -147,7 +147,7 @@ float scTube(vec3 p) {
 float scTubeGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 4; i++) {
+    for (int i = SHELL_FROM; i < 7; i++) {
         if (shellPass3(i)) r = shellKeep3(i, scTube(shellAt3(i)));
     }
     return r;
@@ -215,7 +215,7 @@ float scBeam(vec2 qn) {
 float scBeamGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = float(0.0);
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (!shellPass2(i)) continue;
         float v = scBeam(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));

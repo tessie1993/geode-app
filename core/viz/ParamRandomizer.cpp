@@ -305,6 +305,8 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         // The shading pass (lib_shade): the user's light and colour on the raymarched families, which the routes drive.
         {"shadow", "how dark the soft shadows fall: the user's, which the routes, waves and knobs move"},
         {"escapeColor", "how far the escape moves the palette: the user's, which the routes, waves and knobs move"},
+        // Births (viz/Births): 0 draws every style as before, so a roll never brings them in.
+        {"life", "how much the picture is born and dies: off until the user, a knob or a route raises it"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},

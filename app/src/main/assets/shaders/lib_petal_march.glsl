@@ -28,13 +28,14 @@ vec3 petalField(vec3 p) {
     // way, so the petals double; Fractal grows petals a third the size out of every sheet; the layers open
     // the bloom round the eye (front) and down the way (back), k at 1 while they rest.
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
-    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
-    // GPU's compile budget (CI lost its WebGL context on them).
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Three inlined calls put the families past the GPU's compile budget (CI lost its WebGL
+    // context on them).
     float reach = growFractalReach(0.2);
     vec3 m = vec3(0.0);
-    for (int i = min(int(uSteps), 0); i < 3; i++) {
-        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
-        vec3 c = petalMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSteps), 0); i < 6; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)) || (i > 2 && !growBorn(i - 3))) continue;
+        vec3 c = petalMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             m = c;
         } else if (i == 1) {
@@ -42,7 +43,7 @@ vec3 petalField(vec3 p) {
             if (c.x < abs(m.x)) m = c;
         } else {
             // Sheets are crossed by their unsigned distance: the child's, kept within the shell, if it is nearer.
-            float d = growClearEye(growFractalChild(abs(c.x) / 3.0, abs(m.x), reach), p, 0.6);
+            float d = i > 2 ? growBirthDist(abs(c.x)) : growClearEye(growFractalChild(abs(c.x) / 3.0, abs(m.x), reach), p, 0.6);
             if (d < abs(m.x)) m = vec3(d, c.y, c.z);
         }
     }

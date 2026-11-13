@@ -185,7 +185,7 @@ float hhField(vec3 p) {
 float hhFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 4; i++) {
+    for (int i = SHELL_FROM; i < 7; i++) {
         if (shellPass3(i)) r = shellKeep3(i, hhField(shellAt3(i)));
     }
     return r;
@@ -229,7 +229,7 @@ vec3 mandala(vec2 p) {
 vec3 mandalaGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     vec3 r = vec3(0.0);
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (!shellPass2(i)) continue;
         vec3 v = mandala(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));

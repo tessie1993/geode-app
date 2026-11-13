@@ -165,6 +165,8 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uPostInvert"), fx.invert ? 1.0f : 0.0f);
     glUniform1f(p.loc("uPostZoom"), fx.zoom);
     glUniform1f(p.loc("uPostRotation"), inputs.postRotationAngle);
+    glUniform1f(p.loc("uPostLife"), fx.life);
+    glUniform4fv(p.loc("uPostBirths"), p.arrayCount("uPostBirths", 2 * births::kBirths), inputs.postBirths.data());
     glUniform1f(p.loc("uPostSat"), fx.saturation);
     glUniform1f(p.loc("uPostBright"), grade::brightness(fx.brightness, fx.intensity));
     glUniform1f(p.loc("uPostContrast"), fx.contrast);

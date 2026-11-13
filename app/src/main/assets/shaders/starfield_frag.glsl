@@ -142,7 +142,7 @@ float nebula(vec3 p) {
 float nebulaGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (shellPass3(i)) r = shellKeepDensity3(i, nebula(shellAt3(i)));
     }
     return r;

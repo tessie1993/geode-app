@@ -9,6 +9,7 @@
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/BandTrim.hpp"
+#include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
@@ -236,6 +237,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
+    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, kTimeWrapSeconds);
     return p;
 }
 
@@ -439,6 +441,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.timeSeconds = timeSeconds_;
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
+    in.postBirths = births::compute(lifeClock_, fx.life);
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();

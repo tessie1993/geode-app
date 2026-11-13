@@ -35,18 +35,20 @@ TruchetHit truchetGrow(vec3 p) {
         reach = growFractalReach(0.2);
     }
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
-    // Spawn's copy and Fractal's child while each is on. Inlined copies put a style past the GPU's
-    // compile budget, and WebGL refuses ?: on a struct, so the nearer hit is chosen with an if.
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Inlined copies put a style past the GPU's compile budget, and WebGL refuses ?: on a struct,
+    // so the nearer hit is chosen with an if.
     TruchetHit h;
-    for (int i = min(int(uSpawn), 0); i < 3; i++) {
-        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
-        TruchetHit c = truchetMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+        if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
+        TruchetHit c = truchetMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             h = c;
             continue;
         }
         if (i == 2) c.d = growFractalChild(c.d / 3.0, h.d, reach);
-        if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
+        if (i > 2) c.d = growBirthDist(c.d);
+        else if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
         if (c.d < h.d) h = c;
     }
     // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,

@@ -186,6 +186,8 @@ const SHADER_VALUES = {
   uShapeMix: 0, uShapes: [0, 0, 0, 0], uShapeCount: 0, uShapeFold: [0, 0, 0, 0], uShapeMelt: 0,
   // The shading pass (lib_shade) at its defaults: Soft shadows 0.6, Escape colour 0.5.
   uShadow: 0.6, uEscapeColor: 0.5,
+  // Life (lib_scene_uniforms, lib_grow's births) at its default: off, nothing born.
+  uLife: 0, uBirths: [0, 0, 0, 0],
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

@@ -34,18 +34,27 @@ float terraGrow(vec2 xz) {
         reach = growFractalReach(0.3);
     }
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first land, then
-    // Spawn's range and Fractal's third-size land while each is on.
+    // Spawn's range and Fractal's third-size land while each is on, then Life's three births (lib_grow) while
+    // each lives: the land round the frame's middle (round the subject, or a little way ahead of the eye on
+    // the ground) at the birth's scale and height, so its slopes are the land's and the march's step holds.
+    vec2 bc = vec2(0.0);
+    if (uLife > 0.0) {
+        growFrame();
+        bc = gGrowAround ? vec2(0.0) : gGrowEye.xz + gGrowBasis[2].xz * (GROW_BIRTH_AHEAD * 0.3 * gGrowNear);
+    }
     float h = 0.0;
-    for (int i = min(int(uSpawn), 0); i < 3; i++) {
-        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
-        float c = terraMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0).xz : 3.0 * q));
+    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+        if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
+        float c = terraMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0).xz : (i == 2 ? 3.0 * q : growBirth2(i - 3, xz, bc, gGrowNear))));
         if (i == 0) {
             h = c;
         } else if (i == 1) {
             h = mix(h, max(h, c), clamp(uSpawn, 0.0, 1.0));
-        } else {
+        } else if (i == 2) {
             // A third the size and a third the height: the same slopes, so the march's step holds.
             h += min(max(c / 3.0, 0.0), reach);
+        } else {
+            h += growBirthMask() * gGrowBirthS * max(c, 0.0);
         }
     }
     return h;

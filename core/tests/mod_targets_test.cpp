@@ -79,6 +79,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     // The shading pass (lib_shade): the soft shadows on the styles with a lit surface, the escape colour on the
     // families whose folds feed it.
     {"SHADOW", "SHADOW"}, {"ESCAPE_COLOR", "ESCAPE"},
+    // Births (viz/Births): every style has Life.
+    {"LIFE", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -97,7 +99,7 @@ void everyTargetKeepsItsNameAndScope() {
               static_cast<int>(LfoTarget::Spawn) == 74 && static_cast<int>(LfoTarget::BackLayer) == 77 &&
               static_cast<int>(LfoTarget::Formula) == 78 && static_cast<int>(LfoTarget::Shapes) == 79 &&
               static_cast<int>(LfoTarget::Shadow) == 80 && static_cast<int>(LfoTarget::EscapeColor) == 81 &&
-              kLastLfoTarget == LfoTarget::EscapeColor,
+              static_cast<int>(LfoTarget::Life) == 82 && kLastLfoTarget == LfoTarget::Life,
           "wire ordinals");
     check(paramSlotOf(LfoTarget::Spawn) == static_cast<int>(ParamSlot::spawn) &&
               paramSlotOf(LfoTarget::Fractal) == static_cast<int>(ParamSlot::fractal) &&
@@ -117,6 +119,10 @@ void everyTargetKeepsItsNameAndScope() {
               modtargets::reaches(LfoTarget::EscapeColor, "fold_lace") && modtargets::reaches(LfoTarget::EscapeColor, "bulb_glow") &&
               !modtargets::reaches(LfoTarget::EscapeColor, "plasma") && !modtargets::reaches(LfoTarget::EscapeColor, "flame_veil"),
           "Escape colour writes its row, held to the flash rate, offered only on a family whose folds feed it");
+    check(paramSlotOf(LfoTarget::Life) == static_cast<int>(ParamSlot::life) && !isLuminanceTarget(LfoTarget::Life) &&
+              modtargets::reaches(LfoTarget::Life, "plasma") && modtargets::reaches(LfoTarget::Life, "flame_veil") &&
+              modtargets::reaches(LfoTarget::Life, "pool") && modtargets::reaches(LfoTarget::Life, "glass_gem"),
+          "Life writes its row, a structural target, offered on every style");
     for (LfoTarget t : {LfoTarget::Spawn, LfoTarget::Fractal, LfoTarget::FrontLayer, LfoTarget::BackLayer}) {
         // Drawn by the families with a field of their own and by the loose styles on lib_shell (plasma); not by
         // Pool, which grows nothing, Flame (owner), or Glass Gem, traced in closed form.
@@ -295,6 +301,8 @@ void offerMaskHasABitPerTarget() {
     check(modtargets::hex(m) == "1" + std::string(20, '0'), "ordinal 80 opens a twenty-first digit");
     m.reset().set(static_cast<size_t>(LfoTarget::EscapeColor));
     check(modtargets::hex(m) == "2" + std::string(20, '0'), "ordinal 81 is the second bit of the twenty-first digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::Life));
+    check(modtargets::hex(m) == "4" + std::string(20, '0'), "ordinal 82 is the third bit of the twenty-first digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
@@ -325,7 +333,8 @@ void textCarriesEveryRow() {
     check(hasLine(t, "target|78|FORMULA|FORMULA|-1|1"), "Formula's row");
     check(hasLine(t, "target|79|SHAPES|SHAPES|-1|1"), "Shapes' row");
     check(hasLine(t, "target|80|SHADOW|SHADOW|-1|1"), "Soft shadows' row");
-    check(hasLine(t, "target|81|ESCAPE_COLOR|ESCAPE|-1|1"), "the last target row");
+    check(hasLine(t, "target|81|ESCAPE_COLOR|ESCAPE|-1|1"), "Escape colour's row");
+    check(hasLine(t, "target|82|LIFE|UNIVERSAL|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "viz/Births.hpp"
 #include "viz/Params.hpp"
 #include "viz/Texture.hpp"
 #include "viz/Transition.hpp"
@@ -47,6 +48,8 @@ public:
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
         float postRotationAngle = 0.0f;
+        // Life's births (viz/Births) for a scene that has no shader to draw them (gate x): all 0 at Life 0.
+        std::array<float, births::kFloats> postBirths{};
         GLuint quadVao = 0;
         SceneParams fx;
         std::array<float, 4> gateA{};

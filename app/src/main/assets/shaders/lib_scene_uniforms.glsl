@@ -98,6 +98,10 @@ uniform float uShapeMelt;
 // uShadow 0..1, uEscapeColor 0..1: Soft shadows and Escape colour (ParamTable.inc shadow, escapeColor), lib_shade's.
 uniform float uShadow;
 uniform float uEscapeColor;
+// uLife 0..1 (ParamTable.inc life) and its births (core/viz/Births: two vec4 a birth, three births), all 0 at
+// Life 0, where lib_grow's birth passes are all skipped.
+uniform float uLife;
+uniform vec4 uBirths[6];
 // The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
 //#include lib_grow
 

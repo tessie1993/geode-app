@@ -167,6 +167,12 @@ The renderer runs these in order each frame.
 - The loose styles on `lib_shell` reach it too (`kFormLoose`): each hands its field to the hooks through a wrapper of its own, one field read in a pass loop.
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
+- Life (`life`, 0..1, slot 201, default 0, `LfoTarget::Life`) is a universal param shown on every style: things born at spawn points of their own, which drift and then collapse in on themselves.
+- `core/viz/Births` decides the births from a Speed-integrated clock and Life alone (no sound, no tempo): three at a time, each dying by Implode, Fold back or Cave in, all 0 at Life 0 (`births_test`).
+- `ShaderScene` uploads them as `uLife` and `uBirths[6]` (lib_scene_uniforms); `lib_grow`'s births draw each as the style's own world again, small, in a ball round its spawn point.
+- The families run them as passes 3, 4 and 5 of the field loop they already run, one map read a pass; Flame reads its veils once a step at `growBirthsAt`, Opal and Hollows add a four-pass loop.
+- `lib_shell` runs them as wrapper passes 3..5 (the winner pass is 6; density and 2D loops run 6 passes); the styles with no field loop read their picture through `growBirths2`.
+- Scenes with no shader to run them in (simulations, fluids, Milkdrop) get them from the composite (`postBirths`, `uPostLife`, `uPostBirths`) on the renderer's `lifeClock_`, only where `grade::gateFor`'s geometry gate is on.
 - `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
 - Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style), which their styles read as `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.

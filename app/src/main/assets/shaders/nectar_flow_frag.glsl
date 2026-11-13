@@ -121,7 +121,7 @@ float nfField(vec3 p) {
 float nfFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (shellPass3(i)) r = shellKeepDensity3(i, nfField(shellAt3(i)));
     }
     return r;

@@ -11,7 +11,20 @@
 
 vec2 opalField(vec3 p) {
     vec3 q = opalBend(p);
-    vec2 m = opalMap(q);
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the world, then Life's
+    // three births (lib_grow) while each lives, each the skins bent as the world's are, in its ball; the
+    // skin nearer the read is kept, so at Life 0 the field is the map at q alone.
+    vec2 m = vec2(0.0);
+    for (int i = min(int(uLife), 0); i < 4; i++) {
+        if (i > 0 && !growBorn(i - 1)) continue;
+        vec2 c = opalMap(i == 0 ? q : opalBend(growBirthAt(i - 1, p)));
+        if (i == 0) {
+            m = c;
+            continue;
+        }
+        c.x = growBirthDist(c.x);
+        if (abs(c.x) < abs(m.x)) m = c;
+    }
     vec3 s = sin(q * 5.0 + uTime * OPAL_RATE(1700) + vec3(0.0, 2.1, 4.2));
     m.x += gOpalChaos * 0.035 * (s.x * s.y + s.z);
     return m;

@@ -658,18 +658,20 @@ vec3 diveGrow(vec3 p) {
         reach = growFractalReach(0.2);
     }
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
-    // Spawn's copy and Fractal's child while each is on. Inlined copies put a style past the GPU's
-    // compile budget, and WebGL refuses ?: on a struct, so the nearer hit is chosen with an if.
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Inlined copies put a style past the GPU's compile budget, and WebGL refuses ?: on a struct,
+    // so the nearer hit is chosen with an if.
     vec3 h;
-    for (int i = min(int(uSpawn), 0); i < 3; i++) {
-        if (i < 0 || (i > 0 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))))) continue;
-        vec3 c = diveScene(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+        if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
+        vec3 c = diveScene(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             h = c;
             continue;
         }
         if (i == 2) c.x = growFractalChild(c.x / 3.0, h.x, reach);
-        if (gGrowSet) c.x = growClearEye(c.x, p, 0.6);
+        if (i > 2) c.x = growBirthDist(c.x);
+        else if (gGrowSet) c.x = growClearEye(c.x, p, 0.6);
         if (c.x < h.x) h = c;
     }
     // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
@@ -782,8 +784,10 @@ void diveCamera(int mode, vec2 uv, out vec3 ro, out vec3 rd) {
     mat3 frame = mat3(right, cross(fwd, right), fwd);
     rd = normalize(frame * camRayDir(uv));
     gDiveEye = ro;
-    // Grow and layers (lib_grow) open round this eye, which rides the dive's own path.
+    // Grow and layers (lib_grow) open round this eye, which rides the dive's own path; Life's births hang
+    // ahead of it in this frame.
     growSetup(ro, 3.0, false);
+    gGrowBasis = frame;
 }
 
 // ---- shading ----------------------------------------------------------------------

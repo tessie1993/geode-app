@@ -34,18 +34,21 @@ vec2 prismField(vec3 p) {
     // along the way (half a rosette cell at full), Fractal grows chrome a third the size out of every surface,
     // and the layers open the chrome round the eye (front) and down the way (back), k at 1 while they rest.
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
-    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
-    // GPU's compile budget (CI lost its WebGL context on them).
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Three inlined calls put the families past the GPU's compile budget (CI lost its WebGL
+    // context on them).
     float reach = growFractalReach(0.2);
     vec2 m = vec2(0.0);
-    for (int i = min(int(uSteps), 0); i < 3; i++) {
-        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
-        vec2 c = prismMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSteps), 0); i < 6; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)) || (i > 2 && !growBorn(i - 3))) continue;
+        vec2 c = prismMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             m = c;
             continue;
         }
-        if (i == 1) {
+        if (i > 2) {
+            c = vec2(growBirthDist(c.x), c.y * gGrowBirthS);
+        } else if (i == 1) {
             c.x = growClearEye(c.x, p, 0.6);
         } else {
             c /= 3.0;

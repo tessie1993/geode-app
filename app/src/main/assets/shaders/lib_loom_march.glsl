@@ -31,13 +31,14 @@ vec4 loomField(vec3 p) {
     // The layers: Front layer opens the weave round the eye, Back layer the weave down the way, and it
     // billows the skins, the loom's own backdrop.
     // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
-    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
-    // GPU's compile budget (CI lost its WebGL context on them).
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Three inlined calls put the families past the GPU's compile budget (CI lost its WebGL
+    // context on them).
     float reach = growFractalReach(0.15);
     vec4 m = vec4(0.0);
-    for (int i = min(int(uSteps), 0); i < 3; i++) {
-        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
-        vec4 c = loomMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+    for (int i = min(int(uSteps), 0); i < 6; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)) || (i > 2 && !growBorn(i - 3))) continue;
+        vec4 c = loomMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {
             m = c;
         } else if (i == 1) {
@@ -45,7 +46,7 @@ vec4 loomField(vec3 p) {
             if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
             if (abs(c.z) < abs(m.z)) m.z = c.z;
         } else {
-            c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.5);
+            c.x = i > 2 ? growBirthDist(c.x) : growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.5);
             if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
         }
     }

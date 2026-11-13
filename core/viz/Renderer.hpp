@@ -495,6 +495,8 @@ private:
 
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
+    // Life's births in the composite run on this clock: Speed-integrated like a scene's uTime, wrapping with it.
+    float lifeClock_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

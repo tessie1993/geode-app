@@ -124,7 +124,7 @@ float seaField(vec2 xz) {
 float seaFieldGrownW(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = float(0.0);
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (!shellPass2(i)) continue;
         float v = seaField(shellAt2(uv, i, SHELL_GROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
@@ -150,7 +150,7 @@ float aoRibbon(vec2 q) {
 float aoRibbonGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = float(0.0);
-    for (int i = SHELL_FROM; i < 3; i++) {
+    for (int i = SHELL_FROM; i < 6; i++) {
         if (!shellPass2(i)) continue;
         float v = aoRibbon(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));

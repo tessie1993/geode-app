@@ -226,8 +226,10 @@ void main() {
     // highp z keeps ~0.001 of fraction, and the caustics would speckle.
     ro.z = mod(ro.z, SC_ZWRAP);
     ro.y = clamp(ro.y, SC_EYE_LO, SC_EYE_HI);
-    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is.
+    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is;
+    // Life's births hang ahead of it in the rig's frame.
     growSetup(ro, 3.0, false);
+    gGrowBasis = uCamBasis;
 
     vec3 water = mix(vec3(0.03, 0.3, 0.42), pal(hue + 0.5), 0.35);
     float haze = (0.07 + 0.1 * ear.frost) * (1.5 - k5);

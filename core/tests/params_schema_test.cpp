@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 201;
+constexpr int kWireFloats = 202;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -86,7 +86,8 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::formula) == 197, "formula keeps its slot");
     check(static_cast<int>(ParamSlot::shapes) == 198, "shapes keeps its slot");
     check(static_cast<int>(ParamSlot::shadow) == 199, "shadow follows it");
-    check(static_cast<int>(ParamSlot::escapeColor) == kWireFloats - 1, "escapeColor is the wire's last float");
+    check(static_cast<int>(ParamSlot::escapeColor) == 200, "escapeColor keeps its slot");
+    check(static_cast<int>(ParamSlot::life) == kWireFloats - 1, "life is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -289,6 +290,8 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Shapes, "shapes", 0.0f, 1.0f},
     // The shading pass: the soft shadows' darkness and the escape colour's reach, 0..1 each.
     {LfoTarget::Shadow, "shadow", 0.0f, 1.0f},          {LfoTarget::EscapeColor, "escapeColor", 0.0f, 1.0f},
+    // Births: how much the picture is born and dies, 0..1.
+    {LfoTarget::Life, "life", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -652,6 +655,11 @@ void everyLiveRowHasOneMeta() {
     check(std::string(escape.label) == "Escape colour" && escape.scope == catalogue::Scope::Escape && (escape.flags & kMod) != 0 &&
               escape.rollLo == 0.0f && escape.rollHi == 0.0f && SceneParams::spec(ParamSlot::escapeColor).defaultValue == 0.5f,
           "Escape colour: a target on its own scope, 0.5 by default, never dealt by the param roll");
+    // Births (viz/Births): every style has Life, off by default, never rolled.
+    const ParamMeta& life = SceneParams::meta(ParamSlot::life);
+    check(std::string(life.label) == "Life" && life.scope == catalogue::Scope::Universal && (life.flags & kMod) != 0 &&
+              life.rollLo == 0.0f && life.rollHi == 0.0f && SceneParams::spec(ParamSlot::life).defaultValue == 0.0f,
+          "Life: a universal target, 0 by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {

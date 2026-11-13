@@ -372,6 +372,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"fractal", {"uFractal"}},
         {"frontLayer", {"uFrontLayer"}},
         {"backLayer", {"uBackLayer"}},
+        // Life's births (lib_grow): every style runs them, in its field loop or its wrappers, or over its picture.
+        {"life", {"uLife"}},
         // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
         {"formula", {"uFormula"}},
         // Shapes: shown only on the styles that melt the shape graph in (Catalogue.cpp's kShapeStyles, lib_shapes).
@@ -559,7 +561,8 @@ std::string readFile(const std::string& path) {
 // (zoom and rotation with it) to the fluid family only; MilkDrop's own post pass does those.
 bool compositeApplies(catalogue::Kind kind, const std::string& field) {
     static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
-                                               "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
+                                               "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize",
+                                               "life"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
                                                      "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;

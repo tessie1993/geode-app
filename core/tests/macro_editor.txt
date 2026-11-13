@@ -106,6 +106,7 @@ target|FORMULA|0|Formula
 target|SHAPES|0|Shapes
 target|SHADOW|0|Soft shadows
 target|ESCAPE_COLOR|0|Escape colour
+target|LIFE|1|Life
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail

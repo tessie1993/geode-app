@@ -527,17 +527,52 @@ void adaptOffHandsTheTierBackToThePlatform() {
     check(unknown.tier() == ThermalTier::Reduced, "without a thermal API frame time is the only signal: kept");
 }
 
-// Kills: dropping `!adaptive_` from the step-down guard (without Adapt the floor never comes down).
-void withoutAdaptTheFloorNeverStepsDown() {
+// The owner's report: the app slows down the longer it is used. Without a thermal API and without Adapt the
+// floor used to only rise, so one slow stretch (a resume, a heavy style) capped the phone until it was killed.
+// Kills: a step-up guard that again asks for Adapt or the platform. Worked by hand: 45 s of kept-up frames a
+// rung, plus the monitor's 30-frame window after each step.
+void withoutAdaptOrAPlatformTheFloorStillStepsBackUp() {
     ThermalState shared;
     shared.push(-1, NAN, 100.0);
     ThermalGovernor g(shared);
     g.setPacedFps(60.0f);
     for (int i = 0; i < 200; ++i) g.onFrame(0.05f);  // 20 fps for 10 s
-    const ThermalTier raised = shared.measuredFloor();
-    check(raised > ThermalTier::Full, "a sustained deficit raised the floor");
-    for (int i = 0; i < 120 * 60; ++i) g.onFrame(1.0f / 60.0f);  // two minutes keeping up
-    check(shared.measuredFloor() == raised, "without Adapt the floor never steps back down");
+    check(shared.measuredFloor() == ThermalTier::Reduced, "a sustained deficit raised the floor");
+    for (int i = 0; i < 50 * 60; ++i) g.onFrame(1.0f / 60.0f);
+    check(shared.measuredFloor() == ThermalTier::Eased, "50 s of keeping up steps it back one rung");
+    for (int i = 0; i < 50 * 60; ++i) g.onFrame(1.0f / 60.0f);
+    check(shared.measuredFloor() == ThermalTier::Full, "and 50 s more is full quality again");
+}
+
+// Kills: onSurfaceRecreated without the settling hold (a resume's first frames rebuild every program and
+// texture, and read as a deficit they raised the floor for the whole process).
+void aNewSurfaceStartsSettling() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    g.setAdaptive(true);
+    g.onSurfaceRecreated();
+    check(g.settling(), "a new surface starts with the settling hold");
+    for (int i = 0; i < 70; ++i) g.onFrame(0.05f);  // 3.5 s at 20 fps: unheld, a raise at about 3.25 s
+    check(shared.measuredFloor() == ThermalTier::Full, "so its first slow frames are not a deficit");
+}
+
+// Kills: onStyleChanged leaving the doubled wait (a light style after a heavy one stayed capped for up to
+// 12 minutes on the waits the heavy one's failed step-ups earned). The same frames as
+// withoutAdaptFramesFarUnderTheCapStepDown, which waits 90 s there without the change.
+void aNewStyleForgetsTheOldStylesLongWait() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    for (int i = 0; i < 200; ++i) g.onFrame(0.05f);
+    for (int i = 0; i < 50 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    for (int i = 0; i < 5 * 24; ++i) g.onFrame(1.0f / 24.0f);
+    check(shared.measuredFloor() == ThermalTier::Reduced, "the heavy style's step up failed");
+    g.onStyleChanged();
+    for (int i = 0; i < 55 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    check(shared.measuredFloor() == ThermalTier::Eased, "the new style steps up after the usual 45 s, not 90");
 }
 
 // Kills: kMeasuredRelaxSeconds well under or over 45 s, and a step down of more than one rung.
@@ -805,7 +840,9 @@ int main() {
     theCapLiftsWhenThePhoneCools();
     theMeasuredFloorStaysOnTheLadder();
     adaptOffHandsTheTierBackToThePlatform();
-    withoutAdaptTheFloorNeverStepsDown();
+    withoutAdaptOrAPlatformTheFloorStillStepsBackUp();
+    aNewSurfaceStartsSettling();
+    aNewStyleForgetsTheOldStylesLongWait();
     adaptStepsDownOneRungAfterAKeptUpRun();
     anExportsFrameTimesNeverRaiseTheFloor();
     anUnmatchedExportEndDoesNotUnpinTheNext();

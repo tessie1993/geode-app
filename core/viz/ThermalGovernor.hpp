@@ -90,7 +90,12 @@ public:
     bool settling() const { return settleHoldSeconds_ > 0.0f; }
 
     void onFrame(float dtSeconds);
+    // A new surface (back from the background, a wallpaper shown again) rebuilds every program and texture on
+    // its first frames, so it starts with the settling hold, and its probes start from the usual wait.
     void onSurfaceRecreated();
+    // A new style is a new load: the longer wait the old style's failed step-ups earned says nothing about it,
+    // so a light style after a heavy one is back to full quality in the usual 45 s, not up to 12 minutes.
+    void onStyleChanged() { relaxSeconds_ = kMeasuredRelaxSeconds; }
     void beginOffscreenRender() { offscreenDepth_.fetch_add(1); }
     void endOffscreenRender();
 

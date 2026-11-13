@@ -157,6 +157,7 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
+        thermal_.onStyleChanged();
         // A new style gets about a second of draws even in silence: its build and first load span frames.
         redrawFrames_ = 60;
         // The resolver's motion field takes the new style's variant at its next step.

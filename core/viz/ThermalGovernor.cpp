@@ -77,6 +77,7 @@ void ThermalGovernor::onFrame(float dtSeconds) {
 }
 
 void ThermalGovernor::onSurfaceRecreated() {
+    noteSettling();
     monitor_.reset();
     keptUpSeconds_ = 0.0f;
     relaxSeconds_ = kMeasuredRelaxSeconds;
@@ -113,10 +114,10 @@ void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
         if (sinceRelaxSeconds_ >= kRelaxProbeSeconds) relaxSeconds_ = kMeasuredRelaxSeconds;
     }
     if (relief <= 0) {
-        // Without a thermal API and without Adapt, the measured floor keeps its old promise of never
-        // upgrading: frame time is that phone's only signal. Everywhere else it steps back up.
-        const bool stepsBackUp = adaptive || platformKnows;
-        if (!stepsBackUp || shared_.measuredFloor() == ThermalTier::Full || !monitor_.keepingUp()) {
+        // Every phone steps back up, with or without a thermal API or Adapt: a floor that only ever rose made
+        // the app slower the longer it ran (one hitch after a resume capped it for the life of the process).
+        // A step up the phone cannot hold is a failed probe, and the next one waits twice as long.
+        if (shared_.measuredFloor() == ThermalTier::Full || !monitor_.keepingUp()) {
             keptUpSeconds_ = 0.0f;
             return;
         }

@@ -254,8 +254,11 @@ int geode_stage_gyro_listens(geode_stage* s, int wanted) {
     if (!stage) return 0;
     const bool on = stage::gyroListens(stage->viewFlags.load(), stage->paused.load(), wanted != 0);
     if (stage->gyroOn.exchange(on) != on) {
-        geode_viz_gyro_off(geode_stage_viz_lock(s));
-        geode_stage_viz_unlock();
+        // Unlock only a hold this call took: an unlock after a failed lock would pop an outer caller's.
+        if (geode_viz* viz = geode_stage_viz_lock(s)) {
+            geode_viz_gyro_off(viz);
+            geode_stage_viz_unlock();
+        }
     }
     return on ? 1 : 0;
 }

@@ -58,7 +58,6 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - ADR `0001`: the target module split and the Nav3 plan.
 - ADR `0002`: the Play release before steps 2–6.
 - ADR `0003`: every engine internal in C++, Kotlin only as the shell, with the port order.
-- ADR `0005`: wave 1 rebuilds Studio, Visuals and Customize before the release (overrides 0002's order) and sets the Studio project model.
 - ADR `0006` (proposed): the fosfora-shaped target: a hop chain on the sample clock, one feature and one param schema, a binding bus with base vs modulation, one frame graph for every surface, one typed command channel.
 - ADR `0007`: drops video editing from Studio.
 - ADR `0008`: frame pacing and rest are one native rule; its heat throttle is gone (owner 2026-11-13): nothing reads the phone's heat or lowers fps, scale, quality or effects for it.

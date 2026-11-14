@@ -412,10 +412,6 @@ _Avoid_: Wrapper, glue layer
 The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (post-FX) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
-**Engine settings**:
-The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount, seed, reach and keep set, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
-_Avoid_: Globals, settings (alone), scene params
-
 **Gain ramp**:
 A change of playback level (ReplayGain, a pause, resume or skip fade, the sleep fade, the crossfade) made on the samples in `core/audio/dsp/GainStage`: linear in dB, counted in frames, starting and ending on the sample it was meant for. The shell only names a target and a length. After the tap, so the visuals never hear it.
 _Avoid_: Volume fade, player volume (`player.volume` is only Cast's mute)

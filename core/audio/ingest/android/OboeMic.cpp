@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -54,19 +55,27 @@ public:
         const oboe::AudioFormat format = request.format.asFloat ? oboe::AudioFormat::Float : oboe::AudioFormat::I16;
         const oboe::InputPreset preset =
             request.unprocessed ? oboe::InputPreset::Unprocessed : oboe::InputPreset::VoiceRecognition;
-        oboe::AudioStreamBuilder builder;
-        builder.setDirection(oboe::Direction::Input)
-            ->setSharingMode(oboe::SharingMode::Shared)
-            ->setPerformanceMode(oboe::PerformanceMode::None)
-            ->setInputPreset(preset)
-            ->setFormat(format)
-            ->setChannelCount(request.format.channels)
-            ->setSampleRate(request.format.rateHz)
-            ->setBufferCapacityInFrames(request.capacityFrames)
-            ->setDataCallback(this)
-            ->setErrorCallback(this);
+        // The low-latency path (owner, 2026-11): exclusive first, the MMAP path where the device has one, and
+        // shared when it refuses exclusive. The rate is the plan's, whose first is the device's own, so the
+        // HAL resamples nothing.
         std::shared_ptr<oboe::AudioStream> stream;
-        const oboe::Result result = builder.openStream(stream);
+        oboe::Result result = oboe::Result::ErrorInternal;
+        for (const oboe::SharingMode sharing : {oboe::SharingMode::Exclusive, oboe::SharingMode::Shared}) {
+            oboe::AudioStreamBuilder builder;
+            builder.setDirection(oboe::Direction::Input)
+                ->setSharingMode(sharing)
+                ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+                ->setInputPreset(preset)
+                ->setFormat(format)
+                ->setChannelCount(request.format.channels)
+                ->setSampleRate(request.format.rateHz)
+                ->setBufferCapacityInFrames(request.capacityFrames)
+                ->setDataCallback(this)
+                ->setErrorCallback(this);
+            stream.reset();
+            result = builder.openStream(stream);
+            if (result == oboe::Result::OK && stream) break;
+        }
         if (result != oboe::Result::OK || !stream) {
             __android_log_print(ANDROID_LOG_INFO, kTag, "%d Hz x%d %s refused: %s", request.format.rateHz,
                                 request.format.channels, request.format.asFloat ? "float" : "16-bit",

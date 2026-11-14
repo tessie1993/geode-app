@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import androidx.annotation.AnyThread
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
+import java.nio.ByteBuffer
 import kotlin.concurrent.thread
 
 abstract class AudioCapturePump(
@@ -80,32 +81,26 @@ abstract class AudioCapturePump(
         val rate = sampleRateHz
         worker =
             thread(name = threadName, isDaemon = true) {
-                val asFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
-                val samples = GeodeNative.captureReadFrames() * channels
-                val floats = FloatArray(if (asFloat) samples else 0)
-                val shorts = ShortArray(if (asFloat) 0 else samples)
-                while (running && runGeneration == generation) {
-                    val n =
-                        if (asFloat) {
-                            rec.read(floats, 0, floats.size, AudioRecord.READ_BLOCKING)
-                        } else {
-                            rec.read(shorts, 0, shorts.size)
-                        }
+                // An audio thread's priority (the platform's own for audio work): with another app in front
+                // this process is in the background, and a default-priority reader that wakes late lets the
+                // record's buffer overrun, which the visuals hear as holes.
+                bestEffort(TAG, "audio priority") {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+                }
+                // One direct buffer for the run, sized natively: the record reads into it and native reads it
+                // where it lies (no Java array, no copy, no allocation per read). The ring converts the samples,
+                // measures the block and says when sound was last heard: no sample is read here.
+                val encoding = rec.audioFormat
+                val block = ByteBuffer.allocateDirect(GeodeNative.captureReadBytes(encoding, channels).coerceAtLeast(0))
+                while (running && runGeneration == generation && block.capacity() > 0) {
+                    val n = rec.read(block, block.capacity(), AudioRecord.READ_BLOCKING)
                     // stop() bumps runGeneration before it returns, so a read that was
                     // already blocked when stop() was called but only unblocks afterwards
                     // lands here with a stale generation — skip writing into a ring this run
                     // no longer owns.
                     if (runGeneration != generation) break
-                    val frames = if (n > 0) n / channels else 0
-                    if (frames > 0) {
-                        // The ring converts 16-bit to float and measures the block: no sample is read here.
-                        val peak =
-                            if (asFloat) {
-                                GeodeNative.pcmRingWriteFloats(ring, floats, frames, channels, rate)
-                            } else {
-                                GeodeNative.pcmRingWriteShorts(ring, shorts, frames, channels, rate)
-                            }
-                        heardAtMs = GeodeNative.captureHeardAt(peak, nowMs(), heardAtMs)
+                    if (n > 0) {
+                        heardAtMs = GeodeNative.captureWriteDirect(ring, block, n, encoding, channels, rate, nowMs(), heardAtMs)
                     } else if (n < 0) {
                         android.util.Log.w(javaClass.simpleName, "AudioRecord.read error $n")
                         break

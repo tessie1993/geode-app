@@ -10,7 +10,9 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - A capture of another app uses one `AudioCapturePump` worker thread.
 - The mic has no JVM thread: a native input stream (`core/audio/ingest/MicInput`, Oboe) writes its ring from the audio callback.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
-- Mic and capture use one `AudioCapturePump` worker thread each.
+- The capture's worker reads one reused direct buffer at `THREAD_PRIORITY_URGENT_AUDIO` and hands each read to native in one call (`captureWriteDirect`); no Java array, no decision in Kotlin.
+- Another app's audio has no NDK capture (AAudio and Oboe take no MediaProjection), so that read stays a Java `AudioRecord` (docs/research/audio-capture.md).
+- The player's ring changes hands in one native call, `geode_pcm_ring_hand_over`: the tap shut out, a new epoch, the engines' player-source flag.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, the process's player ring (`geode_pcm_ring_shared`, `core/audio/ingest/RingKinds`); stereo, what every sound engine hears.
 - The player's and the mic's rings are made on first use and never freed, so a surface or writer that outlives its session never reaches a freed ring.
 - The wallpaper's and dream's output-mix ring is made on the capture's first start and freed by `SoundSource.release` once its stage has closed.

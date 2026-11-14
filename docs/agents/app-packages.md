@@ -195,7 +195,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ## `engine/audioandroid`
 
 - `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
-- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
+- The ring changes hands natively: `CaptureController` asks `PlayerSession`, which calls `geode_pcm_ring_hand_over`; while another source writes the ring the tap's writes (`geode_pcm_ring_write_tap`) write nothing.
 
 ## `render`
 

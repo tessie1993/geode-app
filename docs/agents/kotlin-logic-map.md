@@ -550,13 +550,13 @@ A normal live frame is therefore 5 JNI crossings (`vizFrameBegin`, `vizFeedRing`
 
 | External | Kotlin site | Thread | JNI | Copies | Java heap |
 |---|---|---|---|---|---|
-| `pcmRingWriteDirect` | `E/core/audio/SampleRing.kt:71` from `engine/audio-android/.../PcmTap.kt:43` | Media3 playback | `geode_ingest_jni.cpp:30-39` | `GetDirectBufferAddress`; none | none (a heap buffer is first copied into a reused direct buffer in Kotlin, `PcmTap.kt:47-54`) |
+| `pcmRingWriteTap`, `pcmRingTapFlush` | `A/engine/audioandroid/PcmTap.kt` | Media3 playback | `geode_ingest_jni.cpp` | `GetDirectBufferAddress`; none | none (a heap buffer is first copied into a reused direct buffer in Kotlin, `PcmTap.kt:47-54`) |
 | `dspProcessBytes` | `A/audio/dsp/NativeDspProcessor.kt:110` | Media3 playback | `geode_jni.cpp:236-244` | `GetDirectBufferAddress`, in place; returns the whole-frame bytes to pass on | none (Kotlin copies input to the output buffer first, :107-109) |
 | `pcmRingHead` ×2, `playoutBufferHandled`, `playoutPosition` | `A/audio/PlayoutSink.kt:30-40` | Media3 playback | `geode_ingest_jni.cpp:103-105`, `geode_playout_jni.cpp:21-30` | primitives | none |
 | `audioOutEvents`, `audioOutWrite` | `A/audio/OboeAudioOutput.kt:47-48` | Media3 playback | `geode_audio_out_jni.cpp:49-56, 72-74` | `GetDirectBufferAddress`; native copies into `OutputFifo` | none |
 | `audioOutPositionUs`, `audioOutStalled` | `OboeAudioOutput.kt:83,87` | Media3 playback (position polls) | `geode_audio_out_jni.cpp:58-60, 76-78` | primitives | none |
-| `pcmRingWriteFloats` / `pcmRingWriteShorts`, `captureHeardAt` | `A/audio/AudioCapturePump.kt:81-85` | capture pump | `geode_ingest_jni.cpp:41-69` | `GetPrimitiveArrayCritical`, released `JNI_ABORT` | none |
-| `pcmRingWriteBytes` | `SampleRing.kt:60` | caller's | `geode_ingest_jni.cpp:71-83` | critical | none |
+| `captureWriteDirect` (write and heard-at in one call) | `A/audio/AudioCapturePump.kt` | capture pump (URGENT_AUDIO) | `geode_ingest_jni.cpp` | `GetDirectBufferAddress`; none | none (one direct buffer per run) |
+| `captureWriteBytes` | `A/wallpaper/OutputMixCapture.kt` | main (Visualizer listener) | `geode_ingest_jni.cpp` | critical | the platform's snapshot array |
 | `recorderTakeAudio`, `recordNowNs`, `recorderWrote`, `recorderVideoEncoded` | `A/record/RecordEncoder.kt:138, 169, 190, 204` | record encoder | viz:1546-1567 | direct buffer + `SetLongArrayRegion` | none |
 | `loudnessFeedDirect` | `A/export/LoudnessMeter.kt:313` | export | `geode_export_dsp_jni.cpp:74-99` | direct; a native `std::vector` copy only for a misaligned span | none |
 | `resamplerProcess` | `A/export/PcmResampler.kt:43` | export | `geode_export_dsp_jni.cpp:32-51` | `GetShortArrayRegion`, two native vectors, `SetShortArrayRegion` | `NewShortArray` per block |

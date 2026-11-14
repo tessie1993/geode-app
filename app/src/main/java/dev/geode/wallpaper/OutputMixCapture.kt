@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.audiofx.Visualizer
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
@@ -42,6 +43,15 @@ class OutputMixCapture {
 
     val running: Boolean get() = visualizer != null
 
+    /** When a snapshot last held anything above digital zero (native `core/sound/Silence`); the start counts. */
+    private var heardAtMs = 0L
+
+    /**
+     * Running, and only digital zero for a while: the mix this Visualizer sees carries none of what plays
+     * (a stream on an output it is not attached to, such as offload, or a device that gives it nothing).
+     */
+    val quiet: Boolean get() = running && GeodeNative.captureQuiet(SystemClock.uptimeMillis(), heardAtMs)
+
     private val listener =
         object : Visualizer.OnDataCaptureListener {
             override fun onWaveFormDataCapture(
@@ -51,7 +61,19 @@ class OutputMixCapture {
             ) {
                 val bytes = waveform ?: return
                 val n = minOf(bytes.size, captureSize)
-                if (n > 0) GeodeNative.pcmRingWriteBytes(soundInput, bytes, n, AudioFormat.ENCODING_PCM_8BIT, 1, rateHz)
+                if (n > 0) {
+                    heardAtMs =
+                        GeodeNative.captureWriteBytes(
+                            soundInput,
+                            bytes,
+                            n,
+                            AudioFormat.ENCODING_PCM_8BIT,
+                            1,
+                            rateHz,
+                            SystemClock.uptimeMillis(),
+                            heardAtMs,
+                        )
+                }
             }
 
             override fun onFftDataCapture(
@@ -99,6 +121,7 @@ class OutputMixCapture {
         }
         // A new run is a new stream: the renderer's cursor restarts instead of reading a seam.
         GeodeNative.pcmRingBeginEpoch(soundInput)
+        heardAtMs = SystemClock.uptimeMillis()
         visualizer = v
         return true
     }

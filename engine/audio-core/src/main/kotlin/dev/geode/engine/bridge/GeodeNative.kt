@@ -2207,18 +2207,21 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
-    /** A capture's last sound: [nowMs] when [peak] (a ring write's answer) is above digital zero, else [heardAtMs]. */
-    external fun captureHeardAt(
-        peak: Float,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
-
     /** Whether a capture has heard only digital zero for 4 s since [heardAtMs]. */
     external fun captureQuiet(
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    /** A refused capture (`core/sound/Silence`): [quiet] while a session plays or the platform says music is active. */
+    external fun captureRefused(
+        quiet: Boolean,
+        sessionPlaying: Boolean,
+        musicActive: Boolean,
+    ): Boolean
+
+    /** Which other app's session to name (`core/sound/NowPlaying`): 1 per playing session, in the platform's order. -1: none. */
+    external fun nowPlayingPick(playing: IntArray): Int
 
     /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
     const val CAPTURE_FORMAT_RATE = 0
@@ -2241,8 +2244,11 @@ object GeodeNative {
         channels: Int,
     ): Int
 
-    /** The frames one capture read takes. */
-    external fun captureReadFrames(): Int
+    /** The bytes one capture read of [encoding] (`AudioFormat.ENCODING_PCM_*`) at [channels] takes; 0 = unknown. */
+    external fun captureReadBytes(
+        encoding: Int,
+        channels: Int,
+    ): Int
 
     /**
      * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
@@ -2268,12 +2274,6 @@ object GeodeNative {
      */
     external fun soundTrackBoundary(seed: Long): Long
 
-    /**
-     * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
-     * the player is the source a pause holds the tempo, key and sections; the others keep the 2 s silence
-     * re-warm, and read a fade gain of 1. Any thread.
-     */
-    external fun soundSetPlayerSource(on: Boolean)
     // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
     // else the output-mix capture when permitted, with hysteresis so it never flaps.
 
@@ -2871,11 +2871,12 @@ object GeodeNative {
     external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
-     * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
-     * order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the frames
-     * written, 0 for a heap buffer or an encoding it does not read.
+     * The player's tap: writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the
+     * machine's byte order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the
+     * frames written: 0 for a heap buffer, an encoding it does not read, or while a capture has the ring
+     * ([pcmRingHandOver]). Playback thread.
      */
-    external fun pcmRingWriteDirect(
+    external fun pcmRingWriteTap(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         position: Int,
@@ -2885,36 +2886,49 @@ object GeodeNative {
         sampleRate: Int,
     ): Int
 
-    /** Writes [frames] interleaved frames; returns the block's peak magnitude. */
-    external fun pcmRingWriteFloats(
+    /**
+     * A capture's read (another app's audio): the first [bytes] of a direct [buffer], in the machine's byte
+     * order, as [pcmRingWriteTap] reads them. Returns when the capture last heard sound: [nowMs] when the
+     * block is above digital zero, else [heardAtMs] (`geode_capture_write`). The capture's thread.
+     */
+    external fun captureWriteDirect(
         handle: Long,
-        samples: FloatArray,
-        frames: Int,
+        buffer: java.nio.ByteBuffer,
+        bytes: Int,
+        encoding: Int,
         channels: Int,
         sampleRate: Int,
-    ): Float
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
 
-    /** [pcmRingWriteFloats] for 16-bit samples, scaled by 1/32768 natively. */
-    external fun pcmRingWriteShorts(
-        handle: Long,
-        samples: ShortArray,
-        frames: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Float
-
-    /** Writes the whole frames in the first [count] bytes of [samples], as [pcmRingWriteDirect] reads them. */
-    external fun pcmRingWriteBytes(
+    /** [captureWriteDirect] for the first [count] bytes of a Java array (the output mix's snapshots). */
+    external fun captureWriteBytes(
         handle: Long,
         samples: ByteArray,
         count: Int,
         encoding: Int,
         channels: Int,
         sampleRate: Int,
-    ): Int
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
 
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
+
+    /** The tap's flush: a new epoch, only while the tap has the ring ([pcmRingHandOver]). Playback thread. */
+    external fun pcmRingTapFlush(handle: Long)
+
+    /**
+     * The player's ring changes hands in one native call (`geode_pcm_ring_hand_over`): [tapWrites] false
+     * before a capture of another app writes it, true once that capture has stopped. Shuts the tap out (or
+     * lets it back), starts an epoch, and tells every sound engine whether the player is its source.
+     */
+    external fun pcmRingHandOver(
+        handle: Long,
+        tapWrites: Boolean,
+    )
 
     /** Frames written since the last [pcmRingBeginEpoch]. */
     external fun pcmRingWritten(handle: Long): Long

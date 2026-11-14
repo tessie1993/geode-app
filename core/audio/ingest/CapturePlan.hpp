@@ -36,4 +36,11 @@ int capturePlan(int deviceRateHz, bool stereo, CaptureFormat* out, int capacity)
  */
 int captureBufferBytes(int minBufferBytes, int channels);
 
+/**
+ * The bytes one read takes (kCaptureReadFrames frames) of `encoding`, numbered as Android's
+ * AudioFormat.ENCODING_PCM_* (2 = 16-bit, 3 = 8-bit, 4 = float), at `channels`: the size of the one direct
+ * buffer the capture reads into and hands across. 0 for an encoding the ring does not read or no channels.
+ */
+int captureReadBytes(int encoding, int channels);
+
 }  // namespace geode::audio::ingest

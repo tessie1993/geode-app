@@ -120,6 +120,12 @@ void cAbi() {
     CHECK(one[0] == 48000 && one[1] == 1 && one[2] == 1, "C ABI one row");
     CHECK(geode_capture_buffer_bytes(3840, 1) == 15360, "C ABI buffer");
     CHECK(geode_capture_read_frames() == 1024, "C ABI read frames");
+    // One read's bytes: frames x channels x the encoding's width; nothing for an encoding the ring cannot read.
+    CHECK(geode_capture_read_bytes(4, 2) == 1024 * 2 * 4, "C ABI read bytes, float stereo");
+    CHECK(geode_capture_read_bytes(2, 2) == 1024 * 2 * 2, "C ABI read bytes, 16-bit stereo");
+    CHECK(geode_capture_read_bytes(2, 1) == 1024 * 2, "C ABI read bytes, 16-bit mono");
+    CHECK(geode_capture_read_bytes(3, 1) == 1024, "C ABI read bytes, 8-bit mono");
+    CHECK(geode_capture_read_bytes(99, 2) == 0 && geode_capture_read_bytes(4, 0) == 0, "C ABI read bytes, refused");
 }
 
 }  // namespace

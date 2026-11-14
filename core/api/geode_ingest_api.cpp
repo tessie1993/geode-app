@@ -13,6 +13,7 @@
 #include "audio/ingest/PcmRing.hpp"
 #include "audio/ingest/RingKinds.hpp"
 #include "audio/ingest/TrackFeed.hpp"
+#include "sound/PlayerSignals.hpp"
 #include "sound/Silence.hpp"
 
 namespace {
@@ -155,6 +156,33 @@ int geode_pcm_ring_write_bytes(geode_pcm_ring* r, const void* data, size_t bytes
     if (r && r->snapshots) return report(stitched(r, data, bytes, encoding, channels, sample_rate), peak_out);
     return report(r ? r->ring->writeBytes(data, bytes, encoding, channels, sample_rate) : PcmRing::Written{},
                   peak_out);
+}
+
+void geode_pcm_ring_hand_over(geode_pcm_ring* r, int tap_writes) {
+    if (!r) return;
+    const bool tap = tap_writes != 0;
+    // The tap first: once this store is seen it writes nothing, then the epoch ends the old stream for every
+    // reader, then the sound engines learn whether the player is their source (sound/PlayerSignals).
+    r->tapWrites.store(tap, std::memory_order_release);
+    r->ring->beginEpoch();
+    geode::sound::player::setPlayerIsSource(tap);
+}
+
+int geode_pcm_ring_write_tap(geode_pcm_ring* r, const void* data, size_t bytes, int encoding, int channels,
+                             int sample_rate) {
+    if (!r || !r->tapWrites.load(std::memory_order_acquire)) return 0;
+    return geode_pcm_ring_write_bytes(r, data, bytes, encoding, channels, sample_rate, nullptr);
+}
+
+void geode_pcm_ring_tap_flush(geode_pcm_ring* r) {
+    if (r && r->tapWrites.load(std::memory_order_acquire)) r->ring->beginEpoch();
+}
+
+long long geode_capture_write(geode_pcm_ring* r, const void* data, size_t bytes, int encoding, int channels,
+                              int sample_rate, long long now_ms, long long heard_at_ms) {
+    float peak = 0.0f;
+    geode_pcm_ring_write_bytes(r, data, bytes, encoding, channels, sample_rate, &peak);
+    return geode::sound::silence::captureHeardAt(peak, now_ms, heard_at_ms);
 }
 
 int geode_pcm_ring_set_snapshots(geode_pcm_ring* r, int on) {

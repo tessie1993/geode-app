@@ -60,7 +60,6 @@ import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
-import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -119,10 +118,8 @@ class PlayerSession internal constructor(
                 override fun pausePlayback() = player.pause()
 
                 override fun resetSound(playerOwnsRing: Boolean) {
-                    // The tap first: once this returns it writes nothing while another source has the ring.
-                    playback.tap.owns = playerOwnsRing
-                    GeodeNative.pcmRingBeginEpoch(playback.sampleRing)
-                    bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
+                    // One native hand-over: the tap shut out (or let back), a new epoch, the engines' source.
+                    GeodeNative.pcmRingHandOver(playback.sampleRing, playerOwnsRing)
                 }
 
                 override fun setMicReactivePref(on: Boolean) {

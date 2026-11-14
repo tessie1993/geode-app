@@ -1049,6 +1049,12 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * capture's start. Pure, any thread. */
 GEODE_API long long       geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_at_ms);     /* 1 = quiet */
+/* A refused capture (sound/Silence): quiet while something plays, either another app's media session in the
+ * playing state or the platform's music-active answer. 1 = refused. Pure, any thread. */
+GEODE_API int             geode_capture_refused(int quiet, int session_playing, int music_active);
+/* Which other app's media session to name (sound/NowPlaying): playing[i] != 0 for each listed session, in the
+ * platform's order. The first playing one, else 0; -1 for none. Pure, any thread. */
+GEODE_API int             geode_now_playing_pick(const int* playing, int count);
 /* A capture's format plan (audio/ingest/CapturePlan): the formats to ask AudioRecord for, first to try first.
  * device_rate_hz <= 0 is unknown; stereo 0 plans mono only. Writes min(count, capacity) rows of
  * GEODE_CAPTURE_FORMAT_INTS ints (rate Hz, channels, 1 = float / 0 = 16-bit) and returns the count.
@@ -1058,6 +1064,8 @@ GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_
 GEODE_API int             geode_capture_plan(int device_rate_hz, int stereo, int* out, int capacity);
 GEODE_API int             geode_capture_buffer_bytes(int min_buffer_bytes, int channels);
 GEODE_API int             geode_capture_read_frames(void);
+/* The bytes of one read of `encoding` (AudioFormat.ENCODING_PCM_* numbering) at `channels`; 0 = unknown. */
+GEODE_API int             geode_capture_read_bytes(int encoding, int channels);
 /* Live input (audio/ingest/MicInput): the microphone as a native input stream whose callback writes the
  * process's mic ring (geode_pcm_ring_shared(GEODE_PCM_RING_MIC)), declared below.
  * Opens the first format of the capture plan the device gives (mono, device_rate_hz first, <= 0 unknown),
@@ -1563,6 +1571,16 @@ GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on
 GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+/* The player's ring changes hands in one call: tap_writes 0 before a capture of another app starts writing it,
+ * 1 once that capture has stopped. The tap is shut out (or let back) first, then a new epoch ends the old
+ * stream for every reader, then every sound engine learns whether the player is its source
+ * (geode_sound_set_player_source). Main thread. */
+GEODE_API void              geode_pcm_ring_hand_over(geode_pcm_ring*, int tap_writes);
+/* The player's tap: geode_pcm_ring_write_bytes while the tap has the ring (geode_pcm_ring_hand_over), else
+ * nothing (0 frames). _tap_flush: a new epoch for the tap's flush, only while it has the ring. Playback thread. */
+GEODE_API int               geode_pcm_ring_write_tap(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
+                                                     int channels, int sample_rate);
+GEODE_API void              geode_pcm_ring_tap_flush(geode_pcm_ring*);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
 GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* frames ever written, across epochs */
 /* The playout clock of the sink that plays this ring (the player's), or NULL for none: a renderer fed this
@@ -1573,6 +1591,12 @@ GEODE_API void              geode_pcm_ring_set_playout(geode_pcm_ring*, const ge
  * not written that many, else now_ms when any of them is audible. */
 GEODE_API long long         geode_pcm_ring_heard_at(const geode_pcm_ring*, int frames, long long now_ms,
                                                     long long heard_at_ms);
+/* A capture's one call per read (another app's audio, the output mix): writes the block as
+ * geode_pcm_ring_write_bytes does and returns the time the capture last heard sound, geode_capture_heard_at
+ * on the block's peak, so the shell's read loop hands bytes across and keeps one timestamp. Writer thread. */
+GEODE_API long long         geode_capture_write(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
+                                                int channels, int sample_rate, long long now_ms,
+                                                long long heard_at_ms);
 /* One reader's place in a ring: every frame once, in order. max_frames is the most one take hands out
  * (0 = the ring's runway). One thread per cursor. */
 GEODE_API geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring*, int max_frames);

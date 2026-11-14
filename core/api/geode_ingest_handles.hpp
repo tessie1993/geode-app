@@ -23,6 +23,10 @@ struct geode_pcm_ring {
     // geode_pcm_ring_set_snapshots: the writes are a capture's snapshots, stitched onto the capture clock.
     // Writer thread only, like the writes.
     std::unique_ptr<geode::audio::ingest::SnapshotStitch> snapshots{};
+    // geode_pcm_ring_hand_over: whether the player's tap writes this ring (true) or a capture of another app
+    // has it (false). The tap's writes and flushes ask it (geode_pcm_ring_write_tap, _tap_flush), so the ring
+    // has one writer without the tap holding a flag of its own. Main thread writes, the playback thread reads.
+    std::atomic<bool> tapWrites{true};
     // A ring kept for the process (geode_pcm_ring_shared): geode_pcm_ring_destroy leaves it alone.
     bool kept = false;
 

@@ -21,7 +21,7 @@
 // when the writer could have reached those slots, so torn audio is never handed on. The samples are
 // relaxed atomics (plain loads and stores on every target), which makes that discarded read defined.
 //
-// One writer is the contract, and the shell keeps it (PcmTap.owns). Two writers at once still cannot
+// One writer is the contract, and the player's ring keeps it natively (geode_pcm_ring_hand_over). Two writers at once still cannot
 // move the head backwards or tear a format mark: a block whose publish finds the head moved is dropped
 // and its writer carries on from the new head.
 //

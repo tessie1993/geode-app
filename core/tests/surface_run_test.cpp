@@ -356,6 +356,29 @@ void captureQuietAfterFourSecondsOfZeros() {
           "the 4 s restart from the last sound");
 }
 
+// A refusal is a quiet capture while something plays, seen by either witness: a session in the playing
+// state (notification access) or the platform's music-active answer (no access). Kills: && for || between
+// the witnesses, a refusal without quiet, a refusal with nothing playing.
+void captureRefusedNeedsQuietAndSomethingPlaying() {
+    check(geode_capture_refused(1, 1, 0) == 1, "quiet while a session plays: refused");
+    check(geode_capture_refused(1, 0, 1) == 1, "quiet while music is active, no session access: refused");
+    check(geode_capture_refused(1, 1, 1) == 1, "quiet with both witnesses: refused");
+    check(geode_capture_refused(1, 0, 0) == 0, "quiet with nothing playing: just silence");
+    check(geode_capture_refused(0, 1, 1) == 0, "sound heard: never refused");
+}
+
+// The session named: the first playing one, else the first listed, -1 for none. Kills: the last playing
+// one, a playing one skipped for the first listed, a pick with nothing listed.
+void nowPlayingPicksTheFirstPlayingSession() {
+    const int none[] = {0, 0, 0};
+    const int second[] = {0, 1, 1};
+    const int first[] = {1, 0, 1};
+    check(geode_now_playing_pick(none, 3) == 0, "none playing: the first listed");
+    check(geode_now_playing_pick(second, 3) == 1, "the first playing one");
+    check(geode_now_playing_pick(first, 3) == 0, "the first playing one is first");
+    check(geode_now_playing_pick(none, 0) == -1 && geode_now_playing_pick(nullptr, 2) == -1, "nothing listed");
+}
+
 // The trial runs out during a silent rest: the still frame stays, and the capture is released, so music
 // coming back after the end does not move it. Kills: listening ignoring the entitlement during a rest.
 void trialEndsDuringASilentRest() {
@@ -615,6 +638,8 @@ int main() {
     silenceRestsAfterSixSecondsAndSoundWakesIt();
     whatCountsAsSound();
     captureQuietAfterFourSecondsOfZeros();
+    captureRefusedNeedsQuietAndSomethingPlaying();
+    nowPlayingPicksTheFirstPlayingSession();
     trialEndsDuringASilentRest();
     reducedMotion();
     dreamGoesDarkInSilence();

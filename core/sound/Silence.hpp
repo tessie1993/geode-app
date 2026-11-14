@@ -58,4 +58,13 @@ inline int64_t captureHeardAt(float peak, int64_t nowMs, int64_t heardAtMs) {
 
 inline bool captureQuiet(int64_t nowMs, int64_t heardAtMs) { return nowMs - heardAtMs > kCaptureQuietMs; }
 
+// A capture an app refuses: quiet while something plays. Quiet alone cannot tell a refusal from nothing
+// playing, so the shell says what it sees play: another app's media session in the playing state (needs
+// notification access), or the platform's own answer that music is active (AudioManager.isMusicActive,
+// no access needed). Either one with a quiet capture is a refusal (the app's capture policy, or a stream
+// the platform does not mix into the capture), so the shell says so instead of showing a still picture.
+inline bool captureRefused(bool quiet, bool sessionPlaying, bool musicActive) {
+    return quiet && (sessionPlaying || musicActive);
+}
+
 }  // namespace geode::sound::silence

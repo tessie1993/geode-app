@@ -20,6 +20,7 @@
 
 #include "api/geode_api.h"
 #include "audio/ingest/PcmRing.hpp"
+#include "sound/PlayerSignals.hpp"
 
 using geode::audio::ingest::Cursor;
 using geode::audio::ingest::PcmRing;
@@ -609,6 +610,43 @@ void testAbi() {
     CHECK(geode_pcm_ring_write_bytes(ring, bytes, 2, GEODE_PCM_U8, 1, 48000, &peak) == 2, "abi u8 write");
     CHECK(peak == 1.0f, "abi u8 peak %g", peak);
     CHECK(geode_pcm_ring_write_bytes(ring, bytes, 2, 99, 1, 48000, &peak) == 0 && peak == 0.0f, "abi unknown encoding");
+
+    // The hand-over: a capture takes the ring, so the tap writes and flushes nothing and the engines hear no
+    // player; handed back, the tap writes again. Kills: the tap still writing, no epoch, the source flag left.
+    {
+        const int16_t tapBlock[4] = {1000, -1000, 2000, -2000};
+        geode_pcm_ring_hand_over(ring, 0);
+        CHECK(!geode::sound::player::playerIsSource(), "hand-over: the player still counts as the source");
+        CHECK(geode_pcm_ring_written(ring) == 0, "hand-over: no new epoch");
+        CHECK(geode_pcm_ring_write_tap(ring, tapBlock, sizeof tapBlock, GEODE_PCM_S16, 2, 48000) == 0,
+              "hand-over: the tap wrote a ring a capture has");
+        CHECK(geode_capture_write(ring, tapBlock, sizeof tapBlock, GEODE_PCM_S16, 2, 48000, 7, 1) == 7,
+              "hand-over: the capture's write");
+        geode_pcm_ring_tap_flush(ring);
+        CHECK(geode_pcm_ring_written(ring) == 2, "hand-over: the tap's flush ended the capture's epoch");
+        geode_pcm_ring_hand_over(ring, 1);
+        CHECK(geode::sound::player::playerIsSource(), "hand-back: the player is the source again");
+        CHECK(geode_pcm_ring_written(ring) == 0, "hand-back: no new epoch");
+        CHECK(geode_pcm_ring_write_tap(ring, tapBlock, sizeof tapBlock, GEODE_PCM_S16, 2, 48000) == 2,
+              "hand-back: the tap writes again");
+        geode_pcm_ring_tap_flush(ring);
+        CHECK(geode_pcm_ring_written(ring) == 0, "hand-back: the tap's flush starts an epoch");
+        geode_pcm_ring_hand_over(nullptr, 0);
+        geode_pcm_ring_hand_over(nullptr, 1);  // a null handle is safe and changes nothing
+        CHECK(geode_pcm_ring_write_tap(nullptr, tapBlock, sizeof tapBlock, GEODE_PCM_S16, 2, 48000) == 0, "tap, null");
+    }
+
+    // A capture's read: written like write_bytes, and the heard time moves only on a block above digital zero.
+    const int64_t beforeCapture = geode_pcm_ring_written(ring);
+    const int16_t zeros[4] = {0, 0, 0, 0};
+    CHECK(geode_capture_write(ring, zeros, sizeof zeros, GEODE_PCM_S16, 2, 48000, 900, 100) == 100,
+          "abi capture: zeros are not sound");
+    CHECK(geode_pcm_ring_written(ring) == beforeCapture + 2, "abi capture: zeros still written");
+    const float sound[2] = {0.0f, -0.25f};
+    CHECK(geode_capture_write(ring, sound, sizeof sound, GEODE_PCM_FLOAT, 2, 48000, 900, 100) == 900,
+          "abi capture: a block with sound moves the heard time");
+    CHECK(geode_capture_write(nullptr, sound, sizeof sound, GEODE_PCM_FLOAT, 2, 48000, 900, 100) == 100,
+          "abi capture: no ring, nothing heard");
 
     // Rest when silent: unchanged until the epoch holds that many frames, now once one is audible.
     geode_pcm_ring_begin_epoch(ring);

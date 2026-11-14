@@ -14,24 +14,34 @@ Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong 
     return geode_silence_resting(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_captureHeardAt(JNIEnv*, jobject, jfloat peak, jlong nowMs, jlong heardAtMs) {
-    return geode_capture_heard_at(peak, nowMs, heardAtMs);
-}
-
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_captureQuiet(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
     return geode_capture_quiet(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_captureRefused(JNIEnv*, jobject, jboolean quiet, jboolean sessionPlaying,
+                                                       jboolean musicActive) {
+    return geode_capture_refused(quiet == JNI_TRUE, sessionPlaying == JNI_TRUE, musicActive == JNI_TRUE) ? JNI_TRUE
+                                                                                                        : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_nowPlayingPick(JNIEnv* env, jobject, jintArray playing) {
+    if (!playing) return -1;
+    const jsize count = env->GetArrayLength(playing);
+    std::vector<int> flags(static_cast<size_t>(std::max<jsize>(count, 0)));
+    for (jsize i = 0; i < count; ++i) {
+        jint one = 0;
+        env->GetIntArrayRegion(playing, i, 1, &one);
+        flags[static_cast<size_t>(i)] = one;
+    }
+    return geode_now_playing_pick(flags.data(), count);
+}
+
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
     return geode_sound_track_boundary(seed);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
-    geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT jint JNICALL

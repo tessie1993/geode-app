@@ -267,24 +267,32 @@ internal class CaptureController(
         if (externalAudioRefreshInFlight) return
         externalAudioRefreshInFlight = true
         scope.launch {
+            val quiet = playbackCapture.active && playbackCapture.quiet
             val (access, now) =
                 withContext(Dispatchers.IO) {
                     val access = nowPlayingBridge.hasAccess()
                     access to (if (access) nowPlayingBridge.current() else null)
                 }
-            val refused = playbackCapture.active && playbackCapture.quiet && (now?.playing ?: false)
+            // Whether that silence is a refusal is native's (core/sound/Silence). Without notification access
+            // the platform's music-active answer is the witness, so a refusing app is still called one.
+            val musicActive = quiet && withContext(Dispatchers.IO) { musicActive() }
+            val refused = GeodeNative.captureRefused(quiet, now?.playing ?: false, musicActive)
             _externalAudio.update {
                 it.copy(
                     active = playbackCapture.active,
                     nowPlaying = now,
                     hasSessionAccess = access,
                     refusedByApp = refused,
-                    hearingSilence = playbackCapture.active && playbackCapture.quiet,
+                    hearingSilence = quiet,
                 )
             }
             externalAudioRefreshInFlight = false
         }
     }
+
+    /** Any app's music plays now (the player is paused while a capture runs, so it is another app's). */
+    private fun musicActive(): Boolean =
+        runCatching { application.getSystemService(AudioManager::class.java)?.isMusicActive == true }.getOrDefault(false)
 
     fun refreshMicState() {
         if (!_micState.value.active || GeodeNative.micActive()) return

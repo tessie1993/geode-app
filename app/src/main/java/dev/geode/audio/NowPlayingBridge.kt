@@ -6,6 +6,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import dev.geode.engine.bridge.GeodeNative
 
 class GeodeNotificationListener : NotificationListenerService()
 
@@ -42,11 +43,10 @@ class NowPlayingBridge(
         val manager = context.getSystemService(MediaSessionManager::class.java) ?: return null
         val sessions =
             runCatching { manager.getActiveSessions(component) }.getOrNull().orEmpty()
-        val best =
-            sessions
-                .filter { it.packageName != context.packageName }
-                .maxByOrNull { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) 1 else 0 }
-                ?: return null
+        val others = sessions.filter { it.packageName != context.packageName }
+        // Which one to name is native's (core/sound/NowPlaying); this lists them and says which play.
+        val playing = IntArray(others.size) { if (others[it].playbackState?.state == PlaybackState.STATE_PLAYING) 1 else 0 }
+        val best = others.getOrNull(GeodeNative.nowPlayingPick(playing)) ?: return null
         val metadata = best.metadata
         return External(
             packageName = best.packageName,

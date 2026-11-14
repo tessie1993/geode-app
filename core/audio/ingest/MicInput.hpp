@@ -14,7 +14,8 @@
 //
 // The stream asked for is the one AudioRecord was: mono, the formats of capturePlan in its order (the
 // device's rate first, float before 16-bit), the UNPROCESSED source where the device has it, else
-// VOICE_RECOGNITION, the shared normal-latency path. A start the device refuses is a failure, as it was.
+// VOICE_RECOGNITION, on the low-latency path, exclusive where the device gives it and else shared
+// (OboeMic). A start the device refuses is a failure, as it was.
 //
 // Threads: start, stop and active on the caller's (the main thread); onAudio on the stream's audio thread;
 // onClosed on the platform's error thread once it has closed a stream. lock_ is never taken on the audio

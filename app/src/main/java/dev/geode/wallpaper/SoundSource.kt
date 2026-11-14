@@ -3,6 +3,7 @@ package dev.geode.wallpaper
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -119,6 +120,9 @@ class SoundSource(
             if (!opened) GeodeNative.soundSourceStartFailed(sourceState, now)
         }
         val useCapture = (answer and GeodeNative.SOUND_SOURCE_USE_CAPTURE) != 0
+        // The Visualizer opened but hears only digital zero while music plays: this phone does not share that
+        // sound with it. Said on the options page (the refusal native judges, core/sound/Silence), not hidden.
+        if (useCapture && capture.quiet && GeodeNative.captureRefused(true, false, musicActive())) prefs.saveMixRefused(true)
         val chosen = if (useCapture && capture.running) capture.soundInput else app
         input = chosen
         if (chosen != 0L) soundAtMs = heardAt(chosen, now)
@@ -128,6 +132,10 @@ class SoundSource(
             onSilenceChanged()
         }
     }
+
+    /** Any app's music playing now; asked only while the capture hears digital zero. */
+    private fun musicActive(): Boolean =
+        runCatching { context.getSystemService(AudioManager::class.java)?.isMusicActive == true }.getOrDefault(false)
 
     private fun hasRecordPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

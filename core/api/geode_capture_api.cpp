@@ -24,4 +24,6 @@ int geode_capture_buffer_bytes(int min_buffer_bytes, int channels) {
 
 int geode_capture_read_frames(void) { return ingest::kCaptureReadFrames; }
 
+int geode_capture_read_bytes(int encoding, int channels) { return ingest::captureReadBytes(encoding, channels); }
+
 }  // extern "C"

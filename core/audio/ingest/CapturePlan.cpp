@@ -36,4 +36,16 @@ int captureBufferBytes(int minBufferBytes, int channels) {
     return static_cast<int>(bytes < kMax ? bytes : kMax);
 }
 
+int captureReadBytes(int encoding, int channels) {
+    if (channels <= 0) return 0;
+    int width = 0;
+    switch (encoding) {
+        case 2: width = 2; break;  // 16-bit
+        case 3: width = 1; break;  // 8-bit
+        case 4: width = 4; break;  // float
+        default: return 0;
+    }
+    return kCaptureReadFrames * channels * width;
+}
+
 }  // namespace geode::audio::ingest

@@ -30,6 +30,12 @@ class PlaybackCapture(
         return null
     }
 
+    /**
+     * Every usage another app can let a capture hear (media, game, unknown: the platform captures no other),
+     * minus this app's own uid. Its own playing is heard through the tap, first and on time, so a capture
+     * that also took it would hand the visuals the same music a second time, later by the capture's path.
+     * Matching usages and excluding a uid go together (only usage with usage, uid with uid exclude each other).
+     */
     private fun openRecord(projection: MediaProjection): AudioRecord? {
         val config =
             AudioPlaybackCaptureConfiguration
@@ -37,6 +43,7 @@ class PlaybackCapture(
                 .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                 .addMatchingUsage(AudioAttributes.USAGE_GAME)
                 .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+                .excludeUid(android.os.Process.myUid())
                 .build()
         val (rec, channels) =
             openFirst { rate, mask, encoding, bytes ->

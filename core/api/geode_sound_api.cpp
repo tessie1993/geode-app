@@ -1,4 +1,5 @@
 #include "api/geode_api.h"
+#include "sound/NowPlaying.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/Silence.hpp"
 #include "sound/Tuning.hpp"
@@ -57,6 +58,12 @@ long long geode_capture_heard_at(float peak, long long now_ms, long long heard_a
 int geode_capture_quiet(long long now_ms, long long heard_at_ms) {
     return geode::sound::silence::captureQuiet(now_ms, heard_at_ms) ? 1 : 0;
 }
+
+int geode_capture_refused(int quiet, int session_playing, int music_active) {
+    return geode::sound::silence::captureRefused(quiet != 0, session_playing != 0, music_active != 0) ? 1 : 0;
+}
+
+int geode_now_playing_pick(const int* playing, int count) { return geode::sound::now_playing::pick(playing, count); }
 
 long long geode_sound_track_boundary(long long seed) {
     return static_cast<long long>(geode::sound::player::trackBoundary(static_cast<uint64_t>(seed)));

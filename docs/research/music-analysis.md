@@ -24,7 +24,7 @@ Clean room: methods and maths come from papers; no project code, names or string
 
 - AAudio: "For the lowest possible latency, do not call [setFramesPerDataCallback]… AAudio may need to add additional buffering" (https://developer.android.com/ndk/reference/group/audio).
 - So the analysis adapts to the device burst; the stream is never forced to the analysis.
-- framesPerBurst is set by the stream only, never by the app (Oboe Full Guide, https://android.googlesource.com/platform/external/oboe/+/HEAD/docs/FullGuide.md).
+- framesPerBurst is listed as set by the stream (Oboe Full Guide, https://android.googlesource.com/platform/external/oboe/+/HEAD/docs/FullGuide.md); the adversarial check refuted "set only by the stream" 0-3 (AAudio may scale the burst), so the app reads it at runtime and never assumes it.
 - Typical native buffer sizes are 96, 128, 160, 192, 240, 256 or 512 frames, "other values are possible" (https://developer.android.com/ndk/guides/audio/audio-latency).
 - A non-native rate adds a resampler and a block-adapting buffer (Oboe implementation notes, https://chromium.googlesource.com/external/github.com/google/oboe/+/e5c061bb06657c9b953b0af33ba1651421661414/src/common/README.md).
 - Multirate graphs run inside time-triggered callbacks through buffering add jitter, latency and run-time cost; a static schedule split across callback activations fixes it (CLAM time-triggered SDF, secondary: https://scite.ai/authors/pau-arumi-XeZWw).
@@ -116,7 +116,25 @@ Clean room: methods and maths come from papers; no project code, names or string
 - The C/C++ music analysis libraries surveyed are GPL-2, GPL-3 or AGPL-3 (non-commercial; commercial licence on request): none can ship in this closed app. The owner chose: our own code, methods learned from papers (2026-11-14).
 - FFTs with permissive terms: KissFFT (revised BSD, in `third_party/`, no NEON path) and a NEON FFT with BSD-like terms (links in section 2). A 2015 Arm benchmark found the NEON-optimized FFTs well ahead of KissFFT on Cortex-A9/A53 (https://community.arm.com/arm-community-blogs/b/operating-systems-blog/posts/ne10-fft-feature-radix-3-and-radix-5-fft-are-supported-neon-optimization-significant-performance-improvement-by-neon-optimization).
 
-## 7. Open questions
+## 7. Adversarially verified (deep-research run 2026-11-14, 3 voters per claim, 2 refutes kill)
+
+- The callback must not block: no allocation, I/O, mutex or sleep, no heavy one-time work; even-paced; hand data out lock-free (3-0; Oboe Full Guide, https://developer.android.com/games/sdk/oboe/low-latency-audio, https://source.android.com/docs/core/audio/latency/app).
+- Light fixed-cost work per buffer (a ring copy) is fine in the callback; heavy or variable-cost analysis belongs outside it (3-0, same sources; the split itself is an inference).
+- A non-native rate takes a slower path: OboeTester round trip 160 ms (44.1 kHz via AAudio) vs 23 ms (Oboe resampler) vs 20 ms (all advice followed), one unnamed device (3-0, https://developer.android.com/games/sdk/oboe/low-latency-audio).
+- EXCLUSIVE/MMAP bypasses the mixer but silently falls back to the legacy path when unavailable; the app cannot normally tell (3-0, https://source.android.com/devices/audio/aaudio).
+- Another app's audio: Java AudioRecord with AudioPlaybackCaptureConfiguration only; no AAudio/Oboe path documented (3-0, https://developer.android.com/media/platform/av-capture).
+- Input latency figures in the CDD are recommendations; the only hard limit is cold input ≤ 500 ms (2-1, https://android.googlesource.com/platform/compatibility/cdd/+/refs/tags/android-9.0.0_r30/5_multimedia/5_6_audio-latency.md).
+- Without performance hints the governor can take ~200 ms to ramp; the NDK APerformanceHint API exists from API 33 (our minSdk), later calls need runtime checks (3-0, https://source.android.com/docs/core/perf/performance-hint-api, https://github.com/google/oboe/wiki/Using-ADPF-for-High%E2%80%90Quality-Audio-Performance).
+- A wait-free SPSC triple buffer suits "latest feature frame only"; one serves one reader, so N renderers need N buffers or a multi-reader scheme (3-0, design shown in an ISC-licensed audio library: https://github.com/mozilla/cubeb/commit/304ef97245244e98cf8e3324eb348d9c01717f59; clean room: the idea only).
+- Onsets: half-wave-rectified flux on a log, semitone-spaced filterbank (82 bands, 27.5 Hz–16 kHz), 2048-sample Hann, strictly online peak picking: F 80.3% on 27,774 onsets at ±25 ms; online within ~0.25% F of offline picking (3-0, Böck, Krebs & Schedl, ISMIR 2012, https://archives.ismir.net/ismir2012/paper/000049.pdf).
+- Its causal peak picker: local max over the past w1 frames, above the past-w3 mean plus δ, a minimum gap of w5 frames, no look-ahead (same paper).
+- A causal RNN on three right-aligned STFTs (512/1024/2048 samples) of 24 log-Bark bands plus differences: F 0.817 with no look-ahead (3-0, Böck et al., DAFx 2012, https://www.dafx.de/paper-archive/2012/papers/dafx12_submission_4.pdf): evidence for a shared multi-resolution, right-aligned causal front end.
+- Beat, downbeat and meter with no time signature given: causal CRNN plus two particle filters, meter a state in {2, 3, …} that changes only at downbeats; beat F 75.44, downbeat F 46.49 on unseen GTZAN at ±70 ms, ahead of the online baselines (3-0, Heydari, Cwitkowitz & Duan, ISMIR 2021, https://arxiv.org/pdf/2108.03576).
+- Open under the no-BPM-bias rule: whether that particle filter's tempo-state range, initial distribution or jump model carries a tempo prior.
+- Refuted (excluded): ±1 ms audio timestamp accuracy; a specific ADPF target-duration formula.
+- Not verified by that run (kept above as single-source or secondary): drums, HPSS, melody and multi-pitch, chroma/key/chords, loudness, build-up/drop, structure, instruments, CQT vs STFT, FFT libraries, MIR library licences.
+
+## 8. Open questions
 
 - The latency of an online pYIN-style decoder.
 - Measured cost and accuracy of each candidate on this app's target phones (needs a device benchmark and an annotated test set; the Pareto method in section 2).

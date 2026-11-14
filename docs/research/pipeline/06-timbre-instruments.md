@@ -109,7 +109,7 @@ Clean room: methods and numbers come from papers; no code, names or strings from
 - Therefore: bundle the runtime in the APK; do not use the Play services runtime (derived from the offline rule and the page above).
 - Accelerators cannot run every operation; a delegate may reject a model and fall back to CPU; it may compute at another precision (https://developers.google.com/edge/litert/performance/delegates).
 - The GPU already renders the visuals; a GPU delegate would share it with the GL thread (derived); whether that costs frames is open, so default to CPU and measure.
-- Measured phone CPU latency, float32, 1 s audio input: a 2.9 M-parameter MobileNetV2 tagger took 8.0 / 6.2 / 13.1 / 11.6 ms on Snapdragon 865 / 888 / Helio G90T / Dimensity 700 (Gao et al.-style unified KWS+tagging paper, https://arxiv.org/pdf/2303.01812, Table 3).
+- Measured phone CPU latency, float32, 1 s audio input: a 2.9 M-parameter MobileNetV2 tagger took 8.0 / 6.2 / 13.1 / 11.6 ms on Snapdragon 865 / 888 / Helio G90T / Dimensity 700 (Dinkel et al., ICASSP 2023, https://arxiv.org/pdf/2303.01812, Table 3).
 - That measurement used a PyTorch mobile benchmark tool, not LiteRT (same paper); LiteRT latency for our model is open.
 - On a Raspberry Pi 4 CPU (ONNX), width-0.5 and width-1.0 distilled MobileNets ran under 0.25 s per 10 s clip headless, slower with a UI running (https://arxiv.org/pdf/2509.14049).
 - Scaling from these: a sub-1 M-parameter tagger on 1 s windows should cost a few ms per inference on a phone CPU (unverified extrapolation; measure).

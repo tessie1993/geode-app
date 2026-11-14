@@ -1,7 +1,7 @@
 // Host-side checks for Liquid mode's pure maths (core/viz/liquid/LiquidMath). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
-// What is pinned: the tier plan never silently turns the liquid off, the pour-back is frame-rate
+// What is pinned: the mode's plan, the pour-back is frame-rate
 // independent, the dive only ever dives in (a feedback zoom below 1 would back out of the liquid),
 // stays inside its wander disc and obeys two fingers, the whirlpool only grows under a held finger,
 // and the born clock swaps its look at the bottom of its dip, never while the disc is showing.
@@ -10,7 +10,6 @@
 
 #include "viz/liquid/LiquidMath.hpp"
 
-using geode::viz::ThermalTier;
 using namespace geode::viz::liquid;
 
 namespace {
@@ -24,25 +23,10 @@ void check(bool ok, const char* what) {
     }
 }
 
-void hotPhoneNeverSilentlyOff() {
-    for (int p = 0; p <= 2; p++) {
-        const HotPolicy policy = hotPolicyFrom(p);
-        check(modeFor(ThermalTier::Full, policy) == Mode::Full, "a cool phone always runs the whole liquid");
-        check(modeFor(ThermalTier::Eased, policy) == Mode::Full, "eased still runs the whole liquid");
-        const Mode hot = modeFor(ThermalTier::Minimal, policy);
-        check(hot != Mode::Off, "no policy turns the liquid off without saying so");
-    }
-    check(modeFor(ThermalTier::Reduced, HotPolicy::Simplify) == Mode::Lite, "reduced simplifies by default");
-    check(modeFor(ThermalTier::Minimal, HotPolicy::Simplify) == Mode::Warp, "minimal falls back to the warp");
-    check(modeFor(ThermalTier::Minimal, HotPolicy::Full) == Mode::Full, "Always full keeps the liquid");
-    check(modeFor(ThermalTier::Minimal, HotPolicy::Pause) == Mode::Paused, "Pause says it paused");
-    check(planFor(Mode::Full).feedback && planFor(Mode::Lite).feedback, "full and lite carry the liquid");
-    check(!planFor(Mode::Warp).feedback && planFor(Mode::Warp).velocityGrid > 0, "the warp bends but keeps nothing");
-    check(planFor(Mode::Lite).velocityGrid < planFor(Mode::Full).velocityGrid, "lite solves a coarser grid");
-    check(planFor(Mode::Lite).liquidScale < planFor(Mode::Full).liquidScale, "lite carries a smaller liquid");
-    check(planFor(Mode::Paused).velocityGrid == 0, "paused runs no solver");
-    check(hotPolicyFrom(9) == HotPolicy::Simplify && bornFrom(-1) == Born::Rerolled && ageFrom(7) == Age::Pure &&
-              surfaceFrom(5) == Surface::Ink,
+void modePlans() {
+    check(planFor(Mode::Full).feedback && planFor(Mode::Full).velocityGrid > 0, "full carries the liquid and solves the flow");
+    check(!planFor(Mode::Off).feedback && planFor(Mode::Off).velocityGrid == 0, "off runs no solver and keeps nothing");
+    check(bornFrom(-1) == Born::Rerolled && ageFrom(7) == Age::Pure && surfaceFrom(5) == Surface::Ink,
           "out-of-range picks fall back to the defaults");
 }
 
@@ -156,7 +140,7 @@ void bornSwapsInsideItsDip() {
 }  // namespace
 
 int main() {
-    hotPhoneNeverSilentlyOff();
+    modePlans();
     injectWeightIsFrameRateIndependent();
     diveOnlyDivesInAndWanders();
     holdSwirlsDragPushes();

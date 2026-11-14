@@ -176,10 +176,6 @@ void shellSlidersAndNotes() {
     check(t && (*t)[2] == "TRANSITION" && (*t)[4] == "0.3" && (*t)[5] == "5" && (*t)[6] == "2", "the length: 0.3..5 s");
     const auto rise = rowsOf("@rise_fall", p, ctx);
     check(rowFor(rise, "SHELL", "Rise") && rowFor(rise, "SHELL", "Fall"), "rise and fall");
-    ctx.liquidMode = 4;
-    const auto hot = rowsOf("Flow field on", p, ctx);
-    const auto* note = rowFor(hot, "NOTE", "Flow field on");
-    check(note && (*note)[2] == "Liquid paused: phone is hot", "the hot-phone note");
     ctx.liquidMode = 1;
     check(!rowFor(rowsOf("Flow field on", p, ctx), "NOTE", "Flow field on"), "no note at full Liquid");
 }

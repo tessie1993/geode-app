@@ -52,7 +52,7 @@
 // never sees a seam.
 //
 // COST. The far trace takes 8 steps at the lowest Detail and STRATA_FAR_MAX
-// (12) at the highest (fewer on a hot phone, since uSteps carries the cut),
+// (12) at the highest,
 // each one fractal of at most 4 folds (gStrataFarIters, 2..4; 5.5 at full
 // Fractal); in a Formula crossfade band it traces twice. The haze takes
 // STRATA_HAZE_N (6) samples of a few sines. A family skips the far trace where
@@ -135,7 +135,7 @@ vec2 strataBlend2(vec2 a, vec2 b, vec2 c) {
     return mix(mix(a, b, gStrataW.x), c, gStrataW.y);
 }
 
-/** Detail as 0..1 (uSteps 64..128); the hot-phone cut lowers it with the steps. */
+/** Detail as 0..1 (uSteps 64..128). */
 float strataDetail() {
     return clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
 }

@@ -61,7 +61,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - ADR `0005`: wave 1 rebuilds Studio, Visuals and Customize before the release (overrides 0002's order) and sets the Studio project model.
 - ADR `0006` (proposed): the fosfora-shaped target: a hop chain on the sample clock, one feature and one param schema, a binding bus with base vs modulation, one frame graph for every surface, one typed command channel.
 - ADR `0007`: drops video editing from Studio.
-- ADR `0008`: frame pacing, heat and rest are one native rule (fps goes first on a hot phone).
+- ADR `0008`: frame pacing and rest are one native rule; its heat throttle is gone (owner 2026-11-13): nothing reads the phone's heat or lowers fps, scale, quality or effects for it.
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - The playback audio path: the tap is first, before any DSP, and the chain never outputs float. The write-up is `git show '8b4b5fa6^:docs/AUDIO_CHAIN.md'`; read it before touching that path.
 

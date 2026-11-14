@@ -12,9 +12,8 @@
 // a family's emission (paint, threads, seams, edges, fibres) shines in the dark as it did.
 //
 // COST. The shadow ray runs only at Detail's full path: uSteps 80 and over (the line lib_bulb's bulbIters and
-// bulbEps draw between lean and full), so the lowest Detail and a hot phone (viz/frame/Thermal.hpp: the
-// Minimal tier scales uSteps by 0.6, so 61 at the default Detail) skip it whole, and so does Soft shadows 0.
-// No other uniform carries the phone's heat to a shader. On the full path it takes uSteps * 0.16 steps: 16 at
+// bulbEps draw between lean and full), so the lowest Detail skips it whole, and so does Soft shadows 0.
+// On the full path it takes uSteps * 0.16 steps: 16 at
 // the default Detail (102), SHADE_SHADOW_MAX (20) at the highest, once per pixel whose ray met a lit surface
 // (the first face for a family that traces on through). Its loop is bounded by that count, an int from a
 // uniform, not a constant, and calls the family's field from one site, so the compiler keeps one loop and
@@ -49,7 +48,7 @@ bool shadeShadowOn() {
 }
 
 /**
- * The shadow ray's step count, the bound of its loop: an int from uSteps (Detail and the hot-phone cut), so
+ * The shadow ray's step count, the bound of its loop: an int from uSteps (Detail), so
  * the driver cannot unroll the loop and paste the field once per step. 0 where shadeShadowOn() says no.
  */
 int shadeShadowCount() {

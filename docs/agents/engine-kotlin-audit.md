@@ -38,7 +38,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ThermalGovernor` | 38 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |
 | `StyleFamilies` | 37 | pending |
-| `ThermalGovernor` | 38 | **ported**: `core/viz/frame/ThermalSource` reads the NDK's `AThermal_*` (status listener, 30 s headroom on the won slot) into `ThermalState`; `geode_thermal_push` is gone. |
+| `ThermalGovernor` | 38 | **deleted**: the heat throttle is gone (owner 2026-11-13); no thermal reads remain, Kotlin or native. |
 | `SoundCursor` | 39 | **ported**: Cast's ring read, resample, hold and pad are `core/output/CastAudioPump` (`geode_cast_audio_*`), test `core/tests/cast_audio_test.cpp` (sample for sample against the Kotlin pump); its one caller, `cast/CastStream`, keeps only the encoder hand-off. The `pcmCursor*` JNI calls went with it; the C ABI stays (`pcm_ring_test`). |
 | `GyroLook` | 50 | pending |
 | `MilkStarterPack` | 50 | pending |

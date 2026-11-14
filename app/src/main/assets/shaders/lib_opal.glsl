@@ -57,7 +57,7 @@
 
 #define OPAL_TAU 6.2831853
 #define OPAL_MAX_STEPS 100
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 80 left Detail and the hot-phone cut dead above it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop: a cap at 80 left Detail dead above it. */
 #define OPAL_STEPS (min(uSteps * 0.78, float(OPAL_MAX_STEPS)))
 #define OPAL_HITS 4
 #define OPAL_PERIOD 16.0

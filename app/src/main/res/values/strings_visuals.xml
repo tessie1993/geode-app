@@ -12,8 +12,6 @@
     <string name="visuals_panel_handle">Options panel edge</string>
     <string name="visuals_panel_wider">Make the options wider</string>
     <string name="visuals_panel_narrower">Make the options narrower</string>
-    <!-- Once per app session, when heat first lowers the visual's frame rate (ui/StageWarmNote.kt). -->
-    <string name="stage_phone_warm">Phone is warm: %1$d fps</string>
 
     <!-- Visuals › MilkDrop (ui/MilkDropPage.kt). -->
     <string name="milk_load_failed">MilkDrop: %1$s</string>

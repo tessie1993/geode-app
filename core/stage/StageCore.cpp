@@ -103,9 +103,9 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The hint is the cap's, lowered with the pacer's thermal rungs, so the panel is asked for what will be drawn.
+// The hint is the cap's, so the panel is asked for what will be drawn.
 void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, StagePacing::frameRateFor(cap_, port_.fpsRungsDown()));
+    if (window_) port_.setFrameRate(window_, StagePacing::frameRateFor(cap_));
 }
 
 void StageCore::runActions() {

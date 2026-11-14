@@ -1,11 +1,10 @@
 // Host-side checks for core/viz/frame/LiveFrame: one live frame as one call (geode_viz_frame). Built and run by
 // CI ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
 //
-// What is pinned: the stages run in one order (paced rate, quality, thermal, gyro, scene, ring, render, then the
-// events); a new surface's first frame clears and runs nothing else; a scene the renderer refuses is asked again
-// every frame until it takes it, and then not again; the gyro resets once per session (each switch on, and once
-// when it goes off), never once a frame; the thermal sample runs only on a frame that won the slot; quality is
-// applied once per change and again on a new surface; and each event bit is set exactly when it is due and
+// What is pinned: the stages run in one order (paced rate, quality, Liquid label, gyro, scene, ring, render, then
+// the events); a new surface's first frame clears and runs nothing else; a scene the renderer refuses is asked
+// again every frame until it takes it, and then not again; the gyro resets once per session (each switch on, and
+// once when it goes off), never once a frame; quality is applied once per change and again on a new surface; and each event bit is set exactly when it is due and
 // matches the ABI.
 #include <cstdint>
 #include <cstdio>
@@ -38,7 +37,6 @@ static_assert(kEventStillReady == GEODE_FRAME_STILL_READY);
 // Records every stage it is asked for, by name, and answers what the test sets.
 struct Recorder : LiveStages {
     std::vector<std::string> log;
-    bool thermalWon = false;
     int liquid = -1;
     std::string knownScene = "a";
     std::string error;
@@ -61,11 +59,6 @@ struct Recorder : LiveStages {
         quality = q;
     }
     void clearToBlack() override { log.push_back("clear"); }
-    bool claimThermal() override {
-        log.push_back("claim");
-        return thermalWon;
-    }
-    void sampleThermal() override { log.push_back("thermal"); }
     int takeLiquidMode() override {
         log.push_back("liquid");
         return liquid;
@@ -117,19 +110,17 @@ void stageOrder() {
     LiveFrame f;
     Recorder r;
     f.surfaceCreated();
-    f.setQuality(UserQuality{0.75f, 1.0f, true, true, 0});
+    f.setQuality(UserQuality{0.75f, 1.0f, true});
     f.requestScene("a");
     f.gyroPush(GyroReading{0.1f, 0.2f, 0.3f, 0.9f, 1});
     frame(f, r);
-    r.thermalWon = true;
-    r.liquid = 2;
+    r.liquid = 1;
     frame(f, r, 90.0f, 120.0f);
-    // The quality went on the clear frame; this one has nothing new for it. The cadence claims the slot and
-    // takes the Liquid label in one step, and the won slot is sampled after it.
-    const std::vector<std::string> want = {"paced", "claim", "liquid", "thermal", "gyroReset", "gyro", "scene", "ring",
+    // The quality went on the clear frame; this one has nothing new for it.
+    const std::vector<std::string> want = {"paced", "liquid", "gyroReset", "gyro", "scene", "ring",
                                            "render", "error", "milk", "director", "still"};
     check(r.log == want, "the stages run in their one order");
-    check(r.paced == 90.0f && r.cap == 120.0f, "the paced rate and the cap reach the governor apart");
+    check(r.paced == 90.0f && r.cap == 120.0f, "the paced rate and the cap reach the renderer apart");
 }
 
 void clearOnlyRunsNothingElse() {
@@ -138,7 +129,6 @@ void clearOnlyRunsNothingElse() {
     f.requestScene("a");
     f.gyroPush(GyroReading{});
     f.surfaceCreated();
-    r.thermalWon = true;
     r.liquid = 1;
     r.milk = r.moments = r.still = true;
     r.error = "boom";
@@ -158,15 +148,15 @@ void qualityOncePerChange() {
     Recorder r;
     frame(f, r);
     check(r.count("quality") == 0, "nothing set: the renderer keeps its own");
-    f.setQuality(UserQuality{0.5f, 0.5f, false, true, 1});
+    f.setQuality(UserQuality{0.5f, 0.5f, false});
     frame(f, r);
-    check(r.count("quality") == 1 && r.quality.renderScale == 0.5f && r.quality.liquidHotPolicy == 1, "a set is applied");
+    check(r.count("quality") == 1 && r.quality.renderScale == 0.5f && !r.quality.postFx, "a set is applied");
     frame(f, r);
     check(r.count("quality") == 0, "once");
-    f.setQuality(UserQuality{0.5f, 0.5f, false, true, 1});
+    f.setQuality(UserQuality{0.5f, 0.5f, false});
     frame(f, r);
     check(r.count("quality") == 0, "an equal set is not applied again");
-    f.setQuality(UserQuality{1.0f, 0.5f, false, true, 1});
+    f.setQuality(UserQuality{1.0f, 0.5f, false});
     frame(f, r);
     check(r.count("quality") == 1 && r.quality.renderScale == 1.0f, "a change is");
     f.surfaceCreated();
@@ -230,20 +220,6 @@ void gyroResetsOncePerSession() {
     check(r.count("gyroReset") == 1, "a switch on no frame saw off still recaptures");
 }
 
-void thermalOnlyOnTheWonSlot() {
-    LiveFrame f;
-    Recorder r;
-    r.thermalWon = false;
-    for (int i = 0; i < 5; ++i) frame(f, r);
-    check(r.count("thermal") == 0, "a frame that lost the slot asks the platform nothing");
-    r.thermalWon = true;
-    frame(f, r);
-    check(r.count("thermal") == 1, "the frame that won it samples once");
-    f.surfaceCreated();
-    frame(f, r);
-    check(r.count("claim") == 0 && r.count("thermal") == 0, "the clear frame does not even claim");
-}
-
 void eventBits() {
     LiveFrame f;
     Recorder r;
@@ -251,10 +227,10 @@ void eventBits() {
     frame(f, r);
     check(frame(f, r) == kEventErrorChanged, "a handle's first drawing frame reports its error text, even a clean one");
     check(frame(f, r) == 0, "a quiet frame says nothing");
-    r.liquid = 3;
-    check(frame(f, r) == kEventLiquidChanged && f.liquidMode() == 3, "a new Liquid mode is told, and readable");
+    r.liquid = 1;
+    check(frame(f, r) == kEventLiquidChanged && f.liquidMode() == 1, "a new Liquid mode is told, and readable");
     r.liquid = -1;
-    check(frame(f, r) == 0 && f.liquidMode() == 3, "an unchanged one is not, and the mode stays");
+    check(frame(f, r) == 0 && f.liquidMode() == 1, "an unchanged one is not, and the mode stays");
     r.liquid = 0;
     check(frame(f, r) == kEventLiquidChanged && f.liquidMode() == 0, "off is a change too");
     r.liquid = -1;
@@ -279,7 +255,6 @@ void eventBits() {
         seen |= bit;
     }
     check(apart, "every event is a bit of its own");
-    check((seen & kFrameThermalDue) == 0, "the thermal slot is native's own business, never an event");
 }
 
 }  // namespace
@@ -290,7 +265,6 @@ int main() {
     qualityOncePerChange();
     sceneRetriedUntilAccepted();
     gyroResetsOncePerSession();
-    thermalOnlyOnTheWonSlot();
     eventBits();
     if (failures) {
         std::fprintf(stderr, "live_frame_test: %d failure(s)\n", failures);

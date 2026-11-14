@@ -41,7 +41,7 @@ inline int effectiveIndex(int userIndex, int autoDowngradeSteps) {
 // "Lower the quality when the phone struggles": the rungs a fluid scene has stepped down. It used to
 // only ever step down, so one hot spell or one janky moment cost the scene its quality for as long
 // as it stayed resident, which in a long session is hours. Now a long run of kept-up frames steps
-// back up one rung, as the thermal governor's measured floor does; a step up that a deficit undoes
+// back up one rung; a step up that a deficit undoes
 // within the probe doubles the next wait, so a style too heavy for the phone settles instead of flapping.
 struct AutoDowngrade {
     static constexpr float kRelaxSeconds = 45.0f;

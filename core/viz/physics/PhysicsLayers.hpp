@@ -55,7 +55,7 @@ public:
     // second target made for the transition: the fluid and the particles hold still across the crossfade instead
     // of fading out with the old style. `pictureTex` itself when run() drew nothing this frame.
     GLuint over(GLuint pictureTex);
-    // A part was built this frame (live only): the frame's time says nothing about the phone (thermal settling).
+    // A part was built this frame (live only): the frame's time says nothing about the phone (the renderer settling).
     bool building() const { return building_; }
     // Frees the grids, the particles and the targets and keeps the programs (a memory trim, a hidden surface).
     void releaseTargets();

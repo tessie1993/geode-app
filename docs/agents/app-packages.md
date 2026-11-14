@@ -97,7 +97,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Record (`RecordController`, Pro) is a live video of the visual and what it hears, until the user stops or Settings › Export › Record's maximum length (`ui/RecordSettings`).
 - The stage's GL thread copies each frame its clock keeps into an H.264 surface (`core/viz/frame/RecordTap`).
 - Every block the stage's sound engine took goes into `core/output/Recorder`, which times the file: frame slots and PTS, A/V placement, the stop.
-- Record's capture fps drops first on a hot phone.
 - Record's encoders and MP4 run native on their own thread (`core/output/RecordSession` on `core/output/EncodeSink`); `RecordController` opens the fd, starts, stops and polls.
 - `data/RecordFiles` writes into the place asked once (`RecordSaveSheet`), or a scratch file before that.
 - `EditorController` only keeps the project list My videos reads (recordings and kept renders).
@@ -233,7 +232,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
-- `PerformanceSettings` is the value it keeps, with `PerformanceMode` and `LiquidHotPolicy`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
+- `PerformanceSettings` is the value it keeps, with `PerformanceMode`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
 - The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.

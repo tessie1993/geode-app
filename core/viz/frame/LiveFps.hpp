@@ -9,8 +9,7 @@
 #include "viz/frame/Pacer.hpp"
 
 // Settings › Performance's live frame-rate cap above 60 (owner decision of 2026-11-12: "Offer 90 and 120 in
-// Performance"), and how a hot phone steps it down (ADR 0008: fps goes first). Pure, with no GL and no
-// Android, so the host can test it (core/tests/live_fps_test.cpp).
+// Performance"). Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
 // Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to
 // their own choice (viz/SurfaceRun, kFpsChoices), an export to its own fixed step, Cast to its fixed clock;
@@ -21,7 +20,7 @@
 // Surface.setFrameRate can reach, since it asks for a seamless switch only.
 namespace geode::viz::frame {
 
-// The live caps, ascending: also the rungs a hot phone steps a cap down, one rung per thermal tier.
+// The live caps, ascending.
 inline constexpr std::array<int, 4> kLiveFpsRungs = {30, 60, 90, 120};
 // What the tab starts on and what any phone keeps: 60 is offered on every display, and so is 30 (Saver's).
 inline constexpr int kLiveFpsDefault = 60;
@@ -81,9 +80,7 @@ inline int liveFpsChoices(const float* rates, int count, int* out, int capacity)
 // The stored cap as this display runs it: an offered cap as it is; anything else (a 120 picked on the
 // inner screen of a foldable now on its 60 Hz outer one, a value another build wrote) the nearest offered
 // cap, the lower one on a tie; Follow device as it is; any other non-positive value the default. Snapped
-// where it is applied, so the
-// thermal steps below always start from a rate the panel shows: a 120 cap left on a 60 Hz panel would
-// step to 90 when warm, which that panel still draws at 60, and the first rung of the ladder would be lost.
+// where it is applied, so the pacer always paces to a rate the panel shows.
 inline int liveFpsCap(int stored, const float* rates, int count) {
     if (stored == kLiveFpsFollow) return kLiveFpsFollow;
     if (stored <= 0) return kLiveFpsDefault;
@@ -95,57 +92,24 @@ inline int liveFpsCap(int stored, const float* rates, int count) {
     return best > 0 ? best : kLiveFpsDefault;
 }
 
-// The lowest rung: what any hot tier caps a free-running surface to, and the floor a cap steps down to.
-inline constexpr float kThermalFloorFps = static_cast<float>(kLiveFpsRungs.front());
-
-// A surface's cap under a thermal tier `rungsDown` steps hot (0 Full, 1 Eased, 2 Reduced, 3 Minimal;
-// ThermalTierInfo::fpsRungsDown). Each hotter tier takes the cap one rung lower, never under the floor:
-// 120 falls to 90, 60 and 30; 90 to 60 and 30; 60 to 30, as it always did. A cap at or under the floor
-// (Cast's 30, the wallpaper's 15 or 24) is already as cheap as any rung and stays; a cap between rungs
-// (none the tab offers) takes the rung under it as its first step. A free-running surface (<= 0, or not a
-// number) takes the floor once the phone is warm, and stays free while it is cool. Not idempotent: apply
-// it to the surface's own cap, never to a rate it already produced (ThermalGovernor keeps the two apart).
-inline float thermalStepCapFps(float surfaceCapFps, int rungsDown) {
-    const bool capped = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
-    if (rungsDown <= 0) return capped ? surfaceCapFps : 0.0f;
-    if (!capped) return kThermalFloorFps;
-    if (surfaceCapFps <= kThermalFloorFps) return surfaceCapFps;
-    // The highest rung strictly under the cap is the first step down; the floor is under every cap here.
-    int below = 0;
-    for (size_t i = 0; i < kLiveFpsRungs.size(); ++i) {
-        if (static_cast<float>(kLiveFpsRungs[i]) < surfaceCapFps) below = static_cast<int>(i);
-    }
-    const int rung = std::max(below - (rungsDown - 1), 0);
-    return static_cast<float>(kLiveFpsRungs[static_cast<size_t>(rung)]);
-}
-
 // Follow device's cap for one vsync, from the pacer's own estimate of the panel (Pacer::trackPeriod, which
-// hears every vsync whether or not it draws, so it follows the system's mode changes and needs no Display).
-//
-// Cool (rungsDown 0): the panel's rate as it is, to the half hertz the paced rate is read in, so the pacer
-// draws every vsync (a 144 Hz panel draws 144, an odd rate included: the divide is 1, never uneven) and its
-// paced slot names the real rate for MilkDrop's fps and the frame-time target. That rate is kept
-// (followedMilliHz). Until the estimate settles: 0, every vsync.
-//
-// Hot: the kept rate stepped down like any cap (thermalStepCapFps: 120 to 90, 60, 30), and the pacer's whole
-// divide of the panel under it keeps the frames even (a 120 Hz panel asked 90 draws 60). Stepped from the kept
-// rate, not the panel as it is then: drawing fewer frames can let the system lower the panel itself (adaptive
-// refresh rate), and stepping from that would walk a warm phone all the way down to the floor.
-inline float followCapFps(PacerState& s, int rungsDown) {
+// hears every vsync whether or not it draws, so it follows the system's mode changes and needs no Display):
+// the panel's rate as it is, to the half hertz the paced rate is read in, so the pacer draws every vsync (a
+// 144 Hz panel draws 144, an odd rate included: the divide is 1, never uneven) and its paced slot names the
+// real rate for MilkDrop's fps and the frame-time target. That rate is kept (followedMilliHz). Until the
+// estimate settles: 0, every vsync.
+inline float followCapFps(PacerState& s) {
     const bool settled = s.periodNs > 0 && s.samples >= Pacer::kSettleFrames;
     const int64_t panelMilliHz = settled ? std::llround(Pacer::panelHz(s) * 2.0) * 500 : 0;
-    if (rungsDown <= 0) {
-        if (panelMilliHz > 0) s.followedMilliHz = panelMilliHz;
-        return static_cast<float>(panelMilliHz) / 1000.0f;
-    }
-    // A surface that starts hot keeps the first rate it measures, for the same reason.
-    if (s.followedMilliHz <= 0) s.followedMilliHz = panelMilliHz;
-    return thermalStepCapFps(static_cast<float>(s.followedMilliHz) / 1000.0f, rungsDown);
+    if (panelMilliHz > 0) s.followedMilliHz = panelMilliHz;
+    return static_cast<float>(panelMilliHz) / 1000.0f;
 }
 
-// The cap the pacer paces one vsync to: Follow device from the panel, any other cap stepped as it always was.
-inline float pacerCapFps(PacerState& s, float surfaceCapFps, int rungsDown) {
-    return isLiveFpsFollow(surfaceCapFps) ? followCapFps(s, rungsDown) : thermalStepCapFps(surfaceCapFps, rungsDown);
+// The cap the pacer paces one vsync to: Follow device from the panel, any other cap as it is (none when it is
+// not a positive number).
+inline float pacerCapFps(PacerState& s, float surfaceCapFps) {
+    if (isLiveFpsFollow(surfaceCapFps)) return followCapFps(s);
+    return std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f ? surfaceCapFps : 0.0f;
 }
 
 }  // namespace geode::viz::frame

@@ -39,7 +39,7 @@ namespace geode::signal {
 // same bits, and every renderer (live, wallpaper, dream, export) runs the same chain.
 //
 // Single-threaded: no mutex, no atomics. The renderer keeps its lock and atomics and hands the resolver
-// copies at its frame latch. Device policy (thermal tier, post-FX, Liquid's hot policy), the camera rig
+// copies at its frame latch. Device policy (post-FX), the camera rig
 // and the post pass's integrators stay in the renderer, after the step.
 //
 // It depends on core/sound (the frame) and on the GL-free stage code still in core/viz (Director,

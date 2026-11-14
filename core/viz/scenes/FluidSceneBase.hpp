@@ -5,7 +5,7 @@
 #include <string>
 
 #include "viz/Scene.hpp"
-#include "viz/ThermalGovernor.hpp"
+#include "viz/PerformanceMonitor.hpp"
 #include "viz/fluid/FluidChoreography.hpp"
 #include "viz/fluid/FluidParticles.hpp"
 #include "viz/fluid/FluidQuality.hpp"

@@ -136,10 +136,8 @@ class NativeViz(
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     ) {
-        quality = { if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive, liquidHotPolicy) }
+        quality = { if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx) }
         quality()
     }
 
@@ -180,7 +178,7 @@ class NativeViz(
     /**
      * One live frame into framebuffer 0 ([GeodeNative.vizFrame]): the renderer hears what [ring] gained, natively,
      * each sample once (0: nothing, and the last ring goes), and [fps] and [capFps] are the rate the surface last
-     * drew at and its own cap, which native keeps apart for the thermal step. The `FRAME_*` events; 0 before the
+     * drew at and its own cap, which native keeps apart. The `FRAME_*` events; 0 before the
      * handle exists. GL thread.
      */
     fun frame(

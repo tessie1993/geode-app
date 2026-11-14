@@ -77,7 +77,6 @@ private:
     void setFrameRate(void* window, float fps) override;
     void vsyncRun(bool on) override;
     void vsyncCap(float capFps) override;
-    int fpsRungsDown() override;
     void windowApplied(int64_t sequence) override;
 
     std::shared_ptr<Inbox> inbox_;

@@ -75,7 +75,7 @@
 #define LOOM_TAU 6.2831853
 #define LOOM_PI 3.1415927
 #define LOOM_MAX_STEPS 90
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, so Detail and the hot-phone cut reach it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop, so Detail reaches it. */
 #define LOOM_STEPS (min(uSteps * 0.7, float(LOOM_MAX_STEPS)))
 #define LOOM_SKINS 3
 #define LOOM_PERIOD 16.0

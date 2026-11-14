@@ -17,15 +17,14 @@ struct QualityTier {
     float fpsCap;       // the live cap the pacer divides to
     float marchScale;   // ray-march step budget for marched styles
     bool postFx;        // trails and the other optional passes
-    bool adaptive;      // any sustained frame-time deficit steers the thermal tier; off, only a severe one
 };
 
 // Saver is cheaper than High on every axis; Balanced sits between. Every value is one the
 // Performance tab offers as a choice, so picking a tier never shows a value the tab can't.
 inline constexpr std::array<QualityTier, kQualityModes> kQualityTiers = {{
-    {0.5f, 30.0f, 0.5f, false, true},
-    {0.75f, 60.0f, 0.75f, true, true},
-    {1.0f, 60.0f, 1.0f, true, false},
+    {0.5f, 30.0f, 0.5f, false},
+    {0.75f, 60.0f, 0.75f, true},
+    {1.0f, 60.0f, 1.0f, true},
 }};
 
 inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[static_cast<int>(mode)]; }
@@ -33,13 +32,12 @@ inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[s
 // The render scales and march scales the tab offers, ascending; the march row names them Low, Medium, High.
 inline constexpr std::array<float, 3> kScaleChoices = {0.5f, 0.75f, 1.0f};
 
-// The tier these values are, or -1 once the user changed one (the tab reads "Custom"). Liquid's hot-phone
-// policy is a taste, not a cost, so it is not compared.
-inline int modeOf(float renderScale, int fpsCap, float marchScale, bool postFx, bool adaptive) {
+// The tier these values are, or -1 once the user changed one (the tab reads "Custom").
+inline int modeOf(float renderScale, int fpsCap, float marchScale, bool postFx) {
     for (int m = 0; m < kQualityModes; ++m) {
         const QualityTier& t = kQualityTiers[m];
         if (t.renderScale == renderScale && t.fpsCap == static_cast<float>(fpsCap) && t.marchScale == marchScale &&
-            t.postFx == postFx && t.adaptive == adaptive)
+            t.postFx == postFx)
             return m;
     }
     return -1;

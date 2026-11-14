@@ -73,7 +73,7 @@
 /** The golden angle, radians: each layer, row or frond turned by it from the last never lines up with another. */
 #define PETAL_GOLD 2.3999632
 #define PETAL_MAX_STEPS 96
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, so Detail and the hot-phone cut reach it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop, so Detail reaches it. */
 #define PETAL_STEPS (min(uSteps * 0.75, float(PETAL_MAX_STEPS)))
 #define PETAL_HITS 4
 #define PETAL_PERIOD 16.0

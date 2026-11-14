@@ -27,16 +27,6 @@ inline constexpr double kFirstDtSeconds = 1.0 / 60.0;
 
 inline double clampDt(double elapsedSeconds) { return std::clamp(elapsedSeconds, kMinDtSeconds, kMaxDtSeconds); }
 
-// The cap a surface actually runs at (ADR 0008): its own (Settings › Performance, the wallpaper's or the
-// dream's choice) under the thermal one (ThermalState::capFor). Either <= 0, or not a number, means none.
-inline float effectiveCapFps(float surfaceCapFps, float thermalCapFps) {
-    const bool surface = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
-    const bool thermal = std::isfinite(thermalCapFps) && thermalCapFps > 0.0f;
-    if (surface && thermal) return std::min(surfaceCapFps, thermalCapFps);
-    if (surface) return surfaceCapFps;
-    return thermal ? thermalCapFps : 0.0f;
-}
-
 struct PacerState {
     int64_t lastDrawnNs = 0;
     int64_t lastVsyncNs = 0;
@@ -45,16 +35,15 @@ struct PacerState {
     int64_t sinceDrawn = 0;
     int64_t divisor = 1;
     // The cap the last vsync paced to, in millihertz (0 = none). The shell compares it each vsync and
-    // re-asks Surface.setFrameRate when the thermal cap moves it, without a second call across JNI.
+    // re-asks Surface.setFrameRate when the cap moves, without a second call across JNI.
     int64_t capMilliHz = 0;
     // The rate the last vsync really paced to, in millihertz (0 = every vsync): the panel rate over the
     // divide, which is under the cap whenever the panel does not divide it (45 fps for a 60 fps cap on a
-    // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate, so the measured
-    // fallback never reads a rate the pacer chose as a phone that cannot keep up.
+    // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate, so the frame-time
+    // monitors never read a rate the pacer chose as a phone that cannot keep up.
     int64_t pacedMilliHz = 0;
-    // Settings › Performance's "Follow device" (frame::followCapFps in LiveFps.hpp): the panel rate last seen
-    // while the phone was cool, in millihertz (0 = none yet). A hot tier steps down from it, not from the panel
-    // as it is then, which a lower draw rate may itself have lowered (Android 15's adaptive refresh rate).
+    // Settings › Performance's "Follow device" (frame::followCapFps in LiveFps.hpp): the panel rate it last
+    // followed, in millihertz (0 = none yet).
     int64_t followedMilliHz = 0;
 };
 
@@ -125,7 +114,7 @@ public:
     static double panelHz(const PacerState& s) { return s.periodNs > 0 ? 1e9 / static_cast<double>(s.periodNs) : 0.0; }
 
     // The rate the divide gives, never above the cap. In half-hertz steps, so the estimate's noise (a
-    // 90 Hz panel measuring 89.7 to 90.3) does not move it: the measured fallback restarts its count
+    // 90 Hz panel measuring 89.7 to 90.3) does not move it: a frame-time monitor restarts its count
     // whenever its target changes. Until the estimate settles the cap is all there is to say.
     static int64_t pacedMilliHzFor(const PacerState& s) {
         if (s.capMilliHz <= 0) return 0;

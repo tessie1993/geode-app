@@ -48,7 +48,6 @@ public:
     virtual void setFrameRate(void* window, float fps) = 0;
     virtual void vsyncRun(bool on) = 0;
     virtual void vsyncCap(float capFps) = 0;
-    virtual int fpsRungsDown() = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
 };

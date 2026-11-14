@@ -4,7 +4,7 @@
 //
 // From a lit point a shadow ray goes along the unit way l toward the member's key (or its lamp, at most
 // `reach` off), through bulbField, and keeps its closest pass over the distance gone. Its darkness is Soft
-// shadows (uShadow); its budget lib_shade's, so Detail and the hot-phone cut reach it. It costs nothing at
+// shadows (uShadow); its budget lib_shade's, so Detail reaches it. It costs nothing at
 // Soft shadows 0, and one field per step otherwise, once per lit pixel.
 //
 // INCLUDE ORDER: after lib_bulb_field. A LIT member includes it (Classic, Ink, Shell).

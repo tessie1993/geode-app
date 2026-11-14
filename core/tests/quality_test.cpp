@@ -32,10 +32,10 @@ void tiersMatchTheKotlinTheyReplace() {
     const QualityTier& saver = qualityTier(QualityMode::Saver);
     const QualityTier& balanced = qualityTier(QualityMode::Balanced);
     const QualityTier& high = qualityTier(QualityMode::High);
-    check(saver.renderScale == 0.5f && saver.fpsCap == 30.0f && saver.marchScale == 0.5f && !saver.postFx && saver.adaptive, "Saver");
-    check(balanced.renderScale == 0.75f && balanced.fpsCap == 60.0f && balanced.marchScale == 0.75f && balanced.postFx && balanced.adaptive,
+    check(saver.renderScale == 0.5f && saver.fpsCap == 30.0f && saver.marchScale == 0.5f && !saver.postFx, "Saver");
+    check(balanced.renderScale == 0.75f && balanced.fpsCap == 60.0f && balanced.marchScale == 0.75f && balanced.postFx,
           "Balanced");
-    check(high.renderScale == 1.0f && high.fpsCap == 60.0f && high.marchScale == 1.0f && high.postFx && !high.adaptive, "High");
+    check(high.renderScale == 1.0f && high.fpsCap == 60.0f && high.marchScale == 1.0f && high.postFx, "High");
 }
 
 void tiersUseOfferedValues() {
@@ -71,30 +71,27 @@ void devicePick() {
 
 // The tab's "Custom": a preset only while every compared value is the tier's.
 void presetMatch() {
-    check(modeOf(0.5f, 30, 0.5f, false, true) == 0, "Saver's values are Saver");
-    check(modeOf(0.75f, 60, 0.75f, true, true) == 1, "Balanced's values are Balanced");
-    check(modeOf(1.0f, 60, 1.0f, true, false) == 2, "High's values are High");
-    check(modeOf(1.0f, 30, 1.0f, true, false) == -1, "High at 30 fps is Custom");
-    check(modeOf(1.0f, GEODE_LIVE_FPS_FOLLOW, 1.0f, true, false) == -1, "Follow device is no tier's cap");
-    check(modeOf(0.5f, 30, 0.75f, false, true) == -1, "Saver with a medium march is Custom");
-    check(modeOf(0.75f, 60, 0.75f, false, true) == -1, "Balanced without post FX is Custom");
-    check(modeOf(1.0f, 60, 1.0f, true, true) == -1, "High with adaptive on is Custom");
+    check(modeOf(0.5f, 30, 0.5f, false) == 0, "Saver's values are Saver");
+    check(modeOf(0.75f, 60, 0.75f, true) == 1, "Balanced's values are Balanced");
+    check(modeOf(1.0f, 60, 1.0f, true) == 2, "High's values are High");
+    check(modeOf(1.0f, 30, 1.0f, true) == -1, "High at 30 fps is Custom");
+    check(modeOf(1.0f, GEODE_LIVE_FPS_FOLLOW, 1.0f, true) == -1, "Follow device is no tier's cap");
+    check(modeOf(0.5f, 30, 0.75f, false) == -1, "Saver with a medium march is Custom");
+    check(modeOf(0.75f, 60, 0.75f, false) == -1, "Balanced without post FX is Custom");
+    check(modeOf(1.0f, 60, 1.0f, false) == -1, "High without post FX is Custom");
 }
 
 void throughTheAbi() {
-    check(geode_perf_mode_of(0.75f, 60, 0.75f, 1, 1) == 1 && geode_perf_mode_of(0.6f, 60, 0.75f, 1, 1) == -1, "geode_perf_mode_of");
+    check(geode_perf_mode_of(0.75f, 60, 0.75f, 1) == 1 && geode_perf_mode_of(0.6f, 60, 0.75f, 1) == -1, "geode_perf_mode_of");
     float scales[GEODE_PERF_SCALE_CHOICES + 1] = {};
     check(geode_perf_scale_choices(scales, GEODE_PERF_SCALE_CHOICES + 1) == 3 && scales[0] == 0.5f && scales[1] == 0.75f &&
               scales[2] == 1.0f,
           "the scale choices, ascending");
     check(geode_perf_scale_choices(scales, 1) == 1 && geode_perf_scale_choices(nullptr, 3) == 0, "scale choices fit the capacity");
     float tier[GEODE_PERF_TIER_FLOATS] = {};
-    check(geode_perf_tier(1, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[1] == 60.0f && tier[4] == 1.0f,
+    check(geode_perf_tier(1, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[1] == 60.0f && tier[3] == 1.0f,
           "geode_perf_tier writes Balanced");
     check(geode_perf_tier(3, tier, GEODE_PERF_TIER_FLOATS) == 0, "no fourth tier");
-    // The Liquid hot-phone policy as stored: its three values as they are, a newer build's falls back to Simplify.
-    check(geode_perf_liquid_hot(0) == 0 && geode_perf_liquid_hot(1) == 1 && geode_perf_liquid_hot(2) == 2, "known policies");
-    check(geode_perf_liquid_hot(99) == 0 && geode_perf_liquid_hot(-1) == 0, "an unknown policy is Simplify");
 }
 
 }  // namespace

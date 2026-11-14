@@ -18,27 +18,11 @@ float ease(float value, float target, float tau, float dt) {
 Born bornFrom(int v) { return v >= 0 && v <= 3 ? static_cast<Born>(v) : Born::Rerolled; }
 Age ageFrom(int v) { return v >= 0 && v <= 2 ? static_cast<Age>(v) : Age::Pure; }
 Surface surfaceFrom(int v) { return v >= 0 && v <= 2 ? static_cast<Surface>(v) : Surface::Ink; }
-HotPolicy hotPolicyFrom(int v) { return v >= 0 && v <= 2 ? static_cast<HotPolicy>(v) : HotPolicy::Simplify; }
-
-Mode modeFor(ThermalTier tier, HotPolicy policy) {
-    switch (tier) {
-        case ThermalTier::Full:
-        case ThermalTier::Eased: return Mode::Full;
-        case ThermalTier::Reduced: return policy == HotPolicy::Simplify ? Mode::Lite : Mode::Full;
-        case ThermalTier::Minimal:
-            return policy == HotPolicy::Full ? Mode::Full : policy == HotPolicy::Pause ? Mode::Paused : Mode::Warp;
-    }
-    return Mode::Full;
-}
 
 Plan planFor(Mode mode) {
     switch (mode) {
         case Mode::Full: return {96, 1.0f, true, true};
-        case Mode::Lite: return {48, 0.6f, true, false};
-        // The warp keeps a coarse solver so touch and sound still bend the picture; nothing carries over.
-        case Mode::Warp: return {32, 1.0f, false, false};
-        case Mode::Off:
-        case Mode::Paused: return {0, 1.0f, false, false};
+        case Mode::Off: return {0, 1.0f, false, false};
     }
     return {};
 }

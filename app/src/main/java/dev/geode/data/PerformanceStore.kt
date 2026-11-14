@@ -41,8 +41,6 @@ class PerformanceStore(
             fpsCap = prefs.getInt(KEY_FPS, fallback.fpsCap),
             marchScale = prefs.getFloat(KEY_MARCH, fallback.marchScale),
             postFx = prefs.getBoolean(KEY_POST_FX, fallback.postFx),
-            adaptive = prefs.getBoolean(KEY_ADAPTIVE, fallback.adaptive),
-            liquidHot = LiquidHotPolicy.fromNative(prefs.getInt(KEY_LIQUID_HOT, fallback.liquidHot.native)),
         )
     }
 
@@ -52,8 +50,6 @@ class PerformanceStore(
             putInt(KEY_FPS, settings.fpsCap)
             putFloat(KEY_MARCH, settings.marchScale)
             putBoolean(KEY_POST_FX, settings.postFx)
-            putBoolean(KEY_ADAPTIVE, settings.adaptive)
-            putInt(KEY_LIQUID_HOT, settings.liquidHot.native)
         }
 
     internal companion object {
@@ -61,21 +57,19 @@ class PerformanceStore(
         const val KEY_FPS = "perf_fps_cap"
         const val KEY_MARCH = "perf_march_scale"
         const val KEY_POST_FX = "perf_post_fx"
-        const val KEY_ADAPTIVE = "perf_adaptive"
-        const val KEY_LIQUID_HOT = "perf_liquid_hot"
 
         /**
          * Every key this store writes. They describe this phone (picked from its RAM and performance
          * class at first launch), so a backup leaves them out and a restore never carries one phone's
          * tuning onto another: the new phone keeps its own pick.
          */
-        val KEYS: Set<String> = setOf(KEY_SCALE, KEY_FPS, KEY_MARCH, KEY_POST_FX, KEY_ADAPTIVE, KEY_LIQUID_HOT)
+        val KEYS: Set<String> = setOf(KEY_SCALE, KEY_FPS, KEY_MARCH, KEY_POST_FX)
 
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
                 device(PrefType.FLOAT, KEY_SCALE, KEY_MARCH)
-                device(PrefType.INT, KEY_FPS, KEY_LIQUID_HOT)
-                device(PrefType.BOOLEAN, KEY_POST_FX, KEY_ADAPTIVE)
+                device(PrefType.INT, KEY_FPS)
+                device(PrefType.BOOLEAN, KEY_POST_FX)
             }
     }
 }

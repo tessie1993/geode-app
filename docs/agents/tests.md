@@ -89,8 +89,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
-- `physics_layers_test.cpp`: the physics layers' `PhysicsPlan` (`core/viz/physics`): off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the four params and their safety rules.
-- `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+- `physics_layers_test.cpp`: the physics layers' `PhysicsPlan` (`core/viz/physics`): off in every look, the plan, back fluid | style | front particles, the music clock, the four params and their safety rules.
+- `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
 - `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.
 - `loudness_test.cpp`: export DSP, the BS.1770 meter.
@@ -136,14 +136,14 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
 - `presets_test.cpp`: the bundled looks, pinned to the Kotlin literals they replaced.
 - `qr_code_test.cpp`: Show on a computer's QR code (`core/util/QrCode`) against the standard's vectors.
-- `quality_test.cpp`: `core/viz/frame/Quality` and `geode_perf_*`, Settings › Performance's tiers, scale choices, preset match, Liquid policy and the first-run pick.
+- `quality_test.cpp`: `core/viz/frame/Quality` and `geode_perf_*`, Settings › Performance's tiers, scale choices, preset match and the first-run pick.
 - `randomize_all_test.cpp`: the two-circle gesture's Randomize everything: seeded, never a locked style, MilkDrop's .milk as its preset, every category rolled, Keep held through the preset.
 - `reaction_resolve_test.cpp`: the renderer's reaction resolve against the old Kotlin path, and when it re-resolves.
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
 - `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
-- `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
+- `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
 - `render_eta_test.cpp`: the export's time left (`core/output/RenderEta`): nothing through a lead-in or the first 10 s, then near the truth and never climbing, and which phrase words it.
-- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
+- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
 - `resolver_test.cpp` also covers the bank's offset, an export's pinned bank, and the director leaving the bank alone.
@@ -160,7 +160,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
 - `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
 - `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
-- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.
 - `style_pick_test.cpp`: Styles' Random: every family or the on-screen family, never the style on screen, a kept style first, a family of one rolling inside its style; each list led by what is on screen.
 - `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.
@@ -169,7 +169,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `style_schedule_test.cpp`: an export segment's style schedule, which drops the styles the entitlement locks and holds in silence.
 - `surface_motion_test.cpp`: the wallpaper's and dream's run rule under reduced motion, the still frame's settle, and each surface's fps choice.
 - `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
-- `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier, the once-per-process "Phone is warm" note `ui/StageWarmNote` toasts, `geode_thermal_take_warm_note`.
+- `performance_monitor_test.cpp`: `core/viz/PerformanceMonitor`: a renderer's paced rate (`SurfacePace`, Follow device included), the settling hold, the fluid monitor's target, the shell's pacer array.
 - `touch_smear_test.cpp`: Settings › Touch › Smear (`core/viz/TouchSmear`): the fingers' kicks, the bend, its linger, silence, reduced motion.
 - `touch_gesture_test.cpp`: the fingers on the visual (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger reading and pinch step, the stir.
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.

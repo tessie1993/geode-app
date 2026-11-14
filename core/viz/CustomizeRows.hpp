@@ -26,7 +26,7 @@ enum class Widget {
     Pick,       // a pick from the param's choices that no roll moves, so no kept mark
     Palette,    // Look's palette: the artwork button, then the stack or the palette list
     Geometry,   // Cymatics' plate: a pick, or a tip where the style holds it
-    Liquid,     // Liquid's switch, with the hot-phone note under it
+    Liquid,     // Liquid's switch
     Piece,      // a panel piece the shell draws with a composable of its own ("@id")
 };
 
@@ -61,7 +61,7 @@ struct RowContext {
     std::string styleId;     // "" for any style
     std::string query;       // the panel's search text; blank shows everything
     bool transition = false;  // a style transition is chosen
-    int liquidMode = 0;       // the renderer's Liquid mode: 0 off, 1 full, 2 lite, 3 warp, 4 paused
+    int liquidMode = 0;       // the renderer's Liquid mode: 0 off, 1 full
 };
 
 // The rows for keys (one control key a line, a section's order), skipping what does not draw here.

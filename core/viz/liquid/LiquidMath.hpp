@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <random>
 
-#include "viz/ThermalGovernor.hpp"
-
 // Liquid mode (Customize › Advanced › Liquid): every style becomes a liquid that keeps its own look.
 //
 // The pipeline (viz/liquid/LiquidPass): the style draws its frame as always; a feedback buffer, the
@@ -28,20 +26,12 @@ enum class Born { Live = 0, Rerolled = 1, NextStyle = 2, Forms = 3 };
 enum class Age { Pure = 0, FadeDeep = 1, InkBleed = 2 };
 // Customize › Liquid › Surface.
 enum class Surface { Ink = 0, Gloss = 1, Glass = 2 };
-// Settings › Performance › Liquid on a hot phone.
-enum class HotPolicy { Simplify = 0, Full = 1, Pause = 2 };
 // What the liquid actually runs this frame; Kotlin reads it back to say so (never silently off).
-enum class Mode { Off = 0, Full = 1, Lite = 2, Warp = 3, Paused = 4 };
+enum class Mode { Off = 0, Full = 1 };
 
 Born bornFrom(int v);
 Age ageFrom(int v);
 Surface surfaceFrom(int v);
-HotPolicy hotPolicyFrom(int v);
-
-// The thermal tier and the user's hot-phone policy decide the mode. Full and Eased always run the whole
-// liquid; Reduced simplifies (Lite) unless the user asked for Full; Minimal falls back to a refraction
-// warp (Simplify), keeps going (Full) or pauses (Pause).
-Mode modeFor(ThermalTier tier, HotPolicy policy);
 
 struct Plan {
     int velocityGrid = 0;      // the flow field's grid height, cells; 0 runs no solver

@@ -68,7 +68,7 @@
 #define PRISM_TAU 6.2831853
 #define PRISM_PI 3.14159265
 #define PRISM_MAX_STEPS 80
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on both loops, so Detail and the hot-phone cut reach all of the march. */
+/** uSteps (64..128 by Detail, 102 at its default) on both loops, so Detail reaches all of the march. */
 #define PRISM_STEPS (min(uSteps * 0.62, float(PRISM_MAX_STEPS)))
 #define PRISM_MAX_ECHO 20
 #define PRISM_ECHO (min(uSteps * 0.16, float(PRISM_MAX_ECHO)))

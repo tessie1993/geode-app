@@ -30,8 +30,6 @@ constexpr Row kRows[] = {
     {"customize_fall", "Fall"},
     {"customize_transition_length", "Transition length"},
     {"customize_liquid_mode", "Liquid mode"},
-    {"customize_liquid_hot_simplified", "Liquid simplified: phone is hot"},
-    {"customize_liquid_hot_paused", "Liquid paused: phone is hot"},
     {"customize_shape_held", "Shape set by this style: %1$s."},
     // Look's palette list on a style the stack does not draw.
     {"look_summary_custom", "Custom palette"},

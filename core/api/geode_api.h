@@ -190,16 +190,14 @@ GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look)
 /* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
-   changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
-   simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive,
-                                            int liquid_hot_policy);
+   changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
+   quality (an export). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
-   only a fixed rate paces it, Cast's) to the thermal step; the latched quality; a new surface's first frame
-   cleared to black and nothing else; on the frame that wins the process's thermal slot, the platform's
-   headroom asked natively; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
+   only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
+   cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
    hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
    Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
@@ -1124,19 +1122,16 @@ GEODE_API void            geode_cast_format(int* out);
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
-#define GEODE_PERF_TIER_FLOATS 5
-/* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */
+#define GEODE_PERF_TIER_FLOATS 4
+/* Writes render scale, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
 /* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
 GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
-/* The mode these values are (the tier's fps cap as an int, flags 0/1), or -1 for none: the tab reads "Custom".
-   Liquid's hot-phone policy is not part of a mode. */
-GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx, int adaptive);
+/* The mode these values are (the tier's fps cap as an int, post_fx 0/1), or -1 for none: the tab reads "Custom". */
+GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx);
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* A stored Liquid hot-phone policy as the renderer reads it (liquid::HotPolicy): 0..2, anything else 0. */
-GEODE_API int             geode_perf_liquid_hot(int stored);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
@@ -1278,7 +1273,7 @@ GEODE_API void            geode_stage_step_milk_reset(void);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is nine int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS); slot 8 is native's
-   own (the rate "Follow device" last followed while cool). */
+   own (the rate "Follow device" last followed). */
 #define GEODE_PACER_STATE_LONGS 9
 /* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
    Surface.setFrameRate when it moves. */
@@ -1288,23 +1283,11 @@ GEODE_API void            geode_stage_step_milk_reset(void);
    it to geode_viz_frame as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). GEODE_LIVE_FPS_FOLLOW
-   follows the panel: every vsync of the rate the display runs now while cool, a rung under the rate it
-   last ran at while cool when hot (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
+   every vsync). GEODE_LIVE_FPS_FOLLOW follows the panel: every vsync of the rate the display runs now
+   (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
-/* The cap a surface asking for cap_fps runs at now: cap_fps stepped down a rung per hot thermal tier (120 to
-   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate, so
-   GEODE_LIVE_FPS_FOLLOW answers 0 at every tier: the surface states no rate and the system chooses. */
-GEODE_API float           geode_pacer_effective_cap(float cap_fps);
-
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. Native
-   reads the platform itself (viz/frame/ThermalSource): the status from the NDK's listener when it changes,
-   and the forecast headroom on the frame that wins the process's slot, every ten seconds. */
-/* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
-   has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
-GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its

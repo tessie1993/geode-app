@@ -5,7 +5,7 @@
 //
 // From a hit p a shadow ray goes toward FOLD_KEY (lib_fold), the key foldLit lights by, through the same
 // field the march read (FOLD_AT: bent, grown and opened), and keeps its closest pass over the distance gone.
-// Its darkness is Soft shadows (uShadow); its budget lib_shade's, so Detail and the hot-phone cut reach it.
+// Its darkness is Soft shadows (uShadow); its budget lib_shade's, so Detail reaches it.
 // On a probe style the field is no distance, only about a unit per unit near the surface (lib_fold), so the
 // ray's steps are held short (shadeShadowStep) and inside reads as shadow.
 //

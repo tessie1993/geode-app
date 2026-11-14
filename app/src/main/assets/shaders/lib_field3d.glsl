@@ -22,7 +22,7 @@
 //   Morph       gFieldForm    folds every finer copy toward a ridge, and lets it push the next
 //   Warp        gFieldFlow    bends where the field is read along the surface (and k2)
 //   Turbulence  gFieldChaos   how loud the finer copies are
-//   Detail      uSteps        the step budget, and with it how many copies (one on a hot phone)
+//   Detail      uSteps        the step budget, and with it how many copies (one at its floor)
 //   Intensity   neonGlow()    the emission
 //   Kaleidoscope, Twist, Tile and Ripple bend the SHAPE, not the finished picture: the terrain is
 //   folded into wedges and twisted about the eye's place on the ground, an object about its own axis,
@@ -58,7 +58,7 @@
 #define FIELD_TORUS 1
 #define FIELD_SPHERE 2
 #define FIELD_MAX_STEPS 110
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop. */
 #define FIELD_STEPS (min(uSteps * 0.85, float(FIELD_MAX_STEPS)))
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define FIELD_RATE(k) (FIELD_TAU * float(k) / 7100.0)
@@ -124,7 +124,7 @@ void fieldSetup() {
     gFieldForm = neonForm();
     gFieldFlow = clamp(neonFlow() + 0.5 * neonKnob(2), 0.0, 1.0);
     gFieldChaos = neonChaos();
-    // Detail and the hot-phone cut reach the copies through the step budget: one at its floor, all three from 96 steps.
+    // Detail reaches the copies through the step budget: one at its floor, all three from 96 steps.
     gFieldOctaves = 1.0 + 2.0 * clamp((uSteps - 32.0) / 64.0, 0.0, 1.0);
     gFieldGain = 0.3 + 0.4 * gFieldChaos;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.

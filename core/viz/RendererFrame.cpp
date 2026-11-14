@@ -52,7 +52,8 @@ float Renderer::beginFrame(double timeSeconds) {
     frameNowS_ = timeSeconds;
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
-    thermal_.onFrame(dt);
+    // An export's settling hold stays as it was set: its frames are drawn as fast as the encoder takes them.
+    if (!offscreen_.load(std::memory_order_relaxed)) pace_.onFrame(dt);
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -158,7 +159,6 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
-        thermal_.onStyleChanged();
         // A new style gets about a second of draws even in silence: its build and first load span frames.
         redrawFrames_ = 60;
         // The resolver's motion field takes the new style's variant at its next step.
@@ -228,10 +228,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     SceneParams p = out.params;
     // Settings › Performance's extra effects.
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
-    // Liquid mode is a mode the user switched on, not an optional pass: a hot phone simplifies or pauses
-    // it as Settings › Performance says, and says so (liquidMode), but never drops it silently.
-    const auto hot = liquid::hotPolicyFrom(liquidHotPolicy_.load(std::memory_order_relaxed));
-    liveLiquid_ = p.flowEnabled ? liquid::modeFor(thermal_.tier(), hot) : liquid::Mode::Off;
+    // Liquid mode is a mode the user switched on, not an optional pass: it runs whole whenever it is on.
+    liveLiquid_ = p.flowEnabled ? liquid::Mode::Full : liquid::Mode::Off;
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
     if (!userPostFx) p.fluidBloom = false;
     uploadPaletteRamp(p);
@@ -475,11 +473,10 @@ void Renderer::stepSmear(float dt) {
     smearWarp_ = 0.0f;
     const touch::SmearSettings s{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
     fluid::FlowField* ff = overlays_.flow();
-    // Never in an export, never beside Liquid mode (paused included: its field keeps its place), and,
-    // as flow distortion, one of the optional passes: off on a hot phone or without Performance's extra effects.
+    // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
+    // without Performance's extra effects.
     const bool can = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                     thermal_.tierInfo().optionalPasses && userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
-                     ff->available();
+                     userPostFx_.load(std::memory_order_relaxed) && ff != nullptr && ff->available();
     if (!can) {
         smearTrail_.reset();
         smearLinger_.reset();
@@ -517,9 +514,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
-    if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
-        applyRenderScale();
-    }
+    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) applyRenderScale();
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
@@ -528,7 +523,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
     const bool staging = requestedPending_ && prep_.active() && prep_.attempts() < ScenePrep::kMaxAttempts;
-    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) thermal_.noteSettling();
+    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) pace_.noteSettling();
     if (!offscreen_.load(std::memory_order_relaxed)) logResidency(wallDt);
     if (!scene || !ensureTargets()) {
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
@@ -554,12 +549,10 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
-    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention). A paused
-    // Liquid holds the pass's targets.
+    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
     const bool trails = liveLiquid_ == liquid::Mode::Off && p.trails && scene->family() == SceneFamily::Shader &&
                         scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_);
     if (!trails) trailsWereOn_ = false;
-    // A paused Liquid keeps its place, so only Off counts as unused.
     if (trails || liveLiquid_ != liquid::Mode::Off) {
         feedbackIdleFrames_ = 0;
     } else if (++feedbackIdleFrames_ == kFeedbackIdleFrames) {
@@ -608,8 +601,7 @@ void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     if (!liquidOn()) {
-        // Paused keeps its place: the liquid comes back as it was once the phone cools.
-        if (liveLiquid_ == liquid::Mode::Off) liquidWasOn_ = false;
+        liquidWasOn_ = false;
         return;
     }
     if (!liquidWasOn_) {
@@ -785,9 +777,8 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, GLuint shown) {
     f.zeroTex = compositePass_.zeroTex();
     f.quadVao = quadVao_;
     f.blocking = blockingBuilds_.load(std::memory_order_relaxed);
-    // An export's tier is always Full (ThermalGovernor::tier), so its plan never follows the phone's heat.
-    const GLuint layered = physicsLayers_.run(physics::planFor(p, thermal_.tier()), f);
-    if (physicsLayers_.building()) thermal_.noteSettling();
+    const GLuint layered = physicsLayers_.run(physics::planFor(p), f);
+    if (physicsLayers_.building()) pace_.noteSettling();
     if (layered == f.styleTex) return shown;
     if (outgoingScene_) physicsOutgoingTex_ = physicsLayers_.over(fboB_.tex());
     return layered;

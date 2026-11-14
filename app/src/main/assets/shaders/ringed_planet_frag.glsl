@@ -75,7 +75,7 @@ out vec4 fragColor;
 
 #define RP_TAU 6.2831853
 #define RP_MAX_STEPS 100
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, as the families take it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop, as the families take it. */
 #define RP_STEPS (min(uSteps * 0.78, float(RP_MAX_STEPS)))
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define RP_RATE(k) (RP_TAU * float(k) / 7100.0)

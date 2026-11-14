@@ -100,7 +100,7 @@
 #define FOLD_RATE(k) (FOLD_TAU * float(k) / 7100.0)
 /** The key light a surface march lights by (foldLit) and shadows from (lib_fold_shade). */
 #define FOLD_KEY normalize(vec3(0.45, 0.8, -0.35))
-// uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on each march's loop.
+// uSteps (64..128 by Detail, 102 at its default) on each march's loop.
 #define FOLD_GLOW_MAX 64
 #define FOLD_GLOW_STEPS (min(uSteps * 0.5, float(FOLD_GLOW_MAX)))
 #define FOLD_CONE_MAX 60

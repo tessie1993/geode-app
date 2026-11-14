@@ -109,15 +109,11 @@ private:
 class LiveStages {
 public:
     virtual ~LiveStages() = default;
-    // The rate the surface's pacer draws at and the surface's own cap, for the governor's thermal step.
+    // The rate the surface's pacer draws at and the surface's own cap (viz/PerformanceMonitor's SurfacePace).
     virtual void setPacedFps(float pacedFps, float capFps) = 0;
     // Settings › Performance, only when it changed (or on a new surface).
     virtual void applyQuality(const UserQuality& q) = 0;
     virtual void clearToBlack() = 0;
-    // True when this surface won the process's thermal slot on a second a headroom is due.
-    virtual bool claimThermal() = 0;
-    // Asks the platform for its forecast headroom and hands it to the thermal state.
-    virtual void sampleThermal() = 0;
     // The Liquid mode when it changed since the last take, else -1.
     virtual int takeLiquidMode() = 0;
     virtual void gyroReset() = 0;
@@ -158,13 +154,12 @@ public:
             qualitySeen_ = quality_.copy(q);
             if (cadence_.offerQuality(q)) s.applyQuality(q);
         }
-        const uint32_t due = cadence_.step([&s] { return s.claimThermal(); }, [&s] { return s.takeLiquidMode(); });
+        const uint32_t due = cadence_.step([&s] { return s.takeLiquidMode(); });
         if (due & kFrameClearOnly) {
             s.clearToBlack();
             return kEventClearOnly;
         }
         uint32_t events = 0;
-        if (due & kFrameThermalDue) s.sampleThermal();
         if (due & kFrameLiquidChanged) {
             liquidMode_.store(FrameCadence::liquidModeOf(due), std::memory_order_relaxed);
             events |= kEventLiquidChanged;

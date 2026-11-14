@@ -6,12 +6,12 @@
 #include <utility>
 
 // What a live surface's frame owes, decided once per frame (#604): a skip for a repeated Settings › Performance
-// value, a new surface's first frame cleared and nothing else, the process's thermal slot, the Liquid label and
-// the error text, each told only on a change. Pure, with no GL and no Android, so the host can test it
+// value, a new surface's first frame cleared and nothing else, the Liquid label and the error text, each told
+// only on a change. Pure, with no GL and no Android, so the host can test it
 // (core/tests/renderer_cadence_test.cpp). frame::LiveFrame steps it inside geode_viz_frame.
 //
-// The clear-only, Liquid and error bits are also GEODE_FRAME_* events in core/api/geode_api.h; the thermal
-// bit stays inside the frame.
+// The clear-only, Liquid and error bits are also GEODE_FRAME_* events in core/api/geode_api.h. Bit 1 was the
+// heat throttle's slot, which is gone; it stays unused so the other bits keep their values.
 namespace geode::viz::frame {
 
 // The first frame on a new surface: native has cleared it to black and the shell presents it and does
@@ -20,9 +20,6 @@ namespace geode::viz::frame {
 // ends, long enough for an input-dispatch ANR. A clear releases the main thread at once; the build runs on
 // the next frame the pacer asks for, where nobody waits on it.
 inline constexpr uint32_t kFrameClearOnly = 1u << 0;
-// This caller won the process's thermal slot on a second a headroom is due (ThermalState::headroomDue): the
-// frame asks the platform for it (viz/frame/ThermalSource).
-inline constexpr uint32_t kFrameThermalDue = 1u << 1;
 // What Liquid mode ran changed since the last frame that said so; the mode is in the liquid field.
 inline constexpr uint32_t kFrameLiquidChanged = 1u << 2;
 // The renderer's error text changed since the last frame that said so: read it (geode_viz_last_error).
@@ -35,16 +32,13 @@ struct UserQuality {
     float renderScale = 1.0f;
     float marchScale = 1.0f;
     bool postFx = true;
-    bool adaptive = true;
-    int liquidHotPolicy = 0;
 };
 
 // Equal by bits, not by value: a NaN from a corrupt pref equals itself here, so it is applied once (as full
 // quality, Renderer::setUserQuality) rather than on every frame.
 inline bool sameQuality(const UserQuality& a, const UserQuality& b) {
     return std::bit_cast<uint32_t>(a.renderScale) == std::bit_cast<uint32_t>(b.renderScale) &&
-        std::bit_cast<uint32_t>(a.marchScale) == std::bit_cast<uint32_t>(b.marchScale) && a.postFx == b.postFx &&
-        a.adaptive == b.adaptive && a.liquidHotPolicy == b.liquidHotPolicy;
+        std::bit_cast<uint32_t>(a.marchScale) == std::bit_cast<uint32_t>(b.marchScale) && a.postFx == b.postFx;
 }
 
 // One live surface's cadence. GL thread only: geode_viz_surface_created and geode_viz_frame.
@@ -64,14 +58,12 @@ public:
         return true;
     }
 
-    // One frame. On the clear-only frame nothing else is asked: the thermal slot stays for a drawing
-    // frame (of this surface or another) and the Liquid label for the next frame. `claimThermal()` is
-    // true when this caller won the slot; `takeLiquid()` is the Liquid mode when it changed, else -1.
-    template <typename ClaimThermal, typename TakeLiquid>
-    uint32_t step(ClaimThermal&& claimThermal, TakeLiquid&& takeLiquid) {
+    // One frame. On the clear-only frame nothing else is asked: the Liquid label waits for the next frame.
+    // `takeLiquid()` is the Liquid mode when it changed, else -1.
+    template <typename TakeLiquid>
+    uint32_t step(TakeLiquid&& takeLiquid) {
         if (std::exchange(clearPending_, false)) return kFrameClearOnly;
         uint32_t due = 0;
-        if (claimThermal()) due |= kFrameThermalDue;
         const int mode = takeLiquid();
         if (mode >= 0) {
             due |= kFrameLiquidChanged | ((static_cast<uint32_t>(mode) & kFrameLiquidMask) << kFrameLiquidShift);

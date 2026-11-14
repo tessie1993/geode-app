@@ -2,7 +2,6 @@
 #include <array>
 
 #include "viz/Params.hpp"
-#include "viz/frame/Thermal.hpp"
 
 namespace geode::viz::physics {
 
@@ -42,12 +41,9 @@ struct Plan {
     bool any() const { return fluid || particles; }
 };
 
-// The plan for the drawn (resolved, safety-clamped) params on a phone at `tier` (ADR 0008: fps first, then render
-// scale, then march quality and post FX last). Full and Eased run the fluid on FluidQuality's Low grids; Reduced
-// steps down to its Min grids and fewer particles; Minimal, where the post FX go, skips the fluid and keeps a
-// small population of particles. An export renders at Full whatever the phone (ThermalGovernor::tier), so its plan
-// never depends on how warm the phone was. Both mixes at 0 (every look's default) plan nothing.
-Plan planFor(const SceneParams& p, ThermalTier tier);
+// The plan for the drawn (resolved, safety-clamped) params: the fluid on FluidQuality's Low grids and the full
+// particle population, live and in an export alike. Both mixes at 0 (every look's default) plan nothing.
+Plan planFor(const SceneParams& p);
 
 // How far the dye moves toward the picture's colour in a step of dt: frame-rate independent, so two half steps
 // land where one whole step does, and 0 for a stopped clock.

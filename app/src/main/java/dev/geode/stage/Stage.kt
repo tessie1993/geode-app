@@ -70,7 +70,7 @@ class Stage(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
         set(value) {
             field = value
-            GeodeNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx, value.adaptive, value.liquidHot.native)
+            GeodeNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
         }
 
     /** The surface's own fps cap; 0 or less is none. */

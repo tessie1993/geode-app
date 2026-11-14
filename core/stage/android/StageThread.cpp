@@ -9,7 +9,6 @@
 #include <climits>
 
 #include "util/Log.hpp"
-#include "viz/frame/Thermal.hpp"
 
 namespace geode::stage::platform {
 
@@ -224,8 +223,6 @@ void StageThread::setFrameRate(void* window, float fps) {
 void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
 
 void StageThread::vsyncCap(float capFps) { VsyncThread::process().setCap(sink_, capFps); }
-
-int StageThread::fpsRungsDown() { return viz::ThermalState::process().fpsRungsDown(); }
 
 void StageThread::windowApplied(int64_t sequence) {
     std::lock_guard<std::mutex> lock(ackLock_);

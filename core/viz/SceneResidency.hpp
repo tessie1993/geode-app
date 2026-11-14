@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "viz/ThermalGovernor.hpp"
-
 // Which built scenes stay resident on the GPU (#378). No GL here, so core/tests/scene_residency_test.cpp
 // drives it on the host; Renderer owns the scenes and asks this unit which ids to release.
 //
@@ -15,18 +13,17 @@
 // arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom); a MilkDrop style holds
 // a projectM instance with its own screen-size textures (the main pair, the blurs, its frame target). An hour of Auto, the wallpaper or the dream
 // visits dozens of styles, so resident memory grew until the memory limiter or LMK killed the process,
-// or GL allocations failed. And every tier or scale change resized all of them in one frame.
+// or GL allocations failed. And every scale change resized all of them in one frame.
 //
 // The policy, an LRU with pins and a weighted spare budget:
 //  - Pinned scenes (the one drawn, the one fading out, the layer, the born style, the one just built or
 //    requested) are never released. The heaviest of them is free; the others count against the spare
 //    budget (#999), so a fluid fading into a fluid over a fluid layer leaves no room for spares.
-//  - The rest, most recent first, keep their place while their weight fits the tier's spare budget.
+//  - The rest, most recent first, keep their place while their weight fits the spare budget.
 //    A fluid or MilkDrop scene weighs kHeavyWeight: one of them costs what several shader styles cost.
-//  - A cool phone keeps a few spares, so back and forth between two looks (a beat cut, ‹ ›) stays a
-//    cache hit; a hot one keeps none, since a rebuild is cheaper than the memory and a later resize.
-//  - Resizes are lazy: a tier or scale change bumps the size stamp, only scenes drawn this frame are
-//    resized, and a spare is resized when it is drawn again (needsResize), so a hot phone pays one
+//  - A few spares stay, so back and forth between two looks (a beat cut, ‹ ›) stays a cache hit.
+//  - Resizes are lazy: a scale change bumps the size stamp, only scenes drawn this frame are
+//    resized, and a spare is resized when it is drawn again (needsResize), so a change pays one
 //    resize per scene it actually shows, not one per scene it ever showed.
 //
 // Worked example at Full (budget 3): Neon, Fluid, Arbor, Glass were shown in that order, Glass is
@@ -52,7 +49,7 @@ enum class MemoryTrim : int { None = 0, UiHidden = 1, Background = 2 };
 // What one trim releases (#999). The scene drawn is never in it: a paused GL thread has no current context
 // to release it with when BACKGROUND arrives, and a rebuild on return is a staged build, not a free one.
 struct TrimShed {
-    bool spares = false;        // every unpinned scene, whatever the tier keeps
+    bool spares = false;        // every unpinned scene, whatever the budget keeps
     bool passTargets = false;   // Liquid's sides, the dive, Trails, the UI blur, the born target
     bool sceneTargets = false;  // the renderer's own two scene targets (sceneA, sceneB)
 };
@@ -112,25 +109,12 @@ public:
         uint32_t sizeStamp = 0;
     };
 
-    // The weight of unpinned scenes a tier keeps resident: shed spares as the phone heats.
-    // Rechecked for the fps-first ladder (#440): a spare is memory, not per-frame work, so what it
-    // costs follows the render scale. Eased now keeps Full's scale (it only halves the frame rate), so
-    // its two spares are full size; still under Full's three. Reduced and Minimal shrink the targets
-    // and keep one and none, as before.
-    static int spareBudget(ThermalTier tier) {
-        switch (tier) {
-            case ThermalTier::Full: return 3;
-            case ThermalTier::Eased: return 2;
-            case ThermalTier::Reduced: return 1;
-            case ThermalTier::Minimal: return 0;
-        }
-        return 0;
-    }
+    // The weight of unpinned scenes kept resident.
+    static constexpr int kSpareBudget = 3;
+    static int spareBudget() { return kSpareBudget; }
 
-    // The spare budget under memory pressure: none at all. Without a trim it is the thermal tier's.
-    static int spareBudget(ThermalTier tier, MemoryTrim trim) {
-        return trim == MemoryTrim::None ? spareBudget(tier) : 0;
-    }
+    // The spare budget under memory pressure: none at all. Without a trim it is kSpareBudget.
+    static int spareBudget(MemoryTrim trim) { return trim == MemoryTrim::None ? spareBudget() : 0; }
 
     // A newly built scene, sized at `sizeStamp`: the most recent. Re-inserting an id replaces it.
     void insert(const std::string& id, bool heavy, uint32_t sizeStamp) {
@@ -151,7 +135,7 @@ public:
 
     void clear() { entries_.clear(); }
 
-    // True when the scene was last sized before the current stamp (a tier or scale change skipped it).
+    // True when the scene was last sized before the current stamp (a scale change skipped it).
     bool needsResize(const std::string& id, uint32_t sizeStamp) const {
         auto it = std::find_if(entries_.begin(), entries_.end(), [&](const Entry& e) { return e.id == id; });
         return it != entries_.end() && it->sizeStamp != sizeStamp;

@@ -34,7 +34,7 @@
 // nothing here reads a sound band for it.
 //
 // ITERATION. gLayerIter (0..1) is how far a fractal's iteration has grown: up
-// with Detail (uSteps, so the hot-phone cut lowers it too), k1 TEXTURE and k4
+// with Detail (uSteps), k1 TEXTURE and k4
 // BUILD, and Fractal (uFractal) on top, toward the full count. layerIters(lo, hi) turns it into a fractional count; iteration i is
 // applied by the share layerShare(count, i), mixed with what came before, so
 // a growing count never pops. The far layers take fewer iterations than the

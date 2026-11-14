@@ -72,7 +72,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The touch smear (`core/viz/TouchSmear`, Settings › Touch › Smear): touch play's fingers kick the shared `FlowField` and the composite bends the finished picture by it (`uFlow`).
 - The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
-- `liquid/LiquidMath` is Liquid mode's pure maths: thermal modes, inject weight, the random endless dive, gestures, born clock.
+- `liquid/LiquidMath` is Liquid mode's pure maths: the mode's plan, inject weight, the random endless dive, gestures, born clock.
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
@@ -191,10 +191,11 @@ The renderer runs these in order each frame.
 - Customize › Layers' blends and their labels are `BlendMode` (`core/viz/VisualSafety`, `geode_layer_list`'s BLENDS); the shell holds an index.
 - These limit the params only; no pass measures the finished frame: the output flash limiter and its readback are gone.
 
-## Thermal and settling
+## Settling (no heat throttle)
 
+- There is no heat throttle (owner 2026-11-13): nothing reads the phone's thermal status or headroom, and nothing lowers fps, render scale, march steps, post FX, Liquid or physics layers because of heat.
 - The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles, a MilkDrop preset load).
-- The thermal governor and the fluid scenes' auto quality sit out until 1.5 s after the last settling frame (`ThermalGovernor::noteSettling`), so quick style changes do not read as a slow phone.
+- The fluid scenes' auto quality sits out until 1.5 s after the last settling frame (`SurfacePace::noteSettling`, `core/viz/PerformanceMonitor`), so quick style changes do not read as a slow phone.
 
 ## `core/audio`
 
@@ -280,7 +281,7 @@ The renderer runs these in order each frame.
 - Soft shadows (`shadow`, wire slot 199, LfoTarget 80, default 0.6) is uploaded as `uShadow` and scoped to `Scope::Shadow` (`kShadowStyles`, the 59 styles with a key-lit surface).
 - Escape colour (`escapeColor`, wire slot 200, LfoTarget 81, default 0.5) is uploaded as `uEscapeColor` and scoped to `Scope::Escape` (`kEscapeFamilies`: Shard, Prism, Fluor, Loom, Petal, Fold, Bulb).
 - The step glow follows Bloom (`uBloom`) and adds nothing at Bloom 0.
-- The shadow ray runs only at `uSteps` 80 and over (so low Detail and the hot-phone march cut skip it), in a loop bounded by an int from `uSteps` with one field call, so the compiler never unrolls it.
+- The shadow ray runs only at `uSteps` 80 and over (so low Detail skips it), in a loop bounded by an int from `uSteps` with one field call, so the compiler never unrolls it.
 - Fractal (`uFractal`) also grows `gLayerIter` into its headroom (never past 1) and adds up to two folds to `gStrataIters` and one and a half to `gStrataFarIters`; at 0 both are unchanged.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
@@ -329,7 +330,6 @@ The renderer runs these in order each frame.
 - In Liquid mode a flat style dives by the liquid's own wandering feedback dive (`liquid::Dive`, inward only, at Dive speed times the same slow follow).
 - In Liquid mode a 3D style dives by the endless zoom stage.
 - In Liquid mode touch moves the liquid.
-- In Liquid mode a hot phone follows Settings › Performance.
 - `core/viz/frame/Quality` is Settings › Performance's tiers, scale choices, preset match and first-run pick (`core/api/geode_perf_api.cpp`).
 
 ## UI blur

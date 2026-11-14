@@ -189,7 +189,7 @@ void MilkdropScene::update(const GeodeSoundFrame& /*features*/, float dt) {
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     if (!engine_) return;
     const bool offscreen = host_.offscreen && host_.offscreen();
-    // Presets read the real rate: the paced one live (30 on the wallpaper, less on a hot phone), an
+    // Presets read the real rate: the paced one live (30 on the wallpaper), an
     // export's own from its fixed step.
     const float paced = host_.pacedFps ? host_.pacedFps() : 0.0f;
     const int fps = offscreen && dt > 0.0f ? static_cast<int>(std::lround(1.0f / dt)) : paced > 0.0f ? static_cast<int>(std::lround(paced)) : 60;

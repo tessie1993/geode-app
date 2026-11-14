@@ -20,8 +20,8 @@ namespace geode::output::record {
 // Picture. Time 0 is the first frame kept. The frame rate is a ceiling: one frame per 1/fps slot. A frame
 // up to half a stage frame before a slot's start already belongs to that slot, so vsync jitter never doubles
 // or skips one; a frame near the slot's start is stamped on the grid, any other with its real time. So a 60
-// or 120 fps stage records the same frames at a 30 fps ceiling as a 30 fps stage does, and a stage the heat
-// slowed records what it drew. A frame is dropped,
+// or 120 fps stage records the same frames at a 30 fps ceiling as a 30 fps stage does, and a stage that drew
+// fewer frames records what it drew. A frame is dropped,
 // never waited for, while the encoder holds kMaxPending frames it has not put out (the GL thread must not
 // block in the encoder's queue); after kProbeNs without one it is tried again, so an encoder that buffers
 // more than that cannot starve the file.
@@ -81,12 +81,8 @@ public:
 
     // One stage frame about to be drawn at nowNs (monotonic) on a stage of this size: its PTS in ns when
     // it goes into the file, -1 when it does not (too soon for the ceiling, the encoder is behind, or the
-    // recording has ended, which this may decide). heat is the process's thermal tier (0 cool .. 3).
-    int64_t frame(int64_t nowNs, int stageWidth, int stageHeight, int heat = 0);
-
-    // The recording's frame rate on a phone this hot. The live visual never goes under 30 fps
-    // (viz/frame/Thermal); the recording gives up frames first, keeping every stride-th slot of its grid.
-    static int captureFps(int fps, int heat);
+    // recording has ended, which this may decide).
+    int64_t frame(int64_t nowNs, int stageWidth, int stageHeight);
 
     // A block the renderer's sound engine just took, interleaved float at rateHz. Nothing before the first
     // frame or after the end is kept.

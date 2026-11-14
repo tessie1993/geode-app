@@ -89,7 +89,7 @@ struct SceneHost {
     // Whether this renderer draws an export (geode_viz_set_offscreen): its frames are on the render clock,
     // so nothing in a scene may wait on the wall clock. Unset reads as live.
     std::function<bool()> offscreen;
-    // A style is being built or blended in (ThermalGovernor::settling): slow frames are not this scene's.
+    // A style is being built or blended in (SurfacePace::settling): slow frames are not this scene's.
     std::function<bool()> settling;
     // The look's palette stack as a kRampSize × 1 texture (viz/Palette), 0 while the look keeps none and
     // its old colour params draw.

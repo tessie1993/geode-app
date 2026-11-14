@@ -59,7 +59,7 @@
 
 #define HOLLOW_TAU 6.2831853
 #define HOLLOW_MAX_STEPS 90
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop: a cap at 72 left Detail and the hot-phone cut dead above it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop: a cap at 72 left Detail dead above it. */
 #define HOLLOW_STEPS (min(uSteps * 0.7, float(HOLLOW_MAX_STEPS)))
 #define HOLLOW_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */

@@ -337,14 +337,6 @@ void geometry(std::string& out, const Control& c, const SceneParams& p, const Ro
     choiceRow(out, "CHIPS", c, p);
 }
 
-void liquid(std::string& out, const Control& c, const SceneParams& p, const RowContext& ctx) {
-    checkRow(out, c, p);
-    const char* note = ctx.liquidMode == 2 || ctx.liquidMode == 3 ? panel::text("customize_liquid_hot_simplified")
-                       : ctx.liquidMode == 4                     ? panel::text("customize_liquid_hot_paused")
-                                                                 : "";
-    if (*note) out += std::string("NOTE|") + c.key + "|" + note + "\n";
-}
-
 }  // namespace
 
 const std::vector<Control>& controls() { return table(); }
@@ -377,7 +369,7 @@ std::string rows(std::string_view keys, const SceneParams& p, const RowContext& 
             case Widget::Pick: choiceRow(out, "PICK", *c, p); break;
             case Widget::Palette: palette(out, *c, ctx); break;
             case Widget::Geometry: geometry(out, *c, p, ctx); break;
-            case Widget::Liquid: liquid(out, *c, p, ctx); break;
+            case Widget::Liquid: checkRow(out, *c, p); break;
             case Widget::Piece: piece(out, *c, ctx); break;
         }
     }

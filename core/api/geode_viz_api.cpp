@@ -49,8 +49,6 @@
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
 #include "viz/frame/Pacer.hpp"
-#include "viz/frame/Thermal.hpp"
-#include "viz/frame/ThermalSource.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -213,12 +211,6 @@ static_assert(static_cast<int>(layer_state::Source::User) == GEODE_LAYER_SOURCE_
 static_assert(static_cast<int>(layer_state::Source::Director) == GEODE_LAYER_SOURCE_DIRECTOR);
 static_assert(static_cast<int>(layer_state::Source::Macro) == GEODE_LAYER_SOURCE_MACRO);
 static_assert(layer_state::kSources == 3);
-
-// The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
-// between calls matter, and steady_clock never jumps with the wall clock.
-double monotonicSeconds() {
-    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-}
 
 // A live frame's time: CLOCK_BOOTTIME, since boot with deep sleep counted, the clock SystemClock.elapsedRealtimeNanos
 // reads, so the picture's clock runs on as it did when the shell stamped each frame.
@@ -495,23 +487,11 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
     static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
     static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
     frame::PacerState s = frame::unpack(wire);
-    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008); Follow device
-    // takes its cap from the panel the state has measured (frame::followCapFps).
-    const float cap = frame::pacerCapFps(s, cap_fps, geode::viz::ThermalState::process().fpsRungsDown());
+    // Follow device takes its cap from the panel the state has measured (frame::followCapFps).
+    const float cap = frame::pacerCapFps(s, cap_fps);
     const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
     frame::pack(s, wire);
     return dt;
-}
-
-float geode_pacer_effective_cap(float cap_fps) {
-    // Follow device states no rate, hot or cool: the system keeps choosing the panel's mode (setFrameRate(0)
-    // is the platform's "no preference"), and a hot phone's step is the pacer's divide of whatever it chose.
-    if (geode::viz::frame::isLiveFpsFollow(cap_fps)) return 0.0f;
-    return geode::viz::ThermalState::process().capFor(cap_fps);
-}
-
-int geode_thermal_take_warm_note(float cap_fps, float paced_fps) {
-    return geode::viz::ThermalState::process().takeWarmNote(cap_fps, paced_fps);
 }
 
 void geode_memory_trim(int android_level) {
@@ -555,14 +535,11 @@ class VizStages final : public frame::LiveStages {
 public:
     VizStages(geode_viz& v, const geode_pcm_ring* ring) : v_(v), ring_(ring) {}
 
-    void setPacedFps(float pacedFps, float capFps) override { v_.renderer.thermal().setPacedFps(pacedFps, capFps); }
+    void setPacedFps(float pacedFps, float capFps) override { v_.renderer.pace().setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
-        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx, q.adaptive);
-        v_.renderer.setLiquidHotPolicy(q.liquidHotPolicy);
+        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
     }
     void clearToBlack() override { v_.renderer.clearToBlack(0); }
-    bool claimThermal() override { return ThermalState::process().headroomDue(monotonicSeconds()); }
-    void sampleThermal() override { thermal_source::sampleHeadroom(monotonicSeconds()); }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
         const GyroLook::Look look = v_.gyro.reset();
@@ -833,9 +810,8 @@ const char* geode_viz_look_defaults(void) {
     return defaults.c_str();
 }
 
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive,
-                           int liquid_hot_policy) {
-    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy});
+void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx) {
+    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
 }
 
 int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
@@ -869,11 +845,6 @@ void geode_viz_set_offscreen(geode_viz* v, int on) {
     v->renderer.setOffscreen(on != 0);
     // And it keeps the Customize layer it started with: a live edit during a background render stays live.
     v->renderer.pinLayer(on != 0);
-    if (on) {
-        v->renderer.thermal().beginOffscreenRender();
-    } else {
-        v->renderer.thermal().endOffscreenRender();
-    }
 }
 
 void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float right, float bottom, float strength,
@@ -949,8 +920,6 @@ void geode_viz_surface_created(geode_viz* v) {
     // A new surface starts its engine on a full window, not the tail of the last: the next frame's cursor is a
     // new one.
     geode_viz_feed_ring(v, nullptr);
-    // The platform's status listener, once for the process (the first surface to come up).
-    geode::viz::thermal_source::attach();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {
@@ -1002,8 +971,7 @@ void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (!v) return;
     syncReactions(v);
     v->recordPtsNs = v->recorder
-        ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height(),
-                             static_cast<int>(geode::viz::ThermalState::process().tier()))
+        ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height())
         : -1;
     v->renderer.render(time_seconds, target_fbo);
     const GeodeSoundFrame& heard = v->renderer.soundFrame();

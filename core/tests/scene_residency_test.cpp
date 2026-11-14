@@ -2,8 +2,8 @@
 // run by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
 // What is pinned: an hour of Auto over every style keeps a bounded set resident (before the fix the
-// list only grew), scenes in use are never released, fluid scenes weigh more, a hotter tier keeps
-// fewer spares, and a tier change marks spares for a lazy resize instead of resizing them all.
+// list only grew), scenes in use are never released, fluid scenes weigh more, the budget keeps a fluid
+// spare, and a scale change marks spares for a lazy resize instead of resizing them all.
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -12,7 +12,6 @@
 
 using geode::viz::MemoryTrim;
 using geode::viz::SceneResidency;
-using geode::viz::ThermalTier;
 using geode::viz::TrimShed;
 
 namespace {
@@ -37,7 +36,7 @@ bool has(const SceneResidency& r, const std::string& id) {
 // style, some of them fluid. Residency must stay bounded by pins + budget, whatever the length.
 void longAutoSessionStaysBounded() {
     SceneResidency r;
-    const int budget = SceneResidency::spareBudget(ThermalTier::Full);
+    const int budget = SceneResidency::spareBudget();
     std::string active;
     std::string outgoing;
     size_t most = 0;
@@ -63,11 +62,11 @@ void workedExampleFromTheHeader() {
     r.insert("arbor", false, 0);
     r.insert("glass", false, 0);
     const auto pinned = [](const std::string& id) { return id == "glass"; };
-    const auto victims = r.evict(pinned, SceneResidency::spareBudget(ThermalTier::Full));
+    const auto victims = r.evict(pinned, SceneResidency::spareBudget());
     check(victims.size() == 1 && victims[0] == "fluid", "a fluid spare over budget goes, lighter spares stay");
     check(has(r, "glass") && has(r, "arbor") && has(r, "neon"), "spares that fit stay resident");
-    const auto hot = r.evict(pinned, SceneResidency::spareBudget(ThermalTier::Minimal));
-    check(hot.size() == 2 && r.size() == 1 && has(r, "glass"), "a hot phone keeps only what it draws");
+    const auto none = r.evict(pinned, 0);
+    check(none.size() == 2 && r.size() == 1 && has(r, "glass"), "a budget of none keeps only what it draws");
 }
 
 void backAndForthStaysACacheHit() {
@@ -83,7 +82,7 @@ void backAndForthStaysACacheHit() {
             r.touch(next);
         }
         active = next;
-        r.evict([&](const std::string& id) { return id == active; }, SceneResidency::spareBudget(ThermalTier::Full));
+        r.evict([&](const std::string& id) { return id == active; }, SceneResidency::spareBudget());
     }
     check(builds == 2, "two looks cut on the beat build once each on a cool phone, even fluid ones");
 }
@@ -105,11 +104,8 @@ void touchMakesMostRecent() {
     check(r.size() == 0, "clear forgets everything");
 }
 
-void tiersShedSpares() {
-    check(SceneResidency::spareBudget(ThermalTier::Full) >= SceneResidency::kHeavyWeight, "a cool phone can keep one fluid spare");
-    check(SceneResidency::spareBudget(ThermalTier::Eased) <= SceneResidency::spareBudget(ThermalTier::Full), "eased keeps no more");
-    check(SceneResidency::spareBudget(ThermalTier::Reduced) <= SceneResidency::spareBudget(ThermalTier::Eased), "reduced keeps no more");
-    check(SceneResidency::spareBudget(ThermalTier::Minimal) == 0, "minimal keeps no spares");
+void theBudgetKeepsAFluidSpare() {
+    check(SceneResidency::spareBudget() >= SceneResidency::kHeavyWeight, "the budget can keep one fluid spare");
 }
 
 void resizeIsLazy() {
@@ -117,7 +113,7 @@ void resizeIsLazy() {
     r.insert("drawn", true, 1);
     r.insert("spare", true, 1);
     check(!r.needsResize("drawn", 1) && !r.needsResize("spare", 1), "a fresh build is sized");
-    // A tier change: the stamp moves; only the drawn scene is resized now.
+    // A scale change: the stamp moves; only the drawn scene is resized now.
     r.markSized("drawn", 2);
     check(!r.needsResize("drawn", 2), "the drawn scene is resized at once");
     check(r.needsResize("spare", 2), "a spare waits until it is drawn again");
@@ -126,19 +122,16 @@ void resizeIsLazy() {
     check(!r.needsResize("unknown", 2), "an unbuilt scene needs no resize");
 }
 
-// #854: the system's trim levels. Only UI_HIDDEN (20) and BACKGROUND (40) act; the spares go whatever the
-// thermal tier, and the pinned scenes (the one drawn, fading out, the layer) are never dropped.
+// #854: the system's trim levels. Only UI_HIDDEN (20) and BACKGROUND (40) act; the spares go, and the pinned scenes (the one drawn, fading out, the layer) are never dropped.
 void memoryTrimShedsSparesNotPinned() {
     check(SceneResidency::trimForAndroidLevel(20) == MemoryTrim::UiHidden, "UI_HIDDEN maps");
     check(SceneResidency::trimForAndroidLevel(40) == MemoryTrim::Background, "BACKGROUND maps");
     for (int level : {0, 5, 10, 15, 19, 21, 41, 60, 80}) {
         check(SceneResidency::trimForAndroidLevel(level) == MemoryTrim::None, "every other level is ignored");
     }
-    for (ThermalTier tier : {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal}) {
-        check(SceneResidency::spareBudget(tier, MemoryTrim::None) == SceneResidency::spareBudget(tier), "no trim keeps the tier budget");
-        check(SceneResidency::spareBudget(tier, MemoryTrim::UiHidden) == 0, "UI_HIDDEN keeps no spares");
-        check(SceneResidency::spareBudget(tier, MemoryTrim::Background) == 0, "BACKGROUND keeps no spares");
-    }
+    check(SceneResidency::spareBudget(MemoryTrim::None) == SceneResidency::spareBudget(), "no trim keeps the budget");
+    check(SceneResidency::spareBudget(MemoryTrim::UiHidden) == 0, "UI_HIDDEN keeps no spares");
+    check(SceneResidency::spareBudget(MemoryTrim::Background) == 0, "BACKGROUND keeps no spares");
     for (MemoryTrim trim : {MemoryTrim::UiHidden, MemoryTrim::Background}) {
         SceneResidency r;
         r.insert("old", false, 1);
@@ -147,7 +140,7 @@ void memoryTrimShedsSparesNotPinned() {
         r.insert("layer", false, 1);
         r.insert("drawn", false, 1);
         const auto pinned = [](const std::string& id) { return id == "drawn" || id == "fading" || id == "layer"; };
-        const auto victims = r.evict(pinned, SceneResidency::spareBudget(ThermalTier::Full, trim));
+        const auto victims = r.evict(pinned, SceneResidency::spareBudget(trim));
         check(victims.size() == 2, "both spares go");
         check(has(r, "drawn") && has(r, "fading") && has(r, "layer"), "the pinned scenes stay");
         check(!has(r, "old") && !has(r, "fluid"), "the spares are gone");
@@ -155,12 +148,12 @@ void memoryTrimShedsSparesNotPinned() {
 }
 
 // The pause path (Renderer::trimSpares, geode_viz_trim_spares): a surface that stops drawing sheds as a
-// UiHidden trim does, at once, whatever the tier. What it keeps is what it shows when it comes back: the
+// UiHidden trim does, at once. What it keeps is what it shows when it comes back: the
 // scene drawn, the one fading out, the layer, the born style and the one requested (built or not). The
 // signal that arrives later, read by the first frame after the return, then finds nothing left to drop,
-// and a spare built after the return is under the tier's budget again.
+// and a spare built after the return is under the budget again.
 void pauseTrimKeepsWhatIsShownAndIsNotRepeated() {
-    for (ThermalTier tier : {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal}) {
+    {
         SceneResidency r;
         r.insert("old", false, 1);
         r.insert("fluid_spare", true, 1);
@@ -172,27 +165,27 @@ void pauseTrimKeepsWhatIsShownAndIsNotRepeated() {
         const auto pinned = [](const std::string& id) {
             return id == "drawn" || id == "fading" || id == "layer" || id == "born" || id == "requested";
         };
-        const int budget = SceneResidency::spareBudget(tier, MemoryTrim::UiHidden);
+        const int budget = SceneResidency::spareBudget(MemoryTrim::UiHidden);
         const auto victims = r.evict(pinned, budget);
-        check(victims.size() == 3, "a pause sheds every spare, at any tier");
+        check(victims.size() == 3, "a pause sheds every spare");
         check(!has(r, "old") && !has(r, "fluid_spare") && !has(r, "recent"), "the light, the heavy and the newest spare go");
         check(has(r, "drawn") && has(r, "fading") && has(r, "layer") && has(r, "born"), "what is shown stays");
         check(r.size() == 4, "nothing else is resident through the background");
         check(r.evict(pinned, budget).empty(), "the trim signal read after the return drops nothing more");
-        // Back on screen: a new style is admitted under the tier's own budget, as before the pause, less the
+        // Back on screen: a new style is admitted under the budget, as before the pause, less the
         // pins past the heaviest (#999): the fading scene, the layer and the born style weigh 1 each.
         r.insert("next", false, 1);
-        const auto later = r.evict(pinned, SceneResidency::spareBudget(tier));
-        const bool room = SceneResidency::spareBudget(tier) - 3 >= 1;
-        check(has(r, "next") == room, "after the return the tier decides again");
+        const auto later = r.evict(pinned, SceneResidency::spareBudget());
+        const bool room = SceneResidency::spareBudget() - 3 >= 1;
+        check(has(r, "next") == room, "after the return the budget decides again");
         check(later.size() == (room ? 0u : 1u), "and only what is over it goes");
         r.remove("fading");
         r.remove("layer");
         r.remove("born");
         r.insert("next", false, 1);
-        const auto alone = r.evict(pinned, SceneResidency::spareBudget(tier));
-        check(has(r, "next") == (SceneResidency::spareBudget(tier) >= 1), "with one scene drawn the whole tier budget is there");
-        check(alone.size() == (SceneResidency::spareBudget(tier) >= 1 ? 0u : 1u), "and only what is over it goes");
+        const auto alone = r.evict(pinned, SceneResidency::spareBudget());
+        check(has(r, "next") == (SceneResidency::spareBudget() >= 1), "with one scene drawn the whole budget is there");
+        check(alone.size() == (SceneResidency::spareBudget() >= 1 ? 0u : 1u), "and only what is over it goes");
     }
 }
 
@@ -234,7 +227,7 @@ void trimShedsByWhetherTheSurfaceDraws() {
 void budgetCountsWeightAndPins() {
     check(SceneResidency::heavy(true, false) && SceneResidency::heavy(false, true), "fluid and MilkDrop scenes are heavy");
     check(!SceneResidency::heavy(false, false), "a shader style is light");
-    const int full = SceneResidency::spareBudget(ThermalTier::Full);
+    const int full = SceneResidency::spareBudget();
     {
         SceneResidency r;
         r.insert("milk_spare_a", SceneResidency::heavy(false, true), 0);
@@ -244,7 +237,7 @@ void budgetCountsWeightAndPins() {
         check(victims.size() == 1 && victims[0] == "milk_spare_a", "two MilkDrop spares no longer fit where three shader styles do");
     }
     {
-        // One scene drawn: the budget is the tier's, as before.
+        // One scene drawn: the whole budget, as before.
         SceneResidency r;
         r.insert("a", false, 0);
         r.insert("b", false, 0);
@@ -290,7 +283,7 @@ int main() {
     workedExampleFromTheHeader();
     backAndForthStaysACacheHit();
     touchMakesMostRecent();
-    tiersShedSpares();
+    theBudgetKeepsAFluidSpare();
     resizeIsLazy();
     if (failures > 0) {
         std::printf("%d scene residency check(s) failed\n", failures);

@@ -40,7 +40,7 @@ struct Material {
 // written into a field texture (field_prep_frag: the height, tint and age, the long side along x, the
 // drift remainder taken off, mipmapped so the march reads it at its footprint), then the kind's present
 // shader draws it. The present is a ShaderScene, so it gets the whole shared block every style gets (the
-// params, the palette, the knobs, the sound, the camera, uSteps from Detail and the hot-phone cut) and
+// params, the palette, the knobs, the sound, the camera, uSteps from Detail) and
 // reads it through the same libraries the newest families do; the field and its geometry come beside it
 // (ShaderScene::Field). The simulation itself is the owner's: its step, its touch, its clock.
 class FieldPresent {

@@ -63,10 +63,10 @@ jobs:
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
-          # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
+          # Liquid mode's pure maths: the mode's plan, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
-          # The physics layers' pure maths: off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the params.
+          # The physics layers' pure maths: off in every look, the plan, back fluid | style | front particles, the music clock, the params.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/physics_layers_test.cpp core/viz/physics/PhysicsPlan.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o physics_layers_test
           ./physics_layers_test
@@ -94,12 +94,12 @@ jobs:
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o director_reach_test
           ./director_reach_test
-          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
+          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, a spare budget, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
-          # The process's one thermal state (#440): the fps-first ladder, the cap on the pacer, two renderers sharing it.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/thermal_test.cpp core/viz/ThermalGovernor.cpp -o thermal_test
-          ./thermal_test
+          # The fluid scenes' frame-time monitor and a renderer's pace: the paced rate, the settling hold, the pacer array.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/performance_monitor_test.cpp core/viz/PerformanceMonitor.cpp -o performance_monitor_test
+          ./performance_monitor_test
           # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/cache_sentinels_test.cpp -o cache_sentinels_test
           ./cache_sentinels_test
@@ -234,9 +234,8 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/transition_programs_test.cpp core/viz/Transition.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp \
             core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp -o transition_programs_test
           ./transition_programs_test
-          # Settings › Performance's tiers, scale choices, preset match, Liquid policy and first-run pick (#437).
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/quality_test.cpp core/api/geode_perf_api.cpp \
-            core/viz/liquid/LiquidMath.cpp -o quality_test
+          # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/quality_test.cpp core/api/geode_perf_api.cpp -o quality_test
           ./quality_test
           # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o surface_run_test
@@ -271,7 +270,7 @@ jobs:
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
-          # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
+          # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, Follow device.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
           ./live_fps_test
           # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
@@ -289,10 +288,10 @@ jobs:
           # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
           ./command_queue_test
-          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp -o stage_pacing_test
           ./stage_pacing_test
-          # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
+          # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
@@ -347,7 +346,7 @@ jobs:
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
-          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the events.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/live_frame_test.cpp -o live_frame_test
           ./live_frame_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.

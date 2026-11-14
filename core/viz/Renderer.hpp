@@ -44,7 +44,7 @@
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ShapeGraph.hpp"
-#include "viz/ThermalGovernor.hpp"
+#include "viz/PerformanceMonitor.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
@@ -70,9 +70,9 @@ public:
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
-    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
-    // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
-    void setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive);
+    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops
+    // the optional passes, plus fluid bloom.
+    void setUserQuality(float renderScale, float marchScale, bool postFx);
     // Export (geode_viz_set_offscreen): every scene is built whole on the frame that first asks for
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
@@ -85,11 +85,8 @@ public:
     void setUiBlurRegion(const UiBlurRegion& region);
     // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
     void setEdgeGlow(const frame::edge_glow::Options& options);
-    // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
-    void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
-    // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
-    // geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on a change. A new
+    // What Liquid mode ran last frame (liquid::Mode), or -1 when it has not changed since the last take.
+    // Taken every live frame by geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on a change. A new
     // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
     int takeLiquidMode() {
         const int mode = liquidMode_.load(std::memory_order_relaxed);
@@ -160,7 +157,7 @@ public:
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
     void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
-    ThermalGovernor& thermal() { return thermal_; }
+    SurfacePace& pace() { return pace_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
     std::string lastError() const;
     bool knows(const std::string& sceneId) const { return registry_.knows(sceneId); }
@@ -214,14 +211,14 @@ private:
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
     void dropScene(const std::string& id);
-    // A scene just built: recorded as the most recent, then the spares over the tier's budget go (#378).
+    // A scene just built: recorded as the most recent, then the spares over the budget go (#378).
     void admitScene(const std::string& id, const Scene& scene);
     // Releases the built scenes SceneResidency says are over budget; `keepId` is pinned beside the
     // ones in use this frame.
-    // A trim (#854, #999) drops what `shed` names: every spare whatever the tier would keep, and for a surface
+    // A trim (#854, #999) drops what `shed` names: every spare whatever the budget would keep, and for a surface
     // that stops drawing the passes' and the scene targets too.
     void trimScenes(const std::string& keepId, TrimShed shed = {});
-    // One logcat line when the resident scene count or the thermal tier changes (the device checklist reads it).
+    // One logcat line when the resident scene count changes (the device checklist reads it).
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
@@ -271,7 +268,7 @@ private:
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
     GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
-    bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
+    bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
     void applyUnderlayUpload();
@@ -302,7 +299,7 @@ private:
     SceneRegistry registry_;
     Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;
-    // Which of scenes_ stay resident, and which were sized before the last tier or scale change
+    // Which of scenes_ stay resident, and which were sized before the last scale change
     // (viz/SceneResidency). sizeStamp_ moves on every applyRenderScale.
     SceneResidency residency_;
     uint32_t sizeStamp_ = 0;
@@ -317,7 +314,7 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    ThermalGovernor thermal_;
+    SurfacePace pace_;
     // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;
@@ -489,7 +486,6 @@ private:
     float diveMix_ = 0.0f;
     // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
     int feedbackIdleFrames_ = 0;
-    std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
 
@@ -507,11 +503,9 @@ private:
     int height_ = 1;
     int renderWidth_ = 1;
     int renderHeight_ = 1;
-    ThermalTier appliedTier_ = ThermalTier::Full;
     uint32_t seenTrim_ = 0;  // the SceneResidency trim signal generation this renderer acted on (GL thread)
-    // What `adb logcat -s GeodeRenderer` last showed of scene residency and the tier (logged on a change only).
+    // What `adb logcat -s GeodeRenderer` last showed of scene residency (logged on a change only).
     size_t loggedResident_ = SIZE_MAX;
-    ThermalTier loggedTier_ = ThermalTier::Full;
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;

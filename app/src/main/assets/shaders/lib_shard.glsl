@@ -69,7 +69,7 @@
 
 #define SHARD_TAU 6.2831853
 #define SHARD_MAX_STEPS 100
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, as the Opal march spends it. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop, as the Opal march spends it. */
 #define SHARD_STEPS (min(uSteps * 0.78, float(SHARD_MAX_STEPS)))
 #define SHARD_HITS 3
 #define SHARD_PERIOD 16.0

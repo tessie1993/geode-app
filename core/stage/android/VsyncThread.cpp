@@ -10,7 +10,6 @@
 #include <thread>
 
 #include "util/Log.hpp"
-#include "viz/frame/Thermal.hpp"
 
 namespace geode::stage::platform {
 
@@ -142,7 +141,7 @@ void VsyncThread::onFrame(int64_t frameTimeNanos, void* data) {
     }
     // Re-posted first: the cadence survives a slow stage, and a skipped vsync still wakes the next one.
     AChoreographer_postFrameCallback64(process().choreographer_, &VsyncThread::onFrame, sink);
-    const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos, viz::ThermalState::process().fpsRungsDown());
+    const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos);
     if (tick.restateRate) {
         Command c;
         c.kind = kStageFrameRate;

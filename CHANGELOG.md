@@ -11,6 +11,13 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **No more heat throttle.** The app no longer reads the phone's thermal
+  status or headroom, and never lowers the frame rate, render scale, march
+  steps, post FX, Liquid mode, the physics layers, kept scenes or Record's
+  capture rate because the phone is warm. The "Phone is warm" note, Settings ›
+  Performance › Adapt to frame time and Liquid on a hot phone are gone; your
+  own fps cap and quality choices are drawn as set.
+
 - **Six new style families, ten styles each (334 styles).** Prism
   (`prism_*`, `lib_prism`): kaleidoscope portals in liquid chrome. Fluor
   (`fluor_*`, `lib_fluor`): carved ornament under blacklight, its raised

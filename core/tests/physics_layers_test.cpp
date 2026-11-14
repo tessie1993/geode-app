@@ -2,8 +2,8 @@
 // the off case, the music clock and the params that carry them. Built and run by CI ("Native host tests" in
 // .github/workflows/native-host-tests.yml) with the system compiler; no GL, no device.
 //
-// What is pinned: every look's defaults plan nothing (the frame path is the one it was, nothing allocated); a hot
-// phone downscales the fluid and then skips it, an export never does; the composite at a fluid mix of 0 is the
+// What is pinned: every look's defaults plan nothing (the frame path is the one it was, nothing allocated); the
+// plan's grids and population are fixed, live and in an export alike; the composite at a fluid mix of 0 is the
 // style bit for bit, the fluid sits behind the style's light or is screened over it, and the particles in front
 // never take the frame past white; the dye, the stir and the keep window step on the music clock alone, so
 // silence holds them and the same frames replay the same layers; the four params are modulation targets the
@@ -20,7 +20,6 @@
 
 using geode::viz::LfoTarget;
 using geode::viz::SceneParams;
-using geode::viz::ThermalTier;
 namespace physics = geode::viz::physics;
 namespace safety = geode::viz::safety;
 
@@ -35,8 +34,6 @@ void check(bool ok, const std::string& what) {
     }
 }
 
-constexpr ThermalTier kTiers[] = {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal};
-
 SceneParams with(float fluid, float particles) {
     SceneParams p;
     p.simFluid = fluid;
@@ -45,47 +42,35 @@ SceneParams with(float fluid, float particles) {
 }
 
 void everyLookPlansNothing() {
-    for (const ThermalTier tier : kTiers) {
-        const physics::Plan plan = physics::planFor(SceneParams{}, tier);
-        check(!plan.any() && !plan.fluid && !plan.particles, "a look's defaults plan no physics layer");
-        check(plan.simRes == 0 && plan.dyeRes == 0 && plan.particleSide == 0, "and ask for no grid and no particles");
-    }
-    check(!physics::planFor(with(physics::kOn * 0.5f, physics::kOn * 0.5f), ThermalTier::Full).any(),
+    const physics::Plan plan = physics::planFor(SceneParams{});
+    check(!plan.any() && !plan.fluid && !plan.particles, "a look's defaults plan no physics layer");
+    check(plan.simRes == 0 && plan.dyeRes == 0 && plan.particleSide == 0, "and ask for no grid and no particles");
+    check(!physics::planFor(with(physics::kOn * 0.5f, physics::kOn * 0.5f)).any(),
           "a mix under the floor draws nothing");
-    check(!physics::planFor(with(std::nanf(""), -1.0f), ThermalTier::Full).any(), "a NaN or negative mix is off");
+    check(!physics::planFor(with(std::nanf(""), -1.0f)).any(), "a NaN or negative mix is off");
     // The force and the fluid's place alone turn nothing on.
     SceneParams p;
     p.simForce = 2.0f;
     p.simLayerOrder = 1.0f;
-    check(!physics::planFor(p, ThermalTier::Full).any(), "force and place without a mix plan nothing");
+    check(!physics::planFor(p).any(), "force and place without a mix plan nothing");
 }
 
-void theTierDownscalesThenSkipsTheFluid() {
+void bothLayersArePlanned() {
     const SceneParams both = with(1.0f, 1.0f);
-    const physics::Plan full = physics::planFor(both, ThermalTier::Full);
-    const physics::Plan eased = physics::planFor(both, ThermalTier::Eased);
-    const physics::Plan reduced = physics::planFor(both, ThermalTier::Reduced);
-    const physics::Plan minimal = physics::planFor(both, ThermalTier::Minimal);
-    check(full.fluid && full.particles && full.fluidMix == 1.0f && full.particleMix == 1.0f, "a cool phone runs both layers");
-    check(eased.simRes == full.simRes && eased.dyeRes == full.dyeRes && eased.particleSide == full.particleSide,
-          "Eased costs frames, not the layers' size (ADR 0008: fps first)");
-    check(reduced.fluid && reduced.simRes < full.simRes && reduced.dyeRes < full.dyeRes && reduced.particleSide < full.particleSide,
-          "Reduced downscales the fluid and the particles");
-    check(reduced.pressureIterations <= full.pressureIterations, "and spends no more on the pressure solve");
-    check(!minimal.fluid && minimal.simRes == 0 && minimal.dyeRes == 0, "Minimal, where the post FX go, skips the fluid");
-    check(minimal.particles && minimal.particleSide > 0 && minimal.particleSide < reduced.particleSide,
-          "and keeps a smaller population of particles");
+    const physics::Plan full = physics::planFor(both);
+    check(full.fluid && full.particles && full.fluidMix == 1.0f && full.particleMix == 1.0f, "both layers run");
+    check(full.particleSide > 0, "the particles have a population");
     check(full.simRes > 0 && full.dyeRes > full.simRes && full.pressureIterations > 0, "the fluid's grids are sized");
     // A grid larger than the fluid styles' Low rung would cost the phone a second fluid scene.
     check(full.simRes <= 96 && full.dyeRes <= 384, "the layer is a low-res fluid");
-    const physics::Plan particlesOnly = physics::planFor(with(0.0f, 0.5f), ThermalTier::Full);
+    const physics::Plan particlesOnly = physics::planFor(with(0.0f, 0.5f));
     check(particlesOnly.particles && !particlesOnly.fluid && particlesOnly.simRes == 0, "particles alone run no fluid");
-    const physics::Plan fluidOnly = physics::planFor(with(0.5f, 0.0f), ThermalTier::Full);
+    const physics::Plan fluidOnly = physics::planFor(with(0.5f, 0.0f));
     check(fluidOnly.fluid && !fluidOnly.particles && fluidOnly.particleSide == 0, "the fluid alone draws no particles");
     SceneParams wild = with(4.0f, 9.0f);
     wild.simForce = 7.0f;
     wild.simLayerOrder = -3.0f;
-    const physics::Plan held = physics::planFor(wild, ThermalTier::Full);
+    const physics::Plan held = physics::planFor(wild);
     check(held.fluidMix == 1.0f && held.particleMix == 1.0f && held.force == 2.0f && held.order == 0.0f, "the plan holds every value to its range");
 }
 
@@ -228,7 +213,7 @@ void theParamsAreTargetsTheSafetyRulesHold() {
 
 int main() {
     everyLookPlansNothing();
-    theTierDownscalesThenSkipsTheFluid();
+    bothLayersArePlanned();
     theLayersStackBackToFront();
     theMusicClockDrivesEverything();
     theGridsOutliveAShortDip();

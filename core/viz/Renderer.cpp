@@ -30,14 +30,13 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this] { return thermal_.pacedFps(); },
+                          [this] { return pace_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
-                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
+                          [this] { return marchScale_.load(std::memory_order_relaxed); },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
-                          [this] { return thermal_.settling(); },
+                          [this] { return pace_.settling(); },
                           [this] { return paletteRamp_.active() ? paletteRampTex_ : GLuint{0}; },
                           [this] { return &shapeGraph_.packed(); }}),
       compositePass_(assets_, &programCache_),
@@ -211,7 +210,7 @@ void Renderer::applyMilkRequests() {
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
         redrawFrames_ = 60;
-        thermal_.noteSettling();  // projectM compiles the preset's shaders on this thread
+        pace_.noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
     if (!preset.empty()) milk->queueMilkPreset(preset);
@@ -366,7 +365,7 @@ void Renderer::syncShaderOverrides() {
 void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
-    thermal_.onSurfaceRecreated();
+    pace_.onSurfaceRecreated();
     // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
     liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
@@ -478,14 +477,13 @@ void Renderer::clearToBlack(GLuint targetFbo) {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
+void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx) {
     // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
     // resizing every frame; a corrupt pref means full quality instead.
     const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
     userScale_.store(unit(renderScale), std::memory_order_relaxed);
     marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
-    thermal_.setAdaptive(adaptive);
 }
 
 void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
@@ -513,17 +511,16 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 }
 
 void Renderer::applyRenderScale() {
-    appliedTier_ = thermal_.tier();
     appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
     // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
     // pixels did not mean 1.4x of fewer pixels.
     const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
-    const float scale = supersample * appliedUserScale_ * thermalTierInfo(appliedTier_).renderScale;
+    const float scale = supersample * appliedUserScale_;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
-    // A hotter tier keeps fewer spares: release them before anything is resized (#378). Then only the
-    // scenes drawn this frame are resized; a spare is resized when readyScene hands it out again, so
-    // a tier change costs one resize per scene shown, not one per scene ever built.
+    // Release the spares over budget before anything is resized (#378). Then only the scenes drawn this
+    // frame are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
+    // resize per scene shown, not one per scene ever built.
     ++sizeStamp_;
     trimScenes({});
     for (auto& entry : scenes_) {
@@ -651,7 +648,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
         heldScene_ = nullptr;
         heldLayer_ = nullptr;
     }
-    const int budget = shed.spares ? 0 : SceneResidency::spareBudget(appliedTier_);
+    const int budget = shed.spares ? 0 : SceneResidency::spareBudget();
     for (const std::string& victim : residency_.evict(pinned, budget)) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;
@@ -663,15 +660,13 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
 }
 
 void Renderer::logResidency(float wallDt) {
-    const ThermalTier tier = thermal_.tier();
-    if (scenes_.size() == loggedResident_ && tier == loggedTier_) return;
+    if (scenes_.size() == loggedResident_) return;
     loggedResident_ = scenes_.size();
-    loggedTier_ = tier;
     int weight = 0;
     for (const auto& entry : residency_.entries()) weight += entry.weight;
-    GEODE_LOGI(kTag, "residency: scenes=%zu weight=%d spareBudget=%d stagerIdle=%d tier=%d settling=%d target=%dx%d frameMs=%.1f",
-               scenes_.size(), weight, SceneResidency::spareBudget(appliedTier_), stager_.idle() ? 1 : 0,
-               static_cast<int>(tier), thermal_.settling() ? 1 : 0, renderWidth_, renderHeight_, wallDt * 1000.0f);
+    GEODE_LOGI(kTag, "residency: scenes=%zu weight=%d spareBudget=%d stagerIdle=%d settling=%d target=%dx%d frameMs=%.1f",
+               scenes_.size(), weight, SceneResidency::spareBudget(), stager_.idle() ? 1 : 0,
+               pace_.settling() ? 1 : 0, renderWidth_, renderHeight_, wallDt * 1000.0f);
 }
 
 Scene* Renderer::builtScene(const std::string& id) {
@@ -689,7 +684,7 @@ Scene* Renderer::readyScene(const std::string& id) {
     syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
-        // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
+        // Skipped by a scale change while it was not drawn: sized now, as it comes back.
         if (residency_.needsResize(id, sizeStamp_)) {
             scene->resize(renderWidth_, renderHeight_);
             scene->setWindowSize(width_, height_);

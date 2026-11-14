@@ -9,16 +9,12 @@ namespace geode::viz::physics {
 
 namespace {
 
-// The fluid's grids per tier: FluidQuality's Low rung on a cool phone, its Min rung once the render scale drops.
-// The layer is a backdrop the picture paints, seen through the style's darks or screened over it, so it never
-// needs the fluid styles' own grids.
-constexpr int kCoolGrid = 3;  // quality::kTiers "Low": 96 / 384
-constexpr int kHotGrid = 4;   // "Min": 64 / 256
+// The fluid's grids: FluidQuality's Low rung. The layer is a backdrop the picture paints, seen through the style's
+// darks or screened over it, so it never needs the fluid styles' own grids.
+constexpr int kGrid = 3;  // quality::kTiers "Low": 96 / 384
 
-// The particle state's side per tier, cool to hot: 36 864, 16 384 and 9 216 particles.
-constexpr int kCoolSide = 192;
-constexpr int kHotSide = 128;
-constexpr int kMinimalSide = 96;
+// The particle state's side: 36 864 particles.
+constexpr int kSide = 192;
 
 // How fast the dye moves toward the picture's colour, per second.
 constexpr float kDyeRate = 1.6f;
@@ -31,23 +27,21 @@ float unit(float v) { return std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f
 
 }  // namespace
 
-Plan planFor(const SceneParams& p, ThermalTier tier) {
+Plan planFor(const SceneParams& p) {
     Plan plan;
     plan.fluidMix = unit(p.simFluid);
     plan.particleMix = unit(p.simParticles);
     plan.order = unit(p.simLayerOrder);
     plan.force = std::isfinite(p.simForce) ? std::clamp(p.simForce, 0.0f, 2.0f) : 0.0f;
-    const bool hot = tier == ThermalTier::Reduced || tier == ThermalTier::Minimal;
-    // Minimal is where the post FX go (frame/Thermal.hpp): the fluid goes with them.
-    plan.fluid = plan.fluidMix >= kOn && tier != ThermalTier::Minimal;
+    plan.fluid = plan.fluidMix >= kOn;
     plan.particles = plan.particleMix >= kOn;
     if (plan.fluid) {
-        const fluid::quality::Tier& grid = fluid::quality::tier(hot ? kHotGrid : kCoolGrid);
+        const fluid::quality::Tier& grid = fluid::quality::tier(kGrid);
         plan.simRes = grid.simRes;
         plan.dyeRes = grid.dyeRes;
         plan.pressureIterations = grid.iterations;
     }
-    if (plan.particles) plan.particleSide = tier == ThermalTier::Minimal ? kMinimalSide : hot ? kHotSide : kCoolSide;
+    if (plan.particles) plan.particleSide = kSide;
     return plan;
 }
 

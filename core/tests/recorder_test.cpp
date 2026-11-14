@@ -62,7 +62,6 @@ struct Stage {
     double sourceSpeed = 1.0;      // the sample clock against the wall clock
     int64_t jitterNs = 0;          // each display frame is this early or late, alternating
     bool encoderRuns = true;
-    int heat = 0;                  // the thermal tier the stage reports
 
     Recorder* recorder = nullptr;
     int64_t nowNs = kT0;
@@ -123,7 +122,7 @@ struct Stage {
                 nowNs = at;
                 if (drawing) {
                     deliver();
-                    const int64_t p = recorder->frame(nowNs, config.stageWidth, config.stageHeight, heat);
+                    const int64_t p = recorder->frame(nowNs, config.stageWidth, config.stageHeight);
                     if (p >= 0) {
                         if (startNs < 0) startNs = nowNs;
                         pts.push_back(p);
@@ -226,38 +225,6 @@ void displayRates() {
     }
     check(std::llabs(offsets[0] - offsets[1]) <= kRate / 30 && std::llabs(offsets[0] - offsets[2]) <= kRate / 30,
           "the sound sits in the same place, to a frame, whatever the stage rate");
-}
-
-// A hot phone: the recording gives up frames before the visual does, on the same grid, and the sound stays.
-void hot() {
-    check(Recorder::captureFps(60, 0) == 60 && Recorder::captureFps(60, 1) == 30 && Recorder::captureFps(60, 2) == 20 &&
-              Recorder::captureFps(60, 3) == 15 && Recorder::captureFps(24, 1) == 24,
-          "the capture ladder");
-    Stage s;
-    s.config.fps = 60;
-    s.displayFps = 60;
-    s.begin();
-    s.run(2'000);
-    const size_t cool = s.pts.size();
-    check(cool == 120, "a cool phone records every 60 fps slot");
-    s.heat = 1;
-    s.run(2'000);
-    check(s.pts.size() - cool == 60, "an eased phone records every other slot");
-    s.heat = 3;
-    const size_t eased = s.pts.size();
-    s.run(2'000);
-    check(s.pts.size() - eased == 30, "a hot phone records a quarter of them");
-    for (size_t i = cool; i < s.pts.size(); ++i) {
-        if (s.pts[i] % (kSec / 60) > kSec / 60 / 8 && s.pts[i] % (kSec / 60) < kSec / 60 - kSec / 60 / 8) {
-            check(false, "frames stay on the 60 fps grid");
-            break;
-        }
-    }
-    s.finish();
-    int64_t silent = 0;
-    int64_t breaks = 0;
-    s.scan(kRate / 2, s.body(), &silent, &breaks);
-    check(silent == 0 && breaks == 0, "the sound is whole while the picture thins");
 }
 
 void pacing() {
@@ -588,7 +555,6 @@ void abi() {
 
 int main() {
     displayRates();
-    hot();
     pacing();
     paused();
     burstAfterSilence();

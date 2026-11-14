@@ -955,14 +955,12 @@ object GeodeNative {
     /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
     external fun vizLookDefaults(): String
 
-    /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
+    /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
     external fun vizSetQuality(
         handle: Long,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     /**
@@ -2447,8 +2445,8 @@ object GeodeNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
-    const val PERF_TIER_FLOATS = 5
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    const val PERF_TIER_FLOATS = 4
 
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
@@ -2489,20 +2487,16 @@ object GeodeNative {
         mediaPerformanceClass: Int,
     ): Int
 
-    /** The mode these values are, or -1 when none is ("Custom"); the Liquid hot policy is not part of a mode. */
+    /** The mode these values are, or -1 when none is ("Custom"). */
     external fun perfModeOf(
         renderScale: Float,
         fpsCap: Int,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
     ): Int
 
     /** The render and march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
-
-    /** A stored Liquid hot-phone policy as the renderer reads it: 0..2, anything else 0. */
-    external fun perfLiquidHot(stored: Int): Int
 
     /**
      * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
@@ -3085,14 +3079,6 @@ object GeodeNative {
     /** The output's buffer in frames: the FIFO plus the stream's own. */
     external fun audioOutBufferFrames(handle: Long): Long
 
-    // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
-
-    /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
-    external fun thermalTakeWarmNote(
-        capFps: Float,
-        pacedFps: Float,
-    ): Int
-
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 
@@ -3599,8 +3585,6 @@ object GeodeNative {
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     external fun stageBeginParamMorph(

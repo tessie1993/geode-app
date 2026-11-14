@@ -203,7 +203,6 @@ private fun VisualsHubContent(
         }
     }
     StageBuildNote(viz.shaderError?.takeIf { viz.sceneId != GeodeNative.STYLE_MILKDROP }, pip)
-    StageWarmNote(visualizerView, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.

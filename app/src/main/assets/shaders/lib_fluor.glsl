@@ -68,7 +68,7 @@
 
 #define FLUOR_TAU 6.2831853
 #define FLUOR_MAX_STEPS 90
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, as in lib_hollow. */
+/** uSteps (64..128 by Detail, 102 at its default) on this loop, as in lib_hollow. */
 #define FLUOR_STEPS (min(uSteps * 0.7, float(FLUOR_MAX_STEPS)))
 #define FLUOR_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */

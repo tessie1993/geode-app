@@ -130,8 +130,8 @@ GEODE_API unsigned geode_mod_recipe_state(int recipe, const char* style_id, int 
 
 /* Randomize for the waves (core/viz/WaveRandomizer): `lfos` rolled, on the look in `params` (the
    geode_viz_set_params wire). running_only 0 is the wave editor's button: every slot switched on and rolled.
-   1 is a category roll: only the steady waves already on, and none when `locked` (newline-joined keys) keeps
-   "@waves" or "#MUSIC". Returns 0 with an empty out when nothing changed. */
+   1 is a roll of everything: only the steady waves already on, and none when `locked` (newline-joined keys)
+   keeps "@waves" or "#EXPERT". Returns 0 with an empty out when nothing changed. */
 GEODE_API int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only,
                                         const float* params, const char* lfos, char* out, int capacity);
 

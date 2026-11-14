@@ -10,12 +10,54 @@
 // So the petal profile, the ring repetition, the golden-angle florets and the
 // envelope shaping live here, once.
 //
-// Like lib_sdf3, nothing here reads a uniform. Every helper is pure geometry
-// or pure shaping, so a style decides for itself what the music does to a
-// petal, and this file never inherits an opinion about it. That also means it
-// can be included anywhere after the precision statement; it depends on no
-// other lib. Every name carries a `chrys` prefix because a style is free to
-// include lib_sdf3 or lib_scene_motion beside it, and GLSL has no namespaces.
+// Like lib_sdf3, no geometry helper here reads a uniform. Every one is pure
+// geometry or pure shaping, so a style decides for itself what the music does
+// to a petal, and this file never inherits an opinion about it. The one
+// exception is the normalization shell at the bottom (chrysIn), which reads
+// the scene params and the style knobs and nothing of the sound. Include it
+// after lib_scene_uniforms. Every name carries a `chrys` prefix because a
+// style is free to include lib_sdf3 or lib_scene_motion beside it, and GLSL
+// has no namespaces.
+//
+// ---- the field ------------------------------------------------------------
+//
+// Every Chrysanthemum style defines ChrysHit chrysMap(vec3 p), its flowers at
+// p, and then includes lib_chrys_field, which routes it through the family's
+// one field (chrysField) and differentiates it (chrysNormal); the style
+// marches, shades and takes normals through these alone. The field writes no
+// global: a map hands back what it found (which part, the petal's u and v,
+// its id...) in the hit, and each style says what its slots hold, so a
+// normal's taps never clobber the hit's material. CHRYS_GROW in
+// lib_chrys_field is the one line where Grow (lib_grow: Spawn, Fractal, Front
+// and Back layer) wraps the map (chrysGrow); Formula has no alternatives yet.
+//
+// ---- the normalization shell ----------------------------------------------
+//
+// Every shape variable of the family is read once, normalized, in chrysIn():
+// one field of ChrysIn each, 0 at rest, -1..1 from a knob (its offset from
+// 0.5, doubled) or the Twist slider, 0..1 from the other params (0 their
+// default). Each style maps the ones it has to its own range in its setup
+// block, through chrysSpan, once, into a named value the map and the shading
+// read. The drivers are params and knobs only, every one a target of the
+// reaction matrix, so the music moves any variable through the matrix; at the
+// defaults every variable is exactly the constant it was.
+//
+//   variable  driver               what a style spends it on
+//   rings     Morph                rings, layers, extra florets
+//   chaos     Turbulence + Warp    each petal's own length, a frayed edge
+//   bend      Warp                 a style's own bend of space (Tunnel's bore)
+//   curl      Twist                the rings' spiral sweep
+//   fray      k1 TEXTURE           how far the chaos tears the edges
+//   width     k1 TEXTURE           a petal's width, a tube's or a line's
+//   spin      k2 FLOW              how fast the rings turn with the drift
+//   sway      k2 FLOW              a style's own wind or fall
+//   reach     k5 SPACE             the camera's distance, the haze
+//   glow      k4 BUILD             the glow, the light behind
+//   emit      k0 PULSE             the emission, the kick's share
+//   tone      k3 TONE              the palette position
+//
+// A petal or ring COUNT keeps the style's own number unless the style eases
+// it (a count pops on every beat: lib_neon's rule).
 //
 // ---- the petal ------------------------------------------------------------
 //
@@ -52,6 +94,23 @@
 // petal reads as a glitch, not as a bloom. chrysBump() is zero at both ends
 // of the envelope, so a petal driven by it starts moving from rest, peaks
 // while the envelope is half spent and settles back without a jump.
+
+/**
+ * What the field found at a point: the distance, the part (`mat`) and up to
+ * eight numbers of the style's own in `a` and `b` (the petal's u, v, id...;
+ * each style says which slot holds what). 0 where the style set nothing.
+ */
+struct ChrysHit {
+    float d;
+    float mat;
+    vec4 a;
+    vec4 b;
+};
+
+/** A hit at distance d with nothing found yet. */
+ChrysHit chrysHit(float d) {
+    return ChrysHit(d, 0.0, vec4(0.0), vec4(0.0));
+}
 
 #define CHRYS_TAU 6.2831853
 #define CHRYS_PI 3.14159265
@@ -255,4 +314,54 @@ vec4 chrysFloret(vec2 p, float spacing) {
         if (d < best.x) best = vec4(d, floor(ku + 0.5), off);
     }
     return best;
+}
+
+// ---- the normalization shell (see the header) -----------------------------------
+
+/** Every shape variable, normalized: 0 at rest, -1..1 from a knob or Twist, 0..1 from Morph and the Chaos pair. */
+struct ChrysIn {
+    float rings;
+    float chaos;
+    float bend;
+    float curl;
+    float fray;
+    float width;
+    float spin;
+    float sway;
+    float reach;
+    float glow;
+    float emit;
+    float tone;
+};
+
+/** Style knob i, normalized: its offset from 0.5 doubled, -1..1, exactly 0 while Note & key reactions are off. */
+float chrysKnob(int i) {
+    return 2.0 * (clamp(uKnob[i], 0.0, 1.0) - 0.5);
+}
+
+/** Each variable from its driver (the header's table): params and knobs only, no sound. */
+ChrysIn chrysIn() {
+    ChrysIn n;
+    n.rings = clamp(uMorph, 0.0, 1.0);
+    // The Chaos pair, 0..2 on their sliders, as 0..1.
+    n.chaos = 0.5 * clamp(uTurbulence + uWarp, 0.0, 2.0);
+    n.bend = clamp(uWarp, 0.0, 1.0);
+    n.curl = clamp(uTwist, -1.0, 1.0);
+    n.fray = chrysKnob(1);
+    n.width = chrysKnob(1);
+    n.spin = chrysKnob(2);
+    n.sway = chrysKnob(2);
+    n.reach = chrysKnob(5);
+    n.glow = chrysKnob(4);
+    n.emit = chrysKnob(0);
+    n.tone = chrysKnob(3);
+    return n;
+}
+
+/**
+ * A normalized n to its variable's range: `rest` at 0, `lo` at -1, `hi` at 1, straight between.
+ * Exactly `rest` at 0, so the rest look is the old one bit for bit. A 0..1 variable uses rest..hi.
+ */
+float chrysSpan(float n, float rest, float lo, float hi) {
+    return rest + n * (n < 0.0 ? rest - lo : hi - rest);
 }

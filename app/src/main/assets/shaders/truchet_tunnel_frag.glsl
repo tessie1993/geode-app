@@ -117,10 +117,23 @@ float gLip;
 float gHits;
 float gEnv;
 vec3 gEye;
-/** Set by map() on the band: the arc, the cell coordinate and the ridge profile at the point. */
-TruchetArc gArc;
-vec2 gQ;
-float gRidge;
+/** What the field holds at a point (lib_truchet_field): the distance and, on the band, the arc, the cell coordinate and the ridge profile. */
+struct TruchetHit {
+    float d;
+    TruchetArc arc;
+    vec2 q;
+    float ridge;
+};
+
+/** The field off the band: the distance; the rest (never shaded there) at a plain wall's. */
+TruchetHit tunnelOff(float d) {
+    TruchetHit h;
+    h.d = d;
+    h.arc = TruchetArc(1.0, 0.0, 0.0, vec2(1.0, 0.0), 0.0);
+    h.q = vec2(0.0);
+    h.ridge = 0.0;
+    return h;
+}
 
 /** The point's cell coordinate (u round the tube, v along it); see the header for the seams. */
 vec2 cellAt(vec3 p, float ang) {
@@ -133,14 +146,14 @@ vec2 cellAt(vec3 p, float ang) {
     return vec2(u, v);
 }
 
-float map(vec3 p) {
+TruchetHit truchetMap(vec3 p) {
     float r = length(p.xy);
     float dEye = TT_BUBBLE - length(p - gEye);
     float inner = gRadius - TT_RIDGE_H - TT_SHELL;
     float outer = gRadius + TT_SHELL;
     // Off the band: the radial distance to it, which no part of the shell beats.
-    if (r < inner - 0.3) return max(inner - r, dEye);
-    if (r > outer + 0.3) return max(r - outer, dEye);
+    if (r < inner - 0.3) return tunnelOff(max(inner - r, dEye));
+    if (r > outer + 0.3) return tunnelOff(max(r - outer, dEye));
 
     float ang = atan(p.y, p.x);
     vec2 q = cellAt(p, ang);
@@ -150,29 +163,28 @@ float map(vec3 p) {
     float x = clamp(abs(a.d) / gRidgeW, 0.0, 1.0);
     float c = 1.0 - x * x;
     float ridge = c * c;
-    gArc = a;
-    gQ = q;
-    gRidge = ridge;
+    TruchetHit h;
+    h.arc = a;
+    h.q = q;
+    h.ridge = ridge;
     float wall = gRadius - TT_RIDGE_H * ridge;
     float d = (abs(wall - r) - TT_SHELL) / gLip;
-    return max(d, dEye);
+    h.d = max(d, dEye);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     gT = truchetTime();
     float e = truchetEnergy();
@@ -180,7 +192,7 @@ void main() {
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float screw = 4.0 * drop * (1.0 - drop) * e;
 
-    gCells = truchetMorph() >= 0.5 ? 16.0 : 12.0;
+    gCells = gTruchetIn.detail >= 0.5 ? 16.0 : 12.0;
     gSpiral = gCells / TT_ZWRAP;
     gScrew = 0.35 * screw * clamp(1.0 + kPulse, 0.5, 1.5);
     gChaos = truchetChaos();
@@ -208,6 +220,8 @@ void main() {
     // Every z term tiles with a period dividing 64 (header), so this shift is
     // exact and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // Skip the empty middle: nothing of the shell comes nearer the axis than this.
@@ -231,7 +245,7 @@ void main() {
         if (float(i) >= uSteps) break;
         if (t > TT_FAR) break;
         used = float(i);
-        float d = map(ro + rd * t);
+        float d = truchetField(ro + rd * t).d;
         float eps = 0.0008 * t + 0.0008;
         if (d < eps) {
             hitT = t;
@@ -247,9 +261,9 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        // Restore the hit point's globals after the normal taps.
-        map(p);
+        vec3 n = truchetNormal(p, max(0.0015, 0.0012 * hitT));
+        // What the field holds at the hit: the arc, the cell coordinate, the ridge.
+        TruchetHit hit = truchetField(p);
 
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         // One pixel in cell units, widened toward grazing angles.
@@ -257,18 +271,18 @@ void main() {
         float pxCell = max(pxWorld * G * (1.0 + 2.0 * (1.0 - ndv)), 1e-4);
 
         // The two tones trade along the tube, from a smooth field of v (period 16 cells).
-        float along = 0.5 + 0.5 * sin(gQ.y * (TT_TAU / 16.0));
+        float along = 0.5 + 0.5 * sin(hit.q.y * (TT_TAU / 16.0));
         vec3 toneA = pal(hue + 0.05 + 0.2 * along) * 0.8;
         vec3 toneB = pal(hue + 0.55 + 0.2 * along) * 0.22;
-        vec3 floorCol = mix(toneB, toneA, truchetTone(gArc, pxCell));
+        vec3 floorCol = mix(toneB, toneA, truchetTone(hit.arc, pxCell));
         vec3 pipeCol = pal(hue + 0.3) * 0.55;
-        vec3 albedo = mix(floorCol, pipeCol, smoothstep(0.05, 0.6, gRidge));
+        vec3 albedo = mix(floorCol, pipeCol, smoothstep(0.05, 0.6, hit.ridge));
 
         float fall = 1.0 / (1.0 + 0.025 * hitT * hitT);
         float fres = pow(1.0 - ndv, 3.0);
-        float spec = pow(ndv, 28.0) * gRidge;
+        float spec = pow(ndv, 28.0) * hit.ridge;
         // The floor right beside a pipe sits in its shade.
-        float nook = 1.0 - 0.35 * (1.0 - gRidge) * (1.0 - smoothstep(1.0, 2.0, abs(gArc.d) / gRidgeW));
+        float nook = 1.0 - 0.35 * (1.0 - hit.ridge) * (1.0 - smoothstep(1.0, 2.0, abs(hit.arc.d) / gRidgeW));
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.8, 0.35, 1.0) * nook;
 
         vec3 wall = albedo * (0.12 + 0.88 * ndv * fall) * ao
@@ -276,7 +290,7 @@ void main() {
                   + vec3(spec) * 0.35 * fall;
 
         // The glowing line along each crest: emissive, so it carries down the bore.
-        float line = truchetLine(gArc.d, 0.035, pxCell);
+        float line = truchetLine(hit.arc.d, 0.035, pxCell);
         wall += pal(hue + 0.3) * 1.1 * line * clamp(1.0 + 1.2 * kFlow, 0.3, 2.0) * (0.75 + 0.25 * fall);
 
         col = mix(wall, fogCol, 1.0 - exp(-hitT * 0.05));

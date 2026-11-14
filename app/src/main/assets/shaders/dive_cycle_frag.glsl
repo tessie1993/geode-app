@@ -23,7 +23,7 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // Each scene keeps its own reaction: the kick swells the girders and pulses
-// the caps, mids turn the gyroscopes, the beat swells the mandala's petals.
+// the caps, the beat swells the mandala's petals.
 // The palette switches on section changes and every 16 onsets, crossfading
 // (lib_dive). Brightness follows SND_LEVEL mildly.
 //
@@ -39,6 +39,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
+    diveShape();
     diveCamera(DIVE_CAM_STRAIGHT, uv, ro, rd);
 
     float used;

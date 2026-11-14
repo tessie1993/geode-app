@@ -44,7 +44,11 @@ out vec4 fragColor;
 // uMorph adds a noise octave to the dust (nebVolOctaves, at most four).
 // Chaos: uWarp/uTurbulence swirl the dust through nebWarp3; uTwist via
 // view(). Colour: front, gas and dust tint are pal(). Energy: uIntensity
-// scales the bass feed. Space: the rig (camAround, spin 0).
+// scales the bass feed. Space: the rig (camAround, spin 0). Knobs (lib_nebula's
+// roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission, k1
+// TEXTURE the columns' width, k2 FLOW added to Warp's swirl, k3 TONE the
+// palette position, k4 BUILD the gas wall's glow, k5 SPACE the reach of the
+// eye.
 
 #define PL_CAM_R 3.6
 #define PL_BASE -2.3
@@ -55,13 +59,15 @@ const vec3 PL_CENTRE = vec3(0.0, -0.7, 0.1);
 
 float gT;
 float gOct;
+/** k1 TEXTURE's factor on the columns' width. */
+float gWidth;
 
 /** A tapered, leaning capsule with a swollen head. Negative inside, roughly a distance. */
 float column(vec3 p, vec3 base, float h, float r0, float r1, float lean) {
     float y = clamp(p.y - base.y, 0.0, h);
     float k = y / h;
     vec3 axisPt = vec3(base.x + lean * k * k, base.y + y, base.z);
-    float rad = mix(r0, r1, k) * (1.0 + 0.12 * sin(p.y * 3.1 + base.x * 5.0)) + 0.08 * smoothstep(0.72, 1.0, k);
+    float rad = (mix(r0, r1, k) * (1.0 + 0.12 * sin(p.y * 3.1 + base.x * 5.0)) + 0.08 * smoothstep(0.72, 1.0, k)) * gWidth;
     return length(p - axisPt) - rad;
 }
 
@@ -72,49 +78,70 @@ float shapeDist(vec3 p) {
     return min(a, min(b, c));
 }
 
-/** Dust density 0..1 and, through sd, the capsules' distance (for skipping empty space). */
-float density(vec3 p, float oct, out float sd) {
-    sd = shapeDist(p);
-    if (sd > 0.32) return 0.0;
+/** What the field holds at a point (lib_nebula_field): the dust density 0..1, and the capsules' distance (for skipping empty space). */
+struct NebHit {
+    float dens;
+    float sd;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.sd = shapeDist(p);
+    h.dens = 0.0;
+    if (h.sd > 0.32) return h;
     vec3 q = nebWarp3(p, gT) * 2.4 + vec3(0.0, 0.0, -gT * 0.02);
     float n = nebFbm3(q, oct);
-    float d = sd + (n - 0.5) * 0.5;
-    return 1.0 - smoothstep(-0.12, 0.06, d);
+    float d = h.sd + (n - 0.5) * 0.5;
+    h.dens = 1.0 - smoothstep(-0.12, 0.06, d);
+    return h;
 }
+
+//#include lib_nebula_field
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float bass = clamp(0.6 * sndShaped(SND_LOW) + 0.4 * sndSpectrum(0.23), 0.0, 1.3) * e;
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float key = nebKeyShift(0.12);
+    float kPulse = nebKnob(0);
+    float kTexture = nebKnob(1);
+    float kFlow = nebKnob(2);
+    float kTone = nebKnob(3);
+    float kBuild = nebKnob(4);
+    float kSpace = nebKnob(5);
+    float key = nebKeyShift(0.12) + 0.6 * kTone;
     gOct = nebVolOctaves(3.0);
+    gWidth = 1.0 + 0.25 * kTexture;
+    gNebFlow = kFlow;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, PL_CAM_R, 0.0, ro, rd);
+    camAround(uv, PL_CAM_R * (1.0 + 0.15 * kSpace), 0.0, ro, rd);
 
     vec3 lightCol = mix(vec3(1.0, 0.93, 0.82), nebEmission(0.12 + key, 0.6), 0.3) * (0.85 + 0.25 * swell);
     vec3 front = nebEmission(0.08 + key, 0.35);
     vec3 dustAmb = mix(vec3(0.05, 0.035, 0.03), pal(0.6 + key) * 0.04, 0.4);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3 + growSlack(2.3, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.04;
         for (int i = 0; i < NEB_VOL_MAX; i++) {
             if (float(i) >= uSteps) break;
             if (tt > tb.y) break;
             vec3 p = ro + rd * tt;
-            float sd;
-            float dens = density(p, gOct, sd);
+            NebHit at = nebField(p, gOct);
+            float sd = at.sd;
+            float dens = at.dens;
             float dt = nebVolDt(tt - tb.x, 0.025, 0.012);
             if (dens > 0.002) {
                 vec3 L = normalize(PL_LIGHT - p);
-                float sdL;
-                float dl = density(p + L * 0.25, 2.0, sdL);
+                float dl = nebField(p + L * 0.25, 2.0).dens;
                 float lit = nebLightTap(dl, 5.0);
                 float ph = nebPhase(dot(rd, L), 0.55);
                 float skin = smoothstep(0.03, 0.35, dens) * (1.0 - smoothstep(0.35, 0.9, dens));
@@ -134,11 +161,11 @@ void main() {
     float cosL = max(dot(rd, Lc), 0.0);
     vec2 sky = nebSky(rd);
     float wall = nebFbm2(sky * 2.0 + vec2(3.3, 1.1), 3.0);
-    vec3 bg = nebEmission(0.5 + key, 0.1) * (0.05 + 0.4 * pow(cosL, 6.0)) * (0.5 + 0.9 * wall);
+    vec3 bg = nebEmission(0.5 + key, 0.1) * (0.05 + 0.4 * pow(cosL, 6.0)) * (0.5 + 0.9 * wall) * (1.0 + kBuild);
     bg += lightCol * (pow(cosL, 400.0) * 2.0 + pow(cosL, 40.0) * 0.25);
     bg += nebStars(sky, 6.0, 2, vec2(0.0), 1.0, 0.2, hats, gT);
 
-    vec3 col = acc.rgb + acc.a * bg;
+    vec3 col = (acc.rgb + acc.a * bg) * (1.0 + 0.5 * kPulse);
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

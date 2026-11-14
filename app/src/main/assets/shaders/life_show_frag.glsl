@@ -1,95 +1,60 @@
 #version 300 es
+#define VIEW_OWNS_SHAPE
+#define VIEW_BENDS_IN_3D
 precision highp float;
-
-// LIFE - the present pass. The state is a field of living matter (Lenia A or
-// Gray-Scott v), an age trace and the melody ink each cell was born with.
-// lib_relief reads the field as a HEIGHT: a parallax march under a view that
-// rocks on the sound clocks, a light that orbits on the mid clock and climbs
-// with the melody, and a material per cell. Each style has two materials
-// (LifeScene's look table): young matter wears one, old matter (the soma, by
-// the age trace) the other, and every hard cut swaps them, so a section
-// change re-lights the whole colony the moment the music turns.
-//
-// Colour: the palette's hue moved by the melody ink, so colonies carry the
-// colour of the line that grew them; new births glow at the complementary
-// hue (Synapse's sparks), flaring on note starts. Brightness follows only the
-// energy trend, gently.
-//
-// The pass reads the sim at its own resolution with linear filtering, so the
-// organism keeps its softness at any screen size. Cost: lib_relief's march
-// (10..24 height reads) plus five for the normal and one for the material.
+precision highp sampler2D;
 
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform sampler2D uState;
-uniform vec2 uRes;        // output size
-uniform vec2 uSimRes;     // state size
-uniform vec2 uFrac;       // drift not yet shifted into the state, texels
-uniform int uLookYoung;   // RELIEF_* for young matter (and old after an odd number of hard cuts)
-uniform int uLookOld;     // RELIEF_* for old matter
-uniform float uDepth;     // relief thickness, uv
-uniform float uShowV;     // 0 = show A/u, 1 = show v (the GS pattern channel)
-uniform float uBaseHue;
-uniform float uHueSpan;
+//#include lib_scene_uniforms
+//#include lib_scene_motion
+//#include lib_camera
+//#include lib_palette
+//#include lib_scene_grade
+//#include lib_neon
+//#include lib_field3d
 
-//#include lib_sound
+// LIFE - the present. The state is a field of living matter (Lenia's A or
+// Gray-Scott's v), an age trace and the melody ink each cell was born with;
+// core/viz/present/FieldPresent writes it into uField (r the matter as a
+// height, g the ink, b the age, a young matter) and this draws it in 3D on
+// the camera rig through lib_field3d: seven styles fly over it as a living
+// terrain, Gyre circles it as a torus, Pulsar and Mitosis as a sphere
+// (LifeScene's look table). The matter is the relief, and finer copies of
+// the field itself are its fractal detail, so every ridge is made of the
+// organism. Young matter wears the style's first material and old matter
+// (the soma, by the age trace) its second.
+//
+// Colour: the palette at the style's position, moved by the melody ink, so
+// colonies carry the colour of the line that grew them, by the age and by the
+// height; new births glow at the palette's far side (BUILD). TONE moves the
+// position, Intensity and PULSE the emission (lib_field3d). Nothing here hears
+// a hit: the lows lift the relief, through lib_field3d.
+//
+// Cost: lib_field3d's march (up to 110 steps of up to three field reads) and
+// five distances at the hit.
 
-float liveAt(vec2 uv) {
-    vec4 s = texture(uState, uv);
-    return mix(s.r, s.g, uShowV);
+/** The matter's colour where the eye lands: the palette by its ink, its age and its height. */
+vec3 fieldColour(vec4 f) {
+    float t = gFieldTone + uFieldLook[4].y * (0.38 * f.g + 0.1 * f.b + 0.08 * f.r);
+    return pal(t) * mix(0.35, 1.0, f.r);
 }
 
-// Gray-Scott's v lives around 0..0.45, Lenia's A in 0..1: both become a 0..1 height.
-float reliefHeight(vec2 uv) {
-    float v = liveAt(uv);
-    return uShowV > 0.5 ? smoothstep(0.03, 0.42, v) : smoothstep(0.02, 0.92, v);
+/** New births glow at the palette's far side from the matter round them. */
+vec3 fieldGlow(vec4 f) {
+    return pal(gFieldTone + 0.45 + uFieldLook[4].y * 0.38 * f.g) * 0.6;
 }
 
-// About one sim texel: finer than that reads the bilinear grid as facets.
-#define RELIEF_EPS (1.2 / min(uSimRes.x, uSimRes.y))
-//#include lib_relief
-
-vec3 hsv2rgb(vec3 c) {
-    vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
-    return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
-}
+//#include lib_field3d_march
 
 void main() {
-    vec2 uv = vUv - uFrac / uSimRes;
-    Relief r = reliefMarch(uv, reliefTilt(), uDepth);
-    vec4 s = texture(uState, r.uv);
-    float live = mix(s.r, s.g, uShowV);
-    float age = s.b;
-    float ink = s.a;
-
-    float hue = uBaseHue + uHueSpan * (0.38 * ink + 0.1 * age + 0.08 * r.h);
-    float sat = 0.78 - 0.2 * smoothstep(0.85, 1.0, r.h);
-    vec3 albedo = hsv2rgb(vec3(fract(hue), sat, mix(0.35, 1.0, r.h)));
-
-    vec3 light = reliefLight();
-    float sparkle = rlSat(SND_HAT_ENV * 1.2 + 0.3 * SND_TREBLE_PRESENCE);
-    int young = reliefLook(uLookYoung, uLookOld);
-    int old = reliefLook(uLookOld, uLookYoung);
-    vec3 col = reliefShade(young, albedo, r, light, sparkle);
-    // Old, thick matter is the soma: the second material, like Synapse's core under its membrane.
-    float soma = smoothstep(0.5, 0.95, age) * smoothstep(0.3, 0.7, r.h);
-    // Shaded unconditionally: terra and ink take fwidth, which needs uniform control flow.
-    col = mix(col, reliefShade(old, albedo, r, light, sparkle), soma);
-
-    // Births: matter that is alive but young glows at the complementary hue, flaring on note starts.
-    float fresh = smoothstep(0.1, 0.5, live) * (1.0 - smoothstep(0.05, 0.45, age));
-    col += hsv2rgb(vec3(fract(hue + 0.45), 0.7, 1.0)) * fresh * (0.15 + 0.55 * rlSat(SND_ONSET_ENV));
-
-    // Depth: the floor sinks into the void, except on paper, where the floor IS the page.
-    bool paper = young == RELIEF_INK || (old == RELIEF_INK && soma > 0.5);
-    if (!paper) col *= mix(0.4, 1.0, smoothstep(0.0, 0.35, r.h));
-
-    col *= 0.88 + 0.24 * rlSat(SND_ENERGY_TREND);
-
-    float aspect = uRes.x / uRes.y;
-    vec2 q = (vUv - 0.5) * vec2(aspect, 1.0);
-    col *= 1.0 - 0.3 * dot(q, q);
-
-    fragColor = vec4(max(col, vec3(0.0)), 1.0);
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
+    fieldSetup();
+    vec3 ro;
+    vec3 rd;
+    fieldEye(uv, ro, rd);
+    fragColor = fieldFinish(fieldTrace(ro, rd), 1.0);
 }

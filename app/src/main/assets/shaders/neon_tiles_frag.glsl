@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Neon Tiles: a flight down a kaleidoscope hall. The hall is a regular N-gon
 // prism (4, 6 or 8 faces), and its cross-section IS the old kaleidoscope fold:
@@ -34,7 +35,8 @@ out vec4 fragColor;
 // Treble (SND_HIGH)           neon line width, as in the flat style.
 // Bass (SND_BASS_PRESENCE)    the orb's refraction: its index rises, the hall
 //                              behind it bends harder.
-// Mid (uFlowPhase)            the hall's spin, integrated so it never snaps.
+// (no sound spins the hall: it turns on time alone, owner 2026-11-12, no style
+//                              spins to the music)
 // Kick (SND_KICK_ENV)         the tiles just ahead of the eye push out of the
 //                              wall (geometry, not brightness).
 // Section (SND_CUT_COUNT)     re-tiles the hall: 4, 6 or 8 faces, the prism
@@ -43,7 +45,10 @@ out vec4 fragColor;
 //                              uSymmetry still pins the face count.
 // Level (SND_LEVEL)           the neon bloom (col += k col^2).
 // Knobs: k0 PULSE kick push, k1 TEXTURE line width, k2 FLOW wall wave,
-// k3 TONE hue, k4 BUILD bloom, k5 SPACE hall width (all exactly neutral at 0.5).
+// k3 TONE the tiles' relief and a small hue offset (a high melody raises the
+// stars and crosses out of the wall in deep relief, a low one presses them
+// nearly flat; the step bound follows the height), k4 BUILD bloom, k5 SPACE
+// hall width (all exactly neutral at 0.5).
 // Morph raises the tiles, Warp waves the walls, Turbulence lights the fine lattice.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -150,7 +155,7 @@ vec3 wallFrame(vec3 p) {
     return vec3(plane, q.y, p.z);
 }
 
-float map(vec3 p) {
+float ntField(vec3 p) {
     vec3 f = wallFrame(p);
     vec2 m = motif(f.yz);
     // Only the tiles just ahead of the eye answer the kick.
@@ -158,6 +163,24 @@ float map(vec3 p) {
     float lift = gH * push * clamp(-m.x * NT_BEVEL, 0.0, 1.0);
     float d = (f.x - lift) * gLipInv;
     return max(d, NT_BUBBLE - length(p - gEye));
+}
+
+/** ntField through lib_shell's hooks: exactly ntField(p) at rest, and ntField read once, in a loop the compiler cannot unroll. */
+float ntFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ntField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: ntField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return ntFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -262,12 +285,20 @@ void main() {
     float enA = clamp(sndShaped(SND_LEVEL), 0.0, 1.3);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
 
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nPush = clamp(uKnob[0], 0.0, 1.0);
+    float nLine = clamp(uKnob[1], 0.0, 1.0);
+    float nWave = clamp(0.5 + (0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * (uKnob[2] - 0.5)) / 0.66, 0.0, 1.0);
+    float nRelief = clamp(uKnob[3], 0.0, 1.0);
+    float nTiles = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    float nBloom = clamp(uKnob[4], 0.0, 1.0);
+    float nHall = clamp(uKnob[5], 0.0, 1.0);
 
     // Faces: pinned by Symmetry when Kaleido is on, else 4, 6 or 8 per
     // section, crossfaded over the section envelope.
@@ -286,18 +317,22 @@ void main() {
         gRelight = gFoldA == gFoldB ? 1.0 : 0.25 + 0.75 * abs(2.0 * sw - 1.0);
     }
 
-    // Integrated spin: `uTime * rate(mid)` would jump the hall round whenever
-    // the mid band moved.
-    gSpin = uFlowPhase * 1.6 + uTime * 0.03;
-    gR = 2.2 * (1.0 + 0.3 * k5);
-    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0));
-    gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);
-    gKick = 1.2 * kick * clamp(1.0 + 2.0 * k0, 0.0, 2.0);
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.51;
+    // The hall's apothem, the tiles' height (Morph raises them, TONE scales the
+    // relief), the walls' wave and how far the kick pushes the tiles.
+    gR = shellMap(nHall, 1.87, 2.2, 2.53);
+    gH = shellMap(nTiles, 0.06, 0.06, 0.16) * shellMap(nRelief, 0.2, 1.0, 1.8);
+    gWave = shellMap(nWave, 0.0, 0.0, 0.33);
+    gKick = 1.2 * kick * shellMap(nPush, 0.0, 1.0, 2.0);
     float liftMax = gH * (1.0 + gKick);
     // Bevel slope, wave slope, the kick ramp's z slope, and the twist's stretch.
     gLipInv = 1.0 / ((1.0 + liftMax * NT_BEVEL + gWave * (NT_TAU / 8.0) + gH * gKick * 0.3) * 1.04);
-    gWidth = mix(0.035, 0.1, clamp(trebA, 0.0, 1.0)) * clamp(1.0 + 1.2 * k1, 0.3, 2.0);
-    gHue = 0.15 * k3;
+    // The neon lines' width and the hue's small offset.
+    gWidth = mix(0.035, 0.1, clamp(trebA, 0.0, 1.0)) * shellMap(nLine, 0.4, 1.0, 1.6);
+    gHue = shellMap(nRelief, -0.075, 0.0, 0.075);
+    // The level's bloom.
+    float bloomBase = shellMap(nBloom, 0.1, 0.25, 0.4);
 
     vec3 ro;
     vec3 rd;
@@ -306,6 +341,8 @@ void main() {
     // and invisible (power of two), and z keeps its precision.
     ro.z = mod(ro.z, NT_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
     float pxScale = 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
 
     // The orb: analytic, at the centre of the view.
@@ -345,7 +382,7 @@ void main() {
     }
 
     col = floor(col * NT_LEVELS + 0.5) / NT_LEVELS;
-    col += clamp(0.25 + 0.4 * enA + 0.3 * k4, 0.0, 1.0) * col * col;
+    col += clamp(bloomBase + 0.4 * enA, 0.0, 1.0) * col * col;
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }

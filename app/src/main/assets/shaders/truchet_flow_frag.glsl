@@ -58,7 +58,7 @@ out vec4 fragColor;
 // scales the mid density and the bass breathing. Colour: boards, rails,
 // heads and tails are pal(). Space: the camera rig. Knobs, each as an offset
 // from 0.5 so off is the tuned look: k0 PULSE the head brightness, k1 TEXTURE
-// the rails' sheen, k2 FLOW a phase lead of the stream, k3 TONE the hue,
+// the rails' sheen and girth (with the capsules'), k2 FLOW a phase lead of the stream, k3 TONE the hue,
 // k4 BUILD the gap closing, k5 SPACE the fog.
 //
 // ---- why the distance estimate is safe ------------------------------------
@@ -94,38 +94,46 @@ float gPer;
 float gPhase0;
 float gDuty;
 float gLip;
-/** Material of the last map(): 0 board, 1 rail, 2 capsule. */
-float gMat;
-float gDash;
-float gHead;
-float gTone;
-float gArcD;
-float gField;
+/** The rails' and the capsules' radii (TF_RAIL_R, TF_DASH_R at rest; TEXTURE thickens them). */
+float gRailR;
+float gDashR;
 
 /** truchetWarp's bend with its z frequencies snapped to the 128 wrap (6 and 23 turns: 0.295 and 1.129, beside the lib's 0.31 and 1.13). */
 vec2 flowWarp(vec2 p, float t) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * (2.0 * gTruchetIn.warp);
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return p;
     p += a * vec2(sin(p.y * (6.0 * TF_ZK) + t * 0.21), sin(p.x * 0.29 - t * 0.17 + 1.3));
     p += b * vec2(sin(p.y * (23.0 * TF_ZK) - t * 0.37 + 2.1), sin(p.x * 1.07 + t * 0.33));
     return p;
 }
 
-/** truchetField with z-periodic frequencies: the smooth hue field, never the cell id. */
+/** truchetHue with z-periodic frequencies: the smooth hue field, never the cell id. */
 float flowField(vec2 p, float t) {
     float a = sin(p.x * 0.23 + 1.7 * sin(p.y * (3.0 * TF_ZK) + t * 0.05) + t * 0.03);
     float b = sin(p.y * (4.0 * TF_ZK) - p.x * 0.07 - t * 0.04 + 1.9);
     return 0.5 * (a + b);
 }
 
-float map(vec3 p) {
+/** What the field holds at a point (lib_truchet_field): the distance, and what the shading reads there. */
+struct TruchetHit {
+    float d;
+    /** 0 board, 1 rail, 2 capsule. */
+    float mat;
+    float dash;
+    float head;
+    float tone;
+    float arcD;
+    float field;
+};
+
+TruchetHit truchetMap(vec3 p) {
     float ay = abs(p.y);
     float layer = p.y > 0.0 ? 64.0 : 0.0;
     float dBoard = gGap - ay;
     // Height of the point under the rails' centreline (positive toward the eye).
     float yy = (gGap - TF_LIFT) - ay;
-    float topObj = yy - TF_DASH_R;
+    float topObj = yy - gDashR;
 
     vec2 w = flowWarp(p.xz, gT);
     vec2 id = floor(w);
@@ -135,7 +143,7 @@ float map(vec3 p) {
     TruchetArc a = truchetSquareAt(id, f, gHits, SND_ONSET_ENV, 4.0);
 
     float rad = length(vec2(a.d, yy));
-    float dRail = rad - TF_RAIL_R;
+    float dRail = rad - gRailR;
 
     // The capsule nearest along this arc, as in the flat style: whole number
     // per arc, offset from its centre wrapped across the fract seam.
@@ -144,31 +152,30 @@ float map(vec3 p) {
     float halfLen = 0.5 * gDuty * seg;
     float along = (k - 0.5 * gDuty) * seg;
     along = along - seg * floor(along / seg + 0.5);
-    float dDash = length(vec2(max(abs(along) - max(halfLen - TF_DASH_R, 0.0), 0.0), rad)) - TF_DASH_R;
+    float dDash = length(vec2(max(abs(along) - max(halfLen - gDashR, 0.0), 0.0), rad)) - gDashR;
 
     float dObj = min(dRail, dDash);
     float toEdge = 0.5 - max(abs(f.x), abs(f.y));
     float d = min(dObj, max(topObj, toEdge + 0.02));
     d = min(d, dBoard);
 
-    gMat = dBoard < dObj ? 0.0 : (dDash < dRail + 0.004 ? 2.0 : 1.0);
-    gDash = dDash;
+    TruchetHit h;
+    h.d = d * gLip;
+    h.mat = dBoard < dObj ? 0.0 : (dDash < dRail + 0.004 ? 2.0 : 1.0);
+    h.dash = dDash;
     // The stream moves toward rising s: the front of a capsule is its far end.
-    gHead = clamp(along / max(2.0 * halfLen, 1e-4) + 0.5, 0.0, 1.0);
-    gTone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-0.02, 0.02, a.d));
-    gArcD = a.d;
-    gField = flowField(w, gT);
-    return d * gLip;
+    h.head = clamp(along / max(2.0 * halfLen, 1e-4) + 0.5, 0.0, 1.0);
+    h.tone = mix(1.0 - a.cap, a.cap, 1.0 - smoothstep(-0.02, 0.02, a.d));
+    h.arcD = a.d;
+    h.field = flowField(w, gT);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -179,13 +186,13 @@ void main() {
     float e = truchetEnergy();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float mids = clamp(SND_MID_PRESENCE * e, 0.0, 1.0);
-    float morph = truchetMorph();
-    float kPulse = uKnob[0] - 0.5;
-    float kTexture = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    float morph = gTruchetIn.detail;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     gT = t;
     gHits = floor(SND_HIT_TIME);
@@ -195,14 +202,19 @@ void main() {
     gPer = 3.0 + floor(morph * 2.0 + 0.5);
     gPhase0 = sndPhase(SND_CURVED_TIME, 2.0) + t * 0.12 + 0.5 * kFlow;
     gDuty = 0.22 + 0.55 * mids;
+    // TEXTURE thickens the rails and the capsules (the shell's texture input), a third either way.
+    gRailR = truchetAt(gTruchetIn.texture, TF_RAIL_R, 0.3);
+    gDashR = truchetAt(gTruchetIn.texture, TF_DASH_R, 0.3);
     // The capsules' arc-length stretch (0.85), and the Chaos stretch: flowWarp's
     // largest slope, under 0.9 at the top of both sliders, bounds how far it
     // can stretch the plan, with margin.
-    float chaos = 0.8 * clamp(uWarp, 0.0, 2.0) * 0.30 + 0.18 * clamp(uTurbulence, 0.0, 2.0) * 1.13;
+    float chaos = 0.8 * (2.0 * gTruchetIn.warp) * 0.30 + 0.18 * (2.0 * gTruchetIn.chaos) * 1.13;
     gLip = 0.85 / (1.0 + 1.2 * chaos);
 
     // Keep the eye clear of both boards (the spiral path reaches |y| = 2).
     ro.y = clamp(ro.y, -gGap + 0.45, gGap - 0.45);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
 
     float hue = 0.05 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.12 * kTone;
     vec3 haze = mix(pal(hue + 0.7) * 0.03, pal(hue + 0.55) * 0.09, exp(-abs(rd.y) * 4.0));
@@ -218,10 +230,11 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * tm;
-        float d = map(p);
+        TruchetHit at = truchetField(p);
+        float d = at.d;
         // Light hanging round the capsules: weighted by the step, so Detail
         // does not change how bright it is.
-        glow += mix(glowTail, glowHead, gHead) * exp(-max(gDash, 0.0) * 16.0) * min(d, 0.3) * exp(-tm * fogK);
+        glow += mix(glowTail, glowHead, at.head) * exp(-max(at.dash, 0.0) * 16.0) * min(d, 0.3) * exp(-tm * fogK);
         if (d < 0.0012 + 0.0007 * tm) {
             hitT = tm;
             break;
@@ -233,31 +246,31 @@ void main() {
     vec3 col = haze;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0012, 0.0008 * hitT));
-        // Restore the hit point's globals after the normal taps.
-        map(p);
-        float field = 0.15 * gField;
+        vec3 n = truchetNormal(p, max(0.0012, 0.0008 * hitT));
+        // What the field holds at the hit.
+        TruchetHit hit = truchetField(p);
+        float field = 0.15 * hit.field;
         vec3 tail = pal(hue + 0.55 + field);
         vec3 head = mix(pal(hue + 0.15 + field), vec3(1.0), 0.35);
-        vec3 dashCol = mix(tail * 0.6, head * (1.0 + 0.6 * kPulse), gHead);
+        vec3 dashCol = mix(tail * 0.6, head * (1.0 + 0.6 * kPulse), hit.head);
         // The nearest capsule's light on whatever was hit.
-        float spill = exp(-max(gDash, 0.0) * 9.0);
+        float spill = exp(-max(hit.dash, 0.0) * 9.0);
 
         vec3 L = normalize(vec3(0.3, 0.8, -0.45) * vec3(1.0, sign(-p.y + 1e-4), 1.0));
         float dif = max(dot(n, L), 0.0);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
         float spec = pow(max(dot(reflect(rd, n), L), 0.0), 32.0);
 
-        if (gMat > 1.5) {
+        if (hit.mat > 1.5) {
             col = dashCol * 1.25 + vec3(1.0) * spec * 0.3;
-        } else if (gMat > 0.5) {
+        } else if (hit.mat > 0.5) {
             vec3 glass = pal(hue + 0.6) * (0.06 + 0.10 * dif);
             col = glass + pal(hue + 0.6) * fres * (0.25 + 0.3 * kTexture) + vec3(0.8) * spec * (0.25 + 0.4 * kTexture);
             col += dashCol * spill * 0.6;
         } else {
             // The two-coloured board, with the rails' halo and the capsules' spill.
-            col = mix(pal(hue + 0.7) * 0.03, pal(hue + 0.75) * 0.06, gTone) * (0.6 + 0.4 * dif);
-            col += pal(hue + 0.55 + field) * exp(-abs(gArcD) * 18.0) * 0.07;
+            col = mix(pal(hue + 0.7) * 0.03, pal(hue + 0.75) * 0.06, hit.tone) * (0.6 + 0.4 * dif);
+            col += pal(hue + 0.55 + field) * exp(-abs(hit.arcD) * 18.0) * 0.07;
             col += dashCol * spill * 0.45;
         }
         col = mix(col, haze, 1.0 - exp(-hitT * fogK));

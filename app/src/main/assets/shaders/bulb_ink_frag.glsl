@@ -38,7 +38,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the snare squash. Colour is tone(), the print ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BI_MAX_STEPS 128
 #define BI_BOUND 1.75
@@ -56,23 +56,19 @@ vec3 tone(float t) {
 vec3 gSquash;
 float gLip;
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec3 q = bulbChaos(p) / gSquash;
     // Upright: the needle (c = -2) up, the cardioid down.
     q = vec3(q.x, -q.y + BI_MID, q.z);
     vec4 tr;
     float d = bulbDE(q, 2.0, 2.0, vec2(0.0), gIters, tr);
-    gTrap = tr;
-    return d * gLip / bulbChaosLip();
+    return BulbHit(d * gLip / bulbChaosLip(), tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -85,7 +81,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BI_CAM_R, BI_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BI_CAM_R), BI_SPIN, ro, rd);
 
     float hue = 0.58 + 0.03 * sin(bulbTime() * 0.02);
 
@@ -93,19 +89,22 @@ void main() {
     float used = 0.0;
     float nearPx = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BI_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BI_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BI_BOUND + growSlack(BI_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BI_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             nearPx = min(nearPx, d / t);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -124,14 +123,17 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.6, 0.7, -0.4));
-        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x));
+        // The key's soft shadow (lib_bulb_shade), by Soft shadows: the cel steps below print it in three tones.
+        float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
+        float lit = max(dot(n, key), 0.0) * (0.6 + 0.4 * smoothstep(0.1, 0.8, trap.x)) * shade;
         // Three tones, hard steps, kept darker than the paper.
         float cel = lit > 0.55 ? 0.78 : (lit > 0.18 ? 0.48 : 0.22);
-        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0);
+        // Escape colour (lib_shade): the smoothed escape count moves the ink's tone along its ramp.
+        vec3 body = tone(hue + 0.18 * floor(trap.y * 5.0) / 5.0 + shadeEscape(trap.w));
         col = body * cel;
-        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0);
+        float hl = pow(max(dot(reflect(rd, n), key), 0.0), 30.0) * shade;
         col = mix(col, vec3(1.0, 0.98, 0.94), step(0.6, hl));
         // Ink: grazing silhouette from inside, and the creases.
         float ndv = dot(n, -rd);

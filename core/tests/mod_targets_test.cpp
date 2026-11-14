@@ -64,6 +64,23 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"PALETTE_AMOUNT_1", "UNIVERSAL"}, {"PALETTE_AMOUNT_3", "UNIVERSAL"}, {"PALETTE_AMOUNT_4", "UNIVERSAL"},
     {"PALETTE_AMOUNT_5", "UNIVERSAL"}, {"PALETTE_AMOUNT_6", "UNIVERSAL"}, {"PALETTE_AMOUNT_7", "UNIVERSAL"},
     {"PALETTE_AMOUNT_8", "UNIVERSAL"}, {"PALETTE_SHIFT", "UNIVERSAL"},
+    // The kaleidoscope's folds, the slider that replaced its switch: on Kaleidoscope's scope.
+    {"KALEIDO_FOLDS", "UNIVERSAL"},
+    // Customize › Layers' mix (viz/LayerState): added to the Layers page's mix, on every style.
+    {"LAYER_MIX", "UNIVERSAL"},
+    // The physics layers (viz/physics): a stage over the finished picture, on every style.
+    {"SIM_FLUID", "UNIVERSAL"}, {"SIM_PARTICLES", "UNIVERSAL"}, {"SIM_FORCE", "UNIVERSAL"}, {"SIM_LAYER_ORDER", "UNIVERSAL"},
+    // Grow and layers: on the family libraries' scope, the styles whose library draws them.
+    {"SPAWN", "FAMILY_FORM"}, {"FRACTAL", "FAMILY_FORM"}, {"FRONT_LAYER", "FAMILY_FORM"}, {"BACK_LAYER", "FAMILY_FORM"},
+    // Which of a style's own distance formulas draws it: on the styles that keep formulas.
+    {"FORMULA", "FORMULA"},
+    // How far the shape graph melts into a raymarched style's form: on the styles that melt it in.
+    {"SHAPES", "SHAPES"},
+    // The shading pass (lib_shade): the soft shadows on the styles with a lit surface, the escape colour on the
+    // families whose folds feed it.
+    {"SHADOW", "SHADOW"}, {"ESCAPE_COLOR", "ESCAPE"},
+    // Births (viz/Births): every style has Life.
+    {"LIFE", "UNIVERSAL"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -77,8 +94,56 @@ void everyTargetKeepsItsNameAndScope() {
     check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
               static_cast<int>(LfoTarget::DiveAimY) == 58 && static_cast<int>(LfoTarget::Macro) == 59 &&
               static_cast<int>(LfoTarget::PaletteAmount1) == 60 && static_cast<int>(LfoTarget::PaletteShift) == 67 &&
-              kLastLfoTarget == LfoTarget::PaletteShift,
+              static_cast<int>(LfoTarget::KaleidoFolds) == 68 && static_cast<int>(LfoTarget::LayerMix) == 69 &&
+              static_cast<int>(LfoTarget::SimFluid) == 70 && static_cast<int>(LfoTarget::SimLayerOrder) == 73 &&
+              static_cast<int>(LfoTarget::Spawn) == 74 && static_cast<int>(LfoTarget::BackLayer) == 77 &&
+              static_cast<int>(LfoTarget::Formula) == 78 && static_cast<int>(LfoTarget::Shapes) == 79 &&
+              static_cast<int>(LfoTarget::Shadow) == 80 && static_cast<int>(LfoTarget::EscapeColor) == 81 &&
+              static_cast<int>(LfoTarget::Life) == 82 && kLastLfoTarget == LfoTarget::Life,
           "wire ordinals");
+    check(paramSlotOf(LfoTarget::Spawn) == static_cast<int>(ParamSlot::spawn) &&
+              paramSlotOf(LfoTarget::Fractal) == static_cast<int>(ParamSlot::fractal) &&
+              paramSlotOf(LfoTarget::FrontLayer) == static_cast<int>(ParamSlot::frontLayer) &&
+              paramSlotOf(LfoTarget::BackLayer) == static_cast<int>(ParamSlot::backLayer),
+          "each Grow target writes its own row");
+    check(paramSlotOf(LfoTarget::Formula) == static_cast<int>(ParamSlot::formula) && !isLuminanceTarget(LfoTarget::Formula),
+          "Formula writes its row, a structural target like Morph and no luminance target");
+    check(paramSlotOf(LfoTarget::Shapes) == static_cast<int>(ParamSlot::shapes) && !isLuminanceTarget(LfoTarget::Shapes) &&
+              !modtargets::reaches(LfoTarget::Shapes, "plasma") && !modtargets::reaches(LfoTarget::Shapes, "flame_veil"),
+          "Shapes writes its row, a structural target, offered only on a style that melts the shape graph in");
+    check(paramSlotOf(LfoTarget::Shadow) == static_cast<int>(ParamSlot::shadow) && isLuminanceTarget(LfoTarget::Shadow) &&
+              modtargets::reaches(LfoTarget::Shadow, "fold_spire") && !modtargets::reaches(LfoTarget::Shadow, "fold_lace") &&
+              !modtargets::reaches(LfoTarget::Shadow, "plasma") && !modtargets::reaches(LfoTarget::Shadow, "flame_veil"),
+          "Soft shadows writes its row, held to the flash rate, offered only on a style with a lit surface");
+    check(paramSlotOf(LfoTarget::EscapeColor) == static_cast<int>(ParamSlot::escapeColor) && isLuminanceTarget(LfoTarget::EscapeColor) &&
+              modtargets::reaches(LfoTarget::EscapeColor, "fold_lace") && modtargets::reaches(LfoTarget::EscapeColor, "bulb_glow") &&
+              !modtargets::reaches(LfoTarget::EscapeColor, "plasma") && !modtargets::reaches(LfoTarget::EscapeColor, "flame_veil"),
+          "Escape colour writes its row, held to the flash rate, offered only on a family whose folds feed it");
+    check(paramSlotOf(LfoTarget::Life) == static_cast<int>(ParamSlot::life) && !isLuminanceTarget(LfoTarget::Life) &&
+              modtargets::reaches(LfoTarget::Life, "plasma") && modtargets::reaches(LfoTarget::Life, "flame_veil") &&
+              modtargets::reaches(LfoTarget::Life, "pool") && modtargets::reaches(LfoTarget::Life, "glass_gem"),
+          "Life writes its row, a structural target, offered on every style");
+    for (LfoTarget t : {LfoTarget::Spawn, LfoTarget::Fractal, LfoTarget::FrontLayer, LfoTarget::BackLayer}) {
+        // Drawn by the families with a field of their own and by the loose styles on lib_shell (plasma); not by
+        // Pool, which grows nothing, Flame (owner), or Glass Gem, traced in closed form.
+        check(!isLuminanceTarget(t) && modtargets::reaches(t, "petal_rose") && modtargets::reaches(t, "plasma") &&
+                  modtargets::reaches(t, "bulb_classic") && !modtargets::reaches(t, "pool") &&
+                  !modtargets::reaches(t, "flame_veil") && !modtargets::reaches(t, "glass_gem"),
+              std::string(modtargets::name(t)) + ": a shape, offered on a style that draws it and nowhere else");
+    }
+    check(paramSlotOf(LfoTarget::KaleidoFolds) == static_cast<int>(ParamSlot::kaleidoFolds) && !isLuminanceTarget(LfoTarget::KaleidoFolds),
+          "the kaleidoscope's target writes its folds, a shape and no luminance target");
+    check(paramSlotOf(LfoTarget::LayerMix) == static_cast<int>(ParamSlot::layerMix) && isLuminanceTarget(LfoTarget::LayerMix),
+          "the layer's mix writes its own row and is held to the flash rate and the route floors");
+    // The physics layers' mixes and the fluid's place change the picture's light; their force moves it.
+    check(paramSlotOf(LfoTarget::SimFluid) == static_cast<int>(ParamSlot::simFluid) &&
+              paramSlotOf(LfoTarget::SimParticles) == static_cast<int>(ParamSlot::simParticles) &&
+              paramSlotOf(LfoTarget::SimForce) == static_cast<int>(ParamSlot::simForce) &&
+              paramSlotOf(LfoTarget::SimLayerOrder) == static_cast<int>(ParamSlot::simLayerOrder),
+          "each physics target writes its own row");
+    check(isLuminanceTarget(LfoTarget::SimFluid) && isLuminanceTarget(LfoTarget::SimParticles) &&
+              isLuminanceTarget(LfoTarget::SimLayerOrder) && !isLuminanceTarget(LfoTarget::SimForce),
+          "the physics mixes and the fluid's place are held to the flash rate and the route floors, the force is not");
     check(paramSlotOf(LfoTarget::PaletteAmount1) == static_cast<int>(ParamSlot::paletteAmount0) &&
               paramSlotOf(LfoTarget::PaletteAmount3) == static_cast<int>(ParamSlot::paletteAmount2) &&
               paramSlotOf(LfoTarget::PaletteAmount8) == static_cast<int>(ParamSlot::paletteAmount7) &&
@@ -222,6 +287,22 @@ void offerMaskHasABitPerTarget() {
     check(modtargets::hex(m) == "11", "low bits, no leading zeros");
     m.reset().set(static_cast<size_t>(LfoTarget::PaletteShift));
     check(modtargets::hex(m) == "8" + std::string(16, '0'), "ordinal 67 is the top bit of the seventeenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::KaleidoFolds));
+    check(modtargets::hex(m) == "1" + std::string(17, '0'), "ordinal 68 opens an eighteenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::LayerMix));
+    check(modtargets::hex(m) == "2" + std::string(17, '0'), "ordinal 69 is the second bit of the eighteenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::SimLayerOrder));
+    check(modtargets::hex(m) == "2" + std::string(18, '0'), "ordinal 73 is the second bit of the nineteenth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::BackLayer));
+    check(modtargets::hex(m) == "2" + std::string(19, '0'), "ordinal 77 is the second bit of the twentieth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::Shapes));
+    check(modtargets::hex(m) == "8" + std::string(19, '0'), "ordinal 79 is the top bit of the twentieth digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::Shadow));
+    check(modtargets::hex(m) == "1" + std::string(20, '0'), "ordinal 80 opens a twenty-first digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::EscapeColor));
+    check(modtargets::hex(m) == "2" + std::string(20, '0'), "ordinal 81 is the second bit of the twenty-first digit");
+    m.reset().set(static_cast<size_t>(LfoTarget::Life));
+    check(modtargets::hex(m) == "4" + std::string(20, '0'), "ordinal 82 is the third bit of the twenty-first digit");
 }
 
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
@@ -246,7 +327,14 @@ void textCarriesEveryRow() {
         for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) out += "|" + modtargets::hex(modtargets::offerMask(id, picker));
         return out;
     };
-    check(hasLine(t, "target|67|PALETTE_SHIFT|UNIVERSAL|-1|1"), "the last target row");
+    check(hasLine(t, "target|68|KALEIDO_FOLDS|UNIVERSAL|-1|1"), "the kaleidoscope's row");
+    check(hasLine(t, "target|69|LAYER_MIX|UNIVERSAL|-1|1"), "the layer mix's row");
+    check(hasLine(t, "target|73|SIM_LAYER_ORDER|UNIVERSAL|-1|1"), "the physics layers' last row");
+    check(hasLine(t, "target|78|FORMULA|FORMULA|-1|1"), "Formula's row");
+    check(hasLine(t, "target|79|SHAPES|SHAPES|-1|1"), "Shapes' row");
+    check(hasLine(t, "target|80|SHADOW|SHADOW|-1|1"), "Soft shadows' row");
+    check(hasLine(t, "target|81|ESCAPE_COLOR|ESCAPE|-1|1"), "Escape colour's row");
+    check(hasLine(t, "target|82|LIFE|UNIVERSAL|-1|1"), "the last target row");
     for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
     check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");

@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // Rod Tunnel: a spiral tunnel of bead-chain rods, flown down toward the
 // chrysanthemum at the end of it.
@@ -47,6 +48,14 @@ out vec4 fragColor;
 //     moves it off centre as it would the real end of a tube.
 //   - ONSETS (SND_ONSET_ENV) give the rods, the halo and the core a brief hue step.
 //     Hue only - nothing here brightens on a hit.
+//   - THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its
+//     offset from 0.5 so off is the tuned look: k0 PULSE the emission, k1
+//     TEXTURE the rods' width (an exact radius scale, 0.75..1.25), k2 FLOW
+//     added to the mids' twist (clamped to the twist's old range, so the step
+//     bound holds), k3 TONE the palette position and the strands' girth (a
+//     high melody draws the rods in close round the flight, a low one sets them
+//     wide; at the closest they still clear the eye's sway), k4 BUILD the halo's glow, k5
+//     SPACE the reach (far plane and fog).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -99,6 +108,10 @@ float gCellA;
 float gCellZ;
 float gBeadDepth;
 float gLife;
+/** k1 TEXTURE: the rods' radius scale, 0.75..1.25 (1 at rest). */
+float gWidth = 1.0;
+/** k3 TONE: the radius the strands stand at (ROD_RADIUS at rest). */
+float gRingR = ROD_RADIUS;
 
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     vec3 pa = p - a;
@@ -107,7 +120,7 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
     return length(pa - ba * h) - r;
 }
 
-float map(vec3 p) {
+float rodField(vec3 p) {
     // Straighten the bent tube first: everything below is in the frame where
     // the tunnel is a cylinder down +z.
     p = dmtTunnelWarp(p);
@@ -123,15 +136,33 @@ float map(vec3 p) {
     ang = mod(ang, sector) - 0.5 * sector;
     gCellZ = mod(floor(p.z / ROD_CELL), 1024.0);
     float z = mod(p.z, ROD_CELL) - 0.5 * ROD_CELL;
-    vec3 q = vec3(ROD_RADIUS - rad, ang * ROD_RADIUS, z);
+    vec3 q = vec3(gRingR - rad, ang * gRingR, z);
     // The cell's own life. The seed is the cell's hash, so each rod's clock
     // is unrelated to its neighbours'; the radius follows the envelope and a
     // dead cell returns the empty capsule's distance, which is a valid lower
     // bound for a cell that holds nothing.
     gLife = dmtLife(hash11(gCellA * 7.13 + gCellZ * 3.71), ROD_LIFE_PERIOD);
     float beads = gBeadDepth * ROD_BEAD_AMP * sin(q.z * ROD_BEAD_FREQ);
-    float r = (0.14 + beads) * gLife;
+    float r = (0.14 + beads) * gLife * gWidth;
     return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), r);
+}
+
+/** rodField through lib_shell's hooks: exactly rodField(p) at rest, and rodField read once, in a loop the compiler cannot unroll. */
+float rodFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, rodField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: rodField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return rodFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -147,8 +178,31 @@ void main() {
     float trebA = min(SND_TREBLE_PRESENCE, 1.3);
     float enA = min(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 1.3);
     float hit = clamp(SND_ONSET_ENV, 0.0, 1.0);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nPulse = clamp(uKnob[0], 0.0, 1.0);
+    float nWidth = clamp(uKnob[1], 0.0, 1.0);
+    float nTwist = clamp(uKnob[2], 0.0, 1.0);
+    float nGirth = clamp(uKnob[3], 0.0, 1.0);
+    float nHalo = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the far plane's and fog's reach, and the halo's glow.
+    float emission = shellMap(nPulse, 0.75, 1.0, 1.25);
+    float reach = shellMap(nReach, 0.8, 1.0, 1.2);
+    float haloGain = shellMap(nHalo, 0.5, 1.0, 1.5);
+    // The rods' radius scale and the radius the strands stand at.
+    gWidth = shellMap(nWidth, 0.75, 1.0, 1.25);
+    gRingR = shellMap(nGirth, ROD_RADIUS * 1.25, ROD_RADIUS, ROD_RADIUS * 0.75);
+    // The twist added to the mids' (0 at rest).
+    float twistAdd = shellMap(nTwist, -0.15, 0.0, 0.15);
 
-    gTwist = 0.55 * midA;
+    // 0.715 is the mids' own top (0.55 x 1.3): FLOW never twists past it.
+    gTwist = clamp(0.55 * midA + twistAdd, -0.15, 0.715);
     // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
     // in the middle of the ring and smooth at both ends, and glides because
     // uFormPhase does.
@@ -165,6 +219,8 @@ void main() {
     float fly = ro.z;
     gFly = fly;
     ro.xy = dmtTunnelPath(fly) + vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // The grow hooks (lib_shell) open round this eye, back on the tube's centreline, not the rig's.
+    shellSetup3(ro, 3.0, 0.5 * ROD_CELL, false);
     // Framing: the bend's tangent and the old slow roll, so the horizon of the
     // tube turns as it banks. The rig's own look is applied inside it.
     float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);
@@ -176,7 +232,7 @@ void main() {
     float near = 1e9;
     for (int i = 0; i < ROD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (t > ROD_FAR) break;
+        if (t > ROD_FAR * reach) break;
         vec3 p = ro + rd * t;
         float d = map(p);
         float eps = 0.0008 * t + 0.0004;
@@ -188,7 +244,7 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    float hueShift = 0.12 * hit;
+    float hueShift = 0.12 * hit + 0.6 * (nGirth - 0.5);
     vec3 coreCol = pal(0.08 + hueShift);
     // The sky: the mandala on the flight direction. The flight frame has +z
     // along the path, so the direction is taken relative to it rather than to
@@ -216,11 +272,11 @@ void main() {
         col = dmtShade(n, rd, hue, band * 2.0 + cellZ * 0.15, 0.85 + 0.15 * life, thin, trebA);
         // Young rods glow as they arrive, dying ones as they leave.
         col += pal(hue + 0.4) * (1.0 - life) * 0.35;
-        col = mix(col, sky, 1.0 - exp(-hitT * ROD_FOG));
+        col = mix(col, sky, 1.0 - exp(-hitT * ROD_FOG / reach));
     } else {
         col = sky;
         // The halo off the nearest rod the ray slid past.
-        col += dmtHalo(near, 0.55 + hueShift, 4.0, 0.22 + 0.3 * enA);
+        col += dmtHalo(near, 0.55 + hueShift, 4.0, (0.22 + 0.3 * enA) * haloGain);
     }
     col += coreCol * (0.6 + 0.9 * bassA) * onAxis * 2.0 / (1.0 + 0.02 * tGlow * tGlow);
     col += coreCol * 0.06 * (0.6 + 0.9 * bassA) / (1.0 + dot(uv, uv) * 3.0);
@@ -231,5 +287,5 @@ void main() {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

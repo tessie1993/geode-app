@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Fractal Tunnel: a fall down a bore through a foam of moving 3D fractals.
 //
@@ -48,19 +49,20 @@ out vec4 fragColor;
 // - SND_BASS_TIME streams the foam toward the eye (an extra fall on top of
 //   the rig's flight) and breathes the inversion radius: spheres grow, split
 //   and merge on the bass clock.
-// - SND_MID_TIME turns the whole cross-section slowly about the bore.
-// - SND_FLUX (sndLevel) WRITHES the packing: it turns the folds between the
-//   inversions on two axes, and the turn compounds down the levels, so a busy,
-//   changing spectrum sets the foam squirming while a held chord hangs still.
+// - Nothing turns to the music (owner rule: no style spins to the sound). The
+//   cross-section's slow turn about the bore and the folds' drifting lean run
+//   on uTime alone, so they follow Speed and nothing else; the user's Spin
+//   dial rolls the view on top as everywhere.
+// - SND_FLUX (sndLevel) WRITHES the packing: it shifts the copies inside each
+//   fold before the inversion, and the shift compounds down the levels, so a
+//   busy, changing spectrum sets the foam squirming while a held chord hangs
+//   still. A shift, not a turn: the foam reshapes but never rotates.
 // - Spectral centroid (uMotionBright, the eased SND_CENTROID) sets the
 //   inversion radius: a bright timbre packs the foam dense and fine, a dark
 //   one opens it into few large spheres.
 // - SND_SUB_ATT fattens the shells: sub-bass turns thin shells into beads.
 // - SND_KICK_ENV sends a ring down the tunnel: a pinch of the bore that runs
 //   away from the eye as the envelope falls, lit as it goes.
-// - SND_SNARE_ENV steps the cross-section one wedge round, snapping and
-//   settling. One wedge is the fold's own symmetry, so the step starts from a
-//   pose identical to the last.
 // - SND_HAT_ENV lights sparkles on the shells; SND_TREBLE_TIME twinkles them.
 // - SND_HIT_TIME drives the light pulses outward through the nested levels.
 // - SND_HELD_SURGE (a drop) opens the tunnel wide on its envelope's bump and
@@ -71,9 +73,20 @@ out vec4 fragColor;
 //   kick ring; the key (uKeyHue, eased) slides the whole palette.
 // - SND_ENERGY_TREND sets the brightness, gently.
 //
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' thickness,
+// k2 FLOW added to the writhe's shift, k3 TONE the palette
+// position and the foam's packing (a high melody tightens the inversion into
+// fine, dense bubbles, a low one loosens it into big open cells), k4 BUILD the
+// glow gathered along the ray, k5 SPACE the reach (far
+// plane and fog).
+//
 // ---- why the estimate is safe -----------------------------------------------
 //
-// Repetition, the fold rotations, the wedge fold and the spin are isometries;
+// Repetition, the fold rotations, the writhe's shift, the wedge fold and the
+// spin are isometries;
 // each inversion is conformal with factor s / r2, floored. The estimate is the
 // plane distance pulled back through those factors times FT_DE_FUDGE, and the
 // march takes FT_STEP of it for the twist, the bore bend and the kick pinch,
@@ -116,6 +129,8 @@ float gInvS;
 float gIters;
 mat2 gFoldA;
 mat2 gFoldB;
+/** The writhe: the copies' shift inside each fold, from the flux and FLOW (0 in silence at rest). */
+vec3 gWrithe;
 vec3 gShift;
 float gSpin;
 float gWedges;
@@ -151,9 +166,11 @@ float foam(vec3 q) {
     for (int i = 0; i < FT_MAX_ITERS; i++) {
         if (float(i) >= gIters) break;
         q = 2.0 * fract(0.5 * q + 0.5) - 1.0;
-        // The writhe: two turns between the folds, compounding down the levels.
+        // The seed's lean (a fixed turn per section, drifting on uTime), then the
+        // writhe's shift, compounding down the levels.
         q.xy = gFoldA * q.xy;
         q.yz = gFoldB * q.yz;
+        q += gWrithe;
         float r2 = dot(q, q);
         gOrb = min(gOrb, vec4(abs(q), r2));
         float k = gInvS / max(r2, FT_INV_FLOOR);
@@ -164,7 +181,7 @@ float foam(vec3 q) {
     return FT_DE_FUDGE * abs(q.y) / scale;
 }
 
-float map(vec3 p) {
+float ftField(vec3 p) {
     vec2 c = p.xy - boreCentre(p.z);
     c = rot2(FT_TAU / FT_PERIOD * p.z + gSpin) * c;
     float r = length(c);
@@ -192,6 +209,24 @@ float map(vec3 p) {
     return max(d, bore);
 }
 
+/** ftField through lib_shell's hooks: exactly ftField(p) at rest, and ftField read once, in a loop the compiler cannot unroll. */
+float ftFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ftField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: ftField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return ftFieldGrown(p);
+}
+
 vec3 foamNormal(vec3 p, float e, vec3 fallback) {
     vec2 k = vec2(1.0, -1.0);
     vec3 g = k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
@@ -214,11 +249,32 @@ vec4 seedFor(float sec) {
 
 void main() {
     vec2 uv = view();
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nShell = clamp(uKnob[1], 0.0, 1.0);
+    float nWrithe = clamp(uKnob[2], 0.0, 1.0);
+    float nPack = clamp(uKnob[3], 0.0, 1.0);
+    float nGlow = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the shells' thickness, the writhe's shift, the foam's
+    // packing and its hue, the glow gathered along the ray, the reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float shellK = shellMap(nShell, 0.5, 1.0, 1.5);
+    float writheAdd = shellMap(nWrithe, -0.15, 0.0, 0.15);
+    float packAdd = shellMap(nPack, -0.08, 0.0, 0.08);
+    float toneHue = shellMap(nPack, -0.3, 0.0, 0.3);
+    float glowK = shellMap(nGlow, 0.5, 1.0, 1.5);
+    float farT = shellMap(nReach, 0.8 * FT_FAR, FT_FAR, 1.2 * FT_FAR);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * uIntensity;
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float surge = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float surgeBump = 4.0 * surge * (1.0 - surge);
@@ -234,17 +290,22 @@ void main() {
     float wedge = FT_TAU / max(gWedges, 1.0);
     gCorridor = FT_CORRIDOR * (1.0 + 0.45 * surgeBump);
     // Centroid packs the foam, the bass clock breathes it, the seed offsets it.
-    gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5);
-    // Untwisted at rest except for the seed's lean and a slow drift on the
-    // loudness clock; flux adds the writhe on top.
-    float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(SND_CURVED_TIME * 0.17);
-    gFoldA = rot2(lean + 0.42 * flux * uMorph + 0.30 * flux);
-    gFoldB = rot2(0.5 * lean + 0.16 * flux);
+    gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5)
+          + packAdd;
+    // Untwisted at rest except for the seed's lean and a slow drift on uTime
+    // (Speed's clock, never a sound clock: nothing turns to the music). The
+    // flux and FLOW reshape the foam by a shift inside each fold instead.
+    float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(uTime * 0.17);
+    gFoldA = rot2(lean);
+    gFoldB = rot2(0.5 * lean);
+    float writhe = max(0.30 * flux + 0.42 * flux * uMorph + writheAdd, 0.0);
+    gWrithe = writhe * vec3(0.25, 0.15, 0.20);
     // The stream wraps on the foam's own z span, so the cell hash wraps with it.
     gShift = vec3(1.6 * seed.x, 1.6 * seed.y, mod(SND_BASS_TIME * 0.9, FT_FOAM_SPAN));
-    // Mid clock spin, wrapped on the wedge (invisible); the snare's one-wedge step on top.
-    gSpin = mod(SND_MID_TIME * 0.12, wedge) + wedge * (1.0 - snare * snare);
-    gShell = FT_SHELL * (1.0 + 2.2 * sub);
+    // A slow turn on uTime alone, wrapped on the wedge (invisible): it follows
+    // Speed, never the music.
+    gSpin = mod(uTime * 0.12, wedge);
+    gShell = FT_SHELL * (1.0 + 2.2 * sub) * shellK;
     float detail = clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
     gIters = 6.0 + floor(detail * 2.0 + 0.5);
 
@@ -253,6 +314,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, FT_PERIOD);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
     gEyeXY = ro.xy;
     gEyeZ = ro.z;
     gRingZ = ro.z + 1.2 + 9.0 * (1.0 - kick);
@@ -262,7 +325,7 @@ void main() {
     float t = 0.02 + hash13(vec3(gl_FragCoord.xy, 3.0)) * 0.02;
 
     // ---- colours -----------------------------------------------------------------
-    float hue = 0.05 + 0.5 * uKeyHue * clamp(uKeyStrength, 0.0, 1.0);
+    float hue = 0.05 + 0.5 * uKeyHue * clamp(uKeyStrength, 0.0, 1.0) + toneHue;
     float pitchHue = SND_PITCH_CLASS;
     float conf = clamp(SND_PITCH_CONFIDENCE, 0.0, 1.0);
     vec3 accent = mix(pal(hue + 0.5), pal(pitchHue), conf);
@@ -303,7 +366,7 @@ void main() {
         float rz = (p.z - gRingZ) / 0.35;
         ringSum += exp(-rz * rz) * exp(-fd * 8.0) * stepLen * gFoamMask;
         t += stepLen;
-        if (t > FT_FAR) break;
+        if (t > farT) break;
     }
 
     // The light at the end of the tunnel: the bore converges on the world axis ahead.
@@ -311,7 +374,7 @@ void main() {
     float core = pow(clamp(dot(rd, ahead), 0.0, 1.0), 40.0);
     vec3 endLight = pal(hue + 0.62);
     vec3 fogCol = endLight * 0.08 + vec3(0.002, 0.002, 0.006);
-    vec3 col = (t > FT_FAR) ? fogCol + endLight * 0.5 * core + vec3(core * core) * 0.4 : fogCol;
+    vec3 col = (t > farT) ? fogCol + endLight * 0.5 * core + vec3(core * core) * 0.4 : fogCol;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
@@ -353,17 +416,17 @@ void main() {
         float pt = 1.0 - smoothstep(0.0, 0.3, length(fract(gp) - 0.5));
         col += mix(rimCol, vec3(1.0), 0.5) * step(0.93 - 0.12 * hats, g) * pt * tw * (0.04 + 1.5 * hats);
 
-        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.22));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.22 * FT_FAR / farT));
     }
 
     // The glow gathered along the ray, coloured once.
     float norm = max(glowSum, 1.0e-6);
     float glowHue = hue + 0.5 * clamp((glowTrap / norm) * 0.75, 0.0, 1.0) + 0.25;
-    col += pal(glowHue) * (1.0 - exp(-glowSum * 4.0)) * (0.16 + 0.22 * surgeBump);
+    col += pal(glowHue) * (1.0 - exp(-glowSum * 4.0)) * (0.16 + 0.22 * surgeBump) * glowK;
     col += accent * (1.0 - exp(-pulseSum * 6.0)) * 0.7;
     col += accent * (1.0 - exp(-ringSum * 5.0)) * kick * 0.8;
 
-    col *= 0.8 + 0.3 * swell;
+    col *= (0.8 + 0.3 * swell) * emission;
     col = vec3(1.0) - exp(-max(col, 0.0) * 1.4);
     vec2 nd = vUv * 2.0 - 1.0;
     col *= 1.0 - 0.11 * dot(nd, nd);

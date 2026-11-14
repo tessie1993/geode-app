@@ -20,17 +20,15 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// Mids (sndShaped(SND_MIDDLE)) drive the rings (on a loudness-set base rate, as in Dive
-// Gyro). The passage's swell (SND_ENERGY_TREND) widens the look-around: a loud passage
+// The rings turn at a loudness-set rate, as in Dive Gyro. The passage's swell (SND_ENERGY_TREND) widens the look-around: a loud passage
 // turns the head further. Palette switching as in lib_dive. Brightness
 // follows SND_ENERGY_TREND mildly.
 //
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the clock, the rings and the swing. Complexity: uMorph
-// adds a fourth ring. Chaos: uWarp/uTurbulence bend the rings. Energy:
-// uIntensity scales the mids' push. Colour: diveColor, warmed. Space: the
-// rig's look rides on top of the swing.
+// adds a fourth ring. Chaos: uWarp/uTurbulence bend the rings. Colour:
+// diveColor, warmed. Space: the rig's look rides on top of the swing.
 
 void main() {
     vec2 uv = view();
@@ -40,6 +38,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
+    diveShape();
     diveCamera(DIVE_CAM_ORBIT, uv, ro, rd);
 
     float used;

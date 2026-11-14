@@ -96,15 +96,22 @@ float gHalf;
 float gLip;
 vec3 gEye;
 
-// Hit globals, set by cloth(); one map() call after the normal taps restores them.
-TruchetArc gArc;
-float gLayer;
-float gU;
-float gAd;
-float gBd;
-float gTA;
-float gTB;
-vec2 gPlan;
+/**
+ * What the field holds at a point (lib_truchet_field): the distance; the nearest tape's arc, its
+ * layer (0 warp, 1 weft, 2 backing, 3 above the cloth) and the distance across it; both tiles' arc
+ * distances and colours; the warped plan.
+ */
+struct TruchetHit {
+    float d;
+    TruchetArc arc;
+    float layer;
+    float u;
+    float ad;
+    float bd;
+    float ta;
+    float tb;
+    vec2 plan;
+};
 
 /**
  * Chaos: truchetWarp's bend, rewritten so every z frequency is a whole multiple
@@ -113,15 +120,15 @@ vec2 gPlan;
  * axis only, so the map stays periodic in z by 64. Identity at default.
  */
 vec2 weaveWarp(vec2 p, float t) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * (2.0 * gTruchetIn.warp);
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return p;
     p += a * vec2(sin(p.y * (3.0 * WV_K) + t * 0.21), sin(p.x * 0.29 - t * 0.17 + 1.3));
     p += b * vec2(sin(p.y * (12.0 * WV_K) - t * 0.37 + 2.1), sin(p.x * 1.07 + t * 0.33));
     return p;
 }
 
-/** truchetField with its z rates moved onto WV_K multiples: the smooth hue variation. */
+/** truchetHue with its z rates moved onto WV_K multiples: the smooth hue variation. */
 float weaveField(vec2 p, float t) {
     float a = sin(p.x * 0.23 + 1.7 * sin(p.y * (2.0 * WV_K) + t * 0.05) + t * 0.03);
     float b = sin(p.y * (2.0 * WV_K) - p.x * 0.07 - t * 0.04 + 1.9);
@@ -135,13 +142,23 @@ float tape(float u, float v) {
 }
 
 /** One woven cloth: yl is the height above its middle plane, xz its plan (cell units). */
-float cloth(vec2 xz, float yl) {
+TruchetHit cloth(vec2 xz, float yl) {
+    TruchetHit h;
     if (yl > gTop + 0.3) {
-        gLayer = 3.0;
-        return yl - gTop;
+        // Above the cloth: the distance to its top plane; the rest is never shaded here.
+        h.d = yl - gTop;
+        h.arc = TruchetArc(1.0, 0.0, 0.0, vec2(1.0, 0.0), 0.0);
+        h.layer = 3.0;
+        h.u = 0.0;
+        h.ad = 1.0;
+        h.bd = 1.0;
+        h.ta = 0.0;
+        h.tb = 0.0;
+        h.plan = xz;
+        return h;
     }
     vec2 p = weaveWarp(xz, gT);
-    gPlan = p;
+    h.plan = p;
     vec2 idA = floor(p);
     idA.y = mod(idA.y, WV_ZWRAP);
     TruchetArc a = truchetSquareAt(idA, fract(p) - 0.5, gHits, gEnv, 4.0);
@@ -155,59 +172,61 @@ float cloth(vec2 xz, float yl) {
     float dB = tape(b.d, yl + hc) * gLip;
     float dK = yl + gBack;
 
-    gAd = a.d;
-    gBd = b.d;
-    gTA = a.cap;
-    gTB = b.cap;
+    h.ad = a.d;
+    h.bd = b.d;
+    h.ta = a.cap;
+    h.tb = b.cap;
     float d = dK;
-    gLayer = 2.0;
-    gArc = a;
+    h.layer = 2.0;
+    h.arc = a;
+    h.u = 0.0;
     if (dA < d) {
         d = dA;
-        gLayer = 0.0;
-        gU = a.d;
+        h.layer = 0.0;
+        h.u = a.d;
     }
     if (dB < d) {
         d = dB;
-        gLayer = 1.0;
-        gArc = b;
-        gU = b.d;
+        h.layer = 1.0;
+        h.arc = b;
+        h.u = b.d;
     }
-    return d;
+    h.d = d;
+    return h;
 }
 
-float map(vec3 w) {
+TruchetHit truchetMap(vec3 w) {
     float yF = w.y + gHalf;
     float yC = gHalf - w.y;
-    float d;
+    TruchetHit h;
     // Only the nearer cloth is tiled; the other is bounded by its top plane,
     // below which (in its own frame) all of its geometry lies.
     if (w.y < 0.0) {
-        d = min(cloth(w.xz, yF), yC - gTop);
+        h = cloth(w.xz, yF);
+        h.d = min(h.d, yC - gTop);
     } else {
-        d = min(cloth(w.xz + vec2(37.0, 0.0), yC), yF - gTop);
+        h = cloth(w.xz + vec2(37.0, 0.0), yC);
+        h.d = min(h.d, yF - gTop);
     }
-    return max(d, WV_BUBBLE - length(w - gEye));
+    h.d = max(h.d, WV_BUBBLE - length(w - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     float t = truchetTime();
     float e = truchetEnergy();
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float k2 = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float k3 = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float k0 = gTruchetIn.pulse - 0.5;
+    float k1 = gTruchetIn.texture - 0.5;
+    float k2 = gTruchetIn.flow - 0.5;
+    float k3 = gTruchetIn.tone - 0.5;
+    float k4 = gTruchetIn.build - 0.5;
+    float k5 = gTruchetIn.space - 0.5;
 
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * e * (1.0 + 0.8 * k0);
     float bass = clamp(sndShaped(SND_LOW) * e, 0.0, 1.5);
@@ -223,8 +242,8 @@ void main() {
     gTop = gLift + gTh + 0.01;
     gBack = gLift + gTh + 0.12;
     gHalf = 1.15 + 0.35 * k5;
-    float aw = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float bw = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float aw = 0.8 * (2.0 * gTruchetIn.warp);
+    float bw = 0.18 * (2.0 * gTruchetIn.chaos);
     float gJ = (1.0 + 0.3 * aw) * (1.0 + 1.2 * bw);
     float sl = gLift * TRUCHET_PI;
     float eig = 0.5 * (2.0 + sl * sl + sqrt(sl * sl * sl * sl + 4.0 * sl * sl));
@@ -236,6 +255,8 @@ void main() {
     // shift is exact and invisible, and z keeps its precision.
     ro.z = mod(ro.z, WV_ZWRAP);
     gEye = ro;
+    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is.
+    growSetup(ro, 3.0, false);
 
     float hue = 0.04 * sin(t * 0.02) + 0.1 * uKeyStrength * sin(TRUCHET_TAU * uKeyHue) + 0.3 * k3;
     vec3 fwd = normalize(vec3(uCamBasis[2].x, 0.0, uCamBasis[2].z) + vec3(0.0, 0.0, 1e-4));
@@ -250,7 +271,7 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > WV_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        float d = truchetField(ro + rd * tm).d;
         float eps = 0.0006 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -266,17 +287,17 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0012, 0.001 * hitT));
+        vec3 n = truchetNormal(p, max(0.0012, 0.001 * hitT));
         float occ = 0.0;
         float sc = 1.0;
         for (int k = 0; k < 2; k++) {
             float hk = 0.06 + 0.12 * float(k);
-            occ += (hk - map(p + n * hk)) * sc;
+            occ += (hk - truchetField(p + n * hk).d) * sc;
             sc *= 0.6;
         }
         float ao = clamp(1.0 - 2.2 * occ, 0.2, 1.0) * clamp(1.0 - used / max(uSteps, 1.0) * 0.6, 0.5, 1.0);
-        // Restore the hit's globals after the normal and AO taps.
-        map(p);
+        // What the field holds at the hit.
+        TruchetHit hit = truchetField(p);
 
         vec3 toL = lightPos - p;
         float dl = length(toL);
@@ -286,22 +307,22 @@ void main() {
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float spec = pow(max(dot(reflect(rd, n), l), 0.0), 28.0);
-        float field = 0.08 * weaveField(gPlan, t);
+        float field = 0.08 * weaveField(hit.plan, t);
         vec3 lightC = mix(vec3(1.0, 0.94, 0.86), pal(hue + 0.15), 0.3);
 
-        if (gLayer > 1.5) {
+        if (hit.layer > 1.5) {
             // The backing cloth: dark, faintly cross-hatched by the two layers'
             // bands, and shadowed under the ribbons, as the flat cloth was.
             float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
-            float tA = mix(1.0 - gTA, gTA, 1.0 - smoothstep(-px, px, gAd));
-            float tB = mix(1.0 - gTB, gTB, 1.0 - smoothstep(-px, px, gBd));
-            float under = smoothstep(gHw, gHw + 0.12, abs(gAd)) * smoothstep(gHw, gHw + 0.12, abs(gBd));
+            float tA = mix(1.0 - hit.ta, hit.ta, 1.0 - smoothstep(-px, px, hit.ad));
+            float tB = mix(1.0 - hit.tb, hit.tb, 1.0 - smoothstep(-px, px, hit.bd));
+            float under = smoothstep(gHw, gHw + 0.12, abs(hit.ad)) * smoothstep(gHw, gHw + 0.12, abs(hit.bd));
             col = pal(hue + 0.82) * (0.05 + 0.035 * tA + 0.03 * tB) * (0.4 + 1.4 * dif * atten)
                 * (0.35 + 0.65 * under) * ao;
         } else {
             // A tape: warp or weft, rounded across, threaded along its length.
-            vec3 tint = pal(hue + (gLayer < 0.5 ? 0.08 : 0.58) + field);
-            float u = clamp(gU / gHw, -1.0, 1.0);
+            vec3 tint = pal(hue + (hit.layer < 0.5 ? 0.08 : 0.58) + field);
+            float u = clamp(hit.u / gHw, -1.0, 1.0);
             float crown = sqrt(1.0 - u * u);
             float threads = (7.0 + 4.0 * morph) * (1.0 + 0.6 * k1);
             float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
@@ -314,7 +335,7 @@ void main() {
             // Glints run along every ribbon in its path's own direction: two per
             // arc, a whole number, so they flow on from tile to tile unbroken.
             float flow = t * (0.35 + 0.3 * k2);
-            float g = pow(0.5 + 0.5 * cos(TRUCHET_TAU * (2.0 * gArc.s - flow)), 10.0);
+            float g = pow(0.5 + 0.5 * cos(TRUCHET_TAU * (2.0 * hit.arc.s - flow)), 10.0);
             col += mix(tint, vec3(1.0), 0.4) * g * crown * (0.08 + 0.9 * snare) * (1.0 + 0.8 * k4) * ao;
         }
         col = mix(col, fogCol, 1.0 - exp(-hitT * 0.08));

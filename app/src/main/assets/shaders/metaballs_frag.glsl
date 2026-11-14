@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -57,10 +58,19 @@ out vec4 fragColor;
 // Turbulence  each blob's own jitter, beside its orbit.
 // Intensity and the rest of the grade through lib_scene_grade.
 // k0 PULSE    how hard the kick fuses.     k1 TEXTURE  a resting skin ripple.
-// k2 FLOW     the orbit's in-and-out swing. k3 TONE   the hue offset.
+// k2 FLOW     the orbit's in-and-out swing. k3 TONE   which blobs swell:
+//             a high melody fattens the treble blobs and thins the bass ones,
+//             a low melody the reverse (and a small hue offset).
 // k4 BUILD    the blobs' size.             k5 SPACE    the orbit radius.
 // Each knob is read as a continuous value about 0.5; none multiplies a clock,
 // so a moving knob never makes the picture jump.
+// Every one of these, and the lamp wall's radius, the flight channel's and the
+// fog (SPACE) and the wall's bulge (TEXTURE), is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range; at rest each is the constant the lamp was tuned with. The wax is the
+// field the grow hooks act on (its shell wrapper): Spawn slides a second procession
+// half a period down the flight, Fractal grows blobs a third the size on the
+// wax, the layers open the near and far lamp.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -81,6 +91,7 @@ out vec4 fragColor;
 #define MB_ZWRAP 64.0
 #define MB_FAR 34.0
 #define MB_BUBBLE 0.8
+/** The flight channel's and the lamp wall's radius at rest (gTube, gWall: SPACE). */
 #define MB_TUBE 1.0
 #define MB_WALL 6.0
 #define MB_TAU 6.2831853
@@ -93,6 +104,11 @@ float gSwing;
 float gSpace;
 float gJit;
 float gSkin;
+float gTube;
+float gWall;
+/** The wall's bulge (0.35 at rest: TEXTURE) and the divisor its gradient needs (1.6 at rest). */
+float gBulge;
+float gWallLip;
 vec3 gEye;
 
 /** Blob `i`'s instance in lattice slot `n` (a whole number): its centre. */
@@ -113,7 +129,8 @@ vec3 ballCentre(int i, float n) {
     return vec3(xy, n * MB_P + float(i) * (MB_P / 7.0) + bob);
 }
 
-float map(vec3 w) {
+/** The wax: the field the grow hooks act on (map() hands it to its shell wrapper). */
+float metaField(vec3 w) {
     float d = MB_CLAMP;
     for (int i = 0; i < MB_BALLS; i++) {
         float n0 = floor((w.z - float(i) * (MB_P / 7.0)) / MB_P);
@@ -125,17 +142,29 @@ float map(vec3 w) {
     // there anyway, so the guard only keeps the value finite.
     float rr = length(w.xy);
     float ang = rr > 1e-4 ? atan(w.y, w.x) : 0.0;
-    float bulge = 0.35 * sin(5.0 * ang + w.z * (MB_TAU / 16.0) + uTime * 0.2)
+    float bulge = gBulge * sin(5.0 * ang + w.z * (MB_TAU / 16.0) + uTime * 0.2)
                 * sin(w.z * (MB_TAU / 8.0) - uTime * 0.15);
-    float dw = (MB_WALL + bulge - rr) / 1.6;
+    float dw = (gWall + bulge - rr) / gWallLip;
     d = smin(d, dw, gK * 1.4);
     // The skin ripple: period 2 along z.
     float rip = sin(3.0 * w.x + uTime * 0.7) * sin(3.0 * w.y - uTime * 0.5) * sin(w.z * (MB_TAU / 2.0) + uTime * 0.6);
     d = (d + gSkin * rip) / (1.0 + 5.3 * gSkin);
     // The flight channel, blended so it reads as wax pushed aside, not cut.
-    d = smax(d, MB_TUBE - rr, 0.5);
-    d = max(d, MB_BUBBLE - length(w - gEye));
-    return d;
+    return smax(d, gTube - rr, 0.5);
+}
+
+/** metaField through lib_shell's hooks: exactly metaField(p) at rest, and metaField read once, in a loop the compiler cannot unroll. */
+float metaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, metaField(shellAt3(i)));
+    }
+    return r;
+}
+
+float map(vec3 w) {
+    return max(metaFieldGrown(w), MB_BUBBLE - length(w - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -157,7 +186,7 @@ float blobHue(vec3 p) {
         field += c;
         acc += float(i) / 7.0 * c;
     }
-    float wallW = 2.0 * smoothstep(MB_WALL - 2.5, MB_WALL - 0.3, length(p.xy));
+    float wallW = 2.0 * smoothstep(gWall - 2.5, gWall - 0.3, length(p.xy));
     return (acc + 0.5 * wallW) / max(field + wallW, 1e-3);
 }
 
@@ -173,24 +202,43 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0);
-    float kTexture = clamp(uKnob[1], 0.0, 1.0);
-    float kFlow = clamp(uKnob[2], 0.0, 1.0);
-    float kTone = clamp(uKnob[3], 0.0, 1.0);
-    float kBuild = clamp(uKnob[4], 0.0, 1.0);
-    float kSpace = clamp(uKnob[5], 0.0, 1.0);
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    how hard the kick fuses
+    float nTexture = shellKnob(1);                                 // TEXTURE  a resting skin ripple, the wall's bulge
+    float nFlow = shellKnob(2);                                    // FLOW     the orbit's swing
+    float nTone = shellKnob(3);                                    // TONE     which blobs swell, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the blobs' size
+    float nSpace = shellKnob(5);                                   // SPACE    orbit, wall and channel radius, fog
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    gooeyness
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the skin's ripple
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);        // Turbulence each blob's jitter
+    float fuseK = shellMap(nPulse, 0.5, 1.0, 1.5);
+    float skinTex = shellMap(nTexture, 0.0, 0.025, 0.05);
+    gBulge = shellMap(nTexture, 0.25, 0.35, 0.45);
+    gSwing = shellMap(nFlow, 0.25, 0.4, 0.55);
+    float tiltK = shellMap(nTone, -0.65, 0.0, 0.65);
+    float hueTone = shellMap(nTone, -0.15, 0.0, 0.15);
+    float sizeK = shellMap(nBuild, 0.8, 1.0, 1.2);
+    float orbitK = shellMap(nSpace, 0.8, 1.0, 1.2);
+    gWall = shellMap(nSpace, 5.2, MB_WALL, 7.0);
+    gTube = shellMap(nSpace, 0.8, MB_TUBE, 1.3);
+    float fogK = shellMap(nSpace, 0.07, 0.055, 0.04);
+    float goo = shellMap(nMorph, 0.0, 0.0, 0.55);
+    float skinWarp = shellMap(nWarp, 0.0, 0.0, 0.08);
+    // Half of the 0.25 z bob share above: gJit * 2 <= 1.
+    gJit = shellMap(nTurb, 0.0, 0.0, 0.5);
 
     for (int i = 0; i < MB_BALLS; i++) {
         float b = clamp(sndSpectrum(float(i) / 7.0), 0.0, 1.0);
         // Capped at 1.3: the lattice bound above assumes it.
-        gRad[i] = min((0.3 + 0.85 * b) * (0.8 + 0.4 * kBuild), 1.3);
+        float tilt = max(1.0 + tiltK * (2.0 * float(i) / 6.0 - 1.0), 0.35);
+        gRad[i] = min((0.3 + 0.85 * b) * sizeK * tilt, 1.3);
     }
-    gK = min(0.25 + 0.55 * clamp(uMorph, 0.0, 1.0) + 0.45 * kick * (0.5 + kPulse), 1.2);
-    gSwing = 0.25 + 0.3 * kFlow;
-    gSpace = (0.8 + 0.4 * kSpace) * (1.0 + 0.2 * dropBump);
-    // Half of the 0.25 z bob share above: gJit * 2 <= 1.
-    gJit = 0.5 * clamp(uTurbulence, 0.0, 1.0);
-    gSkin = 0.08 * clamp(uWarp, 0.0, 1.5) + 0.05 * kTexture;
+    gK = min(0.25 + goo + 0.45 * kick * fuseK, 1.2);
+    gSpace = orbitK * (1.0 + 0.2 * dropBump);
+    gSkin = skinWarp + skinTex;
+    // The bulge's gradient bound grows with its depth (0.6 at the rest depth of 0.35).
+    gWallLip = 1.0 + 0.6 * gBulge / 0.35;
 
     vec3 ro;
     vec3 rd;
@@ -198,8 +246,10 @@ void main() {
     // Every z term tiles with a period dividing 64, so this rebase is exact.
     ro.z = mod(ro.z, MB_ZWRAP);
     gEye = ro;
+    // The layers are measured from the eye; a spawned procession slides half a period down the flight.
+    shellSetup3(ro, 3.0, 0.5 * MB_P, false);
 
-    float hueBase = 0.03 * sin(uTime * 0.013) + 0.25 * pitchBump + 0.5 * dropBump + 0.3 * (kTone - 0.5);
+    float hueBase = 0.03 * sin(uTime * 0.013) + 0.25 * pitchBump + 0.5 * dropBump + hueTone;
 
     float t = 0.03;
     float hitT = -1.0;
@@ -249,7 +299,7 @@ void main() {
         body += mix(vec3(1.0), wax, 0.25) * rim * (0.25 + 0.6 * snare) * (0.5 + 0.5 * ao);
         body += mix(wax, vec3(1.0), 0.6) * spec * 0.45 * ao + wax * fres * 0.12;
 
-        col = mix(body, fogCol, 1.0 - exp(-hitT * 0.055));
+        col = mix(body, fogCol, 1.0 - exp(-hitT * fogK));
     }
 
     col += pal(hueBase + 0.35) * halo * (0.02 + 0.05 * level);

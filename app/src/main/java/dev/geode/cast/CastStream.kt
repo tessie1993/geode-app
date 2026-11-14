@@ -8,15 +8,12 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
+import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
-import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
-import dev.geode.export.PcmResampler
 import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
-import dev.geode.render.look.LookSnapshot
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -56,12 +53,12 @@ import java.util.concurrent.locks.LockSupport
  * Pacing is native (core/viz/frame/FixedRateClock, #572): when a frame is due, its PTS and the audio cut; a stall
  * drops frames, never bursts them. Each frame queues 48 kHz audio up to that cut, from what the ring gained, padded
  * with silence while the music is paused, so the TV's player never waits for audio and picture and sound stay together.
- * Those counts are native too (core/viz/frame/CastAudio, #772).
+ * That pump is native too (core/output/CastAudioPump, #1150).
  */
 internal class CastStream(
     context: Context,
-    /** The player's own feed: only its sound goes to the TV (see [AudioPump]). */
-    private val musicInput: SampleRing?,
+    /** The player's ring handle, 0 for none: only its sound goes to the TV (see [AudioPump]). */
+    private val musicInput: Long,
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -275,18 +272,14 @@ internal class CastStream(
     }
 
     /**
-     * Queues 48 kHz stereo up to each frame's audio cut. The counts are native
-     * (core/viz/frame/CastAudio, #772): how much of what the ring gained (resampled here) to hold,
-     * how much to queue from the hold, how much silence to pad while the music is paused, and the
-     * running sample position. This keeps the PCM and calls the resampler and the encoder.
-     *
-     * Only the player's music is sent ([musicInput]). While the microphone or another app's audio
-     * owns the ring, the visuals still hear it but the TV gets silence: the room's sound must not
-     * leave the phone, and the mic would hear the TV and feed back.
+     * Hands each frame's 48 kHz stereo to the encoders. The sound is native
+     * (core/output/CastAudioPump): the player's ring read, resampled, held and padded with silence to
+     * the frame's audio cut. Only the player's music is sent ([musicInput]); while the microphone or
+     * another app's audio feeds the visuals the TV gets silence (native compares the rings).
      */
     private class AudioPump(
         private val encoder: CastEncoder,
-        private val musicInput: SampleRing?,
+        musicInput: Long,
         private val webrtc: WebRtcLink,
     ) : AutoCloseable {
         /** The Opus encoder for WebRTC browsers, while one is connected; made and freed here, on the render thread. */
@@ -296,31 +289,18 @@ internal class CastStream(
         /** No Opus encoder could be made: the browser gets the picture alone; not tried again this stream. */
         private var opusMissing = false
 
-        private var input: SampleRing? = null
-        private var cursor: SoundCursor? = null
-        private var resampler: PcmResampler? = null
-        private var resamplerInRate = 0
-        private val state = LongArray(GeodeNative.CAST_AUDIO_STATE)
-        private val step = LongArray(GeodeNative.CAST_AUDIO_STEP)
-        private val hold = ShortArray(GeodeNative.castAudioStart(state, CastEncoder.AUDIO_RATE_HZ) * CH)
-        private var block = ShortArray(0)
+        // The pump keeps the ring itself; the player's ring handle is never freed.
+        private var handle = GeodeNative.castAudioCreate(musicInput, CastEncoder.AUDIO_RATE_HZ, CH)
+        private var block = ShortArray(CastEncoder.AUDIO_RATE_HZ * CH)
 
         fun pump(untilUs: Long) {
-            val gained = takeFromRing()
-            val held = state[HELD].toInt()
-            GeodeNative.castAudioStep(state, (gained?.size ?: 0) / CH, untilUs, step)
-            val evict = step[EVICT].toInt()
-            if (evict > 0) System.arraycopy(hold, evict * CH, hold, 0, (held - evict) * CH)
-            if (gained != null) System.arraycopy(gained, step[SKIP].toInt() * CH, hold, (held - evict) * CH, step[KEEP].toInt() * CH)
-            val take = step[TAKE].toInt()
-            val need = take + step[PAD].toInt()
-            if (need <= 0) return
-            if (block.size < need * CH) block = ShortArray(need * CH)
-            System.arraycopy(hold, 0, block, 0, take * CH)
-            block.fill(SILENCE, take * CH, need * CH)
-            System.arraycopy(hold, take * CH, hold, 0, state[HELD].toInt() * CH)
-            encoder.queueAudio(block, need)
-            opusFor(System.nanoTime())?.let { feed -> runCatching { feed.queue(block, need) } }
+            if (handle == 0L) return
+            val frames = GeodeNative.castAudioPump(handle, AudioBus.soundInput, untilUs)
+            if (frames <= 0) return
+            if (block.size < frames * CH) block = ShortArray(frames * CH)
+            GeodeNative.castAudioRead(handle, block)
+            encoder.queueAudio(block, frames)
+            opusFor(System.nanoTime())?.let { feed -> runCatching { feed.queue(block, frames) } }
         }
 
         /** The Opus feed while a browser is on WebRTC; freed once none has been for [OPUS_IDLE_NS]. */
@@ -347,53 +327,15 @@ internal class CastStream(
             return feed
         }
 
-        /** What the ring gained since the last call, resampled to the stream's rate; null for none. */
-        private fun takeFromRing(): ShortArray? {
-            val current = AudioBus.soundInput ?: return null
-            if (current !== musicInput) return null
-            if (current !== input) {
-                input = current
-                cursor?.close()
-                cursor = SoundCursor(current)
-            }
-            val c = cursor ?: return null
-            // 16-bit straight from the native cursor, with the rate these frames were written at.
-            val frames = c.take()
-            val rate = c.sampleRateHz
-            if (frames <= 0 || c.channels != CH || rate <= 0) return null
-            return resamplerFor(rate).process(c.pcm, frames)
-        }
-
-        private fun resamplerFor(rate: Int): PcmResampler {
-            val existing = resampler
-            if (existing != null && resamplerInRate == rate) return existing
-            existing?.close()
-            return PcmResampler(rate, CastEncoder.AUDIO_RATE_HZ, CH).also {
-                resampler = it
-                resamplerInRate = rate
-            }
-        }
-
         override fun close() {
             opus?.close()
             opus = null
-            cursor?.close()
-            cursor = null
-            resampler?.close()
-            resampler = null
+            if (handle != 0L) GeodeNative.castAudioDestroy(handle)
+            handle = 0L
         }
 
         private companion object {
             const val CH = CastEncoder.CHANNELS
-            const val HELD = 1
-
-            // A step's result, as GEODE_CAST_AUDIO_STEP lays it out.
-            const val EVICT = 0
-            const val SKIP = 1
-            const val KEEP = 2
-            const val TAKE = 3
-            const val PAD = 4
-            const val SILENCE: Short = 0
 
             /** A browser that left may come back (a reload): the Opus encoder waits this long (10 s) before it goes. */
             const val OPUS_IDLE_NS = 10_000_000_000L

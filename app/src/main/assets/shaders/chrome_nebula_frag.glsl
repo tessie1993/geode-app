@@ -11,6 +11,8 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
+//#include lib_shapes
 
 // Chrome Nebula: liquid-chrome metaballs drifting in space, each one a mirror
 // for a procedural nebula sky. The blobs are smooth-min'd spheres on slow
@@ -26,9 +28,46 @@ out vec4 fragColor;
 // The progress is measured from 0.4 because an onset triggers to 0.4..1
 // (viz/Reactions), never reliably to 1. A pitch change (SND_HELD_NOTE_CHANGE) shifts the
 // nebula's hue. Overall level follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) only.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the sky's
+// galactic band (seen direct and in every blob), k2 FLOW how far the orbits
+// bend out of their plane, k3 TONE the palette position and how the chrome
+// flows together (a high melody melts the blobs into one long liquid body, a
+// low one parts them into separate drops; a smooth union of any width is
+// still a lower bound), k4 BUILD the halo off
+// the chrome, k5 SPACE the eye's distance (lib_chrys's reach).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the chrome is a normalized input, mapped to its range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off. Only knobs drive them
+// here: this style leaves Morph, Warp and Turbulence to view(), which already
+// bends its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gBandW      k1 TEXTURE       the galactic band's width 0.5 .. 1 .. 1.5
+//   sBlobs      k1 TEXTURE       blobs 4 .. 6 .. 8 (each one past a whole number grows in from nothing)
+//   sLift       k2 FLOW          how far the orbits bend out of their plane 0.5 .. 1 .. 1.5
+//   sSpread     k2 FLOW          the orbits' radius 1.4 .. 1.9 .. 2.4
+//   gK          k3 TONE          the blend between blobs 0.072 .. 0.36 .. 0.648
+//   sBlobR      k4 BUILD         a blob's smallest radius 0.32 .. 0.46 .. 0.62
+//   sCamR       k5 SPACE         the eye's distance 7.59 .. 6.6 .. 5.61
+//
+// A blob blends by gK only once it is at least 0.4 across, as the bud does, so
+// one growing in never leaves a nub. The chrome goes through its shell wrapper, so
+// the shell's spawn, fractal, front and back hooks reach it.
+// Shapes melts the shape graph (core/viz/ShapeGraph, lib_shapes) into the
+// chrome: its shapes run into the blobs as more chrome, tinted by their own
+// index along the palette. At 0 the blobs are exactly as they were.
 
 #define CN_MAX_STEPS 96
-#define CN_BLOBS 6
+/** The most blobs TEXTURE can ask for (6 at rest, sBlobs). */
+#define CN_BLOBS 8
 #define CN_CAM_R 6.6
 #define CN_FAR 16.0
 /** Blend radius between blobs, world units. */
@@ -38,15 +77,44 @@ vec3 gBlob[CN_BLOBS];
 float gRad[CN_BLOBS];
 vec3 gBud;
 float gBudR;
+/** k3 TONE: the blend radius between blobs (CN_K at rest). */
+float gK = CN_K;
+/**
+ * The shape graph's colour at the last map() point (lib_shapes: what shapesInto leaves in a colour handed 0.0),
+ * read with gShapeShare at the hit by shapesHue; 0 while Shapes is off.
+ */
+float gShapeHue;
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     float d = sdSphere(p - gBlob[0], gRad[0]);
     for (int i = 1; i < CN_BLOBS; i++) {
-        d = smin(d, sdSphere(p - gBlob[i], gRad[i]), CN_K);
+        // A blob TEXTURE has not asked for is no blob.
+        if (gRad[i] <= 0.0) continue;
+        // A small one (growing in) blends less, so it never leaves a nub; 1 for every blob at rest.
+        d = smin(d, sdSphere(p - gBlob[i], gRad[i]), gK * clamp(gRad[i] * 2.5, 0.0, 1.0));
     }
     // The blend shrinks with the bud, so a vanishing bud is a hard min with a
     // point (never hit) rather than a nub left on its parent.
-    return smin(d, sdSphere(p - gBud, gBudR), CN_K * clamp(gBudR * 2.5, 0.0, 1.0));
+    return smin(d, sdSphere(p - gBud, gBudR), gK * clamp(gBudR * 2.5, 0.0, 1.0));
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The chrome as the shell sees it: spawn, fractal, front and back route through here (identity at rest), and
+ * the shape graph melts in by Shapes (lib_shapes; the blobs alone at 0).
+ */
+float map(vec3 p) {
+    gShapeHue = 0.0;
+    return shapesInto(mapFieldGrown(p), p, gShapeHue);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -54,6 +122,9 @@ vec3 normalAt(vec3 p, float eps) {
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
+
+/** k1 TEXTURE: the galactic band's width, 0.5..1.5 (1 at rest). */
+float gBandW = 1.0;
 
 /** The sky: two layers of fbm cloud on the palette, a galactic band, and (for the direct view only) stars. */
 vec3 nebula(vec3 d, float hue, float stars) {
@@ -64,7 +135,7 @@ vec3 nebula(vec3 d, float hue, float stars) {
     vec3 c = vec3(0.012, 0.010, 0.022);
     c += pal(hue + n * 0.35) * cloud * 0.55;
     c += pal(hue + 0.45 + n2 * 0.2) * smoothstep(0.52, 0.9, n2) * cloud * 0.35;
-    c += pal(hue + 0.2) * 0.10 * exp(-abs(d.y + 0.35 * (n - 0.5)) * 4.0);
+    c += pal(hue + 0.2) * 0.10 * exp(-abs(d.y + 0.35 * (n - 0.5)) * 4.0 / gBandW);
     if (stars > 0.5) {
         vec3 sc = d * 110.0;
         vec3 cell = floor(sc);
@@ -76,12 +147,24 @@ vec3 nebula(vec3 d, float hue, float stars) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gBandW = shellMap(shellKnob(1), 0.5, 1.0, 1.5);
+    float sBlobs = shellMap(shellKnob(1), 4.0, 6.0, 8.0);
+    float sLift = shellMap(shellKnob(2), 0.5, 1.0, 1.5);
+    float sSpread = shellMap(shellKnob(2), 1.4, 1.9, 2.4);
+    gK = shellMap(shellKnob(3), CN_K * 0.2, CN_K, CN_K * 1.8);
+    float sBlobR = shellMap(shellKnob(4), 0.32, 0.46, 0.62);
+    float sCamR = shellMap(shellKnob(5), CN_CAM_R * 1.15, CN_CAM_R, CN_CAM_R * 0.85);
+
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float bass = clamp(sndSpectrum(0.23), 0.0, 1.0);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
-    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float hue = 0.58 + 0.03 * sin(uTime * 0.05) + 0.16 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.6 * kTone;
 
     // ---- the blobs ----------------------------------------------------------
     // 0 on the hit frame (the envelope is >= 0.4 then), 1 once it has fallen.
@@ -90,7 +173,7 @@ void main() {
     float grow = 1.0 + 0.26 * bass + 0.06 * swell;
     float tm = uTime * 0.22 + uFlowPhase * 0.04;
     float seed = fract(floor(SND_HIT_TIME) * 0.618034);
-    float parentF = floor(seed * float(CN_BLOBS));
+    float parentF = floor(seed * floor(sBlobs));
     vec3 parentPos = vec3(0.0);
     float parentR = 0.5;
     for (int i = 0; i < CN_BLOBS; i++) {
@@ -100,10 +183,11 @@ void main() {
         float h3 = hash11(fi * 1.93 + 4.1);
         float dir = mod(fi, 2.0) < 0.5 ? 1.0 : -1.0;
         float ph = fi * 1.047 + morph * (0.45 + 0.35 * h1) * dir;
-        vec3 c = vec3(sin(tm * (0.7 + 0.5 * h1) + ph) * 1.9,
-                      sin(tm * (0.5 + 0.6 * h2) + ph * 1.3 + 2.0) * 1.1,
-                      cos(tm * (0.6 + 0.4 * h3) + ph * 0.7) * 1.9);
-        float r = (0.46 + 0.28 * h2) * grow;
+        vec3 c = vec3(sin(tm * (0.7 + 0.5 * h1) + ph) * sSpread,
+                      sin(tm * (0.5 + 0.6 * h2) + ph * 1.3 + 2.0) * 1.1 * sLift,
+                      cos(tm * (0.6 + 0.4 * h3) + ph * 0.7) * sSpread);
+        // TEXTURE's count: blob i grows in as sBlobs passes i (all of the first six whole at rest).
+        float r = (sBlobR + 0.28 * h2) * grow * clamp(sBlobs - fi, 0.0, 1.0);
         gBlob[i] = c;
         gRad[i] = r;
         if (abs(fi - parentF) < 0.5) {
@@ -121,11 +205,14 @@ void main() {
     // ---- march --------------------------------------------------------------
     vec3 ro;
     vec3 rd;
-    camAround(uv, CN_CAM_R, 3.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, sCamR, 3.0 * CAM_SPIN_UNIT, ro, rd);
 
     float t = 0.05;
     float hitT = -1.0;
     float near = 1e9;
+    // The shape graph's colour at the hit (lib_shapes), taken before the normal and occlusion taps move it.
+    float shapeHue = 0.0;
+    float shapeShare = 0.0;
     for (int i = 0; i < CN_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > CN_FAR) break;
@@ -133,6 +220,8 @@ void main() {
         float eps = 0.0007 * t + 0.0005;
         if (d < eps) {
             hitT = t;
+            shapeHue = gShapeHue;
+            shapeShare = gShapeShare;
             break;
         }
         near = min(near, d);
@@ -146,7 +235,9 @@ void main() {
         vec3 r = reflect(rd, n);
         // Chrome: a high base reflectance that goes to mirror at grazing.
         float fres = 0.62 + 0.38 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
-        vec3 tint = mix(vec3(1.0), pal(hue + 0.08), 0.22);
+        // Where the shape graph melts in, the chrome is tinted by the shapes' own index along the palette, and a
+        // little more, so the melt reads on a mirror (lib_shapes; exactly the old tint while Shapes is off).
+        vec3 tint = mix(vec3(1.0), pal(shapesHue(hue + 0.08, hue, shapeHue, shapeShare)), 0.22 + 0.4 * shapeShare);
         col = nebula(r, hue, 0.0) * 2.4 * tint * fres;
         vec3 L = normalize(vec3(0.5, 0.8, -0.3));
         col += tint * pow(max(dot(r, L), 0.0), 64.0) * 1.3;
@@ -159,10 +250,10 @@ void main() {
     } else {
         col = nebula(rd, hue, 1.0);
         // Halo off the chrome the ray slid past.
-        col += pal(hue + 0.15) * 0.12 * exp(-near * 5.0);
+        col += pal(hue + 0.15) * 0.12 * exp(-near * 5.0) * (1.0 + kBuild);
     }
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

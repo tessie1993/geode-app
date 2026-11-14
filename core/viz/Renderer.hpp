@@ -25,7 +25,9 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
+#include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
+#include "viz/LookSnapshot.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
@@ -41,6 +43,7 @@
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/ShapeGraph.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
@@ -50,11 +53,12 @@
 #include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
+#include "viz/physics/PhysicsLayers.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 
-// The frame graph: scene pass -> trail -> composite -> target.
+// The frame graph: scene pass -> trail -> liquid -> dive -> physics layers -> composite -> target.
 class Renderer {
 public:
     static constexpr float kTimeWrapSeconds = 7100.0f;
@@ -134,8 +138,10 @@ public:
     // The path of the preset the MilkDrop scene last compiled, handed out once.
     std::string takeMilkPresetLoaded();
     // How many times the director committed a look at a new section or a drop since the last take.
-    // The shell's Auto changes style on each (one Auto mode: the director picks the moments).
-    int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
+    // The shell's Auto changes style on each (one Auto mode: the director picks the moments). Taking them
+    // publishes the director's style intent for Auto's pick (viz/DirectorStyle), so the renderer whose
+    // moments the shell takes is the one whose director names the next style. Any thread.
+    int takeDirectorStyleMoments();
     // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
     bool directorStyleMomentsPending() const { return directorStyleMoments_.load(std::memory_order_acquire) > 0; }
     // Whether a preset load waits for takeMilkPresetLoaded, without taking it. Any thread.
@@ -230,6 +236,7 @@ private:
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
     void uploadPaletteRamp(const SceneParams& p);
+    void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
@@ -260,6 +267,10 @@ private:
     // Endless zoom (EndlessZoom.hpp, viz/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
+    // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
+    // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
+    // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
+    GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -286,7 +297,7 @@ private:
     std::vector<std::string> heldErrors_;
     // The style last asked for, so a failed one's report is said again when it is picked again.
     std::string reportedRequestId_;
-    // The requested scene is still being staged this frame, so the layer scene waits its turn.
+    // The requested scene is still being staged this frame, so a layer scene not built yet waits its turn.
     bool requestedPending_ = false;
     SceneRegistry registry_;
     Overlays overlays_{loader_};
@@ -318,6 +329,9 @@ private:
     // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
     signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
+    // The style intent of the last moment counted; written on the stepping thread, read by a take.
+    std::mutex directorIntentLock_;
+    director::StyleIntent directorIntent_;  // guarded by directorIntentLock_
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -354,22 +368,35 @@ private:
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
     Framebuffer fboB_{"sceneB"};
+    // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
+    // a layer draws, released when none does.
+    Framebuffer fboL_{"sceneLayer"};
     GLuint quadVao_ = 0;
     GLuint paletteLutTex_ = 0;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
     GLuint paletteRampTex_ = 0;
+    // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
+    // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
+    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
+    // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh
+    // renderer replays its film from the pinned seed.
+    shapes::ShapeGraph shapeGraph_;
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;
-    std::string requestedSceneId_ = "neon_chrome_sea"; // the app's first style (FreeTier.FIRST_STYLE_ID)
+    std::string requestedSceneId_ = kFirstSceneId;
+    // The style this renderer draws as its layer, picked each frame (resolveLayerScene, viz/LayerPick) and
+    // written on the GL thread under stateLock_, so trimScenes keeps it resident.
     std::string layerSceneId_;
+    // Under stateLock_: the Customize › Layers setting (viz/LayerState) and this renderer's view of the store
+    // (followed live, pinned in an export).
+    layer_state::Layer layerSetting_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
-    // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
     layer_state::Follower layerFollower_;
-    std::string transitionId_ = "fade";
-    int64_t transitionDurationMs_ = 1200;
+    std::string transitionId_ = kFirstTransitionId;
+    int64_t transitionDurationMs_ = kFirstTransitionMs;
     std::atomic<bool> reducedMotion_{false};
     std::atomic<float> userScale_{1.0f};
     std::atomic<float> marchScale_{1.0f};
@@ -443,11 +470,19 @@ private:
     // The secondary targets' staging asks (#369): this frame's layer, and the next style's this frame
     // and the frame before.
     std::string layerAsked_;
+    // GL thread: the layer's source made a style id each frame, and the last one this renderer told
+    // Customize › Layers about (layer_state::publishShown, live renderers only).
+    layer_pick::Picker layerPicker_;
+    std::string layerShown_;
     std::string bornAsked_;
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
     bool trailsWereOn_ = false;
     DivePass divePass_;
+    // The physics layers (viz/physics): nothing made until a layer's param turns it on.
+    physics::PhysicsLayers physicsLayers_{loader_};
+    // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.
+    GLuint physicsOutgoingTex_ = 0;
     endless::Follow diveFollow_;
     float divePhase_ = 0.0f;
     // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.
@@ -460,7 +495,8 @@ private:
 
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
-    float postCyclePhase_ = 0.0f;
+    // Life's births in the composite run on this clock: Speed-integrated like a scene's uTime, wrapping with it.
+    float lifeClock_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;
@@ -485,6 +521,8 @@ private:
     // they were drawn at. redrawFrames_ lets a request the params do not carry (a MilkDrop preset) through.
     bool frameStill_ = false;
     const Scene* heldScene_ = nullptr;
+    // The rig's pose when heldScene_ last drew, so a held scene that draws the rig redraws when it moves.
+    CameraPose heldPose_{};
     const Scene* heldLayer_ = nullptr;
     std::array<float, SceneParams::kFieldCount> heldWire_{};
     int heldWidth_ = 0;
@@ -496,12 +534,12 @@ private:
     // stateLock_.
     float frameLayerMix_ = 0.5f;
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);
-    std::string frameTransitionId_ = "fade";
-    int64_t frameTransitionDurationMs_ = 1200;
+    std::string frameTransitionId_ = kFirstTransitionId;
+    int64_t frameTransitionDurationMs_ = kFirstTransitionMs;
     // The transition in flight, fixed when its switch happens (core/viz/TransitionChoice): the id "random"
     // draws one per change, warmed ahead as nextRandomTransition_, and an automatic change fades longer.
-    std::string switchTransitionId_ = "fade";
-    int64_t switchTransitionMs_ = 1200;
+    std::string switchTransitionId_ = kFirstTransitionId;
+    int64_t switchTransitionMs_ = kFirstTransitionMs;
     std::string nextRandomTransition_;
     uint64_t transitionRng_ = 0;
     uint64_t seenAutoMark_ = 0;

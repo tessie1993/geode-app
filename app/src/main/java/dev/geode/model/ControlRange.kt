@@ -1,8 +1,6 @@
 package dev.geode.model
 
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
-import kotlin.reflect.KProperty1
 
 /**
  * The range Customize's slider offers for a scene param. Native decides it (core/viz/ControlRange,
@@ -15,13 +13,7 @@ import kotlin.reflect.KProperty1
 object ControlRange {
     private val ranges = HashMap<String, ClosedFloatingPointRange<Float>>()
 
-    /**
-     * The control range of [param]. The property reference, not a string, makes a misspelt param a
-     * compile error; a [SceneParams] field the schema lacks throws, as its control would have no range.
-     */
-    fun of(param: KProperty1<SceneParams, *>): ClosedFloatingPointRange<Float> = of(param.name)
-
-    /** [of] by the param's name (its Kotlin property name); throws for a name the schema lacks. */
+    /** The control range of the param named [name]; throws for a name the schema lacks (`ParamNamesTest` checks the screens'). */
     fun of(name: String): ClosedFloatingPointRange<Float> =
         ranges.getOrPut(name) {
             val out = FloatArray(2)

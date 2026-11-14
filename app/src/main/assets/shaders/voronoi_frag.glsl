@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Voronoi: the flat cell field, built as a causeway. The plane's Voronoi
 // cells are extruded into basalt columns: a floor of them below, a ceiling of
@@ -43,7 +44,38 @@ out vec4 fragColor;
 // cells breathe and reshape as the flat ones did. Intensity and the rest of
 // the grade are lib_scene_grade's. Knobs (each neutral at 0.5): PULSE how far
 // a band lifts its column, TEXTURE the crack width, FLOW the seeds' wander,
-// TONE the hue, BUILD the walls' rise, SPACE the width of the open valley.
+// TONE which way the columns reach (a high melody lets the ceiling's columns
+// hang long and the floor's shrink, a low one grows the floor's up toward the
+// ceiling; and a small hue offset), BUILD the walls' rise, SPACE the width of
+// the open valley. The neighbour bound takes the longer side's factor, so it
+// holds either way.
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the causeway is a normalized input, mapped to its range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off, and a param at its
+// default 0 maps to its rest through shellMapS. Music reaches these only
+// through the knobs and params (the reaction matrix); none reads the sound.
+//
+//   input       driver             lo .. rest .. hi
+//   gLift       k0 PULSE           how far a full band lifts 0.84 .. 1.4 .. 1.96
+//   gGap        k1 TEXTURE         crack half-width 0.042 .. 0.07 .. 0.098
+//   sCore       k1 TEXTURE         seed core sharpness 16 .. 10 .. 6
+//   gAmp        Warp x k2 FLOW     seed wander 0.26 .. 0.36, times 0.8 .. 1 .. 1.2 (<= 0.38)
+//   gLean       k3 TONE            ceiling against floor -0.6 .. 0 .. 0.6
+//   gRise       k4 BUILD           the walls' rise 2.1 .. 3.0 .. 3.9
+//   sBank       k4 BUILD           the run up to full wall 4.5 .. 3.4 .. 2.4
+//   sBaseLen    k4 BUILD           a column's base length 0.15 .. 0.35 .. 0.7
+//   gWidth      k5 SPACE           the open valley 3.52 .. 4.4 .. 5.28
+//   sSlab       k5 SPACE           floor and ceiling from the axis 3.4 .. 4.0 .. 5.0
+//   sFog        k5 SPACE           fog density 0.09 .. 0.06 .. 0.035
+//   gDome       Morph              end-face dome 0 .. 0.6
+//   gRough      Turbulence         height roughness 1 .. 2.5 (at Turbulence 1.5)
+//
+// The cell size (2) stays a constant: 512 cells of it are the 1024 the z hash
+// and the eye's rebase wrap on. The columns go through its shell wrapper, so the
+// shell's spawn, fractal, front and back hooks reach them.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -65,10 +97,6 @@ out vec4 fragColor;
 /** Cells along z before the hash repeats: 512 * 2 = 1024 world units, which divides 8192. */
 #define VC_ZCELLS 512.0
 #define VC_ZWRAP 1024.0
-#define VC_FLOOR -4.0
-#define VC_CEIL 4.0
-/** Horizontal run from the open valley up to the full wall height. */
-#define VC_BANK 3.4
 /** The largest band value a column answers, so the neighbour bound holds. */
 #define VC_EQ_MAX 1.2
 #define VC_BUBBLE 0.9
@@ -83,7 +111,15 @@ float gRise;
 float gWidth;
 float gDome;
 float gRough;
+/** TONE: the ceiling columns' share against the floor's (0 at rest). */
+float gLean;
 vec3 gEye;
+/** Shape inputs (see the header): the wall's run, a column's base, the slabs, fog, the seed core. */
+float sBank;
+float sBaseLen;
+float sSlab;
+float sFog;
+float sCore;
 
 // Per map() call: the nearest cell.
 float gB;
@@ -148,15 +184,17 @@ vec4 voronoi(vec2 x, out float seedX) {
 }
 
 float wallAt(float ax) {
-    return smoothstep(gWidth, gWidth + VC_BANK, ax);
+    return smoothstep(gWidth, gWidth + sBank, ax);
 }
 
 /** A column's length above the slab before the band and the dome: rough base plus the wall. */
 float columnLen(float h, float h2, float wall) {
-    return 0.35 + 0.6 * h * gRough + gRise * wall * (0.55 + 0.45 * h2);
+    return sBaseLen + 0.6 * h * gRough + gRise * wall * (0.55 + 0.45 * h2);
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
+    float floorY = -sSlab;
+    float ceilY = sSlab;
     float seedX;
     vec4 v = voronoi(p.xz / VC_CELL, seedX);
     float b = v.x * VC_CELL;
@@ -172,20 +210,21 @@ float map(vec3 p) {
 
     float dome = gDome * min(b, VC_DOME_B);
     float slope = sqrt(1.0 + gDome * gDome);
-    float top = VC_FLOOR + columnLen(h3, h2, wall) + gLift * e;
-    float bot = VC_CEIL - columnLen(h4, h3, wall) - 0.6 * gLift * e;
+    float top = floorY + columnLen(h3, h2, wall) * (1.0 - gLean) + gLift * e;
+    float bot = ceilY - columnLen(h4, h3, wall) * (1.0 + gLean) - 0.6 * gLift * e;
     float side = gGap - b;
     float colF = max(side, (p.y - top - dome) / slope);
     float colC = max(side, (bot - dome - p.y) / slope);
 
     // The tallest (lowest) a neighbour could reach: a full rough base, a full
     // band, a full dome, one wall-step further out.
-    float reach = 0.35 + 0.6 * gRough + gRise * wallAt(ax + 2.0 * VC_CELL) + gLift * VC_EQ_MAX + gDome * VC_DOME_B;
-    float hiN = VC_FLOOR + reach;
-    float loN = VC_CEIL - reach;
+    float reach = (sBaseLen + 0.6 * gRough + gRise * wallAt(ax + 2.0 * VC_CELL)) * (1.0 + abs(gLean))
+                + gLift * VC_EQ_MAX + gDome * VC_DOME_B;
+    float hiN = floorY + reach;
+    float loN = ceilY - reach;
     float dN = max(b + gGap, min(p.y - hiN, loN - p.y));
 
-    float dSlab = min(p.y - VC_FLOOR, VC_CEIL - p.y);
+    float dSlab = min(p.y - floorY, ceilY - p.y);
     float dCol = min(colF, colC);
     float d = min(min(dCol, dN), dSlab);
     d = max(d, VC_BUBBLE - length(p - gEye));
@@ -199,6 +238,21 @@ float map(vec3 p) {
     return d;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The causeway as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -206,22 +260,23 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gLift = shellMap(shellKnob(0), 0.84, 1.4, 1.96);
+    gGap = shellMap(shellKnob(1), 0.042, 0.07, 0.098);
+    sCore = shellMap(shellKnob(1), 16.0, 10.0, 6.0);
+    gAmp = min(shellMapS(clamp(uWarp, 0.0, 1.0), 0.16, 0.26, 0.36) * shellMap(shellKnob(2), 0.8, 1.0, 1.2), 0.38);
+    gLean = shellMap(shellKnob(3), -0.6, 0.0, 0.6);
+    gRise = shellMap(shellKnob(4), 2.1, 3.0, 3.9);
+    sBank = shellMap(shellKnob(4), 4.5, 3.4, 2.4);
+    sBaseLen = shellMap(shellKnob(4), 0.15, 0.35, 0.7);
+    gWidth = shellMap(shellKnob(5), 3.52, 4.4, 5.28);
+    sSlab = shellMap(shellKnob(5), 3.4, 4.0, 5.0);
+    sFog = shellMap(shellKnob(5), 0.09, 0.06, 0.035);
+    gDome = shellMapS(clamp(uMorph, 0.0, 1.0), -0.6, 0.0, 0.6);
+    gRough = shellMapS(clamp(uTurbulence / 1.5, 0.0, 1.0), -0.5, 1.0, 2.5);
+
     vec2 uv = view();
-
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-
-    gAmp = min((0.26 + 0.1 * clamp(uWarp, 0.0, 1.0)) * (1.0 + 0.4 * kFlow), 0.38);
-    gLift = 1.4 * (1.0 + 0.8 * kPulse);
-    gGap = 0.07 * (1.0 + 0.8 * kTexture);
-    gRise = 3.0 * (1.0 + 0.6 * kBuild);
-    gWidth = 4.4 * (1.0 + 0.4 * kSpace);
-    gDome = 0.6 * clamp(uMorph, 0.0, 1.0);
-    gRough = 1.0 + clamp(uTurbulence, 0.0, 2.0);
 
     vec3 ro;
     vec3 rd;
@@ -230,6 +285,8 @@ void main() {
     // exact and invisible, and keeps z precise for the cells and the normals.
     ro.z = mod(ro.z, VC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * VC_CELL, false);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -282,7 +339,7 @@ void main() {
             // The flat style's cell, drawn on the column's end face: dim at the
             // seed's ring, a bright core at the seed, both by the cell's band.
             float face = smoothstep(0.6, 0.95, abs(n.y));
-            float core = exp(-gMd * 10.0) * gE * (1.0 + 1.5 * hat);
+            float core = exp(-gMd * sCore) * gE * (1.0 + 1.5 * hat);
             vec3 lit = cell * (0.1 + gE * 1.6) * smoothstep(0.0, 0.35, gMd) + cell * core;
             // The rim where the face meets the crack.
             float rim = exp(-max(gB - gGap, 0.0) * 18.0) * 0.35 * gE;
@@ -292,10 +349,10 @@ void main() {
             col = mix(shaft, lit * (0.55 + 0.45 * ao), face) + cell * rim * face
                 + pal(hue + 0.1) * fres * 0.12 + vec3(0.6) * spec * 0.25 * ao;
             // Kick light leaking up the shafts out of the cracks.
-            float fromSlab = gMat < 0.5 ? p.y - VC_FLOOR : VC_CEIL - p.y;
+            float fromSlab = gMat < 0.5 ? p.y + sSlab : sSlab - p.y;
             col += pal(hueBase + 0.6) * kick * 0.35 * exp(-fromSlab * 1.2) * (1.0 - face);
         }
-        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.06));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * sFog));
     }
 
     col *= 0.78 + 0.30 * swell;

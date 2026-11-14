@@ -120,27 +120,8 @@ JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlong stage, jstring sceneId, jfloatArray params,
                                                       jstring lfos, jstring adsrs, jfloatArray tuning, jstring reactions,
                                                       jboolean reducedMotion, jstring transitionId, jlong transitionMs) {
-    Utf8Chars scene(env, sceneId);
-    Utf8Chars transition(env, transitionId);
-    FloatElements paramData(env, params);
-    Utf8Chars lfoText(env, lfos);
-    Utf8Chars adsrText(env, adsrs);
-    Utf8Chars reactionText(env, reactions);
-    FloatElements tuningData(env, tuning);
-    if (reactions && !reactionText.get()) return;  // could not read the text: keep the last look
-    geode_stage_look look{};
-    look.scene_id = scene.get();
-    look.params = paramData.get();
-    look.param_count = paramData.length();
-    look.lfos = lfoText.get();
-    look.adsrs = adsrText.get();
-    look.tuning = tuningData.get();
-    look.tuning_count = tuningData.length();
-    look.reactions = reactionText.get();
-    look.reduced_motion = reducedMotion == JNI_TRUE ? 1 : 0;
-    look.transition_id = transition.get();
-    look.transition_ms = transitionMs;
-    geode_stage_set_look(stageOf(stage), &look);
+    geode::jni::LookArgs look(env, sceneId, params, lfos, adsrs, tuning, reactions, reducedMotion, transitionId, transitionMs);
+    if (look.ok()) geode_stage_set_look(stageOf(stage), look.get());
 }
 
 // Checked against the array's length and treated as a clear when it does not fit, so a stale width or height

@@ -11,6 +11,7 @@ import dev.geode.engine.bridge.GeodeNative
 data class AudioFxBand(
     val label: String,
     val levelMb: Int,
+    val levelLabel: String,
     val minMb: Int,
     val maxMb: Int,
 )
@@ -26,31 +27,10 @@ data class AudioFxState(
     val presetIndex: Int = -1,
     val bassBoost: Int = 0,
     val loudness: Int = 0,
+    val loudnessLabel: String = "",
     val bassMax: Int = 0,
     val loudnessMax: Int = 0,
 )
-
-object AudioFxFormat {
-    fun freqLabel(milliHz: Int): String {
-        val hz = milliHz / 1000
-        if (hz < 1000) return "$hz Hz"
-        val whole = hz / 1000
-        val tenth = (hz % 1000) / 100
-        return if (tenth == 0) "$whole kHz" else "$whole.$tenth kHz"
-    }
-
-    fun dbLabel(mB: Int): String {
-        val abs = if (mB < 0) -mB else mB
-        val whole = abs / 100
-        val tenth = (abs % 100) / 10
-        val num = if (tenth == 0) "$whole" else "$whole.$tenth"
-        return when {
-            mB > 0 -> "+$num dB"
-            mB < 0 -> "-$num dB"
-            else -> "0 dB"
-        }
-    }
-}
 
 /** A named set of band levels in millibels, low band first. */
 data class AudioFxPreset(
@@ -104,10 +84,8 @@ interface AudioFxLimits {
 }
 
 /**
- * Drives the native equalizer chain and remembers its settings.
- *
- * The chain lives inside the player's processor list, so it is always "attached"; [attach] is
- * kept for the audio-session callers and only records the id.
+ * Drives the native equalizer chain and remembers its settings. The chain lives inside the player's
+ * processor list, so there is no audio session to attach to or release.
  */
 class AudioFxController(
     private val prefs: SharedPreferences,
@@ -115,22 +93,8 @@ class AudioFxController(
     private val dsp: NativeDspProcessor,
     private val limits: AudioFxLimits = AudioFxLimits.Native,
 ) {
-    private var sessionId: Int = 0
-
-    val available: Boolean get() = true
-
-    val attached: Boolean get() = true
-
     init {
         dsp.update(restored())
-    }
-
-    fun attach(sessionId: Int) {
-        this.sessionId = sessionId
-    }
-
-    fun release() {
-        sessionId = 0
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -194,8 +158,9 @@ class AudioFxController(
             bands =
                 s.bandsMb.mapIndexed { band, mb ->
                     AudioFxBand(
-                        label = AudioFxFormat.freqLabel(NativeDspProcessor.bandCenterMilliHz(band)),
+                        label = GeodeNative.dspBandLabel(band),
                         levelMb = mb,
+                        levelLabel = GeodeNative.dspDbLabel(mb),
                         minMb = lo,
                         maxMb = hi,
                     )
@@ -204,6 +169,7 @@ class AudioFxController(
             presetIndex = prefs.getInt(KEY_PRESET, -1),
             bassBoost = s.bassBoost,
             loudness = s.loudnessMb,
+            loudnessLabel = GeodeNative.dspDbLabel(s.loudnessMb),
             bassMax = limits.max(GeodeNative.DSP_FX_BASS_BOOST),
             loudnessMax = limits.max(GeodeNative.DSP_FX_LOUDNESS),
         )

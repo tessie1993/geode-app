@@ -16,7 +16,7 @@ import org.junit.Test
 class ParamSchemaTest {
     @Test
     fun everySlotHoldsItsRowInOrder() {
-        assertEquals(187, ParamSchema.params.size)
+        assertEquals(202, ParamSchema.params.size)
         ParamSchema.params.forEachIndexed { slot, spec ->
             assertEquals(slot, spec.slot)
             assertSame(spec, ParamSchema[slot])
@@ -50,6 +50,15 @@ class ParamSchemaTest {
                 "pulse",
                 "shake",
                 "beatResponse",
+                "symmetry",
+                "kaleidoscope",
+                "palette2",
+                "paletteMix",
+                "palette2BaseOverride",
+                "palette2RangeOverride",
+                "paletteLut",
+                "colorCycle",
+                "cycleSpeed",
                 "flash",
                 "glitch",
                 "strobe",
@@ -70,19 +79,20 @@ class ParamSchemaTest {
             ),
             retired,
         )
-        val declared = SceneParams::class.java.declaredFields
-        val fields = declared.map { it.name }.toSet()
-        ParamSchema.params.forEach { assertEquals(it.name, !it.retired, it.name in fields) }
+        // A retired row is not a param: no edit may name it.
+        ParamSchema.params.filter { it.retired }.forEach { spec ->
+            assertTrue(spec.name, runCatching { SceneParams.DEFAULT.with(spec.name, 1f) }.isFailure)
+        }
     }
 
     @Test
     fun theBuiltInPalettesSpanThePaletteRange() {
-        // The names are the shell's labels; their colours are native. The index range must name every row.
-        for (field in listOf("palette", "palette2")) {
-            val range = requireNotNull(ParamSchema[field]).range
-            assertEquals(0f, range.start)
-            assertEquals((SceneParams.PALETTES.size - 1).toFloat(), range.endInclusive)
-        }
+        // The names are the shell's labels; their colours are native. The index range holds every listed row
+        // and the retired rows after them, which a saved look may still name.
+        val range = requireNotNull(ParamSchema["palette"]).range
+        assertEquals(0f, range.start)
+        assertEquals(20f, range.endInclusive)
+        assertTrue(ParamSchema.paletteNames.size - 1 < range.endInclusive)
     }
 
     @Test
@@ -96,7 +106,7 @@ class ParamSchemaTest {
 
     @Test
     fun parseReadsAMinimalTable() {
-        val text = "params|3|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\n"
+        val text = "params|4|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\nchoice|b|0|Off\n"
         assertEquals(
             listOf(
                 ParamSpec(0, "a", ParamSpec.Kind.FLOAT, 0.5f, 0f..1f, fades = true),
@@ -111,16 +121,29 @@ class ParamSchemaTest {
         val row = "param|0|a|FLOAT|0.5|0|1|FADE|LIVE"
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\n$row") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("catalogue|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|2\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|2\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("") }
     }
 
     @Test
     fun thePaletteNamesComeFromTheTable() {
-        assertEquals(21, SceneParams.PALETTES.size)
-        assertEquals("Spectrum", SceneParams.PALETTES.first())
-        assertEquals("Yellow", SceneParams.PALETTES.last())
+        // Rows 12..20 are retired: no picker names them.
+        assertEquals(12, ParamSchema.paletteNames.size)
+        assertEquals("Spectrum", ParamSchema.paletteNames.first())
+        assertEquals("Toxic", ParamSchema.paletteNames.last())
+    }
+
+    @Test
+    fun everyPickerHasOneLabelPerValue() {
+        val pickers = ParamSchema.params.filter { ParamSchema.choices(it.name).isNotEmpty() }
+        assertEquals(9, pickers.size)
+        pickers.forEach { assertEquals(it.name, 0f..(ParamSchema.choices(it.name).size - 1).toFloat(), it.range) }
+        assertEquals("Glide", ParamSchema.choices("camPath").first())
+        assertEquals("Pendulum", ParamSchema.choices("camPath").last())
+        assertEquals(listOf("Water dish", "Chladni plate"), ParamSchema.choices("cymaticsGeometry"))
+        assertTrue(ParamSchema.choices("speed").isEmpty())
     }
 }

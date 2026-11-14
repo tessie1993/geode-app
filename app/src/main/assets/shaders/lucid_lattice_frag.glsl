@@ -124,8 +124,6 @@ float gSheet;
 float gBead;
 float gTube;
 vec3 gEye;
-/** Set by map(): the surface field at the point. */
-float gF;
 
 /** The crystal at xy wavenumber `sxy`, phases scaled by `ps`. -1..1. */
 float quasi(vec3 q, float sxy, float ps) {
@@ -149,7 +147,8 @@ vec3 quasiGrad(vec3 q, float sxy, float ps) {
     return g * gInvN;
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (a.x the field at the warped point). */
+float mapAt(vec3 p, inout LucidHit found) {
     vec3 w = vec3(0.0);
     for (int i = 0; i < LAT_LEVELS; i++) {
         if (i >= gDepth) break;
@@ -160,29 +159,30 @@ float map(vec3 p) {
         w = gWarpA * mix(abs(g) - 0.3, g, gSmooth);
     }
     float f = quasi(p + w, gS, 1.0);
-    gF = f;
+    found.a.x = f;
     float d = min(gBead - f, abs(f) - gSheet) / gLip;
     d = smax(d, gTube - length(p.xy), 0.8);
     return max(d, LAT_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_lucid_field. */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_lucid_field
+
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     // 1 = smooth crystal (beads), 0 = fully ridged (sheets).
@@ -191,7 +191,7 @@ void main() {
     float beat = lucidBump(SND_KICK_ENV) * clamp(uIntensity, 0.0, 1.5);
 
     float waves = (uKaleido > 0.5 && uSymmetry >= 2.0) ? clamp(floor(uSymmetry + 0.5), 3.0, 11.0)
-                                                       : 7.0 + (uMorph >= 0.5 ? 2.0 : 0.0);
+                                                       : 7.0 + (N.depth >= 0.5 ? 2.0 : 0.0);
     gN = int(waves);
     gInvN = 1.0 / waves;
     gDepth = min(lucidDetail(1, 0), LAT_LEVELS);
@@ -216,8 +216,8 @@ void main() {
     float xyBound = gInvN / sin(LUCID_PI / (2.0 * waves));
 
     // The beat swells the crystal: a lower xy wavenumber opens the rosettes.
-    gS = LAT_S * (1.0 + 0.5 * kTexture) * (1.0 - clamp(0.08 + 0.12 * kPulse, 0.0, 0.2) * beat);
-    gWarpA = 0.28 * min(lucidChaos(), 2.5) * (1.0 + kFlow);
+    gS = LAT_S * lucidSpan(N.scale, 1.0, 0.75, 1.25) * (1.0 - clamp(0.08 + lucidSpan(N.emit, 0.0, -0.06, 0.06), 0.0, 0.2) * beat);
+    gWarpA = 0.28 * min(lucidChaos(), 2.5) * lucidSpan(N.flow, 1.0, 0.5, 1.5);
 
     // Nest levels, coarsest first, and the warp's Lipschitz bound (header).
     float lw = 0.0;
@@ -239,17 +239,19 @@ void main() {
     // (negative half-width) as it turns tonal; in between both are there.
     gBead = mix(1.6, 0.3, smoothstep(0.0, 0.65, smoothness));
     gSheet = 0.11 - 0.6 * smoothstep(0.35, 1.0, smoothness);
-    gTube = LAT_TUBE * (1.0 + 0.6 * kSpace);
+    gTube = LAT_TUBE * lucidSpan(N.reach, 1.0, 0.7, 1.3);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     // Every z term has a period dividing 16 (header), so this is exact.
     ro.z = mod(ro.z, LAT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
-    float hue0 = 0.3 * kTone + 0.03 * sin(t * 0.021);
-    float build = 1.0 + kBuild;
+    float hue0 = lucidSpan(N.tone, 0.0, -0.15, 0.15) + 0.03 * sin(t * 0.021);
+    float build = lucidSpan(N.glow, 1.0, 0.5, 1.5);
 
     float tm = 0.03;
     float hitT = -1.0;
@@ -263,7 +265,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > LAT_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float r = abs(d);
         bool fail = omega > 1.0 && (r + prevR) < stepLen;
         if (fail) {
@@ -288,10 +291,10 @@ void main() {
     vec3 col = fogCol;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        // Restore the hit's field after the normal taps.
-        map(p);
-        float field = gF;
+        vec3 n = lucidNormal(p, max(0.0015, 0.0012 * hitT));
+        // The hit at p again for the shading, after the normal taps.
+        fld = lucidField(p);
+        float field = fld.a.x;
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.25, 1.0);

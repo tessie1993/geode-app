@@ -66,6 +66,51 @@
 // Space: view() (zoom, rotation, drift) or the camera rig. At their defaults
 // every one of these is the identity.
 //
+// The style knobs reach each style through the normalization shell below.
+// Relief gives them lib_flame's, lib_opal's and lib_hollow's roles (k0 PULSE
+// the emission, k1 TEXTURE the grooves' width, k2 FLOW added to Warp's bend
+// through gTruchetFlow, which truchetWarp and truchetChaos read and which
+// stays 0 in the other eleven, k3 TONE the palette position, k4 BUILD the
+// glow, k5 SPACE the reach); the other eleven still spend them their own way.
+//
+// THE NORMALIZATION SHELL
+//
+// Every input a Truchet style is shaped by is read once, normalized, in
+// truchetIn() (TruchetIn): from the params and the six knobs and NEVER from
+// the sound frame, so what moves on the music is the reaction matrix, which
+// moves those params and knobs (the owner's rule: no hardcoded reactions).
+//
+//   input    driver      0..1, rest
+//   pulse    k0 PULSE    0.5   the emission, how far a hit swells or lifts a piece
+//   texture  k1 TEXTURE  0.5   a tube's, cord's, rail's, groove's or line's width
+//   flow     k2 FLOW     0.5   a light's or a stream's drift, a cord's girth, a haze
+//   tone     k3 TONE     0.5   the palette position
+//   build    k4 BUILD    0.5   the glow, a gap, a relief's height
+//   space    k5 SPACE    0.5   the reach, a scale, a radius, a layer's spacing
+//   warp     Warp        0     the Chaos bend (read clamped 0..2, as 0..1: twice it is the old read)
+//   chaos    Turbulence  0     the Chaos shiver (the same)
+//   detail   Morph       0     more cells, lanes, levels
+//   formula  uFormula    0     which of a style's formulas draws (TRUCHET_FORMULA)
+//
+// Each style calls truchetSetup() once in main() and maps every variable it is
+// shaped by from those inputs in one block (truchetAt, truchetShift): at rest
+// each is exactly the constant it was, so the look the family was tuned at is
+// unchanged. The sound terms each style already had stay on top. Counts (lanes,
+// threads, quadtree levels) stay whole: a count that moved would pop.
+//
+// THE FIELD
+//
+// Each style defines its distance as `TruchetHit truchetMap(vec3 p)`, with
+// `struct TruchetHit { float d; ... }` holding whatever its shading reads at the
+// hit, and includes lib_truchet_field after it. truchetField(p) there is the
+// one entry the march, the normal (truchetNormal) and the shading read the
+// tiling through; it writes no global, so a normal tap can never overwrite
+// what the hit saw. TRUCHET_GROW is where lib_grow applies (truchetGrow, in
+// lib_truchet_field).
+//
+// No sound band turns the eye's look (owner 2026-11-12, no style spins to the
+// music): grids hold still, and so does the look.
+//
 // ANTI-ALIASING
 //
 // Lines are drawn against a pixel footprint measured in cell units:
@@ -77,9 +122,10 @@
 // INCLUDE ORDER
 //
 // After lib_scene_uniforms (reads uTime, uIntensity, uMorph, uWarp,
-// uTurbulence). It reads no audio uniform itself - styles hand in floor(
-// floor(SND_HIT_TIME)), SND_ONSET_ENV and their own band levels - and it includes nothing,
-// because the include resolver does not de-duplicate.
+// uTurbulence and the knobs). It reads no audio uniform itself - styles hand in
+// floor(SND_HIT_TIME), SND_ONSET_ENV and their own band levels - and it
+// includes nothing, because the include resolver does not de-duplicate. The
+// style's truchetMap comes after it, then lib_truchet_field.
 
 #define TRUCHET_PI 3.14159265
 #define TRUCHET_TAU 6.2831853
@@ -142,15 +188,90 @@ float truchetMorph() {
     return clamp(uMorph, 0.0, 1.0);
 }
 
+// ---- the normalization shell (see the header) ---------------------------------
+
+/**
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * map F at p grown by truchetGrow (lib_truchet_field, defined after the style's
+ * map, where this expands): exactly F(p) while all four rest.
+ */
+#define TRUCHET_GROW(p, F) truchetGrow(p)
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
+#define TRUCHET_FORMULA 0.0
+
+/** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
+struct TruchetIn {
+    float pulse;
+    float texture;
+    float flow;
+    float tone;
+    float build;
+    float space;
+    float warp;
+    float chaos;
+    float detail;
+    float formula;
+};
+
+/** Every input from the params and the knobs, never from the sound frame. */
+TruchetIn truchetIn() {
+    TruchetIn n;
+    n.pulse = clamp(uKnob[0], 0.0, 1.0);
+    n.texture = clamp(uKnob[1], 0.0, 1.0);
+    n.flow = clamp(uKnob[2], 0.0, 1.0);
+    n.tone = clamp(uKnob[3], 0.0, 1.0);
+    n.build = clamp(uKnob[4], 0.0, 1.0);
+    n.space = clamp(uKnob[5], 0.0, 1.0);
+    n.warp = 0.5 * clamp(uWarp, 0.0, 2.0);
+    n.chaos = 0.5 * clamp(uTurbulence, 0.0, 2.0);
+    n.detail = truchetMorph();
+    n.formula = TRUCHET_FORMULA;
+    return n;
+}
+
+/** This frame's inputs (truchetSetup). */
+TruchetIn gTruchetIn;
+
+/** Reads the inputs once, first thing in main(); the style maps its variables from what it returns. */
+TruchetIn truchetSetup() {
+    gTruchetIn = truchetIn();
+    return gTruchetIn;
+}
+
+/** A knob input on its range: `rest` exactly at n = 0.5, rest * (1 -+ span) at n = 0 and 1. */
+float truchetAt(float n, float rest, float span) {
+    return rest * (1.0 + span * (2.0 * n - 1.0));
+}
+
+/** A knob input as an offset: exactly 0 at n = 0.5, -+ span / 2 at n = 0 and 1. */
+float truchetShift(float n, float span) {
+    return span * (n - 0.5);
+}
+
+/**
+ * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles; 0 in
+ * every other style, where the bend is what it always was.
+ */
+float gTruchetFlow = 0.0;
+
+/** Warp's share of the bend, 0..2.25: the slider, FLOW added, never below none. */
+float truchetWarpShare() {
+    return max(2.0 * gTruchetIn.warp + 0.5 * gTruchetFlow, 0.0);
+}
+
 /**
  * Chaos: a slow, low-frequency bend of the plane in CELL units, applied before
- * tiling so the paths meander but stay joined. The largest slope is about 0.9
- * at the top of both sliders (0.8 * 2 * 0.31 + 0.18 * 2 * 1.13), under 1, so
- * the map never folds. Identity at default.
+ * tiling so the paths meander but stay joined. The largest slope is about 0.97
+ * at the top of both sliders and FLOW (0.8 * 2.25 * 0.31 + 0.18 * 2 * 1.13),
+ * under 1, so the map never folds. Identity at default.
  */
 vec2 truchetWarp(vec2 p, float t) {
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * truchetWarpShare();
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return p;
     p += a * vec2(sin(p.y * 0.31 + t * 0.21), sin(p.x * 0.29 - t * 0.17 + 1.3));
     p += b * vec2(sin(p.y * 1.13 - t * 0.37 + 2.1), sin(p.x * 1.07 + t * 0.33));
@@ -162,7 +283,7 @@ vec2 truchetWarp(vec2 p, float t) {
  * is periodic (a tunnel's angle) and must build its own wrap-safe bend.
  */
 float truchetChaos() {
-    return 0.8 * clamp(uWarp, 0.0, 2.0) + 0.3 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.8 * truchetWarpShare() + 0.3 * (2.0 * gTruchetIn.chaos);
 }
 
 /**
@@ -179,7 +300,7 @@ float truchetBreath(float bass) {
  * is where a style's hue variation comes from: colour keyed to the cell id
  * would draw the very grid the arcs are hiding.
  */
-float truchetField(vec2 p, float t) {
+float truchetHue(vec2 p, float t) {
     float a = sin(p.x * 0.23 + 1.7 * sin(p.y * 0.17 + t * 0.05) + t * 0.03);
     float b = sin(p.y * 0.21 - p.x * 0.07 - t * 0.04 + 1.9);
     return 0.5 * (a + b);

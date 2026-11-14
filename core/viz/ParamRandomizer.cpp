@@ -59,15 +59,12 @@ int counted(Rng& r, ParamSlot slot) {
     return r.n(static_cast<int>(m.rollLo), static_cast<int>(m.rollHi));
 }
 
-// The kaleidoscope's folds a roll picks from (SceneParams.SYMMETRY_FOLDS less 0, the off).
-constexpr int kFolds[] = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
-
 // What each roll does with its range: how often it moves a field at all, a coin for a switch, the
 // palette's overrides cleared. The fields a roll owns are the rows its key labels (rolledKeys).
 const std::vector<Roll>& rolls() {
     using T = Tab;
     // The roll ranges of brightness, contrast, intensity and bloom stop at the flash clamp's
-    // (1 + kMaxFlashDepth, kMaxFlashDepth): above them a roll is invisible.
+    // (1 + kMaxFlashDepth, kMaxBloom): above them a roll is invisible.
     static const std::vector<Roll> kRolls = {
         {T::Motion, "Speed", [](SceneParams& p, Rng& r) { p.speed = drawn(r, ParamSlot::speed); }},
         {T::Motion, "Zoom", [](SceneParams& p, Rng& r) { p.zoom = drawn(r, ParamSlot::zoom); }},
@@ -88,10 +85,11 @@ const std::vector<Roll>& rolls() {
         {T::Shape, "Ripple", [](SceneParams& p, Rng& r) { p.ripple = maybe(r, 0.4f, ParamSlot::ripple); }},
         {T::Shape, "Morph", [](SceneParams& p, Rng& r) { p.morph = maybe(r, 0.5f, ParamSlot::morph); }},
         {T::Shape, "Twist", [](SceneParams& p, Rng& r) { p.twist = maybe(r, 0.4f, ParamSlot::twist); }},
+        // On three times in ten, at a count from kSymmetryFolds; else off (1): the old switch's odds and draws.
         {T::Shape, "Kaleidoscope",
          [](SceneParams& p, Rng& r) {
-             p.kaleidoscope = r.chance(0.3f);
-             if (p.kaleidoscope) p.symmetry = kFolds[r.below(static_cast<int>(std::size(kFolds)))];
+             const auto& folds = SceneParams::kSymmetryFolds;
+             p.kaleidoFolds = r.chance(0.3f) ? static_cast<float>(folds[static_cast<size_t>(r.below(static_cast<int>(folds.size())))]) : 1.0f;
          }},
         {T::Shape, "Tile", [](SceneParams& p, Rng& r) { p.tile = r.chance(0.25f) ? drawn(r, ParamSlot::tile) : 1.0f; }},
         {T::Shape, "Pixelate", [](SceneParams& p, Rng& r) { p.pixelate = maybe(r, 0.15f, ParamSlot::pixelate); }},
@@ -114,28 +112,18 @@ const std::vector<Roll>& rolls() {
          [](SceneParams& p, Rng& r) { p.milkdropBlendPresets = r.chance(0.35f); }},
 
         // A rolled palette replaces a user-made one: the custom hue overrides and your colours go back to unset.
+        // It deals the listed built-ins only, never a retired row (SceneParams::kListedPalettes).
         {T::Color, "Palette",
          [](SceneParams& p, Rng& r) {
-             p.palette = choice(r, ParamSlot::palette);
+             p.palette = r.below(SceneParams::kListedPalettes);
              p.paletteBaseOverride = SceneParams::kUnsetOverride;
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
              p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;
          }},
-        {T::Color, "Colour map",
-         [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? counted(r, ParamSlot::paletteLut) : SceneParams::kNoPaletteLut; }},
-        {T::Color, "Palette 2",
-         [](SceneParams& p, Rng& r) {
-             p.palette2 = choice(r, ParamSlot::palette2);
-             p.palette2BaseOverride = SceneParams::kUnsetOverride;
-             p.palette2RangeOverride = SceneParams::kUnsetOverride;
-         }},
-        {T::Color, "Palette blend", [](SceneParams& p, Rng& r) { p.paletteMix = maybe(r, 0.5f, ParamSlot::paletteMix); }},
         {T::Color, "MilkDrop palette tint",
          [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
         {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
         {T::Color, "Hue range", [](SceneParams& p, Rng& r) { p.hueRange = drawn(r, ParamSlot::hueRange); }},
-        {T::Color, "Color cycle", [](SceneParams& p, Rng& r) { p.colorCycle = r.chance(0.3f); }},
-        {T::Color, "Cycle speed", [](SceneParams& p, Rng& r) { p.cycleSpeed = drawn(r, ParamSlot::cycleSpeed); }},
         {T::Color, "Saturation", [](SceneParams& p, Rng& r) { p.saturation = drawn(r, ParamSlot::saturation); }},
         {T::Color, "Brightness", [](SceneParams& p, Rng& r) { p.brightness = drawn(r, ParamSlot::brightness); }},
         {T::Color, "Contrast", [](SceneParams& p, Rng& r) { p.contrast = drawn(r, ParamSlot::contrast); }},
@@ -291,6 +279,12 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"paletteAmount6", "a palette stack amount, rolled with the stack"},
         {"paletteAmount7", "a palette stack amount, rolled with the stack"},
         {"paletteShift", "where along the palette stack, rolled with the stack"},
+        {"layerMix", "a modulation offset on Customize › Layers' mix, which is the user's"},
+        // The physics layers (viz/physics): off in every look; the user's modulation turns them on.
+        {"simFluid", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simParticles", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simForce", "how hard the user wants the physics layers stirred"},
+        {"simLayerOrder", "where the user wants the fluid layer, behind or over the style"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},
@@ -300,6 +294,19 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
         {"motionDrift", "Spin: whether a turning style spins is the user's choice"},
+        // Grow and layers: shapes the music drives through the reaction routes, waves and knobs; a roll that set
+        // one would hold the subject swollen or doubled for good, so they start as designed.
+        {"spawn", "a shape the music drives through the routes"},
+        {"fractal", "a shape the music drives through the routes"},
+        {"frontLayer", "a shape the music drives through the routes"},
+        {"backLayer", "a shape the music drives through the routes"},
+        {"formula", "which of a style's formulas draws it: the music steps it through the routes"},
+        {"shapes", "how far the shape graph melts into the form: off until the user, a knob or a route raises it"},
+        // The shading pass (lib_shade): the user's light and colour on the raymarched families, which the routes drive.
+        {"shadow", "how dark the soft shadows fall: the user's, which the routes, waves and knobs move"},
+        {"escapeColor", "how far the escape moves the palette: the user's, which the routes, waves and knobs move"},
+        // Births (viz/Births): 0 draws every style as before, so a roll never brings them in.
+        {"life", "how much the picture is born and dies: off until the user, a knob or a route raises it"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},
@@ -333,6 +340,19 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"rippleOverlaySpecular", "retired"},
         {"formDrive", "retired"},
         {"motionOrbit", "retired"},
+        // The Kaleidoscope switch and its count, retired for kaleidoFolds (rolled under Kaleidoscope).
+        {"symmetry", "retired"},
+        {"kaleidoscope", "retired"},
+        // Palette 2 and Palette blend, retired: the palette stack draws more than one palette.
+        {"palette2", "retired"},
+        {"paletteMix", "retired"},
+        {"palette2BaseOverride", "retired"},
+        {"palette2RangeOverride", "retired"},
+        // Color cycle and Cycle speed, retired: the old hue cycle.
+        {"colorCycle", "retired"},
+        {"cycleSpeed", "retired"},
+        // Colour map, retired: the colour maps are palettes of the stack.
+        {"paletteLut", "retired"},
     };
     return kNever;
 }

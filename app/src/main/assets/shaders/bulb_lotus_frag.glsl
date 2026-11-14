@@ -67,7 +67,6 @@ const float BL_SPIN = -3.0 * CAM_SPIN_UNIT;
 float gLat;
 float gTwirl;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: blush, peach and a pale jade, all kept light.
 vec3 tone(float t) {
@@ -102,12 +101,14 @@ float lotusDE(vec3 p, out vec4 tr) {
     return 0.5 * log(r) * r / dr;
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = lotusDE(bulbChaos(p), tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -128,6 +129,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, aim, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.03 * sin(bulbTime() * 0.013);
 
@@ -135,20 +138,23 @@ void main() {
     float used = 0.0;
     float veil = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BL_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BL_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BL_BOUND + growSlack(BL_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BL_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             // Every step near a petal lights the air a little: the veils.
             veil += exp(-max(d, 0.0) * BL_GLOW_K) * 0.03;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.8, eps * 0.5);
@@ -165,7 +171,8 @@ void main() {
         float heart = exp(-trap.z * 4.0);
         float thin = (1.0 - smoothstep(0.0, 0.4, trap.y));
         float fold = smoothstep(0.25, 0.85, used / max(uSteps, 1.0));
-        vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x)), vec3(1.0), 0.3);
+        // Escape colour (lib_shade): the smoothed escape count moves the petal along its ramp.
+        vec3 petal = mix(tone(hue + 0.35 * trap.y + 0.25 * sqrt(trap.x) + shadeEscape(trap.w)), vec3(1.0), 0.3);
         col = petal * (0.48 + 0.30 * thin + 0.25 * heart);
         col += glowCol * (0.35 * fold + 0.25 * heart * thin);
         col += glowCol * min(veil, 1.0) * 0.2;

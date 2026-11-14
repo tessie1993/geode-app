@@ -15,7 +15,7 @@ enum class CaptureFailure {
 }
 
 class PlaybackCapture(
-    ring: dev.geode.engine.audio.SampleRing,
+    ring: Long,
 ) : AudioCapturePump(ring, DEFAULT_RATE) {
     @Volatile
     private var channelCount: Int = 1
@@ -39,7 +39,7 @@ class PlaybackCapture(
                 .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                 .build()
         val (rec, channels) =
-            openFirst(deviceRateHz = 0, stereo = true) { rate, mask, encoding, bytes ->
+            openFirst { rate, mask, encoding, bytes ->
                 @Suppress("MissingPermission")
                 AudioRecord
                     .Builder()

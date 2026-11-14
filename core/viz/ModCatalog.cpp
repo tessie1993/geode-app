@@ -18,14 +18,16 @@ struct Words {
 // One label per LfoTarget, in wire order; a retired target has none.
 constexpr std::array<const char*, modtargets::kTargetCount> kTargetLabels{{
     "None", "Speed", "Zoom", "Rotation", "Sway", "", "Drift X", "Drift Y", "Warp", "Ripple", "Morph", "Twist", "Tile",
-    "Pixelate", "Posterize", "Hue shift", "Palette blend", "Saturation", "Brightness", "Intensity", "Bloom",
+    "Pixelate", "Posterize", "Hue shift", "Palette 2 amount", "Saturation", "Brightness", "Intensity", "Bloom",
     "Temperature", "Turbulence", "Chroma AB", "Vignette", "", "Fisheye", "Particle size", "Trail length", "Fluid curl",
     "Fluid splat radius", "Fluid splat force", "Fluid glow", "Fluid fade", "Catch pull", "Catch radius", "Flow strength",
     "", "", "Wave 1 speed", "Wave 1 depth", "Wave 2 speed", "Wave 2 depth", "Wave 3 speed", "Wave 3 depth",
     "Camera speed", "Camera swing", "Camera push", "Camera turn", "Camera tilt", "Camera roll", "Camera FOV",
     "Camera shake", "Swirl", "Push", "Dive", "Dive twist", "Dive aim sideways", "Dive aim up and down", "Macro knob",
     "Palette 1 amount", "Palette 3 amount", "Palette 4 amount", "Palette 5 amount", "Palette 6 amount",
-    "Palette 7 amount", "Palette 8 amount", "Palette position",
+    "Palette 7 amount", "Palette 8 amount", "Palette position", "Kaleidoscope", "Layer mix",
+    "Fluid layer", "Particle field", "Physics force", "Fluid in front", "Spawn", "Fractal", "Front layer", "Back layer",
+    "Formula", "Shapes", "Soft shadows", "Escape colour", "Life",
 }};
 
 constexpr std::array<const char*, kSourceCount> kSourceLabels{{
@@ -46,7 +48,7 @@ constexpr std::array<Words, kBandCount> kBands{{
     {"WIDTH", "Stereo width"},
 }};
 constexpr std::array<Words, kReactModeCount> kModes{{
-    {"FOLLOW", "Follow"}, {"STEP", "Step"}, {"SPIN", "Spin"}, {"JUMP", "Jump"}, {"TOGGLE", "Toggle"},
+    {"FOLLOW", "Follow"}, {"STEP", "Step"}, {"SPIN", "Add up"}, {"JUMP", "Jump"}, {"TOGGLE", "Toggle"}, {"JUMP_SETTLED", "Jump, settled"},
 }};
 
 // The reaction sources' groups (ReactSourceInfo::group), in the order the source picker lists them.

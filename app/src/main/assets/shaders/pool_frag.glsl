@@ -124,7 +124,9 @@ vec3 skyColour(vec3 r, float hue) {
 }
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
     float here = clamp(SND_PRESENCE, 0.0, 1.0);
     gGain = here * vec3(0.4 + 0.6 * min(sndLevel(SND_VOL_ATT), 1.0),
                         0.5 + 0.5 * min(sndLevel(SND_TREBLE_ATT), 1.0),

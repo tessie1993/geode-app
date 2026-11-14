@@ -13,6 +13,7 @@
 #include "viz/ModDocument.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
+#include "viz/ParamsPalette.hpp"
 #include "viz/TouchGesture.hpp"
 #include "viz/TouchTransform.hpp"
 #include "viz/WaveRandomizer.hpp"
@@ -86,6 +87,29 @@ float geode_params_palette_range(int palette, float range_override) {
     p.palette = palette;
     p.paletteRangeOverride = range_override;
     return p.paletteRange();
+}
+
+int geode_params_uses_custom_palette(const float* frame) {
+    return frame && geode::viz::palette_params::usesCustomPalette(SceneParams::fromWire(frame)) ? 1 : 0;
+}
+
+int geode_params_palette_stops(const float* frame, int* out) {
+    return frame ? geode::viz::palette_params::stopsOf(SceneParams::fromWire(frame), out) : 0;
+}
+
+void geode_params_clear_custom_palette(const float* in, float* out) {
+    if (!in || !out) return;
+    geode::viz::palette_params::withoutCustomPalette(SceneParams::fromWire(in)).toWire(out);
+}
+
+void geode_params_apply_stops(const float* in, const int* stops, int count, float* out) {
+    if (!in || !out) return;
+    geode::viz::palette_params::withStops(SceneParams::fromWire(in), stops, count).toWire(out);
+}
+
+void geode_params_apply_gradient(const float* in, float base, float span, float* out) {
+    if (!in || !out) return;
+    geode::viz::palette_params::withGradient(SceneParams::fromWire(in), base, span).toWire(out);
 }
 
 const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }

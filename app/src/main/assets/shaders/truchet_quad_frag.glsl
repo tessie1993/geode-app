@@ -116,10 +116,17 @@ float gKickH;
 float gHmax;
 float gLip;
 vec3 gEye;
-/** Set by map(): the wall the nearest term came from, its (u, z), and the gap to the corridor's edge. */
-float gWall;
-vec2 gUZ;
-float gCorner;
+
+/**
+ * What the field holds at a point (lib_truchet_field): the distance, the wall the nearest term came
+ * from, its (u, z), and the gap to the corridor's edge.
+ */
+struct TruchetHit {
+    float d;
+    float wall;
+    vec2 uz;
+    float corner;
+};
 
 /** The leaf tile holding q: xy = its lower-left corner, z = its level (size 2^-level). Ids wrap along z. */
 vec3 leafAt(vec2 q) {
@@ -203,8 +210,8 @@ float quadInk(vec2 p, float w) {
  */
 vec2 wallCell(float wall, vec2 uz) {
     vec2 c = vec2(uz.x * TQ_CELL + 19.0 * wall, uz.y * TQ_CELL);
-    float a = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float b = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float a = 0.8 * (2.0 * gTruchetIn.warp);
+    float b = 0.18 * (2.0 * gTruchetIn.chaos);
     if (a + b <= 1e-4) return c;
     c.x += a * sin(c.y * (TRUCHET_TAU / 32.0) + gT * 0.21);
     c.y += a * 0.5 * sin(c.x * 0.29 - gT * 0.17 + 1.3);
@@ -239,23 +246,24 @@ float wallU(float wall, vec2 q) {
     return -q.y;
 }
 
-float map(vec3 p) {
+TruchetHit truchetMap(vec3 p) {
+    TruchetHit h;
     vec2 q = p.xy;
     float ax = abs(q.x);
     float ay = abs(q.y);
     bool side = ax > ay;
     float m = max(ax, ay);
     float mo = min(ax, ay);
-    gCorner = gA - mo;
+    h.corner = gA - mo;
 
     float wall = wallFor(q, side);
-    gWall = wall;
-    gUZ = vec2(wallU(wall, q), p.z);
+    h.wall = wall;
+    h.uz = vec2(wallU(wall, q), p.z);
 
     float top = gA - gHmax;
     float d = top - m;
     if (d < TQ_NEAR) {
-        d = (gA - wallHeight(wall, gUZ) - m) / gLip;
+        d = (gA - wallHeight(wall, h.uz) - m) / gLip;
         // Near an edge of the square the other wall can be the nearer one.
         if (top - mo < TQ_NEAR) {
             float w2 = wallFor(q, !side);
@@ -263,21 +271,18 @@ float map(vec3 p) {
             float d2 = (gA - wallHeight(w2, uz2) - mo) / gLip;
             if (d2 < d) {
                 d = d2;
-                gWall = w2;
-                gUZ = uz2;
+                h.wall = w2;
+                h.uz = uz2;
             }
         }
     }
     // The shell's outer face (a Chebyshev gap: never more than the true one).
     d = max(d, m - (gA + TQ_SHELL));
-    return max(d, TQ_BUBBLE - length(p - gEye));
+    h.d = max(d, TQ_BUBBLE - length(p - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 vec3 farGlow(vec3 rd, float hue, float swell, float build) {
     vec3 col = pal(hue + 0.62) * 0.03;
@@ -289,26 +294,29 @@ vec3 farGlow(vec3 rd, float hue, float swell, float build) {
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 1024 (see the header), so this
     // shift is exact and invisible, and keeps highp z precise far down the travel.
     ro.z = mod(ro.z, TQ_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     float t = truchetTime();
     gT = t;
     float e = truchetEnergy();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     gHits = floor(SND_ONSET_COUNT);
     gP1 = 0.3 + 0.45 * morph;
     gP2 = 0.2 + 0.5 * morph;
@@ -321,8 +329,8 @@ void main() {
 
     // The step bound (see the header): colour slope 1.5 / TQ_W per cell, in
     // world units, through the Chaos shears' stretch, plus the kick falloff.
-    float wa = 0.8 * clamp(uWarp, 0.0, 2.0);
-    float wb = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    float wa = 0.8 * (2.0 * gTruchetIn.warp);
+    float wb = 0.18 * (2.0 * gTruchetIn.chaos);
     float stretch = (1.0 + 0.197 * wa) * (1.0 + 0.145 * wa) * (1.0 + 0.786 * wb) * (1.0 + 0.642 * wb);
     float slope = gHmax * (1.5 / TQ_W) * TQ_CELL * stretch + 0.2 * gKickH;
     gLip = sqrt(1.0 + slope * slope);
@@ -335,7 +343,7 @@ void main() {
     for (int i = 0; i < TQ_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        float d = map(ro + rd * tm);
+        float d = truchetField(ro + rd * tm).d;
         float eps = 0.0006 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -349,12 +357,12 @@ void main() {
     vec3 col = sky;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        // Restore the hit wall's globals after the normal taps.
-        map(p);
-        float wall = gWall;
-        vec2 uz = gUZ;
-        float corner = gCorner;
+        vec3 n = truchetNormal(p, max(0.0015, 0.0012 * hitT));
+        // What the field holds at the hit: the wall, its (u, z), the gap to the corner.
+        TruchetHit hit = truchetField(p);
+        float wall = hit.wall;
+        vec2 uz = hit.uz;
+        float corner = hit.corner;
 
         // The colour is redrawn with the bevel widened to the pixel footprint,
         // so far tiles soften instead of shimmering.

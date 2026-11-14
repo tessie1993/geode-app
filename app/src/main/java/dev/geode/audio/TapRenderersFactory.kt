@@ -13,7 +13,6 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioOutputProvider
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.geode.audio.dsp.MvzAudioProcessorChain
-import dev.geode.engine.audio.SampleRing
 
 /**
  * The player's renderers, with the tap first in the audio chain and the choice of what plays the
@@ -35,7 +34,7 @@ import dev.geode.engine.audio.SampleRing
 class TapRenderersFactory(
     context: Context,
     private val sink: TeeAudioProcessor.AudioBufferSink,
-    private val ring: SampleRing,
+    private val ring: Long,
     private val playout: Long,
     private val dsp: List<AudioProcessor> = emptyList(),
     private val nativeOutput: () -> Boolean = { false },

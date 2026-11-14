@@ -18,7 +18,7 @@
 // against, and the shell only draws what it says. Every control the panel shows lands in exactly
 // one section (core/tests/customize_test proves it against randomizer::rolledKeys()).
 //
-// A control is named by its ParamKeys string, the key the user locks by. Panel pieces that are not
+// A control is named by its Customize key, the key the user locks by. Panel pieces that are not
 // one SceneParams value (the macro bank's knobs, the moment rows, the route editor, shader code) are named
 // "@<id>"; the shell draws each one with the composable it already has.
 //
@@ -27,7 +27,7 @@
 namespace geode::viz::customize {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-constexpr int kTextVersion = 1;
+constexpr int kTextVersion = 2;
 
 // In panel order. Names match Kotlin's CustomizeCategory.
 enum class Category { QuickKnobs, Look, Shape, Motion, Dive, Camera, Music, Effects, Liquid, Engine, Expert };
@@ -71,6 +71,11 @@ const std::vector<HeldControl>& heldControls();
 std::optional<Category> categoryNamed(std::string_view name);
 const char* name(Category category);
 const char* name(Show show);
+
+// The words the panel shows: a category's tab title, and a section's group header by its id (the same id
+// in two categories, "basics", reads the same). The shell keeps no words of its own for either.
+const char* title(Category category);
+std::string sectionTitle(std::string_view sectionId);
 
 // A kept category, after MilkDrop's mash-up bins, each of which can be locked against the next
 // random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
@@ -135,8 +140,8 @@ int changedCount(const SceneParams& current);
 
 // The map as the shell reads it. Rows, '|'-separated, one per line, in this order:
 //   customize|<kTextVersion>
-//   category|<CATEGORY>|<SHOW>                        panel order
-//   section|<CATEGORY>|<id>|BASICS or PRO|<SHOW>|<key>,<key>,...   sections() order
+//   category|<CATEGORY>|<SHOW>|<title>                        panel order
+//   section|<CATEGORY>|<id>|BASICS or PRO|<SHOW>|<key>,<key>,...|<title>   sections() order
 // Built once; the reference lives for the process.
 const std::string& text();
 

@@ -71,15 +71,52 @@
 // amplitude, so the eye is above the land for every input, and no style
 // needs a per-pixel ground probe.
 //
-// THE NORMAL is central differences on h() (four height reads), through the
-// TERRA_NORMAL macro: a macro because it has to call the style's own height
-// function. The march may use fewer octaves than the normal: lighting the
-// coarse surface with the fine normal is the cheap way to get detail.
+// THE FIELD. Each style defines its heightfield as `float terraMap(vec2 xz)`
+// and then includes lib_terra_field, whose terraField(xz) is the one entry the
+// style's march, normal and shading read the land through (no shader declares
+// a function ahead of its body, so it comes after the map, as the newer
+// families' marches do). terraField writes no global. It multiplies the map by
+// the relief (see the shell below) and is where lib_grow applies once that
+// branch merges (TERRA_GROW). THE NORMAL is central differences on it
+// (terraNormal, four height reads).
 //
-// INCLUDE ORDER: last, after lib_scene_uniforms and lib_camera (terraFly). It
-// reads uTime, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist,
-// each only inside the helper that needs it. No audio uniform is read here:
-// what the music moves is each style's business.
+// INCLUDE ORDER: after lib_scene_uniforms and lib_camera (terraFly); then the
+// style's terraMap, then lib_terra_field. Every style calls terraSetup() once,
+// first thing after view(). The library reads uTime, uIntensity, uMorph,
+// uSteps, uWarp, uTurbulence, uTwist and the style knobs, the shaping ones only
+// in terraIn(). What the music moves is each style's business.
+//
+// ---- the normalization shell ------------------------------------------------
+//
+// Every variable a landscape is shaped by is one normalized input (TerraIn,
+// terraIn()), read from the params and the six knobs and NEVER from the sound
+// frame: what moves on the music is the reaction matrix, which moves those
+// params and knobs (the owner's rule: no hardcoded reactions). A knob input is
+// 0..1 resting at exactly 0.5 (Note & key off); an amount (Warp, Morph,
+// Turbulence) 0..1 resting at 0, its default. terraSetup() maps the shared
+// ones to their ranges in one place (terraAt, terraShift), and a style maps its
+// own from gTerraIn in one block of its main(): at rest each is exactly the
+// constant it was, so the look the family was tuned at is unchanged. The sound
+// terms each style already had stay on top of the mapped value.
+//
+//   input    driver                     what it moves (rest)
+//   relief   k4 BUILD                   the land's height, x0.85..1.15 (1): the field,
+//                                       the slab's bound and the eye rise with it
+//   grain    k1 TEXTURE                 up to a third of an octave (0)
+//   detail   Morph                      up to one octave more (0)
+//   warp     Warp + k2 FLOW + Turb.     the Chaos warp of the ground plane (0)
+//   twist    Twist                      which way the warp turns (0)
+//   width    k1 TEXTURE                 a style's feature width: a channel, a crack,
+//                                       a vein, a ripple, a line, a contour (x1)
+//   level    k2 FLOW                    a style's water, lake or snow line (0)
+//   reach    k5 SPACE                   the fog's reach, the orbit's radius (x1)
+//   glow     k4 BUILD                   the sun's glow in the haze (x1)
+//   emit     k0 PULSE                   the sky's glow and the stars (x1)
+//   tone     k3 TONE                    the palette position, terraPal (0)
+//   formula  uFormula (TERRA_FORMULA)   which of a style's formulas draws (0: its first)
+//
+// Counts (tiers, shelves, terrace levels) stay whole and each style's own: a
+// count that moved would pop a step in or out.
 
 #define TERRA_TAU 6.2831853
 /** World-z tile. A power of two that divides the rig's 8192 travel wrap. */
@@ -101,6 +138,121 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 // (uWarp, uTurbulence, uTwist) warps the ground plane before the field reads
 // it (terraChaos), Energy (uIntensity) scales how far the music moves the
 // land, Colour is pal(), Space is the rig.
+//
+// The style knobs (uKnob), with the roles lib_flame, lib_opal and lib_hollow
+// give them as far as a landscape has them, read through the normalization
+// shell (terraIn), so with Note & key reactions off every one is exactly at
+// its rest: k0 PULSE the emission of the sun's glow and the stars (terraSky,
+// terraStars), k1 TEXTURE the ground's grain (terraOctaves) and each style's
+// feature width, k2 FLOW added to Warp's bend (terraChaosAmp) and each style's
+// water or snow line, k3 TONE the palette position (terraPal), k4 BUILD the
+// relief and the sun's glow in the fog (terraFog), k5 SPACE the reach
+// (terraFog's density divides by it).
+//
+// No sound band turns the eye's look (owner 2026-11-12, no style spins to the
+// music): landscapes hold still, and so does the look.
+
+// ---- the normalization shell (see the header) -------------------------------
+
+/**
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * height F at xz grown by terraGrow (lib_terra_field, defined after the style's
+ * map, where this expands): exactly F(xz) while all four rest.
+ */
+#define TERRA_GROW(p, F) terraGrow(p)
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No Terrain style keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
+#define TERRA_FORMULA 0.0
+
+/** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
+struct TerraIn {
+    float relief;
+    float grain;
+    float detail;
+    float warp;
+    float twist;
+    float width;
+    float level;
+    float reach;
+    float glow;
+    float emit;
+    float tone;
+    float formula;
+};
+
+/** Style knob i, 0..1: exactly 0.5 while Note & key reactions are off. */
+float terraKnobN(int i) {
+    return clamp(uKnob[i], 0.0, 1.0);
+}
+
+/** Every input from the params and the knobs, never from the sound frame. */
+TerraIn terraIn() {
+    TerraIn n;
+    n.relief = terraKnobN(4);
+    n.grain = terraKnobN(1);
+    n.detail = clamp(uMorph, 0.0, 1.0);
+    // Warp's share (FLOW added, never below none), Turbulence's and Twist's, as one amount: at most
+    // 0.9 * 1.25 + 0.6 * 1.5 + 0.4 = 2.425 over the sliders' ranges.
+    n.warp = clamp((0.9 * max(uWarp + 0.5 * (terraKnobN(2) - 0.5), 0.0) + 0.6 * uTurbulence + 0.4 * abs(uTwist)) / 2.425, 0.0, 1.0);
+    n.twist = clamp(uTwist, -1.0, 1.0);
+    n.width = terraKnobN(1);
+    n.level = terraKnobN(2);
+    n.reach = terraKnobN(5);
+    n.glow = terraKnobN(4);
+    n.emit = terraKnobN(0);
+    n.tone = terraKnobN(3);
+    n.formula = TERRA_FORMULA;
+    return n;
+}
+
+/** A knob input on its range: `rest` exactly at n = 0.5, rest * (1 -+ span) at n = 0 and 1. */
+float terraAt(float n, float rest, float span) {
+    return rest * (1.0 + span * (2.0 * n - 1.0));
+}
+
+/** A knob input as an offset: exactly 0 at n = 0.5, -+ span / 2 at n = 0 and 1. */
+float terraShift(float n, float span) {
+    return span * (n - 0.5);
+}
+
+/** This frame's inputs, for the style's own block of mappings. */
+TerraIn gTerraIn;
+/** The shared inputs on their ranges (terraSetup); each starts at its rest. */
+float gTerraRelief = 1.0;
+/** The relief's share of the march's slope bound: at least 1, so a lower relief never lengthens a step. */
+float gTerraSteep = 1.0;
+float gTerraGrain = 0.0;
+float gTerraWarp = 0.0;
+float gTerraTwist = 0.0;
+float gTerraWidth = 1.0;
+float gTerraReach = 1.0;
+float gTerraGlow = 1.0;
+float gTerraEmit = 1.0;
+float gTerraTone = 0.0;
+
+/** Maps the shared inputs, once, first thing in main() after view(). */
+void terraSetup() {
+    TerraIn n = terraIn();
+    gTerraIn = n;
+    gTerraRelief = terraAt(n.relief, 1.0, 0.15);
+    gTerraSteep = max(gTerraRelief, 1.0);
+    gTerraGrain = n.detail + terraShift(n.grain, 0.6);
+    gTerraWarp = 2.425 * n.warp;
+    gTerraTwist = n.twist;
+    gTerraWidth = terraAt(n.width, 1.0, 0.4);
+    gTerraReach = terraAt(n.reach, 1.0, 0.2);
+    gTerraGlow = terraAt(n.glow, 1.0, 0.5);
+    gTerraEmit = terraAt(n.emit, 1.0, 0.25);
+    gTerraTone = terraShift(n.tone, 0.16);
+}
+
+/** The user's palette at t, moved along by TONE: pal(t) itself at rest. */
+vec3 terraPal(float t) {
+    return pal(t + gTerraTone);
+}
 
 /** Animation time under the Speed macro. */
 float terraTime() {
@@ -120,7 +272,7 @@ float terraEnergy() {
  * Call once in main(): a uniform-only decision.
  */
 float terraOctaves(float hi) {
-    float n = hi + clamp(uMorph, 0.0, 1.0) - (uSteps < 80.0 ? 1.0 : 0.0);
+    float n = hi + gTerraGrain - (uSteps < 80.0 ? 1.0 : 0.0);
     return clamp(n, 2.0, float(TERRA_MAX_OCT));
 }
 
@@ -213,9 +365,9 @@ float terraRidged(vec2 xz, float oct) {
 
 // ---- Chaos: a warp of the ground plane --------------------------------------
 
-/** Warp amplitude in world units for the Chaos macro. */
+/** Warp amplitude in world units for the Chaos macro: the warp input (terraSetup), k2 FLOW in it. */
 float terraChaosAmp() {
-    return 0.9 * uWarp + 0.6 * uTurbulence + 0.4 * abs(uTwist);
+    return gTerraWarp;
 }
 
 /**
@@ -231,7 +383,7 @@ vec2 terraChaos(vec2 xz) {
     vec2 q = xz * (TERRA_FREQ * 2.0);
     float t = terraTime() * 0.06;
     vec2 w = vec2(terraNoise(q + vec2(t, 0.0)), terraNoise(q + vec2(5.0 - t, 9.0))) - 0.5;
-    float a = uTwist * 1.5707963;
+    float a = gTerraTwist * 1.5707963;
     w = mat2(cos(a), sin(a), -sin(a), cos(a)) * w;
     return xz + 2.0 * amp * w;
 }
@@ -251,7 +403,10 @@ float terraChaosLip() {
  */
 void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
     camFly(uv - vec2(0.0, tilt), ro, rd);
-    ro.y = eye + 0.35 * ro.y;
+    // The eye rises with the relief (and never sinks below its height), so it stays over every peak.
+    ro.y = eye * gTerraSteep + 0.35 * ro.y;
+    // Grow and layers (lib_grow) measure from the eye where it flies.
+    growEye(ro);
 }
 
 // ---- marching ---------------------------------------------------------------
@@ -261,6 +416,10 @@ void terraFly(vec2 uv, float eye, float tilt, out vec3 ro, out vec3 rd) {
  * means it never is, and the pixel is sky with no march.
  */
 vec2 terraSlab(vec3 ro, vec3 rd, float hMax, float far) {
+    // The style's bound is its map's; the field is the map times the relief. A grown land (terraGrow: a
+    // second range, children on the slopes) rises past it by growSlack while a grow control is on.
+    hMax += growSlack(hMax, 2.0, 0.3);
+    hMax *= gTerraRelief;
     float t0 = 0.0;
     float t1 = far;
     if (ro.y > hMax) {
@@ -279,7 +438,12 @@ float terraEps(float t) {
 
 /** The next step for vertical clearance dy at distance t; k is about 1 / (1 + steepest slope). */
 float terraStep(float dy, float t, float k) {
-    return max(dy * k * (1.0 + 0.02 * t) / terraChaosLip(), 0.004 + 0.003 * t);
+    float lip = terraChaosLip() * gTerraSteep;
+    // A grown land is steeper (terraGrow: Fractal's children add their own slope, a layer drawn in packs
+    // the hills closer, a birth's rim rises fast); the step shortens by as much while a grow control or Life
+    // is on, and is as it was at rest.
+    if (!growIdle() || uLife > 0.0) lip *= 1.15 + clamp(uFractal, 0.0, 1.0);
+    return max(dy * k * (1.0 + 0.02 * t) / lip, 0.004 + 0.003 * t);
 }
 
 /** The surface between the last sample above it (tPrev, dyPrev) and this one (t, dy), when dy went under. */
@@ -292,11 +456,7 @@ float terraStepAO(float used) {
     return clamp(1.0 - used / max(uSteps, 1.0) * 0.9, 0.35, 1.0);
 }
 
-/**
- * The terrain normal by central differences on the style's height function H
- * at world xz, step e (grow it with distance: 0.002 * t + 0.01 or so).
- */
-#define TERRA_NORMAL(H, xz, e) normalize(vec3(H((xz) - vec2((e), 0.0)) - H((xz) + vec2((e), 0.0)), 2.0 * (e), H((xz) - vec2(0.0, (e))) - H((xz) + vec2(0.0, (e)))))
+// The normal, terraNormal, is in lib_terra_field: it reads the style's map through the field.
 
 // ---- sky, sun and fog -------------------------------------------------------
 
@@ -305,14 +465,16 @@ vec3 terraSky(vec3 rd, vec3 sun, vec3 zenith, vec3 horizon, vec3 sunCol) {
     float h = clamp(rd.y, 0.0, 1.0);
     vec3 c = mix(horizon, zenith, pow(h, 0.45));
     float s = max(dot(rd, sun), 0.0);
-    c += sunCol * (0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0) + 1.2 * smoothstep(0.9990, 0.9996, s));
+    // k0 PULSE the emission of the glow and the halo, never the disc.
+    c += sunCol * ((0.22 * pow(s, 6.0) + 0.5 * pow(s, 64.0)) * gTerraEmit + 1.2 * smoothstep(0.9990, 0.9996, s));
     return c;
 }
 
 /** Distance fog toward fogCol, warmed toward the sun's colour when looking into it (the in-scatter). */
 vec3 terraFog(vec3 col, vec3 rd, float t, float density, vec3 fogCol, vec3 sun, vec3 sunCol) {
-    float f = 1.0 - exp(-t * density);
-    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0);
+    // k5 SPACE the reach, k4 BUILD the sun's glow in the haze.
+    float f = 1.0 - exp(-t * density / gTerraReach);
+    vec3 fc = fogCol + sunCol * 0.3 * pow(max(dot(rd, sun), 0.0), 6.0) * gTerraGlow;
     return mix(col, fc, f);
 }
 
@@ -323,5 +485,5 @@ float terraStars(vec3 rd, float density) {
     float h = terraHash3(i);
     float on = step(1.0 - density, h);
     float d = length(c - i - 0.5);
-    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0));
+    return on * (1.0 - smoothstep(0.05, 0.45, d)) * (0.4 + 0.6 * fract(h * 37.0)) * gTerraEmit;
 }

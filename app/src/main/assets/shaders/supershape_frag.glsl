@@ -8,6 +8,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -52,9 +53,7 @@ out vec4 fragColor;
 // - Flux (sndLevel(SND_FLUX)): the WRITHE. A latitude wave twists the azimuth,
 //   so a changing spectrum sets the whole membrane squirming while a held
 //   chord lets it hang still. The wave travels on the mid clock.
-// - Snare (SND_SNARE_ENV): snaps every lobe pattern one full period round and
-//   lets it settle. A period is the curve's own symmetry, so the snap starts
-//   from a pose identical to the last.
+
 // - Onset (SND_ONSET_ENV): a bulge rolls over the membrane pole to pole as the
 //   envelope falls, lighting a ring as it goes.
 // - Surge (SND_HELD_SURGE): the body and core swell on the envelope's bump and
@@ -62,14 +61,16 @@ out vec4 fragColor;
 // - Hard cut (SND_HELD_HARD_CUT with SND_CUT_COUNT): re-seeds the section: the
 //   elevation curve's m and exponents, the core's lobe count, the satellites'
 //   orbits and lobe counts, and the hue, all crossfaded over the held cut.
-// - Mid clock (SND_MID_TIME): the body's spin and the writhe wave's phase.
-// - Bass clock (SND_BASS_TIME): the satellites' orbits.
-// - Treble clock (SND_TREBLE_TIME): the core's counter-spin, the motes flowing
-//   along the membrane's parameter lines, their twinkle.
+// - Mid clock (SND_MID_TIME): the writhe wave's phase.
+// - Treble clock (SND_TREBLE_TIME): the motes' twinkle and the core's veins.
+// - Nothing turns on the sound (owner 2026-11-12, no style spins to the
+//   music): the body's spin, the core's counter-spin, the satellites' orbits
+//   and spins, the motes' flow round the membrane and the star shells turn on
+//   time alone; the snare's lobe snap, the pan's lean of the pole and the
+//   density's twist of the core are gone.
 // - Hats (SND_HAT_ENV): some membrane motes flare white.
 // - Stereo width (SND_STEREO_WIDTH): how far out the satellites orbit.
-// - Stereo pan (SND_STEREO_PAN): leans the body's pole toward the louder side.
-// - Fast density (SND_DENSITY_FAST): twists the core about its pole.
+
 // - Attenuated bass / treble (SND_BASS_ATT, SND_TREBLE_ATT): the core's own
 //   n2 / n3, so the core breathes with the low and high bands separately.
 // - Pitch class (SND_PITCH_CLASS, gated by SND_PITCH_CONFIDENCE): the core's
@@ -78,10 +79,28 @@ out vec4 fragColor;
 //   own slice of the log spectrum, bass at the south pole, air at the north.
 // - Energy trend (SND_ENERGY_TREND): overall brightness, gently.
 //
-// Every motion runs on a clock (the SND_*_TIME clocks and uFlowPhase), so it
-// slows and speeds with the music and never runs backwards. Quiet music: the
-// clocks barely advance and the flux writhe is near zero, so the body hangs
-// still. Busy music: everything squirms.
+// Knobs (Flame's, Opal's and Hollow's roles, each read as its offset from 0.5
+// so off is the tuned look): k0 PULSE the emission, k1 TEXTURE the spectrum
+// rings' width, k2 FLOW added to the writhe (gLip follows it), k3 TONE the
+// palette position and the poles' sharpness (a high melody draws the body up
+// into spires at its poles, a low one rounds it into a squat bloom; gLip
+// follows it too), k4 BUILD the glow gathered along the ray, k5 SPACE the
+// eye's distance (4.3..5.3) and the depth fog's reach.
+//
+// Every one of these, and the core's share of the body (BUILD), the writhe
+// wave's frequency (FLOW), the background motes' density (TEXTURE) and their
+// shells' radius (SPACE), is one normalized input (lib_shell) set in one block
+// at the top of main and mapped there to its range; at rest each is the
+// constant the body was tuned with. The outside (membrane, core, satellites)
+// is the field the grow hooks act on (its shell wrapper, about the origin): Spawn
+// sets a twin body beside it, Fractal grows bodies a third the size on the
+// membrane, Front layer swells the body and Back layer what lies past it. A
+// hook that is on widens the scene sphere the march is clipped to.
+//
+// Every motion runs on a clock, so it never runs backwards: the turns on time
+// (uTime), the writhe and the motes' twinkle on the sound clocks. Quiet music:
+// the sound clocks barely advance and the flux writhe is near zero, so the body
+// only turns. Busy music: everything squirms.
 //
 // ---- the march ----------------------------------------------------------------
 //
@@ -118,13 +137,15 @@ float gWrithe;
 float gWritheP;
 float gWave;
 float gWaveLat;
+/** The writhe wave's latitude frequency (3 at rest: FLOW). */
+float gWritheK;
 
 float gRc;
 mat3 gCoreRot;
 vec3 gNc;
 float gNormC;
 vec4 gCoreM;
-float gCoreTwist;
+
 float gLipC;
 
 vec3 gSatPos[SS_SATS];
@@ -171,7 +192,7 @@ float formField(vec3 q, float R, vec3 n, float norm, vec4 m, vec3 ne, float norm
     vec3 d = q / max(r, 1e-5);
     float lat = asin(clamp(d.z, -1.0, 1.0));
     // atan(0, 0) is undefined; a pole hit straight on would be NaN on some GPUs.
-    float th = atan(d.y, abs(d.x) < 1e-6 ? 1e-6 : d.x) + writhe * sin(3.0 * lat + gWritheP);
+    float th = atan(d.y, abs(d.x) < 1e-6 ? 1e-6 : d.x) + writhe * sin(gWritheK * lat + gWritheP);
     float ua = m.x * 0.25 * th + gSnap * SS_PI;
     float ub = m.y * 0.25 * th + gSnap * SS_PI;
     float r1;
@@ -199,14 +220,11 @@ float bodyField(vec3 p, out vec2 ang) {
 
 float coreField(vec3 p, out vec2 ang) {
     vec3 q = gCoreRot * p;
-    q.xy = rot2(gCoreTwist * q.z) * q.xy;
-    // The twist stretches space by up to |k| * radius; divide it back out.
-    return formField(q, gRc, gNc, gNormC, gCoreM, vec3(1.4, 1.4, 1.4), 1.0, 0.0, 0.0, gLipC, ang)
-           / (1.0 + abs(gCoreTwist) * gRc * 1.2);
+    return formField(q, gRc, gNc, gNormC, gCoreM, vec3(1.4, 1.4, 1.4), 1.0, 0.0, 0.0, gLipC, ang);
 }
 
 /** The outside: membrane, core where it presses through, satellites. Materials 0, 1, 2+i. */
-float mapOuter(vec3 p) {
+float ssOuter(vec3 p) {
     vec2 a;
     float d = bodyField(p, a);
     gMat = 0.0;
@@ -227,6 +245,21 @@ float mapOuter(vec3 p) {
         }
     }
     return d;
+}
+
+/** ssOuter through lib_shell's hooks: exactly ssOuter(p) at rest, and ssOuter read once, in a loop the compiler cannot unroll. */
+float ssOuterGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ssOuter(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The outside through the grow hooks (lib_shell). */
+float mapOuter(vec3 p) {
+    return ssOuterGrown(p);
 }
 
 /** The inside of the membrane: the core, or the far wall (the body's field, negated). */
@@ -253,6 +286,9 @@ vec3 normalOuter(vec3 p, float eps) {
 
 // ---- shading --------------------------------------------------------------------
 
+/** k1 TEXTURE: the spectrum rings' half-width, a fraction of a cell (0.07 at rest). */
+float gRingW = 0.07;
+
 /** 1 on the integer lines of x, 0 between them; `w` is the half-width as a fraction of a cell. */
 float lineAt(float x, float w) {
     return smoothstep(0.5 - w, 0.5, abs(fract(x) - 0.5));
@@ -273,11 +309,11 @@ vec3 membrane(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float trebC, float h
     col += vec3(1.0, 0.96, 0.92) * pow(max(dot(reflect(rd, n), L), 0.0), 48.0) * 0.55;
 
     // Motes on the parameter lines, hashed per cell so the lattice never reads as a grid,
-    // flowing round on the treble clock. The cell index rides with the flow, so a mote keeps
+    // flowing round on time alone. The cell index rides with the flow, so a mote keeps
     // its identity as it travels.
     const float NT = 36.0;
     const float NP = 18.0;
-    vec2 g = vec2(ang.x / SS_TAU * NT + trebC * 0.35, lat01 * NP);
+    vec2 g = vec2(ang.x / SS_TAU * NT + uTime * 0.35, lat01 * NP);
     vec2 c = floor(g);
     float h = hashCell(ivec3(int(mod(c.x, NT)), int(c.y), int(seed)));
     vec2 f = fract(g) - 0.5 - (vec2(fract(h * 17.3), fract(h * 29.1)) - 0.5) * 0.45;
@@ -289,7 +325,7 @@ vec3 membrane(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float trebC, float h
 
     // Spectrum rings: each latitude line lit by its own slice of the log spectrum.
     float spec = sndSpectrum(0.06 + 0.86 * lat01);
-    col += pal(hue + 0.25 + 0.4 * lat01) * lineAt(lat01 * NP, 0.07) * spec * spec * 0.9;
+    col += pal(hue + 0.25 + 0.4 * lat01) * lineAt(lat01 * NP, gRingW) * spec * spec * 0.9;
 
     // The onset's rolling ring.
     float dl = ang.y - gWaveLat;
@@ -323,6 +359,10 @@ vec3 satShade(vec3 n, vec3 rd, vec3 L, vec2 ang, float hue, float h) {
     return col;
 }
 
+/** The background motes: the inner shell's radius (7 at rest: SPACE) and the share of cells left empty (0.8: TEXTURE). */
+float gShellR0 = 7.0;
+float gMoteBar = 0.80;
+
 /** Shells of hashed motes behind the scene, at three radii, so the orbiting eye sees parallax. */
 vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
     vec3 acc = vec3(0.0);
@@ -330,9 +370,9 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
     float c0 = dot(ro, ro);
     for (int s = 0; s < 3; s++) {
         float fs = float(s);
-        float R = 7.0 + 4.5 * fs;
+        float R = gShellR0 + 4.5 * fs;
         float t = -b + sqrt(max(b * b - (c0 - R * R), 0.0));
-        vec3 d = rotY(uFlowPhase * 0.004 * (1.0 + fs)) * ((ro + rd * t) / R);
+        vec3 d = rotY(uTime * 0.0012 * (1.0 + fs)) * ((ro + rd * t) / R);
         vec2 a = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0)));
         float N = 44.0 + 28.0 * fs;
         vec2 g = vec2(a.x / SS_TAU * N, a.y / SS_PI * N * 0.5);
@@ -340,7 +380,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
         float h = hashCell(ivec3(int(mod(cell.x, N)), int(cell.y), s + 7));
         vec2 f = fract(g) - 0.5 - (vec2(fract(h * 13.7), fract(h * 23.9)) - 0.5) * 0.6;
         float sz = 0.05 + 0.12 * fract(h * 31.3);
-        float m = step(0.80, h) * (1.0 - smoothstep(sz * 0.2, sz, length(f)));
+        float m = step(gMoteBar, h) * (1.0 - smoothstep(sz * 0.2, sz, length(f)));
         float tw = 0.6 + 0.4 * sin(trebC * (1.0 + 3.0 * fract(h * 7.7)) + h * 40.0);
         acc += pal(hue + 0.5 + 0.35 * fract(h * 5.1)) * m * tw * (0.45 / (1.0 + 0.8 * fs));
     }
@@ -348,7 +388,7 @@ vec3 moteShells(vec3 ro, vec3 rd, float hue, float trebC) {
 }
 
 /** One satellite's orbit for section `sec`: position, size factor and lobe count. */
-vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out float m) {
+vec3 satOrbit(int i, float sec, float clock, float width, out float sizeH, out float m) {
     float fi = float(i);
     float h0 = hash11(fi * 7.13 + sec * 1.71 + 0.3);
     float h1 = hash11(fi * 3.31 + sec * 2.97 + 5.0);
@@ -357,7 +397,7 @@ vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out f
     m = evenM(h2);
     // The rate is the satellite's own, not the section's: a rate that changed with
     // the section would jump the angle by (rate change) * the whole clock.
-    float a = bassC * (0.30 + 0.11 * fi) + h0 * SS_TAU;
+    float a = clock * (0.30 + 0.11 * fi) + h0 * SS_TAU;
     float rad = 1.75 + 0.55 * width + 0.35 * h1;
     vec3 o = vec3(cos(a), 0.0, sin(a)) * rad;
     return rotZ((h2 - 0.5) * 1.4) * rotX((h0 - 0.5) * 0.9) * o;
@@ -367,26 +407,45 @@ void main() {
     vec2 uv = view();
     // The band clocks at Speed's rate, integrated natively (uSoundTimeSped), not
     // SND_*_TIME * Speed: that jumped the whole shape whenever Speed moved.
-    float bassC = uSoundTimeSped.x;
     float midC = uSoundTimeSped.y;
     float trebC = uSoundTimeSped.z;
 
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
+
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0);
     float flatn = smoothstep(0.05, 0.6, clamp(SND_FLATNESS, 0.0, 1.0));
     float cent = smoothstep(0.25, 0.7, clamp(SND_CENTROID, 0.0, 1.0));
-    float dens = clamp(SND_DENSITY_FAST, 0.0, 1.0);
+
     float width = clamp(SND_STEREO_WIDTH, 0.0, 1.0);
-    float pan = clamp(SND_STEREO_PAN, -1.0, 1.0);
+
     float surge = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float surgeBump = 4.0 * surge * (1.0 - surge);
     float trend = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float bassA = clamp(sndLevel(SND_BASS_ATT), 0.0, 1.0);
     float trebA = clamp(sndLevel(SND_TREBLE_ATT), 0.0, 1.0);
     float pitchHue = 0.18 * clamp(SND_PITCH_CLASS, 0.0, 1.0) * clamp(SND_PITCH_CONFIDENCE, 0.0, 1.0);
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the emission
+    float nTexture = shellKnob(1);                                 // TEXTURE  ring width, the motes' density
+    float nFlow = shellKnob(2);                                    // FLOW     the writhe and its frequency
+    float nTone = shellKnob(3);                                    // TONE     the palette, the poles' sharpness
+    float nBuild = shellKnob(4);                                   // BUILD    the gathered glow, the core's size
+    float nSpace = shellKnob(5);                                   // SPACE    the eye's distance, the motes' shells
+    float emitK = shellMap(nPulse, 0.75, 1.0, 1.25);
+    gRingW = shellMap(nTexture, 0.035, 0.07, 0.105);
+    gMoteBar = shellMap(nTexture, 0.88, 0.80, 0.70);
+    float writheFlow = shellMap(nFlow, -0.15, 0.0, 0.15);
+    gWritheK = shellMap(nFlow, 2.0, 3.0, 4.0);
+    float hueTone = shellMap(nTone, -0.3, 0.0, 0.3);
+    float poleTone = shellMap(nTone, 1.6, 1.0, 0.4);
+    float glowK = shellMap(nBuild, 0.5, 1.0, 1.5);
+    float coreShare = shellMap(nBuild, 0.35, 0.45, 0.55);
+    float reach = shellMap(nSpace, 0.9, 1.0, 1.1);
+    gShellR0 = shellMap(nSpace, 6.0, 7.0, 8.0);
+    // The hooks grow about the body at the origin; a twin stands 0.6 aside at full Spawn.
+    shellSetup3(vec3(0.0), 2.0, 1.0, true);
 
     // The section: at a hard cut the held envelope is 1 (the old section shows) and
     // falls to 0 over 2.5 s, so `fresh` carries everything from the old seed to the new.
@@ -397,7 +456,7 @@ void main() {
     float hs = mix(hsB, hsA, fresh);
     float hs2 = mix(hash11((sec - 1.0) * 1.37 + 9.0), hash11(sec * 1.37 + 9.0), fresh);
 
-    float hue = 0.60 + 0.004 * midC + 0.25 * hs;
+    float hue = 0.60 + 0.004 * midC + 0.25 * hs + hueTone;
 
     // ---- the body ----
     // Note clock: floor is the note being left, the fraction its eased arrival at the next.
@@ -408,26 +467,27 @@ void main() {
     float n1 = mix(2.3, 0.5, flatn) * (1.0 - 0.5 * kick);
     gN = vec3(clamp(n1, 0.3, 3.0), mix(5.0, 1.3, cent), mix(1.3, 5.0, cent));
     gNorm = sfNorm(gN);
-    gNe = vec3(mix(0.9, 2.6, hs2), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
+    gNe = vec3(clamp(mix(0.9, 2.6, hs2) * poleTone, 0.4, 3.4), 1.5 + 2.5 * hs, 1.5 + 2.5 * (1.0 - hs));
     gNormE = sfNorm(gNe);
     gR = 1.0 * (1.0 + 0.05 * kick + 0.16 * surgeBump);
-    gWrithe = 0.85 * flux;
+    gWrithe = max(0.85 * flux + writheFlow, 0.0);
     gWritheP = midC * 1.7;
-    gSnap = 1.0 - snare * snare;
+    gSnap = 1.0;
     gWave = 0.10 * onset;
     gWaveLat = mix(-0.5 * SS_PI, 0.5 * SS_PI, onset);
-    gLip = 0.85 / (1.0 + 0.6 / min(gN.x, gNe.x) + 1.5 * gWrithe);
-    // The pole leans toward the louder channel; the body turns on the mid clock.
-    gBodyRot = rotZ(midC * 0.35) * rotX(-1.15 + 0.3 * pan) * rotZ(0.25 * pan);
+    // The writhe's term grows with its wave's frequency (1.5 at the rest frequency of 3).
+    gLip = 0.85 / (1.0 + 0.6 / min(gN.x, gNe.x) + 0.5 * gWritheK * gWrithe);
+    // The body turns on time alone.
+    gBodyRot = rotZ(uTime * 0.35) * rotX(-1.15);
 
     // ---- the core ----
-    gRc = gR * 0.45 * (1.0 + 0.2 * surgeBump);
+    gRc = gR * coreShare * (1.0 + 0.2 * surgeBump);
     gNc = vec3(0.9 + 0.6 * hs2, mix(1.2, 4.0, bassA), mix(1.2, 4.0, trebA));
     gNormC = sfNorm(gNc);
     gCoreM = vec4(evenM(hash11((sec - 1.0) * 2.31 + 1.0)), evenM(hash11(sec * 2.31 + 1.0)), fresh, 3.0 + 3.0 * hs2);
-    gCoreTwist = 1.6 * dens;
+
     gLipC = 0.85 / (1.0 + 0.6 / min(gNc.x, 1.4));
-    gCoreRot = rotY(-trebC * 0.45) * rotX(0.7);
+    gCoreRot = rotY(-uTime * 0.45) * rotX(0.7);
 
     // ---- the satellites ----
     for (int i = 0; i < SS_SATS; i++) {
@@ -435,17 +495,17 @@ void main() {
         float szB;
         float mA;
         float mB;
-        vec3 pA = satOrbit(i, sec, bassC, width, szA, mA);
-        vec3 pB = satOrbit(i, sec - 1.0, bassC, width, szB, mB);
+        vec3 pA = satOrbit(i, sec, uTime, width, szA, mA);
+        vec3 pB = satOrbit(i, sec - 1.0, uTime, width, szB, mB);
         gSatPos[i] = gR * mix(pB, pA, fresh);
         gSatSize[i] = gR * 0.24 * (0.75 + 0.5 * mix(szB, szA, fresh));
         gSatM[i] = vec4(mB, mA, fresh, 2.0 + 4.0 * fract(szA * 7.0));
-        gSatRot[i] = rotY(trebC * (0.5 + 0.2 * float(i)) + float(i) * 2.1) * rotX(0.9 * float(i) + 0.4);
+        gSatRot[i] = rotY(uTime * (0.5 + 0.2 * float(i)) + float(i) * 2.1) * rotX(0.9 * float(i) + 0.4);
     }
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, SS_CAM_R, 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, SS_CAM_R * reach, 2.0 * CAM_SPIN_UNIT, ro, rd);
     vec3 L = normalize(uCamBasis * vec3(0.55, 0.65, -0.5));
 
     vec3 voidCol = pal(hue + 0.1) * 0.02 + vec3(0.002, 0.003, 0.008);
@@ -455,7 +515,10 @@ void main() {
 
     // ---- outside march, inside the scene sphere only ----
     float b = dot(ro, rd);
-    float disc = b * b - (dot(ro, ro) - SS_SCENE_R * SS_SCENE_R);
+    // A hook that is on reaches past the scene (a twin aside, children out of the surface, a layer
+    // opened) by lib_shell's slack, 0 at rest.
+    float sceneR = SS_SCENE_R + SHELL_SLACK(SS_SCENE_R);
+    float disc = b * b - (dot(ro, ro) - sceneR * sceneR);
     float hitT = -1.0;
     float used = 0.0;
     vec3 glow = vec3(0.0);
@@ -537,11 +600,11 @@ void main() {
             col = satShade(n, rd, L, ang, hue + 0.2, hash11(mat * 3.7 + sec)) * ao;
         }
         // Depth fog past the body's near face.
-        col = mix(col, bg, 1.0 - exp(-max(hitT - 2.5, 0.0) * 0.12));
+        col = mix(col, bg, 1.0 - exp(-max(hitT - 2.5, 0.0) * 0.12 / reach));
     }
-    col += glow * (0.8 + 1.5 * surgeBump);
+    col += glow * (0.8 + 1.5 * surgeBump) * glowK;
 
     col *= 0.82 + 0.28 * trend;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emitK), 1.0);
 }

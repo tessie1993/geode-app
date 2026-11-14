@@ -12,12 +12,11 @@ import org.json.JSONObject
  * Auto's remembered shape: the timed style change ("change style every N s", still called Random in
  * the code), what it picks from, and the visual playlist.
  *
- * Auto is one mode now: the auto-director drives the look (on by default, [dev.geode.data.AutoDirectorStore])
- * and the timer is an optional extra on top. The timer itself always starts OFF. It used to be
- * restored from `auto_random_enabled`, and that is how Random came up ON on what looked like a fresh
- * install: the key rides along with Android's own app backup and with Settings › Backup, so a
- * reinstall brought the old phone's running timer back, while the Auto button on Now Playing always
- * starts at "off" (it is session state) and so contradicted it. A timer is something the listener
+ * Auto is one mode now: the Auto Director drives the look (on by default, [dev.geode.data.AutoDirectorStore];
+ * its switch is the first row of Visuals › Settings) and the timer is an optional extra on top. The timer
+ * itself always starts OFF. It used to be restored from `auto_random_enabled`, and that is how Random came
+ * up ON on what looked like a fresh install: the key rides along with Android's own app backup and with
+ * Settings › Backup, so a reinstall brought the old phone's running timer back. A timer is something the listener
  * starts on purpose, for this session; what it does once started (interval, sources, colours) is
  * remembered. The old key is removed on the next save.
  */

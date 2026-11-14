@@ -134,19 +134,44 @@ float clKing(float r2) {
     return 1.0 / (1.0 + r2 / CL_RC2);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the unresolved stars' King profile (their density
+ * here, faded to exactly zero at the support sphere) and the glow's grain there (0.5 where it is empty).
+ * The point stars are walked cell by cell (clStep), not read from a field.
+ */
+struct NebHit {
+    float dens;
+    float grain;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    float r2 = dot(p, p);
+    NebHit h;
+    h.dens = clKing(r2) * (1.0 - smoothstep(0.55 * CL_R * CL_R, CL_R * CL_R, r2));
+    h.grain = 0.5;
+    if (h.dens > 0.004) {
+        float t = nebTime();
+        h.grain = nebFbm3(nebWarp3(p, t) * CL_GRAIN + vec3(t * 0.01, 0.0, 0.0), oct);
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     float t = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
     float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gNebIn.pulse - 0.5;
+    float kTexture = gNebIn.texture - 0.5;
+    float kFlow = gNebIn.flow - 0.5;
+    float kTone = gNebIn.tone - 0.5;
+    float kBuild = gNebIn.build - 0.5;
+    float kSpace = gNebIn.space - 0.5;
     // Clamped: an ignited disc may not outgrow its cell, whatever the Energy.
     float onset = clamp(SND_ONSET_ENV * uSoundDrive * e * (1.0 + kPulse), 0.0, 1.0);
     float oct = min(nebVolOctaves(2.0), 3.0);
@@ -159,7 +184,9 @@ void main() {
     float pxK = 2.0 / (max(uCamFocal, 0.1) * max(uResolution.y, 1.0));
 
     vec3 col = vec3(0.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), CL_R);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), CL_R + growSlack(CL_R, 1.0, 0.2));
     if (tb.y > tb.x) {
         float span = tb.y - tb.x;
         vec3 entry = ro + rd * tb.x;
@@ -178,12 +205,11 @@ void main() {
         float core = 0.0;
         for (int i = 0; i < CL_GLOW_MAX; i++) {
             if (float(i) >= nGlow) break;
-            vec3 p = ro + rd * tt;
-            float r2 = dot(p, p);
+            NebHit at = nebField(ro + rd * tt, oct);
             // Faded to exactly zero at the support sphere, so the trim never shows.
-            float k = clKing(r2) * (1.0 - smoothstep(0.55 * CL_R * CL_R, CL_R * CL_R, r2));
+            float k = at.dens;
             if (k > 0.004) {
-                float g = nebFbm3(nebWarp3(p, t) * CL_GRAIN + vec3(t * 0.01, 0.0, 0.0), oct);
+                float g = at.grain;
                 glow += k * (0.16 + 0.1 * grainK * (g - 0.5) * 2.0 + 0.05) * dt;
                 core += k * k * dt;
             }

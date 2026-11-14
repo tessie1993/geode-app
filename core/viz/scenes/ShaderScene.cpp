@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "util/Log.hpp"
+#include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
@@ -85,7 +86,6 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
@@ -137,10 +137,11 @@ void ShaderScene::draw(float timeSeconds) {
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
-    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t).
+    // The look's palette stack draws through the colour map's path: one ramp, read along pal(t). Without a
+    // stack the look's own palette draws (Colour map, which once chose a row of the atlas here, is retired).
     const GLuint ramp = host_.paletteRamp ? host_.paletteRamp() : 0;
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
-    const bool lutSelected = ramp != 0 || (p.paletteLut >= 0 && paletteLutTex_ != 0);
+    const bool lutSelected = ramp != 0;
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
@@ -148,7 +149,7 @@ void ShaderScene::draw(float timeSeconds) {
         glActiveTexture(GL_TEXTURE0);
     }
     set1f("uPalLutMix", flag(lutSelected));
-    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(std::max(p.paletteLut, 0)));
+    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(0));
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
@@ -156,6 +157,8 @@ void ShaderScene::draw(float timeSeconds) {
     uploadCamera();
     uploadWorld();
     uploadPool();
+    uploadField();
+    uploadShapes();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -169,7 +172,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uColorShift", p.colorShift + cyclePhase_ + p.paletteShift);
+    set1f("uColorShift", p.colorShift + p.paletteShift);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);
@@ -179,9 +182,6 @@ void ShaderScene::uploadParams() {
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
-    set1f("uPal2Base", p.palette2Base());
-    set1f("uPal2Range", p.palette2Range());
-    set1f("uPaletteMix", p.paletteMix);
     {
         const auto stops = p.paletteStops();
         const int count = p.paletteStopCount();
@@ -199,9 +199,32 @@ void ShaderScene::uploadParams() {
     set1f("uBloom", p.bloom);
     set1f("uWarp", p.warp);
     set1f("uRipple", p.ripple);
-    set1f("uSymmetry", static_cast<float>(p.symmetry));
-    set1f("uKaleido", flag(p.kaleidoscope));
+    {
+        // The resolved (modulated) folds, rounded natively to a whole count (SceneParams::kaleidoUniforms).
+        const SceneParams::KaleidoUniforms k = SceneParams::kaleidoUniforms(p.kaleidoFolds);
+        set1f("uSymmetry", k.folds);
+        set1f("uKaleido", k.on);
+    }
     set1f("uMorph", p.morph);
+    // Grow and layers (ParamTable.inc), resolved: the family libraries draw them and take their old path at 0.
+    set1f("uSpawn", p.spawn);
+    set1f("uFractal", p.fractal);
+    set1f("uFrontLayer", p.frontLayer);
+    set1f("uBackLayer", p.backLayer);
+    // Which of the style's own distance formulas draws it, 0 its first (the styles in Scope::Formula read it).
+    set1f("uFormula", p.formula);
+    // How far the shape graph melts into the style's form, 0 the style untouched (the styles in Scope::Shapes read it).
+    set1f("uShapeMix", p.shapes);
+    // The shading pass (lib_shade): the soft shadows' darkness (Scope::Shadow) and the escape colour's reach (Scope::Escape).
+    set1f("uShadow", p.shadow);
+    set1f("uEscapeColor", p.escapeColor);
+    // Life's births (viz/Births) on the scene's own clock, already Speed-integrated: all 0 at Life 0, so lib_grow's
+    // birth passes are all skipped.
+    set1f("uLife", p.life);
+    {
+        const auto b = births::compute(shaderTime_, p.life);
+        glUniform4fv(uniforms_.loc("uBirths"), uniforms_.arrayCount("uBirths", 2 * births::kBirths), b.data());
+    }
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
@@ -241,8 +264,8 @@ void ShaderScene::uploadMotion() {
     set1f("uTrebRel", m.trebRel);
     set1f("uMotionBright", m.bright);
     set1f("uHarmony", m.harmony);
-    set1f("uKeyHue", m.keyHue);
-    set1f("uKeyStrength", m.keyStrength);
+    set1f("uKeyHue", m.hue);  // the uniform keeps its old name: it carries the style's hue driver, not the key
+    set1f("uKeyStrength", m.hueStrength);
     set1f("uBarOsc", m.barOsc);
     glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
     set1f("uDrift", m.drift);
@@ -367,6 +390,34 @@ void ShaderScene::uploadPool() {
     glUniform4fv(uniforms_.loc("uPoolWakes"), uniforms_.arrayCount("uPoolWakes", pool::kMaxWakes), &s.wakes[0].x);
     glUniform4f(uniforms_.loc("uPoolLook"), s.look.refraction, s.look.focus, s.look.caustics, s.look.shade);
     glUniform4f(uniforms_.loc("uPoolView"), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
+}
+
+void ShaderScene::uploadField() {
+    if (!field_ || field_->texture == 0) return;
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, field_->texture);
+    glUniform1i(uniforms_.loc("uField"), 4);
+    glActiveTexture(GL_TEXTURE0);
+    glUniform2fv(uniforms_.loc("uFieldRes"), 1, field_->size.data());
+    glUniform4fv(uniforms_.loc("uFieldGeom"), 1, field_->geom.data());
+    glUniform4fv(uniforms_.loc("uFieldShape"), 1, field_->shape.data());
+    glUniform4fv(uniforms_.loc("uFieldLook"), uniforms_.arrayCount("uFieldLook", kFieldLooks), field_->look.data());
+}
+
+// The shape graph (viz/ShapeGraph) as the renderer ticked it this frame, for lib_shapes. Only a style that melts
+// it in (catalogue::Scope::Shapes) keeps uShapes past linking, so every other style skips the 128 floats on the
+// location's -1. Only as many vec4 as survived linking are written (past the live length is an
+// INVALID_OPERATION). A host that hands no graph uploads an empty one: uShapeCount 0, the style its own.
+void ShaderScene::uploadShapes() {
+    const GLint at = uniforms_.loc("uShapes");
+    if (at < 0) return;
+    static const shapes::Packed kNone{};
+    const shapes::Packed* g = host_.shapeGraph ? host_.shapeGraph() : nullptr;
+    if (!g) g = &kNone;
+    glUniform4fv(at, uniforms_.arrayCount("uShapes", shapes::kMaxShapes * shapes::kVec4PerShape), g->shapes.data());
+    glUniform1i(uniforms_.loc("uShapeCount"), g->count);
+    glUniform4fv(uniforms_.loc("uShapeFold"), 1, g->fold.data());
+    set1f("uShapeMelt", g->melt);
 }
 
 void ShaderScene::specializeWorld() {

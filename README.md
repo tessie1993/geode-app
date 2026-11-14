@@ -65,7 +65,7 @@ Gradle modules, package `dev.geode`:
 
 | Module | What it holds |
 |---|---|
-| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`; the handle on the native PCM ring (`SampleRing`, `SoundCursor`; the ring is `core/audio/ingest`), the sound frame layout and the presentation clock |
+| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so` (the PCM rings, their kinds and lifetimes are native, in `core/audio/ingest`) |
 | `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, the style catalogue as Kotlin reads it |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 

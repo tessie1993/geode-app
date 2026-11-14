@@ -13,10 +13,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
+import dev.geode.viz.NativeViz
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -204,7 +204,7 @@ class StyleThumbnailRenderTest {
             viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // Default Customize values: the thumb shows the style as a new user first meets it.
-            val params = SceneParams(fluidAutoQuality = false)
+            val params = SceneParams.DEFAULT.with("fluidAutoQuality", false)
             // No user routes: native resolves the style's DNA for this scene and reactSeed before the first render.
             viz.setParams(params)
 
@@ -216,9 +216,7 @@ class StyleThumbnailRenderTest {
                 viz.writeAudio(pcm, samplesPerFrame, SyntheticGroove.CHANNELS, groove.sampleRateHz)
                 viz.render(frame.toDouble() / fps, 0)
             }
-            var nativeError: String? = null
-            viz.pollError { nativeError = it }
-            nativeError?.let { error("native error: $it") }
+            viz.lastError()?.let { error("native error: $it") }
             GLES20.glFinish()
             return readPixels()
         } finally {

@@ -35,9 +35,8 @@ out vec4 fragColor;
 //                         bright mix sprays wider rainbows;
 //   pitch height          raises the key light: the play of light walks across
 //                         the crown as the melody climbs;
-//   pan                   turns the key round the stone;
-//   onsets                each onset turns the stone one notch (glassGlide), on
-//                         top of its slow spin, so the flashes follow the beat;
+//   (no sound turns the stone or the key round it: its slow spin is time
+//                         alone, owner 2026-11-12, no style spins to the music);
 //   bass                  the IOR 1.95 -> 2.25: deeper stones sparkle harder;
 //   hat                   glints on the facets, and flickers the starburst of
 //                         spectral rays the stone throws into the dark round it.
@@ -45,7 +44,11 @@ out vec4 fragColor;
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the spin. Complexity tints the stone (colourless to sapphire).
-// Chaos wobbles the facet normals. Energy scales every reaction.
+// Chaos wobbles the facet normals. Energy scales every reaction. Knobs
+// (lib_glass's roles, offsets from 0.5 so off is the tuned look): k0 PULSE the
+// emission, k1 TEXTURE the fire's rays' width, k2 FLOW added to Chaos's
+// wobble, k3 TONE the palette position, k4 BUILD the world's glow, k5 SPACE
+// the fire's reach.
 //
 // ---- cost -------------------------------------------------------------------
 //
@@ -127,18 +130,29 @@ float exitCut(vec3 p, vec3 rd, out vec3 n, out float id) {
 }
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
+    glassSetup();
     float t = glassTime();
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
+    gGlassFlow = kFlow;
     GlassEar ear = glassListen();
-    float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue);
+    float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    lk.glow *= 1.0 + kBuild;
     lk.rough *= 0.5;
-    float ior = 1.95 + 0.3 * clamp(ear.bass, 0.0, 1.0);
-    float spread = 0.02 + 0.05 * ear.sharp;
+    float ior = glassIor(1.95 + 0.3 * clamp(ear.bass, 0.0, 1.0));
+    float spread = glassSpread(0.02 + 0.05 * ear.sharp);
     int bounces = 2 + int(floor(glassQuality() * 2.0 + 0.5));
 
     buildCut();
-    float turn = t * 0.18 + 0.45 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    float turn = t * 0.18;
     gRot = glassEuler(vec3(0.42 + 0.05 * sin(t * 0.3), turn, 0.08 * sin(t * 0.23)));
 
     vec3 ro;
@@ -154,8 +168,10 @@ void main() {
     // longer on bright mixes, flickering on the hat.
     float ra = atan(uv.y, uv.x);
     float rl = length(uv);
-    float rays = pow(abs(sin(ra * 7.0 + turn * 2.0)), 30.0) + 0.6 * pow(abs(sin(ra * 11.0 - turn * 3.0 + 1.0)), 40.0);
-    float reach = 0.6 + 0.9 * ear.sharp;
+    // k1 TEXTURE widens the rays (a lower power), k5 SPACE carries them further.
+    float wide = 1.0 + kTexture;
+    float rays = pow(abs(sin(ra * 7.0 + turn * 2.0)), 30.0 / wide) + 0.6 * pow(abs(sin(ra * 11.0 - turn * 3.0 + 1.0)), 40.0 / wide);
+    float reach = (0.6 + 0.9 * ear.sharp) * (1.0 + 0.4 * kSpace);
     vec3 fireCol = glassSpectrum(fract(ra * 1.1 + turn * 0.5 + rl * 0.8));
     col += fireCol * rays * exp(-rl / reach) * smoothstep(0.25, 0.45, rl) * (0.35 + 0.8 * ear.hat) * 1.2;
     vec3 n;
@@ -200,5 +216,5 @@ void main() {
     }
 
     col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(glassTone(col)), 1.0);
+    fragColor = vec4(grade(glassTone(col * (1.0 + 0.5 * kPulse))), 1.0);
 }

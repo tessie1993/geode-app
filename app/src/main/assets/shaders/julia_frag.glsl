@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 
@@ -60,8 +61,21 @@ out vec4 fragColor;
 // and the colour controls are grade(); Space is the rig. The six knobs are read
 // as offsets from 0.5, so with Note & key reactions off the style is exactly
 // as tuned: k0 PULSE the kick's growth, k1 TEXTURE the trap bands' density,
-// k2 FLOW the orbit's width, k3 TONE the hue, k4 BUILD the halo, k5 SPACE the
-// camera's distance.
+// k2 FLOW the orbit's width, k3 TONE where the slice sits in the fourth
+// dimension (on top of Warp's drift: the melody's height carries the body
+// through k, so a rising line folds it into a new sculpture; plus a small hue
+// offset), k4 BUILD the glow the crust gives off into the air around it, on
+// hit and missed rays alike, so tension wraps the body in a luminous shell,
+// k5 SPACE the camera's distance.
+//
+// Every one of these, and the iteration count (TEXTURE: a timbre with more
+// grain draws more of the crust), is one normalized input (lib_shell) set in
+// one block at the top of main and mapped there to its range; at rest each is
+// the constant the body was tuned with. The body is the field the grow hooks
+// act on (its shell wrapper, about the origin): Spawn sets a twin body beside it,
+// Fractal grows bodies a third the size on the crust, Front layer swells the
+// body and Back layer what lies past it. A hook that is on widens the
+// bounding sphere so the copies are not clipped.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -77,7 +91,8 @@ out vec4 fragColor;
 // the iteration budget only break early.
 
 #define JQ_MAX_STEPS 120
-#define JQ_ITERS 11
+/** The iteration loop's bound; 11 at rest (gIters: TEXTURE). |z'|^2 grows at most 64x a step: 64^13 is ~3e23, inside highp. */
+#define JQ_ITERS 13
 #define JQ_BOUND 1.75
 #define JQ_CAM_R 4.0
 #define JQ_ESCAPE 16.0
@@ -91,7 +106,8 @@ int gIters;
 float gTrap;
 float gEsc;
 
-float map(vec3 p) {
+/** The body: the field the grow hooks act on (map() hands it to its shell wrapper). */
+float juliaField(vec3 p) {
     vec4 z = vec4(p / gScale, gSlice);
     float dz2 = 1.0;
     float trap = 1e9;
@@ -110,6 +126,20 @@ float map(vec3 p) {
     gEsc = n / float(gIters);
     float d = 0.25 * log(max(m2, 1e-8)) * sqrt(m2 / max(dz2, 1e-30));
     return d * gScale;
+}
+
+/** juliaField through lib_shell's hooks: exactly juliaField(p) at rest, and juliaField read once, in a loop the compiler cannot unroll. */
+float juliaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, juliaField(shellAt3(i)));
+    }
+    return r;
+}
+
+float map(vec3 p) {
+    return juliaFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -150,12 +180,30 @@ vec2 pitchGlide() {
 void main() {
     vec2 uv = view();
 
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's growth
+    float nTexture = shellKnob(1);                                 // TEXTURE  trap band density, iterations
+    float nFlow = shellKnob(2);                                    // FLOW     the orbit's width
+    float nTone = shellKnob(3);                                    // TONE     the slice in the fourth dimension, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the crust's glow
+    float nSpace = shellKnob(5);                                   // SPACE    the camera's distance
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    rabbit to Siegel disc
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the slice's drift
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);        // Turbulence c's orbit width
+    float growK = shellMap(nPulse, 0.4, 1.0, 1.6);
+    float bandK = shellMap(nTexture, 0.25, 1.0, 1.75);
+    float iters = shellMap(nTexture, 7.0, 11.0, 13.0);
+    float orbitFlow = shellMap(nFlow, 0.5, 1.0, 1.5);
+    float sliceTone = shellMap(nTone, -0.25, 0.0, 0.25);
+    float hueTone = shellMap(nTone, -0.125, 0.0, 0.125);
+    float haloK = shellMap(nBuild, 0.25, 1.0, 1.75);
+    float airK = shellMap(nBuild, 0.0, 0.0, 0.8);
+    float camR = shellMap(nSpace, 1.15 * JQ_CAM_R, JQ_CAM_R, 0.85 * JQ_CAM_R);
+    float slide = shellMap(nMorph, 0.0, 0.0, 1.0);
+    float sliceWarp = shellMap(nWarp, 0.0, 0.0, 0.35);
+    float orbitTurb = shellMap(nTurb, 1.0, 1.0, 2.5);
+    // The hooks grow about the body at the origin; a twin stands 0.6 aside at full Spawn.
+    shellSetup3(vec3(0.0), 2.0, 1.0, true);
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -163,8 +211,8 @@ void main() {
 
     // uTime is already the speed-integrated clock; never times Speed again.
     float t = uTime * 0.15;
-    vec2 base = mix(vec2(-0.123, 0.745), vec2(-0.391, 0.587), smoothstep(0.0, 1.0, clamp(uMorph, 0.0, 1.0)));
-    float amp = 0.035 * (1.0 + 1.5 * clamp(uTurbulence, 0.0, 1.0)) * max(1.0 + k2, 0.2);
+    vec2 base = mix(vec2(-0.123, 0.745), vec2(-0.391, 0.587), smoothstep(0.0, 1.0, slide));
+    float amp = 0.035 * orbitTurb * orbitFlow;
     vec2 c2 = base + amp * vec2(cos(t), sin(t * 1.3));
     c2 += vec2(sndLevel(SND_BASS) * 0.04, sndShaped(SND_MIDDLE) * 0.025);
     // c is the most sensitive parameter there is; 0.04 already reshapes the body.
@@ -172,21 +220,28 @@ void main() {
     // The imaginary part's direction wanders through i, j and k.
     vec3 dir = normalize(vec3(cos(t * 0.37), sin(t * 0.37), 0.35 + 0.55 * sin(t * 0.23)));
     gC = vec4(c2.x, c2.y * dir);
-    gSlice = 0.35 * clamp(uWarp, 0.0, 1.0) * sin(uTime * 0.05 + 1.0);
-    gScale = 1.0 + 0.06 * clamp(1.0 + 1.2 * k0, 0.0, 2.0) * kick;
-    gIters = uSteps < 80.0 ? 8 : JQ_ITERS;
+    // Every slice of the 4D set lies inside JQ_BOUND, so TONE can move it freely.
+    gSlice = sliceWarp * sin(uTime * 0.05 + 1.0) + sliceTone;
+    gScale = 1.0 + 0.06 * growK * kick;
+    // A whole count; at low Detail at most 8, as before.
+    gIters = int(floor(iters + 0.5));
+    if (uSteps < 80.0) gIters = min(gIters, 8);
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, JQ_CAM_R * clamp(1.0 - 0.3 * k5, 0.8, 1.2), JQ_SPIN, ro, rd);
+    camAround(uv, camR, JQ_SPIN, ro, rd);
 
-    // Clip the march to the bounding sphere.
-    float bound = JQ_BOUND * gScale;
+    // Clip the march to the bounding sphere; a hook that is on reaches past it (a twin aside, children out of
+    // the surface, a layer opened) by lib_shell's slack, 0 at rest.
+    float bound = JQ_BOUND * gScale + SHELL_SLACK(JQ_BOUND * gScale);
     float b = dot(ro, rd);
     float h = b * b - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;
     float used = 0.0;
     float closest = 1e9;
+    // The crust's glow gathered along the ray in front of whatever it hits,
+    // weighted by step length so Detail does not change it (BUILD; 0 at rest).
+    float air = 0.0;
     float trap = 1.0;
     float esc = 0.0;
     if (h > 0.0) {
@@ -200,6 +255,7 @@ void main() {
             used = float(i);
             float d = map(ro + rd * tt);
             closest = min(closest, d);
+            air += exp(-max(d, 0.0) * 14.0) * max(d * 0.8, 0.002);
             float eps = (uSteps < 80.0 ? 0.0014 : 0.0007) * tt + 0.0003;
             if (d < eps) {
                 hitT = tt;
@@ -211,7 +267,7 @@ void main() {
         }
     }
 
-    float hue = 0.58 + 0.04 * sin(uTime * 0.02) + 0.25 * k3 + 0.12 * onset;
+    float hue = 0.58 + 0.04 * sin(uTime * 0.02) + hueTone + 0.12 * onset;
     // A dim vertical wash behind the body.
     vec3 col = pal(hue + 0.5) * (0.025 + 0.04 * (0.5 + 0.5 * uv.y)) + vec3(0.004, 0.004, 0.008);
 
@@ -219,7 +275,7 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0012, 0.0010 * hitT));
         // Trap bands: nested shells of related hue, stretched by the treble.
-        float f = clamp(sqrt(trap) * (1.0 + 1.5 * k1), 0.0, 1.0);
+        float f = clamp(sqrt(trap) * bandK, 0.0, 1.0);
         float idx = f * (1.0 + sndLevel(SND_TREBLE_ATT)) + 0.3 * esc + hue;
         vec3 albedo = pal(idx) * (0.25 + f * 1.2 + sndSpectrum(f) * 0.8);
 
@@ -236,9 +292,10 @@ void main() {
             + vec3(spec) * 0.35 * ao;
     } else if (closest < 1e8) {
         // The halo: how close a missed ray came to the crust.
-        float halo = exp(-closest * 9.0) * 0.35 * clamp(1.0 + 1.5 * k4, 0.0, 2.0);
+        float halo = exp(-closest * 9.0) * 0.35 * haloK;
         col += pal(hue + 0.1) * halo * (0.6 + 0.6 * swell);
     }
+    col += pal(hue + 0.2) * air * airK;
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

@@ -35,6 +35,12 @@ bool isLuminanceTarget(LfoTarget target) {
         case LfoTarget::Temperature: case LfoTarget::PaletteAmount1: case LfoTarget::PaletteAmount3:
         case LfoTarget::PaletteAmount4: case LfoTarget::PaletteAmount5: case LfoTarget::PaletteAmount6:
         case LfoTarget::PaletteAmount7: case LfoTarget::PaletteAmount8: case LfoTarget::PaletteShift:
+        // A second style blended in and out of the picture changes its light as much as a colour swap.
+        case LfoTarget::LayerMix:
+        // The physics layers lay a fluid and particles over or under the picture: as much light as a layer.
+        case LfoTarget::SimFluid: case LfoTarget::SimParticles: case LfoTarget::SimLayerOrder:
+        // The soft shadows darken the lit surface; the escape colour moves it along the palette, as Palette position.
+        case LfoTarget::Shadow: case LfoTarget::EscapeColor:
             return true;
         default:
             return false;
@@ -135,6 +141,27 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::PaletteAmount7: GEODE_DRIVE(paletteAmount6, 1.0f);
         case LfoTarget::PaletteAmount8: GEODE_DRIVE(paletteAmount7, 1.0f);
         case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
+        // Half the range per unit: a full wave from Off reaches 9 folds, from 8 sweeps the whole 1..16.
+        case LfoTarget::KaleidoFolds: GEODE_DRIVE(kaleidoFolds, 8.0f);
+        case LfoTarget::LayerMix: GEODE_DRIVE(layerMix, 1.0f);
+        case LfoTarget::SimFluid: GEODE_DRIVE(simFluid, 1.0f);
+        case LfoTarget::SimParticles: GEODE_DRIVE(simParticles, 1.0f);
+        case LfoTarget::SimForce: GEODE_DRIVE(simForce, 1.0f);
+        case LfoTarget::SimLayerOrder: GEODE_DRIVE(simLayerOrder, 1.0f);
+        // The whole of Spawn and Fractal per unit; the layers' half range, so a full wave from 0 reaches either end.
+        case LfoTarget::Spawn: GEODE_DRIVE(spawn, 1.0f);
+        case LfoTarget::Fractal: GEODE_DRIVE(fractal, 1.0f);
+        case LfoTarget::FrontLayer: GEODE_DRIVE(frontLayer, 1.0f);
+        case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
+        // The whole of Formula per unit, as Morph: a structural target, never a luminance one.
+        case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
+        // The whole of Shapes per unit: how far the shape graph melts into the style's form, a structural target.
+        case LfoTarget::Shapes: GEODE_DRIVE(shapes, 1.0f);
+        // The whole of Soft shadows and of Escape colour per unit: a full wave from 0 reaches either end.
+        case LfoTarget::Shadow: GEODE_DRIVE(shadow, 1.0f);
+        case LfoTarget::EscapeColor: GEODE_DRIVE(escapeColor, 1.0f);
+        // The whole of Life per unit: how much is born, a structural target, never a luminance one.
+        case LfoTarget::Life: GEODE_DRIVE(life, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }
@@ -178,13 +205,15 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt, sound); break;
             // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
-            // the shaped level, the centroid, the note-start envelope and the stereo field.
+            // the shaped level, the centroid, the transient envelope (core/sound/Transient: the sharp start of any
+            // sound, a few ms after it; it was the flux onset's, ~70 ms late, until the transient detector came)
+            // and the stereo field.
             case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
             case ModSource::Mid: raw = follow(i, 0.5f * sound.midAtt, dt); break;
             case ModSource::Treble: raw = follow(i, 0.5f * sound.trebleAtt, dt); break;
             case ModSource::Level: raw = follow(i, sound.level, dt); break;
             case ModSource::Brightness: raw = follow(i, sound.centroid, dt); break;
-            case ModSource::Transient: raw = follow(i, sound.onsetEnv, dt); break;
+            case ModSource::Transient: raw = follow(i, sound.transientEnv, dt); break;
             case ModSource::StereoWidth: raw = follow(i, sound.stereoWidth, dt); break;
             case ModSource::StereoPan: raw = followBipolar(i, sound.stereoPan, dt); break;
         }

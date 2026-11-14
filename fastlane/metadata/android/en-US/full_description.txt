@@ -8,7 +8,7 @@ Play your music
 • The visuals can also follow the microphone or the sound of another app, if you turn that on.
 
 Watch it
-• 274 visual styles: 3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, and, with Pro, a MilkDrop-compatible engine for your own .milk preset files.
+• 334 visual styles: 3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, and, with Pro, a MilkDrop-compatible engine for your own .milk preset files.
 • The visuals listen to the sound itself: loudness, bass, mids and treble, drum hits, notes, chords and key, and the build-ups and drops of a song. No sound, no visuals: when the music stops, the picture comes to rest.
 • Auto mode changes the style, the camera and the motion as the song moves from one part to the next. Your colours stay yours.
 • Customize in up to eleven groups, from quick knobs to camera, motion, the endless dive, effects and a liquid mode you can push around with your fingers. With Pro you can build your own knobs.
@@ -28,7 +28,7 @@ Beyond the app (Pro)
 • Show the visual on a connected display: HDMI, USB-C or a wireless display.
 
 Free and Pro
-Without Pro, with no ads: the music player, more than 60 styles (including the first of each of the thirteen style families), the basic controls in Customize (quick knobs included), and video export up to 1080p at 30 frames per second, one minute long, with a watermark across the picture. Auto mode directs the first minute of each song.
+Without Pro, with no ads: the music player, more than 60 styles (including the first of each of the nineteen style families), the basic controls in Customize (quick knobs included), and video export up to 1080p at 30 frames per second, one minute long, with a watermark across the picture. Auto mode directs the first minute of each song.
 Pro is a single in-app purchase, not a subscription: everything marked Pro above, every style and every control, 4K and 60 frames per second, full-length video without the watermark, and Auto mode for the whole song. You can try Pro for one hour before buying; videos rendered or recorded during the trial keep the one-minute limit and the watermark.
 
 Privacy

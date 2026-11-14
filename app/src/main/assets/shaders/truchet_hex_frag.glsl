@@ -93,11 +93,6 @@ float gWb;
 float gW1;
 float gW2;
 
-// Set by map(): what the last lookup saw, for shading.
-TruchetArc gArc;
-float gCordHit;
-float gHn;
-
 /** A whole number of turns per gPz cells, as close to `f` rad/cell as that allows. */
 float thFreq(float f) {
     return TRUCHET_TAU * max(1.0, floor(f * gPz / TRUCHET_TAU + 0.5)) / gPz;
@@ -150,7 +145,17 @@ vec2 planOf(vec2 xz) {
     return thWarp(vec2(xz.y, xz.x) * gScale);
 }
 
-float map(vec3 w) {
+/** What the field holds at a point (lib_truchet_field): the distance, and the tile the shading reads. */
+struct TruchetHit {
+    float d;
+    TruchetArc arc;
+    /** 1 on a cord, 0 on the tile. */
+    float cord;
+    /** The hexagon norm, 0 at the centre and 0.5 on the border. */
+    float hn;
+};
+
+TruchetHit truchetMap(vec3 w) {
     float rise;
     float hn;
     TruchetArc a = thHex(planOf(w.xz), rise, hn);
@@ -167,33 +172,32 @@ float map(vec3 w) {
     // Never step past the hexagon's edge by more than half a cord radius.
     float border = (0.5 - hn) / gLip + 0.5 * gHw;
     d = min(d, max(border, 0.004));
-    gArc = a;
-    gCordHit = dC < dG ? 1.0 : 0.0;
-    gHn = hn;
-    return d / gScale;
+    TruchetHit res;
+    res.d = d / gScale;
+    res.arc = a;
+    res.cord = dC < dG ? 1.0 : 0.0;
+    res.hn = hn;
+    return res;
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     float t = truchetTime();
     float e = truchetEnergy();
-    float morph = truchetMorph();
+    float morph = gTruchetIn.detail;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
 
-    float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float k2 = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float k3 = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float k0 = gTruchetIn.pulse - 0.5;
+    float k1 = gTruchetIn.texture - 0.5;
+    float k2 = gTruchetIn.flow - 0.5;
+    float k3 = gTruchetIn.tone - 0.5;
+    float k4 = gTruchetIn.build - 0.5;
+    float k5 = gTruchetIn.space - 0.5;
 
     gT = t;
     gHits = floor(SND_ONSET_COUNT);
@@ -201,8 +205,8 @@ void main() {
     // 1 or 1.5 cells per world unit: 64 * scale is a whole column count either way.
     gScale = morph >= 0.5 ? 1.5 : 1.0;
     gPz = TH_ZWRAP * gScale;
-    gWa = 0.8 * clamp(uWarp, 0.0, 2.0);
-    gWb = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    gWa = 0.8 * (2.0 * gTruchetIn.warp);
+    gWb = 0.18 * (2.0 * gTruchetIn.chaos);
     gW1 = thFreq(0.29);
     gW2 = thFreq(1.07);
     // The bend's steepest slope, as lib_truchet bounds it (frequencies here
@@ -216,6 +220,8 @@ void main() {
 
     float eyeH = 1.3 + 0.5 * k5;
     vec3 ro = vec3(uCamPos.x, eyeH, mod(uCamPos.z, TH_ZWRAP));
+    // Grow and layers (lib_grow): this eye of the style's own rides the way, measured from where it is.
+    growSetup(ro, 3.0, false);
     // The rig's view, pitched down toward the floor.
     vec3 v = vec3(uv, uCamFocal);
     const float pitch = 0.5;
@@ -234,14 +240,16 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     if (rd.y < -0.002) {
-        float tm = max((ro.y - slabTop) / -rd.y, 0.0);
-        float t1 = min((ro.y + slabBot) / -rd.y, TH_FAR);
+        // The slab, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+        float slack = growSlack(abs(ro.y + slabBot), 1.0, 0.2);
+        float tm = max((ro.y - (slabTop + slack)) / -rd.y, 0.0);
+        float t1 = min((ro.y + slabBot + slack) / -rd.y, TH_FAR);
         for (int i = 0; i < TH_MAX_STEPS; i++) {
             // uSteps is the user's Detail; this loop's own bound is the constant.
             if (float(i) >= uSteps) break;
             if (tm > t1) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            float d = truchetField(ro + rd * tm).d;
             float eps = 0.0007 * tm + 0.0004;
             if (d < eps) {
                 hitT = tm;
@@ -255,12 +263,12 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0008);
-        // Re-run the lookup at the hit itself, so the shading globals are its own.
-        map(p);
-        TruchetArc a = gArc;
-        float cord = gCordHit;
-        float hn = gHn;
+        vec3 n = truchetNormal(p, 0.0012 * hitT + 0.0008);
+        // The field at the hit itself: the tile the shading reads.
+        TruchetHit hit = truchetField(p);
+        TruchetArc a = hit.arc;
+        float cord = hit.cord;
+        float hn = hit.hn;
         vec2 pp = planOf(p.xz);
         float field = thField(pp);
         // One pixel in cell units at this distance.

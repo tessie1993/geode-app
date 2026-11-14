@@ -40,6 +40,9 @@ public:
     // maxOutFrames(frames) * channels samples.
     size_t process(const int16_t* in, size_t frames, int16_t* out);
 
+    // Sizes the working buffer for calls of up to `frames` input frames, so such calls never allocate.
+    void reserve(size_t frames);
+
     // Input frames on each side of an output frame's position: the filter is 2 * halfTaps() long, and
     // the output lags the input by halfTaps() input frames. 0 at equal rates (a plain copy).
     int halfTaps() const { return half_; }

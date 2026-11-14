@@ -9,34 +9,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.data.LookSnapshot
+import dev.geode.data.LookUnderlay
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.look.LookSnapshot
-import dev.geode.render.look.LookUnderlay
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.rememberSystemReducedMotion
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-
-data class LayersUiState(
-    val enabled: Boolean = false,
-    val sceneId: String? = null,
-    val mix: Float = 0.5f,
-    /** An index into native's [GeodeNative.layerBlendNames]. */
-    val blend: Int = GeodeNative.LAYER_BLEND_DEFAULT,
-)
-
-object LayersBus {
-    val state = MutableStateFlow(LayersUiState())
-
-    val availableScenes = MutableStateFlow<List<String>>(emptyList())
-
-    val activeSceneId = MutableStateFlow<String?>(null)
-}
 
 /**
  * The stage's look from the session's state (#345): the one builder live Visuals and every export
@@ -80,7 +63,6 @@ fun VisualizerEngineBindings(
     val activeSceneId by remember { derivedStateOf { vizState.value.sceneId } }
     val activeTransitionId by remember { derivedStateOf { vizState.value.transitionId } }
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
-    val layers by LayersBus.state.collectAsStateWithLifecycle()
     val performanceStore = LocalContext.current.geodeContainer.performance
     val performance by performanceStore.settings.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
@@ -96,7 +78,6 @@ fun VisualizerEngineBindings(
         visualizerView.stage.onSurfaceSizeChanged = { w, h ->
             mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
         }
-        LayersBus.availableScenes.value = visualizerView.stage.availableSceneIds()
     }
     // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
     // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
@@ -121,17 +102,9 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(Unit) {
         viewModel.vizState
-            .map { it.params.camGyro }
+            .map { it.params.flag("camGyro") }
             .distinctUntilChanged()
             .collect { visualizerView.gyroWanted = it }
-    }
-    LaunchedEffect(activeSceneId) {
-        LayersBus.activeSceneId.value = activeSceneId
-    }
-    LaunchedEffect(layers) {
-        // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
-        val sceneId = if (layers.enabled) layers.sceneId else null
-        visualizerView.stage.submitLayer(sceneId, layers.mix, layers.blend)
     }
     LaunchedEffect(Unit) {
         // Settings › Gestures & controls › Touch › Smear: handed over as set; native bends the picture (core/viz/TouchSmear).

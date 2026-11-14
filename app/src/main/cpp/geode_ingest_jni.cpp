@@ -5,21 +5,22 @@
 
 #include "api/geode_api.h"
 
-// The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. A ring handle is
-// valid for as long as its Kotlin holder (SampleRing) is reachable, which frees it; a cursor handle until
-// its holder closes it. The array writes pin the array (critical) for one lock-free copy: no JNI call,
-// no lock and no allocation happens inside.
+// The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. The player's and
+// the mic's handles are never freed; the output mix's is freed by its owner. The array writes pin the
+// array (critical) for one lock-free copy: no JNI call, no lock and no allocation happens inside.
 
 namespace {
 geode_pcm_ring* ringOf(jlong handle) { return reinterpret_cast<geode_pcm_ring*>(handle); }
-geode_pcm_cursor* cursorOf(jlong handle) { return reinterpret_cast<geode_pcm_cursor*>(handle); }
 }  // namespace
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingCreate(JNIEnv*, jobject, jint capacityFrames,
-                                                                               jint channels, jint maxWriteFrames) {
-    return reinterpret_cast<jlong>(geode_pcm_ring_create(capacityFrames, channels, maxWriteFrames));
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingShared(JNIEnv*, jobject, jint kind) {
+    return reinterpret_cast<jlong>(geode_pcm_ring_shared(kind));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingCreateKind(JNIEnv*, jobject, jint kind) {
+    return reinterpret_cast<jlong>(geode_pcm_ring_create_kind(kind));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(JNIEnv*, jobject, jlong handle) {
@@ -82,14 +83,8 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteByte
     return frames;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLayer(JNIEnv*, jobject, jlong handle,
-                                                                                jlong layer) {
-    geode_pcm_ring_set_layer(ringOf(handle), ringOf(layer));
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetSnapshots(JNIEnv*, jobject, jlong handle,
-                                                                                        jboolean on) {
-    return geode_pcm_ring_set_snapshots(ringOf(handle), on ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {
+    return geode_pcm_ring_max_write_frames(ringOf(handle));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
@@ -113,39 +108,6 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHeardAt(
                                                                                 jint frames, jlong nowMs,
                                                                                 jlong heardAtMs) {
     return geode_pcm_ring_heard_at(ringOf(handle), frames, nowMs, heardAtMs);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmCursorCreate(JNIEnv*, jobject, jlong ring,
-                                                                                 jint maxFrames) {
-    return reinterpret_cast<jlong>(geode_pcm_cursor_create(ringOf(ring), maxFrames));
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmCursorDestroy(JNIEnv*, jobject, jlong handle) {
-    geode_pcm_cursor_destroy(cursorOf(handle));
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmCursorMaxFrames(JNIEnv*, jobject, jlong handle) {
-    return geode_pcm_cursor_max_frames(cursorOf(handle));
-}
-
-// info, when given: [0] 1 on a restart, [1] the rate the frames were written at.
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmCursorTakeS16(JNIEnv* env, jobject, jlong handle,
-                                                                                 jshortArray out, jintArray info) {
-    geode_pcm_cursor* cursor = cursorOf(handle);
-    const jint channels = geode_pcm_cursor_channels(cursor);
-    if (!out || channels <= 0) return 0;
-    const jint capacity = env->GetArrayLength(out) / channels;
-    int restarted = 0;
-    int rate = 0;
-    void* data = env->GetPrimitiveArrayCritical(out, nullptr);
-    if (!data) return 0;
-    const int frames = geode_pcm_cursor_take_s16(cursor, static_cast<int16_t*>(data), capacity, &restarted, &rate);
-    env->ReleasePrimitiveArrayCritical(out, data, 0);
-    if (info && env->GetArrayLength(info) >= 2) {
-        const jint values[2] = {restarted, rate};
-        env->SetIntArrayRegion(info, 0, 2, values);
-    }
-    return frames < 0 ? 0 : frames;
 }
 
 // AIFF (core/audio/ingest/AiffReader): the descriptor is handed over and closed natively.
@@ -230,6 +192,28 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffSeekOffset(
     return geode_aiff_seek_offset(timeUs, bytesPerFrame, sampleRate, dataBytes);
 }
 
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffGapBytes(JNIEnv*, jobject, jlong position,
+                                                                              jlong dataStart) {
+    return geode_aiff_gap_bytes(position, dataStart);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffReadBytes(JNIEnv*, jobject, jlong position,
+                                                                              jlong dataStart, jlong dataBytes) {
+    return geode_aiff_read_bytes(position, dataStart, dataBytes);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffWholeBytes(JNIEnv*, jobject, jint pending,
+                                                                               jint bytesPerFrame) {
+    return geode_aiff_whole_bytes(pending, bytesPerFrame);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffPendingTimeUs(JNIEnv*, jobject, jlong position,
+                                                                                   jlong dataStart, jint pending,
+                                                                                   jint bytesPerFrame,
+                                                                                   jint sampleRate) {
+    return geode_aiff_pending_time_us(position, dataStart, pending, bytesPerFrame, sampleRate);
+}
+
 // A capture's format plan (core/audio/ingest/CapturePlan): GEODE_CAPTURE_FORMAT_INTS ints a format.
 JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureFormats(JNIEnv* env, jobject,
                                                                                    jint deviceRateHz, jboolean stereo) {
@@ -251,6 +235,17 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureBufferByt
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureReadFrames(JNIEnv*, jobject) {
     return geode_capture_read_frames();
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStart(JNIEnv*, jobject, jint deviceRateHz,
+                                                                             jboolean unprocessed) {
+    return geode_mic_start(deviceRateHz, unprocessed ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStop(JNIEnv*, jobject) { geode_mic_stop(); }
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micActive(JNIEnv*, jobject) {
+    return geode_mic_active() ? JNI_TRUE : JNI_FALSE;
 }
 
 }  // extern "C"

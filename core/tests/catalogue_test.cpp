@@ -180,11 +180,12 @@ void everyOldStyleKeepsItsNumbersAndKind() {
 void familiesCarryTheirOwnCountAndAnOpener() {
     const char* const openers[] = {"arbor_grove", "bulb_classic", "chrys_bloom",  "lucid_weave", "dive_lattice",
                                    "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall",
-                                   "flame_veil",  "opal_bubbles", "hollow_sinew"};
+                                   "flame_veil",  "opal_bubbles", "hollow_sinew", "prism_portal", "fluor_whorl",
+                                   "loom_braid",  "shard_splinter", "petal_rose", "fold_lace"};
     const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam",
-                                 "flame", "opal",  "hollow"};
+                                 "flame", "opal",  "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
     // The first ten families have twelve styles, the ones since ten: the count is the family's own.
-    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10};
+    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10};
     std::set<std::string> seen;
     int i = 0;
     for (const auto& family : catalogue::families()) {
@@ -200,8 +201,8 @@ void familiesCarryTheirOwnCountAndAnOpener() {
         }
         ++i;
     }
-    check(i == 13, "thirteen families");
-    check(seen.size() == 10 * 12 + 3 * 10, "150 distinct family styles");
+    check(i == 19, "nineteen families");
+    check(seen.size() == 10 * 12 + 9 * 10, "210 distinct family styles");
 }
 
 void spinRateAndShaderStyleAgree() {
@@ -219,12 +220,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 212, "212 shader styles (62 loose + 150 family), got " + std::to_string(shaders));
+    check(shaders == 272, "272 shader styles (62 loose + 210 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 274, "274 ids");
+    check(catalogue::allIds().size() == 334, "334 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -255,14 +256,18 @@ void marchedStylesMatchTheOldSet() {
         "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
         "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
         "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
-        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
+        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel",
+        // The last three that faked their depth, remade as marches.
+        "outrun_drive", "ringed_planet", "ribbon_storm"};
     std::set<std::string> want = old;
     // Every style of the families added since marches.
-    for (const char* family : {"flame", "opal", "hollow"}) {
+    for (const char* family : {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"}) {
         for (const auto& f : catalogue::families()) {
             if (std::string(f.name) == family) want.insert(f.ids.begin(), f.ids.end());
         }
     }
+    // Life is presented as a marched field on the camera rig (core/viz/present/FieldPresent).
+    for (const auto& id : styles::lifeIds()) want.insert(id);
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -285,7 +290,7 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Turbulence, "plasma"), "turbulence reaches a shader");
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
-    check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
+    check(!catalogue::reaches(Scope::MarchDetail, catalogue::kPool), "detail misses an unmarched shader");
     // Spin (the old Spin drift) shows only where a style turns: bars, grids, landscapes and trees hold still.
     check(catalogue::scopeOf("Spin") == Scope::Spin && catalogue::scopeOf("Spin drift") == Scope::Universal, "Spin, and no Spin drift");
     check(catalogue::reaches(Scope::Spin, "bead_vortex") && catalogue::reaches(Scope::Spin, "tunnel"), "spin reaches a turning style");
@@ -299,8 +304,14 @@ void paramScopesMatchTheOldParamScope() {
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
     check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
-    check(!catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::TrebleBand, "life_orbium"),
-          "life reads treble, not bass");
+    // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
+    check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
+              catalogue::reaches(Scope::TrebleBand, "life_orbium"),
+          "life hears every band");
+    check(catalogue::reaches(Scope::ShaderLook, "life_orbium") && catalogue::reaches(Scope::Turbulence, "life_orbium") &&
+              catalogue::reaches(Scope::MarchDetail, "life_worms") && catalogue::fliesCamera("life_worms"),
+          "life reads the shader look, Turbulence and Detail and flies the rig");
+    check(!catalogue::reaches(Scope::ShaderLook, "silk_web") && !catalogue::fliesCamera("silk_web"), "silk is still flat");
     check(catalogue::reaches(Scope::Journey, "curlflow") && !catalogue::reaches(Scope::Emitters, "curlflow"), "curl flow");
     check(catalogue::reaches(Scope::Cymatics, "kundt_tube") && !catalogue::reaches(Scope::Cymatics, "plasma"), "cymatics");
     check(catalogue::kindOf("no_such_style") == Kind::Silk, "unknown ids are silk");
@@ -324,6 +335,8 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
     {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
     // Added after the tags moved here.
     {"flame", "PSYCHEDELIC"},   {"opal", "GLASS"},   {"hollow", "FLY_THROUGH"},
+    {"prism", "GLASS"},         {"fluor", "FLY_THROUGH"}, {"loom", "FLY_THROUGH"}, {"shard", "GLASS"},
+    {"petal", "FLOWING"},       {"fold", "FRACTALS"},
 };
 const std::map<Kind, std::string> kOldKindLooks = {
     {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"},
@@ -405,6 +418,11 @@ void textRoundTrips() {
             std::vector<std::string> perStyle;
             if (catalogue::isMarched(f[1])) perStyle.emplace_back("MARCH_DETAIL");
             if (catalogue::spinRate(f[1]) != 0.0f) perStyle.emplace_back("SPIN");
+            if (catalogue::drawsFamilyForm(f[1])) perStyle.emplace_back("FAMILY_FORM");
+            if (catalogue::hasFormulas(f[1])) perStyle.emplace_back("FORMULA");
+            if (catalogue::drawsShapes(f[1])) perStyle.emplace_back("SHAPES");
+            if (catalogue::castsShadows(f[1])) perStyle.emplace_back("SHADOW");
+            if (catalogue::colorsByEscape(f[1])) perStyle.emplace_back("ESCAPE");
             check(f.size() >= 4 && std::vector<std::string>(f.begin() + 4, f.end()) == perStyle, "per-style scopes of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
@@ -432,8 +450,10 @@ void textRoundTrips() {
     // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
-    // took over Spin drift's field on the turning styles' own scope.
-    check(kinds == catalogue::kKindCount && families == 13 && keys == 87 && overrides == 8, "row counts");
+    // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
+    // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
+    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 92 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

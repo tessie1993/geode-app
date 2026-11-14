@@ -65,9 +65,10 @@ out vec4 fragColor;
 // disk (nebEnergy). Space: the rig.
 //
 // Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the photon ring's
-// glow, k1 TEXTURE the disk noise scale, k2 FLOW the disk's spin rate, k3 TONE
+// glow, k1 TEXTURE the disk noise scale, k3 TONE
 // the disk's hue, k4 BUILD the disk's brightness, k5 SPACE the disk's outer
-// radius.
+// radius. k2 FLOW no longer sets the disk's spin rate: a knob is the notes',
+// and no sound turns a style (owner 2026-11-12); the disk turns on time alone.
 //
 // ---- why the march is safe --------------------------------------------------
 //
@@ -188,19 +189,38 @@ vec3 skyAt(vec3 d, float hats) {
     return col + hzStars(d, hats);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the hot haze over the disk, its density there.
+ * The disk itself is a surface, met where a bent ray crosses its plane (diskAt), not a field.
+ */
+struct NebHit {
+    float dens;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    float rhoH = length(p.xz);
+    float wH = 0.35 + 0.09 * rhoH;
+    NebHit h;
+    h.dens = exp(-p.y * p.y / (wH * wH)) * smoothstep(HZ_RIN * 0.8, HZ_RIN * 1.6, rhoH) * exp(-rhoH * 0.28);
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float bass = clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.3) * e;
     float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     gOct = nebOctaves(3.0);
-    gKey = nebKeyShift(0.12) + 0.12 * (uKnob[3] - 0.5);
-    gTex = 0.27 * (0.8 + 0.4 * uKnob[1]);
-    gSpin = 0.7 + 0.6 * uKnob[2];
-    gRout = HZ_ROUT * (0.85 + 0.3 * uKnob[5]);
-    float feed = (0.45 + 0.6 * clamp(swell * e, 0.0, 1.6)) * (0.7 + 0.6 * uKnob[4]);
+    gKey = nebKeyShift(0.12) + 0.12 * (gNebIn.tone - 0.5);
+    gTex = 0.27 * (0.8 + 0.4 * gNebIn.texture);
+    gSpin = 1.0;
+    gRout = HZ_ROUT * (0.85 + 0.3 * gNebIn.space);
+    float feed = (0.45 + 0.6 * clamp(swell * e, 0.0, 1.6)) * (0.7 + 0.6 * gNebIn.build);
 
     vec3 ro;
     vec3 rd;
@@ -238,10 +258,7 @@ void main() {
         minR = min(minR, rn);
 
         // The hot haze over the disk: a smooth glow, lensed like everything else.
-        float rhoH = length(pn.xz);
-        float wH = 0.35 + 0.09 * rhoH;
-        float hz = exp(-pn.y * pn.y / (wH * wH)) * smoothstep(HZ_RIN * 0.8, HZ_RIN * 1.6, rhoH)
-                 * exp(-rhoH * 0.28);
+        float hz = nebField(pn, gOct).dens;
         col += trans * haze * hz * 0.05 * feed * dt;
 
         // Crossing the disk plane between p and pn.
@@ -268,7 +285,7 @@ void main() {
     // The photon ring: rays that skimmed the photon sphere.
     float ringW = 0.05 + 0.04 * bass;
     float ring = exp(-pow((minR - HZ_PHOTON * 1.04) / ringW, 2.0));
-    col += trans * nebEmission(0.08 + gKey, 0.8) * ring * (0.35 + 0.2 * bass) * feed * (0.5 + uKnob[0]);
+    col += trans * nebEmission(0.08 + gKey, 0.8) * ring * (0.35 + 0.2 * bass) * feed * (0.5 + gNebIn.pulse);
 
     if (fate == 1) col += trans * skyAt(normalize(v), hats);
 

@@ -22,7 +22,7 @@ out vec4 fragColor;
 // The trunk is an arborTree with a slow sinuous warp through it (divided by
 // its Lipschitz bound, 1.3) so it twists the way a wired bonsai does, and the
 // foliage is clouded pads smooth-unioned onto every outermost tip through
-// gArbTip.
+// the hit's tip.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -42,6 +42,11 @@ out vec4 fragColor;
 // standing spiral to the forks. Colour: the ink and wash tints from pal(); the
 // paper and the seal are fixed accents. Energy: uIntensity scales the harmony
 // wash and the kick breath. Space: camAround, the rig's orbit and dolly.
+// Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned look): k0
+// PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW added to the Chaos
+// bend, k3 TONE the palette position of the ink and the wash, k4 BUILD how deep
+// the wash lays (paper has no glow), k5 SPACE the reach of the orbit. The mids
+// bow the limbs (arbMidBow).
 
 #define BN_MAX_STEPS 104
 #define BN_FAR 16.0
@@ -51,8 +56,6 @@ ArborForm gF;
 float gGrow;
 float gPad;
 float gGnarl;
-float gIsPad;
-float gIsTray;
 
 vec4 formFor(float s) {
     float a = hash11(s * 3.1 + 0.7);
@@ -62,30 +65,36 @@ vec4 formFor(float s) {
     return vec4(5.0 + floor(a * 2.99), mix(0.45, 0.85, b), mix(1.2, 2.6, c), mix(-0.12, 0.28, fract(a * 9.1 + c)));
 }
 
-float map(vec3 p) {
+/** The world: the tree, its foliage pads and the tray. mat.x is the pad share (0 bark, 1 pad), mat.y 1 on the tray. */
+ArborHit arborMap(vec3 p) {
     vec3 q = p - vec3(0.0, BN_BASE, 0.0);
     q.xz += gGnarl * vec2(sin(q.y * 2.3 + 0.5), cos(q.y * 1.9));
-    float tree = arborTree(q, gF, gGrow) / (1.0 + 0.6 * gGnarl * 2.3);
-    float pad = gArbTip - gPad;
+    ArborHit h = arborTree(q, gF, gGrow);
+    float tree = h.d / (1.0 + 0.6 * gGnarl * 2.3);
+    float pad = h.tip - gPad;
     float foliage = smin(tree, pad, 0.12);
-    gIsPad = smoothstep(-0.03, 0.03, tree - pad);
+    h.mat.x = smoothstep(-0.03, 0.03, tree - pad);
     vec3 b = p - vec3(0.0, BN_BASE - 0.16, 0.0);
     float tray = sdBox(b, vec3(1.05, 0.12, 0.62)) - 0.04;
-    gIsTray = step(tray, foliage);
-    return min(foliage, tray);
+    h.mat.y = step(tray, foliage);
+    h.d = min(foliage, tray);
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 void main() {
     vec2 uv = arbView();
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float orbit = arbSpan(N.reach, 5.0, 4.0, 6.0);
+    float padInkK = arbSpan(N.glow, 0.0, -0.1, 0.1);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
+    float padR = arbSpan(N.density, 0.15, 0.11, 0.19);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = arbChaos();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float harmony = clamp(uHarmony, 0.0, 1.0) * energy;
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
@@ -93,13 +102,13 @@ void main() {
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     vec4 form = mix(formFor(SND_CUT_COUNT - 1.0), formFor(SND_CUT_COUNT), morphIn);
     gGrow = arbLevels(form.x, 1.0);
-    gF = ArborForm(2.0, form.y, form.w, form.z + 0.5 * uTwist, 0.68, 0.72, 0.17, 0.68);
-    gPad = 0.15 + 0.02 * sin(t * 0.5) + 0.035 * kick;
+    gF = arborShape(ArborForm(2.0, form.y, form.w + arbMidBow(), form.z, 0.68, 0.72, 0.17, 0.68), N);
+    gPad = padR + 0.02 * sin(t * 0.5) + 0.035 * kick;
     gGnarl = 0.10 + 0.12 * chaos;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 5.0, 2.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 2.0 * CAM_SPIN_UNIT, ro, rd);
 
     // ---- paper, wash and seal ----------------------------------------------
     float grain = fbm3(vec3(uv * 18.0, 3.0), 3);
@@ -119,13 +128,14 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > BN_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            isPad = gIsPad;
-            isTray = gIsTray;
-            level = gArbLevel;
+            isPad = h.mat.x;
+            isTray = h.mat.y;
+            level = h.level;
             break;
         }
         tm += d * 0.75;
@@ -133,11 +143,11 @@ void main() {
 
     vec3 col = paper;
     // A soft shadow wash on the paper under the tray.
-    vec3 inkCol = pal(0.62) * 0.10 + vec3(0.03, 0.03, 0.04);
-    vec3 washCol = mix(vec3(0.25, 0.32, 0.26), pal(0.30) * 0.5, 0.5);
+    vec3 inkCol = pal(0.62 + hueShift) * 0.10 + vec3(0.03, 0.03, 0.04);
+    vec3 washCol = mix(vec3(0.25, 0.32, 0.26), pal(0.30 + hueShift) * 0.5, 0.5);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
+        vec3 n = arborNormal(p, 0.0012 * hitT + 0.0006);
         vec3 l = normalize(vec3(-0.5, 0.8, 0.4));
         vec3 lit = arbLight(n, rd, l, 0.3, 12.0);
         float ao = arbStepAO(used, uSteps);
@@ -149,7 +159,7 @@ void main() {
             tone = mix(inkCol, vec3(0.35, 0.18, 0.12), 0.5);
         } else {
             float trunkInk = 0.80 + 0.15 * (1.0 - lit.x);
-            float padInk = (0.25 + 0.25 * harmony) + 0.35 * (1.0 - lit.x) + 0.45 * lit.y;
+            float padInk = (0.25 + 0.25 * harmony + padInkK) + 0.35 * (1.0 - lit.x) + 0.45 * lit.y;
             ink = mix(trunkInk, padInk, isPad);
             tone = mix(inkCol, washCol, isPad);
         }
@@ -160,5 +170,7 @@ void main() {
     }
 
     col *= 0.94 + 0.06 * swell;
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

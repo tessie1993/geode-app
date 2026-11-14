@@ -21,6 +21,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // ===========================================================================
 // VANISHING - the Droste effect, volumetric.
@@ -92,6 +93,20 @@ out vec4 fragColor;
 // equality: where both nearest shells are open and a third is not, the min
 // over two can overestimate. That is what STEP_SCALE is for.)
 // ===========================================================================
+
+// ---- the knobs ------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' wall
+// thickness (0.75..1.25, the relief scaled with it so it never cuts through
+// and gLip follows), k2 FLOW added to where the stack sits in its fall (a
+// place, never a turn: nothing here turns to the music),
+// k3 TONE the palette position and the shells' windows (a high melody opens
+// them until each shell is a scatter of small caps and the regress shows
+// deep, a low one closes them toward heavy caps, never past the sqrt(2)
+// threshold where the bridges would join and shut the frame), k4 BUILD the
+// light at the end's glow, k5
+// SPACE the reach (the far plane and the fog along the ray).
 
 // ---- the stack ------------------------------------------------------------
 
@@ -254,7 +269,6 @@ const float SPIN_W = 0.06017699;
  */
 const float SPIRAL_BASE = 0.20;
 const float SPIRAL_DRIFT = 0.12;
-const float SPIRAL_MID = 0.18;
 const float SPIRAL_MAX = 0.5;
 
 // ---- camera and march -----------------------------------------------------
@@ -462,6 +476,8 @@ float gLip;
 float gShell;
 /** The relief PATTERN, -1..1 and amplitude-free, so shading can read it without a divide. */
 float gReliefN;
+/** k1 TEXTURE: the wall's half-thickness, prototype units (WALL at rest). */
+float gWall = WALL;
 
 /**
  * One shell, in prototype units where its mid-wall is the unit sphere.
@@ -472,7 +488,7 @@ float gReliefN;
  * into the wall, and smax against the negated octahedron cuts the windows.
  */
 float shellProto(vec3 q, float qr, float relief) {
-    float wall = opOnion(qr - 1.0, WALL);
+    float wall = opOnion(qr - 1.0, gWall);
     return smax(wall, -sdOctahedron(q, gHole), HOLE_BLEND) - relief;
 }
 
@@ -480,7 +496,7 @@ float shellProto(vec3 q, float qr, float relief) {
  * The stack. See the header for the mapping and for why there are exactly two
  * candidates.
  */
-float map(vec3 p) {
+float vanField(vec3 p) {
     float r = max(length(p), R_MIN);
     float k = log(r);
 
@@ -526,6 +542,24 @@ float map(vec3 p) {
 
     gShell = dOut < dIn ? n + 1.0 : n;
     return min(dIn, dOut) / gLip;
+}
+
+/** vanField through lib_shell's hooks: exactly vanField(p) at rest, and vanField read once, in a loop the compiler cannot unroll. */
+float vanFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, vanField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: vanField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return vanFieldGrown(p);
 }
 
 /**
@@ -584,23 +618,53 @@ void main() {
     float midAmt = clamp(SND_MID_PRESENCE * 0.75, 0.0, 1.0);
     float trebAmt = clamp(SND_TREBLE_PRESENCE * 0.75, 0.0, 1.0);
     float energyAmt = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0) * 0.7, 0.0, 1.0);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nWall = clamp(uKnob[1], 0.0, 1.0);
+    float nFall = clamp(uKnob[2], 0.0, 1.0);
+    float nWindow = clamp(uKnob[3], 0.0, 1.0);
+    float nCore = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the shells' wall (the relief scales with it), FLOW's place
+    // in the fall, the palette position and the windows, the light at the
+    // end, and the reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float wallK = shellMap(nWall, 0.75, 1.0, 1.25);
+    float fallAdd = shellMap(nFall, -0.06, 0.0, 0.06);
+    float hb = shellMap(nWindow, HUE_BASE - 0.3, HUE_BASE, HUE_BASE + 0.3);
+    float windowAdd = shellMap(nWindow, -0.15, 0.0, 0.15);
+    float coreK = shellMap(nCore, 0.5, 1.0, 1.5);
+    float reach = shellMap(nReach, 0.8, 1.0, 1.2);
+    float farT = FAR * reach;
+    gWall = WALL * wallK;
 
     // The pull is added OUTSIDE the wrap: mod()ing it would fold the dimple
     // and put a seam through the middle of it. The wrap itself is invisible
     // because the stack and the hue are both periodic at BAND_CYCLE.
     // A spike re-aims the fall rather than surging it: uFlowPhase only advances,
     // so a loud passage descends faster and never jumps a band.
-    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + FALL_SURGE * bassAmt * 0.3, BAND_CYCLE) + pull;
-    // Mids steer: they set how hard the stack spirals, which is the direction
-    // the corridor screws away in.
+    // The mids and FLOW move the stack too, as a place in the fall (owner
+    // rule: sound may move position and shape, never turn anything); they used
+    // to steer the spiral's shear, which turned the corridor to the music.
+    gFall = mod(uTime * FALL_RATE + uFlowPhase * FALL_SURGE + (FALL_SURGE * (0.3 * bassAmt + 0.3 * midAmt) + fallAdd),
+                BAND_CYCLE) + pull;
+    // The spiral's shear breathes on uTime alone; the fingers' twist rides on top.
     gSpiral = clamp(
-        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + SPIRAL_MID * midAmt + twist,
+        SPIRAL_BASE + SPIRAL_DRIFT * sin(uTime * SPIRAL_W) + twist,
         -SPIRAL_MAX,
         SPIRAL_MAX
     );
     gSpin = uTime * SPIN_W + spin;
-    gHole = HOLE_BASE + HOLE_SWING * energyAmt;
-    gReliefAmp = RELIEF_IDLE + RELIEF_TREBLE * trebAmt;
+    // TONE moves the windows; the floor keeps the caps free (above sqrt 2).
+    gHole = clamp(HOLE_BASE + HOLE_SWING * energyAmt + windowAdd,
+                  min(1.44, HOLE_BASE + HOLE_SWING * energyAmt), 1.66);
+    gReliefAmp = (RELIEF_IDLE + RELIEF_TREBLE * trebAmt) * wallK;
     gReliefPhase = uTime * RELIEF_PHASE_W;
 
     // Worst-case Jacobian norm of everything between world space and the
@@ -637,8 +701,8 @@ void main() {
         // Bounded above by what is left of the ray and below by the epsilon: a
         // step finer than the hit threshold cannot resolve anything and would
         // spend the rest of the budget standing still.
-        t += max(min(d * STEP_SCALE, FAR - t), eps);
-        if (t > FAR) break;
+        t += max(min(d * STEP_SCALE, farT - t), eps);
+        if (t > farT) break;
     }
 
     // ---- the light at the end ---------------------------------------------
@@ -650,28 +714,28 @@ void main() {
     float ga = length(w) * FOV / CORE_ANG;
     float tight = exp(-ga * ga);
     float halo = exp(-ga * ga * 0.05);
-    vec3 core = pal(HUE_BASE + 0.42 + 0.10 * midAmt) *
-        (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo);
+    vec3 core = pal(hb + 0.42 + 0.10 * midAmt) *
+        (CORE_GAIN * tight * (0.85 + 0.95 * energyAmt) + HALO_GAIN * halo) * coreK;
     // The light at the end is the chrysanthemum: the mandala on the shifted
     // screen direction, so it is centred on the vanishing point and travels
     // with the finger like the core does, and the regress is falling INTO
     // it. It carries its own floor, so an untouched silent frame is a dark
     // room and not a fault.
-    vec3 backdrop = dmtChrysanthemum(vec3(w * FOV, 1.0), HUE_BASE + 0.62, energyAmt) + core;
+    vec3 backdrop = dmtChrysanthemum(vec3(w * FOV, 1.0), hb + 0.62, energyAmt) + core;
 
     // The bank, marched on its own toward the centre. Its hit is taken over
     // the stack's whenever it is nearer, and fades toward the core the way a
     // shell at the same depth would.
     float satCount = dmtSatelliteCount();
-    float satT = dmtMarchSatellites(ro, rd, FAR, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    float satT = dmtMarchSatellites(ro, rd, farT, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
     bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
 
     vec3 col = backdrop;
     if (satWins) {
         vec3 p = ro + rd * satT;
-        col = dmtSatelliteColor(p, rd, HUE_BASE + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+        col = dmtSatelliteColor(p, rd, hb + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
         float kSat = log(max(length(p), R_MIN));
-        float fade = 1.0 - exp(-(satT * FOG_T + max(0.0, -kSat) * FOG_K));
+        float fade = 1.0 - exp(-(satT * FOG_T / reach + max(0.0, -kSat) * FOG_K));
         col = mix(col, backdrop, fade);
     } else if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
@@ -686,7 +750,7 @@ void main() {
         // without it each level of the regress is one flat colour and the frame
         // reads as a rosette rather than as a room.
         vec3 sd = p / max(length(p), R_MIN);
-        float hue = HUE_BASE + fract(hitShell / BAND_CYCLE) * HUE_SPAN +
+        float hue = hb + fract(hitShell / BAND_CYCLE) * HUE_SPAN +
             0.08 * midAmt + 0.05 * hitRelief + 0.06 * dot(sd, vec3(0.42, 0.74, 0.21));
         // The grain fades with depth rather than aliasing into the corridor:
         // past three e-folds down it is finer than a pixel and would boil.
@@ -707,7 +771,7 @@ void main() {
         // as infinite; the outward one pushes the shell enclosing the viewer
         // back into being a frame rather than a wall.
         float fade = 1.0 - exp(
-            -(hitT * FOG_T + max(0.0, -kHit) * FOG_K + max(0.0, kHit) * FOG_OUT)
+            -(hitT * FOG_T / reach + max(0.0, -kHit) * FOG_K + max(0.0, kHit) * FOG_OUT)
         );
         // Below the sub-pixel floor the march stops on whichever shell it
         // grazed and the 4-tap normal there is quantization noise. Rather than
@@ -720,12 +784,12 @@ void main() {
     // The wake sits on top of everything because it is light on the glass, not
     // in the room. touchWake() sums all five slots and is unbounded above, so
     // it is clamped before it can multiply a palette colour past the grade.
-    col += pal(HUE_BASE + 0.20) * (WAKE_GAIN * min(touchWake(uv), 2.5));
+    col += pal(hb + 0.20) * (WAKE_GAIN * min(touchWake(uv), 2.5));
 
     // Vignette on the RAW screen radius, not on uv: this is a property of the
     // glass, and reading the drifted/zoomed domain would slide it off frame.
     vec2 sv = (vUv - 0.5) * vec2(uResolution.x / max(uResolution.y, 1.0), 1.0) * 2.0;
     col *= mix(1.0, smoothstep(2.0, 0.30, length(sv)), 0.5);
 
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

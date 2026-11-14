@@ -104,12 +104,9 @@ float gCurl;
 float gT;
 float gCoreY;
 float gCoreR;
-/** Set by map(): 0 core, 1 + ring index on a petal; the petal's u, v and id. */
-float gMat;
-float gU;
-float gV;
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 core, 1 + ring index on a petal; a.x the petal's u, a.y its v). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = vec3(p.x, p.y + BL_DROP, p.z);
     float r = length(q.xz);
     // atan(0, 0) is undefined in GLSL ES; the axis is inside the core anyway.
@@ -117,9 +114,9 @@ float map(vec3 p) {
 
     vec3 cq = q - vec3(0.0, gCoreY, 0.0);
     float best = (length(vec3(cq.x, cq.y / 0.6, cq.z)) - gCoreR) * 0.6;
-    gMat = 0.0;
-    gU = 0.0;
-    gV = 0.0;
+    found.mat = 0.0;
+    found.a.x = 0.0;
+    found.a.y = 0.0;
     float bestA = 0.0;
 
     for (int i = 0; i < BL_MAX_RINGS; i++) {
@@ -153,43 +150,51 @@ float map(vec3 p) {
         float d = max(d2, dy);
         if (d < best) {
             best = d;
-            gMat = 1.0 + k;
-            gU = uc;
-            gV = across / h;
+            found.mat = 1.0 + k;
+            found.a.x = uc;
+            found.a.y = across / h;
             bestA = ak;
         }
     }
     // The frayed edge, once, for the nearest ring only.
-    if (gChaos > 0.001 && gMat > 0.5) best += chrysFray(r * vec2(cos(bestA), sin(bestA)), gChaos);
+    if (gChaos > 0.001 && found.mat > 0.5) best += chrysFray(r * vec2(cos(bestA), sin(bestA)), gChaos);
     return best;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_chrys_field
+
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     gT = t;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    float kickK = chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    gChaos = chrysSpan(N.chaos, 0.0, 0.0, 2.0) * chrysSpan(N.fray, 1.0, 0.5, 1.5);
+    gCurl = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    gRings = 5.0 + floor(chrysSpan(N.rings, 0.0, 0.0, 2.0) + 0.5);
+    float petalW = chrysSpan(N.width, 1.0, 0.85, 1.15);
+    float rimK = chrysSpan(N.width, 1.0, 0.5, 1.5);
+    float spinK = chrysSpan(N.spin, 1.0, 0.5, 1.5);
+    float radius = chrysSpan(N.reach, 2.5, 2.0, 3.0) * (1.0 - 0.35 * uCamDolly);
+    float buildK = chrysSpan(N.glow, 1.0, 0.4, 1.6);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.06, 0.06);
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
     float trend = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV * uSoundDrive * uIntensity * (1.0 + kPulse), 0.0, 1.5);
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0) * clamp(1.0 + kTexture, 0.3, 1.7);
-    gCurl = clamp(uTwist, -1.0, 1.0);
-    gRings = 5.0 + floor(2.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * uIntensity * kickK, 0.0, 1.5);
     float rest = 0.78 + 0.12 * swell;
-    float hue = t * 0.006 + 0.12 * kTone;
+    float hue = t * 0.006 + hueShift;
 
     // The rings, once per pixel: the flat style's radii and counts, given heights.
     for (int i = 0; i < BL_MAX_RINGS; i++) {
@@ -201,13 +206,13 @@ void main() {
         float tipR = (0.22 + 0.72 * f) * (rest + push);
         float len = tipR * (0.62 - 0.12 * f);
         float dir = mod(k, 2.0) < 0.5 ? 1.0 : -1.0;
-        float spin = dir * (uDrift * 0.15 * (1.0 + kFlow) + t * 0.02) + chrysRingOffset(k, count);
+        float spin = dir * (uDrift * 0.15 * spinK + t * 0.02) + chrysRingOffset(k, count);
         float cup = mix(0.85, 0.25, f);
         // Inner rings sit high and curl up hard; the kick flattens them open.
         float base = (0.30 + 0.04 * swell) * pow(1.0 - f, 1.3);
         float lift = mix(0.85, 0.12, f) * (1.0 - 0.55 * min(open, 1.0));
         gRingA[i] = vec4(tipR - len, len, count, spin);
-        gRingB[i] = vec4(base, lift, cup, mix(0.55, 0.42, f));
+        gRingB[i] = vec4(base, lift, cup, mix(0.55, 0.42, f) * petalW);
         gRingTip[i] = mix(0.2, 0.55, f);
     }
     gCoreY = gRingB[0].x + 0.02;
@@ -220,18 +225,21 @@ void main() {
     float se = sin(BL_ELEV);
     mat3 pitch = mat3(1.0, 0.0, 0.0, 0.0, ce, se, 0.0, -se, ce);
     mat3 basis = turn * pitch * uCamBasis;
-    float radius = 2.5 * (1.0 + 0.4 * kSpace) * (1.0 - 0.35 * uCamDolly);
     vec3 ro = -basis[2] * radius;
     vec3 rd = normalize(basis * vec3(uv, uCamFocal));
+    // Grow and layers (lib_grow): the flower at the origin is the subject, as camAround would say.
+    growSetup(ro, 1.5 * radius, true);
 
     // Background: the flat style's dark wash and the halo the flower sits in.
     float sr = length(uv);
     vec3 bg = pal(hue + 0.55) * (0.035 + 0.05 * exp(-sr * 1.6));
     vec3 col = bg;
-    float buildK = clamp(1.0 + 1.2 * kBuild, 0.2, 2.2);
 
     float b = dot(ro, rd);
-    float disc = b * b - (dot(ro, ro) - BL_BOUND * BL_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = BL_BOUND + growSlack(BL_BOUND, 1.0, 0.2);
+    float disc = b * b - (dot(ro, ro) - boundR * boundR);
     if (disc > 0.0) {
         float sq = sqrt(disc);
         float tm = max(-b - sq, 0.01);
@@ -243,7 +251,8 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            fld = chrysField(ro + rd * tm);
+            float d = fld.d;
             float eps = 0.0006 * tm + 0.0004;
             if (d < eps) {
                 hitT = tm;
@@ -254,7 +263,7 @@ void main() {
 
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0008 * hitT + 0.0005);
+            vec3 n = chrysNormal(p, 0.0008 * hitT + 0.0005);
             vec3 L = normalize(vec3(0.35, 0.9, 0.25));
 
             // Soft shadow: the rings above shade the rings below.
@@ -262,7 +271,8 @@ void main() {
             if (uSteps >= 48.0) {
                 float st = 0.02;
                 for (int j = 0; j < BL_SHADOW_STEPS; j++) {
-                    float d = map(p + L * st);
+                    fld = chrysField(p + L * st);
+                    float d = fld.d;
                     sh = min(sh, 9.0 * d / st);
                     if (sh < 0.05) break;
                     st += clamp(d, 0.015, 0.12);
@@ -271,12 +281,14 @@ void main() {
                 sh = 0.3 + 0.7 * sh * sh * (3.0 - 2.0 * sh);
             }
             // Ambient occlusion: two taps along the normal.
-            float o1 = map(p + n * 0.03);
-            float o2 = map(p + n * 0.08);
+            fld = chrysField(p + n * 0.03);
+            float o1 = fld.d;
+            fld = chrysField(p + n * 0.08);
+            float o2 = fld.d;
             float ao = clamp(1.0 - 4.0 * ((0.03 - o1) + 0.5 * (0.08 - o2)), 0.35, 1.0);
             ao *= clamp(1.0 - used / max(uSteps, 1.0) * 0.6, 0.5, 1.0);
-            // Restore the hit point's globals after the shading taps.
-            map(p);
+            // The hit at p again for the shading, after the shading taps.
+            fld = chrysField(p);
 
             // A blade has two faces; light the one we are looking at.
             vec3 nf = dot(n, rd) > 0.0 ? -n : n;
@@ -284,7 +296,7 @@ void main() {
             float through = max(dot(-nf, L), 0.0);
             float spec = pow(max(dot(reflect(rd, nf), L), 0.0), 24.0);
 
-            if (gMat < 0.5) {
+            if (fld.mat < 0.5) {
                 vec3 q = vec3(p.x, p.y + BL_DROP, p.z);
                 vec4 fl = chrysFloret(q.xz, 0.011);
                 float dot0 = 1.0 - smoothstep(0.003, 0.008, fl.x);
@@ -292,16 +304,16 @@ void main() {
                 col = corec * (0.55 + 0.45 * dif * sh) * (0.7 + 0.3 * dot0) * 0.9;
                 col += pal(hue + 0.6) * 0.15 * buildK;
             } else {
-                float k = gMat - 1.0;
+                float k = fld.mat - 1.0;
                 float f = clamp(k / (gRings - 1.0), 0.0, 1.0);
                 float cup = mix(0.85, 0.25, f);
-                float shade = chrysPetalShade(vec4(0.0, gU, gV, 0.0), cup);
+                float shade = chrysPetalShade(vec4(0.0, fld.a.x, fld.a.y, 0.0), cup);
                 vec3 base = pal(hue + 0.08 * k);
                 vec3 tipc = mix(pal(hue + 0.08 * k + 0.12), vec3(1.0), 0.25);
-                vec3 pc = mix(base * 0.55, tipc, smoothstep(0.1, 1.0, gU)) * shade;
+                vec3 pc = mix(base * 0.55, tipc, smoothstep(0.1, 1.0, fld.a.x)) * shade;
                 col = pc * (0.16 + 0.95 * dif * sh) * ao + pc * through * 0.45 * sh;
                 // A thin bright rim so neighbouring petals separate.
-                col += tipc * 0.16 * clamp(1.0 + kTexture, 0.2, 1.8) * smoothstep(0.75, 1.0, abs(gV)) * ao;
+                col += tipc * 0.16 * rimK * smoothstep(0.75, 1.0, abs(fld.a.y)) * ao;
                 col += mix(vec3(1.0), tipc, 0.5) * spec * 0.12 * sh;
             }
             col = mix(col, bg, smoothstep(radius, radius + 2.0, hitT) * 0.5);

@@ -13,20 +13,22 @@
 #include "sound/Rhythm.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
+#include "sound/Transient.hpp"
 
 namespace geode::sound {
 
-// The sound engine: MilkDrop's architecture and TouchDesigner's side by side, both on one sample clock.
+// The sound engine: two analyses side by side, a windowed spectrum and a per-sample filter bank, both on one
+// sample clock.
 //
-// MilkDrop: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
+// The spectrum: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
 // window out of it, transforms it and sums the spectrum into bands measured against their own running means
-// (bass, mid, treble, their att envelopes, everything spectral).
+// (bass, mid, treble, their att envelopes, everything spectral: the levels MilkDrop presets read).
 //
-// TouchDesigner: every sample also runs through a filter bank as it is written (4-pole bands with a power
+// The filter bank: every sample also runs through a filter bank as it is written (4-pole bands with a power
 // envelope), and each hop reduces the slice since the last hop to one level per band, which then goes
 // through Lag and Trigger (low, middle, high and the drums).
 //
-// The clock is the samples, not the frame (fosfora's HopAnalyzer::process_hop model). write() counts
+// The clock is the samples, not the frame: one analysis per fixed hop of samples. write() counts
 // samples, and every kHop of them (Rhythm::kHopSeconds, 10 ms: 441 at 44.1 kHz, 480 at 48 kHz) it runs one
 // whole analysis hop with dt = hop / rate: the filter bank's slice, the window, the FFT, every level and
 // descriptor, the drums and events, the melody, then the musical layer (Rhythm, Harmony, Form) and the
@@ -42,10 +44,10 @@ namespace geode::sound {
 //               phrase phases moved on to the frame's own sample, and the waveform (a drawing, per frame)
 //
 // Why 10 ms: it is Rhythm's hop already (the onset envelope needs 100 Hz), so one clock serves everything
-// and a beat, its kick and the frame's levels come from the same instant; it is madmom's rate exactly (its
-// beat activations run at 100 fps, online on one 2048-sample frame, the window here), where librosa's
-// default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps ~78 %; and it is shorter than any
-// frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
+// and a beat, its kick and the frame's levels come from the same instant; it is the 100 frames a second
+// that online beat trackers in the literature run their activations at (on one 2048-sample frame, the window
+// here), where a common analysis default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps
+// ~78 %; and it is shorter than any frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
 // FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
 //
 // step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,
@@ -81,8 +83,8 @@ public:
     }
     // Samples per analysis hop.
     int hopSamples() const { return rhythm_.hopSamples(); }
-    // The one-hop triggers held from hop to step (kick … drop): > 0 on the frame that follows their hop.
-    static constexpr int kTriggers = 23;
+    // The one-hop triggers held from hop to step (kick … drop, transient): > 0 on the frame that follows their hop.
+    static constexpr int kTriggers = 24;
     static constexpr double kHitFloorLufs = -45.0;
     // Clamped to sound/Tuning's ranges, whatever the caller hands in (a NaN slot is its default).
     void setTuning(const GeodeSoundTuning& tuning);
@@ -181,6 +183,8 @@ private:
         float presenceFade = 0.0f;
         std::array<RelativeLevel, 3> bandFlux;  // low, mid, high
         RelativeLevel hfc;
+        Envelope transientEnv;
+        float transientSharpness = 0.0f;  // the last heard attack's, held
     };
 
     BinRange bins(float loHz, float hiHz) const;
@@ -195,12 +199,13 @@ private:
     void waveform(float* out);
     void descriptors(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void drums(float dt, bool silent, GeodeSoundFrame& out);
+    void transients(float dt, bool silent, GeodeSoundFrame& out);
     void events(float dt, bool warm, GeodeSoundFrame& out);
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
     void musical(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void absolute(float dt, GeodeSoundFrame& out);
-    // A kick, snare, onset or hard cut may fire: the gate is open and the momentary loudness is above the
+    // A kick, snare, onset, transient or hard cut may fire: the gate is open and the momentary loudness is above the
     // floor a hit needs, so a soft swell in a quiet ambient passage cannot fire a full-strength hit.
     bool hitsAllowed() const { return meter_.open() && meter_.momentaryLufs() >= kHitFloorLufs; }
     void estimatePitch(float held, float& midi, float& confidence, float& evenness);
@@ -245,6 +250,7 @@ private:
     std::array<float, kSlices> sliceNow_{};   // this hop's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held
     std::array<int64_t, kSlices> punchAt_{};  // and when, in samples
+    Transient transient_;  // per sample on the bank's low, middle and high bands and the whole mix
     double silenceCarry_ = 0.0;  // the fraction of a sample of silence still owed while starved
 
     // The analysis hop.
@@ -264,7 +270,8 @@ private:
     std::vector<float> tilted_;
     // The last fluxLag_ hops' log spectra, so flux compares against the one ~30 ms old.
     std::vector<float> logMag_;      // this hop's, n/2 + 1
-    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_
+    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_, each maximum-filtered (sound/OnsetFlux)
+    std::vector<int> fluxReach_;     // per bin, how far that filter reaches either way
     int fluxLag_ = 3;
     int fluxHead_ = 0;
     int fluxCount_ = 0;

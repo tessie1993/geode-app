@@ -3,12 +3,11 @@
 /* What the sound engine hears in one rendered frame. Plain C and all floats, so the whole frame crosses JNI
  * as one float array in declaration order, and the C++ renderer, the shaders and Kotlin read the same thing.
  *
- * Where the parameters come from: MilkDrop 3 (the relative levels and their att envelopes, the hard cut,
- * the stabilised waveform), TouchDesigner (the shaped low/middle/high with gain, threshold, offset, attack
- * and release; kick/snare/hat triggers with hysteresis and envelopes; counted hits; centroid and partial
- * density; the Band EQ), and other VJ tools (Synesthesia's band clocks, presence, intensity, toggle- and
- * random-on-hit; VDMX's peak frequency; sigmund~/fiddle~'s note, re-attack and evenness; projectM's
- * frame-rate-independent rates).
+ * What it holds: the levels MilkDrop presets read (the relative levels and their att envelopes), the hard cut
+ * and the stabilised waveform; a shaped layer (low/middle/high with gain, threshold, offset, attack and
+ * release; kick/snare/hat triggers with hysteresis and envelopes; counted hits; centroid and partial density;
+ * the Band EQ); band clocks, presence, intensity, toggle- and random-on-hit; the peak frequency; the melody's
+ * note, re-attack and evenness; and projectM's frame-rate-independent rates.
  *
  * Kinds of value:
  *  - Relative (bass … midHighAtt, flux, eq): energy over its own ~4 s running mean. 1.0 is typical for
@@ -16,14 +15,14 @@
  *  - Shaped (everything marked 0..1): ready to drive a parameter as it is.
  *  - Clocks (…Time): seconds or counts that only move forward, at a speed the music sets. Wrap at an hour
  *    (band clocks) or at 4096 (event clocks).
- *  - Triggers (kick … reattack): > 0 on the one frame they fire (the value is the strength, 0..1), else 0.
+ *  - Triggers (kick … reattack, transient): > 0 on the one frame they fire (the value is the strength, 0..1), else 0.
  *  - Told (fadeGain): what the player says, not what the engine hears. */
 
 #define GEODE_SOUND_EQ_BANDS 16
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
 #define GEODE_SOUND_CHROMA 12
-#define GEODE_SOUND_SCALARS 113
+#define GEODE_SOUND_SCALARS 116
 #define GEODE_SOUND_FRAME_FLOATS                                                                       \
     (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
      3 * GEODE_SOUND_CHROMA)
@@ -57,13 +56,13 @@ typedef struct GeodeSoundFrame {
     float subAtt;
     float midHigh;
     float midHighAtt;
-    /* The TouchDesigner layer, 0..1: bass/mid/treble att through the user's attack, release, threshold,
+    /* The shaped layer, 0..1: bass/mid/treble att through the user's attack, release, threshold,
      * gain and offset (typical sits at 0.5). level is the whole mix's absolute loudness. */
     float low;
     float middle;
     float high;
     float level;        /* absolute: the mix's RMS in dBFS, -60 dB = 0 … 0 dB = 1 (no peak it is measured against) */
-    /* Slow trends, 0..1, that ignore single hits: each band's activity over ~3 s (Synesthesia's presence),
+    /* Slow trends, 0..1, that ignore single hits: each band's activity over ~3 s (its presence),
      * and intensity: drive (below) plus how far the momentary loudness has risen over the short-term one. */
     float bassPresence;
     float midPresence;
@@ -187,7 +186,7 @@ typedef struct GeodeSoundFrame {
      * (1) on the frame it lands, at once rather than on a downbeat: the next song is the biggest section. */
     float fadeGain;     /* the player's fades, 0..1: pause and skip fades times the crossfade; 1 while none runs,
                          * under the mic or another app's audio, and always in an export. The tap is before the volume, so nothing else hears it */
-    /* Absolute loudness and drive (core/sound/LufsMeter, fosfora's LoudnessMeter): none of these is relative to
+    /* Absolute loudness and drive (core/sound/LufsMeter): none of these is relative to
      * the song. loudnessM / loudnessS are BS.1770 K-weighted momentary (400 ms) and short-term (3 s) loudness,
      * -60 LUFS = 0 … 0 LUFS = 1. busy is the texture, 0..1 on fixed scales: onsets per second (8 a second = 1),
      * the drums' share and the tracker's beat confidence. drive is THE magnitude of the music, 0..1: short-term
@@ -199,7 +198,13 @@ typedef struct GeodeSoundFrame {
     float loudnessS;
     float busy;
     float drive;
-    /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
+    /* Transients (core/sound/Transient): the sharp start of any sound, not only a drum's, seen per sample in each
+     * filter-bank band and the whole mix within a few milliseconds (onset above is a flux peak, ~70 ms late).
+     * Only above the silence gate and the hit floor, and worth more with the drive, as every hit is. */
+    float transient;          /* trigger: an attack, its strength 0..1 */
+    float transientEnv;       /* its envelope, onsetEnv's rise and fall (5 ms up, 0.2 s down) */
+    float transientSharpness; /* how steep the last attack was, 0 a bare pass … 1 a step: held until the next */
+    /* The Band EQ: sixteen centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */
     float spectrum[GEODE_SOUND_SPECTRUM_POINTS];
@@ -216,7 +221,7 @@ typedef struct GeodeSoundFrame {
 typedef struct GeodeSoundTuning {
     float gain[3];          /* 0..4, default 1 */
     float threshold[3];     /* 0..1, default 0: subtracted after halving, so typical reads 0.5 */
-    float offset[3];        /* -1..1, default 0: added last (TouchDesigner's "add") */
+    float offset[3];        /* -1..1, default 0: added last */
     float attack[3];        /* seconds to rise, 0..1, default 0.03 */
     float release[3];       /* seconds to fall, 0..2, default 0.15 */
     float drum[3];          /* punch a hit must reach, 0.1..3; defaults 0.6, 0.5, 0.5 */

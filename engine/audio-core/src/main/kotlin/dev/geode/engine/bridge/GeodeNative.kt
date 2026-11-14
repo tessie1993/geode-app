@@ -73,6 +73,12 @@ object GeodeNative {
     /** The saved text for [levels]: millibels, comma separated. */
     external fun dspEncodeBands(levels: IntArray): String
 
+    /** Band [band]'s centre as the settings show it ("125 Hz", "1 kHz"). */
+    external fun dspBandLabel(band: Int): String
+
+    /** A level in millibels as dB to a tenth ("+3.5 dB", "-12 dB", "0 dB"). */
+    external fun dspDbLabel(millibels: Int): String
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,
@@ -219,17 +225,17 @@ object GeodeNative {
     )
 
     /**
-     * [buffer] must be a direct buffer holding [frames] interleaved frames of [channels] channels, the format
-     * they were queued in, as 16-bit PCM or as float when [pcmFloat]; processed in place (the int16 conversion
-     * is native), never past the buffer's capacity.
+     * Processes the whole frames of the first [bytes] of a direct [buffer] in place, as [encoding]
+     * (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its capacity. Returns
+     * the bytes to pass on: those whole frames, a trailing part frame dropped.
      */
-    external fun dspProcess(
+    external fun dspProcessBytes(
         handle: Long,
         buffer: java.nio.ByteBuffer,
-        frames: Int,
+        bytes: Int,
+        encoding: Int,
         channels: Int,
-        pcmFloat: Boolean,
-    )
+    ): Int
 
     /**
      * Reads the tags of [fd], which native closes. Fills [texts] with UTF-8 title, artist, album, album artist,
@@ -336,18 +342,51 @@ object GeodeNative {
         on: Boolean,
     )
 
-    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer; [blendMode] indexes [layerBlendNames]. */
-    external fun layerSet(
-        sceneId: String,
-        mix: Float,
-        blendMode: Int,
-    )
+    /** Customize › Layers, process-wide (core/viz/LayerState): native keeps the layer; [layer] is the line it last handed back. */
+    external fun layerSet(layer: String)
 
-    /** The blends a layer takes (core/viz/VisualSafety), in [layerSet]'s order, each label followed by a newline. */
-    external fun layerBlendNames(): String
+    /** One field of native's layer changed (`geode_layer_edit`, [field] a `LAYER_*` up to [LAYER_STYLE]); the line to save, or "". */
+    external fun layerEdit(
+        field: Int,
+        value: Float,
+        styleId: String,
+    ): String
 
-    /** Screen, the blend a new layer starts on (`GEODE_LAYER_BLEND_DEFAULT`). */
-    const val LAYER_BLEND_DEFAULT: Int = 1
+    /** What Customize › Layers draws over [activeStyle], by `LAYER_*` (`geode_layer_values`); [family] -1 is the drawn style's. */
+    external fun layerValues(
+        activeStyle: String,
+        family: Int,
+    ): FloatArray
+
+    /** One of the page's lists (`geode_layer_list`, [list] a `LAYER_LIST_*`); [family] as [layerValues] takes it. */
+    external fun layerList(
+        list: Int,
+        activeStyle: String,
+        family: Int,
+    ): Array<String>
+
+    /** The style the layer draws now over [activeStyle], "" for none. */
+    external fun layerShown(activeStyle: String): String
+
+    // Mirrors of GEODE_LAYER_*: a [layerValues] slot, and up to LAYER_STYLE what [layerEdit] changes.
+    const val LAYER_ON: Int = 0
+    const val LAYER_SOURCE: Int = 1
+    const val LAYER_KNOB: Int = 2
+    const val LAYER_BLEND: Int = 3
+    const val LAYER_MIX: Int = 4
+    const val LAYER_STYLE: Int = 5
+    const val LAYER_FAMILY: Int = 6
+    const val LAYER_PICKED: Int = 7
+
+    // Mirrors of GEODE_LAYER_SOURCE_* and GEODE_LAYER_LIST_*.
+    const val LAYER_SOURCE_USER: Int = 0
+    const val LAYER_SOURCE_DIRECTOR: Int = 1
+    const val LAYER_SOURCE_MACRO: Int = 2
+    const val LAYER_LIST_SOURCES: Int = 0
+    const val LAYER_LIST_BLENDS: Int = 1
+    const val LAYER_LIST_FAMILIES: Int = 2
+    const val LAYER_LIST_STYLES: Int = 3
+    const val LAYER_LIST_KNOBS: Int = 4
 
     external fun vizSetTransition(
         handle: Long,
@@ -503,7 +542,7 @@ object GeodeNative {
         curve: String,
     ): String
 
-    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    /** A new knob that moves the Customize control [control] (a control key); native names it. */
     external fun macroBankAddKnobFor(
         bank: String,
         control: String,
@@ -583,6 +622,43 @@ object GeodeNative {
      * line, the lock set [paramsRandomize] takes.
      */
     external fun directorKeepSet(keys: String)
+
+    /**
+     * The Auto Director's settings (core/viz/DirectorTuning), process-wide like [directorSet] and pinned with
+     * it by an export: [text] as [directorTuningWith] gave it ("" is every default).
+     */
+    external fun directorTuningSet(text: String)
+
+    /** How many rows the Auto Director's settings table has. */
+    external fun directorTuningCount(): Int
+
+    /** Row [index]'s label, as native names it. */
+    external fun directorTuningLabel(index: Int): String
+
+    /** Row [index]'s one line of help. */
+    external fun directorTuningHelp(index: Int): String
+
+    /** Row [index]'s min, max, step (0 continuous) and 1 when it is a switch (on/off), else 0. */
+    external fun directorTuningRange(index: Int): FloatArray
+
+    /** Row [index]'s value in the saved [text]. */
+    external fun directorTuningValue(
+        text: String,
+        index: Int,
+    ): Float
+
+    /** Row [index]'s value in the saved [text], as the page shows it. */
+    external fun directorTuningValueText(
+        text: String,
+        index: Int,
+    ): String
+
+    /** The saved [text] with row [index] set to [value], held to its range: what the store saves. */
+    external fun directorTuningWith(
+        text: String,
+        index: Int,
+        value: Float,
+    ): String
 
     /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
@@ -744,7 +820,7 @@ object GeodeNative {
 
     /**
      * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
-     * false is the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls
+     * false is the wave editor's button (every wave on and rolled); true is a roll of everything, which only re-rolls
      * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
      */
     external fun modWavesRandomize(
@@ -858,6 +934,26 @@ object GeodeNative {
         handle: Long,
         sceneId: String,
     )
+
+    /**
+     * The user's whole look (geode_viz_set_look): native passes on only the parts that differ from the look set last
+     * on this handle, all of them on a new one. [reactions] null means the style's own routes. Any thread.
+     */
+    external fun vizSetLook(
+        handle: Long,
+        sceneId: String,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    external fun vizLookDefaults(): String
 
     /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
     external fun vizSetQuality(
@@ -1048,15 +1144,166 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** True when the params [frame] draws its own palette, a hue override or a first stop set (`geode_params_uses_custom_palette`). */
+    external fun paramsUsesCustomPalette(frame: FloatArray): Boolean
+
+    /** Your colours' stops set from the first in the params [frame] (`geode_params_palette_stops`). */
+    external fun paramsPaletteStops(frame: FloatArray): IntArray
+
+    /** [frame] with both hue overrides and every stop unset, as a new frame (`geode_params_clear_custom_palette`). */
+    external fun paramsClearCustomPalette(frame: FloatArray): FloatArray
+
+    /** [frame] cleared, then the first five of [stops] as your colours (`geode_params_apply_stops`). */
+    external fun paramsApplyStops(
+        frame: FloatArray,
+        stops: IntArray,
+    ): FloatArray
+
+    /** [frame] with no stops and the hue gradient [base], [span] (held to 0..1) as its overrides (`geode_params_apply_gradient`). */
+    external fun paramsApplyGradient(
+        frame: FloatArray,
+        base: Float,
+        span: Float,
+    ): FloatArray
+
+    /** A name as a file stem (core/viz/LookFiles, `geode_file_safe_name`). Pure. */
+    external fun fileSafeName(name: String): String
+
+    /** [fileSafeName] without the hash: a preset folder's name (`geode_file_safe_chars`). Pure. */
+    external fun fileSafeChars(name: String): String
+
+    /** The indices of [names] in list order, [caseless] or by code point, ties kept (`geode_looks_order`). Pure. */
+    external fun looksOrder(
+        names: Array<String>,
+        caseless: Boolean,
+    ): IntArray
+
+    /** A saved palette file's text as this build writes it, or null when it is no palette (`geode_saved_palette_read`). */
+    external fun savedPaletteRead(text: String): String?
+
+    /** [savedPaletteRead] with the id, name, hues and colours made safe (`geode_saved_palette_sanitize`). */
+    external fun savedPaletteSanitize(text: String): String?
+
+    /** A new saved palette's text: [stops] when not empty, else the hue gradient (`geode_saved_palette_create`). */
+    external fun savedPaletteCreate(
+        name: String,
+        base: Float,
+        span: Float,
+        stops: IntArray,
+    ): String
+
+    /** The text a palette file should hold under its current id, or null for no palette (`geode_saved_palette_migrate`). */
+    external fun savedPaletteMigrate(text: String): String?
+
+    /** A palette name's id, its file stem (`geode_saved_palette_id_for`). */
+    external fun savedPaletteIdFor(name: String): String
+
+    /** A saved palette's "id" or "name" (`geode_saved_palette_string`). */
+    external fun savedPaletteString(
+        text: String,
+        key: String,
+    ): String
+
+    /** A saved palette's hue base and span (`geode_saved_palette_hues`). */
+    external fun savedPaletteHues(text: String): FloatArray
+
+    /** A saved palette's colours, packed 0xRRGGBB (`geode_saved_palette_stops`). */
+    external fun savedPaletteStops(text: String): IntArray
+
+    /** How many colours a saved palette holds at most (`geode_saved_palette_max_stops`). */
+    external fun savedPaletteMaxStops(): Int
+
+    /** The params [frame] with saved palette [text] as its own palette, as a new frame (`geode_saved_palette_apply`). */
+    external fun savedPaletteApply(
+        text: String,
+        frame: FloatArray,
+    ): FloatArray
+
+    /** The saved palette id a look naming [lookId] keeps once [deletedId] is deleted (`geode_saved_palette_kept_id`). */
+    external fun savedPaletteKeptId(
+        lookId: String,
+        deletedId: String,
+    ): String
+
     /**
-     * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
-     * retired slots to their defaults, every row held to its schema range but a circular one
-     * (`geode_params_sanitize`, core/viz/Params). Pure.
+     * A preset's text as org.json read it (core/viz/LookFiles, `geode_preset_read`): its params into [frame], into
+     * [strings] (five slots) the name, scene id, custom shader, milk preset (null when absent) and saved palette id,
+     * into [envelope] the attack and decay. False, nothing written, when it is no preset.
      */
-    external fun paramsSanitize(
-        input: FloatArray,
-        output: FloatArray,
-    )
+    external fun presetRead(
+        text: String,
+        frame: FloatArray,
+        strings: Array<String?>,
+        envelope: FloatArray,
+    ): Boolean
+
+    /** A preset's file text, as org.json wrote it (`geode_preset_write`); null for a short frame. */
+    external fun presetWrite(
+        name: String,
+        sceneId: String,
+        attack: Float,
+        decay: Float,
+        customShader: String?,
+        milkPreset: String?,
+        frame: FloatArray,
+        customPaletteId: String,
+    ): String?
+
+    /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
+    external fun presetMilkFileName(presetName: String): String
+
+    /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
+    external fun templateFileName(
+        name: String,
+        id: String,
+        suffix: String,
+    ): String
+
+    /** What every library file of template [id] ends with (`geode_template_file_tail`). */
+    external fun templateFileTail(
+        id: String,
+        suffix: String,
+    ): String
+
+    /** The name a newly added template takes beside the [taken] ones (`geode_template_unique_name`). */
+    external fun templateUniqueName(
+        base: String,
+        taken: Array<String>,
+    ): String
+
+    /** How many bundled starter templates there are (`geode_template_starter_count`). */
+    external fun templateStarterCount(): Int
+
+    /** Bundled starter [index] as a whole template file (`geode_template_starter`). */
+    external fun templateStarter(index: Int): String
+
+    /** True for a bundled starter's template id (`geode_template_is_starter`). */
+    external fun templateIsStarter(id: String): Boolean
+
+    /**
+     * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
+     * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
+     * (`geode_params_write_json`). Null for a short frame. Pure.
+     */
+    external fun paramsWriteJson(
+        frame: FloatArray,
+        customPaletteId: String,
+        customPalette2Id: String,
+    ): String?
+
+    /**
+     * A params object read as org.json's opt* read it, sanitized into [out] (a wire frame), and the two palette slot
+     * ids into [ids] (two slots; "" when missing) (`geode_params_read_json`): the object at [path] (nested keys,
+     * newline-separated, "" for the top) of [document], the text org.json parsed, when that is standard JSON, else
+     * [fallback], the object as org.json printed it. False, nothing written, when neither holds an object. Pure.
+     */
+    external fun paramsReadJson(
+        document: String?,
+        path: String,
+        fallback: String?,
+        out: FloatArray,
+        ids: Array<String?>,
+    ): Boolean
 
     /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
     external fun colourFromHsv(
@@ -1101,9 +1348,6 @@ object GeodeNative {
         tick: Int,
     ): FloatArray
 
-    /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
-    external fun paletteColourMapName(index: Int): String
-
     /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
     external fun paletteRamp(
         stops: IntArray,
@@ -1117,10 +1361,9 @@ object GeodeNative {
         count: Int,
     ): IntArray
 
-    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    /** [samples] colours of what a params frame's own palette paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
     external fun paramsPalettePreview(
         params: FloatArray,
-        second: Boolean,
         samples: Int,
     ): IntArray
 
@@ -1169,9 +1412,9 @@ object GeodeNative {
     ): Int
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
+     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
+     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
     external fun paramsRandomize(
@@ -1190,7 +1433,7 @@ object GeodeNative {
      */
     external fun customizeText(): String
 
-    /** Every control a roll can move (ParamKeys strings, one per line), so the panel offers to keep it; ask once. */
+    /** Every control a roll can move (control keys, one per line), so the panel offers to keep it; ask once. */
     external fun customizeLockableKeys(): String
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
@@ -1199,7 +1442,7 @@ object GeodeNative {
     /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     * control keys in [locked]. Every other control holds. True when it changed something.
      */
     external fun customizeRandomize(
         styleId: String?,
@@ -1227,6 +1470,89 @@ object GeodeNative {
         from: FloatArray,
         output: FloatArray,
     )
+
+    /**
+     * What each control in [keys] (one Customize map key a line) draws as on the look [params] and [styleId]: rows of
+     * widget, field, words, value, range, default, unit and steps, or none where it hides (core/viz/CustomizeRows).
+     * [query] is the panel's search, [transition] whether a style transition is chosen, [liquidMode] the renderer's.
+     */
+    external fun customizeRows(
+        styleId: String,
+        keys: String,
+        query: String,
+        transition: Boolean,
+        liquidMode: Int,
+        params: FloatArray,
+    ): String
+
+    /** A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. */
+    external fun panelText(id: String): String
+
+    /** A style's display name (core/viz/StyleNames). */
+    external fun styleLabel(styleId: String): String
+
+    /** A Styles page family's display name (core/viz/StyleNames). */
+    external fun styleFamilyLabel(family: String): String
+
+    /** Your colours' editor state on the look [params]' own colours (core/viz/PalettePanel). */
+    external fun paletteMakerStart(params: FloatArray): String
+
+    /** Your colours' editor state on the look [params]' hue ramp alone. */
+    external fun paletteMakerFromLook(params: FloatArray): String
+
+    /** Your colours' editor state on a saved palette: its [stops], else its [base] and [span] as a ramp. */
+    external fun paletteMakerOpen(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** [state] after [op] (`PALETTE_MAKER_*`) with [arg]: the stop to select or the selected stop's new colour. */
+    external fun paletteMakerEdit(
+        state: String,
+        op: Int,
+        arg: Int,
+    ): String
+
+    /** The packed colours of an editor [state]. */
+    external fun paletteMakerStops(state: String): IntArray
+
+    /** An editor [state] as Your colours draws it (rows in core/viz/PalettePanel.hpp). */
+    external fun paletteMakerView(state: String): String
+
+    /** A saved palette's colours as a stack layer: its [stops], else its ramp. */
+    external fun paletteSavedColours(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): IntArray
+
+    /** A saved palette's strip: "RRGGBB" joined by ','. */
+    external fun paletteSavedSwatch(
+        stops: IntArray,
+        base: Float,
+        span: Float,
+    ): String
+
+    /** Look's palette list on a style the stack does not draw ([savedIds] and [savedNames] one a line). */
+    external fun paletteListView(
+        params: FloatArray,
+        customId: String,
+        savedIds: String,
+        savedNames: String,
+    ): String
+
+    /** The palette stack card on the look [params]; [savedCount] is how many palettes the user saved. */
+    external fun paletteStackCard(
+        stack: String,
+        params: FloatArray,
+        savedCount: Int,
+    ): String
+
+    const val PALETTE_MAKER_SELECT: Int = 0
+    const val PALETTE_MAKER_SET: Int = 1
+    const val PALETTE_MAKER_ADD: Int = 2
+    const val PALETTE_MAKER_REMOVE: Int = 3
 
     /**
      * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
@@ -1838,6 +2164,9 @@ object GeodeNative {
     /** The AAC rate for [sourceRateHz]: its own up to 48 kHz; above, 44.1 kHz for the 44.1k family, else 48 kHz. */
     external fun aacRateFor(sourceRateHz: Int): Int
 
+    /** The one rate a mix's clips are brought to, so they share one AAC track. */
+    external fun mixRateHz(): Int
+
     /** End of an AAC track: [lastPtsUs] plus one 1024-sample frame at [sampleRateHz]. */
     external fun aacEndUs(
         lastPtsUs: Long,
@@ -1916,6 +2245,21 @@ object GeodeNative {
 
     /** The frames one capture read takes. */
     external fun captureReadFrames(): Int
+
+    /**
+     * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
+     * once RECORD_AUDIO is granted. [deviceRateHz] goes first (0 unknown); [unprocessed] when the device supports it.
+     */
+    external fun micStart(
+        deviceRateHz: Int,
+        unprocessed: Boolean,
+    ): Boolean
+
+    /** Stops live input; no block is written after it returns. */
+    external fun micStop()
+
+    /** False after [micStop], or once the stream closed and could not be opened again. */
+    external fun micActive(): Boolean
 
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
@@ -2331,6 +2675,17 @@ object GeodeNative {
     ): Int
 
     /**
+     * Auto's pick among [ids] (the pool's style ids, one a line, in its order). At a [directorMoment] the style
+     * the Auto Director asks for (core/viz/DirectorStyle: a returning section's family, else the next along
+     * the catalogue), -1 to keep the style on screen; otherwise, or with no such ask, [autoPick]'s draw.
+     */
+    external fun autoPickAmong(
+        ids: String,
+        onScreen: Int,
+        directorMoment: Boolean,
+    ): Int
+
+    /**
      * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,
      * [family] each one's family index and [open] whether the entitlement keeps it; never [onScreen], every family
      * or with [familyOnly] the on-screen style's family alone, a kept style while there is one; -1 for none.
@@ -2471,18 +2826,55 @@ object GeodeNative {
         dataBytes: Long,
     ): Long
 
-    // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
-    // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
+    /** The most [aiffReadBytes] hands the player's extractor at once. */
+    const val AIFF_MAX_SAMPLE_BYTES = 32 * 1024
 
-    /** A ring of [capacityFrames] (a power of two) by [channels]; 0 for sizes it cannot take. Freed with [pcmRingDestroy]. */
-    external fun pcmRingCreate(
-        capacityFrames: Int,
-        channels: Int,
-        maxWriteFrames: Int,
+    /** The bytes to pass over at [position] to reach the first sample at [dataStart]; 0 on or past it. */
+    external fun aiffGapBytes(
+        position: Long,
+        dataStart: Long,
     ): Long
 
-    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes. */
+    /** The most to read at [position]; 0 once the [dataBytes] of samples from [dataStart] are done. */
+    external fun aiffReadBytes(
+        position: Long,
+        dataStart: Long,
+        dataBytes: Long,
+    ): Int
+
+    /** Of [pending] bytes held, those in whole frames; a part frame waits. */
+    external fun aiffWholeBytes(
+        pending: Int,
+        bytesPerFrame: Int,
+    ): Int
+
+    /** The start time of the [pending] bytes held, which end at [position]. */
+    external fun aiffPendingTimeUs(
+        position: Long,
+        dataStart: Long,
+        pending: Int,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+    ): Long
+
+    // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
+    // carries its rate, and the int16 and 8-bit conversions to float happen inside it. Kinds and sizes are
+    // native (core/audio/ingest/RingKinds).
+    const val PCM_RING_PLAYER: Int = 0
+    const val PCM_RING_MIC: Int = 1
+    const val PCM_RING_OUTPUT_MIX: Int = 2
+
+    /** The process's ring of [kind] ([PCM_RING_PLAYER], or [PCM_RING_MIC] layered over it), never freed; 0 for another kind. */
+    external fun pcmRingShared(kind: Int): Long
+
+    /** A new ring of [kind] ([PCM_RING_OUTPUT_MIX]), its owner's to free with [pcmRingDestroy]; 0 without memory. */
+    external fun pcmRingCreateKind(kind: Int): Long
+
+    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes or a stage holds it. */
     external fun pcmRingDestroy(handle: Long)
+
+    /** The most frames one write publishes (the runway). */
+    external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
      * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
@@ -2527,25 +2919,6 @@ object GeodeNative {
         sampleRate: Int,
     ): Int
 
-    /**
-     * Layers the ring at [layer] (0 for none) over the one at [handle]: every renderer fed [handle] hears
-     * the two mixed natively, and [layer] alone while [handle] gains nothing. The mic over the player.
-     */
-    external fun pcmRingSetLayer(
-        handle: Long,
-        layer: Long,
-    )
-
-    /**
-     * Marks the ring's writes as a capture's snapshots (the output mix's Visualizer), not a stream: each
-     * write is then stitched natively onto the capture clock. Writer thread, before its first write. False
-     * only when it could not allocate.
-     */
-    external fun pcmRingSetSnapshots(
-        handle: Long,
-        on: Boolean,
-    ): Boolean
-
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
 
@@ -2574,28 +2947,6 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Long
-
-    /** A reader's place in the ring at [ring]; [maxFrames] 0 is the ring's runway. Freed with [pcmCursorDestroy]. */
-    external fun pcmCursorCreate(
-        ring: Long,
-        maxFrames: Int,
-    ): Long
-
-    external fun pcmCursorDestroy(handle: Long)
-
-    /** The most frames one take hands out. */
-    external fun pcmCursorMaxFrames(handle: Long): Int
-
-    /**
-     * What the ring gained since the last take, as interleaved 16-bit frames in [out] (which must hold
-     * [pcmCursorMaxFrames] frames); returns the frames. [info] gets 1 at [0] on a restart and the rate the
-     * frames were written at in [1].
-     */
-    external fun pcmCursorTakeS16(
-        handle: Long,
-        out: ShortArray,
-        info: IntArray,
-    ): Int
 
     // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
 
@@ -2652,11 +3003,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Int
-
-    /** The player's ring: its capacity and runway, sized natively so a reader at the speaker is not overrun. */
-    external fun playoutRingFrames(): Int
-
-    external fun playoutRingRunway(): Int
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 
@@ -2724,7 +3070,12 @@ object GeodeNative {
         deviceId: Int,
     )
 
-    /** Bits since the last call: 1 the position began to move, 2 an underrun, 4 the stream failed for good. */
+    /** GEODE_AUDIO_OUT_*: the position began to move, an underrun, the stream failed for good. */
+    const val AUDIO_OUT_ADVANCING = 1
+    const val AUDIO_OUT_UNDERRUN = 2
+    const val AUDIO_OUT_FAILED = 4
+
+    /** The AUDIO_OUT_* bits since the last call. */
     external fun audioOutEvents(handle: Long): Int
 
     external fun audioOutStalled(handle: Long): Boolean
@@ -2745,32 +3096,33 @@ object GeodeNative {
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 
-    // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
+    // Cast's sound (core/output/CastAudioPump): the ring read, resampled, held and padded natively; the shell
+    // hands each block to the encoders.
 
-    /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */
-    const val CAST_AUDIO_STATE = 3
-
-    /** Size of one step's result (GEODE_CAST_AUDIO_STEP): evict, skip, keep, take, pad, PTS in µs. */
-    const val CAST_AUDIO_STEP = 6
-
-    /** Starts [state] at [rateHz]; returns the hold's capacity in frames (half a second). */
-    external fun castAudioStart(
-        state: LongArray,
+    /** A pump over the player's ring [music] (0: silence throughout) at [rateHz] and [channels]; 0 on bad args. */
+    external fun castAudioCreate(
+        music: Long,
         rateHz: Int,
-    ): Int
+        channels: Int,
+    ): Long
+
+    external fun castAudioDestroy(handle: Long)
 
     /**
-     * One frame of the pump: [gainedFrames] just resampled from the ring and the frame clock's cut
-     * [untilUs]. Fills [out] (CAST_AUDIO_STEP longs), applied in order: evict the oldest held, skip at
-     * the head of the gained, append the next keep, then queue take frames from the hold and pad
-     * silence after them, stamped with the PTS.
+     * One video frame up to the frame clock's cut [untilUs]; [current] is the ring the visuals hear now
+     * (0 for none), only compared with the music's. Returns the frames of the block to queue (0: none).
      */
-    external fun castAudioStep(
-        state: LongArray,
-        gainedFrames: Int,
+    external fun castAudioPump(
+        handle: Long,
+        current: Long,
         untilUs: Long,
-        out: LongArray,
-    )
+    ): Int
+
+    /** Copies the last pump's block into [out]; returns its frames, 0 when [out] is too small. */
+    external fun castAudioRead(
+        handle: Long,
+        out: ShortArray,
+    ): Int
 
     /** Size of the encoder feed's state (GEODE_CAST_AUDIO_FEED_STATE): frames taken or dropped, pending, rate. */
     const val CAST_AUDIO_FEED_STATE = 3
@@ -3209,7 +3561,7 @@ object GeodeNative {
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 
-    /** The ring frames hear (a `SampleRing` handle), or 0. Returns once no frame reads the ring it replaced. */
+    /** The ring frames hear (a `pcmRing*` handle), or 0. Returns once no frame reads the ring it replaced. */
     external fun stageSetSound(
         stage: Long,
         ring: Long,

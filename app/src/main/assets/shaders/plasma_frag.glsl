@@ -13,6 +13,7 @@ out vec4 fragColor;
 #define VIEW_OWNS_SHAPE
 //#include lib_scene_uniforms
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -61,7 +62,16 @@ out vec4 fragColor;
 // Warp        a sine domain warp of space, the 2D style's swirl in 3D.
 // Turbulence  a fine sixth wave that ripples the blob skins.
 // Knobs: k0 PULSE kick swell, k1 TEXTURE colour band density, k2 FLOW warp depth,
-// k3 TONE hue, k4 BUILD air glow, k5 SPACE channel width. All neutral at 0.5.
+// k3 TONE the grain of the plasma (a high melody draws the blobs up into tall
+// columns, a low one lays them out in long horizontal strata; a small hue
+// offset too), k4 BUILD air glow, k5 SPACE channel width. All neutral at 0.5.
+// Every one of these, and the solid level (BUILD: the blobs fatten), the ring
+// wave's rest frequency (TEXTURE) and the fog (SPACE), is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range; at rest each is the constant the plasma was tuned with. The labyrinth
+// is the field the grow hooks act on (its shell wrapper): Spawn slides a second
+// labyrinth through the first, Fractal grows blobs a third the size on its
+// skins, the layers open the near and far labyrinth.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -120,15 +130,32 @@ float field(vec3 p) {
     return f;
 }
 
-float map(vec3 w) {
-    vec3 p = warpP(w);
+/** TONE: the per-axis scale of the field (1 at rest; never above 1). */
+vec3 gGrain;
+
+/** The labyrinth and its channel: the field the grow hooks act on (map() hands it to its shell wrapper). */
+float plasmaField(vec3 w) {
+    // TONE's grain: each factor is at most 1, so gLip still bounds the gradient.
+    vec3 p = warpP(w) * gGrain;
     float f = field(p);
     gF = f;
     float d = (gLevel - f) / gLip;
     // The flight channel, blended in so it reads as a cave, not a cut.
-    d = smax(d, gTube - length(w.xy), 0.8);
-    d = max(d, PL_BUBBLE - length(w - gEye));
-    return d;
+    return smax(d, gTube - length(w.xy), 0.8);
+}
+
+/** plasmaField through lib_shell's hooks: exactly plasmaField(p) at rest, and plasmaField read once, in a loop the compiler cannot unroll. */
+float plasmaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, plasmaField(shellAt3(i)));
+    }
+    return r;
+}
+
+float map(vec3 w) {
+    return max(plasmaFieldGrown(w), PL_BUBBLE - length(w - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -160,26 +187,45 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
-    float kPulse = uKnob[0] - 0.5;
-    float kTex = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's swell
+    float nTexture = shellKnob(1);                                 // TEXTURE  colour band density, the ring wave
+    float nFlow = shellKnob(2);                                    // FLOW     the warp's depth
+    float nTone = shellKnob(3);                                    // TONE     the plasma's grain, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the air glow, the blobs' level
+    float nSpace = shellKnob(5);                                   // SPACE    the channel's width, the fog
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    plane waves to a gyroid
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the domain warp
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the fine ripple
+    float swellK = shellMap(nPulse, 0.5, 1.0, 1.5);
+    float tex = shellMap(nTexture, 0.6, 1.0, 1.4);
+    float ringBase = shellMap(nTexture, 1.1, 1.4, 1.8);
+    float warpFlow = shellMap(nFlow, -0.2, 0.0, 0.2);
+    // TONE's grain: each factor is at most 1.
+    float grainX = shellMap(nTone, 0.35, 1.0, 1.0);
+    float grainY = shellMap(nTone, 1.0, 1.0, 0.35);
+    float hueTone = shellMap(nTone, -0.2, 0.0, 0.2);
+    float glowK = shellMap(nBuild, 0.4, 1.0, 1.6);
+    float level = shellMap(nBuild, 0.42, 0.34, 0.26);
+    float tubeK = shellMap(nSpace, 0.75, 1.0, 1.25);
+    float fogK = shellMap(nSpace, 0.075, 0.06, 0.045);
+    gMorph = shellMap(nMorph, 0.0, 0.0, 0.6);
+    float warpWarp = shellMap(nWarp, 0.0, 0.0, 0.6);
+    gTurb = shellMap(nTurb, 0.0, 0.0, 1.5);
 
     gT = uTime * 0.6;
-    gRingK = 1.4 + 1.4 * clamp(bass, 0.0, 1.5);
-    gMorph = clamp(uMorph, 0.0, 1.0) * 0.6;
-    gTurb = clamp(uTurbulence, 0.0, 2.0);
-    gWarp = clamp(uWarp * 0.6 + kFlow * 0.4, 0.0, 1.2);
-    gLevel = (0.34 - 0.24 * kick * (1.0 + kPulse)) * (1.0 + 0.4 * dropBump);
-    gTube = (1.7 + 1.2 * dropBump) * (1.0 + 0.5 * kSpace);
+    gGrain = vec3(grainX, grainY, 1.0);
+    gRingK = ringBase + 1.4 * clamp(bass, 0.0, 1.5);
+    gWarp = clamp(warpWarp + warpFlow, 0.0, 1.2);
+    gLevel = (level - 0.24 * kick * swellK) * (1.0 + 0.4 * dropBump);
+    gTube = (1.7 + 1.2 * dropBump) * tubeK;
 
     // The bound on |grad f| (see the header): the five wave magnitudes are
     // 1, 1.15, |(0.85, 0.85, 4U)| = 1.437, the ring frequency, and
     // |(0.6, 0, 6U)| = 1.322; the gyroid's sqrt(6) * 4U / 1.5 = 1.283; the
     // ripple's |(2.3, 2.9, 12U)| * 0.15 = 0.66.
     float waveLip = (1.0 + 1.15 + 1.437 + gRingK + 1.322) * 0.2;
+    // (gRingK carries TEXTURE's rest frequency, so the bound follows it.)
     gLip = ((1.0 - gMorph) * waveLip + gMorph * 1.283 + gTurb * 0.66) * (1.0 + PL_WK * gWarp);
     gLip = max(gLip, 0.05);
 
@@ -189,9 +235,11 @@ void main() {
     // Every z term repeats every 32 units (see the header): exact and invisible.
     ro.z = mod(ro.z, PL_ZWRAP);
     gEye = ro;
+    // The layers are measured from the eye; a spawned labyrinth slides 2 down the flight.
+    shellSetup3(ro, 3.0, 2.0, false);
 
-    float hue = 0.03 * sin(uTime * 0.021) + 0.22 * pitchBump + 0.5 * dropBump + 0.4 * kTone;
-    float glowGain = (0.010 + 0.022 * snare) * (1.0 + 1.2 * kBuild) * (0.6 + 0.8 * vol);
+    float hue = 0.03 * sin(uTime * 0.021) + 0.22 * pitchBump + 0.5 * dropBump + hueTone;
+    float glowGain = (0.010 + 0.022 * snare) * glowK * (0.6 + 0.8 * vol);
 
     float t = 0.03;
     float hitT = -1.0;
@@ -215,7 +263,6 @@ void main() {
         t += max(d * 0.85, eps);
     }
 
-    float fogK = 0.06;
     float ahead = pow(max(rd.z, 0.0), 6.0);
     vec3 fogCol = pal(hue + 0.55) * (0.03 + 0.10 * ahead) + vec3(0.004, 0.002, 0.006);
     vec3 col = fogCol;
@@ -224,7 +271,7 @@ void main() {
     // that value's place, through the palette. Read outside the hit branch so
     // the texture fetch sits in uniform control flow.
     vec3 p = ro + rd * (hitT > 0.0 ? hitT : PL_FAR);
-    float v = plasmaColour(warpP(p), 1.0 + 0.8 * kTex);
+    float v = plasmaColour(warpP(p), tex);
     v += sndSpectrum(fract(v * 0.25 + 0.5)) * 0.4;
 
     if (hitT > 0.0) {

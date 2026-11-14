@@ -98,7 +98,9 @@ const char* geode_palette_stack_editor(const char* stack) {
         out += "layer|" + std::to_string(i) + "|" + cell(s.layers[static_cast<size_t>(i)].name) + "\n";
     }
     const auto& lib = palette::library();
-    for (size_t i = 0; i < lib.size(); ++i) out += "pick|" + std::to_string(i) + "|" + cell(lib[i].palette.name) + "\n";
+    for (size_t i = 0; i < lib.size(); ++i) {
+        if (palette::offered(static_cast<int>(i))) out += "pick|" + std::to_string(i) + "|" + cell(lib[i].palette.name) + "\n";
+    }
     return handOut(std::move(out));
 }
 

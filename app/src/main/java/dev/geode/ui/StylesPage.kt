@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +35,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -54,8 +52,6 @@ import dev.geode.model.MilkFile
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.styleFamilyLabel
-import dev.geode.render.scene.styleLabel
 import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
@@ -114,8 +110,7 @@ internal fun StylesTab(
     val order = remember { StyleCatalogue.ids }
     // Each style's family index, for the native draw's "Family only".
     val familyOf = remember { IntArray(order.size) { i -> familyNames.indexOfFirst { order[i] in families.getValue(it) } } }
-    val resources = LocalResources.current
-    val labels = remember(resources) { order.associateWith { styleLabel(resources, it) } }
+    val labels = remember { order.associateWith { GeodeNative.styleLabel(it) } }
     var picked by remember {
         mutableStateOf(
             StylesFamilyMemory.picked
@@ -186,7 +181,7 @@ internal fun StylesTab(
     // A new pick starts at its top, where the style on screen is when the pick holds it.
     LaunchedEffect(picked) { list.scrollToItem(0) }
     val yoursLabel = stringResource(R.string.styles_yours)
-    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else styleFamilyLabel(resources, it) }
+    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else GeodeNative.styleFamilyLabel(it) }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, end = GeodeSpacing.XS),
@@ -398,10 +393,8 @@ private object StylesFamilyMemory {
     var picked: String? = null
 }
 
-/** A style's name as people read it, in the language on screen. */
-@Composable
-@ReadOnlyComposable
-internal fun sceneDisplayLabel(id: String): String = styleLabel(LocalResources.current, id)
+/** A style's name as people read it (core/viz/StyleNames). */
+internal fun sceneDisplayLabel(id: String): String = GeodeNative.styleLabel(id)
 
 /** The dropdown's own entry for the user's shelf; never a catalogue family name (those are lowercase words). */
 private const val YOURS = "#yours"

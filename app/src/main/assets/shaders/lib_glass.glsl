@@ -67,7 +67,9 @@
 // shaped values every style draws on, each meaning one physical thing so the
 // family hears alike:
 //
-//   pan     SND_STEREO_PAN    the key light's yaw: the highlight walks with the mix
+//   pan     SND_STEREO_PAN    a sideways shift where a style places things by the mix;
+//                             nothing turns on it (owner 2026-11-12, no style spins to
+//                             the music), the key light included
 //   height  SND_PITCH_HEIGHT  the key light's elevation, eased by pitch confidence
 //   sharp   SND_CENTROID      edge sharpness: bright mixes cut crisp highlights and
 //                             wider dispersion, dark ones soften
@@ -123,6 +125,142 @@
 // uTurbulence 0) wobbles surfaces as if the glass were poured and not yet set,
 // Energy (uIntensity 1) scales how far the music moves a style. Colour is pal();
 // Space is the rig.
+//
+// The style knobs reach each style through the normalization shell below, read
+// as offsets from 0.5, so off is the tuned look. Cubes, Gem, Ice and Knot give them lib_flame's, lib_opal's and
+// lib_hollow's roles: k0 PULSE the emission, k1 TEXTURE the width of a block,
+// a crystal, the tube or the fire's rays, k2 FLOW added to Warp's share of
+// Chaos (gGlassFlow, which glassChaos reads), k3 TONE the palette position,
+// k4 BUILD the world's glow (GlassLook.glow), k5 SPACE the reach. The older
+// eight still spend them their own way.
+//
+// No sound band turns the world every glass shows (owner 2026-11-12, no style
+// spins to the music): glassEnv looks it up as it stands.
+
+// ---- the normalization shell -------------------------------------------------------
+//
+// Every input a Glass style is shaped by is read once, normalized, in glassIn()
+// (GlassIn): from the params and the six knobs and NEVER from the sound frame,
+// so what moves on the music is the reaction matrix, which moves those params
+// and knobs (the owner's rule: no hardcoded reactions). The sound the family
+// already heard (GlassEar) stays where it was, on top of the mapped values.
+//
+//   input    driver      0..1, rest
+//   pulse    k0 PULSE    0.5   the emission, how far a hit swells a body
+//   texture  k1 TEXTURE  0.5   a block's, crystal's or tube's width, a marble's
+//                              vanes, and the REFRACTION: how far the glass bends
+//                              light (glassIor: the index's distance from air, +-15%)
+//   flow     k2 FLOW     0.5   added to Warp's share of Chaos (gGlassFlow), a drift
+//   tone     k3 TONE     0.5   the palette position, and the DISPERSION: how far the
+//                              colours split at an exit (glassSpread, x0.6..1.4)
+//   build    k4 BUILD    0.5   the world's glow
+//   space    k5 SPACE    0.5   the reach, a body's size, a camera's distance
+//   warp     Warp        0     Chaos (glassChaos; read clamped 0..2, as 0..1)
+//   chaos    Turbulence  0     Chaos (the same)
+//   detail   Morph       0     more pieces, lanes, vanes (glassComplexity)
+//   formula  uFormula    0     which of a style's formulas draws (GLASS_FORMULA)
+//
+// Each style calls glassSetup() once in main() and maps every variable it is
+// shaped by from those inputs in one block; at rest each is exactly the
+// constant it was, so the look the family was tuned at is unchanged.
+//
+// THE FIELD. A marched style defines its distance as `GlassHit glassMap(vec3
+// p)`, with `struct GlassHit { float d; ... }` holding whatever its shading
+// reads at the hit, and includes lib_glass_field after it: glassField(p) there
+// is the one entry its outside march, its interior march, its normal
+// (glassNormal) and its shading read the glass through. It writes no global.
+// GLASS_GROW is where lib_grow applies (glassGrow, in lib_glass_field). Gem and Prism
+// trace their bodies in closed form (planes, a 2D prism), with no distance
+// field; they take the shell's inputs, and their own index and spread through
+// glassIor and glassSpread.
+
+/**
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the style's
+ * map F at p grown by glassGrow (lib_glass_field, defined after the style's
+ * map, where this expands): exactly F(p) while all four rest.
+ */
+#define GLASS_GROW(p, F) glassGrow(p)
+/**
+ * Formula (uFormula): 0.0, each style's one formula. No style of the family keeps
+ * alternatives yet, so none reads uFormula; a style that grows a second reads
+ * uFormula here and joins Catalogue.cpp's formula styles in the same commit.
+ */
+#define GLASS_FORMULA 0.0
+
+/** The normalized inputs (see above): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
+struct GlassIn {
+    float pulse;
+    float texture;
+    float flow;
+    float tone;
+    float build;
+    float space;
+    float warp;
+    float chaos;
+    float detail;
+    float formula;
+};
+
+/** Every input from the params and the knobs, never from the sound frame. */
+GlassIn glassIn() {
+    GlassIn n;
+    n.pulse = clamp(uKnob[0], 0.0, 1.0);
+    n.texture = clamp(uKnob[1], 0.0, 1.0);
+    n.flow = clamp(uKnob[2], 0.0, 1.0);
+    n.tone = clamp(uKnob[3], 0.0, 1.0);
+    n.build = clamp(uKnob[4], 0.0, 1.0);
+    n.space = clamp(uKnob[5], 0.0, 1.0);
+    n.warp = 0.5 * clamp(uWarp, 0.0, 2.0);
+    n.chaos = 0.5 * clamp(uTurbulence, 0.0, 2.0);
+    n.detail = clamp(uMorph, 0.0, 1.0);
+    n.formula = GLASS_FORMULA;
+    return n;
+}
+
+/** This frame's inputs (glassSetup). */
+GlassIn gGlassIn;
+/** The refraction's share: the index's distance from air scaled by 1 + this (0 at rest). */
+float gGlassRefract = 0.0;
+/** The dispersion's factor on a style's spread (1 at rest). */
+float gGlassDisperse = 1.0;
+
+/** A knob input on its range: `rest` exactly at n = 0.5, rest * (1 -+ span) at n = 0 and 1. */
+float glassAt(float n, float rest, float span) {
+    return rest * (1.0 + span * (2.0 * n - 1.0));
+}
+
+/** A knob input as an offset: exactly 0 at n = 0.5, -+ span / 2 at n = 0 and 1. */
+float glassShift(float n, float span) {
+    return span * (n - 0.5);
+}
+
+/** Reads the inputs once, first thing in main(), and maps the family's shared ones. */
+GlassIn glassSetup() {
+    gGlassIn = glassIn();
+    gGlassRefract = glassShift(gGlassIn.texture, 0.3);
+    gGlassDisperse = glassAt(gGlassIn.tone, 1.0, 0.4);
+    return gGlassIn;
+}
+
+/** Knob input i (0 PULSE .. 5 SPACE), 0..1, for a style that reads its knobs by index. */
+float glassKnobIn(int i) {
+    if (i == 0) return gGlassIn.pulse;
+    if (i == 1) return gGlassIn.texture;
+    if (i == 2) return gGlassIn.flow;
+    if (i == 3) return gGlassIn.tone;
+    if (i == 4) return gGlassIn.build;
+    return gGlassIn.space;
+}
+
+/** A style's index of refraction `ior`, bent further or nearer air by TEXTURE: `ior` itself at rest. */
+float glassIor(float ior) {
+    return ior + (ior - 1.0) * gGlassRefract;
+}
+
+/** A style's dispersion `spread`, opened or closed by TONE: `spread` itself at rest. */
+float glassSpread(float spread) {
+    return spread * gGlassDisperse;
+}
 
 /** Animation time under the Speed macro. */
 float glassTime() {
@@ -134,14 +272,20 @@ float glassEnergy() {
     return clamp(uIntensity, 0.0, 2.0);
 }
 
-/** The Chaos macro, 0 at default, up to 2. */
+/**
+ * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles; 0 in
+ * every other style, where glassChaos is what it always was.
+ */
+float gGlassFlow = 0.0;
+
+/** The Chaos macro, 0 at default, up to 2: FLOW adds to Warp's share, never below none. */
 float glassChaos() {
-    return 0.6 * clamp(uWarp, 0.0, 2.0) + 0.4 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.6 * max(2.0 * gGlassIn.warp + 0.5 * gGlassFlow, 0.0) + 0.4 * (2.0 * gGlassIn.chaos);
 }
 
-/** The Complexity macro, 0..1. */
+/** The Complexity macro, 0..1 (the shell's detail input). */
 float glassComplexity() {
-    return clamp(uMorph, 0.0, 1.0);
+    return gGlassIn.detail;
 }
 
 // ---- quality -------------------------------------------------------------------
@@ -409,7 +553,7 @@ vec3 glassTone(vec3 c) {
 
 /**
  * How a style looks into its world. `env` picks one of GLASS_ENV_*; `hue`
- * offsets the palette; `yaw` and `height` aim the key light (radians, 0..1);
+ * offsets the palette; `height` raises the key light (0..1);
  * `rough` widens every light edge and lowers its peak to keep its energy (the
  * frosted lookup); `spread` pulls the side lights apart (stereo width); `glow`
  * scales the lights (Energy and slow trend, never SND_LEVEL).
@@ -417,7 +561,6 @@ vec3 glassTone(vec3 c) {
 struct GlassLook {
     int env;
     float hue;
-    float yaw;
     float height;
     float rough;
     float spread;
@@ -431,7 +574,6 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     GlassLook l;
     l.env = env;
     l.hue = hue;
-    l.yaw = 0.7 * e.pan;
     l.height = e.height;
     l.rough = 0.1 * e.frost * (1.0 - 0.6 * e.sharp);
     l.spread = e.width;
@@ -447,13 +589,13 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
 
 /**
  * The key light's direction for a look: above and BEHIND the subject, a little
- * to the left, turned by yaw and raised by height. A back key is how glass is
+ * to the left, raised by height. A back key is how glass is
  * lit: it rims the top edge (where Fresnel is strongest) and throws the
  * caustic forward onto the floor where the viewer sees it.
  */
 vec3 glassKeyDir(GlassLook l) {
     float el = mix(0.45, 1.25, clamp(l.height, 0.0, 1.0));
-    float az = -0.45 + l.yaw;
+    float az = -0.45;
     return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
 }
 
@@ -718,14 +860,17 @@ vec3 glassFractal(vec3 d, GlassLook l) {
         // The membrane: a soft coloured haze where the orbit lingered, filling the gaps.
         col += glassVivid(tint, 0.5) * 0.02 * acc;
     }
-    // Spirals: a log-spiral lattice round the key's direction, the eye of the vortex.
+    // Spirals: a log-spiral lattice round the key's direction, the eye of the vortex. They
+    // turn on time alone, at l.flow's typical rate: no sound turns them (owner 2026-11-12,
+    // no style spins to the music).
+    float spin = 0.12 * glassTime();
     vec3 key = glassKeyDir(l);
     vec3 ax = normalize(cross(key, vec3(0.0, 1.0, 0.001)));
     vec3 ay = cross(key, ax);
     vec2 sp = vec2(dot(d, ax), dot(d, ay));
     float sr = length(sp) + 1e-3;
     float sa = atan(sp.y, sp.x);
-    float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - l.flow * 2.0), 8.0);
+    float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - spin * 2.0), 8.0);
     col += glassVivid(pal(l.hue + 0.6 + log(sr) * 0.3), 0.6) * spiral * 1.2 * exp(-sr * 1.2) * (1.0 - rough);
     if (glassMarchBounces()) {
         // HIGH ONLY. Spirals inside spirals: the vortex's log-polar plane tiled into cells, a small
@@ -735,7 +880,7 @@ vec3 glassFractal(vec3 d, GlassLook l) {
         vec2 lf = fract(lp) - 0.5;
         float lr = length(lf) + 1e-3;
         float la = atan(lf.y, lf.x);
-        float small = pow(0.5 + 0.5 * cos(la * 2.0 + log(lr) * 7.0 + l.flow * 3.0 + glassHash(lc) * 6.0), 10.0);
+        float small = pow(0.5 + 0.5 * cos(la * 2.0 + log(lr) * 7.0 + spin * 3.0 + glassHash(lc) * 6.0), 10.0);
         small *= 1.0 - smoothstep(0.25, 0.5, lr);
         col += glassVivid(pal(l.hue + glassHash(lc) * 0.8), 0.8) * small * 0.5 * exp(-sr * 0.8) * (1.0 - rough);
         // Cells inside cells: a two-level cell web on the view plane, its walls glowing, the inner
@@ -810,7 +955,7 @@ vec3 glassAurora(vec3 d, GlassLook l) {
     float wash = 0.5 + 0.5 * sin(q.y * 1.3 + q.x * 0.7 + f);
     vec3 glow = mix(pal(l.hue + 0.5 + 0.1 * q.y), pal(l.hue + 0.2 + 0.1 * q.x), wash) * (0.04 + 0.1 * wash * wash);
     vec3 col = glow + c * fil * 1.4 + c2 * fil2 * 0.9 + mix(c, vec3(1.0), 0.6) * core * 2.5;
-    // A brighter band where the key light sits, so the pan and pitch still steer it.
+    // A brighter band where the key light sits, so the pitch still steers it.
     col *= 0.6 + 0.8 * pow(max(dot(d, glassKeyDir(l)), 0.0), 2.0);
     return col * l.glow;
 }

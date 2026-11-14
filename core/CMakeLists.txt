@@ -8,10 +8,16 @@ add_library(geode_core STATIC
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_params_json_api.cpp
+    viz/ParamsJson.cpp
+    viz/ParamsPalette.cpp
+    api/geode_looks_api.cpp
+    viz/LookFiles.cpp
     api/geode_param_text_api.cpp
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
+    api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
@@ -26,6 +32,8 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
+    api/geode_cast_audio_api.cpp
+    output/CastAudioPump.cpp
     api/geode_link_api.cpp
     viz/frame/LinkShare.cpp
     api/geode_link_pair_api.cpp
@@ -43,9 +51,11 @@ add_library(geode_core STATIC
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
     api/geode_capture_api.cpp
+    api/geode_mic_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
+    viz/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
     sound/Fft.cpp
@@ -68,6 +78,8 @@ add_library(geode_core STATIC
     audio/ingest/LayerMix.cpp
     audio/ingest/SnapshotStitch.cpp
     audio/ingest/CapturePlan.cpp
+    audio/ingest/MicInput.cpp
+    audio/ingest/android/OboeMic.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -138,6 +150,9 @@ add_library(geode_core STATIC
     viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
+    viz/DirectorStyle.cpp
+    viz/DirectorTuning.cpp
+    viz/LayerPick.cpp
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
@@ -151,6 +166,7 @@ add_library(geode_core STATIC
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/ShapeGraph.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
@@ -165,6 +181,10 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/CustomizeRows.cpp
+    viz/PanelText.cpp
+    viz/PalettePanel.cpp
+    viz/StyleNames.cpp
     viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
@@ -188,6 +208,8 @@ add_library(geode_core STATIC
     viz/pool/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/physics/PhysicsLayers.cpp
+    viz/physics/PhysicsPlan.cpp
     viz/world/WorldGenome.cpp
     viz/world/MorphDriver.cpp
     viz/world/WorldAssets.cpp
@@ -196,6 +218,8 @@ add_library(geode_core STATIC
     viz/scenes/CymaticsScene.cpp
     viz/scenes/SilkScene.cpp
     viz/scenes/LifeScene.cpp
+    viz/present/FieldGeometry.cpp
+    viz/present/FieldPresent.cpp
     viz/scenes/MycoScene.cpp
     viz/scenes/AcidScene.cpp
     viz/scenes/FluidSceneBase.cpp
@@ -219,7 +243,8 @@ target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
 # AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
-# The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
+# The playback output's stream (audio/output/OboeOutput.cpp) and the mic's (audio/ingest/android/OboeMic.cpp);
+# found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
 # mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC mediandk)

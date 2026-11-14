@@ -7,6 +7,7 @@
 #include <numbers>
 
 #include "sound/DriveGain.hpp"
+#include "sound/OnsetFlux.hpp"
 #include "sound/Tuning.hpp"
 
 namespace geode::sound {
@@ -61,11 +62,11 @@ constexpr float GeodeSoundFrame::* kTriggerFields[] = {
     &GeodeSoundFrame::returned,   &GeodeSoundFrame::surge,          &GeodeSoundFrame::noteChange,
     &GeodeSoundFrame::legato,     &GeodeSoundFrame::reattack,       &GeodeSoundFrame::beat,
     &GeodeSoundFrame::downbeat,   &GeodeSoundFrame::phrase,         &GeodeSoundFrame::harmonicChange,
-    &GeodeSoundFrame::sectionChange, &GeodeSoundFrame::drop,
+    &GeodeSoundFrame::sectionChange, &GeodeSoundFrame::drop,           &GeodeSoundFrame::transient,
 };
 static_assert(sizeof(kTriggerFields) / sizeof(kTriggerFields[0]) == SoundEngine::kTriggers, "every trigger, once");
 
-// TouchDesigner's Band EQ centres.
+// The Band EQ's centres: sixteen bands from 25 Hz to 22 kHz.
 constexpr std::array<float, GEODE_SOUND_EQ_BANDS> kEqCentres = {
     25, 40, 60, 90, 150, 240, 370, 590, 930, 1500, 2300, 3600, 5600, 8900, 14000, 22000};
 
@@ -153,6 +154,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
     static constexpr std::array<std::array<float, 2>, kSlices> kSliceHz = {{
         {0, 250}, {250, 4000}, {4000, 0}, {40, 120}, {150, 300}, {2500, 6000}, {7000, 16000}, {0, 0}}};
     for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_);
+    transient_.configure(sampleRateHz_);
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
@@ -164,6 +166,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
+    fluxReach_.resize(logMag_.size());
+    for (size_t k = 0; k < fluxReach_.size(); k++) fluxReach_[k] = onsetflux::reachOf(static_cast<int>(k));
     waveSrc_.assign(static_cast<size_t>((GEODE_SOUND_WAVEFORM_POINTS + kWaveSlack) * waveBlock_), 0.0f);
     harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
@@ -237,6 +241,7 @@ void SoundEngine::feed(float l, float r) {
     written_++;
     const float m = 0.5f * (l + r);
     for (auto& band : bank_) band.process(m);
+    transient_.process({{bank_[kLow].out(), bank_[kMiddle].out(), bank_[kHigh].out(), bank_[kAll].out()}});
     meter_.process(l, r);
     if (++hopFill_ >= rhythm_.hopSamples()) {
         hopFill_ = 0;
@@ -323,7 +328,7 @@ void SoundEngine::analyse() {
     for (float v : mono_) squares += static_cast<double>(v) * v;
     out.rms = static_cast<float>(std::sqrt(squares / n_));
     // The one gate: closed until the momentary loudness reaches -55 LUFS, open until 250 ms under -60. Every
-    // detector and stage below reads this flag (fosfora's R8), so they all agree on what silence is.
+    // detector and stage below reads this flag, so they all agree on what silence is.
     const bool silent = !meter_.open();
     if (starved_) {
         // Nothing arrived (a pause, a stall): a transport event, not the music going quiet, so it never
@@ -356,6 +361,7 @@ void SoundEngine::analyse() {
     spectrumPoints(dt, silent, out.spectrum);
     descriptors(dt, warm, silent, out);
     drums(dt, silent, out);
+    transients(dt, silent, out);
     events(dt, warm, out);
     melody(dt, out);
     clocks(dt, out);
@@ -410,7 +416,7 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.midHigh = s.band[kMidHigh].ratio();
     out.midHighAtt = s.band[kMidHigh].attRatio();
 
-    // The TouchDesigner layer: the filter bank's slice levels, made relative the same way, then Lag
+    // The shaped layer: the filter bank's slice levels, made relative the same way, then Lag
     // (attack/release), threshold, gain and offset into 0..1. Halving first puts "typical" (1.0) at 0.5
     // and a strong hit (2.0) at full scale.
     const GeodeSoundTuning& t = tuning_;
@@ -554,8 +560,10 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got than fluxLag_ hops ago (~30 ms), on a log scale, as a relative
-    // level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (~30 ms), on a log scale, as a
+    // relative level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // The earlier spectrum is kept maximum-filtered along frequency (sound/OnsetFlux), so a note whose pitch only
+    // wobbles (vibrato, a slide) does not read as a new start on every wobble.
     const size_t stride = logMag_.size();
     float* now = logMag_.data();
     const float* then = fluxCount_ >= fluxLag_ ? prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride : nullptr;
@@ -579,7 +587,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
             rise += band / static_cast<float>(to - from);
         }
     }
-    std::copy(logMag_.begin(), logMag_.end(), prevLogMag_.begin() + static_cast<std::ptrdiff_t>(fluxHead_ * stride));
+    onsetflux::maxFilter(now, prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride, fluxBins_.from, fluxBins_.to, fluxReach_.data());
     fluxHead_ = (fluxHead_ + 1) % fluxLag_;
     fluxCount_ = std::min(fluxCount_ + 1, fluxLag_);
     if (then) {
@@ -679,6 +687,21 @@ void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
         if (s.snareCount % 4 == 0) out.snare4 = hit[1];
         s.easedTarget[1] = 1.0f - s.easedTarget[1];
     }
+}
+
+// The transient detector has run on every sample of this hop (feed); here its report joins the frame. It hears
+// in relative terms (an attack over the sound just before it), so whether it counts is absolute, like a hit:
+// none behind the gate or under the hit floor, and its strength scales with the drive. Nothing else in the
+// frame reads it, so adding it moved no other value.
+void SoundEngine::transients(float dt, bool silent, GeodeSoundFrame& out) {
+    State& s = state_;
+    const Transient::Hit hit = transient_.hop();
+    const bool allowed = !silent && !starved_ && hitsAllowed();
+    const float worth = kHitDriveFloor + (1.0f - kHitDriveFloor) * clamp01(s.drive / kDriveFull);
+    out.transient = allowed ? hit.strength * worth : 0.0f;
+    if (out.transient > 0.0f) s.transientSharpness = hit.sharpness;
+    out.transientSharpness = s.transientSharpness;
+    out.transientEnv = s.transientEnv.step(out.transient, 0.005f, 0.2f, dt);
 }
 
 void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
@@ -783,7 +806,7 @@ void SoundEngine::estimatePitch(float held, float& midi, float& confidence, floa
     const float delta = curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f;
     const float k0 = static_cast<float>(best) + delta;
     midi = 69.0f + 12.0f * std::log2(k0 * binHz / 440.0f);
-    // Evenness: the even harmonics' share of the first six (sigmund~'s measure). Square-ish, hollow
+    // Evenness: the even harmonics' share of the first six. Square-ish, hollow
     // tones (clarinet, square lead) read low; saw-like and vocal tones near half.
     float even = 0.0f;
     float all = 0.0f;
@@ -970,7 +993,7 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
     const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
     s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
     out.drive = clamp01(s.drive);
-    // How far the loudness has just risen (fosfora's trend), eased: a build or a drop reads as more than the
+    // How far the loudness has just risen (the meter's trend), eased: a build or a drop reads as more than the
     // steady level, a fade as less. Intensity is the drive with that rise on top.
     s.rise = follow(s.rise, open ? meter_.trend() : 0.0f, 1.0f, dt);
     out.intensity = clamp01(0.75f * out.drive + 0.25f * s.rise);
@@ -1009,6 +1032,7 @@ void SoundEngine::reset() {
     accentHeld_ = 0.0f;
     std::fill(wavePrev_.begin(), wavePrev_.end(), 0.0f);
     for (auto& band : bank_) band.clear();
+    transient_.reset();
     sliceNow_ = {};
     punchNow_ = {};
     punchAt_ = {};

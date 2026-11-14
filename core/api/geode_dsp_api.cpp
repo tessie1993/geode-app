@@ -104,6 +104,15 @@ int geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capa
     return geode::api::textOut(geode::audio::fx::encodeBandLevels(levels, count), out, capacity);
 }
 
+int geode_dsp_band_label(int band, char* out, int capacity) {
+    const int milliHz = static_cast<int>(geode_dsp_band_center_hz(band) * 1000.0f);
+    return geode::api::textOut(geode::audio::fx::freqLabel(milliHz), out, capacity);
+}
+
+int geode_dsp_db_label(int millibels, char* out, int capacity) {
+    return geode::api::textOut(geode::audio::fx::dbLabel(millibels), out, capacity);
+}
+
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {
     if (d) d->processor.setEnabled(enabled != 0);
 }
@@ -179,6 +188,14 @@ void geode_dsp_process(geode_dsp* d, float* interleaved, size_t capacity_floats,
 
 void geode_dsp_process_pcm16(geode_dsp* d, int16_t* interleaved, size_t capacity_samples, size_t frames, int channels) {
     if (d) d->processor.processPcm16(interleaved, capacity_samples, frames, channels);
+}
+
+int geode_dsp_process_bytes(geode_dsp* d, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels) {
+    if (bytes <= 0) return 0;
+    const auto n = static_cast<size_t>(bytes);
+    using geode::audio::DspProcessor;
+    return static_cast<int>(d && pcm ? d->processor.processBytes(pcm, capacity_bytes, n, encoding, channels)
+                                     : DspProcessor::wholeFrameBytes(n, encoding, channels));
 }
 
 void geode_dsp_set_bit_perfect(geode_dsp* d, int on) {

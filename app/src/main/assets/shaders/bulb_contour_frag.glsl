@@ -64,20 +64,15 @@ vec3 tone(float t) {
 }
 
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = bulbDE(bulbChaos(p), 9.0, 9.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 /** A thin line on every integer of f, `w` pixels wide, antialiased. */
 float lineOn(float f, float w) {
@@ -91,7 +86,8 @@ void main() {
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float air = clamp(clamp(sndSpectrum(0.93), 0.0, 1.0) * bulbEnergy(), 0.0, 1.5);
     float phase = sndPhase(SND_CURVED_TIME, 2.0);
-    float dense = 1.0 + clamp(uMorph, 0.0, 1.0);
+    // The normalization shell (lib_bulb): Morph doubles the contour lines' density, mapped here, once.
+    float dense = bulbSpan(bulbIn().iters, 1.0, 1.0, 2.0);
     gIters = bulbIters(6);
 
     // MACRO: a survey flight. The eye drifts low over the crust, slower than
@@ -105,24 +101,29 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, aim, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.78 + 0.04 * sin(bulbTime() * 0.017);
 
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BW_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BW_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BW_BOUND + growSlack(BW_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BW_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -136,7 +137,7 @@ void main() {
     float ao = 1.0;
     vec3 p = ro + rd * max(hitT, 0.0);
     if (hitT > 0.0) {
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
         ao = bulbStepAO(used);
         fA = log2(max(trap.x, 1e-4)) * 2.2 - phase;
@@ -162,9 +163,13 @@ void main() {
     if (hitT > 0.0) {
         vec3 glass = vec3(0.012, 0.010, 0.02);
         col = glass + tone(hue + 0.55) * rim * (0.25 + 0.2 * air);
-        col += tone(hue) * lA * (0.9 + 0.3 * air) * ao;
-        col += tone(hue + 0.33) * lB * 0.55 * ao;
+        // Escape colour (lib_shade): the smoothed escape count moves the lines along the ramp.
+        float esc = shadeEscape(trap.w);
+        col += tone(hue + esc) * lA * (0.9 + 0.3 * air) * ao;
+        col += tone(hue + 0.33 + esc) * lB * 0.55 * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the crust, by Bloom.
+    col += tone(hue + 0.55) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.85 + 0.15 * swell;
     fragColor = vec4(grade(col), 1.0);

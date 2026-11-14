@@ -11,6 +11,7 @@
 #include "viz/CameraRig.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
+#include "viz/ShapeGraph.hpp"
 #include "viz/TouchField.hpp"
 
 namespace geode::viz {
@@ -50,6 +51,9 @@ public:
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
+    // A held scene (Renderer::holds) that draws the rig itself, when the rig moved since the frame it holds:
+    // draw what it holds again from the new pose without stepping it, so the eye never freezes with the field.
+    virtual void redrawHeld() {}
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }
@@ -90,6 +94,10 @@ struct SceneHost {
     // The look's palette stack as a kRampSize × 1 texture (viz/Palette), 0 while the look keeps none and
     // its old colour params draw.
     std::function<GLuint()> paletteRamp;
+    // The shape graph (viz/ShapeGraph) as this frame uploads it: the renderer ticks one graph once a frame after
+    // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
+    // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
+    std::function<const shapes::Packed*()> shapeGraph;
 };
 
 }  // namespace geode::viz

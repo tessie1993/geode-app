@@ -12,7 +12,8 @@
 // counts as read when a function reachable from main() names it, comments and #ifdef'd-out code
 // stripped, macros followed: the nearest a host test gets to the driver's active-uniform list.
 // A dedicated renderer (Silk .. Cymatics, MilkDrop) counts a field as read when its scene sources
-// name it or the composite applies it to that renderer's picture.
+// name it or the composite applies it to that renderer's picture; one presented in 3D (core/viz/present:
+// Life) draws through a style-like shader on the shared block, and is held to that shader as a style is.
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -219,17 +220,23 @@ void theReaderFollowsCallsNotDeclarations() {
     check(read.count("uWarp") == 0 && read.count("uTwist") == 1, "#ifndef on a name the source defines drops its branch");
 }
 
+// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/present/FieldPresent
+// draws it as a ShaderScene); "" for one that draws flat.
+std::string presentShader(catalogue::Kind kind) { return kind == catalogue::Kind::Life ? "life_show_frag.glsl" : ""; }
+
 void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     int shaders = 0;
     for (const std::string& id : catalogue::allIds()) {
-        if (!catalogue::isShaderStyle(id)) {
-            check(!catalogue::fliesCamera(id), id + ": only a shader style flies the camera rig");
+        const std::string present = presentShader(catalogue::kindOf(id));
+        if (!catalogue::isShaderStyle(id) && present.empty()) {
+            check(!catalogue::fliesCamera(id) && !catalogue::isMarched(id),
+                  id + ": only a shader style or a 3D present flies the camera rig and marches");
             continue;
         }
         std::string error;
-        const auto src = source.load(id + "_frag.glsl", &error);
+        const auto src = source.load(present.empty() ? id + "_frag.glsl" : present, &error);
         check(src.has_value(), id + ": " + error);
         if (!src) continue;
         ++shaders;
@@ -247,9 +254,8 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
 // Customize › Look on a shader style is the style's own grade() and pal(): the composite leaves the shader
 // family ungraded (grade::gateFor), so a style that stops reading one of these uniforms leaves its control dead.
 void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
-    static const char* const kLook[] = {"uPalBase",    "uPalRange", "uPal2Base", "uPaletteMix", "uPalLutMix",
-                                        "uColorShift", "uHueRange", "uSat",      "uBright",     "uContrast",
-                                        "uGamma",      "uIntensity", "uTemperature", "uBloom"};
+    static const char* const kLook[] = {"uPalBase", "uPalRange",  "uPalLutMix", "uColorShift",  "uHueRange", "uSat", "uBright",
+                                        "uContrast", "uGamma", "uIntensity", "uTemperature", "uBloom"};
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     for (const std::string& id : catalogue::allIds()) {
@@ -359,8 +365,23 @@ const std::vector<Carrier>& shaderCarriers() {
         {"ripple", {"uRipple"}},
         {"morph", {"uMorph"}},
         {"twist", {"uTwist"}},
-        {"kaleidoscope", {"uKaleido"}},
-        {"symmetry", {"uSymmetry"}},
+        // Kaleidoscope's one slider: on from 2 folds (uKaleido) at its count (uSymmetry), SceneParams::kaleidoUniforms.
+        {"kaleidoFolds", {"uKaleido", "uSymmetry"}},
+        // Grow and layers (Customize › Shape › Grow), shown only on the family styles whose library draws them.
+        {"spawn", {"uSpawn"}},
+        {"fractal", {"uFractal"}},
+        {"frontLayer", {"uFrontLayer"}},
+        {"backLayer", {"uBackLayer"}},
+        // Life's births (lib_grow): every style runs them, in its field loop or its wrappers, or over its picture.
+        {"life", {"uLife"}},
+        // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
+        {"formula", {"uFormula"}},
+        // Shapes: shown only on the styles that melt the shape graph in (Catalogue.cpp's kShapeStyles, lib_shapes).
+        {"shapes", {"uShapeMix"}},
+        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (Catalogue.cpp's kShadowStyles),
+        // Escape colour on the families whose folds feed it (kEscapeFamilies).
+        {"shadow", {"uShadow"}},
+        {"escapeColor", {"uEscapeColor"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},
@@ -373,14 +394,7 @@ const std::vector<Carrier>& shaderCarriers() {
         {"paletteStop2", {"uPalStops"}},
         {"paletteStop3", {"uPalStops"}},
         {"paletteStop4", {"uPalStops"}},
-        {"palette2", {"uPal2Base"}},
-        {"palette2BaseOverride", {"uPal2Base"}},
-        {"palette2RangeOverride", {"uPal2Range"}},
-        {"paletteMix", {"uPaletteMix"}},
-        {"paletteLut", {"uPalLutMix"}},
         {"colorShift", {"uColorShift"}},
-        {"colorCycle", {"uColorShift"}},
-        {"cycleSpeed", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},
         {"brightness", {"uBright"}},
@@ -395,7 +409,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"invert", {"uInvert"}},
         // Audio drive is lib_sound's uSoundDrive (SoundUniforms::upload). The band trims scale the frame's
         // band fields (viz/BandTrim) before the style, its MotionField (uBassRel ..) and the
-        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence, mids turn the drift.
+        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence. The mids no longer
+        // turn the drift (owner 2026-11-12, no style spins to the music).
         {"audioDrive", {"uSoundDrive"}},
         {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW", "uBassRel", "uZoom"}},
         {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID", "uMidRel"}},
@@ -497,10 +512,9 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
-    // MotionField's spin only turns a style the catalogue gives a spin rate; mids turn it too.
+    // MotionField's spin only turns a style the catalogue gives a spin rate; no sound turns it.
     const bool spins = catalogue::spinRate(styleId) != 0.0f;
     if (field == "motionDrift") return spins && words.count("uRotation") != 0;
-    if (field == "midGain" && spins && words.count("uRotation") != 0) return true;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
@@ -546,10 +560,11 @@ std::string readFile(const std::string& path) {
 // the geometry and stylize group to MilkDrop and the fluid family alike, mirror, invert and the colour grade
 // (zoom and rotation with it) to the fluid family only; MilkDrop's own post pass does those.
 bool compositeApplies(catalogue::Kind kind, const std::string& field) {
-    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoscope", "symmetry", "pixelate", "tile",        "twist",
-                                               "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
+    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
+                                               "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize",
+                                               "life"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
-                                                     "intensity", "contrast", "gamma", "colorShift", "colorCycle", "cycleSpeed"};
+                                                     "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;
     return kind != catalogue::Kind::Milkdrop && kFluidOnly.count(field) != 0;
 }
@@ -607,11 +622,13 @@ void everyShownControlReachesItsStyle(const std::string& assetsRoot, const std::
     int gaps = 0;
     for (const std::string& id : catalogue::allIds()) {
         const catalogue::Kind kind = catalogue::kindOf(id);
-        const bool shader = kind == catalogue::Kind::Shader;
+        const std::string present = presentShader(kind);
+        // A 3D present is a style-like shader on the shared block: held to the shader carriers.
+        const bool shader = kind == catalogue::Kind::Shader || !present.empty();
         std::set<std::string> words;
         std::set<std::string> heard;
         if (shader) {
-            const auto src = source.load(id + "_frag.glsl", nullptr);
+            const auto src = source.load(present.empty() ? id + "_frag.glsl" : present, nullptr);
             if (!src) continue;
             words = wordsReachedFromMain(*src);
             heard = wordsReachedFromMain(*src, kViews);

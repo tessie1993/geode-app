@@ -44,15 +44,14 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-//   snare        twists the vanes: each hit winds them a little further, and
-//                they ease back;
 //   bass         swells the vanes, the nebula hearts and (a little, weighted
 //                by k0 PULSE) the marbles themselves: geometry, not light;
-//   onsets       roll every marble one notch (glassGlide);
 //   flatness     fills the glass with seed bubbles (frost): noise clouds it;
 //   centroid     the dispersion at the rim;
-//   pitch, pan   the sun's height and bearing (glassLook), so the highlights
-//                and the vanes' backlight follow the melody;
+//   pitch        the sun's height (glassLook), so the highlights and the
+//                vanes' backlight follow the melody. No sound rolls a marble,
+//                twists its vanes or turns the sun (owner 2026-11-12, no style
+//                spins to the music);
 //   hat          glints on the surfaces.
 //
 // ---- macros and knobs --------------------------------------------------------
@@ -94,10 +93,13 @@ vec3 gEye;
 /** The frame's swell and drift density. */
 float gSwell;
 float gEmpty;
-/** Set by map(): the measured cell's marble centre, radius and hash. */
-vec3 gC;
-float gR;
-float gH;
+/** What the field holds at a point (lib_glass_field): the distance, and the cell's marble centre, radius and hash. */
+struct GlassHit {
+    float d;
+    vec3 c;
+    float r;
+    float h;
+};
 
 /** The marble a cell holds: centre `c`, radius `r` (0 for an empty cell), hash `h`. */
 void marbleIn(vec3 cell, out vec3 c, out float r, out float h) {
@@ -116,7 +118,7 @@ void marbleIn(vec3 cell, out vec3 c, out float r, out float h) {
     r *= smoothstep(1.4, 3.6, length(c - gEye));
 }
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
     vec3 cell = floor(p / MD_CELL);
     vec3 c;
     float r;
@@ -125,11 +127,15 @@ float map(vec3 p) {
     vec3 af = abs(p - (cell + 0.5) * MD_CELL);
     float toEdge = 0.5 * MD_CELL - max(af.x, max(af.y, af.z));
     float ds = r > 0.01 ? length(p - c) - r : 1e3;
-    gC = c;
-    gR = r;
-    gH = h;
-    return min(ds, toEdge + MD_GAP);
+    GlassHit res;
+    res.c = c;
+    res.r = r;
+    res.h = h;
+    res.d = min(ds, toEdge + MD_GAP);
+    return res;
 }
+
+//#include lib_glass_field
 
 /**
  * One cat's-eye marble, the flat style's shading end to end: the hit at `p`
@@ -138,11 +144,10 @@ float map(vec3 p) {
  * and glints. `h` is the marble's own hash: its roll phase, axis and hue.
  */
 vec3 shadeMarble(vec3 p, vec3 rd, vec3 c, float R, float h, float t, float hue, float vanes, GlassEar ear, GlassLook lk) {
-    float ior = 1.5;
-    float spread = 0.015 + 0.035 * ear.sharp;
-    float twist = 1.4 + 1.6 * ear.snare + 0.3 * sin(t * 0.2 + h * 6.0);
-    float roll = t * (0.1 + 0.1 * h) + h * 9.0
-        + 0.35 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    float ior = glassIor(1.5);
+    float spread = glassSpread(0.015 + 0.035 * ear.sharp);
+    float twist = 1.4 + 0.3 * sin(t * 0.2 + h * 6.0);
+    float roll = t * (0.1 + 0.1 * h) + h * 9.0;
     mat3 rot = glassEuler(vec3(0.35 * sin(t * 0.11 + h * 4.0) + h * 3.0, roll, 0.5 + 0.2 * sin(t * 0.07) + h * 5.0));
     mat3 inv = transpose(rot);
     float mh = hue + 0.25 * glassHash1(h * 97.0);
@@ -220,17 +225,18 @@ vec3 shadeMarble(vec3 p, vec3 rd, vec3 c, float R, float h, float t, float hue, 
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
     GlassEar ear = glassListen();
-    float tone = uKnob[3] - 0.5;
+    float tone = gGlassIn.tone - 0.5;
     float hue = 0.04 * sin(t * 0.019) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.3 * tone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     float vanes = 3.0 + floor(glassComplexity() * 2.0 + 0.5);
 
     // k0 PULSE 0..1 (0.5 neutral). At most 1.12: the cell gap in the header is sized for it.
-    float pulse = clamp(uKnob[0], 0.0, 1.0);
+    float pulse = gGlassIn.pulse;
     gSwell = 1.0 + 0.12 * clamp(ear.bass / 1.2, 0.0, 1.0) * pulse;
-    gEmpty = clamp(0.45 - 0.6 * (uKnob[5] - 0.5), 0.15, 0.75);
+    gEmpty = clamp(0.45 - 0.6 * (gGlassIn.space - 0.5), 0.15, 0.75);
 
     vec3 ro;
     vec3 rd;
@@ -239,6 +245,8 @@ void main() {
     // and invisible; without it a highp z far down the 8192 travel keeps too
     // little fraction for the cell hash and the hit.
     ro.z = mod(ro.z, MD_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     vec3 sky = glassEnv(rd, lk);
@@ -246,18 +254,25 @@ void main() {
     float hitT = -1.0;
     vec3 haze = vec3(0.0);
     vec3 hazeCol = pal(hue + 0.08) * 0.5 + 0.5 * vec3(1.0, 0.7, 0.45);
+    // The field where the ray met a marble: which one.
+    GlassHit hit;
+    hit.c = vec3(0.0);
+    hit.r = 0.0;
+    hit.h = 0.0;
     for (int i = 0; i < MD_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * tt;
-        float d0 = map(p);
+        GlassHit at = glassField(p);
+        float d0 = at.d;
         if (d0 < glassEps(tt)) {
             hitT = tt;
+            hit = at;
             break;
         }
         // A warm haze where the ray grazes a marble (the sun scattered off the glass).
-        if (gR > 0.01) {
-            float near = length(p - gC) - gR;
+        if (at.r > 0.01) {
+            float near = length(p - at.c) - at.r;
             haze += hazeCol * exp(-max(near, 0.0) * 3.0) * 0.006 * exp(-tt * 0.06);
         }
         tt += d0;
@@ -266,9 +281,9 @@ void main() {
 
     vec3 col = sky;
     if (hitT > 0.0) {
-        vec3 c = gC;
-        float R = gR;
-        float h = gH;
+        vec3 c = hit.c;
+        float R = hit.r;
+        float h = hit.h;
         // The exact surface for the optics: the march only found which marble.
         vec2 hs = glassSphere(ro, rd, c, R);
         float th = hs.x > 0.0 ? hs.x : hitT;

@@ -16,6 +16,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Fractal Temple: a walk down a stepped causeway through an endless temple.
 // The 2D style drew the same four things flat (a triangulated dome closing
@@ -70,8 +71,11 @@ out vec4 fragColor;
 // whole nave from side to side, Turbulence sways the spires, Intensity and the
 // palette reach through lib_scene_grade and pal(). Knobs (offsets from 0.5,
 // so off is the tuned look): k0 PULSE the kick's swell, k1 TEXTURE the lace
-// and filigree, k2 FLOW the lamps' chase, k3 TONE the hue, k4 BUILD the sky
-// and halo, k5 SPACE the dome's size.
+// and filigree, k2 FLOW where the lamps' chase stands (an offset on its
+// clock, never a rate times it, so a moving knob never jumps it), k3 TONE the portals' span and a
+// small hue offset (a high melody throws the rings wide like open arches, a
+// low one draws them in tight round the causeway, still clear of it), k4 BUILD
+// the sky and halo, k5 SPACE the dome's size.
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -192,7 +196,7 @@ float spireDist(vec3 b) {
     return d;
 }
 
-float map(vec3 p) {
+float ftField(vec3 p) {
     vec3 b = p;
     b.x -= bendAt(p.z);
 
@@ -230,6 +234,24 @@ float map(vec3 p) {
     return max(d, TF_BUBBLE - length(p - gEye));
 }
 
+/** ftField through lib_shell's hooks: exactly ftField(p) at rest, and ftField read once, in a loop the compiler cannot unroll. */
+float ftFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ftField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: ftField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return ftFieldGrown(p);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -263,21 +285,40 @@ vec3 skyColour(vec3 rd, float hue, float build) {
 void main() {
     vec2 uv = view();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nSwell = clamp(uKnob[0], 0.0, 1.0);
+    float nLace = clamp(uKnob[1], 0.0, 1.0);
+    float nChase = clamp(uKnob[2], 0.0, 1.0);
+    float nSpan = clamp(uKnob[3], 0.0, 1.0);
+    float nSky = clamp(uKnob[4], 0.0, 1.0);
+    float nDome = clamp(uKnob[5], 0.0, 1.0);
+    float nBend = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);
+    float nSway = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);
+    float nScallop = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    // The kick's swell, the lace bars and the filigree, the lamps' chase, the
+    // portals' span, the sky and halo, the dome, the nave's bend, the spires'
+    // sway and their scallops.
+    float swellK = shellMap(nSwell, 0.2, 1.0, 1.8);
+    float barBase = shellMap(nLace, 0.08, 0.11, 0.14);
+    float filigreeK = shellMap(nLace, 0.0, 0.5, 1.0);
+    float chase = shellMap(nChase, -2.0, 0.0, 2.0);
+    float spanK = shellMap(nSpan, 0.8, 1.0, 1.2);
+    float domeR = shellMap(nDome, 17.0, 20.0, 23.0);
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * (1.0 + 1.6 * kPulse);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * swellK;
     float trend = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
-    float build = clamp(0.5 + kBuild, 0.0, 1.0);
+    float build = nSky;
 
     // Section crossfade: the old look the frame the count steps, the new one
     // as the section envelope falls.
@@ -287,17 +328,17 @@ void main() {
     float secOld = mod(SND_CUT_COUNT - 1.0, 4096.0);
     gSeed1 = uint(int(secNew));
     gSeed0 = uint(int(secOld));
-    float bar = clamp(0.11 + 0.06 * kTexture - 0.03 * swell, 0.05, 0.2);
+    float bar = clamp(barBase - 0.03 * swell, 0.05, 0.2);
     gS0 = tessFor(secOld);
     gS1 = tessFor(secNew);
     gW0 = gS0 * bar;
     gW1 = gS1 * bar;
 
-    gBend = 1.2 * clamp(uWarp, 0.0, 1.0);
-    gLean = 0.03 * clamp(uTurbulence, 0.0, 1.0);
-    gScal = 0.12 + 0.24 * clamp(uMorph, 0.0, 1.0);
-    gRD = 20.0 + 3.0 * swell + 6.0 * kSpace;
-    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6));
+    gBend = shellMap(nBend, 0.0, 0.0, 1.2);
+    gLean = shellMap(nSway, 0.0, 0.0, 0.03);
+    gScal = shellMap(nScallop, 0.12, 0.12, 0.36);
+    gRD = domeR + 3.0 * swell;
+    gRingR = 3.8 * (1.0 + 0.05 * clamp(kick, 0.0, 1.6)) * spanK;
     gTube = 0.13;
 
     vec3 ro;
@@ -308,6 +349,8 @@ void main() {
     // 8192 travel.
     ro.z = mod(ro.z, TF_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * TF_BAY, false);
 
     float t = 0.05;
     float hitT = -1.0;
@@ -331,11 +374,11 @@ void main() {
         t += stepLen;
     }
 
-    float hue = 0.3 * kTone + 0.5 * dropBump + 0.02 * sin(uTime * 0.03);
+    float hue = shellMap(nSpan, -0.15, 0.0, 0.15) + 0.5 * dropBump + 0.02 * sin(uTime * 0.03);
     vec3 sky = skyColour(rd, hue, build);
     vec3 col = sky;
     float fogK = 0.045 * (1.0 - 0.35 * clamp(swell, 0.0, 1.0));
-    float flow = uFlowTime * (1.0 + 1.2 * kFlow);
+    float flow = uFlowTime + chase;
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
@@ -381,7 +424,7 @@ void main() {
             float course = wire(fract(gSQ.y * 0.9) - 0.5, 0.06, px * 0.9);
             float ang = atan(gSQ.z, gSQ.x);
             float rib = wire(fract(ang * (12.0 / TF_TAU)) - 0.5, 0.07, px * 3.0);
-            float filigree = max(course, rib) * (0.5 + kTexture);
+            float filigree = max(course, rib) * filigreeK;
             col = tint * (0.05 + 0.5 * light) * ao
                 + tint * filigree * (0.18 + 0.85 * treb) * ao
                 + mix(vec3(1.0), tint, 0.4) * spec * 0.3 * lamp;

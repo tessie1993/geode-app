@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // Nectar Flow: a volume rather than a surface. Luminous dye is wrapped around a
 // folded skeleton and then stirred by the same incompressible flow Curl Bloom
@@ -35,9 +36,12 @@ out vec4 fragColor;
 // ---- the flight ------------------------------------------------------------
 //
 // The camera rides lib_dmt's flight path rather than a straight line down -z:
-// it banks up, down, left and right through the volume, and the whole path
-// leans toward the last spike's heading (uMoveDir), so the music steers the
-// turns and they glide in. Position is integrated on uFlowPhase. The volume
+// it banks up, down, left and right through the volume on the path's own
+// weave. It used to lean toward the last spike's heading too, which turned
+// the flight to the music; owner rule, nothing turns to the music, so the
+// path here is lib_dmt's weave without that lean (nfPath), and a spike moves
+// the whole path sideways toward its heading instead: a change of place,
+// gliding in as uMoveDir does. Position is integrated on uFlowPhase. The volume
 // is world-anchored, so the fold moves past the camera as it should, and a
 // volume march needs no correction for a curved camera path - there is no
 // distance estimate to overshoot.
@@ -49,8 +53,17 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets the dye's density, sndShaped(SND_LOW) the fold depth, SND_TREBLE_PRESENCE the
-// filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
+// filament sharpness. A spike shifts the flight toward its heading (uMoveDir), re-seeds the dye
 // (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase).
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the filaments' width,
+// k2 FLOW added to the stir's bend (fluidWarp3's amount), k3 TONE the palette
+// position and the fold's squash (a high melody packs the nectar into finer,
+// denser chambers, a low one opens it out; always inside the 1.22..1.42 band
+// where the structure holds), k4 BUILD the core's glow, k5 SPACE how deep the slab reaches.
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -92,8 +105,82 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
     return exp(-abs(trap) * sharp);
 }
 
+/** density()'s per-frame arguments, set once in main, so the field is a function of p alone. */
+float gBend;
+float gSquash;
+float gSharp;
+float gWarpScale;
+float gWarpAmount;
+
+/** The dye's density as a field of p alone. */
+float nfField(vec3 p) {
+    return density(p, gBend, gSquash, gSharp, gWarpScale, gWarpAmount);
+}
+
+/** The density nfField through lib_shell's hooks: exactly nfField(p) at rest, and nfField read once, in a loop the compiler cannot unroll. */
+float nfFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, nfField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The density the march reads: nfField through lib_shell's density hook (the identity at rest), so a
+ * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
+ */
+float nfDensity(vec3 p) {
+    return nfFieldGrown(p);
+}
+
+/**
+ * lib_dmt's flight path (dmtTunnelPath) without its lean on uMoveDir, which
+ * grew with depth and so turned the heading on every spike. The heading now
+ * shifts the path by a fixed amount instead: the weave is the same, the
+ * flight moves over and never turns to the music.
+ */
+vec2 nfPath(float z) {
+    return vec2(1.4 * sin(z * 0.2101554) + 2.6 * sin(z * 0.0429515 + 1.3),
+                1.2 * cos(z * 0.1702718 + 0.7) + 2.2 * cos(z * 0.0306796))
+         + 0.6 * uMoveDir;
+}
+
+/** dmtFlightBasis on nfPath: right, up and forward, forward along the path's tangent. */
+mat3 nfFlightBasis(float dist, float roll) {
+    vec2 ahead = nfPath(dist + 0.01);
+    vec2 behind = nfPath(dist - 0.01);
+    vec3 fwd = normalize(vec3((ahead - behind) * 50.0, 1.0));
+    vec3 upRef = vec3(sin(roll), cos(roll), 0.0);
+    vec3 right = normalize(cross(upRef, fwd));
+    vec3 up = cross(fwd, right);
+    return mat3(right, up, fwd);
+}
+
 void main() {
     vec2 uv = view();
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nShell = clamp(uKnob[1], 0.0, 1.0);
+    float nStir = clamp(uKnob[2], 0.0, 1.0);
+    float nTone = clamp(uKnob[3], 0.0, 1.0);
+    float nCore = clamp(uKnob[4], 0.0, 1.0);
+    float nDepth = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the filaments' softness, the stir's bend, the palette
+    // position (and the squash, below), the core's glow, the slab's depth.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float softK = shellMap(nShell, 0.5, 1.0, 1.5);
+    float stirAdd = shellMap(nStir, -0.05, 0.0, 0.05);
+    float tone = shellMap(nTone, -0.3, 0.0, 0.3);
+    float coreK = shellMap(nCore, 0.5, 1.0, 1.5);
+    float depthK = shellMap(nDepth, 0.8, 1.0, 1.2);
 
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
@@ -106,19 +193,26 @@ void main() {
     // Kept inside 1.22..1.42. Below it the iteration barely folds and the
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
-    float squash = 1.26 + 0.12 * clamp(bass, 0.0, 1.0);
-    float sharp = 22.0 + 26.0 * clamp(treb, 0.0, 1.0);
+    float squash = clamp(1.26 + 0.12 * clamp(bass, 0.0, 1.0) + 0.13 * tone, 1.22, 1.42);
+    // TEXTURE widens the filaments (a softer shell), never past half or 1.5 times.
+    float sharp = (22.0 + 26.0 * clamp(treb, 0.0, 1.0)) / softK;
     float warpScale = 0.95 + 0.30 * swell;
-    float warpAmount = 0.13 + 0.10 * bass + 0.06 * finger;
+    float warpAmount = max(0.13 + 0.10 * bass + 0.06 * finger + stirAdd, 0.0);
+    gBend = bend;
+    gSquash = squash;
+    gSharp = sharp;
+    gWarpScale = warpScale;
+    gWarpAmount = warpAmount;
 
     // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
     // the camera travels, never where it is - and the path banks the heading.
     float fly = uFlowPhase * 2.2;
     float roll = uTime * 0.05;
-    vec3 ro;
-    vec3 rd;
-    dmtFlightRay(uv, NF_FOCAL, fly, roll, ro, rd);
-    mat3 flight = dmtFlightBasis(fly, roll);
+    mat3 flight = nfFlightBasis(fly, roll);
+    vec3 ro = vec3(nfPath(fly), fly);
+    vec3 rd = flight * normalize(vec3(uv, NF_FOCAL));
+    // The grow hooks open the dye round this eye, which flies far from the origin along +z.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     // ---- the volume march ---------------------------------------------------
     //
@@ -126,7 +220,7 @@ void main() {
     // boundaries scatter into grain instead of banding into visible shells,
     // and the jitter walks with the spawn so the grain is not a fixed screen
     // pattern.
-    float span = NF_FAR - NF_NEAR;
+    float span = NF_FAR * depthK - NF_NEAR;
     float dt = span / float(NF_MAX_STEPS);
     float jitter = hash13(vec3(uv * 811.0, uSpawnSeed * 37.0));
     float t = NF_NEAR + jitter * dt;
@@ -139,13 +233,13 @@ void main() {
         if (trans < NF_MIN_TRANSMITTANCE) break;
 
         vec3 p = ro + rd * t;
-        float d = density(p, bend, squash, sharp, warpScale, warpAmount);
+        float d = nfDensity(p);
         if (d > 0.004) {
             // Colour by depth into the volume and by how dense the sample is,
             // so the thin outskirts and the bright core are different hues
             // rather than the same hue at two brightnesses.
             float depth = (t - NF_NEAR) / span;
-            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30));
+            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30 + tone));
             // The filament highlight: the top of the density range only.
             emit += vec3(1.0) * smoothstep(0.72, 0.98, d) * (0.25 + 0.7 * treb);
             float sigma = d * (2.6 + 2.2 * swell);
@@ -160,19 +254,19 @@ void main() {
 
     vec3 col = acc;
     // The mandala behind the dye, seen through what the dye did not absorb.
-    col += dmtChrysanthemum(transpose(flight) * rd, 0.68, swell) * trans;
+    col += dmtChrysanthemum(transpose(flight) * rd, 0.68 + tone, swell) * trans;
 
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * 0.16 * trans;
+    col += pal(0.06 + tone) * axis * 0.16 * trans * coreK;
 
     // The particle layer, matching the rest of the family.
-    col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
+    col += mix(pal(0.50 + tone), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
 
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.70 + 0.30 * smoothstep(2.2, 0.4, length(uv));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

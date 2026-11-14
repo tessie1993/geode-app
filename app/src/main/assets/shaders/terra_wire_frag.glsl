@@ -36,7 +36,7 @@ out vec4 fragColor;
 // Speed scales the Chaos drift. Complexity (uMorph) fades in an
 // octave of hill. Chaos (uWarp, uTurbulence, uTwist) bends the hills under
 // the grid (terraChaos). Energy (uIntensity) scales the spectrum's push.
-// Colour is pal() in the grid and the sky. Space is the rig.
+// Colour is terraPal() in the grid and the sky. Space is the rig.
 
 #define WR_MAX_STEPS 112
 #define WR_FAR 40.0
@@ -53,15 +53,18 @@ float rowBand(float z) {
     return clamp((z - gEye.z) / WR_SPAN, 0.0, 1.0);
 }
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     float f = terraFbm(terraChaos(terraWrap(xz)), gOct);
     float side = smoothstep(0.6, 2.8, abs(xz.x - gEye.x));
     float band = sndSpectrum(0.02 + 0.7 * rowBand(xz.y));
     return 0.25 * f + side * (0.35 + 0.9 * f) * (0.4 + gPush * clamp(band, 0.0, 1.0));
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     gPush = min(0.8 * terraEnergy(), 1.0);
     gOct = terraOctaves(3.0);
@@ -73,7 +76,7 @@ void main() {
     gEye = ro;
 
     // Sky: indigo overhead to a hot horizon, and the striped sun ahead.
-    vec3 sky = mix(mix(vec3(0.9, 0.25, 0.45), pal(0.95), 0.3), mix(vec3(0.05, 0.02, 0.15), pal(0.7) * 0.1, 0.3), pow(clamp(rd.y * 2.5, 0.0, 1.0), 0.6));
+    vec3 sky = mix(mix(vec3(0.9, 0.25, 0.45), terraPal(0.95), 0.3), mix(vec3(0.05, 0.02, 0.15), terraPal(0.7) * 0.1, 0.3), pow(clamp(rd.y * 2.5, 0.0, 1.0), 0.6));
     vec3 sunDir = normalize(vec3(0.0, 0.1, 1.0));
     vec3 sx = normalize(cross(vec3(0.0, 1.0, 0.0), sunDir));
     vec2 s = vec2(dot(rd, sx), dot(rd, cross(sunDir, sx))) / 0.22;
@@ -94,7 +97,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > span.y) break;
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -110,21 +113,21 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.01);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.01);
         vec2 wq = terraWrap(p.xz);
         vec2 fw = max(fwidth(p.xz), vec2(1e-4));
-        vec2 d = abs(fract(wq - 0.5) - 0.5) / fw;
+        vec2 d = abs(fract(wq - 0.5) - 0.5) / (fw * gTerraWidth);
         // Core and halo of each line, in pixels; fade to an even glow once a
         // cell is under a few pixels.
         vec2 lit = exp(-d * d * 0.35) + 0.25 * exp(-d * 0.35);
         vec2 fade = (1.0 - smoothstep(0.15, 0.45, fw));
         lit = lit * fade + (1.0 - fade) * 0.18;
         float band = rowBand(p.z);
-        vec3 rowCol = mix(vec3(1.0, 0.2, 0.75), pal(0.85 + 0.5 * band), 0.45);
-        vec3 colCol = mix(vec3(0.2, 0.8, 1.0), pal(0.55), 0.35);
+        vec3 rowCol = mix(vec3(1.0, 0.2, 0.75), terraPal(0.85 + 0.5 * band), 0.45);
+        vec3 colCol = mix(vec3(0.2, 0.8, 1.0), terraPal(0.55), 0.35);
         vec3 ground = vec3(0.02, 0.0, 0.04) * (0.4 + 0.6 * max(n.y, 0.0));
         col = ground + rowCol * lit.y + colCol * lit.x * 0.8;
-        col = mix(col, sky, 1.0 - exp(-hitT * 0.06));
+        col = mix(col, sky, 1.0 - exp(-hitT * 0.06 / gTerraReach));
     }
 
     col *= 0.85 + 0.17 * swell;

@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Gyroid Cavern: a flight through a triply periodic minimal surface. The
 // walls are a thin sheet around the surface's zero set (|g| < thickness), so
@@ -42,6 +43,17 @@ out vec4 fragColor;
 //                      gyroid-diamond blend, crossfaded over the section envelope.
 // SND_INTENSITY               overall level, as everywhere.
 //
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width, k2
+// FLOW a corkscrew bend of the sheet along z (period 16, the rebase, so the
+// wrap holds; its slope is under 0.2, which the 0.85 step absorbs), k3 TONE the
+// palette position and the cavern's scale (a high melody packs the lattice
+// into fine, close passages, a low one opens it into wide halls; scaled about
+// the eye, and gKMax follows it), k4 BUILD the glow ahead in the fog, k5 SPACE the reach
+// (far plane and fog).
+//
 // ---- why the morphs are wrap-safe ------------------------------------------
 //
 // The frequency morph is not a change of frequency: it is a per-axis scale
@@ -49,6 +61,21 @@ out vec4 fragColor;
 // shifts q by exactly 16, a whole number of periods, so a morph that never
 // settles back to 1 still never shows the wrap. The estimate is divided by the
 // largest k, the scale's Lipschitz bound.
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// The cavern's tunables as normalized inputs, mapped once at the top of main;
+// 0.5 is the look as tuned (the knobs rest there exactly while Note & key is
+// off), and none reads the sound:
+//
+//   sScale      k3 TONE          the lattice's scale about the eye 0.65 .. 1 .. 1.35
+//   sWall       k4 BUILD         the walls' resting thickness 0.08 .. 0.14 .. 0.26
+//   sTube       k5 SPACE         the flight channel's radius 1.4 .. 1.9 .. 2.6
+//   gBendA      k2 FLOW          the corkscrew's radius -0.5 .. 0 .. 0.5
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The period (8) and the vein ratio (3) stay: both must tile the 16 of the
+// rebase. The sheet goes through its shell wrapper, so the shell's hooks reach it.
 
 #define GC_MAX_STEPS 104
 #define GC_ZWRAP 16.0
@@ -59,6 +86,9 @@ out vec4 fragColor;
 #define GC_FAR 30.0
 #define GC_BUBBLE 0.8
 #define GC_TAU 6.2831853
+/** How much light a wall's film stops face-on (its rim stops more), and how many walls a ray crosses. */
+#define GC_FILM 0.6
+#define GC_HITS 3
 
 /** Weights of gyroid, Schwarz-P and diamond. */
 vec3 gW;
@@ -69,6 +99,12 @@ float gTube;
 vec3 gEye;
 /** Set by map(): the surface-space point, for the veins. */
 vec3 gQ;
+/** k2 FLOW: the corkscrew's radius, world units (0 at rest). */
+float gBendA = 0.0;
+/** Shape inputs (see the header). */
+float sScale;
+float sWall;
+float sTube;
 
 float tpms(vec3 x) {
     vec3 s = sin(x);
@@ -80,8 +116,11 @@ float tpms(vec3 x) {
     return gW.x * gy + gW.y * sp + gW.z * di;
 }
 
-float map(vec3 w) {
-    vec3 q = gEye + (w - gEye) * gK;
+float mapField(vec3 w) {
+    // FLOW's corkscrew bends the sheet only; the flight tube and the eye's bubble stay put.
+    vec3 wb = w;
+    wb.xy += gBendA * vec2(sin(w.z * (GC_TAU / 16.0)), cos(w.z * (GC_TAU / 16.0)));
+    vec3 q = gEye + (wb - gEye) * gK;
     gQ = q;
     float g = tpms(q * GC_F);
     float d = (abs(g) - gTh) / (GC_F * GC_LIP * gKMax);
@@ -89,6 +128,21 @@ float map(vec3 w) {
     d = smax(d, gTube - length(w.xy), 0.9);
     d = max(d, GC_BUBBLE - length(w - gEye));
     return d;
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The cavern as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -120,7 +174,18 @@ float vein(vec3 q, vec3 flow) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sScale = shellMap(shellKnob(3), 0.65, 1.0, 1.35);
+    sWall = shellMap(shellKnob(4), 0.08, 0.14, 0.26);
+    sTube = shellMap(shellKnob(5), 1.4, 1.9, 2.6);
+    gBendA = shellMap(shellKnob(2), -0.5, 0.0, 0.5);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -142,10 +207,10 @@ void main() {
     vec3 stretch = mix(gcOnsetStretch(mod(floor(SND_HIT_TIME) - 1.0, 4096.0)), gcOnsetStretch(floor(SND_HIT_TIME)), og);
     // A slow idle breath so silence still moves; the drop opens everything.
     vec3 idle = 1.0 + 0.04 * vec3(sin(uTime * 0.07), sin(uTime * 0.05 + 2.0), sin(uTime * 0.06 + 4.0));
-    gK = stretch * idle * mix(1.0, 0.62, dropBump);
+    gK = stretch * idle * mix(1.0, 0.62, dropBump) * sScale;
     gKMax = max(gK.x, max(gK.y, gK.z));
-    gTh = (0.14 + 0.34 * kick) * (1.0 - 0.45 * dropBump);
-    gTube = 1.9 + 1.4 * dropBump;
+    gTh = (sWall + 0.34 * kick) * (1.0 - 0.45 * dropBump);
+    gTube = sTube + 1.4 * dropBump;
 
     vec3 ro;
     vec3 rd;
@@ -154,69 +219,97 @@ void main() {
     // along z, so this rebase is exact and invisible, and z stays precise.
     ro.z = mod(ro.z, GC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 4.0, false);
 
+    float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump + 0.6 * kTone;
+    float iri = 0.28 * pitchBump + 0.04 * sin(uTime * 0.09);
+    float fogK = 0.055 / reach;
+    float ahead = pow(max(rd.z, 0.0), 8.0);
+    vec3 fogCol = pal(hue + 0.6) * (0.035 + 0.16 * ahead) * (1.0 + kBuild) + vec3(0.004, 0.003, 0.007);
+
+    // The walls are a thin film, so the ray goes on through them, the way the
+    // Opal family carries a ray through its skins: every wall it meets is lit
+    // and laid over what lies behind, the ray crosses the film (stepping on the
+    // film's own depth until it is out the far side, so one film counts once)
+    // and carries on to the next, up to GC_HITS walls deep. Each film passes
+    // more light face-on than at its rim, as a soap film does, so the cavern
+    // reads as nested translucent chambers instead of one opaque wall. The
+    // first wall still sets where the motes stop.
     float t = 0.03;
     float hitT = -1.0;
-    float used = 0.0;
-    vec3 hitQ = vec3(0.0);
+    vec3 acc = vec3(0.0);
+    float through = 1.0;
+    int hits = 0;
+    bool inside = false;
     for (int i = 0; i < GC_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        if (t > GC_FAR) break;
-        used = float(i);
-        float d = map(ro + rd * t);
+        if (t > GC_FAR * reach) break;
+        vec3 p = ro + rd * t;
+        float d = map(p);
         float eps = 0.0008 * t + 0.0005;
+        if (inside) {
+            // Crossing the film: -d bounds the way out of it.
+            if (d > 2.0 * eps) {
+                inside = false;
+            } else {
+                t += max(-d * 0.85, eps);
+                continue;
+            }
+        }
         if (d < eps) {
-            hitT = t;
-            hitQ = gQ;
-            break;
+            vec3 hitQ = gQ;
+            vec3 n = normalAt(p, max(0.0015, 0.0012 * t));
+            // The side of the film that faces the eye.
+            if (dot(n, rd) > 0.0) n = -n;
+            float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+            float fres = pow(1.0 - ndv, 3.0);
+            float ao = clamp(1.0 - float(i) / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
+            float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 40.0);
+
+            // Thin film: the optical path grows toward grazing angles, and the
+            // film's own thickness ripples across the wall (its z rate is 2 * 2pi/16,
+            // so the rebase lands on a whole ripple). Each channel reads the
+            // palette at its own offset, which is the interference fringe. Deeper
+            // walls run further round the palette, the depth haze the Hollows use.
+            float film = 1.6 * (1.0 - ndv) + 0.35 * sin(dot(hitQ, vec3(0.9, 1.3, 0.7853982))) + iri
+                       + 0.3 * t / (GC_FAR * reach);
+            float fp = hue + film;
+            vec3 thin = vec3(pal(fp).r, pal(fp + 0.13).g, pal(fp + 0.26).b);
+            vec3 wall = pal(hue + 0.1) * (0.04 + 0.16 * ndv) * ao
+                      + thin * (0.12 + 0.75 * fres) * (0.4 + 0.6 * ao)
+                      + vec3(spec) * 0.3 * ao;
+
+            // Veins: two flows of the same lattice, slow and fast, crossfaded by
+            // the high bands. Both are plain multiples of uTime, so the speed can
+            // change every frame and nothing ever jumps.
+            float vs = vein(hitQ, vec3(0.0, 0.0, uTime * 0.25));
+            float vf = vein(hitQ, vec3(uTime * 0.6, 0.0, uTime * 1.5));
+            float v = mix(vs, vf, smoothstep(0.1, 0.8, high));
+            float px = t * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
+            float vw = (0.07 + 0.12 * snare) * (1.0 + kTexture);
+            // The vein field's gradient is ~3 * GC_F per world unit; widen by the pixel.
+            float vline = 1.0 - smoothstep(vw, vw + px * GC_F * 3.0 * 1.5 + 0.02, v);
+            vec3 veinCol = mix(pal(hue + 0.33), pal(hue + 0.83) * 1.25, snare);
+            // Seen through the film: strongest face-on, where the wall is thinnest to the eye.
+            wall += veinCol * vline * (0.35 + 0.5 * ndv) * (0.6 + 1.4 * snare) * (0.7 + 0.3 * swell);
+
+            float opacity = GC_FILM + (1.0 - GC_FILM) * fres;
+            acc += through * opacity * mix(wall, fogCol, 1.0 - exp(-t * fogK));
+            through *= 1.0 - opacity;
+            if (hitT < 0.0) hitT = t;
+            hits++;
+            if (hits >= GC_HITS || through < 0.03) break;
+            inside = true;
+            t += 2.0 * eps;
+            continue;
         }
         t += max(d * 0.85, eps);
     }
 
-    float hue = 0.48 + 0.03 * sin(uTime * 0.017) + 0.5 * dropBump;
-    float iri = 0.28 * pitchBump + 0.04 * sin(uTime * 0.09);
-    float fogK = 0.055;
-    float ahead = pow(max(rd.z, 0.0), 8.0);
-    vec3 fogCol = pal(hue + 0.6) * (0.035 + 0.16 * ahead) + vec3(0.004, 0.003, 0.007);
-    vec3 col = fogCol;
-    float sceneT = hitT > 0.0 ? hitT : GC_FAR;
-
-    if (hitT > 0.0) {
-        vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
-        float fres = pow(1.0 - ndv, 3.0);
-        float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
-        float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 40.0);
-
-        // Thin film: the optical path grows toward grazing angles, and the
-        // film's own thickness ripples across the wall (its z rate is 2 * 2pi/16,
-        // so the rebase lands on a whole ripple). Each channel reads the
-        // palette at its own offset, which is the interference fringe.
-        float film = 1.6 * (1.0 - ndv) + 0.35 * sin(dot(hitQ, vec3(0.9, 1.3, 0.7853982))) + iri;
-        float fp = hue + film;
-        vec3 thin = vec3(pal(fp).r, pal(fp + 0.13).g, pal(fp + 0.26).b);
-        vec3 wall = pal(hue + 0.1) * (0.04 + 0.16 * ndv) * ao
-                  + thin * (0.12 + 0.75 * fres) * (0.4 + 0.6 * ao)
-                  + vec3(spec) * 0.3 * ao;
-
-        // Veins: two flows of the same lattice, slow and fast, crossfaded by
-        // the high bands. Both are plain multiples of uTime, so the speed can
-        // change every frame and nothing ever jumps.
-        float vs = vein(hitQ, vec3(0.0, 0.0, uTime * 0.25));
-        float vf = vein(hitQ, vec3(uTime * 0.6, 0.0, uTime * 1.5));
-        float v = mix(vs, vf, smoothstep(0.1, 0.8, high));
-        float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
-        float vw = 0.07 + 0.12 * snare;
-        // The vein field's gradient is ~3 * GC_F per world unit; widen by the pixel.
-        float vline = 1.0 - smoothstep(vw, vw + px * GC_F * 3.0 * 1.5 + 0.02, v);
-        vec3 veinCol = mix(pal(hue + 0.33), pal(hue + 0.83) * 1.25, snare);
-        // Seen through the film: strongest face-on, where the wall is thinnest to the eye.
-        wall += veinCol * vline * (0.35 + 0.5 * ndv) * (0.6 + 1.4 * snare) * (0.7 + 0.3 * swell);
-
-        col = mix(wall, fogCol, 1.0 - exp(-hitT * fogK));
-    }
+    vec3 col = acc + fogCol * through;
+    float sceneT = hitT > 0.0 ? hitT : GC_FAR * reach;
 
     // Motes: points on world z slices every 2 units ahead of the eye, one
     // hashed candidate per 1.2-unit cell. Slices sit at fixed world z (index
@@ -247,5 +340,5 @@ void main() {
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

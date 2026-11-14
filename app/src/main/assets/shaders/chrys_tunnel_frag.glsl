@@ -105,22 +105,18 @@ float gTwistAmp;
 float gBend;
 float gLip;
 vec3 gEye;
-/** Set by map(): 1 on a scale, 0 on the bare wall; the scale's u, v and hash. */
-float gMat;
-float gU;
-float gV;
-float gHash;
 
 /** The bore's centre at depth z: the Warp bend, periods 32 and 64. */
 vec2 boreCentre(float z) {
     return gBend * vec2(sin(z * (CHRYS_TAU / 32.0)), cos(z * (CHRYS_TAU / 64.0)));
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 1 on a scale, 0 on the bare wall; a.x the scale's u, a.y its v, a.z its hash). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec2 q = p.xy - boreCentre(p.z);
     float r = length(q);
     float dWall = max(gR - r, r - gR - TU_SHELL);
-    gMat = 0.0;
+    found.mat = 0.0;
     float d = dWall;
     if (r > gR - gHmax) {
         float h = gR - r;
@@ -149,15 +145,15 @@ float map(vec3 p) {
             float dc = max(pet.x, abs(h - hy) - TU_THICK);
             if (dc < best) {
                 best = dc;
-                gU = u;
-                gV = pet.z;
-                gHash = hh;
+                found.a.x = u;
+                found.a.y = pet.z;
+                found.a.z = hh;
             }
             // The rest of this row lies past the column edge.
             capped = min(capped, (0.5 - abs(s - cx)) * colArc * 0.98 + 0.01);
         }
         float dp = min(best, capped) / gLip;
-        if (best < dWall) gMat = 1.0;
+        if (best < dWall) found.mat = 1.0;
         d = min(dWall, dp);
     } else {
         // Clear of every scale: the gap to the band.
@@ -166,40 +162,45 @@ float map(vec3 p) {
     return max(d, TU_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_chrys_field
+
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    float liftK = chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    float lampK = chrysSpan(N.sway, 1.0, 0.5, 1.5);
+    float flareK = chrysSpan(N.glow, 1.0, 0.5, 1.5);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.06, 0.06);
 
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    gChaos = clamp((uTurbulence + uWarp) * (1.0 + kTexture), 0.0, 2.0);
+    gChaos = clamp(chrysSpan(N.chaos, 0.0, 0.0, 2.0) * chrysSpan(N.fray, 1.0, 0.5, 1.5), 0.0, 2.0);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
-    float lift = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5) * clamp(1.0 + kPulse, 0.5, 1.5);
-    gCols = 14.0 + 2.0 * floor(4.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
-    gR = TU_RADIUS + 1.2 * kSpace;
+    float lift = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5) * liftK;
+    gCols = 14.0 + 2.0 * floor(chrysSpan(N.rings, 0.0, 0.0, 4.0) + 0.5);
+    gR = chrysSpan(N.reach, TU_RADIUS, TU_RADIUS - 0.6, TU_RADIUS + 0.6);
     gLiftW = 0.18 * lift;
     gHmax = 0.06 + 1.25 * gLiftW + TU_THICK + 0.03;
     gWidth = 0.30 * (CHRYS_TAU * gR / gCols) / TU_ROW;
-    gTwistAmp = clamp(uTwist, -1.0, 1.0);
-    gBend = 0.5 * clamp(uWarp, 0.0, 1.0);
+    gTwistAmp = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    gBend = chrysSpan(N.bend, 0.0, 0.0, 0.5);
     gLip = 1.9 + 0.5 * gChaos;
 
     // The palette steps at the bloom's peak, hidden behind its petals.
     float sectionIdx = SND_CUT_COUNT - (sect > 0.5 ? 1.0 : 0.0);
-    float hue = chrysHash(vec2(sectionIdx * 0.73, 4.0)) + gT * 0.002 + 0.12 * kTone;
-    float nextHue = chrysHash(vec2(SND_CUT_COUNT * 0.73, 4.0)) + gT * 0.002 + 0.12 * kTone;
+    float hue = chrysHash(vec2(sectionIdx * 0.73, 4.0)) + gT * 0.002 + hueShift;
+    float nextHue = chrysHash(vec2(SND_CUT_COUNT * 0.73, 4.0)) + gT * 0.002 + hueShift;
 
     vec3 ro;
     vec3 rd;
@@ -207,6 +208,8 @@ void main() {
     // Every z term tiles with a period dividing 64, so this shift is exact
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TU_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // Skip the empty middle: nothing comes nearer the axis than the band's
@@ -229,7 +232,8 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (t > TU_FAR) break;
-        float d = map(ro + rd * t);
+        fld = chrysField(ro + rd * t);
+        float d = fld.d;
         float eps = 0.0012 + 0.0007 * t;
         if (d < eps) {
             hitT = t;
@@ -245,32 +249,32 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0008 * hitT));
+        vec3 n = chrysNormal(p, max(0.0015, 0.0008 * hitT));
         // The crevice under each lifted tip, from two taps along the normal.
         float occ = 0.0;
         for (int k = 0; k < 2; k++) {
             float hk = 0.05 + 0.1 * float(k);
-            occ += (hk - map(p + n * hk)) * (1.0 - 0.4 * float(k));
+            occ += (hk - chrysField(p + n * hk).d) * (1.0 - 0.4 * float(k));
         }
         float ao = clamp(1.0 - 2.2 * occ, 0.3, 1.0);
-        // Restore the hit point's globals after the normal and AO taps.
-        map(p);
+        // The hit at p again for the shading, after the normal and AO taps.
+        fld = chrysField(p);
 
         vec3 base;
-        if (gMat > 0.5) {
-            vec3 pc = mix(pal(hue + 0.06 * gHash) * 0.3, mix(pal(hue + 0.08 + 0.06 * gHash), vec3(1.0), 0.2), gU);
-            base = pc * chrysPetalShade(vec4(0.0, gU, gV, 0.0), 0.35);
+        if (fld.mat > 0.5) {
+            vec3 pc = mix(pal(hue + 0.06 * fld.a.z) * 0.3, mix(pal(hue + 0.08 + 0.06 * fld.a.z), vec3(1.0), 0.2), fld.a.x);
+            base = pc * chrysPetalShade(vec4(0.0, fld.a.x, fld.a.y, 0.0), 0.35);
         } else {
             base = pal(hue + 0.5) * 0.04;
         }
         // Headlamp from the eye: the tips tilt toward it as they lift.
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
-        float lamp = 0.35 + 0.85 * ndv * clamp(1.0 + kFlow, 0.4, 1.6);
+        float lamp = 0.35 + 0.85 * ndv * lampK;
         col = base * lamp * ao;
         // The far flower's light rims the scale edges facing it.
         float fres = pow(1.0 - ndv, 3.0);
-        col += pal(hue + 0.1) * 0.10 * fres * max(n.z + 0.3, 0.0) * gMat;
-        col += vec3(0.25) * pow(ndv, 40.0) * gMat * gU * ao;
+        col += pal(hue + 0.1) * 0.10 * fres * max(n.z + 0.3, 0.0) * fld.mat;
+        col += vec3(0.25) * pow(ndv, 40.0) * fld.mat * fld.a.x * ao;
 
         fogAmt = 1.0 - exp(-hitT * 0.055);
         col = mix(col, fogCol, fogAmt);
@@ -281,7 +285,7 @@ void main() {
     if (rd.z > 0.05) {
         vec2 vq = rd.xy / rd.z;
         float bump = chrysBump(sect);
-        float size = 0.07 + 3.6 * uIntensity * clamp(1.0 + kBuild, 0.5, 1.5) * bump;
+        float size = 0.07 + 3.6 * uIntensity * flareK * bump;
         float bh = mix(hue, nextHue, smoothstep(0.55, 0.45, sect));
         vec2 fq = chrysTurn(gT * 0.1) * vq;
         // At rest the flower sits far down the bore, behind the fog; while it

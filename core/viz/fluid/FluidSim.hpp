@@ -81,6 +81,13 @@ public:
     bool applyResolution(int newSimRes, int newDyeRes);
     void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void queueSplat(const Splat& s);
+    // The fields applyField writes.
+    enum class Field { Velocity, Dye };
+    // Runs `program` (built on fluid_base_vert.glsl) once over one field, outside step(): the field's state is its
+    // uTarget (unit 0), `uniforms` sets the rest (units 1 and up), and what it writes is the field's next state,
+    // advected and projected by the next step like a splat. The physics layers seed a fluid from a style's picture
+    // this way (viz/physics). A no-op without the field (a velocity-only sim has no dye) or the program.
+    void applyField(Field field, UniformCache& program, const std::function<void(UniformCache&)>& uniforms);
     void step(float dtRaw);
     void drawDisplay();
     void release();

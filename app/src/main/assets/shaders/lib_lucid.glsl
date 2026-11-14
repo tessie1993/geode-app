@@ -41,6 +41,41 @@
 // that pulled in lib_scene_uniforms would declare every uniform twice in any
 // style that also includes it.
 //
+// THE FIELD
+//
+// Every Lucid style defines LucidHit lucidMap(vec3 p), its world at p, and then
+// includes lib_lucid_field, which routes it through the family's one field
+// (lucidField) and differentiates it (lucidNormal); the style marches, shades
+// and takes normals through these alone. The field writes no global: a map
+// hands back what it found (which part, a cell's hash, a fold's place...) in
+// the hit, each style naming its slots above its mapAt. LUCID_GROW in
+// lib_lucid_field is the one line where Grow (lib_grow: Spawn, Fractal, Front
+// and Back layer) wraps the map (lucidGrow); Formula has no alternatives yet.
+//
+// THE NORMALIZATION SHELL
+//
+// Every shape variable of the family is read once, normalized, in lucidIn():
+// one field of LucidIn each, 0 at rest, -1..1 from a knob (its offset from 0.5,
+// doubled) or the Twist slider, 0..1 from the other params (0 their default).
+// The shared ones are mapped to their range in the helper that spends them
+// (lucidChaos, lucidJitter, lucidDetail, lucidView's twist); a style maps its
+// own through lucidSpan in its setup block, once. The drivers are params and
+// knobs only, every one a reaction-matrix target, so the music moves any
+// variable through the matrix; at the defaults every variable is exactly the
+// constant it was.
+//
+//   variable  driver           what it moves
+//   depth     Morph            one more nest level past 0.5; a style's counts
+//   turb      Turbulence       warp strength (lucidChaos), the jitter
+//   bend      Warp             warp strength, the jitter, a style's own bend
+//   twist     Twist            lucidView's twist, a style's own twist
+//   scale     k1 TEXTURE       the noise's scale, a line's width, a relief
+//   flow      k2 FLOW          a style's drift, wind or push
+//   reach     k5 SPACE         the room's size, the eye's distance
+//   glow      k4 BUILD         the glow
+//   emit      k0 PULSE         how far the hits push, the emission
+//   tone      k3 TONE          the palette position
+//
 // PHOTOSENSITIVITY
 //
 // Nothing in here reads an audio uniform. The helpers that shape envelopes
@@ -48,6 +83,66 @@
 // EASES in, never a value that steps between two frames: a recursive warp
 // amplifies any step into a full-field change, which is exactly what must not
 // happen on these styles.
+
+/**
+ * What the field found at a point: the distance, the part (`mat`) and up to
+ * eight numbers of the style's own in `a` and `b` (each style names its slots
+ * above its mapAt). 0 where the style set nothing.
+ */
+struct LucidHit {
+    float d;
+    float mat;
+    vec4 a;
+    vec4 b;
+};
+
+/** A hit at distance d with nothing found yet. */
+LucidHit lucidHit(float d) {
+    return LucidHit(d, 0.0, vec4(0.0), vec4(0.0));
+}
+
+/** Every shape variable, normalized: 0 at rest (see THE NORMALIZATION SHELL). */
+struct LucidIn {
+    float depth;
+    float turb;
+    float bend;
+    float twist;
+    float scale;
+    float flow;
+    float reach;
+    float glow;
+    float emit;
+    float tone;
+};
+
+/** Style knob i, normalized: its offset from 0.5 doubled, -1..1, exactly 0 while Note & key reactions are off. */
+float lucidKnob(int i) {
+    return 2.0 * (clamp(uKnob[i], 0.0, 1.0) - 0.5);
+}
+
+/** Each variable from its driver (the header's table): params and knobs only, no sound. */
+LucidIn lucidIn() {
+    LucidIn n;
+    n.depth = clamp(uMorph, 0.0, 1.0);
+    n.turb = clamp(uTurbulence / 1.5, 0.0, 1.0);
+    n.bend = clamp(uWarp, 0.0, 1.0);
+    n.twist = clamp(uTwist, -1.0, 1.0);
+    n.scale = lucidKnob(1);
+    n.flow = lucidKnob(2);
+    n.reach = lucidKnob(5);
+    n.glow = lucidKnob(4);
+    n.emit = lucidKnob(0);
+    n.tone = lucidKnob(3);
+    return n;
+}
+
+/**
+ * A normalized n to its variable's range: `rest` at 0, `lo` at -1, `hi` at 1, straight between.
+ * Exactly `rest` at 0, so the rest look is the old one bit for bit. A 0..1 variable uses rest..hi.
+ */
+float lucidSpan(float n, float rest, float lo, float hi) {
+    return rest + n * (n < 0.0 ? rest - lo : hi - rest);
+}
 
 #define LUCID_TAU 6.2831853
 #define LUCID_PI 3.14159265
@@ -276,8 +371,9 @@ vec2 lucidView(bool fold) {
     uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
     float z = uZoom;
     uv /= max(z, 0.05);
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
+    float tw = lucidSpan(lucidIn().twist, 0.0, -2.0, 2.0);
+    if (abs(tw) > 0.002) {
+        float tr = length(uv) * tw;
         uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
     }
     if (uTile > 1.01) {
@@ -295,7 +391,8 @@ vec2 lucidView(bool fold) {
  * uWarp both 0), so the look at default is the tuned one.
  */
 float lucidChaos() {
-    return 1.0 + 0.9 * clamp(uTurbulence, 0.0, 2.0) + 0.7 * clamp(uWarp, 0.0, 2.0);
+    LucidIn n = lucidIn();
+    return 1.0 + lucidSpan(n.turb, 0.0, 0.0, 1.35) + lucidSpan(n.bend, 0.0, 0.0, 0.7);
 }
 
 /**
@@ -303,7 +400,8 @@ float lucidChaos() {
  * the defaults. Added to a nest's input so the folds stop being even.
  */
 vec2 lucidJitter(vec2 p, float t) {
-    float k = 0.25 * clamp(uTurbulence, 0.0, 2.0) + 0.2 * clamp(uWarp, 0.0, 2.0);
+    LucidIn n = lucidIn();
+    float k = lucidSpan(n.turb, 0.0, 0.0, 0.375) + lucidSpan(n.bend, 0.0, 0.0, 0.2);
     if (k <= 0.0) return vec2(0.0);
     return k * vec2(lucidValue(p * 0.7 + t * 0.05), lucidValue(p * 0.7 + vec2(4.3, 1.9) - t * 0.04));
 }
@@ -314,7 +412,7 @@ vec2 lucidJitter(vec2 p, float t) {
  * ever moves when the user moves the slider.
  */
 int lucidDetail(int full, int lean) {
-    return min(lucidBudget(full, lean) + (uMorph >= 0.5 ? 1 : 0), 5);
+    return min(lucidBudget(full, lean) + (lucidIn().depth >= 0.5 ? 1 : 0), 5);
 }
 
 // ---- the nest -------------------------------------------------------------------

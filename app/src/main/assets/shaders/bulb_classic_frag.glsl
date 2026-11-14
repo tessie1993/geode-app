@@ -36,7 +36,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the bass swell. Colour is tone(), the bronze ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BC_MAX_STEPS 128
 #define BC_BOUND 1.25
@@ -52,20 +52,16 @@ vec3 tone(float t) {
 
 float gPow;
 int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float d = bulbDE(bulbChaos(p), gPow, 8.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -76,7 +72,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BC_CAM_R, BC_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BC_CAM_R), BC_SPIN, ro, rd);
 
     float hue = 0.04 * sin(bulbTime() * 0.021) + 0.12 * uKeyStrength * sin(BULB_TAU * uKeyHue);
 
@@ -84,19 +80,22 @@ void main() {
     float used = 0.0;
     float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BC_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BC_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BC_BOUND + growSlack(BC_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BC_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             near = min(near, d);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -109,22 +108,27 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT));
+        vec3 n = bulbNormal(p, bulbEps(hitT));
         vec3 key = normalize(vec3(0.55, 0.72, -0.42));
-        float dif = max(dot(n, key), 0.0);
+        // The key's soft shadow (lib_bulb_shade), on the key's light and its highlight, by Soft shadows.
+        float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
+        float dif = max(dot(n, key), 0.0) * shade;
         float sky = 0.5 + 0.5 * n.y;
         float ndv = max(dot(n, -rd), 0.0);
         float rim = pow(1.0 - ndv, 3.0);
-        float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0);
+        float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0) * shade;
         // Creases: the trap's closest approach plus the step count.
         float ao = bulbStepAO(used) * (0.4 + 0.6 * smoothstep(0.12, 0.95, trap.x));
-        vec3 base = tone(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y);
+        // Escape colour (lib_shade): the smoothed escape count moves the bronze along its ramp.
+        vec3 base = tone(hue + 0.55 * sqrt(trap.x) + 0.6 * trap.y + shadeEscape(trap.w));
         col = base * dif * vec3(1.0, 0.92, 0.80) * 0.95;
         col += base * sky * vec3(0.55, 0.65, 0.85) * 0.28;
         col += tone(hue + 0.5) * rim * 0.30;
         col += vec3(1.0, 0.95, 0.88) * spec * 0.25;
         col *= ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the body, by Bloom.
+    col += tone(hue + 0.1) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.3, 2.2, length(uv)));

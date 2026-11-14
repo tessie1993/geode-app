@@ -7,7 +7,7 @@
 #                the marched families and the dedicated renderers. Fix: each style spends the knobs on its
 #                own look, as lib_neon does, or the Notes & key block hides where no knob is read.
 #   midGain      These shader styles hear no mid band field (SND_MID*, the mid presence or flux, uMidRel)
-#                and do not spin, so Mid gain reaches them only through a reaction route that picks a mid
+#                (the Spin drift no longer hears the mids), so Mid gain reaches them only through a reaction route that picks a mid
 #                source. Fix: hide it there (a per-style band scope, as Detail is per style), or hear mids.
 silk_web: noteChords noteDrums noteIntervals notePitch noteTension
 silk_bloom: noteChords noteDrums noteIntervals notePitch noteTension
@@ -19,16 +19,6 @@ silk_hyper: noteChords noteDrums noteIntervals notePitch noteTension
 silk_resonance: noteChords noteDrums noteIntervals notePitch noteTension
 silk_curl: noteChords noteDrums noteIntervals notePitch noteTension
 silk_pendulum: noteChords noteDrums noteIntervals notePitch noteTension
-life_orbium: noteChords noteDrums noteIntervals notePitch noteTension
-life_gyre: noteChords noteDrums noteIntervals notePitch noteTension
-life_helix: noteChords noteDrums noteIntervals notePitch noteTension
-life_pulsar: noteChords noteDrums noteIntervals notePitch noteTension
-life_hydro: noteChords noteDrums noteIntervals notePitch noteTension
-life_bug: noteChords noteDrums noteIntervals notePitch noteTension
-life_mitosis: noteChords noteDrums noteIntervals notePitch noteTension
-life_coral: noteChords noteDrums noteIntervals notePitch noteTension
-life_labyrinth: noteChords noteDrums noteIntervals notePitch noteTension
-life_worms: noteChords noteDrums noteIntervals notePitch noteTension
 myco_polycephalum: noteChords noteDrums noteIntervals notePitch noteTension
 myco_rivals: noteChords noteDrums noteIntervals notePitch noteTension
 myco_symbiosis: noteChords noteDrums noteIntervals notePitch noteTension
@@ -49,145 +39,8 @@ acid_scan: noteChords noteDrums noteIntervals notePitch noteTension
 acid_solar: noteChords noteDrums noteIntervals notePitch noteTension
 acid_mirror: noteChords noteDrums noteIntervals notePitch noteTension
 acid_smear: noteChords noteDrums noteIntervals notePitch noteTension
-mandel: midGain
-plasma: midGain
-scope: midGain
-warp: midGain
-grid: midGain
-voronoi: midGain
-metaballs: midGain
-starfield: midGain
-waves: midGain
-hexgrid: midGain
-solar: midGain
-vanishing: noteChords noteDrums noteIntervals notePitch noteTension
-morphogen: noteChords noteDrums noteIntervals notePitch noteTension
-nebula: noteChords noteDrums noteIntervals notePitch noteTension
-noneuclid: noteChords noteDrums noteIntervals notePitch noteTension
-kifs: noteChords noteDrums noteIntervals notePitch noteTension
-rod_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
-neon_tiles: midGain
-blacklight_bloom: midGain
-fractal_temple: midGain
-curl_bloom: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nectar_flow: noteChords noteDrums noteIntervals notePitch noteTension
-crystal_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-neon_city: noteChords noteDrums noteIntervals notePitch noteTension
-particle_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
-chrome_nebula: noteChords noteDrums noteIntervals notePitch noteTension
-fractal_dive: midGain noteChords noteDrums noteIntervals notePitch noteTension
-aurora_ocean: midGain noteChords noteDrums noteIntervals notePitch noteTension
-spectrum_terrain: noteChords noteDrums noteIntervals notePitch noteTension
-outrun_drive: noteChords noteDrums noteIntervals notePitch noteTension
-menger_core: midGain noteChords noteDrums noteIntervals notePitch noteTension
-gyroid_cavern: midGain noteChords noteDrums noteIntervals notePitch noteTension
-ringed_planet: midGain noteChords noteDrums noteIntervals notePitch noteTension
-jelly_abyss: noteChords noteDrums noteIntervals notePitch noteTension
-ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
-prism_rain: noteChords noteDrums noteIntervals notePitch noteTension
-supershape: midGain noteChords noteDrums noteIntervals notePitch noteTension
-fractal_tunnel: midGain noteChords noteDrums noteIntervals notePitch noteTension
-neon_chrome_sea: midGain
-black_hole: midGain
-mandelbox_cathedral: midGain
 morph_world: midGain
 pool: midGain
-arbor_grove: midGain
-arbor_willow: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_frost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_bolt: midGain
-arbor_bonsai: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_canopy: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_rosette: midGain
-arbor_spire: noteChords noteDrums noteIntervals notePitch noteTension
-arbor_synapse: midGain noteChords noteDrums noteIntervals notePitch noteTension
-arbor_sakura: midGain
-bulb_classic: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_julia: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_slice: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_lotus: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_glow: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_cavern: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_shell: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_prism: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_contour: midGain noteChords noteDrums noteIntervals notePitch noteTension
-bulb_chrome: noteChords noteDrums noteIntervals notePitch noteTension
-bulb_hybrid: midGain noteChords noteDrums noteIntervals notePitch noteTension
-chrys_phyllo: midGain
-chrys_lotus: midGain
-chrys_corolla: midGain noteChords noteDrums noteIntervals notePitch noteTension
-chrys_glass: midGain
-chrys_ink: midGain
-chrys_fall: midGain
-lucid_weave: midGain
-lucid_hive: midGain
-lucid_bulge: midGain
-dive_lattice: noteChords noteDrums noteIntervals notePitch noteTension
-dive_jewel: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mushroom: noteChords noteDrums noteIntervals notePitch noteTension
-dive_gyro: noteChords noteDrums noteIntervals notePitch noteTension
-dive_mandala: noteChords noteDrums noteIntervals notePitch noteTension
-dive_serpent: noteChords noteDrums noteIntervals notePitch noteTension
-dive_helix: noteChords noteDrums noteIntervals notePitch noteTension
-dive_accordion: noteChords noteDrums noteIntervals notePitch noteTension
-dive_orbit: noteChords noteDrums noteIntervals notePitch noteTension
-dive_neon: noteChords noteDrums noteIntervals notePitch noteTension
-dive_cycle: noteChords noteDrums noteIntervals notePitch noteTension
-dive_show: noteChords noteDrums noteIntervals notePitch noteTension
-glass_orb: midGain
-glass_pool: midGain
-glass_prism: midGain
-glass_lens: midGain
-glass_drops: midGain
-glass_bubbles: midGain
-glass_marble: midGain
-glass_caustic: midGain
-glass_cubes: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_gem: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
-glass_knot: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_dust: midGain
-nebula_veil: midGain
-nebula_pulsar: midGain
-nebula_cluster: midGain
-nebula_horizon: midGain
-nebula_pillars: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nebula_flight: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_storm: noteChords noteDrums noteIntervals notePitch noteTension
-nebula_web: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_ridge: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_dunes: noteChords noteDrums noteIntervals notePitch noteTension
-terra_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_glacier: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_isles: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_mesa: noteChords noteDrums noteIntervals notePitch noteTension
-terra_volcano: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_terraces: noteChords noteDrums noteIntervals notePitch noteTension
-terra_moon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-terra_night: noteChords noteDrums noteIntervals notePitch noteTension
-terra_topo: midGain
-terra_wire: midGain noteChords noteDrums noteIntervals notePitch noteTension
-truchet_weave: midGain
-truchet_maze: midGain
-truchet_quad: midGain
-truchet_tubes: midGain
-truchet_knot: midGain
-truchet_tunnel: midGain
-truchet_relief: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_fall: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_neon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_soap: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_chrome: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ember: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ice: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_orb: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_kaleido: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ink: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_coral: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_ghost: midGain noteChords noteDrums noteIntervals notePitch noteTension
-foam_show: midGain noteChords noteDrums noteIntervals notePitch noteTension
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension
@@ -210,3 +63,197 @@ levitator: noteChords noteDrums noteIntervals notePitch noteTension
 standing_chamber: noteChords noteDrums noteIntervals notePitch noteTension
 rosensweig: noteChords noteDrums noteIntervals notePitch noteTension
 kundt_tube: noteChords noteDrums noteIntervals notePitch noteTension
+# The mid band's turn is gone (owner 2026-11-12: no style spins to the music), and these styles heard the
+# mids only through it (the Life styles through lib_field3d, on the life_show present). Nine Dive styles
+# took their one shaped read (sndShaped, which Audio drive scales) for the mids' push on the rings, so
+# Audio drive (audioDrive, uSoundDrive) no longer reaches them either. Fix: as midGain above.
+aurora_ocean: midGain
+black_hole: midGain
+blacklight_bloom: midGain
+bulb_classic: midGain
+bulb_contour: midGain
+bulb_glow: midGain
+bulb_hybrid: midGain
+bulb_ink: midGain
+bulb_julia: midGain
+bulb_prism: midGain
+bulb_shell: midGain
+chrys_corolla: midGain
+chrys_fall: midGain
+chrys_glass: midGain
+chrys_ink: midGain
+chrys_lotus: midGain
+chrys_phyllo: midGain
+crystal_canyon: midGain
+curl_bloom: midGain
+dive_cycle: audioDrive midGain
+dive_gyro: audioDrive
+dive_helix: audioDrive midGain
+dive_jewel: audioDrive midGain
+dive_lattice: audioDrive midGain
+dive_mandala: audioDrive midGain
+dive_mushroom: audioDrive midGain
+dive_neon: audioDrive midGain
+dive_orbit: audioDrive midGain
+dive_serpent: midGain
+flame_aurora: midGain
+flame_helix: midGain
+flame_knot: midGain
+flame_lotus: midGain
+flame_nova: midGain
+flame_orb: midGain
+flame_spiral: midGain
+flame_star: midGain
+flame_veil: midGain
+flame_web: midGain
+foam_chrome: midGain
+foam_coral: midGain
+foam_ember: midGain
+foam_fall: midGain
+foam_ghost: midGain
+foam_ice: midGain
+foam_ink: midGain
+foam_kaleido: midGain
+foam_neon: midGain
+foam_orb: midGain
+foam_show: midGain
+foam_soap: midGain
+fold_lace: midGain
+fold_nerve: midGain
+fold_onion: midGain
+fold_quartz: midGain
+fold_scaffold: midGain
+fold_spire: midGain
+fold_strata: midGain
+fold_thorn: midGain
+fold_twin: midGain
+fold_vault: midGain
+fractal_dive: midGain
+fractal_temple: midGain
+fractal_tunnel: midGain
+glass_bubbles: midGain
+glass_caustic: midGain
+glass_cubes: midGain
+glass_drops: midGain
+glass_gem: midGain
+glass_ice: midGain
+glass_knot: midGain
+glass_lens: midGain
+glass_marble: midGain
+glass_orb: midGain
+glass_pool: midGain
+glass_prism: midGain
+grid: midGain
+gyroid_cavern: midGain
+hexgrid: midGain
+hollow_bone: midGain
+hollow_cave: midGain
+hollow_coral: midGain
+hollow_hive: midGain
+hollow_neuron: midGain
+hollow_ribs: midGain
+hollow_roots: midGain
+hollow_shell: midGain
+hollow_sinew: midGain
+hollow_throat: midGain
+life_bug: midGain
+life_coral: midGain
+life_gyre: midGain
+life_helix: midGain
+life_hydro: midGain
+life_labyrinth: midGain
+life_mitosis: midGain
+life_orbium: midGain
+life_pulsar: midGain
+life_worms: midGain
+loom_basket: midGain
+loom_braid: midGain
+loom_cloth: midGain
+loom_cocoon: midGain
+loom_curtain: midGain
+loom_net: midGain
+loom_rope: midGain
+loom_sail: midGain
+loom_spokes: midGain
+loom_spool: midGain
+lucid_bulge: midGain
+lucid_hive: midGain
+lucid_weave: midGain
+mandel: midGain
+mandelbox_cathedral: midGain
+menger_core: midGain
+metaballs: midGain
+nebula_cluster: midGain
+nebula_dust: midGain
+nebula_horizon: midGain
+nebula_pillars: midGain
+nebula_pulsar: midGain
+nebula_veil: midGain
+nebula_web: midGain
+neon_chrome_sea: midGain
+neon_tiles: midGain
+opal_bubbles: midGain
+opal_cells: midGain
+opal_domes: midGain
+opal_drop: midGain
+opal_lava: midGain
+opal_melt: midGain
+opal_nautilus: midGain
+opal_pearls: midGain
+opal_ribbon: midGain
+opal_rings: midGain
+outrun_drive: midGain
+petal_bells: midGain
+petal_buds: midGain
+petal_drift: midGain
+petal_fern: midGain
+petal_garland: midGain
+petal_gates: midGain
+petal_rose: midGain
+petal_scales: midGain
+petal_seed: midGain
+petal_stair: midGain
+plasma: midGain
+ribbon_storm: midGain
+ringed_planet: midGain
+scope: midGain
+solar: midGain
+starfield: midGain
+supershape: midGain
+terra_canyon: midGain
+terra_glacier: midGain
+terra_isles: midGain
+terra_moon: midGain
+terra_ridge: midGain
+terra_topo: midGain
+terra_volcano: midGain
+terra_wire: midGain
+truchet_knot: midGain
+truchet_maze: midGain
+truchet_quad: midGain
+truchet_relief: midGain
+truchet_tubes: midGain
+truchet_tunnel: midGain
+truchet_weave: midGain
+voronoi: midGain
+warp: midGain
+waves: midGain
+# The mids no longer speed the Spin drift (owner 2026-11-12: no style spins to the music; MotionField turns
+# at one fixed rate), and these turning styles heard the mids only through it, so Mid gain no longer reaches
+# them. Fix: as midGain above.
+bead_vortex: midGain
+chrys_kaleido: midGain
+chrys_tunnel: midGain
+glow_vortex: midGain
+hex_hive: midGain
+kaleido: midGain
+lucid_disc: midGain
+lucid_mirror: midGain
+lucid_tunnel: midGain
+lucid_vortex: midGain
+mandala_dome: midGain
+merkaba_grid: midGain
+orb_lattice: midGain
+particle_tunnel: midGain
+spiral: midGain
+tunnel: midGain

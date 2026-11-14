@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Menger Core: a flight down the central bore of an infinite Menger sponge.
 // The world is solid stone with a square cross of holes cut through every
@@ -47,6 +48,40 @@ out vec4 fragColor;
 //                      or skewed holes, hole ratio, a held offset and hue),
 //                      crossfaded from the old section over its envelope.
 // SND_ENERGY_TREND               overall level, as everywhere.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the seams' width, k2
+// FLOW added to the inner levels' twist (a turn of each bar's cross-section,
+// an isometry, so the estimate holds), k3 TONE the palette position and the
+// inner levels' holes (a high melody opens them into lace, a low one closes
+// them toward solid stone; the outer level keeps its shape), k4 BUILD
+// the seams' halo and the light bleeding off them, k5 SPACE the reach (far
+// plane and fog).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the sponge is a normalized input, mapped to its range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off. Only knobs drive them
+// here: this style leaves Morph, Warp and Turbulence to view(), which already
+// bends its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sLevels     k1 TEXTURE       inner levels of holes 1 .. 3 .. 4 (the last one fades in or out, so no level pops)
+//   sTwist      k2 FLOW          the inner levels' extra turn -0.2 .. 0 .. 0.2
+//   sHoleIn     k3 TONE          the inner holes' scale 0.7 .. 1 .. 1.3
+//   sHole0      k5 SPACE         the bores' ratio 0.28 .. 0.333 .. 0.4
+//   sCore       k5 SPACE         the carved flight tube 1.2 .. 1.6 .. 2.2 (inside the narrowest bore, 2.24)
+//   reach       k5 SPACE         far plane and fog 0.8 .. 1 .. 1.2
+//
+// The fold ratio (3) and the cell (16) stay constants: the levels tile the
+// 16 of the rebase only at a whole ratio, and the drop's plunge is one level
+// of it. The fourth inner level is the drop's: it shows while a drop grows it
+// or sLevels asks for it, whichever is more. The sponge goes through
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach it.
 
 #define MC_MAX_STEPS 112
 /** World to fractal space. Level 0 has period 2 in fractal space, so 16 in the world. */
@@ -71,6 +106,9 @@ mat2 gRotB;
 float gEdge;
 /** Set by map(): which level's hole the surface belongs to. */
 float gLev;
+/** Shape inputs (see the header). */
+float sLevels;
+float sCore;
 
 /**
  * One bar of a level's cross: an infinite square (or rounded) prism along the
@@ -94,7 +132,7 @@ void levelCross(vec3 q, float h, float invS, mat2 r, float l, inout float d, ino
     barPush(r * q.zx, h, invS, l, d, d2, lev);
 }
 
-float map(vec3 w) {
+float mapField(vec3 w) {
     // The drop zoom is a scale about the eye. Rebasing the eye by 16 shifts
     // this point by exactly 16 too, so the zoom keeps the wrap invisible.
     vec3 f = gEye + (w - gEye) * gZoom;
@@ -107,22 +145,43 @@ float map(vec3 w) {
     float s = 1.0;
     for (int l = 1; l < 4; l++) {
         s *= 3.0;
-        vec3 q = mod(p * s + 1.0 + gOff, 2.0) - 1.0;
-        levelCross(q, gHoleIn, 1.0 / s, l == 2 ? gRotB : gRotA, float(l), d, d2, lev);
+        // TEXTURE's level count: each level past it fades its holes shut (1 for all three at rest).
+        float lw = clamp(sLevels - float(l) + 1.0, 0.0, 1.0);
+        if (lw > 0.001) {
+            vec3 q = mod(p * s + 1.0 + gOff, 2.0) - 1.0;
+            levelCross(q, gHoleIn * lw, 1.0 / s, l == 2 ? gRotB : gRotA, float(l), d, d2, lev);
+        }
     }
-    // The fifth level exists only while a drop grows it in: at zero width its
-    // bars would still mark spurious edge dots where they pierce the walls.
-    if (gDeep > 0.001) {
+    // The fifth level exists only while a drop grows it in (or TEXTURE asks for
+    // it): at zero width its bars would still mark spurious edge dots where
+    // they pierce the walls.
+    float deep = max(gDeep, clamp(sLevels - 3.0, 0.0, 1.0));
+    if (deep > 0.001) {
         vec3 q = mod(p * 81.0 + 1.0 + gOff, 2.0) - 1.0;
-        levelCross(q, gHoleIn * gDeep, 1.0 / 81.0, gRotB, 4.0, d, d2, lev);
+        levelCross(q, gHoleIn * deep, 1.0 / 81.0, gRotB, 4.0, d, d2, lev);
     }
     float inv = 1.0 / (MC_WS * gZoom);
     gEdge = (d - d2) * inv;
     gLev = lev;
     float dw = d * inv;
-    dw = max(dw, MC_CORE - length(w.xy));
+    dw = max(dw, sCore - length(w.xy));
     dw = max(dw, MC_BUBBLE - length(w - gEye));
     return dw;
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The sponge as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -155,7 +214,19 @@ vec3 mcOnsetOffset(float n) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sLevels = shellMap(shellKnob(1), 1.0, 3.0, 4.0);
+    float sTwist = shellMap(shellKnob(2), -0.2, 0.0, 0.2);
+    float sHoleIn = shellMap(shellKnob(3), 0.7, 1.0, 1.3);
+    float sHole0 = shellMap(shellKnob(5), 0.28, 0.333, 0.4);
+    sCore = shellMap(shellKnob(5), 1.2, MC_CORE, 2.2);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -181,11 +252,11 @@ void main() {
     float og = (1.0 - smoothstep(0.05, 0.4, clamp(SND_ONSET_ENV, 0.0, 1.0)));
     vec3 onOff = mix(mcOnsetOffset(mod(SND_ONSET_COUNT - 1.0, 4096.0)), mcOnsetOffset(SND_ONSET_COUNT), og);
 
-    gHole0 = 0.333 + 0.05 * kick;
-    gHoleIn = vr.x * (1.0 + 0.24 * kick);
+    gHole0 = sHole0 + 0.05 * kick;
+    gHoleIn = vr.x * (1.0 + 0.24 * kick) * sHoleIn;
     gRound = vr.y;
     gOff = secOff + 0.16 * onOff + 0.05 * vec3(sin(uTime * 0.07), cos(uTime * 0.05), sin(uTime * 0.04 + 1.3));
-    float twist = 0.38 * snare + 0.06 * sin(uTime * 0.13);
+    float twist = 0.38 * snare + 0.06 * sin(uTime * 0.13) + sTwist;
     gRotA = rot2(vr.z + twist);
     gRotB = rot2(vr.z - twist);
     gZoom = mix(1.0, 0.4, dropBump);
@@ -198,6 +269,8 @@ void main() {
     // exact and invisible, and keeps highp z precise far down the travel.
     ro.z = mod(ro.z, MC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     float t = 0.03;
     float hitT = -1.0;
@@ -208,7 +281,7 @@ void main() {
     for (int i = 0; i < MC_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
-        if (t > MC_FAR) break;
+        if (t > MC_FAR * reach) break;
         used = float(i);
         float d = map(ro + rd * t);
         float eps = 0.0008 * t + 0.0005;
@@ -223,10 +296,10 @@ void main() {
         t += max(d * 0.8, eps);
     }
 
-    float hue = 0.58 + 0.03 * sin(uTime * 0.021) + vr.w + 0.30 * pitchBump + 0.5 * dropBump;
+    float hue = 0.58 + 0.03 * sin(uTime * 0.021) + vr.w + 0.30 * pitchBump + 0.5 * dropBump + 0.6 * kTone;
     vec3 seamCol = mix(pal(hue + 0.5), pal(hue + 0.17) * 1.3, snare);
 
-    float fogK = 0.035 + 0.10 * low;
+    float fogK = (0.035 + 0.10 * low) / reach;
     float ahead = pow(max(rd.z, 0.0), 10.0);
     vec3 fogCol = pal(hue + 0.35) * (0.04 + 0.20 * ahead) + vec3(0.003, 0.003, 0.006);
     vec3 col = fogCol;
@@ -244,10 +317,10 @@ void main() {
         // Seams: a neon line on every edge, antialiased to the pixel footprint
         // and dimmed when thinner than a pixel so distance does not wash out.
         float px = hitT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
-        float wl = 0.03;
+        float wl = 0.03 * (1.0 + kTexture);
         float line = 1.0 - smoothstep(wl, wl + 1.5 * px, edge);
         line *= min(1.0, 2.0 * wl / (wl + px));
-        float halo = exp(-edge * 14.0) * 0.22;
+        float halo = exp(-edge * 14.0) * 0.22 * (1.0 + kBuild);
         vec3 seam = seamCol * (line * (0.9 + 1.3 * snare) + halo) * (0.75 + 0.35 * swell);
 
         // Hat glints: sparse hashed points, only on seams. z wrapped like the
@@ -264,9 +337,9 @@ void main() {
         col = stone + seam + glint;
         col = mix(col, fogCol, 1.0 - exp(-hitT * fogK));
     }
-    col += seamCol * glow * (0.6 + 0.4 * swell);
+    col += seamCol * glow * (0.6 + 0.4 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

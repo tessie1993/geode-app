@@ -62,8 +62,6 @@ const float BS_SPIN = 3.0 * CAM_SPIN_UNIT;
 vec3 gN;
 float gH;
 int gIters;
-vec4 gTrap;
-float gBulbD;
 
 // Its own ramp: a geological survey's, from basalt blue through ochre to
 // a hot vermilion.
@@ -71,13 +69,14 @@ vec3 tone(float t) {
     return bulbRamp(t, vec3(0.55, 0.45, 0.40), vec3(0.45, 0.35, 0.35), vec3(0.8, 0.8, 0.8), vec3(0.55, 0.65, 0.80));
 }
 
-float map(vec3 p) {
+/** The style's body: the bulb cut by the plane, its orbit trap, and in mat the bulb's own distance. */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float db = bulbDE(bulbChaos(p), 10.0, 10.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    gBulbD = db;
-    return max(db, dot(p, gN) - gH);
+    return BulbHit(max(db, dot(p, gN) - gH), tr, db);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -96,6 +95,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye - gN, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.05 * uOrbit.y;
 
@@ -103,7 +104,9 @@ void main() {
     float used = 0.0;
     float cutW = 0.0;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BS_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BS_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BS_BOUND + growSlack(BS_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BS_MAX_STEPS; i++) {
@@ -111,12 +114,13 @@ void main() {
             if (t > tb.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float d = map(p);
+            BulbHit h = bulbField(p);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
-                cutW = step(gBulbD, dot(p, gN) - gH);
+                trap = h.trap;
+                cutW = step(h.mat, dot(p, gN) - gH);
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -129,14 +133,17 @@ void main() {
     if (hitT > 0.0) {
         float heat = clamp(1.6 * sqrt(trap.x) + 0.8 * trap.y, 0.0, 3.0);
         if (cutW > 0.5) {
-            // The scan: the trap as heat, in hard flat bands.
-            float band = floor(heat * BS_BANDS / 3.0) / BS_BANDS;
+            // The scan: the trap as heat, in hard flat bands; Escape colour (lib_shade) adds the smoothed
+            // escape count to the heat, so the bands follow the escape too and stay flat.
+            float band = floor((heat + 3.0 * shadeEscape(trap.w)) * BS_BANDS / 3.0) / BS_BANDS;
             col = tone(hue + 0.9 * band) * 0.95;
         } else {
             // The far half's skin, seen past the plane: flat and dark.
-            col = tone(hue + 0.3 * heat) * 0.16 * bulbStepAO(used);
+            col = tone(hue + 0.3 * heat + shadeEscape(trap.w)) * 0.16 * bulbStepAO(used);
         }
     }
+    // The step glow (lib_shade): a halo where a ray crept along the skin, by Bloom.
+    col += tone(hue + 0.5) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     fragColor = vec4(grade(col), 1.0);

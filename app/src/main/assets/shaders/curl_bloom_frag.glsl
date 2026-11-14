@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // Curl Bloom: a host body, raymarched, that is continuously changing what it
 // IS - sphere, gem, torus, box, octahedron and round again - while the space
@@ -52,8 +53,18 @@ out vec4 fragColor;
 //
 // SND_LEVEL inflates the body, SND_BASS_PRESENCE deepens the stir, sndShaped(SND_HIGH)
 // sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
-// the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
+// the flow (uMoveDir), slides the eye a little toward it (a place, never a
+// turn) and re-seeds the surface veining (uSpawnSeed). Nothing
 // keys brightness off a raw envelope, so nothing here can flash.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the halo's edge width,
+// k2 FLOW added to the stir's bend (gWarpAmount; gLip follows it), k3 TONE the
+// palette position and the stir's scale (a high melody curls the body in fine,
+// tight eddies, a low one in broad slow folds; gLip follows it), k4 BUILD the halo's glow, k5 SPACE the eye's distance
+// (2.8..3.4, clear of the bank's 2.33).
 
 #define CB_MAX_STEPS 128
 #define CB_FAR 9.0
@@ -88,7 +99,7 @@ float body(vec3 p) {
 float gHitSat;
 float gSatCount;
 
-float map(vec3 p) {
+float cbField(vec3 p) {
     vec3 q = fluidWarp3(p, gWarpScale, gWarpAmount);
     // The host's estimate was measured in warped space; dividing it by the
     // warp bound here (rather than at the step) lets it sit in one min() with
@@ -97,6 +108,24 @@ float map(vec3 p) {
     float sat = dmtSatellites(p, gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
     gHitSat = sat < host ? 1.0 : 0.0;
     return min(host, sat);
+}
+
+/** cbField through lib_shell's hooks: exactly cbField(p) at rest, and cbField read once, in a loop the compiler cannot unroll. */
+float cbFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, cbField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: cbField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return cbFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float e) {
@@ -123,6 +152,27 @@ float occlusion(vec3 p, vec3 n) {
 
 void main() {
     vec2 uv = view();
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nRim = clamp(uKnob[1], 0.0, 1.0);
+    float nStir = clamp(uKnob[2], 0.0, 1.0);
+    float nTone = clamp(uKnob[3], 0.0, 1.0);
+    float nHalo = clamp(uKnob[4], 0.0, 1.0);
+    float nEye = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the halo's falloff and glow, the stir's bend and scale
+    // (and the palette position), and the eye's distance.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float haloFall = 5.5 / shellMap(nRim, 0.5, 1.0, 1.5);
+    float stirAdd = shellMap(nStir, -0.04, 0.0, 0.04);
+    float tone = shellMap(nTone, -0.3, 0.0, 0.3);
+    float haloK = shellMap(nHalo, 0.5, 1.0, 1.5);
+    float eyeDist = shellMap(nEye, 3.41, 3.1, 2.79);
 
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
@@ -132,8 +182,8 @@ void main() {
     // The stir. Amount is kept modest deliberately: the Lipschitz bound below
     // is what pays for it, and a large amount makes every ray take tiny steps
     // and the body dissolve into banding at low Detail.
-    gWarpScale = 1.15 + 0.25 * swell;
-    gWarpAmount = 0.10 + 0.11 * bass + 0.05 * finger;
+    gWarpScale = max(1.15 + 0.25 * swell + tone, 0.5);
+    gWarpAmount = max(0.10 + 0.11 * bass + 0.05 * finger + stirAdd, 0.0);
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
     gRadius = 0.86 * (1.0 + 0.07 * swell);
     // Glides; never steps. See the morph note at the top.
@@ -142,10 +192,13 @@ void main() {
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
-    // a new angle every second even in silence, and a spike banks the orbit
-    // toward the new travel direction.
-    vec3 ro = vec3(0.0, 0.0, -3.1);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
+    // a new angle every second even in silence. Both turns run on uTime alone:
+    // the loudness clock (uFlowPhase) and a spike's heading (uMoveDir) used to
+    // turn it too, and no style turns to the music (owner rule). A spike now
+    // moves the eye instead: it slides a little toward the new heading, a
+    // change of place, still well clear of the satellites' bank.
+    vec3 ro = vec3(0.2 * uMoveDir, -eyeDist);
+    mat3 cam = rotY(uTime * 0.11) * rotX(0.32 * sin(uTime * 0.07));
     ro = cam * ro;
     vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
 
@@ -171,7 +224,7 @@ void main() {
 
     // The room: the chrysanthemum on the camera-relative direction, so the
     // mandala sits behind the host and turns as the camera orbits.
-    vec3 fog = dmtChrysanthemum(transpose(cam) * rd, 0.66, swell);
+    vec3 fog = dmtChrysanthemum(transpose(cam) * rd, 0.66 + tone, swell);
     vec3 col = fog;
 
     if (hitT > 0.0) {
@@ -198,7 +251,7 @@ void main() {
         // palette; a satellite is banded by its distance from its own centre
         // (a shell coordinate) and takes its hue from its seed, so the bank
         // is a spread of related colours rather than copies of the host.
-        float hue = mix(0.58 + 0.32 * smoothstep(0.35, 0.72, vein), 0.15 + 0.7 * satHue, isSat);
+        float hue = mix(0.58 + 0.32 * smoothstep(0.35, 0.72, vein), 0.15 + 0.7 * satHue, isSat) + tone;
         float band = mix(vein * 0.7, satBand * 0.5, isSat);
         // Thin where the flow has stretched the host and where a satellite
         // is young or dying; both read as translucency.
@@ -212,16 +265,16 @@ void main() {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += dmtHalo(near, 0.50, 5.5, 0.30);
+        col += dmtHalo(near, 0.50 + tone, haloFall, 0.30 * haloK);
     }
 
     // The particle layer, in screen space, riding the 2D half of the same
     // library so it matches the other styles in the family.
-    col += mix(pal(0.52), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
+    col += mix(pal(0.52 + tone), vec3(1.0), 0.35) * fluidMotes(uv, 5.5, 0.15) * 0.24;
 
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.68 + 0.32 * smoothstep(2.2, 0.4, length(uv));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

@@ -44,6 +44,20 @@ public:
     // GL thread at the first draw. The shapes also go to the CPU port, process-wide.
     void setWorldAssets(const std::string& shapes, const std::string& maps);
 
+    // A simulation's field, for a ShaderScene that draws a simulation's present (core/viz/present/FieldPresent)
+    // rather than a style: the field texture as uField on unit 4 (units 1..3 are the flow, the palette LUT and
+    // the sound), its size in texels, and the numbers lib_field3d reads beside the shared block. The present
+    // keeps it alive while this scene draws; null (the default) uploads nothing.
+    static constexpr int kFieldLooks = 5;
+    struct Field {
+        GLuint texture = 0;
+        std::array<float, 2> size{};
+        std::array<float, 4> geom{};
+        std::array<float, 4> shape{};
+        std::array<float, 4 * kFieldLooks> look{};
+    };
+    void setField(const Field* field) { field_ = field; }
+
 private:
     static constexpr float kTimeWrapSeconds = 7100.0f;
     static constexpr float kTwoPi = 6.2831853f;
@@ -63,6 +77,8 @@ private:
     void uploadCamera();
     void uploadWorld();
     void uploadPool();
+    void uploadField();
+    void uploadShapes();
     pool::Controls poolControls() const;
     void specializeWorld();
     void set1f(const char* name, float value);
@@ -90,7 +106,6 @@ private:
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
-    float cyclePhase_ = 0.0f;
     float shaderTime_ = 0.0f;
     // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
     // viz/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,
@@ -124,6 +139,7 @@ private:
 
     // Pool (shaders/pool_frag): the surface's waves, rings and wakes, built only for that style.
     std::unique_ptr<pool::Pool> pool_;
+    const Field* field_ = nullptr;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

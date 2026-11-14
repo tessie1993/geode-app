@@ -36,12 +36,16 @@ out vec4 fragColor;
 //   flatness     rime climbs toward the tips;
 //   centroid     dispersion;
 //   hat          the druzy rind sparkles;
-//   pan, pitch   steer the brightest band of the light beyond the walls.
+//   pitch        steers the brightest band of the light beyond the walls.
 //
 // ---- macros -----------------------------------------------------------------
 //
 // Speed scales the slow turn of the lining. Complexity packs more, finer
-// crystals. Chaos ripples the ice. Energy scales every reaction.
+// crystals. Chaos ripples the ice. Energy scales every reaction. Knobs
+// (lib_glass's roles, offsets from 0.5 so off is the tuned look): k0 PULSE the
+// emission, k1 TEXTURE the crystals' width, k2 FLOW added to Chaos's ripple,
+// k3 TONE the palette position, k4 BUILD the world's glow, k5 SPACE the reach
+// of the eye within the geode.
 //
 // ---- cost -------------------------------------------------------------------
 //
@@ -58,6 +62,8 @@ float gLat;
 float gGrow;
 float gSpin;
 vec3 gCell;
+/** k1 TEXTURE on the crystals' width (kept small: a crystal must stay in its cell). */
+float gWide;
 
 float crystal(vec3 q, float r, float L) {
     vec2 a = abs(q.xz);
@@ -87,29 +93,37 @@ float lining(vec3 p, out vec3 cid) {
     vec3 q = p - cd * (IC_R - 0.05);
     vec3 lq = vec3(dot(q, side), dot(q, up), dot(q, fwd));
     float hs = glassHash(vec2(i, j) + 11.0);
-    float r = (0.3 + 0.18 * hs) * (16.0 / gLon);
+    float r = (0.3 + 0.18 * hs) * (16.0 / gLon) * gWide;
     float L = (1.1 + 1.5 * glassHash(vec2(i, j) + 5.0)) * gGrow;
     float d = crystal(lq, r, L);
     // The rind: the inside of the sphere.
     return min(d, IC_R - rr);
 }
 
-float map(vec3 p) {
+float glassDist(vec3 p) {
     vec3 c;
     return (lining(p, c) * 0.6 + glassSurfaceWarp(p)) / glassSurfaceLip();
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
+/** What the field holds at a point (lib_glass_field): the distance alone. */
+struct GlassHit {
+    float d;
+};
+
+GlassHit glassMap(vec3 p) {
+    GlassHit h;
+    h.d = glassDist(p);
+    return h;
 }
+
+//#include lib_glass_field
+
 
 float crossIce(vec3 q, vec3 dir, float eps) {
     float ti = 0.03;
     for (int i = 0; i < GLASS_MAX_INNER; i++) {
         if (float(i) >= glassInnerSteps()) break;
-        float d = -map(q + dir * ti);
+        float d = -glassField(q + dir * ti).d;
         if (d < eps) break;
         ti += max(d, eps);
     }
@@ -118,21 +132,31 @@ float crossIce(vec3 q, vec3 dir, float eps) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
+    gGlassFlow = kFlow;
     GlassEar ear = glassListen();
-    float hue = 0.55 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.03 * sin(t * 0.02);
+    float hue = 0.55 + 0.08 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.03 * sin(t * 0.02) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
+    lk.glow *= 1.0 + kBuild;
+    gWide = 1.0 + 0.15 * kTexture;
     gGrow = 1.0 + 0.35 * clamp(ear.bass, 0.0, 1.2);
     gLon = glassComplexity() >= 0.5 ? 22.0 : 16.0;
     gLat = glassComplexity() >= 0.5 ? 11.0 : 8.0;
     gSpin = t * 0.02;
     float rime = 0.3 + 0.5 * ear.frost;
-    float spread = 0.008 + 0.025 * ear.sharp;
+    float spread = glassSpread(0.008 + 0.025 * ear.sharp);
     vec3 cold = vec3(0.78, 0.9, 1.1);
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 1.2, 0.0, ro, rd);
+    camAround(uv, 1.2 * (1.0 + 0.4 * kSpace), 0.0, ro, rd);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -140,7 +164,7 @@ void main() {
     for (int i = 0; i < GLASS_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        float d = glassField(ro + rd * tm).d;
         float eps = glassEps(tm);
         if (d < eps) {
             hitT = tm;
@@ -164,30 +188,30 @@ void main() {
         col += vec3(0.9, 0.95, 1.0) * glassGlint(p, 22.0, 0.3 + ear.hat) * 0.7;
     } else {
         float eps = glassEps(hitT);
-        vec3 n = normalAt(p, eps);
+        vec3 n = glassNormal(p, eps);
         float depth = smoothstep(IC_R - 1.6, IC_R - 0.2, length(p));
         float rough = rime * depth;
         n = glassGrain(n, p * 0.6, rough);
         float cosI = max(dot(n, -rd), 0.0);
-        float fr = glassFresnel(cosI, IC_IOR);
+        float fr = glassFresnel(cosI, glassIor(IC_IOR));
         vec3 refl = glassEnvRough(reflect(rd, n), lk, rough * 0.25);
         GlassLook inner = lk;
         inner.rough += rough * 0.3;
-        vec3 d1 = glassRefract(rd, n, 1.0 / IC_IOR);
+        vec3 d1 = glassRefract(rd, n, 1.0 / glassIor(IC_IOR));
         vec3 q = p - n * eps * 3.0;
         float ti = crossIce(q, d1, eps);
         vec3 pe = q + d1 * ti;
-        vec3 n2 = normalAt(pe, eps);
+        vec3 n2 = glassNormal(pe, eps);
         vec3 absorb = glassBeer(cold * 0.85, ti, 0.5);
-        vec3 iors = glassIors(IC_IOR, spread);
-        float fx = glassFresnel(max(dot(d1, n2), 0.0), IC_IOR);
+        vec3 iors = glassIors(glassIor(IC_IOR), spread);
+        float fx = glassFresnel(max(dot(d1, n2), 0.0), glassIor(IC_IOR));
         vec3 refr = glassEnv3(glassRefract(d1, -n2, iors.x), glassRefract(d1, -n2, iors.y), glassRefract(d1, -n2, iors.z), inner) * absorb * (1.0 - fx) * 2.0;
         vec3 d2 = reflect(d1, n2);
         if (glassMarchBounces()) {
             vec3 q2 = pe - n2 * eps * 3.0;
             float t2 = crossIce(q2, d2, eps);
-            vec3 n3 = normalAt(q2 + d2 * t2, eps);
-            refr += glassEnv(glassRefract(d2, -n3, IC_IOR), inner) * absorb * fx * 1.5;
+            vec3 n3 = glassNormal(q2 + d2 * t2, eps);
+            refr += glassEnv(glassRefract(d2, -n3, glassIor(IC_IOR)), inner) * absorb * fx * 1.5;
         } else {
             refr += glassEnv(d2, inner) * absorb * absorb * fx * 0.8;
         }
@@ -201,5 +225,5 @@ void main() {
     }
 
     col *= 0.8 + 0.2 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(glassTone(col)), 1.0);
+    fragColor = vec4(grade(glassTone(col * (1.0 + 0.5 * kPulse))), 1.0);
 }

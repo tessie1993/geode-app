@@ -1,14 +1,16 @@
 #pragma once
 #include <array>
+#include <initializer_list>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace geode::viz {
 
 // The scene params schema (#346): every field's name, kind, default, control range and wire slot is
 // one row of viz/ParamTable.inc, and everything below expands from those rows: the struct's members
-// and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. Kotlin's
-// SceneParams.kt mirrors the fields today; geode_params_schema_text is how the shell reads the rows.
+// and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. The shell keeps no
+// copy: its SceneParams holds the wire frame and finds a name's slot through geode_params_schema_text.
 
 // What a row is. Circular is a float that wraps (a hue turn): the LFO adds to it unclamped.
 enum class ParamKind { Float, Int, Bool, Circular };
@@ -51,7 +53,31 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::rippleOverlayStrength,
                                                ParamSlot::rippleOverlaySpecular,
                                                ParamSlot::formDrive,
-                                               ParamSlot::motionOrbit};
+                                               ParamSlot::motionOrbit,
+                                               // The Kaleidoscope switch and its count: kaleidoFolds replaced both.
+                                               ParamSlot::symmetry,
+                                               ParamSlot::kaleidoscope,
+                                               // Palette 2 and Palette blend: the palette stack draws more than one palette.
+                                               ParamSlot::palette2,
+                                               ParamSlot::paletteMix,
+                                               ParamSlot::palette2BaseOverride,
+                                               ParamSlot::palette2RangeOverride,
+                                               // Color cycle and Cycle speed: the old hue cycle.
+                                               ParamSlot::colorCycle,
+                                               ParamSlot::cycleSpeed,
+                                               // Colour map: the colour maps are palettes of the stack.
+                                               ParamSlot::paletteLut};
+
+// How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
+// an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
+constexpr int choiceCount(ParamSlot slot) {
+    int n = 0;
+#define GEODE_PARAM_CHOICES(name, ...) \
+    if (slot == ParamSlot::name) n = static_cast<int>(std::initializer_list<const char*>{__VA_ARGS__}.size());
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM_CHOICES
+    return n;
+}
 
 namespace catalogue {
 enum class Scope;
@@ -85,7 +111,34 @@ struct SceneParams {
     static constexpr float kUnsetOverride = -1.0f;
     static constexpr int kNoPaletteLut = -1;
     static constexpr int kNoStop = -1;
+    // The fold count a style designed around a count of its own reads (uSymmetry) while the kaleidoscope is off,
+    // and the retired symmetry row's default.
     static constexpr int kDefaultSymmetryFolds = 6;
+    // The kaleidoscope's folds, fewest first: what a roll deals.
+    static constexpr std::array<int, 10> kSymmetryFolds = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
+    // kaleidoFolds as the shaders fold it: the nearest whole count, a half up, held to 1..16 (NaN is 1, off).
+    // Rounded here, not in the shaders, so every style and the composite step together: a slow wave or a glide
+    // goes from one whole count to the next and never draws a fractional wedge, whose last wedge would seam.
+    static constexpr int kaleidoFoldCount(float folds) {
+        if (!(folds >= 1.0f)) return 1;
+        return folds >= 16.0f ? 16 : static_cast<int>(folds + 0.5f);
+    }
+    // What the shaders read for kaleidoFolds (ShaderScene's uKaleido/uSymmetry, the composite's uPostKaleido/
+    // uPostSymmetry): on from 2 whole folds, at that count. Off, the count is kDefaultSymmetryFolds, which the
+    // styles that build on a count of their own (Chrysanthemum's mirrors and glass) read as it always was.
+    struct KaleidoUniforms {
+        float on;
+        float folds;
+    };
+    static constexpr KaleidoUniforms kaleidoUniforms(float folds) {
+        const int n = kaleidoFoldCount(folds);
+        return n >= 2 ? KaleidoUniforms{1.0f, static_cast<float>(n)} : KaleidoUniforms{0.0f, static_cast<float>(kDefaultSymmetryFolds)};
+    }
+    // kaleidoFolds for a look saved with the retired switch and count: off is 1; on, its count held to 2..16.
+    static constexpr float kaleidoFoldsOf(bool on, int symmetry) {
+        if (!on) return 1.0f;
+        return static_cast<float>(symmetry < 2 ? 2 : (symmetry > 16 ? 16 : symmetry));
+    }
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
 #include "viz/ParamTable.inc"
@@ -97,16 +150,17 @@ struct SceneParams {
         float range;
     };
     static const std::array<Palette, 21>& palettes();
+    // The built-in palettes a picker lists and a roll deals: rows 0..11. Rows 12..20 (Royal .. Yellow) are
+    // retired: they stay in the table so a look saved on one still draws it, but nothing offers them again.
+    static constexpr int kListedPalettes = 12;
 
     float paletteBase() const;
     float paletteRange() const;
-    float palette2Base() const;
-    float palette2Range() const;
     // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
     std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
     int paletteStopCount() const;
 
-    // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParamsCodec.FIELDS).
+    // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParams.FIELDS).
     static constexpr int kFieldCount = static_cast<int>(ParamSlot::kCount);
     static const std::array<const char*, kFieldCount>& fieldNames();
     // The table, one ParamSpec per wire slot. Built once; the reference lives for the process.
@@ -115,6 +169,8 @@ struct SceneParams {
     // The meta rows, one per wire slot (a retired slot's empty). Built once; the reference lives for the process.
     static const std::array<ParamMeta, kFieldCount>& metaTable();
     static const ParamMeta& meta(ParamSlot slot) { return metaTable()[static_cast<size_t>(slot)]; }
+    // A picker's labels in index order (its GEODE_PARAM_CHOICES row); empty for a field that is no picker.
+    static const std::vector<std::string_view>& choices(ParamSlot slot);
     // The wire slot of a field name, -1 for an unknown one.
     static int slotOf(std::string_view name);
     static constexpr bool retired(ParamSlot slot) {
@@ -127,8 +183,9 @@ struct SceneParams {
     //   params|<kSchemaTextVersion>|<kFieldCount>
     //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    // Then one row per built-in palette, in `palette` index order: palette|<index>|<name> (version 3).
-    static constexpr int kSchemaTextVersion = 3;
+    // Then one row per listed built-in palette (0..kListedPalettes-1), in `palette` index order: palette|<index>|<name> (version 3).
+    // Then one row per picker label, by field in slot order, each in index order: choice|<name>|<index>|<label> (version 4).
+    static constexpr int kSchemaTextVersion = 4;
     static const std::string& schemaText();
 
     // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired

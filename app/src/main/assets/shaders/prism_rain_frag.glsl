@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Prism Rain: a flight through a falling rain of glass prisms under a dark
 // sky with one bright light in it. Each prism splits that light into its
@@ -50,11 +51,44 @@ out vec4 fragColor;
 //
 // Overall level rides SND_INTENSITY and ((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0).
 //
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the rainbow rims' width,
+// k2 FLOW how far the rain sways as it falls (0.2..0.3 per axis), k3 TONE the
+// palette position and the crystals' habit (a high melody draws them out into
+// long needles, a low one squats them into short tablets; the longest still
+// tumbles inside its cell), k4 BUILD the light's glow in the sky, k5 SPACE the reach
+// (far plane and haze).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the rain is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off. Only knobs drive them here:
+// this style leaves Morph, Warp and Turbulence to view(), which already bends
+// its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gSway       k2 FLOW          the sway per axis 0.2 .. 0.25 .. 0.3
+//   sTumble     k2 FLOW          how fast a prism tumbles as it falls 0.5 .. 1 .. 1.9
+//   gHabit      k3 TONE          the prisms' length 0.55 .. 1 .. 1.45
+//   gGlow       k4 BUILD         the light's glow 0.5 .. 1 .. 1.5
+//   sDense      k5 SPACE         the rain's resting density 0.5 .. 0.32 .. 0.15
+//   reach       k5 SPACE         far plane and haze 0.8 .. 1 .. 1.2
+//
+// The cell (4) stays a constant: 256 of it are the 1024 the eye is rebased by,
+// and the fall scrolls by whole cells. The prisms' size stays too: at its
+// largest a prism already fills the cell but for PR_MARGIN. The rain goes
+// through its shell wrapper, so the shell's spawn, fractal, front and back hooks
+// reach it.
+//
 // ---- why the estimate is safe ----------------------------------------------
 //
 // Each cell measures only its own prism, which stays inside the cell with
-// PR_MARGIN to spare (sway 0.35 + shove 0.4 + bounding radius 1.02 = 1.77 of
-// a 2.0 half-cell). So the distance is clamped to the cell boundary plus that
+// PR_MARGIN to spare (sway up to 0.43 with FLOW + shove 0.4 + bounding radius
+// 1.02 = 1.85 of a 2.0 half-cell). So the distance is clamped to the cell boundary plus that
 // margin, and a neighbour is never stepped over. Prisms near the eye shrink to
 // nothing and a sphere around the eye is carved out as well.
 
@@ -65,7 +99,7 @@ out vec4 fragColor;
 #define PR_HALF 2.0
 /** Cells along z before the hash repeats: 256 * 4 = 1024 world units, which divides 8192. */
 #define PR_ZWRAP 256.0
-#define PR_MARGIN 0.2
+#define PR_MARGIN 0.15
 #define PR_BUBBLE 0.8
 
 /** The eye, z rebased into 0..1024 (see main). */
@@ -77,6 +111,13 @@ float gMorph;
 float gDensity;
 float gDrop;
 float gFront;
+/** k2 FLOW: the sway per axis, world units (0.25 at rest); k4 BUILD: the light's glow, 0.5..1.5. */
+float gSway = 0.25;
+float gGlow = 1.0;
+/** k3 TONE: the prisms' length scale (1 at rest). */
+float gHabit = 1.0;
+/** k2 FLOW: the tumble's rate with height (1 at rest). */
+float sTumble = 1.0;
 
 /** The hit prism's own hash, its local coordinates and the shockwave on it. */
 float gH;
@@ -98,7 +139,7 @@ float prHex(vec3 p, float a, float hl) {
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 cxz = floor(p.xz / PR_CELL);
     uint u = uhash3(uvec3(ivec3(int(cxz.x), 5, int(mod(cxz.y, PR_ZWRAP)))));
     float h0 = uhashUnit(u);
@@ -114,7 +155,7 @@ float map(vec3 p) {
     float worldY = (cy + 0.5) * PR_CELL - gFall - h0 * PR_CELL;
     vec3 base = vec3((cxz.x + 0.5) * PR_CELL, worldY, (cxz.y + 0.5) * PR_CELL);
     // Sway with height: the rain drifts sideways as it falls.
-    vec3 centre = base + vec3(0.25 * sin(worldY * 0.53 + h1 * PR_TAU), 0.0, 0.25 * cos(worldY * 0.47 + h2 * PR_TAU));
+    vec3 centre = base + gSway * vec3(sin(worldY * 0.53 + h1 * PR_TAU), 0.0, cos(worldY * 0.47 + h2 * PR_TAU));
 
     // Density: a prism grows in as the low bands rise past its threshold.
     float dens = gDensity + 0.22 * sin(worldY * 0.61 + h2 * PR_TAU);
@@ -132,11 +173,11 @@ float map(vec3 p) {
 
     vec3 q = p - centre;
     // Tumble with height, plus a slow turn so a still rain still moves.
-    q.xz = rot2(h1 * PR_TAU + 0.21 * worldY + 0.15 * uTime * (h2 - 0.5)) * q.xz;
-    q.yz = rot2(h2 * 3.0 + 0.17 * worldY) * q.yz;
+    q.xz = rot2(h1 * PR_TAU + 0.21 * sTumble * worldY + 0.15 * uTime * (h2 - 0.5)) * q.xz;
+    q.yz = rot2(h2 * 3.0 + 0.17 * sTumble * worldY) * q.yz;
     // The snare step, about the long axis.
     q.xy = rot2(gSpin + h0 * PR_TAU) * q.xy;
-    float hl = 1.5 * s;
+    float hl = 1.5 * s * gHabit;
     float dp = mix(prTri(q, s, hl), prHex(q, 0.62 * s, hl), gMorph);
     // A shrunk-away prism is no prism: without this the march would stop on
     // specks of dust.
@@ -152,6 +193,21 @@ float map(vec3 p) {
     gQ = q;
     gWave = wave;
     return d;
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The rain as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -175,12 +231,23 @@ vec3 lightDir(float sec) {
 vec3 skyColour(vec3 rd, vec3 L, vec3 lightCol, float hueBase) {
     vec3 col = mix(pal(hueBase + 0.62) * 0.10, pal(hueBase + 0.75) * 0.015, smoothstep(-0.4, 0.8, rd.y));
     float sun = max(dot(rd, L), 0.0);
-    col += lightCol * (0.9 * pow(sun, 400.0) + 0.22 * pow(sun, 24.0) + 0.05 * pow(sun, 4.0));
+    col += lightCol * (0.9 * pow(sun, 400.0) + (0.22 * pow(sun, 24.0) + 0.05 * pow(sun, 4.0)) * gGlow);
     return col;
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gSway = shellMap(shellKnob(2), 0.2, 0.25, 0.3);
+    sTumble = shellMap(shellKnob(2), 0.5, 1.0, 1.9);
+    gHabit = shellMap(shellKnob(3), 0.55, 1.0, 1.45);
+    gGlow = shellMap(shellKnob(4), 0.5, 1.0, 1.5);
+    float sDense = shellMap(shellKnob(5), 0.5, 0.32, 0.15);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -190,6 +257,8 @@ void main() {
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, PR_ZWRAP * PR_CELL);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, PR_HALF, false);
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
@@ -214,13 +283,13 @@ void main() {
     // carries the morph from the last shape to this one.
     float odd = mod(floor(floor(SND_HIT_TIME) + 0.5), 2.0);
     gMorph = smoothstep(0.0, 1.0, odd > 0.5 ? 1.0 - onset : onset);
-    gDensity = 0.32 + 0.55 * lowB + 0.10 * swell;
+    gDensity = sDense + 0.55 * lowB + 0.10 * swell;
     gDrop = drop;
     gFront = 1.5 + 30.0 * (1.0 - drop);
 
     float sec = floor(SND_CUT_COUNT + 0.5);
     vec3 L = normalize(mix(lightDir(sec), lightDir(sec - 1.0), smoothstep(0.0, 1.0, clamp(SND_HELD_HARD_CUT, 0.0, 1.0))));
-    float hueBase = 0.2 * pitch;
+    float hueBase = 0.2 * pitch + 0.6 * kTone;
     float lightHue = hash11(sec * 0.77 + 3.0);
     vec3 lightCol = mix(vec3(1.0, 0.88, 0.70), pal(lightHue), 0.35);
     lightCol = mix(lightCol, pal(lightHue + 0.5) * 1.2 + 0.1, smoothstep(0.0, 0.4, drop));
@@ -237,7 +306,7 @@ void main() {
             break;
         }
         t += d * 0.9;
-        if (t > PR_FAR) break;
+        if (t > PR_FAR * reach) break;
     }
 
     vec3 sky = skyColour(rd, L, lightCol, hueBase);
@@ -250,7 +319,8 @@ void main() {
 
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
-        float rim = (1.0 - ndv) * (1.0 - ndv);
+        // TEXTURE widens the rims: a lower power reaches further in from the edge.
+        float rim = pow(1.0 - ndv, 2.0 / (1.0 + kTexture));
         // Dispersion: red bends least, blue most. Entering glass (eta < 1)
         // there is no total internal reflection, so none of these is zero.
         float disp = 0.015 + 0.11 * highB;
@@ -282,10 +352,10 @@ void main() {
         // The shockwave lights the glass it is shoving.
         col += pal(lightHue + 0.5) * gWave * 0.45;
 
-        col = mix(col, sky, 1.0 - exp(-hitT * 0.045));
+        col = mix(col, sky, 1.0 - exp(-hitT * 0.045 / reach));
     }
 
-    col *= 0.80 + 0.30 * swell + 0.08 * energy;
+    col *= (0.80 + 0.30 * swell + 0.08 * energy) * (1.0 + 0.5 * kPulse);
     col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     // Exposure shoulder before grade(): the scene is mostly dark water or sky, and
     // grade()'s contrast pivots on 0.5, so lift the darks ~2.2x and roll the

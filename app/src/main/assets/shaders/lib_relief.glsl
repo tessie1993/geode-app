@@ -25,11 +25,10 @@
 // The frame is the uv frame: x right, y up, z out of the screen toward the viewer. A height of 1
 // is the top surface, 0 the floor `depth` uv units below it.
 //
-// SILENCE. Every motion here rides a sound clock (curved time, mid time), and clocks stop when the
-// music does, so in silence the tilt and the light hold still at a pleasant angle instead of
-// collapsing to a flat, head-on view: calm, not dead. A shader that has a wall clock can define
-// RELIEF_CLOCK (seconds, e.g. `#define RELIEF_CLOCK uTime`) before the include, and the view then
-// keeps a slow idle drift on top of the music.
+// STILLNESS. No sound turns the view or the light (owner 2026-11-12, no style spins to the music):
+// the tilt and the light hold still at a pleasant angle instead of collapsing to a flat, head-on
+// view: calm, not dead. A shader that has a wall clock can define RELIEF_CLOCK (seconds, e.g.
+// `#define RELIEF_CLOCK uTime`) before the include, and the view then keeps a slow idle drift.
 //
 // KNOBS. RELIEF_EPS (the normal's tap distance in uv, about one or two state texels) and
 // RELIEF_BUMP (how strongly slopes bend the normal relative to the parallax depth) can be defined
@@ -93,19 +92,17 @@ vec3 rlHue(vec3 c, float turns) {
 /**
  * The view's lean, as the uv shift per unit of depth (length ~0.3 calm, up to ~0.8 on a surge).
  *
- * A slow Lissajous on the curved clock (which barely moves in quiet passages and races in loud
- * ones), so the relief rocks with the music's energy and never loops visibly (the 1 : 1.37 ratio is
- * irrational enough). Stereo pan leans the view toward the side the sound is on. A held surge leans
- * in harder, the first half of the dolly (reliefMarch widens the perspective for the second half).
- * The base lean never goes to zero, so silence still shows a lit, tilted surface.
+ * A slow Lissajous on RELIEF_CLOCK (still where a shader defines none), never looping visibly (the
+ * 1 : 1.37 ratio is irrational enough). A held surge leans in harder, the first half of the dolly
+ * (reliefMarch widens the perspective for the second half). The base lean never goes to zero, so
+ * the surface always shows lit and tilted. No sound rocks or turns it: the curved clock and the
+ * stereo pan used to (owner 2026-11-12, no style spins to the music).
  */
 vec2 reliefTilt() {
-    float c = SND_CURVED_TIME * 0.11 + RELIEF_CLOCK * 0.05;
+    float c = RELIEF_CLOCK * 0.05;
     vec2 lis = vec2(sin(c + 0.4), sin(c * 1.37 + 1.9));
     float lean = 0.28 + 0.18 * rlSat(SND_PRESENCE) + 0.35 * rlSat(SND_HELD_SURGE);
-    vec2 t = lis * lean;
-    t.x += clamp(SND_STEREO_PAN, -1.0, 1.0) * 0.18;
-    return t;
+    return lis * lean;
 }
 
 /**
@@ -167,12 +164,12 @@ Relief reliefMarch(vec2 uv, vec2 tilt, float depth) {
 }
 
 /**
- * The key light, in the uv frame (toward the light). It orbits on the mid clock, about a turn
- * every 25 s of typical music and still in silence, and rides higher as the melody climbs
- * (pitch height), so a rising line literally lights the relief from above.
+ * The key light, in the uv frame (toward the light). It turns only on RELIEF_CLOCK (no sound
+ * turns it, owner 2026-11-12), and rides higher as the melody climbs (pitch height), so a rising
+ * line literally lights the relief from above.
  */
 vec3 reliefLight() {
-    float a = SND_MID_TIME * 0.25 + RELIEF_CLOCK * 0.04 + 0.8;
+    float a = RELIEF_CLOCK * 0.04 + 0.8;
     float z = mix(0.38, 0.78, rlSat(SND_PITCH_HEIGHT));
     float r = sqrt(1.0 - z * z);
     return vec3(cos(a) * r, sin(a) * r, z);

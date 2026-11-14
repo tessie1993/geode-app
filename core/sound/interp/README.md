@@ -1,6 +1,6 @@
 # core/sound/interp
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md).
+Part of the target in ADR 0006 (its file is no longer in the tree; `git log -- docs/adr` has it).
 
 **Here now:** `PlayoutClock` (#349, #482), the presentation map this reads: from anchors the sink's buffers give (media time, ring sample, frames) and the sink's media-time position (`AudioTrack.getTimestamp`, so HAL and Bluetooth latency included; speed and skipped silence already counted), the ring sample the speaker plays at a monotonic time, plus the user A/V offset, never past the newest sample written. A pure read, so every frame rate gets the same sample at the same time. C ABI `geode_playout_*`; proved by `core/tests/playout_test.cpp`. Fed by the player's sink (`app/.../audio/PlayoutSink`, one process-wide clock) and read by every live renderer: `SpeakerSync.hpp`'s `listenLimit` is how far `geode_viz_feed_ring`'s cursor may read the player's ring (the newest for the mic, a capture, Cast and a ring with no sink), proved by `core/tests/speaker_sync_test.cpp`. `lagMs` is what the sink still holds, for a pause after a fade-out. The frame interpolation below is still to come (Group D).
 
@@ -13,6 +13,6 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **Replaces (as of `cf7e88f`):** `SoundEngine::step(dt)` as the renderer's entry point. `AudioPresentationClock`, `ClockSegment` and `SinkClockDriver` (written, never read) are deleted; `PlayoutClock` is the presentation map this reads.
 
-**fosfora:** `audio/interp.rs` (playhead 1.5 hops behind the newest frame; beat and bar phase PLLs), `audio/sync_delay.rs`.
+**The idea:** a playhead 1.5 hops behind the newest frame, beat and bar phases on their own phase-locked loops, and a sync delay.
 
 **Test that proves it:** the same hop frames read at 30, 60 and 120 fps give the same values at the same sample positions, and every pulse appears exactly once at each rate.

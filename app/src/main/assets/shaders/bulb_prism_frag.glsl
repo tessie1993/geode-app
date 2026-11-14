@@ -53,7 +53,7 @@ out vec4 fragColor;
 // the seed bulb inside its wedge (bulbChaos, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales how far each onset re-seed moves
 // the seed. Colour is tone(), the stained-glass ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BP_MAX_STEPS 128
 #define BP_BOUND 1.75
@@ -70,7 +70,6 @@ mat3 gRot;
 vec3 gOff;
 mat3 gTurn;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: a full, saturated rainbow, the cathedral-window colours.
 vec3 tone(float t) {
@@ -81,7 +80,8 @@ vec3 seedAngles(float n) {
     return vec3(hash11(n * 0.618 + 0.11), hash11(n * 0.618 + 0.53), hash11(n * 0.618 + 0.97)) - 0.5;
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     p = gTurn * p;
     p = abs(p);
     if (p.x < p.y) p.xy = p.yx;
@@ -90,9 +90,10 @@ float map(vec3 p) {
     vec3 q = gRot * (p - gOff) * BP_SCALE;
     vec4 tr;
     float d = bulbDE(bulbChaos(q), 5.0, 5.0, vec2(0.0), gIters, tr) / (bulbChaosLip() * BP_SCALE);
-    gTrap = tr;
-    return d;
+    return BulbHit(d, tr, 0.0);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -112,7 +113,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BP_CAM_R, BP_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BP_CAM_R), BP_SPIN, ro, rd);
 
     float hue = 0.04 * sin(bulbTime() * 0.015);
 
@@ -120,19 +121,22 @@ void main() {
     float used = 0.0;
     float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BP_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BP_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BP_BOUND + growSlack(BP_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BP_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             near = min(near, d);
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.9, eps * 0.5);
@@ -151,7 +155,8 @@ void main() {
     if (hitT > 0.0) {
         // One flat colour per pane: the trap coordinate quantised.
         float pane = floor(band);
-        vec3 glass = tone(hue + pane / BP_PANES + 0.37 * hash11(pane * 0.731));
+        // Escape colour (lib_shade): the smoothed escape count shades each pane along the ramp.
+        vec3 glass = tone(hue + pane / BP_PANES + 0.37 * hash11(pane * 0.731) + shadeEscape(trap.w));
         // Lead between panes, about two pixels wide, thinner under treble.
         float edge = abs(fract(band) - 0.5);
         float leadW = 0.5 - mix(2.2, 1.2, clamp(treble, 0.0, 1.0)) * fw;
@@ -160,6 +165,8 @@ void main() {
         col = glass * (0.78 + 0.22 * treble) * ao;
         col = mix(col, vec3(0.01), lead);
     }
+    // The step glow (lib_shade): a halo where a ray crept along a stone, by Bloom.
+    col += tone(hue + 0.5) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.82 + 0.2 * swell;
     fragColor = vec4(grade(col), 1.0);

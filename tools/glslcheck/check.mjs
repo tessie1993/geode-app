@@ -169,16 +169,25 @@ const SOUND_SCALARS = [
   0.7, 0.2, 0, 1, //            SCALE_FIT NOVELTY SECTION_CHANGE SECTION_ID
   1, 8, 0.2, 0, //              SECTION_STATE SECTION_BARS BUILD_UP DROP
   1, 0.7, 0.65, 0.5, //        FADE_GAIN LOUDNESS_M LOUDNESS_S BUSY
-  0.5, 0, 0, 0, //             DRIVE (and the vec4's padding)
+  0.5, 0, 0.2, 0.6, //         DRIVE TRANSIENT TRANSIENT_ENV TRANSIENT_SHARPNESS
 ];
 
 const SHADER_VALUES = {
   uTime: 37.0, uResolution: [0, 0],
   uZoom: 1, uRotation: 0, uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
   uInvert: 0, uIntensity: 1, uMirrorX: 0, uTurbulence: 0, uPalBase: 0, uPalRange: 1,
-  uContrast: 1, uGamma: 1, uPal2Base: 0, uPal2Range: 1, uPaletteMix: 0, uDuotone: 0, uBloom: 0, uWarp: 0,
+  uContrast: 1, uGamma: 1, uDuotone: 0, uBloom: 0, uWarp: 0,
   uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0,
   uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
+  // Grow and layers (lib_scene_uniforms) at their defaults, where every family library draws as before.
+  uSpawn: 0, uFractal: 0, uFrontLayer: 0, uBackLayer: 0, uFormula: 0,
+  // Shapes (lib_scene_uniforms) at its default: off, every style its own form, and the graph as a renderer
+  // that never ticked it uploads it (ShaderScene::uploadShapes: nothing present).
+  uShapeMix: 0, uShapes: [0, 0, 0, 0], uShapeCount: 0, uShapeFold: [0, 0, 0, 0], uShapeMelt: 0,
+  // The shading pass (lib_shade) at its defaults: Soft shadows 0.6, Escape colour 0.5.
+  uShadow: 0.6, uEscapeColor: 0.5,
+  // Life (lib_scene_uniforms, lib_grow's births) at its default: off, nothing born.
+  uLife: 0, uBirths: [0, 0, 0, 0],
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

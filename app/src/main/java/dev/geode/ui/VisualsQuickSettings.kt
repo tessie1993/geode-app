@@ -74,6 +74,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.ScreenRotation
 import dev.geode.ui.cast.ComputerLinkRow
@@ -87,16 +88,16 @@ import kotlin.math.roundToInt
 /**
  * Visuals › Settings: a page of the options sheet, opened by the ⚙ at the top of the visual (owner:
  * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
- * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
+ * reaches for while watching, split from Customize by kind: what changes the look by itself (the Auto Director,
  * the style timer and what it steps through, the visual playlist) and how the glass over the visual
  * behaves (the sheet's opacity, how long the mini player stays), and "Show on a computer" (the Cast stream to a
  * browser, `ui/cast/ComputerLinkRow`), since the ⚙ sits beside the Cast icon.
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
- * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
+ * so the two can never disagree: the Auto Director is [AutoDirectorStore], the timer, its sources and the
  * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), and the glass rows are
  * [GeneralSettings] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
- * may switch Auto on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
+ * may switch the Auto Director on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
  *
  * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
  * rows split into two columns (the landscape panel, a tablet). Back is the sheet's: the page is on
@@ -229,7 +230,7 @@ private class RandomPick(
 )
 
 /**
- * The controls. In one column they run top to bottom; in two, the timer (Auto and its reach, the timer
+ * The controls. In one column they run top to bottom; in two, the timer (the Auto Director and its reach, the timer
  * switch, its interval and what it steps through) is on the left and its source, then the glass, on
  * the right.
  */
@@ -279,16 +280,82 @@ internal fun StyleTimerRows(viewModel: PlayerViewModel) {
     TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist = null)
 }
 
-/** Auto, the auto-director ([AutoDirectorStore]), and how far it reaches while it is on. */
+/**
+ * The Auto Director's switch ([AutoDirectorStore]), named and explained in one line so it reads as what
+ * it is, and how far it reaches while it is on. Its only homes are here and Settings › Visual playback.
+ */
 @Composable
 internal fun AutoDirectorRows() {
     val context = LocalContext.current
     val director = remember { context.geodeContainer.autoDirector }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
-    SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
-    if (directorOn) ReachRow(reach, director::setReach)
+    SwitchRow(
+        stringResource(R.string.visuals_qs_auto),
+        checked = directorOn,
+        onCheckedChange = director::setEnabled,
+        description = stringResource(R.string.visuals_qs_auto_about),
+    )
+    if (directorOn) {
+        ReachRow(reach, director::setReach)
+        DirectorTuningRows(director)
+    }
 }
+
+/**
+ * The Auto Director's settings, folded under one row and drawn as native lists them
+ * (core/viz/DirectorTuning): each row's label, help, range, value and value text come from native, a switch
+ * row is the one native calls a switch, and an edit saves the text native hands back. Nothing is decided here.
+ */
+@Composable
+private fun DirectorTuningRows(director: AutoDirectorStore) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    SwitchRow(
+        stringResource(R.string.visuals_qs_auto_tuning),
+        checked = open,
+        onCheckedChange = { open = it },
+        description = stringResource(R.string.visuals_qs_auto_tuning_about),
+    )
+    if (!open) return
+    val text by director.tuning.collectAsStateWithLifecycle()
+    val count = remember { GeodeNative.directorTuningCount() }
+    for (index in 0 until count) DirectorTuningRow(text, index, director::setTuning)
+}
+
+/** One row of the Auto Director's settings: a switch or a slider, with its help under it. */
+@Composable
+private fun DirectorTuningRow(
+    text: String,
+    index: Int,
+    onChange: (String) -> Unit,
+) {
+    val label = remember(index) { GeodeNative.directorTuningLabel(index) }
+    val help = remember(index) { GeodeNative.directorTuningHelp(index) }
+    val range = remember(index) { GeodeNative.directorTuningRange(index) }
+    val value = GeodeNative.directorTuningValue(text, index)
+    val set = { to: Float -> onChange(GeodeNative.directorTuningWith(text, index, to)) }
+    if (range[TUNING_SWITCH] > 0f) {
+        SwitchRow(label, checked = value > 0f, onCheckedChange = { set(if (it) 1f else 0f) }, description = help)
+        return
+    }
+    SliderRow(
+        label = label,
+        valueText = GeodeNative.directorTuningValueText(text, index),
+        value = value,
+        valueRange = range[TUNING_MIN]..range[TUNING_MAX],
+        onValueChange = set,
+    )
+    Text(
+        help,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+// GeodeNative.directorTuningRange's slots.
+private const val TUNING_MIN = 0
+private const val TUNING_MAX = 1
+private const val TUNING_SWITCH = 3
 
 /** The timer's source as the rows show it, and the user's own pick while the timer is off. */
 private class TimerSourceState(
@@ -300,7 +367,7 @@ private class TimerSourceState(
 @Composable
 private fun rememberTimerSource(viz: VizUiState): TimerSourceState {
     var picked by rememberSaveable { mutableStateOf(if (viz.vizPlaylistEnabled) TimerSource.PLAYLIST else TimerSource.RANDOM) }
-    // A mode started elsewhere (Settings, the Now Playing Auto button) wins over the local pick.
+    // A mode started elsewhere (Settings › Visual playback, the same timer rows) wins over the local pick.
     val source =
         when {
             viz.vizPlaylistEnabled -> TimerSource.PLAYLIST
@@ -426,7 +493,7 @@ private fun RotationRow(
     }
 }
 
-/** How far Auto reaches; the position in [REACH_LABELS] is the native level. */
+/** How far the Auto Director reaches; the position in [REACH_LABELS] is the native level. */
 @Composable
 private fun ReachRow(
     level: Int,
@@ -582,13 +649,15 @@ private fun GlassRows(
 
 /**
  * A switch and its label as one control: the whole row toggles, and TalkBack reads the label with
- * the state ("Auto, on, switch"); the M3 switch itself takes no touch of its own.
+ * the state ("Auto Director, on, switch"); the M3 switch itself takes no touch of its own. A
+ * [description] sits under the label in small type, read with it.
  */
 @Composable
 private fun SwitchRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    description: String? = null,
 ) {
     Row(
         Modifier
@@ -598,7 +667,18 @@ private fun SwitchRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (description != null) {
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = null)
     }
 }

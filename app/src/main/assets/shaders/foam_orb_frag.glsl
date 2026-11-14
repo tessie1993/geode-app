@@ -17,7 +17,7 @@ out vec4 fragColor;
 // Foam Orb: the packing cut into a ball and seen from outside, orbited by the
 // rig's object camera and backlit, so its silhouette is a halo. The ball's
 // surface shows the circles it cuts from every shell; the wedge fold works
-// about the vertical axis, so the orb is a kaleidoscope turned on the mid clock.
+// about the vertical axis, so the orb is a kaleidoscope turned on time alone.
 //
 // ---- audio ------------------------------------------------------------------
 //
@@ -31,7 +31,7 @@ void main() {
     vec2 uv = view();
     foamSetup();
     gFoamShape = FOAM_BALL;
-    gFoamRadius = 1.25 * clamp(uBreath, 0.9, 1.1) * (1.0 + 0.15 * gFoamSurgeBump);
+    gFoamRadius = foamAt(gFoamIn.radius, 1.25, 0.15) * clamp(uBreath, 0.9, 1.1) * (1.0 + 0.15 * gFoamSurgeBump);
     vec3 ro;
     vec3 rd;
     foamOrbitCamera(uv, 3.4, ro, rd);

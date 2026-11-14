@@ -44,7 +44,11 @@ out vec4 fragColor;
 // uTwist adds a standing twist to every branch's fork planes. Colour: tube
 // light from pal(), stepped by branch index. Energy: uIntensity scales the
 // timbre wind, the kick lift and the hat beads. Space: camAround, the rig's
-// orbit and dolly.
+// orbit and dolly. Knobs (lib_arbor's roles, offsets from 0.5 so off is the
+// tuned look): k0 PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW
+// added to the Chaos bend, k3 TONE the palette position, k4 BUILD the light
+// bleeding round the limbs, k5 SPACE the floor grid's reach. The mids bow the
+// branches (arbMidBow).
 
 #define SP_MAX_STEPS 104
 #define SP_FAR 22.0
@@ -59,10 +63,9 @@ float gDiv;
 float gLift;
 float gBead;
 float gChaos;
-float gIdx;
-float gLevel;
 
-float branchAt(vec3 p, float k) {
+/** Branch k of the spire at p, its bead on every tip. */
+ArborHit branchAt(vec3 p, float k) {
     float hk = hash11(k * 3.3 + 0.5);
     float y = SP_BOTTOM + 0.5 + k * SP_DY + (hk - 0.5) * 0.15 * gChaos;
     float frac = k / SP_COUNT;
@@ -72,40 +75,44 @@ float branchAt(vec3 p, float k) {
     q.xy = rot2(-(1.32 - gLift)) * q.xy;
     float sc = len / 0.75;
     q /= sc;
-    float tree = arborTree(q, gF, gGrow);
-    float bead = gArbTip - gBead / sc;
-    return min(tree, bead) * sc;
+    ArborHit hit = arborTree(q, gF, gGrow);
+    float bead = hit.tip - gBead / sc;
+    hit.d = min(hit.d, bead) * sc;
+    return hit;
 }
 
-float map(vec3 p) {
+/** The world: the spire's stem and the nearest branches. mat.x is the branch index, -1 on the stem. */
+ArborHit arborMap(vec3 p) {
     float hy = clamp((p.y - SP_BOTTOM) / (SP_TOP - SP_BOTTOM), 0.0, 1.0);
     float trunk = length(p.xz) - mix(0.11, 0.015, hy);
     trunk = max(trunk, max(SP_BOTTOM - p.y, p.y - SP_TOP));
     float k0 = floor((p.y - SP_BOTTOM - 0.5) / SP_DY + 0.5);
-    float d = trunk;
-    gIdx = -1.0;
-    gLevel = 0.0;
+    ArborHit h = arbHit(trunk);
+    h.mat.x = -1.0;
     for (int j = -2; j <= 1; j++) {
         float k = k0 + float(j);
         if (k < 0.0 || k > SP_COUNT - 1.0) continue;
-        float b = branchAt(p, k);
-        if (b < d) {
-            d = b;
-            gIdx = k;
-            gLevel = gArbLevel;
+        ArborHit b = branchAt(p, k);
+        if (b.d < h.d) {
+            h = b;
+            h.mat.x = k;
         }
     }
-    return d;
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 void main() {
     vec2 uv = arbView();
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    gChaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float beadR = arbSpan(N.density, 0.035, 0.025, 0.045);
+    float reach = arbSpan(N.reach, 1.0, 0.8, 1.2);
+    float glowK = arbSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
@@ -113,18 +120,17 @@ void main() {
     float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
     float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
 
-    gChaos = arbChaos();
     gDiv = 2.39996 + 0.16 * (bright - 0.5) * 2.0 * energy;
     gLift = 0.30 * kick;
-    gBead = 0.035 + 0.035 * hat;
+    gBead = beadR + 0.035 * hat;
     gGrow = arbLevels(4.0, 1.0);
-    gF = ArborForm(2.0, 0.55, 0.0, 1.57 + 0.6 * uTwist, 0.66, 0.75, 0.07, 0.66);
+    gF = arborShape(ArborForm(2.0, 0.55, arbMidBow(), 1.57, 0.66, 0.75, 0.07, 0.66), N);
 
     vec3 ro;
     vec3 rd;
     camAround(uv, 7.5, 4.0 * CAM_SPIN_UNIT, ro, rd);
 
-    float hue = 0.80 + 0.002 * t;
+    float hue = 0.80 + 0.002 * t + hueShift;
 
     float tPlane = rd.y < -1e-4 ? (SP_BOTTOM - ro.y) / rd.y : 1e9;
     float tMax = min(SP_FAR, tPlane);
@@ -139,23 +145,24 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > tMax) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            idx = gIdx;
-            level = gLevel;
+            idx = h.mat.x;
+            level = h.level;
             break;
         }
         // Tube light bleeding into the dark around every limb.
-        glow += pal(hue + max(gIdx, 0.0) * 0.045) * exp(-d * 16.0) * 0.012;
+        glow += pal(hue + max(h.mat.x, 0.0) * 0.045) * exp(-d * 16.0) * 0.012;
         tm += d * 0.8;
     }
 
     vec3 col = vec3(0.004, 0.003, 0.010);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.001 * hitT + 0.0005);
+        vec3 n = arborNormal(p, 0.001 * hitT + 0.0005);
         vec3 lit = arbLight(n, rd, normalize(vec3(0.3, 1.0, 0.2)), 0.2, 30.0);
         float ao = arbStepAO(used, uSteps);
         vec3 tube = pal(hue + max(idx, 0.0) * 0.045 + level * 0.06);
@@ -166,13 +173,15 @@ void main() {
         vec3 p = ro + rd * tPlane;
         vec2 g = abs(fract(p.xz * 1.0 + vec2(0.0, t * 0.05)) - 0.5);
         float line = 1.0 - smoothstep(0.0, 0.03 + 0.004 * tPlane, min(g.x, g.y));
-        col = pal(hue + 0.4) * line * 0.25 * exp(-tPlane * 0.12);
+        col = pal(hue + 0.4) * line * 0.25 * exp(-tPlane * 0.12 / reach);
         // The spire's own light pooled on the floor.
         col += pal(hue) * 0.12 * exp(-length(p.xz) * 0.9);
     }
-    col += glow * (0.8 + 0.3 * swell);
+    col += glow * (0.8 + 0.3 * swell) * glowK;
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

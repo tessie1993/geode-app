@@ -45,7 +45,11 @@ out vec4 fragColor;
 // is the rig's). Complexity: uMorph adds a second clumping octave
 // (nebVolOctaves). Chaos: uWarp/uTurbulence bend the web through nebWarp3;
 // uTwist via view(). Colour: filaments and knots from pal(). Energy:
-// uIntensity scales the bass thickening. Space: the rig (camFly).
+// uIntensity scales the bass thickening. Space: the rig (camFly). Knobs
+// (lib_nebula's roles, offsets from 0.5 so off is the tuned look): k0 PULSE
+// the emission, k1 TEXTURE the filaments' width, k2 FLOW added to Warp's
+// bend, k3 TONE the palette position, k4
+// BUILD the knots' fire, k5 SPACE how far the glow reaches.
 
 #define WB_FAR 30.0
 /** World units per lattice cell: q = p * WB_SCALE, a power of two so the lattice wraps with the rig. */
@@ -73,16 +77,45 @@ vec2 web(vec3 p) {
     return min(a, b) / (WB_SCALE * 2.0);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the distances to the nearest filament and knot
+ * (world units, lower bounds the march skips by), and the filaments' density at their base width.
+ */
+struct NebHit {
+    float dens;
+    float edge;
+    float knot;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    vec2 d = web(p);
+    NebHit h;
+    h.edge = d.x;
+    h.knot = d.y;
+    h.dens = exp(-(d.x * d.x) / (gWidth * gWidth));
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float bass = clamp(0.6 * SND_BASS_PRESENCE + 0.4 * sndLevel(SND_BASS_ATT), 0.0, 1.3) * e;
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float key = nebKeyShift(0.1);
+    float kPulse = nebKnob(0);
+    float kTexture = nebKnob(1);
+    float kFlow = nebKnob(2);
+    float kTone = nebKnob(3);
+    float kBuild = nebKnob(4);
+    float kSpace = nebKnob(5);
+    float key = nebKeyShift(0.1) + 0.6 * kTone;
     gOct = nebVolOctaves(1.0);
-    gWidth = 0.07 * (1.0 + 0.7 * bass);
+    gWidth = 0.07 * (1.0 + 0.7 * bass) * (1.0 + 0.5 * kTexture);
+    gNebFlow = kFlow;
 
     // Knot hue: re-picked per onset, sliding to the new value as the envelope falls.
     float env = clamp(SND_ONSET_ENV, 0.0, 1.0);
@@ -103,7 +136,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tt > WB_FAR) break;
         vec3 p = ro + rd * tt;
-        vec2 d = web(p);
+        NebHit at = nebField(p, gOct);
+        vec2 d = vec2(at.edge, at.knot);
         // Filaments widen a little with distance, so far ones stay sampled.
         float w = gWidth * (1.0 + tt * 0.05);
         float dt = nebVolDt(tt, 0.03, 0.012);
@@ -113,8 +147,8 @@ void main() {
             float clump = 0.45 + 1.1 * nebFbm3(p * 1.0 + vec3(1.3, 4.1, 0.0), gOct);
             float fil = exp(-(d.x * d.x) / (w * w)) * clump;
             float knot = exp(-(d.y * d.y) / (w * w * 9.0));
-            float fade = exp(-tt * 0.06) * smoothstep(0.3, 1.2, tt);
-            vec3 emission = (filCol * fil * 0.9 + knotCol * knot * 3.0) * fade / (1.0 + tt * 0.05);
+            float fade = exp(-tt * 0.06 / (1.0 + 0.4 * kSpace)) * smoothstep(0.3, 1.2, tt);
+            vec3 emission = (filCol * fil * 0.9 + knotCol * knot * (3.0 * (1.0 + kBuild))) * fade / (1.0 + tt * 0.05);
             nebVolEmit(acc, emission, knot * 6.0 + fil * 0.6, dt);
             if (acc.a < NEB_TRANS_MIN) break;
         } else {
@@ -124,7 +158,7 @@ void main() {
     }
 
     vec3 bg = pal(0.66 + key) * 0.012 + nebStars(nebSky(rd), 7.0, 2, vec2(0.0), 0.8, 0.16, hats, gT) * 0.7;
-    vec3 col = acc.rgb + acc.a * bg;
+    vec3 col = (acc.rgb + acc.a * bg) * (1.0 + 0.5 * kPulse);
     col *= 0.85 + 0.15 * swell;
     col *= 0.78 + 0.22 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);

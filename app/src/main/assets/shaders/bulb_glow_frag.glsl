@@ -42,7 +42,7 @@ out vec4 fragColor;
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the flux hue spread. Colour is tone(), the nebula ramp pal() tints; Space is
-// the rig (camAround).
+// the rig (camAround), its radius the k5 SPACE reach; the other knobs as lib_bulb.
 
 #define BG_MAX_STEPS 96
 #define BG_BOUND 1.5
@@ -61,13 +61,13 @@ float gPowNew;
 float gBlend;
 mat3 gSpin;
 int gIters;
-vec4 gTrap;
 
 float powerFor(float section) {
     return 3.0 + floor(hash11(section * 0.618 + 0.37) * 9.99);
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     p = bulbChaos(gSpin * p);
     vec4 tr;
     float d = bulbDE(p, gPowNew, gPowNew, vec2(0.0), gIters, tr);
@@ -77,9 +77,10 @@ float map(vec3 p) {
         d = mix(d0, d, gBlend);
         tr = mix(tr0, tr, gBlend);
     }
-    gTrap = tr;
-    return d / bulbChaosLip();
+    return BulbHit(d / bulbChaosLip(), tr, 0.0);
 }
+
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
@@ -94,23 +95,27 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, BG_CAM_R, BG_SPIN, ro, rd);
+    camAround(uv, bulbOrbit(BG_CAM_R), BG_SPIN, ro, rd);
 
     float hue = 0.72 + 0.06 * sin(bulbTime() * 0.011);
     float spread = 0.45 + 0.5 * flux * bulbEnergy();
 
     vec3 acc = vec3(0.0);
     float trans = 1.0;
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BG_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BG_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BG_BOUND + growSlack(BG_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BG_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (t > tb.y) break;
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float dens = exp(-max(d, 0.0) * BG_GLOW_K);
             float stepLen = clamp(abs(d) * 0.7, 0.012, 0.11);
-            vec3 em = tone(hue + spread * (sqrt(gTrap.x) + 0.5 * gTrap.y));
+            // Escape colour (lib_shade): the smoothed escape count moves the light along the ramp.
+            vec3 em = tone(hue + spread * (sqrt(h.trap.x) + 0.5 * h.trap.y) + shadeEscape(h.trap.w));
             // The interior burns hotter and whiter than the halo around it.
             float core = step(d, 0.0);
             em = mix(em, mix(em, vec3(1.0), 0.35), core);

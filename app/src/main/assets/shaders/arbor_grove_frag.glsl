@@ -23,7 +23,7 @@ out vec4 fragColor;
 //
 // The tree is arborTree (a mirror fork, twisted per level so the forks spread
 // round the trunk in 3D, a touch of gravity so the outer limbs settle), with
-// a leaf pad on every tip (the walk's gArbTip, a sphere there) so the crown
+// a leaf pad on every tip (the walk's tip, a sphere there) so the crown
 // reads as a crown and not a bare winter frame. The hill is a smooth height
 // field under it. The far ridge and its trees are NOT marched: they sit on
 // the horizon, where parallax is nil, so they are the old 2D silhouettes
@@ -58,7 +58,7 @@ out vec4 fragColor;
 // Space: the rig's orbit, look and dolly. Knobs (offsets from 0.5, so off is
 // the tuned look): k0 PULSE the kick puff, k1 TEXTURE the leaf pads' size,
 // k2 FLOW the gust's rate and depth, k3 TONE the sky's hue, k4 BUILD the
-// sun's halo, k5 SPACE the haze.
+// sun's halo, k5 SPACE the haze. The mids bow the limbs (arbMidBow).
 //
 // ---- why the distance estimate is safe ----------------------------------------------
 //
@@ -89,10 +89,8 @@ vec2 gWind;
 float gPad;
 float gTreeY;
 vec3 gSun;
-float gMat;
-float gLevel;
-float gPath;
-float gTip;
+/** The far trees' form at rest, mapped by the shell (each tree adds its own lean and jitter). */
+ArborForm2 gFar;
 
 float groundH(vec2 xz) {
     return GR_HILL + 0.75 * exp(-dot(xz, xz) * 0.05) + 0.12 * sin(xz.x * 0.45 + 0.4) * sin(xz.y * 0.5 + 1.1);
@@ -103,38 +101,36 @@ float ridgeEl(float az) {
     return 0.035 + 0.03 * sin(az * 3.0 + 1.0) + 0.015 * sin(az * 7.0 + 0.3);
 }
 
-/** The tree with leaf pads; writes gMat (1 bark, 2 leaf), gLevel, gPath, gTip. */
-float treeD(vec3 p) {
+/** The tree with leaf pads; mat.x is 1 on bark, 2 on a leaf pad. */
+ArborHit treeD(vec3 p) {
     vec3 q = p - vec3(0.0, gTreeY, 0.0);
     float bound = length(q - vec3(0.0, GR_BOUND_Y, 0.0)) - GR_BOUND_R;
     if (bound > 0.5) {
-        gMat = 1.0;
-        return bound;
+        ArborHit far = arbHit(bound);
+        far.mat.x = 1.0;
+        return far;
     }
     float h = clamp(q.y, 0.0, GR_SHEAR_TOP);
     q.xz -= gWind * (gLean * h * h);
     float lip = 1.0 + 2.0 * abs(gLean) * GR_SHEAR_TOP;
-    float bark = arborTree(q, gF, gGrow);
-    gLevel = gArbLevel;
-    gPath = gArbPath;
-    gTip = gArbTip;
-    float pad = gTip - gPad * (0.7 + 0.6 * arbBranchHash(gPath, 0.0, 3.0));
-    gMat = pad < bark ? 2.0 : 1.0;
-    return min(bark, pad) / lip;
+    ArborHit hit = arborTree(q, gF, gGrow);
+    float bark = hit.d;
+    float pad = hit.tip - gPad * (0.7 + 0.6 * arbBranchHash(hit.path, 0.0, 3.0));
+    hit.mat.x = pad < bark ? 2.0 : 1.0;
+    hit.d = min(bark, pad) / lip;
+    return hit;
 }
 
-float map(vec3 p) {
+/** The world: the hill and the tree. mat.x is 0 on the ground, 1 bark, 2 leaf. */
+ArborHit arborMap(vec3 p) {
     float g = (p.y - groundH(p.xz)) * 0.95;
-    float tr = treeD(p);
-    if (g < tr) gMat = 0.0;
-    return min(g, tr);
+    ArborHit tr = treeD(p);
+    if (g < tr.d) tr.mat.x = 0.0;
+    tr.d = min(g, tr.d);
+    return tr;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 /** Dusk sky without the far ridge: warm at the horizon toward the sun, night overhead, stars, sun and halo. */
 vec3 skyCol(vec3 rd, float hue, float swell, float halo, float t) {
@@ -166,8 +162,10 @@ float farTree(float az, float el, float az0, float scale, float seed, float px, 
     da -= ARB_TAU * floor(da / ARB_TAU + 0.5);
     vec2 q = vec2(da, el - ridgeEl(az0) + 0.004) / scale;
     if (abs(q.x) > 1.8 || q.y < -0.1 || q.y > 1.9) return 0.0;
-    ArborForm2 f = ArborForm2(vec2(0.50, 0.44), vec2(0.70, 0.66), lean, jitter, 0.40, 0.09, 0.70);
-    float d = arborTree2(q, f, arbLevels2(7.0, 1.0), seed) * scale;
+    ArborForm2 f = gFar;
+    f.lean += lean;
+    f.jitter = jitter;
+    float d = arborTree2(q, f, arbLevels2(7.0, 1.0), seed).d * scale;
     return arbInk(d, px);
 }
 
@@ -193,22 +191,25 @@ void main() {
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
-    float chaos = arbChaos();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float kickK = arbSpan(N.emit, 1.0, 0.2, 1.8);
+    float gustRate = arbSpan(N.flow, 1.0, 0.6, 1.4);
+    float gustAmp = arbSpan(N.flow, 0.45, 0.3, 0.6);
+    gPad = arbSpan(N.density, 0.10, 0.04, 0.16);
+    float hue = arbSpan(N.tone, 0.0, -0.05, 0.05);
+    float halo = arbSpan(N.glow, 1.0, 0.3, 1.7);
+    float fogK = arbSpan(N.reach, 0.032, 0.0128, 0.0512);
+    gFar = arborShape2(ArborForm2(vec2(0.50, 0.44), vec2(0.70, 0.66), 0.0, 0.0, 0.40, 0.09, 0.70), N);
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5) * energy;
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * energy * (1.0 + 1.6 * kPulse);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * energy * kickK;
     float air = clamp(sndSpectrum(0.93), 0.0, 1.0) * energy;
 
     // ---- the wind -------------------------------------------------------------
-    float gustRate = 1.0 + 0.8 * kFlow;
-    float gust = 0.55 + (0.45 + 0.3 * kFlow) * sin(t * 1.25 * gustRate) * sin(t * 0.53 * gustRate + 1.0);
+    float gust = 0.55 + gustAmp * sin(t * 1.25 * gustRate) * sin(t * 0.53 * gustRate + 1.0);
     float flutter = chaos * 0.35 * sin(t * 4.1) * sin(t * 2.7 + 1.3);
     float lean = (0.15 + 0.9 * bass) * (gust - 0.35) + 0.12 * sin(t * 0.37) + flutter + 0.35 * kick;
     lean = clamp(lean, -1.0, 1.0);
@@ -217,17 +218,14 @@ void main() {
     gWind = vec2(cos(windA), sin(windA));
 
     gGrow = arbLevels(8.0, 1.0);
-    float twist = 2.25 + 0.6 * uTwist + 0.07 * lean + chaos * 0.12 * sin(t * 3.1 + 0.4);
-    gF = ArborForm(2.0, 0.50, 0.05 + 0.02 * lean, twist, 0.72, 1.15, 0.085, 0.72);
-    gPad = clamp(0.10 * (1.0 + 1.2 * kTexture), 0.02, 0.18);
+    float twist = 2.25 + 0.07 * lean + chaos * 0.12 * sin(t * 3.1 + 0.4);
+    gF = arborShape(ArborForm(2.0, 0.50, 0.05 + 0.02 * lean + arbMidBow(), twist, 0.72, 1.15, 0.085, 0.72), N);
     gTreeY = groundH(vec2(0.0)) - 0.05;
 
     float sunAz = -1.2;
     gSun = normalize(vec3(cos(sunAz), 0.10, sin(sunAz)));
-    float hue = 0.10 * kTone;
-    float halo = 1.0 + 1.4 * kBuild;
     // The 2D far trees take the old flat lean and jitter.
-    float lean2 = (0.006 + 0.04 * bass) * (gust - 0.35) + 0.010 * sin(t * 0.37) + 0.07 * flutter + 0.08 * uTwist;
+    float lean2 = (0.006 + 0.04 * bass) * (gust - 0.35) + 0.010 * sin(t * 0.37) + 0.07 * flutter;
     float jitter2 = 0.20 + 0.45 * chaos;
 
     vec3 ro;
@@ -247,12 +245,13 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         if (d < 0.0005 + 0.0008 * tm) {
             hitT = tm;
-            hitMat = gMat;
-            hitLevel = gLevel;
-            hitPath = gPath;
+            hitMat = h.mat.x;
+            hitLevel = h.level;
+            hitPath = h.path;
             break;
         }
         tm += d * 0.8;
@@ -262,7 +261,7 @@ void main() {
     vec3 col;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
+        vec3 n = arborNormal(p, 0.0012 * hitT + 0.0006);
         float ao = arbStepAO(used, uSteps);
         vec3 horizon = mix(pal(hue + 0.02) * 1.15, vec3(1.0, 0.52, 0.24), 0.35);
         vec3 dusk = mix(pal(hue + 0.30) * 0.55, vec3(0.50, 0.20, 0.32), 0.35);
@@ -295,7 +294,6 @@ void main() {
             float sunSide = smoothstep(0.0, 0.5, dot(n, gSun));
             col += sunCol * outer * pick * tw * sunSide * air * 0.9;
         }
-        float fogK = 0.032 * (1.0 + 1.2 * kSpace);
         vec3 fogCol = skyCol(normalize(vec3(rd.x, 0.02, rd.z)), hue, swell, halo, t);
         fogCol = mix(fogCol, pal(hue + 0.45) * 0.18 + vec3(0.05, 0.02, 0.04), 0.45);
         col = mix(col, fogCol, 1.0 - exp(-hitT * fogK));

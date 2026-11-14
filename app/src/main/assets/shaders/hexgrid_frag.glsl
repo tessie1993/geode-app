@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Hexgrid: a hall between two honeycombs. The floor is a field of hexagonal
 // columns and the ceiling is its mirror; every column is one cell of the old
@@ -39,9 +40,36 @@ out vec4 fragColor;
 // SND_ENERGY_TREND.
 //
 // Knobs: k0 PULSE the kick lift, k1 TEXTURE the rim width, k2 FLOW the side
-// glow band, k3 TONE a hue offset, k4 BUILD the cap glow, k5 SPACE the hall's
+// glow band, k3 TONE the hall's width (a high melody draws the walls in close
+// round the flight into a canyon, a low one pushes them out over a wide open
+// floor; and a hue offset), k4 BUILD the cap glow, k5 SPACE the hall's
 // height. Morph thins the columns and bevels their caps, Warp twists the hall
 // about its axis along z, Turbulence lets every column bob on its own.
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the hall is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off, and a param at its default
+// 0 maps to its rest through shellMapS. Music reaches these only through the
+// knobs and params (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sBase       k4 BUILD         a column's height at rest 0.04 .. 0.12 .. 0.4
+//   sWallH      k4 BUILD         the walls' extra height 1.4 .. 2.2 .. 3.0
+//   sRise       k4 BUILD         the height a full band adds 0.8 .. 1.3 .. 1.8
+//   gFloor      k5 SPACE         the floor's depth 2.05 .. 2.5 .. 2.95
+//   gWide       k3 TONE          the hall's width 1.25 .. 1 .. 0.75
+//   sFog        k5 SPACE         fog density 0.1 .. 0.06 .. 0.03
+//   gRad        Morph            column radius, of the apothem 0.9 .. 0.55
+//   gBev        Morph            cap bevel 0.05 .. 0.25
+//   gWarp       Warp             the hall's twist 0 .. 0.35
+//   gTurb       Turbulence       each column's bob 0 .. 0.525 (at Turbulence 1.5)
+//
+// The lattice (2 / sqrt 3 by 2), its hash wrap (1024) and the twist period
+// (64) stay constants: each is a power of two the 8192 travel wrap relies on.
+// The columns go through its shell wrapper, so the shell's spawn, fractal, front
+// and back hooks reach them.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -64,12 +92,6 @@ out vec4 fragColor;
 #define HG_APO 0.5773503
 /** Cells along z before the hash repeats; divides 8192. */
 #define HG_ZWRAP 1024.0
-/** Column height at rest. */
-#define HG_BASE 0.12
-/** Extra standing height of the outer (wall) columns. */
-#define HG_WALLH 2.2
-/** Height a full band reading adds. */
-#define HG_RISE 1.3
 /** Kick lift, world units. */
 #define HG_KICK 0.7
 #define HG_BUBBLE 0.7
@@ -83,6 +105,11 @@ float gTurb;
 float gRad;
 float gBev;
 vec3 gEye;
+/** Shape inputs (see the header): column height at rest, the walls' extra height, a full band's rise, fog. */
+float sBase;
+float sWallH;
+float sRise;
+float sFog;
 
 // Hit globals, restored by one map() call after the normal taps.
 float gBand;
@@ -96,14 +123,18 @@ float hexDist(vec2 p) {
     return max(dot(p, vec2(0.5, 0.8660254)), p.x);
 }
 
+/** TONE: the scale of the hall's width, 1 at rest. */
+float gWide;
+
 float wallAt(float ax) {
-    return smoothstep(1.2, 5.5, ax);
+    // Monotone in ax at every width, which maxTop's neighbour bound relies on.
+    return smoothstep(1.2 * gWide, 5.5 * gWide, ax);
 }
 
 /** The tallest a column centred at |x| = ax could stand, everything maxed. */
 float maxTop(float ax) {
     float w = wallAt(ax);
-    return HG_BASE + HG_WALLH * w + HG_RISE * 1.5 * (0.35 + 0.65 * w) + HG_KICK * gKickGain + gTurb * 1.3;
+    return sBase + sWallH * w + sRise * 1.5 * (0.35 + 0.65 * w) + HG_KICK * gKickGain + gTurb * 1.3;
 }
 
 /** One column: base on the plane y = gFloor, cap at gFloor + top, in local y. */
@@ -114,7 +145,7 @@ float column(float y, float hd, float top) {
     return max(max(side, cap), chamfer);
 }
 
-float map(vec3 pw) {
+float mapField(vec3 pw) {
     vec3 p = pw;
     // Warp: the hall twists about its axis, slowly along z (period 64).
     p.xy = rot2(gWarp * sin(p.z * (HG_TAU / 64.0) + uTime * 0.2)) * p.xy;
@@ -141,10 +172,10 @@ float map(vec3 pw) {
     // The flat style's cell energy, one texture read per tap, shared above and below.
     float e = clamp(sndSpectrum(band) * (0.5 + gLevel), 0.0, 1.5);
     float kick = gKick * exp(-abs(cc.y - gEye.z - 3.0) * 0.2);
-    float grow = HG_RISE * e * (0.35 + 0.65 * wall) + HG_KICK * kick * (1.0 - 0.6 * wall);
+    float grow = sRise * e * (0.35 + 0.65 * wall) + HG_KICK * kick * (1.0 - 0.6 * wall);
     float bob = gTurb * sin(uTime * (0.9 + 1.7 * hF) + hF * 40.0) * (0.3 + wall);
-    float topF = HG_BASE + HG_WALLH * wall * (0.4 + 0.6 * hF) + grow + bob;
-    float topC = HG_BASE + HG_WALLH * wall * (0.4 + 0.6 * hC) + grow
+    float topF = sBase + sWallH * wall * (0.4 + 0.6 * hF) + grow + bob;
+    float topC = sBase + sWallH * wall * (0.4 + 0.6 * hC) + grow
                + gTurb * sin(uTime * (0.9 + 1.7 * hC) + hC * 40.0) * (0.3 + wall);
 
     float dF = column(p.y, hd, topF);
@@ -168,6 +199,21 @@ float map(vec3 pw) {
     return max(d, HG_BUBBLE - length(pw - gEye));
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The hall as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
+}
+
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
     return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
@@ -175,6 +221,18 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sBase = shellMap(shellKnob(4), 0.04, 0.12, 0.4);
+    sWallH = shellMap(shellKnob(4), 1.4, 2.2, 3.0);
+    sRise = shellMap(shellKnob(4), 0.8, 1.3, 1.8);
+    gFloor = -shellMap(shellKnob(5), 2.05, 2.5, 2.95);
+    gWide = shellMap(shellKnob(3), 1.25, 1.0, 0.75);
+    sFog = shellMap(shellKnob(5), 0.1, 0.06, 0.03);
+    gRad = HG_APO * shellMapS(clamp(uMorph, 0.0, 1.0), 1.25, 0.9, 0.55);
+    gBev = shellMapS(clamp(uMorph, 0.0, 1.0), -0.15, 0.05, 0.25);
+    gWarp = shellMapS(clamp(uWarp, 0.0, 1.0), -0.35, 0.0, 0.35);
+    gTurb = shellMapS(clamp(uTurbulence / 1.5, 0.0, 1.0), -0.525, 0.0, 0.525);
+
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
@@ -184,23 +242,18 @@ void main() {
     // travel a highp z has ~0.001 of fraction left and the cells speckle.
     ro.z = mod(ro.z, HG_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, HG_APO, false);
 
     float k0 = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float k1 = clamp(uKnob[1], 0.0, 1.0) - 0.5;
     float k2 = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float k3 = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float morph = clamp(uMorph, 0.0, 1.0);
-    gFloor = -(2.5 + 0.9 * k5);
-    gWarp = 0.35 * clamp(uWarp, 0.0, 2.0);
     gKickGain = 1.0 + 0.8 * k0;
     gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * gKickGain;
     gLevel = sndLevel(SND_VOL_ATT);
-    gTurb = 0.35 * clamp(uTurbulence, 0.0, 2.0);
-    gRad = HG_APO * (0.9 - 0.35 * morph);
-    gBev = 0.05 + 0.2 * morph;
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float high = sndShaped(SND_HIGH);
@@ -270,7 +323,7 @@ void main() {
                 + tint * band * gE * 0.45 * ao;
         }
         col += mix(vec3(1.0), tint, 0.5) * (spec * 0.35 + fres * 0.08) * ao;
-        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.06));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * sFog));
     }
 
     col *= 0.8 + 0.25 * swell;

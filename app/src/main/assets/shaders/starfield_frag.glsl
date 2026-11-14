@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -44,11 +45,23 @@ out vec4 fragColor;
 // Bass (SND_LOW)          the core glow itself, slew-limited.
 // Drop (SND_HELD_SURGE)   the nebula parts (its cover falls) and its palette
 //                         swings to the far side; on a hump, so it glides back.
-// Knobs                   k1 TEXTURE fine filament weight, k3 TONE gas hue,
+// Knobs                   k1 TEXTURE fine filament weight, k3 TONE where the
+//                         gas gathers (a high melody banks it into a ceiling of
+//                         cloud above the flight, a low one into a floor below;
+//                         and the gas hue),
 //                         k4 BUILD gas glow, k5 SPACE thinner gas. All amplitudes,
 //                         never rates, so a moving knob never jumps the picture.
 // Params                  Warp bends the gas, Turbulence adds fine filaments,
 //                         Morph thickens the sheets; Detail is the step budget.
+//
+// Every one of these, and the stars' share of cells and the far sky's
+// (TEXTURE), the stars' size and the core's spread (BUILD), the onset streak's
+// reach (FLOW) and the gas's extinction (SPACE), is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range; at rest each is the constant the region was tuned with. The gas is
+// the density the grow hooks act on (its shell wrapper): Spawn adds a second
+// nebula slid down the flight, Fractal grows third-size filaments inside the
+// clouds, the layers open the near and far gas.
 //
 // ---- why the wrap is invisible and the estimate safe ---------------------
 //
@@ -67,13 +80,13 @@ out vec4 fragColor;
 #define STAR_Z_MASK 32767
 /** Compile-time ceiling on the cell walk. uSteps scales the runtime budget. */
 #define STAR_MAX_CELLS 48
-/** Fraction of cells that hold a star. */
+/** Fraction of cells that hold a star, at rest (TEXTURE moves it). */
 #define STAR_DENSITY 0.2
 /** Most cell crossings per unit of ray length (|x|+|y|+|z|); fading at budget / this keeps every direction equally deep. */
 #define STAR_CROSSINGS 1.75
-/** A star's physical radius in cells, before the pixel floor. */
+/** A star's physical radius in cells, before the pixel floor, at rest (BUILD moves it). */
 #define STAR_SIZE 0.012
-/** Streak half-length in cells at full onset; the z jitter (0.45..0.55) leaves room for it inside the cell. */
+/** Streak half-length in cells at full onset, at rest (FLOW: at most 0.44); the z jitter (0.45..0.55) leaves room for it inside the cell. */
 #define STAR_STREAK 0.4
 
 /** Compile-time ceiling on the nebula march; uSteps scales the runtime count. */
@@ -88,14 +101,14 @@ out vec4 fragColor;
 #define NB_F2 (6.2831853 / 8.0)
 /** Domain warp: period 16. */
 #define NB_FW (6.2831853 / 16.0)
-/** Extinction per unit of density per world unit. */
+/** Extinction per unit of density per world unit, at rest (SPACE moves it). */
 #define NB_SIGMA 0.55
 /** Gas-free ball around the eye, world units. */
 #define NB_BUBBLE 0.7
 
 /** Directional cells per unit of ray direction for the far sky. */
 #define SKY_N 70.0
-/** Fraction of sky cells that hold a far star. */
+/** Fraction of sky cells that hold a far star, at rest (TEXTURE moves it). */
 #define SKY_DENSITY 0.28
 
 float gWarp;
@@ -106,7 +119,8 @@ vec3 gDrift;
 /** The eye with z rebased into 0..64 for the nebula (see main). */
 vec3 gEye;
 
-float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
+/** TONE: how far the gas banks above (+) or below (-) the flight line; 0 at rest. */
+float gBank;
 
 /** Gas density at `p` (nebula space), 0..gCover. */
 float nebula(vec3 p) {
@@ -119,7 +133,24 @@ float nebula(vec3 p) {
     float d = clamp(1.0 - abs(g) / gThick, 0.0, 1.0);
     d *= d;
     d *= smoothstep(NB_BUBBLE, NB_BUBBLE + 1.6, length(p - gEye));
+    // TONE banks the gas above or below the flight line (1 at rest).
+    d *= max(1.0 + gBank * clamp((p.y - gEye.y) * 0.35, -1.0, 1.0), 0.0);
     return d * gCover;
+}
+
+/** The density nebula through lib_shell's hooks: exactly nebula(p) at rest, and nebula read once, in a loop the compiler cannot unroll. */
+float nebulaGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, nebula(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The gas through the grow hooks (lib_shell). */
+float nebulaAt(vec3 p) {
+    return nebulaGrown(p);
 }
 
 void main() {
@@ -137,13 +168,40 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float bass = sndShaped(SND_LOW);
 
-    gWarp = 1.4 + 1.1 * clamp(uWarp, 0.0, 2.0);
-    gDetail = clamp(0.32 + 0.3 * clamp(uTurbulence, 0.0, 2.0) + 0.4 * knob(1), 0.0, 1.0);
-    gThick = (0.42 + 0.25 * clamp(uMorph, 0.0, 2.0)) * (1.0 + 0.55 * kick * (1.0 + 2.0 * knob(0)));
-    gCover = clamp(1.0 - 0.9 * knob(5), 0.2, 1.6) * (1.0 - 0.7 * dropBump);
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's swell of the sheets
+    float nTexture = shellKnob(1);                                 // TEXTURE  filaments, star and sky density
+    float nFlow = shellKnob(2);                                    // FLOW     the onset streak's reach
+    float nTone = shellKnob(3);                                    // TONE     where the gas banks, its hue
+    float nBuild = shellKnob(4);                                   // BUILD    gas glow, star size, the core's spread
+    float nSpace = shellKnob(5);                                   // SPACE    thinner gas, its extinction
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    thicker sheets
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the gas bends
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence fine filaments
+    float swellK = shellMap(nPulse, 0.0, 1.0, 2.0);
+    float detailTex = shellMap(nTexture, -0.2, 0.0, 0.2);
+    float starDensity = shellMap(nTexture, 0.14, STAR_DENSITY, 0.28);
+    float skyDensity = shellMap(nTexture, 0.2, SKY_DENSITY, 0.36);
+    float streakK = shellMap(nFlow, 0.25, STAR_STREAK, 0.44);
+    gBank = shellMap(nTone, -1.0, 0.0, 1.0);
+    float hueTone = shellMap(nTone, -0.075, 0.0, 0.075);
+    float glowGain = shellMap(nBuild, 0.6, 1.0, 1.4);
+    float starSize = shellMap(nBuild, 0.009, STAR_SIZE, 0.016);
+    float coreFall = shellMap(nBuild, 10.0, 8.0, 6.0);
+    float cover = shellMap(nSpace, 1.45, 1.0, 0.55);
+    float sigma = shellMap(nSpace, 0.7, NB_SIGMA, 0.4);
+    float thick = shellMap(nMorph, 0.42, 0.42, 0.67);
+    gWarp = shellMap(nWarp, 1.4, 1.4, 2.5);
+    float detailTurb = shellMap(nTurb, 0.0, 0.0, 0.45);
+
+    gDetail = clamp(0.32 + detailTurb + detailTex, 0.0, 1.0);
+    gThick = thick * (1.0 + 0.55 * kick * swellK);
+    gCover = clamp(cover, 0.2, 1.6) * (1.0 - 0.7 * dropBump);
     // Plain multiples of uTime: the drift speeds with Speed and never jumps.
     gDrift = vec3(uTime * 0.05, uTime * 0.037, uTime * 0.029);
     gEye = vec3(ro.xy, mod(ro.z, NB_ZWRAP));
+    // The layers are measured from the eye (in the gas's rebased space); a spawned nebula slides 4 down the flight.
+    shellSetup3(gEye, 3.0, 4.0, false);
 
     float pixAngle = 2.0 / (max(uResolution.y, 1.0) * uCamFocal);
     // The core star sits on the world's +z, the direction of travel on the
@@ -151,8 +209,7 @@ void main() {
     vec3 L = normalize(vec3(0.0, 0.18, 1.0));
     float coreDot = max(dot(rd, L), 0.0);
     float coreLight = 0.55 + 0.8 * bass + 1.3 * snare;
-    float gasHue = 0.62 + 0.15 * knob(3) + 0.5 * dropBump + 0.03 * sin(uTime * 0.013);
-    float glowGain = 1.0 + 0.8 * knob(4);
+    float gasHue = 0.62 + hueTone + 0.5 * dropBump + 0.03 * sin(uTime * 0.013);
 
     // ---- nebula: emission-absorption march ---------------------------------
     float nb = clamp(uSteps * (float(NB_MAX_STEPS) / 128.0), 6.0, float(NB_MAX_STEPS));
@@ -167,17 +224,17 @@ void main() {
     for (int i = 0; i < NB_MAX_STEPS; i++) {
         if (float(i) >= nb) break;
         vec3 p = gEye + rd * t;
-        float d = nebula(p);
+        float d = nebulaAt(p);
         if (d > 0.003) {
             // One sample toward the core: the gas between this point and the light.
-            float dl = nebula(p + L * 0.9);
+            float dl = nebulaAt(p + L * 0.9);
             float lit = exp(-2.4 * dl);
             // The spectrum laid along the flight: slab z/32 hears band fract(z/32).
             float band = fract(p.z * (1.0 / 32.0));
             float hears = 0.3 + 0.9 * sndSpectrum(0.04 + 0.92 * abs(2.0 * band - 1.0));
             vec3 emit = pal(gasHue + 0.22 * sin(p.z * (6.2831853 / NB_ZWRAP)) + 0.12 * d);
             vec3 c = emit * (0.10 * hears + lit * coreLight * phase * 0.55) * glowGain;
-            float a = d * NB_SIGMA * dt;
+            float a = d * sigma * dt;
             gas += exp(-tau) * c * a;
             tau += a;
             if (tau > 3.5) {
@@ -203,7 +260,7 @@ void main() {
     vec3 side = (stepDir * (0.5 - o) + 0.5) * tDelta;
     ivec3 cell = ivec3(0);
 
-    float streak = STAR_STREAK * clamp(SND_ONSET_ENV, 0.0, 1.0);
+    float streak = streakK * clamp(SND_ONSET_ENV, 0.0, 1.0);
     float twinkleSeed = fract(floor(SND_HIT_TIME) * 0.618034);
     float budget = uSteps * (float(STAR_MAX_CELLS) / 128.0);
     float far = budget / STAR_CROSSINGS;
@@ -226,7 +283,7 @@ void main() {
         vec3 rel = star - o;
         float tc = max(dot(rel, rd), 0.0);
         vec3 dv = rd * tc - rel;
-        float size = STAR_SIZE + tc * pixAngle * 1.4;
+        float size = starSize + tc * pixAngle * 1.4;
         // The onset streak: an ellipsoid along z, the travel axis, which on
         // screen is a radial smear from the vanishing point.
         dv.z *= size / (size + streak);
@@ -238,7 +295,7 @@ void main() {
         // Fogged by the gas in front of it: optical depth taken as linear in
         // depth across the marched span, a cheap stand-in for the true profile.
         float fog = exp(-tau * clamp(tc / (STAR_SCALE * tEnd), 0.0, 1.0));
-        stars += pal(hue + tc * 0.01) * glow * fade * lit * fog * step(hOcc, STAR_DENSITY);
+        stars += pal(hue + tc * 0.01) * glow * fade * lit * fog * step(hOcc, starDensity);
 
         // Step into whichever neighbouring cell the ray reaches first.
         vec3 m = step(side, side.yzx) * step(side, side.zxy);
@@ -257,12 +314,12 @@ void main() {
     float sd = length(rd - normalize(spos)) * SKY_N;
     float sr = max(0.07, 1.3 * SKY_N * pixAngle);
     float skyTw = 1.0 + 1.2 * hat * step(0.8, fract(uhashUnit(hs4) * 5.3 + twinkleSeed));
-    float sky = exp(-sd * sd / (sr * sr)) * min(1.0, 0.07 / sr) * step(uhashUnit(hs), SKY_DENSITY)
+    float sky = exp(-sd * sd / (sr * sr)) * min(1.0, 0.07 / sr) * step(uhashUnit(hs), skyDensity)
               * (0.25 + 0.75 * uhashUnit(hs2)) * skyTw;
     vec3 skyCol = mix(vec3(1.0), pal(uhashUnit(hs3)), 0.4) * sky * 0.9;
 
     // ---- core glow and composite -------------------------------------------
-    float core = rd.z > 0.0 ? exp(-8.0 * length(rd.xy) / rd.z) : 0.0;
+    float core = rd.z > 0.0 ? exp(-coreFall * length(rd.xy) / rd.z) : 0.0;
     vec3 coreCol = pal(0.5) * core * (0.2 + bass * 0.8 + 0.5 * snare);
     // A faint deep-space haze where the gas thins, so the background is not pure black.
     vec3 haze = pal(gasHue + 0.5) * 0.012;

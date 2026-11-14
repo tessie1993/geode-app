@@ -7,7 +7,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import dev.geode.audio.MicCapture
+import dev.geode.audio.CaptureFailure
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.DeviceTrackQuery
@@ -15,9 +15,9 @@ import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
-import dev.geode.data.FileTemplateRepository
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryState
+import dev.geode.data.LookSource
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
@@ -58,7 +58,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.util.bestEffort
@@ -122,7 +121,7 @@ class PlayerSession internal constructor(
                 override fun resetSound(playerOwnsRing: Boolean) {
                     // The tap first: once this returns it writes nothing while another source has the ring.
                     playback.tap.owns = playerOwnsRing
-                    playback.sampleRing.beginEpoch()
+                    GeodeNative.pcmRingBeginEpoch(playback.sampleRing)
                     bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
                 }
 
@@ -136,7 +135,7 @@ class PlayerSession internal constructor(
 
     val externalAudio: StateFlow<ExternalAudioState> get() = captureController.externalAudio
 
-    fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = captureController.setMicEnabled(enabled)
+    fun setMicEnabled(enabled: Boolean): CaptureFailure? = captureController.setMicEnabled(enabled)
 
     fun stopExternalAudio() = captureController.stopExternalAudio()
 
@@ -161,7 +160,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    private val templateRepository: TemplateRepository = FileTemplateRepository.from(application)
+    private val templateRepository: TemplateRepository = TemplateRepository.from(application)
 
     internal val templateLibrary: TemplateController =
         TemplateController(
@@ -186,7 +185,6 @@ class PlayerSession internal constructor(
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
     internal val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore)
-    private val audioFxController = playback.audioFx
 
     internal val settings: PlayerSettingsController =
         PlayerSettingsController(
@@ -254,6 +252,7 @@ class PlayerSession internal constructor(
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
             },
+            container.autoDirector::setKept,
         )
 
     val adsrs: StateFlow<String> get() = modulation.adsrs
@@ -947,7 +946,6 @@ class PlayerSession internal constructor(
                 }
 
                 override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                    audioFxController.attach(audioSessionId)
                     settings.refreshAudioFx()
                 }
 
@@ -966,7 +964,6 @@ class PlayerSession internal constructor(
             }
         playerListener = listener
         player.addListener(listener)
-        audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()
     }

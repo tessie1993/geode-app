@@ -23,6 +23,8 @@ struct geode_pcm_ring {
     // geode_pcm_ring_set_snapshots: the writes are a capture's snapshots, stitched onto the capture clock.
     // Writer thread only, like the writes.
     std::unique_ptr<geode::audio::ingest::SnapshotStitch> snapshots{};
+    // A ring kept for the process (geode_pcm_ring_shared): geode_pcm_ring_destroy leaves it alone.
+    bool kept = false;
 
     std::shared_ptr<const geode::audio::ingest::PcmRing> layerRing() const {
         std::lock_guard<std::mutex> lock(layerLock);

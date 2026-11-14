@@ -43,7 +43,11 @@ out vec4 fragColor;
 // adds a noise octave (nebVolOctaves, at most four). Chaos: uWarp/uTurbulence
 // swirl the cloud further through nebWarp3; uTwist via view(). Colour: cloud,
 // lit tops and lightning are pal(). Energy: uIntensity scales the bolt and the
-// band thickening. Space: the rig (camAround, spin 0).
+// band thickening. Space: the rig (camAround, spin 0). Knobs (lib_nebula's
+// roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission, k1
+// TEXTURE the disk's thickness, k2 FLOW added to Warp's swirl, k3 TONE the
+// palette position, k4 BUILD the cloud tops' glow, k5 SPACE the reach of the
+// eye.
 
 #define ST_CAM_R 3.4
 #define ST_SIGMA 7.0
@@ -54,6 +58,8 @@ const mat2 ST_TILT = mat2(0.8253356, 0.5646425, -0.5646425, 0.8253356);
 
 float gT;
 float gBand;
+/** k1 TEXTURE on the disk's thickness. */
+float gThick;
 vec3 gBoltA;
 vec3 gBoltB;
 
@@ -63,7 +69,7 @@ vec3 stormFrame(vec3 p) {
     return p;
 }
 
-float density(vec3 p, float oct) {
+float nebDensity(vec3 p, float oct) {
     p = stormFrame(p);
     float rad = length(p.xz);
     float radial = smoothstep(0.14, 0.34, rad) * (1.0 - smoothstep(1.0, 1.6, rad));
@@ -72,6 +78,7 @@ float density(vec3 p, float oct) {
     float band = cos(3.0 * th + 3.2 * log(max(rad, 0.05)) - gT * 0.12);
     float h = (0.2 + 0.1 * band * (1.0 + gBand)) * (1.0 - 0.4 * smoothstep(0.6, 1.5, rad))
             + 0.16 * exp(-pow((rad - 0.36) / 0.1, 2.0));
+    h *= gThick;
     float vert = 1.0 - smoothstep(0.0, max(h, 0.02), abs(p.y));
     float shape = vert * radial * (0.65 + 0.35 * band);
     if (shape < 0.01) return 0.0;
@@ -80,6 +87,19 @@ float density(vec3 p, float oct) {
     float n = nebFbm3(q, oct);
     return smoothstep(0.3, 0.7, n + 0.35 * (shape - 0.5));
 }
+
+/** What the field holds at a point (lib_nebula_field): the density alone. */
+struct NebHit {
+    float dens;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.dens = nebDensity(p, oct);
+    return h;
+}
+
+//#include lib_nebula_field
 
 /** Distance from p to the bolt segment. */
 float boltDist(vec3 p) {
@@ -91,6 +111,7 @@ float boltDist(vec3 p) {
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
@@ -98,7 +119,15 @@ void main() {
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     gBand = 0.6 * clamp(sndShaped(SND_LOW), 0.0, 1.3) * e;
     float oct = nebVolOctaves(3.0);
-    float key = nebKeyShift(0.12);
+    float kPulse = nebKnob(0);
+    float kTexture = nebKnob(1);
+    float kFlow = nebKnob(2);
+    float kTone = nebKnob(3);
+    float kBuild = nebKnob(4);
+    float kSpace = nebKnob(5);
+    gNebFlow = kFlow;
+    float key = nebKeyShift(0.12) + 0.6 * kTone;
+    gThick = 1.0 + 0.4 * kTexture;
 
     // Where this onset's bolt is: a hashed point in the cloud and a direction.
     float seed = mod(floor(SND_HIT_TIME), 512.0);
@@ -112,7 +141,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, ST_CAM_R, 0.0, ro, rd);
+    camAround(uv, ST_CAM_R * (1.0 + 0.15 * kSpace), 0.0, ro, rd);
     vec3 L = normalize(ST_LIGHT);
 
     vec3 body = nebEmission(0.62 + key, 0.0);
@@ -120,7 +149,9 @@ void main() {
     vec3 boltCol = mix(nebEmission(0.78 + key, 0.6), vec3(1.0), 0.45);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65 + growSlack(1.65, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.035;
         for (int i = 0; i < NEB_VOL_MAX; i++) {
@@ -128,10 +159,10 @@ void main() {
             if (tt > tb.y) break;
             vec3 p = ro + rd * tt;
             float dt = nebVolDt(tt - tb.x, 0.022, 0.012);
-            float dens = density(p, oct);
+            float dens = nebField(p, oct).dens;
             if (dens > 0.002) {
-                float lit = nebLightTap(density(p + L * 0.2, 2.0), 4.0);
-                vec3 emit = body * 0.035 + tops * lit * 0.2;
+                float lit = nebLightTap(nebField(p + L * 0.2, 2.0).dens, 4.0);
+                vec3 emit = body * 0.035 + tops * lit * 0.2 * (1.0 + kBuild);
                 float bd = boltDist(p);
                 emit += boltCol * snare * (exp(-bd * bd * 30.0) * 0.8 + exp(-bd * bd * 900.0) * 1.5);
                 nebVolStep(acc, emit, dens * ST_SIGMA, dt);
@@ -142,7 +173,7 @@ void main() {
     }
 
     vec3 bg = pal(0.68 + key) * 0.015 + nebStars(nebSky(rd), 6.0, 2, vec2(0.0), 1.0, 0.2, hats, gT);
-    vec3 col = acc.rgb + acc.a * bg;
+    vec3 col = (acc.rgb + acc.a * bg) * (1.0 + 0.5 * kPulse);
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

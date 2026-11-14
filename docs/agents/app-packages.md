@@ -36,7 +36,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Settings (`AppSettingsTab`) is a list, then pages.
 - It is a list of fifteen tabs (`SettingsGroupKey`: icon, name, one-line summary).
 - The tabs: Playback, Sound & equalizer, Output & devices, Library, Visual playback, Sound reaction, Photosensitivity & motion, Displays & casting, Wallpaper & screen saver, Gestures & controls, Look, Performance, Export & recording, Preferences, Backup, help & about.
-- Visual playback has the same Auto and style-timer rows as Visuals' quick settings, on the same stores.
+- Visual playback has the same Auto Director and style-timer rows as Visuals' quick settings, on the same stores.
 - Preferences is the home of small choices with no other tab: the watermark's placement (tiled, a corner or an end card) and Pro's switch to add it (`PreferencesSettings`).
 - `SettingsGroupKey.fromName` restores the ten old group names.
 - Each tab is a page with ← the title and ‹ › to the next tab.
@@ -49,24 +49,29 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of eleven category tabs (`CustomizeCategory`): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction, envelope and wave editors), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert; a tab makes no back entry.
+- It is a scrollable row of eleven category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
-- Look has one palette list (`PaletteDropdown`, built-ins then the user's own); the blend's second slot steps through the built-ins.
+- Look has one palette list per style: the Palettes card on the shader styles (they draw the stack), else `PaletteDropdown` (the listed built-ins, then the user's own).
 - Look's Your colours (`PaletteMaker`, `ColourPicker`): up to five colour stops, picked Photoshop-style or with an eyedropper on a still of the visual (`geode_viz_still_request`) or the artwork.
+- Your colours' editor is native text (`geode_palette_maker_*`): the stops, the selected one, Add and Remove and their limits; `PaletteMaker` holds the text and draws its rows.
+- The palette list on a style the stack does not draw is native's rows (`geode_palette_list_view`): its options, the one the look holds, its swatch.
 - The stops are scene params `paletteStop0..4` that loop natively (see native-core.md); the user's palettes are saved in `files/palettes/`.
 - Look's Palettes card (`ui/PaletteStack.kt`, shader styles) is the palette stack: layers from the native library or the user's saved palettes, + to add one, an amount each (`paletteAmount0..7`), Side by side or Mixed. `data/PaletteStackStore` keeps the stack text (`palette_stack` in `geode-prefs`, Creative in a backup) and pushes it process-wide (`geode_palette_stack_set`); every edit and the card's rows are native (`geode_palette_stack_editor`). Presets do not carry the stack yet.
+- The Palettes card draws native's rows (`geode_palette_stack_card`): its words, each layer's amount param, swatch and move-up, and whether Blend and Add show.
 - Which control is where, what is free, which styles show what, and each category's Randomize and Reset are native (`core/viz/CustomizeMap`).
 - A roll moves only what the panel offers on the style, and keeps or opens Dive's and Liquid's own switch.
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
-- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
+- The waves' own Randomize, which randomize-everything runs for the waves already on (Expert has no roll of its own), is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.
-- `CustomizeMapTable` splits the map's rows.
-- `CustomizeControls` draws each control by name.
+- `CustomizeMapTable` splits the map's rows, titles included.
+- `CustomizeControls` draws native's rows (`geode_customize_rows`): one per control that draws on the look and style, with its widget, words, value, range, default, unit and steps.
+- `CustomizeControls` keeps a `when` over the row types and over the panel pieces' ids, which pick the composable; nothing in it reads a param to decide.
+- The panel's words that are not a control's label are `panelText(id)` (`core/viz/PanelText`), not string resources.
 - Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
 - `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
 - Customize › Music's action menu takes its order and dividers from `ModCatalog`'s `music` rows (`MusicMoments.chips`).
@@ -85,7 +90,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A long press on a knob opens its editor (`KnobEditorDialog`).
 - A long press on a Customize slider offers "Add to knob" (`KnobLinks`, from `geode_macro_bank_controls`, which also marks the sliders a knob moves).
 - `VisualsSettingsPage` (`VisualsQuickSettings.kt`) is Visuals › Settings, the page the ⚙ at the top of the visual opens (no gesture).
-- Visuals › Settings holds Auto and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- Visuals › Settings holds the Auto Director (first row, with a line on what it does) and its reach, the style timer and its sources, the visual playlist, sheet glass and mini player fade, writing the same stores as Settings.
+- The Auto Director switch lives only there and in Settings › Visual playback; Customize has none.
 - Studio (`StudioHub`: Render and My videos (`MyVideosTab`)) owns export, loop render and export defaults.
 - Studio has no editor: the owner dropped video editing (#227).
 - Record (`RecordController`, Pro) is a live video of the visual and what it hears, until the user stops or Settings › Export › Record's maximum length (`ui/RecordSettings`).
@@ -176,12 +182,14 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
 - Capture sources: mic, other apps' audio.
-- `AudioBus` holds the session's `SampleRing` for the wallpaper and dream.
+- `AudioBus` holds the session's player ring handle (0 for none) for the wallpaper and dream.
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
 - `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- The extractor's read sizes, the gap to the samples and the whole-frame cut of what it holds are native too (`aiffReadBytes`, `aiffGapBytes`, `aiffWholeBytes`).
+- `AudioFxController`'s band and dB labels are native (`core/audio/dsp/FxRanges`, `geode_dsp_band_label`, `geode_dsp_db_label`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
@@ -202,7 +210,10 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `data`
 
-- Open first: `PresetStore`, `TemplateRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
+- Open first: `PresetRepository`, `VideoTemplate`, `GeodePrefsFiles`, `GeneralSettings`.
+- `PresetRepository.kt` holds `Preset` and `PresetStore`, the preset folders' I/O; every preset's JSON, file name and order is native (`core/viz/LookFiles`, `geode_preset_*`).
+- `PaletteStackStore.kt` holds `CustomPalette` (a saved palette's file text) and `PaletteStore`, the saved palettes' folder I/O; the format, ids and migration are native (`geode_saved_palette_*`).
+- `VideoTemplate.kt` ends with `TemplateRepository`, the template library's folder I/O and StateFlow; file names, an import's name and the starter set are native (`geode_template_*`).
 - Stores (SharedPreferences, JSON files) and their repositories.
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
 - `MilkPathPrefs`: the last MilkDrop preset's path (`geode-viz`, key `milk_path`).
@@ -222,22 +233,32 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
+- `PerformanceSettings` is the value it keeps, with `PerformanceMode` and `LiquidHotPolicy`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
 - The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.
 - Customize's tab and open groups are `CustomizeGroupsStore` on a `SettingsRepository`: state, never in a backup.
 - Quick knobs' macro bank is `MacroStore`: the native bank text, one key, pushed to native once its read at process start is back, and on every edit.
+- Customize › Layers' layer is native's (`core/viz/LayerState`); Kotlin keeps no layer state.
+- `LookStore` saves the line native hands back after each Layers edit (`customize_layer` in `geode-prefs`, Creative in a backup).
+- `LookStore.pushLayer` hands native the saved line: the container on IO at process start, `pushProcessWide` for the wallpaper and the dream.
+- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`GeodeNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
 - Each macro edit is saved as made; a new knob is a draft until saved.
 - A knob off screen is kept in the bank's library for Add macro to put back.
 - `MacroEditorTable` reads the knob editor's rows.
 - The dials' size is `GeneralSettings.knobSize`.
 - `AutoDirectorStore` keeps the auto-director's switch and reach (Visuals quick settings), play seed and Customize's keep set, pushed to native the same way.
+- `AutoDirectorStore` also keeps the Auto Director's settings as the text native writes (`auto_director_tuning`); Visuals › Settings draws native's rows under Director settings.
+- Its `setKept` is the keep set's one writer: the saved set at start, then each lock change `ui/ModulationController` saves.
 - Note & key reactions' switch is `NoteResponseStore` (`ui/NoteResponseSettings`).
 - Studio's project and template folders are `EditorProjectStore`: `files/projects/<id>/`; the old replayed takes are deleted at start.
 - Where recordings go, asked once, is `RecordSaveStore`.
 - What recordings are encoded at and how long one may run is `RecordPrefsStore` (Settings › Export › Record): resolution and frame rate, which follow the Custom defaults until picked, and a maximum length.
 - The offered lengths and the size estimate are native (`core/output/RecordPlan`, `geode_record_*`).
 - `LookStore` is the saved look snapshot for the wallpaper, the dream and Cast (the session's keys, plus `pushProcessWide` for the hand mask).
+- `LookSnapshot` is the one value every host draws (#345): style, params, LFOs, envelopes, the user's reactions, sound tuning, reduced motion, transition, underlay.
+- `LookSource.pin` freezes the snapshot for a render; `gentleFlight` is the dream's override.
+- `LookSnapshot`'s first style and fade are native's (`geode_viz_look_defaults`).
 - Settings › Export's per-destination defaults are `ExportPrefsStore` and `ExportDestination`.
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
@@ -254,7 +275,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Pure value types shared across layers, staged for `:core:model` (ADR 0001 step 2). No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
 - `render/scene/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
-- `render/scene/StyleLabels` maps a style or family id to its string resource (`style_<id>`, `style_family_<name>`).
+- A style's and a family's display name are native (`GeodeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
@@ -286,6 +307,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
+- The rate a mix's clips share is native (`GeodeNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
 - A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.
@@ -302,6 +324,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The background image layer.
 - The artwork palette's shell (`ArtPalette`): a cover's pixels to native `core/viz/ArtPalette`, `geode_art_palette_extract`.
 - Customize › Look's "Take the colours from the artwork" and the widget's glow read it.
+- `NativeViz`: a `geode_viz` handle for Cast's fallback, the export scene and the render tests; live surfaces draw on the native stage (`stage/`).
+- `NativeViz.setLook` hands the whole look across; native passes on only the parts that changed (`geode_viz_set_look`), and a new handle gets the whole look.
+- A live frame is one native call, `NativeViz.frame` (`geode_viz_frame`, `core/viz/frame/LiveFrame`); the renderer acts only on the events it returns.
 
 ## `stage`
 
@@ -359,6 +384,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
+- Cast's sound (the ring read, the resample to 48 kHz, the hold and the silence pad) is native in `core/output/CastAudioPump`; `CastStream`'s `AudioPump` hands each block to `CastEncoder` and `OpusFeed`.
 - `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
 - `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.

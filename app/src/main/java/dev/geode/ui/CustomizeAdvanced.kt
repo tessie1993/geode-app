@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -19,8 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -61,8 +59,8 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlin.reflect.KProperty1
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
@@ -113,8 +111,8 @@ internal fun ReactionsSection(
     // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
     // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
     val routes =
-        remember(sceneId, p.reactSeed, reactions, handMask) {
-            GeodeNative.modRoutesPlaying(sceneId, p.reactSeed, reactions, handMask)
+        remember(sceneId, p.int("reactSeed"), reactions, handMask) {
+            GeodeNative.modRoutesPlaying(sceneId, p.int("reactSeed"), reactions, handMask)
         }
     val each = GeodeNative.MOD_ROUTE_VALUES
     val count = routes.size / each
@@ -451,47 +449,67 @@ private fun AdsrSlider(
     LabeledSlider(label, values.getOrElse(field) { 0f }, ModCatalog.range(range), unit = unit) { onChange(field, it) }
 }
 
-/** Expert › Layers: a second style drawn under the active one. */
+/**
+ * Expert › Layers: a second style drawn over the active one. Native keeps the layer, process-wide, and decides which
+ * style it draws and everything this page offers (core/viz/LayerState, core/viz/LayerPick); the page draws the values
+ * and lists native hands it, hands each choice back, and saves the line native returns ([dev.geode.data.LookStore]).
+ */
 @Composable
 internal fun LayersPage() {
-    val layers by LayersBus.state.collectAsStateWithLifecycle()
-    val layerScenes by LayersBus.availableScenes.collectAsStateWithLifecycle()
-    val activeScene by LayersBus.activeSceneId.collectAsStateWithLifecycle()
-    ControlHint(
-        stringResource(R.string.customize_layers_hint),
-    )
-    CheckRow(LAYERS_ENABLED, layers.enabled, scope = ParamScope.UNIVERSAL) { on ->
-        val scene = layers.sceneId ?: layerScenes.firstOrNull { it != activeScene }
-        LayersBus.state.value = layers.copy(enabled = on, sceneId = scene)
-    }
-    if (!layers.enabled || !sectionVisible()) return
-    var showLayerPicker by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { showLayerPicker = true }) {
-            val layerStyle = layers.sceneId?.let { sceneDisplayLabel(it) } ?: stringResource(R.string.customize_layer_none)
-            Text(stringResource(R.string.customize_layer_style, layerStyle))
+    val looks = LocalContext.current.geodeContainer.looks
+    val active = LocalSceneId.current
+    var edits by remember { mutableIntStateOf(0) }
+    // Read again now and then too: what Auto Director or a knob draws moves without an edit here.
+    val shown by produceState(GeodeNative.layerShown(active), active, edits) {
+        while (true) {
+            value = GeodeNative.layerShown(active)
+            delay(LAYER_SHOWN_POLL_MS)
         }
-        DropdownMenu(expanded = showLayerPicker, onDismissRequest = { showLayerPicker = false }) {
-            layerScenes.filter { it != activeScene }.forEach { id ->
-                DropdownMenuItem(
-                    text = { Text(sceneDisplayLabel(id)) },
-                    onClick = {
-                        LayersBus.state.value = layers.copy(sceneId = id)
-                        showLayerPicker = false
-                    },
-                )
+    }
+    // The style picker's family as the user browses it; -1 is native's, the one holding the style drawn now.
+    var family by remember(shown) { mutableIntStateOf(-1) }
+    val values = remember(active, family, edits, shown) { GeodeNative.layerValues(active, family) }
+    val edit = { field: Int, value: Float, styleId: String ->
+        GeodeNative.layerEdit(field, value, styleId).takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
+        edits += 1
+    }
+    val list = { which: Int -> GeodeNative.layerList(which, active, values[GeodeNative.LAYER_FAMILY].toInt()).asList() }
+    ControlHint(stringResource(R.string.customize_layers_hint))
+    val on = values[GeodeNative.LAYER_ON] > 0f
+    CheckRow(LAYERS_ENABLED, on, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_ON, if (it) 1f else 0f, "") }
+    if (!on || !sectionVisible()) return
+    val source = values[GeodeNative.LAYER_SOURCE].toInt()
+    DropdownRow(stringResource(R.string.customize_layer_from), list(GeodeNative.LAYER_LIST_SOURCES), source) {
+        edit(GeodeNative.LAYER_SOURCE, it.toFloat(), "")
+    }
+    when (source) {
+        GeodeNative.LAYER_SOURCE_USER -> {
+            val families = list(GeodeNative.LAYER_LIST_FAMILIES).map { GeodeNative.styleFamilyLabel(it) }
+            val styles = list(GeodeNative.LAYER_LIST_STYLES)
+            DropdownRow(stringResource(R.string.customize_layer_family), families, values[GeodeNative.LAYER_FAMILY].toInt()) { family = it }
+            DropdownRow(
+                stringResource(R.string.customize_layer_pick),
+                styles.map { GeodeNative.styleLabel(it) },
+                values[GeodeNative.LAYER_STYLE].toInt(),
+                placeholder = stringResource(R.string.customize_layer_suits),
+            ) { edit(GeodeNative.LAYER_STYLE, 0f, styles[it]) }
+            if (values[GeodeNative.LAYER_PICKED] > 0f) {
+                TextButton(onClick = { edit(GeodeNative.LAYER_STYLE, 0f, "") }) { Text(stringResource(R.string.customize_layer_suits)) }
             }
         }
-    }
-    if (layers.sceneId != null && layers.sceneId == activeScene) {
-        ControlHint(stringResource(R.string.customize_layer_idle_hint))
-    }
-    val blendNames =
-        remember {
-            runCatching { GeodeNative.layerBlendNames().lines().filter { it.isNotEmpty() } }.getOrDefault(emptyList())
+        GeodeNative.LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
+        GeodeNative.LAYER_SOURCE_MACRO -> {
+            val knob = values[GeodeNative.LAYER_KNOB].toInt()
+            DropdownRow(stringResource(R.string.customize_layer_knob), list(GeodeNative.LAYER_LIST_KNOBS), knob) {
+                edit(GeodeNative.LAYER_KNOB, it.toFloat(), "")
+            }
+            ControlHint(stringResource(R.string.customize_layer_macro_hint))
         }
-    DropdownRow("Blend", blendNames, layers.blend) { LayersBus.state.value = layers.copy(blend = it) }
-    LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
+    }
+    if (shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(shown)))
+    val blend = values[GeodeNative.LAYER_BLEND].toInt()
+    DropdownRow("Blend", list(GeodeNative.LAYER_LIST_BLENDS), blend) { edit(GeodeNative.LAYER_BLEND, it.toFloat(), "") }
+    LabeledSlider(LAYER_MIX, values[GeodeNative.LAYER_MIX], 0f..1f, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_MIX, it, "") }
 }
 
 /**
@@ -504,8 +522,8 @@ private fun NoteKeySlider(
     @StringRes name: Int,
     @StringRes hint: Int,
     p: SceneParams,
-    param: KProperty1<SceneParams, Float>,
-    onChange: (Float) -> Unit,
+    param: String,
+    onChange: (SceneParams) -> Unit,
 ) {
     val label = stringResource(name)
     LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
@@ -527,21 +545,11 @@ internal fun NoteKeyPage(
     val running by remember { context.geodeContainer.noteResponse }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
-        onChange(p.copy(notePitch = it))
-    }
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, SceneParams::noteIntervals) {
-        onChange(p.copy(noteIntervals = it))
-    }
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, SceneParams::noteTension) {
-        onChange(p.copy(noteTension = it))
-    }
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, SceneParams::noteChords) {
-        onChange(p.copy(noteChords = it))
-    }
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, SceneParams::noteDrums) {
-        onChange(p.copy(noteDrums = it))
-    }
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, "notePitch", onChange)
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, "noteIntervals", onChange)
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, "noteTension", onChange)
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, "noteChords", onChange)
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, "noteDrums", onChange)
 }
 
 private const val TRANSITION_CHIP_LIMIT = 40
@@ -614,15 +622,6 @@ internal fun TransitionPicker(
         ControlHint(stringResource(R.string.customize_transitions_more, shown.size - TRANSITION_CHIP_LIMIT))
     }
 }
-
-/** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
-@Composable
-internal fun liquidHotNote(liquidMode: Int): String? =
-    when (liquidMode) {
-        2, 3 -> stringResource(R.string.customize_liquid_hot_simplified)
-        4 -> stringResource(R.string.customize_liquid_hot_paused)
-        else -> null
-    }
 
 /**
  * Expert › Shader code: the custom fluid shaders (force and dye) on Fluid. The style's own shader box
@@ -716,3 +715,6 @@ private const val ENV_SUSTAIN_TRACK = "Sustain follows the sound"
 private const val ENV_RETRIGGER = "Restart on every hit"
 private const val LAYERS_ENABLED = "Layers enabled"
 private const val LAYER_MIX = "Layer mix"
+
+// How often Customize › Layers reads again what Auto Director or a knob draws.
+private const val LAYER_SHOWN_POLL_MS = 1000L

@@ -47,8 +47,7 @@ out vec4 fragColor;
 //   bass         the swell's height;
 //   centroid     caustic sharpness: bright mixes cut thin, bright lines;
 //   flatness     turbidity: the water clouds, softening the floor and the net;
-//   pan          the sun's bearing (the look's yaw): the net leans, the glitter
-//                road and the sun walk with the mix;
+
 //   pitch        the sun's height;
 //   hat          the glitter sparkles, and glints on the floats.
 //
@@ -120,10 +119,13 @@ float gAmp;
 float gHue;
 float gTile;
 float gDepthGain;
-/** Set by map(): 0 water, 1 deck, 2 float; the float's rope x and cell z. */
-float gMat;
-float gRope;
-float gCell;
+/** What the field holds at a point (lib_glass_field): the distance; 0 water, 1 deck, 2 float; the float's rope x and cell z. */
+struct GlassHit {
+    float d;
+    float mat;
+    float rope;
+    float cell;
+};
 
 /**
  * The surface at world point xz: height in .x, slope in .yz, its Hessian
@@ -172,7 +174,7 @@ float poolDepth(float z) {
     return mix(1.4, 2.6, 0.5 + 0.5 * sin(z * (PL_TAU / 64.0))) * gDepthGain;
 }
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
     vec3 hh;
     float dy = p.y - PL_WATER;
     float inPool = abs(p.x) - PL_HALF;
@@ -193,17 +195,16 @@ float map(vec3 p) {
         df = min(length(r) - 0.075, 0.5 * PL_PITCH - abs(p.z - cz) + 0.075);
     }
     float d = min(dw, min(dd, df));
-    gMat = d == df ? 2.0 : (d == dd ? 1.0 : 0.0);
-    gRope = lx;
-    gCell = cz;
-    return max(d, PL_BUBBLE - length(p - gEye));
+    GlassHit h;
+    h.mat = d == df ? 2.0 : (d == dd ? 1.0 : 0.0);
+    h.rope = lx;
+    h.cell = cz;
+    h.d = max(d, PL_BUBBLE - length(p - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_glass_field
+
 
 /** Grout at tile coordinates f: 1 on the line. */
 float grout(vec2 f) {
@@ -243,6 +244,7 @@ vec3 copingFace(vec2 f) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
@@ -250,14 +252,16 @@ void main() {
     ro.z = mod(ro.z, PL_ZWRAP);
     // Skim, never dive: the eye stays over the water and the floats.
     ro.y = max(ro.y, PL_WATER + 0.45);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
 
     gT = glassTime() * 0.8;
     GlassEar ear = glassListen();
@@ -289,13 +293,15 @@ void main() {
     // ---- the march ----
     float t = 0.02;
     float hitT = -1.0;
+    // Below the deck the world draws the sea; the deck's depth is widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float deckLow = PL_WATER - 2.5 - growSlack(abs(PL_WATER - 2.5 - ro.y), 1.0, 0.2);
     for (int i = 0; i < PL_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
         // Past the infinity edge and below the deck: the dusk sea, drawn by the world.
-        if (p.y < PL_WATER - 2.5) break;
-        float d = map(p);
+        if (p.y < deckLow) break;
+        float d = glassField(p).d;
         if (d < glassEps(t)) {
             hitT = t;
             break;
@@ -308,17 +314,17 @@ void main() {
     vec3 col = sky;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        map(p);
-        float mat = gMat;
-        float rope = gRope;
-        float cell = gCell;
+        GlassHit hit = glassField(p);
+        float mat = hit.mat;
+        float rope = hit.rope;
+        float cell = hit.cell;
         if (mat < 0.5) {
             // ---- water ----
             vec3 hs;
             vec3 w = surface(p.xz, hs);
             vec3 n = normalize(vec3(-w.y, 1.0, -w.z));
-            float fr = glassFresnel(max(dot(n, -rd), 0.0), 1.33);
-            vec3 rf = refract(rd, n, 1.0 / 1.33);
+            float fr = glassFresnel(max(dot(n, -rd), 0.0), glassIor(1.33));
+            vec3 rf = refract(rd, n, 1.0 / glassIor(1.33));
             rf = normalize(vec3(rf.x, min(rf.y, -0.05), rf.z));
             // The floor, met analytically, refined once for the depth profile; or a wall first.
             float tF = (p.y - (PL_WATER - poolDepth(p.z))) / -rf.y;
@@ -355,7 +361,7 @@ void main() {
             glit *= (0.3 + 2.5 * ear.hat) * step(0.8, glassHash(floor(p.xz * 40.0) + floor(gT * 8.0)));
             col = under * (1.0 - fr) + refl * fr * 2.0 + sunCol * (road + glit * 3.0) * (1.0 + 0.6 * kBuild);
         } else {
-            vec3 n = normalAt(p, max(glassEps(hitT), 0.0015));
+            vec3 n = glassNormal(p, max(glassEps(hitT), 0.0015));
             float dif = max(dot(n, sunDir), 0.0);
             float fres = glassFresnel(max(dot(n, -rd), 0.0), 1.5);
             if (mat < 1.5) {

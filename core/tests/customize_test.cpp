@@ -192,7 +192,8 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
     check(kept.count("Bloom"), "a control's own lock passes through");
     check(!kept.count("#MOTION") && !kept.count("#NO_SUCH"), "markers do not stay in the set");
     check(!kept.count("Palette") && !kept.count("Camera path"), "other categories stay free");
-    check(customize::expandLocks({"#MUSIC"}).count("@waves"), "a kept Music keeps the waves, which its roll re-rolls");
+    check(customize::expandLocks({"#EXPERT"}).count("@waves"), "a kept Expert keeps the waves, which a roll of everything re-rolls");
+    check(!customize::expandLocks({"#MUSIC"}).count("@waves"), "the waves are Expert's, not Music's");
 
     const SceneParams start;
     const auto motion = fieldsOfCategory(Category::Motion);
@@ -384,7 +385,7 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     p.speed = defaults.speed + 1.0f;
     check(customize::changedCount(p) == 1, "one moved float counts once");
     p.flowEnabled = true;
-    p.symmetry = defaults.symmetry + 1;
+    p.camPath = defaults.camPath + 1;
     check(customize::changedCount(p) == 3, "a flag and a pick count too");
     p.speed = defaults.speed;
     check(customize::changedCount(p) == 2, "a value put back stops counting");
@@ -421,8 +422,11 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("crystal_canyon", "CAMERA/framing") && shownSection("crystal_canyon", "CAMERA/feel"),
           "framing and feel on a style on the rig");
     for (const char* id : {"outrun_drive", "ringed_planet", "ribbon_storm"}) {
-        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig without a march");
+        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig, remade as a march");
     }
+    check(shownSection("life_orbium", "CAMERA/framing") && shownSection("life_orbium", "CAMERA/feel") &&
+              shownSection("life_orbium", "SHAPE/basics"),
+          "life_orbium: presented in 3D on the rig, its Morph and Detail shown");
     for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
         check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
     }

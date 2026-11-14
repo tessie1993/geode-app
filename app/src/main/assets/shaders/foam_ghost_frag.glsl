@@ -23,7 +23,9 @@ out vec4 fragColor;
 //
 // lib_foam's defaults; each shell crossed glows with its nesting level's own
 // band, so the spectrum reads in depth: the bass lights the deep spheres, the
-// hats the near shells. The ring train passes through the whole volume.
+// hats the near shells. The ring train passes through the whole volume. The
+// knobs as lib_foam's: k4 BUILD the shells' glow, k5 SPACE how far the walk's
+// light carries.
 
 #define GH_STEPS 96
 #define GH_FAR 9.0
@@ -40,19 +42,19 @@ void main() {
     for (int i = 0; i < GH_STEPS; i++) {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        float d = foamMap(p);
-        float ad = abs(gFoamD);
+        FoamSample f = foamField(p);
+        float ad = abs(f.foamD);
         // Inside the bore step by the bore's distance; among the shells, by the
         // distance to the nearest one either side, floored so the walk goes on.
-        float stepLen = gFoamMask < 0.5 ? max(d, 0.03) : max(ad * 0.8, 0.025);
-        float trap = foamSat(sqrt(min(gFoamOrb.w, FOAM_TRAP_FAR)) * 0.75);
-        float shell = exp(-ad * 45.0) * gFoamMask;
-        acc += foamColor(0.2 + 0.6 * trap) * shell * stepLen * (0.5 + 0.9 * sndSpectrum(trap)) * exp(-0.12 * t);
+        float stepLen = f.mask < 0.5 ? max(f.d, 0.03) : max(ad * 0.8, 0.025);
+        float trap = foamSat(sqrt(min(f.orb.w, FOAM_TRAP_FAR)) * 0.75);
+        float shell = exp(-ad * 45.0) * f.mask;
+        acc += foamColor(0.2 + 0.6 * trap) * shell * stepLen * (0.5 + 0.9 * sndSpectrum(trap)) * exp(-0.12 * t / gFoamReach);
         rings += foamRingAt(p) * shell * stepLen;
         t += stepLen;
         if (t > GH_FAR) break;
     }
-    vec3 col = foamBackdrop(rd) * 0.4 + acc * 6.0;
+    vec3 col = foamBackdrop(rd) * 0.4 + acc * (6.0 * gFoamGlow);
     col += gFoamAccent * (1.0 - exp(-rings * 8.0)) * (0.2 + 0.8 * gFoamOnset);
     fragColor = foamFinish(col);
 }

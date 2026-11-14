@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -7,8 +8,10 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "audio/dsp/PcmConvert.hpp"
 #include "audio/ingest/AiffReader.hpp"
 #include "audio/ingest/PcmRing.hpp"
+#include "audio/ingest/RingKinds.hpp"
 #include "audio/ingest/TrackFeed.hpp"
 #include "sound/Silence.hpp"
 
@@ -29,6 +32,7 @@ static_assert(GEODE_AIFF_SCAN_MAX_READ == AiffHeaderScan::kMaxRead);
 static_assert(GEODE_AIFF_PCM_NONE == AiffHeader::kNotPlayed && GEODE_AIFF_PCM_S16_LE == AiffHeader::kS16Le);
 static_assert(GEODE_AIFF_PCM_S16_BE == AiffHeader::kS16Be && GEODE_AIFF_PCM_S24_BE == AiffHeader::kS24Be);
 static_assert(GEODE_AIFF_PCM_S32_BE == AiffHeader::kS32Be);
+static_assert(GEODE_AIFF_MAX_SAMPLE_BYTES == geode::audio::ingest::kAiffMaxSampleBytes);
 
 int report(const PcmRing::Written& written, float* peak_out) {
     if (peak_out) *peak_out = written.peak;
@@ -42,12 +46,27 @@ PcmRing::Written stitched(geode_pcm_ring* r, const void* data, size_t bytes, int
     return r->snapshots->write(*r->ring, data, bytes, encoding, channels, rate, nowNs);
 }
 
-// Float to 16-bit for Cast's encoder: clamped, scaled by 32767 and rounded, as the Kotlin it replaces
-// did (the export's floatToS16 truncates); NaN becomes 0.
-int16_t roundToS16(float v) {
-    if (std::isnan(v)) return 0;
-    const float clamped = v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
-    return static_cast<int16_t>(std::lrintf(clamped * 32767.0f));
+static_assert(GEODE_PCM_RING_PLAYER == geode::audio::ingest::kPlayerRing);
+static_assert(GEODE_PCM_RING_MIC == geode::audio::ingest::kMicRing);
+static_assert(GEODE_PCM_RING_OUTPUT_MIX == geode::audio::ingest::kOutputMixRing);
+
+using ProcessRings = std::array<geode_pcm_ring*, geode::audio::ingest::kRingKinds>;
+
+// Made on the first ask and never freed, not even at exit, so no thread still writing or reading one then
+// reaches a freed ring. Null where a kind is not kept for the process or there was no memory.
+const ProcessRings& processRings() {
+    static const ProcessRings rings = [] {
+        ProcessRings made{};
+        for (int kind = 0; kind < geode::audio::ingest::kRingKinds; ++kind) {
+            if (!geode::audio::ingest::kRingSpecs[kind].perProcess) continue;
+            geode_pcm_ring*& ring = made[static_cast<size_t>(kind)];
+            ring = geode_pcm_ring_create_kind(kind);
+            if (ring) ring->kept = true;
+        }
+        geode_pcm_ring_set_layer(made[geode::audio::ingest::kPlayerRing], made[geode::audio::ingest::kMicRing]);
+        return made;
+    }();
+    return rings;
 }
 
 }  // namespace
@@ -85,8 +104,32 @@ geode_pcm_ring* geode_pcm_ring_create(int capacity_frames, int channels, int max
     }
 }
 
+geode_pcm_ring* geode_pcm_ring_create_kind(int kind) {
+    const geode::audio::ingest::RingSpec* spec = geode::audio::ingest::ringSpec(kind);
+    if (!spec) return nullptr;
+    geode_pcm_ring* r = geode_pcm_ring_create(spec->capacityFrames, spec->channels, spec->maxWriteFrames);
+    // Without memory for the stitch the ring still hears the capture, unstitched.
+    if (r && spec->snapshots) geode_pcm_ring_set_snapshots(r, 1);
+    return r;
+}
+
+geode_pcm_ring* geode_pcm_ring_shared(int kind) {
+    if (kind < 0 || kind >= geode::audio::ingest::kRingKinds) return nullptr;
+    try {
+        return processRings()[static_cast<size_t>(kind)];
+    } catch (...) {
+        // The first ask could not lock the layer's mutex: nothing was kept, and the next ask tries again.
+        return nullptr;
+    }
+}
+
 void geode_pcm_ring_destroy(geode_pcm_ring* r) {
+    if (r && r->kept) return;
     std::unique_ptr<geode_pcm_ring> owned(r);
+}
+
+int geode_pcm_ring_max_write_frames(const geode_pcm_ring* r) {
+    return r ? r->ring->maxWriteFrames() : 0;
 }
 
 int geode_pcm_ring_write_f32(geode_pcm_ring* r, const float* interleaved, int frames, int channels, int sample_rate,
@@ -206,7 +249,7 @@ int geode_pcm_cursor_take_s16(geode_pcm_cursor* c, int16_t* out, int capacity_fr
     if (sample_rate) *sample_rate = take.sampleRateHz;
     const size_t samples = static_cast<size_t>(take.frames) * static_cast<size_t>(c->cursor.channels());
     const float* in = c->cursor.interleaved();
-    for (size_t i = 0; i < samples; ++i) out[i] = roundToS16(in[i]);
+    for (size_t i = 0; i < samples; ++i) out[i] = geode::audio::roundToS16(in[i]);
     return take.frames;
 }
 
@@ -284,6 +327,23 @@ int64_t geode_aiff_time_us(int64_t bytes, int bytes_per_frame, int sample_rate) 
 
 int64_t geode_aiff_seek_offset(int64_t time_us, int bytes_per_frame, int sample_rate, int64_t data_bytes) {
     return geode::audio::ingest::aiffSeekOffset(time_us, bytes_per_frame, sample_rate, data_bytes);
+}
+
+int64_t geode_aiff_gap_bytes(int64_t position, int64_t data_start) {
+    return geode::audio::ingest::aiffGapBytes(position, data_start);
+}
+
+int geode_aiff_read_bytes(int64_t position, int64_t data_start, int64_t data_bytes) {
+    return geode::audio::ingest::aiffReadBytes(position, data_start, data_bytes);
+}
+
+int geode_aiff_whole_bytes(int pending, int bytes_per_frame) {
+    return geode::audio::ingest::aiffWholeBytes(pending, bytes_per_frame);
+}
+
+int64_t geode_aiff_pending_time_us(int64_t position, int64_t data_start, int pending, int bytes_per_frame,
+                                   int sample_rate) {
+    return geode::audio::ingest::aiffPendingTimeUs(position, data_start, pending, bytes_per_frame, sample_rate);
 }
 
 geode_track_feed* geode_track_feed_create(int64_t start_ms) {

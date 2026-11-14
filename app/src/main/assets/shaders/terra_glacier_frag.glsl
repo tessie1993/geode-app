@@ -37,7 +37,7 @@ out vec4 fragColor;
 // Speed scales the glints' shimmer and the Chaos drift. Complexity
 // (uMorph) fades in an octave of shelf detail. Chaos (uWarp, uTurbulence,
 // uTwist) bends the shelves and cracks (terraChaos). Energy (uIntensity)
-// scales the snare's crack and glints. Colour is pal() in the ice's blues and
+// scales the snare's crack and glints. Colour is terraPal() in the ice's blues and
 // the sky. Space is the rig.
 
 #define GC_MAX_STEPS 120
@@ -55,7 +55,7 @@ float crack(vec2 xz) {
     return 1.0 - smoothstep(0.0, gCrackW, abs(c - 0.5));
 }
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     xz = terraChaos(terraWrap(xz));
     float f = terraFbm(xz, gOct);
     float s = f * GC_SHELVES;
@@ -63,14 +63,18 @@ float height(vec2 xz) {
     return GC_AMP * mix(f, terr, 0.75) - 0.35 * crack(xz);
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
     float t0 = terraTime();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float energy = terraEnergy();
     float snare = clamp(SND_SNARE_ENV * energy, 0.0, 1.0);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.2);
-    gCrackW = 0.03 + 0.02 * snare;
+    // TEXTURE the cracks' width (lib_terra's shell), the snare opening them on top.
+    gCrackW = 0.03 * gTerraWidth + 0.02 * snare;
     gOct = terraOctaves(4.0);
 
     vec3 ro;
@@ -79,8 +83,8 @@ void main() {
 
     vec3 sun = normalize(vec3(-0.5, 0.18, 0.85));
     vec3 sunCol = vec3(1.0, 0.97, 0.92);
-    vec3 zenith = mix(vec3(0.30, 0.48, 0.70), pal(0.58) * 0.6, 0.2);
-    vec3 horizon = mix(vec3(0.80, 0.88, 0.95), pal(0.52), 0.12);
+    vec3 zenith = mix(vec3(0.30, 0.48, 0.70), terraPal(0.58) * 0.6, 0.2);
+    vec3 horizon = mix(vec3(0.80, 0.88, 0.95), terraPal(0.52), 0.12);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -94,7 +98,7 @@ void main() {
             if (t > span.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -111,14 +115,14 @@ void main() {
     vec3 col = terraSky(rd, sun, zenith, horizon, sunCol);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.008);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.008);
         vec2 w = terraChaos(terraWrap(p.xz));
         float cr = crack(w);
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
         float fres = pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
         float spec = pow(max(dot(reflect(rd, n), sun), 0.0), 40.0);
-        vec3 deep = mix(vec3(0.05, 0.30, 0.55), pal(0.6) * 0.6, 0.25) * (1.0 + 0.5 * bass);
+        vec3 deep = mix(vec3(0.05, 0.30, 0.55), terraPal(0.6) * 0.6, 0.25) * (1.0 + 0.5 * bass);
         vec3 ice = mix(vec3(0.82, 0.90, 0.98), vec3(0.45, 0.70, 0.90), (1.0 - smoothstep(0.5, 0.9, n.y)));
         ice = mix(ice, deep, cr);
         col = ice * (dif * sunCol * 0.9 + sky * zenith * 0.7) * terraStepAO(used);

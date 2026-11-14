@@ -14,8 +14,18 @@ namespace geode::viz {
 // Each style draws a personality: what its picture does on the pulse. A Chroma
 // style changes hue, a Flash style blooms, a Swing style looks somewhere new, a
 // Warp style bends. It draws a second one from another group for the snare
-// side of the groove, then layers for the big moments, the sustained levels,
-// the top end, colour over the song, rises and the melody. No layer has a
+// side of the groove. The kick side always hears the kick and the snare side
+// the snare or the hats, so every style answers the drums whatever else it
+// hears; then layers for the big moments, the sustained levels,
+// the top end, colour over the song, rises and the melody, then the
+// transients, which every style hears, and last the song's long time (every
+// 4 bars or every phrase, counted on the music's own bars) and its tune (the
+// melody's line, height, notes or presence), its harmony or its form (chords
+// and their motion, tension, key, scale; sections, their return and progress,
+// the song part, builds, drops, novelty) and its feel and timbre (mood, the
+// key's character, the kind of feeling, brightness, noisiness, how the tune is
+// played), which every style hears too. No continuous layer follows the absolute loudness: volume is not
+// what the picture hears. No layer has a
 // fixed source: each draws its own from a pool of GeodeSoundFrame sources
 // (which kick, which level, what drives hue), so styles that share a
 // personality still listen to different parts of the music.
@@ -34,7 +44,7 @@ enum class Personality {
     Split,   // the colour channels split apart on the beat
     Swing,   // the camera looks somewhere new per beat
     Lens,    // a fisheye bulge on the beat
-    Spin,    // turns a notch per beat (only styles that turn)
+    // No personality turns the picture on the beat: the owner took every sound-driven spin out.
     Morph,   // the shape morphs on the beat (only shader styles)
 };
 constexpr int kPersonalityCount = static_cast<int>(Personality::Morph) + 1;
@@ -52,6 +62,15 @@ struct StyleDna {
     // The DNA leaves the last slots free, so the user and the Events tab's
     // recipes can add routes without removing any.
     static constexpr int kMaxRoutes = ReactionEngine::kRoutes - 3;
+    // The groove's layers (the pulse … the transient) fill at most this many;
+    // the musical layers (bars, tune, harmony and form, feel and timbre) come
+    // after, within kMaxRoutes. The groove gave up one slot for them: a full
+    // groove now drops its last-drawn optional layer (a texture, an accent, a
+    // rise, a cruise, a lean, a lift) where it used to keep it. A zoom
+    // personality's beat zoom brings one more slot of its own.
+    static constexpr int kGrooveRoutes = 8;
+    static constexpr int kMusicalLayers = 4;
+    static_assert(kGrooveRoutes + 1 + kMusicalLayers <= kMaxRoutes, "the beat zoom and the musical layers fit");
 
     std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
     int count = 0;

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "api/geode_api.h"
+#include "audio/dsp/FxRanges.hpp"
 
 namespace {
 
@@ -153,6 +154,42 @@ void encode() {
     check(restoresText(-1, saved.c_str(), stored), "what is saved restores the same");
 }
 
+std::string bandLabel(int band) {
+    char buf[32];
+    const int need = geode_dsp_band_label(band, buf, static_cast<int>(sizeof buf));
+    return need == static_cast<int>(std::strlen(buf)) ? std::string(buf) : std::string("<length mismatch>");
+}
+
+std::string dbLabel(int millibels) {
+    char buf[32];
+    const int need = geode_dsp_db_label(millibels, buf, static_cast<int>(sizeof buf));
+    return need == static_cast<int>(std::strlen(buf)) ? std::string(buf) : std::string("<length mismatch>");
+}
+
+// The labels the settings showed when Kotlin wrote them (AudioFxFormat): cut, not rounded.
+void labels() {
+    const char* const want[GEODE_DSP_BANDS] = {"31 Hz", "62 Hz", "125 Hz", "250 Hz", "500 Hz",
+                                               "1 kHz", "2 kHz", "4 kHz",  "8 kHz",  "16 kHz"};
+    for (int band = 0; band < GEODE_DSP_BANDS; ++band) check(bandLabel(band) == want[band], "each band's centre");
+    check(bandLabel(-1) == "0 Hz" && bandLabel(GEODE_DSP_BANDS) == "0 Hz", "no such band");
+    using geode::audio::fx::freqLabel;
+    check(freqLabel(999'999) == "999 Hz" && freqLabel(1'000'000) == "1 kHz", "kHz from 1000 Hz");
+    check(freqLabel(1'550'000) == "1.5 kHz" && freqLabel(12'099'000) == "12 kHz", "a tenth, cut");
+    check(freqLabel(999) == "0 Hz", "under a hertz");
+
+    check(dbLabel(0) == "0 dB", "zero has no sign");
+    check(dbLabel(350) == "+3.5 dB" && dbLabel(-1200) == "-12 dB", "a tenth when there is one");
+    check(dbLabel(1500) == "+15 dB" && dbLabel(-1500) == "-15 dB", "the band ends");
+    check(dbLabel(99) == "+0.9 dB" && dbLabel(-55) == "-0.5 dB", "cut, not rounded");
+    check(dbLabel(5) == "+0 dB" && dbLabel(-1) == "-0 dB", "under a tenth keeps its sign");
+    check(dbLabel(1000) == "+10 dB", "the loudness top");
+
+    char small[4];
+    check(geode_dsp_db_label(350, small, static_cast<int>(sizeof small)) == 7 && std::strcmp(small, "+3.") == 0,
+          "a short buffer gets the length needed and what fits");
+    check(geode_dsp_band_label(0, nullptr, 0) == 5, "no buffer asks the length");
+}
+
 }  // namespace
 
 int main() {
@@ -161,6 +198,7 @@ int main() {
     restore();
     text();
     encode();
+    labels();
     if (failures == 0) std::printf("fx_ranges_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

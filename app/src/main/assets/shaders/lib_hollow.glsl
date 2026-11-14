@@ -32,17 +32,16 @@
 // lib_sound's shaped reads, in hollowSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gHollowTurn   the mid band, sndShaped(SND_MIDDLE), pushes the passage
-//   round about the way ahead while the mids climb and eases back as they
-//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
 //   gHollowSwell  the low band, sndShaped(SND_LOW), deepens the Warp's swell
 //   and pinch of the walls, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -69,8 +68,7 @@
 float gHollowForm;
 float gHollowFlow;
 float gHollowChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gHollowTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gHollowSwell;
 /** How far the trace reaches, world units. */
 float gHollowFar;
@@ -125,7 +123,6 @@ void hollowSetup() {
     gHollowBore = 0.3;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gHollowTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gHollowSwell = sndShaped(SND_LOW) * drive;
     gHollowPal0 = pal(0.0);
     gHollowPal1 = pal(0.25);
@@ -134,11 +131,11 @@ void hollowSetup() {
     gHollowPal4 = pal(1.0);
 }
 
-/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes (and the mids' push), and a swell and pinch (and the lows'). */
+/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes, and a swell and pinch (and the lows'). */
 vec3 hollowBend(vec3 p) {
     float zc = p.z * (HOLLOW_TAU / HOLLOW_PERIOD);
     float r = length(p.xy);
-    p.xy = hollowRot(gHollowFlow * 1.3 * sin(zc + 0.7 * r + uTime * HOLLOW_RATE(140)) + gHollowTurn) * p.xy;
+    p.xy = hollowRot(gHollowFlow * 1.3 * sin(zc + 0.7 * r + uTime * HOLLOW_RATE(140))) * p.xy;
     p.xy *= 1.0 + 0.35 * min(gHollowFlow + 0.3 * gHollowSwell, 1.0) * sin(3.0 * zc + 2.0 * p.x + uTime * HOLLOW_RATE(190));
     return p;
 }

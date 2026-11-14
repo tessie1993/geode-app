@@ -66,7 +66,7 @@ out vec4 fragColor;
 //   snare          fires a bright packet of light down the beam, through the glass
 //                  and out across the fan;
 //   bass           the beam's width;
-//   pan            rocks the prism on its axis;
+
 //   flatness       thickens the haze (frost): noise fills the room with light;
 //   hat            dust motes sparkle in the beams.
 //
@@ -334,18 +334,21 @@ vec2 beamAlong(vec3 ro, vec3 rd, float tEnd, out float bAlong) {
 }
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
+    glassSetup();
     float t = glassTime();
     GlassEar ear = glassListen();
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    float k0 = gGlassIn.pulse - 0.5;
+    float k1 = gGlassIn.texture - 0.5;
+    float k2 = gGlassIn.flow - 0.5;
+    float k3 = gGlassIn.tone - 0.5;
+    float k4 = gGlassIn.build - 0.5;
+    float k5 = gGlassIn.space - 0.5;
 
-    gSpread = (0.015 + 0.045 * ear.sharp) * (1.0 + 0.9 * k5);
-    float ior = PR_IOR + 0.12 * glassComplexity();
+    gSpread = glassSpread((0.015 + 0.045 * ear.sharp) * (1.0 + 0.9 * k5));
+    float ior = glassIor(PR_IOR + 0.12 * glassComplexity());
     gHue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.3 * k3;
     float chaos = glassChaos();
     float haze = (0.6 + 0.8 * ear.frost) * (1.0 + 0.8 * k1);
@@ -356,7 +359,8 @@ void main() {
 
     // ---- the 2D optics in the plane z = 0 ----
     gC = vec2(-0.45, -0.05);
-    float rock = 0.42 + 0.07 * sin(t * 0.11) + 0.12 * ear.pan;
+    // Time alone rocks the prism: no sound turns it (owner 2026-11-12, no style spins to the music).
+    float rock = 0.42 + 0.07 * sin(t * 0.11);
     for (int i = 0; i < 3; i++) {
         float fi = float(i);
         float a = rock - 1.5707963 + fi * 2.0943951 + chaos * 0.05 * sin(t * 0.9 + fi * 2.3);

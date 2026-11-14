@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Aurora Ocean: low flight over a dark, mirror-still-to-choppy sea under
 // aurora curtains. The sea is a four-octave heightfield marched from the
@@ -30,9 +31,45 @@ out vec4 fragColor;
 // sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
 // sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
 // one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the curtains' ribbon
+// width, k2 FLOW how far the curtains bend, k3 TONE the palette position and
+// the curtains' stature (a high melody spaces their layers out so they tower
+// up the sky, a low one packs them into a low, dense band), k4
+// BUILD the curtains' glow, k5 SPACE the reach (the far plane and the haze).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the sea and the curtains is a normalized input, mapped to
+// its range in one place (the top of main) and read from globals. 0.5 is the
+// look as tuned: the knobs rest there exactly while Note & key is off. Only
+// knobs drive them here: this style leaves Morph, Warp and Turbulence to
+// view(), which already bends its picture with them. Music reaches these only
+// through the knobs (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gRibW       k1 TEXTURE       the ribbons' width 0.5 .. 1 .. 1.5
+//   sChop       k1 TEXTURE       the finer wave octaves' share 0.4 .. 1 .. 1.8
+//   gBend       k2 FLOW          the curtains' bend 0.5 .. 1 .. 1.5
+//   gLayer      k3 TONE          the curtain layers' spacing 0.135 .. 0.45 .. 0.765
+//   gGlow       k4 BUILD         the curtains' glow 0.5 .. 1 .. 1.5
+//   sAmp        k4 BUILD         the sea's resting swell 0.12 .. 0.22 .. 0.4
+//   sLayers     k4 BUILD         curtain layers 6 .. 12 .. 16 (whole; the top ones are faint)
+//   sBase       k5 SPACE         the curtains' lowest layer 2.0 .. 3.0 .. 4.5
+//   reach       k5 SPACE         far plane and haze 0.8 .. 1 .. 1.2
+//
+// Every wavenumber stays a whole multiple of AO_KZ or AO_QK, so the sea and
+// the sky keep tiling the travel wrap. The wave-top plane the march starts on
+// rises with sChop. The sea goes through its shell wrapper as a height pattern, and
+// each curtain layer's ribbons through its shell wrapper too, so the shell's spawn,
+// fractal, front and back hooks reach both.
 
 #define AO_MAX_STEPS 96
-#define AO_LAYERS 12
+/** The most curtain layers BUILD can ask for (12 at rest, sLayers). */
+#define AO_LAYERS 16
 #define AO_SEA_Y -2.0
 #define AO_FAR 60.0
 /** 2pi / 64: the z wavenumber unit that keeps the sea periodic over the travel wrap. */
@@ -45,9 +82,20 @@ out vec4 fragColor;
 #define AO_QK 0.04261057
 
 float gAmp;
+/** k1 TEXTURE and k2 FLOW: the ribbons' width and the curtains' bend, each 0.5..1.5 (1 at rest). */
+float gRibW = 1.0;
+float gBend = 1.0;
+/** k4 BUILD: the curtains' glow, 0.5..1.5 (1 at rest). */
+float gGlow = 1.0;
+/** k3 TONE: the spacing of the curtain layers, world units (0.45 at rest). */
+float gLayer = 0.45;
+/** Shape inputs (see the header). */
+float sChop;
+float sLayers;
+float sBase;
 
 /** Height of the sea above AO_SEA_Y at xz. Four crested octaves, each warped by the last. */
-float sea(vec2 xz) {
+float seaField(vec2 xz) {
     float t = uTime;
     float h = 0.0;
     float w = 0.0;
@@ -61,15 +109,53 @@ float sea(vec2 xz) {
     h += s * s * 1.0;
     w = s;
     s = 0.5 + 0.5 * sin(dot(k1, xz) + t * 0.83 + w * 1.2);
-    h += s * s * 0.5;
+    h += s * s * 0.5 * sChop;
     w = s;
     s = 0.5 + 0.5 * sin(dot(k2, xz) - t * 1.21 + w * 1.4);
-    h += s * s * 0.25;
+    h += s * s * 0.25 * sChop;
     w = s;
     s = 0.5 + 0.5 * sin(dot(k3, xz) + t * 1.73 + w * 1.6);
-    h += s * s * 0.12;
+    h += s * s * 0.12 * sChop;
     // Centred, so gAmp swells the sea both ways about its rest level.
     return (h - 0.93) * gAmp;
+}
+
+/** The ground pattern seaField through lib_shell's hooks: exactly seaField(uv) at rest, and seaField read once, in a loop the compiler cannot unroll. */
+float seaFieldGrownW(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (!shellPass2(i)) continue;
+        float v = seaField(shellAt2(uv, i, SHELL_GROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
+/** The sea as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float sea(vec2 xz) {
+    return seaFieldGrownW(xz);
+}
+
+/** One curtain layer's ribbons at its plane point q, with their vertical rays: a 2D pattern (its shell wrapper). */
+float aoRibbon(vec2 q) {
+    float tm = uTime * 0.06;
+    float v = q.x + 0.9 * gBend * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
+    float rib = (1.0 - smoothstep(0.0, 0.24 * gRibW, abs(fract(v * 0.35) - 0.5)));
+    // Vertical rays inside the ribbon.
+    return rib * (0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0));
+}
+
+/** The pattern aoRibbon through lib_shell's hooks: exactly aoRibbon(uv) at rest, and aoRibbon read once, in a loop the compiler cannot unroll. */
+float aoRibbonGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (!shellPass2(i)) continue;
+        float v = aoRibbon(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 /** The curtains, plus a dim star field and a horizon glow. `rd.y` must be > 0 for curtains to show. */
@@ -88,19 +174,16 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
         float patchMask = smoothstep(0.75, 0.97, dot(rd, patchDir));
         for (int i = 0; i < AO_LAYERS; i++) {
             float fi = float(i);
+            if (fi >= sLayers) break;
             // Each layer is a horizontal plane higher up the curtain. Projecting
             // the ray onto it makes one ribbon line on the ground plane into a
             // vertical streak on screen, which is what a curtain is.
-            float lh = 3.0 + fi * 0.45;
+            float lh = sBase + fi * gLayer;
             vec2 q = ro.xz * 0.15 + rd.xz * (lh / rd.y);
             q *= 0.12;
             // The drop leans the curtain: every layer slides further along x.
             q.x += fi * 0.06 * dropLean;
-            float tm = uTime * 0.06;
-            float v = q.x + 0.9 * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
-            float rib = (1.0 - smoothstep(0.0, 0.24, abs(fract(v * 0.35) - 0.5)));
-            // Vertical rays inside the ribbon.
-            rib *= 0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0);
+            float rib = aoRibbonGrown(q);
             // The snare's shimmer: a bright pulse racing along the ribbon's length.
             float run = 0.5 + 0.5 * sin(q.y * (56.0 * AO_QK) - uTime * 7.0);
             rib *= 1.0 + snare * 1.2 * run * run * run * run;
@@ -110,7 +193,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
         }
         // Bright enough to read as aurora on a phone: at 0.16 the curtains were a
         // faint teal smudge and the style read as a black screen.
-        acc *= 0.45 * smoothstep(0.02, 0.18, rd.y);
+        acc *= 0.45 * smoothstep(0.02, 0.18, rd.y) * gGlow;
         acc *= 1.0 + drop * 1.8 * patchMask;
         col += acc;
     }
@@ -118,7 +201,20 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gRibW = shellMap(shellKnob(1), 0.5, 1.0, 1.5);
+    sChop = shellMap(shellKnob(1), 0.4, 1.0, 1.8);
+    gBend = shellMap(shellKnob(2), 0.5, 1.0, 1.5);
+    gLayer = shellMap(shellKnob(3), 0.135, 0.45, 0.765);
+    gGlow = shellMap(shellKnob(4), 0.5, 1.0, 1.5);
+    float sAmp = shellMap(shellKnob(4), 0.12, 0.22, 0.4);
+    sLayers = floor(shellMap(shellKnob(4), 6.0, 12.0, 16.0) + 0.5);
+    sBase = shellMap(shellKnob(5), 2.0, 3.0, 4.5);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
@@ -128,10 +224,11 @@ void main() {
     // A bump on the envelope: 0 at the drop's instant and at its end, 1 in
     // between, so the lean glides in and out instead of snapping.
     float dropLean = 4.0 * drop * (1.0 - drop);
-    float hue = 0.33 + 0.04 * sin(uTime * 0.02);
+    float hue = 0.33 + 0.04 * sin(uTime * 0.02) + 0.6 * kTone;
 
-    gAmp = 0.22 * (1.0 + 0.7 * bass + 0.25 * clamp(sndSpectrum(0.23), 0.0, 1.0));
-    float waveTop = AO_SEA_Y + gAmp * 0.95;
+    gAmp = sAmp * (1.0 + 0.7 * bass + 0.25 * clamp(sndSpectrum(0.23), 0.0, 1.0));
+    // The crest's height over the rest level: (1 + 0.87 sChop - 0.93) of gAmp, 0.94 at rest, so 0.95 holds.
+    float waveTop = AO_SEA_Y + gAmp * max(0.95, 0.07 + 0.87 * sChop);
 
     vec3 ro;
     vec3 rd;
@@ -141,6 +238,8 @@ void main() {
     // a highp z has ~0.001 of fraction left and the normals would speckle.
     vec3 eye = ro;
     ro.z = mod(ro.z, 64.0);
+    // The ground's grow hooks (lib_shell's its shell wrapper) open round the eye where it stands on it.
+    shellSetup2(ro.xz, 5.0);
     ro.y = max(ro.y, AO_SEA_Y + sea(ro.xz) + 0.45);
     eye.y = ro.y;
 
@@ -153,7 +252,7 @@ void main() {
         float hPrev = 1.0;
         for (int i = 0; i < AO_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
-            if (t > AO_FAR) break;
+            if (t > AO_FAR * reach) break;
             vec3 p = ro + rd * t;
             float h = p.y - (AO_SEA_Y + sea(p.xz));
             if (h < 0.002 * t) {
@@ -187,7 +286,7 @@ void main() {
         float glint = step(0.93, sh) * (1.0 - smoothstep(0.0, 0.3, length(fract(g) - 0.5)));
         glint *= smoothstep(0.1, 0.5, r.y) * exp(-hitT * 0.06);
         col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * glint * hats * 1.5;
-        col = mix(col, horizon, 1.0 - exp(-hitT * 0.045));
+        col = mix(col, horizon, 1.0 - exp(-hitT * 0.045 / reach));
     } else if (rd.y < 0.0) {
         col = horizon;
     } else {
@@ -196,5 +295,5 @@ void main() {
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

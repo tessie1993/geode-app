@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GeneralSettings
+import dev.geode.data.LiquidHotPolicy
+import dev.geode.data.PerformanceMode
+import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.LiquidHotPolicy
-import dev.geode.render.PerformanceMode
-import dev.geode.render.PerformanceSettings
 
 /**
  * Settings › Performance › Basics: the quality preset (Saver, Balanced, High), what the live

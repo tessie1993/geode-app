@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -56,9 +57,18 @@ out vec4 fragColor;
 // k0 PULSE  how far the kick stretches the near streaks.
 // k1 TEXTURE  streak thickness.
 // k2 FLOW   streak length on top of the throttle.
-// k3 TONE   the field's hue.
+// k3 TONE   which way the field rakes, and its hue: a high melody stretches
+//           the streaks above the corridor long and shortens those below, so
+//           the jump climbs; a low one the reverse, so it dives.
 // k4 BUILD  how many cells hold a streak (each fades in on its own hash).
 // k5 SPACE  the corridor's width.
+// Every one of these, and the streaks' rest length (FLOW), their glow (BUILD)
+// and the haze toward the corridor's end (SPACE), is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range; at rest each is the constant the jump was tuned with. The streaks are
+// the field the grow hooks act on (its shell wrapper): Spawn slides a second field
+// of streaks half a cell along the flight, Fractal grows streaks a third the
+// size about the first, the layers open the near and far field.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -106,14 +116,18 @@ float gOwn;
 float gHue;
 float gBright;
 
-float knob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
+/** TONE: how far the streaks above the corridor outgrow those below (0 at rest). */
+float gRake;
+/** The corridor curve's amplitude: 3 x Warp (set in main from Warp's input). */
+float gBendA;
 
-/** The corridor's curve. Periods 256 and 128 divide 1024; slope at most 0.17 * |uWarp|. */
+/** The corridor's curve. Periods 256 and 128 divide 1024; slope at most 0.17 * gBendA / 3. */
 vec2 bend(float z) {
-    return uWarp * 3.0 * vec2(sin(z * (WP_TAU / 256.0)), 0.6 * sin(z * (WP_TAU / 128.0) + 1.3));
+    return gBendA * vec2(sin(z * (WP_TAU / 256.0)), 0.6 * sin(z * (WP_TAU / 128.0) + 1.3));
 }
 
-float map(vec3 p) {
+/** The streaks and the corridor: the field the grow hooks act on (map() hands it to its shell wrapper). */
+float warpField(vec3 p) {
     // Bent so the corridor passes through the eye wherever the curve is.
     vec2 q = p.xy - (bend(p.z) - gBendEye);
     vec2 cell = floor(q / WP_CELL);
@@ -144,7 +158,9 @@ float map(vec3 p) {
     // Only the streaks just ahead of the eye answer the kick.
     float ahead = (cz + 0.5) * WP_ZCELL - s - gEye.z;
     float kick = gKick * exp(-abs(ahead - 6.0) * 0.15);
-    float hl = min(gLen * (0.55 + 0.45 * hv2) + kick, WP_MAX_HALF);
+    // TONE rakes the field: one factor per column, from its centre's height.
+    float rake = max(1.0 + gRake * clamp((cell.y + 0.5) * WP_CELL / 6.0, -1.0, 1.0), 0.2);
+    float hl = min(gLen * (0.55 + 0.45 * hv2) * rake + kick, WP_MAX_HALF);
     float r = gRad * (0.7 + 0.3 * hv) * w;
 
     float own = 1e3;
@@ -156,12 +172,25 @@ float map(vec3 p) {
     float d = min(own, toWall + WP_MARGIN);
     d = max(d, gCorr - length(q));
     d /= gBendL;
-    d = max(d, WP_BUBBLE - length(p - gEye));
 
     gOwn = own;
     gHue = h + 0.37 * hv;
     gBright = w * (0.4 + 0.7 * clamp(sndEq(hb), 0.0, 1.5));
     return d;
+}
+
+/** warpField through lib_shell's hooks: exactly warpField(p) at rest, and warpField read once, in a loop the compiler cannot unroll. */
+float warpFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, warpField(shellAt3(i)));
+    }
+    return r;
+}
+
+float map(vec3 p) {
+    return max(warpFieldGrown(p), WP_BUBBLE - length(p - gEye));
 }
 
 void main() {
@@ -174,21 +203,43 @@ void main() {
     // ~0.001 of fraction left and the thin streaks quantise into speckle.
     ro.z = mod(ro.z, WP_ZWRAP);
     gEye = ro;
+    // The layers are measured from the eye; a spawned field slides half a cell along the flight.
+    shellSetup3(ro, 3.0, 0.5 * WP_ZCELL, false);
+
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's stretch
+    float nTexture = shellKnob(1);                                 // TEXTURE  streak thickness
+    float nFlow = shellKnob(2);                                    // FLOW     streak length
+    float nTone = shellKnob(3);                                    // TONE     the field's rake, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    how many cells hold a streak, the glow
+    float nSpace = shellKnob(5);                                   // SPACE    the corridor's width, the haze
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    streaks to stars
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the corridor's curve
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);        // Turbulence the columns' shimmer
+    float kickK = shellMap(nPulse, 0.6, 1.2, 1.8);
+    // At most 0.09: the cell bound in the header assumes it.
+    gRad = shellMap(nTexture, 0.05, 0.07, 0.09);
+    float lenFlow = shellMap(nFlow, 0.0, 0.6, 1.2);
+    float lenBase = shellMap(nFlow, 0.35, 0.5, 0.65);
+    gRake = shellMap(nTone, -0.9, 0.0, 0.9);
+    float hueTone = shellMap(nTone, -0.15, 0.0, 0.15);
+    gDens = clamp(shellMap(nBuild, 0.22, 0.42, 0.62), 0.1, 0.9);
+    float glowK = shellMap(nBuild, 0.035, 0.05, 0.07);
+    gCorr = shellMap(nSpace, 0.8, 1.3, 1.8);
+    float hazeK = shellMap(nSpace, 0.065, 0.05, 0.035);
+    float stars = shellMap(nMorph, 1.0, 1.0, 0.3);
+    gBendA = shellMap(nWarp, 0.0, 0.0, 3.0);
+    gTurb = shellMap(nTurb, 0.0, 0.0, 0.2);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float throttle = clamp(0.5 * SND_ENERGY_TREND + 0.5 * sndShaped(SND_LEVEL), 0.0, 1.2);
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop);
-    float hueBase = 0.18 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.3 * knob(3);
+    float hueBase = 0.18 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + hueTone;
 
-    float stars = mix(1.0, 0.3, clamp(uMorph, 0.0, 1.0));
-    gLen = (0.5 + 1.5 * throttle + 1.2 * (knob(2) + 0.5)) * stars + 1.1 * dropBump;
-    gRad = 0.05 + 0.04 * (knob(1) + 0.5);
-    gDens = clamp(0.42 + 0.4 * knob(4), 0.1, 0.9);
-    gCorr = 1.3 + 1.0 * knob(5);
-    gTurb = 0.2 * clamp(uTurbulence, 0.0, 1.0);
-    gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * (0.6 + 1.2 * (knob(0) + 0.5));
-    gBendL = 1.0 + 0.17 * abs(uWarp);
+    gLen = (lenBase + 1.5 * throttle + lenFlow) * stars + 1.1 * dropBump;
+    gKick = clamp(SND_KICK_ENV, 0.0, 1.0) * kickK;
+    gBendL = 1.0 + 0.17 * gBendA / 3.0;
     gBendEye = bend(ro.z);
     // A fixed rate: a live dial times an accumulated clock would jump.
     gPhase = mod(uFlowTime * 9.0, WP_PHASE_WRAP);
@@ -202,7 +253,7 @@ void main() {
         float d = map(ro + rd * t);
         if (gOwn < 0.8) {
             float fade = exp(-t * 0.05);
-            glow += pal(hueBase + gHue) * gBright * exp(-gOwn * 9.0) * 0.05 * fade;
+            glow += pal(hueBase + gHue) * gBright * exp(-gOwn * 9.0) * glowK * fade;
         }
         if (d < 0.001 + 0.0008 * t) {
             hitT = t;
@@ -227,7 +278,7 @@ void main() {
         // The streaks are light, not surfaces: a white-hot core in the
         // streak's colour, fading into the destination glow with distance.
         vec3 core = mix(pal(hueBase + gHue), vec3(1.0), 0.55) * (0.5 + gBright);
-        col = mix(core, sky, 1.0 - exp(-hitT * 0.05));
+        col = mix(core, sky, 1.0 - exp(-hitT * hazeK));
     }
     col += glow;
 

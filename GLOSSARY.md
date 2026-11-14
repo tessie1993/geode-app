@@ -44,7 +44,7 @@ The one flag every detector reads: opens when the momentary loudness reaches -55
 How dense the music is, 0..1, on fixed scales: onsets a second (8 = 1), kicks and snares a second, and how sure the beat is.
 
 **Drive**:
-How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.7 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
+How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.5 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
 _Avoid_: Audio drive (the user's Customize amount, which scales the reach of the music further)
 
 **Feature timeline**:
@@ -60,7 +60,7 @@ A named look within a scene family, picked from the style catalogue.
 _Avoid_: Variant, skin
 
 **Style family**:
-Ten or twelve fragment-shader styles (a family carries its own count) built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet, Sphere Foam, Flame, Opal and Hollow.
+Ten or twelve fragment-shader styles (a family carries its own count) built on one shared GLSL library (`lib_<family>`), each with its own geometry and its own way of hearing the music. The first is the basic one and is free; the rest are Pro. The families are Arbor, Bulb, Chrysanthemum, Lucid, Dive, Glass, Nebula, Terrain, Truchet, Sphere Foam, Flame, Opal, Hollow, Prism, Fluor, Loom, Shard, Petal and Fold.
 _Avoid_: Pack, collection, scene family (that is the renderer, such as Cymatics or Fluid)
 
 **Arbor**:
@@ -102,6 +102,24 @@ The oil-film style family (`opal_*`, `lib_opal`), ten styles: clear bubbles, she
 **Hollow**:
 The Hollows style family (`hollow_*`, `lib_hollow`), ten styles: flights through the inside of things (sinew, caves, ribs, bone), dark walls under blacklight with their carving cut as real relief and glowing.
 
+**Prism**:
+The kaleidoscope style family (`prism_*`, `lib_prism`), ten styles: portals in liquid chrome, space folded by mirrors into stars, rosettes, arches and fans, thin ribbons of light along every fold, dark between. Not Prism Rain (`prism_rain`), an older loose style.
+
+**Fluor**:
+The fluorescent-relief style family (`fluor_*`, `lib_fluor`), ten styles: carved and embossed ornament under blacklight, flown along or turned about, every raised edge glowing like fluorescent paint.
+
+**Loom**:
+The woven-light style family (`loom_*`, `lib_loom`), ten styles: threads, braids, nets and translucent skins strung across the dark, glowing along their fibres.
+
+**Shard**:
+The broken-glass style family (`shard_*`, `lib_shard`), ten styles: splinters, panes and spires in the dark with thin-film faces and edges that split the light.
+
+**Petal**:
+The translucent-petal style family (`petal_*`, `lib_petal`), ten styles: petals and blossoms lit from within, thin sheets that let the light through and gather it at their rims.
+
+**Fold**:
+The folded-space fractal family (`fold_*`, `lib_fold`), ten styles, each drawn by one of five marches (`lib_fold_march_*`): glowing threads, cone-traced crusts, 4D sections, alternating hybrids and sign-probed surfaces.
+
 **Scene params**:
 The full set of tunable values a scene is drawn with at one moment.
 _Avoid_: Settings, knobs
@@ -111,6 +129,10 @@ The categories the scene params are edited in, one tab each (Quick knobs, Look, 
 
 **Advanced section**:
 One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field, Shader code), opening its own page. All Pro.
+
+**Kaleidoscope**:
+The Customize › Shape slider that folds the picture into mirrored wedges: 1 is Off, 2 to 16 the folds (`kaleidoFolds`). Waves, envelopes, reaction routes and knobs move it; the picture steps by whole folds.
+_Avoid_: Symmetry, Folds menu (the retired switch and count)
 
 **Pool**:
 The style of a swimming pool's tiled floor seen through moving water, at a slant or from above: waves that stand taller with the level, ripple rings the bass raises, caustics the treble's chop gathers on the floor, a wake where a finger lands. Morph turns the view, Warp deepens the water, Turbulence raises the chop, Intensity brightens the caustics. It replaced the Water style, whose saved looks open on it. Still in silence.
@@ -125,7 +147,7 @@ The per-control lock that holds a control still when Randomize rolls its page.
 _Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
-One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
+One line of the reaction matrix: a sound (band, level, event or musical value) moves one scene param, by following, stepping, adding up, jumping or toggling.
 _Avoid_: Binding, mapping
 
 **Jump**:
@@ -134,12 +156,38 @@ A route mode: each hit holds a new random value for its target (sample and hold)
 **Toggle**:
 A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
 
+**Jump, settled**:
+A route mode: a Jump that takes a hit only once its last value has had its glide (attack + release), so busy hits cannot flicker it.
+
+**Add up**:
+A route mode (saved as SPIN): the source is added up over time, so a held value carries the target on instead of pushing it out and back.
+
+**Bar count**:
+A reaction source counted on the music's own bars, every bar, 2, 4 or every phrase: a hold (a new value kept until the next count), a pulse or a flip (0 and 1 in turn). Only a locked beat counts; with none heard they stay still.
+_Avoid_: Beat timer, tempo clock (nothing here runs on a tempo it has not heard)
+
+**Melody contour**:
+Whether the tune is climbing or falling, -1..1: a fast follower of the pitch over a slow one, resting at 0 when no note sounds. A reaction source.
+
+**Kind of feeling**:
+Which of the nine GEMS feelings leads right now (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness), held until another clearly leads. A reaction source; five of the kinds also have a share of their own.
+
+**Section progress**:
+How far through its section the music is, 0..1, against how long the song's sections have run so far. A reaction source.
+_Avoid_: Song position (that is the player's time)
+
+**Section return**:
+A section heard before comes back: the analyser names a new section with an old section's number. A reaction source.
+
+**Chord motion**:
+How fast the chords move round the circle of fifths, 0..1. A reaction source.
+
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
 _Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
-The reaction routes a style plays until the user edits them, generated from the style id and a seed.
+The reaction routes a style plays until the user edits them, generated from the style id and a seed: the groove (its beat personalities, big moments, body, colour, texture and a transient route), then one route each on the bars, the tune, the harmony and form, and the feel and timbre. No default route follows the absolute loudness.
 
 **Macro**:
 One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Shape, Motion, Colour, Depth), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.
@@ -173,7 +221,14 @@ LFOs and ADSR envelopes that move scene params over time or on hits.
 
 **Layer**:
 A second scene drawn over the main one with a mix amount and blend mode.
+Its style comes from a layer source: the user's pick, Auto Director's pick at its style moments, or a macro knob's turn; native never draws the style on screen as its layer.
 _Avoid_: Overlay (overlay is a Studio lane)
+
+**Physics layers**:
+A fluid and particles any style can carry over its finished picture: the fluid behind or over the style, the particles in front.
+The picture is the fluid's ink and stirs it; the particles ride the fluid and take their colour from the picture.
+Waves, envelopes, reaction routes and macro knobs turn them on and move them (`simFluid`, `simParticles`, `simForce`, `simLayerOrder`; `core/viz/physics`).
+_Avoid_: Sim scene (the fluid styles are scenes of their own), overlay
 
 **Transition**:
 How one scene or clip hands over to the next.
@@ -282,6 +337,10 @@ The player telling the engine a new track (or the same one again) has begun, wit
 **Fade gain**:
 The player's fades (pause, skip and sleep fades times the crossfade), 0..1, told to the engine because the tap sits before the volume and never hears them. A reaction source; 1 while the mic or another app's audio is the source, and always 1 in an export.
 
+**Transient**:
+The sharp start of any sound (a pluck, a click, a struck chord, a consonant, a drum), heard per sample within a few milliseconds by `core/sound/Transient`: a fast follower of a band's power jumping over a slow one, past a threshold the last second of the music sets. A trigger, its envelope and the attack's sharpness, all reaction sources; every style's DNA has a route from it. Nothing about it knows a tempo.
+_Avoid_: Onset (the frame's `onset` is the slower spectral-flux note start), hit (a hit is a drum's)
+
 **Section state**:
 The song part a section is read as: intro, verse, build, drop, breakdown or outro.
 
@@ -293,7 +352,7 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
+The switch, labelled Auto Director, first in Visuals › Settings (and in Settings › Visual playback), that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
@@ -305,7 +364,7 @@ One auto-director decision: a behaviour (axes, camera moves, motion dials), glid
 _Avoid_: Look (alone)
 
 **Director reach**:
-How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
+How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto Director). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
 _Avoid_: Auto level, auto-randomize, shuffle mode
 
 **Look snapshot**:

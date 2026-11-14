@@ -69,18 +69,16 @@ const float BH_SPIN = -5.0 * CAM_SPIN_UNIT;
 float gWin;
 float gLatticeTurn;
 int gIters;
-vec4 gTrap;
-float gWinD;
 
 // Its own ramp: candle amber, ember red and a smoky brown.
 vec3 tone(float t) {
     return bulbRamp(t, vec3(0.62, 0.40, 0.22), vec3(0.35, 0.25, 0.15), vec3(1.0, 0.8, 0.6), vec3(0.02, 0.10, 0.20));
 }
 
-float map(vec3 p) {
+/** The style's body: the pierced shell, its orbit trap, and in mat the distance to the nearest window's rim. */
+BulbHit bulbMap(vec3 p) {
     vec4 tr;
     float db = bulbDE(bulbChaos(p), 4.0, 4.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
     float shell = abs(db + BH_OFF) - BH_THICK;
     // The nearest window centre on the staggered lattice.
     float r = max(length(p), 1e-6);
@@ -92,9 +90,11 @@ float map(vec3 p) {
     float dl = lat - ring * BH_RING;
     float dn = mod(lon - stagger + 0.5 * cell, cell) - 0.5 * cell;
     float win = length(vec2(dn * cos(lat), dl)) * r - gWin;
-    gWinD = win;
-    return max(shell, -win);
+    return BulbHit(max(shell, -win), tr, win);
 }
+
+//#include lib_bulb_field
+//#include lib_bulb_shade
 
 void main() {
     vec2 uv = view();
@@ -113,6 +113,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye + fwd, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.08 * uKeyStrength * sin(BULB_TAU * uKeyHue);
     vec3 sunCol = mix(tone(hue), vec3(1.0, 0.9, 0.7), 0.45) * (1.3 + 0.4 * swell);
@@ -126,7 +128,9 @@ void main() {
     float winD = 1.0;
     float endT = 1e9;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BH_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BH_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BH_BOUND + growSlack(BH_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         float tEnd = min(tb.y, coreT);
@@ -134,12 +138,13 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            BulbHit h = bulbField(ro + rd * t);
+            float d = h.d;
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
-                trap = gTrap;
-                winD = gWinD;
+                trap = h.trap;
+                winD = h.mat;
                 break;
             }
             t += max(d * 0.8, eps * 0.5);
@@ -155,20 +160,27 @@ void main() {
         vec3 p = ro + rd * hitT;
         float ao = bulbStepAO(used);
         if (dot(rd, p) > 0.0) {
-            // Inner face: the sun's light on the wall, falling off with distance.
+            // Inner face: the sun's light on the wall, falling off with distance, and under the soft shadows
+            // the lobes between cast from the sun (lib_bulb_shade, by Soft shadows). The escape count moves its
+            // bronze along the ramp (lib_shade, by Escape colour).
             float fall = 1.0 / (1.0 + 4.0 * dot(p, p));
             float grain = 0.78 + 0.22 * sin(sqrt(trap.x) * 14.0);
-            col = mix(tone(hue + 0.05), vec3(0.6, 0.45, 0.3), 0.4) * sunCol * fall * grain * 1.5 * ao;
+            vec3 sunWay = -p / max(length(p), 1e-4);
+            float shade = bulbShadow(p, sunWay, sunWay, max(length(p) - BH_CORE, 0.0), bulbEps(hitT));
+            vec3 wall = mix(tone(hue + 0.05 + shadeEscape(trap.w)), vec3(0.6, 0.45, 0.3), 0.4);
+            col = wall * sunCol * fall * grain * 1.5 * ao * shade;
             col += sunCol * exp(-max(winD, 0.0) * 45.0) * 0.5;
         } else {
             // A lobe's outer face seen back through a window: dark bronze,
             // lit only by the spill at its own window edges.
-            col = tone(hue + 0.03) * 0.05 * ao + sunCol * exp(-max(winD, 0.0) * 45.0) * 0.25;
+            col = tone(hue + 0.03 + shadeEscape(trap.w)) * 0.05 * ao + sunCol * exp(-max(winD, 0.0) * 45.0) * 0.25;
         }
     } else if (coreT < 1e8) {
         float ndv = max(dot(normalize(ro + rd * coreT), -rd), 0.0);
         col = sunCol * (0.7 + 0.3 * ndv);
     }
+    // The step glow (lib_shade): a halo where a ray crept along the wall, by Bloom.
+    col += tone(hue + 0.1) * 0.4 * shadeStepGlow(used, uSteps);
 
     // The air carries the sun's halo: the ray's closest approach to the
     // centre, if it came that close before it stopped.

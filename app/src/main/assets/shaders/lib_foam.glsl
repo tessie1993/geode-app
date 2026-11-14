@@ -62,8 +62,10 @@
 // - Section change: the kaleidoscope's wedge count steps (3, 4, 5, 6, 8; two
 //   neighbouring sections never share one), the packing slides to a new
 //   seat and the palette turns, all morphed across SND_HELD_HARD_CUT.
-// - Mid clock: the cross-section turns slowly about the bore.
 // - Key: uKeyHue, eased, slides the palette.
+// - No sound turns the bore, the cross-section or the light's rays (owner
+//   2026-11-12, no style spins to the music): they turn slowly on time alone,
+//   at the rate the mid clock (SND_MID_TIME) used to set at a typical level.
 //
 // ---- the Customize macros ---------------------------------------------------
 //
@@ -71,6 +73,52 @@
 // slide. Complexity: uMorph leans the folds. Chaos: uWarp and uTurbulence wobble
 // the bore's twist and slide the packing further. Energy: foamEnergy(), the
 // gain on every in-shader reaction, 0..2. Colour: pal(). Space: the rig.
+//
+// The six style knobs (uKnob), with the roles lib_flame, lib_opal and
+// lib_hollow give them, each read as its offset from 0.5, so with Note & key
+// reactions off every term is exactly zero and the picture is the tuned one:
+// k0 PULSE the emission (foamFinish; the ink's wash), k1 TEXTURE the cut lines'
+// width, k2 FLOW added to Warp's bend (the bore's wobble and the packing's
+// slide), k3 TONE the palette position, k4 BUILD the glow gathered along the
+// ray, k5 SPACE the reach (the fog draws back).
+//
+// ---- the normalization shell ------------------------------------------------
+//
+// Every variable the packing is shaped by is one normalized input (FoamIn,
+// foamIn()), read from the params and the six knobs and NEVER from the sound
+// frame: what moves on the music is the reaction matrix, which moves those
+// params and knobs (the owner's rule: no hardcoded reactions). A knob input is
+// 0..1 with its rest at exactly 0.5 (Note & key off); an amount (Warp, Morph,
+// Turbulence) is 0..1 with its rest at 0, their defaults. foamSetup() maps each
+// to its own range in one place (foamAt, foamShift): exactly today's constant
+// at rest, so with the params at their defaults and the knobs at rest every
+// variable is the value the family was tuned at. The sound terms that were
+// already here stay where they were, on top of the mapped value.
+//
+//   input     driver                  what it moves (rest)
+//   radius    k5 SPACE                the bore's or the ball's radius (0.85)
+//   bend      k2 FLOW                 the path's lobes (0.75 world units)
+//   warp      Warp + k2 FLOW + Turb.  the bore's wobble and the packing's slide (0)
+//   lean      Morph                   the fold's lean (0)
+//   bubble    k1 TEXTURE              the inversion scale: bubble size (1.06)
+//   thick     k1 TEXTURE              the shells' thickness (0.012 world units)
+//   line      k1 TEXTURE              the cut lines' width (1)
+//   iters     Detail                  inversion levels (6..9): a quality setting, not live
+//   emit      k0 PULSE                the emission (1)
+//   tone      k3 TONE                 the palette position (0)
+//   glow      k4 BUILD                the glow gathered along the ray (1)
+//   reach     k5 SPACE                the fog's reach (1)
+//   formula   uFormula (FOAM_FORMULA) which prototype the chain inverts (0: the plane)
+//
+// The twist and the wedge count are whole numbers (a fraction tears the period
+// or the kaleidoscope's seam), so they stay each style's choice.
+//
+// THE FIELD. foamField(p) is the one entry every style's march, normal and walk
+// reads: the packing and its cut at p, with everything the shading needs in the
+// FoamSample it returns. It writes no global, so a normal tap or a second walk
+// can never overwrite what the hit kept. FOAM_GROW is where lib_grow (Spawn,
+// Fractal, the layers) applies (foamGrow); FOAM_FORMULA is where uFormula will
+// pick the prototype once the family has a second one.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms (with VIEW_OWNS_SHAPE
 // defined), lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and
@@ -135,6 +183,11 @@ float gFoamWedgeHold;
 float gFoamShell;
 /** Multiplier on the loudness fall: halves and whole numbers keep the clock wrap exact. */
 float gFoamFall;
+/** The knobs (see the header): k0's gain on the emission, k1's on the cut lines' width, k4's on the gathered glow, k5's on the reach (fog rates divide by it). */
+float gFoamEmit;
+float gFoamLineW;
+float gFoamGlow;
+float gFoamReach;
 
 // The sound, shaped once, for the shading.
 float gFoamKick;
@@ -157,20 +210,97 @@ vec3 gFoamEye;
 vec3 gFoamFwd;
 float gFoamEpsPerT;
 
-// ---- reported back by foamMap(): capture before the normal taps overwrite them --
+// ---- the normalization shell (see the header) -------------------------------
 
-/** min |q| per axis in .xyz, min r2 in .w, over the chain. */
-vec4 gFoamOrb;
-/** The foam's own distance before the cut. */
-float gFoamD;
-/** The cut surface's distance minus the foam's: about 0 on the rings where the cut meets a shell. */
-float gFoamCut;
-/** 1 where the foam is real, 0 deep inside the bore. */
-float gFoamMask;
-/** log2 of the conformal scale: the small deep beads have a large one. */
-float gFoamScaleLog;
-/** The outermost cell's hash. */
-float gFoamCellH;
+/**
+ * GROW AND LAYERS, lib_grow (Spawn, Fractal, Front and Back layer): the plain
+ * field F at p grown by foamGrow (defined after foamMap, where this expands):
+ * exactly F(p) while all four rest.
+ */
+#define FOAM_GROW(p, F) foamGrow(p)
+/**
+ * Formula (uFormula): 0.0, the plane, the family's one prototype. With no
+ * alternatives yet no Foam style reads uFormula; one that gains a second reads
+ * it here and joins Catalogue.cpp's formula styles in the same commit.
+ */
+#define FOAM_FORMULA 0.0
+
+/** The normalized inputs (see the header): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
+struct FoamIn {
+    float radius;
+    float bend;
+    float warp;
+    float lean;
+    float bubble;
+    float thick;
+    float line;
+    float iters;
+    float emit;
+    float tone;
+    float glow;
+    float reach;
+    float formula;
+};
+
+/** Style knob i, 0..1: exactly 0.5 while Note & key reactions are off. */
+float foamKnob(int i) {
+    return clamp(uKnob[i], 0.0, 1.0);
+}
+
+/** Every input from the params and the knobs, never from the sound frame. */
+FoamIn foamIn() {
+    FoamIn n;
+    n.radius = foamKnob(5);
+    n.bend = foamKnob(2);
+    // Warp's share (FLOW added, never below none, 0..1.25) and Turbulence's (0..1.5 on its slider), as one amount.
+    n.warp = clamp((max(clamp(uWarp, 0.0, 2.0) + 0.5 * (foamKnob(2) - 0.5), 0.0) + clamp(uTurbulence, 0.0, 2.0)) / 2.75, 0.0, 1.0);
+    n.lean = foamSat(uMorph);
+    n.bubble = foamKnob(1);
+    n.thick = foamKnob(1);
+    n.line = foamKnob(1);
+    n.iters = foamSat((uSteps - 64.0) / 64.0);
+    n.emit = foamKnob(0);
+    n.tone = foamKnob(3);
+    n.glow = foamKnob(4);
+    n.reach = foamKnob(5);
+    n.formula = FOAM_FORMULA;
+    return n;
+}
+
+/** A knob input on its range: `rest` exactly at n = 0.5, rest * (1 -+ span) at n = 0 and 1. */
+float foamAt(float n, float rest, float span) {
+    return rest * (1.0 + span * (2.0 * n - 1.0));
+}
+
+/** A knob input as an offset: exactly 0 at n = 0.5, -+ span / 2 at n = 0 and 1. */
+float foamShift(float n, float span) {
+    return span * (n - 0.5);
+}
+
+/** This frame's inputs, kept by foamSetup() for a style that maps one of its own. */
+FoamIn gFoamIn;
+/** The shells' thickness as a factor (1 at rest), for a style that sets its own shell. */
+float gFoamThick;
+
+// ---- what the field returns --------------------------------------------------
+
+/** The field at one point: the distance the march steps by, and what the shading reads there. */
+struct FoamSample {
+    /** The field: the foam cut by the bore (or the ball). */
+    float d;
+    /** The foam's own distance before the cut. */
+    float foamD;
+    /** The cut surface's distance minus the foam's: about 0 on the rings where the cut meets a shell. */
+    float cut;
+    /** 1 where the foam is real, 0 deep inside the bore. */
+    float mask;
+    /** min |q| per axis in .xyz, min r2 in .w, over the chain. */
+    vec4 orb;
+    /** log2 of the conformal scale: the small deep beads have a large one. */
+    float scaleLog;
+    /** The outermost cell's hash. */
+    float cellH;
+};
 
 /** The tunnel axis at depth z: two lobes, whole cycles per period. */
 vec2 foamPath(float z) {
@@ -200,8 +330,15 @@ vec2 foamSeatFor(float sec) {
  */
 void foamSetup() {
     float e = foamEnergy();
-    float morph = foamSat(uMorph);
-    float chaos = clamp(uWarp, 0.0, 2.0) + clamp(uTurbulence, 0.0, 2.0);
+    // The normalization shell (see the header): every input mapped to its range here, once.
+    FoamIn n = foamIn();
+    gFoamIn = n;
+    gFoamEmit = foamAt(n.emit, 1.0, 0.25);
+    gFoamLineW = foamAt(n.line, 1.0, 0.5);
+    gFoamGlow = foamAt(n.glow, 1.0, 0.5);
+    gFoamReach = foamAt(n.reach, 1.0, 0.2);
+    gFoamThick = foamAt(n.thick, 1.0, 0.5);
+    float chaos = 2.75 * n.warp;
 
     gFoamKick = foamSat(SND_KICK_ENV * e);
     gFoamOnset = foamSat(SND_ONSET_ENV * e);
@@ -228,28 +365,29 @@ void foamSetup() {
     vec2 seat = mix(foamSeatFor(sec), foamSeatFor(sec - 1.0), hold);
 
     gFoamShape = FOAM_BORE;
-    gFoamRadius = 0.85 * (1.0 - 0.22 * tension) * (1.0 + 0.4 * gFoamSurgeBump);
-    gFoamBend = 0.75;
+    gFoamRadius = foamAt(n.radius, 0.85, 0.15) * (1.0 - 0.22 * tension) * (1.0 + 0.4 * gFoamSurgeBump);
+    gFoamBend = foamAt(n.bend, 0.75, 0.4);
     gFoamTwist = 2.0;
     gFoamWobble = 0.35 * chaos;
     gFoamFall = 1.0;
-    // Tonal and dark opens the packing (larger s), noisy and bright packs it.
-    gFoamInvS = 1.06 + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
+    // Tonal and dark opens the packing (larger s), noisy and bright packs it. TEXTURE sets where it starts,
+    // a small reach: the inversion scale re-patterns the whole packing, so it moves only a little.
+    gFoamInvS = foamAt(n.bubble, 1.06, 0.04) + 0.16 * harmony + 0.14 * (1.0 - smoothstep(0.2, 0.75, bright))
               + 0.06 * sin(SND_BASS_TIME * FOAM_RATE(37.0));
     // Kept small: a turned cell no longer tiles, so a large turn shreds the
     // packing at every cell border into torn shards instead of round shells.
-    gFoamFold = rot2(0.06 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.08 * morph + 0.14 * flux);
+    gFoamFold = rot2(0.06 * sin(uTime * FOAM_SCENE_RATE(57.0)) + 0.08 * n.lean + 0.14 * flux);
     float slide = 0.4 * (1.0 + 0.5 * chaos);
     gFoamShift = vec3(seat + slide * vec2(sin(SND_MID_TIME * FOAM_RATE(61.0)), sin(uTime * FOAM_SCENE_RATE(42.0) + 2.0)), 0.0);
-    gFoamSpin = SND_MID_TIME * FOAM_RATE(240.0);
-    gFoamShell = 0.012 * (1.0 + 0.8 * gFoamKick);
+    gFoamSpin = uTime * FOAM_SCENE_RATE(473.0);
+    gFoamShell = 0.012 * gFoamThick * (1.0 + 0.8 * gFoamKick);
     float detail = foamSat((uSteps - 64.0) / 64.0);
     // Detail only: it is a quality setting, not a live control. Complexity moving a whole
     // level would pop the packing as it crossed a threshold, so Complexity leans the fold instead.
-    gFoamIters = 6.0 + floor(detail * 3.0 + 0.5);
+    gFoamIters = 6.0 + floor(n.iters * 3.0 + 0.5);
 
     // Colour: the key slides the palette, each section turns it a little.
-    gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold);
+    gFoamHue = 0.5 * uKeyHue * foamSat(uKeyStrength) + 0.13 * mix(sec, sec - 1.0, hold) + foamShift(n.tone, 0.6);
     float conf = foamSat(SND_PITCH_CONFIDENCE);
     gFoamAccent = mix(mix(pal(gFoamHue + 0.5), pal(SND_PITCH_CLASS), conf), vec3(1.0), 0.3);
     gFoamRingPhase = FOAM_RING_GAP * fract(SND_HIT_TIME);
@@ -258,23 +396,33 @@ void foamSetup() {
 
 // ---- the foam ---------------------------------------------------------------
 
-float foam(vec3 q) {
+/**
+ * The packing at q (foam units): its distance in .d (world-scaled by the caller), the orbit
+ * trap, the conformal scale and the outermost cell's hash. Writes nothing outside itself.
+ */
+FoamSample foam(vec3 q) {
+    FoamSample s;
     float scale = 1.0;
-    gFoamOrb = vec4(FOAM_TRAP_FAR);
+    s.orb = vec4(FOAM_TRAP_FAR);
     vec3 cell = floor(0.5 * q + 0.5);
-    gFoamCellH = hashCell(ivec3(int(cell.x), int(cell.y), int(mod(cell.z, FOAM_CELLS))));
+    s.cellH = hashCell(ivec3(int(cell.x), int(cell.y), int(mod(cell.z, FOAM_CELLS))));
     for (int i = 0; i < FOAM_MAX_ITERS; i++) {
         if (float(i) >= gFoamIters) break;
         q = 2.0 * fract(0.5 * q + 0.5) - 1.0;
         q.xy = gFoamFold * q.xy;
         float r2 = dot(q, q);
-        gFoamOrb = min(gFoamOrb, vec4(abs(q), r2));
+        s.orb = min(s.orb, vec4(abs(q), r2));
         float k = gFoamInvS / max(r2, FOAM_INV_FLOOR);
         q *= k;
         scale = min(scale * k, FOAM_SCALE_CAP);
     }
-    gFoamScaleLog = log2(max(scale, 1.0));
-    return FOAM_DE_FUDGE * abs(q.y) / scale;
+    s.scaleLog = log2(max(scale, 1.0));
+    // The prototype the chain inverts: the plane y = 0. uFormula's alternatives (gFoamIn.formula) go here.
+    s.d = FOAM_DE_FUDGE * abs(q.y) / scale;
+    s.foamD = s.d;
+    s.cut = 0.0;
+    s.mask = 1.0;
+    return s;
 }
 
 /** The wedge fold into n wedges (below 2, none). c has length r, r > 0. */
@@ -293,21 +441,28 @@ vec2 foamFold(vec2 c, float r) {
     return f;
 }
 
-float foamMap(vec3 p) {
+/** The sample for a point the cut leaves empty, cutD from its surface. */
+FoamSample foamEmpty(float cutD) {
+    FoamSample s;
+    s.d = cutD;
+    s.foamD = FOAM_TRAP_FAR;
+    s.cut = 0.0;
+    s.mask = 0.0;
+    s.orb = vec4(FOAM_TRAP_FAR);
+    s.scaleLog = 0.0;
+    s.cellH = 0.0;
+    return s;
+}
+
+/** The family's map: the packing cut open by the bore or the ball. Pure: reads the frame's state, writes nothing. */
+FoamSample foamMap(vec3 p) {
     float cutD;
     vec3 q;
     if (gFoamShape == FOAM_BALL) {
-        // The packing inside a ball, folded about the y axis, spun on the mid clock.
+        // The packing inside a ball, folded about the y axis, spun on time alone.
         vec2 xz = rot2(gFoamSpin) * p.xz;
         cutD = length(p) - gFoamRadius;
-        if (cutD > FOAM_BORE_MARGIN) {
-            gFoamOrb = vec4(FOAM_TRAP_FAR);
-            gFoamD = FOAM_TRAP_FAR;
-            gFoamCut = 0.0;
-            gFoamMask = 0.0;
-            gFoamScaleLog = 0.0;
-            return cutD;
-        }
+        if (cutD > FOAM_BORE_MARGIN) return foamEmpty(cutD);
         xz = foamFold(xz, length(xz));
         q = vec3(xz.x, p.y, xz.y);
     } else {
@@ -316,27 +471,76 @@ float foamMap(vec3 p) {
         c = rot2(gFoamTwist * zw + gFoamWobble * sin(3.0 * zw) + gFoamSpin) * c;
         float r = length(c);
         cutD = gFoamRadius - r;
-        if (cutD > FOAM_BORE_MARGIN) {
-            gFoamOrb = vec4(FOAM_TRAP_FAR);
-            gFoamD = FOAM_TRAP_FAR;
-            gFoamCut = 0.0;
-            gFoamMask = 0.0;
-            gFoamScaleLog = 0.0;
-            return cutD;
-        }
+        if (cutD > FOAM_BORE_MARGIN) return foamEmpty(cutD);
         q = vec3(foamFold(c, r), p.z);
     }
-    float d = foam(q * FOAM_FREQ + gFoamShift) / FOAM_FREQ - gFoamShell;
-    gFoamD = d;
-    gFoamCut = cutD - d;
-    gFoamMask = 1.0 - smoothstep(0.0, 0.15, cutD);
-    return max(d, cutD);
+    FoamSample s = foam(q * FOAM_FREQ + gFoamShift);
+    float d = s.d / FOAM_FREQ - gFoamShell;
+    s.foamD = d;
+    s.cut = cutD - d;
+    s.mask = 1.0 - smoothstep(0.0, 0.15, cutD);
+    s.d = max(d, cutD);
+    return s;
+}
+
+/**
+ * GROW AND LAYERS (lib_grow), the family's rules for Spawn, Fractal, Front and
+ * Back layer, as the other families draw them: the layers open the packing
+ * about the subject at the origin (or about the axis the flown eye rides),
+ * Spawn slides a second packing off the first (1 along the way, or aside of a
+ * subject), and Fractal grows the packing a third the size, repeated every 2,
+ * out of every surface within 0.2 at full. No turn and no colour. Every map
+ * read sits behind its own control, and FOAM_GROW takes the field alone while
+ * all four rest, so the picture at rest is the old one, bit for bit.
+ */
+FoamSample foamGrow(vec3 p) {
+    // At rest the one pass reads the map at p and hands back what it found, bit for bit.
+    bool idle = growIdle();
+    float k = 1.0;
+    vec3 q = p;
+    float reach = 0.0;
+    if (!idle) {
+        growFrame();
+        k = growOpen(p, 0.18);
+        vec3 c = growCentre();
+        q = c + growOpened(p - c, k);
+        reach = growFractalReach(0.2);
+    }
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the first world, then
+    // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
+    // lives. Inlined copies put a style past the GPU's compile budget, and WebGL refuses ?: on a struct,
+    // so the nearer hit is chosen with an if.
+    FoamSample h;
+    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+        if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
+        FoamSample c = foamMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
+        if (i == 0) {
+            h = c;
+            continue;
+        }
+        if (i == 2) c.d = growFractalChild(c.d / 3.0, h.d, reach);
+        if (i > 2) c.d = growBirthDist(c.d);
+        else if (gGrowSet) c.d = growClearEye(c.d, p, 0.6);
+        if (c.d < h.d) h = c;
+    }
+    // Space scaled about a subject is an exact scaling (distance times k); opened about the eye's axis,
+    // only across it, so min(k, 1) is the safe factor.
+    if (!idle) h.d *= gGrowAround ? k : min(k, 1.0);
+    return h;
+}
+
+/**
+ * THE FIELD: the one entry every style reads the packing through (the march, the normal, Ghost's
+ * walk), through FOAM_GROW (foamGrow above; foamMap itself while the grow controls rest).
+ */
+FoamSample foamField(vec3 p) {
+    return FOAM_GROW(p, foamMap);
 }
 
 vec3 foamNormal(vec3 p, float e, vec3 fallback) {
     vec2 k = vec2(1.0, -1.0);
-    vec3 g = k.xyy * foamMap(p + k.xyy * e) + k.yyx * foamMap(p + k.yyx * e)
-           + k.yxy * foamMap(p + k.yxy * e) + k.xxx * foamMap(p + k.xxx * e);
+    vec3 g = k.xyy * foamField(p + k.xyy * e).d + k.yyx * foamField(p + k.yyx * e).d
+           + k.yxy * foamField(p + k.yxy * e).d + k.xxx * foamField(p + k.xxx * e).d;
     float len = length(g);
     return len > 1.0e-20 ? g / len : fallback;
 }
@@ -356,9 +560,14 @@ void foamCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     float roll = -0.9 * fwd.x;
     vec3 up = vec3(sin(roll), cos(roll), 0.0);
     vec3 right = normalize(cross(up, fwd));
-    rd = normalize(mat3(right, cross(fwd, right), fwd) * camRayDir(uv));
+    mat3 frame = mat3(right, cross(fwd, right), fwd);
+    rd = normalize(frame * camRayDir(uv));
     gFoamEye = ro;
     gFoamFwd = fwd;
+    // Grow and layers (lib_grow) open round this eye, which rides the bore's path, not the rig's; Life's
+    // births hang ahead of it in the path's frame.
+    growSetup(ro, 3.0, false);
+    gGrowBasis = frame;
     gFoamEpsPerT = FOAM_EPS_PIXELS * 2.0 / (max(uResolution.y, 1.0) * max(uCamFocal, 0.3));
 }
 
@@ -413,23 +622,24 @@ FoamHit foamMarch(vec3 ro, vec3 rd, float far) {
         if (float(i) >= uSteps) break;
         h.used = float(i) + 1.0;
         vec3 p = ro + rd * t;
-        float d = foamMap(p);
+        FoamSample f = foamField(p);
+        float d = f.d;
         float eps = gFoamEpsPerT * t + FOAM_EPS_FLOOR;
         if (d < eps) {
             h.t = t;
             h.used = float(i);
-            h.orb = gFoamOrb;
-            h.scaleLog = gFoamScaleLog;
-            h.cell = gFoamCellH;
-            h.cut = gFoamCut;
+            h.orb = f.orb;
+            h.scaleLog = f.scaleLog;
+            h.cell = f.cellH;
+            h.cut = f.cut;
             break;
         }
         float stepLen = max(d * FOAM_STEP, eps * 0.5);
-        float fd = max(gFoamD, 0.0);
-        float w = exp(-fd * 12.0) * stepLen * gFoamMask;
+        float fd = max(f.foamD, 0.0);
+        float w = exp(-fd * 12.0) * stepLen * f.mask;
         h.glow += w;
-        h.glowTrap += w * sqrt(min(gFoamOrb.w, FOAM_TRAP_FAR));
-        h.rings += foamRingAt(p) * exp(-fd * 8.0) * stepLen * gFoamMask;
+        h.glowTrap += w * sqrt(min(f.orb.w, FOAM_TRAP_FAR));
+        h.rings += foamRingAt(p) * exp(-fd * 8.0) * stepLen * f.mask;
         t += stepLen;
         if (t > far) break;
     }
@@ -449,7 +659,7 @@ vec3 foamBackdrop(vec3 rd) {
     float c = foamSat(dot(rd, gFoamFwd));
     float core = pow(c, 40.0);
     vec3 endLight = foamColor(0.62);
-    // Rays fanning out of the light, turning slowly on the mid clock; they
+    // Rays fanning out of the light, turning slowly on time alone; they
     // swell with the drop. Off the axis only: atan has no angle on it.
     vec3 side = rd - gFoamFwd * c;
     vec3 ax = normalize(cross(gFoamFwd, abs(gFoamFwd.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
@@ -457,7 +667,7 @@ vec3 foamBackdrop(vec3 rd) {
     float rays = 0.0;
     if (dot(side, side) > 1.0e-8) {
         float a = atan(dot(side, ay), dot(side, ax));
-        float spin = SND_MID_TIME * FOAM_RATE(120.0);
+        float spin = uTime * FOAM_SCENE_RATE(237.0);
         rays = pow(0.5 + 0.5 * cos(a * 9.0 + spin), 6.0) * 0.6 + pow(0.5 + 0.5 * cos(a * 23.0 - 1.7 * spin), 10.0) * 0.4;
     }
     float halo = pow(c, 8.0);
@@ -519,7 +729,7 @@ float foamPulse(float trapR, float cellH) {
 vec3 foamAccents(FoamSurf s, vec3 sparkleCol, float sparkleGain) {
     vec3 col = gFoamAccent * foamRingAt(s.p) * (0.15 + 0.85 * gFoamOnset);
     col += gFoamAccent * foamPulse(s.trapR, s.cell) * (0.35 + 0.5 * gFoamKick) * (1.0 - smoothstep(4.0, 7.0, s.scaleLog));
-    float w = 2.0 * s.px;
+    float w = 2.0 * s.px * gFoamLineW;
     float cutLine = (1.0 - smoothstep(0.0, w, abs(s.cut))) + 0.35 * exp(-abs(s.cut) / (6.0 * w));
     col += mix(foamColor(0.3 + 0.5 * s.trapR), sparkleCol, 0.4) * cutLine * (0.25 + 0.45 * s.lit) * sparkleGain;
     vec3 gp = s.p * 14.0;
@@ -563,7 +773,7 @@ vec3 foamSoap(FoamSurf s) {
 
 /** Neon cut rings: a dark foam where only the circles the cut makes of each shell glow. */
 vec3 foamNeon(FoamSurf s) {
-    float w = 2.5 * s.px;
+    float w = 2.5 * s.px * gFoamLineW;
     float ring = 1.0 - smoothstep(0.0, w, abs(s.cut));
     float halo = exp(-abs(s.cut) / (8.0 * w));
     vec3 tube = foamColor(0.15 + 0.6 * s.trapR + 0.2 * s.trapX);
@@ -576,17 +786,17 @@ vec3 foamNeon(FoamSurf s) {
 /** Fog toward the end light, then the glow and the rings gathered along the ray. */
 vec3 foamAtmosphere(vec3 col, FoamHit h, float fogRate, float glowGain) {
     vec3 fog = foamColor(0.62) * 0.1;
-    if (h.t > 0.0) col = mix(col, fog, 1.0 - exp(-h.t * fogRate));
+    if (h.t > 0.0) col = mix(col, fog, 1.0 - exp(-h.t * fogRate / gFoamReach));
     float norm = max(h.glow, 1.0e-6);
     float glowHue = 0.25 + 0.5 * foamSat((h.glowTrap / norm) * 0.75);
-    col += foamColor(glowHue) * (1.0 - exp(-h.glow * 4.0)) * (0.14 + 0.22 * gFoamSurgeBump) * glowGain;
+    col += foamColor(glowHue) * (1.0 - exp(-h.glow * 4.0)) * (0.14 + 0.22 * gFoamSurgeBump) * glowGain * gFoamGlow;
     col += gFoamAccent * (1.0 - exp(-h.rings * 5.0)) * (0.15 + 0.75 * gFoamOnset);
     return col;
 }
 
 /** Tone map, screen-space vignette and the user's grade. */
 vec4 foamFinish(vec3 col) {
-    col *= 0.85 + 0.25 * foamSat(SND_INTENSITY);
+    col *= (0.85 + 0.25 * foamSat(SND_INTENSITY)) * gFoamEmit;
     col = vec3(1.0) - exp(-max(col, 0.0) * 1.4);
     vec2 nd = vUv * 2.0 - 1.0;
     col *= 1.0 - 0.11 * dot(nd, nd);

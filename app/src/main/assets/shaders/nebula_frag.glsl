@@ -22,6 +22,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // NEBULA - a volumetric fbm cloud, lit from inside.
 //
@@ -397,11 +398,13 @@ out vec4 fragColor;
 #define NEB_BASS_INFLATE 0.14
 #define NEB_BASS_EXTINCT 0.35
 /**
- * Mids steer the churn: they rotate the noise domain, and only that.
+ * Mids steer the churn: they slide the noise domain, and only that. They
+ * used to turn it; owner rule (no style spins to the music), so the steer is
+ * an offset now, which keeps the churn's life without a rotation.
  *
  * NOT a rate multiplied by uTime. `f(audio) * uTime` is the classic trap -
  * nudging the multiplier teleports the field by elapsed * delta, which after
- * a few minutes is the whole cloud jumping on a cymbal. An angle is safe: it
+ * a few minutes is the whole cloud jumping on a cymbal. An offset is safe: it
  * is continuous in the audio value, it returns when the music does, and at
  * silence it is exactly zero.
  */
@@ -409,6 +412,17 @@ out vec4 fragColor;
 /** Ambient tumble, radians per second. Slow enough to be felt rather than watched. */
 #define NEB_TUMBLE_Y 0.017
 #define NEB_TUMBLE_X 0.011
+
+// ---- knobs ----------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width (the
+// band of the field they light), k2 FLOW added to the domain warp's bend
+// (gWarpAmp; a volume has no estimate to overshoot), k3 TONE the palette
+// position and the cloud's grain (a high melody raises the density bar so the
+// medium thins to wisps and filaments, a low one lowers it into full billows;
+// NEB_MIN_THRESHOLD still binds), k4 BUILD the medium's own glow (the ambient emission), k5 SPACE
+// how far the core's light reaches.
 
 // ---- touch ----------------------------------------------------------------
 
@@ -484,6 +498,11 @@ out vec4 fragColor;
 #define NEB_VIGNETTE_INNER 0.25
 #define NEB_VIGNETTE_OUTER 2.0
 
+/** k2 FLOW: the domain warp's amplitude (NEB_WARP_AMP at rest). */
+float gWarpAmp = NEB_WARP_AMP;
+/** k3 TONE: added to the density bar (0 at rest). */
+float gToneThr = 0.0;
+
 /**
  * The cloud's envelope at squared radius rSq.
  *
@@ -512,7 +531,30 @@ vec3 nebWarpCoord(vec3 p) {
         fbm3(pw + vec3(23.7, 8.3, 47.1), NEB_WARP_OCTAVES),
         fbm3(pw + vec3(5.9, 63.7, 13.1), NEB_WARP_OCTAVES)
     ) - 0.5;
-    return p * NEB_DENSITY_SCALE + w * NEB_WARP_AMP;
+    return p * NEB_DENSITY_SCALE + w * gWarpAmp;
+}
+
+/** The octave count the density is read with this step (it falls with depth). */
+int gOct;
+
+/** The density pattern, fbm3 of the warped coordinate, as a field of q alone. */
+float nebField(vec3 q) {
+    return fbm3(q, gOct);
+}
+
+/** nebField through lib_shell's hooks: exactly nebField(p) at rest, and nebField read once, in a loop the compiler cannot unroll. */
+float nebFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, nebField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The pattern the march reads: nebField, through lib_shell's hook (the identity until the shell drives it). */
+float nebPattern(vec3 q) {
+    return nebFieldGrown(q);
 }
 
 void main() {
@@ -552,6 +594,29 @@ void main() {
     float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
     float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
     float beatEnv = clamp(SND_KICK_ENV, 0.0, 1.0);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nVein = clamp(uKnob[1], 0.0, 1.0);
+    float nWarp = clamp(uKnob[2], 0.0, 1.0);
+    float nGrain = clamp(uKnob[3], 0.0, 1.0);
+    float nAmbient = clamp(uKnob[4], 0.0, 1.0);
+    float nReach = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the veins' bar, the domain warp's depth, the palette
+    // position and the density bar, the medium's own glow, and how far the
+    // core's light reaches.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    float veinDrop = shellMap(nVein, -0.08, 0.0, 0.08);
+    float hueBase = shellMap(nGrain, NEB_HUE_BASE - 0.3, NEB_HUE_BASE, NEB_HUE_BASE + 0.3);
+    float ambient = NEB_AMBIENT_EMIT * shellMap(nAmbient, 0.5, 1.0, 1.5);
+    float falloff = NEB_CORE_FALLOFF / shellMap(nReach, 0.6, 1.0, 1.4);
+    gWarpAmp = shellMap(nWarp, NEB_WARP_AMP - 0.4, NEB_WARP_AMP, NEB_WARP_AMP + 0.4);
+    gToneThr = shellMap(nGrain, -0.06, 0.0, 0.06);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -575,8 +640,13 @@ void main() {
     // that integrating exists to prevent. With every audio uniform at zero
     // this drift and this tumble are the whole animation, and they are what
     // keeps a silent screen alive.
-    vec3 drift = vec3(0.031, -0.047, 0.019) * uTime;
-    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime + NEB_MID_STEER * mid) * rotX(NEB_TUMBLE_X * uTime);
+    // The mids' steer is a slide of the domain, never a turn (see NEB_MID_STEER).
+    vec3 drift = vec3(0.031, -0.047, 0.019) * uTime + NEB_MID_STEER * mid * vec3(0.8, -0.35, 0.5);
+    mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime) * rotX(NEB_TUMBLE_X * uTime);
+    // The grow hooks act on the pattern in its own coordinate (nebWarpCoord: world times
+    // NEB_DENSITY_SCALE, slid by the drift), so they are measured from the cloud's centre there, the
+    // volume's radius deep, and not from that coordinate's origin, which the drift leaves behind.
+    shellSetup3(drift * NEB_DENSITY_SCALE, radius * NEB_DENSITY_SCALE, 1.0, true);
 
     // ---- the fingers, hoisted out of the march ----------------------------
     // One uniform branch. Every touch uniform is a literal zero on an
@@ -712,7 +782,8 @@ void main() {
         // changing the brightness and no seam appears where the count steps.
         float lod = clamp((t - tNear) / max(span, 1e-3), 0.0, 1.0);
         int oct = NEB_MAX_OCTAVES - int(lod * float(NEB_MAX_OCTAVES - NEB_MIN_OCTAVES) + 0.5);
-        float f = fbm3(q, oct);
+        gOct = oct;
+        float f = nebPattern(q);
 
         // ---- how much medium is here --------------------------------------
         float well = 0.0;
@@ -752,7 +823,7 @@ void main() {
             shock = shockAmp * exp(-sd * sd);
         }
         float thr = max(
-            NEB_THRESHOLD
+            NEB_THRESHOLD + gToneThr
                 - NEB_WELL_THRESHOLD * well
                 - NEB_BRIDGE_THRESHOLD * bridge
                 - NEB_SHOCK_THICKEN * shock,
@@ -790,14 +861,14 @@ void main() {
 
             // Inverse-square from a soft core, floored so the centre is a
             // bright lamp rather than a singularity.
-            float geom = 1.0 / (1.0 + NEB_CORE_FALLOFF * rSq);
+            float geom = 1.0 / (1.0 + falloff * rSq);
             float lit = geom * coreShadow * ltrans;
 
             // The ridge tops of the field that already passed the mask: thin
             // bright veins along the spine of each strand. Squared, so the
             // light lands on a line and not on the region around it - which is
             // also why treble reads as detail here rather than as brightness.
-            float vein = smoothstep(NEB_VEIN_THRESHOLD, NEB_VEIN_TOP, f);
+            float vein = smoothstep(NEB_VEIN_THRESHOLD - veinDrop, NEB_VEIN_TOP, f);
 
             // pal() may sample the cyclic-palette atlas, and this is inside
             // non-uniform control flow, where GLSL ES leaves an implicit-LOD
@@ -808,7 +879,7 @@ void main() {
             // every empty sample instead, which is most of them.
             float shade = clamp(dens * NEB_HUE_DENS_NORM, 0.0, 1.0);
             vec3 tint = pal(
-                NEB_HUE_BASE
+                hueBase
                     + NEB_HUE_DENSITY * shade
                     + NEB_HUE_DEPTH * lod
                     + NEB_HUE_MID * mid
@@ -816,7 +887,7 @@ void main() {
                     + NEB_SHOCK_HUE * shock
             );
 
-            float emit = NEB_AMBIENT_EMIT
+            float emit = ambient
                 + NEB_CORE_EMIT * lit
                 + NEB_VEIN_EMIT * vein * vein * (NEB_VEIN_BASE + treble)
                 // touchWake sums every slot and is unbounded above - five
@@ -842,7 +913,7 @@ void main() {
 
     // A satellite, through whatever the dye in front of it did not absorb.
     if (satT > 0.0) {
-        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, NEB_HUE_BASE + 0.30 + NEB_HUE_MID * mid, treble, satCount,
+        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble, satCount,
                                       NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
         col += body * trans * glowGain * 0.6;
         trans = 0.0;
@@ -855,12 +926,12 @@ void main() {
     // frame, so the mandala sits behind the cloud from every side of it,
     // tilted through the palette by height as the old ramp was. It carries
     // its own floor, so a thin nebula still sits in a space that is not black.
-    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, energy) * glowGain;
+    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + (hueBase - NEB_HUE_BASE) + NEB_SKY_TILT * rd.y, energy) * glowGain;
     col += sky * trans;
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out
     // a third of the frame.
     col *= mix(NEB_VIGNETTE_FLOOR, 1.0, smoothstep(NEB_VIGNETTE_OUTER, NEB_VIGNETTE_INNER, length(uv)));
 
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * emission), 1.0);
 }

@@ -5,7 +5,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
-import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
 
@@ -20,16 +19,16 @@ import java.nio.ByteBuffer
 internal class PlayoutSink(
     sink: AudioSink,
     private val clock: Long,
-    private val ring: SampleRing,
+    private val ring: Long,
 ) : ForwardingAudioSink(sink) {
     override fun handleBuffer(
         buffer: ByteBuffer,
         presentationTimeUs: Long,
         encodedAccessUnitCount: Int,
     ): Boolean {
-        val before = GeodeNative.pcmRingHead(ring.handle)
+        val before = GeodeNative.pcmRingHead(ring)
         val handled = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
-        val written = GeodeNative.pcmRingHead(ring.handle) - before
+        val written = GeodeNative.pcmRingHead(ring) - before
         GeodeNative.playoutBufferHandled(clock, presentationTimeUs, before, written)
         return handled
     }

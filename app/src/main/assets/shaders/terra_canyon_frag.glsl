@@ -40,7 +40,7 @@ out vec4 fragColor;
 // Speed scales the river's flow. Complexity (uMorph) fades in an
 // octave of rock. Chaos (uWarp, uTurbulence, uTwist) warps the walls' rock
 // (terraChaos). Energy (uIntensity) scales the squeeze and the shimmer.
-// Colour is pal() in the strata bands and the sky. Space is the rig.
+// Colour is terraPal() in the strata bands and the sky. Space is the rig.
 
 #define CY_MAX_STEPS 128
 #define CY_FAR 34.0
@@ -55,7 +55,7 @@ float channel(float z) {
     return 0.55 * sin(TERRA_TAU * 3.0 * z / TERRA_PERIOD) + 0.3 * sin(TERRA_TAU * 7.0 * z / TERRA_PERIOD + 1.0);
 }
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     xz = terraWrap(xz);
     vec2 w = terraChaos(xz);
     float f = terraFbm(w, gOct);
@@ -69,26 +69,30 @@ float height(vec2 xz) {
     return mix(h, terr, 0.5) + 0.04 * f;
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
     float t0 = terraTime();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = terraEnergy();
     float bass = clamp(0.6 * sndLevel(SND_BASS_ATT) + 0.4 * SND_BASS_PRESENCE, 0.0, 1.2);
     float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
-    gHalf = 1.7 - 0.3 * bass * min(energy, 1.5);
+    // TEXTURE the channel's half-width (lib_terra's shell), the bass squeezing it on top.
+    gHalf = 1.7 * gTerraWidth - 0.3 * bass * min(energy, 1.5);
     gOct = terraOctaves(3.0);
     float hMax = CY_TOP + 0.65;
 
     vec3 ro;
     vec3 rd;
     terraFly(uv, CY_EYE, 0.06, ro, rd);
-    ro.y = max(ro.y, height(ro.xz) + 0.5);
+    ro.y = max(ro.y, terraField(ro.xz) + 0.5);
 
     vec3 sun = normalize(vec3(0.55, 0.8, 0.25));
     vec3 sunCol = vec3(1.0, 0.9, 0.75);
-    vec3 zenith = mix(vec3(0.12, 0.30, 0.65), pal(0.6) * 0.5, 0.2);
-    vec3 horizon = mix(vec3(0.70, 0.62, 0.55), pal(0.05) * 0.8, 0.2);
+    vec3 zenith = mix(vec3(0.12, 0.30, 0.65), terraPal(0.6) * 0.5, 0.2);
+    vec3 horizon = mix(vec3(0.70, 0.62, 0.55), terraPal(0.05) * 0.8, 0.2);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -102,7 +106,7 @@ void main() {
             if (t > span.y) break;
             used = float(i);
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -119,13 +123,13 @@ void main() {
     vec3 col = terraSky(rd, sun, zenith, horizon, sunCol);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.008);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.008);
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
         float ao = terraStepAO(used);
         float wz = mod(p.z, TERRA_PERIOD);
         float strata = 0.5 + 0.5 * sin(p.y * 9.0 + 2.0 * terraNoise(vec2(p.y * 3.0, wz * 0.25)));
-        vec3 rock = mix(vec3(0.72, 0.36, 0.20), pal(0.04 + 0.12 * strata), 0.2) * (0.75 + 0.35 * strata);
+        vec3 rock = mix(vec3(0.72, 0.36, 0.20), terraPal(0.04 + 0.12 * strata), 0.2) * (0.75 + 0.35 * strata);
         // The dry floor either side of the river: pale sand and gravel.
         rock = mix(rock, vec3(0.62, 0.52, 0.40), (1.0 - smoothstep(0.1, 0.35, p.y)) * smoothstep(0.8, 0.95, n.y));
         col = rock * (dif * sunCol * 1.3 + sky * zenith * 0.8 + 0.08) * ao;
@@ -140,7 +144,7 @@ void main() {
             // The kick's shimmer: a band running away from the eye down the river.
             float ahead = p.z - ro.z;
             float band = exp(-pow((ahead - 2.0 - 22.0 * (1.0 - kick)) * 0.35, 2.0)) * kick;
-            river += pal(0.55 + 0.1 * flow) * band * (0.5 + 0.5 * flow) * 0.6;
+            river += terraPal(0.55 + 0.1 * flow) * band * (0.5 + 0.5 * flow) * 0.6;
             col = mix(col, river, water);
         }
         col = terraFog(col, rd, hitT, 0.035, horizon, sun, sunCol);

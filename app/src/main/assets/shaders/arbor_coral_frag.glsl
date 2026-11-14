@@ -20,7 +20,7 @@ out vec4 fragColor;
 // Each colony is a THREE-armed arborTree (polar wedges rather than a mirror)
 // with negative gravity, so its branches curl upward toward the light the way
 // staghorn coral grows, and a polyp bulb is smooth-unioned onto every tip
-// through gArbTip. Colonies sit one to a 4x4 cell of the sea floor, jittered,
+// through the hit's tip. Colonies sit one to a 4x4 cell of the sea floor, jittered,
 // turned and sized by a cell hash; the cell z index wraps at 64, so the reef
 // repeats every 256 units and the rig's 8192 travel wrap is seamless. A small
 // bubble around the eye is carved out of the field, so a camera path that
@@ -41,6 +41,10 @@ out vec4 fragColor;
 // colony's tilt and twist from its cell hash; uTwist adds a standing spiral.
 // Colour: coral, polyps, sand and water from pal(). Energy: uIntensity scales
 // the polyp swell, the surge and the shimmer. Space: camFly, the rig's path.
+// Knobs (lib_arbor's roles, offsets from 0.5 so off is the tuned look): k0
+// PULSE the emission, k1 TEXTURE the limbs' girth, k2 FLOW added to the Chaos
+// bend, k3 TONE the palette position, k4 BUILD the polyps' glow, k5 SPACE the
+// reach through the water. The mids bow the branches (arbMidBow).
 
 #define CR_MAX_STEPS 104
 #define CR_FAR 20.0
@@ -53,14 +57,13 @@ float gPolyp;
 float gChaos;
 float gSurge;
 vec3 gEye;
-float gHue;
-float gIsPolyp;
 
 float sc0(float h2) {
     return 0.75 + 0.5 * h2;
 }
 
-float map(vec3 p) {
+/** The world: a colony to a cell and the sand. mat.x is the polyp share (0 limb, 1 polyp), -1 on the sand; mat.y the colony's hue hash. */
+ArborHit arborMap(vec3 p) {
     vec2 cell = floor(p.xz / CR_CELL + 0.5);
     vec2 key = vec2(cell.x, mod(cell.y, 64.0));
     float h = hashCell(ivec3(int(key.x), 7, int(key.y)));
@@ -75,26 +78,32 @@ float map(vec3 p) {
     ArborForm f = gF;
     f.tilt += (h - 0.5) * (0.2 + 0.4 * gChaos);
     f.twist += (h2 - 0.5) * 1.2 * gChaos + gSurge * (h - 0.3);
-    float tree = arborTree(q / sc, f, gGrow) * sc;
-    float polyp = gArbTip * sc - gPolyp * sc;
+    ArborHit hit = arborTree(q / sc, f, gGrow);
+    float tree = hit.d * sc;
+    float polyp = hit.tip * sc - gPolyp * sc;
     float coral = smin(tree, polyp, 0.05 * sc);
-    gIsPolyp = smoothstep(0.02, -0.02, polyp - tree);
-    gHue = h;
+    hit.mat.x = smoothstep(0.02, -0.02, polyp - tree);
+    hit.mat.y = h;
 
     float sand = p.y - CR_FLOOR - 0.035 * sin(p.x * 4.0 + 2.0 * sin(p.z * 1.3));
     float d = min(coral, sand * 0.9);
-    if (sand < coral) gIsPolyp = -1.0;
-    return smax(d, 0.7 - length(p - gEye), 0.3);
+    if (sand < coral) hit.mat.x = -1.0;
+    hit.d = smax(d, 0.7 - length(p - gEye), 0.3);
+    return hit;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 void main() {
     vec2 uv = arbView();
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    gChaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float polypR = arbSpan(N.density, 0.022, 0.014, 0.032);
+    float reach = arbSpan(N.reach, 1.0, 0.8, 1.2);
+    float glowK = arbSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
@@ -104,18 +113,17 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
     float lowmid = clamp(sndSpectrum(0.41), 0.0, 1.0) * energy;
 
-    gChaos = arbChaos();
     gSurge = 0.9 * dropBump + 0.08 * sin(t * 0.3);
     gGrow = arbLevels(4.0, 1.0);
-    gPolyp = 0.022 + 0.035 * kick;
-    gF = ArborForm(3.0, 0.72, -0.38, 0.75 + 0.5 * uTwist, 0.80, 0.60, 0.12, 0.80);
+    gPolyp = polypR + 0.035 * kick;
+    gF = arborShape(ArborForm(3.0, 0.72, -0.38 + arbMidBow(), 0.75, 0.80, 0.60, 0.12, 0.80), N);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.55 + 0.03 * sin(t * 0.05);
+    float hue = 0.55 + 0.03 * sin(t * 0.05) + hueShift;
     vec3 water = pal(hue) * 0.18 + vec3(0.0, 0.03, 0.05);
     vec3 fogCol = water * (0.6 + 0.9 * pow(max(rd.y * 0.5 + 0.5, 0.0), 3.0));
 
@@ -129,23 +137,24 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > CR_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            mat = gIsPolyp;
-            colonyHue = gHue;
+            mat = h.mat.x;
+            colonyHue = h.mat.y;
             break;
         }
         // Polyps glow faintly into the water around them.
-        glow += max(gIsPolyp, 0.0) * exp(-d * 10.0) * 0.008;
+        glow += max(h.mat.x, 0.0) * exp(-d * 10.0) * 0.008;
         tm += d * 0.8;
     }
 
     vec3 col = fogCol;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
+        vec3 n = arborNormal(p, 0.0012 * hitT + 0.0006);
         vec3 sun = normalize(vec3(0.2, 1.0, 0.3));
         vec3 lit = arbLight(n, rd, sun, 0.4, 24.0);
         float ao = arbStepAO(used, uSteps);
@@ -164,13 +173,15 @@ void main() {
         col = base * (0.15 + 0.8 * lit.x) * ao + base * caust * 0.9;
         col += pal(hue + 0.2) * lit.y * 0.2 * ao + vec3(lit.z) * 0.1;
         col += pal(hue + 0.7 + 0.3 * colonyHue) * max(mat, 0.0) * 0.18;
-        col = mix(col, fogCol, 1.0 - exp(-hitT * (0.16 - 0.04 * swell)));
+        col = mix(col, fogCol, 1.0 - exp(-hitT * (0.16 - 0.04 * swell) / reach));
     }
-    col += pal(hue + 0.6) * glow;
+    col += pal(hue + 0.6) * glow * glowK;
     // Light shafts from the surface: a soft brightening looking up.
     col += water * 0.8 * pow(max(rd.y, 0.0), 2.0) * (0.6 + 0.4 * sin(rd.x * 9.0 + t * 0.4));
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    // k0 PULSE: the emission, as lib_flame's finish.
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

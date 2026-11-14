@@ -45,9 +45,6 @@ uniform float uPalBase;
 uniform float uPalRange;
 uniform float uContrast;
 uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
 uniform float uDuotone;
 uniform float uBloom;
 uniform float uWarp;
@@ -64,6 +61,49 @@ uniform float uTile;
 uniform float uTwist;
 uniform float uTemperature;
 uniform float uSolarize;
+
+// ---- grow and layers --------------------------------------------------------
+//
+// Customize › Shape › Grow (core/viz/ParamTable.inc spawn .. backLayer), for the
+// music to drive through the reaction routes, waves, envelopes and knobs. The
+// family libraries draw them; each library takes its old path at the default,
+// so a style that ignores them (or sits at 0) draws exactly what it drew.
+// None of them may touch a colour, a brightness or a turn.
+//
+// uSpawn 0..1: more of the subject, a second copy splitting off and easing away.
+// uFractal 0..1: smaller self-similar copies growing on the subject's surface.
+// uFrontLayer, uBackLayer -1..1: how far the foreground (the subject) and the
+// background (the sky, the field) open (up) or draw in (down); 0 as designed.
+uniform float uSpawn;
+uniform float uFractal;
+uniform float uFrontLayer;
+uniform float uBackLayer;
+// uFormula 0..1: which of a raymarched style's own distance formulas draws it
+// (another fold operator, primitive or iteration rule), crossfaded or stepped
+// along 0..1; 0 is the style's first, as it always drew. ParamTable.inc formula.
+uniform float uFormula;
+// uShapeMix 0..1: how far a raymarched style melts the shape graph (core/viz/ShapeGraph) into its own form;
+// 0 is the style's own distance and colour, untouched. ParamTable.inc shapes.
+uniform float uShapeMix;
+// The shape graph itself (ShapeGraph::Packed, ticked once a frame by the renderer and uploaded only to a
+// program that reads it; lib_shapes draws it). uShapes: eight shapes of four vec4, [0] place and role (w 0 a
+// head, 1 a child), [1] size times presence and colour index, [2] primitives A and B, their crossfade and the
+// presence, [3] operations A and B, their crossfade and the blend radius. uShapeCount: how many entries the
+// walk reads. uShapeFold: folds A, folds B, their crossfade, how far space is folded. uShapeMelt: the blend
+// radius the graph melts into the style's own distance with.
+uniform vec4 uShapes[32];
+uniform int uShapeCount;
+uniform vec4 uShapeFold;
+uniform float uShapeMelt;
+// uShadow 0..1, uEscapeColor 0..1: Soft shadows and Escape colour (ParamTable.inc shadow, escapeColor), lib_shade's.
+uniform float uShadow;
+uniform float uEscapeColor;
+// uLife 0..1 (ParamTable.inc life) and its births (core/viz/Births: two vec4 a birth, three births), all 0 at
+// Life 0, where lib_grow's birth passes are all skipped.
+uniform float uLife;
+uniform vec4 uBirths[6];
+// The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
+//#include lib_grow
 
 // ---- the style knobs --------------------------------------------------------
 //
@@ -131,6 +171,9 @@ vec2 view() {
         uv = floor(uv * px) / px;
     }
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
+    // VIEW_BENDS_IN_3D: a present that bends its 3D shape by the Kaleidoscope, Twist, Tile and Ripple
+    // (lib_field3d) defines it before including this file, so the screen is not bent a second time.
+#ifndef VIEW_BENDS_IN_3D
     // Kaleidoscope: fold the plane into uSymmetry angular wedges.
     if (uKaleido > 0.5 && uSymmetry >= 2.0) {
         float ang = atan(uv.y, uv.x);
@@ -139,6 +182,7 @@ vec2 view() {
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
+#endif
     // VIEW_OWNS_SHAPE: a style that spends uMorph, uTurbulence and uWarp on
     // its own geometry (the style families: Complexity and Chaos macros move
     // these) defines it before including this file, so the generic screen
@@ -182,6 +226,7 @@ vec2 view() {
 #ifndef VIEW_OWNS_SHAPE
     uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
 #endif
+#ifndef VIEW_BENDS_IN_3D
     // Radial twist: rotate by an angle growing with radius.
     if (abs(uTwist) > 0.001) {
         float tr = length(uv) * uTwist * 2.0;
@@ -193,6 +238,7 @@ vec2 view() {
     if (uTile > 1.01) {
         uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
     }
+#endif
 #ifndef VIEW_OWNS_SHAPE
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
@@ -200,10 +246,12 @@ vec2 view() {
         uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
     }
 #endif
+#ifndef VIEW_BENDS_IN_3D
     // Concentric ripple distortion driven by radius.
     if (uRipple > 0.001) {
         float r = length(uv);
         uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
     }
+#endif
     return uv;
 }

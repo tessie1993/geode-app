@@ -23,7 +23,8 @@ inline std::uint32_t styleVariantSeed(std::string_view id) {
 // attack/release smoothing, an oscillator on a music-driven clock, or a slow
 // re-target that eases over seconds. Nothing follows a single drum hit; the
 // only triggers read are the rare structural ones (a hard cut, and for some
-// styles every sixteenth kick) that re-aim the orbit and the drift.
+// styles every sixteenth kick) that re-aim the orbit. The drift turns at one
+// fixed rate: no sound sets its speed or its direction (owner 2026-11-12).
 //
 // Two independent instances of this class exist in the running app: one owned
 // by Renderer (Renderer::resolveParams), whose apply() reshapes the
@@ -45,9 +46,11 @@ public:
         float trebRel = 1.0f;     // uTrebRel
         float bright = 0.0f;      // uBright: spectral centroid, 0..1
         float harmony = 0.5f;     // uHarmony: tonality (1 - flatness), 0..1
-        float keyHue = 0.0f;      // uKeyHue: the style's hue driver, eased round the wheel, 0..1
-        float keyStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
-        float barOsc = 0.5f;      // uBarOsc: oscillator on a music-driven clock, 0..1
+        // The style's hue driver (the melody's pitch class, the timbre or a per-note or per-kick random; never
+        // the key), eased round the wheel, 0..1. Uploaded as uKeyHue, a name the shaders kept from before.
+        float hue = 0.0f;
+        float hueStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
+        float barOsc = 0.5f;      // uBarOsc: a wave once a bar: Rhythm's bar while it holds a beat, else a music-driven clock, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
         float drift = 0.0f;       // uDrift: accumulated angle, radians, in [0, kDriftWrap) (a shader angle, never a rate)
@@ -80,9 +83,10 @@ public:
     // scales the shape terms here; the rates safety::apply scales next
     // (rotation, sway, turbulence) are left to it, so each is scaled once.
     // spin is the style's SceneRegistry::spinRate: it scales and signs the drift
-    // spin, and 0 (a style that does not turn) adds no drift spin or sway, so
-    // rotation and sway stay what the user and the routes set. The user's Spin
-    // control (motionDrift) scales the turn too: at 0 a turning style adds none.
+    // spin, and 0 (a style that does not turn) adds no drift spin, so rotation
+    // stays what the user and the routes set. The user's Spin control
+    // (motionDrift) scales the turn too: at 0 a turning style adds none. Sway is
+    // left as it comes: the bar wave no longer rocks it (no sound turns a style).
     SceneParams apply(const SceneParams& p, bool reducedMotion, float spin = 1.0f) const;
 
     const State& state() const { return state_; }
@@ -98,9 +102,14 @@ private:
     // Symmetric one-pole time constants (seconds).
     static constexpr float kBrightSeconds = 0.5f;
     static constexpr float kHarmonySeconds = 1.0f;
-    static constexpr float kKeyHueSeconds = 3.0f;
-    static constexpr float kKeyStrengthSeconds = 1.0f;
+    static constexpr float kHueSeconds = 3.0f;
+    static constexpr float kHueStrengthSeconds = 1.0f;
     static constexpr float kRhythmLockSeconds = 1.0f;
+    // The bar wave follows Rhythm's bar from a beat confidence of kBarBeatUnsure (its unlock line) to
+    // kBarBeatSure (its lock line), eased over kBarOnBeatSeconds.
+    static constexpr float kBarBeatUnsure = 0.2f;
+    static constexpr float kBarBeatSure = 0.35f;
+    static constexpr float kBarOnBeatSeconds = 1.0f;
     static constexpr float kBreathSeconds = 0.5f;
 
     // Orbit: target ease and radius.
@@ -111,17 +120,15 @@ private:
     static constexpr float kOrbitRetargetRefractorySeconds = 1.0f;
 
     // Drift integrator.
-    static constexpr float kDriftBaseRadPerSec = 0.02f;
-    static constexpr float kDriftMidRadPerSec = 0.08f;
-    static constexpr float kDriftSignEaseSeconds = 3.0f;
+    // The drift's one rate, rad/s: what the mids used to set on steady music (midRel 1).
+    static constexpr float kDriftRadPerSec = 0.10f;
     // What apply() adds to rotation per rad/s of drift rate: at full Spin
-    // and spin 1, about 0.5 rad/s on steady music (midRel 1) and at most 0.9 rad/s
-    // (midRel 2), so a turning style spins steadily with the mids, never runs up
+    // and spin 1, 0.5 rad/s, so a turning style spins steadily and never runs up
     // to the rotation clamp.
     static constexpr float kDriftSpinGain = 5.0f;
     // Where uDrift wraps: 200 pi, so every shader multiplier that is a multiple of
     // 0.01 (0.07 to 0.5 today) turns a whole number of turns over one period and
-    // the wrap never shows. At the fastest drift that is about once an hour; the
+    // the wrap never shows. That is about every hour and three quarters; the
     // float uploaded stays under 629, fine-grained enough for highp.
     static constexpr double kDriftWrap = 200.0 * 3.14159265358979323846;
 
@@ -147,8 +154,10 @@ private:
 
 
     float rhythmLock_ = 0.0f;
+    // How much the bar wave follows Rhythm's bar (1) rather than the style's clock (0), eased.
+    float barOnBeat_ = 0.0f;
 
-    float keyHuePhase_ = 0.0f;
+    float huePhase_ = 0.0f;
 
     float orbitTargetX_ = 0.0f;
     float orbitTargetY_ = 0.0f;
@@ -158,14 +167,8 @@ private:
 
     // Accumulated in double so the per-frame steps stay exact near the top of the period.
     double driftAngle_ = 0.0;
-    // The eased, signed drift rate of the last step() (rad/s): apply()'s spin.
+    // The drift rate of the last step() (rad/s, 0 before the first): apply()'s spin.
     float driftRate_ = 0.0f;
-    float driftSign_ = 1.0f;
-    float driftSignTarget_ = 1.0f;
-
-    // The current bar phase's sine, cached from step() for sway in apply();
-    // apply() has no frame of its own to read the clock from.
-    float barSin_ = 0.0f;
     // setVariant's picks: hue from pitch class (0), centroid (1), note random
     // (2) or kick random (3); oscillators on the hit (0), bass (1) or
     // loudness (2) clock; the orbit also re-aims every sixteenth kick.

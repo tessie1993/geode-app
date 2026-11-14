@@ -96,12 +96,13 @@ void testChillPinned() {
     const SceneParams& s = p->params;
     check(sameBits(s.speed, 0.5f) && sameBits(s.audioDrive, 0.85f), "Chill motion");
     check(sameBits(s.beatResponse, SceneParams{}.beatResponse), "Chill sets no retired key");
-    check(s.trails && sameBits(s.trailLength, 0.8f) && s.colorCycle && sameBits(s.cycleSpeed, 0.025f), "Chill trails and cycle");
+    check(s.trails && sameBits(s.trailLength, 0.8f), "Chill trails");
+    check(!s.colorCycle && sameBits(s.cycleSpeed, SceneParams{}.cycleSpeed), "Chill sets no retired colour cycle");
     check(s.palette == 3 && sameBits(s.sway, 0.35f) && sameBits(s.vignette, 0.4f) && sameBits(s.paramFadeSec, 1.5f), "Chill look");
     check(sameBits(s.saturation, 0.8f) && sameBits(s.brightness, 0.9f), "Chill grade");
     // What the Kotlin literal left out is SceneParams' default.
     const SceneParams d{};
-    check(sameBits(s.zoom, d.zoom) && s.palette2 == d.palette2 && s.kaleidoscope == d.kaleidoscope, "Chill leaves the rest at default");
+    check(sameBits(s.zoom, d.zoom) && s.paletteLut == d.paletteLut && sameBits(s.kaleidoFolds, d.kaleidoFolds), "Chill leaves the rest at default");
     // Every loose style's Chill is the same look.
     const auto* other = find("lava · Chill");
     check(other && sameParams(other->params, s) && sameBits(other->attack, 0.4f), "lava · Chill is julia's Chill");
@@ -112,7 +113,7 @@ void testVariantsPinned() {
     check(deep && deep->sceneId == "orb_lattice" && sameBits(deep->attack, 0.45f) && sameBits(deep->decay, 0.1f), "Deep Sea row");
     if (deep) {
         const SceneParams& s = deep->params;
-        check(s.palette == 3 && s.palette2 == 6 && sameBits(s.paletteMix, 0.35f) && sameBits(s.chromaAb, 0.2f) &&
+        check(s.palette == 3 && sameBits(s.paletteMix, SceneParams{}.paletteMix) && sameBits(s.chromaAb, 0.2f) &&
                   sameBits(s.paramFadeSec, 1.0f),
               "Deep Sea values");
     }

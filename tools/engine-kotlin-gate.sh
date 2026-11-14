@@ -45,17 +45,8 @@ set -euo pipefail
 S='engine/scenes/src/main/kotlin/dev/geode'
 C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
-    "$C/audio/SampleRing.kt"
-    "$C/audio/SoundCursor.kt"
     "$C/bridge/GeodeNative.kt"
-    "$S/render/PerformanceSettings.kt"
-    "$S/render/bridge/NativeViz.kt"
-    "$S/render/bridge/SceneParamsCodec.kt"
-    "$S/render/look/LookSnapshot.kt"
-    "$S/render/scene/ParamKeys.kt"
     "$S/render/scene/ParamSchema.kt"
-    "$S/render/scene/SceneParams.kt"
-    "$S/util/BestEffort.kt"
 )
 
 if [ "${1:-}" = "--files" ]; then

@@ -349,7 +349,7 @@ class DirectorPolicy { public: virtual ~DirectorPolicy() = default; virtual void
 - `createSessionUsingConfig`, graphics-pipeline mode and `notifyWorkload*` are API 36 [S17].
 - The Java `PerformanceHintManager.createHintSession` is API 31 [S18].
 - Power-efficiency mode tells the session its threads "can be safely scheduled to prefer power efficiency over performance" [S20].
-- **design** One session for each source's analysis thread plus the workers it feeds, with the hop period (or a whole schedule period) as target; the GL thread keeps its own session; calls above API 33 behind availability checks (the build already fails on `-Werror=unguarded-availability`, `CMakeLists.txt:19`).
+- **design** One session for each source's analysis thread plus the workers it feeds, with the hop period (or a whole schedule period) as target; the GL thread keeps its own session; calls above API 33 behind availability checks (the build already fails on `-Werror=unguarded-availability`, `CMakeLists.txt:20`).
 - **design** ADPF's thermal API is not used: ADR 0008 removed every heat-driven throttle (AGENTS.md).
 - Android's guidance on manual CPU affinity: the platform "can't dynamically adjust task placement for runtime factors such as load and thermal throttling", forcing big cores "may unnecessarily increase battery drain and thermal load", and "it's generally best to avoid manually setting CPU affinities" [S19].
 - **design** So no thread is pinned; placement is left to the scheduler and the hint sessions.
@@ -361,7 +361,7 @@ class DirectorPolicy { public: virtual ~DirectorPolicy() = default; virtual void
 - **design** From the balance equations at build: the repetition vector, the period, every arc's buffer size, the arena's size [S1], [S2].
 - **design** From the TTSDF latency search at build: the smallest L that schedules [S2, §4.2].
 - **design** From the worker budget at build: how many workers, from core count and the schedule's measured or declared cost (**open**: how a cost is declared without a device benchmark).
-- Values in the code today that are compile-time and would become plan outputs: the 10 ms hop (`core/sound/Rhythm.hpp:36`), the rhythm ring length (`core/sound/Rhythm.hpp:113`), `kFeedRunsPerFrame` (`core/api/geode_viz_api.cpp:188`), the 0.25 s starvation cut (`core/sound/SoundEngine.hpp:53`), `RelativeLevel`'s time constants (`core/sound/Stages.hpp:79-83`).
+- Values in the code today that are compile-time and would become plan outputs: the 10 ms hop (`core/sound/Rhythm.hpp:36`), the rhythm ring length (`core/sound/Rhythm.hpp:113`), `kFeedRunsPerFrame` (`core/api/geode_viz_api.cpp:188`), the 0.25 s starvation cut (`core/sound/SoundEngine.cpp:23`), `RelativeLevel`'s time constants (`core/sound/Stages.hpp:79-83`).
 - **open** Whether a constant that is an algorithm's own design parameter (a smoother's time constant in seconds) counts as "arbitrary"; the design keeps such parameters as the algorithm's declared inputs, converted to per-hop factors at build from the derived hop.
 
 ## The migration order (smallest step first; the app works after each)
@@ -386,7 +386,7 @@ class DirectorPolicy { public: virtual ~DirectorPolicy() = default; virtual void
 - **open** Who wakes the analysis thread without the writer making a blocking or costly call.
 - **open** Sound tuning is set per renderer today (`core/viz/Renderer.cpp:101`, `:136`); one analysis per source needs it per source, and two surfaces with different trims on one source would conflict.
 - **open** MilkDrop's raw PCM is per renderer (`core/viz/Renderer.cpp:107-111`); it stays a per-reader tap on the ring, outside the graph.
-- **open** Record hears "exactly what the engine just heard, the mic layer included" (`core/api/geode_viz_api.cpp:414-415`); with a shared analysis the layer mix must also move to the source, or Record keeps its own mix.
+- **open** Record hears "exactly what the engine just heard, the mic layer included" (`core/api/geode_viz_api.cpp:415-416`); with a shared analysis the layer mix must also move to the source, or Record keeps its own mix.
 - **open** The wallpaper may switch between the ring and the output-mix capture (`core/sound/SoundSource.hpp`); each is a source with its own graph, and a switch is an epoch on the reader, not a rebuild.
 - **open** When a worker misses L live, the choices are to publish late (live then differs from export) or to run it inline (a deadline risk); export always runs inline and is unaffected. Owner's call.
 - **risk** Float reductions are not associative; any tree or partition must be fixed at build or bits change between runs [S13], [S15].

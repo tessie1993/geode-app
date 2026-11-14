@@ -17,11 +17,11 @@ Clean room: methods and maths from papers, standards and platform docs only; lib
 
 ### The transform
 - `Fft` accepts powers of two only and aborts otherwise (`core/sound/Fft.cpp:19`).
-- It runs KISS FFT's complex transform on the real frame with zero imaginary parts (`Fft.cpp:24-25`), so half its work is redundant: a real-data DFT saves "roughly a factor of two in time" (Frigo & Johnson, Proc. IEEE 93(2) 2005, p. 13, https://www.fftw.org/fftw-paper-ieee.pdf).
+- It runs KISS FFT's complex transform on the real frame with zero imaginary parts (`Fft.cpp:24-25`), so half its work is redundant: a real-data DFT saves "roughly a factor of two in time" (Frigo & Johnson, Proc. IEEE 93(2) 2005, https://www.fftw.org/fftw-paper-ieee.pdf).
 - The shipped header already has a real transform, `transform_real` (`third_party/kissfft/kissfft.hh:154`), unused by the app.
 - `Fft` keeps magnitudes only (`Fft.cpp:26`); phase is thrown away, so complex-domain and phase-deviation onset functions cannot be built on it (inference; those functions are in `music-analysis.md` §5).
 - KISS FFT has no NEON path in the tree (no `neon`/`__ARM` symbol in `third_party/kissfft`, grep); its SIMD mode is SSE and does four separate FFTs at once (`third_party/kissfft/README.simd:1-14`).
-- KISS FFT's generic butterfly for prime factors > 5 resizes a `mutable` scratch vector (`kissfft.hh:330,359`): it allocates on first use and races if one plan is shared across threads; power-of-two sizes never reach it (`Fft.cpp:20-21` comment).
+- KISS FFT's generic butterfly for prime factors > 5 resizes a `mutable` scratch vector (`kissfft.hh:330,359`): it allocates on first use and races if one plan is shared across threads; power-of-two sizes never reach it (`Fft.cpp:17-18` comment).
 - KISS FFT is BSD-3-Clause (`third_party/kissfft/COPYING`).
 
 ### Windowing and reading the ring
@@ -76,16 +76,16 @@ Clean room: methods and maths from papers, standards and platform docs only; lib
 - Level C, per-sample bins: a sliding DFT only for a small set of bins that need sample-rate updates; the per-sample IIR bands stay for timing (Turchet's hybrid, `music-analysis.md` §5).
 
 ### Window choice
-- For DFT processing, use DFT-even windows: "a conventional even sequence with the right end point removed" (Harris, Proc. IEEE 66(1) 1978, p. 54, https://amst.ece.iastate.edu/paper/comparative_study/window_1.pdf); the app's Hann already is.
+- For DFT processing, use DFT-even windows: "a conventional even sequence with the right end point removed" (Harris, Proc. IEEE 66(1) 1978, §II, https://amst.ece.iastate.edu/paper/comparative_study/window_1.pdf); the app's Hann already is.
 - The Hann window's DFT has only three non-zero samples, at −2π/N, 0, +2π/N (Harris, p. 62): windowing equals a 3-tap circular convolution of the rectangular-window spectrum.
 - Resolution: Δf = β·fs/N with β the window's equivalent noise bandwidth in bins (Harris, eq. 16); so the window length follows from the resolution a consumer needs, not from a time constant.
-- Overlap of 50 or 75% is the norm for good windows (Harris, §III.C).
+- Overlap of 50 or 75% is the norm: "The overlap is almost always 50 or 75 percent" (Harris, "Overlap Correlation").
 - A minimum-phase variant of the chosen window cuts latency at the same magnitude response (Su & Wu, above); which window wins is a measurement on the app's onset and pitch sets (open).
 
 ### Hop from the window, not a constant
 - Each STFT bin is the output of a low-pass filter with impulse response w(n), so it must be sampled at least at twice the window's bandwidth (Allen & Rabiner, Proc. IEEE 65(11) 1977, §VII, https://jontalle.web.engr.illinois.edu/Public/Allen-pdf/AllenRabinerProc77.pdf).
 - For an N-point Hamming window at a 42 dB criterion B = 2Fs/N, so the hop is at most N/4 (same, eq. 7.1–7.4).
-- Hann has the same main-lobe width as Hamming (both two bins each side; Harris Table I), so the same N/4 bound applies (inference).
+- Hann's main lobe spans the same ±2 bins as Hamming's (both are two-term cosine sums; Harris p. 62 places Hann's side kernels at ±2π/N), so the same N/4 bound applies (inference; Hann's sidelobes are higher than Hamming's first, so the dB criterion differs: open).
 - Today the 2048 frame at a 480 hop meets N/4 = 512; the 4096 frame would meet it at 1024 but is recomputed every 480 (inference): about twice the work the sampling theorem asks for.
 - Final hop = a multiple of the device burst (stage 1) that satisfies the smallest window's bound and the onset grid the Pareto tuning picks (inference).
 
@@ -98,7 +98,7 @@ Clean room: methods and maths from papers, standards and platform docs only; lib
 - That blog benchmarked four FFTs on Cortex-A9 (1.0 GHz) and Cortex-A53 (850 MHz) and calls the NEON gain "obvious", with numbers only in figures (same; figures not read: unverified magnitude).
 - A BSD-3 C++ FFT handles any length (codelets 2, 3, 4, 5 for real data; Bluestein for large primes) but vectorises only multi-dimensional transforms, not one 1-D transform (https://github.com/mreineck/pocketfft/tree/cpp).
 - KISS FFT: radix 2, 3, 4, 5 butterflies; its real FFT "only works for even length" and does two half-length FFTs packed into one complex one (`third_party/kissfft/README.md:214-226`).
-- A measuring planner — time candidate plans on the machine and keep the fastest — beats a fixed choice and needs no manual tuning (Frigo & Johnson 2005, §III); the method, not that GPL library, is what to reuse.
+- A measuring planner "works by measuring the actual run time of many different plans and by selecting the fastest one", with "no manual intervention" (Frigo & Johnson 2005, §I); the method, not that GPL library, is what to reuse.
 - So: backend and size are picked at configure time by timing each permissive backend on the device at the sizes the hop grid allows (inference).
 - Open: measured ns per transform for each backend on the app's target phones; no primary source gives current-phone figures.
 
@@ -203,9 +203,9 @@ class AnyFrontEnd;                             // type-erased owner per source; 
 ## 4. Algebraic structure
 
 ### The DFT as the Fourier transform on ℤ/Nℤ
-- The DFT expands f on ℤ/nℤ in the irreducible characters χ_k(j) = e^{2πijk/n} (Maslen & Rockmore 2003, §1, https://library.slmath.org/books/Book46/files/11maslen.pdf); stage 1 §4 covers the basics.
+- The DFT expands f on ℤ/nℤ in the irreducible characters χ_k(j) = e^{2πijk/n} (Maslen & Rockmore 2003, https://library.slmath.org/books/Book46/files/11maslen.pdf); stage 1 §4 covers the basics.
 - Cooley–Tukey is a DFT on the subgroup qℤ/nℤ ≅ ℤ/pℤ then over coset representatives; mixed radix follows a chain of subgroups (same, §2): so the valid FFT sizes are exactly the n whose subgroup chain has small prime steps (2, 3, 5 in the shipped and candidate libraries).
-- For prime order there is no proper subgroup; Rader turns the DFT into a convolution on ℤ/(p−1)ℤ (same, §4): the reason libraries fall back to slower code for large primes.
+- For prime order there is no proper subgroup; Rader turns the DFT into a convolution on ℤ/(p−1)ℤ (same, "chirp-z" section): the reason libraries fall back to slower code for large primes.
 - The DFT turns cyclic convolution into pointwise multiplication (Rockmore, CiSE 2(1) 2000, https://gauss.dartmouth.edu/~m56s13/Rockmore1999CSE_FFT_review.pdf).
 
 ### Convolution theorem in the front end
@@ -226,7 +226,7 @@ class AnyFrontEnd;                             // type-erased owner per source; 
 
 ### Overlap-add as a monoid, and the hop as a subgroup
 - Allen & Rabiner: if w is densely enough sampled, ∑_m w(m − n) = W(e^{j0}) "independent of the window offset n" (eq. 4.5), and the dual statement holds in frequency (§VIII).
-- Shifted, weighted frames under addition form a commutative monoid (identity: the zero buffer), so partial overlap-add sums combine in any grouping (inference; Blelloch's reduce needs only associativity, §1.2).
+- Shifted, weighted frames under addition form a commutative monoid (identity: the zero buffer), so partial overlap-add sums combine in any grouping (inference; Blelloch's reduce needs only associativity).
 - Hops form the subgroup Hℤ (stage 1 §4); the sum of a window over its H-translates is constant exactly when the window's transform vanishes on the non-zero multiples of N/H (inference from Allen & Rabiner's §VIII duality; the annihilator reading is not from a read source).
 - For analysis only, the same duality says hop ≤ N/4 keeps a Hann/Hamming STFT un-aliased in time (Allen & Rabiner §VII); that is the group-level reason the hop is set by the window.
 - Hops with H | N give phase advances χ_k(H) that repeat with period N/gcd(kH, N), so per-bin phase increments are exact and precomputable (inference).

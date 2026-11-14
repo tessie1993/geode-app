@@ -81,15 +81,15 @@ Tempo: no window, threshold or prior in this stage may come from a tempo; none b
 
 ### Predominant melody in polyphonic audio
 - Contour method (sinusoids, salience over 600 bins of 10 cents from 55 Hz, contour creation and contour-feature selection): MIREX 2011 mean overall accuracy 0.75 (Salamon & Gómez, IEEE TASLP 2012, https://www.justinsalamon.com/uploads/4/3/9/4/4394963/salamongomezmelodytaslp2012.pdf, Table III).
-- It is not causal: contour features and the melody mean are computed over whole contours (same paper, §II-D); window 46.4 ms, hop 2.9 ms (same paper, §II-A).
+- It is not causal: contour features and the melody pitch mean are computed over whole contours ; window 46.4 ms, hop 2.9 ms (same paper).
 - The causal reference remains the online harmonic-cluster tracker already cited (Arora & Behera, TASLP 2013, music-analysis.md §5); its accuracy and latency were not read: open.
 - Phone: the salience stage alone (harmonic summation per bin) is a fixed per-hop cost; no on-device measurement exists: open.
 
 ### Polyphonic multi-pitch and note events
-- A 16,782-parameter network on a CQT with 3 bins per semitone and ~11 ms hop outputs onset, note and pitch posteriorgrams; the 3-bin pitch head carries bends (Bittner et al., ICASSP 2022, https://arxiv.org/pdf/2203.09893, §3).
+- A 16,782-parameter network on a CQT with 3 bins per semitone and ~11 ms hop outputs onset, note and pitch posteriorgrams; the 3-bin pitch head carries bends (Bittner et al., ICASSP 2022, https://arxiv.org/pdf/2203.09893).
 - Its harmonic stacking (CQT shifted by harmonic intervals) is what lets so few parameters work; removing it dropped every score (same paper, Table 2, ablation "−H").
-- Measured note F-measure without offsets: GuitarSet .79, Molina vocals .52, MAESTRO piano .71 (vs .952 for an 18 M-parameter piano-only model) (same paper, Tables 2-3, §4.3).
-- Not causal as published: note creation traces forward and backward from onsets and drops notes under ~120 ms (same paper, §3); the convolutions' look-ahead is not stated: open.
+- Measured note F-measure without offsets: GuitarSet .79, Molina vocals .52, MAESTRO piano .71 (vs .952 for an 18 M-parameter piano-only model) (same paper, Tables 2-3).
+- Not causal as published: note creation traces forward and backward from onsets and drops notes under ~120 ms (same paper); the convolutions' look-ahead is not stated: open.
 - Its CPU benchmark is a desktop (7 min 45 s file in 24 s, 951 MB peak) (same paper, §4.5); phone cost: open.
 - Causal alternative with measured results: non-negative decomposition onto fixed note templates with β-divergence (β = 0.5), 50 ms frames, 10 ms hop (Dessein, Cont & Lemaitre, ISMIR 2010, https://hal.science/hal-00708682/document, §5).
 - Measured on 25 MAPS piano excerpts: frame F 65.5; note F 71.1 on onsets, 28.2 with offsets; about 3× faster than real time in MATLAB on a 2.4 GHz laptop (same paper, Tables 1-2).
@@ -98,16 +98,16 @@ Tempo: no window, threshold or prior in this stage may come from a tempo; none b
 
 ### Note articulation: re-attack, legato, vibrato, glide
 - Re-attack is an onset while the same pitch is active; legato is a pitch change with no onset; both fall out of separate onset and pitch evidence (onset head plus pitch head, Bittner et al. 2022 above), not of hand timings.
-- Vibrato rate and extent: fit the strongest sinusoid in the pitch curve per 0.125 s window, quarter-window step, then classify presence (Yang, Rajab & Chew, ISMIR 2016, https://archives.ismir.net/ismir2016/paper/000314.pdf, §2.1).
+- Vibrato rate and extent: fit the strongest sinusoid in the pitch curve per 0.125 s window, quarter-window step, then classify presence (Yang, Rajab & Chew, ISMIR 2016, https://archives.ismir.net/ismir2016/paper/000314.pdf).
 - That window needs only past pitch frames: it is causal at 125 ms latency (derived from the paper's window).
 - Its detection accuracy was not in the part read: open.
-- Glide (portamento) there is detected by an HMM and fitted with a logistic curve whose inflection gives the transition time (same paper, §2.2); the fit uses the whole transition, so it is offline.
+- Glide (portamento) there is detected by an HMM and fitted with a logistic curve whose inflection gives the transition time (same paper); the fit uses the whole transition, so it is offline.
 - Causal glide: the slope of the pitch curve from past frames only; no measured comparison found: open.
 
 ### Chroma
-- A tuned 36-bins-per-octave chroma from a constant-Q transform over 110-3520 Hz needed a 743 ms window for the lowest bins (Harte, Sandler & Gasser, ACM AMCMM 2006, https://typeset.io/pdf/detecting-harmonic-change-in-musical-audio-3ixqjqrcno.pdf, §3.1).
+- A tuned 36-bins-per-octave chroma from a constant-Q transform over 110-3520 Hz needed a 743 ms window for the lowest bins (Harte, Sandler & Gasser, ACM AMCMM 2006, https://typeset.io/pdf/detecting-harmonic-change-in-musical-audio-3ixqjqrcno.pdf; ACM venue, third-party copy).
 - Derived: separating two partials a semitone apart at frequency f needs bin spacing below f·(2^(1/12) − 1) ≈ 0.0595·f; so the lowest usable chroma frequency is the bin width divided by 0.0595, computed from the live FFT, never a constant.
-- A learned chroma from ±0.7 s of centred context reached 79.0% major/minor WCSR, above hand-made chromas (Korzeniowski & Widmer, ISMIR 2016, https://arxiv.org/pdf/1612.05065, §4); it has 0.7 s look-ahead, so not causal.
+- A learned chroma from ±0.7 s of centred context reached 79.0% major/minor WCSR, above hand-made chromas (Korzeniowski & Widmer, ISMIR 2016, https://arxiv.org/pdf/1612.05065); it has 0.7 s look-ahead, so not causal.
 - The same paper: logistic regression on a chroma derived from ground-truth labels recognised 97% of major/minor chords: given clean chroma, the classifier is not the bottleneck.
 - The chroma's reference must be the tuning estimate above, not 440 Hz.
 
@@ -116,7 +116,7 @@ Tempo: no window, threshold or prior in this stage may come from a tempo; none b
 - Derived from that equation: the three circles advance 7π/6, 3π/2 and 2π/3 per semitone, i.e. they are the DFT coefficients k = 7, 9, 4 of the chroma, the conjugates of f5 and f3, and f4, divided by the L1 norm (f0).
 - The radii are copied from a symbolic model, not measured on audio (same paper: "derived using the same approach that Chew uses").
 - The change function is the distance between centroids at n−1 and n+1 after Gaussian smoothing with σ = 8 frames (same paper, eq. 4): non-causal by design.
-- Measured: chord-change F 64.9% at ±3 frames (278 ms) on 16 songs, precision 46% vs recall 84% (same paper, Table 1).
+- Measured: chord-change F 64.9% at ±3 frames (278 ms) on 16 songs, precision 53%, recall 84% (same paper, Table 1).
 - Causal form: compare the current centroid with a past-only average; the app's snapshot method (§1) is already of this kind; its accuracy against the centred form is unmeasured: open.
 
 ### Key and modulation
@@ -124,9 +124,9 @@ Tempo: no window, threshold or prior in this stage may come from a tempo; none b
 - Corpus distributions have large |f5|, then |f3|, then |f2|; |f1|, |f4|, |f6| are small and their phases inconsistent (same paper, §2).
 - Correlation is biased toward major when only f5 survives; Euclidean distance is not (same paper, §3); the app uses Pearson correlation (§1), so it carries that bias.
 - The tonal index Ph2 + Ph3 − Ph5 stays near 0 through tonal music, is 0 for unisons, fifths and diatonic sets and ±0.62 for major and minor triads (same paper, §4).
-- An end-to-end network with time averaging scored MIREX-weighted 74.3 on GiantSteps and 83.9 on Billboard for the global key (Korzeniowski & Widmer, EUSIPCO 2017, https://arxiv.org/pdf/1706.02921, Table I and §III).
-- Its training shifted each song by −4 to +7 semitones, the full transposition orbit, multiplying data by 12 (same paper, §II-C).
-- Trained on pop and tested on electronic music its score fell to 57.3 (same paper, §III): genre transfer is a risk for any learned key model.
+- An end-to-end network with time averaging scored MIREX-weighted 74.3 on GiantSteps and 83.9 on Billboard for the global key (Korzeniowski & Widmer, EUSIPCO 2017, https://arxiv.org/pdf/1706.02921).
+- Its training shifted each song by −4 to +7 semitones, the full transposition orbit, multiplying data by 12 (same paper).
+- Trained on pop and tested on electronic music its score fell to 57.3 (same paper): genre transfer is a risk for any learned key model.
 - Sliding-window key tracking needs a fixed, predetermined window (İzmirli, ISMIR 2007, https://archives.ismir.net/ismir2007/paper/000195.pdf, §1); that paper segments offline.
 - A causal key tracker with measured modulation latency was not found: open.
 
@@ -145,7 +145,7 @@ Tempo: no window, threshold or prior in this stage may come from a tempo; none b
 - Open: whether that computed order matches listeners' brightness ratings; no perceptual source was read.
 
 ### Tension and dissonance
-- Interval-content dissonance as one minus the weighted DFT magnitude norm of the chroma, weights (3, 8, 11.5, 15, 14.5, 7.5) for k = 1..6 (Ramires et al., DAFx 2020, https://arxiv.org/pdf/2008.11529, §3; Almeida, Bernardes & Weiß, ISMIR 2022, https://archives.ismir.net/ismir2022/paper/000024.pdf, eq. 1-2).
+- Interval-content dissonance as one minus the weighted DFT magnitude norm of the chroma, weights (3, 8, 11.5, 15, 14.5, 7.5) for k = 1..6 (Ramires et al., DAFx 2020, https://arxiv.org/pdf/2008.11529; Almeida, Bernardes & Weiß, ISMIR 2022, https://archives.ismir.net/ismir2022/paper/000024.pdf, eq. 1-2).
 - Those weights come from empirical dissonance ratings of intervals and triads (Almeida et al. 2022, §2.3); the DAFx authors list an optimal weighting as future work, so it is not settled.
 - Derived: the app's pairwise interval-class tension is a quadratic form in the chroma's interval function; the DFT of the interval function is |f_k|² (Yust, MCM 2015, https://people.bu.edu/jyust/MCM2015.pdf, eq. 6); so the app's tension equals a weighted sum of the six |f_k|², 6 multiply-adds instead of 66 pairs.
 - So both measures are invariant under transposition and inversion and cannot tell a major from a minor triad (inversion maps one to the other, Crans et al. above, §4).
@@ -244,9 +244,9 @@ template <int N> PcVector<N> multiply(const PcVector<N>& c, int unit);         /
 
 ### Invariants used
 - Transposition- and inversion-invariant: |f_k| for k = 1..6 (chord quality, tension, set class).
-- Transposition-invariant but inversion-sensitive: phase combinations whose indices sum to 0 mod 12, e.g. Ph2 + Ph3 − Ph5 (derived from the phase rule above); its sign separates major (+) from minor (−) triads (values from Yust 2017, §4).
+- Transposition-invariant but inversion-sensitive: phase combinations whose indices sum to 0 mod 12, e.g. Ph2 + Ph3 − Ph5 (derived from the phase rule above); major and minor triads take opposite signs, ±0.62 (Yust 2017, §4; which sign is which was not read).
 - Transposition-equivariant: each phase φ_k (key position, chord position), moving by a known amount per semitone.
-- Phases are undefined where |f_k| is near 0 (Yust 2015, §3.2): every phase output must carry its magnitude as confidence.
+- Phases are undefined where |f_k| is near 0 (Yust 2015, §3): every phase output must carry its magnitude as confidence.
 
 ### Incremental computation
 - The DFT is linear, so a one-pole average of chroma has the same one-pole average of each f_k: the coefficients update per hop with 6 complex multiply-adds, without recomputing from the chroma (derived).

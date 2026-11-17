@@ -387,6 +387,9 @@ jobs:
           # Cast's fragmented MP4 (core/cast/Fmp4Writer): the init segment's tracks and codecs, each moof + mdat's sizes, sequence numbers, decode times and data offsets, cuts on keyframes, Annex B to NAL lengths, and the stream through LiveSegments.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fmp4_writer_test.cpp core/cast/Fmp4Writer.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o fmp4_writer_test
           ./fmp4_writer_test
+          # Cast's encoders (core/cast/CastEncoder) on fake codecs: the cast format, the PCM backlog's order, drops and PTS, configs and frames to the fMP4 and WebRTC, Opus only while a browser listens and ten seconds after, and which codec errors end the stream.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/cast_encoder_test.cpp core/cast/CastEncoder.cpp core/cast/Fmp4Writer.cpp -o cast_encoder_test
+          ./cast_encoder_test
           # Cast's HTTP answers (core/cast/LiveHttp): the request reader's bounds, every file's exact response, hostile requests (oversize, malformed, wrong token, lying lengths), the browser's feed and its cap, the WebRTC offer's body.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp -o live_http_test
           ./live_http_test

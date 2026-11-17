@@ -2219,27 +2219,6 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
-    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
-    const val CAPTURE_FORMAT_RATE = 0
-    const val CAPTURE_FORMAT_CHANNELS = 1
-    const val CAPTURE_FORMAT_FLOAT = 2
-    const val CAPTURE_FORMAT_INTS = 3
-
-    /**
-     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
-     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
-     */
-    external fun captureFormats(
-        deviceRateHz: Int,
-        stereo: Boolean,
-    ): IntArray
-
-    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
-    external fun captureBufferBytes(
-        minBufferBytes: Int,
-        channels: Int,
-    ): Int
-
     /**
      * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
      * once RECORD_AUDIO is granted. [deviceRateHz] goes first (0 unknown); [unprocessed] when the device supports it.
@@ -2256,31 +2235,18 @@ object GeodeNative {
     external fun micActive(): Boolean
 
     /**
-     * Another app's audio read natively (`core/audio/ingest/CapturePump`): [audioRecord], an initialized
-     * `AudioRecord` over a MediaProjection at [rateHz], [channels] and float or 16-bit, is owned from here on
-     * (started, read and released natively) and writes [ring]. 0, with the record released, when it would not record.
+     * Another app's audio, built, read and released natively (`core/audio/ingest/CapturePump`): an `AudioRecord`
+     * over [projection], the `MediaProjection` the user consented to, writing [ring]. 0 when none would record.
      */
-    external fun javaCaptureRecord(
-        audioRecord: Any,
+    external fun javaCapturePlayback(
+        projection: Any,
         ring: Long,
-        rateHz: Int,
-        channels: Int,
-        asFloat: Boolean,
     ): Long
 
-    /**
-     * The output mix read natively: [visualizer], an enabled `Visualizer` of [captureSize], polled at
-     * [captureRateMhz] into [ring] at [samplingRateMhz]. Borrowed: release it after [javaCaptureStop]. 0 when it can't.
-     */
-    external fun javaCaptureVisualizer(
-        visualizer: Any,
-        ring: Long,
-        captureSize: Int,
-        samplingRateMhz: Int,
-        captureRateMhz: Int,
-    ): Long
+    /** The output mix (a `Visualizer` on session 0), built, read and released natively into [ring]. 0 when refused. */
+    external fun javaCaptureOutputMix(ring: Long): Long
 
-    /** Stops and frees a [javaCaptureRecord] or [javaCaptureVisualizer]; no write follows. Takes 0. */
+    /** Stops and frees a [javaCapturePlayback] or [javaCaptureOutputMix] and its Java object; no write follows. Takes 0. */
     external fun javaCaptureStop(handle: Long)
 
     /** False after stop, or once the capture ended itself (a read error). */

@@ -170,25 +170,6 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffPendingTime
     return geode_aiff_pending_time_us(position, dataStart, pending, bytesPerFrame, sampleRate);
 }
 
-// A capture's format plan (core/audio/ingest/CapturePlan): GEODE_CAPTURE_FORMAT_INTS ints a format.
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureFormats(JNIEnv* env, jobject,
-                                                                                   jint deviceRateHz, jboolean stereo) {
-    constexpr int kMaxRows = 16;
-    int rows[kMaxRows * GEODE_CAPTURE_FORMAT_INTS] = {};
-    const int count = geode_capture_plan(deviceRateHz, stereo ? 1 : 0, rows, kMaxRows);
-    const int n = (count < kMaxRows ? count : kMaxRows) * GEODE_CAPTURE_FORMAT_INTS;
-    jint values[kMaxRows * GEODE_CAPTURE_FORMAT_INTS];
-    for (int i = 0; i < n; ++i) values[i] = rows[i];
-    jintArray out = env->NewIntArray(n);
-    if (out) env->SetIntArrayRegion(out, 0, n, values);
-    return out;
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureBufferBytes(JNIEnv*, jobject,
-                                                                                   jint minBufferBytes, jint channels) {
-    return geode_capture_buffer_bytes(minBufferBytes, channels);
-}
-
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStart(JNIEnv*, jobject, jint deviceRateHz,
                                                                              jboolean unprocessed) {
     return geode_mic_start(deviceRateHz, unprocessed ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
@@ -200,21 +181,15 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micActive(JN
     return geode_mic_active() ? JNI_TRUE : JNI_FALSE;
 }
 
-// The captures Android has only as Java objects (geode_capture_java_api.h): the object is handed down, a native
-// thread reads it.
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureRecord(JNIEnv* env, jobject,
-                                                                                   jobject audioRecord, jlong ring,
-                                                                                   jint rateHz, jint channels,
-                                                                                   jboolean asFloat) {
-    return reinterpret_cast<jlong>(
-        geode_java_capture_record(env, audioRecord, ringOf(ring), rateHz, channels, asFloat ? 1 : 0));
+// The captures Android has only as Java objects (geode_capture_java_api.h): built, read and released natively.
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCapturePlayback(JNIEnv* env, jobject,
+                                                                                     jobject projection, jlong ring) {
+    return reinterpret_cast<jlong>(geode_java_capture_playback(env, projection, ringOf(ring)));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureVisualizer(
-    JNIEnv* env, jobject, jobject visualizer, jlong ring, jint captureSize, jint samplingRateMhz,
-    jint captureRateMhz) {
-    return reinterpret_cast<jlong>(
-        geode_java_capture_visualizer(env, visualizer, ringOf(ring), captureSize, samplingRateMhz, captureRateMhz));
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureOutputMix(JNIEnv* env, jobject,
+                                                                                      jlong ring) {
+    return reinterpret_cast<jlong>(geode_java_capture_output_mix(env, ringOf(ring)));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureStop(JNIEnv*, jobject, jlong handle) {

@@ -6,20 +6,28 @@
 
 #include "audio/ingest/CapturePump.hpp"
 
-// The captures Android hands over only as Java objects, read by CapturePump's native thread attached to the VM:
-// the shell builds the object, nothing in Kotlin reads a sample. Android only, never in a host test.
+// The captures Android has only as Java objects, built, read and released here through JNI: the shell hands
+// down at most the consent token, nothing in Kotlin builds the object or reads a sample. CapturePump's thread
+// reads them attached to the VM. Android only, never in a host test.
 namespace geode::audio::ingest {
 
-// Another app's audio: `record`, an initialized AudioRecord over a MediaProjection, is owned from here on. It is
-// started here and read in blocks of readBytes into a direct buffer; end stops and releases it. Null, with the
-// record already released, when it would not start recording. Caller's thread (attached).
-std::unique_ptr<CaptureReader> audioRecordReader(JNIEnv* env, jobject record, int readBytes);
+// What a reader writes: Android's AudioFormat.ENCODING_PCM_* (as GEODE_PCM_*), and the bytes one read takes.
+struct JavaCaptureFormat {
+    int rateHz = 0;
+    int channels = 0;
+    int encoding = 0;
+    int readBytes = 0;
+};
 
-// The output mix: `visualizer`, enabled with capture size captureSize, polled with getWaveForm every periodMs,
-// the first keepBytes of each capture kept. A Visualizer only delivers by callback or by that poll, and the poll
-// keeps the array out of Kotlin. Borrowed: its owner releases it once the pump has stopped. Caller's thread
+// Another app's audio: an AudioRecord over `projection` (a MediaProjection the user consented to) in the first
+// format of capturePlan the platform takes, started here; end stops and releases it. Null when none would
+// record. Caller's thread (attached).
+std::unique_ptr<CaptureReader> playbackCaptureReader(JNIEnv* env, jobject projection, JavaCaptureFormat* format);
+
+// The output mix: a Visualizer on audio session 0, its largest capture size cut to maxBytes, scaled as played,
+// enabled here and polled with getWaveForm at its fastest capture rate; end disables and releases it. Null when
+// the platform refuses it (no permission, a device without it, another app holding it). Caller's thread
 // (attached).
-std::unique_ptr<CaptureReader> visualizerReader(JNIEnv* env, jobject visualizer, int captureSize, int keepBytes,
-                                                int periodMs);
+std::unique_ptr<CaptureReader> outputMixReader(JNIEnv* env, int maxBytes, JavaCaptureFormat* format);
 
 }  // namespace geode::audio::ingest

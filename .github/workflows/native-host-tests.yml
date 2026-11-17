@@ -265,6 +265,9 @@ jobs:
           # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
           ./milk_memory_test
+          # MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp -o milk_textures_test
+          ./milk_textures_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test

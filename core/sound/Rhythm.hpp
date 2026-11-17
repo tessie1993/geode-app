@@ -62,6 +62,19 @@ public:
     // Only the beat, bar and phrase phases, `sinceHop` samples after the last hop: the sound engine reads
     // the rest at the hop and moves these on to each frame's own sample.
     void phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const;
+    // What phases() reads of the oscillator, kept per hop so a past hop's phases can be moved on later.
+    struct Clock {
+        double theta = 0.0;
+        float period = 0.0f;
+        int64_t lastBeat = 0;
+        int hop = 480;
+        int meter = 4;
+        int downSlot = 0;
+        int barInPhrase = 0;
+        bool locked = false;
+    };
+    Clock clock() const { return {theta_, period_, lastBeat_, hop_, meter_, downSlot_, barInPhrase_, locked_}; }
+    static void phases(const Clock& clock, int sinceHop, float hitTime, GeodeSoundFrame& out);
     // The beats passed since the last read, oldest first (read() empties it).
     int ticks(const Tick*& out) const {
         out = ticks_.data();

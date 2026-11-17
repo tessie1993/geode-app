@@ -479,15 +479,18 @@ void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
     out.phrase = phraseHit_;
 }
 
-void Rhythm::phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const {
-    if (locked_ && period_ > 0.0f) {
+void Rhythm::phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const { phases(clock(), sinceHop, hitTime, out); }
+
+void Rhythm::phases(const Clock& c, int sinceHop, float hitTime, GeodeSoundFrame& out) {
+    if (c.locked && c.period > 0.0f) {
         // The instant `sinceHop` samples after the last hop; never past the next beat, which ticks on a hop.
         const double now =
-            std::min(theta_ + static_cast<double>(sinceHop) / hop_ / period_, static_cast<double>(lastBeat_) + 0.999);
+            std::min(c.theta + static_cast<double>(sinceHop) / c.hop / c.period, static_cast<double>(c.lastBeat) + 0.999);
         out.beatPhase = frac(now);
-        const int inBar = slotOf(static_cast<int64_t>(std::floor(now)) - downSlot_);
-        out.barPhase = (static_cast<float>(inBar) + out.beatPhase) / static_cast<float>(meter_);
-        out.phrasePhase = (static_cast<float>(barInPhrase_) + out.barPhase) / 8.0f;
+        const int64_t beat = static_cast<int64_t>(std::floor(now)) - c.downSlot;
+        const int inBar = static_cast<int>(((beat % c.meter) + c.meter) % c.meter);  // slotOf, on the kept meter
+        out.barPhase = (static_cast<float>(inBar) + out.beatPhase) / static_cast<float>(c.meter);
+        out.phrasePhase = (static_cast<float>(c.barInPhrase) + out.barPhase) / 8.0f;
     } else {
         // Unlocked: the hit clock (one hit a beat, four a bar) keeps the phases moving with the music.
         const float t = std::isfinite(hitTime) ? hitTime : 0.0f;

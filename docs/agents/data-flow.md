@@ -72,7 +72,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
 - Each frame the GL thread has the native renderer take the ring's new PCM (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) into its own `core/sound` engine.
-- The engine analyses every 10 ms of samples inside `write`; `beginFrame` only reads.
+- The engine analyses every hop of samples (fftSize / overlap, `sound/AnalysisSettings`) inside `write`; `beginFrame` only reads.
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).

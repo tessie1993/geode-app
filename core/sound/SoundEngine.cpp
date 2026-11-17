@@ -375,10 +375,12 @@ void SoundEngine::analyse() {
     accentHeld_ = std::max(accentHeld_, emotion_.state().degreeAccent);
     for (int k = 0; k < kTriggers; k++) held_[k] = std::max(held_[k], out.*kTriggerFields[k]);
 
-    KeptHop& kept = history_[static_cast<size_t>(historyHead_)];
+    Hop& kept = history_[static_cast<size_t>(historyHead_)];
     kept.sample = inputWritten_;
     kept.clock = rhythm_.clock();
     kept.frame = out;
+    kept.emotion = emotion_.state();
+    hopsRun_++;
     historyHead_ = (historyHead_ + 1) % kHistoryHops;
     historyCount_ = std::min(historyCount_ + 1, kHistoryHops);
 }
@@ -387,7 +389,7 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
     if (historyCount_ == 0) return false;
     // Newest first, so of hops sharing a position (a starved writer) the latest wins; none at or before
     // samplePos leaves the oldest.
-    const KeptHop* hop = nullptr;
+    const Hop* hop = nullptr;
     for (int age = 0; age < historyCount_; age++) {
         hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
         if (hop->sample <= samplePos) break;
@@ -398,6 +400,11 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
     const int64_t since = samplePos > hop->sample ? (samplePos - hop->sample) >> halvings_ : 0;
     Rhythm::phases(hop->clock, static_cast<int>(std::min<int64_t>(since, std::numeric_limits<int>::max())), out.hitTime, out);
     return true;
+}
+
+const SoundEngine::Hop* SoundEngine::keptHop(int age) const {
+    if (age < 0 || age >= historyCount_) return nullptr;
+    return &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
 }
 
 int64_t SoundEngine::newestHopSample() const {
@@ -1060,6 +1067,7 @@ void SoundEngine::reset() {
     held_ = {};
     historyHead_ = 0;
     historyCount_ = 0;
+    hopsRun_ = 0;
     inputWritten_ = 0;
     hopFrame_ = GeodeSoundFrame{};
     // What a silent engine says before its first hop, as Harmony leaves it.

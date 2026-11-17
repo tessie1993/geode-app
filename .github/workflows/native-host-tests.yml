@@ -695,6 +695,26 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_history_test.cpp core/sound/*.cpp -o sound_history_test
           ./sound_history_test
 
+      # One engine on its own thread (core/sound/hop/AnalysisThread, #1215): inline equals a bare engine at every position,
+      # across irregular blocks, a new epoch and controls mid-stream; the thread equals inline, readers never see a torn
+      # hop, it wakes per write and not on a clock, it stops cleanly, and a writer that stops lets the levels fall.
+      - name: Analysis thread
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/analysis_thread_test.cpp \
+            core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_test
+          ./analysis_thread_test
+
+      # The same test under ThreadSanitizer: data races are the analysis thread's main risk. The runner's kernel
+      # randomises mmap with more bits than TSan maps; 28 is what it supports.
+      - name: Analysis thread (ThreadSanitizer)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -pthread -fsanitize=thread -Icore core/tests/analysis_thread_test.cpp \
+            core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_tsan
+          TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" ./analysis_thread_tsan
+
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
       # And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.

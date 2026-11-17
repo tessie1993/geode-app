@@ -37,6 +37,8 @@ files::VideoTemplate parsed(const std::string& text, const std::string& what) {
 
 const json::Value* section(const json::Value& root, const char* key) { return root.get(key); }
 
+std::string orEmpty(const char* text) { return text ? std::string(text) : std::string(); }
+
 bool hasKey(const json::Value* object, const char* key) { return object && object->get(key) != nullptr; }
 
 bool carries(const files::Carried& carried, const std::string& key) {
@@ -365,25 +367,25 @@ void api() {
     float envelope[2] = {};
     const std::string starter(files::starter(1));
     check(geode_template_read(starter.c_str(), frame.data(), SceneParams::kFieldCount, out, envelope) == 1, "read a starter");
-    const std::string document = out[0];
-    check(std::string(out[1]) == "geode.starter.lo-fi-loop" && std::string(out[2]) == "Lo-Fi Loop", "id and name");
-    check(std::string(out[3]) == "aurora" && out[4] == nullptr && out[5] == nullptr && std::string(out[6]).empty(), "the look's strings");
+    const std::string document = orEmpty(out[0]);
+    check(orEmpty(out[1]) == "geode.starter.lo-fi-loop" && orEmpty(out[2]) == "Lo-Fi Loop", "id and name");
+    check(orEmpty(out[3]) == "aurora" && out[4] == nullptr && out[5] == nullptr && orEmpty(out[6]).empty(), "the look's strings");
     check(envelope[0] == 0.4f && envelope[1] == 0.06f, "the envelope");
     check(std::fabs(SceneParams::fromWire(frame.data()).speed - 0.5f) < 1e-6f, "the params frame");
     check(document == files::writeTemplate(files::readTemplate(starter).value), "the document is the written text");
 
     check(geode_template_read("{}", frame.data(), SceneParams::kFieldCount, out, envelope) == 0, "not a template");
-    check(std::string(out[0]) == "no 'format': 'geode.template' marker", "and why");
+    check(orEmpty(out[0]) == "no 'format': 'geode.template' marker", "and why");
     check(geode_template_read("x", frame.data(), SceneParams::kFieldCount, out, envelope) == -1, "unreadable");
     check(geode_template_read(nullptr, frame.data(), SceneParams::kFieldCount, out, envelope) == -1, "null text");
     check(geode_template_read(starter.c_str(), frame.data(), 1, out, envelope) == -1, "a short frame");
 
-    const std::string renamed = geode_template_renamed(document.c_str(), "Lo-Fi Loop 2");
+    const std::string renamed = orEmpty(geode_template_renamed(document.c_str(), "Lo-Fi Loop 2"));
     const files::VideoTemplate r = files::readTemplate(renamed).value;
     check(r.name == "Lo-Fi Loop 2" && r.id == "geode.starter.lo-fi-loop" && r.author == "BeatRealms", "renamed keeps the rest");
     check(geode_template_renamed("nope", "x") == nullptr, "renaming no template");
 
-    const std::string copy = geode_template_new_copy(document.c_str(), "Mine", 99);
+    const std::string copy = orEmpty(geode_template_new_copy(document.c_str(), "Mine", 99));
     const files::VideoTemplate c = files::readTemplate(copy).value;
     check(c.id != r.id && c.id.size() == 36 && !files::isStarter(c.id), "a copy takes a fresh id");
     check(c.name == "Mine" && c.author.empty() && c.createdAtMs == 99 && c.notes == r.notes, "a copy's identity");
@@ -402,9 +404,9 @@ void api() {
     check(m.slots.size() == 2 && m.exportSettings.segment.kind == "WHOLE_TRACK", "every other section at its default");
     check(geode_template_create("x", 0, "fluid", 0, 0, nullptr, nullptr, wire.data(), 1, "") == nullptr, "a short frame");
 
-    check(std::string(geode_template_share_name("a:b")) == "a_b.geode.json", "share name");
+    check(orEmpty(geode_template_share_name("a:b")) == "a_b.geode.json", "share name");
     check(geode_template_link_in("nothing") == nullptr, "no link");
-    check(std::string(geode_template_link_of("geode://preset/z", 8000)) == "geode://template/z", "link of");
+    check(orEmpty(geode_template_link_of("geode://preset/z", 8000)) == "geode://template/z", "link of");
 }
 
 }  // namespace

@@ -54,7 +54,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `android.yml` runs only when started by hand.
 - `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `actions-pin-gate.sh`.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
-- `ship-apk.yml` builds a debug APK.
+- `ship-apk.yml` builds the `sideload` build type: release-optimised, not debuggable, signed with the debug key, id suffix `.debug`.
 
 ## Other documents
 
@@ -69,3 +69,4 @@ A line records what was done; it is not a rule.
 
 - 2026-11-17: Added the pipeline refactor design (`docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`).
 - 2026-11-17: Rewrote `AGENTS.md` as facts plus this log and moved the owner's rules to `CLAUDE.md`; removed every decision-record reference, the dead document links and the mentions of another project from comments and docs.
+- 2026-11-17: `ship-apk.yml` ships an optimised APK from a new `sideload` build type instead of the debug build (`app/build.gradle.kts`, #1214).

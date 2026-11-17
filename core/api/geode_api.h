@@ -1189,6 +1189,11 @@ GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
 GEODE_API int             geode_surface_fps_choice(int requested_fps);
 /* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
+/* What sets GEODE_SURFACE_COVERED, 1 = covered. _zoom_covers: the wallpaper's zoom (0 none, 1 fully out behind the
+ * shade or recents) past the cover point. _proximity_near: the dream's proximity reading, in cm, near against the
+ * sensor's maximum range. */
+GEODE_API int             geode_surface_zoom_covers(float zoom);
+GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
 
 /* Auto's style timer (core/viz/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the

@@ -2652,6 +2652,15 @@ object GeodeNative {
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
 
+    /** Whether the wallpaper's [zoom] (0 none, 1 fully out behind the shade or recents) covers it ([SURFACE_COVERED]). */
+    external fun surfaceZoomCovers(zoom: Float): Boolean
+
+    /** Whether the dream's proximity reading [distanceCm] is near, against the sensor's [maximumRange] ([SURFACE_COVERED]). */
+    external fun surfaceProximityNear(
+        distanceCm: Float,
+        maximumRange: Float,
+    ): Boolean
+
     /**
      * Auto's style timer ([AUTO_TIMER_PLAYLIST], [AUTO_TIMER_RANDOM]; native `core/viz/AutoTimer`): a look
      * just went up at [nowMs], so the wait starts over with a new random spread on top of the interval.

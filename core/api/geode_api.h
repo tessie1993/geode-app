@@ -352,6 +352,10 @@ GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channe
 /* 1 when the chain runs a format: `encoding` 16-bit or float (numbered as Android's ENCODING_PCM_*, see
  * GEODE_PCM_S16), 1 or 2 channels. 0 for any other; the shell then steps aside and the track passes through. */
 GEODE_API int        geode_dsp_runs(int encoding, int channels);
+/* The shell's configure: geode_dsp_configure for a format geode_dsp_runs takes, else pass-through staged so the
+ * next flush never leaves the old format's chain live. 1 when the chain runs it; 0 (and for a NULL dsp) when the
+ * shell's processor steps aside. */
+GEODE_API int        geode_dsp_configure_input(geode_dsp*, int encoding, int sample_rate, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 /* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
@@ -415,6 +419,8 @@ GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
 #define GEODE_DSP_SILENCE_DB (-80.0f)
 /* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
 GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The shell's UI fade: to full level (0 dB) when audible, else to silence, over ms. */
+GEODE_API void       geode_dsp_ramp_audible(geode_dsp*, int audible, int ms);
 /* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
  * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
 GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
@@ -422,6 +428,10 @@ GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
  * track that followed on. A skip, seek or pick starts at full level. */
 GEODE_API void       geode_dsp_set_crossfade(geode_dsp*, int ms);
 GEODE_API void       geode_dsp_set_follows_on(geode_dsp*, int follows_on);  /* a next item, or repeat one */
+/* The player's queue as it stands: something follows on when there is a next item or repeat_mode is
+ * GEODE_REPEAT_ONE (numbered as Media3's Player.REPEAT_MODE_*). */
+#define GEODE_REPEAT_ONE 1
+GEODE_API void       geode_dsp_set_up_next(geode_dsp*, int has_next, int repeat_mode);
 GEODE_API void       geode_dsp_set_speed(geode_dsp*, float speed);          /* what Sonic plays at, upstream */
 /* ReplayGain. mode: 0 off, 1 track, 2 album; clip_guard keeps the tagged peak below full scale. */
 GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, int mode, float preamp_db, int clip_guard);
@@ -448,6 +458,10 @@ GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, s
  * Any other encoding, or no channels, returns all of `bytes` untouched; a NULL dsp or pcm runs nothing but
  * still answers (capacity then unused). 0 for bytes <= 0. */
 GEODE_API int        geode_dsp_process_bytes(geode_dsp*, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels);
+/* The shell's queued block: copies `in_bytes` of `in` (held to out_capacity) into `out`, then runs it there as
+ * geode_dsp_process_bytes does and returns the bytes to pass on. NULL in or out copies nothing and returns 0. */
+GEODE_API int        geode_dsp_process_into(geode_dsp*, const void* in, int in_bytes, void* out, size_t out_capacity,
+                                            int encoding, int channels);
 /* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
  * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
  * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
@@ -1514,7 +1528,12 @@ GEODE_API void           geode_playout_destroy(geode_playout*);
  * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
 GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
                                                       int64_t frames);
-/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+/* The same from the ring's head (geode_pcm_ring_head) read before and after the sink handled the buffer. */
+GEODE_API void           geode_playout_ring_span(geode_playout*, int64_t presentation_us, int64_t head_before,
+                                                 int64_t head_after);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns.
+ * GEODE_PLAYOUT_NO_POSITION (Media3's AudioSink.CURRENT_POSITION_NOT_SET) is no report and changes nothing. */
+#define GEODE_PLAYOUT_NO_POSITION INT64_MIN
 GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
 GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
 GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
@@ -1720,16 +1739,23 @@ typedef struct geode_audio_out geode_audio_out;
 #define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
 #define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
                                          the output stalled, so the sink builds a new one */
-GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
-/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened and
- * asks before each open; 1 = try the stream, 0 = the platform track plays for 60 s. now_ms is one monotonic
- * clock for both calls. Process-wide. */
+/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened, and
+ * for 60 s after it geode_audio_out_takes answers 0. now_ms is one monotonic clock for both calls. Process-wide. */
 GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
-GEODE_API int              geode_audio_out_may_open(int64_t now_ms);
-/* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
- * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
- * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
-GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes,
+/* Whether the native output is wanted at all: the user chose it, and bit-perfect USB (which needs the
+ * platform track) is not both on and supported. 1 or 0. */
+GEODE_API int              geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported);
+/* Whether the output plays one of Media3's output configs (audio/output/OutputChoice), its fields passed as
+ * they are: channel_mask an AudioFormat.CHANNEL_OUT_* mask, usage C.USAGE_*, virtual_device_id C.INDEX_UNSET
+ * for none. 0 for anything but plain PCM it supports, and within the back-off; the platform track plays it. */
+GEODE_API int              geode_audio_out_takes(int64_t now_ms, int offload, int tunneling, int offload_gapless,
+                                                 int playback_parameters, int virtual_device_id, int usage,
+                                                 int channel_mask, int encoding, int sample_rate);
+/* Opens the stream for writes of `encoding` at channel_mask's channels. buffer_bytes is the sink's buffer for
+ * this output (the FIFO and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio
+ * session (0 or below = allocate one). NULL when the format is not supported or the device gave no stream
+ * that is exactly it. */
+GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channel_mask, int encoding, int buffer_bytes,
                                                 int session_id);
 /* Silences the stream at once and closes it on a thread of its own; the handle is gone when this returns. */
 GEODE_API void             geode_audio_out_release(geode_audio_out*);

@@ -9,6 +9,27 @@ namespace {
 
 geode_dsp* dspOf(jlong handle) { return reinterpret_cast<geode_dsp*>(handle); }
 
+// ByteBuffer.put(ByteBuffer) and position(int), looked up once (a boot class, never unloaded).
+struct BulkPutIds {
+    jmethodID put = nullptr;
+    jmethodID position = nullptr;
+};
+
+const BulkPutIds& bulkPutIds(JNIEnv* env) {
+    static const BulkPutIds ids = [env] {
+        BulkPutIds k;
+        jclass c = env->FindClass("java/nio/ByteBuffer");
+        if (c) {
+            k.put = env->GetMethodID(c, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
+            if (k.put) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
+            env->DeleteLocalRef(c);
+        }
+        env->ExceptionClear();
+        return k;
+    }();
+    return ids;
+}
+
 }  // namespace
 
 extern "C" {
@@ -19,8 +40,9 @@ Java_dev_geode_engine_bridge_GeodeNative_dspCreate(JNIEnv*, jobject) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint sampleRate, jint channels) {
-    return geode_dsp_configure(dspOf(handle), sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
+Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint encoding, jint sampleRate,
+                                                      jint channels) {
+    return geode_dsp_configure_input(dspOf(handle), encoding, sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -36,11 +58,6 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFlush(JNIEnv*, jobject, jlong handle
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDestroy(JNIEnv*, jobject, jlong handle) {
     geode_dsp_destroy(dspOf(handle));
-}
-
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspBandCenterHz(JNIEnv*, jobject, jint band) {
-    return geode_dsp_band_center_hz(band);
 }
 
 JNIEXPORT jint JNICALL
@@ -133,8 +150,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLoudnessMb(JNIEnv*, jobject, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspRampTo(JNIEnv*, jobject, jlong handle, jfloat db, jint ms) {
-    geode_dsp_ramp_to(dspOf(handle), db, ms);
+Java_dev_geode_engine_bridge_GeodeNative_dspRampAudible(JNIEnv*, jobject, jlong handle, jboolean audible, jint ms) {
+    geode_dsp_ramp_audible(dspOf(handle), audible == JNI_TRUE, ms);
 }
 
 JNIEXPORT jlong JNICALL
@@ -148,8 +165,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetCrossfade(JNIEnv*, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspSetFollowsOn(JNIEnv*, jobject, jlong handle, jboolean followsOn) {
-    geode_dsp_set_follows_on(dspOf(handle), followsOn == JNI_TRUE);
+Java_dev_geode_engine_bridge_GeodeNative_dspSetUpNext(JNIEnv*, jobject, jlong handle, jboolean hasNext, jint repeatMode) {
+    geode_dsp_set_up_next(dspOf(handle), hasNext == JNI_TRUE, repeatMode);
 }
 
 JNIEXPORT void JNICALL
@@ -247,14 +264,31 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlon
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);
 }
 
-// The buffer must be direct: the audio thread must not copy or allocate here. Its capacity goes along so
-// native can never walk past it (issue #356).
+// Media3's direct buffers where they lie; the output's capacity goes along so native can never walk past it
+// (issue #356). An input with no address (a heap block; every processor before this one hands out direct
+// buffers) is copied by the JVM's bulk put, then run in place as any other.
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspProcessBytes(JNIEnv* env, jobject, jlong handle, jobject buffer, jint bytes, jint encoding,
-                                                         jint channels) {
-    void* address = buffer ? env->GetDirectBufferAddress(buffer) : nullptr;
-    const jlong capacity = address ? env->GetDirectBufferCapacity(buffer) : 0;
-    return geode_dsp_process_bytes(dspOf(handle), address, capacity > 0 ? static_cast<size_t>(capacity) : 0, bytes, encoding, channels);
+Java_dev_geode_engine_bridge_GeodeNative_dspProcessInto(JNIEnv* env, jobject, jlong handle, jobject input, jint position,
+                                                        jint bytes, jobject output, jint encoding, jint channels) {
+    if (!input || !output || position < 0 || bytes <= 0) return 0;
+    auto* out = env->GetDirectBufferAddress(output);
+    const jlong capacity = out ? env->GetDirectBufferCapacity(output) : 0;
+    if (capacity <= 0) return 0;
+    const auto* in = static_cast<const unsigned char*>(env->GetDirectBufferAddress(input));
+    if (in) {
+        if (env->GetDirectBufferCapacity(input) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_dsp_process_into(dspOf(handle), in + position, bytes, out, static_cast<size_t>(capacity), encoding,
+                                      channels);
+    }
+    const BulkPutIds& ids = bulkPutIds(env);
+    if (!ids.position || bytes > capacity) return 0;
+    env->DeleteLocalRef(env->CallObjectMethod(output, ids.put, input));
+    if (!env->ExceptionCheck()) env->DeleteLocalRef(env->CallObjectMethod(output, ids.position, 0));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return 0;
+    }
+    return geode_dsp_process_bytes(dspOf(handle), out, static_cast<size_t>(capacity), bytes, encoding, channels);
 }
 
 }

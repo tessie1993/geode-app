@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <mutex>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -11,6 +12,69 @@
 
 namespace {
 geode_pcm_ring* ringOf(jlong handle) { return reinterpret_cast<geode_pcm_ring*>(handle); }
+
+// ByteBuffer's methods for a heap buffer, looked up once (a boot class, never unloaded).
+struct HeapBufferIds {
+    jmethodID duplicate = nullptr;
+    jmethodID position = nullptr;
+    jmethodID get = nullptr;
+};
+
+const HeapBufferIds& heapBufferIds(JNIEnv* env) {
+    static const HeapBufferIds ids = [env] {
+        HeapBufferIds k;
+        jclass c = env->FindClass("java/nio/ByteBuffer");
+        if (c) {
+            k.duplicate = env->GetMethodID(c, "duplicate", "()Ljava/nio/ByteBuffer;");
+            if (k.duplicate) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
+            if (k.position) k.get = env->GetMethodID(c, "get", "([BII)Ljava/nio/ByteBuffer;");
+            env->DeleteLocalRef(c);
+        }
+        env->ExceptionClear();
+        return k;
+    }();
+    return ids;
+}
+
+// A heap buffer, read-only or not, has no address: its bytes are copied by the JVM's bulk get (on a
+// duplicate, so its position stays the shell's) into one array native keeps, grown only when too small,
+// then written from that array pinned. The tap is the one writer, so the lock is never contended.
+std::mutex gHeapLock;
+jbyteArray gHeapBytes = nullptr;
+jsize gHeapLength = 0;
+
+int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes, jint encoding,
+              jint channels, jint sampleRate) {
+    const HeapBufferIds& ids = heapBufferIds(env);
+    if (!ids.get) return 0;
+    std::lock_guard<std::mutex> lock(gHeapLock);
+    if (gHeapLength < bytes) {
+        jbyteArray grown = env->NewByteArray(bytes);
+        if (!grown) {
+            env->ExceptionClear();
+            return 0;
+        }
+        if (gHeapBytes) env->DeleteGlobalRef(gHeapBytes);
+        gHeapBytes = static_cast<jbyteArray>(env->NewGlobalRef(grown));
+        env->DeleteLocalRef(grown);
+        gHeapLength = gHeapBytes ? bytes : 0;
+        if (!gHeapBytes) return 0;
+    }
+    jobject view = env->CallObjectMethod(buffer, ids.duplicate);
+    if (!env->ExceptionCheck() && view) env->DeleteLocalRef(env->CallObjectMethod(view, ids.position, position));
+    if (!env->ExceptionCheck() && view) env->DeleteLocalRef(env->CallObjectMethod(view, ids.get, gHeapBytes, 0, bytes));
+    if (view) env->DeleteLocalRef(view);
+    if (env->ExceptionCheck() || !view) {
+        env->ExceptionClear();  // a position or length past the buffer: nothing to write
+        return 0;
+    }
+    void* data = env->GetPrimitiveArrayCritical(gHeapBytes, nullptr);
+    if (!data) return 0;
+    const int written = geode_pcm_ring_write_bytes(ring, data, static_cast<size_t>(bytes), encoding, channels,
+                                                   sampleRate, nullptr);
+    env->ReleasePrimitiveArrayCritical(gHeapBytes, data, JNI_ABORT);
+    return written;
+}
 }  // namespace
 
 extern "C" {
@@ -27,16 +91,19 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(J
     geode_pcm_ring_destroy(ringOf(handle));
 }
 
-// The tap's buffer: read where it lies, no copy and no Java array.
+// The tap's buffer: a direct one read where it lies, a heap one through one bulk copy (writeHeap).
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
                                                                                    jobject buffer, jint position,
                                                                                    jint bytes, jint encoding,
                                                                                    jint channels, jint sampleRate) {
     if (!buffer || position < 0 || bytes <= 0) return 0;
     const auto* address = static_cast<const unsigned char*>(env->GetDirectBufferAddress(buffer));
-    if (!address || env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
-    return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
-                                      channels, sampleRate, nullptr);
+    if (address) {
+        if (env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
+                                          channels, sampleRate, nullptr);
+    }
+    return writeHeap(env, ringOf(handle), buffer, position, bytes, encoding, channels, sampleRate);
 }
 
 JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteFloats(JNIEnv* env, jobject,

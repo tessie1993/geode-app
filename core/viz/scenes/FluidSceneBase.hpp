@@ -5,7 +5,6 @@
 #include <string>
 
 #include "viz/Scene.hpp"
-#include "viz/ThermalGovernor.hpp"
 #include "viz/fluid/FluidChoreography.hpp"
 #include "viz/fluid/FluidParticles.hpp"
 #include "viz/fluid/FluidQuality.hpp"
@@ -52,7 +51,7 @@ protected:
     ProgramLoader loader_;
     SceneHost host_;
     fluid::Choreography choreography_;
-    PerformanceMonitor monitor_;
+    fluid::quality::FrameMonitor monitor_;
     float pcmStrike_ = 0.0f;
     SceneParams params_;
     float time_ = 0.0f;

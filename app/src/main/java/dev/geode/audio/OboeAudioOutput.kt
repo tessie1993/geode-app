@@ -1,7 +1,6 @@
 package dev.geode.audio
 
 import android.media.AudioDeviceInfo
-import android.media.AudioFormat
 import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -127,34 +126,28 @@ internal class OboeAudioOutput private constructor(
 
     companion object {
         /**
-         * An output for [config], or null when the platform track must play it: anything but plain
-         * 16-bit or float PCM in mono or stereo at a rate native takes, offload, tunneling, a
-         * virtual device, a config that wants speed applied by the output, audio that is not media,
-         * a device that gives no stream that is exactly the config in the player's audio session, or
-         * a stream that failed within the last minute.
+         * An output for [config], or null when the platform track must play it: native's rule
+         * (`core/audio/output/OutputChoice`, plus the back-off after a failed stream), or no stream that is
+         * exactly the config in the player's audio session.
          */
         fun open(config: AudioOutputProvider.OutputConfig): OboeAudioOutput? {
-            if (!GeodeNative.audioOutMayOpen(SystemClock.elapsedRealtime())) return null
-            if (!plays(config)) return null
-            val handle =
-                GeodeNative.audioOutOpen(
-                    config.sampleRate,
-                    Integer.bitCount(config.channelMask),
+            val takes =
+                GeodeNative.audioOutTakes(
+                    SystemClock.elapsedRealtime(),
+                    config.isOffload,
+                    config.isTunneling,
+                    config.useOffloadGapless,
+                    config.usePlaybackParameters,
+                    config.virtualDeviceId,
+                    config.audioAttributes.usage,
+                    config.channelMask,
                     config.encoding,
-                    config.bufferSize,
-                    config.audioSessionId.coerceAtLeast(0),
+                    config.sampleRate,
                 )
+            if (!takes) return null
+            val c = config
+            val handle = GeodeNative.audioOutOpen(c.sampleRate, c.channelMask, c.encoding, c.bufferSize, c.audioSessionId)
             return if (handle != 0L) OboeAudioOutput(handle, config.sampleRate) else null
         }
-
-        private fun plays(config: AudioOutputProvider.OutputConfig): Boolean =
-            !config.isOffload &&
-                !config.isTunneling &&
-                !config.useOffloadGapless &&
-                !config.usePlaybackParameters &&
-                config.virtualDeviceId == C.INDEX_UNSET &&
-                config.audioAttributes.usage == C.USAGE_MEDIA &&
-                (config.channelMask == AudioFormat.CHANNEL_OUT_MONO || config.channelMask == AudioFormat.CHANNEL_OUT_STEREO) &&
-                GeodeNative.audioOutSupports(config.encoding, Integer.bitCount(config.channelMask), config.sampleRate)
     }
 }

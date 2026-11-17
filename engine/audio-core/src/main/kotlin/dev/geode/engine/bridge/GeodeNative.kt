@@ -10,9 +10,13 @@ object GeodeNative {
     /** One playback DSP for a player's lifetime; its chains follow the formats [dspConfigure] stages. */
     external fun dspCreate(): Long
 
-    /** Stages the chain for the format queued after the next [dspFlush]; false when it cannot run it. */
+    /**
+     * Stages the chain for the format queued after the next [dspFlush]; false when it cannot run it
+     * ([dspRuns] says no, or no handle), and that format then passes through.
+     */
     external fun dspConfigure(
         handle: Long,
+        encoding: Int,
         sampleRate: Int,
         channels: Int,
     ): Boolean
@@ -27,8 +31,6 @@ object GeodeNative {
     external fun dspFlush(handle: Long)
 
     external fun dspDestroy(handle: Long)
-
-    external fun dspBandCenterHz(band: Int): Float
 
     /** How many built-in equalizer curves there are. */
     external fun dspEqPresetCount(): Int
@@ -103,10 +105,10 @@ object GeodeNative {
     // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
     // and when each applies are native.
 
-    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
-    external fun dspRampTo(
+    /** The UI fade (pause, resume, skip) over [ms]: to full level when [audible], else to silence. */
+    external fun dspRampAudible(
         handle: Long,
-        db: Float,
+        audible: Boolean,
         ms: Int,
     )
 
@@ -121,10 +123,11 @@ object GeodeNative {
         ms: Int,
     )
 
-    /** Whether something plays after the current item on its own: a next item, or repeat one. */
-    external fun dspSetFollowsOn(
+    /** The queue as it stands: [repeatMode] is `Player.REPEAT_MODE_*`; native decides whether something follows on. */
+    external fun dspSetUpNext(
         handle: Long,
-        followsOn: Boolean,
+        hasNext: Boolean,
+        repeatMode: Int,
     )
 
     external fun dspSetSpeed(
@@ -225,14 +228,16 @@ object GeodeNative {
     )
 
     /**
-     * Processes the whole frames of the first [bytes] of a direct [buffer] in place, as [encoding]
-     * (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its capacity. Returns
-     * the bytes to pass on: those whole frames, a trailing part frame dropped.
+     * Copies [bytes] of [input] from [position] into the direct [output] (from 0) and processes the whole frames
+     * there, as [encoding] (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its
+     * capacity. Returns the bytes to pass on: those whole frames, a trailing part frame dropped.
      */
-    external fun dspProcessBytes(
+    external fun dspProcessInto(
         handle: Long,
-        buffer: java.nio.ByteBuffer,
+        input: java.nio.ByteBuffer,
+        position: Int,
         bytes: Int,
+        output: java.nio.ByteBuffer,
         encoding: Int,
         channels: Int,
     ): Int
@@ -955,14 +960,12 @@ object GeodeNative {
     /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
     external fun vizLookDefaults(): String
 
-    /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
+    /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
     external fun vizSetQuality(
         handle: Long,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     /**
@@ -2457,8 +2460,8 @@ object GeodeNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
-    const val PERF_TIER_FLOATS = 5
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    const val PERF_TIER_FLOATS = 4
 
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
@@ -2499,20 +2502,16 @@ object GeodeNative {
         mediaPerformanceClass: Int,
     ): Int
 
-    /** The mode these values are, or -1 when none is ("Custom"); the Liquid hot policy is not part of a mode. */
+    /** The mode these values are, or -1 when none is ("Custom"). */
     external fun perfModeOf(
         renderScale: Float,
         fpsCap: Int,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
     ): Int
 
     /** The render and march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
-
-    /** A stored Liquid hot-phone policy as the renderer reads it: 0..2, anything else 0. */
-    external fun perfLiquidHot(stored: Int): Int
 
     /**
      * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
@@ -2887,9 +2886,9 @@ object GeodeNative {
     external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
-     * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
-     * order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the frames
-     * written, 0 for a heap buffer or an encoding it does not read.
+     * Writes the whole frames in [bytes] bytes of [buffer] from [position], in the machine's byte order,
+     * where they lie (a heap buffer from its array); [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT`
+     * or `_FLOAT`. Returns the frames written, 0 for a read-only heap buffer or an encoding it does not read.
      */
     external fun pcmRingWriteDirect(
         handle: Long,
@@ -2935,7 +2934,7 @@ object GeodeNative {
     /** Frames written since the last [pcmRingBeginEpoch]. */
     external fun pcmRingWritten(handle: Long): Long
 
-    /** Frames ever written, across epochs: the position [playoutBufferHandled] counts ring samples in. */
+    /** Frames ever written, across epochs: the position [playoutRingSpan] counts ring samples in. */
     external fun pcmRingHead(handle: Long): Long
 
     /**
@@ -2965,15 +2964,15 @@ object GeodeNative {
 
     external fun playoutDestroy(handle: Long)
 
-    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
-    external fun playoutBufferHandled(
+    /** The sink handled a buffer at [presentationUs]; [pcmRingHead] read before and after it. */
+    external fun playoutRingSpan(
         handle: Long,
         presentationUs: Long,
-        ringFrame: Long,
-        frames: Long,
+        headBefore: Long,
+        headAfter: Long,
     )
 
-    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    /** The sink's position in media time, read at [nowNs]; `AudioSink.CURRENT_POSITION_NOT_SET` is ignored. */
     external fun playoutPosition(
         handle: Long,
         sinkUs: Long,
@@ -3019,24 +3018,38 @@ object GeodeNative {
     /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
     external fun audioOutNoteFailed(nowMs: Long)
 
-    /** Whether the output may be tried at [nowMs]: false for a minute after [audioOutNoteFailed]. */
-    external fun audioOutMayOpen(nowMs: Long): Boolean
+    /** Whether the native output is wanted: [chosen] by the user, unless bit-perfect is on and supported. */
+    external fun audioOutWanted(
+        chosen: Boolean,
+        bitPerfect: Boolean,
+        bitPerfectSupported: Boolean,
+    ): Boolean
 
-    /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
-    external fun audioOutSupports(
+    /**
+     * Whether the output plays a Media3 output config, its fields as they are; false for a minute after
+     * [audioOutNoteFailed] at [nowMs] (a monotonic clock).
+     */
+    external fun audioOutTakes(
+        nowMs: Long,
+        offload: Boolean,
+        tunneling: Boolean,
+        offloadGapless: Boolean,
+        playbackParameters: Boolean,
+        virtualDeviceId: Int,
+        usage: Int,
+        channelMask: Int,
         encoding: Int,
-        channels: Int,
         sampleRateHz: Int,
     ): Boolean
 
     /**
-     * Opens a stream for writes of [encoding]; [bufferBytes] is the sink's buffer size for it, [sessionId]
-     * the player's audio session (0 allocates one). 0 when the device gave no stream that is exactly this.
-     * Ends with [audioOutRelease].
+     * Opens a stream for writes of [encoding] at [channelMask]'s channels; [bufferBytes] is the sink's buffer
+     * size for it, [sessionId] the player's audio session (0 or below allocates one). 0 when the device gave no
+     * stream that is exactly this. Ends with [audioOutRelease].
      */
     external fun audioOutOpen(
         sampleRateHz: Int,
-        channels: Int,
+        channelMask: Int,
         encoding: Int,
         bufferBytes: Int,
         sessionId: Int,
@@ -3094,14 +3107,6 @@ object GeodeNative {
 
     /** The output's buffer in frames: the FIFO plus the stream's own. */
     external fun audioOutBufferFrames(handle: Long): Long
-
-    // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
-
-    /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
-    external fun thermalTakeWarmNote(
-        capFps: Float,
-        pacedFps: Float,
-    ): Int
 
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
@@ -3565,9 +3570,6 @@ object GeodeNative {
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 
-    /** The rate the stage draws at now; 0 every vsync. */
-    external fun stagePacedFps(stage: Long): Float
-
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 
@@ -3609,8 +3611,6 @@ object GeodeNative {
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     external fun stageBeginParamMorph(

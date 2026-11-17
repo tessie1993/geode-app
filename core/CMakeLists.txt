@@ -163,7 +163,6 @@ add_library(geode_core STATIC
     viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
-    viz/frame/ThermalSource.cpp
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
@@ -172,7 +171,6 @@ add_library(geode_core STATIC
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp

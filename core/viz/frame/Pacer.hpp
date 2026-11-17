@@ -27,14 +27,14 @@ inline constexpr double kFirstDtSeconds = 1.0 / 60.0;
 
 inline double clampDt(double elapsedSeconds) { return std::clamp(elapsedSeconds, kMinDtSeconds, kMaxDtSeconds); }
 
-// The cap a surface actually runs at: its own (Settings › Performance, the wallpaper's or the
-// dream's choice) under the thermal one (ThermalState::capFor). Either <= 0, or not a number, means none.
-inline float effectiveCapFps(float surfaceCapFps, float thermalCapFps) {
-    const bool surface = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
-    const bool thermal = std::isfinite(thermalCapFps) && thermalCapFps > 0.0f;
-    if (surface && thermal) return std::min(surfaceCapFps, thermalCapFps);
-    if (surface) return surfaceCapFps;
-    return thermal ? thermalCapFps : 0.0f;
+// The rate a surface runs at: the lower of two caps (the pacer's paced rate and the surface's own). Either
+// <= 0, or not a number, means none.
+inline float effectiveCapFps(float aFps, float bFps) {
+    const bool a = std::isfinite(aFps) && aFps > 0.0f;
+    const bool b = std::isfinite(bFps) && bFps > 0.0f;
+    if (a && b) return std::min(aFps, bFps);
+    if (a) return aFps;
+    return b ? bFps : 0.0f;
 }
 
 struct PacerState {
@@ -45,24 +45,18 @@ struct PacerState {
     int64_t sinceDrawn = 0;
     int64_t divisor = 1;
     // The cap the last vsync paced to, in millihertz (0 = none). The shell compares it each vsync and
-    // re-asks Surface.setFrameRate when the thermal cap moves it, without a second call across JNI.
+    // re-asks Surface.setFrameRate when it moves, without a second call across JNI.
     int64_t capMilliHz = 0;
     // The rate the last vsync really paced to, in millihertz (0 = every vsync): the panel rate over the
     // divide, which is under the cap whenever the panel does not divide it (45 fps for a 60 fps cap on a
-    // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate, so the measured
-    // fallback never reads a rate the pacer chose as a phone that cannot keep up.
+    // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate.
     int64_t pacedMilliHz = 0;
-    // Settings › Performance's "Follow device" (frame::followCapFps in LiveFps.hpp): the panel rate last seen
-    // while the phone was cool, in millihertz (0 = none yet). A hot tier steps down from it, not from the panel
-    // as it is then, which a lower draw rate may itself have lowered (Android 15's adaptive refresh rate).
-    int64_t followedMilliHz = 0;
 };
 
-// The wire layout for the ABI: nine int64s in this order.
-inline constexpr int kPacerStateLongs = 9;
+// The wire layout for the ABI: eight int64s in this order.
+inline constexpr int kPacerStateLongs = 8;
 inline constexpr int kPacerCapSlot = 6;
 inline constexpr int kPacerPacedSlot = 7;
-inline constexpr int kPacerFollowedSlot = 8;
 
 class Pacer {
 public:
@@ -125,7 +119,7 @@ public:
     static double panelHz(const PacerState& s) { return s.periodNs > 0 ? 1e9 / static_cast<double>(s.periodNs) : 0.0; }
 
     // The rate the divide gives, never above the cap. In half-hertz steps, so the estimate's noise (a
-    // 90 Hz panel measuring 89.7 to 90.3) does not move it: the measured fallback restarts its count
+    // 90 Hz panel measuring 89.7 to 90.3) does not move it: the fluid quality monitor restarts its count
     // whenever its target changes. Until the estimate settles the cap is all there is to say.
     static int64_t pacedMilliHzFor(const PacerState& s) {
         if (s.capMilliHz <= 0) return 0;
@@ -165,8 +159,8 @@ private:
 // Wire helpers for the ABI. Copied as bytes: the shell's array is jlong / long long, which is not the
 // same type as int64_t (long on LP64), so reading it through int64_t would break strict aliasing.
 static_assert(std::is_trivially_copyable_v<PacerState> && sizeof(PacerState) == kPacerStateLongs * sizeof(int64_t));
-static_assert(kPacerCapSlot == 6 && kPacerPacedSlot == 7 && kPacerFollowedSlot == kPacerStateLongs - 1,
-              "the cap and the paced rate keep their slots; the followed rate is the last");
+static_assert(kPacerCapSlot == 6 && kPacerPacedSlot == kPacerStateLongs - 1,
+              "the cap and the paced rate keep their slots; the paced rate is the last");
 // One slot at a time, each a memcpy of one int64_t, in the wire order.
 inline int64_t loadSlot(const int64_t* w, int i) {
     int64_t v;
@@ -176,8 +170,7 @@ inline int64_t loadSlot(const int64_t* w, int i) {
 inline void storeSlot(int64_t* w, int i, int64_t v) { std::memcpy(w + i, &v, sizeof v); }
 inline PacerState unpack(const int64_t* w) {
     return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3),
-                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot), loadSlot(w, kPacerPacedSlot),
-                      loadSlot(w, kPacerFollowedSlot)};
+                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot), loadSlot(w, kPacerPacedSlot)};
 }
 inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 0, s.lastDrawnNs);
@@ -188,7 +181,6 @@ inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 5, s.divisor);
     storeSlot(w, kPacerCapSlot, s.capMilliHz);
     storeSlot(w, kPacerPacedSlot, s.pacedMilliHz);
-    storeSlot(w, kPacerFollowedSlot, s.followedMilliHz);
 }
 
 }  // namespace geode::viz::frame

@@ -100,7 +100,7 @@ void strips() {
           "past half a circle, either way: a swirl attempt");
     check(touch::kSwipeDp == 72.0f && touch::kHoldFillMs == 800 && touch::kSwirlStepDp == 6.0f, "the shell's old distances and fill");
     check(touch::kPinchZoom == 0.2f && touch::kPinchTwistRad == 0.5f && touch::kSwirlTurnRad == 3.6f * pi, "the shell's old thresholds");
-    check(touch::wrapTurn(3.0f * pi / 2.0f) < 0.0f && touch::wrapTurn(pi) < 0.0f, "a heading step wraps, float pi too (past pi in double)");
+    check(touch::wrapTurn(3.0f * pi / 2.0f) < 0.0f && touch::wrapTurn(-3.0f * pi / 2.0f) > 0.0f, "a heading step wraps to the short way round");
 }
 
 void taps() {

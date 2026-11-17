@@ -3,7 +3,6 @@ package dev.geode.wallpaper
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.media.AudioFormat
 import android.media.audiofx.Visualizer
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
@@ -27,39 +26,20 @@ import dev.geode.util.bestEffort
  * capture clock (`core/audio/ingest/SnapshotStitch`), so the engine's sample clock (tempo, bars,
  * loudness) is real time and no two snapshots meet at a seam. What falls between captures is lost.
  *
- * Main thread only: [start] registers the capture listener there, so captures arrive on the
- * same Looper and the ring has one writer. The renderer's GL thread is its one reader.
+ * The one exception to native capture: the output mix exists only as the Java [Visualizer], so the shell
+ * creates and configures it here and hands it down; a native thread polls its waveform into the ring
+ * (`core/audio/ingest/CapturePump`) and no sample reaches Kotlin. Main thread only; that native thread is the
+ * ring's one writer and the renderer's GL thread its one reader.
  */
 class OutputMixCapture {
     /** The ring handle the renderer reads while this runs (native's output-mix kind): made on the first [start], freed by [release]. */
     var soundInput = 0L
         private set
 
-    private var rateHz = FALLBACK_RATE_HZ
-
     private var visualizer: Visualizer? = null
-    private var captureSize = 0
+    private var handle = 0L
 
     val running: Boolean get() = visualizer != null
-
-    private val listener =
-        object : Visualizer.OnDataCaptureListener {
-            override fun onWaveFormDataCapture(
-                visualizer: Visualizer?,
-                waveform: ByteArray?,
-                samplingRate: Int,
-            ) {
-                val bytes = waveform ?: return
-                val n = minOf(bytes.size, captureSize)
-                if (n > 0) GeodeNative.pcmRingWriteBytes(soundInput, bytes, n, AudioFormat.ENCODING_PCM_8BIT, 1, rateHz)
-            }
-
-            override fun onFftDataCapture(
-                visualizer: Visualizer?,
-                fft: ByteArray?,
-                samplingRate: Int,
-            ) = Unit
-        }
 
     /**
      * Starts capturing, or returns false when it can't: no permission, or a device that refuses
@@ -87,18 +67,17 @@ class OutputMixCapture {
                 // As played, not normalized: normalized lifts every capture to full scale, so
                 // a quiet passage hit as hard as a drop and room noise never read as silence.
                 v.setScalingMode(Visualizer.SCALING_MODE_AS_PLAYED)
-                rateHz = (v.samplingRate / MILLIHERTZ_PER_HERTZ).takeIf { it > 0 } ?: FALLBACK_RATE_HZ
-                captureSize = size
-                v.setDataCaptureListener(listener, Visualizer.getMaxCaptureRate(), true, false)
                 v.setEnabled(true)
+                // A new run is a new stream: the renderer's cursor restarts instead of reading a seam.
+                GeodeNative.pcmRingBeginEpoch(soundInput)
+                GeodeNative.javaCaptureVisualizer(v, soundInput, v.captureSize, v.samplingRate, Visualizer.getMaxCaptureRate())
             }
-        if (configured.isFailure) {
+        handle = configured.getOrDefault(0L)
+        if (handle == 0L) {
             RingLog.note(TAG, "output mix setup failed", configured.exceptionOrNull())
             bestEffort(TAG, "release refused visualizer") { v.release() }
             return false
         }
-        // A new run is a new stream: the renderer's cursor restarts instead of reading a seam.
-        GeodeNative.pcmRingBeginEpoch(soundInput)
         visualizer = v
         return true
     }
@@ -106,13 +85,16 @@ class OutputMixCapture {
     fun stop() {
         val v = visualizer ?: return
         visualizer = null
+        // The poll ends before the effect is released.
+        GeodeNative.javaCaptureStop(handle)
+        handle = 0L
         bestEffort(TAG, "release visualizer") {
             v.setEnabled(false)
             v.release()
         }
     }
 
-    /** Stops and frees the ring; a capture still queued on the Looper then writes nowhere. Main thread. */
+    /** Stops and frees the ring. Main thread. */
     fun release() {
         stop()
         val ring = soundInput
@@ -123,7 +105,5 @@ class OutputMixCapture {
     private companion object {
         const val TAG = "WallpaperMix"
         const val OUTPUT_MIX_SESSION = 0
-        const val FALLBACK_RATE_HZ = 48_000
-        const val MILLIHERTZ_PER_HERTZ = 1000
     }
 }

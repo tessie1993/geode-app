@@ -52,6 +52,7 @@ add_library(geode_core STATIC
     api/geode_ingest_api.cpp
     api/geode_capture_api.cpp
     api/geode_mic_api.cpp
+    api/geode_capture_java_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
@@ -80,6 +81,8 @@ add_library(geode_core STATIC
     audio/ingest/CapturePlan.cpp
     audio/ingest/MicInput.cpp
     audio/ingest/android/OboeMic.cpp
+    audio/ingest/CapturePump.cpp
+    audio/ingest/android/JavaCapture.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -107,6 +110,7 @@ add_library(geode_core STATIC
     output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
+    output/VideoExport.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
@@ -115,8 +119,11 @@ add_library(geode_core STATIC
     output/EncodeSink.cpp
     output/RecordSession.cpp
     output/android/MediaCodecSink.cpp
+    output/android/EncoderGl.cpp
     output/android/LoopRenderHost.cpp
     api/geode_loop_job_api.cpp
+    output/android/VideoExportHost.cpp
+    api/geode_video_export_api.cpp
     api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp
@@ -162,7 +169,6 @@ add_library(geode_core STATIC
     viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
-    viz/frame/ThermalSource.cpp
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
@@ -171,7 +177,6 @@ add_library(geode_core STATIC
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp

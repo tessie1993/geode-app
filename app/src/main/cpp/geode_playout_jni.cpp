@@ -18,10 +18,10 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutDestroy(J
     geode_playout_destroy(playoutOf(handle));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutBufferHandled(JNIEnv*, jobject, jlong handle,
-                                                                                     jlong presentationUs,
-                                                                                     jlong ringFrame, jlong frames) {
-    geode_playout_buffer_handled(playoutOf(handle), presentationUs, ringFrame, frames);
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutRingSpan(JNIEnv*, jobject, jlong handle,
+                                                                                jlong presentationUs,
+                                                                                jlong headBefore, jlong headAfter) {
+    geode_playout_ring_span(playoutOf(handle), presentationUs, headBefore, headAfter);
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutPosition(JNIEnv*, jobject, jlong handle,

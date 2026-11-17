@@ -121,7 +121,7 @@ fun VisualizerEngineBindings(
         visualizerView.stage.warmTransition(activeTransitionId)
     }
     // The stored live cap as this window's display runs it (native, core/viz/frame/LiveFps): a 120 picked on a
-    // fast panel is 60 on a 60 Hz one, so a hot phone's first thermal step still costs frames there.
+    // fast panel is 60 on a 60 Hz one.
     val refreshRates = rememberSeamlessRefreshRates()
     LaunchedEffect(performance, refreshRates) {
         visualizerView.applyPerformance(performance.copy(fpsCap = GeodeNative.liveFpsCap(performance.fpsCap, refreshRates)))

@@ -170,7 +170,7 @@ class PlaybackSession internal constructor(
     fun rampUiFade(
         audible: Boolean,
         ms: Int,
-    ) = GeodeNative.dspRampTo(dsp.nativeHandle(), if (audible) 0f else Float.NEGATIVE_INFINITY, ms)
+    ) = GeodeNative.dspRampAudible(dsp.nativeHandle(), audible, ms)
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
     fun applyPrefs(p: PlayerPrefs) {
@@ -180,7 +180,7 @@ class PlaybackSession internal constructor(
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
         GeodeNative.playoutSetOffsetMs(PlaybackEngine.playout, p.pictureDelayMs)
-        val oboe = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
+        val oboe = GeodeNative.audioOutWanted(p.nativeOutput, p.bitPerfect, BitPerfectOutput.supported)
         if (oboe != nativeOutput) {
             nativeOutput = oboe
             // The output already open was built under the old choice. A playing item is seeked to where

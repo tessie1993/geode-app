@@ -190,16 +190,14 @@ GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look)
 /* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
-   changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
-   simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive,
-                                            int liquid_hot_policy);
+   changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
+   quality (an export). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
-   only a fixed rate paces it, Cast's) to the thermal step; the latched quality; a new surface's first frame
-   cleared to black and nothing else; on the frame that wins the process's thermal slot, the platform's
-   headroom asked natively; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
+   only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
+   cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
    hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
    Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
@@ -209,8 +207,7 @@ GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, floa
 #define GEODE_FRAME_DIRECTOR_MOMENT 0x20 /* director moments wait: geode_viz_take_director_style_moments */
 #define GEODE_FRAME_STILL_READY     0x40 /* the still asked for is ready: geode_viz_still_size / _read */
 GEODE_API int         geode_viz_frame(geode_viz*, const geode_pcm_ring* ring, float paced_fps, float cap_fps);
-/* What Liquid mode ran when a frame last said GEODE_FRAME_LIQUID_CHANGED: 0 off, 1 full, 2 lite, 3 warp,
-   4 paused (liquid::Mode). Any thread. */
+/* What Liquid mode ran when a frame last said GEODE_FRAME_LIQUID_CHANGED: 0 off, 1 full (liquid::Mode). Any thread. */
 GEODE_API int         geode_viz_liquid_mode(geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
@@ -352,6 +349,10 @@ GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channe
 /* 1 when the chain runs a format: `encoding` 16-bit or float (numbered as Android's ENCODING_PCM_*, see
  * GEODE_PCM_S16), 1 or 2 channels. 0 for any other; the shell then steps aside and the track passes through. */
 GEODE_API int        geode_dsp_runs(int encoding, int channels);
+/* The shell's configure: geode_dsp_configure for a format geode_dsp_runs takes, else pass-through staged so the
+ * next flush never leaves the old format's chain live. 1 when the chain runs it; 0 (and for a NULL dsp) when the
+ * shell's processor steps aside. */
+GEODE_API int        geode_dsp_configure_input(geode_dsp*, int encoding, int sample_rate, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 /* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
@@ -415,6 +416,8 @@ GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
 #define GEODE_DSP_SILENCE_DB (-80.0f)
 /* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
 GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The shell's UI fade: to full level (0 dB) when audible, else to silence, over ms. */
+GEODE_API void       geode_dsp_ramp_audible(geode_dsp*, int audible, int ms);
 /* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
  * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
 GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
@@ -422,6 +425,10 @@ GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
  * track that followed on. A skip, seek or pick starts at full level. */
 GEODE_API void       geode_dsp_set_crossfade(geode_dsp*, int ms);
 GEODE_API void       geode_dsp_set_follows_on(geode_dsp*, int follows_on);  /* a next item, or repeat one */
+/* The player's queue as it stands: something follows on when there is a next item or repeat_mode is
+ * GEODE_REPEAT_ONE (numbered as Media3's Player.REPEAT_MODE_*). */
+#define GEODE_REPEAT_ONE 1
+GEODE_API void       geode_dsp_set_up_next(geode_dsp*, int has_next, int repeat_mode);
 GEODE_API void       geode_dsp_set_speed(geode_dsp*, float speed);          /* what Sonic plays at, upstream */
 /* ReplayGain. mode: 0 off, 1 track, 2 album; clip_guard keeps the tagged peak below full scale. */
 GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, int mode, float preamp_db, int clip_guard);
@@ -448,6 +455,10 @@ GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, s
  * Any other encoding, or no channels, returns all of `bytes` untouched; a NULL dsp or pcm runs nothing but
  * still answers (capacity then unused). 0 for bytes <= 0. */
 GEODE_API int        geode_dsp_process_bytes(geode_dsp*, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels);
+/* The shell's queued block: copies `in_bytes` of `in` (held to out_capacity) into `out`, then runs it there as
+ * geode_dsp_process_bytes does and returns the bytes to pass on. NULL in or out copies nothing and returns 0. */
+GEODE_API int        geode_dsp_process_into(geode_dsp*, const void* in, int in_bytes, void* out, size_t out_capacity,
+                                            int encoding, int channels);
 /* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
  * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
  * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
@@ -1133,19 +1144,16 @@ GEODE_API void            geode_cast_format(int* out);
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
-#define GEODE_PERF_TIER_FLOATS 5
-/* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */
+#define GEODE_PERF_TIER_FLOATS 4
+/* Writes render scale, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
 /* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
 GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
-/* The mode these values are (the tier's fps cap as an int, flags 0/1), or -1 for none: the tab reads "Custom".
-   Liquid's hot-phone policy is not part of a mode. */
-GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx, int adaptive);
+/* The mode these values are (the tier's fps cap as an int, post_fx 0/1), or -1 for none: the tab reads "Custom". */
+GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx);
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* A stored Liquid hot-phone policy as the renderer reads it (liquid::HotPolicy): 0..2, anything else 0. */
-GEODE_API int             geode_perf_liquid_hot(int stored);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
@@ -1286,9 +1294,8 @@ GEODE_API int             geode_stage_step_milk(const char* const* paths, int co
 GEODE_API void            geode_stage_step_milk_reset(void);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is nine int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS); slot 8 is native's
-   own (the rate "Follow device" last followed while cool). */
-#define GEODE_PACER_STATE_LONGS 9
+   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 8
 /* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
    Surface.setFrameRate when it moves. */
 #define GEODE_PACER_CAP_SLOT 6
@@ -1297,24 +1304,11 @@ GEODE_API void            geode_stage_step_milk_reset(void);
    it to geode_viz_frame as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). GEODE_LIVE_FPS_FOLLOW
-   follows the panel: every vsync of the rate the display runs now while cool, a rung under the rate it
-   last ran at while cool when hot (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
+   every vsync). GEODE_LIVE_FPS_FOLLOW follows the panel: every vsync of the rate the display runs now
+   (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
-/* The cap a surface asking for cap_fps runs at now: cap_fps stepped down a rung per hot thermal tier (120 to
-   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate, so
-   GEODE_LIVE_FPS_FOLLOW answers 0 at every tier: the surface states no rate and the system chooses. */
-GEODE_API float           geode_pacer_effective_cap(float cap_fps);
-
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. Native
-   reads the platform itself (viz/frame/ThermalSource): the status from the NDK's listener when it changes,
-   and the forecast headroom on the frame that wins the process's slot, every ten seconds. */
-/* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
-   has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
-GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);
-
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
@@ -1514,7 +1508,12 @@ GEODE_API void           geode_playout_destroy(geode_playout*);
  * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
 GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
                                                       int64_t frames);
-/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+/* The same from the ring's head (geode_pcm_ring_head) read before and after the sink handled the buffer. */
+GEODE_API void           geode_playout_ring_span(geode_playout*, int64_t presentation_us, int64_t head_before,
+                                                 int64_t head_after);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns.
+ * GEODE_PLAYOUT_NO_POSITION (Media3's AudioSink.CURRENT_POSITION_NOT_SET) is no report and changes nothing. */
+#define GEODE_PLAYOUT_NO_POSITION INT64_MIN
 GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
 GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
 GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
@@ -1720,16 +1719,23 @@ typedef struct geode_audio_out geode_audio_out;
 #define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
 #define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
                                          the output stalled, so the sink builds a new one */
-GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
-/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened and
- * asks before each open; 1 = try the stream, 0 = the platform track plays for 60 s. now_ms is one monotonic
- * clock for both calls. Process-wide. */
+/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened, and
+ * for 60 s after it geode_audio_out_takes answers 0. now_ms is one monotonic clock for both calls. Process-wide. */
 GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
-GEODE_API int              geode_audio_out_may_open(int64_t now_ms);
-/* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
- * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
- * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
-GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes,
+/* Whether the native output is wanted at all: the user chose it, and bit-perfect USB (which needs the
+ * platform track) is not both on and supported. 1 or 0. */
+GEODE_API int              geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported);
+/* Whether the output plays one of Media3's output configs (audio/output/OutputChoice), its fields passed as
+ * they are: channel_mask an AudioFormat.CHANNEL_OUT_* mask, usage C.USAGE_*, virtual_device_id C.INDEX_UNSET
+ * for none. 0 for anything but plain PCM it supports, and within the back-off; the platform track plays it. */
+GEODE_API int              geode_audio_out_takes(int64_t now_ms, int offload, int tunneling, int offload_gapless,
+                                                 int playback_parameters, int virtual_device_id, int usage,
+                                                 int channel_mask, int encoding, int sample_rate);
+/* Opens the stream for writes of `encoding` at channel_mask's channels. buffer_bytes is the sink's buffer for
+ * this output (the FIFO and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio
+ * session (0 or below = allocate one). NULL when the format is not supported or the device gave no stream
+ * that is exactly it. */
+GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channel_mask, int encoding, int buffer_bytes,
                                                 int session_id);
 /* Silences the stream at once and closes it on a thread of its own; the handle is gone when this returns. */
 GEODE_API void             geode_audio_out_release(geode_audio_out*);

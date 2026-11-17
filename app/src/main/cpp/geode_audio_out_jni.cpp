@@ -16,20 +16,28 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutNoteFail
     geode_audio_out_note_failed(nowMs);
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutMayOpen(JNIEnv*, jobject, jlong nowMs) {
-    return geode_audio_out_may_open(nowMs) ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutWanted(JNIEnv*, jobject, jboolean chosen,
+                                                                                   jboolean bitPerfect,
+                                                                                   jboolean bitPerfectSupported) {
+    return geode_audio_out_wanted(chosen == JNI_TRUE, bitPerfect == JNI_TRUE, bitPerfectSupported == JNI_TRUE)
+               ? JNI_TRUE
+               : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutSupports(JNIEnv*, jobject, jint encoding,
-                                                                                     jint channels,
-                                                                                     jint sampleRateHz) {
-    return geode_audio_out_supports(encoding, channels, sampleRateHz) ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutTakes(
+    JNIEnv*, jobject, jlong nowMs, jboolean offload, jboolean tunneling, jboolean offloadGapless,
+    jboolean playbackParameters, jint virtualDeviceId, jint usage, jint channelMask, jint encoding, jint sampleRateHz) {
+    return geode_audio_out_takes(nowMs, offload == JNI_TRUE, tunneling == JNI_TRUE, offloadGapless == JNI_TRUE,
+                                 playbackParameters == JNI_TRUE, virtualDeviceId, usage, channelMask, encoding,
+                                 sampleRateHz)
+               ? JNI_TRUE
+               : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutOpen(JNIEnv*, jobject, jint sampleRateHz,
-                                                                              jint channels, jint encoding,
+                                                                              jint channelMask, jint encoding,
                                                                               jint bufferBytes, jint sessionId) {
-    return reinterpret_cast<jlong>(geode_audio_out_open(sampleRateHz, channels, encoding, bufferBytes, sessionId));
+    return reinterpret_cast<jlong>(geode_audio_out_open(sampleRateHz, channelMask, encoding, bufferBytes, sessionId));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutRelease(JNIEnv*, jobject, jlong handle) {

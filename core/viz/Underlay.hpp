@@ -48,6 +48,11 @@ struct Rect {
 // never empty for a real source. Equal aspects (and any non-positive size) give the whole source.
 Rect cropRect(int srcW, int srcH, int targetW, int targetH);
 
+// The power-of-two decode subsample (BitmapFactory's inSampleSize) for a srcW x srcH picture. Cover (the
+// underlay): the largest that still leaves both sides at least targetW x targetH, so the crop has real pixels.
+// Fit (the artwork): the smallest that brings both sides within targetW x targetH. 1 for any non-positive size.
+int sampleSize(int srcW, int srcH, int targetW, int targetH, bool fit);
+
 // Softens `pixels` (width x height) in place: shrink by (1 + clampBlur(radius)), each small pixel the
 // rounded mean of its whole cell of the full image, then a bilinear scale back up (pixel centres,
 // edges clamped), every channel alpha included.

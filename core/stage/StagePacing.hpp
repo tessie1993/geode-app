@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstdint>
 
 #include "viz/frame/LiveFps.hpp"
@@ -6,8 +7,8 @@
 
 // One stage's pacer on the vsync thread (docs/agents/native-stage.md): which vsyncs draw, the paced rate the frame
 // is handed, and when the window's frame-rate hint must be restated. The clock itself is core/viz/frame/Pacer,
-// unchanged; this owns its nine-int64 state natively and applies the process thermal step the way
-// geode_pacer_on_vsync does. Pure, with no Android, so the host can test it (core/tests/stage_pacing_test.cpp).
+// unchanged; this owns its state natively and picks the cap the way geode_pacer_on_vsync does. Pure, with no
+// Android, so the host can test it (core/tests/stage_pacing_test.cpp).
 //
 // Confined to the vsync thread: start, stop and setCap arrive there as commands, and the choreographer callback
 // calls vsyncArrived, then (when it re-posted) step.
@@ -60,18 +61,21 @@ public:
     struct Tick {
         bool draw = false;
         double dt = 0.0;
-        // The cap the pacer paces to moved (the first vsync, a new cap, the thermal step): restate the window's hint.
+        // The cap the pacer paces to moved (the first vsync, a new cap, a new panel rate under Follow device):
+        // restate the window's hint.
         bool restateRate = false;
         float rateFps = 0.0f;
     };
 
-    // One vsync, after vsyncArrived said true. rungsDown is the process thermal tier's step
-    // (ThermalState::fpsRungsDown).
-    Tick step(int64_t frameTimeNs, int rungsDown);
+    // One vsync, after vsyncArrived said true.
+    Tick step(int64_t frameTimeNs);
 
-    // The rate the window is asked for: the cap under the thermal step, 0 (no preference) for Follow device or
-    // no cap. geode_pacer_effective_cap's rule.
-    static float frameRateFor(float capFps, int rungsDown);
+    // The rate the window is asked for: the cap, 0 (no preference) for Follow device or no cap. Follow device
+    // states no rate: the system keeps choosing the panel's mode.
+    static float frameRateFor(float capFps) {
+        if (viz::frame::isLiveFpsFollow(capFps)) return 0.0f;
+        return std::isfinite(capFps) && capFps > 0.0f ? capFps : 0.0f;
+    }
 
     const viz::frame::PacerState& state() const { return state_; }
 

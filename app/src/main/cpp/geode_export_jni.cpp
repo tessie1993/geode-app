@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "api/geode_export_job_api.h"
 #include "jni_util.hpp"
 
 namespace {
@@ -28,56 +27,6 @@ void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
 }  // namespace
 
 extern "C" {
-
-// Frame clock (output/FrameClock).
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportTotalFrames(JNIEnv*, jobject, jlong durationUs,
-                                                                                    jint fps) {
-    return geode_export_total_frames(durationUs, fps);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFramePtsNs(JNIEnv*, jobject, jlong frame, jint fps) {
-    return geode_export_frame_pts_ns(frame, fps);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameTimeMs(JNIEnv*, jobject, jlong frame, jint fps) {
-    return geode_export_frame_time_ms(frame, fps);
-}
-
-// An export's render (core/output/ExportFrame): handles and values only. `viz` is the renderer handle NativeViz
-// holds; the job borrows it and is destroyed first. The descriptor is detached by the shell and owned natively.
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobCreate(JNIEnv*, jobject, jlong viz, jint fd,
-                                                                                jlong offset, jlong length, jint fps,
-                                                                                jlong rangeStartMs) {
-    return reinterpret_cast<jlong>(
-        geode_export_job_create(reinterpret_cast<geode_viz*>(viz), fd, offset, length, fps, rangeStartMs));
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobDestroy(JNIEnv*, jobject, jlong job) {
-    geode_export_job_destroy(reinterpret_cast<geode_export_job*>(job));
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobBegin(JNIEnv* env, jobject, jlong job,
-                                                                               jint width, jint height, jstring sceneId,
-                                                                               jstring milkPath, jboolean entitled,
-                                                                               jlong pinDurationMs) {
-    geode::jni::Utf8Chars scene(env, sceneId);
-    geode::jni::Utf8Chars milk(env, milkPath);
-    return geode_export_job_begin(reinterpret_cast<geode_export_job*>(job), width, height, scene.get(), milk.get(),
-                                  entitled == JNI_TRUE ? 1 : 0, pinDurationMs);
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobWarm(JNIEnv*, jobject, jlong job) {
-    return geode_export_job_warm(reinterpret_cast<geode_export_job*>(job)) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportJobFrame(JNIEnv*, jobject, jlong job,
-                                                                                  jlong frame, jint targetFbo) {
-    return geode_export_job_frame(reinterpret_cast<geode_export_job*>(job), frame, static_cast<uint32_t>(targetFbo))
-               ? JNI_TRUE
-               : JNI_FALSE;
-}
 
 // Loops (output/LoopPlan).
 
@@ -137,12 +86,6 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopFittingBitRa
 
 // Encoder requests (output/EncodePlan).
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportCappedVideoBps(JNIEnv*, jobject, jint requestedBps,
-                                                                                      jlong durationUs, jlong audioBytes,
-                                                                                      jlong limitBytes) {
-    return geode_export_capped_video_bps(requestedBps, durationUs, audioBytes, limitBytes);
-}
-
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportMuxerHardLimitBytes(JNIEnv*, jobject) {
     return geode_export_muxer_hard_limit_bytes();
 }
@@ -153,10 +96,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(
     jint size[2] = {0, 0};
     geode_export_frame_size(shortSide, wRatio, hRatio, &size[0], &size[1]);
     env->SetIntArrayRegion(out, 0, 2, size);
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(JNIEnv*, jobject, jint requestedFps) {
-    return geode_export_clamp_fps(requestedFps);
 }
 
 // A render's time left (output/RenderEta).

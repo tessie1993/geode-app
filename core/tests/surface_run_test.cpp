@@ -508,6 +508,20 @@ void fps() {
     check(geode_surface_fps_choices(nullptr, 0) == 3, "a null buffer only counts");
 }
 
+// What sets the cover bit: the wallpaper's zoom behind the shade, the dream's proximity sensor (was Kotlin).
+void cover() {
+    check(!geode_surface_zoom_covers(0.0f), "no zoom: not covered");
+    check(!geode_surface_zoom_covers(0.89f), "just short of 0.9: not covered");
+    check(geode_surface_zoom_covers(0.9f) == 1, "0.9: covered");
+    check(geode_surface_zoom_covers(1.0f) == 1, "fully zoomed out: covered");
+    check(geode_surface_proximity_near(0.0f, 5.0f) == 1, "a binary sensor's 0: near");
+    check(!geode_surface_proximity_near(5.0f, 5.0f), "a binary sensor's range: far");
+    check(geode_surface_proximity_near(2.9f, 10.0f) == 1, "under 3 cm: near");
+    check(!geode_surface_proximity_near(3.0f, 10.0f), "3 cm: far");
+    check(geode_surface_proximity_near(0.5f, 1.0f) == 1 && !geode_surface_proximity_near(1.0f, 1.0f),
+          "a range under 3 cm is the limit");
+}
+
 }  // namespace
 
 // The app's own stage (core/viz/StageRun): it draws while somebody can see it, not only while resumed, and
@@ -620,6 +634,7 @@ int main() {
     dreamGoesDarkInSilence();
     settle();
     fps();
+    cover();
     stage();
     reasonNamesTheMode();
     if (failures == 0) std::printf("surface_run_test: all passed\n");

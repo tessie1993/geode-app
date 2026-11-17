@@ -107,6 +107,70 @@ std::string writePreset(const Preset& p);
 // The MilkDrop file a preset mirrors its .milk source to: its name's stem (a ".milk" suffix dropped) plus ".milk".
 std::string milkFileName(std::string_view presetName);
 
+// ---- Preset names ----------------------------------------------------------------------------------------------
+
+// What a built-in preset's name holds between its look and its style ("Glow · Cymatics"); a user's never does.
+inline constexpr std::string_view kBuiltInSeparator = " \xc2\xb7 ";
+bool isBuiltInPreset(std::string_view name);
+
+// Two names alike but for case, as Kotlin's equals(ignoreCase = true) compares them: each code point as the lower
+// case of its upper case (Latin, Greek, Cyrillic, Armenian, full-width Latin; elsewhere exact).
+bool sameNameCaseless(std::string_view a, std::string_view b);
+
+// A name as the store keeps it: the separator as " - ", trimmed; `fallback` when nothing is left.
+std::string cleanPresetName(std::string_view raw, std::string_view fallback = {});
+// A folder's name as the store keeps it: trimmed.
+std::string cleanFolderName(std::string_view raw);
+
+// Why a name cannot be used; the shell says it in its own words.
+enum class NameProblem : int { None = 0, Blank = 1, Taken = 2 };
+
+// `raw` as the new name of preset `current`: Blank when nothing is left once cleaned, Taken when another name in
+// `taken` (built-ins included: a user preset would hide behind one) is the same but for case, since on some file
+// systems those are one file. Its own name, any case, is fine.
+NameProblem presetRenameProblem(std::string_view raw, std::string_view current, const std::vector<std::string>& taken);
+// `raw` as a folder's name, renaming `current` (nullopt for a new folder): Blank, or Taken by another, any case.
+NameProblem folderNameProblem(std::string_view raw, const std::optional<std::string>& current,
+                              const std::vector<std::string>& folders);
+
+// `base`, or "<base> 2", "<base> 3"... : the first that `taken` does not hold, case ignored.
+std::string uniquePresetName(std::string_view base, const std::vector<std::string>& taken);
+// A duplicate's name: uniquePresetName of "<name> copy".
+std::string presetCopyName(std::string_view name, const std::vector<std::string>& taken);
+// An imported preset's name: cleaned (`fallback` when blank), then " 2", " 3"... while `taken` holds it exactly.
+std::string importedPresetName(std::string_view raw, std::string_view fallback, const std::vector<std::string>& taken);
+
+// The user preset in `names` a save under `raw` overwrites (same name once cleaned, exactly), or nullopt.
+std::optional<std::string> presetReplaceTarget(std::string_view raw, const std::vector<std::string>& names);
+// A save under `raw` names a built-in in `names`, case ignored: refused, as the copy would pass for the built-in.
+bool builtInNameClash(std::string_view raw, const std::vector<std::string>& names);
+// A built-in preset of style `presetSceneId` is made for `activeSceneId`: the same style, or the shelf the catalogue
+// files its looks under (every Fluid or Cymatics look shares them).
+bool presetMatchesScene(const std::string& presetSceneId, const std::string& activeSceneId);
+
+// ---- Share links -----------------------------------------------------------------------------------------------
+
+// A preset whole in one link: this prefix, then its JSON gzipped and in URL-safe base64 (the shell's step). Lengths
+// count UTF-16 units, as the shell's text does.
+inline constexpr std::string_view kPresetLinkPrefix = "geode://preset/";
+// No link longer is minted (a file is shared instead) or accepted, so a hostile one cannot spend the inflate budget.
+inline constexpr int kMaxLinkLength = 8000;
+inline constexpr int kMaxLinkPayload = 1024 * 1024;
+// The most bytes a payload may inflate to.
+inline constexpr int kMaxLinkInflated = 4 * 1024 * 1024;
+
+std::string presetLink(std::string_view payload);
+bool presetLinkFits(std::string_view link);
+// `text`, trimmed, starts with the prefix, case ignored.
+bool isPresetLink(std::string_view text);
+// The payload of the link `text` is (trimmed; a '#' fragment or '?' query cut off), or nullopt when it is no link or
+// too long.
+std::optional<std::string> presetLinkPayload(std::string_view text);
+// The first link inside pasted text, up to the first whitespace, or nullopt.
+std::optional<std::string> findPresetLink(std::string_view text);
+// An inflated payload is a preset's text only when not blank.
+bool presetLinkBodyAccepted(std::string_view body);
+
 // ---- The template library ------------------------------------------------------------------------------------
 
 // A template's file in the library: its name's stem (at most 60 bytes, trimmed, "Template" when blank), "--", its

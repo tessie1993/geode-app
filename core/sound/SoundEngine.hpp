@@ -89,6 +89,24 @@ public:
     int64_t oldestHopSample() const;
     // Hops kept: over a second at every rate (a hop is 10 ms, rounded to whole samples).
     static constexpr int kHistoryHops = 128;
+    // One kept hop as the analysis computed it: its position, the oscillator its phases move on from
+    // (Rhythm::phases), its frame (phases at the hop's own sample, triggers its own) and the feeling after it
+    // (its own degree accent, not held). What a reader on another thread needs to answer frameAt itself
+    // (sound/hop/AnalysisThread).
+    struct Hop {
+        int64_t sample = 0;
+        Rhythm::Clock clock;
+        GeodeSoundFrame frame{};
+        Emotion::State emotion{};
+    };
+    // The kept hop `age` hops before the newest (0 = newest), null past the kept ones.
+    const Hop* keptHop(int age) const;
+    // Hops run since construction or reset(), the starved ones included (they can share a position).
+    int64_t hopsRun() const { return hopsRun_; }
+    // HalfBand stages between write() and the analysis: a position difference >> halvings() is analysis samples.
+    int halvings() const { return halvings_; }
+    // The silence rule fired and still holds (the frame's `silence` trigger was its start).
+    bool silent() const { return state_.silent; }
     // The feeling (Emotion), stepped every hop with the frame; its degree accent held like a trigger.
     const Emotion::State& emotion() const { return emotionOut_; }
     // A new play (the auto-director's seed changed): the feeling starts over, the analysis does not.
@@ -277,14 +295,10 @@ private:
     Emotion::State emotionOut_{};
     float accentHeld_ = 0.0f;
     // Every hop as it was computed, a ring of kHistoryHops, the newest at historyHead_ - 1.
-    struct KeptHop {
-        int64_t sample = 0;
-        Rhythm::Clock clock;
-        GeodeSoundFrame frame{};
-    };
-    std::vector<KeptHop> history_;
+    std::vector<Hop> history_;
     int historyHead_ = 0;
     int historyCount_ = 0;
+    int64_t hopsRun_ = 0;
     int64_t inputWritten_ = 0;  // samples at the input rate, before any halving
 
     // Per-hop scratch, overwritten every hop.

@@ -40,8 +40,8 @@
     <string name="perf_mode_balanced">Balanced</string>
     <string name="perf_mode_high">High</string>
     <string name="perf_mode_saver_hint">Half resolution, 30 fps, lighter 3D and no extra effects. For older phones and long sessions.</string>
-    <string name="perf_mode_balanced_hint">Three-quarter resolution at 60 fps. Quality drops by itself if frames run slow.</string>
-    <string name="perf_mode_high_hint">Full resolution and full 3D detail. Only heat makes it step down.</string>
+    <string name="perf_mode_balanced_hint">Three-quarter resolution at 60 fps.</string>
+    <string name="perf_mode_high_hint">Full resolution and full 3D detail at 60 fps.</string>
     <string name="perf_mode_custom_hint">Custom: you changed a setting below. Pick a mode to go back to a preset.</string>
     <string name="perf_details_title">Details</string>
     <string name="perf_render_scale">Render resolution</string>
@@ -55,13 +55,6 @@
     <string name="perf_level_high">High</string>
     <string name="perf_post_fx">Extra effects</string>
     <string name="perf_post_fx_hint">Flow distortion, the touch smear and fluid bloom.</string>
-    <string name="perf_adaptive">Adapt to frame time</string>
-    <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
-    <string name="perf_liquid_hot">Liquid on a hot phone</string>
-    <string name="perf_liquid_hot_simplify">Simplify (keep it flowing)</string>
-    <string name="perf_liquid_hot_full">Full (phone may throttle)</string>
-    <string name="perf_liquid_hot_pause">Pause</string>
-    <string name="perf_liquid_hot_hint">What Liquid mode does when the phone gets hot. Simplify keeps the flow with fewer details, Full never steps down, Pause freezes the liquid until the phone cools.</string>
     <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
@@ -75,7 +68,7 @@
     <string name="help_topic_safety">Flashing and motion</string>
     <string name="help_topic_safety_body">BeatRealms caps brightness, contrast and glow and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate. MilkDrop presets only get the brightness cap, so the flashes they draw themselves are not limited, and neither are fluid shaders you write. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
-    <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
+    <string name="help_topic_performance_body">The visual draws at the resolution and frame rate you pick in Settings › Performance; Saver, a lower frame rate cap or a lower resolution keeps the phone cooler. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
     <!-- Per-track metadata editor. -->
     <string name="track_info_title">Track info</string>
@@ -730,7 +723,7 @@
     <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
-    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless the gesture map says otherwise), they also drag the picture: whatever is on screen bends after them and settles a moment after they stop. It needs Performance\'s extra effects and rests on a hot phone. In Liquid mode the fingers move the liquid instead. Never in a render.</string>
+    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless the gesture map says otherwise), they also drag the picture: whatever is on screen bends after them and settles a moment after they stop. It needs Performance\'s extra effects. In Liquid mode the fingers move the liquid instead. Never in a render.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
     <string name="behavior_touch_transform_hint">Two fingers on the visual: pinch moves the Zoom slider, twist moves Rotation. They are the same controls Customize shows, so a gesture is saved into presets, and undone by dragging the slider back.</string>
@@ -1188,6 +1181,9 @@
     <string name="presets_new_folder">New folder</string>
     <string name="presets_make_folder">Make folder</string>
     <string name="presets_rename_folder">Rename folder</string>
+    <string name="presets_name_blank">Give it a name.</string>
+    <string name="presets_name_taken">There is already a preset called \"%1$s\".</string>
+    <string name="presets_folder_taken">There is already a folder called \"%1$s\".</string>
     <string name="presets_import">Import</string>
     <string name="presets_import_paste">Paste a shared preset link</string>
     <string name="presets_import_file">Open a preset file</string>

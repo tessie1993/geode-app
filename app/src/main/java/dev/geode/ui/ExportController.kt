@@ -279,7 +279,7 @@ internal class ExportController(
                 codec = codec,
                 loudnessTarget = defaultLoudnessTarget(),
                 background = defaultBackground(),
-                onProgress = publish,
+                onProgress = { p, _ -> publish(p) },
                 isCancelled = { exportCancelled || ExportRun.cancelRequested },
                 watermark = watermark,
             )
@@ -362,7 +362,7 @@ internal class ExportController(
     }
 
     /**
-     * One visual over one stretch of song, drawn by the visualizer exporter (`export/ExportScene`)
+     * One visual over one stretch of song, drawn by the visualizer exporter (`core/output/VideoExport`)
      * straight into [destination], hearing [song] from [range]'s start (the whole song when null), with
      * the loudness readout, background image and watermark.
      *
@@ -401,7 +401,7 @@ internal class ExportController(
                 codec = spec.codec,
                 loudnessTarget = spec.loudnessTarget,
                 background = defaultBackground(),
-                onProgress = { p -> onProgress(p, p >= VideoExporter.AUDIO_PROGRESS_SPAN) },
+                onProgress = onProgress,
                 isCancelled = isCancelled,
                 watermark = spec.watermark,
             )

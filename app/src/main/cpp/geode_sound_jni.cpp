@@ -15,16 +15,6 @@ Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong 
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_captureHeardAt(JNIEnv*, jobject, jfloat peak, jlong nowMs, jlong heardAtMs) {
-    return geode_capture_heard_at(peak, nowMs, heardAtMs);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_captureQuiet(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
-    return geode_capture_quiet(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
     return geode_sound_track_boundary(seed);
 }
@@ -197,6 +187,16 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceRecheckInMs(JNIEnv*, jobject, jl
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceZoomCovers(JNIEnv*, jobject, jfloat zoom) {
+    return geode_surface_zoom_covers(zoom) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceProximityNear(JNIEnv*, jobject, jfloat distanceCm, jfloat maximumRange) {
+    return geode_surface_proximity_near(distanceCm, maximumRange) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

@@ -1,16 +1,80 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <mutex>
 #include <vector>
 
 #include "api/geode_api.h"
+#include "api/geode_capture_java_api.h"
 
 // The PCM ingest ring (core/audio/ingest/PcmRing): values in, values out, nothing else. The player's and
-// the mic's handles are never freed; the output mix's is freed by its owner. The array writes pin the
-// array (critical) for one lock-free copy: no JNI call, no lock and no allocation happens inside.
+// the mic's handles are never freed; the output mix's is freed by its owner.
 
 namespace {
 geode_pcm_ring* ringOf(jlong handle) { return reinterpret_cast<geode_pcm_ring*>(handle); }
+
+// ByteBuffer's methods for a heap buffer, looked up once (a boot class, never unloaded).
+struct HeapBufferIds {
+    jmethodID duplicate = nullptr;
+    jmethodID position = nullptr;
+    jmethodID get = nullptr;
+};
+
+const HeapBufferIds& heapBufferIds(JNIEnv* env) {
+    static const HeapBufferIds ids = [env] {
+        HeapBufferIds k;
+        jclass c = env->FindClass("java/nio/ByteBuffer");
+        if (c) {
+            k.duplicate = env->GetMethodID(c, "duplicate", "()Ljava/nio/ByteBuffer;");
+            if (k.duplicate) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
+            if (k.position) k.get = env->GetMethodID(c, "get", "([BII)Ljava/nio/ByteBuffer;");
+            env->DeleteLocalRef(c);
+        }
+        env->ExceptionClear();
+        return k;
+    }();
+    return ids;
+}
+
+// A heap buffer, read-only or not, has no address: its bytes are copied by the JVM's bulk get (on a
+// duplicate, so its position stays the shell's) into one array native keeps, grown only when too small,
+// then written from that array pinned. The tap is the one writer, so the lock is never contended.
+std::mutex gHeapLock;
+jbyteArray gHeapBytes = nullptr;
+jsize gHeapLength = 0;
+
+int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes, jint encoding,
+              jint channels, jint sampleRate) {
+    const HeapBufferIds& ids = heapBufferIds(env);
+    if (!ids.get) return 0;
+    std::lock_guard<std::mutex> lock(gHeapLock);
+    if (gHeapLength < bytes) {
+        jbyteArray grown = env->NewByteArray(bytes);
+        if (!grown) {
+            env->ExceptionClear();
+            return 0;
+        }
+        if (gHeapBytes) env->DeleteGlobalRef(gHeapBytes);
+        gHeapBytes = static_cast<jbyteArray>(env->NewGlobalRef(grown));
+        env->DeleteLocalRef(grown);
+        gHeapLength = gHeapBytes ? bytes : 0;
+        if (!gHeapBytes) return 0;
+    }
+    jobject view = env->CallObjectMethod(buffer, ids.duplicate);
+    if (!env->ExceptionCheck() && view) env->DeleteLocalRef(env->CallObjectMethod(view, ids.position, position));
+    if (!env->ExceptionCheck() && view) env->DeleteLocalRef(env->CallObjectMethod(view, ids.get, gHeapBytes, 0, bytes));
+    if (view) env->DeleteLocalRef(view);
+    if (env->ExceptionCheck() || !view) {
+        env->ExceptionClear();  // a position or length past the buffer: nothing to write
+        return 0;
+    }
+    void* data = env->GetPrimitiveArrayCritical(gHeapBytes, nullptr);
+    if (!data) return 0;
+    const int written = geode_pcm_ring_write_bytes(ring, data, static_cast<size_t>(bytes), encoding, channels,
+                                                   sampleRate, nullptr);
+    env->ReleasePrimitiveArrayCritical(gHeapBytes, data, JNI_ABORT);
+    return written;
+}
 }  // namespace
 
 extern "C" {
@@ -27,60 +91,19 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(J
     geode_pcm_ring_destroy(ringOf(handle));
 }
 
-// The tap's buffer: read where it lies, no copy and no Java array.
+// The tap's buffer: a direct one read where it lies, a heap one through one bulk copy (writeHeap).
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
                                                                                    jobject buffer, jint position,
                                                                                    jint bytes, jint encoding,
                                                                                    jint channels, jint sampleRate) {
     if (!buffer || position < 0 || bytes <= 0) return 0;
     const auto* address = static_cast<const unsigned char*>(env->GetDirectBufferAddress(buffer));
-    if (!address || env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
-    return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
-                                      channels, sampleRate, nullptr);
-}
-
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteFloats(JNIEnv* env, jobject,
-                                                                                     jlong handle, jfloatArray samples,
-                                                                                     jint frames, jint channels,
-                                                                                     jint sampleRate) {
-    if (!samples || frames <= 0 || channels <= 0) return 0.0f;
-    const jint held = env->GetArrayLength(samples) / channels;
-    float peak = 0.0f;
-    void* data = env->GetPrimitiveArrayCritical(samples, nullptr);
-    if (!data) return 0.0f;
-    geode_pcm_ring_write_f32(ringOf(handle), static_cast<const float*>(data), frames < held ? frames : held, channels,
-                             sampleRate, &peak);
-    env->ReleasePrimitiveArrayCritical(samples, data, JNI_ABORT);
-    return peak;
-}
-
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteShorts(JNIEnv* env, jobject,
-                                                                                     jlong handle, jshortArray samples,
-                                                                                     jint frames, jint channels,
-                                                                                     jint sampleRate) {
-    if (!samples || frames <= 0 || channels <= 0) return 0.0f;
-    const jint held = env->GetArrayLength(samples) / channels;
-    float peak = 0.0f;
-    void* data = env->GetPrimitiveArrayCritical(samples, nullptr);
-    if (!data) return 0.0f;
-    geode_pcm_ring_write_s16(ringOf(handle), static_cast<const int16_t*>(data), frames < held ? frames : held,
-                             channels, sampleRate, &peak);
-    env->ReleasePrimitiveArrayCritical(samples, data, JNI_ABORT);
-    return peak;
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteBytes(JNIEnv* env, jobject, jlong handle,
-                                                                                  jbyteArray samples, jint count,
-                                                                                  jint encoding, jint channels,
-                                                                                  jint sampleRate) {
-    if (!samples || count <= 0) return 0;
-    const jint held = env->GetArrayLength(samples);
-    void* data = env->GetPrimitiveArrayCritical(samples, nullptr);
-    if (!data) return 0;
-    const int frames = geode_pcm_ring_write_bytes(ringOf(handle), data, static_cast<size_t>(count < held ? count : held),
-                                                  encoding, channels, sampleRate, nullptr);
-    env->ReleasePrimitiveArrayCritical(samples, data, JNI_ABORT);
-    return frames;
+    if (address) {
+        if (env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
+                                          channels, sampleRate, nullptr);
+    }
+    return writeHeap(env, ringOf(handle), buffer, position, bytes, encoding, channels, sampleRate);
 }
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {
@@ -180,29 +203,6 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffPendingTime
     return geode_aiff_pending_time_us(position, dataStart, pending, bytesPerFrame, sampleRate);
 }
 
-// A capture's format plan (core/audio/ingest/CapturePlan): GEODE_CAPTURE_FORMAT_INTS ints a format.
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureFormats(JNIEnv* env, jobject,
-                                                                                   jint deviceRateHz, jboolean stereo) {
-    constexpr int kMaxRows = 16;
-    int rows[kMaxRows * GEODE_CAPTURE_FORMAT_INTS] = {};
-    const int count = geode_capture_plan(deviceRateHz, stereo ? 1 : 0, rows, kMaxRows);
-    const int n = (count < kMaxRows ? count : kMaxRows) * GEODE_CAPTURE_FORMAT_INTS;
-    jint values[kMaxRows * GEODE_CAPTURE_FORMAT_INTS];
-    for (int i = 0; i < n; ++i) values[i] = rows[i];
-    jintArray out = env->NewIntArray(n);
-    if (out) env->SetIntArrayRegion(out, 0, n, values);
-    return out;
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureBufferBytes(JNIEnv*, jobject,
-                                                                                   jint minBufferBytes, jint channels) {
-    return geode_capture_buffer_bytes(minBufferBytes, channels);
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_captureReadFrames(JNIEnv*, jobject) {
-    return geode_capture_read_frames();
-}
-
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStart(JNIEnv*, jobject, jint deviceRateHz,
                                                                              jboolean unprocessed) {
     return geode_mic_start(deviceRateHz, unprocessed ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
@@ -212,6 +212,30 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStop(JNIEnv*,
 
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micActive(JNIEnv*, jobject) {
     return geode_mic_active() ? JNI_TRUE : JNI_FALSE;
+}
+
+// The captures Android has only as Java objects (geode_capture_java_api.h): built, read and released natively.
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCapturePlayback(JNIEnv* env, jobject,
+                                                                                     jobject projection, jlong ring) {
+    return reinterpret_cast<jlong>(geode_java_capture_playback(env, projection, ringOf(ring)));
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureOutputMix(JNIEnv* env, jobject,
+                                                                                      jlong ring) {
+    return reinterpret_cast<jlong>(geode_java_capture_output_mix(env, ringOf(ring)));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureStop(JNIEnv*, jobject, jlong handle) {
+    geode_java_capture_stop(reinterpret_cast<geode_java_capture*>(handle));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureActive(JNIEnv*, jobject,
+                                                                                     jlong handle) {
+    return geode_java_capture_active(reinterpret_cast<const geode_java_capture*>(handle)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureQuiet(JNIEnv*, jobject, jlong handle) {
+    return geode_java_capture_quiet(reinterpret_cast<const geode_java_capture*>(handle)) ? JNI_TRUE : JNI_FALSE;
 }
 
 }  // extern "C"

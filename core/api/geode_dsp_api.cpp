@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <memory>
 
 #include "api/geode_api.h"
@@ -50,6 +51,15 @@ int geode_dsp_configure(geode_dsp* d, int sample_rate, int channels) {
 
 int geode_dsp_runs(int encoding, int channels) {
     return geode::audio::DspProcessor::runs(encoding, channels) ? 1 : 0;
+}
+
+int geode_dsp_configure_input(geode_dsp* d, int encoding, int sample_rate, int channels) {
+    if (!d) return 0;
+    if (!geode::audio::DspProcessor::runs(encoding, channels)) {
+        d->processor.configure(0, 0);
+        return 0;
+    }
+    return d->processor.configure(sample_rate, channels) ? 1 : 0;
 }
 
 void geode_dsp_flush(geode_dsp* d) {
@@ -141,6 +151,10 @@ void geode_dsp_ramp_to(geode_dsp* d, float db, int ms) {
     if (d) d->processor.gain().rampTo(db, ms);
 }
 
+void geode_dsp_ramp_audible(geode_dsp* d, int audible, int ms) {
+    geode_dsp_ramp_to(d, audible != 0 ? 0.0f : -INFINITY, ms);
+}
+
 int64_t geode_dsp_sleep_fade(geode_dsp* d, int64_t remaining_ms) {
     return d ? d->processor.gain().sleepFade(remaining_ms) : 1;
 }
@@ -151,6 +165,10 @@ void geode_dsp_set_crossfade(geode_dsp* d, int ms) {
 
 void geode_dsp_set_follows_on(geode_dsp* d, int follows_on) {
     if (d) d->processor.gain().setFollowsOn(follows_on != 0);
+}
+
+void geode_dsp_set_up_next(geode_dsp* d, int has_next, int repeat_mode) {
+    geode_dsp_set_follows_on(d, has_next != 0 || repeat_mode == GEODE_REPEAT_ONE ? 1 : 0);
 }
 
 void geode_dsp_set_speed(geode_dsp* d, float speed) {
@@ -196,6 +214,14 @@ int geode_dsp_process_bytes(geode_dsp* d, void* pcm, size_t capacity_bytes, int 
     using geode::audio::DspProcessor;
     return static_cast<int>(d && pcm ? d->processor.processBytes(pcm, capacity_bytes, n, encoding, channels)
                                      : DspProcessor::wholeFrameBytes(n, encoding, channels));
+}
+
+int geode_dsp_process_into(geode_dsp* d, const void* in, int in_bytes, void* out, size_t out_capacity, int encoding,
+                           int channels) {
+    if (!in || !out || in_bytes <= 0) return 0;
+    const size_t n = std::min(static_cast<size_t>(in_bytes), out_capacity);
+    std::memcpy(out, in, n);
+    return geode_dsp_process_bytes(d, out, out_capacity, static_cast<int>(n), encoding, channels);
 }
 
 void geode_dsp_set_bit_perfect(geode_dsp* d, int on) {

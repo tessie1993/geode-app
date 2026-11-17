@@ -44,10 +44,10 @@
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ShapeGraph.hpp"
-#include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
+#include "viz/frame/LiveFps.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
@@ -70,9 +70,23 @@ public:
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
-    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
-    // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
-    void setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive);
+    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
+    // optional passes and fluid bloom.
+    void setUserQuality(float renderScale, float marchScale, bool postFx);
+    // The rate the surface's pacer last drew at and the surface's own cap (Settings › Performance, the
+    // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
+    void setPacedFps(float pacedFps, float ownCapFps) {
+        pacedFps_.store(pacedFps, std::memory_order_relaxed);
+        ownCapFps_.store(ownCapFps, std::memory_order_relaxed);
+    }
+    // The rate this surface really draws at: its paced rate under its own cap. Follow device has no cap of its
+    // own: its paced rate is the rate, free-running until a vsync says one. MilkDrop and the fluid scenes read it.
+    float pacedFps() const {
+        const float paced = pacedFps_.load(std::memory_order_relaxed);
+        const float own = ownCapFps_.load(std::memory_order_relaxed);
+        if (frame::isLiveFpsFollow(own)) return paced > 0.0f ? paced : 0.0f;
+        return frame::effectiveCapFps(paced, own);
+    }
     // Export (geode_viz_set_offscreen): every scene is built whole on the frame that first asks for
     // it, so no exported frame ever shows the previous scene or a clear in its place. A live renderer
     // (the default) builds a new scene across frames instead; see ScenePrep.hpp.
@@ -85,12 +99,9 @@ public:
     void setUiBlurRegion(const UiBlurRegion& region);
     // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
     void setEdgeGlow(const frame::edge_glow::Options& options);
-    // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
-    void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
-    // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
-    // geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on a change. A new
-    // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
+    // What Liquid mode ran last frame (liquid::Mode), or -1 when it has not changed since the last take.
+    // Taken every live frame by geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on
+    // a change. A new surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
     int takeLiquidMode() {
         const int mode = liquidMode_.load(std::memory_order_relaxed);
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
@@ -160,7 +171,6 @@ public:
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
     void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
-    ThermalGovernor& thermal() { return thermal_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
     std::string lastError() const;
     bool knows(const std::string& sceneId) const { return registry_.knows(sceneId); }
@@ -221,7 +231,7 @@ private:
     // A trim (#854, #999) drops what `shed` names: every spare whatever the tier would keep, and for a surface
     // that stops drawing the passes' and the scene targets too.
     void trimScenes(const std::string& keepId, TrimShed shed = {});
-    // One logcat line when the resident scene count or the thermal tier changes (the device checklist reads it).
+    // One logcat line when the resident scene count changes (the device checklist reads it).
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
@@ -271,7 +281,12 @@ private:
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
     GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
-    bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
+    bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
+    // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
+    // says nothing about what the phone can draw, so the fluid quality monitor sits out until a moment after
+    // the last such frame. GL thread.
+    void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
+    bool settling() const { return settleHoldSeconds_ > 0.0f; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
     void applyUnderlayUpload();
@@ -317,7 +332,11 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    ThermalGovernor thermal_;
+    // The new style's first frames still upload textures and load its preset.
+    static constexpr float kSettleHoldSeconds = 1.5f;
+    float settleHoldSeconds_ = 0.0f;
+    std::atomic<float> pacedFps_{0.0f};
+    std::atomic<float> ownCapFps_{0.0f};
     // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;
@@ -489,7 +508,6 @@ private:
     float diveMix_ = 0.0f;
     // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
     int feedbackIdleFrames_ = 0;
-    std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
 
@@ -507,11 +525,9 @@ private:
     int height_ = 1;
     int renderWidth_ = 1;
     int renderHeight_ = 1;
-    ThermalTier appliedTier_ = ThermalTier::Full;
     uint32_t seenTrim_ = 0;  // the SceneResidency trim signal generation this renderer acted on (GL thread)
-    // What `adb logcat -s GeodeRenderer` last showed of scene residency and the tier (logged on a change only).
+    // What `adb logcat -s GeodeRenderer` last showed of scene residency (logged on a change only).
     size_t loggedResident_ = SIZE_MAX;
-    ThermalTier loggedTier_ = ThermalTier::Full;
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;

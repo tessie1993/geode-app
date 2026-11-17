@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 #include <limits>
 #include <vector>
 
@@ -110,6 +111,19 @@ void uiFadeIsSampleAccurate() {
     check(db[478] < -11.97 && db[478] > -11.98, "one frame before the end is one step short");
     check(near(db[479], -12.0, 1e-5) && near(db[1999], -12.0, 1e-5), "the fade lands on its 480th frame and holds");
     check(largestStep(db) <= 12.0 / 480.0 + 1e-4, "no frame steps by more than one ramp increment");
+    geode_dsp_destroy(d);
+}
+
+// The shell's UI fade (geode_dsp_ramp_audible; the target was Kotlin's): not audible is silence, audible full level.
+void uiFadeAudibleIsFullLevelElseSilence() {
+    geode_dsp* d = fresh();
+    geode_dsp_ramp_audible(d, 0, 10);
+    const auto down = run(d, 1000);
+    check(down[478] != kNoGain && down[479] == kNoGain && down[999] == kNoGain, "not audible lands on silence");
+    geode_dsp_ramp_audible(d, 1, 10);
+    const auto up = run(d, 1000);
+    check(near(up[479], 0.0, 1e-5) && near(up[999], 0.0, 1e-5), "audible lands on full level");
+    geode_dsp_ramp_audible(nullptr, 1, 10);
     geode_dsp_destroy(d);
 }
 
@@ -287,6 +301,25 @@ void crossfadeHalvesMirror() {
     geode_dsp_destroy(d);
 }
 
+// What follows on, from the queue as the shell reports it (geode_dsp_set_up_next; the rule was the Kotlin
+// TrackCrossfade's): a next item, or repeat one. Only then does the track's tail fade out.
+void upNextIsANextItemOrRepeatOne() {
+    struct Case {
+        int hasNext;
+        int repeatMode;  // Media3's Player.REPEAT_MODE_*: 0 off, 1 one, 2 all
+        bool fades;
+    };
+    for (const Case& k : {Case{1, 0, true}, Case{0, GEODE_REPEAT_ONE, true}, Case{0, 0, false}, Case{0, 2, false}}) {
+        geode_dsp* d = fresh();
+        geode_dsp_set_crossfade(d, 1000);
+        geode_dsp_set_up_next(d, k.hasNext, k.repeatMode);
+        geode_dsp_begin_stream(d, "a", 0, 2000000);
+        const auto a = run(d, 2 * static_cast<size_t>(kRate));
+        check((a.back() == kNoGain) == k.fades, "the tail fades out exactly when something follows on");
+        geode_dsp_destroy(d);
+    }
+}
+
 // At 2x a frame is twice the media time, so each half of a 1 s crossfade takes 250 ms of frames.
 void crossfadeFollowsSpeed() {
     geode_dsp* d = fresh();
@@ -379,11 +412,13 @@ int main() {
     rampIsLinearInDb();
     uiFadeIsSampleAccurate();
     fadeToSilenceEndsAtZero();
+    uiFadeAudibleIsFullLevelElseSilence();
     silenceWinsOverBoost();
     replayGainRule();
     replayGainSwitchesOnTheBoundary();
     crossfadeHalvesMirror();
     crossfadeFollowsSpeed();
+    upNextIsANextItemOrRepeatOne();
     repeatOneFadesIn();
     sleepFadeEndsWithTheTimer();
     unityIsBitIdentical();

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace geode::output::sink {
@@ -129,12 +130,29 @@ public:
     virtual bool stop() = 0;
 };
 
+// One key of a track format handed over whole (an already-encoded track's), typed as MediaFormat types it.
+inline constexpr int kFormatInt32 = 1;
+inline constexpr int kFormatInt64 = 2;
+inline constexpr int kFormatFloat = 3;
+inline constexpr int kFormatString = 4;
+inline constexpr int kFormatBuffer = 5;
+struct FormatEntry {
+    std::string key;
+    int type = 0;
+    int64_t whole = 0;
+    float real = 0.0f;
+    std::string text;
+    std::vector<uint8_t> bytes;
+};
+
 // Makes the codecs and the muxer: MediaCodec by MIME type and an MP4 muxer on one file on a phone.
 class Codecs {
 public:
     virtual ~Codecs() = default;
     virtual std::unique_ptr<Encoder> createEncoder(const char* mime) = 0;
     virtual std::unique_ptr<Muxer> createMuxer() = 0;
+    // The format of a track that arrives already encoded (Export's audio), for this muxer; null when refused.
+    virtual std::unique_ptr<TrackFormat> trackFormat(const std::vector<FormatEntry>&) { return nullptr; }
 };
 
 // Export's later audio track: samples already encoded, read in PTS order (not used by Record).

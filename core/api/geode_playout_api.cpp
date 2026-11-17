@@ -25,8 +25,12 @@ void geode_playout_buffer_handled(geode_playout* p, int64_t presentation_us, int
     if (p) p->clock.bufferHandled(presentation_us, ring_frame, frames);
 }
 
+void geode_playout_ring_span(geode_playout* p, int64_t presentation_us, int64_t head_before, int64_t head_after) {
+    geode_playout_buffer_handled(p, presentation_us, head_before, head_after - head_before);
+}
+
 void geode_playout_position(geode_playout* p, int64_t sink_us, int64_t now_ns) {
-    if (p) p->clock.position(sink_us, now_ns);
+    if (p && sink_us != GEODE_PLAYOUT_NO_POSITION) p->clock.position(sink_us, now_ns);
 }
 
 void geode_playout_playing(geode_playout* p, int playing, int64_t now_ns) {

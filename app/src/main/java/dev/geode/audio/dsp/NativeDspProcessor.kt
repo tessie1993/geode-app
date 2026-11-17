@@ -23,8 +23,8 @@ data class DspSettings(
 /**
  * The Media3 processor that runs `geode_dsp_process` over the sink's PCM, in place.
  *
- * Each block is copied once into the output buffer and processed there in place, 16-bit or float as
- * it came; native converts 16-bit itself, so no per-sample loop runs here. While the DAC takes the stream
+ * Native copies each block once into the output buffer and processes it there, 16-bit or float as
+ * it came; no byte of it is touched here. While the DAC takes the stream
  * bit-perfect ([bitPerfect], issue #353) native leaves every byte as it came. This class is only the
  * Media3 shell: it forwards configure, flush and each block to one native `geode_dsp`
  * (`core/audio/dsp/DspProcessor`), which owns a chain per format and the switch between them. That
@@ -36,7 +36,7 @@ data class DspSettings(
  * racing a format change never reaches a freed one.
  *
  * A format the chain cannot run (more than two channels, a 5.1 or 7.1 file; an encoding other than
- * 16-bit or float; native's rule, `geode_dsp_runs`) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
+ * 16-bit or float; native's rule, `geode_dsp_configure_input`) is not an error: [onConfigure] answers [AudioProcessor.AudioFormat.NOT_SET], which
  * makes the processor inactive, and Media3 passes that track's PCM straight through it. Throwing
  * instead, as this used to, fails the sink's configure, and ExoPlayer reports the whole file as
  * unplayable. The equalizer, crossfeed and the playback gain do not apply to such a track; the tap
@@ -87,27 +87,19 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (!GeodeNative.dspRuns(inputAudioFormat.encoding, inputAudioFormat.channelCount)) {
-            // Stage pass-through, so the next flush never leaves the old format's chain live.
-            val h = handle
-            if (h != 0L) GeodeNative.dspConfigure(h, 0, 0)
-            return AudioProcessor.AudioFormat.NOT_SET
-        }
-        val h = nativeHandle()
-        if (h == 0L || !GeodeNative.dspConfigure(h, inputAudioFormat.sampleRate, inputAudioFormat.channelCount)) {
-            return AudioProcessor.AudioFormat.NOT_SET
-        }
-        return inputAudioFormat
+        val f = inputAudioFormat
+        val h = if (GeodeNative.dspRuns(f.encoding, f.channelCount)) nativeHandle() else handle
+        return if (GeodeNative.dspConfigure(h, f.encoding, f.sampleRate, f.channelCount)) f else AudioProcessor.AudioFormat.NOT_SET
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
-        // Media3 queues its shared EMPTY_BUFFER, which is also our first output: put() into itself throws.
+        // Media3 queues its shared EMPTY_BUFFER, which is also our first output.
         if (!inputBuffer.hasRemaining()) return
-        val format = inputAudioFormat
-        val output = replaceOutputBuffer(inputBuffer.remaining())
-        output.put(inputBuffer)
-        output.flip()
-        output.limit(GeodeNative.dspProcessBytes(handle, output, output.limit(), format.encoding, format.channelCount))
+        val f = inputAudioFormat
+        val input = inputBuffer
+        val output = replaceOutputBuffer(input.remaining())
+        output.limit(GeodeNative.dspProcessInto(handle, input, input.position(), input.remaining(), output, f.encoding, f.channelCount))
+        input.position(input.limit())
     }
 
     override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
@@ -155,8 +147,5 @@ class NativeDspProcessor : BaseAudioProcessor() {
     companion object {
         /** The name the native gain keys a stream by: its item's URI, as `playback/ReplayGain` names it too. */
         fun streamName(item: MediaItem?): String? = item?.localConfiguration?.uri?.toString()
-
-        /** Band centres in millihertz, as the platform equalizer reported them, from the native chain. */
-        fun bandCenterMilliHz(band: Int): Int = (GeodeNative.dspBandCenterHz(band) * 1000f).toInt()
     }
 }

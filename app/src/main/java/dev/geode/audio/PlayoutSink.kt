@@ -28,16 +28,13 @@ internal class PlayoutSink(
     ): Boolean {
         val before = GeodeNative.pcmRingHead(ring)
         val handled = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
-        val written = GeodeNative.pcmRingHead(ring) - before
-        GeodeNative.playoutBufferHandled(clock, presentationTimeUs, before, written)
+        GeodeNative.playoutRingSpan(clock, presentationTimeUs, before, GeodeNative.pcmRingHead(ring))
         return handled
     }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
         val positionUs = super.getCurrentPositionUs(sourceEnded)
-        if (positionUs != AudioSink.CURRENT_POSITION_NOT_SET) {
-            GeodeNative.playoutPosition(clock, positionUs, System.nanoTime())
-        }
+        GeodeNative.playoutPosition(clock, positionUs, System.nanoTime())
         return positionUs
     }
 

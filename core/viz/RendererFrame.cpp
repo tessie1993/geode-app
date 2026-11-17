@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <random>
 
 #include "sound/DriveGain.hpp"
@@ -34,6 +35,8 @@ constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
 // About two seconds at 60 Hz.
 constexpr int kFeedbackIdleFrames = 120;
+// A speaker that stands this long is paused (the sound engine's own starve time).
+constexpr float kListenStillSeconds = 0.25f;
 
 // Customize › Layers' Macro source: the turn of the knob it names (0: the first on screen) with what the
 // waves and envelopes add this frame; NaN when the bank has no such knob on screen.
@@ -54,11 +57,13 @@ float Renderer::beginFrame(double timeSeconds) {
     lastTimeS_ = timeSeconds;
     if (settleHoldSeconds_ > 0.0f) settleHoldSeconds_ -= dt;
     {
-        // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
+        // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
         // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
-        // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
+        sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
+        float fade = 1.0f;
+        // What the player told the analysis (core/sound/PlayerSignals), live renderers only: an export hears
         // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
         // counts as the player, so a silent stretch in the track holds the song like a pause does live.
         if (!offscreen_.load(std::memory_order_relaxed)) {
@@ -68,20 +73,22 @@ float Renderer::beginFrame(double timeSeconds) {
             const sound::player::Boundary boundary = sound::player::boundary();
             if (boundary.epoch != boundarySeen_) {
                 boundarySeen_ = boundary.epoch;
-                if (sound_ && player) sound_->trackBoundary();
+                if (heard && player) {
+                    heard->trackBoundary(boundary.epoch);
+                    sectionChangeOwed_ = true;
+                }
             }
-            if (sound_) {
-                sound_->setPlayerSource(player);
-                sound_->setFadeGain(sound::player::fadeGain());
+            if (heard) {
+                heard->thread().setPlayerSource(player);
+                heard->thread().setFadeGain(sound::player::fadeGain());
             }
-        } else if (sound_) {
-            sound_->setPlayerSource(true);
+            if (player) fade = sound::player::fadeGain();
+        } else if (ownSound_) {
+            // An export's analysis runs here, inline, on exactly the audio written up to this frame.
+            ownSound_->thread().pump(dt);
+            ownUnpumped_ = 0;
         }
-        if (sound_) {
-            sound_->step(dt, soundFrame_);
-            soundEmotion_ = sound_->emotion();
-        }
-        soundHeard_ = sound_ != nullptr;
+        if (heard) readSound(*heard, dt, fade);
     }
     // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
     // nothing feeds stays still.
@@ -116,6 +123,29 @@ float Renderer::beginFrame(double timeSeconds) {
         compositePass_.warmTransition(nextRandomTransition_);
     }
     return dt;
+}
+
+void Renderer::readSound(const sound::SharedAnalysis& heard, float dt, float fadeGain) {
+    const sound::AnalysisThread& analysis = heard.thread();
+    const int64_t head = heard.ring().headFrames();
+    // Live: the speaker's sample (never past what was written); an own ring: everything written to it.
+    int64_t position = sharedSound_ ? std::min(listenPosition_, head) : head;
+    listenStillSeconds_ = position == lastListen_ ? listenStillSeconds_ + dt : 0.0f;
+    lastListen_ = position;
+    // A paused speaker, once its writer has stopped and the analysis runs on silence: the frame is that silence, as
+    // the renderer's own engine heard it, not the last sample played held forever. The hops not yet played fire now.
+    if (position >= 0 && listenStillSeconds_ > kListenStillSeconds && sound::interp::FrameReader::starved(analysis)) {
+        position = std::max(position, analysis.newestPosition());
+    }
+    if (soundReader_.read(analysis, position, soundFrame_, soundEmotion_, soundHits_)) soundHeard_ = true;
+    if (sectionChangeOwed_ && soundHeard_) {
+        // A boundary is the event (the engine's step fired it): Form was reset and cannot fire for eight bars.
+        soundFrame_.sectionChange = 1.0f;
+        soundHits_.at[offsetof(GeodeSoundFrame, sectionChange) / sizeof(float)] = position;
+        sectionChangeOwed_ = false;
+    }
+    soundFrame_.fadeGain = std::isfinite(fadeGain) ? std::clamp(fadeGain, 0.0f, 1.0f) : 1.0f;
+    soundWave_.draw(soundFrame_.waveform);
 }
 
 Scene* Renderer::resolveActiveScene() {
@@ -200,10 +230,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     if (soundHeard_) {
         if (emotionSeeded_ && frameSettings_.director.seed != emotionSeed_) {
             std::lock_guard<std::mutex> lock(soundLock_);
-            if (sound_) {
-                sound_->resetEmotion();
-                soundEmotion_ = sound_->emotion();
-            }
+            sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
+            if (heard) heard->newPlay(frameSettings_.director.seed);
         }
         emotionSeed_ = frameSettings_.director.seed;
         emotionSeeded_ = true;

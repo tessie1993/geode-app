@@ -698,6 +698,16 @@ jobs:
             core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_tsan
           TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" ./analysis_thread_tsan
 
+      # The renderer's read (core/sound/interp/FrameBlend, #1215): the engine's frame at every hop, each field by its rule
+      # between two, every hit once at any frame rate with its sample, two surfaces on one shared analysis alike, hops on
+      # both sides of a speaker behind the writer, and an export equal at 30, 60 and 120 fps.
+      - name: Frame blend
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
+            core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o frame_blend_test
+          ./frame_blend_test
+
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
       # And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.

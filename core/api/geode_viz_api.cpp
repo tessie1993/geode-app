@@ -21,6 +21,7 @@
 #include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
 #include "sound/Tuning.hpp"
+#include "sound/hop/SharedAnalysis.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/AutoDraw.hpp"
@@ -154,6 +155,9 @@ struct geode_viz {
     // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
     std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
+    // This renderer listening to the ring's shared analysis; none while the mic is layered in, which only this
+    // renderer hears (Renderer::writeAudio analyses it on its own thread). Declared after feedRing.
+    geode::sound::SharedAnalysis::Listening feedListening;
     // Record (geode_viz_record_start): the recording's clock, shared with the encoder thread's handle, the
     // GL copy into the encoder and the frame's PTS, -1 for a frame the clock left out. Render thread only.
     std::shared_ptr<geode::output::record::Recorder> recorder;
@@ -245,6 +249,19 @@ layer_pick::Editor layerPage(const char* active_style, int family) {
     std::vector<int> ids;
     for (const auto& knob : layerKnobs()) ids.push_back(knob.first);
     return layer_pick::editor(layer_state::get(), text(active_style), layer_state::shown(), family, ids);
+}
+
+// The ring's shared analysis, made on the first ask; null without memory for it.
+std::shared_ptr<geode::sound::SharedAnalysis> ringAnalysis(const geode_pcm_ring& ring) {
+    std::lock_guard<std::mutex> lock(ring.analysisLock);
+    if (!ring.analysis) {
+        try {
+            ring.analysis = std::make_shared<geode::sound::SharedAnalysis>(ring.ring);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+    return ring.analysis;
 }
 
 // One entry of a list that crosses the ABI a line each: no line break gets in from a name.
@@ -368,6 +385,8 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
         v->feedLayer.reset();
         v->feedLayerRing.reset();
         v->renderer.setLayerAlone(false);
+        v->renderer.hearAnalysis(nullptr);
+        v->feedListening = {};
         return;
     }
     if (auto layer = ring->layerRing(); layer != v->feedLayerRing) {
@@ -399,6 +418,16 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     // A ring no sink plays is not the player's: its engine never takes the player's source, fade or boundary.
     v->renderer.setFedPlayersRing(playout != nullptr);
     const int64_t limit = geode_playout_listen_limit(playout, nowNs);
+    // The ring is analysed once, on its own thread, ahead of the speaker, for every renderer hearing it; this
+    // frame reads it at the speaker's sample. The mic layered over it is heard by this renderer alone.
+    const bool shared = v->feedLayer == nullptr;
+    const auto& listening = v->feedListening.shared();
+    if (shared ? !(listening && listening->hears(*v->feedRing)) : listening != nullptr) {
+        geode::sound::SharedAnalysis::Listening next(shared ? ringAnalysis(*ring) : nullptr);
+        v->renderer.hearAnalysis(next.shared());
+        v->feedListening = std::move(next);
+    }
+    v->renderer.setListenPosition(limit);
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {

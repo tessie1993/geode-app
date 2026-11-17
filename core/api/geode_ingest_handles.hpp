@@ -9,6 +9,10 @@
 
 struct geode_playout;
 
+namespace geode::sound {
+class SharedAnalysis;
+}  // namespace geode::sound
+
 // The ring behind a geode_pcm_ring handle, for the API files that read one (geode_ingest_api.cpp,
 // geode_viz_api.cpp). The handle shares the ring with every cursor made from it, so destroying the
 // handle while a renderer or a cursor still reads only drops the writer's side.
@@ -25,6 +29,10 @@ struct geode_pcm_ring {
     std::unique_ptr<geode::audio::ingest::SnapshotStitch> snapshots{};
     // A ring kept for the process (geode_pcm_ring_shared): geode_pcm_ring_destroy leaves it alone.
     bool kept = false;
+    // The ring's one analysis (sound/hop/SharedAnalysis), made when the first renderer hears the ring
+    // (geode_viz_feed_ring) and shared with every later one. Its lock is taken only when a renderer's ring changes.
+    mutable std::mutex analysisLock{};
+    mutable std::shared_ptr<geode::sound::SharedAnalysis> analysis{};
 
     std::shared_ptr<const geode::audio::ingest::PcmRing> layerRing() const {
         std::lock_guard<std::mutex> lock(layerLock);

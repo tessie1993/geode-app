@@ -444,12 +444,6 @@ Java_dev_geode_engine_bridge_GeodeNative_directorTuningWith(JNIEnv* env, jobject
     return geode::jni::utf8String(env, geode_director_tuning_with(chars.get(), index, value));
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoPickAmong(JNIEnv* env, jobject, jstring ids, jint onScreen, jboolean directorMoment) {
-    Utf8Chars chars(env, ids);
-    return geode_auto_pick_among(chars.get(), onScreen, directorMoment == JNI_TRUE ? 1 : 0);
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
     geode_note_response_set(enabled ? 1 : 0);

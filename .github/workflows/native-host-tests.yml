@@ -250,6 +250,9 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
+          # Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_plan_test.cpp core/api/geode_auto_api.cpp -o auto_plan_test
+          ./auto_plan_test
           # Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp -o param_history_test
           ./param_history_test

@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.StyleCatalogue
 import org.json.JSONArray
@@ -53,7 +54,8 @@ class AutoVisualsPrefsStore(
     }
 
     companion object {
-        val INTERVAL_SEC: IntRange = 5..300
+        /** Auto's timer intervals, native's range (core/viz/AutoPlan). */
+        val INTERVAL_SEC: IntRange get() = GeodeNative.autoIntervalSeconds(Int.MIN_VALUE)..GeodeNative.autoIntervalSeconds(Int.MAX_VALUE)
 
         /** Read by no build since the timer stopped being restored; removed on the next save. */
         private const val LEGACY_KEY_RANDOM_ENABLED = "auto_random_enabled"

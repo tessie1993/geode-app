@@ -2672,17 +2672,6 @@ object GeodeNative {
     )
 
     /**
-     * Whether [timer]'s next look is due: the interval plus this look's spread has passed. True restarts
-     * the wait. [running] false (off, paused, nothing to step to) is never due.
-     */
-    external fun autoTimerDue(
-        timer: Int,
-        nowMs: Long,
-        intervalSec: Int,
-        running: Boolean,
-    ): Boolean
-
-    /**
      * Auto is about to bring [key] on (a style id or a .milk path): the switch to it plays Auto's longer
      * fade (native `core/viz/TransitionChoice`).
      */
@@ -2694,16 +2683,87 @@ object GeodeNative {
         onScreen: Int,
     ): Int
 
-    /**
-     * Auto's pick among [ids] (the pool's style ids, one a line, in its order). At a [directorMoment] the style
-     * the Auto Director asks for (core/viz/DirectorStyle: a returning section's family, else the next along
-     * the catalogue), -1 to keep the style on screen; otherwise, or with no such ask, [autoPick]'s draw.
-     */
-    external fun autoPickAmong(
-        ids: String,
-        onScreen: Int,
-        directorMoment: Boolean,
+    /** A timer interval held to Auto's range (core/viz/AutoPlan). */
+    external fun autoIntervalSeconds(requested: Int): Int
+
+    /** Customize opened or closed: Auto holds while it is open, and both waits start over when it closes. */
+    external fun autoEditingSet(
+        on: Boolean,
+        nowMs: Long,
+    )
+
+    /** A style, a look or a .milk picked by hand: both of Auto's waits start over. */
+    external fun autoHandPick(nowMs: Long)
+
+    /** The visual playlist's entry (of [count]) to put up now, or -1 (core/viz/AutoPlan). */
+    external fun autoPlaylistTick(
+        count: Int,
+        enabled: Boolean,
+        playing: Boolean,
+        intervalSec: Int,
+        nowMs: Long,
     ): Int
+
+    /** A playlist step ([step] < 0 back): the entry to put up, or -1 with fewer than two. */
+    external fun autoPlaylistStep(
+        count: Int,
+        step: Int,
+        nowMs: Long,
+    ): Int
+
+    /** Whether Auto's timed draw is due now. */
+    external fun autoRandomTick(
+        enabled: Boolean,
+        playing: Boolean,
+        intervalSec: Int,
+        nowMs: Long,
+    ): Boolean
+
+    /** What a director moment brings on the look on screen: an [AUTO_MOMENT_NONE]..[AUTO_MOMENT_RANDOM]. */
+    external fun autoMoment(
+        style: String,
+        params: FloatArray,
+        paletteId: String,
+        playing: Boolean,
+        playlistEnabled: Boolean,
+    ): Int
+
+    /** Auto's own change is on screen now. */
+    external fun autoLeftAs(
+        style: String,
+        params: FloatArray,
+        paletteId: String,
+    )
+
+    /**
+     * Auto's draw (core/viz/AutoPlan over core/viz/AutoDraw and DirectorStyle) among [sources] ([AUTO_DRAW_STYLES]
+     * etc.): the entry's style id, its kind ([AUTO_KIND_STYLE] etc.) in `out[0]` and its index in that list in
+     * `out[1]`; null for none. [lockedStyles] (one a line) are what the entitlement refuses; [presetOnScreen] and
+     * [milkOnScreen] the saved look and .milk on screen, -1 for none.
+     */
+    external fun autoDraw(
+        lockedStyles: String,
+        current: String,
+        presetStyles: String,
+        presetOnScreen: Int,
+        milkCount: Int,
+        milkOnScreen: Int,
+        milkStyle: String,
+        sources: Int,
+        nowMs: Long,
+        out: IntArray,
+    ): String?
+
+    const val AUTO_MOMENT_NONE: Int = 0
+    const val AUTO_MOMENT_PLAYLIST: Int = 1
+    const val AUTO_MOMENT_RANDOM: Int = 2
+    const val AUTO_DRAW_STYLES: Int = 1
+    const val AUTO_DRAW_PRESETS: Int = 2
+    const val AUTO_DRAW_MILK: Int = 4
+    const val AUTO_DRAW_KEEP_LOOK: Int = 8
+    const val AUTO_KIND_STYLE: Int = 0
+    const val AUTO_KIND_PRESET: Int = 1
+    const val AUTO_KIND_MILK: Int = 2
 
     /**
      * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,

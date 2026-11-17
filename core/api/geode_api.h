@@ -1231,6 +1231,44 @@ GEODE_API void            geode_auto_mark_change(const char* key);
 /* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
  * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
+/* Auto visuals' decisions (core/viz/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
+ * (nothing plays) and Customize open (editing_set 1) hold every change.
+ * interval_s: a timer interval held to its range. editing_set: Customize opened (1) or closed (0, both waits start
+ * over). hand_pick: a style, a look or a .milk picked by hand (both waits start over). playlist_tick: the playlist
+ * entry (of count) to put up now, or -1; it runs while enabled with two entries or more. playlist_step: a step by
+ * hand or a moment's (step < 0 back): the entry, or -1 with fewer than two. random_tick: 1 when the timed draw is due.
+ * moment: a director moment on the look on screen (style, count floats of its params, its saved palette id): a
+ * GEODE_AUTO_MOMENT_*; NONE when the user changed the look since Auto's last change. left_as: Auto's own change is on
+ * screen now (after the shell put it up).
+ * draw: Auto's draw (restarting the timed wait) among the sources (GEODE_AUTO_DRAW_* bits): the AutoDraw styles,
+ * the saved looks (preset_styles, each one's style id a line), the .milk files (milk_count, shown as milk_style),
+ * none in locked_styles (one a line, what the entitlement refuses). preset_on_screen is the first saved look equal
+ * to the one on screen, milk_on_screen the .milk playing (-1 for none). KEEP_LOOK is a moment's draw: no saved look,
+ * and the style the director asks for (geode_auto_pick_among). Writes the entry's kind (GEODE_AUTO_KIND_*) and its
+ * index in that list (the AutoDraw list for a style) to out2 and returns its style id, valid until this thread's
+ * next draw; NULL for none. */
+#define GEODE_AUTO_MOMENT_NONE               0
+#define GEODE_AUTO_MOMENT_PLAYLIST           1
+#define GEODE_AUTO_MOMENT_RANDOM             2
+#define GEODE_AUTO_DRAW_STYLES               1
+#define GEODE_AUTO_DRAW_PRESETS              2
+#define GEODE_AUTO_DRAW_MILK                 4
+#define GEODE_AUTO_DRAW_KEEP_LOOK            8
+#define GEODE_AUTO_KIND_STYLE                0
+#define GEODE_AUTO_KIND_PRESET               1
+#define GEODE_AUTO_KIND_MILK                 2
+GEODE_API int             geode_auto_interval_s(int requested_s);
+GEODE_API void            geode_auto_editing_set(int on, long long now_ms);
+GEODE_API void            geode_auto_hand_pick(long long now_ms);
+GEODE_API int             geode_auto_playlist_tick(int count, int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_playlist_step(int count, int step, long long now_ms);
+GEODE_API int             geode_auto_random_tick(int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_moment(const char* style, const float* frame, int count, const char* palette_id,
+                                            int playing, int playlist_enabled);
+GEODE_API void            geode_auto_left_as(const char* style, const float* frame, int count, const char* palette_id);
+GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
+                                          int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style,
+                                          int sources, long long now_ms, int* out2);
 /* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for

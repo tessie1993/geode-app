@@ -8,8 +8,9 @@
 // 0 LUFS reads 1 on every track, so an ambient pad and a mastered kick read as the different loudnesses they
 // are. The K-weighting constants are the export meter's (core/audio/dsp/Loudness.cpp).
 //
-// The windows are summed per analysis hop (the engine's fixed 10 ms), not per sample: 40 hops are exactly
-// 400 ms, 300 are 3 s, and the numbers depend on the samples alone, never on the frame rate.
+// The windows are summed per analysis hop (a sample count, sound/AnalysisSettings), not per sample: each is the
+// nearest whole number of hops of the hop's true duration (38 hops are 405 ms and 281 are 3.00 s at 512 samples
+// and 48 kHz; 34 are 395 ms at 44.1 kHz), and the numbers depend on the samples alone, never on the frame rate.
 //
 // The one silence gate lives here too, so every detector reads one flag: it opens when the
 // momentary loudness reaches -55 LUFS, closes after 250 ms under -60 LUFS, and starts closed.
@@ -141,11 +142,12 @@ private:
         return {1.0, -2.0, 1.0, 2.0 * (kk - 1.0) / a0, (1.0 - k / q + kk) / a0};
     }
 
-    int rate_ = 48000;
-    int hopSamples_ = 480;
-    double hopSeconds_ = 0.01;
-    int momentaryHops_ = 40;
-    int closeHops_ = 25;
+    // All set by configure().
+    int rate_ = 0;
+    int hopSamples_ = 1;
+    double hopSeconds_ = 0.0;
+    int momentaryHops_ = 1;
+    int closeHops_ = 1;
     Biquad shelf_{};
     Biquad highPass_{};
     ChannelState state_[2]{};

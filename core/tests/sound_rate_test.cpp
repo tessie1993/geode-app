@@ -5,7 +5,7 @@
 //   ./sound_rate_test --pcm <file.f32> <rate>  a real track (stereo float32) across frame rates, with a report
 //   ./sound_rate_test --write <file.tsv>       every frame's scalars at 60 fps, for tools/glslcheck --stills
 //
-// Why: the analysis runs on a fixed 10 ms sample hop, not on the render frame, so an export must hear what
+// Why: the analysis runs on a fixed hop of samples, not on the render frame, so an export must hear what
 // the screen hears. Every field at 30 and 120 fps must equal the 60 fps run wherever both have been written
 // the same samples: the state fields bit for bit at the shared frame, the triggers as the strongest one
 // within the same stretch of audio (a 30 fps frame holds what two 60 fps frames show), and the same for the

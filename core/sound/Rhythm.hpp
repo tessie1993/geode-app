@@ -9,10 +9,11 @@ namespace geode::sound {
 
 // The rhythm half of the musical layer: tempo, beat, bar and phrase, from the filter bank's band powers.
 //
-// It runs at a fixed hop of 10 ms of audio (441 samples at 44.1 kHz), driven from SoundEngine::write(),
-// not from the frame: everything it knows is a function of the samples alone, so the screen at 60 fps,
-// a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. Its hop
-// is the whole sound engine's analysis hop; SoundEngine::step() only reads where the oscillator is now.
+// It runs on the sound engine's analysis hop (a sample count, sound/AnalysisSettings), driven from
+// SoundEngine::write(), not from the frame: everything it knows is a function of the samples alone, so the
+// screen at 60 fps, a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same
+// places. configure() turns every duration below into hops of the hop's true length; SoundEngine::step()
+// only reads where the oscillator is now.
 //
 //   band powers ─► level against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
 //      (each band's log over its own mean still feeds the drum accents)
@@ -33,10 +34,8 @@ public:
     // The filter bank bands it listens to, in SoundEngine::Slice order up to kHat.
     static constexpr int kBands = 7;
     enum Band { kLow, kMiddle, kHigh, kKick, kSnareBody, kSnareNoise, kHat };
-    static constexpr float kHopSeconds = 0.01f;
-    // The search range, flat inside: what the 10 ms hop and the 6 s ring can measure, not what music
-    // is expected to be. The fastest beat is 0.2 s (20 hops); the slowest is the one whose period fits
-    // kPeriodsHeard times in the ring (2 s).
+    // The search range, flat inside: what the hop and the 6 s ring can measure, not what music is
+    // expected to be. The fastest beat is 0.2 s, the slowest 2 s; the ring holds kPeriodsHeard of it.
     static constexpr float kFastestBpm = GEODE_SOUND_BPM_FASTEST;
     static constexpr int kPeriodsHeard = 3;
     static constexpr float kSlowestBpm = GEODE_SOUND_BPM_SLOWEST;
@@ -52,8 +51,9 @@ public:
     };
     static constexpr int kMaxTicks = 8;
 
-    void configure(int sampleRateHz);
-    int hopSamples() const { return hop_; }
+    // `hopSamples` at `sampleRateHz`: every count below is derived from the hop's duration here.
+    void configure(int sampleRateHz, int hopSamples);
+    int hopSamples() const { return cfg_.hop; }
     // One hop of band powers (SliceBand::power()), the newest sample's.
     void hop(const std::array<float, kBands>& power);
     // Fills the rhythm fields. `sinceHop` is how many samples were written after the last hop, so the
@@ -67,13 +67,13 @@ public:
         double theta = 0.0;
         float period = 0.0f;
         int64_t lastBeat = 0;
-        int hop = 480;
+        int hop = 0;  // samples per hop, as configured
         int meter = 4;
         int downSlot = 0;
         int barInPhrase = 0;
         bool locked = false;
     };
-    Clock clock() const { return {theta_, period_, lastBeat_, hop_, meter_, downSlot_, barInPhrase_, locked_}; }
+    Clock clock() const { return {theta_, period_, lastBeat_, cfg_.hop, meter_, downSlot_, barInPhrase_, locked_}; }
     static void phases(const Clock& clock, int sinceHop, float hitTime, GeodeSoundFrame& out);
     // The beats passed since the last read, oldest first (read() empties it).
     int ticks(const Tick*& out) const {
@@ -106,25 +106,37 @@ private:
     void measureMeter(int64_t beat);
     int slotOf(int64_t beat) const { return static_cast<int>(((beat % meter_) + meter_) % meter_); }
 
-    int sampleRateHz_ = 48000;
-    int hop_ = 480;
-    float hopHz_ = 100.0f;
-    int lagMin_ = 20;   // kFastestBpm
-    int lagMax_ = 200;  // kSlowestBpm
-    std::vector<float> ac_;     // scratch: the autocorrelation, per lag up to 2 × lagMax_
-    std::array<float, 600> line_{};  // scratch: the ring unrolled, oldest first
-    std::array<float, 601> squares_{};  // scratch: its running energy
+    // Fixed by configure(): the hop and every count derived from its duration.
+    struct Config {
+        int sampleRateHz = 0;
+        int hop = 0;              // samples
+        float hopSeconds = 0.0f;  // hop / rate
+        float hopHz = 0.0f;
+        int lagMin = 0;      // kFastestBpm's period, rounded down to hops
+        int lagMax = 0;      // kSlowestBpm's, rounded up
+        int ring = 0;        // kPeriodsHeard × lagMax: the slowest beat fits that many times
+        int tempoEvery = 1;  // hops between tempo estimates
+        int tempoAfter = 0;  // hops before the first
+        int phaseEvery = 1;  // hops between phase measurements
+        int phaseWindow = 0; // hops the phase reads at most
+        int change = 1;      // hops the onset change spans
+        float latencyHops = 0.0f;
+    };
+    Config cfg_;
+    std::vector<float> ac_;       // scratch: the autocorrelation, per lag up to 2 × lagMax
+    std::vector<float> line_;     // scratch: the ring unrolled, oldest first
+    std::vector<float> squares_;  // scratch: its running energy
 
     // Onset envelope.
     std::array<float, kBands> bandMean_{};
-    std::array<std::array<float, 2>, kBands> bandLog_{};  // the last two hops' log level, for a 20 ms change
-    std::array<std::array<float, 2>, kBands> bandLevel_{};  // ... and their level against the shared reference
+    // The last cfg_.change hops' log level per band (band-major), for the change over that span, ...
+    std::vector<float> bandLog_;
+    std::vector<float> bandLevel_;  // ... and their level against the shared reference
+    int changeHead_ = 0;            // the slot written cfg_.change hops ago, written next
     float dbRef_ = 0.0f;  // the shared reference: the loudest band's power, released over ~4 s
     float localMean_ = 0.0f;
     int64_t hops_ = 0;
-    static constexpr int kRing = 600;  // 6 s
-    static_assert(static_cast<int>(60.0f / kSlowestBpm / kHopSeconds + 0.5f) * kPeriodsHeard == kRing, "the slowest beat fits kPeriodsHeard times in the ring");
-    std::array<float, kRing> ring_{};
+    std::vector<float> ring_;  // the onset envelope, cfg_.ring hops (6 s)
     int ringHead_ = 0;  // the next slot to write
     std::array<float, 3> bandFluxPeak_{};
 

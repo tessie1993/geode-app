@@ -193,7 +193,9 @@ void inlineMatchesBare(int rate, bool controls) {
     }
     std::printf("  %d Hz%s: %d hops compared with the bare engine, %d differ\n", rate, controls ? " with controls" : "",
                 c.hops, c.differ);
-    check(c.hops > total / rate * 90, "about a hundred hops a second published");
+    // The hop is a sample count: the audio holds total / (hop × 2^halvings) of them, and nearly all are published.
+    const int64_t hopInput = static_cast<int64_t>(bare.hopSamples()) << bare.halvings();
+    check(c.hops > total / hopInput * 9 / 10, "a hop published for nearly every hop of audio written");
     check(c.differ == 0, "inline frames equal the bare engine's at every position");
 
     // Older than every kept hop reads the oldest, past the newest the newest; hopAt picks as frameAt does.
@@ -204,7 +206,7 @@ void inlineMatchesBare(int rate, bool controls) {
     check(at.hopAt(kAll, h) && h.position == at.newestPosition(), "past the newest reads the newest");
     int span = 0;
     at.hopsBetween(oldest.position - 1, kAll, [&](const Heard&) { span++; });
-    check(span == AnalysisThread::kPublished - 1, "every readable hop is visited once");
+    check(span == at.published() - 1, "every readable hop is visited once");
 }
 
 // A stall longer than one take (the cursor keeps the newest runway and re-bases) and a rate change mid-stream (a
@@ -250,7 +252,10 @@ void inlineSkipAndRate() {
     }
     std::printf("  skip and 48000 -> 44100: %d hops before the switch, %d after, %d differ\n", before, c.hops - before,
                 c.differ);
-    check(skipped && before > 300 && c.hops - before > 250, "hops on both sides of the skip and the switch");
+    // Four fifths of the hops each side's audio holds (the skip drops two runways of it).
+    const int64_t heard48 = (total48 - 2 * kRunway) / bare48.hopSamples();
+    const int64_t heard44 = total44 / bare44.hopSamples();
+    check(skipped && before > heard48 * 4 / 5 && c.hops - before > heard44 * 4 / 5, "hops on both sides of the skip and the switch");
     check(c.differ == 0, "after a skip and a rate change the frames equal a bare engine's");
 }
 
@@ -383,7 +388,7 @@ void threadedMatchesInline() {
                 writes, static_cast<unsigned long long>(passes), reads.load(), edgeReads.load(), torn.load(), wrong.load(),
                 published, differ);
     check(at.newestPosition() == expected.back().position, "the thread published every hop");
-    check(published == AnalysisThread::kPublished - 1 && differ == 0, "the threaded hops equal the inline run's");
+    check(published == at.published() - 1 && differ == 0, "the threaded hops equal the inline run's");
     check(torn.load() == 0, "a reader never sees a torn hop");
     check(wrong.load() == 0, "a reader reads the hop at its position, phases moved on");
     check(reads.load() > 0 && edgeReads.load() > 0, "the readers read while the writer wrote");

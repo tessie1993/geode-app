@@ -146,7 +146,7 @@ class MilkTextureLinks(
                         MilkTextureLinkKind.entries.getOrElse(kind.toIntOrNull() ?: -1) { MilkTextureLinkKind.MISSING },
                     )
                 },
-            linkNames = rows.map { (_, _, _, first, second) -> listOf(first, second).filter { it.isNotEmpty() } },
+            linkNames = rows.map { row -> row.drop(LINK_NAMES_AT).filter { it.isNotEmpty() } },
         )
     }
 
@@ -178,6 +178,9 @@ class MilkTextureLinks(
 
     internal companion object {
         const val TAG = "MilkTextureLinks"
+
+        /** A native row is expected, texture, kind, then the names the preset asks for. */
+        const val LINK_NAMES_AT = 3
 
         /** Lives inside the textures dir, but hidden from [TextureStore.list] by being a directory. */
         const val LINKS_DIR_NAME = ".links"

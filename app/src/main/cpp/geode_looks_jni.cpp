@@ -36,9 +36,128 @@ std::vector<std::string> stringsOf(JNIEnv* env, jobjectArray array) {
     return out;
 }
 
+std::vector<const char*> pointersOf(const std::vector<std::string>& names) {
+    std::vector<const char*> out;
+    for (const auto& s : names) out.push_back(s.c_str());
+    return out;
+}
+
 }  // namespace
 
 extern "C" {
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetIsBuiltIn(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars text(env, name);
+    return geode_preset_is_built_in(textOf(text)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_presetCleanName(JNIEnv* env, jobject, jstring raw, jstring fallback) {
+    Utf8Chars text(env, raw);
+    Utf8Chars instead(env, fallback);
+    return utf8String(env, geode_preset_clean_name(textOf(text), textOf(instead)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetFolderName(JNIEnv* env, jobject, jstring raw) {
+    Utf8Chars text(env, raw);
+    return utf8String(env, geode_preset_folder_name(textOf(text)));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetRenameProblem(JNIEnv* env, jobject, jstring raw, jstring current,
+                                                                                  jobjectArray taken) {
+    Utf8Chars text(env, raw);
+    Utf8Chars own(env, current);
+    const std::vector<std::string> names = stringsOf(env, taken);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return geode_preset_rename_problem(textOf(text), textOf(own), pointers.data(), static_cast<int>(pointers.size()));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetFolderNameProblem(JNIEnv* env, jobject, jstring raw,
+                                                                                      jstring current, jobjectArray folders) {
+    Utf8Chars text(env, raw);
+    Utf8Chars own(env, current);
+    const std::vector<std::string> names = stringsOf(env, folders);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return geode_preset_folder_name_problem(textOf(text), own.get(), pointers.data(), static_cast<int>(pointers.size()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_presetCopyName(JNIEnv* env, jobject, jstring name, jobjectArray taken) {
+    Utf8Chars text(env, name);
+    const std::vector<std::string> names = stringsOf(env, taken);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return utf8String(env, geode_preset_copy_name(textOf(text), pointers.data(), static_cast<int>(pointers.size())));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetImportName(JNIEnv* env, jobject, jstring raw, jstring fallback,
+                                                                                   jobjectArray taken) {
+    Utf8Chars text(env, raw);
+    Utf8Chars instead(env, fallback);
+    const std::vector<std::string> names = stringsOf(env, taken);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return utf8String(env, geode_preset_import_name(textOf(text), textOf(instead), pointers.data(), static_cast<int>(pointers.size())));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_presetReplaceTarget(JNIEnv* env, jobject, jstring raw, jobjectArray presets) {
+    Utf8Chars text(env, raw);
+    const std::vector<std::string> names = stringsOf(env, presets);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return utf8String(env, geode_preset_replace_target(textOf(text), pointers.data(), static_cast<int>(pointers.size())));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_presetBuiltInClash(JNIEnv* env, jobject, jstring raw, jobjectArray presets) {
+    Utf8Chars text(env, raw);
+    const std::vector<std::string> names = stringsOf(env, presets);
+    const std::vector<const char*> pointers = pointersOf(names);
+    return geode_preset_built_in_clash(textOf(text), pointers.data(), static_cast<int>(pointers.size())) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_presetMatchesScene(JNIEnv* env, jobject, jstring presetSceneId, jstring activeSceneId) {
+    Utf8Chars preset(env, presetSceneId);
+    Utf8Chars active(env, activeSceneId);
+    return geode_preset_matches_scene(textOf(preset), textOf(active)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkFrame(JNIEnv* env, jobject, jstring payload) {
+    Utf8Chars text(env, payload);
+    return utf8String(env, geode_preset_link_frame(textOf(text)));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkFits(JNIEnv* env, jobject, jstring link) {
+    Utf8Chars text(env, link);
+    return geode_preset_link_fits(textOf(text)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkIs(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return geode_preset_link_is(textOf(chars)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkPayload(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_preset_link_payload(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkFind(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_preset_link_find(textOf(chars)));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkBodyAccepted(JNIEnv* env, jobject, jstring body) {
+    Utf8Chars chars(env, body);
+    return geode_preset_link_body_accepted(textOf(chars)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkMaxLength(JNIEnv*, jobject) {
+    return geode_preset_link_max_length();
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetLinkMaxInflated(JNIEnv*, jobject) {
+    return geode_preset_link_max_inflated();
+}
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_fileSafeName(JNIEnv* env, jobject, jstring name) {
     Utf8Chars text(env, name);

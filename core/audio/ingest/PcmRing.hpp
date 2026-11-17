@@ -165,6 +165,8 @@ public:
     const float* interleaved() const { return out_.data(); }
     int channels() const { return ring_.channelCount(); }
     int maxFrames() const { return maxFrames_; }
+    // The ring position (headFrames() units) just past the last take's frames.
+    int64_t position() const { return read_; }
 
     // Forget the position: the next take starts from the newest audio and reports a restart.
     void reset() { pending_ = true; }

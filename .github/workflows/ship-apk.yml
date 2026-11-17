@@ -117,6 +117,27 @@ jobs:
             "ndk;28.0.13004108" \
             "cmake;3.22.1"
 
+      # The native build (two ABIs, the third_party libraries) through ccache: CMake reads the
+      # launcher from the environment, and the cache carries over from the last run on main.
+      - name: Set up ccache for the native build
+        shell: bash
+        run: |
+          command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
+          {
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CCACHE_MAXSIZE=600M"
+            echo "CCACHE_NOHASHDIR=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore the ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-sideload-${{ github.run_id }}
+          restore-keys: ccache-sideload-
+
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
@@ -146,6 +167,10 @@ jobs:
       - name: Assemble optimised APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew :app:assembleSideload -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+
+      - name: ccache statistics
+        if: always()
+        run: ccache -s || true
 
       - name: Package APK and checksum
         id: package

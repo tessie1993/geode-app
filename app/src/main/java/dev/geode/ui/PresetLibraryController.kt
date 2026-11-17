@@ -11,7 +11,6 @@ import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.model.PresetFiltering
 import dev.geode.model.PresetLink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -86,7 +85,7 @@ internal class PresetLibraryController(
         folder: String = "",
     ) {
         @Suppress("NAME_SHADOWING")
-        val name = name.replace(" · ", " - ").trim().ifEmpty { application.getString(dev.geode.R.string.preset_untitled) }
+        val name = GeodeNative.presetCleanName(name, application.getString(dev.geode.R.string.preset_untitled))
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {
@@ -129,8 +128,7 @@ internal class PresetLibraryController(
         val preset =
             host.vizState.value.presets
                 .firstOrNull { it.name == name } ?: return null
-        val link = PresetLink.encode(PresetStore.toJson(preset))
-        return link.takeIf { it.length <= PresetLink.MAX_LINK_LENGTH }
+        return PresetLink.shareable(PresetStore.toJson(preset))
     }
 
     fun importPresetLink(text: String): String? {
@@ -153,18 +151,8 @@ internal class PresetLibraryController(
         val existing =
             host.vizState.value.presets
                 .map { it.name }
-                .toSet()
-        val base =
-            incoming.name
-                .replace(" · ", " - ")
-                .trim()
-                .ifBlank { application.getString(dev.geode.R.string.preset_shared_untitled) }
-        var name = base
-        var n = 2
-        while (name in existing) {
-            name = "$base $n"
-            n++
-        }
+                .toTypedArray()
+        val name = GeodeNative.presetImportName(incoming.name, application.getString(dev.geode.R.string.preset_shared_untitled), existing)
         val preset = incoming.copy(name = name)
         host.updatePresets { it + preset }
         storeScope.launch {
@@ -188,7 +176,7 @@ internal class PresetLibraryController(
         to: String,
     ): String? {
         if (BuiltInPresets.isBuiltIn(from)) return null
-        val name = PresetFiltering.cleanName(to)
+        val name = GeodeNative.presetCleanName(to, "")
         val preset =
             host.vizState.value.presets
                 .firstOrNull { it.name == from && !BuiltInPresets.isBuiltIn(it.name) } ?: return null
@@ -215,7 +203,7 @@ internal class PresetLibraryController(
     fun duplicatePreset(name: String): String? {
         val all = host.vizState.value.presets
         val source = all.firstOrNull { it.name == name } ?: return null
-        val copyName = PresetFiltering.uniqueName("$name copy", all.map { it.name })
+        val copyName = GeodeNative.presetCopyName(name, all.map { it.name }.toTypedArray())
         val copy = source.copy(name = copyName)
         val folder = if (BuiltInPresets.isBuiltIn(name)) "" else presets.folders.value.folderOf(name)
         host.updatePresets { it + copy }

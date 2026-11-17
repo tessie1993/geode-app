@@ -1,5 +1,6 @@
 // The look files' C ABI (core/viz/LookFiles): file names, saved palettes, presets and the template library, as text
 // in and text out. Marshals only.
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,6 +21,12 @@ const char* hold(std::string& slot, std::string value) {
 }
 
 std::string textOf(const char* text) { return text ? text : ""; }
+
+std::vector<std::string> namesOf(const char* const* names, int count) {
+    std::vector<std::string> out;
+    for (int i = 0; names && i < count; ++i) out.push_back(textOf(names[i]));
+    return out;
+}
 
 }  // namespace
 
@@ -153,6 +160,78 @@ const char* geode_preset_milk_file_name(const char* preset_name) {
     thread_local std::string out;
     return hold(out, files::milkFileName(textOf(preset_name)));
 }
+
+int geode_preset_is_built_in(const char* name) { return files::isBuiltInPreset(textOf(name)) ? 1 : 0; }
+
+const char* geode_preset_clean_name(const char* raw, const char* fallback) {
+    thread_local std::string out;
+    return hold(out, files::cleanPresetName(textOf(raw), textOf(fallback)));
+}
+
+const char* geode_preset_folder_name(const char* raw) {
+    thread_local std::string out;
+    return hold(out, files::cleanFolderName(textOf(raw)));
+}
+
+int geode_preset_rename_problem(const char* raw, const char* current, const char* const* taken, int count) {
+    return static_cast<int>(files::presetRenameProblem(textOf(raw), textOf(current), namesOf(taken, count)));
+}
+
+int geode_preset_folder_name_problem(const char* raw, const char* current, const char* const* folders, int count) {
+    const std::optional<std::string> renaming = current ? std::optional<std::string>(current) : std::nullopt;
+    return static_cast<int>(files::folderNameProblem(textOf(raw), renaming, namesOf(folders, count)));
+}
+
+const char* geode_preset_copy_name(const char* name, const char* const* taken, int count) {
+    thread_local std::string out;
+    return hold(out, files::presetCopyName(textOf(name), namesOf(taken, count)));
+}
+
+const char* geode_preset_import_name(const char* raw, const char* fallback, const char* const* taken, int count) {
+    thread_local std::string out;
+    return hold(out, files::importedPresetName(textOf(raw), textOf(fallback), namesOf(taken, count)));
+}
+
+const char* geode_preset_replace_target(const char* raw, const char* const* names, int count) {
+    thread_local std::string out;
+    const auto target = files::presetReplaceTarget(textOf(raw), namesOf(names, count));
+    return target ? hold(out, *target) : nullptr;
+}
+
+int geode_preset_built_in_clash(const char* raw, const char* const* names, int count) {
+    return files::builtInNameClash(textOf(raw), namesOf(names, count)) ? 1 : 0;
+}
+
+int geode_preset_matches_scene(const char* preset_scene_id, const char* active_scene_id) {
+    return files::presetMatchesScene(textOf(preset_scene_id), textOf(active_scene_id)) ? 1 : 0;
+}
+
+const char* geode_preset_link_frame(const char* payload) {
+    thread_local std::string out;
+    return hold(out, files::presetLink(textOf(payload)));
+}
+
+int geode_preset_link_fits(const char* link) { return files::presetLinkFits(textOf(link)) ? 1 : 0; }
+
+int geode_preset_link_is(const char* text) { return files::isPresetLink(textOf(text)) ? 1 : 0; }
+
+const char* geode_preset_link_payload(const char* text) {
+    thread_local std::string out;
+    const auto payload = files::presetLinkPayload(textOf(text));
+    return payload ? hold(out, *payload) : nullptr;
+}
+
+const char* geode_preset_link_find(const char* text) {
+    thread_local std::string out;
+    const auto link = files::findPresetLink(textOf(text));
+    return link ? hold(out, *link) : nullptr;
+}
+
+int geode_preset_link_body_accepted(const char* body) { return files::presetLinkBodyAccepted(textOf(body)) ? 1 : 0; }
+
+int geode_preset_link_max_length(void) { return files::kMaxLinkLength; }
+
+int geode_preset_link_max_inflated(void) { return files::kMaxLinkInflated; }
 
 const char* geode_template_file_name(const char* name, const char* id, const char* suffix) {
     thread_local std::string out;

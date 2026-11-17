@@ -218,6 +218,20 @@ object GeodeNative {
         hasNext: Boolean,
     ): Int
 
+    /** The A-B loop after a press at [atMs] (audio/dsp/PlaybackControls), as `[start, end]`; -1 is a point not set. */
+    external fun abLoopCycle(
+        startMs: Long,
+        endMs: Long,
+        atMs: Long,
+    ): LongArray
+
+    /** Where to seek at [positionMs]: the loop's start once its end is reached, else -1. */
+    external fun abLoopSeek(
+        startMs: Long,
+        endMs: Long,
+        positionMs: Long,
+    ): Long
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -957,7 +971,10 @@ object GeodeNative {
         transitionMs: Long,
     )
 
-    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    /**
+     * The look a renderer starts on before one is set, a line each: scene id, transition id and its ms, then the
+     * shell's visual defaults: attack, decay, style timer s, playlist interval s and the preset morph's longest s.
+     */
     external fun vizLookDefaults(): String
 
     /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
@@ -1265,6 +1282,93 @@ object GeodeNative {
     /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
     external fun presetMilkFileName(presetName: String): String
 
+    /** [presetRenameProblem] and [presetFolderNameProblem]: no name is left once cleaned. */
+    const val NAME_BLANK: Int = 1
+
+    /** [presetRenameProblem] and [presetFolderNameProblem]: another has that name, case ignored. */
+    const val NAME_TAKEN: Int = 2
+
+    /** True for a built-in preset's name, which holds " · " (`geode_preset_is_built_in`). */
+    external fun presetIsBuiltIn(name: String): Boolean
+
+    /** A preset's name as the store keeps it, or [fallback] when nothing is left (`geode_preset_clean_name`). */
+    external fun presetCleanName(
+        raw: String,
+        fallback: String,
+    ): String
+
+    /** A preset folder's name as the store keeps it (`geode_preset_folder_name`). */
+    external fun presetFolderName(raw: String): String
+
+    /** 0, [NAME_BLANK] or [NAME_TAKEN] for [raw] as preset [current]'s new name (`geode_preset_rename_problem`). */
+    external fun presetRenameProblem(
+        raw: String,
+        current: String,
+        taken: Array<String>,
+    ): Int
+
+    /** 0, [NAME_BLANK] or [NAME_TAKEN] for [raw] as a folder's name, renaming [current] or new when null. */
+    external fun presetFolderNameProblem(
+        raw: String,
+        current: String?,
+        folders: Array<String>,
+    ): Int
+
+    /** A duplicate of preset [name]'s free name beside [taken] (`geode_preset_copy_name`). */
+    external fun presetCopyName(
+        name: String,
+        taken: Array<String>,
+    ): String
+
+    /** An imported preset's name, [fallback] when blank, free beside [taken] (`geode_preset_import_name`). */
+    external fun presetImportName(
+        raw: String,
+        fallback: String,
+        taken: Array<String>,
+    ): String
+
+    /** The user preset among [presets] a save under [raw] overwrites, or null (`geode_preset_replace_target`). */
+    external fun presetReplaceTarget(
+        raw: String,
+        presets: Array<String>,
+    ): String?
+
+    /** True when a save under [raw] names a built-in among [presets] (`geode_preset_built_in_clash`). */
+    external fun presetBuiltInClash(
+        raw: String,
+        presets: Array<String>,
+    ): Boolean
+
+    /** True when a built-in of style [presetSceneId] is made for style [activeSceneId] (`geode_preset_matches_scene`). */
+    external fun presetMatchesScene(
+        presetSceneId: String,
+        activeSceneId: String,
+    ): Boolean
+
+    /** A geode://preset link for an already packed [payload] (`geode_preset_link_frame`). */
+    external fun presetLinkFrame(payload: String): String
+
+    /** True when [link] is short enough to share as a link (`geode_preset_link_fits`). */
+    external fun presetLinkFits(link: String): Boolean
+
+    /** True when [text] is a preset link (`geode_preset_link_is`). */
+    external fun presetLinkIs(text: String): Boolean
+
+    /** The packed payload of the link [text], or null when it is none or too long (`geode_preset_link_payload`). */
+    external fun presetLinkPayload(text: String): String?
+
+    /** The first preset link inside pasted [text], or null (`geode_preset_link_find`). */
+    external fun presetLinkFind(text: String): String?
+
+    /** True when an unpacked payload is a preset's text (`geode_preset_link_body_accepted`). */
+    external fun presetLinkBodyAccepted(body: String): Boolean
+
+    /** The longest link minted or accepted (`geode_preset_link_max_length`). */
+    external fun presetLinkMaxLength(): Int
+
+    /** The most bytes a payload may unpack to (`geode_preset_link_max_inflated`). */
+    external fun presetLinkMaxInflated(): Int
+
     /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
     external fun templateFileName(
         name: String,
@@ -1423,6 +1527,125 @@ object GeodeNative {
         step: Int,
         xy: FloatArray,
     ): Int
+
+    /**
+     * The actions Settings offers [gesture] (a CanvasGesture ordinal), as GestureAction ordinals into [out], the
+     * [current] one kept, first, when it does not suit; how many there are, at most [GESTURE_MAX_CHOICES] (core/viz/GestureMap).
+     */
+    external fun gestureChoices(
+        gesture: Int,
+        current: Int,
+        out: IntArray,
+    ): Int
+
+    /** An Android [keyCode]'s gesture on the stage (a CanvasGesture ordinal), -1 for none; a sideways step into [step] (1 int). */
+    external fun gestureForKey(
+        keyCode: Int,
+        optionsShown: Boolean,
+        step: IntArray,
+    ): Int
+
+    /** A gesture reader for one stage (core/viz/GestureRead); every call below takes it. */
+    external fun gestureCreate(): Long
+
+    external fun gestureDestroy(handle: Long)
+
+    /** The platform's touch and double-tap slop (px), density (px per dp) and long-press and double-tap times (ms). */
+    external fun gestureConfigure(
+        handle: Long,
+        touchSlop: Float,
+        doubleTapSlop: Float,
+        density: Float,
+        longPressMs: Long,
+        doubleTapMinMs: Long,
+        doubleTapTimeoutMs: Long,
+    )
+
+    /** The window, its gesture strips (px from each edge) and the stage's top-left in it, once [placed]. */
+    external fun gestureArea(
+        handle: Long,
+        windowW: Float,
+        windowH: Float,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        originX: Float,
+        originY: Float,
+        placed: Boolean,
+    )
+
+    /** A first finger at ([x], [y]) stage px; [actions] each gesture's GestureAction ordinal; [armed] the hold may run. */
+    external fun gestureDown(
+        handle: Long,
+        x: Float,
+        y: Float,
+        timeMs: Long,
+        actions: IntArray,
+        armed: Boolean,
+    )
+
+    /** How long to wait for the next event before [gestureTick]; -1 for no timer. */
+    external fun gestureWaitMs(handle: Long): Long
+
+    /** The hold timer ran out; GESTURE_* bits. */
+    external fun gestureTick(handle: Long): Int
+
+    /**
+     * A pointer event at [timeMs] (-1 keeps the last): [live] pressed fingers' (x, y) px in [xy], whether the first
+     * finger is still down; a pinch step's factor and degrees into [pinch] (2 floats). GESTURE_* bits.
+     */
+    external fun gestureEvent(
+        handle: Long,
+        timeMs: Long,
+        xy: FloatArray,
+        live: Int,
+        primaryDown: Boolean,
+        pinch: FloatArray,
+    ): Int
+
+    /** True when touch play holds fingers that must now lift; clears it. */
+    external fun gestureRelease(handle: Long): Boolean
+
+    /** The gesture to fire (a CanvasGesture ordinal, -1 none); [out] (3 ints): its step, 1 for a tap, the double-tap wait in ms. */
+    external fun gestureEnd(
+        handle: Long,
+        splitY: Float,
+        out: IntArray,
+    ): Int
+
+    /** A down while waiting for a second tap; a GESTURE_SECOND_* answer. */
+    external fun gestureSecondDown(
+        handle: Long,
+        x: Float,
+        y: Float,
+        timeMs: Long,
+    ): Int
+
+    /** The followed second down's change ([present] false when the event has none); a GESTURE_SECOND_* answer. */
+    external fun gestureSecondMove(
+        handle: Long,
+        present: Boolean,
+        x: Float,
+        y: Float,
+        pressed: Boolean,
+    ): Int
+
+    const val GESTURE_MAX_CHOICES = 8
+    const val GESTURE_RING = 1 shl 0
+    const val GESTURE_HOLD = 1 shl 1
+    const val GESTURE_SWIRL = 1 shl 2
+    const val GESTURE_OVER = 1 shl 3
+    const val GESTURE_PUBLISH = 1 shl 4
+    const val GESTURE_RELEASE = 1 shl 5
+    const val GESTURE_PINCH = 1 shl 6
+    const val GESTURE_SECOND_BOUNCE = 0
+    const val GESTURE_SECOND_FOLLOW = 1
+    const val GESTURE_SECOND_DOUBLE = 2
+    const val GESTURE_SECOND_NEW_TOUCH = 3
+
+    /** The hold ring's fill after the long-press timeout (GEODE_GESTURE_HOLD_FILL_MS). */
+    const val GESTURE_HOLD_FILL_MS = 800L
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
@@ -1607,6 +1830,18 @@ object GeodeNative {
         targetW: Int,
         targetH: Int,
     ): IntArray
+
+    /**
+     * BitmapFactory's power-of-two `inSampleSize` for a [srcW]x[srcH] picture: [fit] false, the largest leaving both
+     * sides at least the target (the underlay); true, the smallest bringing both within it (the artwork).
+     */
+    external fun underlaySampleSize(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+        fit: Boolean,
+    ): Int
 
     /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
     external fun underlayFinish(
@@ -2680,6 +2915,15 @@ object GeodeNative {
 
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
+
+    /** Whether the wallpaper's [zoom] (0 none, 1 fully out behind the shade or recents) covers it ([SURFACE_COVERED]). */
+    external fun surfaceZoomCovers(zoom: Float): Boolean
+
+    /** Whether the dream's proximity reading [distanceCm] is near, against the sensor's [maximumRange] ([SURFACE_COVERED]). */
+    external fun surfaceProximityNear(
+        distanceCm: Float,
+        maximumRange: Float,
+    ): Boolean
 
     /**
      * Auto's style timer ([AUTO_TIMER_PLAYLIST], [AUTO_TIMER_RANDOM]; native `core/viz/AutoTimer`): a look

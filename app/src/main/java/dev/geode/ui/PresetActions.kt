@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.content.res.Resources
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,11 +52,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
-import dev.geode.model.PresetFiltering
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
@@ -151,11 +150,10 @@ internal fun SavePresetDialog(
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var folder by rememberSaveable { mutableStateOf(initialFolder) }
-    val cleaned = PresetFiltering.cleanName(name)
-    val replaces = if (cleaned.isEmpty()) null else presetReplaceTarget(cleaned, presets)
-    val builtInClash =
-        cleaned.isNotEmpty() &&
-            presets.any { BuiltInPresets.isBuiltIn(it.name) && it.name.equals(cleaned, ignoreCase = true) }
+    val names = presets.map { it.name }.toTypedArray()
+    val cleaned = GeodeNative.presetCleanName(name, "")
+    val replaces = GeodeNative.presetReplaceTarget(name, names)
+    val builtInClash = GeodeNative.presetBuiltInClash(name, names)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.presets_save_current_look)) },
@@ -323,38 +321,48 @@ internal fun ConfirmDialog(
 
 /** Why [raw] cannot name a folder (renaming [current], or a new one when null), or null. */
 internal fun folderNameError(
+    resources: Resources,
     raw: String,
     current: String?,
     folders: List<String>,
-): String? {
-    val name = raw.trim()
-    return when {
-        name.isEmpty() -> "Give it a name."
-        current != null && name.equals(current, ignoreCase = true) -> null
-        folders.any { it.equals(name, ignoreCase = true) } -> "There is already a folder called \"$name\"."
+): String? =
+    nameProblemText(
+        resources,
+        GeodeNative.presetFolderNameProblem(raw, current, folders.toTypedArray()),
+        R.string.presets_folder_taken,
+        GeodeNative.presetFolderName(raw),
+    )
+
+/** Why [raw] cannot be preset [current]'s new name among [taken], or null. */
+internal fun presetRenameError(
+    resources: Resources,
+    raw: String,
+    current: String,
+    taken: List<String>,
+): String? =
+    nameProblemText(
+        resources,
+        GeodeNative.presetRenameProblem(raw, current, taken.toTypedArray()),
+        R.string.presets_name_taken,
+        GeodeNative.presetCleanName(raw, ""),
+    )
+
+private fun nameProblemText(
+    resources: Resources,
+    problem: Int,
+    takenText: Int,
+    name: String,
+): String? =
+    when (problem) {
+        GeodeNative.NAME_BLANK -> resources.getString(R.string.presets_name_blank)
+        GeodeNative.NAME_TAKEN -> resources.getString(takenText, name)
         else -> null
     }
-}
 
 internal fun vizPlaylistIndexOf(
     playlist: List<VizPlaylistEntry>,
     presetName: String,
 ): Int = playlist.indexOfFirst { it.presetName == presetName }
-
-/** The user preset a save under [rawName] would overwrite, or null when the name is free. */
-internal fun presetReplaceTarget(
-    rawName: String,
-    presets: List<Preset>,
-): String? {
-    val name = PresetFiltering.cleanName(rawName).ifEmpty { "Preset" }
-    return presets.firstOrNull { !BuiltInPresets.isBuiltIn(it.name) && it.name == name }?.name
-}
-
-/** Built-in presets are made for the style the catalogue files a look under; every look of Fluid or Cymatics shares them. */
-internal fun builtInPresetMatchesScene(
-    presetSceneId: String,
-    activeSceneId: String,
-): Boolean = presetSceneId == activeSceneId || presetSceneId == StyleCatalogue.presetStyle(activeSceneId)
 
 internal fun clipboardText(context: android.content.Context): String? =
     runCatching {

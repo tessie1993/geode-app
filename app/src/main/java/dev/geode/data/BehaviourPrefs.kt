@@ -57,7 +57,8 @@ enum class QueueEndAction {
 
 /**
  * A gesture on the visual (ui-flow-decisions.md › Gestures). Swipes count only when they start
- * outside the system gesture insets; the edges stay Android's.
+ * outside the system gesture insets; the edges stay Android's. The order is the native ABI
+ * (`core/viz/GestureMap`); stored choices are kept by name.
  */
 enum class CanvasGesture {
     /** A tap on the lower part of the visual. */
@@ -79,7 +80,10 @@ enum class CanvasGesture {
     PINCH_TWIST,
 }
 
-/** What a [CanvasGesture] does. Not every action suits every gesture; the settings screen offers the ones that do. */
+/**
+ * What a [CanvasGesture] does. Not every action suits every gesture; the settings screen offers the ones that do.
+ * The order is the native ABI (`core/viz/GestureMap`); stored choices are kept by name.
+ */
 enum class GestureAction {
     OFF,
 

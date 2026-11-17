@@ -52,7 +52,7 @@ internal class CastFallback(
      * so its fluid monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
      */
     fun draw() {
-        val fps = CastEncoder.FPS.toFloat()
+        val fps = CastStream.FPS.toFloat()
         val events = viz.frame(AudioBus.soundInput, fps, fps)
         if (events and GeodeNative.FRAME_MILK_LOADED != 0) {
             viz.takeMilkPresetLoaded()?.let { if (GeodeNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }

@@ -1983,6 +1983,23 @@ GEODE_API void            geode_cast_server_admit(int64_t handle, uint32_t tv, i
 GEODE_API void            geode_cast_server_write(int64_t handle, const uint8_t* data, size_t size);
 GEODE_API int             geode_cast_server_text(int64_t handle, int which, char* out, int cap);
 GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
+/* The cast's encoders (core/cast/CastEncoder, Fmp4Writer; MediaCodec): H.264 from the surface the cast's render
+ * thread draws into and AAC from the player's ring (output/CastAudioPump, as geode_cast_audio_* reads it), written
+ * as fragmented MP4 into the server's stream and, as they leave the codec, to WebRTC, with Opus while a browser
+ * listens; on a thread of their own. Android build only.
+ *   open:   server and webrtc are the stream's handles (0 = none), which must outlive this one; music the
+ *           player's ring (NULL: silence throughout). NULL when an encoder would not start.
+ *   window: the video encoder's input surface (an ANativeWindow*), the encoder's own.
+ *   pump:   one video frame's sound, on the render thread: current the ring the visuals hear now, until_us
+ *           geode_frame_clock_audio_until_us.
+ *   failed: 1 once the video or AAC encoder failed: the cast should end.
+ *   close:  stops the thread and releases every codec; after nothing draws into the surface any more. */
+typedef struct geode_cast_encoder geode_cast_encoder;
+GEODE_API geode_cast_encoder* geode_cast_encoder_open(int64_t server, int64_t webrtc, const geode_pcm_ring* music);
+GEODE_API void*           geode_cast_encoder_window(const geode_cast_encoder*);
+GEODE_API void            geode_cast_encoder_pump(geode_cast_encoder*, const geode_pcm_ring* current, int64_t until_us);
+GEODE_API int             geode_cast_encoder_failed(const geode_cast_encoder*);
+GEODE_API void            geode_cast_encoder_close(geode_cast_encoder*);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

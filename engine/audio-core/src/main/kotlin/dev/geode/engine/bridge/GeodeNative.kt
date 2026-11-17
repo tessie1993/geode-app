@@ -3106,56 +3106,6 @@ object GeodeNative {
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 
-    // Cast's sound (core/output/CastAudioPump): the ring read, resampled, held and padded natively; the shell
-    // hands each block to the encoders.
-
-    /** A pump over the player's ring [music] (0: silence throughout) at [rateHz] and [channels]; 0 on bad args. */
-    external fun castAudioCreate(
-        music: Long,
-        rateHz: Int,
-        channels: Int,
-    ): Long
-
-    external fun castAudioDestroy(handle: Long)
-
-    /**
-     * One video frame up to the frame clock's cut [untilUs]; [current] is the ring the visuals hear now
-     * (0 for none), only compared with the music's. Returns the frames of the block to queue (0: none).
-     */
-    external fun castAudioPump(
-        handle: Long,
-        current: Long,
-        untilUs: Long,
-    ): Int
-
-    /** Copies the last pump's block into [out]; returns its frames, 0 when [out] is too small. */
-    external fun castAudioRead(
-        handle: Long,
-        out: ShortArray,
-    ): Int
-
-    /** Size of the encoder feed's state (GEODE_CAST_AUDIO_FEED_STATE): frames taken or dropped, pending, rate. */
-    const val CAST_AUDIO_FEED_STATE = 3
-
-    /** Starts the AAC encoder's backlog [state] at [rateHz]; returns its cap in frames (a second). */
-    external fun castAudioFeedStart(
-        state: LongArray,
-        rateHz: Int,
-    ): Int
-
-    /** A block of [frames] joins the backlog; returns how many of the oldest pending frames to drop first. */
-    external fun castAudioFeedAdd(
-        state: LongArray,
-        frames: Int,
-    ): Int
-
-    /** Frames the next codec input buffer takes from the backlog's head (up to [bufferFrames]; 0 = none), its PTS in [ptsUs]`[0]`. */
-    external fun castAudioFeedTake(
-        state: LongArray,
-        bufferFrames: Int,
-        ptsUs: LongArray,
-    ): Int
-
     // Show on a computer (core/viz/frame/LinkShare, LinkPair): the link's state and the typed path's code; and its
     // QR code (core/util/QrCode). The server, its routes and its pairing are native ([castServerOpen]).
 
@@ -3234,33 +3184,6 @@ object GeodeNative {
 
     external fun webrtcClose(handle: Long)
 
-    /** One encoded H.264 frame (the first [size] bytes of [data], Annex B) as the cast encoder wrote it. */
-    external fun webrtcVideo(
-        handle: Long,
-        data: ByteArray,
-        size: Int,
-        ptsUs: Long,
-        key: Boolean,
-    )
-
-    /** The H.264 codec config (SPS and PPS) the encoder hands over before its first frame. */
-    external fun webrtcVideoConfig(
-        handle: Long,
-        data: ByteArray,
-        size: Int,
-    )
-
-    /** One Opus packet (48 kHz stereo) and its PTS. */
-    external fun webrtcAudio(
-        handle: Long,
-        data: ByteArray,
-        size: Int,
-        ptsUs: Long,
-    )
-
-    /** Browsers connected over WebRTC now. */
-    external fun webrtcPeers(handle: Long): Int
-
     // The cast's HTTP server (core/cast/LiveServer, LiveHttp, LiveSegments): the live stream cut from the muxer's
     // bytes and served on the LAN address under a random token, every request read and answered in native. One
     // handle per cast stream; 0 = none.
@@ -3307,12 +3230,31 @@ object GeodeNative {
         wants: Int,
     )
 
-    /** The next [size] bytes of the muxer's output, in whatever pieces they come. */
-    external fun castServerWrite(
+    // The cast's encoders (core/cast/CastEncoder, Fmp4Writer): H.264, AAC and, for a browser, Opus, written into the
+    // server's stream and to WebRTC on a native thread. One handle per cast stream; 0 = none.
+
+    /** Opens them for the stream's [server] and [webrtc] handles (both closed after this one) and the player's ring [music]. */
+    external fun castEncoderOpen(
+        server: Long,
+        webrtc: Long,
+        music: Long,
+    ): Long
+
+    /** The video encoder's input surface (an android.view.Surface; the caller releases it), or null. */
+    external fun castEncoderSurface(handle: Long): Any?
+
+    /** One video frame's sound up to the frame clock's cut [untilUs]; [current] is the ring the visuals hear now. */
+    external fun castEncoderPump(
         handle: Long,
-        data: ByteArray,
-        size: Int,
+        current: Long,
+        untilUs: Long,
     )
+
+    /** True once the video or AAC encoder failed: the cast should end. */
+    external fun castEncoderFailed(handle: Long): Boolean
+
+    /** Stops the encoders and frees them, once nothing draws into the surface. */
+    external fun castEncoderClose(handle: Long)
 
     /** One of the CAST_TEXT_* texts; "" when there is none. */
     external fun castServerText(

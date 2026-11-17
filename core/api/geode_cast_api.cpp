@@ -1,13 +1,22 @@
-// The cast's HTTP server (core/cast/LiveServer): the C ABI. Android build only (sockets).
+// The cast's HTTP server (core/cast/LiveServer) and its encoders (core/cast/CastEncoder): the C ABI. Android
+// build only (sockets, MediaCodec).
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "api/geode_api.h"
+#include "api/geode_ingest_handles.hpp"
+#include "cast/CastEncoder.hpp"
 #include "cast/LiveServer.hpp"
 #include "cast/WebRtcLink.hpp"
+#include "output/CastAudioPump.hpp"
+#include "output/android/MediaCodecSink.hpp"
+#include "viz/frame/FixedRateClock.hpp"
 
+using geode::cast::CastEncoder;
 using geode::cast::LiveServer;
 using geode::cast::WebRtcLink;
 
@@ -125,3 +134,91 @@ void geode_cast_server_state(int64_t handle, int64_t* out) {
     } catch (...) {
     }
 }
+
+struct geode_cast_encoder {
+    const geode_pcm_ring* music;  // compared with each pump's ring only; the pump holds the ring itself
+    geode::output::CastAudioPump pump;
+    std::unique_ptr<CastEncoder> encoder;
+};
+
+geode_cast_encoder* geode_cast_encoder_open(int64_t server, int64_t webrtc, const geode_pcm_ring* music) {
+    using Cast = geode::viz::frame::CastFormat;
+    constexpr int kRateHz = geode::viz::frame::CastAudio::kDefaultRateHz;
+    constexpr int kChannels = 2;
+    try {
+        LiveServer* stream = from(server);
+        WebRtcLink* link = reinterpret_cast<WebRtcLink*>(static_cast<intptr_t>(webrtc));
+        CastEncoder::Format format;
+        format.width = Cast::kWidth;
+        format.height = Cast::kHeight;
+        format.fps = Cast::kFps;
+        format.keyframeSec = Cast::kKeyframeIntervalSec;
+        format.videoBitRate = Cast::kVideoBitrate;
+        format.audioBitRate = Cast::kAudioBitrate;
+        format.rateHz = kRateHz;
+        format.channels = kChannels;
+        // Called on the encoder's thread: nothing may leave them (an exception there would end the process).
+        CastEncoder::Outputs out;
+        if (stream) {
+            out.stream = [stream](const uint8_t* d, size_t n) {
+                try {
+                    stream->segments().write(d, n);
+                } catch (...) {
+                    // Out of memory: no segment is cut and the freeze watchdog ends the cast.
+                }
+            };
+        }
+        if (link) {
+            out.videoConfig = [link](const uint8_t* d, size_t n) {
+                try {
+                    link->videoConfig(d, n);
+                } catch (...) {
+                }
+            };
+            out.video = [link](const uint8_t* d, size_t n, int64_t ptsUs, bool key) {
+                try {
+                    link->video(d, n, ptsUs, key);
+                } catch (...) {
+                }
+            };
+            out.opus = [link](const uint8_t* d, size_t n, int64_t ptsUs) {
+                try {
+                    link->audio(d, n, ptsUs);
+                } catch (...) {
+                }
+            };
+            out.peers = [link]() -> int {
+                try {
+                    return link->peers();
+                } catch (...) {
+                    return 0;
+                }
+            };
+        }
+        std::unique_ptr<CastEncoder> encoder =
+            CastEncoder::open(geode::output::sink::mediaCodecs(-1), format, std::move(out));
+        if (!encoder) return nullptr;
+        std::shared_ptr<const geode::audio::ingest::PcmRing> ring = music ? music->ring : nullptr;
+        auto* made = new geode_cast_encoder{music, geode::output::CastAudioPump(std::move(ring), kRateHz, kChannels),
+                                            std::move(encoder)};
+        made->encoder->start();
+        return made;
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void* geode_cast_encoder_window(const geode_cast_encoder* e) { return e ? e->encoder->inputWindow() : nullptr; }
+
+void geode_cast_encoder_pump(geode_cast_encoder* e, const geode_pcm_ring* current, int64_t until_us) {
+    if (!e) return;
+    try {
+        const int frames = e->pump.pump(current != nullptr && current == e->music, until_us);
+        if (frames > 0) e->encoder->queuePcm(e->pump.block(), frames);
+    } catch (...) {
+    }
+}
+
+int geode_cast_encoder_failed(const geode_cast_encoder* e) { return e && e->encoder->failed() ? 1 : 0; }
+
+void geode_cast_encoder_close(geode_cast_encoder* e) { std::unique_ptr<geode_cast_encoder> owned(e); }

@@ -122,7 +122,13 @@ void CastEncoder::run() {
     while (!stopping_.load(std::memory_order_acquire)) {
         const int64_t now =
             std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
-        const bool moved = step(now);
+        bool moved = false;
+        try {
+            moved = step(now);
+        } catch (...) {
+            // Out of memory in the writer or a backlog: an exception must not leave the thread.
+            failed_.store(true, std::memory_order_release);
+        }
         if (failed()) return;
         if (!moved) std::this_thread::sleep_for(std::chrono::milliseconds(kIdleMs));
     }

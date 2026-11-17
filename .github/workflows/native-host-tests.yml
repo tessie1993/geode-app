@@ -250,6 +250,9 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
+          # Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp -o param_history_test
+          ./param_history_test
           # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
           ./stage_step_test

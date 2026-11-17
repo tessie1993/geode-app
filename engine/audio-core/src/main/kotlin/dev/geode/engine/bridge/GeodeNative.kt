@@ -619,7 +619,7 @@ object GeodeNative {
 
     /**
      * Customize's keep set, which the director's reach never moves: one control key or `#CATEGORY` per
-     * line, the lock set [paramsRandomize] takes.
+     * line, the lock set [panelRoll] takes.
      */
     external fun directorKeepSet(keys: String)
 
@@ -818,16 +818,11 @@ object GeodeNative {
         mask: Int,
     ): Int
 
-    /**
-     * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
-     * false is the wave editor's button (every wave on and rolled); true is a roll of everything, which only re-rolls
-     * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
-     */
-    external fun modWavesRandomize(
+    /** Randomize for the waves (core/viz/WaveRandomizer), seeded natively; [all] is the wave editor's button. Null when it changed nothing. */
+    external fun modWavesRoll(
         styleId: String?,
         locked: String?,
-        seed: Long,
-        runningOnly: Boolean,
+        all: Boolean,
         params: FloatArray,
         lfos: String,
     ): String?
@@ -1422,21 +1417,6 @@ object GeodeNative {
     ): Int
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
-     * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
-     * something.
-     */
-    external fun paramsRandomize(
-        styleId: String?,
-        tab: String?,
-        locked: String?,
-        seed: Long,
-        input: FloatArray,
-        output: FloatArray,
-    ): Boolean
-
-    /**
      * The Customize panel's map (core/viz/CustomizeMap) as its versioned line table: the ten
      * categories, their Basics and Pro sections, and the controls in each. Static; parse once
      * (the app's CustomizeMapTable does).
@@ -1448,20 +1428,6 @@ object GeodeNative {
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
     external fun customizeShown(styleId: String): String
-
-    /**
-     * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
-     * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * control keys in [locked]. Every other control holds. True when it changed something.
-     */
-    external fun customizeRandomize(
-        styleId: String?,
-        category: String,
-        locked: String?,
-        seed: Long,
-        input: FloatArray,
-        output: FloatArray,
-    ): Boolean
 
     /** How many fields of the wire frame [input] differ from the defaults (core/viz/CustomizeMap `changedCount`). */
     external fun customizeChangedCount(input: FloatArray): Int
@@ -1569,7 +1535,7 @@ object GeodeNative {
      * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
      * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one
      * per line) of a preset made for it, or -1, then on MilkDrop with no preset a .milk index, or -1.
-     * Null when no style is open. Pass the same [seed] to [randomizeAllRoll].
+     * Null when no style is open. Pass the same [seed] to [panelRollAll].
      */
     external fun randomizeAllPick(
         seed: Long,
@@ -1581,19 +1547,63 @@ object GeodeNative {
     ): String?
 
     /**
-     * [base] (the look once the pick is applied) with the controls [locked] keeps put back to their
-     * values in [before], then, with [rollCategories], every Customize category's other controls that
-     * reach [styleId] rolled, into [output]. True when it changed [base].
+     * Customize's dice (core/viz/PanelRoll), seeded natively: [category] (a CustomizeMap name) or everything when null,
+     * from [input] into [output], holding [kept] (the user's lock set, one a line) and with [basicsOnly] every control
+     * below a Basics. Returns [PANEL_ROLL_CHANGED] and [PANEL_ROLL_WAVES] bits.
      */
-    external fun randomizeAllRoll(
+    external fun panelRoll(
         styleId: String,
-        locked: String,
+        category: String?,
+        kept: String,
+        basicsOnly: Boolean,
+        input: FloatArray,
+        output: FloatArray,
+    ): Int
+
+    /** Randomize everything's roll (core/viz/RandomizeAll) with every category rolled, [kept] and [basicsOnly] as [panelRoll]; the same bits. */
+    external fun panelRollAll(
+        styleId: String,
+        kept: String,
+        basicsOnly: Boolean,
         seed: Long,
-        rollCategories: Boolean,
         before: FloatArray,
         base: FloatArray,
         output: FloatArray,
-    ): Boolean
+    ): Int
+
+    const val PANEL_ROLL_CHANGED: Int = 1
+    const val PANEL_ROLL_WAVES: Int = 2
+
+    /** Music's new personality: [input] with the reaction DNA's seed one further, into [output]. */
+    external fun paramsRerollReactions(
+        input: FloatArray,
+        output: FloatArray,
+    )
+
+    /**
+     * Customize's undo (core/viz/ParamHistory): the look [before] (its frame and saved palette id) is about to be
+     * replaced at [nowMs]; edits close together fold into one entry, a [discrete] one never does. Returns
+     * [PARAM_HISTORY_UNDO] and [PARAM_HISTORY_REDO] bits.
+     */
+    external fun paramHistoryRecord(
+        before: FloatArray,
+        palette: String,
+        nowMs: Long,
+        discrete: Boolean,
+    ): Int
+
+    /** The look to put up instead of [current] ([redo]: the last undone one): its frame into [output], its palette id back; null for none. */
+    external fun paramHistoryStep(
+        redo: Boolean,
+        current: FloatArray,
+        palette: String,
+        output: FloatArray,
+    ): String?
+
+    external fun paramHistoryState(): Int
+
+    const val PARAM_HISTORY_UNDO: Int = 1
+    const val PARAM_HISTORY_REDO: Int = 2
 
     // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
 

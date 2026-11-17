@@ -630,8 +630,10 @@ int geode_mod_reactions_edit(const char* style_id, int seed, const char* reactio
                              float value, char* out, int capacity, unsigned* out_mask) {
     ModDocument doc = reactionsOf(reactions, mask);
     if (style_id) doc.editReactions(dnaOf(style_id, seed), style_id, op, a, b, value);
-    if (out_mask) *out_mask = doc.handMask();
-    return geode::api::textOut(doc.reactionsText(), out, capacity);
+    const std::string routes = doc.reactionsText();
+    // No routes of the user's own: every moment is the style's DNA again.
+    if (out_mask) *out_mask = routes.empty() ? 0u : doc.handMask();
+    return geode::api::textOut(routes, out, capacity);
 }
 
 int geode_mod_music_state(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {

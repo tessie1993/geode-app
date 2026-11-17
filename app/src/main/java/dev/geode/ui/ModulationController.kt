@@ -62,7 +62,7 @@ internal class ModulationController(
         MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
     val lockedParams: StateFlow<Set<String>> = _lockedParams
 
-    private val _history = MutableStateFlow(historyOf(GeodeNative.paramHistoryState()))
+    private val _history = MutableStateFlow(ParamHistoryState())
     val history: StateFlow<ParamHistoryState> = _history
 
     fun toggleParamLock(label: String) {

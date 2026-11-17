@@ -3,11 +3,9 @@ package dev.geode.export
 import android.content.ContentValues
 import android.content.Context
 import android.content.res.AssetFileDescriptor
-import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
-import android.media.MediaMuxer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
@@ -28,8 +26,13 @@ import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
 import dev.geode.viz.BackgroundImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.ByteBuffer
+import java.io.File
 
 enum class ExportCodec(
     val mimeType: String,
@@ -40,17 +43,6 @@ enum class ExportCodec(
 
     /** This codec when the device has an encoder for it, otherwise H.264, which every device has. */
     fun available(): ExportCodec = if (this == H264 || hasEncoder(mimeType)) this else H264
-
-    /** Encoder attempts in order: core/output's ladder on this codec if the device has it, then H.264, under each listed top rate. */
-    fun attempts(
-        aspect: ExportAspect,
-        requestedFps: Int,
-        bitRate: Int,
-    ): List<EncoderAttempt> {
-        val codecs = candidates()
-        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { codecs[it].topFps(aspect) })
-        return (rungs.indices step 3).map { EncoderAttempt(codecs[rungs[it]], rungs[it + 1], rungs[it + 2]) }
-    }
 
     /** The codecs to try, in order: this one if the device has it, then H.264. */
     fun candidates(): List<ExportCodec> = listOf(available(), H264).distinct()
@@ -71,12 +63,6 @@ enum class ExportCodec(
                 ?.videoCapabilities
     }
 }
-
-class EncoderAttempt(
-    val codec: ExportCodec,
-    val fps: Int,
-    val bitRate: Int,
-)
 
 /** The part of a track a render covers, as native picked it (`GeodeNative.exportRangeOf`, `exportRangeCapped`). */
 data class ExportRange(
@@ -128,23 +114,24 @@ class ExportAspect(
     }
 }
 
+/**
+ * The one-tap render's shell. The render itself is one native job (`core/output/VideoExport`): the bit rate,
+ * the encoder ladder, every frame's draw, time and timestamp, the drain into the MP4, the audio's interleave,
+ * the progress and the failure. This owns what needs Android: the MediaStore row (inserted `IS_PENDING`,
+ * published or deleted) or the chosen document, the descriptors, the entitlement, the wordmark's text, and
+ * the words a failure is shown with. It hands the job its values, polls it and passes a cancel on.
+ */
 class VideoExporter(
     private val context: Context,
 ) {
     companion object {
         private const val FPS: Int = 60
-        private const val TIMEOUT_US: Long = 10_000
-
-        private const val FLUSH_ATTEMPT_LIMIT = 1_000
 
         // The double[] exportLoudnessMeasure fills.
         private const val LOUDNESS_DOUBLES = 9
 
-        /**
-         * Share of [export]'s progress spent transcoding the audio before the first frame. Public
-         * so the caller can tell that quick lead-in from the frame loop when it estimates time left.
-         */
-        const val AUDIO_PROGRESS_SPAN = 0.1f
+        /** How often the job is asked for its progress and told of a cancel. */
+        private const val POLL_MS = 50L
     }
 
     sealed interface Result {
@@ -177,6 +164,7 @@ class VideoExporter(
         vararg args: Any,
     ): Result.Failed = Result.Failed(context.getString(resId, *args), resId, args.toList())
 
+    /** [onProgress] takes the bar and whether it is steady (the frames; the audio's transcode before them is not). */
     suspend fun export(
         audioUri: Uri,
         sceneFactory: SceneFactory,
@@ -190,7 +178,7 @@ class VideoExporter(
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
         background: BackgroundExportSpec? = null,
-        onProgress: (Float) -> Unit,
+        onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
         // The wordmark, as the render pinned it at its start; see WatermarkOverlay.
         watermark: WatermarkChoice = WatermarkChoice.NONE,
@@ -199,22 +187,9 @@ class VideoExporter(
             // Decoded once, at the export's own pixel size, and reused for whichever destination
             // path below runs - see BackgroundImage for why this never touches Main.
             val decoded = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
-            val withUnderlay = look.copy(underlay = decoded)
+            val render = Render(audioUri, sceneFactory, aspect, look.copy(underlay = decoded), requestedFps, range, codec, watermark)
             if (destination != null) {
-                return@withContext exportToDestination(
-                    destination,
-                    audioUri,
-                    sceneFactory,
-                    aspect,
-                    withUnderlay,
-                    requestedFps,
-                    range,
-                    codec,
-                    loudnessTarget,
-                    onProgress,
-                    isCancelled,
-                    watermark = watermark,
-                )
+                return@withContext exportToDestination(destination, render, loudnessTarget, onProgress, isCancelled)
             }
             val resolver = context.contentResolver
             val values =
@@ -233,22 +208,8 @@ class VideoExporter(
                 return@withContext failed(R.string.export_error_library_open)
             }
             try {
-                pfd.use {
-                    encodeInto(
-                        it,
-                        audioUri,
-                        sceneFactory,
-                        aspect,
-                        withUnderlay,
-                        requestedFps,
-                        range,
-                        codec,
-                        onProgress,
-                        isCancelled,
-                        watermark = watermark,
-                    )
-                }
-                if (isCancelled()) {
+                val kept = pfd.use { encodeInto(it, render, onProgress, isCancelled) }
+                if (!kept) {
                     bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
                     Result.Cancelled
                 } else if (publishPending(resolver.pendingRows(), outUri)) {
@@ -262,43 +223,32 @@ class VideoExporter(
             }
         }
 
-    // The look folds six of the old params into one pinned value (#345); the rest is the render's own request.
-    @Suppress("LongParameterList")
+    /** What one render draws and how it is encoded, as the caller pinned it. */
+    private class Render(
+        val audioUri: Uri,
+        val sceneFactory: SceneFactory,
+        val aspect: ExportAspect,
+        val look: LookSnapshot,
+        val requestedFps: Int,
+        val range: ExportRange?,
+        val codec: ExportCodec,
+        val watermark: WatermarkChoice,
+    )
+
     private suspend fun exportToDestination(
         destination: Uri,
-        audioUri: Uri,
-        sceneFactory: SceneFactory,
-        aspect: ExportAspect,
-        look: LookSnapshot,
-        requestedFps: Int,
-        range: ExportRange?,
-        codec: ExportCodec,
+        render: Render,
         loudnessTarget: LoudnessTarget,
-        onProgress: (Float) -> Unit,
+        onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
-        watermark: WatermarkChoice,
     ): Result {
         val resolver = context.contentResolver
         val pfd =
             resolver.openFileDescriptor(destination, "w")
                 ?: return failed(R.string.export_error_destination_write)
         return try {
-            pfd.use {
-                encodeInto(
-                    it,
-                    audioUri,
-                    sceneFactory,
-                    aspect,
-                    look,
-                    requestedFps,
-                    range,
-                    codec,
-                    onProgress,
-                    isCancelled,
-                    watermark = watermark,
-                )
-            }
-            if (isCancelled()) {
+            val kept = pfd.use { encodeInto(it, render, onProgress, isCancelled) }
+            if (!kept) {
                 bestEffort(
                     TAG,
                     "DocumentsContract.deleteDocument(resolver, de...",
@@ -355,282 +305,181 @@ class VideoExporter(
             null
         }
 
-    @Suppress("NestedBlockDepth", "LongParameterList")
-    private fun encodeInto(
+    /**
+     * Writes the render into [pfd]: true when the file is finished and kept, false when the user cancelled
+     * (the caller discards it). A failure throws, worded, so the caller discards the file and shows why.
+     */
+    private suspend fun encodeInto(
         pfd: ParcelFileDescriptor,
-        audioUri: Uri,
-        sceneFactory: SceneFactory,
-        aspect: ExportAspect,
-        look: LookSnapshot,
-        requestedFps: Int,
-        range: ExportRange?,
-        codec: ExportCodec,
-        onProgress: (Float) -> Unit,
+        render: Render,
+        onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
-        watermark: WatermarkChoice,
-    ) {
-        var encoderRef: MediaCodec? = null
-        var watermarkRef: WatermarkOverlay? = null
-        var inputSurfaceRef: android.view.Surface? = null
-        var muxerRef: MediaMuxer? = null
-        var aacRef: AudioTranscoder.Result? = null
-        var eglRef: EncoderSurface? = null
-        var sceneRef: ExportScene? = null
-        var audioFeedRef: AudioFeed? = null
-        var muxerStarted = false
-        var muxerStopped = false
-        var sampleWritten = false
-        try {
-            val muxer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxerRef = it }
-            val rangeStartMs = range?.startMs ?: 0L
-            val aac =
-                AudioTranscoder(context)
-                    .transcode(
-                        uri = audioUri,
-                        maxDurationMs = range?.durationMs ?: 0L,
-                        startMs = rangeStartMs,
-                        isCancelled = isCancelled,
-                    ) { onProgress(it * AUDIO_PROGRESS_SPAN) }
-                    .also { aacRef = it }
-            // The encoder opens after the audio, which is what tells it how long the file will be:
-            // a long 4K or 1080p track at the preset's rate would pass MediaMuxer's 4 GB ceiling.
-            val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
-            if (bitRate < aspect.bitRate) {
-                RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
-            }
-            val (encoder, fps) = openEncoder(aspect, codec.attempts(aspect, GeodeNative.exportClampFps(requestedFps), bitRate))
-            encoderRef = encoder
-            val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
-            encoder.start()
-            val egl = EncoderSurface(inputSurface).also { eglRef = it }
-            egl.makeCurrent()
-
-            val exportDurationUs = aac.durationUs
-            // The frame clock is native (core/output/FrameClock): each frame's time and timestamp come from
-            // its index alone, so nothing drifts over a long render.
-            val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
-
-            val scene =
-                ExportScene(
-                    context = context,
-                    sceneFactory = sceneFactory,
-                    spec =
-                        ExportScene.Spec(
-                            width = aspect.width,
-                            height = aspect.height,
-                            fps = fps,
-                            rangeStartMs = rangeStartMs,
-                            look = look,
-                            audioUri = audioUri,
-                            // Pinned at prepare: live edits and the player moving on never reach the render.
-                            durationMs = exportDurationUs / 1000L,
-                            entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
-                        ),
-                ).also { sceneRef = it }
-            scene.prepare()
-            val mark = WatermarkOverlay(watermark, context).also { watermarkRef = it }
-            mark.prepare(aspect.width, aspect.height, exportDurationUs / 1000L)
-
-            var videoTrack = -1
-            var audioTrack = -1
-            val info = MediaCodec.BufferInfo()
-
-            for (frame in 0 until totalFrames) {
-                if (isCancelled()) break
-                scene.renderFrame(frame)
-                val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
-                mark.draw(timeMs)
-                egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
-                egl.swapBuffers()
-
-                while (true) {
-                    val outIndex = encoder.dequeueOutputBuffer(info, 0)
-                    if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        if (muxerStarted) {
-                            // Some vendors legally re-signal a format change after start(); the muxer
-                            // cannot add a track once running, so the original track stays in use.
-                            RingLog.note(TAG, "encoder re-signalled INFO_OUTPUT_FORMAT_CHANGED after the muxer had already started")
-                        } else {
-                            videoTrack = muxer.addTrack(encoder.outputFormat)
-                            audioTrack = muxer.addTrack(aac.format)
-                            muxer.start()
-                            muxerStarted = true
-                        }
-                    } else if (outIndex >= 0) {
-                        val buf =
-                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
-                        if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
-                        encoder.releaseOutputBuffer(outIndex, false)
-                    } else {
-                        break
-                    }
-                }
-                if (muxerStarted && audioTrack >= 0) {
-                    val feed =
-                        audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
-                    feed.writeUpTo(timeMs * 1000L)
-                }
-                onProgress(AUDIO_PROGRESS_SPAN + frame / totalFrames.toFloat() * 0.85f)
-            }
-            encoder.signalEndOfInputStream()
-            var flushAttempts = 0
-            var sawEos = false
-            drain@ while (flushAttempts < FLUSH_ATTEMPT_LIMIT) {
-                val outIndex = encoder.dequeueOutputBuffer(info, TIMEOUT_US)
-                when {
-                    outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        if (muxerStarted) {
-                            RingLog.note(TAG, "encoder re-signalled INFO_OUTPUT_FORMAT_CHANGED while draining; ignoring")
-                        } else {
-                            videoTrack = muxer.addTrack(encoder.outputFormat)
-                            audioTrack = muxer.addTrack(aac.format)
-                            muxer.start()
-                            muxerStarted = true
-                        }
-                    }
-                    outIndex >= 0 -> {
-                        val buf =
-                            checkNotNull(encoder.getOutputBuffer(outIndex)) { context.getString(R.string.export_error_encoder_buffer_null) }
-                        if (writeSample(muxer, videoTrack, buf, info, muxerStarted)) sampleWritten = true
-                        val eos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                        encoder.releaseOutputBuffer(outIndex, false)
-                        if (eos) {
-                            sawEos = true
-                            break@drain
-                        }
-                    }
-                    else -> flushAttempts++
-                }
-            }
-            check(muxerStarted || isCancelled()) { context.getString(R.string.export_error_encoder_no_output) }
-            check(sawEos || isCancelled()) { context.getString(R.string.export_error_encoder_stalled) }
-            if (muxerStarted && !isCancelled() && audioTrack >= 0) {
-                val feed =
-                    audioFeedRef ?: AudioFeed(muxer, audioTrack, aac, exportDurationUs).also { audioFeedRef = it }
-                feed.writeUpTo(Long.MAX_VALUE)
-                onProgress(1f)
-            }
-            if (muxerStarted && !isCancelled()) {
-                muxer.stop()
-                muxerStopped = true
-            }
-        } finally {
-            bestEffort(TAG, "watermarkRef?.release()") { watermarkRef?.release() }
-            bestEffort(TAG, "sceneRef?.release()") { sceneRef?.release() }
-            bestEffort(TAG, "audioFeedRef?.close()") { audioFeedRef?.close() }
-            if (muxerStarted && !muxerStopped) {
-                val wroteSamples = sampleWritten || audioFeedRef?.wroteSample == true
-                if (wroteSamples) {
-                    bestEffort(TAG, "muxerRef?.stop()") { muxerRef?.stop() }
-                } else {
-                    // A muxer that started (via INFO_OUTPUT_FORMAT_CHANGED) but never received a
-                    // sample — e.g. cancelled before the first frame drained — cannot be stopped:
-                    // MediaMuxer.stop() with zero samples always throws IllegalStateException. The
-                    // caller deletes the (empty/invalid) output file once it sees the cancellation
-                    // or the exception this finally block would otherwise have swallowed.
-                    RingLog.note(TAG, "muxer started but wrote no samples; skipping stop() to avoid a guaranteed IllegalStateException")
-                }
-            }
-            bestEffort(TAG, "muxerRef?.release()") { muxerRef?.release() }
-            bestEffort(TAG, "encoderRef?.stop()") { encoderRef?.stop() }
-            bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
-            bestEffort(TAG, "inputSurfaceRef?.release()") { inputSurfaceRef?.release() }
-            bestEffort(TAG, "eglRef?.release()") { eglRef?.release() }
-            aacRef?.release()
-        }
-    }
-
-    private fun videoFormat(
-        aspect: ExportAspect,
-        attempt: EncoderAttempt,
-    ): MediaFormat =
-        MediaFormat.createVideoFormat(attempt.codec.mimeType, aspect.width, aspect.height).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, attempt.bitRate)
-            setInteger(MediaFormat.KEY_FRAME_RATE, attempt.fps)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-        }
-
-    /** The first attempt the device's encoder accepts, with the frame rate it was configured for. */
-    private fun openEncoder(
-        aspect: ExportAspect,
-        attempts: List<EncoderAttempt>,
-    ): Pair<MediaCodec, Int> {
-        var failure: Exception? = null
-        for (attempt in attempts) {
-            val candidate = MediaCodec.createEncoderByType(attempt.codec.mimeType)
-            try {
-                candidate.configure(videoFormat(aspect, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                return candidate to attempt.fps
-            } catch (e: Exception) {
-                bestEffort(TAG, "candidate.release()") { candidate.release() }
-                failure = e
-            }
-        }
-        throw checkNotNull(failure)
-    }
-
-    /** Writes one encoded video sample to [muxer], returning whether it actually wrote one. */
-    private fun writeSample(
-        muxer: MediaMuxer,
-        track: Int,
-        buffer: ByteBuffer,
-        info: MediaCodec.BufferInfo,
-        started: Boolean,
     ): Boolean {
-        if (!started || track < 0 || info.size <= 0) return false
-        if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) return false
-        buffer.position(info.offset)
-        buffer.limit(info.offset + info.size)
-        muxer.writeSampleData(track, buffer, info)
-        return true
+        // Seam for the native transcoder (#1229, the audio half): the shell's AudioTranscoder still makes the AAC
+        // track, and setAudio hands its scratch file, samples and format to the job. A native transcoder fills
+        // the same request (core/output/VideoExport's Request::audio) and this call and setAudio go.
+        val aac =
+            AudioTranscoder(context).transcode(
+                uri = render.audioUri,
+                maxDurationMs = render.range?.durationMs ?: 0L,
+                startMs = render.range?.startMs ?: 0L,
+                isCancelled = isCancelled,
+            ) { onProgress(GeodeNative.videoExportLeadIn(it), false) }
+        val job = GeodeNative.videoExportCreate()
+        try {
+            check(job != 0L) { "export job not created" }
+            val aspect = render.aspect
+            GeodeNative.videoExportSetOutput(
+                job,
+                pfd.fd,
+                context.cacheDir.absolutePath,
+                aspect.width,
+                aspect.height,
+                aspect.bitRate,
+                render.requestedFps,
+            )
+            render.codec.candidates().forEach { GeodeNative.videoExportAddCodec(job, it.mimeType, it.topFps(aspect)) }
+            setScene(job, render)
+            setTrack(job, render)
+            setMark(job, render)
+            setAudio(job, aac)
+            coroutineScope {
+                val poll =
+                    launch {
+                        try {
+                            while (isActive) {
+                                if (isCancelled()) GeodeNative.videoExportCancel(job)
+                                onProgress(GeodeNative.videoExportProgress(job), true)
+                                delay(POLL_MS)
+                            }
+                        } finally {
+                            // A cancel of the caller ends this poll while the run below still blocks its
+                            // thread: only this stops the job. After the run has ended it changes nothing.
+                            GeodeNative.videoExportCancel(job)
+                        }
+                    }
+                // Blocks this worker thread for the whole render; the poll above runs on another.
+                GeodeNative.videoExportRun(job)
+                poll.cancelAndJoin()
+            }
+            return keptOrThrow(job, aspect, isCancelled)
+        } finally {
+            GeodeNative.videoExportDestroy(job)
+            aac.release()
+        }
     }
 
-    private class AudioFeed(
-        private val muxer: MediaMuxer,
-        private val track: Int,
-        private val aac: AudioTranscoder.Result,
-        private val limitUs: Long,
-    ) : java.io.Closeable {
-        private val raf = java.io.RandomAccessFile(aac.file, "r")
-        private val info = MediaCodec.BufferInfo()
-        private var scratch = ByteBuffer.allocate(64 * 1024)
-        private var next = 0
+    /** The renderer's inputs and the pinned look, on the scene the render draws. */
+    private fun setScene(
+        job: Long,
+        render: Render,
+    ) {
+        GeodeNative.videoExportSetScene(
+            job,
+            context.assets,
+            File(context.filesDir, "milk/textures").absolutePath,
+            render.sceneFactory.sceneId,
+            render.sceneFactory.milkPresetPath,
+            ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
+        )
+        val look = render.look
+        GeodeNative.videoExportSetLook(
+            job,
+            look.params.frame(),
+            look.lfos,
+            look.adsrs,
+            look.soundTuning?.toFloatArray(),
+            look.reactions,
+            look.reducedMotion,
+            look.transitionId,
+            look.transitionMs,
+        )
+        val u = look.underlay
+        GeodeNative.videoExportSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+    }
 
-        /** Whether any audio sample has actually reached the muxer via [writeUpTo]. */
-        var wroteSample: Boolean = false
-            private set
+    // What MediaExtractor and the AIFF reader were each handed for a content URI: the declared span, or the whole
+    // descriptor when none is declared. Detached: native owns the descriptor and closes it.
+    private fun setTrack(
+        job: Long,
+        render: Render,
+    ) {
+        val afd =
+            requireNotNull(context.contentResolver.openAssetFileDescriptor(render.audioUri, "r")) { "the track cannot be opened" }
+        val length = afd.declaredLength
+        val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
+        GeodeNative.videoExportSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length, render.range?.startMs ?: 0L)
+    }
 
-        fun writeUpTo(upToUs: Long) {
-            val channel = raf.channel
-            while (next < aac.sampleInfos.size) {
-                val sample = aac.sampleInfos[next]
-                if (sample.presentationTimeUs >= upToUs) return
-                if (sample.presentationTimeUs >= limitUs) {
-                    next = aac.sampleInfos.size
-                    return
+    /** The wordmark's tile, when these frames carry one; a free render never ships unmarked. */
+    private fun setMark(
+        job: Long,
+        render: Render,
+    ) {
+        val tile = WatermarkOverlay(render.watermark, context).tile(render.aspect.width, render.aspect.height) ?: return
+        check(GeodeNative.videoExportSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)) {
+            "watermark pass failed: out of memory"
+        }
+    }
+
+    /** The transcoder's track as it made it: its scratch file, its samples and every key of its format. */
+    private fun setAudio(
+        job: Long,
+        aac: AudioTranscoder.Result,
+    ) {
+        val samples = LongArray(aac.sampleInfos.size * SAMPLE_LONGS)
+        aac.sampleInfos.forEachIndexed { i, s ->
+            samples[i * SAMPLE_LONGS] = s.offset
+            samples[i * SAMPLE_LONGS + 1] = s.size.toLong()
+            samples[i * SAMPLE_LONGS + 2] = s.presentationTimeUs
+            samples[i * SAMPLE_LONGS + 3] = s.flags.toLong()
+        }
+        check(GeodeNative.videoExportSetAudio(job, aac.file.absolutePath, samples)) { "the audio track cannot be read back" }
+        val f = aac.format
+        for (key in f.keys) {
+            val type = f.getValueTypeForKey(key)
+            val whole =
+                when (type) {
+                    MediaFormat.TYPE_INTEGER -> f.getInteger(key).toLong()
+                    MediaFormat.TYPE_LONG -> f.getLong(key)
+                    else -> 0L
                 }
-                next++
-                if (scratch.capacity() < sample.size) scratch = ByteBuffer.allocate(sample.size)
-                scratch.clear()
-                scratch.limit(sample.size)
-                var read = 0
-                while (read < sample.size) {
-                    val n = channel.read(scratch, sample.offset + read)
-                    if (n <= 0) break
-                    read += n
-                }
-                scratch.flip()
-                info.set(0, read, sample.presentationTimeUs, sample.flags)
-                muxer.writeSampleData(track, scratch, info)
-                wroteSample = true
+            val real = if (type == MediaFormat.TYPE_FLOAT) f.getFloat(key) else 0f
+            val text = if (type == MediaFormat.TYPE_STRING) f.getString(key) else null
+            val bytes = if (type == MediaFormat.TYPE_BYTE_BUFFER) f.getByteBuffer(key)?.duplicate()?.let(::bytesOf) else null
+            GeodeNative.videoExportAddAudioKey(job, key, type, whole, real, text, bytes)
+        }
+    }
+
+    private fun bytesOf(buffer: java.nio.ByteBuffer): ByteArray = ByteArray(buffer.remaining()).also { buffer.get(it) }
+
+    /** What the finished job says: kept, cancelled, or a failure thrown in the shell's words. */
+    private fun keptOrThrow(
+        job: Long,
+        aspect: ExportAspect,
+        isCancelled: () -> Boolean,
+    ): Boolean {
+        val state = GeodeNative.videoExportState(job)
+        // A cancel that lands after the last frame still discards the file, as the button promised.
+        if (state == GeodeNative.VIDEO_EXPORT_RENDERED) return !isCancelled()
+        if (state == GeodeNative.VIDEO_EXPORT_CANCELLED) return false
+        val detail = GeodeNative.videoExportDetail(job).orEmpty()
+        val failure = GeodeNative.videoExportFailure(job)
+        RingLog.note(TAG, "video export failed ($failure): $detail")
+        val message =
+            when (failure) {
+                GeodeNative.VIDEO_FAILURE_ENCODER_REJECTED ->
+                    context.getString(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
+                GeodeNative.VIDEO_FAILURE_NO_OUTPUT -> context.getString(R.string.export_error_encoder_no_output)
+                GeodeNative.VIDEO_FAILURE_STALLED -> context.getString(R.string.export_error_encoder_stalled)
+                GeodeNative.VIDEO_FAILURE_EMPTY_BUFFER -> context.getString(R.string.export_error_encoder_buffer_null)
+                else -> detail.ifEmpty { context.getString(R.string.export_error_no_message) }
             }
-        }
-
-        override fun close() {
-            bestEffort(TAG, "raf.close()") { raf.close() }
-        }
+        error(message)
     }
 }
+
+// The long[] videoExportSetAudio takes per sample: offset, size, ptsUs, flags.
+private const val SAMPLE_LONGS = 4
 
 private const val TAG = "VideoExporter"

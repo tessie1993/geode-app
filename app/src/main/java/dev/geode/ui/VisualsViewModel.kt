@@ -99,7 +99,7 @@ class VisualsViewModel
 
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 
-        /** What Liquid mode is doing now (0 off, 1 full, 2 lite, 3 warp, 4 paused); see [VisualizerRepository.liquidMode]. */
+        /** What Liquid mode is doing now (0 off, 1 full); see [VisualizerRepository.liquidMode]. */
         val liquidMode: StateFlow<Int> get() = visualizer.liquidMode
 
         val textures: StateFlow<List<MilkTexture>> get() = session.textureController.textures

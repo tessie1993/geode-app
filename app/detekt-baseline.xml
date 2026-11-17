@@ -8,7 +8,6 @@
     <ID>EmptyFunctionBlock:AiffExtractor.kt$AiffExtractor${}</ID>
     <ID>InstanceOfCheckForException:ExportController.kt$ExportController$t is kotlinx.coroutines.CancellationException</ID>
     <ID>InstanceOfCheckForException:PlayerViewModel.kt$PlayerViewModel$t is kotlinx.coroutines.CancellationException</ID>
-    <ID>LoopWithTooManyJumpStatements:AudioCapturePump.kt$AudioCapturePump$while</ID>
     <ID>LoopWithTooManyJumpStatements:AudioTranscoder.kt$AudioTranscoder$while</ID>
     <ID>LoopWithTooManyJumpStatements:AutoVisualsPrefsStore.kt$AutoVisualsPrefsStore.Companion$for</ID>
     <ID>LoopWithTooManyJumpStatements:Lyrics.kt$LyricsLoader$for</ID>

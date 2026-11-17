@@ -337,13 +337,7 @@ void geometry(std::string& out, const Control& c, const SceneParams& p, const Ro
     choiceRow(out, "CHIPS", c, p);
 }
 
-void liquid(std::string& out, const Control& c, const SceneParams& p, const RowContext& ctx) {
-    checkRow(out, c, p);
-    const char* note = ctx.liquidMode == 2 || ctx.liquidMode == 3 ? panel::text("customize_liquid_hot_simplified")
-                       : ctx.liquidMode == 4                     ? panel::text("customize_liquid_hot_paused")
-                                                                 : "";
-    if (*note) out += std::string("NOTE|") + c.key + "|" + note + "\n";
-}
+void liquid(std::string& out, const Control& c, const SceneParams& p, const RowContext&) { checkRow(out, c, p); }
 
 }  // namespace
 

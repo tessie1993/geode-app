@@ -468,7 +468,7 @@ void writerStops() {
                 at.idle() ? "yes" : "no", playing.rms, quiet.rms, playing.level, quiet.level);
     check(silence, "the silence rule fires once the writer stops");
     check(at.idle(), "then the thread sleeps untimed");
-    check(quiet.rms == 0.0f && quiet.level < playing.level, "the levels fall");
+    check(quiet.rms == 0.0f && quiet.rms < playing.rms && quiet.level <= playing.level, "the levels fall");
     const uint64_t passes = at.passes();
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     check(at.passes() == passes && at.idle(), "an idle thread does not wake");

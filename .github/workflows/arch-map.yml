@@ -1,6 +1,6 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule, JNI
+# The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule, JNI
 # parity and the notices copy. No path
 # filter, so the check reports on every PR.
 
@@ -136,6 +136,20 @@ jobs:
       - name: Only cast/ reaches the network
         shell: bash
         run: bash tools/network-gate.sh
+
+      # Pins the audio Kotlin gate: each way Kotlin can touch samples (AudioRecord, AudioTrack, codec, extractor and
+      # muxer buffers, Media3 audio classes, Visualizer capture, buffer-carrying natives and their callers) must
+      # fail it; video-only MediaCodec, an image ByteBuffer and a listed hit must pass; a stale or malformed
+      # allowlist entry must fail it.
+      - name: Self-test the audio Kotlin gate
+        shell: bash
+        run: bash tools/audio-kotlin-gate.sh --self-test
+
+      # Kotlin never handles samples: every hit is on tools/audio-kotlin-allowlist.txt (permanent Media3 shells and
+      # debt to port), and every entry there still matches, so the list only shrinks.
+      - name: No audio data in Kotlin
+        shell: bash
+        run: bash tools/audio-kotlin-gate.sh
 
       # Pins the JNI parity gate: a matching tree must pass (an underscore is _1, a companion's @JvmStatic is
       # the outer class's); a declaration with no function, a function with no declaration and one that is not

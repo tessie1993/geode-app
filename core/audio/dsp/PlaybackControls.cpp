@@ -46,4 +46,17 @@ ErrorAction errorAction(int consecutiveFailures, bool hasNext) {
     return hasNext ? ErrorAction::SkipToNext : ErrorAction::StopEndOfQueue;
 }
 
+AbLoop abLoopCycle(AbLoop loop, int64_t atMs) {
+    const int64_t at = std::max<int64_t>(atMs, 0);
+    if (loop.startMs < 0) return AbLoop{at, kAbNone};
+    if (loop.endMs >= 0) return AbLoop{};
+    if (at > loop.startMs + kAbLoopMinMs) return AbLoop{loop.startMs, at};
+    return AbLoop{at, kAbNone};
+}
+
+int64_t abLoopSeek(AbLoop loop, int64_t positionMs) {
+    if (loop.startMs < 0 || loop.endMs < 0) return kAbNone;
+    return positionMs >= loop.endMs ? loop.startMs : kAbNone;
+}
+
 }  // namespace geode::audio

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <limits>
 #include <numeric>
+#include <set>
 #include <utility>
 
 #include "util/Json.hpp"
@@ -396,5 +397,236 @@ std::string milkFileName(std::string_view presetName) {
     }
     return safeFileName(presetName) + std::string(kSuffix);
 }
+
+namespace {
+
+// Character.toLowerCase(Character.toUpperCase(c)), the key Kotlin's equals(ignoreCase = true) compares, for the
+// scripts names are typed in; any other code point as it is.
+uint32_t foldCase(uint32_t c) {
+    if (c < 0x80) return (c >= 'A' && c <= 'Z') ? c + 0x20 : c;
+    if (c < 0x100) {
+        if (c == 0xB5) return 0x3BC;
+        return (c >= 0xC0 && c <= 0xDE && c != 0xD7) ? c + 0x20 : c;
+    }
+    if (c <= 0x17F) {
+        if (c == 0x130 || c == 0x131) return 'i';
+        if (c == 0x178) return 0xFF;
+        if (c == 0x17F) return 's';
+        if (c <= 0x137 || (c >= 0x14A && c <= 0x177)) return c | 1u;
+        if ((c >= 0x139 && c <= 0x148) || (c >= 0x179 && c <= 0x17E)) return c + (c & 1u);
+        return c;
+    }
+    if (c >= 0x386 && c <= 0x3F5) {
+        if (c == 0x386) return 0x3AC;
+        if (c >= 0x388 && c <= 0x38A) return c + 0x25;
+        if (c == 0x38C) return 0x3CC;
+        if (c == 0x38E || c == 0x38F) return c + 0x3F;
+        if (c >= 0x391 && c <= 0x3AB && c != 0x3A2) return c + 0x20;
+        if (c >= 0x3D8 && c <= 0x3EF) return c | 1u;
+        switch (c) {
+            case 0x3C2: return 0x3C3;
+            case 0x3D0: return 0x3B2;
+            case 0x3D1: return 0x3B8;
+            case 0x3D5: return 0x3C6;
+            case 0x3D6: return 0x3C0;
+            case 0x3F0: return 0x3BA;
+            case 0x3F1: return 0x3C1;
+            case 0x3F4: return 0x3B8;
+            case 0x3F5: return 0x3B5;
+            default: return c;
+        }
+    }
+    if (c >= 0x400 && c <= 0x52F) {
+        if (c <= 0x40F) return c + 0x50;
+        if (c <= 0x42F) return c + 0x20;
+        if ((c >= 0x460 && c <= 0x481) || (c >= 0x48A && c <= 0x4BF) || c >= 0x4D0) return c | 1u;
+        if (c == 0x4C0) return 0x4CF;
+        if (c >= 0x4C1 && c <= 0x4CE) return c + (c & 1u);
+        return c;
+    }
+    if (c >= 0x531 && c <= 0x556) return c + 0x30;
+    if (c >= 0x1E00 && c <= 0x1EFF) {
+        if (c == 0x1E9B) return 0x1E61;
+        if (c == 0x1E9E) return 0xDF;
+        return (c <= 0x1E95 || c >= 0x1EA0) ? (c | 1u) : c;
+    }
+    if (c == 0x1FBE) return 0x3B9;
+    if (c == 0x2126) return 0x3C9;
+    if (c == 0x212A) return 'k';
+    if (c == 0x212B) return 0xE5;
+    if (c >= 0xFF21 && c <= 0xFF3A) return c + 0x20;
+    return c;
+}
+
+void appendUtf8(std::string& out, uint32_t c) {
+    if (c < 0x80) {
+        out += static_cast<char>(c);
+    } else if (c < 0x800) {
+        out += static_cast<char>(0xC0 | (c >> 6));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    } else if (c < 0x10000) {
+        out += static_cast<char>(0xE0 | (c >> 12));
+        out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    } else {
+        out += static_cast<char>(0xF0 | (c >> 18));
+        out += static_cast<char>(0x80 | ((c >> 12) & 0x3F));
+        out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    }
+}
+
+// The text with every code point folded (a stray byte kept as it is).
+std::string foldedKey(std::string_view s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        const CodePoint cp = codePointAt(s, i);
+        if (cp.length == 1 && cp.value >= 0x80) {
+            out += s[i];
+        } else {
+            appendUtf8(out, foldCase(cp.value));
+        }
+        i += cp.length;
+    }
+    return out;
+}
+
+// The length of UTF-8 text as the shell's String counts it: a code point past U+FFFF is two UTF-16 units.
+size_t utf16Length(std::string_view s) {
+    size_t n = 0;
+    for (size_t i = 0; i < s.size();) {
+        const CodePoint cp = codePointAt(s, i);
+        n += cp.value >= 0x10000 ? 2 : 1;
+        i += cp.length;
+    }
+    return n;
+}
+
+// The bytes the link prefix spans at `at`, matched as String.regionMatches(ignoreCase = true) does, or 0.
+size_t linkPrefixAt(std::string_view text, size_t at) {
+    size_t i = at;
+    for (const char want : kPresetLinkPrefix) {
+        if (i >= text.size()) return 0;
+        const CodePoint cp = codePointAt(text, i);
+        if (foldCase(cp.value) != foldCase(static_cast<unsigned char>(want))) return 0;
+        i += cp.length;
+    }
+    return i - at;
+}
+
+}  // namespace
+
+bool isBuiltInPreset(std::string_view name) { return name.find(kBuiltInSeparator) != std::string_view::npos; }
+
+bool sameNameCaseless(std::string_view a, std::string_view b) { return foldedKey(a) == foldedKey(b); }
+
+std::string cleanPresetName(std::string_view raw, std::string_view fallback) {
+    std::string replaced;
+    size_t from = 0;
+    for (size_t at = raw.find(kBuiltInSeparator); at != std::string_view::npos; at = raw.find(kBuiltInSeparator, from)) {
+        replaced.append(raw.substr(from, at - from));
+        replaced += " - ";
+        from = at + kBuiltInSeparator.size();
+    }
+    replaced.append(raw.substr(from));
+    std::string name = trimmed(replaced);
+    return name.empty() ? std::string(fallback) : name;
+}
+
+std::string cleanFolderName(std::string_view raw) { return trimmed(raw); }
+
+NameProblem presetRenameProblem(std::string_view raw, std::string_view current, const std::vector<std::string>& taken) {
+    const std::string name = cleanPresetName(raw);
+    if (name.empty()) return NameProblem::Blank;
+    if (name == current) return NameProblem::None;
+    const bool clash = std::any_of(taken.begin(), taken.end(),
+                                   [&](const std::string& t) { return t != current && sameNameCaseless(t, name); });
+    return clash ? NameProblem::Taken : NameProblem::None;
+}
+
+NameProblem folderNameProblem(std::string_view raw, const std::optional<std::string>& current,
+                              const std::vector<std::string>& folders) {
+    const std::string name = cleanFolderName(raw);
+    if (name.empty()) return NameProblem::Blank;
+    if (current && sameNameCaseless(name, *current)) return NameProblem::None;
+    const bool clash =
+        std::any_of(folders.begin(), folders.end(), [&](const std::string& f) { return sameNameCaseless(f, name); });
+    return clash ? NameProblem::Taken : NameProblem::None;
+}
+
+std::string uniquePresetName(std::string_view base, const std::vector<std::string>& taken) {
+    std::set<std::string> keys;
+    for (const std::string& t : taken) keys.insert(foldedKey(t));
+    const std::string stem(base);
+    if (keys.count(foldedKey(stem)) == 0) return stem;
+    int n = 2;
+    while (keys.count(foldedKey(stem + " " + std::to_string(n))) != 0) ++n;
+    return stem + " " + std::to_string(n);
+}
+
+std::string presetCopyName(std::string_view name, const std::vector<std::string>& taken) {
+    return uniquePresetName(std::string(name) + " copy", taken);
+}
+
+std::string importedPresetName(std::string_view raw, std::string_view fallback, const std::vector<std::string>& taken) {
+    const std::string base = cleanPresetName(raw, fallback);
+    const auto held = [&taken](const std::string& name) { return std::find(taken.begin(), taken.end(), name) != taken.end(); };
+    std::string name = base;
+    for (int n = 2; held(name); ++n) name = base + " " + std::to_string(n);
+    return name;
+}
+
+std::optional<std::string> presetReplaceTarget(std::string_view raw, const std::vector<std::string>& names) {
+    const std::string name = cleanPresetName(raw);
+    if (name.empty()) return std::nullopt;
+    for (const std::string& n : names) {
+        if (!isBuiltInPreset(n) && n == name) return n;
+    }
+    return std::nullopt;
+}
+
+bool builtInNameClash(std::string_view raw, const std::vector<std::string>& names) {
+    const std::string name = cleanPresetName(raw);
+    if (name.empty()) return false;
+    return std::any_of(names.begin(), names.end(),
+                       [&](const std::string& n) { return isBuiltInPreset(n) && sameNameCaseless(n, name); });
+}
+
+bool presetMatchesScene(const std::string& presetSceneId, const std::string& activeSceneId) {
+    return presetSceneId == activeSceneId || presetSceneId == catalogue::presetStyle(activeSceneId);
+}
+
+std::string presetLink(std::string_view payload) { return std::string(kPresetLinkPrefix) + std::string(payload); }
+
+bool presetLinkFits(std::string_view link) { return utf16Length(link) <= static_cast<size_t>(kMaxLinkLength); }
+
+bool isPresetLink(std::string_view text) { return linkPrefixAt(trimmed(text), 0) > 0; }
+
+std::optional<std::string> presetLinkPayload(std::string_view text) {
+    const std::string link = trimmed(text);
+    const size_t prefix = linkPrefixAt(link, 0);
+    if (prefix == 0 || !presetLinkFits(link)) return std::nullopt;
+    std::string payload = link.substr(prefix);
+    payload = payload.substr(0, payload.find_first_of("#?"));
+    if (utf16Length(payload) > static_cast<size_t>(kMaxLinkPayload)) return std::nullopt;
+    return payload;
+}
+
+std::optional<std::string> findPresetLink(std::string_view text) {
+    for (size_t at = 0; at < text.size(); at += codePointAt(text, at).length) {
+        if (linkPrefixAt(text, at) == 0) continue;
+        size_t end = at;
+        while (end < text.size()) {
+            const CodePoint cp = codePointAt(text, end);
+            if (whitespace(cp.value)) break;
+            end += cp.length;
+        }
+        return std::string(text.substr(at, end - at));
+    }
+    return std::nullopt;
+}
+
+bool presetLinkBodyAccepted(std::string_view body) { return !blank(body); }
 
 }  // namespace geode::viz::files

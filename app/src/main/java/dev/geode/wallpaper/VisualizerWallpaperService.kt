@@ -249,12 +249,12 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * Android 11+ zooms the wallpaper out behind the notification shade, recents and some
-         * launchers' app drawers, which leave it "visible" under a blur. Past [COVER_ZOOM] it
-         * stops: nobody watches a visual through a frosted shade.
+         * launchers' app drawers, which leave it "visible" under a blur. Past the native cover point
+         * (`core/viz/SurfaceRun`) it stops: nobody watches a visual through a frosted shade.
          */
         override fun onZoomChanged(zoom: Float) {
             super.onZoomChanged(zoom)
-            val nowCovered = zoom >= COVER_ZOOM
+            val nowCovered = GeodeNative.surfaceZoomCovers(zoom)
             if (nowCovered == covered) return
             covered = nowCovered
             syncRunState()
@@ -345,11 +345,12 @@ class VisualizerWallpaperService : WallpaperService() {
             var live = 0
             for (i in 0 until event.pointerCount) {
                 if (i != leaving && live * 2 < touchPoints.size) {
-                    touchPoints[live * 2] = event.getX(i) / surfaceWidth * 2f - 1f
-                    touchPoints[live * 2 + 1] = 1f - event.getY(i) / surfaceHeight * 2f
+                    touchPoints[live * 2] = event.getX(i)
+                    touchPoints[live * 2 + 1] = event.getY(i)
                     live++
                 }
             }
+            GeodeNative.touchToNdc(touchPoints, live, surfaceWidth, surfaceHeight)
             engine.submitTouchPoints(touchPoints, live)
         }
 
@@ -378,8 +379,5 @@ class VisualizerWallpaperService : WallpaperService() {
 
     private companion object {
         const val TAG = "VisualizerWallpaper"
-
-        /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
-        const val COVER_ZOOM = 0.9f
     }
 }

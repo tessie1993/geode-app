@@ -259,6 +259,22 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackErrorAction(JNIEnv*, jobject, j
     return geode_playback_error_action(consecutiveFailures, hasNext == JNI_TRUE);
 }
 
+// The A-B loop's next points as a new long[2] (start, end; -1 not set).
+JNIEXPORT jlongArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_abLoopCycle(JNIEnv* env, jobject, jlong startMs, jlong endMs, jlong atMs) {
+    int64_t next[2] = {-1, -1};
+    geode_ab_loop_cycle(startMs, endMs, atMs, next);
+    const jlong out[2] = {static_cast<jlong>(next[0]), static_cast<jlong>(next[1])};
+    jlongArray result = env->NewLongArray(2);
+    if (result) env->SetLongArrayRegion(result, 0, 2, out);
+    return result;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_abLoopSeek(JNIEnv*, jobject, jlong startMs, jlong endMs, jlong positionMs) {
+    return geode_ab_loop_seek(startMs, endMs, positionMs);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 #include <limits>
 #include <vector>
 
@@ -287,6 +288,25 @@ void crossfadeHalvesMirror() {
     geode_dsp_destroy(d);
 }
 
+// What follows on, from the queue as the shell reports it (geode_dsp_set_up_next; the rule was the Kotlin
+// TrackCrossfade's): a next item, or repeat one. Only then does the track's tail fade out.
+void upNextIsANextItemOrRepeatOne() {
+    struct Case {
+        int hasNext;
+        int repeatMode;  // Media3's Player.REPEAT_MODE_*: 0 off, 1 one, 2 all
+        bool fades;
+    };
+    for (const Case& k : {Case{1, 0, true}, Case{0, GEODE_REPEAT_ONE, true}, Case{0, 0, false}, Case{0, 2, false}}) {
+        geode_dsp* d = fresh();
+        geode_dsp_set_crossfade(d, 1000);
+        geode_dsp_set_up_next(d, k.hasNext, k.repeatMode);
+        geode_dsp_begin_stream(d, "a", 0, 2000000);
+        const auto a = run(d, 2 * static_cast<size_t>(kRate));
+        check((a.back() == kNoGain) == k.fades, "the tail fades out exactly when something follows on");
+        geode_dsp_destroy(d);
+    }
+}
+
 // At 2x a frame is twice the media time, so each half of a 1 s crossfade takes 250 ms of frames.
 void crossfadeFollowsSpeed() {
     geode_dsp* d = fresh();
@@ -384,6 +404,7 @@ int main() {
     replayGainSwitchesOnTheBoundary();
     crossfadeHalvesMirror();
     crossfadeFollowsSpeed();
+    upNextIsANextItemOrRepeatOne();
     repeatOneFadesIn();
     sleepFadeEndsWithTheTimer();
     unityIsBitIdentical();

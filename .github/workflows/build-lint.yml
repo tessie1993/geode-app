@@ -52,6 +52,27 @@ jobs:
             "ndk;28.0.13004108" \
             "cmake;3.22.1"
 
+      # The native build (two ABIs, the third_party libraries) through ccache: CMake reads the
+      # launcher from the environment, and the cache carries over from the last run.
+      - name: Set up ccache for the native build
+        shell: bash
+        run: |
+          command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
+          {
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CCACHE_MAXSIZE=600M"
+            echo "CCACHE_NOHASHDIR=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore the ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-debug-${{ github.run_id }}
+          restore-keys: ccache-debug-
+
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
@@ -63,6 +84,10 @@ jobs:
       # android.yml (now manual). Uploaded before the linters, so a lint finding still
       # leaves the APK to try. Debug-signed with app/debug.keystore, so it installs over
       # the other CI builds.
+      - name: ccache statistics
+        if: always()
+        run: ccache -s || true
+
       - name: Upload debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

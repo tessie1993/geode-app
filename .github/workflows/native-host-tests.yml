@@ -30,9 +30,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The glTF import test builds against the cgltf and meshoptimizer submodules.
-          submodules: recursive
+
+      # Only the submodules a host test compiles: KISS FFT under core/sound, and cgltf,
+      # meshoptimizer and basis_universal for the glTF import test.
+      - name: Check out the submodules the tests use
+        run: |
+          git submodule update --init --depth 1 third_party/kissfft third_party/cgltf \
+            third_party/meshoptimizer third_party/basis_universal
+
+      # tools/hostcc/g++ compiles each source once per flag set, in parallel, for every line below.
+      - name: Put the caching g++ first on PATH
+        run: echo "$GITHUB_WORKSPACE/tools/hostcc" >> "$GITHUB_PATH"
 
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -54,8 +62,9 @@ jobs:
           # A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/control_range_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o control_range_test
           ./control_range_test
-          # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp -o touch_gesture_test
+          # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir,
+          # the gesture reader (tap, double tap, swipe, swirl, hold, pair kind, the strips), the gesture map and the keys.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp core/api/geode_gesture_api.cpp -o touch_gesture_test
           ./touch_gesture_test
           # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
@@ -63,10 +72,10 @@ jobs:
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
-          # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
+          # Liquid mode's pure maths: its plan, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
-          # The physics layers' pure maths: off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the params.
+          # The physics layers' pure maths: off in every look, the plan, back fluid | style | front particles, the music clock, the params.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/physics_layers_test.cpp core/viz/physics/PhysicsPlan.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o physics_layers_test
           ./physics_layers_test
@@ -94,12 +103,9 @@ jobs:
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o director_reach_test
           ./director_reach_test
-          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
+          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, a spare budget, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
-          # The process's one thermal state (#440): the fps-first ladder, the cap on the pacer, two renderers sharing it.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/thermal_test.cpp core/viz/ThermalGovernor.cpp -o thermal_test
-          ./thermal_test
           # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/cache_sentinels_test.cpp -o cache_sentinels_test
           ./cache_sentinels_test
@@ -155,6 +161,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/mic_input_test.cpp core/audio/ingest/MicInput.cpp \
             core/audio/ingest/CapturePlan.cpp core/audio/ingest/PcmRing.cpp -o mic_input_test
           ./mic_input_test
+          # Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
+          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp \
+            core/audio/ingest/CapturePump.cpp -o capture_pump_test
+          ./capture_pump_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
@@ -180,6 +191,10 @@ jobs:
           # The playback output's retry back-off: no failure opens at once, a failure closes it for 60 s, a second restarts it.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/retry_backoff_test.cpp -o retry_backoff_test
           ./retry_backoff_test
+          # Which of Media3's output configs the native output plays (plain 16-bit or float mono or stereo media).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/output_choice_test.cpp core/audio/output/OutputFifo.cpp \
+            -o output_choice_test
+          ./output_choice_test
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
@@ -234,7 +249,7 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/transition_programs_test.cpp core/viz/Transition.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp \
             core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp -o transition_programs_test
           ./transition_programs_test
-          # Settings › Performance's tiers, scale choices, preset match, Liquid policy and first-run pick (#437).
+          # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/quality_test.cpp core/api/geode_perf_api.cpp \
             core/viz/liquid/LiquidMath.cpp -o quality_test
           ./quality_test
@@ -274,7 +289,7 @@ jobs:
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
-          # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the thermal walk 120 to 90, 60, 30.
+          # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the cap the pacer paces to.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/live_fps_test.cpp -o live_fps_test
           ./live_fps_test
           # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
@@ -292,10 +307,10 @@ jobs:
           # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
           ./command_queue_test
-          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+          # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp -o stage_pacing_test
           ./stage_pacing_test
-          # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
+          # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
@@ -350,7 +365,7 @@ jobs:
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
-          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+          # One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the events.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/live_frame_test.cpp -o live_frame_test
           ./live_frame_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
@@ -587,6 +602,17 @@ jobs:
             core/output/EncodePlan.cpp -o loop_render_test
           ./loop_render_test
 
+      # The video export job (core/output/VideoExport) on a fake host, encoder and muxer: the bit rate cap, the
+      # encoder it settles on, the frame count and timestamps, the audio interleaved by timestamp, the progress,
+      # what a cancel and each failure leave behind, and the teardown order.
+      - name: Video export host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/video_export_test.cpp core/output/VideoExport.cpp core/output/FrameClock.cpp \
+            core/output/EncodePlan.cpp core/audio/dsp/PcmTiming.cpp -o video_export_test
+          ./video_export_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -679,6 +705,26 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_history_test.cpp core/sound/*.cpp -o sound_history_test
           ./sound_history_test
+
+      # One engine on its own thread (core/sound/hop/AnalysisThread, #1215): inline equals a bare engine at every position,
+      # across irregular blocks, a new epoch and controls mid-stream; the thread equals inline, readers never see a torn
+      # hop, it wakes per write and not on a clock, it stops cleanly, and a writer that stops lets the levels fall.
+      - name: Analysis thread
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/analysis_thread_test.cpp \
+            core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_test
+          ./analysis_thread_test
+
+      # The same test under ThreadSanitizer: data races are the analysis thread's main risk. The runner's kernel
+      # randomises mmap with more bits than TSan maps; 28 is what it supports.
+      - name: Analysis thread (ThreadSanitizer)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -pthread -fsanitize=thread -Icore core/tests/analysis_thread_test.cpp \
+            core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_tsan
+          TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" ./analysis_thread_tsan
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.

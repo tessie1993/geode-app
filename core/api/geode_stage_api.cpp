@@ -292,10 +292,6 @@ unsigned geode_stage_state(const geode_stage* s) {
     return stage ? stage->thread->state() : 0u;
 }
 
-float geode_stage_paced_fps(const geode_stage* s) {
-    const std::shared_ptr<Stage> stage = find(s);
-    return stage ? stage->thread->pacedFps() : 0.0f;
-}
 
 unsigned geode_stage_take_events(geode_stage* s) {
     const std::shared_ptr<Stage> stage = find(s);

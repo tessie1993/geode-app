@@ -4,8 +4,9 @@
 //
 // What is pinned: a semitone is a twelfth of an octave on the rate Media3 plays at, and a slider value lands
 // on its step the way the rows always stored it (a half step rounds up), so saved speeds and pitches read
-// back as they were.
+// back as they were; the A-B loop marks A, then B more than a second on, then clears, and goes back to A at B.
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 
@@ -94,6 +95,27 @@ void aFailingTrackSkipsOrStops() {
     check(errorAction(3, false) == ErrorAction::StopSourceUnavailable, "the failure count is checked first");
 }
 
+void abLoopMarksAThenBThenClears() {
+    using geode::audio::AbLoop;
+    using geode::audio::abLoopCycle;
+    using geode::audio::abLoopSeek;
+    using geode::audio::kAbLoopMinMs;
+    using geode::audio::kAbNone;
+    const AbLoop a = abLoopCycle(AbLoop{}, 4000);
+    check(a.startMs == 4000 && a.endMs == kAbNone, "the first press marks A");
+    check(abLoopCycle(AbLoop{}, -50).startMs == 0, "a position before the start marks A at 0");
+    const AbLoop ab = abLoopCycle(a, 9000);
+    check(ab.startMs == 4000 && ab.endMs == 9000, "a press well past A marks B");
+    const AbLoop moved = abLoopCycle(a, 4000 + kAbLoopMinMs);
+    check(moved.startMs == 4000 + kAbLoopMinMs && moved.endMs == kAbNone, "a loop no longer than the minimum moves A instead");
+    check(abLoopCycle(a, 1000).startMs == 1000 && abLoopCycle(a, 1000).endMs == kAbNone, "a press before A moves A");
+    const AbLoop cleared = abLoopCycle(ab, 12000);
+    check(cleared.startMs == kAbNone && cleared.endMs == kAbNone, "a press with both set clears the loop");
+    check(abLoopSeek(ab, 8999) == kAbNone, "before B it plays on");
+    check(abLoopSeek(ab, 9000) == 4000 && abLoopSeek(ab, 20000) == 4000, "at or past B it goes back to A");
+    check(abLoopSeek(a, 20000) == kAbNone && abLoopSeek(AbLoop{}, 20000) == kAbNone, "no whole loop, no seek");
+}
+
 void cAbi() {
     float r[4] = {};
     check(geode_playback_range(3, r) == 1 && r[0] == 0.5f && r[1] == 2.0f && r[2] == 0.05f && r[3] == 1.0f, "speed range");
@@ -105,6 +127,11 @@ void cAbi() {
     check(geode_playback_error_action(1, 1) == 0 && geode_playback_error_action(1, 0) == 1 &&
               geode_playback_error_action(3, 1) == 2,
           "the C ABI's error action is the engine's");
+    int64_t loop[2] = {};
+    geode_ab_loop_cycle(4000, -1, 9000, loop);
+    check(loop[0] == 4000 && loop[1] == 9000, "the C ABI's A-B press is the engine's");
+    check(geode_ab_loop_seek(4000, 9000, 9500) == 4000 && geode_ab_loop_seek(4000, -1, 9500) == -1,
+          "the C ABI's A-B seek is the engine's");
 }
 
 }  // namespace
@@ -115,6 +142,7 @@ int main() {
     rangesHoldTheSavedOptions();
     crossfadeSliderRoundsToWholeSeconds();
     aFailingTrackSkipsOrStops();
+    abLoopMarksAThenBThenClears();
     cAbi();
     if (failures == 0) std::printf("playback_controls_test: all passed\n");
     return failures == 0 ? 0 : 1;

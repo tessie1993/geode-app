@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "util/Json.hpp"
+#include "viz/Catalogue.hpp"
 #include "viz/LookFiles.hpp"
 #include "viz/Params.hpp"
 #include "viz/ParamsJson.hpp"
@@ -277,6 +278,88 @@ void templates() {
     check(!files::isStarter("geode.starter.") && !files::isStarter("my-template"), "other ids are not starters");
 }
 
+// Preset names (PresetFiltering, PresetActions, PresetLibraryController and BuiltInPresets before).
+void presetNames() {
+    const std::vector<std::string> taken = {"Glow", "Mine A"};
+    using files::NameProblem;
+    check(files::presetRenameProblem("  ", "Mine A", taken) == NameProblem::Blank, "a blank name is refused");
+    check(files::presetRenameProblem("glow", "Mine A", taken) == NameProblem::Taken, "another's name, any case, is taken");
+    check(files::presetRenameProblem("Mine A", "Mine A", taken) == NameProblem::None, "its own name is fine");
+    check(files::presetRenameProblem("mine a", "Mine A", taken) == NameProblem::None, "its own name in another case is fine");
+    check(files::presetRenameProblem("Fresh", "Mine A", taken) == NameProblem::None, "a free name is fine");
+    check(files::presetRenameProblem("\xc3\x89t\xc3\xa9", "x", {"\xc3\xa9t\xc3\xa9"}) == NameProblem::Taken, "case is ignored past ASCII");
+    check(files::presetRenameProblem("\xd0\x9d\xd0\x9e\xd0\xa7\xd0\xac", "x", {"\xd0\xbd\xd0\xbe\xd1\x87\xd1\x8c"}) == NameProblem::Taken,
+          "and in Cyrillic");
+    check(files::presetRenameProblem("\xc3\x89t\xc3\xa9", "x", {"Ete"}) == NameProblem::None, "accents still count");
+
+    check(files::cleanPresetName("  Night \xc2\xb7 Rain ") == "Night - Rain", "the link separator is dropped");
+    check(files::cleanPresetName(" \xc2\xb7 ") == "-", "a lone separator is a dash");
+    check(files::cleanPresetName(" \t", "Untitled") == "Untitled", "a blank name takes the fallback");
+    check(files::cleanFolderName(" Live\xe2\x80\x83") == "Live", "a folder name is trimmed");
+
+    check(files::folderNameProblem(" ", std::nullopt, {"Live"}) == NameProblem::Blank, "a blank folder is refused");
+    check(files::folderNameProblem(" live ", std::nullopt, {"Live"}) == NameProblem::Taken, "a new folder may not take one, any case");
+    check(files::folderNameProblem("LIVE", std::string("Live"), {"Live"}) == NameProblem::None, "a folder renamed to itself is fine");
+    check(files::folderNameProblem("Slow", std::string("Live"), {"Live", "slow"}) == NameProblem::Taken, "or to another's name");
+
+    check(files::uniquePresetName("Glow copy", {"Glow"}) == "Glow copy", "a free name stays");
+    check(files::uniquePresetName("Glow copy", {"glow copy", "Glow copy 2"}) == "Glow copy 3", "taken names, caseless, count on");
+    check(files::presetCopyName("Glow", {"Glow", "GLOW COPY"}) == "Glow copy 2", "a copy's name");
+    check(files::importedPresetName(" A \xc2\xb7 B ", "Shared", {"A - B", "A - B 2"}) == "A - B 3", "an import counts past its name");
+    check(files::importedPresetName("glow", "Shared", {"Glow"}) == "glow", "an import's names are compared exactly");
+    check(files::importedPresetName("  ", "Shared", {}) == "Shared", "a blank import takes the fallback");
+
+    const std::vector<std::string> shelf = {"Glow \xc2\xb7 Cymatics", "Mine", "Glow"};
+    check(files::isBuiltInPreset(shelf[0]) && !files::isBuiltInPreset("Mine - A"), "a built-in holds the separator");
+    check(files::presetReplaceTarget(" Mine ", shelf) == std::optional<std::string>("Mine"), "a save over a user preset replaces it");
+    check(!files::presetReplaceTarget("mine", shelf) && !files::presetReplaceTarget(" ", shelf), "only the exact name, never a blank");
+    check(!files::presetReplaceTarget("Glow \xc2\xb7 Cymatics", shelf), "a built-in is never replaced");
+    check(files::builtInNameClash("glow - cymatics", {"Glow - Cymatics \xc2\xb7 x", "glow - cymatics"}) == false,
+          "a user preset's name is no clash");
+    check(files::builtInNameClash("glow \xc2\xb7 cymatics", shelf) == false, "a cleaned name never holds the separator");
+    check(files::builtInNameClash("x", {"X"}) == false && !files::builtInNameClash("", shelf), "nor a blank");
+
+    const std::string style = "no_such_style";
+    check(files::presetMatchesScene(style, style), "a built-in matches its own style");
+    check(files::presetMatchesScene(viz::catalogue::presetStyle("fluid"), "fluid"), "and the shelf its style is filed under");
+    check(!files::presetMatchesScene("other", style), "not another");
+}
+
+// The share link's framing (PresetLink before); the gzip and base64 step is the shell's.
+void shareLinks() {
+    const std::string payload = "H4sIAAAAAAAA_6tWyk";
+    const std::string link = files::presetLink(payload);
+    check(link == "geode://preset/" + payload, "a link is the prefix and the payload");
+    check(files::isPresetLink(link), "a minted link is recognised as one");
+    check(files::isPresetLink("  GEODE://PRESET/abc  "), "recognition ignores case and surrounding whitespace");
+    check(!files::isPresetLink("https://example.com/preset/abc"), "another link is not one");
+    check(files::isPresetLink("geode://pre\xc5\xbf" "et/x"), "a long s matches s, as the shell's caseless match did");
+
+    check(files::presetLinkPayload(" " + link + "\n") == payload, "the payload of a trimmed link");
+    check(files::presetLinkPayload(link + "#fragment") == payload, "a fragment is not part of it");
+    check(files::presetLinkPayload(link + "?utm=share") == payload, "nor a query");
+    check(files::presetLinkPayload(link + "?a#b") == payload, "the first of either ends it");
+    check(files::presetLinkPayload("GEODE://Preset/" + payload) == payload, "an upper-case prefix gives the same payload");
+
+    const std::string overlong = "geode://preset/" + std::string(files::kMaxLinkLength, 'A');
+    check(!files::presetLinkPayload(overlong), "a link past the length cap is refused before it is inflated");
+    const std::string longest = "geode://preset/" + std::string(files::kMaxLinkLength - 15, 'A');
+    check(files::presetLinkFits(longest) && files::presetLinkPayload(longest), "a link at the cap is accepted");
+    check(!files::presetLinkFits(longest + "A"), "one past it is not shared");
+    std::string emoji;
+    for (int i = 0; i < files::kMaxLinkLength / 2; ++i) emoji += "\xf0\x9f\x8e\xb5";
+    check(files::presetLinkFits(emoji) && !files::presetLinkFits(emoji + "A"), "lengths count UTF-16 units");
+
+    check(!files::presetLinkPayload("https://example.com/") && !files::presetLinkPayload(""), "no link, no payload");
+
+    check(files::findPresetLink("look at this " + link + " isn't it nice") == link, "a link is found inside surrounding chat text");
+    check(files::findPresetLink("see:" + link + "\xe2\x80\xa8next") == link, "a link starts at its prefix and ends at a line separator");
+    check(files::findPresetLink("\xc3\xa9 GEODE://PRESET/x\ty") == std::optional<std::string>("GEODE://PRESET/x"), "found in any case");
+    check(!files::findPresetLink("no link here"), "text with no link in it yields none");
+
+    check(files::presetLinkBodyAccepted("{}") && !files::presetLinkBodyAccepted(" \n"), "a blank body is no preset");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -285,6 +368,8 @@ int main(int argc, char** argv) {
     savedPalettes();
     presets(argc > 1 ? argv[1] : "app/src/test/resources/presets");
     templates();
+    presetNames();
+    shareLinks();
     if (failures == 0) std::printf("look files: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

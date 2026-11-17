@@ -16,8 +16,8 @@ import java.nio.ByteOrder
  * The wordmark over each exported frame, as [choice] asks on frames of [use]: tiled across the frame
  * (the free default), in a corner, or an end card. Whether frames are marked, where, how large and
  * opaque, and when an end card shows are native (`core/viz/frame/ExportPasses`, `WatermarkPass`, #442),
- * drawn on the export's own EGL context after the scene. What stays here is what needs Android: the
- * text, rasterised once at [prepare] into the tile native sizes and handed over as pixels.
+ * drawn by the native render job after the scene. What stays here is what needs Android: the text,
+ * rasterised once into the tile native sizes and handed over as pixels ([tile]).
  */
 class WatermarkOverlay(
     private val choice: WatermarkChoice,
@@ -25,31 +25,7 @@ class WatermarkOverlay(
     use: Int = choice.use,
 ) {
     private val text = context.getString(R.string.pro_watermark_text)
-    private val assets = context.assets
     private val placement = GeodeNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, use)
-
-    /** The native pass once [prepare]d (0 when these frames carry no mark); Record hands it to the stage's tee. */
-    var handle = 0L
-        private set
-    private var width = 0
-    private var height = 0
-
-    /** Needs the export's GL context current; throws when the pass cannot build, so a free render never ships unmarked. */
-    fun prepare(
-        frameWidth: Int,
-        frameHeight: Int,
-        lengthMs: Long = 0L,
-    ) {
-        val tile = tile(frameWidth, frameHeight) ?: return
-        width = frameWidth
-        height = frameHeight
-        handle = GeodeNative.exportWatermarkCreate(assets, tile.pixels, tile.width, tile.height, placement, choice.corner, lengthMs)
-        val problem = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
-        if (problem.isNotEmpty()) {
-            release()
-            error("watermark pass failed: $problem")
-        }
-    }
 
     /** The rasterised wordmark and where it goes, for a native job that draws it itself; null when these frames carry none. */
     fun tile(
@@ -70,17 +46,6 @@ class WatermarkOverlay(
         val placement: Int,
         val corner: Int,
     )
-
-    /** Composites the mark over whatever is in the default framebuffer; [timeMs] is the frame's time in the video. */
-    fun draw(timeMs: Long = 0L) {
-        if (handle != 0L) GeodeNative.exportWatermarkDraw(handle, width, height, timeMs)
-    }
-
-    fun release() {
-        val owned = handle
-        handle = 0L
-        if (owned != 0L) GeodeNative.exportPassDestroy(owned)
-    }
 
     // Every size, colour and position is native; only the drawing is Android's.
     private fun rasteriseTile(shortSide: Int): Bitmap {

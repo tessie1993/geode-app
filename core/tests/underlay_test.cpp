@@ -4,6 +4,7 @@
 // What is pinned: the crop rect and the dim are bit-exact with the Kotlin they replace
 // (dev.geode.viz.BackgroundImage's centerCropToAspect and applyDim, re-stated below as references);
 // the blur keeps a constant image exactly constant and never changes the size, and softens an edge;
+// the decode subsample is the two power-of-two loops the shell ran;
 // the clamps are the controls' old ranges (amount and dim 0..1, blur 0..25), with NaN reading as 0.
 #include <cmath>
 #include <cstdint>
@@ -85,6 +86,43 @@ void testCrop() {
     int xywh[4] = {-1, -1, -1, -1};
     geode_underlay_crop_rect(4000, 1000, 1920, 1080, xywh);
     check(xywh[0] == 1111 && xywh[1] == 0 && xywh[2] == 1777 && xywh[3] == 1000, "C ABI crop rect");
+}
+
+// The two inSampleSize loops the Kotlin ran: BackgroundImage.decodeSampled (cover) and TrackColorController's
+// artwork (fit), for real sizes.
+int kotlinCoverSample(int srcW, int srcH, int targetW, int targetH) {
+    int sample = 1;
+    while (srcW / (sample * 2) >= targetW && srcH / (sample * 2) >= targetH) sample *= 2;
+    return sample;
+}
+
+int kotlinFitSample(int srcW, int srcH, int maxSide) {
+    int sample = 1;
+    while (!(srcW / sample <= maxSide && srcH / sample <= maxSide)) sample *= 2;
+    return sample;
+}
+
+void testSampleSize() {
+    check(underlay::sampleSize(4000, 3000, 1920, 1080, false) == 2, "cover keeps both sides at least the target");
+    check(underlay::sampleSize(100, 100, 1920, 1080, false) == 1, "a small picture is decoded whole");
+    check(underlay::sampleSize(4000, 3000, 128, 128, true) == 32, "fit brings both sides within the target");
+    check(underlay::sampleSize(1000, 1000, 1024, 1024, true) == 1, "a picture already within is decoded whole");
+    check(underlay::sampleSize(0, 100, 10, 10, true) == 1 && underlay::sampleSize(-1, -1, 10, 10, false) == 1,
+          "no bounds is 1");
+    check(underlay::sampleSize(100, 100, 0, 10, true) == 1 && underlay::sampleSize(100, 100, 10, -3, false) == 1,
+          "no target is 1, never a runaway loop");
+    check(underlay::sampleSize(1 << 30, 1 << 30, 1, 1, true) == (1 << 30), "a huge picture stops at the largest");
+    const int sizes[] = {1, 7, 128, 480, 1024, 1080, 1920, 2400, 4000, 8191};
+    bool same = true;
+    for (int sw : sizes)
+        for (int sh : sizes)
+            for (int t : sizes) {
+                same = same && underlay::sampleSize(sw, sh, t, t, true) == kotlinFitSample(sw, sh, t);
+                for (int th : sizes) same = same && underlay::sampleSize(sw, sh, t, th, false) == kotlinCoverSample(sw, sh, t, th);
+            }
+    check(same, "both rules match the Kotlin over a sweep");
+    check(geode_underlay_sample_size(4000, 3000, 128, 128, 1) == 32 && geode_underlay_sample_size(4000, 3000, 1920, 1080, 0) == 2,
+          "C ABI sample size");
 }
 
 void testDim() {
@@ -214,6 +252,7 @@ void testRgbaBytes() {
 int main() {
     testRgbaBytes();
     testCrop();
+    testSampleSize();
     testDim();
     testBlur();
     testClamps();

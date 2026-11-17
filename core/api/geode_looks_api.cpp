@@ -7,6 +7,7 @@
 #include "api/geode_api.h"
 #include "viz/Colour.hpp"
 #include "viz/LookFiles.hpp"
+#include "viz/TemplateFile.hpp"
 
 using geode::viz::SceneParams;
 namespace files = geode::viz::files;
@@ -178,5 +179,84 @@ const char* geode_template_starter(int index) {
 }
 
 int geode_template_is_starter(const char* id) { return files::isStarter(textOf(id)) ? 1 : 0; }
+
+int geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) {
+    if (!out_frame || n < SceneParams::kFieldCount || !out_text || !out_envelope) return -1;
+    thread_local files::TemplateRead read;
+    thread_local std::string document;
+    read = files::readTemplate(textOf(text));
+    if (read.status != files::TemplateStatus::Parsed) {
+        out_text[0] = read.why.c_str();
+        return read.status == files::TemplateStatus::NotATemplate ? 0 : -1;
+    }
+    document = files::writeTemplate(read.value);
+    const files::TemplateLook& look = read.value.look;
+    look.params.toWire(out_frame);
+    out_text[0] = document.c_str();
+    out_text[1] = read.value.id.c_str();
+    out_text[2] = read.value.name.c_str();
+    out_text[3] = look.sceneId.c_str();
+    out_text[4] = look.customShader ? look.customShader->c_str() : nullptr;
+    out_text[5] = look.milkPreset ? look.milkPreset->c_str() : nullptr;
+    out_text[6] = look.customPaletteId.c_str();
+    out_envelope[0] = look.attack;
+    out_envelope[1] = look.decay;
+    return 1;
+}
+
+const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack, float decay,
+                                  const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                  const char* custom_palette_id) {
+    if (!frame || n < SceneParams::kFieldCount) return nullptr;
+    thread_local std::string out;
+    files::VideoTemplate t = files::defaultTemplate();
+    t.id = files::newTemplateId();
+    t.name = textOf(name);
+    t.createdAtMs = created_at_ms;
+    t.look.sceneId = textOf(scene_id);
+    t.look.attack = attack;
+    t.look.decay = decay;
+    if (custom_shader) t.look.customShader = custom_shader;
+    if (milk_preset) t.look.milkPreset = milk_preset;
+    t.look.params = SceneParams::fromWire(frame);
+    t.look.customPaletteId = textOf(custom_palette_id);
+    return hold(out, files::writeTemplate(t));
+}
+
+const char* geode_template_renamed(const char* text, const char* name) {
+    thread_local std::string out;
+    files::TemplateRead read = files::readTemplate(textOf(text));
+    if (read.status != files::TemplateStatus::Parsed) return nullptr;
+    read.value.name = textOf(name);
+    return hold(out, files::writeTemplate(read.value));
+}
+
+const char* geode_template_new_copy(const char* text, const char* name, long long created_at_ms) {
+    thread_local std::string out;
+    files::TemplateRead read = files::readTemplate(textOf(text));
+    if (read.status != files::TemplateStatus::Parsed) return nullptr;
+    read.value.id = files::newTemplateId();
+    read.value.name = textOf(name);
+    read.value.author.clear();
+    read.value.createdAtMs = created_at_ms;
+    return hold(out, files::writeTemplate(read.value));
+}
+
+const char* geode_template_link_in(const char* text) {
+    thread_local std::string out;
+    const auto link = files::templateLinkIn(textOf(text));
+    return link ? hold(out, *link) : nullptr;
+}
+
+const char* geode_template_link_of(const char* preset_link, int max_length) {
+    thread_local std::string out;
+    const auto link = files::templateLinkOf(textOf(preset_link), max_length > 0 ? static_cast<size_t>(max_length) : 0);
+    return link ? hold(out, *link) : nullptr;
+}
+
+const char* geode_template_share_name(const char* name) {
+    thread_local std::string out;
+    return hold(out, files::templateShareName(textOf(name)));
+}
 
 }

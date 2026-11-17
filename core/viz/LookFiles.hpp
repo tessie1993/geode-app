@@ -19,6 +19,8 @@ namespace geode::viz::files {
 // separators, U+2028 and U+2029), on UTF-8 text.
 std::string trimmed(std::string_view text);
 bool blank(std::string_view text);
+// The byte length of the code point at `i` when it is Char.isWhitespace, else 0.
+size_t whitespaceAt(std::string_view text, size_t i);
 
 // Every code point but A-Z a-z 0-9 '-' '_' ' ' as '_': a preset folder's name.
 std::string safeChars(std::string_view name);

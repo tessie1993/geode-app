@@ -674,6 +674,25 @@ GEODE_API const char* geode_template_unique_name(const char* base, const char* c
 GEODE_API int         geode_template_starter_count(void);
 GEODE_API const char* geode_template_starter(int index);
 GEODE_API int         geode_template_is_starter(const char* id);
+/* The template file (viz/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
+ * template, out_text[7] = the file text this build writes for it, id, name, scene id, custom shader and milk preset
+ * (NULL when absent), saved palette id, the params into out_frame (n at least geode_viz_param_count) and attack and
+ * decay into out_envelope[2]; 0 when it is JSON but no template and -1 when it cannot be read, out_text[0] the reason
+ * either way. create: a new template's text (fresh id, every other section at its default) for the look given;
+ * NULL for a short frame. renamed: the text with `name`; new_copy: with a fresh id, `name`, no author and
+ * created_at_ms (NULL when `text` is no template). link_in: the geode://template link in `text` as the
+ * geode://preset link of the same payload, or NULL; link_of: a geode://preset link as the template link, NULL when
+ * it is no preset link or longer than max_length. share_name: the file name a shared copy arrives under. Text out
+ * valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API int         geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack,
+                                            float decay, const char* custom_shader, const char* milk_preset,
+                                            const float* frame, int n, const char* custom_palette_id);
+GEODE_API const char* geode_template_renamed(const char* text, const char* name);
+GEODE_API const char* geode_template_new_copy(const char* text, const char* name, long long created_at_ms);
+GEODE_API const char* geode_template_link_in(const char* text);
+GEODE_API const char* geode_template_link_of(const char* preset_link, int max_length);
+GEODE_API const char* geode_template_share_name(const char* name);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

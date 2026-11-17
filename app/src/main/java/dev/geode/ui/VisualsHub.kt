@@ -95,7 +95,7 @@ import dev.geode.ui.tour.fits
  *
  * Back undoes the most recent first ([VisualsNavState.back]): hidden options come back, then the
  * route in reverse. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's
- * store, which `PlayerSessionProvider` depends on (ADR 0001 § Consequences).
+ * store, which `PlayerSessionProvider` depends on.
  *
  * [bottomReserve] is the tab bar's place at the bottom, kept whether or not the bar shows, so the
  * options never slide as the chrome fades. On a phone the mini player is docked under the options

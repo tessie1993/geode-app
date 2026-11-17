@@ -5,7 +5,7 @@
 # Hand-written for now: the cold-start path from Application.onCreate to the first
 # usable player frame, plus the paywall, which first-run users see right after
 # onboarding. A Macrobenchmark-generated profile replaces this when the module split
-# (ADR 0001) adds a :baselineprofile module; until then these rules keep the startup
+# A :baselineprofile module is planned; until then these rules keep the startup
 # path out of the interpreter on a fresh install.
 #
 # H = hot, S = run at startup, P = run after startup; ** matches any members.

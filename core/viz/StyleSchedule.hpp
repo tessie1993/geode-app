@@ -13,7 +13,7 @@ struct StyleCue {
     std::string milkPath;
 };
 
-// Which style an export draws, frame by frame, for one rendered segment (Studio 2D, ADR 0003).
+// Which style an export draws, frame by frame, for one rendered segment (Studio 2D).
 //
 // Two sources, either or both:
 // - timed cues: a recorded take's style switches, at render time (ms since the segment began),

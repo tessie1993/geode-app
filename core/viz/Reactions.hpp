@@ -197,7 +197,7 @@ private:
 // ── Customize › Music's moments and the hand mask ───────────────────────────────────────────────────
 //
 // The owner's rule: "Auto drives every untouched moment; a hand-set moment shows a 'mine' mark and the
-// director leaves it alone; 'Reset to Auto' is in its ⋮." All of it is native (ADR 0003): the moments and
+// director leaves it alone; 'Reset to Auto' is in its ⋮." All of it is native: the moments and
 // the mask here, where the director reads them; the merge with the live DNA and the page's edits in
 // viz/ReactionDna. Kotlin only labels the rows and passes the mask along.
 //

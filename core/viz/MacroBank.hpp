@@ -23,7 +23,7 @@
 // removed, and what a knob moves is edited link by link. A knob is on screen or in the bank's library (hideKnob,
 // showKnob): one in the library is centred and moves nothing until it is put back. The four built-in knobs can be
 // edited, put back as built (resetKnob) and taken off screen, never deleted, so the library always offers them. The shell keeps it as one opaque string (encode) and hands it
-// back (decode); every edit is a pure function here, so Kotlin parses and decides nothing (ADR 0003).
+// back (decode); every edit is a pure function here, so Kotlin parses and decides nothing.
 // Pure: no GL, no JNI.
 namespace geode::viz::macrobank {
 

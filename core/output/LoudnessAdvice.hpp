@@ -1,6 +1,6 @@
 #pragma once
 
-// What to do about an export's measured loudness (core/output; ADR 0003): the gain a platform target asks
+// What to do about an export's measured loudness (core/output): the gain a platform target asks
 // for, held under its true-peak ceiling, whether the file is already in the band that counts as right, and which
 // sentence says so. The shell keeps only the wording. The gain is advice: nothing applies it yet.
 namespace geode::output::loudness {

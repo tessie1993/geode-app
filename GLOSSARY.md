@@ -34,7 +34,7 @@ What the analysis hears in one moment of audio: levels, bands, onsets, beat, bar
 _Avoid_: FFT data, spectrum (the spectrum is one feature)
 
 **Loudness (loudnessM / loudnessS)**:
-The music's absolute volume, measured as fosfora does: BS.1770 K-weighted LUFS over 400 ms (momentary) and 3 s (short-term), -60 LUFS = 0 … 0 LUFS = 1 on every song. Never relative to the song's own average (that is what the bass, mid and treble ratios are). `core/sound/LufsMeter`.
+The music's absolute volume: BS.1770 K-weighted LUFS over 400 ms (momentary) and 3 s (short-term), -60 LUFS = 0 … 0 LUFS = 1 on every song. Never relative to the song's own average (that is what the bass, mid and treble ratios are). `core/sound/LufsMeter`.
 _Avoid_: Level (the sound frame's `level` is the RMS in dBFS, also absolute, but not K-weighted)
 
 **Silence gate**:
@@ -206,14 +206,14 @@ A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snar
 _Avoid_: Trigger preset
 
 **Event**:
-A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine; the kinds are one table (`core/signal/events/EventKinds.inc`).
+A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine.
 _Avoid_: Trigger (that is the sound frame's field an event comes from), moment (the Music page's groups of sources)
 
 **Event route**:
 A reaction route whose source is an event: on every Nth matching event, it does one thing to one param (set it, nudge it, glide it, step it, toggle it or pulse it). Event recipes are bundles of these. A pulse on a brightness-like param is slowed and limited to three a second.
 
 **Param phase**:
-What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives (`core/signal/params/ParamState.hpp`).
+What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives.
 _Avoid_: Param mode, lock state
 
 **Modulation**:
@@ -356,7 +356,7 @@ The switch, labelled Auto Director, first in Visuals › Settings (and in Settin
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:
@@ -397,7 +397,7 @@ _Avoid_: Emotion (it is a design reading, not a measurement)
 ## Code
 
 **Engine**:
-Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
+Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). Not the `:engine:*` Gradle modules, which hold only the JNI declarations.
 _Avoid_: Core logic, backend
 
 **Playout clock**:
@@ -409,7 +409,7 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:

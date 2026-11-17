@@ -1,6 +1,6 @@
 # Native core (`core/`, `libgeode.so`)
 
-One fact per line. Add a fact as a new bullet in the right group; do not merge bullets into a paragraph (see AGENTS.md › Keeping this map current).
+One fact per line. Add a fact as a new bullet in the right group; do not merge bullets into a paragraph.
 
 ## Build and ABI
 
@@ -21,7 +21,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `Silence` is the wallpaper's and dream's rest-when-silent rule, polled through `geode_silence_*`.
 - The sound engine is MilkDrop's FFT path beside a TouchDesigner-style per-sample filter bank, stepped once per rendered frame into a `GeodeSoundFrame`.
 - How much the music is comes from absolute loudness, never from the song's own average.
-- `LufsMeter` (fosfora's) gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
+- `LufsMeter` gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
 - `Transient` (`core/sound/Transient`) hears the sharp start of any sound per sample: a fast follower over a slow one in the bank's low, middle and high bands and the whole mix, past a threshold read from the last second (median plus MAD), no tempo.
 - Its frame fields are `transient` (a trigger), `transientEnv` and `transientSharpness`, gated and weighted like a hit.

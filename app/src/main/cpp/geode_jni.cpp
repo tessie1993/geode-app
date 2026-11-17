@@ -9,6 +9,27 @@ namespace {
 
 geode_dsp* dspOf(jlong handle) { return reinterpret_cast<geode_dsp*>(handle); }
 
+// ByteBuffer.put(ByteBuffer) and position(int), looked up once (a boot class, never unloaded).
+struct BulkPutIds {
+    jmethodID put = nullptr;
+    jmethodID position = nullptr;
+};
+
+const BulkPutIds& bulkPutIds(JNIEnv* env) {
+    static const BulkPutIds ids = [env] {
+        BulkPutIds k;
+        jclass c = env->FindClass("java/nio/ByteBuffer");
+        if (c) {
+            k.put = env->GetMethodID(c, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
+            if (k.put) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
+            env->DeleteLocalRef(c);
+        }
+        env->ExceptionClear();
+        return k;
+    }();
+    return ids;
+}
+
 }  // namespace
 
 extern "C" {
@@ -259,15 +280,10 @@ Java_dev_geode_engine_bridge_GeodeNative_dspProcessInto(JNIEnv* env, jobject, jl
         return geode_dsp_process_into(dspOf(handle), in + position, bytes, out, static_cast<size_t>(capacity), encoding,
                                       channels);
     }
-    jclass byteBuffer = env->GetObjectClass(output);
-    jmethodID put = env->GetMethodID(byteBuffer, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
-    jmethodID rewind = env->GetMethodID(byteBuffer, "position", "(I)Ljava/nio/Buffer;");
-    if (!put || !rewind || bytes > capacity) {
-        env->ExceptionClear();
-        return 0;
-    }
-    env->DeleteLocalRef(env->CallObjectMethod(output, put, input));
-    env->DeleteLocalRef(env->CallObjectMethod(output, rewind, 0));
+    const BulkPutIds& ids = bulkPutIds(env);
+    if (!ids.position || bytes > capacity) return 0;
+    env->DeleteLocalRef(env->CallObjectMethod(output, ids.put, input));
+    if (!env->ExceptionCheck()) env->DeleteLocalRef(env->CallObjectMethod(output, ids.position, 0));
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return 0;

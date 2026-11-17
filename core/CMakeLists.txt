@@ -228,6 +228,7 @@ add_library(geode_core STATIC
     viz/scenes/MilkdropScene.cpp
     viz/MilkMemory.cpp
     viz/MilkStarterPack.cpp
+    viz/MilkTextures.cpp
     viz/android/AssetStarterSource.cpp
     api/geode_milk_api.cpp
     util/Json.cpp

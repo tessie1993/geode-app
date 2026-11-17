@@ -7,7 +7,7 @@
 //   params_schema_test --write core/tests/params_schema.txt   rewrites the fixture after a deliberate change
 //
 // The fixture is what the shell's JVM tests read in place of geode_params_schema_text (the geode.paramsSchema
-// property, dev.geode.render.scene.ParamSchema), so this check is what keeps their schema the device's.
+// property, the tests' TestParams), so this check is what keeps their schema the device's.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

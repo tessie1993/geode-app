@@ -286,6 +286,24 @@ void aRetiredSlotReadsAsItsDefault() {
     check(wire(SceneParams::sanitized(in.data()))[slot] == wire(kDefaults)[slot], "a retired slot reads as its default");
 }
 
+// What geode_params_get and geode_params_set do with a frame: the shell names a param and keeps no slot of its own.
+void aNamedEditMovesOneSlotOfTheFrame() {
+    const auto before = wire(kDefaults);
+    SceneParams edited = SceneParams::fromWire(before.data());
+    check(edited.set("speed", 2.5f), "a live name is set");
+    const auto after = wire(edited);
+    const auto slot = static_cast<size_t>(SceneParams::slotOf("speed"));
+    for (size_t i = 0; i < after.size(); ++i) {
+        check(i == slot ? after[i] == 2.5f : after[i] == before[i], "only the named slot moves: slot " + std::to_string(i));
+    }
+    check(SceneParams::fromWire(after.data()).get("speed") == 2.5f, "the name reads back what was set");
+    check(edited.set("reactSeed", 6.6f) && edited.get("reactSeed") == 7.0f, "an int rounds");
+    check(!edited.set("pulse", 1.0f), "a retired name is not a param");
+    check(SceneParams::slotOf("noSuchParam") < 0 && !edited.set("noSuchParam", 1.0f), "an unknown name is not a param");
+    const auto retiredSlot = static_cast<size_t>(ParamSlot::pulse);
+    check(wire(edited)[retiredSlot] == before[retiredSlot], "a refused edit changes nothing");
+}
+
 }  // namespace
 
 int main() {
@@ -305,6 +323,7 @@ int main() {
     aHostilePresetIsClampedToTheSchemaRanges();
     overflowingNumbersReadAsTheDefaults();
     aRetiredSlotReadsAsItsDefault();
+    aNamedEditMovesOneSlotOfTheFrame();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

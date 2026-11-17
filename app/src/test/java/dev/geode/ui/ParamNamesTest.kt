@@ -1,7 +1,7 @@
 package dev.geode.ui
 
-import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,15 +13,19 @@ import java.io.File
  * schema fixture (`geode.paramsSchema`), so the typo fails here instead.
  */
 class ParamNamesTest {
+    init {
+        TestParams.install()
+    }
+
     // Customize's controls and the palette stack name their params natively (core/tests/customize_rows_test holds them).
     private val screens = listOf("CustomizeAdvanced", "CustomizeTabs")
 
     // The name argument of LabeledSlider(key, p, "name"), ChoiceChips(key, "name", p), NoteKeySlider(title, hint, p, "name"),
-    // ControlRange.of("name") and ParamSchema.choices("name").
+    // and ControlRange.of("name").
     private val call =
         Regex(
             """(?:Labeled(?:Int)?Slider\(\w+, \w+, |ChoiceChips\([\w.]+, |NoteKeySlider\([\w.]+, [\w.]+, \w+, """ +
-                """|ControlRange\.of\(|ParamSchema\.choices\()"(\w+)"""",
+                """|ControlRange\.of\()"(\w+)"""",
         )
 
     private fun names(): List<String> {
@@ -33,7 +37,7 @@ class ParamNamesTest {
     fun everyNameTheScreensPassIsALiveSchemaRow() {
         val names = names()
         assertTrue("found no names; did the controls' call shapes change?", names.isNotEmpty())
-        val missing = names.filterNot { ParamSchema[it]?.retired == false }
+        val missing = names.filterNot { TestParams.live(it) }
         assertEquals("names with no live params schema row", emptyList<String>(), missing)
     }
 

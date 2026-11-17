@@ -603,7 +603,8 @@ GEODE_API int         geode_params_read_json(const char* document, const char* p
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Then palette|<index>|<name> per built-in
  * palette and choice|<name>|<index>|<label> per picker label (Params.hpp). Static: the pointer stays valid for the
- * process; the shell parses it once. Page placement stays in Kotlin. */
+ * process. The shell does not read it (it asks geode_params_get and _set by name); its JVM tests read the
+ * checked-in copy, core/tests/params_schema.txt. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
@@ -775,6 +776,14 @@ GEODE_API float       geode_touch_rotation(float current, float degrees);
  * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
  * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
 GEODE_API int         geode_params_control_range(const char* name, float* out);
+/* One scene param by its name in a geode_viz_set_params frame (viz/Params SceneParams::get and ::set), so the shell
+ * keeps no slot, kind or default of its own. defaults: every row at its default, geode_viz_param_count floats into
+ * out. get: the param's value, an int or a flag as a float; NaN for a NULL frame or a name with no live row (unknown
+ * or retired). set: `in` with the param at `value` (an int rounds, a flag is value > 0.5) into out and 1; 0, out
+ * untouched, for a name with no live row. in and out may alias. Pure, any thread. */
+GEODE_API void        geode_params_defaults(float* out);
+GEODE_API float       geode_params_get(const float* frame, const char* name);
+GEODE_API int         geode_params_set(const float* in, const char* name, float value, float* out);
 
 /* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
  * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each

@@ -1108,11 +1108,21 @@ object GeodeNative {
      */
     external fun cataloguePresetsText(): String
 
-    /**
-     * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
-     * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
-     */
-    external fun paramsSchemaText(): String
+    /** Every scene param at its default, as a new `geode_viz_set_params` frame (`geode_params_defaults`, core/viz/Params). */
+    external fun paramsDefaults(): FloatArray
+
+    /** Param [name] of the params [frame], an int or a flag as a float; NaN for a name with no live row (`geode_params_get`). */
+    external fun paramsGet(
+        frame: FloatArray,
+        name: String,
+    ): Float
+
+    /** [frame] with param [name] at [value], as a new frame; null for a name with no live row (`geode_params_set`). */
+    external fun paramsSet(
+        frame: FloatArray,
+        name: String,
+        value: Float,
+    ): FloatArray?
 
     /**
      * The text a Customize control shows for [value] (core/viz/ParamText, `geode_param_text`): a %, ×, s or

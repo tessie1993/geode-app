@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -11,6 +12,10 @@ import org.junit.Test
  * core/tests/presets_test.cpp's job. Here: a look's values land on its params by name over the defaults.
  */
 class BuiltInPresetsTest {
+    init {
+        TestParams.install()
+    }
+
     private val text =
         listOf(
             "presets|1|2|3",

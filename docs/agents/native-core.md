@@ -156,7 +156,7 @@ The renderer runs these in order each frame.
 - `CameraRig` has twelve paths (`camPath` 0..11): glide, spiral, orbit, hover, drive, fall, rise, weave, corkscrew, swoop, strafe, pendulum.
 - The Camera path chips' labels are `camPath`'s `GEODE_PARAM_CHOICES` row in `core/viz/ParamTable.inc`, by index.
 - `CameraRig.cpp` static_asserts that row's count (`choiceCount`) against `CameraRig::kPathCount`.
-- Every picker's labels (`GEODE_PARAM_CHOICES`) reach the shell as `choice|name|index|label` rows of `geode_params_schema_text` (version 4), read by `ParamSchema.choices`.
+- Every picker's labels (`GEODE_PARAM_CHOICES`) are `choice|name|index|label` rows of `geode_params_schema_text` (version 4); no Kotlin reads them.
 - Kaleidoscope is one Float param, `kaleidoFolds` (1 off, 2..16 folds; appended slot 187), a modulation target (`LfoTarget::KaleidoFolds`, `KALEIDO_FOLDS`, ordinal 68, 8 folds per unit) for waves, envelopes, reaction routes and macro knobs.
 - The old `kaleidoscope` switch and `symmetry` count are retired rows (`kRetiredParams`); `readParamsJson` turns a look that names them into `kaleidoFolds` (`SceneParams::kaleidoFoldsOf`: off is 1, on its count held to 2..16).
 - The shaders fold by the nearest whole count of the modulated `kaleidoFolds`: `SceneParams::kaleidoUniforms` sets `uKaleido`/`uSymmetry` (ShaderScene) and `uPostKaleido`/`uPostSymmetry` (CompositePass), on from 2, the count 6 (`kDefaultSymmetryFolds`) while off.

@@ -6,7 +6,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 
 - JVM unit tests live in `app/src/test` and `engine/*/src/test`; CI runs every module's.
 - Instrumented tests live in `app/src/androidTest`.
-- `engine/scenes/src/test/` covers wire layouts, the saved-reactions codec, the catalogue, the params schema and the modulation-target table as Kotlin reads them.
+- `engine/scenes/src/test/` holds no test: the module has no Kotlin left.
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
 - `app/src/androidTest/.../ui/SceneTabLayersTest.kt`: "Layers enabled" on the Layers page turns native's layer on, and a search for "layer" finds it.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
@@ -118,7 +118,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_json_test.cpp` also pins the stored text read as org.json parsed it (a long literal's low 32 bits, a double saturating, the fallback for text that is not standard JSON) and object or array ids as org.json prints them.
 - `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.
 - `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, cannot be edited by name and is not saved, so an old look naming one still loads.
-- `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.
+- `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property (`TestParams`, which `TestCatalogue.install` also installs); regenerate it with `params_schema_test --write`.
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link.
 - `look_files_test.cpp`: `core/viz/LookFiles` and `ParamsPalette`: file stems, saved palettes' text and rules, presets over `app/src/test/resources/presets` (the old PresetGoldenTest's cases), template file names and starters.

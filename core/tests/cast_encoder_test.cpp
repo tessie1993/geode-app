@@ -14,6 +14,7 @@
 #include <deque>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "cast/CastEncoder.hpp"
@@ -205,13 +206,13 @@ void testStream() {
     check(made[1]->inputs.size() == 2 && made[1]->inputs[1].first == 1600 * 1'000'000LL / 48'000, "the next at 1600 frames on");
 
     // Configs, then a keyframe and frames, then AAC.
-    made[0]->outputs.push_back({kConfig, 0, sink::kFlagCodecConfig});
-    made[1]->outputs.push_back({{0x11, 0x90}, 0, sink::kFlagCodecConfig});
+    made[0]->outputs.push_back({kConfig, 0, sink::kFlagCodecConfig, false});
+    made[1]->outputs.push_back({{0x11, 0x90}, 0, sink::kFlagCodecConfig, false});
     for (int i = 0; i < 40; ++i) {
         const Buf frame = {0, 0, 0, 1, static_cast<uint8_t>(i % 30 == 0 ? 0x65 : 0x41), static_cast<uint8_t>(i)};
-        made[0]->outputs.push_back({frame, i * 33'333LL, i % 30 == 0 ? sink::kFlagKeyFrame : 0u});
+        made[0]->outputs.push_back({frame, i * 33'333LL, i % 30 == 0 ? sink::kFlagKeyFrame : 0u, false});
     }
-    for (int i = 0; i < 60; ++i) made[1]->outputs.push_back({{0x21, static_cast<uint8_t>(i)}, i * 21'333LL, 0});
+    for (int i = 0; i < 60; ++i) made[1]->outputs.push_back({{0x21, static_cast<uint8_t>(i)}, i * 21'333LL, 0, false});
     for (int i = 0; i < 20; ++i) e->step(0);
     check(seen.configs.size() == 1 && seen.configs[0] == kConfig, "the SPS and PPS to WebRTC as the codec gave them");
     check(seen.videoFrames == 40, "every frame to WebRTC");
@@ -229,8 +230,8 @@ void testStream() {
     e->queuePcm(pcm.data(), 1600);
     e->step(2'000);
     check(made[2]->inputs.size() == 1 && made[2]->inputs[0].first == 0, "Opus gets the PCM, its PTS from 0");
-    made[2]->outputs.push_back({{0x4F, 0x70}, 0, sink::kFlagCodecConfig});
-    made[2]->outputs.push_back({{0xFC, 1}, 0, 0});
+    made[2]->outputs.push_back({{0x4F, 0x70}, 0, sink::kFlagCodecConfig, false});
+    made[2]->outputs.push_back({{0xFC, 1}, 0, 0, false});
     e->step(3'000);
     check(seen.opus.size() == 1 && seen.opus[0] == Buf({0xFC, 1}), "the Opus header is not sent, a packet is");
 

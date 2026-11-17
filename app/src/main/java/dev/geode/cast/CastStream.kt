@@ -247,7 +247,7 @@ internal class CastStream(
                     fallbackDrewNs = now
                 } else if (fallback != null && GeodeNative.castFallbackRelease(now, fallbackDrewNs)) {
                     // The stage has led for a while: give the fallback's scenes and sound engine back.
-                    bestEffort(TAG, "fallback.release()") { fallback?.release() }
+                    bestEffort(TAG, "fallback.release()") { fallback.release() }
                     fallback = null
                 }
                 out.setPresentationTimeNs(ptsNs)

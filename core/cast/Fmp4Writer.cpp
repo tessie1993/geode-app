@@ -284,8 +284,8 @@ void Fmp4Writer::writeFragment(size_t videoCount) {
         size_t offsetField = 0;
     };
     const int64_t videoLast = lastVideoDuration_ > 0 ? lastVideoDuration_ : 1;
-    Run runs[2] = {{&videoQ_, videoCount, kVideoTrack, videoLast},
-                   {&audioQ_, audioQ_.size(), kAudioTrack, kAacFrameSamples}};
+    Run runs[2] = {{&videoQ_, videoCount, kVideoTrack, videoLast, 0},
+                   {&audioQ_, audioQ_.size(), kAudioTrack, kAacFrameSamples, 0}};
 
     Buf moof;
     const size_t moofAt = open(moof, "moof");

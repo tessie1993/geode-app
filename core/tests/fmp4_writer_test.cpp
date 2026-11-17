@@ -205,8 +205,8 @@ void testStream() {
     const Buf a0 = {0x21, 0, 0};
     w.audio(a0.data(), a0.size(), 0);
     const Buf early = accessUnit(false, 0xEE);
-    w.video(early.data(), early.size(), 0);
-    w.video(early.data(), early.size(), frameUs);
+    w.video(early.data(), early.size(), 0, false);
+    w.video(early.data(), early.size(), frameUs, false);
     w.videoConfig(kConfig.data(), kConfig.size());
     check(out.writes.empty(), "samples held while a config is missing");
     w.audioConfig(kAsc.data(), kAsc.size());
@@ -225,7 +225,7 @@ void testStream() {
         }
         const bool key = (i - 2) % 30 == 0;
         const Buf v = accessUnit(key, static_cast<uint8_t>(i));
-        w.video(v.data(), v.size(), pts);
+        w.video(v.data(), v.size(), pts, key);
     }
     check(out.writes.size() == 4, "three fragments cut on the keyframes");
     w.flush();
@@ -308,10 +308,10 @@ void testTimeGoesForward() {
     w.audioConfig(kAsc.data(), kAsc.size());
     const Buf key = accessUnit(true, 1);
     const Buf delta = accessUnit(false, 2);
-    w.video(key.data(), key.size(), 1'000'000);
-    w.video(delta.data(), delta.size(), 1'000'000);   // the same PTS
-    w.video(delta.data(), delta.size(), 900'000);     // back
-    w.video(delta.data(), delta.size(), 1'100'000);
+    w.video(key.data(), key.size(), 1'000'000, true);
+    w.video(delta.data(), delta.size(), 1'000'000, false);   // the same PTS
+    w.video(delta.data(), delta.size(), 900'000, false);     // back
+    w.video(delta.data(), delta.size(), 1'100'000, false);
     const Buf a = {1, 2};
     w.audio(a.data(), a.size(), 1'000'000);
     w.audio(a.data(), a.size(), 1'000'000);
@@ -326,7 +326,7 @@ void testTimeGoesForward() {
     check(d.size() == 4 && d[0] == 1 && d[1] == 1 && d[2] == 9'000 - 2, "a PTS that does not move on is one tick on");
     check(trafs[1].durations.size() == 2 && trafs[1].durations[0] == 1024, "audio one AAC frame on");
     // The empty sample is never a sample.
-    w.video(nullptr, 0, 0);
+    w.video(nullptr, 0, 0, false);
     w.audio(nullptr, 0, 0);
     w.flush();
     check(out.writes.size() == 2, "nothing to flush, nothing written");

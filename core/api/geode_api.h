@@ -404,6 +404,12 @@ GEODE_API int        geode_playback_crossfade_ms(float seconds);
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
 
+/* The A-B loop (audio/dsp/PlaybackControls), -1 for a point not set. cycle: A-B pressed at at_ms, out2 = the new
+ * start and end (none set marks A; A alone and more than 1 s past it marks B, else moves A; both set clears).
+ * seek: the ms to seek to at position_ms (A once B is reached), or -1. Pure, any thread. */
+GEODE_API void       geode_ab_loop_cycle(int64_t start_ms, int64_t end_ms, int64_t at_ms, int64_t* out2);
+GEODE_API int64_t    geode_ab_loop_seek(int64_t start_ms, int64_t end_ms, int64_t position_ms);
+
 /* Which track positions are remembered (audio/dsp/TrackBookmark). Pure, any thread. Verdict: 0 ignore (a track
  * under 20 minutes, or of unknown length), 1 clear (within 10 s of either end), 2 save this position. */
 GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);

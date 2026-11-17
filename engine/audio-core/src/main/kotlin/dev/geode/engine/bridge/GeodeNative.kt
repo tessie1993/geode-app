@@ -215,6 +215,20 @@ object GeodeNative {
         hasNext: Boolean,
     ): Int
 
+    /** The A-B loop after a press at [atMs] (audio/dsp/PlaybackControls), as `[start, end]`; -1 is a point not set. */
+    external fun abLoopCycle(
+        startMs: Long,
+        endMs: Long,
+        atMs: Long,
+    ): LongArray
+
+    /** Where to seek at [positionMs]: the loop's start once its end is reached, else -1. */
+    external fun abLoopSeek(
+        startMs: Long,
+        endMs: Long,
+        positionMs: Long,
+    ): Long
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.

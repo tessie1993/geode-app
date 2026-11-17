@@ -7,6 +7,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import dev.geode.data.MediaStoreSource
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.model.OpenedAudio
@@ -407,15 +408,9 @@ internal class QueueController(
     }
 
     fun cycleAbLoop() {
-        val at = player.currentPosition.coerceAtLeast(0)
         val loop = _abLoop.value
-        _abLoop.value =
-            when {
-                loop == null -> AbLoop(at)
-                loop.endMs == null && at > loop.startMs + MIN_LOOP_MS -> loop.copy(endMs = at)
-                loop.endMs == null -> AbLoop(at)
-                else -> null
-            }
+        val next = GeodeNative.abLoopCycle(loop?.startMs ?: NO_POINT, loop?.endMs ?: NO_POINT, player.currentPosition)
+        _abLoop.value = if (next[0] < 0) null else AbLoop(next[0], next[1].takeIf { it >= 0 })
     }
 
     fun clearAbLoop() {
@@ -424,11 +419,12 @@ internal class QueueController(
 
     fun enforceAbLoop() {
         val loop = _abLoop.value ?: return
-        val end = loop.endMs ?: return
-        if (player.currentPosition >= end) player.seekTo(loop.startMs)
+        val to = GeodeNative.abLoopSeek(loop.startMs, loop.endMs ?: NO_POINT, player.currentPosition)
+        if (to >= 0) player.seekTo(to)
     }
 
     private companion object {
-        const val MIN_LOOP_MS = 1_000L
+        /** Native's mark for an A-B point not set. */
+        const val NO_POINT = -1L
     }
 }

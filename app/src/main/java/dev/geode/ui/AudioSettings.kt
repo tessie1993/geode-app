@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.CaptureFailure
-import dev.geode.data.VisualsSettingsCodec
+import dev.geode.data.NativeLookDefaults
 import dev.geode.engine.bridge.GeodeNative
 import kotlin.math.roundToInt
 
@@ -59,7 +59,7 @@ internal fun PresetMorphRow(viewModel: SettingsViewModel) {
             labelStyle = LocalTextStyle.current,
             value = visuals.presetMorphSeconds,
             onValueChange = { viewModel.updateVisuals { s -> s.copy(presetMorphSeconds = it) } },
-            valueRange = 0f..VisualsSettingsCodec.PRESET_MORPH_SECONDS_MAX,
+            valueRange = 0f..NativeLookDefaults.presetMorphSecondsMax,
         )
     }
 }

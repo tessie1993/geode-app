@@ -218,6 +218,20 @@ object GeodeNative {
         hasNext: Boolean,
     ): Int
 
+    /** The A-B loop after a press at [atMs] (audio/dsp/PlaybackControls), as `[start, end]`; -1 is a point not set. */
+    external fun abLoopCycle(
+        startMs: Long,
+        endMs: Long,
+        atMs: Long,
+    ): LongArray
+
+    /** Where to seek at [positionMs]: the loop's start once its end is reached, else -1. */
+    external fun abLoopSeek(
+        startMs: Long,
+        endMs: Long,
+        positionMs: Long,
+    ): Long
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -957,7 +971,10 @@ object GeodeNative {
         transitionMs: Long,
     )
 
-    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    /**
+     * The look a renderer starts on before one is set, a line each: scene id, transition id and its ms, then the
+     * shell's visual defaults: attack, decay, style timer s, playlist interval s and the preset morph's longest s.
+     */
     external fun vizLookDefaults(): String
 
     /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
@@ -1607,6 +1624,18 @@ object GeodeNative {
         targetW: Int,
         targetH: Int,
     ): IntArray
+
+    /**
+     * BitmapFactory's power-of-two `inSampleSize` for a [srcW]x[srcH] picture: [fit] false, the largest leaving both
+     * sides at least the target (the underlay); true, the smallest bringing both within it (the artwork).
+     */
+    external fun underlaySampleSize(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+        fit: Boolean,
+    ): Int
 
     /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
     external fun underlayFinish(

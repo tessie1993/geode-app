@@ -1255,6 +1255,12 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayCropRect(JNIEnv* env, jobject, 
     return result;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlaySampleSize(JNIEnv*, jobject, jint srcW, jint srcH, jint targetW, jint targetH,
+                                                            jboolean fit) {
+    return geode_underlay_sample_size(srcW, srcH, targetW, targetH, fit == JNI_TRUE ? 1 : 0);
+}
+
 // In place on width*height ARGB ints; a size the array cannot hold does nothing.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_underlayFinish(JNIEnv* env, jobject, jintArray pixels, jint width, jint height,

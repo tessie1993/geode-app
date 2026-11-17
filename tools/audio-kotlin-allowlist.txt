@@ -10,8 +10,8 @@ permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt media3-audio
 permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt native-call:pcmRingWriteDirect the tap forwards Media3's buffer to the native PCM ring
 permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmRingWriteDirect the tap's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt media3-audio-type Media3 requires a BaseAudioProcessor class; the DSP is native
-permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt native-call:dspProcessBytes the processor forwards Media3's buffer to the native DSP chain
-permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessBytes the processor's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt native-call:dspProcessInto the processor forwards Media3's buffer to the native DSP chain
+permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessInto the processor's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/MvzAudioProcessorChain.kt media3-audio-type Media3 requires an AudioProcessorChain class; it orders the processors
 permanent app/src/main/java/dev/geode/audio/dsp/MvzAudioProcessorChain.kt media3-audio-new builds Media3's own Sonic and silence-skipping processors; Kotlin never reads a sample
 permanent app/src/main/java/dev/geode/audio/TapRenderersFactory.kt media3-audio-type Media3 renderers factory and output-provider trampoline; wires the tap, the DSP and the native output
@@ -25,15 +25,7 @@ permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt native-call:aiffSca
 permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:aiffScanStep the scan's JNI declaration (ExtractorInput hands the JVM a byte array)
 
 # ---- debt: capture ----
-debt app/src/main/java/dev/geode/audio/AudioCapturePump.kt audiorecord reads capture into a JVM array; port: native capture (Oboe) or a buffer the native ring owns
-debt app/src/main/java/dev/geode/audio/AudioCapturePump.kt native-call:pcmRingWriteFloats copies the AudioRecord float array into the native ring
-debt app/src/main/java/dev/geode/audio/AudioCapturePump.kt native-call:pcmRingWriteShorts copies the AudioRecord short array into the native ring
-debt app/src/main/java/dev/geode/audio/PlaybackCapture.kt audiorecord opens the playback-capture AudioRecord whose reads AudioCapturePump pumps
 debt app/src/main/java/dev/geode/wallpaper/OutputMixCapture.kt visualizer reads the output mix as Visualizer waveform bytes on the JVM
-debt app/src/main/java/dev/geode/wallpaper/OutputMixCapture.kt native-call:pcmRingWriteBytes copies the Visualizer byte array into the native ring
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmRingWriteBytes JNI declaration taking a ByteArray of samples
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmRingWriteFloats JNI declaration taking a FloatArray of samples
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmRingWriteShorts JNI declaration taking a ShortArray of samples
 
 # ---- debt: viz feed ----
 debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio passes an interleaved FloatArray to a renderer's sound engine
@@ -52,8 +44,6 @@ debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt ex
 debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:resamplerProcess JNI declaration taking and returning a ShortArray of PCM
 debt app/src/main/java/dev/geode/export/LoopExtend.kt extractor-sample copies the soundtrack's compressed samples through MediaExtractor
 debt app/src/main/java/dev/geode/export/LoopExtend.kt muxer-sample writes AAC samples to the MediaMuxer
-debt app/src/main/java/dev/geode/export/VideoExporter.kt codec-buffer drains the video encoder (not audio) and the AAC feed through MediaCodec output buffers
-debt app/src/main/java/dev/geode/export/VideoExporter.kt muxer-sample writes the AAC feed's samples to the MediaMuxer beside the video
 
 # ---- debt: cast ----
 debt app/src/main/java/dev/geode/cast/CastEncoder.kt codec-buffer queues PCM into and drains AAC from MediaCodec buffers
@@ -63,3 +53,5 @@ debt app/src/main/java/dev/geode/cast/WebRtcLink.kt codec-buffer queues PCM into
 debt app/src/main/java/dev/geode/cast/WebRtcLink.kt native-call:webrtcAudio sends Opus bytes to the native WebRTC link
 debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:castAudioRead JNI declaration returning PCM in a ShortArray
 debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:webrtcAudio JNI declaration taking a ByteArray of Opus data
+debt app/src/main/java/dev/geode/export/VideoExporter.kt native-call:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)
+debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)

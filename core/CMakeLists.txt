@@ -8,6 +8,7 @@ add_library(geode_core STATIC
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_gesture_api.cpp
     api/geode_params_json_api.cpp
     viz/ParamsJson.cpp
     viz/ParamsPalette.cpp

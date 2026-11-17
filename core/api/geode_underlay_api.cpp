@@ -14,6 +14,10 @@ void geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, 
     out_xywh[3] = r.height;
 }
 
+int geode_underlay_sample_size(int src_w, int src_h, int target_w, int target_h, int fit) {
+    return underlay::sampleSize(src_w, src_h, target_w, target_h, fit != 0);
+}
+
 void geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim) {
     underlay::finish(pixels, width, height, blur_radius, dim);
 }

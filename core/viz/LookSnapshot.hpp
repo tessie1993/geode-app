@@ -1,8 +1,11 @@
 #pragma once
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "viz/TableNumber.hpp"
 
 // The look snapshot (GLOSSARY): everything the user set that decides what a renderer draws, as the shell hands it
 // whole (geode_viz_set_look). The latch keeps the one set last, so only the parts that differ reach the renderer.
@@ -14,9 +17,28 @@ inline constexpr char kFirstSceneId[] = "neon_chrome_sea";
 inline constexpr char kFirstTransitionId[] = "fade";
 inline constexpr int64_t kFirstTransitionMs = 1200;
 
-// Those defaults for the shell (geode_viz_look_defaults): scene id, transition id, transition ms, each line ended.
+// The shell's visual defaults before the user sets any: the rise and fall, the style timer and the playlist's
+// interval in seconds, and the preset morph's longest glide in seconds (its slider's top).
+inline constexpr float kFirstAttack = 0.6f;
+inline constexpr float kFirstDecay = 0.12f;
+inline constexpr int kFirstStyleTimerSec = 20;
+inline constexpr int kFirstPlaylistTimerSec = 30;
+inline constexpr float kPresetMorphSecMax = 8.0f;
+
+// The transition length the user may set (Customize's slider, CustomizeRows), held where a look is applied.
+inline constexpr int64_t kTransitionMsMin = 300;
+inline constexpr int64_t kTransitionMsMax = 5000;
+inline int64_t clampTransitionMs(int64_t ms) { return std::clamp(ms, kTransitionMsMin, kTransitionMsMax); }
+
+// A preset morph's glide held to 0..kPresetMorphSecMax; NaN or less is none.
+inline float clampPresetMorphSec(float seconds) { return seconds > 0.0f ? std::min(seconds, kPresetMorphSecMax) : 0.0f; }
+
+// Those defaults for the shell (geode_viz_look_defaults), each line ended: scene id, transition id, transition ms,
+// attack, decay, style timer s, playlist interval s, preset morph max s.
 inline std::string lookDefaultsText() {
-    return std::string(kFirstSceneId) + '\n' + kFirstTransitionId + '\n' + std::to_string(kFirstTransitionMs) + '\n';
+    return std::string(kFirstSceneId) + '\n' + kFirstTransitionId + '\n' + std::to_string(kFirstTransitionMs) + '\n' +
+           tableNumber(kFirstAttack) + '\n' + tableNumber(kFirstDecay) + '\n' + std::to_string(kFirstStyleTimerSec) + '\n' +
+           std::to_string(kFirstPlaylistTimerSec) + '\n' + tableNumber(kPresetMorphSecMax) + '\n';
 }
 
 // The waves, the envelopes and the routes are their saved texts; no tuning is the engine's defaults.

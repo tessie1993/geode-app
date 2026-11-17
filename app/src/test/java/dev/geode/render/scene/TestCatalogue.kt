@@ -1,5 +1,6 @@
 package dev.geode.render.scene
 
+import dev.geode.data.NativeLookDefaults
 import dev.geode.engine.bridge.GeodeNative
 
 /**
@@ -45,10 +46,14 @@ object TestCatalogue : StyleCatalogue.Reads {
     private val fluid: List<String> = listOf("fluid", "fluid_ink")
     private val cymatics: List<String> = picker.getValue("cymatics")
 
-    /** Installs this catalogue, and [TestParams] with it: the types a catalogue test builds default to [SceneParams.DEFAULT]. */
+    /**
+     * Installs this catalogue, and [TestParams] with it: the types a catalogue test builds default to [SceneParams.DEFAULT].
+     * The look defaults are a stand-in in native's shape; native's own are core/tests/look_snapshot_test's.
+     */
     fun install() {
         StyleCatalogue.install(this)
         TestParams.install()
+        NativeLookDefaults.install { "neon_chrome_sea\nfade\n1200\n0.6\n0.12\n20\n30\n8\n" }
     }
 
     override fun styleIds(trait: Int): String =

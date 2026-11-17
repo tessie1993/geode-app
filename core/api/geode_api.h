@@ -187,7 +187,9 @@ typedef struct geode_viz_look {
 /* Any thread. Only the parts that differ from the look set last on this renderer reach it (all of them on a new
    renderer), so a transition or a scene set again restarts nothing. The scene is a request, as above. */
 GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
-/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
+/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n", then the
+   shell's visual defaults a line each: attack, decay, style timer s, playlist interval s, preset morph max s.
+   Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
@@ -402,6 +404,12 @@ GEODE_API int        geode_playback_crossfade_ms(float seconds);
 /* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
+
+/* The A-B loop (audio/dsp/PlaybackControls), -1 for a point not set. cycle: A-B pressed at at_ms, out2 = the new
+ * start and end (none set marks A; A alone and more than 1 s past it marks B, else moves A; both set clears).
+ * seek: the ms to seek to at position_ms (A once B is reached), or -1. Pure, any thread. */
+GEODE_API void       geode_ab_loop_cycle(int64_t start_ms, int64_t end_ms, int64_t at_ms, int64_t* out2);
+GEODE_API int64_t    geode_ab_loop_seek(int64_t start_ms, int64_t end_ms, int64_t position_ms);
 
 /* Which track positions are remembered (audio/dsp/TrackBookmark). Pure, any thread. Verdict: 0 ignore (a track
  * under 20 minutes, or of unknown length), 1 clear (within 10 s of either end), 2 save this position. */
@@ -941,6 +949,9 @@ GEODE_API const char* geode_macro_bank_live_mods(void);
  * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
  * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
 GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+/* The power-of-two decode subsample for a src picture: fit 0, the largest leaving both sides at least the target
+   (the underlay); fit 1, the smallest bringing both within it (the artwork). 1 for a non-positive size. */
+GEODE_API int         geode_underlay_sample_size(int src_w, int src_h, int target_w, int target_h, int fit);
 GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
 GEODE_API float       geode_underlay_clamp_amount(float amount);
 GEODE_API float       geode_underlay_clamp_dim(float dim);

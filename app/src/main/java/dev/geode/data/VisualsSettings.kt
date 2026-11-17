@@ -35,8 +35,6 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
     internal const val KEY_TOUCH_SMEAR = "gui_touch_smear"
     internal const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
 
-    const val PRESET_MORPH_SECONDS_MAX = 8f
-
     override val defaults = VisualsSettings()
 
     override val keys =
@@ -58,9 +56,6 @@ object VisualsSettingsCodec : PrefsCodec<VisualsSettings> {
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, d.touchSmearStrength),
         )
     }
-
-    override fun normalize(value: VisualsSettings) =
-        value.copy(presetMorphSeconds = value.presetMorphSeconds.coerceIn(0f, PRESET_MORPH_SECONDS_MAX))
 
     override fun write(
         editor: SharedPreferences.Editor,

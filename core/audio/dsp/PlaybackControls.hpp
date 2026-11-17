@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // Settings › Playback's rows as the player takes them: speed, pitch, the fades, the crossfade, the repeat
 // mode and ReplayGain, with the range, step and default each one has. Pure; host-tested in
 // core/tests/playback_controls_test.cpp.
@@ -50,5 +52,19 @@ float snapToStep(float value, float step);
 inline constexpr int kMaxConsecutiveFailures = 3;
 enum class ErrorAction : int { SkipToNext = 0, StopEndOfQueue = 1, StopSourceUnavailable = 2 };
 ErrorAction errorAction(int consecutiveFailures, bool hasNext);
+
+// The player's A-B loop: kAbNone where a point is not set. Each press of A-B at atMs (below 0 reads as 0): nothing
+// set marks A; with A alone, a point more than kAbLoopMinMs past A marks B, an earlier one moves A there; with
+// both set, the loop clears.
+inline constexpr int64_t kAbNone = -1;
+inline constexpr int64_t kAbLoopMinMs = 1000;
+struct AbLoop {
+    int64_t startMs = kAbNone;
+    int64_t endMs = kAbNone;
+};
+AbLoop abLoopCycle(AbLoop loop, int64_t atMs);
+
+// Where the player seeks at positionMs: A once B is reached, kAbNone while it plays on (or no whole loop is set).
+int64_t abLoopSeek(AbLoop loop, int64_t positionMs);
 
 }  // namespace geode::audio

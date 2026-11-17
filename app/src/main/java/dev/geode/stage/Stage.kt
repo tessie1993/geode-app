@@ -111,7 +111,7 @@ class Stage(
 
     private val liquid = MutableStateFlow(0)
 
-    /** What Liquid mode ran last (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused); changes only. */
+    /** What Liquid mode ran last (`liquid::Mode`: 0 off, 1 full); changes only. */
     val liquidMode: StateFlow<Int> = liquid.asStateFlow()
 
     // The ring handed to native last.

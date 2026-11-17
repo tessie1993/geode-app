@@ -50,7 +50,7 @@ public:
     explicit FrameMonitor(float targetFps = 50.0f, float sustainSeconds = 2.5f, int windowSize = 30)
         : targetFps_(targetFps),
           sustainSeconds_(sustainSeconds),
-          windowSize_(std::min(windowSize, static_cast<int>(samples_.size()))) {}
+          windowSize_(std::clamp(windowSize, 1, kMaxWindow)) {}
 
     // The rate the surface is paced at, 0 when free-running.
     void setPacedFps(float fps) { pacedFps_ = fps; }
@@ -94,6 +94,7 @@ public:
     }
 
 private:
+    static constexpr int kMaxWindow = 64;
     static constexpr float kKeepingUpFraction = 0.85f;
     // The paced rate the default target (50) was tuned against.
     static constexpr float kTargetTunedAtFps = 60.0f;
@@ -109,7 +110,7 @@ private:
     float targetFps_;
     float sustainSeconds_;
     int windowSize_;
-    std::array<float, 64> samples_{};
+    std::array<float, kMaxWindow> samples_{};
     int count_ = 0;
     int index_ = 0;
     float deficitSeconds_ = 0.0f;

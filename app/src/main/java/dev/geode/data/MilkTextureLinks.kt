@@ -146,7 +146,7 @@ class MilkTextureLinks(
                         MilkTextureLinkKind.entries.getOrElse(kind.toIntOrNull() ?: -1) { MilkTextureLinkKind.MISSING },
                     )
                 },
-            linkNames = rows.map { row -> row.drop(3).filter { it.isNotEmpty() } },
+            linkNames = rows.map { (_, _, _, first, second) -> listOf(first, second).filter { it.isNotEmpty() } },
         )
     }
 

@@ -46,12 +46,5 @@ debt app/src/main/java/dev/geode/export/LoopExtend.kt extractor-sample copies th
 debt app/src/main/java/dev/geode/export/LoopExtend.kt muxer-sample writes AAC samples to the MediaMuxer
 
 # ---- debt: cast ----
-debt app/src/main/java/dev/geode/cast/CastEncoder.kt codec-buffer queues PCM into and drains AAC from MediaCodec buffers
-debt app/src/main/java/dev/geode/cast/CastEncoder.kt muxer-sample writes AAC samples to the MediaMuxer
-debt app/src/main/java/dev/geode/cast/CastStream.kt native-call:castAudioRead reads the cast's PCM into a ShortArray
-debt app/src/main/java/dev/geode/cast/WebRtcLink.kt codec-buffer queues PCM into and drains Opus from MediaCodec buffers
-debt app/src/main/java/dev/geode/cast/WebRtcLink.kt native-call:webrtcAudio sends Opus bytes to the native WebRTC link
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:castAudioRead JNI declaration returning PCM in a ShortArray
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:webrtcAudio JNI declaration taking a ByteArray of Opus data
 debt app/src/main/java/dev/geode/export/VideoExporter.kt native-call:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)
 debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)

@@ -102,6 +102,39 @@ int threadCount() {
     return error ? -1 : n;
 }
 
+// Back to `before` threads: a joined thread can still be listed for a moment after join() returns.
+bool threadsBackTo(int before) {
+    const auto deadline = Clock::now() + std::chrono::milliseconds(100);
+    while (threadCount() != before && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    return threadCount() == before;
+}
+
+// Every hop published since the last call against a bare engine whose position 0 is ring position `base`: the frame
+// and feeling at the hop, its clock, and a position between hops, where only the phases move.
+struct Compared {
+    int64_t checked = -1;
+    int hops = 0;
+    int differ = 0;
+};
+void compareNew(const AnalysisThread& at, const SoundEngine& bare, int64_t base, Compared& c) {
+    GeodeSoundFrame mine{};
+    GeodeSoundFrame theirs{};
+    at.hopsBetween(c.checked, kAll, [&](const Heard& h) {
+        Emotion::State feeling{};
+        const bool read = at.frameAt(h.position, mine, &feeling) && bare.frameAt(h.position - base, theirs);
+        const SoundEngine::Hop* kept = keptAt(bare, h.position - base);
+        c.hops++;
+        if (!read || kept == nullptr || !same(mine, theirs) || !same(feeling, kept->emotion) || !same(h.clock, kept->clock)) {
+            c.differ++;
+        }
+        const int64_t between = h.position + 211;
+        at.frameAt(between, mine);
+        bare.frameAt(between - base, theirs);
+        if (!same(mine, theirs)) c.differ++;
+        c.checked = h.position;
+    });
+}
+
 // Inline (pump()) against a bare SoundEngine fed the same frames: every published hop, and positions between hops,
 // read the same frame and feeling, across irregular blocks, a new epoch mid-stream and, with `controls`, a tuning
 // change, a track boundary, a reset, an emotion reset and the player's fade sent mid-stream.
@@ -111,15 +144,12 @@ void inlineMatchesBare(int rate, bool controls) {
     PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     SoundEngine bare(rate);
-    GeodeSoundFrame mine{};
-    GeodeSoundFrame theirs{};
-    check(!at.frameAt(0, mine) && at.newestPosition() == -1, "no hop before any audio");
+    GeodeSoundFrame none{};
+    check(!at.frameAt(0, none) && at.newestPosition() == -1, "no hop before any audio");
     Lcg rng{0x5EEDF00Du + static_cast<uint32_t>(rate)};
     int64_t base = 0;  // the ring position of the bare engine's position 0
     int64_t done = 0;
-    int64_t checked = -1;
-    int compared = 0;
-    int differ = 0;
+    Compared c;
     int block = 0;
     bool epoch = false;
     while (done < total) {
@@ -159,26 +189,12 @@ void inlineMatchesBare(int rate, bool controls) {
         done += size;
         block++;
         at.pump(0.01f);
-        at.hopsBetween(checked, kAll, [&](const Heard& h) {
-            Emotion::State feeling{};
-            const bool read = at.frameAt(h.position, mine, &feeling) && bare.frameAt(h.position - base, theirs);
-            const SoundEngine::Hop* kept = keptAt(bare, h.position - base);
-            compared++;
-            if (!read || kept == nullptr || !same(mine, theirs) || !same(feeling, kept->emotion) || !same(h.clock, kept->clock)) {
-                differ++;
-            }
-            // Between hops only the phases move, as the bare engine moves them.
-            const int64_t between = h.position + 211;
-            at.frameAt(between, mine);
-            bare.frameAt(between - base, theirs);
-            if (!same(mine, theirs)) differ++;
-            checked = h.position;
-        });
+        compareNew(at, bare, base, c);
     }
     std::printf("  %d Hz%s: %d hops compared with the bare engine, %d differ\n", rate, controls ? " with controls" : "",
-                compared, differ);
-    check(compared > total / rate * 90, "about a hundred hops a second published");
-    check(differ == 0, "inline frames equal the bare engine's at every position");
+                c.hops, c.differ);
+    check(c.hops > total / rate * 90, "about a hundred hops a second published");
+    check(c.differ == 0, "inline frames equal the bare engine's at every position");
 
     // Older than every kept hop reads the oldest, past the newest the newest; hopAt picks as frameAt does.
     Heard oldest;
@@ -189,6 +205,53 @@ void inlineMatchesBare(int rate, bool controls) {
     int span = 0;
     at.hopsBetween(oldest.position - 1, kAll, [&](const Heard&) { span++; });
     check(span == AnalysisThread::kPublished - 1, "every readable hop is visited once");
+}
+
+// A stall longer than one take (the cursor keeps the newest runway and re-bases) and a rate change mid-stream (a
+// fresh engine at the new rate, positions re-based on the ring) still read exactly what a bare engine reads.
+void inlineSkipAndRate() {
+    const std::vector<float> first = clicks(48000, 77.0, 4.0);
+    const std::vector<float> second = clicks(44100, 77.0, 3.0);
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    SoundEngine bare48(48000);
+    Compared c;
+    Lcg rng{174u};
+    int64_t base = 0;
+    bool skipped = false;
+    const int64_t total48 = static_cast<int64_t>(first.size() / 2);
+    for (int64_t done = 0; done < total48;) {
+        int size = static_cast<int>(std::min<int64_t>(total48 - done, 1 + rng.below(3000)));
+        if (!skipped && done >= total48 / 2 && total48 - done > 3 * kRunway) {
+            // Three runways between two pumps: the cursor hands out the newest runway and reports a skip.
+            size = 3 * kRunway;
+            bare48.write(first.data() + 2 * (done + size - kRunway), kRunway, 2);
+            base += size - kRunway;
+            skipped = true;
+        } else {
+            bare48.write(first.data() + 2 * done, size, 2);
+        }
+        ring.writeFloat(first.data() + 2 * done, size, 2, 48000);
+        done += size;
+        at.pump(0.01f);
+        compareNew(at, bare48, base, c);
+    }
+    const int before = c.hops;
+    SoundEngine bare44(44100);
+    base = ring.headFrames();
+    const int64_t total44 = static_cast<int64_t>(second.size() / 2);
+    for (int64_t done = 0; done < total44;) {
+        const int size = static_cast<int>(std::min<int64_t>(total44 - done, 1 + rng.below(3000)));
+        ring.writeFloat(second.data() + 2 * done, size, 2, 44100);
+        bare44.write(second.data() + 2 * done, size, 2);
+        done += size;
+        at.pump(0.01f);
+        compareNew(at, bare44, base, c);
+    }
+    std::printf("  skip and 48000 -> 44100: %d hops before the switch, %d after, %d differ\n", before, c.hops - before,
+                c.differ);
+    check(skipped && before > 300 && c.hops - before > 250, "hops on both sides of the skip and the switch");
+    check(c.differ == 0, "after a skip and a rate change the frames equal a bare engine's");
 }
 
 // The writer stays within one cursor take of the thread (a stall longer than that keeps the newest audio, Cursor's
@@ -234,6 +297,8 @@ void threadedMatchesInline() {
     std::atomic<int> reads{0};
     std::atomic<int> torn{0};
     std::atomic<int> wrong{0};
+    std::atomic<int> edgeReads{0};
+    // Near the newest: the hop at or before p, and frameAt there.
     const auto reader = [&](uint32_t seed) {
         Lcg rng{seed};
         Heard h;
@@ -244,10 +309,17 @@ void threadedMatchesInline() {
             const int64_t p = newest - rng.below(10000);
             if (at.hopAt(p, h)) {
                 reads.fetch_add(1, std::memory_order_relaxed);
-                if (h.index >= expected.size() || !same(h, expected[h.index])) torn.fetch_add(1);
-                else if (h.position > p && h.index != 0) wrong.fetch_add(1);
+                if (h.index >= expected.size() || !same(h, expected[h.index])) {
+                    torn.fetch_add(1);
+                } else if (h.position <= p && h.index + 1 < expected.size() && expected[h.index + 1].position <= p) {
+                    // A newer hop at or before p was already published (p is at or below the newest): too old a pick.
+                    // A hop past p is the oldest kept, once the window has moved past p.
+                    wrong.fetch_add(1);
+                }
             }
-            if (at.frameAt(p, f)) {
+            Heard edge;
+            if (at.frameAt(p, f) && at.hopAt(std::numeric_limits<int64_t>::min(), edge) && edge.position <= p) {
+                // p was still inside the window after the read, so it was during it: the answer is the hop at or before p.
                 // The expected hop at or before p, its phases moved on as frameAt moves them.
                 const auto it = std::upper_bound(expected.begin(), expected.end(), p,
                                                  [](int64_t pos, const Heard& e) { return pos < e.position; });
@@ -260,8 +332,24 @@ void threadedMatchesInline() {
             }
         }
     };
+    // On the old edge: the oldest readable slot is the next but one the thread rewrites, and a visit of the whole
+    // window crosses the slot being written, so these copies race the writer all the time. Each must be whole.
+    const auto edgeReader = [&] {
+        Heard h;
+        while (writing.load(std::memory_order_acquire)) {
+            if (at.hopAt(std::numeric_limits<int64_t>::min(), h)) {
+                edgeReads.fetch_add(1, std::memory_order_relaxed);
+                if (h.index >= expected.size() || !same(h, expected[h.index])) torn.fetch_add(1);
+            }
+            at.hopsBetween(std::numeric_limits<int64_t>::min(), kAll, [&](const Heard& v) {
+                edgeReads.fetch_add(1, std::memory_order_relaxed);
+                if (v.index >= expected.size() || !same(v, expected[v.index])) torn.fetch_add(1);
+            });
+        }
+    };
     std::thread r1(reader, 93u);
     std::thread r2(reader, 141u);
+    std::thread r3(edgeReader);
     const auto deadline = Clock::now() + std::chrono::seconds(60);
     Lcg rng{77u};
     int writes = 0;
@@ -273,8 +361,6 @@ void threadedMatchesInline() {
         at.notify();
         writes++;
         done += size;
-        // About four times real time: the readers stay well inside the published window.
-        std::this_thread::sleep_for(std::chrono::microseconds(2500));
     }
     check(kept, "the thread keeps up with the writer");
     while (at.newestPosition() < expected.back().position && Clock::now() < deadline) {
@@ -283,6 +369,7 @@ void threadedMatchesInline() {
     writing.store(false, std::memory_order_release);
     r1.join();
     r2.join();
+    r3.join();
     const uint64_t passes = at.passes();
     at.stop();
 
@@ -292,13 +379,14 @@ void threadedMatchesInline() {
         published++;
         if (h.index >= expected.size() || !same(h, expected[h.index])) differ++;
     });
-    std::printf("  threaded: %d writes, %llu passes, %d reads, %d torn, %d wrong; %d kept hops, %d differ\n", writes,
-                static_cast<unsigned long long>(passes), reads.load(), torn.load(), wrong.load(), published, differ);
+    std::printf("  threaded: %d writes, %llu passes, %d reads, %d on the old edge, %d torn, %d wrong; %d kept hops, %d differ\n",
+                writes, static_cast<unsigned long long>(passes), reads.load(), edgeReads.load(), torn.load(), wrong.load(),
+                published, differ);
     check(at.newestPosition() == expected.back().position, "the thread published every hop");
     check(published == AnalysisThread::kPublished - 1 && differ == 0, "the threaded hops equal the inline run's");
     check(torn.load() == 0, "a reader never sees a torn hop");
     check(wrong.load() == 0, "a reader reads the hop at its position, phases moved on");
-    check(reads.load() > 0, "the readers read while the writer wrote");
+    check(reads.load() > 0 && edgeReads.load() > 0, "the readers read while the writer wrote");
     check(passes <= static_cast<uint64_t>(2 * writes + 16), "the thread wakes about once per write: no polling");
 }
 
@@ -329,7 +417,7 @@ void startStop() {
             at.stop();
             check(!at.running(), "stop() joins");
             at.stop();
-            if (before >= 0) check(threadCount() == before, "no thread left after stop()");
+            if (before >= 0) check(threadsBackTo(before), "no thread left after stop()");
         }
         // Stopped, it pumps inline.
         const int64_t newest = at.newestPosition();
@@ -338,7 +426,7 @@ void startStop() {
         check(at.newestPosition() > newest, "a stopped thread pumps inline");
         check(at.start(), "and starts once more");
     }
-    if (before >= 0) check(threadCount() == before, "the destructor stops a running thread");
+    if (before >= 0) check(threadsBackTo(before), "the destructor stops a running thread");
 }
 
 // The writer stops: the timed wait feeds the engine silence until it says so, then the thread sleeps untimed.
@@ -400,6 +488,7 @@ int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
     inlineMatchesBare(48000, true);
+    inlineSkipAndRate();
     threadedMatchesInline();
     startStop();
     writerStops();

@@ -15,6 +15,18 @@ namespace {
 // MediaFormat.KEY_SAMPLE_RATE.
 constexpr char kSampleRateKey[] = "sample-rate";
 
+// What a drain's failure is shown with.
+const char* drainDetail(Failure failure) {
+    switch (failure) {
+        case Failure::EncoderFailed:
+            return "the video encoder failed";
+        case Failure::Stopped:
+            return "the encoded video could not be written";
+        default:
+            return nullptr;
+    }
+}
+
 // A keyframe every second (VideoFormat's own default), as the export always asked for.
 sink::VideoFormat videoFormat(const std::string& mime, int width, int height, const EncoderRung& rung) {
     sink::VideoFormat format;
@@ -204,11 +216,6 @@ Job::Job(const Request& request, Host& host)
     progress_.store(kLeadInSpan, std::memory_order_relaxed);
 }
 
-State Job::state() const {
-    const State state = state_.load(std::memory_order_acquire);
-    return state == State::Rendered && cancelled_.load(std::memory_order_relaxed) ? State::Cancelled : state;
-}
-
 Job::End Job::fail(Failure failure, const char* detail) {
     failure_ = failure;
     detail_ = detail ? detail : "";
@@ -259,7 +266,7 @@ Job::End Job::render(Writer& writer) {
         }
     }
     if (!opened) return fail(Failure::EncoderRejected);
-    if (!writer.start()) return fail(Failure::EncoderFailed);
+    if (!writer.start()) return fail(Failure::EncoderFailed, "the video encoder would not start");
     if ((why = host_.openSurface(writer.window()))) return fail(Failure::Stopped, why);
 
     const FrameClock clock(fps_, 0);
@@ -273,14 +280,18 @@ Job::End Job::render(Writer& writer) {
         if (!host_.renderFrame(frame)) return fail(Failure::Stopped, "the track's audio could not be decoded");
         const int64_t timeMs = clock.frameTimeMs(frame);
         if ((why = host_.present(clock.ptsNs(frame), timeMs))) return fail(Failure::Stopped, why);
-        if (const Failure failure = writer.drain(false); failure != Failure::None) return fail(failure);
+        if (const Failure failure = writer.drain(false); failure != Failure::None) {
+            return fail(failure, drainDetail(failure));
+        }
         if (!writer.feedAudio(timeMs * 1000)) return fail(Failure::Stopped, "the audio track could not be written");
         progress_.store(frameProgress(frame, frames_), std::memory_order_relaxed);
     }
-    if (!writer.endInput()) return fail(Failure::EncoderFailed);
+    if (!writer.endInput()) return fail(Failure::EncoderFailed, "the video encoder would not end its input");
     // A cancelled file is discarded: its tail is not worth the drain.
     if (cancelled_.load(std::memory_order_relaxed)) return End::Cancelled;
-    if (const Failure failure = writer.drain(true); failure != Failure::None) return fail(failure);
+    if (const Failure failure = writer.drain(true); failure != Failure::None) {
+        return fail(failure, drainDetail(failure));
+    }
     if (!writer.muxing()) return fail(Failure::NoOutput);
     if (!writer.sawEndOfStream()) return fail(Failure::Stalled);
     if (!writer.feedAudio(std::numeric_limits<int64_t>::max())) {

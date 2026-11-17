@@ -378,7 +378,7 @@ void testCancel() {
     Run late(request(1));
     late.go();
     late.job->cancel();
-    check(late.job->state() == ve::State::Cancelled, "a cancel after the finish still discards the file");
+    check(late.job->state() == ve::State::Rendered, "a cancel after the finish leaves the job's outcome to the shell");
 }
 
 void testFailures() {

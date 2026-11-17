@@ -121,8 +121,7 @@ public:
     void run();
     void cancel() { cancelled_.store(true, std::memory_order_relaxed); }
     float progress() const { return progress_.load(std::memory_order_relaxed); }
-    // A cancel that comes after the file was finished still discards it.
-    State state() const;
+    State state() const { return state_.load(std::memory_order_acquire); }
 
     Failure failure() const { return failure_; }
     const std::string& detail() const { return detail_; }

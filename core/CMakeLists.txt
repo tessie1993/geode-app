@@ -64,6 +64,7 @@ add_library(geode_core STATIC
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/hop/AnalysisThread.cpp
     sound/interp/PlayoutClock.cpp
     sound/Tuning.cpp
     library/Tags.cpp

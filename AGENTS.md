@@ -71,3 +71,4 @@ A line records what was done; it is not a rule.
 - 2026-11-17: Rewrote `AGENTS.md` as facts plus this log and moved the owner's rules to `CLAUDE.md`; removed every decision-record reference, the dead document links and the mentions of another project from comments and docs.
 - 2026-11-17: `ship-apk.yml` ships an optimised APK from a new `sideload` build type instead of the debug build (`app/build.gradle.kts`, #1214).
 - 2026-11-17: The `sideload` build uses fake billing so Pro can be unlocked in it; the guard is the flag plus a build type other than `release` (`billing/BillingBuild.kt`).
+- 2026-11-17: `SoundEngine` keeps the last 128 analysis hops by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).

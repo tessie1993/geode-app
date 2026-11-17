@@ -33,7 +33,7 @@ constexpr float kLockOn = 0.35f;
 constexpr float kLockOff = 0.2f;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
 constexpr float kUnlockAfter = 2.0f;       // ... and below it before letting go
-constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per measurement
+constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per kPhaseEvery
 // The onset envelope's pulse lags the onset by this much (the 15 ms power envelope and the change, clicks
 // from 60 to 190 BPM at 10 to 12 ms hops), and by half a hop more: each hop reads the mean power over it.
 // The measured phase is moved forward by both, so a beat lands on the hit, not after it.
@@ -300,7 +300,8 @@ void Rhythm::measurePhase() {
         return;
     }
     // Unlocked, the grid still follows the pulse, gently, so the form tracker's beats stay near the music.
-    pending_ = (locked_ ? kPhaseGain : 0.5f * kPhaseGain) * error;
+    const float gain = 1.0f - std::pow(1.0f - kPhaseGain, dt / kPhaseEvery);
+    pending_ = (locked_ ? gain : 0.5f * gain) * error;
 }
 
 void Rhythm::snapPhase() {

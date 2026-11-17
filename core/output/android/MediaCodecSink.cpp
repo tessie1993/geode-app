@@ -7,6 +7,7 @@
 #include <media/NdkMediaMuxer.h>
 
 #include <cstdint>
+#include <vector>
 
 // Only moves calls across: every decision is EncodeSink's (host-tested). Every call here is in the NDK's
 // media library at API 26 or lower (createInputSurface and signalEndOfInputStream are 26, the rest 21), under
@@ -180,6 +181,35 @@ public:
         AMediaMuxer* muxer = fd_ >= 0 ? AMediaMuxer_new(fd_, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4) : nullptr;
         if (!muxer) return nullptr;
         return std::make_unique<MediaMuxerSink>(muxer);
+    }
+
+    // Each key as MediaFormat typed it; every setter copies its key and value.
+    std::unique_ptr<TrackFormat> trackFormat(const std::vector<FormatEntry>& entries) override {
+        FormatPtr format(AMediaFormat_new());
+        if (!format || entries.empty()) return nullptr;
+        for (const FormatEntry& e : entries) {
+            const char* key = e.key.c_str();
+            switch (e.type) {
+                case kFormatInt32:
+                    AMediaFormat_setInt32(format.get(), key, static_cast<int32_t>(e.whole));
+                    break;
+                case kFormatInt64:
+                    AMediaFormat_setInt64(format.get(), key, e.whole);
+                    break;
+                case kFormatFloat:
+                    AMediaFormat_setFloat(format.get(), key, e.real);
+                    break;
+                case kFormatString:
+                    AMediaFormat_setString(format.get(), key, e.text.c_str());
+                    break;
+                case kFormatBuffer:
+                    if (!e.bytes.empty()) AMediaFormat_setBuffer(format.get(), key, e.bytes.data(), e.bytes.size());
+                    break;
+                default:
+                    break;
+            }
+        }
+        return std::make_unique<MediaTrackFormat>(format.release());
     }
 
 private:

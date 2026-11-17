@@ -1668,71 +1668,128 @@ object GeodeNative {
         ceilings: IntArray,
     ): IntArray
 
-    // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
-    // thread; the Kotlin exporters only marshal through these.
+    // A video export (core/output/VideoExport, core/api/geode_video_export_api.h): the bit rate, the encoder it
+    // settles on, every frame's draw and timestamp, the drain into the MP4 and the audio's interleave are native.
+    // The shell fills the job in, runs it on a worker thread and polls it from another; native never calls back.
 
-    /** Frames a render of [durationUs] draws at [fps], at least 1. */
-    external fun exportTotalFrames(
-        durationUs: Long,
+    /** A job to fill in, 0 when out of memory. Freed with [videoExportDestroy] once no call is in flight. */
+    external fun videoExportCreate(): Long
+
+    external fun videoExportDestroy(job: Long)
+
+    /** The file to write ([outputFd] stays the caller's, open until the run returns), the frame and the rates asked for. */
+    external fun videoExportSetOutput(
+        job: Long,
+        outputFd: Int,
+        cacheDir: String,
+        width: Int,
+        height: Int,
+        bitRate: Int,
         fps: Int,
-    ): Long
+    )
 
-    /** Encoder timestamp of [frame]: floor(frame * 1e9 / fps), exact over any length. */
-    external fun exportFramePtsNs(
-        frame: Long,
-        fps: Int,
-    ): Long
+    /** A codec to try, in the order added: its MIME type and the device's top frame rate for it (<= 0: unsaid). */
+    external fun videoExportAddCodec(
+        job: Long,
+        mime: String,
+        topFps: Int,
+    )
 
-    /** Programme time [frame] shows, floor(frame * 1000 / fps) ms. */
-    external fun exportFrameTimeMs(
-        frame: Long,
-        fps: Int,
-    ): Long
-
-    // An export's render (core/output/ExportFrame, core/api/geode_export_job_api.h): the prepare order, the
-    // pre-roll and each frame's audio and draw are native; the shell hands over the renderer, the track's
-    // descriptor and the look. Every call on the thread holding the renderer's GL context.
-
-    /**
-     * A render over renderer [viz] (a `geode_viz` handle, borrowed: destroy the job first) of the track at [fd],
-     * which native takes and closes, also when it returns 0. [length] >= 0 is the span from [offset] an
-     * AssetFileDescriptor declares; < 0 the whole descriptor. Freed with [exportJobDestroy].
-     */
-    external fun exportJobCreate(
-        viz: Long,
+    /** The track the renderer hears: [fd] is native's from here on; [length] < 0 is the whole descriptor. */
+    external fun videoExportSetTrack(
+        job: Long,
         fd: Int,
         offset: Long,
         length: Long,
-        fps: Int,
         rangeStartMs: Long,
-    ): Long
+    )
 
-    external fun exportJobDestroy(job: Long)
-
-    /**
-     * The prepare order up to the look (offscreen pin, frame rate, surface, scene, [milkPath], engine settings
-     * pinned for [pinDurationMs]): the pinned hand mask the look's reactions go under, or -1 when the renderer
-     * cannot draw [sceneId].
-     */
-    external fun exportJobBegin(
+    /** The renderer's inputs. [assets] is the AssetManager (typed as Any because this module has no Android SDK). */
+    external fun videoExportSetScene(
         job: Long,
-        width: Int,
-        height: Int,
+        assets: Any,
+        milkTextureDir: String,
         sceneId: String,
         milkPath: String?,
         entitled: Boolean,
-        pinDurationMs: Long,
-    ): Long
+    )
 
-    /** Once the look is applied: the pre-roll and the range's decode; false when the track's audio was not heard. */
-    external fun exportJobWarm(job: Long): Boolean
-
-    /** Frame [frame] of the range into [targetFbo]: its audio, then its draw. False when the decoder failed. */
-    external fun exportJobFrame(
+    /** The pinned look, as [vizSetLook] takes it, on the scene [videoExportSetScene] named. */
+    external fun videoExportSetLook(
         job: Long,
-        frame: Long,
-        targetFbo: Int,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    external fun videoExportSetUnderlay(
+        job: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
+
+    /** The wordmark's tile, a direct buffer of [tileWidth] * [tileHeight] * 4 bytes; false when it is not one. */
+    external fun videoExportSetMark(
+        job: Long,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+        placement: Int,
+        corner: Int,
     ): Boolean
+
+    /** The encoded audio: its scratch file and its samples as `[offset, size, ptsUs, flags]` quadruples; false when the file cannot be opened. */
+    external fun videoExportSetAudio(
+        job: Long,
+        path: String,
+        samples: LongArray,
+    ): Boolean
+
+    /** One key of the audio's format, typed as MediaFormat.getValueTypeForKey types it. */
+    external fun videoExportAddAudioKey(
+        job: Long,
+        key: String,
+        type: Int,
+        whole: Long,
+        real: Float,
+        text: String?,
+        bytes: ByteArray?,
+    )
+
+    /** Renders the file on the calling thread; returns once it is rendered, cancelled or failed. */
+    external fun videoExportRun(job: Long)
+
+    /** From any thread. */
+    external fun videoExportCancel(job: Long)
+
+    /** 0..1 across the render; from any thread. */
+    external fun videoExportProgress(job: Long): Float
+
+    /** The bar while the shell transcodes the audio, [done] 0..1 of that step. */
+    external fun videoExportLeadIn(done: Float): Float
+
+    /** One of the `VIDEO_EXPORT_*` states; from any thread. */
+    external fun videoExportState(job: Long): Int
+
+    /** Why a failed job failed, one of `VIDEO_FAILURE_*`; [videoExportDetail] is the text it is shown with. */
+    external fun videoExportFailure(job: Long): Int
+
+    external fun videoExportDetail(job: Long): String?
+
+    const val VIDEO_EXPORT_RENDERED = 2
+    const val VIDEO_EXPORT_CANCELLED = 3
+    const val VIDEO_FAILURE_ENCODER_REJECTED = 1
+    const val VIDEO_FAILURE_NO_OUTPUT = 2
+    const val VIDEO_FAILURE_STALLED = 3
+    const val VIDEO_FAILURE_EMPTY_BUFFER = 5
 
     // A loop render (core/output/LoopRender, core/api/geode_loop_job_api.h): the encoder it settles on, each
     // drift stop's frames, seam and presentation times and the scratch file each stop goes into are native.
@@ -1945,14 +2002,6 @@ object GeodeNative {
         soundtrackBytes: Long,
     ): Int
 
-    /** [requestedBps], lowered so the file fits [limitBytes] (<= 0: the 3.8 GB render target). */
-    external fun exportCappedVideoBps(
-        requestedBps: Int,
-        durationUs: Long,
-        audioBytes: Long,
-        limitBytes: Long,
-    ): Int
-
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
 
@@ -1963,9 +2012,6 @@ object GeodeNative {
         hRatio: Int,
         out: IntArray,
     )
-
-    /** The requested frame rate clamped to what the export offers, 24..60. */
-    external fun exportClampFps(requestedFps: Int): Int
 
     /** What [renderEtaSample] answers while it has no estimate yet. */
     const val RENDER_ETA_UNKNOWN = -1L

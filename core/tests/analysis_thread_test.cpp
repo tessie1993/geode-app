@@ -1,7 +1,7 @@
 // Host test for the analysis thread (core/sound/hop/AnalysisThread, #1215): one sound engine fed from a PCM ring
 // on its own thread, every hop published by ring position for readers on other threads.
 // Built with the runner's own compiler in CI, and again under ThreadSanitizer:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/analysis_thread_test.cpp \
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/analysis_thread_test.cpp
 //     core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o analysis_thread_test
 //   ./analysis_thread_test
 //

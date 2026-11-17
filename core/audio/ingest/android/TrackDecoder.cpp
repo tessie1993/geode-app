@@ -53,6 +53,12 @@ public:
                 continue;
             }
             if (AMediaExtractor_selectTrack(extractor_, i) != AMEDIA_OK) return false;
+            int64_t durationUs = 0;
+            int32_t rate = 0;
+            int32_t channels = 0;
+            if (AMediaFormat_getInt64(format.get(), AMEDIAFORMAT_KEY_DURATION, &durationUs)) declared_.durationUs = durationUs;
+            if (AMediaFormat_getInt32(format.get(), AMEDIAFORMAT_KEY_SAMPLE_RATE, &rate)) declared_.sampleRate = rate;
+            if (AMediaFormat_getInt32(format.get(), AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels)) declared_.channels = channels;
             const int64_t seekUs = decodeSeekUs(startMs);
             if (seekUs >= 0) AMediaExtractor_seekTo(extractor_, seekUs, AMEDIAEXTRACTOR_SEEK_PREVIOUS_SYNC);
             codec_ = AMediaCodec_createDecoderByType(mime);
@@ -118,6 +124,8 @@ public:
 
     void releaseOutput() override { AMediaCodec_releaseOutputBuffer(codec_, held_, false); }
 
+    DeclaredTrack declared() const override { return declared_; }
+
 private:
     // The output's sample layout, read once and again after each format change rather than per buffer: each
     // read allocates a format.
@@ -146,6 +154,7 @@ private:
     bool isFloat_ = false;
     int channels_ = 0;
     int sampleRate_ = 0;
+    DeclaredTrack declared_;
 };
 
 }  // namespace

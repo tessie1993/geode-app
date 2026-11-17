@@ -735,3 +735,9 @@ jobs:
             core/output/LoudnessScan.cpp core/output/LoudnessAdvice.cpp core/audio/dsp/Loudness.cpp \
             core/audio/dsp/PcmConvert.cpp -o loudness_scan_test
           ./loudness_scan_test
+          # An export's soundtrack to AAC (core/output/AacTranscode on a fake decoder, encoder and file): the AIFF and
+          # decoder paths, the start skip and trim, the range's end, the fold, float input, the resample, each failure.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/aac_transcode_test.cpp \
+            core/output/AacTranscode.cpp core/audio/ingest/AiffReader.cpp core/audio/dsp/PcmResampler.cpp \
+            core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp -o aac_transcode_test
+          ./aac_transcode_test

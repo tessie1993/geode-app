@@ -84,10 +84,18 @@ struct DecodedChunk {
     bool endOfStream = false;
 };
 
+// What the container says of the track before anything is decoded; 0 where it does not say.
+struct DeclaredTrack {
+    int64_t durationUs = 0;
+    int sampleRate = 0;
+    int channels = 0;
+};
+
 // A platform decoder over its extractor. A failure of the codec itself throws (std::runtime_error).
 class DecodePort {
 public:
     virtual ~DecodePort() = default;
+    virtual DeclaredTrack declared() const { return {}; }
     // When the codec has an input buffer free: the extractor's next sample into it, or end of stream once the
     // extractor has none. True once end of stream is queued; never called again after that.
     virtual bool feedInput() = 0;

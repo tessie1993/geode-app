@@ -7,7 +7,7 @@
 // peak), so a pad and a mastered kick read the same. These tests pin the other behaviour: how much the music is
 // comes from absolute loudness and texture on fixed scales, with no per-song normalising.
 //
-// Part one is fosfora's LoudnessMeter tests (crates/fosfora-app/src/audio/loudness.rs), ported.
+// Part one is the loudness meter tests.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

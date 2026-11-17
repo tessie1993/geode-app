@@ -5,7 +5,7 @@ import android.net.Uri
 
 /**
  * A finished render's file in MediaStore, as My videos deletes it. The rest of the old clip library
- * (listing, describing and renaming the Movies folder's videos for the dropped video editor, ADR 0007)
+ * (listing, describing and renaming the Movies folder's videos for the dropped video editor)
  * had no caller left and is gone; My videos lists a project's renders instead.
  */
 object StudioClips {

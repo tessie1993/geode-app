@@ -3,7 +3,7 @@
 
 namespace geode::output {
 
-// The offline render's frame clock (ADR 0006, core/output): which instant frame n shows, the timestamp
+// The offline render's frame clock (core/output): which instant frame n shows, the timestamp
 // the encoder stamps on it, and how many source samples the sound engine has heard by its end.
 //
 // Every value is computed from n directly, never accumulated, so a long render does not drift: a 24 fps

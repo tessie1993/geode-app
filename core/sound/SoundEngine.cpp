@@ -176,6 +176,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
         const float tri = i < GEODE_SOUND_WAVEFORM_POINTS / 2 ? 2.0f * i / c : 2.0f * (c - 1.0f - i) / c;
         waveWeight_[i] = clamp01(5.0f * tri - 3.2f);
     }
+    history_.resize(kHistoryHops);
     reset();
 }
 
@@ -219,6 +220,7 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         return y;
     };
     for (int i = 0; i < frames; i++) {
+        inputWritten_++;  // first, so a hop this sample completes is kept at it
         float l = clean(interleaved[static_cast<size_t>(i) * channels]);
         float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
         bool ready = true;
@@ -372,6 +374,40 @@ void SoundEngine::analyse() {
     emotion_.step(out, dt);
     accentHeld_ = std::max(accentHeld_, emotion_.state().degreeAccent);
     for (int k = 0; k < kTriggers; k++) held_[k] = std::max(held_[k], out.*kTriggerFields[k]);
+
+    KeptHop& kept = history_[static_cast<size_t>(historyHead_)];
+    kept.sample = inputWritten_;
+    kept.clock = rhythm_.clock();
+    kept.frame = out;
+    historyHead_ = (historyHead_ + 1) % kHistoryHops;
+    historyCount_ = std::min(historyCount_ + 1, kHistoryHops);
+}
+
+bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
+    if (historyCount_ == 0) return false;
+    // Newest first, so of hops sharing a position (a starved writer) the latest wins; none at or before
+    // samplePos leaves the oldest.
+    const KeptHop* hop = nullptr;
+    for (int age = 0; age < historyCount_; age++) {
+        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+        if (hop->sample <= samplePos) break;
+    }
+    out = hop->frame;
+    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
+    // step() moves the phases by the analysis samples since the hop; the input's halvings divide out here.
+    const int64_t since = samplePos > hop->sample ? (samplePos - hop->sample) >> halvings_ : 0;
+    Rhythm::phases(hop->clock, static_cast<int>(std::min<int64_t>(since, std::numeric_limits<int>::max())), out.hitTime, out);
+    return true;
+}
+
+int64_t SoundEngine::newestHopSample() const {
+    if (historyCount_ == 0) return -1;
+    return history_[static_cast<size_t>((historyHead_ - 1 + kHistoryHops) % kHistoryHops)].sample;
+}
+
+int64_t SoundEngine::oldestHopSample() const {
+    if (historyCount_ == 0) return -1;
+    return history_[static_cast<size_t>((historyHead_ - historyCount_ + kHistoryHops) % kHistoryHops)].sample;
 }
 
 void SoundEngine::rewarm() {
@@ -1022,6 +1058,9 @@ void SoundEngine::reset() {
         for (HalfBand& channel : stage) channel.reset();
     }
     held_ = {};
+    historyHead_ = 0;
+    historyCount_ = 0;
+    inputWritten_ = 0;
     hopFrame_ = GeodeSoundFrame{};
     // What a silent engine says before its first hop, as Harmony leaves it.
     hopFrame_.keyMajor = 0.5f;

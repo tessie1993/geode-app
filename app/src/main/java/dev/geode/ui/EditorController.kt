@@ -27,7 +27,7 @@ data class EditorUiState(
  * Keeps the list of Studio's project folders (`files/projects/<id>/`) and the renders each one
  * lists. Studio has no editor: the owner dropped video editing from the launch (#227), so nothing
  * here opens, edits or undoes a project. A project is only how a recording and a kept render are
- * stored (ADR 0005): a saved recording becomes one in [keepRecording], and a one-tap render the
+ * stored: a saved recording becomes one in [keepRecording], and a one-tap render the
  * user adds to My videos becomes one in [createWithLook].
  *
  * The store is touched only on [storeScope], one write at a time, so a list read always follows

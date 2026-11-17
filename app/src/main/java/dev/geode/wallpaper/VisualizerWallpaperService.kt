@@ -157,7 +157,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper paces
-         * to its own choice instead (applyFps, ADR 0008). A new store reads the file afresh.
+         * to its own choice instead (applyFps). A new store reads the file afresh.
          */
         private fun applyPerformance(engine: Stage) {
             engine.performance = PerformanceStore(generalPrefs, this@VisualizerWallpaperService).settings.value

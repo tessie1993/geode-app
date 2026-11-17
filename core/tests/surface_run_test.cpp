@@ -4,7 +4,7 @@
 // What is pinned: the rule's priority order (stopped beats still beats moving), the preview's exemptions,
 // listening ignoring the cover and the silence, and the trial's end (#376): a trial that runs out turns a
 // moving surface still, and the caller is told to restate just after that moment, never before. Then
-// reduced motion (#441, ADR 0008): either switch holds a still frame on the wallpaper and on the dream, the
+// reduced motion (#441): either switch holds a still frame on the wallpaper and on the dream, the
 // preview too, and never wakes a stopped surface; the still frame's settle; and the per-surface fps clamp.
 // Also the whole decision table (all 256 flag combinations under every entitlement), the trial's end at the
 // exact millisecond on a real wall clock, the restate over seeded trials, and the 6 s silence clock
@@ -485,7 +485,7 @@ void settle() {
 }
 
 void fps() {
-    check(GEODE_SURFACE_DEFAULT_FPS == 30, "default 30 (owner, ADR 0008)");
+    check(GEODE_SURFACE_DEFAULT_FPS == 30, "default 30 (owner)");
     check(geode_surface_fps_choice(0) == 30, "unset: the default");
     check(geode_surface_fps_choice(-5) == 30, "negative: the default");
     check(geode_surface_fps_choice(15) == 15, "15 is listed");

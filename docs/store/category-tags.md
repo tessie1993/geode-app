@@ -13,7 +13,7 @@ that the notification, Bluetooth and Assistant browse (`playback/PlaybackService
 
 | Alternative | Play's description | Why not first |
 |---|---|---|
-| Video Players & Editors | Video players, editors, media storage | The Studio renders video but does not play or edit arbitrary video (video editing was dropped, ADR 0007) |
+| Video Players & Editors | Video players, editors, media storage | The Studio renders video but does not play or edit arbitrary video (video editing was dropped) |
 | Personalization | Wallpapers, live wallpapers, launchers, themes | The live wallpaper is one Pro feature, not the app |
 | Entertainment | Streaming video, movies, TV, interactive entertainment | Too broad; search for a music visualizer starts in Music & Audio |
 

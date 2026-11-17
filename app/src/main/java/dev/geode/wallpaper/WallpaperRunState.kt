@@ -37,7 +37,7 @@ data class WallpaperConditions(
     val silent: Boolean,
     /**
      * Reduce motion is on: the system's Remove animations ([SystemAnimations]).
-     * It holds a still frame on the wallpaper and the dream (owner, ADR 0008; #389).
+     * It holds a still frame on the wallpaper and the dream (owner; #389).
      */
     val reducedMotion: Boolean,
     val settings: WallpaperSettings,

@@ -1,6 +1,6 @@
 # core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring is here; the hop thread that should read it is not.
+The ring is here; the hop thread that should read it is not.
 
 **Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output-mix capture; later a decoded file for export). Each write carries the sample rate and the source's channel count, so a format change can never pair new samples with an old rate. Converts int16 and unsigned 8-bit to float here, not in Kotlin.
 
@@ -37,6 +37,5 @@ sound by the sink's buffer.
 - the int16 loops in `app/.../audio/dsp/NativeDspProcessor.kt` (the playback DSP's hand-over, not the ring's)
 - the silence and "blocked" timing in `PlaybackCapture.kt` (one silence flag should come from `core/sound/hop`)
 
-**fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first); Geode halves 88.2 kHz and up inside the sound engine instead, `core/sound/Decimate.hpp` before `SoundEngine::write`'s analysis, so every reader keeps the source's samples (`sound_rate_test`: 96 kHz reads as 48 kHz).
 
 **Tests that prove it:** `core/tests/track_feed_test.cpp` (TrackFeed and AiffReader against the Kotlin they replaced), `core/tests/track_pump_test.cpp` (the decode and hand-out order), `core/tests/mic_input_test.cpp` (live input over a fake stream: the ladder, the preset, the writes, stop, disconnects), `core/tests/layer_mix_test.cpp` (the layer: two rates, a silent mic, mic on and off mid-stream, pause and resume, epochs, drift) and `core/tests/pcm_ring_test.cpp`, which writes PCM in random chunk sizes with rate changes mid-stream, on one thread and with a writer thread, and checks the reader sees every sample once, in order, each with the rate it was written at; it also holds the old Kotlin `SoundCursorTest` cases, the encodings and the C ABI.

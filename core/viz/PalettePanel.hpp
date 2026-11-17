@@ -8,7 +8,7 @@
 // Customize › Look's palette pages as the shell draws them: the stack card (Palettes), the palette list on
 // a style the stack does not draw, and Your colours' stop editor. Pure: no GL, no JNI.
 //
-// WHY native (ADR 0003, owner 2026-11-12): how many stops a palette may hold, which stop a tap selects, what
+// WHY native (owner 2026-11-12): how many stops a palette may hold, which stop a tap selects, what
 // a new stop copies, how many stops an old hue gradient opens as, which rows a stack shows (Blend with two
 // layers or more, Add while there is room), which amount param a layer reads and what the list selects are
 // decisions about the engine's palettes, so they sit beside them (viz/Palette, viz/Colour) and the shell

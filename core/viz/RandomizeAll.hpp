@@ -10,7 +10,7 @@
 // style, a look for it, and every Customize category rolled on top. Pure: no GL, no JNI, so the host
 // tests build it (core/tests/randomize_all_test.cpp).
 //
-// WHY native (ADR 0003): which style and which look are decisions, and the roll is parameter maths;
+// WHY native: which style and which look are decisions, and the roll is parameter maths;
 // the shell only gathers what it alone knows (the styles the entitlement locks, the looks it holds,
 // how many MilkDrop files are on disk), applies the pick through its usual gates and hands back the
 // look on screen for the roll.

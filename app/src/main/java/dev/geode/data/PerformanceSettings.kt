@@ -27,7 +27,7 @@ data class PerformanceSettings(
             )
 
     companion object {
-        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps; ADR 0008).
+        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps).
         val SAVER get() = PerformanceMode.SAVER.settings
         val BALANCED get() = PerformanceMode.BALANCED.settings
         val HIGH get() = PerformanceMode.HIGH.settings

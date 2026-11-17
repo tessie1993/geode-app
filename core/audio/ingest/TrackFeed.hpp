@@ -7,8 +7,8 @@
 #include "audio/ingest/AiffReader.hpp"
 #include "output/FrameClock.hpp"
 
-// An export's track audio, handed to its renderer's sound engine exactly up to each video frame (ADR 0003:
-// export equals live). TrackPump steps a decode (AMediaExtractor and AMediaCodec, or an AiffReader for AIFF)
+// An export's track audio, handed to its renderer's sound engine exactly up to each video frame:
+// export equals live. TrackPump steps a decode (AMediaExtractor and AMediaCodec, or an AiffReader for AIFF)
 // and pushes each decoded chunk here; this converts it to float, drops what lies before the range start, keeps
 // what the frame has not reached yet, and hands a sink exactly the frames up to the target. The arithmetic:
 // 16-bit / 32768, the codec's pre-roll cut at (start - pts) * rate / 1e6 frames, the AIFF one at

@@ -8,7 +8,7 @@
 // What each Customize control draws as, on this look and this style: the widget, the scene param it writes,
 // the words on it, its value, range, default, unit and steps, and whether it draws at all. Pure: no GL, no JNI.
 //
-// WHY native (ADR 0003, owner 2026-11-12): which widget a control is, which words it shows and when it hides
+// WHY native (owner 2026-11-12): which widget a control is, which words it shows and when it hides
 // (Catch pull with no catch points, Liquid's sliders with Liquid off, Fluid's glow sliders with its glow off)
 // are decisions about the engine's params, so they sit beside the map that files the controls
 // (CustomizeMap) and the shell only draws the rows this hands it. Host-tested in core/tests/customize_rows_test.cpp.

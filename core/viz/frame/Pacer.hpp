@@ -6,7 +6,7 @@
 #include <cstring>
 #include <type_traits>
 
-// The frame clock every surface shares (ADR 0006, ADR 0008): which vsyncs a surface draws on, and
+// The frame clock every surface shares: which vsyncs a surface draws on, and
 // the dt each drawn frame steps the engine by. Pure, with no GL and no Android, so the host can test
 // it (core/tests/pacer_test.cpp).
 //

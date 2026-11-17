@@ -19,14 +19,14 @@ import dev.geode.geodeContainer
  *    app's capture mode. It is the full-quality signal, so it always wins.
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
  *
- * Which of the two, and when to start or stop the capture, is native (`core/sound/SoundSource`,
- * ADR 0003): each poll hands [GeodeNative.soundSourceStep] the ring's written-frame counter, whether
+ * Which of the two, and when to start or stop the capture, is native (`core/sound/SoundSource`):
+ * each poll hands [GeodeNative.soundSourceStep] the ring's written-frame counter, whether
  * capture is permitted and whether it runs, and gets back the source and what to do with the
  * capture, with hysteresis so a ring fed in bursts never flaps it. This class only starts and stops
  * the [OutputMixCapture] it is told to.
  *
  * It also keeps the silence clock behind "rest when silent": one timestamp, the last time sound
- * was heard. The rule itself is native (`core/sound/Silence`, ADR 0003): each poll has the ring judge its
+ * was heard. The rule itself is native (`core/sound/Silence`): each poll has the ring judge its
  * newest samples ([GeodeNative.pcmRingHeardAt]) on their level, not on whether a
  * player is running, and [GeodeNative.silenceResting] says when the quiet has lasted long enough
  * to rest. Sound coming back wakes it on the next poll.
@@ -54,7 +54,7 @@ class SoundSource(
     private var running = false
     private var hearOtherApps = false
 
-    /** The source rule's state, kept here and handed to native each poll (ADR 0003). */
+    /** The source rule's state, kept here and handed to native each poll. */
     private val sourceState = LongArray(GeodeNative.SOUND_SOURCE_STATE_LONGS)
 
     private var heardRing = 0L

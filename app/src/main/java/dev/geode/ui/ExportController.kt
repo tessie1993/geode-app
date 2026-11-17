@@ -368,7 +368,7 @@ internal class ExportController(
      *
      * This was the direct branch of the Studio project render (#232), which planned every render as a
      * project and composed anything else through Media3 Transformer. The owner dropped video editing
-     * (ADR 0007, #227), so the one-tap Render became that render's only caller and its project was
+     * (#227), so the one-tap Render became that render's only caller and its project was
      * always this one: a single scene clip over a single song clip of the same span, which the plan
      * always made direct. The plan, the composition and the Studio exporter went with the editor.
      *

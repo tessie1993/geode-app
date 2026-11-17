@@ -381,7 +381,14 @@ void failuresOf() {
     {
         FakeHost host;
         aac::Transcode job({0, 0, 0}, std::unique_ptr<DecodePort>{}, host);
-        check(!job.step() && job.failure() == aac::Failure::NoAudio, "no port: no audio");
+        check(!job.step() && job.failure() == aac::Failure::NoAudio, "no port, the source read: no audio");
+        check(job.detail() == "No audio track in source file", "no audio: its words");
+    }
+    {
+        FakeHost host;
+        aac::Transcode job({0, 0, 0}, std::unique_ptr<DecodePort>{}, host, true);
+        check(!job.step() && job.failure() == aac::Failure::Unreadable, "no port, the source unreadable: unreadable");
+        check(host.enc->inputs.empty() && !host.enc->configured, "unreadable: no encoder opened");
     }
     {
         FakeHost host;

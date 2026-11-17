@@ -54,7 +54,7 @@ class AudioTranscoder(
     /**
      * [outputRateHz] forces the AAC rate (a mix needs every clip at one rate); null lets native pick the AAC rate
      * for the source. Blocking; a cancel throws [kotlinx.coroutines.CancellationException], a track with no audio
-     * [IllegalArgumentException], a scratch file that cannot be written [IOException].
+     * [IllegalArgumentException], a track that cannot be read or a scratch file that cannot be written [IOException].
      */
     fun transcode(
         uri: Uri,
@@ -125,7 +125,7 @@ class AudioTranscoder(
             val detail = GeodeNative.aacJobDetail(job)
             throw when (GeodeNative.aacJobFailure(job)) {
                 GeodeNative.AAC_FAILURE_NO_AUDIO -> IllegalArgumentException(detail)
-                GeodeNative.AAC_FAILURE_WRITE -> IOException(detail)
+                GeodeNative.AAC_FAILURE_WRITE, GeodeNative.AAC_FAILURE_UNREADABLE -> IOException(detail)
                 else -> IllegalStateException(detail)
             }
         }

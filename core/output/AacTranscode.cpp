@@ -35,10 +35,15 @@ Transcode::Transcode(const Request& request, std::unique_ptr<audio::ingest::Aiff
     }
 }
 
-Transcode::Transcode(const Request& request, std::unique_ptr<audio::ingest::DecodePort> port, Host& host)
+Transcode::Transcode(const Request& request, std::unique_ptr<audio::ingest::DecodePort> port, Host& host,
+                     bool unreadable)
     : request_(request), host_(host), port_(std::move(port)) {
     if (!port_) {
-        fail(Failure::NoAudio, "No audio track in source file");
+        if (unreadable) {
+            fail(Failure::Unreadable, "The track could not be read");
+        } else {
+            fail(Failure::NoAudio, "No audio track in source file");
+        }
         return;
     }
     const int64_t maxUs = request_.maxDurationMs * kUsPerMs;

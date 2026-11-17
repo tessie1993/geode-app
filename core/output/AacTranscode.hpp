@@ -40,6 +40,7 @@ enum class Failure {
     Stalled = 3,   // nothing moved for kMaxIdleSteps steps
     NoFormat = 4,  // the encoder ended without naming its output format
     Write = 5,     // the scratch file could not be written (a full disk)
+    Unreadable = 6,  // the source's bytes could not be opened or read at all
 };
 
 inline constexpr int kMaxIdleSteps = 1000;
@@ -76,9 +77,11 @@ public:
 
 class Transcode {
 public:
-    // A null reader or port fails the job at once with NoAudio.
+    // A null reader or port fails the job at once: with NoAudio, or Unreadable when the opener said the source could
+    // not be read at all.
     Transcode(const Request& request, std::unique_ptr<audio::ingest::AiffReader> aiff, Host& host);
-    Transcode(const Request& request, std::unique_ptr<audio::ingest::DecodePort> port, Host& host);
+    Transcode(const Request& request, std::unique_ptr<audio::ingest::DecodePort> port, Host& host,
+              bool unreadable = false);
     ~Transcode();
     Transcode(const Transcode&) = delete;
     Transcode& operator=(const Transcode&) = delete;

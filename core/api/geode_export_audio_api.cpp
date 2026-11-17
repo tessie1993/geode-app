@@ -11,6 +11,7 @@
 #include <exception>
 #include <memory>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -155,13 +156,21 @@ geode_aac_job* geode_aac_job_create(int fd, int64_t offset, int64_t length, int 
         request.outputRateHz = output_rate_hz;
         std::unique_ptr<ingest::AiffReader> aiff;
         std::unique_ptr<ingest::DecodePort> port;
-        if (fd >= 0) aiff = ingest::openAiff(span);
+        bool unreadable = fd < 0;
+        if (fd >= 0) {
+            try {
+                aiff = ingest::openAiff(span);
+            } catch (const std::runtime_error&) {
+                // Its duplicate of the descriptor failed: nothing of the source can be read.
+                unreadable = true;
+            }
+        }
         // The decoder reads its own duplicate of fd.
-        if (fd >= 0 && !aiff) port = ingest::openPlatformDecoder(span, start_ms);
+        if (!unreadable && !aiff) port = ingest::openPlatformDecoderReporting(span, start_ms, &unreadable);
         if (aiff) {
             job->transcode = std::make_unique<aac::Transcode>(request, std::move(aiff), job->host);
         } else {
-            job->transcode = std::make_unique<aac::Transcode>(request, std::move(port), job->host);
+            job->transcode = std::make_unique<aac::Transcode>(request, std::move(port), job->host, unreadable);
         }
     } catch (const std::exception& e) {
         failJob(job, aac::Failure::Codec, e.what());

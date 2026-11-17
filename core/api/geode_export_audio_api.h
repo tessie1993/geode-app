@@ -40,8 +40,8 @@ GEODE_API void geode_export_loudness_measure(int fd, int64_t offset, int64_t len
 typedef struct geode_aac_job geode_aac_job;
 
 enum { GEODE_AAC_JOB_RUNNING = 1, GEODE_AAC_JOB_DONE = 2, GEODE_AAC_JOB_FAILED = 3 };
-/* Why a job failed (output/AacTranscode's Failure): 1 no audio track, 2 a codec, 3 a stall, 4 no format,
-   5 the scratch file could not be written. */
+/* Why a job failed (output/AacTranscode's Failure): 1 read but no audio track, 2 a codec, 3 a stall, 4 no format,
+   5 the scratch file could not be written, 6 the source could not be opened or read. */
 enum { GEODE_AAC_TRACK_RATE = 0, GEODE_AAC_TRACK_CHANNELS = 1, GEODE_AAC_TRACK_BIT_RATE = 2,
        GEODE_AAC_TRACK_DURATION_US = 3, GEODE_AAC_TRACK_BYTES = 4, GEODE_AAC_TRACK_SAMPLES = 5,
        GEODE_AAC_TRACK_VALUES = 6 };

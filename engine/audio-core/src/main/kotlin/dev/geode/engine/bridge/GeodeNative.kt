@@ -2680,6 +2680,9 @@ object GeodeNative {
     const val AAC_FAILURE_NO_FORMAT = 4
     const val AAC_FAILURE_WRITE = 5
 
+    /** The source could not be opened or read at all, as against [AAC_FAILURE_NO_AUDIO]: read, but no audio track. */
+    const val AAC_FAILURE_UNREADABLE = 6
+
     /** Where [aacJobTrack] puts each value. */
     const val AAC_TRACK_RATE = 0
     const val AAC_TRACK_CHANNELS = 1

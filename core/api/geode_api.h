@@ -1320,7 +1320,7 @@ GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float pace
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
    that is paused draws no frame: it sheds them at its pause instead (geode_viz_trim_spares). Any thread. */
 GEODE_API void            geode_memory_trim(int android_level);
-/* ── Export planning and PCM maths (ADR 0006: core/output; ADR 0003 ports) ──────────────────────────────────
+/* ── Export planning and PCM maths (core/output; ports) ──────────────────────────────────
  * Pure functions, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender, LoopExtend,
  * AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are
  * output/FrameClock, LoopPlan, EncodePlan, audio/dsp/PcmConvert and PcmTiming. */

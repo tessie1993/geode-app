@@ -46,5 +46,5 @@ Not counted, and not claimed anywhere: tempo or BPM figures, a frame rate the vi
 a number of "effects", download or rating figures.
 
 `app/src/main/assets/gl_transitions.json` lists 122 transitions for Studio's clip transitions
-(`editor/ClipTransition`). The editor that offered them was dropped (ADR 0007) and it was not
+(`editor/ClipTransition`). The editor that offered them was dropped and it was not
 checked that a user can still reach them, so the listing does not mention them.

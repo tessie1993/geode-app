@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when a PR grows the Kotlin in the engine. Owner rule (AGENTS.md, ADR 0003, ADR 0006): Kotlin
+# Fails when a PR grows the Kotlin in the engine. Owner rule (CLAUDE.md): Kotlin
 # is the main-thread shell and Android glue only; engine logic, audio code, params, modulation,
 # clocks, render-loop and export maths are C++ in core/. Until the port finishes, the Kotlin still in
 # the watched paths below may only shrink: a PR's net added lines across them must be <= 0. A UI or
@@ -117,7 +117,7 @@ while IFS=$'\t' read -r add del path; do
 done
 
 if [ "$net" -gt 0 ]; then
-    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/ (AGENTS.md, ADR 0006); call it through core/api/geode_api.h instead."
+    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/ (CLAUDE.md); call it through core/api/geode_api.h instead."
     printf '%s' "$report"
     exit 1
 fi

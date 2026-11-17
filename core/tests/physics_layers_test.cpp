@@ -68,7 +68,7 @@ void theTierDownscalesThenSkipsTheFluid() {
     const physics::Plan minimal = physics::planFor(both, ThermalTier::Minimal);
     check(full.fluid && full.particles && full.fluidMix == 1.0f && full.particleMix == 1.0f, "a cool phone runs both layers");
     check(eased.simRes == full.simRes && eased.dyeRes == full.dyeRes && eased.particleSide == full.particleSide,
-          "Eased costs frames, not the layers' size (ADR 0008: fps first)");
+          "Eased costs frames, not the layers' size (fps first)");
     check(reduced.fluid && reduced.simRes < full.simRes && reduced.dyeRes < full.dyeRes && reduced.particleSide < full.particleSide,
           "Reduced downscales the fluid and the particles");
     check(reduced.pressureIterations <= full.pressureIterations, "and spends no more on the pressure solve");

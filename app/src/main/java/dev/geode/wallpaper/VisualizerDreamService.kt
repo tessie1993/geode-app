@@ -36,7 +36,7 @@ import dev.geode.util.bestEffort
  * - silence ([SoundSource]'s grace): no visual, faded to black under the overlay, until sound comes
  *   back (owner: no sound, no visuals; #999);
  * - reduced motion (the system's Remove animations, [SystemAnimations]): a
- *   still frame for the whole dream (owner, ADR 0008; #389). Off, the dream keeps its gentle flight.
+ * still frame for the whole dream (owner; #389). Off, the dream keeps its gentle flight.
  * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
  * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are

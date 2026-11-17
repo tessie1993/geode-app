@@ -12,7 +12,7 @@
 // - covered by the shade or recents (visibility stays true there): stopped, except the preview;
 // - the entitlement does not allow the moving visual (free, or the trial has run out): a still frame;
 // - reduced motion (the system's Remove animations): a still frame,
-//   the preview included, since a preview that moves is still motion to someone it makes ill (ADR 0008);
+// the preview included, since a preview that moves is still motion to someone it makes ill;
 // - the system wallpaper picker's preview: always moving, so picking it in a quiet room never
 //   looks frozen;
 // - battery saver (when the user keeps that option on) or silence (after core/sound/Silence's
@@ -30,7 +30,7 @@
 //
 // A still frame is not one frame: a new scene is built across frames (ScenePrep), so the surface keeps
 // drawing for settleMs after it enters STILL, and only then stops pacing. Each surface also draws at its
-// own rate, one of kFpsChoices (ADR 0008: the wallpaper's options and Behaviour › Dream, default 30).
+// own rate, one of kFpsChoices (the wallpaper's options and Behaviour › Dream, default 30).
 //
 // Pure and stateless: the caller holds every input and restates on any change.
 namespace geode::viz::surface {

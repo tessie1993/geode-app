@@ -10,7 +10,7 @@ import dev.geode.util.bestEffort
  *
  * Only the row's label lives here. What a moment is (its sources, the one it follows, the one it fires
  * on, how long it is felt), which moments are the user's and how their routes merge with the live DNA
- * are native (ADR 0003): `Moment` and `hand::` in core/viz/Reactions.hpp, the rest in
+ * are native: `Moment` and `hand::` in core/viz/Reactions.hpp, the rest in
  * core/viz/ReactionDna. The ordinal is the wire value, so the order is the native enum's.
  */
 internal enum class MusicMoment(

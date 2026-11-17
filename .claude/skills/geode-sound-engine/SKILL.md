@@ -7,7 +7,7 @@ description: Use when changing how Geode hears music - the playback audio chain,
 
 Geode's visuals are only as good as what they hear. Two separate paths carry sound and they must not be confused:
 
-1. **Playback chain** (Kotlin, Media3): ExoPlayer runs `MvzAudioProcessorChain` on its playback thread. `PcmTap` is first, before any DSP, so DSP never moves the visuals. Read `docs/AUDIO_CHAIN.md` in full before touching it. Two rules never bend: the tap stays first, and the chain never gets float output. What the sink then plays the PCM through is below the chain and changes neither: an AudioTrack, or the native Oboe output (`core/audio/output`, `audio/OboeAudioOutput`) when Settings › Playback has it on.
+1. **Playback chain** (Kotlin, Media3): ExoPlayer runs `MvzAudioProcessorChain` on its playback thread. `PcmTap` is first, before any DSP, so DSP never moves the visuals. Two rules never bend: the tap stays first, and the chain never gets float output. What the sink then plays the PCM through is below the chain and changes neither: an AudioTrack, or the native Oboe output (`core/audio/output`, `audio/OboeAudioOutput`) when Settings › Playback has it on.
 2. **Sound engine** (C++, `core/sound`): every renderer owns one. On each GL frame it is fed the ring's new PCM (`AudioBus.soundInput`); every 10 ms of written samples it runs one analysis hop (FFT, filter bank, drums, melody, Rhythm, Harmony, Form, Emotion), and `step(dt)` only reads the newest hop's `GeodeSoundFrame` (triggers held since the last step, beat phases moved to the frame's sample) (`core/sound/SoundFrame.h`). Styles read it through `lib_sound`.
 
 ## Where things are
@@ -26,7 +26,7 @@ Geode's visuals are only as good as what they hear. Two separate paths carry sou
 
 ## Rules
 
-- Engine logic lives in C++ (ADR 0003). Kotlin only feeds samples and reads results.
+- Engine logic lives in C++. Kotlin only feeds samples and reads results.
 - No bias on BPM, ever (owner's rule; `tools/no-bpm-bias-gate.sh` and `musical_test` fail the PR). `Rhythm` scores every lag in its search range alike and takes the fastest one about as periodic as the strongest; nothing prefers, weights or centres on a tempo, and until one is heard there is none (`bpm` 0, no beats, no ticks; consumers run in seconds). Do not port a tempo weighting curve or a start tempo from Ellis, librosa, aubio or any paper, however standard: that is how the bias came back four times.
 - Export must equal live: the export job (`core/output/ExportFrame`) steps its own engine at 1/fps from `core/audio/ingest/TrackPump`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_rate_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
 - Never edit `ScaleTable.inc` or `EmotionTable.inc` by hand: change the CSV or the generator and regenerate.

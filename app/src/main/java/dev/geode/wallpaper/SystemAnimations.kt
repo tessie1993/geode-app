@@ -10,7 +10,7 @@ import dev.geode.data.SystemMotion
 /**
  * The system's Remove animations (Settings › Accessibility, or the animator duration scale in
  * Developer options), followed live: the reduced-motion source the wallpaper and the
- * dream hand the native run rule (ADR 0008). The value is [SystemMotion]'s, the app's one rule.
+ * dream hand the native run rule. The value is [SystemMotion]'s, the app's one rule.
  *
  * The setting itself, `ANIMATOR_DURATION_SCALE == 0` ([SystemMotion]), is read rather than
  * `ValueAnimator.areAnimatorsEnabled()`, because that one is also false in battery saver, which has

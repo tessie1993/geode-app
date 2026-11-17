@@ -91,8 +91,7 @@ the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
 
 JVM unit tests live in `app/src/test` and `engine/*/src/test`, and CI runs
 every module's; instrumented tests live in `app/src/androidTest`. Checks that cannot run
-headless (GL behaviour, capture, wallpaper) are listed in
-[docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
+headless (GL behaviour, capture, wallpaper) need a device.
 `tools/glslcheck` compiles and renders every fragment style and every fluid
 display variant headlessly (`node check.mjs --all`), and
 `tools/hostlink/hostlink.sh` compiles and links the native renderer on the
@@ -114,10 +113,6 @@ portability, not device checks.
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) — version history, newest first.
-- [docs/AUDIO_CHAIN.md](docs/AUDIO_CHAIN.md) — where playback audio goes and
-  which stages the visuals see.
-- [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix.
-- [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — on-device checklist.
 - `tools/build-projectm.md` — how projectM is built from the submodule.
 - `THIRD_PARTY_NOTICES` — licences and attributions; the in-app notices asset
   mirrors this file.

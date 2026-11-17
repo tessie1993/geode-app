@@ -13,7 +13,7 @@
 // The Customize panel's map: eleven categories grouped by what their controls do, each split into a
 // free Basics section and Pro sections below it, and which control lives where. Pure: no GL, no JNI.
 //
-// WHY native (ADR 0003): the map decides what a category's Randomize rolls and what its Reset puts
+// WHY native: the map decides what a category's Randomize rolls and what its Reset puts
 // back, which is parameter maths, so it sits beside the roll table (ParamRandomizer) it is checked
 // against, and the shell only draws what it says. Every control the panel shows lands in exactly
 // one section (core/tests/customize_test proves it against randomizer::rolledKeys()).

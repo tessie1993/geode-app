@@ -2,13 +2,13 @@
 
 #include "api/geode_api.h"
 #include "audio/output/OboeOutput.hpp"
+#include "audio/output/OutputChoice.hpp"
 #include "audio/output/OutputFifo.hpp"
 #include "audio/output/RetryBackoff.hpp"
 
 // The playback output's C ABI (audio/output). Android only: OboeOutput includes Oboe.
 
 using geode::audio::output::OboeOutput;
-using geode::audio::output::OutputFifo;
 
 struct geode_audio_out {
     std::shared_ptr<OboeOutput> output;
@@ -28,21 +28,34 @@ void geode_audio_out_note_failed(int64_t now_ms) {
     gBackoff.noteFailed(now_ms);
 }
 
-int geode_audio_out_may_open(int64_t now_ms) {
-    return gBackoff.mayOpen(now_ms) ? 1 : 0;
+int geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported) {
+    return geode::audio::output::wanted(chosen != 0, bit_perfect != 0, bit_perfect_supported != 0) ? 1 : 0;
 }
 
-int geode_audio_out_supports(int encoding, int channels, int sample_rate) {
-    return OutputFifo::supports(encoding, channels, sample_rate) ? 1 : 0;
+int geode_audio_out_takes(int64_t now_ms, int offload, int tunneling, int offload_gapless, int playback_parameters,
+                          int virtual_device_id, int usage, int channel_mask, int encoding, int sample_rate) {
+    if (!gBackoff.mayOpen(now_ms)) return 0;
+    geode::audio::output::OutputRequest request;
+    request.offload = offload != 0;
+    request.tunneling = tunneling != 0;
+    request.offloadGapless = offload_gapless != 0;
+    request.playbackParameters = playback_parameters != 0;
+    request.virtualDeviceId = virtual_device_id;
+    request.usage = usage;
+    request.channelMask = channel_mask;
+    request.encoding = encoding;
+    request.sampleRateHz = sample_rate;
+    return geode::audio::output::plays(request) ? 1 : 0;
 }
 
-geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes, int session_id) {
+geode_audio_out* geode_audio_out_open(int sample_rate, int channel_mask, int encoding, int buffer_bytes,
+                                      int session_id) {
     OboeOutput::Config config;
     config.sampleRateHz = sample_rate;
-    config.channelCount = channels;
+    config.channelCount = geode::audio::output::channelsOfMask(channel_mask);
     config.encoding = encoding;
     config.bufferBytes = buffer_bytes;
-    config.sessionId = session_id;
+    config.sessionId = session_id > 0 ? session_id : 0;
     std::shared_ptr<OboeOutput> output = OboeOutput::open(config);
     if (!output) return nullptr;
     return new geode_audio_out{std::move(output)};

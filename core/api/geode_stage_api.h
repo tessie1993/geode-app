@@ -82,8 +82,6 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
-/* The rate the pacer draws at now (0 every vsync), or the cap until the first vsync after it changed. */
-GEODE_API float    geode_stage_paced_fps(const geode_stage*);
 /* The frame events since the last call, OR-ed. */
 GEODE_API unsigned geode_stage_take_events(geode_stage*);
 /* Quits the stage: the client is released on the stage thread, with its context current where one can be.

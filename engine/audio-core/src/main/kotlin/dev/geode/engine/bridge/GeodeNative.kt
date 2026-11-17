@@ -10,9 +10,13 @@ object GeodeNative {
     /** One playback DSP for a player's lifetime; its chains follow the formats [dspConfigure] stages. */
     external fun dspCreate(): Long
 
-    /** Stages the chain for the format queued after the next [dspFlush]; false when it cannot run it. */
+    /**
+     * Stages the chain for the format queued after the next [dspFlush]; false when it cannot run it
+     * ([dspRuns] says no, or no handle), and that format then passes through.
+     */
     external fun dspConfigure(
         handle: Long,
+        encoding: Int,
         sampleRate: Int,
         channels: Int,
     ): Boolean
@@ -27,8 +31,6 @@ object GeodeNative {
     external fun dspFlush(handle: Long)
 
     external fun dspDestroy(handle: Long)
-
-    external fun dspBandCenterHz(band: Int): Float
 
     /** How many built-in equalizer curves there are. */
     external fun dspEqPresetCount(): Int
@@ -103,10 +105,10 @@ object GeodeNative {
     // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
     // and when each applies are native.
 
-    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
-    external fun dspRampTo(
+    /** The UI fade (pause, resume, skip) over [ms]: to full level when [audible], else to silence. */
+    external fun dspRampAudible(
         handle: Long,
-        db: Float,
+        audible: Boolean,
         ms: Int,
     )
 
@@ -121,10 +123,11 @@ object GeodeNative {
         ms: Int,
     )
 
-    /** Whether something plays after the current item on its own: a next item, or repeat one. */
-    external fun dspSetFollowsOn(
+    /** The queue as it stands: [repeatMode] is `Player.REPEAT_MODE_*`; native decides whether something follows on. */
+    external fun dspSetUpNext(
         handle: Long,
-        followsOn: Boolean,
+        hasNext: Boolean,
+        repeatMode: Int,
     )
 
     external fun dspSetSpeed(
@@ -215,6 +218,20 @@ object GeodeNative {
         hasNext: Boolean,
     ): Int
 
+    /** The A-B loop after a press at [atMs] (audio/dsp/PlaybackControls), as `[start, end]`; -1 is a point not set. */
+    external fun abLoopCycle(
+        startMs: Long,
+        endMs: Long,
+        atMs: Long,
+    ): LongArray
+
+    /** Where to seek at [positionMs]: the loop's start once its end is reached, else -1. */
+    external fun abLoopSeek(
+        startMs: Long,
+        endMs: Long,
+        positionMs: Long,
+    ): Long
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -225,14 +242,16 @@ object GeodeNative {
     )
 
     /**
-     * Processes the whole frames of the first [bytes] of a direct [buffer] in place, as [encoding]
-     * (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its capacity. Returns
-     * the bytes to pass on: those whole frames, a trailing part frame dropped.
+     * Copies [bytes] of [input] from [position] into the direct [output] (from 0) and processes the whole frames
+     * there, as [encoding] (`C.ENCODING_PCM_*`) at [channels], the format they were queued in; never past its
+     * capacity. Returns the bytes to pass on: those whole frames, a trailing part frame dropped.
      */
-    external fun dspProcessBytes(
+    external fun dspProcessInto(
         handle: Long,
-        buffer: java.nio.ByteBuffer,
+        input: java.nio.ByteBuffer,
+        position: Int,
         bytes: Int,
+        output: java.nio.ByteBuffer,
         encoding: Int,
         channels: Int,
     ): Int
@@ -952,17 +971,18 @@ object GeodeNative {
         transitionMs: Long,
     )
 
-    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    /**
+     * The look a renderer starts on before one is set, a line each: scene id, transition id and its ms, then the
+     * shell's visual defaults: attack, decay, style timer s, playlist interval s and the preset morph's longest s.
+     */
     external fun vizLookDefaults(): String
 
-    /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */
+    /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
     external fun vizSetQuality(
         handle: Long,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     /**
@@ -1656,6 +1676,18 @@ object GeodeNative {
         targetH: Int,
     ): IntArray
 
+    /**
+     * BitmapFactory's power-of-two `inSampleSize` for a [srcW]x[srcH] picture: [fit] false, the largest leaving both
+     * sides at least the target (the underlay); true, the smallest bringing both within it (the artwork).
+     */
+    external fun underlaySampleSize(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+        fit: Boolean,
+    ): Int
+
     /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
     external fun underlayFinish(
         pixels: IntArray,
@@ -1716,71 +1748,128 @@ object GeodeNative {
         ceilings: IntArray,
     ): IntArray
 
-    // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
-    // thread; the Kotlin exporters only marshal through these.
+    // A video export (core/output/VideoExport, core/api/geode_video_export_api.h): the bit rate, the encoder it
+    // settles on, every frame's draw and timestamp, the drain into the MP4 and the audio's interleave are native.
+    // The shell fills the job in, runs it on a worker thread and polls it from another; native never calls back.
 
-    /** Frames a render of [durationUs] draws at [fps], at least 1. */
-    external fun exportTotalFrames(
-        durationUs: Long,
+    /** A job to fill in, 0 when out of memory. Freed with [videoExportDestroy] once no call is in flight. */
+    external fun videoExportCreate(): Long
+
+    external fun videoExportDestroy(job: Long)
+
+    /** The file to write ([outputFd] stays the caller's, open until the run returns), the frame and the rates asked for. */
+    external fun videoExportSetOutput(
+        job: Long,
+        outputFd: Int,
+        cacheDir: String,
+        width: Int,
+        height: Int,
+        bitRate: Int,
         fps: Int,
-    ): Long
+    )
 
-    /** Encoder timestamp of [frame]: floor(frame * 1e9 / fps), exact over any length. */
-    external fun exportFramePtsNs(
-        frame: Long,
-        fps: Int,
-    ): Long
+    /** A codec to try, in the order added: its MIME type and the device's top frame rate for it (<= 0: unsaid). */
+    external fun videoExportAddCodec(
+        job: Long,
+        mime: String,
+        topFps: Int,
+    )
 
-    /** Programme time [frame] shows, floor(frame * 1000 / fps) ms. */
-    external fun exportFrameTimeMs(
-        frame: Long,
-        fps: Int,
-    ): Long
-
-    // An export's render (core/output/ExportFrame, core/api/geode_export_job_api.h): the prepare order, the
-    // pre-roll and each frame's audio and draw are native; the shell hands over the renderer, the track's
-    // descriptor and the look. Every call on the thread holding the renderer's GL context.
-
-    /**
-     * A render over renderer [viz] (a `geode_viz` handle, borrowed: destroy the job first) of the track at [fd],
-     * which native takes and closes, also when it returns 0. [length] >= 0 is the span from [offset] an
-     * AssetFileDescriptor declares; < 0 the whole descriptor. Freed with [exportJobDestroy].
-     */
-    external fun exportJobCreate(
-        viz: Long,
+    /** The track the renderer hears: [fd] is native's from here on; [length] < 0 is the whole descriptor. */
+    external fun videoExportSetTrack(
+        job: Long,
         fd: Int,
         offset: Long,
         length: Long,
-        fps: Int,
         rangeStartMs: Long,
-    ): Long
+    )
 
-    external fun exportJobDestroy(job: Long)
-
-    /**
-     * The prepare order up to the look (offscreen pin, frame rate, surface, scene, [milkPath], engine settings
-     * pinned for [pinDurationMs]): the pinned hand mask the look's reactions go under, or -1 when the renderer
-     * cannot draw [sceneId].
-     */
-    external fun exportJobBegin(
+    /** The renderer's inputs. [assets] is the AssetManager (typed as Any because this module has no Android SDK). */
+    external fun videoExportSetScene(
         job: Long,
-        width: Int,
-        height: Int,
+        assets: Any,
+        milkTextureDir: String,
         sceneId: String,
         milkPath: String?,
         entitled: Boolean,
-        pinDurationMs: Long,
-    ): Long
+    )
 
-    /** Once the look is applied: the pre-roll and the range's decode; false when the track's audio was not heard. */
-    external fun exportJobWarm(job: Long): Boolean
-
-    /** Frame [frame] of the range into [targetFbo]: its audio, then its draw. False when the decoder failed. */
-    external fun exportJobFrame(
+    /** The pinned look, as [vizSetLook] takes it, on the scene [videoExportSetScene] named. */
+    external fun videoExportSetLook(
         job: Long,
-        frame: Long,
-        targetFbo: Int,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    external fun videoExportSetUnderlay(
+        job: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
+
+    /** The wordmark's tile, a direct buffer of [tileWidth] * [tileHeight] * 4 bytes; false when it is not one. */
+    external fun videoExportSetMark(
+        job: Long,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+        placement: Int,
+        corner: Int,
     ): Boolean
+
+    /** The encoded audio: its scratch file and its samples as `[offset, size, ptsUs, flags]` quadruples; false when the file cannot be opened. */
+    external fun videoExportSetAudio(
+        job: Long,
+        path: String,
+        samples: LongArray,
+    ): Boolean
+
+    /** One key of the audio's format, typed as MediaFormat.getValueTypeForKey types it. */
+    external fun videoExportAddAudioKey(
+        job: Long,
+        key: String,
+        type: Int,
+        whole: Long,
+        real: Float,
+        text: String?,
+        bytes: ByteArray?,
+    )
+
+    /** Renders the file on the calling thread; returns once it is rendered, cancelled or failed. */
+    external fun videoExportRun(job: Long)
+
+    /** From any thread. */
+    external fun videoExportCancel(job: Long)
+
+    /** 0..1 across the render; from any thread. */
+    external fun videoExportProgress(job: Long): Float
+
+    /** The bar while the shell transcodes the audio, [done] 0..1 of that step. */
+    external fun videoExportLeadIn(done: Float): Float
+
+    /** One of the `VIDEO_EXPORT_*` states; from any thread. */
+    external fun videoExportState(job: Long): Int
+
+    /** Why a failed job failed, one of `VIDEO_FAILURE_*`; [videoExportDetail] is the text it is shown with. */
+    external fun videoExportFailure(job: Long): Int
+
+    external fun videoExportDetail(job: Long): String?
+
+    const val VIDEO_EXPORT_RENDERED = 2
+    const val VIDEO_EXPORT_CANCELLED = 3
+    const val VIDEO_FAILURE_ENCODER_REJECTED = 1
+    const val VIDEO_FAILURE_NO_OUTPUT = 2
+    const val VIDEO_FAILURE_STALLED = 3
+    const val VIDEO_FAILURE_EMPTY_BUFFER = 5
 
     // A loop render (core/output/LoopRender, core/api/geode_loop_job_api.h): the encoder it settles on, each
     // drift stop's frames, seam and presentation times and the scratch file each stop goes into are native.
@@ -1993,14 +2082,6 @@ object GeodeNative {
         soundtrackBytes: Long,
     ): Int
 
-    /** [requestedBps], lowered so the file fits [limitBytes] (<= 0: the 3.8 GB render target). */
-    external fun exportCappedVideoBps(
-        requestedBps: Int,
-        durationUs: Long,
-        audioBytes: Long,
-        limitBytes: Long,
-    ): Int
-
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
 
@@ -2011,9 +2092,6 @@ object GeodeNative {
         hRatio: Int,
         out: IntArray,
     )
-
-    /** The requested frame rate clamped to what the export offers, 24..60. */
-    external fun exportClampFps(requestedFps: Int): Int
 
     /** What [renderEtaSample] answers while it has no estimate yet. */
     const val RENDER_ETA_UNKNOWN = -1L
@@ -2270,43 +2348,6 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
-    /** A capture's last sound: [nowMs] when [peak] (a ring write's answer) is above digital zero, else [heardAtMs]. */
-    external fun captureHeardAt(
-        peak: Float,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
-
-    /** Whether a capture has heard only digital zero for 4 s since [heardAtMs]. */
-    external fun captureQuiet(
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Boolean
-
-    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
-    const val CAPTURE_FORMAT_RATE = 0
-    const val CAPTURE_FORMAT_CHANNELS = 1
-    const val CAPTURE_FORMAT_FLOAT = 2
-    const val CAPTURE_FORMAT_INTS = 3
-
-    /**
-     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
-     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
-     */
-    external fun captureFormats(
-        deviceRateHz: Int,
-        stereo: Boolean,
-    ): IntArray
-
-    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
-    external fun captureBufferBytes(
-        minBufferBytes: Int,
-        channels: Int,
-    ): Int
-
-    /** The frames one capture read takes. */
-    external fun captureReadFrames(): Int
-
     /**
      * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
      * once RECORD_AUDIO is granted. [deviceRateHz] goes first (0 unknown); [unprocessed] when the device supports it.
@@ -2321,6 +2362,27 @@ object GeodeNative {
 
     /** False after [micStop], or once the stream closed and could not be opened again. */
     external fun micActive(): Boolean
+
+    /**
+     * Another app's audio, built, read and released natively (`core/audio/ingest/CapturePump`): an `AudioRecord`
+     * over [projection], the `MediaProjection` the user consented to, writing [ring]. 0 when none would record.
+     */
+    external fun javaCapturePlayback(
+        projection: Any,
+        ring: Long,
+    ): Long
+
+    /** The output mix (a `Visualizer` on session 0), built, read and released natively into [ring]. 0 when refused. */
+    external fun javaCaptureOutputMix(ring: Long): Long
+
+    /** Stops and frees a [javaCapturePlayback] or [javaCaptureOutputMix] and its Java object; no write follows. Takes 0. */
+    external fun javaCaptureStop(handle: Long)
+
+    /** False after stop, or once the capture ended itself (a read error). */
+    external fun javaCaptureActive(handle: Long): Boolean
+
+    /** Running and only digital zero for 4 s (`core/sound/Silence`): a capture the playing app refuses. */
+    external fun javaCaptureQuiet(handle: Long): Boolean
 
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
@@ -2508,8 +2570,8 @@ object GeodeNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
-    const val PERF_TIER_FLOATS = 5
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    const val PERF_TIER_FLOATS = 4
 
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
@@ -2550,20 +2612,16 @@ object GeodeNative {
         mediaPerformanceClass: Int,
     ): Int
 
-    /** The mode these values are, or -1 when none is ("Custom"); the Liquid hot policy is not part of a mode. */
+    /** The mode these values are, or -1 when none is ("Custom"). */
     external fun perfModeOf(
         renderScale: Float,
         fpsCap: Int,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
     ): Int
 
     /** The render and march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
-
-    /** A stored Liquid hot-phone policy as the renderer reads it: 0..2, anything else 0. */
-    external fun perfLiquidHot(stored: Int): Int
 
     /**
      * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
@@ -2938,9 +2996,9 @@ object GeodeNative {
     external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
-     * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
-     * order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the frames
-     * written, 0 for a heap buffer or an encoding it does not read.
+     * Writes the whole frames in [bytes] bytes of [buffer] from [position], in the machine's byte order,
+     * where they lie (a heap buffer from its array); [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT`
+     * or `_FLOAT`. Returns the frames written, 0 for a read-only heap buffer or an encoding it does not read.
      */
     external fun pcmRingWriteDirect(
         handle: Long,
@@ -2952,41 +3010,13 @@ object GeodeNative {
         sampleRate: Int,
     ): Int
 
-    /** Writes [frames] interleaved frames; returns the block's peak magnitude. */
-    external fun pcmRingWriteFloats(
-        handle: Long,
-        samples: FloatArray,
-        frames: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Float
-
-    /** [pcmRingWriteFloats] for 16-bit samples, scaled by 1/32768 natively. */
-    external fun pcmRingWriteShorts(
-        handle: Long,
-        samples: ShortArray,
-        frames: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Float
-
-    /** Writes the whole frames in the first [count] bytes of [samples], as [pcmRingWriteDirect] reads them. */
-    external fun pcmRingWriteBytes(
-        handle: Long,
-        samples: ByteArray,
-        count: Int,
-        encoding: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Int
-
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
 
     /** Frames written since the last [pcmRingBeginEpoch]. */
     external fun pcmRingWritten(handle: Long): Long
 
-    /** Frames ever written, across epochs: the position [playoutBufferHandled] counts ring samples in. */
+    /** Frames ever written, across epochs: the position [playoutRingSpan] counts ring samples in. */
     external fun pcmRingHead(handle: Long): Long
 
     /**
@@ -3016,15 +3046,15 @@ object GeodeNative {
 
     external fun playoutDestroy(handle: Long)
 
-    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
-    external fun playoutBufferHandled(
+    /** The sink handled a buffer at [presentationUs]; [pcmRingHead] read before and after it. */
+    external fun playoutRingSpan(
         handle: Long,
         presentationUs: Long,
-        ringFrame: Long,
-        frames: Long,
+        headBefore: Long,
+        headAfter: Long,
     )
 
-    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    /** The sink's position in media time, read at [nowNs]; `AudioSink.CURRENT_POSITION_NOT_SET` is ignored. */
     external fun playoutPosition(
         handle: Long,
         sinkUs: Long,
@@ -3070,24 +3100,38 @@ object GeodeNative {
     /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
     external fun audioOutNoteFailed(nowMs: Long)
 
-    /** Whether the output may be tried at [nowMs]: false for a minute after [audioOutNoteFailed]. */
-    external fun audioOutMayOpen(nowMs: Long): Boolean
+    /** Whether the native output is wanted: [chosen] by the user, unless bit-perfect is on and supported. */
+    external fun audioOutWanted(
+        chosen: Boolean,
+        bitPerfect: Boolean,
+        bitPerfectSupported: Boolean,
+    ): Boolean
 
-    /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
-    external fun audioOutSupports(
+    /**
+     * Whether the output plays a Media3 output config, its fields as they are; false for a minute after
+     * [audioOutNoteFailed] at [nowMs] (a monotonic clock).
+     */
+    external fun audioOutTakes(
+        nowMs: Long,
+        offload: Boolean,
+        tunneling: Boolean,
+        offloadGapless: Boolean,
+        playbackParameters: Boolean,
+        virtualDeviceId: Int,
+        usage: Int,
+        channelMask: Int,
         encoding: Int,
-        channels: Int,
         sampleRateHz: Int,
     ): Boolean
 
     /**
-     * Opens a stream for writes of [encoding]; [bufferBytes] is the sink's buffer size for it, [sessionId]
-     * the player's audio session (0 allocates one). 0 when the device gave no stream that is exactly this.
-     * Ends with [audioOutRelease].
+     * Opens a stream for writes of [encoding] at [channelMask]'s channels; [bufferBytes] is the sink's buffer
+     * size for it, [sessionId] the player's audio session (0 or below allocates one). 0 when the device gave no
+     * stream that is exactly this. Ends with [audioOutRelease].
      */
     external fun audioOutOpen(
         sampleRateHz: Int,
-        channels: Int,
+        channelMask: Int,
         encoding: Int,
         bufferBytes: Int,
         sessionId: Int,
@@ -3145,14 +3189,6 @@ object GeodeNative {
 
     /** The output's buffer in frames: the FIFO plus the stream's own. */
     external fun audioOutBufferFrames(handle: Long): Long
-
-    // The process's one thermal state (core/viz/frame/Thermal), which reads the platform itself.
-
-    /** The Visuals stage's "Phone is warm" note: the fps to name, once per process, when heat first drops the stage's rate; else 0. */
-    external fun thermalTakeWarmNote(
-        capFps: Float,
-        pacedFps: Float,
-    ): Int
 
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
@@ -3616,9 +3652,6 @@ object GeodeNative {
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 
-    /** The rate the stage draws at now; 0 every vsync. */
-    external fun stagePacedFps(stage: Long): Float
-
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 
@@ -3660,8 +3693,6 @@ object GeodeNative {
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
-        adaptive: Boolean,
-        liquidHotPolicy: Int,
     )
 
     external fun stageBeginParamMorph(

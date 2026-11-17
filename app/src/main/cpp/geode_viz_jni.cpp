@@ -525,9 +525,8 @@ Java_dev_geode_engine_bridge_GeodeNative_vizLookDefaults(JNIEnv* env, jobject) {
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale, jfloat marchScale,
-                                                      jboolean postFx, jboolean adaptive, jint liquidHotPolicy) {
-    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0, adaptive == JNI_TRUE ? 1 : 0,
-                          liquidHotPolicy);
+                                                      jboolean postFx) {
+    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
 }
 
 // The live frame: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is valid
@@ -1233,8 +1232,8 @@ Java_dev_geode_engine_bridge_GeodeNative_perfModeForDevice(JNIEnv*, jobject, jlo
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_perfModeOf(JNIEnv*, jobject, jfloat renderScale, jint fpsCap, jfloat marchScale,
-                                                   jboolean postFx, jboolean adaptive) {
-    return geode_perf_mode_of(renderScale, fpsCap, marchScale, postFx ? 1 : 0, adaptive ? 1 : 0);
+                                                   jboolean postFx) {
+    return geode_perf_mode_of(renderScale, fpsCap, marchScale, postFx ? 1 : 0);
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -1246,9 +1245,6 @@ Java_dev_geode_engine_bridge_GeodeNative_perfScaleChoices(JNIEnv* env, jobject) 
     return out;
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_perfLiquidHot(JNIEnv*, jobject, jint stored) { return geode_perf_liquid_hot(stored); }
-
 // The background image bake (core/viz/Underlay). The rect comes back as a new int[4] (x, y, width, height).
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_underlayCropRect(JNIEnv* env, jobject, jint srcW, jint srcH, jint targetW, jint targetH) {
@@ -1257,6 +1253,12 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayCropRect(JNIEnv* env, jobject, 
     jintArray result = env->NewIntArray(4);
     if (result) env->SetIntArrayRegion(result, 0, 4, rect);
     return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlaySampleSize(JNIEnv*, jobject, jint srcW, jint srcH, jint targetW, jint targetH,
+                                                            jboolean fit) {
+    return geode_underlay_sample_size(srcW, srcH, targetW, targetH, fit == JNI_TRUE ? 1 : 0);
 }
 
 // In place on width*height ARGB ints; a size the array cannot hold does nothing.
@@ -1307,11 +1309,6 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayBlendOf(JNIEnv* env, jobject, j
     if (!name) return geode_underlay_blend_of(nullptr);
     Utf8Chars text(env, name);
     return geode_underlay_blend_of(text.get());
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_thermalTakeWarmNote(JNIEnv*, jobject, jfloat capFps, jfloat pacedFps) {
-    return geode_thermal_take_warm_note(capFps, pacedFps);
 }
 
 JNIEXPORT void JNICALL

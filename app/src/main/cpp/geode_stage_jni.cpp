@@ -100,11 +100,6 @@ Java_dev_geode_engine_bridge_GeodeNative_stageState(JNIEnv*, jobject, jlong stag
     return static_cast<jint>(geode_stage_state(stageOf(stage)));
 }
 
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stagePacedFps(JNIEnv*, jobject, jlong stage) {
-    return geode_stage_paced_fps(stageOf(stage));
-}
-
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageTakeEvents(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_take_events(stageOf(stage)));
@@ -141,9 +136,8 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetUnderlay(JNIEnv* env, jobject, 
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat renderScale, jfloat marchScale,
-                                                         jboolean postFx, jboolean adaptive, jint liquidHotPolicy) {
-    geode_viz_set_quality(StageViz(stage), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0, adaptive == JNI_TRUE ? 1 : 0,
-                          liquidHotPolicy);
+                                                         jboolean postFx) {
+    geode_viz_set_quality(StageViz(stage), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT void JNICALL

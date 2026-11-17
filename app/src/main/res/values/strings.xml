@@ -1188,6 +1188,9 @@
     <string name="presets_new_folder">New folder</string>
     <string name="presets_make_folder">Make folder</string>
     <string name="presets_rename_folder">Rename folder</string>
+    <string name="presets_name_blank">Give it a name.</string>
+    <string name="presets_name_taken">There is already a preset called \"%1$s\".</string>
+    <string name="presets_folder_taken">There is already a folder called \"%1$s\".</string>
     <string name="presets_import">Import</string>
     <string name="presets_import_paste">Paste a shared preset link</string>
     <string name="presets_import_file">Open a preset file</string>

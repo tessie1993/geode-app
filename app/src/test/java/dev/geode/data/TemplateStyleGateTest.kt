@@ -3,6 +3,7 @@ package dev.geode.data
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
+import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
@@ -20,22 +21,24 @@ class TemplateStyleGateTest {
         TestCatalogue.install()
     }
 
+    private fun lookOn(sceneId: String) = TemplateLook(sceneId = sceneId, attack = 0.5f, decay = 0.1f, params = SceneParams.DEFAULT)
+
     @Test
     fun `a template's preset carries the template's style to the gate`() {
-        val look = TemplateLook(sceneId = StyleCatalogue.DEFAULT_ID, milkPreset = null)
+        val look = lookOn(StyleCatalogue.DEFAULT_ID)
         assertEquals(StyleCatalogue.DEFAULT_ID, look.toPreset("Night drive").sceneId)
     }
 
     @Test
     fun `a template on a Pro style is refused for free users and allowed for Pro`() {
-        val pro = TemplateLook(sceneId = StyleCatalogue.DEFAULT_ID).toPreset("Pro look")
+        val pro = lookOn(StyleCatalogue.DEFAULT_ID).toPreset("Pro look")
         assertFalse("silk is a Pro renderer", FeatureGate.FREE.allowsStyle(pro.sceneId))
         assertTrue(FeatureGate(Entitlement.Pro).allowsStyle(pro.sceneId))
     }
 
     @Test
     fun `a template on a free style still applies for free users`() {
-        val free = TemplateLook(sceneId = FreeTier.FALLBACK_STYLE_ID).toPreset("Free look")
+        val free = lookOn(FreeTier.FALLBACK_STYLE_ID).toPreset("Free look")
         assertTrue(FeatureGate.FREE.allowsStyle(free.sceneId))
     }
 }

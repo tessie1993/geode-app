@@ -42,8 +42,8 @@ import dev.geode.ui.theme.StoneIconArt
 
 /**
  * Save-load-share for video templates, opened next to the preset library it mirrors
- * (see [PresetsTab]'s More menu). Reuses [PresetLink]'s wire format through
- * TemplateFormat, so nothing here re-implements parsing or the bounded-inflate guard.
+ * (see [PresetsTab]'s More menu). Reuses [PresetLink]'s wire format through the native
+ * template codec, so nothing here re-implements parsing or the bounded-inflate guard.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

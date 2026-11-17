@@ -45,7 +45,7 @@ data class WallpaperSettings(
     val homeLook: WallpaperLook = WallpaperLook.FULL,
     val lockLook: WallpaperLook = WallpaperLook.FULL,
     /**
-     * The wallpaper's own frame rate (ADR 0008), apart from Settings › Performance's cap for the live
+     * The wallpaper's own frame rate, apart from Settings › Performance's cap for the live
      * visual: 30 unless the user picks another. Stored as the user's int; the allowed rates and the
      * snap are native (`GeodeNative.surfaceFpsChoice`), so the pacer only ever
      * sees a listed rate, whatever an older or newer build wrote here.

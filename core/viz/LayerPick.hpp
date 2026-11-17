@@ -8,7 +8,7 @@
 #include "viz/LayerState.hpp"
 
 // Which style Customize › Layers draws over the one on screen, and what its page offers, decided here so the
-// shell only shows it (ADR 0003). The layer's setting (viz/LayerState) says where the style comes from; this
+// shell only shows it. The layer's setting (viz/LayerState) says where the style comes from; this
 // turns it into a style id each frame, per renderer, since what suits a layer depends on the style that renderer
 // shows. Pure apart from the catalogue: no GL, no JNI. Host-tested in core/tests/layer_pick_test.cpp.
 namespace geode::viz::layer_pick {

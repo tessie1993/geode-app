@@ -138,7 +138,7 @@ data class BehaviourPrefs(
      */
     val dreamHearOtherApps: Boolean = false,
     /**
-     * Behaviour › Dream's frame rate (ADR 0008), its own and not Settings › Performance's: 30 unless
+     * Behaviour › Dream's frame rate, its own and not Settings › Performance's: 30 unless
      * the user picks another. The allowed rates and the snap are native (`GeodeNative.surfaceFpsChoice`).
      */
     val dreamFps: Int = GeodeNative.SURFACE_DEFAULT_FPS,

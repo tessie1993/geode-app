@@ -4,7 +4,7 @@
 
 namespace geode::output {
 
-// A long-form render's loop (ADR 0006, core/output; fosfora's headless/loop_spec.rs): how long one loop
+// A long-form render's loop (core/output): how long one loop
 // runs, how long its seam dissolves, at what rate it is drawn, and how the encoded loop is repeated to
 // fill the running time. The loop render job (output/LoopRender) draws by it; the shell's loop extend reads
 // the repeat plan and keeps only the MediaCodec and MediaMuxer work.

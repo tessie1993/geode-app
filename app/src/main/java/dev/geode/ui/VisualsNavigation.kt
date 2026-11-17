@@ -96,7 +96,7 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * Every navigation decision of the Visuals tab in one place: the route the user took through the
  * options (a [NavHistory] of [VisualsKey]s), how high the options sheet stands over the visual,
  * and what back undoes first. The screens only call these, so moving Visuals onto a top-level
- * NavDisplay later (ADR 0001) rewires this class and [VisualsHub], nothing else.
+ * NavDisplay later rewires this class and [VisualsHub], nothing else.
  *
  * The route is true history: opening a tab goes forward from wherever the user is, it does not
  * clear back to Styles, so back retraces the way they came (Styles → Presets → Customize, back,

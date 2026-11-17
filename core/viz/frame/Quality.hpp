@@ -2,7 +2,7 @@
 #include <array>
 #include <cstdint>
 
-// Settings › Performance's three tiers and the first-run pick for this phone (ADR 0008, #437).
+// Settings › Performance's three tiers and the first-run pick for this phone (#437).
 // Live surfaces only (the view, the wallpaper, the dream); an export never reads them. Pure, so the
 // host can test it (core/tests/quality_test.cpp). Kotlin reads the tiers through geode_perf_tier
 // and passes in what Android says about the phone (RAM, the low-RAM flag, the media performance

@@ -4,7 +4,7 @@
 
 namespace geode::output {
 
-// Chapter spans for a finished render (ADR 0006, core/output): only the times; a chapter's title is whoever names
+// Chapter spans for a finished render (core/output): only the times; a chapter's title is whoever names
 // it from `source`. Nothing writes chapters into a render yet: MediaMuxer and AMediaMuxer have no chapter track.
 struct ChapterSpan {
     int64_t startMs = 0;

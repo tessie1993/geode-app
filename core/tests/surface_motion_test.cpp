@@ -234,7 +234,7 @@ Paced paceStored(int stored, int hz) {
 
 // Each listed rate is one the pacer reaches exactly on 60 and 120 Hz panels (the PR's reason for the
 // list), and 15 and 30 on 90 Hz, each frame stepping the engine by 1/rate; an unset choice paces at
-// 30. Expected rates are the owner's 15, 30 and 60 (ADR 0008). Kills: a choice the pacer cannot divide
+// 30. Expected rates are the owner's 15, 30 and 60. Kills: a choice the pacer cannot divide
 // down to (24 or 45 in the list), the snap handing the pacer the raw request instead of a listed rate
 // (a stored 0 or -1 would cap to nothing and draw every vsync, 20 would draw
 // at 20 on 120 Hz, 40 at 60 on 60 Hz), the default not 30.

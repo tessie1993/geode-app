@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The one JNI surface (AGENTS.md): every native call is declared here, so its size is the native API's.
+// The one JNI surface (CLAUDE.md): every native call is declared here, so its size is the native API's.
 @Suppress("TooManyFunctions")
 object GeodeNative {
     init {
@@ -2749,7 +2749,7 @@ object GeodeNative {
     const val SURFACE_SILENT = 1 shl 6
     const val SURFACE_REST_WHEN_SILENT = 1 shl 7
 
-    /** The system's Remove animations: a still frame (ADR 0008). */
+    /** The system's Remove animations: a still frame. */
     const val SURFACE_REDUCED_MOTION = 1 shl 8
 
     /** The dream: a silent rest shows no visual rather than a still frame. */

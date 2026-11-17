@@ -11,7 +11,7 @@
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Pacer.hpp"
 
-// How hot the phone is, once per process (ADR 0008, #440). Pure, with no GL and no Android, so the host
+// How hot the phone is, once per process (#440). Pure, with no GL and no Android, so the host
 // can test it (core/tests/thermal_test.cpp).
 //
 // Before, every Renderer owned its own governor and its own copy of the platform's readings, and each
@@ -38,7 +38,7 @@ struct ThermalTierInfo {
     bool optionalPasses;  // the post FX a cool phone can afford
 };
 
-// The owner's ladder (ADR 0008 point 2), cool to hot: fps drops first, then render scale, then march
+// The owner's ladder, cool to hot: fps drops first, then render scale, then march
 // quality, then post FX, last. A hot phone's first visible change is smoothness, not sharpness: halving the
 // frame rate halves every pass's cost at once, where a lower scale only saves fill.
 //

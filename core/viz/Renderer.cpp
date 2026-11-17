@@ -32,7 +32,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          // The user's march scale under the thermal ladder's (march is its third rung).
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },

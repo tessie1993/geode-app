@@ -1608,6 +1608,18 @@ object GeodeNative {
         targetH: Int,
     ): IntArray
 
+    /**
+     * BitmapFactory's power-of-two `inSampleSize` for a [srcW]x[srcH] picture: [fit] false, the largest leaving both
+     * sides at least the target (the underlay); true, the smallest bringing both within it (the artwork).
+     */
+    external fun underlaySampleSize(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+        fit: Boolean,
+    ): Int
+
     /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
     external fun underlayFinish(
         pixels: IntArray,

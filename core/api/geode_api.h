@@ -932,6 +932,9 @@ GEODE_API const char* geode_macro_bank_live_mods(void);
  * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
  * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
 GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+/* The power-of-two decode subsample for a src picture: fit 0, the largest leaving both sides at least the target
+   (the underlay); fit 1, the smallest bringing both within it (the artwork). 1 for a non-positive size. */
+GEODE_API int         geode_underlay_sample_size(int src_w, int src_h, int target_w, int target_h, int fit);
 GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
 GEODE_API float       geode_underlay_clamp_amount(float amount);
 GEODE_API float       geode_underlay_clamp_dim(float dim);

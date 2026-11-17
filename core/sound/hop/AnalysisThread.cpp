@@ -17,13 +17,22 @@ constexpr int kChunkHops = 32;
 constexpr std::chrono::milliseconds kStarvedTick{50};
 // While a listen limit holds back audio already in the ring: the limit moves with time, not with writes.
 constexpr std::chrono::milliseconds kLimitTick{10};
-// The timed waits end at this much quiet even if the engine never reports silence.
+// The timed waits end at this much quiet even if the engine never reports silence, and sooner while a listen limit
+// is all that holds audio back (a pause with the sink's buffer still unplayed): then only notify() resumes it.
 constexpr float kFlowCapSeconds = 5.0f;
+constexpr float kHeldBackCapSeconds = 1.0f;
+// step()'s own clamp on dt, so the quiet counted here is the quiet the engine counts.
+constexpr float kMaxStepSeconds = 0.25f;
 // A reader's tries at one slot, and at the whole search, before it falls back.
 constexpr int kReadTries = 64;
 constexpr int kLapTries = 4;
 
 float clampFade(float gain) { return std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }
+
+// The published words, the hints and the counters must be plain loads and stores on every target.
+static_assert(std::atomic<uint32_t>::is_always_lock_free);
+static_assert(std::atomic<int64_t>::is_always_lock_free);
+static_assert(std::atomic<uint64_t>::is_always_lock_free);
 
 }  // namespace
 
@@ -122,23 +131,28 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         heard = true;
         more = (takes + 1 == kTakesPerPass);
     }
-    if (engine_ && silenceWhenStarved_) {
-        // step() is what feeds a starved engine silence (> 0.25 s without audio); the frame it reads is unused.
-        engine_->step(dtSeconds, stepped_);
-        publishNew();
-    }
-    // The timed wait runs only from audio until the engine says silence (or a cap), then the thread sleeps untimed.
+    // Audio in the ring that only the listen limit holds back: the writer has not stopped, the speaker has.
+    const bool heldBack = limit_ && cursor_.position() < ring_.headFrames();
     if (heard) {
         flowing_ = true;
         quietSeconds_ = 0.0f;
-    } else if (flowing_) {
-        quietSeconds_ += std::max(0.0f, dtSeconds);
-        if (!engine_ || engine_->silent() || quietSeconds_ > kFlowCapSeconds) flowing_ = false;
+    }
+    if (engine_ && silenceWhenStarved_ && flowing_ && !heldBack) {
+        // step() is what feeds a starved engine silence (> 0.25 s without audio); the frame it reads is unused. Only
+        // from audio until the engine says silence, so an idle thread woken by a control publishes nothing.
+        engine_->step(dtSeconds, stepped_);
+        publishNew();
+    }
+    // The timed waits run only from audio until the engine says silence (or a cap), then the thread sleeps untimed.
+    if (!heard && flowing_) {
+        quietSeconds_ += std::clamp(dtSeconds, 0.0f, kMaxStepSeconds);
+        const float cap = heldBack ? kHeldBackCapSeconds : kFlowCapSeconds;
+        if (!engine_ || (!heldBack && engine_->silent()) || quietSeconds_ > cap) flowing_ = false;
     }
     if (more) return Next::kNow;
-    if (limit_ && cursor_.position() < ring_.headFrames()) return Next::kWaitLimit;
-    if (flowing_ && silenceWhenStarved_) return Next::kWaitTimed;
-    return Next::kWait;
+    if (!flowing_) return Next::kWait;
+    if (heldBack) return Next::kWaitLimit;
+    return silenceWhenStarved_ ? Next::kWaitTimed : Next::kWait;
 }
 
 bool AnalysisThread::send(const Control& control) {
@@ -274,10 +288,19 @@ void AnalysisThread::publishNew() {
 
 void AnalysisThread::publish(const SoundEngine::Hop& hop) {
     const uint64_t index = published_.load(std::memory_order_relaxed);
+    // Zeroed first and the clock copied field by field, so no padding byte of the published copy is left undefined.
     Heard h;
+    std::memset(static_cast<void*>(&h), 0, sizeof h);
     h.index = index;
     h.position = hop.sample + offset_;
-    h.clock = hop.clock;
+    h.clock.theta = hop.clock.theta;
+    h.clock.period = hop.clock.period;
+    h.clock.lastBeat = hop.clock.lastBeat;
+    h.clock.hop = hop.clock.hop;
+    h.clock.meter = hop.clock.meter;
+    h.clock.downSlot = hop.clock.downSlot;
+    h.clock.barInPhrase = hop.clock.barInPhrase;
+    h.clock.locked = hop.clock.locked;
     h.halvings = engine_->halvings();
     h.frame = hop.frame;
     h.frame.fadeGain = playerApplied_ ? clampFade(fadeApplied_) : 1.0f;
@@ -332,11 +355,7 @@ bool AnalysisThread::hopAt(int64_t position, Heard& out) const {
         // hop it stood for, and pick is the newest at or before `position`.
         if (published_.load(std::memory_order_acquire) <= pick + kPublished) return true;
     }
-    // Lapped on every try: the newest hop.
-    for (int attempt = 0; attempt < kLapTries; ++attempt) {
-        const uint64_t count = published_.load(std::memory_order_acquire);
-        if (read(count - 1, out)) return true;
-    }
+    // Lapped on every try: the reader stalled for about a whole window. No hop it could trust.
     return false;
 }
 

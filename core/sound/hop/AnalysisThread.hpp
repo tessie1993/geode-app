@@ -69,7 +69,9 @@ public:
     // Not while started.
     void pump(float dtSeconds);
 
-    // The ring's writer calls this after each write: never blocks, takes no lock.
+    // The ring's writer calls this after each write: never blocks, takes no lock. The shell calls it too when a listen
+    // limit moves on with no write (playback resumed with the sink's buffer already in the ring): once the audio held
+    // back has waited a second, the thread sleeps until a notify.
     void notify();
 
     // Controls, applied by the analysis thread at its next pass before it takes more audio, in the order sent.
@@ -79,6 +81,7 @@ public:
     // The engine starts over (a new source, a seek the shell names); the cursor keeps its place.
     bool reset();
     bool resetEmotion();
+    // `context` must outlive stop() (or the next setListenLimit that replaces it): the thread calls `limit` with it.
     bool setListenLimit(ListenLimit limit, void* context);
     // The latest value wins; applied at the next pass.
     void setFadeGain(float gain);
@@ -86,7 +89,8 @@ public:
 
     // Readers, any thread. The hop at or before `position`, as SoundEngine::frameAt picks it (older than every
     // kept one reads the oldest, past the newest the newest), its phases moved on to `position`, fadeGain as
-    // set now. False before the first hop.
+    // set now. False before the first hop, and when the writer lapped this reader on every try (it stalled for about
+    // a whole window): no hop it read can be trusted then.
     bool frameAt(int64_t position, GeodeSoundFrame& out, Emotion::State* emotion = nullptr) const;
     // The same pick, as published.
     bool hopAt(int64_t position, Heard& out) const;

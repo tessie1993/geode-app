@@ -89,18 +89,14 @@ class AudioTranscoder(
         maxDurationMs: Long,
         outputRateHz: Int,
     ): Long {
-        val out = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_TRUNCATE)
-        val afd =
+        val afd = context.contentResolver.openAssetFileDescriptor(uri, "r") ?: throw IOException("The track could not be opened")
+        val out =
             try {
-                context.contentResolver.openAssetFileDescriptor(uri, "r")
-            } catch (e: Exception) {
-                bestEffort(TAG, "out.close()") { out.close() }
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_TRUNCATE)
+            } catch (e: IOException) {
+                bestEffort(TAG, "afd.close()") { afd.close() }
                 throw e
             }
-        if (afd == null) {
-            bestEffort(TAG, "out.close()") { out.close() }
-            throw IOException("The track could not be opened")
-        }
         val length = afd.declaredLength
         val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
         val job =

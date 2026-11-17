@@ -70,7 +70,7 @@ class Stage(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
         set(value) {
             field = value
-            GeodeNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx, value.adaptive, value.liquidHot.native)
+            GeodeNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
         }
 
     /** The surface's own fps cap; 0 or less is none. */
@@ -111,7 +111,7 @@ class Stage(
 
     private val liquid = MutableStateFlow(0)
 
-    /** What Liquid mode ran last (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused); changes only. */
+    /** What Liquid mode ran last (`liquid::Mode`: 0 off, 1 full); changes only. */
     val liquidMode: StateFlow<Int> = liquid.asStateFlow()
 
     // The ring handed to native last.
@@ -193,9 +193,6 @@ class Stage(
 
     /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`). */
     fun setEdgeGlow(options: FloatArray) = GeodeNative.stageSetEdgeGlow(handle, options)
-
-    /** The rate the stage draws at now; 0 every vsync. */
-    fun pacedFps(): Float = GeodeNative.stagePacedFps(handle)
 
     /** Tap along: true on the tap that completes a streak on the beat this stage heard. */
     fun tapAlong(uptimeNs: Long): Boolean = GeodeNative.stageTapAlong(handle, uptimeNs)

@@ -1,7 +1,7 @@
 // Host-side checks for core/viz/frame/Quality (#437): Settings › Performance's tiers and the
 // first-run pick for this phone. Built and run by CI ("Native host tests" in
 // .github/workflows/native-host-tests.yml) with the system compiler; no GL. Ported from the JVM
-// PerformanceSettingsTest, with the same values as the Kotlin it replaces; the C ABI too.
+// PerformanceSettingsTest, with the same values as the Kotlin it replaced; the C ABI too.
 #include <algorithm>
 #include <cstdio>
 #include <iterator>

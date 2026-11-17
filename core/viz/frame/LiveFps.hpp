@@ -9,8 +9,7 @@
 #include "viz/frame/Pacer.hpp"
 
 // Settings › Performance's live frame-rate cap above 60 (owner decision of 2026-11-12: "Offer 90 and 120 in
-// Performance"). Pure, with no GL and no
-// Android, so the host can test it (core/tests/live_fps_test.cpp).
+// Performance"). Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
 // Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to
 // their own choice (viz/SurfaceRun, kFpsChoices), an export to its own fixed step, Cast to its fixed clock;

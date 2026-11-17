@@ -53,7 +53,6 @@ public:
     void service();
 
     uint32_t state() const { return core_.state(); }
-    float pacedFps() const { return core_.pacedFps(); }
     uint32_t takeEvents() { return core_.takeEvents(); }
 
     // Asks the thread to quit and waits up to kQuitWait in all: joined when the thread finished, else left to

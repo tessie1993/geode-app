@@ -61,7 +61,7 @@ struct RowContext {
     std::string styleId;     // "" for any style
     std::string query;       // the panel's search text; blank shows everything
     bool transition = false;  // a style transition is chosen
-    int liquidMode = 0;       // the renderer's Liquid mode: 0 off, 1 full, 2 lite, 3 warp, 4 paused
+    int liquidMode = 0;       // the renderer's Liquid mode: 0 off, 1 full
 };
 
 // The rows for keys (one control key a line, a section's order), skipping what does not draw here.

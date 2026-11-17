@@ -7,7 +7,8 @@
 
 // One stage's pacer on the vsync thread (docs/agents/native-stage.md): which vsyncs draw, the paced rate the frame
 // is handed, and when the window's frame-rate hint must be restated. The clock itself is core/viz/frame/Pacer,
-// unchanged; this owns its state natively and picks the cap the way geode_pacer_on_vsync does. Pure, with no Android, so the host can test it (core/tests/stage_pacing_test.cpp).
+// unchanged; this owns its state natively and picks the cap the way geode_pacer_on_vsync does. Pure, with no
+// Android, so the host can test it (core/tests/stage_pacing_test.cpp).
 //
 // Confined to the vsync thread: start, stop and setCap arrive there as commands, and the choreographer callback
 // calls vsyncArrived, then (when it re-posted) step.

@@ -30,6 +30,12 @@ inline int channelsOfMask(int mask) {
     return std::popcount(static_cast<unsigned>(mask));
 }
 
+// The native output is wanted when the user chose it, unless bit-perfect USB is on and supported: that
+// needs the platform track's mixer attributes.
+inline bool wanted(bool chosen, bool bitPerfect, bool bitPerfectSupported) {
+    return chosen && !(bitPerfect && bitPerfectSupported);
+}
+
 // Plain 16-bit or float PCM in mono or stereo at a rate the FIFO takes, as media, on no virtual device, with
 // no offload, tunneling or speed of its own.
 inline bool plays(const OutputRequest& r) {

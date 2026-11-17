@@ -16,6 +16,14 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutNoteFail
     geode_audio_out_note_failed(nowMs);
 }
 
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutWanted(JNIEnv*, jobject, jboolean chosen,
+                                                                                   jboolean bitPerfect,
+                                                                                   jboolean bitPerfectSupported) {
+    return geode_audio_out_wanted(chosen == JNI_TRUE, bitPerfect == JNI_TRUE, bitPerfectSupported == JNI_TRUE)
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_audioOutTakes(
     JNIEnv*, jobject, jlong nowMs, jboolean offload, jboolean tunneling, jboolean offloadGapless,
     jboolean playbackParameters, jint virtualDeviceId, jint usage, jint channelMask, jint encoding, jint sampleRateHz) {

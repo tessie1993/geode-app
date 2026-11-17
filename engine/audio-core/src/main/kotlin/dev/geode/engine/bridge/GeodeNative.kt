@@ -105,10 +105,10 @@ object GeodeNative {
     // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
     // and when each applies are native.
 
-    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
-    external fun dspRampTo(
+    /** The UI fade (pause, resume, skip) over [ms]: to full level when [audible], else to silence. */
+    external fun dspRampAudible(
         handle: Long,
-        db: Float,
+        audible: Boolean,
         ms: Int,
     )
 
@@ -3023,6 +3023,13 @@ object GeodeNative {
 
     /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
     external fun audioOutNoteFailed(nowMs: Long)
+
+    /** Whether the native output is wanted: [chosen] by the user, unless bit-perfect is on and supported. */
+    external fun audioOutWanted(
+        chosen: Boolean,
+        bitPerfect: Boolean,
+        bitPerfectSupported: Boolean,
+    ): Boolean
 
     /**
      * Whether the output plays a Media3 output config, its fields as they are; false for a minute after

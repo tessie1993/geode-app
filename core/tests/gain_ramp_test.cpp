@@ -114,6 +114,19 @@ void uiFadeIsSampleAccurate() {
     geode_dsp_destroy(d);
 }
 
+// The shell's UI fade (geode_dsp_ramp_audible; the target was Kotlin's): not audible is silence, audible full level.
+void uiFadeAudibleIsFullLevelElseSilence() {
+    geode_dsp* d = fresh();
+    geode_dsp_ramp_audible(d, 0, 10);
+    const auto down = run(d, 1000);
+    check(down[478] != kNoGain && down[479] == kNoGain && down[999] == kNoGain, "not audible lands on silence");
+    geode_dsp_ramp_audible(d, 1, 10);
+    const auto up = run(d, 1000);
+    check(near(up[479], 0.0, 1e-5) && near(up[999], 0.0, 1e-5), "audible lands on full level");
+    geode_dsp_ramp_audible(nullptr, 1, 10);
+    geode_dsp_destroy(d);
+}
+
 // A fade to silence (-inf from Kotlin) ramps to the floor in dB, then multiplies by exactly 0.
 void fadeToSilenceEndsAtZero() {
     geode_dsp* d = fresh();
@@ -399,6 +412,7 @@ int main() {
     rampIsLinearInDb();
     uiFadeIsSampleAccurate();
     fadeToSilenceEndsAtZero();
+    uiFadeAudibleIsFullLevelElseSilence();
     silenceWinsOverBoost();
     replayGainRule();
     replayGainSwitchesOnTheBoundary();

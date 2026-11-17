@@ -151,6 +151,10 @@ void geode_dsp_ramp_to(geode_dsp* d, float db, int ms) {
     if (d) d->processor.gain().rampTo(db, ms);
 }
 
+void geode_dsp_ramp_audible(geode_dsp* d, int audible, int ms) {
+    geode_dsp_ramp_to(d, audible != 0 ? 0.0f : -INFINITY, ms);
+}
+
 int64_t geode_dsp_sleep_fade(geode_dsp* d, int64_t remaining_ms) {
     return d ? d->processor.gain().sleepFade(remaining_ms) : 1;
 }

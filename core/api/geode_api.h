@@ -419,6 +419,8 @@ GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
 #define GEODE_DSP_SILENCE_DB (-80.0f)
 /* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
 GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The shell's UI fade: to full level (0 dB) when audible, else to silence, over ms. */
+GEODE_API void       geode_dsp_ramp_audible(geode_dsp*, int audible, int ms);
 /* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
  * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
 GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
@@ -1740,6 +1742,9 @@ typedef struct geode_audio_out geode_audio_out;
 /* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened, and
  * for 60 s after it geode_audio_out_takes answers 0. now_ms is one monotonic clock for both calls. Process-wide. */
 GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
+/* Whether the native output is wanted at all: the user chose it, and bit-perfect USB (which needs the
+ * platform track) is not both on and supported. 1 or 0. */
+GEODE_API int              geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported);
 /* Whether the output plays one of Media3's output configs (audio/output/OutputChoice), its fields passed as
  * they are: channel_mask an AudioFormat.CHANNEL_OUT_* mask, usage C.USAGE_*, virtual_device_id C.INDEX_UNSET
  * for none. 0 for anything but plain PCM it supports, and within the back-off; the platform track plays it. */

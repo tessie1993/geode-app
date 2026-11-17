@@ -150,8 +150,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLoudnessMb(JNIEnv*, jobject, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspRampTo(JNIEnv*, jobject, jlong handle, jfloat db, jint ms) {
-    geode_dsp_ramp_to(dspOf(handle), db, ms);
+Java_dev_geode_engine_bridge_GeodeNative_dspRampAudible(JNIEnv*, jobject, jlong handle, jboolean audible, jint ms) {
+    geode_dsp_ramp_audible(dspOf(handle), audible == JNI_TRUE, ms);
 }
 
 JNIEXPORT jlong JNICALL

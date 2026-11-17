@@ -10,6 +10,7 @@ namespace {
 using geode::audio::output::channelsOfMask;
 using geode::audio::output::OutputRequest;
 using geode::audio::output::plays;
+using geode::audio::output::wanted;
 
 int failures = 0;
 
@@ -88,6 +89,15 @@ void channelsCountTheMask() {
     check(channelsOfMask(0) == 0, "no mask is none");
 }
 
+// Whether the native output is wanted at all (the rule was Kotlin's PlaybackEngine.applyPrefs).
+void wantedWhenChosenUnlessBitPerfectTakesTheTrack() {
+    check(wanted(true, false, false), "chosen, no bit-perfect: wanted");
+    check(wanted(true, false, true), "chosen, bit-perfect supported but off: wanted");
+    check(wanted(true, true, false), "chosen, bit-perfect on but unsupported: wanted");
+    check(!wanted(true, true, true), "bit-perfect on and supported needs the platform track");
+    check(!wanted(false, false, false), "not chosen: not wanted");
+}
+
 }  // namespace
 
 int main() {
@@ -95,6 +105,7 @@ int main() {
     everyPlatformOnlyConfigGoesToTheTrack();
     otherFormatsGoToTheTrack();
     channelsCountTheMask();
+    wantedWhenChosenUnlessBitPerfectTakesTheTrack();
     if (failures != 0) return 1;
     std::printf("output_choice_test: ok\n");
     return 0;

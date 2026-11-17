@@ -28,6 +28,10 @@ void geode_audio_out_note_failed(int64_t now_ms) {
     gBackoff.noteFailed(now_ms);
 }
 
+int geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported) {
+    return geode::audio::output::wanted(chosen != 0, bit_perfect != 0, bit_perfect_supported != 0) ? 1 : 0;
+}
+
 int geode_audio_out_takes(int64_t now_ms, int offload, int tunneling, int offload_gapless, int playback_parameters,
                           int virtual_device_id, int usage, int channel_mask, int encoding, int sample_rate) {
     if (!gBackoff.mayOpen(now_ms)) return 0;

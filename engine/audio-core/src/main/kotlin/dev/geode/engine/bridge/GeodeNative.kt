@@ -1631,27 +1631,6 @@ object GeodeNative {
 
     external fun underlayBlendOf(name: String?): Int
 
-    // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
-
-    /** 0 for a bad rate or channel count. */
-    external fun resamplerCreate(
-        inRate: Int,
-        outRate: Int,
-        channels: Int,
-    ): Long
-
-    external fun resamplerDestroy(handle: Long)
-
-    /**
-     * Converts [frames] interleaved frames of [input] (at the handle's channel count); returns the
-     * interleaved output, state carrying over. Empty when [input] holds fewer than [frames] frames.
-     */
-    external fun resamplerProcess(
-        handle: Long,
-        input: ShortArray,
-        frames: Int,
-    ): ShortArray
-
     // Encoder fallback ladder (core/output/EncoderLadder): what an export asks the video encoder for.
 
     /**
@@ -2155,61 +2134,8 @@ object GeodeNative {
     /** The shortest clip native makes: a render range shorter than this has no stretch of song to draw over. */
     external fun studioMinClipMs(): Long
 
-    /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
-    external fun pcmDownmixS16(
-        input: ShortArray,
-        frames: Int,
-        srcChannels: Int,
-        dstChannels: Int,
-    ): ShortArray
-
-    /** Float PCM to s16: clamp, x32767, truncate; NaN is 0. */
-    external fun pcmFloatToS16(
-        input: FloatArray,
-        count: Int,
-    ): ShortArray
-
-    // PCM timing (core/audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim.
-
-    /** The AAC rate for [sourceRateHz]: its own up to 48 kHz; above, 44.1 kHz for the 44.1k family, else 48 kHz. */
-    external fun aacRateFor(sourceRateHz: Int): Int
-
-    /** The one rate a mix's clips are brought to, so they share one AAC track. */
+    /** The one rate a mix's clips are brought to, so they share one AAC track (core/audio/dsp/PcmTiming). */
     external fun mixRateHz(): Int
-
-    /** End of an AAC track: [lastPtsUs] plus one 1024-sample frame at [sampleRateHz]. */
-    external fun aacEndUs(
-        lastPtsUs: Long,
-        sampleRateHz: Int,
-    ): Long
-
-    /** Duration of [bytes] of interleaved s16 at [rateHz], the rate the bytes are at. */
-    external fun pcmS16BytesToUs(
-        bytes: Long,
-        rateHz: Int,
-        channels: Int,
-    ): Long
-
-    /** Interleaved samples before [us] at [rateHz]: what a start skip reads and discards. */
-    external fun pcmSamplesBeforeUs(
-        us: Long,
-        rateHz: Int,
-        channels: Int,
-    ): Long
-
-    /**
-     * A decoded s16 buffer of [bytes] at [bufferPtsUs] trimmed to [startUs]: the bytes to drop from its
-     * front (whole frames; == [bytes] when none is kept), with the kept part's pts (0 = the start) in
-     * outPtsUs[0]. A buffer that straddles the start keeps the frames from the start on.
-     */
-    external fun pcmTrimS16(
-        startUs: Long,
-        bufferPtsUs: Long,
-        bytes: Long,
-        rateHz: Int,
-        channels: Int,
-        outPtsUs: LongArray,
-    ): Long
 
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
@@ -2741,35 +2667,77 @@ object GeodeNative {
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
     const val SURFACE_DEFAULT_FPS = 30
 
-    // AIFF files (core/audio/ingest/AiffReader), for the soundtrack transcoder.
+    // An export's soundtrack to AAC (core/output/AacTranscode through core/api/geode_export_audio_api.h).
+
+    const val AAC_JOB_RUNNING = 1
+    const val AAC_JOB_DONE = 2
+    const val AAC_JOB_FAILED = 3
+
+    /** Why [aacJobState] is [AAC_JOB_FAILED]; [aacJobDetail] words it. */
+    const val AAC_FAILURE_NO_AUDIO = 1
+    const val AAC_FAILURE_CODEC = 2
+    const val AAC_FAILURE_STALLED = 3
+    const val AAC_FAILURE_NO_FORMAT = 4
+    const val AAC_FAILURE_WRITE = 5
+
+    /** Where [aacJobTrack] puts each value. */
+    const val AAC_TRACK_RATE = 0
+    const val AAC_TRACK_CHANNELS = 1
+    const val AAC_TRACK_BIT_RATE = 2
+    const val AAC_TRACK_DURATION_US = 3
+    const val AAC_TRACK_BYTES = 4
+    const val AAC_TRACK_SAMPLES = 5
+    const val AAC_TRACK_LONGS = 6
+
+    /** [aacJobSamples] rows: offset in the file, size, pts (us), flags. */
+    const val AAC_SAMPLE_LONGS = 4
 
     /**
-     * An AIFF or AIFF-C (NONE, sowt) read as 16-bit PCM from [fd], which native takes and closes, also when it
-     * returns 0 (not an AIFF it reads). [length] >= 0 reads that many bytes from [startOffset] on (an
-     * AssetFileDescriptor's span); < 0 to the end. Freed with [aiffClose].
+     * The track at [fd] ([offset] and [length] its AssetFileDescriptor's span; [length] < 0: the whole descriptor)
+     * encoded to AAC from [startMs] for [maxDurationMs] (0: to the end) at [outputRateHz] (0: the AAC rate for its
+     * own), each access unit appended to [outFd]. Native takes and closes both descriptors, also when it returns 0.
+     * Freed with [aacJobDestroy]; a destroy before the end is the cancel.
      */
-    external fun aiffOpenFd(
+    external fun aacJobCreate(
         fd: Int,
-        startOffset: Long,
+        offset: Long,
         length: Long,
+        outFd: Int,
+        startMs: Long,
+        maxDurationMs: Long,
+        outputRateHz: Int,
     ): Long
 
-    external fun aiffClose(handle: Long)
+    external fun aacJobDestroy(job: Long)
 
-    /** [out] gets the channel count, the sample rate and the COMM frame count (0 = read to the end). */
-    external fun aiffInfo(
-        handle: Long,
+    /** Steps the job for about [sliceMs] on this thread; true while it runs on. */
+    external fun aacJobRun(
+        job: Long,
+        sliceMs: Int,
+    ): Boolean
+
+    external fun aacJobState(job: Long): Int
+
+    external fun aacJobFailure(job: Long): Int
+
+    external fun aacJobDetail(job: Long): String
+
+    /** 0..1 through the range. */
+    external fun aacJobProgress(job: Long): Float
+
+    /** Once done, [AAC_TRACK_LONGS] values into [out] by the AAC_TRACK_ indices. */
+    external fun aacJobTrack(
+        job: Long,
         out: LongArray,
     )
 
-    /** Frames read over the total, 0..1. */
-    external fun aiffProgress(handle: Long): Float
+    /** Once done, the sample table, [AAC_SAMPLE_LONGS] per access unit. */
+    external fun aacJobSamples(job: Long): LongArray?
 
-    /** Up to [out]'s size in interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
-    external fun aiffReadS16(
-        handle: Long,
-        out: ShortArray,
-    ): Int
+    /** Once done, the track's codec-specific data (csd-0); null when there is none. */
+    external fun aacJobCsd(job: Long): ByteArray?
+
+    // AIFF files (core/audio/ingest/AiffReader), for the player's extractor.
 
     /** What [aiffScanStep] answers: feed it again, the header is read, or this is not an AIFF that plays. */
     const val AIFF_SCAN_MORE = 0

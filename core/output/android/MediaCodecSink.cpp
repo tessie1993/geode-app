@@ -190,4 +190,25 @@ private:
 
 std::unique_ptr<Codecs> mediaCodecs(int fd) { return std::make_unique<MediaCodecs>(fd); }
 
+bool audioTrackInfo(const TrackFormat& format, int* rateHz, int* channels, std::vector<uint8_t>* csd) {
+    AMediaFormat* f = const_cast<AMediaFormat*>(static_cast<const MediaTrackFormat&>(format).get());
+    int32_t rate = 0;
+    int32_t count = 0;
+    if (!AMediaFormat_getInt32(f, AMEDIAFORMAT_KEY_SAMPLE_RATE, &rate) ||
+        !AMediaFormat_getInt32(f, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &count)) {
+        return false;
+    }
+    *rateHz = rate;
+    *channels = count;
+    void* data = nullptr;
+    size_t size = 0;
+    csd->clear();
+    // The bytes belong to the format and live as long as it does: copied out here.
+    if (AMediaFormat_getBuffer(f, AMEDIAFORMAT_KEY_CSD_0, &data, &size) && data) {
+        const auto* bytes = static_cast<const uint8_t*>(data);
+        csd->assign(bytes, bytes + size);
+    }
+    return true;
+}
+
 }  // namespace geode::output::sink

@@ -110,40 +110,6 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHeardAt(
     return geode_pcm_ring_heard_at(ringOf(handle), frames, nowMs, heardAtMs);
 }
 
-// AIFF (core/audio/ingest/AiffReader): the descriptor is handed over and closed natively.
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffOpenFd(JNIEnv*, jobject, jint fd,
-                                                                            jlong startOffset, jlong length) {
-    return reinterpret_cast<jlong>(geode_aiff_open_fd(fd, startOffset, length));
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffClose(JNIEnv*, jobject, jlong handle) {
-    geode_aiff_close(reinterpret_cast<geode_aiff*>(handle));
-}
-
-// out: [0] channels, [1] sample rate, [2] the COMM frame count.
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffInfo(JNIEnv* env, jobject, jlong handle,
-                                                                         jlongArray out) {
-    if (!out || env->GetArrayLength(out) < 3) return;
-    const auto* a = reinterpret_cast<const geode_aiff*>(handle);
-    const jlong values[3] = {geode_aiff_channels(a), geode_aiff_sample_rate(a), geode_aiff_total_frames(a)};
-    env->SetLongArrayRegion(out, 0, 3, values);
-}
-
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffProgress(JNIEnv*, jobject, jlong handle) {
-    return geode_aiff_progress(reinterpret_cast<const geode_aiff*>(handle));
-}
-
-// File I/O happens in the read, so the array is filled from a native buffer rather than pinned across it.
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffReadS16(JNIEnv* env, jobject, jlong handle,
-                                                                            jshortArray out) {
-    if (!out) return -1;
-    const jsize capacity = env->GetArrayLength(out);
-    std::vector<int16_t> samples(static_cast<size_t>(capacity));
-    const int n = geode_aiff_read_s16(reinterpret_cast<geode_aiff*>(handle), samples.data(), capacity);
-    if (n > 0) env->SetShortArrayRegion(out, 0, n, samples.data());
-    return n;
-}
-
 // The header scan (core/audio/ingest/AiffHeaderScan) for the player's extractor, which holds the file.
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanCreate(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_aiff_scan_create());

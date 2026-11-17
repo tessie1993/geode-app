@@ -217,72 +217,10 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordRateLo
     return lowered ? JNI_TRUE : JNI_FALSE;
 }
 
-// PCM conversions (audio/dsp/PcmConvert).
-
-JNIEXPORT jshortArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmDownmixS16(JNIEnv* env, jobject,
-                                                                                      jshortArray input, jint frames,
-                                                                                      jint srcChannels, jint dstChannels) {
-    if (!input || frames <= 0 || srcChannels <= 0 || dstChannels <= 0 ||
-        static_cast<int64_t>(env->GetArrayLength(input)) < static_cast<int64_t>(frames) * srcChannels) {
-        return env->NewShortArray(0);
-    }
-    std::vector<int16_t> in(static_cast<size_t>(frames) * static_cast<size_t>(srcChannels));
-    env->GetShortArrayRegion(input, 0, static_cast<jsize>(in.size()), reinterpret_cast<jshort*>(in.data()));
-    std::vector<int16_t> out(static_cast<size_t>(frames) * static_cast<size_t>(dstChannels));
-    const size_t written = geode_pcm_downmix_s16(in.data(), static_cast<size_t>(frames), srcChannels, dstChannels, out.data());
-    const auto samples = static_cast<jsize>(written * static_cast<size_t>(dstChannels));
-    jshortArray result = env->NewShortArray(samples);
-    if (result && samples > 0) env->SetShortArrayRegion(result, 0, samples, reinterpret_cast<const jshort*>(out.data()));
-    return result;
-}
-
-JNIEXPORT jshortArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmFloatToS16(JNIEnv* env, jobject,
-                                                                                      jfloatArray input, jint count) {
-    if (!input || count <= 0 || env->GetArrayLength(input) < count) return env->NewShortArray(0);
-    std::vector<float> in(static_cast<size_t>(count));
-    env->GetFloatArrayRegion(input, 0, count, in.data());
-    std::vector<int16_t> out(static_cast<size_t>(count));
-    geode_pcm_float_to_s16(in.data(), in.size(), out.data());
-    jshortArray result = env->NewShortArray(count);
-    if (result) env->SetShortArrayRegion(result, 0, count, reinterpret_cast<const jshort*>(out.data()));
-    return result;
-}
-
-// PCM timing (audio/dsp/PcmTiming).
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacRateFor(JNIEnv*, jobject, jint sourceRate) {
-    return geode_aac_rate_for(sourceRate);
-}
+// The one rate a mix's clips are brought to (audio/dsp/PcmTiming).
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_mixRateHz(JNIEnv*, jobject) {
     return geode_mix_rate();
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aacEndUs(JNIEnv*, jobject, jlong lastPtsUs,
-                                                                           jint sampleRate) {
-    return geode_aac_end_us(lastPtsUs, sampleRate);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmS16BytesToUs(JNIEnv*, jobject, jlong bytes,
-                                                                                  jint rate, jint channels) {
-    return geode_pcm_s16_bytes_to_us(bytes, rate, channels);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmSamplesBeforeUs(JNIEnv*, jobject, jlong us,
-                                                                                     jint rate, jint channels) {
-    return geode_pcm_samples_before_us(us, rate, channels);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmTrimS16(JNIEnv* env, jobject, jlong startUs,
-                                                                             jlong bufferPtsUs, jlong bytes, jint rate,
-                                                                             jint channels, jlongArray outPtsUs) {
-    int64_t pts = 0;
-    const int64_t skip = geode_pcm_trim_s16(startUs, bufferPtsUs, bytes, rate, channels, &pts);
-    if (outPtsUs && env->GetArrayLength(outPtsUs) >= 1) {
-        const jlong value = pts;
-        env->SetLongArrayRegion(outPtsUs, 0, 1, &value);
-    }
-    return skip;
 }
 
 }  // extern "C"

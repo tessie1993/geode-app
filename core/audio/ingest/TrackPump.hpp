@@ -121,6 +121,10 @@ private:
 // can decode.
 using DecoderOpener = std::function<std::unique_ptr<DecodePort>(const TrackSpan& span, int64_t startMs)>;
 
+// The span as an AIFF, through its own duplicate of the descriptor read from the span's start; null when the bytes
+// are not one (the duplicate is closed then).
+std::unique_ptr<AiffReader> openAiff(const TrackSpan& span);
+
 // The track at `span` from startMs: an AIFF through its own reader when the bytes are one, else the platform
 // decoder; null when neither reads it. Each open reads from the span's start again, through its own duplicate of
 // the descriptor (the duplicates share one file position: open the next only once the last is done with).

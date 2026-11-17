@@ -21,7 +21,7 @@ bool DecodeSource::step(TrackFeed& feed) {
     return !ended_;
 }
 
-std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, const DecoderOpener& openDecoder) {
+std::unique_ptr<AiffReader> openAiff(const TrackSpan& span) {
     const int own = ::dup(span.fd);
     if (own < 0) throw std::runtime_error("track descriptor not duplicated");
     // Back to the file's start: an earlier open of the same span left the shared position where it stopped, and a
@@ -29,9 +29,11 @@ std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, c
     // span's start itself; with none declared it reads from here, as ParcelFileDescriptor's stream does.
     ::lseek(own, 0, SEEK_SET);
     const int64_t start = span.length < 0 ? 0 : span.offset;
-    if (auto aiff = AiffReader::open(std::make_unique<FdSource>(own, start, span.length))) {
-        return std::make_unique<AiffSource>(std::move(aiff));
-    }
+    return AiffReader::open(std::make_unique<FdSource>(own, start, span.length));
+}
+
+std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, const DecoderOpener& openDecoder) {
+    if (auto aiff = openAiff(span)) return std::make_unique<AiffSource>(std::move(aiff));
     std::unique_ptr<DecodePort> port;
     if (openDecoder) port = openDecoder(span, startMs);
     if (!port) return nullptr;

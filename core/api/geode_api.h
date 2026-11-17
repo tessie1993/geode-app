@@ -663,6 +663,37 @@ GEODE_API const char* geode_preset_write(const char* name, const char* scene_id,
                                          const char* custom_shader, const char* milk_preset, const float* frame, int n,
                                          const char* custom_palette_id);
 GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
+/* Preset names (viz/LookFiles). is_built_in: 1 when the name holds the built-ins' " · ". clean_name: the separator
+ * as " - ", trimmed, `fallback` when nothing is left; folder_name: trimmed. rename_problem and folder_name_problem:
+ * 0 fine, 1 blank, 2 taken (another of the `count` names, case ignored); `current` NULL for a new folder.
+ * copy_name: a duplicate's free "<name> copy" ("... 2" on, case ignored); import_name: cleaned (`fallback` when
+ * blank) and free in `taken` exactly. replace_target: the user preset a save under `raw` overwrites, or NULL.
+ * built_in_clash: 1 when `raw` names a built-in, case ignored. matches_scene: 1 when a built-in of style `preset`
+ * is made for style `active`. Text out valid until the calling thread's next call of the same function. Pure. */
+GEODE_API int         geode_preset_is_built_in(const char* name);
+GEODE_API const char* geode_preset_clean_name(const char* raw, const char* fallback);
+GEODE_API const char* geode_preset_folder_name(const char* raw);
+GEODE_API int         geode_preset_rename_problem(const char* raw, const char* current, const char* const* taken, int count);
+GEODE_API int         geode_preset_folder_name_problem(const char* raw, const char* current, const char* const* folders,
+                                                       int count);
+GEODE_API const char* geode_preset_copy_name(const char* name, const char* const* taken, int count);
+GEODE_API const char* geode_preset_import_name(const char* raw, const char* fallback, const char* const* taken, int count);
+GEODE_API const char* geode_preset_replace_target(const char* raw, const char* const* names, int count);
+GEODE_API int         geode_preset_built_in_clash(const char* raw, const char* const* names, int count);
+GEODE_API int         geode_preset_matches_scene(const char* preset_scene_id, const char* active_scene_id);
+/* A geode://preset link's framing (viz/LookFiles); the shell gzips and base64s the payload. frame: the link for a
+ * payload; fits: 1 when a link is short enough to share; is: 1 when the trimmed text starts with the prefix, case
+ * ignored; payload: what follows it, a '#' or '?' tail cut, or NULL when it is no link or too long; find: the first
+ * link in pasted text up to whitespace, or NULL; body_accepted: 1 when an inflated payload is not blank;
+ * max_inflated: the most bytes a payload may inflate to. Text out as above. Pure, any thread. */
+GEODE_API const char* geode_preset_link_frame(const char* payload);
+GEODE_API int         geode_preset_link_fits(const char* link);
+GEODE_API int         geode_preset_link_is(const char* text);
+GEODE_API const char* geode_preset_link_payload(const char* text);
+GEODE_API const char* geode_preset_link_find(const char* text);
+GEODE_API int         geode_preset_link_body_accepted(const char* body);
+GEODE_API int         geode_preset_link_max_length(void);
+GEODE_API int         geode_preset_link_max_inflated(void);
 /* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
  * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
  * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and

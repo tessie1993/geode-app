@@ -155,6 +155,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/mic_input_test.cpp core/audio/ingest/MicInput.cpp \
             core/audio/ingest/CapturePlan.cpp core/audio/ingest/PcmRing.cpp -o mic_input_test
           ./mic_input_test
+          # Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
+          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp \
+            core/audio/ingest/CapturePump.cpp -o capture_pump_test
+          ./capture_pump_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \

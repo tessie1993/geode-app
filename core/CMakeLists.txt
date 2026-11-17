@@ -52,6 +52,7 @@ add_library(geode_core STATIC
     api/geode_ingest_api.cpp
     api/geode_capture_api.cpp
     api/geode_mic_api.cpp
+    api/geode_capture_java_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
@@ -80,6 +81,8 @@ add_library(geode_core STATIC
     audio/ingest/CapturePlan.cpp
     audio/ingest/MicInput.cpp
     audio/ingest/android/OboeMic.cpp
+    audio/ingest/CapturePump.cpp
+    audio/ingest/android/JavaCapture.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp

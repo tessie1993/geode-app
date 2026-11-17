@@ -151,6 +151,7 @@ internal fun SavePresetDialog(
     var name by rememberSaveable { mutableStateOf("") }
     var folder by rememberSaveable { mutableStateOf(initialFolder) }
     val names = presets.map { it.name }.toTypedArray()
+    val cleaned = GeodeNative.presetCleanName(name, "")
     val replaces = GeodeNative.presetReplaceTarget(name, names)
     val builtInClash = GeodeNative.presetBuiltInClash(name, names)
     AlertDialog(

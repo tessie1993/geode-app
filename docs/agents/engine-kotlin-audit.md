@@ -58,7 +58,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `SceneParamsCodec` | 80 | **deleted**: `SceneParams` holds the native wire frame itself; nothing packs by reflection. |
 | `ModConfigCodec` | 81 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
 | `EventRecipe` | 86 | **deleted**: native owns it (`core/viz/ModDocument`, `core/viz/ModCatalog`, `geode_mod_*`; test `core/tests/mod_document_test.cpp`) |
-| `ParamSchema` | 90 | pending |
+| `ParamSchema` | 90 | **deleted**: the shell parses no schema. `SceneParams` (now `:app`, `render/scene/SceneParams`) asks native by name (`geode_params_get`, `geode_params_set`, `geode_params_defaults`; test `core/tests/params_test.cpp`); JVM tests use `TestParams` over `core/tests/params_schema.txt`. |
 | `PerformanceSettings` | 94 | **moved to `:app`** (`data/PerformanceSettings`, beside `PerformanceStore`): a value holder; the preset match, the scale choices and the Liquid policy fallback are `core/viz/frame/Quality` and `liquid::hotPolicyFrom` through `core/api/geode_perf_api.cpp`, test `core/tests/quality_test.cpp`. `NativeViz.setQuality` takes the five values. |
 | `ParamScope` | 94 | **ported**: `geode_catalogue_scope_of` and `geode_catalogue_reaches`; the shell holds a scope by native's name. |
 | `SampleRing` | 95 | **deleted** (#1150): the rings' kinds, sizes, runway default, the mic's layer and the output mix's stitch are native (`core/audio/ingest/RingKinds`, `geode_pcm_ring_shared`, `geode_pcm_ring_create_kind`); the player's and the mic's live for the process, so no `Cleaner`. Callers hold the `Long` handle. Test `core/tests/pcm_ring_kinds_test.cpp`. |

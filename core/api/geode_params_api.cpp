@@ -1,4 +1,5 @@
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -123,6 +124,26 @@ int geode_params_control_range(const char* name, float* out) {
     if (!name || !out || !geode::viz::control::of(name, range)) return 0;
     out[0] = range.min;
     out[1] = range.max;
+    return 1;
+}
+
+void geode_params_defaults(float* out) {
+    if (out) SceneParams{}.toWire(out);
+}
+
+float geode_params_get(const float* frame, const char* name) {
+    const int slot = name ? SceneParams::slotOf(name) : -1;
+    if (!frame || slot < 0 || SceneParams::retired(static_cast<geode::viz::ParamSlot>(slot))) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+    return SceneParams::fromWire(frame).getSlot(slot);
+}
+
+int geode_params_set(const float* in, const char* name, float value, float* out) {
+    if (!in || !name || !out) return 0;
+    SceneParams edited = SceneParams::fromWire(in);
+    if (!edited.set(name, value)) return 0;
+    edited.toWire(out);
     return 1;
 }
 

@@ -104,7 +104,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 
 - `:engine:audio-core`: `GeodeNative` (every JNI `external fun`), the PCM ring's handle, the sound frame layout, user sound tuning.
 - `:engine:audio-android`: the Media3 PCM tap (`PcmTap`).
-- `:engine:scenes`: the GL adapter, the look snapshot, scene ids and params, the shell's reads of the native schema, catalogue and modulation table.
+- `:engine:scenes`: no Kotlin left; the module stays until the Gradle graph drops it.
 - `:app`: everything else: UI, playback service, stores, editor model, export, wallpaper, widget.
 - Detail: [modules.md](docs/agents/modules.md), [native-core.md](docs/agents/native-core.md), [app-packages.md](docs/agents/app-packages.md).
 
@@ -179,7 +179,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - The playout clock is native (`core/sound/interp/PlayoutClock`; the dead Kotlin clock is gone) and wired: the sink feeds it, the live feed reads it.
 - The PCM ring is native (`core/audio/ingest`, read on the GL threads until `core/sound/hop` exists).
 - Still Kotlin: the template JSON codec (`data/TemplateFormat`), the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.
-- **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin.
+- **Empty module.** `:engine:scenes` holds no source any more and is still in `settings.gradle.kts` and CI.
 - `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when` at the top level; only the Visuals panel runs on Nav3 so far.
 - **Quality items not set up:** two use cases so far (`pro/GetFeatureGateUseCase`, `render/scene/BuildStyleReactionsUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.

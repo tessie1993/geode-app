@@ -10,7 +10,7 @@ namespace geode::viz {
 // The scene params schema (#346): every field's name, kind, default, control range and wire slot is
 // one row of viz/ParamTable.inc, and everything below expands from those rows: the struct's members
 // and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. The shell keeps no
-// copy: its SceneParams holds the wire frame and finds a name's slot through geode_params_schema_text.
+// copy and no table: its SceneParams holds the wire frame and asks for a value by name (geode_params_get, _set).
 
 // What a row is. Circular is a float that wraps (a hue turn): the LFO adds to it unclamped.
 enum class ParamKind { Float, Int, Bool, Circular };

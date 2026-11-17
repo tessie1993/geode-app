@@ -45,7 +45,11 @@ object TestCatalogue : StyleCatalogue.Reads {
     private val fluid: List<String> = listOf("fluid", "fluid_ink")
     private val cymatics: List<String> = picker.getValue("cymatics")
 
-    fun install() = StyleCatalogue.install(this)
+    /** Installs this catalogue, and [TestParams] with it: the types a catalogue test builds default to [SceneParams.DEFAULT]. */
+    fun install() {
+        StyleCatalogue.install(this)
+        TestParams.install()
+    }
 
     override fun styleIds(trait: Int): String =
         when (trait) {

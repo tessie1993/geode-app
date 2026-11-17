@@ -666,9 +666,35 @@ Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetsText(JNIEnv* env, jobje
     return env->NewStringUTF(geode_catalogue_presets_text());
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_params_schema_text());
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsDefaults(JNIEnv* env, jobject) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    std::vector<float> frame(static_cast<size_t>(count));
+    geode_params_defaults(frame.data());
+    jfloatArray out = env->NewFloatArray(count);
+    if (out) env->SetFloatArrayRegion(out, 0, count, frame.data());
+    return out;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsGet(JNIEnv* env, jobject, jfloatArray frame, jstring name) {
+    FloatElements values(env, frame);
+    Utf8Chars key(env, name);
+    const bool whole = values.get() && values.length() >= geode_viz_param_count();
+    return geode_params_get(whole ? values.get() : nullptr, key.get());
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsSet(JNIEnv* env, jobject, jfloatArray frame, jstring name, jfloat value) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    FloatElements values(env, frame);
+    Utf8Chars key(env, name);
+    if (!values.get() || values.length() < count) return nullptr;
+    std::vector<float> edited(static_cast<size_t>(count));
+    if (!geode_params_set(values.get(), key.get(), value, edited.data())) return nullptr;
+    jfloatArray out = env->NewFloatArray(count);
+    if (out) env->SetFloatArrayRegion(out, 0, count, edited.data());
+    return out;
 }
 
 JNIEXPORT jstring JNICALL

@@ -42,11 +42,9 @@
 # Self-test: the "Self-test the engine Kotlin gate" step of .github/workflows/arch-map.yml.
 set -euo pipefail
 
-S='engine/scenes/src/main/kotlin/dev/geode'
 C='engine/audio-core/src/main/kotlin/dev/geode/engine'
 allowed=(
     "$C/bridge/GeodeNative.kt"
-    "$S/render/scene/ParamSchema.kt"
 )
 
 if [ "${1:-}" = "--files" ]; then

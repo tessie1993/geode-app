@@ -19,8 +19,9 @@ Java_dev_geode_engine_bridge_GeodeNative_dspCreate(JNIEnv*, jobject) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint sampleRate, jint channels) {
-    return geode_dsp_configure(dspOf(handle), sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
+Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint encoding, jint sampleRate,
+                                                      jint channels) {
+    return geode_dsp_configure_input(dspOf(handle), encoding, sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -36,11 +37,6 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFlush(JNIEnv*, jobject, jlong handle
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDestroy(JNIEnv*, jobject, jlong handle) {
     geode_dsp_destroy(dspOf(handle));
-}
-
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspBandCenterHz(JNIEnv*, jobject, jint band) {
-    return geode_dsp_band_center_hz(band);
 }
 
 JNIEXPORT jint JNICALL
@@ -148,8 +144,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetCrossfade(JNIEnv*, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspSetFollowsOn(JNIEnv*, jobject, jlong handle, jboolean followsOn) {
-    geode_dsp_set_follows_on(dspOf(handle), followsOn == JNI_TRUE);
+Java_dev_geode_engine_bridge_GeodeNative_dspSetUpNext(JNIEnv*, jobject, jlong handle, jboolean hasNext, jint repeatMode) {
+    geode_dsp_set_up_next(dspOf(handle), hasNext == JNI_TRUE, repeatMode);
 }
 
 JNIEXPORT void JNICALL
@@ -247,14 +243,36 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlon
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);
 }
 
-// The buffer must be direct: the audio thread must not copy or allocate here. Its capacity goes along so
-// native can never walk past it (issue #356).
+// Media3's direct buffers where they lie; the output's capacity goes along so native can never walk past it
+// (issue #356). An input with no address (a heap block; every processor before this one hands out direct
+// buffers) is copied by the JVM's bulk put, then run in place as any other.
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspProcessBytes(JNIEnv* env, jobject, jlong handle, jobject buffer, jint bytes, jint encoding,
-                                                         jint channels) {
-    void* address = buffer ? env->GetDirectBufferAddress(buffer) : nullptr;
-    const jlong capacity = address ? env->GetDirectBufferCapacity(buffer) : 0;
-    return geode_dsp_process_bytes(dspOf(handle), address, capacity > 0 ? static_cast<size_t>(capacity) : 0, bytes, encoding, channels);
+Java_dev_geode_engine_bridge_GeodeNative_dspProcessInto(JNIEnv* env, jobject, jlong handle, jobject input, jint position,
+                                                        jint bytes, jobject output, jint encoding, jint channels) {
+    if (!input || !output || position < 0 || bytes <= 0) return 0;
+    auto* out = env->GetDirectBufferAddress(output);
+    const jlong capacity = out ? env->GetDirectBufferCapacity(output) : 0;
+    if (capacity <= 0) return 0;
+    const auto* in = static_cast<const unsigned char*>(env->GetDirectBufferAddress(input));
+    if (in) {
+        if (env->GetDirectBufferCapacity(input) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_dsp_process_into(dspOf(handle), in + position, bytes, out, static_cast<size_t>(capacity), encoding,
+                                      channels);
+    }
+    jclass byteBuffer = env->GetObjectClass(output);
+    jmethodID put = env->GetMethodID(byteBuffer, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
+    jmethodID rewind = env->GetMethodID(byteBuffer, "position", "(I)Ljava/nio/Buffer;");
+    if (!put || !rewind || bytes > capacity) {
+        env->ExceptionClear();
+        return 0;
+    }
+    env->DeleteLocalRef(env->CallObjectMethod(output, put, input));
+    env->DeleteLocalRef(env->CallObjectMethod(output, rewind, 0));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return 0;
+    }
+    return geode_dsp_process_bytes(dspOf(handle), out, static_cast<size_t>(capacity), bytes, encoding, channels);
 }
 
 }

@@ -231,7 +231,7 @@ jobs:
 
           Its application id is \`com.beatrealms3d.app.debug\`, so it installs
           beside a Play copy and over an earlier pre-release. Play does not know
-          that id, so BeatRealms Pro cannot be bought in this build.
+          that id, so BeatRealms Pro is unlocked from the paywall's test panel, not bought.
 
           To read a crash from this build: \`BeatRealms3D-$VERSION_NAME-mapping.txt\`
           is its R8 mapping, and \`BeatRealms3D-$VERSION_NAME-native-symbols.zip\`

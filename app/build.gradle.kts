@@ -131,11 +131,12 @@ android {
         // profile), but signed with the committed debug key, never the Play upload key. It keeps
         // the debug build's application id, so it installs beside a Play copy and over the debug
         // pre-releases shipped before it, keeping their data. Play does not know that id, so
-        // nothing can be bought in it, and fake billing needs a debuggable build (BillingBuild).
+        // it bills against FakeBillingRepository like the debug build.
         create("sideload") {
             initWith(getByName("release"))
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "USE_FAKE_BILLING", "true")
             // :engine:scenes has only debug and release.
             matchingFallbacks += "release"
         }

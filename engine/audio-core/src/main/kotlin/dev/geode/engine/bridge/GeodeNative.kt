@@ -952,7 +952,10 @@ object GeodeNative {
         transitionMs: Long,
     )
 
-    /** The look a renderer starts on before one is set: scene id, transition id and its ms, a line each. */
+    /**
+     * The look a renderer starts on before one is set, a line each: scene id, transition id and its ms, then the
+     * shell's visual defaults: attack, decay, style timer s, playlist interval s and the preset morph's longest s.
+     */
     external fun vizLookDefaults(): String
 
     /** Settings › Performance, latched for the next [vizFrame]; [liquidHotPolicy] is `liquid::HotPolicy`. Any thread. */

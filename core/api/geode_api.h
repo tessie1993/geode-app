@@ -187,7 +187,9 @@ typedef struct geode_viz_look {
 /* Any thread. Only the parts that differ from the look set last on this renderer reach it (all of them on a new
    renderer), so a transition or a scene set again restarts nothing. The scene is a request, as above. */
 GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
-/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
+/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n", then the
+   shell's visual defaults a line each: attack, decay, style timer s, playlist interval s, preset morph max s.
+   Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0

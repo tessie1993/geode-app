@@ -14,6 +14,7 @@
 
 #include "output/LoopRender.hpp"
 #include "output/android/LoopRenderHost.hpp"
+#include "viz/LookSnapshot.hpp"
 
 namespace lr = geode::output::looprender;
 
@@ -186,7 +187,7 @@ void geode_loop_job_set_motion(geode_loop_job* h, int reduced_motion, const char
     try {
         h->setup.reducedMotion = reduced_motion != 0;
         h->setup.transitionId = transition_id ? transition_id : "";
-        h->setup.transitionMs = transition_ms;
+        h->setup.transitionMs = geode::viz::clampTransitionMs(transition_ms);
     } catch (...) {
     }
 }

@@ -3256,6 +3256,33 @@ object GeodeNative {
     /** Stops the encoders and frees them, once nothing draws into the surface. */
     external fun castEncoderClose(handle: Long)
 
+    /** [castWatch]'s verdicts (GEODE_CAST_WATCH_*). */
+    const val CAST_WATCH_WAIT = 0
+    const val CAST_WATCH_READY = 1
+    const val CAST_WATCH_START_TIMEOUT = 2
+    const val CAST_WATCH_PLAYING = 3
+    const val CAST_WATCH_FROZEN = 4
+    const val CAST_WATCH_NETWORK_GONE = 5
+
+    /** Whether a cast goes on (core/cast/CastWatch): one CAST_WATCH_* verdict per poll; times in ms on one clock. */
+    external fun castWatch(
+        announced: Boolean,
+        nowMs: Long,
+        waitingSinceMs: Long,
+        playlistReady: Boolean,
+        segmentAgeMs: Long,
+        addressHere: Boolean,
+    ): Int
+
+    /** When to poll [castWatch] again, in ms. */
+    external fun castWatchNextMs(announced: Boolean): Long
+
+    /** True when the cast's own renderer, last drawing at [drewNs], should be freed now that the stage leads. */
+    external fun castFallbackRelease(
+        nowNs: Long,
+        drewNs: Long,
+    ): Boolean
+
     /** One of the CAST_TEXT_* texts; "" when there is none. */
     external fun castServerText(
         handle: Long,

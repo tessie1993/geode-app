@@ -67,6 +67,23 @@ Java_dev_geode_engine_bridge_GeodeNative_castEncoderClose(JNIEnv*, jobject, jlon
     geode_cast_encoder_close(reinterpret_cast<geode_cast_encoder*>(handle));
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castWatch(JNIEnv*, jobject, jboolean announced, jlong nowMs, jlong waitingSinceMs,
+                                                   jboolean playlistReady, jlong segmentAgeMs, jboolean addressHere) {
+    return geode_cast_watch(announced ? 1 : 0, nowMs, waitingSinceMs, playlistReady ? 1 : 0, segmentAgeMs,
+                            addressHere ? 1 : 0);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castWatchNextMs(JNIEnv*, jobject, jboolean announced) {
+    return geode_cast_watch_next_ms(announced ? 1 : 0);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castFallbackRelease(JNIEnv*, jobject, jlong nowNs, jlong drewNs) {
+    return geode_cast_fallback_release(nowNs, drewNs) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_castServerText(JNIEnv* env, jobject, jlong handle, jint which) {
     char out[GEODE_CAST_TEXT_CAP];

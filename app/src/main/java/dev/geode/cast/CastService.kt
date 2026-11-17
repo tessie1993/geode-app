@@ -184,7 +184,7 @@ class CastService : Service() {
         wakeLock.acquire(LONG_WORK_WAKE_MS)
         bestEffort(TAG, "wifiLock.acquire()") { wifiLock?.acquire() }
         waitingSinceMs = SystemClock.elapsedRealtime()
-        handler.post(waitForStream)
+        handler.post(watch)
         handler.postDelayed(recheckPro, PRO_RECHECK_MS)
     }
 
@@ -211,22 +211,37 @@ class CastService : Service() {
             }
         }
 
-    private val watchFreeze: Runnable =
+    /**
+     * Until the stream is ready: hand it over when it is, end the cast when it never gets there. Then: end the cast
+     * when it froze or its network went away, else check the TV. When is native (core/cast/CastWatch).
+     */
+    private val watch: Runnable =
         object : Runnable {
             override fun run() {
                 val s = stream ?: return
-                if (s.isFrozen) {
-                    RingLog.note(TAG, "no segment for ${CastStream.FROZEN_MS / 1000} s: ending the cast")
-                    fail()
-                } else if (s.address !in CastStream.lanAddresses(this@CastService)) {
-                    RingLog.note(TAG, "the network the stream serves from went away: ending the cast")
-                    fail(CastFailure.NETWORK_CHANGED)
-                } else {
-                    checkReceiver(s)
-                    handler.postDelayed(this, POLL_MS * 4)
+                val here = ready && s.address in CastStream.lanAddresses(this@CastService)
+                val now = SystemClock.elapsedRealtime()
+                when (GeodeNative.castWatch(ready, now, waitingSinceMs, s.isReady, s.segmentAgeMs, here)) {
+                    GeodeNative.CAST_WATCH_READY -> {
+                        ready = true
+                        announceReady()
+                    }
+                    GeodeNative.CAST_WATCH_START_TIMEOUT -> return failNoted("stream never ready", CastFailure.STREAM)
+                    GeodeNative.CAST_WATCH_FROZEN -> return failNoted("stream froze", CastFailure.STREAM)
+                    GeodeNative.CAST_WATCH_NETWORK_GONE -> return failNoted("its network went away", CastFailure.NETWORK_CHANGED)
+                    GeodeNative.CAST_WATCH_PLAYING -> checkReceiver(s)
                 }
+                handler.postDelayed(this, GeodeNative.castWatchNextMs(ready))
             }
         }
+
+    private fun failNoted(
+        why: String,
+        reason: CastFailure,
+    ) {
+        RingLog.note(TAG, "$why: ending the cast")
+        fail(reason)
+    }
 
     /**
      * Ends the TV's part when the TV is not playing the stream (native, `geode_link_receiver_health`): its
@@ -255,25 +270,6 @@ class CastService : Service() {
             else -> controller.stop()
         }
     }
-
-    private val waitForStream: Runnable =
-        object : Runnable {
-            override fun run() {
-                val s = stream ?: return
-                when {
-                    s.isReady -> {
-                        ready = true
-                        announceReady()
-                        handler.post(watchFreeze)
-                    }
-                    SystemClock.elapsedRealtime() - waitingSinceMs > START_TIMEOUT_MS -> {
-                        RingLog.note(TAG, "stream not ready after ${START_TIMEOUT_MS / 1000} s")
-                        fail()
-                    }
-                    else -> handler.postDelayed(this, POLL_MS)
-                }
-            }
-        }
 
     private fun mutePhone() {
         val session = PlaybackEngine.acquireForService(this)
@@ -369,11 +365,7 @@ class CastService : Service() {
         private const val ACTION_LINK = "dev.geode.cast.LINK"
         private const val ACTION_RELEASE_TV = "dev.geode.cast.RELEASE_TV"
         private const val ACTION_RELEASE_LINK = "dev.geode.cast.RELEASE_LINK"
-        private const val POLL_MS = 250L
         private const val PRO_RECHECK_MS = 60_000L
-
-        /** Enough for the three segments the receiver starts on, with room for a slow first encode. */
-        private const val START_TIMEOUT_MS = 15_000L
 
         @Volatile
         private var running = false

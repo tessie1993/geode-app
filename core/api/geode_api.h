@@ -2000,6 +2000,21 @@ GEODE_API void*           geode_cast_encoder_window(const geode_cast_encoder*);
 GEODE_API void            geode_cast_encoder_pump(geode_cast_encoder*, const geode_pcm_ring* current, int64_t until_us);
 GEODE_API int             geode_cast_encoder_failed(const geode_cast_encoder*);
 GEODE_API void            geode_cast_encoder_close(geode_cast_encoder*);
+/* When a cast is given up on (core/cast/CastWatch): one verdict per poll, GEODE_CAST_WATCH_*. announced: the
+ * stream was handed over already; now_ms and waiting_since_ms on one clock; playlist_ready: enough segments to
+ * start on; segment_age_ms: since the last cut (0 before the first); address_here: the phone still holds the
+ * address it serves from. next_ms: when to poll again. fallback_release: 1 when the cast's own renderer, last
+ * drawing at drew_ns, should be freed now that the stage leads. Pure. */
+#define GEODE_CAST_WATCH_WAIT          0
+#define GEODE_CAST_WATCH_READY         1
+#define GEODE_CAST_WATCH_START_TIMEOUT 2
+#define GEODE_CAST_WATCH_PLAYING       3
+#define GEODE_CAST_WATCH_FROZEN        4
+#define GEODE_CAST_WATCH_NETWORK_GONE  5
+GEODE_API int             geode_cast_watch(int announced, int64_t now_ms, int64_t waiting_since_ms, int playlist_ready,
+                                           int64_t segment_age_ms, int address_here);
+GEODE_API int64_t         geode_cast_watch_next_ms(int announced);
+GEODE_API int             geode_cast_fallback_release(int64_t now_ns, int64_t drew_ns);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

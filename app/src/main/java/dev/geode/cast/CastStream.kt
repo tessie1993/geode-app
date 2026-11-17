@@ -202,8 +202,8 @@ internal class CastStream(
     /** The .milk last handed to the fallback renderer; render thread only. */
     private var mirroredMilk: String? = null
 
-    /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
-    val isFrozen: Boolean get() = server.msSinceLastSegment > FROZEN_MS
+    /** Milliseconds since the last segment was cut, 0 before the first; [CastService]'s watchdog reads it. */
+    val segmentAgeMs: Long get() = server.msSinceLastSegment
 
     private fun renderLoop() {
         val encoder = GeodeNative.castEncoderOpen(server.native, webrtc.native, musicInput)
@@ -245,7 +245,7 @@ internal class CastStream(
                     syncLook(renderer)
                     renderer.draw()
                     fallbackDrewNs = now
-                } else if (fallback != null && now - fallbackDrewNs > FALLBACK_IDLE_NS) {
+                } else if (fallback != null && GeodeNative.castFallbackRelease(now, fallbackDrewNs)) {
                     // The stage has led for a while: give the fallback's scenes and sound engine back.
                     bestEffort(TAG, "fallback.release()") { fallback?.release() }
                     fallback = null
@@ -313,12 +313,7 @@ internal class CastStream(
         private val HEIGHT = castFormat[1]
         val FPS = castFormat[2]
 
-        /** Segments arrive every second; five without one is a frozen picture on the TV. */
-        const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
-
-        /** The fallback renderer is freed after the stage has led this long (30 s): it costs scenes and a sound engine. */
-        const val FALLBACK_IDLE_NS = 30_000_000_000L
 
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active

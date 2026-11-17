@@ -336,6 +336,7 @@ target_link_libraries(geode_core PRIVATE LibDataChannel::LibDataChannelStatic)
 target_sources(geode_core PRIVATE cast/LiveSegments.cpp)
 target_sources(geode_core PRIVATE cast/Fmp4Writer.cpp)
 target_sources(geode_core PRIVATE cast/CastEncoder.cpp)
+target_sources(geode_core PRIVATE api/geode_cast_watch_api.cpp)
 target_sources(geode_core PRIVATE cast/LiveHttp.cpp)
 # The cast's HTTP server: the sockets and threads around them (cast/LiveServer; plain POSIX, no library).
 target_sources(geode_core PRIVATE cast/LiveServer.cpp)

@@ -8,7 +8,6 @@ import dev.geode.data.MediaStoreSource
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
-import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
@@ -133,12 +132,7 @@ internal class MilkImportController(
     ): String? =
         try {
             val dir = importDir().apply { mkdirs() }
-            val display = displayNameOf(uri).orEmpty().ifBlank { "preset" }
-            val stem = PresetStore.milkFileName(display).removeSuffix(".milk")
-            val file =
-                generateSequence(1) { it + 1 }
-                    .map { n -> File(dir, if (n == 1) "$stem.milk" else "$stem $n.milk") }
-                    .first { !keepExisting || !it.exists() }
+            val file = File(dir, GeodeNative.milkImportFileName(dir.path, displayNameOf(uri).orEmpty(), keepExisting))
             // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
                 mediaStore.read(uri) { input ->

@@ -2683,6 +2683,10 @@ object GeodeNative {
         onScreen: Int,
     ): Int
 
+    /** Auto's timer range in seconds (GEODE_AUTO_INTERVAL_MIN_S, _MAX_S). */
+    const val AUTO_INTERVAL_MIN_S = 5
+    const val AUTO_INTERVAL_MAX_S = 300
+
     /** A timer interval held to Auto's range (core/viz/AutoPlan). */
     external fun autoIntervalSeconds(requested: Int): Int
 

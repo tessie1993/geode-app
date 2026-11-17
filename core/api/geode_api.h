@@ -1257,6 +1257,8 @@ GEODE_API int             geode_auto_pick(int count, int on_screen);
 #define GEODE_AUTO_KIND_STYLE                0
 #define GEODE_AUTO_KIND_PRESET               1
 #define GEODE_AUTO_KIND_MILK                 2
+#define GEODE_AUTO_INTERVAL_MIN_S 5
+#define GEODE_AUTO_INTERVAL_MAX_S 300
 GEODE_API int             geode_auto_interval_s(int requested_s);
 GEODE_API void            geode_auto_editing_set(int on, long long now_ms);
 GEODE_API void            geode_auto_hand_pick(long long now_ms);

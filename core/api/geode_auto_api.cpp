@@ -56,6 +56,7 @@ void geode_auto_mark_change(const char* key) {
 
 int geode_auto_pick(int count, int on_screen) { return geode::viz::auto_draw::pick(count, on_screen); }
 
+static_assert(plan::kIntervalMinS == GEODE_AUTO_INTERVAL_MIN_S && plan::kIntervalMaxS == GEODE_AUTO_INTERVAL_MAX_S);
 int geode_auto_interval_s(int requested_s) { return plan::clampInterval(requested_s); }
 
 void geode_auto_editing_set(int on, long long now_ms) {

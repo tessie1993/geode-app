@@ -55,7 +55,7 @@ class AutoVisualsPrefsStore(
 
     companion object {
         /** Auto's timer intervals, native's range (core/viz/AutoPlan). */
-        val INTERVAL_SEC: IntRange get() = GeodeNative.autoIntervalSeconds(Int.MIN_VALUE)..GeodeNative.autoIntervalSeconds(Int.MAX_VALUE)
+        val INTERVAL_SEC: IntRange = GeodeNative.AUTO_INTERVAL_MIN_S..GeodeNative.AUTO_INTERVAL_MAX_S
 
         /** Read by no build since the timer stopped being restored; removed on the next save. */
         private const val LEGACY_KEY_RANDOM_ENABLED = "auto_random_enabled"

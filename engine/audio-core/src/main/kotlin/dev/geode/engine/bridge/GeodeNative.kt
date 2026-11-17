@@ -2222,43 +2222,6 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
-    /** A capture's last sound: [nowMs] when [peak] (a ring write's answer) is above digital zero, else [heardAtMs]. */
-    external fun captureHeardAt(
-        peak: Float,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
-
-    /** Whether a capture has heard only digital zero for 4 s since [heardAtMs]. */
-    external fun captureQuiet(
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Boolean
-
-    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
-    const val CAPTURE_FORMAT_RATE = 0
-    const val CAPTURE_FORMAT_CHANNELS = 1
-    const val CAPTURE_FORMAT_FLOAT = 2
-    const val CAPTURE_FORMAT_INTS = 3
-
-    /**
-     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
-     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
-     */
-    external fun captureFormats(
-        deviceRateHz: Int,
-        stereo: Boolean,
-    ): IntArray
-
-    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
-    external fun captureBufferBytes(
-        minBufferBytes: Int,
-        channels: Int,
-    ): Int
-
-    /** The frames one capture read takes. */
-    external fun captureReadFrames(): Int
-
     /**
      * Live input as a native input stream writing the process's mic ring (`core/audio/ingest/MicInput`); only
      * once RECORD_AUDIO is granted. [deviceRateHz] goes first (0 unknown); [unprocessed] when the device supports it.
@@ -2273,6 +2236,27 @@ object GeodeNative {
 
     /** False after [micStop], or once the stream closed and could not be opened again. */
     external fun micActive(): Boolean
+
+    /**
+     * Another app's audio, built, read and released natively (`core/audio/ingest/CapturePump`): an `AudioRecord`
+     * over [projection], the `MediaProjection` the user consented to, writing [ring]. 0 when none would record.
+     */
+    external fun javaCapturePlayback(
+        projection: Any,
+        ring: Long,
+    ): Long
+
+    /** The output mix (a `Visualizer` on session 0), built, read and released natively into [ring]. 0 when refused. */
+    external fun javaCaptureOutputMix(ring: Long): Long
+
+    /** Stops and frees a [javaCapturePlayback] or [javaCaptureOutputMix] and its Java object; no write follows. Takes 0. */
+    external fun javaCaptureStop(handle: Long)
+
+    /** False after stop, or once the capture ended itself (a read error). */
+    external fun javaCaptureActive(handle: Long): Boolean
+
+    /** Running and only digital zero for 4 s (`core/sound/Silence`): a capture the playing app refuses. */
+    external fun javaCaptureQuiet(handle: Long): Boolean
 
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
@@ -2895,34 +2879,6 @@ object GeodeNative {
         buffer: java.nio.ByteBuffer,
         position: Int,
         bytes: Int,
-        encoding: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Int
-
-    /** Writes [frames] interleaved frames; returns the block's peak magnitude. */
-    external fun pcmRingWriteFloats(
-        handle: Long,
-        samples: FloatArray,
-        frames: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Float
-
-    /** [pcmRingWriteFloats] for 16-bit samples, scaled by 1/32768 natively. */
-    external fun pcmRingWriteShorts(
-        handle: Long,
-        samples: ShortArray,
-        frames: Int,
-        channels: Int,
-        sampleRate: Int,
-    ): Float
-
-    /** Writes the whole frames in the first [count] bytes of [samples], as [pcmRingWriteDirect] reads them. */
-    external fun pcmRingWriteBytes(
-        handle: Long,
-        samples: ByteArray,
-        count: Int,
         encoding: Int,
         channels: Int,
         sampleRate: Int,

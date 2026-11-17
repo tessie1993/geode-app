@@ -6,7 +6,7 @@
 #include <cstring>
 #include <type_traits>
 
-// The frame clock every surface shares (ADR 0006, ADR 0008): which vsyncs a surface draws on, and
+// The frame clock every surface shares: which vsyncs a surface draws on, and
 // the dt each drawn frame steps the engine by. Pure, with no GL and no Android, so the host can test
 // it (core/tests/pacer_test.cpp).
 //
@@ -27,7 +27,7 @@ inline constexpr double kFirstDtSeconds = 1.0 / 60.0;
 
 inline double clampDt(double elapsedSeconds) { return std::clamp(elapsedSeconds, kMinDtSeconds, kMaxDtSeconds); }
 
-// The cap a surface actually runs at (ADR 0008): its own (Settings › Performance, the wallpaper's or the
+// The cap a surface actually runs at: its own (Settings › Performance, the wallpaper's or the
 // dream's choice) under the thermal one (ThermalState::capFor). Either <= 0, or not a number, means none.
 inline float effectiveCapFps(float surfaceCapFps, float thermalCapFps) {
     const bool surface = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;

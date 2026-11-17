@@ -5,7 +5,7 @@ description: Use when working in Geode's C++20 core (core/, app/src/main/cpp) - 
 
 # Geode's native core
 
-`libgeode.so` is built by the root `CMakeLists.txt` plus `core/CMakeLists.txt` (`geode_core`). ADR 0003 puts every engine internal here; Kotlin is only the shell.
+`libgeode.so` is built by the root `CMakeLists.txt` plus `core/CMakeLists.txt` (`geode_core`). Every engine internal is here; Kotlin is only the shell.
 
 ## The boundary
 

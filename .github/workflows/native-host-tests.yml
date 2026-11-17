@@ -105,7 +105,7 @@ jobs:
           ./cache_sentinels_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
-          # Absolute loudness (fosfora's LoudnessMeter, ported) and the drive: a quiet sparse pad is low, a loud dense loop high, no normalising.
+          # Absolute loudness and the drive: a quiet sparse pad is low, a loud dense loop high, no normalising.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/absolute_level_test.cpp core/sound/*.cpp -o absolute_level_test
           ./absolute_level_test
           # Transients (core/sound/Transient): every click and pluck fires within a few frames; swells, crescendos, held tones, silence and near-silent clicks never; same at every rate.
@@ -489,7 +489,7 @@ jobs:
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp -o macro_bank_test
           ./macro_bank_test
-      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003), the playback DSP's hand-off and its gain.
+      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin, the playback DSP's hand-off and its gain.
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -533,7 +533,7 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_bookmark_test.cpp core/audio/dsp/TrackBookmark.cpp core/api/geode_bookmark_api.cpp -o track_bookmark_test
           ./track_bookmark_test
 
-      # Export planning and PCM maths ported from Kotlin (ADR 0003, ADR 0006 core/output): frame clock,
+      # Export planning and PCM maths ported from Kotlin (core/output): frame clock,
       # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
       # take's limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
       - name: Native export planning tests
@@ -668,6 +668,14 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
           ./sound_rate_test
+
+      # Every analysis hop kept by its sample position: the same frame at a position whatever the block sizes, the clamps,
+      # the phases moved on between hops as step() moves them.
+      - name: Sound hops by position
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_history_test.cpp core/sound/*.cpp -o sound_history_test
+          ./sound_history_test
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.

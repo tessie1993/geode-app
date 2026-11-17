@@ -42,7 +42,7 @@ struct Plan {
     bool any() const { return fluid || particles; }
 };
 
-// The plan for the drawn (resolved, safety-clamped) params on a phone at `tier` (ADR 0008: fps first, then render
+// The plan for the drawn (resolved, safety-clamped) params on a phone at `tier` (fps first, then render
 // scale, then march quality and post FX last). Full and Eased run the fluid on FluidQuality's Low grids; Reduced
 // steps down to its Min grids and fewer particles; Minimal, where the post FX go, skips the fluid and keeps a
 // small population of particles. An export renders at Full whatever the phone (ThermalGovernor::tier), so its plan

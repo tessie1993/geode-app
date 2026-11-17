@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails when code below the UI layer names the UI layer (AGENTS.md, "Where the code breaks the
-# architecture guide"; ADR 0001 step 1). Only `ui` itself and `di`, which wires everything, may
+# architecture guide"). Only `ui` itself and `di`, which wires everything, may
 # refer to `dev.geode.ui`. Everything else would have to drag `ui` along when it moves into a
 # :core module, so the dependency has to point down, never up.
 #

@@ -3,7 +3,7 @@
 
 namespace geode::output {
 
-// Time left for the running export, from progress samples (core/output; ADR 0003).
+// Time left for the running export, from progress samples (core/output).
 //
 // The bar is not one steady job: the AAC transcode races through its share of it, then the GPU render
 // crawls through the rest. A rate taken over the whole bar carries that early sprint into the render, so

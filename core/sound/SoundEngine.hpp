@@ -73,6 +73,22 @@ public:
     void write(const float* interleaved, int frames, int channels);
     // The newest hop's frame, as of the samples written so far; dt only times the writer's silence.
     void step(float dtSeconds, GeodeSoundFrame& out);
+
+    // Hops by sample position. A position counts samples at the input rate (sampleRateHz(), before any
+    // halving), as handed to write() since construction or reset(): the count a ring of the source's own
+    // samples keeps. A hop's position is the count when its last sample was written. The silence step()
+    // feeds a starved engine is not written, so hops run on it share the position the writer stopped at.
+    //
+    // The hop at or before `samplePos`, with the beat, bar and phrase phases moved on to that sample as
+    // step() moves them; one older than every kept hop reads the oldest (at its own sample), one past the
+    // newest reads the newest. The triggers are that hop's own, not held; the waveform (a drawing step()
+    // makes per frame) is empty, and fadeGain reads as step() would now. False before the first hop.
+    bool frameAt(int64_t samplePos, GeodeSoundFrame& out) const;
+    // The newest and oldest kept hop's position, -1 before the first hop.
+    int64_t newestHopSample() const;
+    int64_t oldestHopSample() const;
+    // Hops kept: over a second at every rate (a hop is 10 ms, rounded to whole samples).
+    static constexpr int kHistoryHops = 128;
     // The feeling (Emotion), stepped every hop with the frame; its degree accent held like a trigger.
     const Emotion::State& emotion() const { return emotionOut_; }
     // A new play (the auto-director's seed changed): the feeling starts over, the analysis does not.
@@ -260,6 +276,16 @@ private:
     Emotion emotion_;
     Emotion::State emotionOut_{};
     float accentHeld_ = 0.0f;
+    // Every hop as it was computed, a ring of kHistoryHops, the newest at historyHead_ - 1.
+    struct KeptHop {
+        int64_t sample = 0;
+        Rhythm::Clock clock;
+        GeodeSoundFrame frame{};
+    };
+    std::vector<KeptHop> history_;
+    int historyHead_ = 0;
+    int historyCount_ = 0;
+    int64_t inputWritten_ = 0;  // samples at the input rate, before any halving
 
     // Per-hop scratch, overwritten every hop.
     std::vector<float> mono_;

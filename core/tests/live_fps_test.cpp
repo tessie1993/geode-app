@@ -1,6 +1,6 @@
 // Host-side checks for core/viz/frame/LiveFps (owner decision of 2026-11-12, "Offer 90 and 120 in
 // Performance"): which live frame-rate caps Settings › Performance offers on a display, how a stored cap
-// snaps to that display, and how a hot phone walks a cap down a rung per thermal tier (ADR 0008: fps
+// snaps to that display, and how a hot phone walks a cap down a rung per thermal tier (fps
 // first). Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml) with the
 // system compiler; no GL.
 //

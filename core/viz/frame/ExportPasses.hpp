@@ -15,7 +15,7 @@
 // (export/WatermarkOverlay.kt, LoopRender's SeamStash); now each is a frame::Pass on Surface::Export,
 // driven through geode_export_* in core/api/geode_api.h, and Kotlin keeps only what has to be Android: the
 // wordmark's Bitmap raster, MediaCodec and EGL. (A Studio render's GL Transition and its capture pass went
-// with the Studio project render, ADR 0007.)
+// with the Studio project render.)
 //
 // Thread: the export thread with EncoderSurface's context current (VideoExporter, LoopRender). Neither
 // pass owns the export clock: they draw the frame they are handed, when they are handed it.

@@ -1,7 +1,7 @@
 #pragma once
 // A Studio project's documents: its kind and its edit (timeline lanes and clips, markers, keyframe tracks), read
 // from and written to the JSON a project folder keeps (`project.json`'s "kind" and "edit"). Nothing plays or draws
-// an edit since video editing was dropped (ADR 0007); it is kept so a project saved with one opens and saves back
+// an edit since video editing was dropped; it is kept so a project saved with one opens and saves back
 // unchanged, and so a new project starts with the song (and the look) it was made over.
 #include <functional>
 #include <optional>

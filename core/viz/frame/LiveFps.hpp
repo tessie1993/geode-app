@@ -9,7 +9,7 @@
 #include "viz/frame/Pacer.hpp"
 
 // Settings › Performance's live frame-rate cap above 60 (owner decision of 2026-11-12: "Offer 90 and 120 in
-// Performance"), and how a hot phone steps it down (ADR 0008: fps goes first). Pure, with no GL and no
+// Performance"), and how a hot phone steps it down (fps goes first). Pure, with no GL and no
 // Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
 // Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to

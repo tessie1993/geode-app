@@ -1,7 +1,7 @@
 // Host-side checks for core/viz/frame/Thermal (#440): the process's one thermal state. Built and run by
 // CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
-// What is pinned: the owner's fps-first ladder (ADR 0008: fps, then render scale, then march, then post
+// What is pinned: the owner's fps-first ladder (fps, then render scale, then march, then post
 // FX), the thermal cap reaching the pacer as min(surface cap, thermal cap) for a cap of 60 and under and as a
 // walk down the rungs for a live 90 or 120 (core/viz/frame/LiveFps), the governor stepping the surface's own
 // cap and not the rate already paced, two renderers' governors

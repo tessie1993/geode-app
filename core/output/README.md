@@ -6,6 +6,8 @@
 
 **Here now:** `EncodeSink` (the encoder ladder's try-loop, the drain, samples held until the muxer starts, the end of stream) behind a codec seam, `android/MediaCodecSink` (AMediaCodec and AMediaMuxer, Android only), and `RecordSession`, Record's encoder thread on them (`geode_record_session_*`). Test: `core/tests/encode_sink_test.cpp`.
 
+**Here now:** `AacTranscode` (#1229), an export's soundtrack to AAC: the AIFF reader or the platform decoder, the start trim, the fold to two channels, the resample, the encoder and its drain into a scratch file with its sample table (`geode_aac_job_*` in `core/api/geode_export_audio_api.h`; `export/AudioTranscoder` only opens the descriptors, runs it in slices for a cancel and the progress, and words the outcome). Test: `core/tests/aac_transcode_test.cpp`.
+
 **Here now:** `CastAudioPump` (#1150), Cast's sound per video frame: the player's ring through its own `Cursor`, the export's `PcmResampler` to the stream's rate, the hold and silence pad of `viz/frame/CastAudio` (`geode_cast_audio_*`). Test: `core/tests/cast_audio_test.cpp`.
 
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
@@ -13,7 +15,7 @@
 - Pre-roll (landed, `PreRoll.hpp`): the analysis starts before the range, listening without drawing, so no render begins on a cold engine.
 - A frozen `RenderJob`: look, routes, hand ownership, macros, director pin, note response and the timeline, snapshotted once at start. Today a render reads live state per segment and per frame (`ui/ExportController.kt:791-794, 843`) and process-wide globals mid-render.
 
-**Kotlin keeps:** `export/VideoExporter`, `LoopRender` (which only starts, polls and cancels the native loop job, `LoopRender.hpp`), `ExportScene` (the renderer, the track's descriptor and the look handed over), `EncoderSurface`, MediaCodec/Muxer and MediaStore. They drive this; they stop resolving looks and keyframes themselves.
+**Kotlin keeps:** `export/VideoExporter`, `LoopExtend` (its loop copy and soundtrack mux are still Kotlin), `LoopRender` (which only starts, polls and cancels the native loop job, `LoopRender.hpp`), `ExportScene` (the renderer, the track's descriptor and the look handed over), `EncoderSurface`, MediaCodec/Muxer and MediaStore. They drive this; they stop resolving looks and keyframes themselves.
 
 
 **Test that proves it:** the host golden test from `core/sound/hop` run through this driver at 24, 30 and 60 fps gives the same sound frames at the same sample positions as the live path.

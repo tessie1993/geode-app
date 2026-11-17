@@ -16,7 +16,7 @@ object BuiltInPresets {
 
     val ALL: List<Preset> by lazy { parse(GeodeNative.cataloguePresetsText()) }
 
-    fun isBuiltIn(name: String): Boolean = name.contains(" · ")
+    fun isBuiltIn(name: String): Boolean = GeodeNative.presetIsBuiltIn(name)
 
     /**
      * Reads the `geode_catalogue_presets_text` table: a `presets|<version>|<looks>|<presets>` header,

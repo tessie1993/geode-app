@@ -1282,6 +1282,93 @@ object GeodeNative {
     /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
     external fun presetMilkFileName(presetName: String): String
 
+    /** [presetRenameProblem] and [presetFolderNameProblem]: no name is left once cleaned. */
+    const val NAME_BLANK: Int = 1
+
+    /** [presetRenameProblem] and [presetFolderNameProblem]: another has that name, case ignored. */
+    const val NAME_TAKEN: Int = 2
+
+    /** True for a built-in preset's name, which holds " · " (`geode_preset_is_built_in`). */
+    external fun presetIsBuiltIn(name: String): Boolean
+
+    /** A preset's name as the store keeps it, or [fallback] when nothing is left (`geode_preset_clean_name`). */
+    external fun presetCleanName(
+        raw: String,
+        fallback: String,
+    ): String
+
+    /** A preset folder's name as the store keeps it (`geode_preset_folder_name`). */
+    external fun presetFolderName(raw: String): String
+
+    /** 0, [NAME_BLANK] or [NAME_TAKEN] for [raw] as preset [current]'s new name (`geode_preset_rename_problem`). */
+    external fun presetRenameProblem(
+        raw: String,
+        current: String,
+        taken: Array<String>,
+    ): Int
+
+    /** 0, [NAME_BLANK] or [NAME_TAKEN] for [raw] as a folder's name, renaming [current] or new when null. */
+    external fun presetFolderNameProblem(
+        raw: String,
+        current: String?,
+        folders: Array<String>,
+    ): Int
+
+    /** A duplicate of preset [name]'s free name beside [taken] (`geode_preset_copy_name`). */
+    external fun presetCopyName(
+        name: String,
+        taken: Array<String>,
+    ): String
+
+    /** An imported preset's name, [fallback] when blank, free beside [taken] (`geode_preset_import_name`). */
+    external fun presetImportName(
+        raw: String,
+        fallback: String,
+        taken: Array<String>,
+    ): String
+
+    /** The user preset among [presets] a save under [raw] overwrites, or null (`geode_preset_replace_target`). */
+    external fun presetReplaceTarget(
+        raw: String,
+        presets: Array<String>,
+    ): String?
+
+    /** True when a save under [raw] names a built-in among [presets] (`geode_preset_built_in_clash`). */
+    external fun presetBuiltInClash(
+        raw: String,
+        presets: Array<String>,
+    ): Boolean
+
+    /** True when a built-in of style [presetSceneId] is made for style [activeSceneId] (`geode_preset_matches_scene`). */
+    external fun presetMatchesScene(
+        presetSceneId: String,
+        activeSceneId: String,
+    ): Boolean
+
+    /** A geode://preset link for an already packed [payload] (`geode_preset_link_frame`). */
+    external fun presetLinkFrame(payload: String): String
+
+    /** True when [link] is short enough to share as a link (`geode_preset_link_fits`). */
+    external fun presetLinkFits(link: String): Boolean
+
+    /** True when [text] is a preset link (`geode_preset_link_is`). */
+    external fun presetLinkIs(text: String): Boolean
+
+    /** The packed payload of the link [text], or null when it is none or too long (`geode_preset_link_payload`). */
+    external fun presetLinkPayload(text: String): String?
+
+    /** The first preset link inside pasted [text], or null (`geode_preset_link_find`). */
+    external fun presetLinkFind(text: String): String?
+
+    /** True when an unpacked payload is a preset's text (`geode_preset_link_body_accepted`). */
+    external fun presetLinkBodyAccepted(body: String): Boolean
+
+    /** The longest link minted or accepted (`geode_preset_link_max_length`). */
+    external fun presetLinkMaxLength(): Int
+
+    /** The most bytes a payload may unpack to (`geode_preset_link_max_inflated`). */
+    external fun presetLinkMaxInflated(): Int
+
     /** A template's file in the library: its name's stem, "--", its id's tag and [suffix] (`geode_template_file_name`). */
     external fun templateFileName(
         name: String,

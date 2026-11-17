@@ -30,9 +30,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The glTF import test builds against the cgltf and meshoptimizer submodules.
-          submodules: recursive
+
+      # Only the submodules a host test compiles: KISS FFT under core/sound, and cgltf,
+      # meshoptimizer and basis_universal for the glTF import test.
+      - name: Check out the submodules the tests use
+        run: |
+          git submodule update --init --depth 1 third_party/kissfft third_party/cgltf \
+            third_party/meshoptimizer third_party/basis_universal
+
+      # tools/hostcc/g++ compiles each source once per flag set, in parallel, for every line below.
+      - name: Put the caching g++ first on PATH
+        run: echo "$GITHUB_WORKSPACE/tools/hostcc" >> "$GITHUB_PATH"
 
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}

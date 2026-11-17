@@ -54,7 +54,7 @@ public:
     // `hopSamples` at `sampleRateHz`: every count below is derived from the hop's duration here.
     void configure(int sampleRateHz, int hopSamples);
     int hopSamples() const { return cfg_.hop; }
-    // One hop of band powers (SliceBand::power()), the newest sample's.
+    // One hop of band powers (SliceBand::takeHopPower()), each the mean over the hop.
     void hop(const std::array<float, kBands>& power);
     // Fills the rhythm fields. `sinceHop` is how many samples were written after the last hop, so the
     // phases land on the frame's own instant; `hitTime` is the fallback clock while unlocked.

@@ -75,6 +75,8 @@ public:
         power_ += follow_ * (x * x - power_);
         if (power_ < 1e-20f) power_ = 0.0f;
         peak_ = std::max(peak_, power_);
+        powerSum_ += power_;
+        powerCount_++;
         // Digital silence freezes the mean, so the first hit after a pause is measured against the music.
         if (power_ < 1e-12f) return;
         const float level = std::sqrt(power_);
@@ -98,8 +100,14 @@ public:
     }
     // The last sample as the band filtered it, for the transient detector's own followers (sound/Transient).
     float out() const { return out_; }
-    // The power envelope right now (15 ms), for the rhythm tracker's fixed-hop onset envelope.
-    float power() const { return power_; }
+    // The power envelope's mean since the last call (15 ms, over the hop), for the rhythm tracker's onset
+    // envelope: the newest sample alone would alias a steady tone's ripple into a pulse at the hop's rate.
+    float takeHopPower() {
+        const float mean = powerCount_ > 0 ? static_cast<float>(powerSum_ / powerCount_) : power_;
+        powerSum_ = 0.0;
+        powerCount_ = 0;
+        return mean;
+    }
     // When (in samples since clear) the slice's highest punch was; every band counts the same samples.
     int64_t punchAt() const { return punchAt_; }
     // The slice's highest punch (0 when it held none), then starts the next slice.
@@ -135,6 +143,8 @@ private:
     float out_ = 0.0f;
     float power_ = 0.0f;
     float peak_ = 0.0f;
+    double powerSum_ = 0.0;
+    int powerCount_ = 0;
     float mean_ = 0.0f;
     float ref_ = 1.0f;
     float punch_ = 0.0f;

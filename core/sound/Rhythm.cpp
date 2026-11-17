@@ -34,10 +34,10 @@ constexpr float kLockOff = 0.2f;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
 constexpr float kUnlockAfter = 2.0f;       // ... and below it before letting go
 constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per measurement
-// The onset envelope peaks about one change span after the onset: 19 ms on a 20 ms span (the 15 ms power
-// envelope, clicks from 60 to 190 BPM), this much short of it. The measured phase is moved forward by the
-// span less this, so a beat lands on the hit, not after it.
-constexpr float kLatencyShort = 0.001f;
+// The onset envelope's pulse lags the onset by this much (the 15 ms power envelope and the change, clicks
+// from 60 to 190 BPM at 10 to 12 ms hops), and by half a hop more: each hop reads the mean power over it.
+// The measured phase is moved forward by both, so a beat lands on the hit, not after it.
+constexpr float kLatencySeconds = 0.0175f;
 constexpr float kCountWrap = 4096.0f;
 constexpr float kHarmonyLatency = 0.35f;   // a harmonic change is heard this long after the chord moved
 
@@ -62,7 +62,7 @@ void Rhythm::configure(int sampleRateHz, int hopSamples) {
     c.phaseEvery = hops(kPhaseEvery);
     c.phaseWindow = std::min(c.ring, hops(kPhaseWindow));
     c.change = hops(kChangeSeconds);
-    c.latencyHops = static_cast<float>(c.change) - kLatencyShort / c.hopSeconds;
+    c.latencyHops = kLatencySeconds / c.hopSeconds + 0.5f;
     cfg_ = c;
     ac_.assign(static_cast<size_t>(2 * c.lagMax + 4), 0.0f);
     line_.assign(static_cast<size_t>(c.ring), 0.0f);

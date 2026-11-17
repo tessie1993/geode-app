@@ -253,8 +253,10 @@ void SoundEngine::feed(float l, float r) {
         meter_.hop();
         std::array<float, Rhythm::kBands> power{};
         // Behind the closed gate the tracker hears nothing, so the beat does not hunt in the noise floor.
-        if (meter_.open()) {
-            for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+        const bool gateOpen = meter_.open();
+        for (int b = 0; b < kSlices; b++) {
+            const float p = bank_[b].takeHopPower();
+            if (gateOpen && b < Rhythm::kBands) power[static_cast<size_t>(b)] = p;
         }
         rhythm_.hop(power);
         analyse();

@@ -190,8 +190,8 @@ data class TemplateLook(
         )
 
     companion object {
-        const val DEFAULT_ATTACK: Float = 0.6f
-        const val DEFAULT_DECAY: Float = 0.12f
+        val DEFAULT_ATTACK: Float get() = NativeLookDefaults.attack
+        val DEFAULT_DECAY: Float get() = NativeLookDefaults.decay
 
         fun from(preset: Preset): TemplateLook =
             TemplateLook(

@@ -7,6 +7,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/ControlRange.hpp"
 #include "viz/CustomizeMap.hpp"
+#include "viz/LookSnapshot.hpp"
 #include "viz/PanelText.hpp"
 #include "viz/SliderMap.hpp"
 #include "viz/TableNumber.hpp"
@@ -303,7 +304,8 @@ void piece(std::string& out, const Control& c, const RowContext& ctx) {
         out += std::string("SHELL|Rise|ATTACK|") + panel::text("customize_rise") + "|0.05|1|-1\n";
         out += std::string("SHELL|Fall|DECAY|") + panel::text("customize_fall") + "|0.02|0.6|-1\n";
     } else if (id == "@transition_length") {
-        out += std::string("SHELL|Transition length|TRANSITION|") + panel::text(c.label) + "|0.3|5|" + std::to_string(c.unit) + "\n";
+        out += std::string("SHELL|Transition length|TRANSITION|") + panel::text(c.label) + "|" + num(kTransitionMsMin / 1000.0f) + "|" +
+               num(kTransitionMsMax / 1000.0f) + "|" + std::to_string(c.unit) + "\n";
     } else if (id == "@waves") {
         pieceRow(out, id, id, panel::text(c.label), panel::text("customize_randomize_waves"));
     } else {
@@ -337,13 +339,7 @@ void geometry(std::string& out, const Control& c, const SceneParams& p, const Ro
     choiceRow(out, "CHIPS", c, p);
 }
 
-void liquid(std::string& out, const Control& c, const SceneParams& p, const RowContext& ctx) {
-    checkRow(out, c, p);
-    const char* note = ctx.liquidMode == 2 || ctx.liquidMode == 3 ? panel::text("customize_liquid_hot_simplified")
-                       : ctx.liquidMode == 4                     ? panel::text("customize_liquid_hot_paused")
-                                                                 : "";
-    if (*note) out += std::string("NOTE|") + c.key + "|" + note + "\n";
-}
+void liquid(std::string& out, const Control& c, const SceneParams& p, const RowContext&) { checkRow(out, c, p); }
 
 }  // namespace
 

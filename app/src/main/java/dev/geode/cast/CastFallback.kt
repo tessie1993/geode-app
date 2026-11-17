@@ -37,7 +37,7 @@ internal class CastFallback(
             GeodeNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)?.let(viz::loadMilkPreset)
         }
         viz.setLook(look)
-        PerformanceSettings.HIGH.run { viz.setQuality(renderScale, marchScale, postFx, adaptive, liquidHot.native) }
+        PerformanceSettings.HIGH.run { viz.setQuality(renderScale, marchScale, postFx) }
         viz.surfaceCreated()
         viz.surfaceChanged(width, height)
     }
@@ -49,7 +49,7 @@ internal class CastFallback(
 
     /**
      * One frame. The rate handed over is the encoder's, not the stage's cap: at 30 this renderer is keeping up,
-     * so its fluid monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
+     * so its fluid monitor must not read its frames against the phone's 60 (or 120).
      */
     fun draw() {
         val fps = CastEncoder.FPS.toFloat()

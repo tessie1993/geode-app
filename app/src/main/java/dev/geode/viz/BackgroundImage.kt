@@ -82,9 +82,8 @@ object BackgroundImage {
 
     /**
      * Decodes [uri] no larger than roughly [targetW]x[targetH] (the "render size x1" cap): reads
-     * the bounds first, then picks the largest power-of-two `inSampleSize` that still leaves the
-     * decoded image at least as big as the target in both dimensions, so the centre-crop below has
-     * real pixels to work with without ever holding a full-resolution decode in memory.
+     * the bounds first, then decodes at core/viz/Underlay's subsample, which still leaves the image
+     * at least as big as the target, without ever holding a full-resolution decode in memory.
      */
     private fun decodeSampled(
         context: Context,
@@ -99,8 +98,7 @@ object BackgroundImage {
                 }
             } ?: return null
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= targetW && bounds.outHeight / (sample * 2) >= targetH) sample *= 2
+        val sample = GeodeNative.underlaySampleSize(bounds.outWidth, bounds.outHeight, targetW, targetH, fit = false)
         return context.contentResolver.openInputStream(uri)?.use { stream ->
             BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
         }

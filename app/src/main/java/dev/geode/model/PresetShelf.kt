@@ -79,38 +79,4 @@ object PresetFiltering {
         val onStage = entries.filter { it.onStage }
         return onStage.firstOrNull { it.name == lastTapped }?.name ?: onStage.firstOrNull()?.name
     }
-
-    /** A name as the store keeps it: the share link's separator cannot appear inside one. */
-    fun cleanName(raw: String): String = raw.replace(" · ", " - ").trim()
-
-    /**
-     * Why [raw] cannot be the new name of [current], or null when it can. [taken] is every name
-     * in use, built-ins included: a user preset under a built-in's name would hide behind it.
-     * Case is ignored, because on some file systems two such names are the same file.
-     */
-    fun renameError(
-        raw: String,
-        current: String,
-        taken: Collection<String>,
-    ): String? {
-        val name = cleanName(raw)
-        return when {
-            name.isEmpty() -> "Give it a name."
-            name == current -> null
-            taken.any { it != current && it.equals(name, ignoreCase = true) } -> "There is already a preset called \"$name\"."
-            else -> null
-        }
-    }
-
-    /** [base], or "[base] 2", "[base] 3" and so on: the first that [taken] does not hold. */
-    fun uniqueName(
-        base: String,
-        taken: Collection<String>,
-    ): String {
-        val lower = taken.map { it.lowercase() }.toSet()
-        if (base.lowercase() !in lower) return base
-        var n = 2
-        while ("$base $n".lowercase() in lower) n++
-        return "$base $n"
-    }
 }

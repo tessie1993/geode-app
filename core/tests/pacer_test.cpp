@@ -175,16 +175,15 @@ void nanAndTinyCaps() {
 }
 
 void wireRoundTrip() {
-    PacerState s{1, 2, 3, 4, 5, 6, 7, 8, 9};
+    PacerState s{1, 2, 3, 4, 5, 6, 7, 8};
     int64_t wire[kPacerStateLongs] = {};
     pack(s, wire);
     const PacerState back = unpack(wire);
     check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6 &&
-              back.capMilliHz == 7 && back.pacedMilliHz == 8 && back.followedMilliHz == 9,
-          "the nine-long wire layout round-trips");
+              back.capMilliHz == 7 && back.pacedMilliHz == 8,
+          "the eight-long wire layout round-trips");
     check(wire[kPacerCapSlot] == 7, "the cap sits in the slot the shell reads");
-    check(wire[kPacerPacedSlot] == 8, "and the paced rate in the one after it");
-    check(wire[kPacerFollowedSlot] == 9, "and the followed rate last");
+    check(wire[kPacerPacedSlot] == 8, "and the paced rate in the one after it, last");
 }
 
 // The cap a vsync paced to is recorded for the shell's setFrameRate (#440).
@@ -194,10 +193,10 @@ void recordsTheCap() {
     check(s.capMilliHz == 30'000, "a 30 fps cap is recorded in millihertz");
     Pacer::onVsync(s, 1'016'666'667, 0.0f);
     check(s.capMilliHz == 0, "no cap records 0");
-    check(effectiveCapFps(60.0f, 30.0f) == 30.0f, "the thermal cap wins when lower");
-    check(effectiveCapFps(24.0f, 30.0f) == 24.0f, "the surface cap wins when lower");
-    check(effectiveCapFps(0.0f, 30.0f) == 30.0f, "a free-running surface still takes the thermal cap");
-    check(effectiveCapFps(60.0f, 0.0f) == 60.0f, "no thermal cap leaves the surface's");
+    check(effectiveCapFps(60.0f, 30.0f) == 30.0f, "the lower cap wins");
+    check(effectiveCapFps(24.0f, 30.0f) == 24.0f, "either way round");
+    check(effectiveCapFps(0.0f, 30.0f) == 30.0f, "a free-running paced rate takes the other cap");
+    check(effectiveCapFps(60.0f, 0.0f) == 60.0f, "no second cap leaves the first");
     check(effectiveCapFps(NAN, 0.0f) == 0.0f, "a NaN cap is no cap");
 }
 
@@ -217,11 +216,11 @@ void recordsAnyCapTheShellCanAskFor() {
 
 // Kills: `std::isfinite` -> `!std::isnan` on either cap, and a negative surface cap taken as a cap.
 void aCapThatIsNotANumberIsNoCap() {
-    check(effectiveCapFps(60.0f, NAN) == 60.0f, "a NaN thermal cap leaves the surface's");
-    check(effectiveCapFps(INFINITY, 0.0f) == 0.0f, "an infinite surface cap is free-running");
-    check(effectiveCapFps(60.0f, INFINITY) == 60.0f, "an infinite thermal cap is none");
-    check(effectiveCapFps(-30.0f, 0.0f) == 0.0f, "a negative surface cap is none");
-    check(effectiveCapFps(-30.0f, 30.0f) == 30.0f, "and the thermal cap still applies");
+    check(effectiveCapFps(60.0f, NAN) == 60.0f, "a NaN second cap leaves the first");
+    check(effectiveCapFps(INFINITY, 0.0f) == 0.0f, "an infinite cap is free-running");
+    check(effectiveCapFps(60.0f, INFINITY) == 60.0f, "an infinite second cap is none");
+    check(effectiveCapFps(-30.0f, 0.0f) == 0.0f, "a negative cap is none");
+    check(effectiveCapFps(-30.0f, 30.0f) == 30.0f, "and the other cap still applies");
 }
 
 // ---- #452: what a surface sees, through the public seam only (Pacer::onVsync, Pacer::resume,
@@ -580,10 +579,10 @@ void aCapThePanelCannotDivideIsNeverExceeded() {
 }  // namespace
 
 // The paced rate is what the divide really gives, not the cap, when the panel does not divide it. The
-// shell hands it to the renderer as the surface's paced rate, so the measured fallback (ThermalGovernor)
-// judges a 90 Hz panel capped at 60 against the 45 fps it is paced to, not against 60. By hand: the
-// panel rate over the divide, in half-hertz steps, never above the cap.
-// Kills: recording the cap instead, an unrounded rate (the estimate's noise would move the governor's
+// shell hands it to the renderer as the surface's paced rate, so the fluid quality monitor judges a
+// 90 Hz panel capped at 60 against the 45 fps it is paced to, not against 60. By hand: the panel rate
+// over the divide, in half-hertz steps, never above the cap.
+// Kills: recording the cap instead, an unrounded rate (the estimate's noise would move the monitor's
 // target every vsync), and a paced rate above the cap on a panel a hair fast.
 void recordsThePacedRate() {
     struct Case {

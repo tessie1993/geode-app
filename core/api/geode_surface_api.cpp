@@ -44,6 +44,12 @@ long long geode_surface_settle_ms(int previous_mode, int mode) {
 
 int geode_surface_fps_choice(int requested_fps) { return surface::fpsChoice(requested_fps); }
 
+int geode_surface_zoom_covers(float zoom) { return surface::zoomCovers(zoom) ? 1 : 0; }
+
+int geode_surface_proximity_near(float distance_cm, float maximum_range) {
+    return surface::proximityNear(distance_cm, maximum_range) ? 1 : 0;
+}
+
 int geode_surface_fps_choices(int* out, int capacity) {
     const int n = static_cast<int>(surface::kFpsChoices.size());
     if (out != nullptr) {

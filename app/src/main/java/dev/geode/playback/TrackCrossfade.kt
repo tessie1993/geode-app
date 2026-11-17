@@ -36,8 +36,7 @@ internal class TrackCrossfade(
         if (FOLLOWS_ON_EVENTS.any(events::contains)) pushFollowsOn()
     }
 
-    private fun pushFollowsOn() =
-        GeodeNative.dspSetFollowsOn(dsp.nativeHandle(), player.hasNextMediaItem() || player.repeatMode == Player.REPEAT_MODE_ONE)
+    private fun pushFollowsOn() = GeodeNative.dspSetUpNext(dsp.nativeHandle(), player.hasNextMediaItem(), player.repeatMode)
 
     private companion object {
         /** What changes whether something follows the current item. */

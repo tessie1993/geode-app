@@ -43,13 +43,7 @@ int64_t Recorder::position(int64_t elapsedNs) const {
     return sec * kAudioRateHz + (rest * kAudioRateHz + kNsPerSec / 2) / kNsPerSec;
 }
 
-int Recorder::captureFps(int fps, int heat) {
-    constexpr int kCaps[] = {0, 30, 20, 15};
-    const int cap = kCaps[std::clamp(heat, 0, 3)];
-    return cap > 0 ? std::min(fps, cap) : fps;
-}
-
-int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight, int heat) {
+int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight) {
     if (stopped() != Stop::None) return -1;
     if (stageWidth != config_.stageWidth || stageHeight != config_.stageHeight) {
         stop(Stop::Resized, nowNs);
@@ -75,9 +69,7 @@ int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight, int heat
     const int64_t tolerance = slotNs / kSlotToleranceDiv;
     const int64_t claim = stageFrameNs_ < 0 ? tolerance : std::max(stageFrameNs_ / 2, tolerance);
     const int64_t slot = (elapsed + claim) * config_.fps / kNsPerSec;
-    const int capture = captureFps(config_.fps, heat);
-    const int64_t stride = (config_.fps + capture - 1) / capture;
-    if (slot <= lastSlot_ || (lastSlot_ >= 0 && slot < lastSlot_ + stride)) return -1;
+    if (slot <= lastSlot_) return -1;
     const int64_t pending = taken_.load(std::memory_order_relaxed) - encoded_.load(std::memory_order_relaxed);
     if (pending >= kMaxPending && nowNs - lastSubmitNs_ < kProbeNs) {
         dropped_.fetch_add(1, std::memory_order_relaxed);

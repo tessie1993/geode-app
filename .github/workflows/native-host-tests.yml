@@ -584,6 +584,17 @@ jobs:
             core/output/EncodePlan.cpp -o loop_render_test
           ./loop_render_test
 
+      # The video export job (core/output/VideoExport) on a fake host, encoder and muxer: the bit rate cap, the
+      # encoder it settles on, the frame count and timestamps, the audio interleaved by timestamp, the progress,
+      # what a cancel and each failure leave behind, and the teardown order.
+      - name: Video export host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/video_export_test.cpp core/output/VideoExport.cpp core/output/FrameClock.cpp \
+            core/output/EncodePlan.cpp core/audio/dsp/PcmTiming.cpp -o video_export_test
+          ./video_export_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

@@ -27,16 +27,40 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(J
     geode_pcm_ring_destroy(ringOf(handle));
 }
 
-// The tap's buffer: read where it lies, no copy and no Java array.
+// The tap's buffer: read where it lies, a direct one by its address, a heap one through its pinned array.
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
                                                                                    jobject buffer, jint position,
                                                                                    jint bytes, jint encoding,
                                                                                    jint channels, jint sampleRate) {
     if (!buffer || position < 0 || bytes <= 0) return 0;
     const auto* address = static_cast<const unsigned char*>(env->GetDirectBufferAddress(buffer));
-    if (!address || env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
-    return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
-                                      channels, sampleRate, nullptr);
+    if (address) {
+        if (env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
+                                          channels, sampleRate, nullptr);
+    }
+    // A heap buffer: its backing array, pinned for one copy. A read-only heap buffer has none and is skipped.
+    jclass byteBuffer = env->GetObjectClass(buffer);
+    jmethodID hasArray = env->GetMethodID(byteBuffer, "hasArray", "()Z");
+    jmethodID array = env->GetMethodID(byteBuffer, "array", "()[B");
+    jmethodID arrayOffset = env->GetMethodID(byteBuffer, "arrayOffset", "()I");
+    if (!hasArray || !array || !arrayOffset || !env->CallBooleanMethod(buffer, hasArray)) {
+        env->ExceptionClear();
+        return 0;
+    }
+    auto bytesArray = static_cast<jbyteArray>(env->CallObjectMethod(buffer, array));
+    if (env->ExceptionCheck() || !bytesArray) {
+        env->ExceptionClear();
+        return 0;
+    }
+    const jint from = env->CallIntMethod(buffer, arrayOffset) + position;
+    if (env->GetArrayLength(bytesArray) < static_cast<jlong>(from) + bytes) return 0;
+    void* data = env->GetPrimitiveArrayCritical(bytesArray, nullptr);
+    if (!data) return 0;
+    const int written = geode_pcm_ring_write_bytes(ringOf(handle), static_cast<const unsigned char*>(data) + from,
+                                                   static_cast<size_t>(bytes), encoding, channels, sampleRate, nullptr);
+    env->ReleasePrimitiveArrayCritical(bytesArray, data, JNI_ABORT);
+    return written;
 }
 
 JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteFloats(JNIEnv* env, jobject,

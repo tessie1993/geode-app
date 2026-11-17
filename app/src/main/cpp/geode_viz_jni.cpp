@@ -951,6 +951,109 @@ Java_dev_geode_engine_bridge_GeodeNative_touchPulse(JNIEnv* env, jobject, jint s
     return holdMs;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureChoices(JNIEnv* env, jobject, jint gesture, jint current, jintArray out) {
+    int list[GEODE_GESTURE_MAX_CHOICES];
+    const int n = geode_gesture_choices(gesture, current, list, GEODE_GESTURE_MAX_CHOICES);
+    if (out) env->SetIntArrayRegion(out, 0, std::min<jsize>(n, env->GetArrayLength(out)), reinterpret_cast<const jint*>(list));
+    return n;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureForKey(JNIEnv* env, jobject, jint keyCode, jboolean optionsShown, jintArray step) {
+    int s = 0;
+    const int gesture = geode_gesture_for_key(keyCode, optionsShown == JNI_TRUE ? 1 : 0, &s);
+    if (step && env->GetArrayLength(step) >= 1) {
+        const jint value = s;
+        env->SetIntArrayRegion(step, 0, 1, &value);
+    }
+    return gesture;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_gesture_create());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_gesture_destroy(reinterpret_cast<geode_gesture*>(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureConfigure(JNIEnv*, jobject, jlong handle, jfloat touchSlop, jfloat doubleTapSlop,
+                                                          jfloat density, jlong longPressMs, jlong doubleTapMinMs, jlong doubleTapTimeoutMs) {
+    geode_gesture_configure(reinterpret_cast<geode_gesture*>(handle), touchSlop, doubleTapSlop, density, longPressMs, doubleTapMinMs,
+                            doubleTapTimeoutMs);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureArea(JNIEnv*, jobject, jlong handle, jfloat windowW, jfloat windowH, jfloat left, jfloat top,
+                                                     jfloat right, jfloat bottom, jfloat originX, jfloat originY, jboolean placed) {
+    geode_gesture_area(reinterpret_cast<geode_gesture*>(handle), windowW, windowH, left, top, right, bottom, originX, originY,
+                       placed == JNI_TRUE ? 1 : 0);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureDown(JNIEnv* env, jobject, jlong handle, jfloat x, jfloat y, jlong timeMs, jintArray actions,
+                                                     jboolean armed) {
+    static_assert(sizeof(jint) == sizeof(int));
+    int map[GEODE_GESTURE_COUNT] = {};
+    if (actions) {
+        env->GetIntArrayRegion(actions, 0, std::min<jsize>(GEODE_GESTURE_COUNT, env->GetArrayLength(actions)), reinterpret_cast<jint*>(map));
+    }
+    geode_gesture_down(reinterpret_cast<geode_gesture*>(handle), x, y, timeMs, map, armed == JNI_TRUE ? 1 : 0);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureWaitMs(JNIEnv*, jobject, jlong handle) {
+    return geode_gesture_wait_ms(reinterpret_cast<geode_gesture*>(handle));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureTick(JNIEnv*, jobject, jlong handle) {
+    return static_cast<jint>(geode_gesture_tick(reinterpret_cast<geode_gesture*>(handle)));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureEvent(JNIEnv* env, jobject, jlong handle, jlong timeMs, jfloatArray xy, jint live,
+                                                      jboolean primaryDown, jfloatArray pinch) {
+    // Only the first two fingers are read; the count is passed whole.
+    float p[4] = {};
+    const jsize n = xy ? std::clamp<jsize>(live, 0, env->GetArrayLength(xy) / 2) : 0;
+    if (n > 0) env->GetFloatArrayRegion(xy, 0, std::min<jsize>(n, 2) * 2, p);
+    float step[2] = {1.0f, 0.0f};
+    const unsigned answer =
+        geode_gesture_event(reinterpret_cast<geode_gesture*>(handle), timeMs, p, static_cast<int>(n), primaryDown == JNI_TRUE ? 1 : 0, step);
+    if ((answer & GEODE_GESTURE_PINCH) && pinch && env->GetArrayLength(pinch) >= 2) env->SetFloatArrayRegion(pinch, 0, 2, step);
+    return static_cast<jint>(answer);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureRelease(JNIEnv*, jobject, jlong handle) {
+    return geode_gesture_release(reinterpret_cast<geode_gesture*>(handle)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureEnd(JNIEnv* env, jobject, jlong handle, jfloat splitY, jintArray out) {
+    int o[3] = {};
+    const int gesture = geode_gesture_end(reinterpret_cast<geode_gesture*>(handle), splitY, o);
+    if (out && env->GetArrayLength(out) >= 3) env->SetIntArrayRegion(out, 0, 3, reinterpret_cast<const jint*>(o));
+    return gesture;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureSecondDown(JNIEnv*, jobject, jlong handle, jfloat x, jfloat y, jlong timeMs) {
+    return geode_gesture_second_down(reinterpret_cast<geode_gesture*>(handle), x, y, timeMs);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_gestureSecondMove(JNIEnv*, jobject, jlong handle, jboolean present, jfloat x, jfloat y,
+                                                           jboolean pressed) {
+    return geode_gesture_second_move(reinterpret_cast<geode_gesture*>(handle), present == JNI_TRUE ? 1 : 0, x, y,
+                                     pressed == JNI_TRUE ? 1 : 0);
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_customize_text());

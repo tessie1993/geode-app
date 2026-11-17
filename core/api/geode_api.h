@@ -812,6 +812,59 @@ GEODE_API int         geode_params_set(const float* in, const char* name, float 
 GEODE_API void        geode_touch_to_ndc(float* xy, int points, float width, float height);
 GEODE_API void        geode_touch_pair(const float* start, const float* last, const float* now, float* out);
 GEODE_API int         geode_touch_pulse(int step, float* xy);
+/* The gestures on the visual and their actions (core/viz/GestureMap); gestures and actions are the shell's
+ * CanvasGesture and GestureAction ordinals. _default_action: the owner's map, -1 for no such gesture. _choices: the
+ * actions Settings offers gesture (the current one kept, first, when unsuited), up to capacity into out; returns
+ * how many (at most GEODE_GESTURE_MAX_CHOICES), 0 for no such gesture. _for_key: an Android key code's gesture on
+ * the stage, -1 for none (the key is someone else's); a sideways step's direction (+1 next, -1 previous, else 0)
+ * into step_out. */
+#define GEODE_GESTURE_COUNT 10
+#define GEODE_GESTURE_ACTION_COUNT 12
+#define GEODE_GESTURE_MAX_CHOICES 8
+GEODE_API int         geode_gesture_default_action(int gesture);
+GEODE_API int         geode_gesture_choices(int gesture, int current, int* out, int capacity);
+GEODE_API int         geode_gesture_for_key(int key_code, int options_shown, int* step_out);
+/* The gesture reader on the visual (core/viz/GestureRead), one per stage, reused for every gesture; no call
+ * allocates but _create. The shell keeps the pointer loop and feeds it in px of the stage and its uptime ms.
+ * _configure: the platform's touch slop, double-tap slop (px), density (px per dp), long-press timeout, double-tap
+ * min time and timeout (ms); _area: the window size, the system's gesture strips (px from each window edge), the
+ * stage's top-left in the window and whether that is known yet. Both are read at the next _down. _down: a first
+ * finger at (x, y) at t_ms; actions holds each gesture's action ordinal (GEODE_GESTURE_COUNT of them), armed
+ * whether the hold may run. Then, until GEODE_GESTURE_OVER: _wait_ms (-1 no timer; else wait that long for the next
+ * event and call _tick if none comes) and _event: t_ms (< 0 keeps the last), the pressed fingers' (x, y) in the
+ * event's order, live of them (only the first two are read), whether the first finger is still down, a pinch step's
+ * factor and degrees into pinch[2]. Both answer GEODE_GESTURE_* bits. _release: 1 when touch play holds fingers that
+ * must now lift (call it when following ends, cancelled or not). _end: the gesture to fire, -1 none, and into out[3]
+ * a sideways step, 1 for a tap (the double tap may follow), and how long to wait for a second tap's down (0 not at
+ * all). Then _second_down for each down in that wait and _second_move for the followed down's change (present 0 when
+ * the event has none) answer GEODE_GESTURE_SECOND_*. */
+typedef struct geode_gesture geode_gesture;
+#define GEODE_GESTURE_RING         (1u << 0)   /* the ring shows, at the first down */
+#define GEODE_GESTURE_HOLD         (1u << 1)   /* the hold fired */
+#define GEODE_GESTURE_SWIRL        (1u << 2)   /* the swirl fired */
+#define GEODE_GESTURE_OVER         (1u << 3)   /* the fingers are gone: call _end */
+#define GEODE_GESTURE_PUBLISH      (1u << 4)   /* hand the fingers down now to touch play */
+#define GEODE_GESTURE_RELEASE      (1u << 5)   /* touch play's fingers lift */
+#define GEODE_GESTURE_PINCH        (1u << 6)   /* a pinch step in pinch[2] */
+#define GEODE_GESTURE_SECOND_BOUNCE    0       /* too soon after the first lift: wait on */
+#define GEODE_GESTURE_SECOND_FOLLOW    1       /* follow this down */
+#define GEODE_GESTURE_SECOND_DOUBLE    2       /* a double tap */
+#define GEODE_GESTURE_SECOND_NEW_TOUCH 3       /* no second tap: read it again as a new gesture from its own down */
+#define GEODE_GESTURE_HOLD_FILL_MS 800         /* the ring's fill after the long-press timeout */
+GEODE_API geode_gesture* geode_gesture_create(void);
+GEODE_API void        geode_gesture_destroy(geode_gesture*);
+GEODE_API void        geode_gesture_configure(geode_gesture*, float touch_slop, float double_tap_slop, float density,
+                                              long long long_press_ms, long long double_tap_min_ms, long long double_tap_timeout_ms);
+GEODE_API void        geode_gesture_area(geode_gesture*, float window_w, float window_h, float left, float top, float right,
+                                         float bottom, float origin_x, float origin_y, int placed);
+GEODE_API void        geode_gesture_down(geode_gesture*, float x, float y, long long t_ms, const int* actions, int armed);
+GEODE_API long long   geode_gesture_wait_ms(const geode_gesture*);
+GEODE_API unsigned    geode_gesture_tick(geode_gesture*);
+GEODE_API unsigned    geode_gesture_event(geode_gesture*, long long t_ms, const float* xy, int live, int primary_down, float* pinch);
+GEODE_API int         geode_gesture_release(geode_gesture*);
+GEODE_API int         geode_gesture_end(geode_gesture*, float split_y, int* out);
+GEODE_API int         geode_gesture_second_down(geode_gesture*, float x, float y, long long t_ms);
+GEODE_API int         geode_gesture_second_move(geode_gesture*, int present, float x, float y, int pressed);
 
 /* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -1208,6 +1261,11 @@ GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
 GEODE_API int             geode_surface_fps_choice(int requested_fps);
 /* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
+/* What sets GEODE_SURFACE_COVERED, 1 = covered. _zoom_covers: the wallpaper's zoom (0 none, 1 fully out behind the
+ * shade or recents) past the cover point. _proximity_near: the dream's proximity reading, in cm, near against the
+ * sensor's maximum range. */
+GEODE_API int             geode_surface_zoom_covers(float zoom);
+GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
 
 /* Auto's style timer (core/viz/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the

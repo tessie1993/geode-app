@@ -758,11 +758,10 @@ void checkGroove(const Groove& g) {
 }
 
 // The kick and an off-beat bass note are both rises in the low bands, and no onset function tells them
-// apart: the beat needs kick events that reject bass notes, then fosfora's phase arbiter on top of them
-// (docs/research/fosfora/02-rhythm-structure.md R2; its kick model is fosfora's kick_model.rs).
-constexpr const char* kNeedsKickModel = "the low bands hear the bass as a kick; needs a kick model and the phase arbiter (fosfora R2)";
+// apart: the beat needs kick events that reject bass notes, then a phase arbiter on top of them
+constexpr const char* kNeedsKickModel = "the low bands hear the bass as a kick; needs a kick model and the phase arbiter";
 
-// The fosfora study's two failures (PR #300, docs/research/fosfora/02-rhythm-structure.md §4), at 77 and 93 BPM:
+// Two known failures (PR #300), at 77 and 93 BPM:
 // a kick on every beat under an open hat on every "and" (the hat's peak 18 dB and 4 dB under the kick's),
 // and a kick on 1 and 3 under a bass note on every "and", the bass quiet and loud.
 void testOffbeatGrooves() {
@@ -849,7 +848,7 @@ void testBeatless() {
              const double u = t - *(it - 1);
              return static_cast<float>(0.5 * std::exp(-u * 25.0) * n.next() + 0.4 * std::exp(-u * 25.0) * std::sin(kTau * 70.0 * u));
          },
-         "random kick-like bursts still reach the lock line now and then; the lock has no beat-support test yet (fosfora's support EMA)"},
+         "random kick-like bursts still reach the lock line now and then; the lock has no beat-support test yet"},
     };
     for (const Case& c : cases) {
         SoundEngine e(44100);

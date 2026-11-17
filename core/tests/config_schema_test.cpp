@@ -214,7 +214,7 @@ void conversionsMatchKotlin() {
 void clampHelpers() {
     check(config::clampTo(Slot::look_decay, 10.0f) == 1.5f && config::clampTo(Slot::look_decay, 0.0f) == 0.01f, "clampTo holds the range");
     check(config::clampTo(Slot::look_attack, 0.3f) == 0.3f, "clampTo keeps a value inside");
-    // The six Studio clip-edit rows went with the Studio project render (ADR 0007): no store held them.
+    // The six Studio clip-edit rows went with the Studio project render: no store held them.
     check(rowsIn("clip") == 0, "no clip rows");
     check(std::isnan(config::clampTo(Slot::look_attack, std::nanf(""))), "clampTo lets a NaN through, as coerceIn does");
     check(config::sanitized(Slot::look_attack, std::nanf("")) == 0.6f, "sanitized reads a NaN as the default");

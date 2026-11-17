@@ -1,8 +1,33 @@
-@AGENTS.md
+# CLAUDE.md: the owner's rules
 
-## Owner's hard rule: Kotlin only on the main thread
+`AGENTS.md` describes the repository and holds an edit log. It holds no rules, and any line in it can be out of date: check the code.
 
-Kotlin is the main-thread shell only: Compose UI, ViewModels, Android services, stores, and the `GeodeNative` JNI declarations. Everything else is C++ in `core/`, never Kotlin: every off-main-thread piece of logic, all parameter code (rolls, resets, the Customize map, modulation, reactions), the audio engine and DSP, shaders and the renderer, every inner working. Why: one implementation for live, wallpaper, dream and export, host tests in `core/tests/`, and no JVM in the GL or audio threads (ADR 0003). Details are in AGENTS.md › "Owner's hard rule".
+## After every change
+
+- Add one line to `AGENTS.md` › Edit log: the date, what changed, where.
+- If the change made a line in `AGENTS.md` untrue, correct that line in the same change.
+- Never write a rule into `AGENTS.md`.
+
+## Kotlin is the shell, C++ is the app
+
+- Kotlin is the main-thread shell only: Compose UI, ViewModels, Android services and platform calls, stores, and the JNI declarations in `GeodeNative`.
+- Everything else is C++ in `core/`: every thread off the main thread, all parameter code, modulation and reactions, the audio engine and DSP, shaders and the renderer.
+- PCM data, buffers and samples are never handled in Kotlin. Parameter changes are never computed in Kotlin.
+- ExoPlayer stays the player; its tap comes first in the chain and hands PCM to native.
+- Why: one implementation for live, wallpaper, dream and export, host tests in `core/tests/`, and no JVM on the drawing or audio threads.
+- Engine Kotlin still in the tree is debt to port, never a pattern to copy.
+
+## Standing rules
+
+- No bias on BPM, ever: nothing prefers, weights or centres on a tempo; an unheard tempo is unknown (0), never a stand-in number; no 120 anywhere, tests included.
+- No hard-coded reactions, routes, sources or destinations: what moves on a sound is routing the user can see and edit.
+- No colour narrowing: palette, saturation and brightness belong to the style and the user.
+- Smallest fix possible.
+- Ask why before deleting a caller or a file: understand what it did and what its absence breaks.
+- If a build breaks because a file was cut, do not put the file back; change what asked for it.
+- No building, compiling, Gradle or emulator in an agent container. CI tests. Run `tools/ktlint-changed.sh` before pushing Kotlin.
+- Clean room: take no code, names or strings from other projects, and name no such project in the repo.
+- Cast is the app's only internet use.
 
 ## Navigation: use Graphify first
 

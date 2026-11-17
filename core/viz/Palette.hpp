@@ -14,7 +14,7 @@
 // the user picks palettes, no other colours appear). A Palette is up to 16 colours with its gradient
 // options; a Stack is the look's palettes, the primary first, which compose() turns into one ramp of
 // colours over t in 0..1. The look keeps its stack by value as one opaque string (encode/decode), so a
-// look is self-contained for export, share and backup and Kotlin parses and decides nothing (ADR 0003).
+// look is self-contained for export, share and backup and Kotlin parses and decides nothing.
 // How much each palette is used is not in the stack: those are modulatable scene params (one amount per
 // layer), handed to compose() beside it. Pure: no GL, no JNI.
 namespace geode::viz::palette {

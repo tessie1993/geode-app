@@ -2,7 +2,7 @@
 // audio/dsp/PcmTiming (AAC rate, s16 durations, the start skip and trim), each through its C ABI too, which
 // is what AudioTranscoder and PcmResampler call. Built and run by CI (native-host-tests.yml, "Native export
 // planning tests"). The behaviour pinned is AudioTranscoder's loops. (This was clip_media_test; its Studio
-// clip grade and .cube cases went with the Studio project render, ADR 0007.)
+// clip grade and .cube cases went with the Studio project render.)
 #include <cmath>
 #include <random>
 #include <cstdint>

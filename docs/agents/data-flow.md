@@ -97,7 +97,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Frames go through `EncoderSurface` (EGL on the export thread) into MediaCodec and MediaMuxer.
 - Exports write MediaStore rows with `IS_PENDING` set.
 - The one-tap Render (`ExportController.startExport`) is one visual over the song or a part of it, straight through `VideoExporter` under `ExportRun` + `ExportService`.
-- The Studio project render, its plan, Transformer composition and clip effects went with video editing (ADR 0007, #999 F7).
+- The Studio project render, its plan, Transformer composition and clip effects went with video editing (#999 F7).
 
 ## 5. Persistence
 

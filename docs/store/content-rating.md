@@ -52,7 +52,7 @@ Why the 9-12 band was dropped, and what it would take to add it later:
 
 | Declaration | Answer | Evidence |
 |---|---|---|
-| Ads | **No, the app does not contain ads** | No ads SDK; CI fails the release build if one is added (AGENTS.md › Conventions) |
+| Ads | **No, the app does not contain ads** | No ads SDK; CI fails the release build if one is added (CLAUDE.md) |
 | App access | **All functionality is available without special access** (no login). Pro features sit behind a purchase. In the optional instructions field paste: "No login. Pro features: open any Pro style or control, and on the paywall start the free one-hour trial." Licence testers (Setup › License testing) can buy Pro for free in test tracks | No accounts anywhere in the code |
 | Advertising ID | **No**, the app does not use an advertising ID | No `AD_ID` permission; `tools/check-manifest.sh:14-15` fails if it appears |
 | Government app | No | |

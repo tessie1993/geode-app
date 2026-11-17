@@ -15,7 +15,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Sheets and dialogs are local Compose state.
 - All eight ViewModels live in the Activity's store.
 - `PlayerSessionProvider`'s KDoc depends on that, and `PlayerViewModel.onCleared` shuts the session down.
-- Read ADR 0001 § Consequences before you add per-destination stores.
+- Per-destination stores change what `PlayerSessionProvider` depends on; read `VisualsHub.kt` before adding one.
 
 ## Shell chrome
 

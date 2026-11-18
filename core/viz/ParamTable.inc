@@ -724,6 +724,15 @@ GEODE_PARAM(Float, life, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(life, "Life", Universal, kMod, 0, 0)
 GEODE_PARAM_MOD(life, 1.0f, 0)
 
+// Your colours' sixth to eighth stops (paletteStop0..4 above): the owner asked for more than five. Same range,
+// default and meaning as the first five; appended at wire slots 202..204 so every wire index survives.
+GEODE_PARAM(Int, paletteStop5, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop5, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop6, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop6, "Palette", Universal, 0, 0, 0)
+GEODE_PARAM(Int, paletteStop7, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM_META(paletteStop7, "Palette", Universal, 0, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

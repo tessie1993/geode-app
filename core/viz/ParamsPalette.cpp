@@ -12,7 +12,9 @@ namespace {
 float unit(float v) { return std::isnan(v) ? 0.0f : std::clamp(v, 0.0f, 1.0f); }
 
 void setStops(SceneParams& p, const int* stops, int count) {
-    int* slots[] = {&p.paletteStop0, &p.paletteStop1, &p.paletteStop2, &p.paletteStop3, &p.paletteStop4};
+    int* slots[] = {&p.paletteStop0, &p.paletteStop1, &p.paletteStop2, &p.paletteStop3,
+                     &p.paletteStop4, &p.paletteStop5, &p.paletteStop6, &p.paletteStop7};
+    static_assert(sizeof slots / sizeof slots[0] == colour::kMaxStops, "a slot per stop");
     const int n = stops ? std::clamp(count, 0, colour::kMaxStops) : 0;
     for (int i = 0; i < colour::kMaxStops; ++i) *slots[i] = i < n ? stops[i] : SceneParams::kNoStop;
 }

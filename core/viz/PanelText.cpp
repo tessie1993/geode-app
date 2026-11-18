@@ -34,15 +34,9 @@ constexpr Row kRows[] = {
     // Look's palette list on a style the stack does not draw.
     {"look_summary_custom", "Custom palette"},
     // Your colours (Customize › Look).
-    {"palette_explainer",
-     "Pick up to five colours: tap a swatch, then drag in the square and along the hue strip, type a hex code, or take a colour "
-     "with the eyedropper. The visual loops through them as you go; Save keeps them beside the built-in palettes and in every "
-     "preset you save."},
     {"palette_stop", "Colour %1$d of %2$d, %3$s"},
     {"palette_stop_add", "Add a colour"},
     {"palette_stop_remove", "Remove this colour"},
-    {"palette_pick_visual", "Pick from the visual"},
-    {"palette_pick_artwork", "Pick from the artwork"},
     {"palette_from_current", "Start from this palette"},
     {"palette_name_label", "Palette name"},
     {"palette_save", "Save palette"},

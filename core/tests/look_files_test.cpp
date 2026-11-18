@@ -51,14 +51,14 @@ void paletteParams() {
     p.paletteStop1 = 0xFF0000;
     check(!pp::usesCustomPalette(p), "a stop after an unset first does not count");
 
-    const int six[] = {0x111111, 0x222222, 0x333333, 0x444444, 0x555555, 0x666666};
+    const int six[] = {0x111111, 0x222222, 0x333333, 0x444444, 0x555555, 0x666666, 0x777777, 0x888888, 0x999999};
     SceneParams base = plain;
     base.palette = 4;
     base.paletteBaseOverride = 0.5f;
-    const SceneParams stops = pp::withStops(base, six, 6);
-    int out[5] = {};
-    check(pp::stopsOf(stops, out) == 5, "a look takes five stops");
-    check(out[0] == 0x111111 && out[4] == 0x555555, "in order from the first");
+    const SceneParams stops = pp::withStops(base, six, 9);
+    int out[8] = {};
+    check(pp::stopsOf(stops, out) == 8, "a look takes eight stops");
+    check(out[0] == 0x111111 && out[7] == 0x888888, "in order from the first");
     check(stops.paletteBaseOverride == SceneParams::kUnsetOverride, "your colours clear the hue override");
     check(stops.palette == 4, "the built-in index is left alone");
     const SceneParams two = pp::withStops(stops, six, 2);
@@ -118,10 +118,10 @@ void savedPalettes() {
     const auto back = files::readPalette(files::writePalette(two));
     check(back && back->id == "Dusk" && back->name == "Dusk" && back->baseHue == 0.2f && back->stops == two.stops, "it reads back");
 
-    const auto old = files::readPalette(R"({"name":"Sea","baseHue":1.7,"stops":[16777216,-1,"255",255,1,2,3,4,5]})");
+    const auto old = files::readPalette(R"({"name":"Sea","baseHue":1.7,"stops":[16777216,-1,"255",255,1,2,3,4,5,6,7,8]})");
     check(old && old->id == "Sea", "a file without an id takes its name's");
     check(old && old->baseHue == 1.0f && old->hueSpan == 1.0f, "hues held to 0..1, span 1 when missing");
-    check(old && old->stops == std::vector<int>({255, 255, 1, 2, 3}), "only real colours, five at most");
+    check(old && old->stops == std::vector<int>({255, 255, 1, 2, 3, 4, 5, 6}), "only real colours, eight at most");
     check(!files::readPalette(R"({"id":"x"})"), "no name, no palette");
     check(!files::readPalette("not json"), "not JSON, no palette");
     const auto nan = files::readPalette(R"({"name":"n","baseHue":"NaN","hueSpan":"oops"})");

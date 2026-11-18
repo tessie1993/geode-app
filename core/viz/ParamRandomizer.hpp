@@ -25,8 +25,8 @@ enum class Tab { Shape, Color, Motion, Fx, Reactivity, Scene, Fluid, Cymatics };
 constexpr const char* kReactionDna = "Reaction DNA";
 
 // The most fields one control writes. It was 3 while the widest were Palette and Palette 2 (an index
-// and its two hue overrides); Palette now also owns your colours' five stops (paletteStop0..4).
-inline constexpr size_t kMaxRollFields = 8;
+// and its two hue overrides); Palette now also owns your colours' eight stops (paletteStop0..7).
+inline constexpr size_t kMaxRollFields = 11;
 
 struct RolledKey {
     Tab tab;

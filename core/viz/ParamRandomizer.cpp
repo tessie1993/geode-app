@@ -118,7 +118,8 @@ const std::vector<Roll>& rolls() {
              p.palette = r.below(SceneParams::kListedPalettes);
              p.paletteBaseOverride = SceneParams::kUnsetOverride;
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
-             p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;
+             p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = p.paletteStop5 = p.paletteStop6 =
+                 p.paletteStop7 = SceneParams::kNoStop;
          }},
         {T::Color, "MilkDrop palette tint",
          [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},

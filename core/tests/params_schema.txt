@@ -1,4 +1,4 @@
-params|4|202
+params|4|205
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -201,6 +201,9 @@ param|198|shapes|FLOAT|0|0|1|FADE|LIVE
 param|199|shadow|FLOAT|0.6|0|1|FADE|LIVE
 param|200|escapeColor|FLOAT|0.5|0|1|FADE|LIVE
 param|201|life|FLOAT|0|0|1|FADE|LIVE
+param|202|paletteStop5|INT|-1|-1|16777215|HOLD|LIVE
+param|203|paletteStop6|INT|-1|-1|16777215|HOLD|LIVE
+param|204|paletteStop7|INT|-1|-1|16777215|HOLD|LIVE
 palette|0|Spectrum
 palette|1|Neon
 palette|2|Fire

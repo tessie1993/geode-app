@@ -53,7 +53,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list per style: the Palettes card on the shader styles (they draw the stack), else `PaletteDropdown` (the listed built-ins, then the user's own).
-- Look's Your colours (`PaletteMaker`, `ColourPicker`): up to five colour stops, picked Photoshop-style or with an eyedropper on a still of the visual (`geode_viz_still_request`) or the artwork.
+- Look's Your colours (`PaletteMaker`, `ColourPicker`): up to eight colour stops (`colour::kMaxStops`), picked Photoshop-style or typed as hex.
 - Your colours' editor is native text (`geode_palette_maker_*`): the stops, the selected one, Add and Remove and their limits; `PaletteMaker` holds the text and draws its rows.
 - The palette list on a style the stack does not draw is native's rows (`geode_palette_list_view`): its options, the one the look holds, its swatch.
 - The stops are scene params `paletteStop0..4` that loop natively (see native-core.md); the user's palettes are saved in `files/palettes/`.

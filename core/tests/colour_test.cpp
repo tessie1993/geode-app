@@ -109,7 +109,7 @@ void stopsAreSceneParams() {
     for (const auto& roll : randomizer::rolledKeys()) {
         if (std::string(roll.key) != "Palette") continue;
         bool listsStops = false;
-        for (const char* f : roll.fields) listsStops = listsStops || (f && std::string(f) == "paletteStop4");
+        for (const char* f : roll.fields) listsStops = listsStops || (f && std::string(f) == "paletteStop7");
         check(listsStops, "the Palette control owns the stops: Keep, Reset and borrow reach them");
     }
     rolled = randomizer::resetTab(p, randomizer::Tab::Color);

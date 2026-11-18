@@ -176,8 +176,10 @@ struct SceneParams {
 
     float paletteBase() const;
     float paletteRange() const;
-    // Your colours: paletteStop0..4 in order, and how many are set from the first (0 = the slot's own ramp).
-    std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
+    // Your colours: paletteStop0..7 in order, and how many are set from the first (0 = the slot's own ramp).
+    std::array<int, 8> paletteStops() const {
+        return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4, paletteStop5, paletteStop6, paletteStop7};
+    }
     int paletteStopCount() const;
 
     // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParams.FIELDS).

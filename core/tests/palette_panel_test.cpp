@@ -40,24 +40,25 @@ int count(const std::string& text, const std::string& prefix) {
     return n;
 }
 
-void theEditorKeepsOneToFiveStops() {
+void theEditorKeepsOneToEightStops() {
     const int red = 0xFF0000;
     pp::Maker m = pp::open(&red, 1, 0.0f, 0.0f);
     check(m.stops.size() == 1 && m.selected == 0, "a palette of one colour opens as one stop");
     m = pp::edit(m, pp::Edit::Remove, 0);
     check(m.stops.size() == 1, "the last stop is never removed");
     for (int i = 0; i < 9; ++i) m = pp::edit(m, pp::Edit::Add, 0);
-    check(static_cast<int>(m.stops.size()) == colour::kMaxStops && m.selected == colour::kMaxStops - 1, "Add stops at five, the new one selected");
+    check(static_cast<int>(m.stops.size()) == colour::kMaxStops && m.selected == colour::kMaxStops - 1, "Add stops at the cap (eight), the new one selected");
     m = pp::edit(m, pp::Edit::Select, 1);
     m = pp::edit(m, pp::Edit::Set, 0x00FF00);
     check(m.stops[1] == 0x00FF00 && m.stops[0] == red, "Set paints the selected stop alone");
     m = pp::edit(m, pp::Edit::Set, -5);
     check(m.stops[1] == 0x00FF00, "a colour that is none changes nothing");
-    m = pp::edit(m, pp::Edit::Select, 4);
+    m = pp::edit(m, pp::Edit::Select, colour::kMaxStops - 1);
     m = pp::edit(m, pp::Edit::Remove, 0);
-    check(m.stops.size() == 4 && m.selected == 3, "removing the last stop selects the one before");
+    check(static_cast<int>(m.stops.size()) == colour::kMaxStops - 1 && m.selected == colour::kMaxStops - 2,
+          "removing the last stop selects the one before");
     m = pp::edit(m, pp::Edit::Select, 99);
-    check(m.selected == 3, "a select past the end holds to the last stop");
+    check(m.selected == colour::kMaxStops - 2, "a select past the end holds to the last stop");
     const pp::Maker back = pp::decodeMaker(pp::encode(m));
     check(back.stops == m.stops && back.selected == m.selected, "the state round-trips as text");
     check(pp::decodeMaker("garbage").stops == std::vector<int>{colour::kWhite}, "unreadable text is one white stop");
@@ -124,7 +125,7 @@ void theCAbiCarriesTheState() {
 }  // namespace
 
 int main() {
-    theEditorKeepsOneToFiveStops();
+    theEditorKeepsOneToEightStops();
     anOldGradientOpensAsFourStops();
     theEditorViewSaysWhatItOffers();
     theStackCardShowsWhatTheStackHas();

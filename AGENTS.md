@@ -26,6 +26,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
 - `core/audio/dsp`: playback and export DSP.
+- `core/player`: the queue and transport as pure logic (`geode_player`); nothing calls it yet.
 - `core/signal`: the scene parameter resolver (`Resolver`).
 - `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
 - `core/output`: export and Record planning and timing.
@@ -88,3 +89,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The sound analysis is a library of its own: `geode_sound` and `geode_pcm` split from `geode_core` (`core/CMakeLists.txt`), `tools/sound-module-gate.sh` and its steps in `arch-map.yml`, `tools/hostlink/hostlink.sh` reads both source lists.
 - 2026-11-18: Compose: native calls in slider, route and layer rows are remembered, the player screen reads the scene id and sleep state narrowly, playlist results are keyed (`ui/CustomizeTabs.kt`, `ui/CustomizeAdvanced.kt`, `ui/PlayerScreen.kt`, `ui/AppShell.kt`); the play history sorts and serialises outside its lock (`data/HistoryStore.kt`).
 - 2026-11-18: Folded `:engine:audio-core` and the empty `:engine:scenes` into `:app`: `GeodeNative.kt` moved to `app/src/main/java/dev/geode/engine/bridge/` with its package unchanged; `settings.gradle.kts`, `app/build.gradle.kts`, `build-lint.yml`, `ship-apk.yml`, `native-host-tests.yml`, `arch-map.yml`, `tools/engine-kotlin-gate.sh` (its list is empty now), `tools/audio-kotlin-allowlist.txt`, `README.md` follow.
+- 2026-11-18: Added `core/player` (queue, transport, `Player`; library `geode_player` in `core/CMakeLists.txt`) with `player_queue_test` and `player_transport_test` in `native-host-tests.yml`; not wired to the app.

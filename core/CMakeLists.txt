@@ -26,6 +26,16 @@ target_include_directories(geode_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_sound PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_sound PUBLIC geode_pcm)
 
+# The player (docs/superpowers/specs/2026-11-18-native-engine-architecture.md, step 2.1): the queue and the
+# transport as pure logic. It includes only itself, reads no clock and opens no file; nothing calls it yet.
+add_library(geode_player STATIC
+    player/Queue.cpp
+    player/Transport.cpp
+    player/Player.cpp
+)
+target_include_directories(geode_player PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_player PRIVATE ${GEODE_COMPILE_OPTIONS})
+
 add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_perf_api.cpp
@@ -262,7 +272,7 @@ add_library(geode_core STATIC
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(geode_core PUBLIC geode_sound geode_pcm)
+target_link_libraries(geode_core PUBLIC geode_sound geode_pcm geode_player)
 # TagLib only exports its include paths for the install tree; the generated taglib_config.h sits in its binary dir.
 target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib

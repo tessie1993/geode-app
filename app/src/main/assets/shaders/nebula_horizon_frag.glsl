@@ -284,7 +284,8 @@ void main() {
 
     // The photon ring: rays that skimmed the photon sphere.
     float ringW = 0.05 + 0.04 * bass;
-    float ring = exp(-pow((minR - HZ_PHOTON * 1.04) / ringW, 2.0));
+    float ringD = (minR - HZ_PHOTON * 1.04) / ringW;
+    float ring = exp(-ringD * ringD);
     col += trans * nebEmission(0.08 + gKey, 0.8) * ring * (0.35 + 0.2 * bass) * feed * (0.5 + gNebIn.pulse);
 
     if (fate == 1) col += trans * skyAt(normalize(v), hats);

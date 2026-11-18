@@ -267,7 +267,8 @@ void main() {
         ArborHit h = arborField(ro + rd * tm);
         float d = h.d;
         float depth = h.level + h.along;
-        glow += exp(-pow((depth - front) * 1.4, 2.0)) * exp(-max(h.mat.y, 0.0) * 10.0) * min(d, 0.5);
+        float behind = (depth - front) * 1.4;
+        glow += exp(-behind * behind) * exp(-max(h.mat.y, 0.0) * 10.0) * min(d, 0.5);
         if (d < 0.0012 + 0.0008 * tm) {
             hitT = tm;
             hitMat = h.mat.x;
@@ -305,7 +306,8 @@ void main() {
         float threadAmt;
         float sap = 0.0;
         if (hitMat < 0.5) {
-            sap = exp(-pow((hitDepth - front) * 1.4, 2.0)) * sapOn;
+            float behind = (hitDepth - front) * 1.4;
+            sap = exp(-behind * behind) * sapOn;
             base = mix(rootCol, sapCol, clamp(sap, 0.0, 1.0));
             threadAmt = 0.4;
         } else if (hitMat < 1.5) {

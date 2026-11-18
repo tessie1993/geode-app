@@ -170,7 +170,8 @@ void main() {
             vec3 bent = uFeedback == 1 ? texture(uPrev, vUv + nrm.xy * 0.02).rgb : texture(uStyle, vUv + nrm.xy * 0.02).rgb;
             float lap = luma(n0 + n1 + n2 + n3) - 4.0 * luma(prev);
             float caustic = clamp(lap * 4.0, 0.0, 1.0);
-            float rim = pow(1.0 - nrm.z, 2.0);
+            float rim = 1.0 - nrm.z;
+            rim *= rim;
             shown = mix(liquid, bent, 0.65) * (1.0 + caustic * 0.5) + rim * 0.25 + spec * (0.15 + 0.35 * uLight);
         }
     }

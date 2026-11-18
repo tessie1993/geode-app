@@ -401,7 +401,8 @@ void main() {
             vec3 L = normalize(vec3(0.4, 0.8, -0.45));
             float lit = max(dot(nf, L), 0.0);
             // Wet ink pools along the edge a stroke turns away on.
-            float rim = pow(1.0 - abs(dot(n, rd)), 2.0);
+            float rim = 1.0 - abs(dot(n, rd));
+            rim *= rim;
             float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);
             if (mat < 0.5) {
                 vec3 q = toFlower(p);

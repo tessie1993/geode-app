@@ -190,7 +190,8 @@ void main() {
         float r = length(p.xz);
         // The kick's ripple ring travels outward as its envelope falls.
         float ringR = 0.6 + 6.0 * (1.0 - kick);
-        float ring = exp(-pow((r - ringR) * 3.0, 2.0)) * kick;
+        float ringD = (r - ringR) * 3.0;
+        float ring = exp(-ringD * ringD) * kick;
         float lap = 0.015 * sin(p.x * 3.1 + t * 0.7) * sin(p.z * 2.7 - t * 0.5);
         vec2 radial = p.xz / max(r, 1e-3) * ring * 0.35;
         vec3 n = normalize(vec3(radial.x + lap, 1.0, radial.y + lap));

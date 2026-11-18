@@ -148,6 +148,9 @@ void frameReports() {
     check(r.client.frame(0.0f, 0.0f) == kFrameStillReady, "a still read is reported");
     check(r.client.takeStill(still) && still.width == 2 && still.height == 1 && still.rgba.size() == 8, "and handed over");
     check(!r.client.takeStill(still), "once");
+    r.client.frame(0.0f, 0.0f);
+    r.client.release(true);
+    check(!r.client.takeStill(still), "a still never taken is dropped when the client releases");
 }
 
 void warmUps() {

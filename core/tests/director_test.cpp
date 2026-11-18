@@ -373,8 +373,8 @@ void testHeldBetweenDecisions() {
 }
 
 // A look glides in over bars of the tempo the tracker hears (how many is the feeling's, changeBars). With
-// no tempo heard none is assumed (no stand-in tempo): the bar is a plain 2 s, the middle of its 1..4 s
-// range, and the glide is the same whatever stale bpm the frame carries. Form names the section on the
+// no tempo heard none is assumed (no stand-in tempo, no bar): the glide is the tuning's plain seconds
+// (changeSeconds), the same whatever stale bpm the frame carries. Form names the section on the
 // frame after the event here (with no beat there is no downbeat to wait for), and the look lands from there.
 void testNoTempoAssumed() {
     float glides[3] = {};
@@ -401,9 +401,9 @@ void testNoTempoAssumed() {
         const Director::Look before = d.look();
         d.step(f, kDt);
         glides[n] = kDt;
-        expected[n] = std::max(0.25f, 2.0f * Director::changeBars(d.emotion()));
+        expected[n] = std::max(0.25f, Director::changeSeconds(d.emotion()));
         check(d.commits() == 2, "named, the section is decided");
-        check(std::fabs(d.glideSeconds() - expected[n]) < 1e-5f, "the glide is the feeling's bars of a plain 2 s bar");
+        check(std::fabs(d.glideSeconds() - expected[n]) < 1e-5f, "the glide is the feeling's seconds from the tuning");
         const float goal = d.target().axes[kEnergy];
         const float start = before.axes[kEnergy];
         for (int i = 0; i < 600 && std::fabs(d.look().axes[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
@@ -1013,6 +1013,10 @@ void testFeelingPicksTheGlide() {
     between.gems[Emotion::kJoy] = 0.3f;
     check(Director::changeBars(between) < 2.0f && Director::changeBars(between) > 0.25f, "a mix lands between");
     const vd::Tuning wide = vd::parseTuning("glide_calm_bars=4\nglide_driven_bars=0.5\n");
+    check(Director::changeSeconds(calm) == 2.0f * Director::changeBars(calm) &&
+              Director::changeSeconds(driven) == 2.0f * Director::changeBars(driven) &&
+              Director::changeSeconds(wonder) == 2.0f * Director::changeBars(wonder),
+          "with no tempo the default seconds are the old two-second bar's glide, so behaviour does not shift");
     check(Director::changeBars(calm, wide) == 4.0f && Director::changeBars(driven, wide) == 0.5f, "the glide's two ends are settings");
 
     const float bar = 240.0f / 141.0f;

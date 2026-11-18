@@ -104,20 +104,59 @@ bool FrameReader::read(const AnalysisThread& analysis, int64_t position, GeodeSo
     }
     // Every hop up to the position no read delivered yet, by index: hops sharing a position (a starved writer's
     // silence) and a hop published after an earlier read passed its sample are each delivered once.
-    float* o = floats(out);
     analysis.hopsBetween(lastHopPosition_ - 1, position, [&](const Heard& h) {
-        if (static_cast<int64_t>(h.index) <= lastIndex_) return;
-        lastIndex_ = static_cast<int64_t>(h.index);
+        const int64_t index = static_cast<int64_t>(h.index);
+        if (index <= lastIndex_) return;
+        lastIndex_ = index;
         lastHopPosition_ = h.position;
-        const float* fired = floats(h.frame);
-        for (const int i : kTriggerIndex) {
-            // The strongest since the last read; of equals, the newest.
-            if (fired[i] > 0.0f && fired[i] >= o[i]) {
-                o[i] = fired[i];
-                hits.at[static_cast<size_t>(i)] = h.position;
-            }
+        // Heard while the speaker stood (readStill): not again.
+        if (h.position == stillAt_ && index > stillFirst_ && index <= stillTo_) return;
+        fire(h, out, emotion, hits);
+    });
+    return true;
+}
+
+void FrameReader::fire(const Heard& hop, GeodeSoundFrame& out, Emotion::State& emotion, Hits& hits) const {
+    float* o = floats(out);
+    const float* fired = floats(hop.frame);
+    for (const int i : kTriggerIndex) {
+        // The strongest since the last read; of equals, the newest.
+        if (fired[i] > 0.0f && fired[i] >= o[i]) {
+            o[i] = fired[i];
+            hits.at[static_cast<size_t>(i)] = hop.position;
         }
-        emotion.degreeAccent = std::max(emotion.degreeAccent, h.emotion.degreeAccent);
+    }
+    emotion.degreeAccent = std::max(emotion.degreeAccent, hop.emotion.degreeAccent);
+}
+
+bool FrameReader::readStill(const AnalysisThread& analysis, GeodeSoundFrame& out, Emotion::State& emotion, Hits& hits) {
+    hits.clear();
+    const int64_t newest = analysis.newestPosition();
+    Heard a;
+    if (newest < 0 || !analysis.hopAt(newest, a)) {
+        clearTriggers(out);
+        emotion.degreeAccent = 0.0f;
+        return false;
+    }
+    blendSteps(a, nullptr, newest, out);
+    emotion = a.emotion;
+    emotion.degreeAccent = 0.0f;
+    if (stillAt_ != newest) {
+        // The newest hop under this position, or the oldest kept when every kept hop stands here: the one after it
+        // is the first here, and every later one repeats its position.
+        Heard under;
+        const bool found = analysis.hopAt(newest - 1, under);
+        stillAt_ = newest;
+        stillFirst_ = !found ? static_cast<int64_t>(a.index)
+                             : static_cast<int64_t>(under.index) + (under.position < newest ? 1 : 0);
+        // A first read hears from here on; a hop read() already delivered does not fire twice.
+        stillTo_ = primed_ ? std::max(stillFirst_, lastIndex_) : static_cast<int64_t>(a.index);
+    }
+    analysis.hopsBetween(newest - 1, newest, [&](const Heard& h) {
+        const int64_t index = static_cast<int64_t>(h.index);
+        if (index <= stillTo_) return;
+        stillTo_ = index;
+        fire(h, out, emotion, hits);
     });
     return true;
 }

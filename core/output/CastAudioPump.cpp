@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "audio/dsp/PcmConvert.hpp"
+#include "audio/output/OutputFifo.hpp"
 
 namespace geode::output {
 
@@ -24,7 +25,10 @@ CastAudioPump::CastAudioPump(std::shared_ptr<const PcmRing> music, int rateHz, i
 int64_t CastAudioPump::gain() {
     if (!cursor_) return 0;
     const Cursor::Take take = cursor_->take();
-    if (take.frames <= 0 || cursor_->channels() != channels_ || take.sampleRateHz <= 0) return 0;
+    if (take.frames <= 0 || cursor_->channels() != channels_ || take.sampleRateHz < audio::output::OutputFifo::kMinRateHz ||
+        take.sampleRateHz > audio::output::OutputFifo::kMaxRateHz) {
+        return 0;  // a rate no output runs at would size the resampler's block from nonsense
+    }
     const size_t n = samples(take.frames);
     const float* in = cursor_->interleaved();
     for (size_t i = 0; i < n; ++i) taken_[i] = audio::roundToS16(in[i]);

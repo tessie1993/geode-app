@@ -2,8 +2,8 @@ package dev.geode.ui
 
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.TouchNative
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow

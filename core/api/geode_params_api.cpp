@@ -168,6 +168,12 @@ float geode_params_get(const float* frame, const char* name) try {
     return std::numeric_limits<float>::quiet_NaN();
 }
 
+int geode_params_get_int(const float* frame, const char* name) { return geode::viz::SceneParams::asInt(geode_params_get(frame, name)); }
+
+int geode_params_get_flag(const float* frame, const char* name) {
+    return geode::viz::SceneParams::asFlag(geode_params_get(frame, name)) ? 1 : 0;
+}
+
 int geode_params_set(const float* in, const char* name, float value, float* out) try {
     if (!in || !name || !out) return 0;
     SceneParams edited = SceneParams::fromWire(in);
@@ -287,7 +293,11 @@ void geode_params_reroll_reactions(const float* in, float* out) {
     if (!in || !out) return;
     SceneParams look = SceneParams::fromWire(in);
     const int slot = SceneParams::slotOf("reactSeed");
-    if (slot >= 0) look.setSlot(slot, static_cast<float>(std::lround(look.getSlot(slot)) + 1));
+    if (slot >= 0) {
+        // One step on, wrapping to 0 past the row's top: held to the range, the top would stay the top.
+        const long next = std::lround(look.getSlot(slot)) + 1;
+        look.setSlot(slot, next > static_cast<long>(SceneParams::schema()[static_cast<size_t>(slot)].max) ? 0.0f : static_cast<float>(next));
+    }
     look.toWire(out);
 }
 

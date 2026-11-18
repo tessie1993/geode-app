@@ -6,9 +6,9 @@
 # debt: audio handled in Kotlin that moves to core/.
 
 # ---- permanent: Media3 playback shells (the tap, the processor, the sink and output trampolines) ----
-permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt media3-audio-type Media3's TeeAudioProcessor.AudioBufferSink: the tap, first in the chain; hands the buffer to the native ring
-permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt native-call:pcmRingWriteDirect the tap forwards Media3's buffer to the native PCM ring
-permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:pcmRingWriteDirect the tap's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/playback/PcmTap.kt media3-audio-type Media3's TeeAudioProcessor.AudioBufferSink: the tap, first in the chain; hands the buffer to the native ring
+permanent app/src/main/java/dev/geode/playback/PcmTap.kt native-call:pcmTapWrite the tap forwards Media3's buffer to the native PCM ring
+permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:pcmTapWrite the tap's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt media3-audio-type Media3 requires a BaseAudioProcessor class; the DSP is native
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt native-call:dspProcessInto the processor forwards Media3's buffer to the native DSP chain
 permanent app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessInto the processor's JNI declaration (a direct ByteBuffer from Media3)
@@ -23,9 +23,6 @@ permanent app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt external:a
 permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt media3-audio-type Media3 Extractor for AIFF; the header scan and seek map are native
 permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt native-call:aiffScanStep feeds Media3's extractor input bytes to the native header scan
 permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:aiffScanStep the scan's JNI declaration (ExtractorInput hands the JVM a byte array)
-
-# ---- debt: capture ----
-debt app/src/main/java/dev/geode/audio/OutputMixCapture.kt visualizer reads the output mix as Visualizer waveform bytes on the JVM
 
 # ---- debt: viz feed ----
 debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio passes an interleaved FloatArray to a renderer's sound engine

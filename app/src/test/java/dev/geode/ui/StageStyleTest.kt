@@ -1,6 +1,6 @@
 package dev.geode.ui
 
-import dev.geode.engine.bridge.TestCatalogue
+import dev.geode.model.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

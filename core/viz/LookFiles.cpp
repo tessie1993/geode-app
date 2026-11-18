@@ -541,6 +541,17 @@ std::string cleanPresetName(std::string_view raw, std::string_view fallback) {
     }
     replaced.append(raw.substr(from));
     std::string name = trimmed(replaced);
+    // A name is a file name: held to kMaxPresetNameBytes at a whole code point, so no rename or save asks the
+    // file system for a name it refuses (and the write that failed used to take the old file with it).
+    if (name.size() > kMaxPresetNameBytes) {
+        size_t cut = 0;
+        while (cut < name.size()) {
+            const size_t next = cut + codePointAt(name, cut).length;
+            if (next > kMaxPresetNameBytes) break;
+            cut = next;
+        }
+        name = trimmed(std::string_view(name).substr(0, cut));
+    }
     return name.empty() ? std::string(fallback) : name;
 }
 

@@ -43,9 +43,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.ModulationNative
-import dev.geode.engine.bridge.ParamScope
 import dev.geode.engine.bridge.ParamsNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 

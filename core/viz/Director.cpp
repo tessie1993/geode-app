@@ -253,7 +253,9 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     return L;
 }
 
-float Director::changeBars(const Emotion::State& s, const director::Tuning& tuning) {
+// The feeling's place between the two glide ends, in whatever unit they are given: the calm end at `hi`, the
+// driven end at `lo`, `mid` between.
+static float glideBetween(const Emotion::State& s, float lo, float hi, float mid) {
     // make() lets the feeling choose what a look is; this lets it choose how the look arrives, the way a
     // VJ fades a ballad's change and cuts a banger's. The GEMS sum to 1, so the balance is -1..1.
     const auto& g = s.gems;
@@ -261,13 +263,22 @@ float Director::changeBars(const Emotion::State& s, const director::Tuning& tuni
                        0.5f * (g[Emotion::kNostalgia] + g[Emotion::kSadness]);
     const float driven = g[Emotion::kPower] + g[Emotion::kJoy] + 0.5f * g[Emotion::kTension];
     const float k = soft - driven;
-    const float lo = tuning[Tune::GlideDrivenBars];
-    const float hi = std::max(lo, tuning[Tune::GlideCalmBars]);
-    // One bar between, unless the two ends leave it out.
-    const float mid = std::clamp(1.0f, lo, hi);
     if (!std::isfinite(k)) return mid;
     const float c = std::clamp(k, -1.0f, 1.0f);
     return c >= 0.0f ? mid + c * (hi - mid) : mid + c * (mid - lo);
+}
+
+float Director::changeBars(const Emotion::State& s, const director::Tuning& tuning) {
+    const float lo = tuning[Tune::GlideDrivenBars];
+    const float hi = std::max(lo, tuning[Tune::GlideCalmBars]);
+    // One bar between, unless the two ends leave it out.
+    return glideBetween(s, lo, hi, std::clamp(1.0f, lo, hi));
+}
+
+float Director::changeSeconds(const Emotion::State& s, const director::Tuning& tuning) {
+    const float lo = tuning[Tune::GlideDrivenSeconds];
+    const float hi = std::max(lo, tuning[Tune::GlideCalmSeconds]);
+    return glideBetween(s, lo, hi, std::clamp(tuning[Tune::GlideNeutralSeconds], lo, hi));
 }
 
 Director::Look Director::grow(const Look& look, const Look& heading, int returns, float growth, uint64_t seed, int section) {
@@ -416,15 +427,16 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     const bool downbeat = f.downbeat > 0.0f;
     if (downbeat) barsSinceCommit_ += 1;
     if (f.phrase > 0.0f) phrases_ += 1;
-    // The bar the tracker hears, held to 1..4 s. With no tempo known there is no bar: it is a plain time
-    // in seconds, the geometric middle of that range. A look lands over changeBars() of it.
+    // The bar the tracker hears, held to 1..4 s: a look lands over changeBars() of it. With no tempo known
+    // there is no bar and none is made up: the look lands over changeSeconds(), times the tuning states in
+    // seconds.
     constexpr float kBarMin = 1.0f;
     constexpr float kBarMax = 4.0f;
     const bool barKnown = f.bpm > 0.0f && f.beatConf > 0.3f;
-    const float bar = barKnown ? std::clamp(240.0f / f.bpm, kBarMin, kBarMax) : std::sqrt(kBarMin * kBarMax);
-    const float change = std::max(0.25f, changeBars(s, T) * bar);
+    const float bar = barKnown ? std::clamp(240.0f / f.bpm, kBarMin, kBarMax) : 0.0f;
+    const float change = std::max(0.25f, barKnown ? changeBars(s, T) * bar : changeSeconds(s, T));
     // A return morphs, never cuts: at least the tuning's morph.
-    const float morph = std::max(change, T[Tune::ReturnMorphBars] * bar);
+    const float morph = std::max(change, barKnown ? T[Tune::ReturnMorphBars] * bar : T[Tune::ReturnMorphSeconds]);
     // Where a look may land: on a downbeat, or anywhere when there is no beat to land on.
     const bool onBar = downbeat || f.beatConf < 0.3f;
     const int section = std::isfinite(f.sectionId) ? static_cast<int>(std::lround(f.sectionId)) : -1;

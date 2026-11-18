@@ -1,9 +1,11 @@
 name: Build and lint
 
-# The pull-request gate: compile and build the debug APK (Kotlin and the native core through
-# CMake), the manifest promise checks, the JVM unit tests of every module, then the linters
-# (detekt, Android lint, ktlint). The native host tests run beside it (native-host-tests.yml, also
-# on every pull request). Only the emulator job in android.yml stays manual: it takes minutes to boot.
+# The pull-request gate: the debug APK (Kotlin and the native core through CMake).
+# Then the manifest promise checks and the release build's banned-SDK scan.
+# Then the JVM unit tests of every module.
+# Then the linters: detekt, Android lint, ktlint.
+# The native host tests (native-host-tests.yml) and the gates (arch-map.yml) run beside it.
+# Only the emulator tests stay manual (android.yml): the emulator takes minutes to boot.
 
 on:
   workflow_dispatch:
@@ -109,15 +111,14 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
-      # The APK this gate just built, downloadable from the run's Summary page, so every
-      # pull request has an installable debug build without waiting for the tests in
-      # android.yml (now manual). Uploaded before the linters, so a lint finding still
-      # leaves the APK to try. Debug-signed with app/debug.keystore, so it installs over
-      # the other CI builds.
       - name: ccache statistics
         if: always()
         run: ccache -s || true
 
+      # The APK this gate just built, downloadable from the run's Summary page, so every
+      # pull request has an installable debug build.
+      # Uploaded before the linters, so a lint finding still leaves the APK to try.
+      # Debug-signed with app/debug.keystore, so it installs over the other CI builds.
       - name: Upload debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

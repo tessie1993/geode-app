@@ -1,8 +1,9 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule, the network rule, JNI
-# parity and the notices copy. No path
-# filter, so the check reports on every PR.
+# The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule,
+# the network rule, JNI parity and the notices copy, each gate with its self-test.
+# Also the self-test of the docs-only check the other pull-request workflows skip on.
+# No path filter, so the check reports on every PR.
 
 on:
   pull_request:

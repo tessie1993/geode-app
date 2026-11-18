@@ -3,7 +3,8 @@ name: Ship BeatRealms 3D APK
 # Builds the debug APK and publishes it as a GitHub Release, so it can be downloaded
 # and sideloaded without a GitHub login and without a workflow artifact's expiry.
 #
-# A push to main ships once the native host tests and the unit tests pass.
+# A push to main ships once the native host tests and the unit tests pass,
+# if its commit is still main's tip by then (see the concurrency comment).
 # A manual run ships the ref it is given and runs neither: the tests are the caller's.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
@@ -250,10 +251,9 @@ jobs:
           asks for permission to install from the browser or file manager used.
           Verify the download with \`sha256sum -c $FILE_NAME.sha256\`.
 
-          This build is signed with Android's debug key while sharing the
-          Play build's application id, so the two cannot be installed at the
-          same time: Android refuses the install over a Play copy, and you have
-          to uninstall one to try the other.
+          This build is signed with Android's debug key and has its own
+          application id (\`com.beatrealms3d.app.debug\`), so it installs beside
+          a Play copy instead of replacing it.
           EOF
           )
 

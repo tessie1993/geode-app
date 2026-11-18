@@ -12,11 +12,10 @@ name: UI tour
 # find its control is written in the report, not failed: the job fails only when a config's run
 # failed (the app crashed, or the activity never came up), and uploads everything either way.
 #
-# Pull requests that touch the UI re-run it, so their artifact shows the change on screen.
 # Gesture navigation is switched on before the tour, so WindowInsets.systemGestures are the
 # ones a gesture-nav phone has and the report's edge collisions mean something.
 
-# Manual only: pull requests are gated by build-lint.yml (build and lint, no tests).
+# Manual only: pull requests are gated by build-lint.yml (build, unit tests and lint).
 on:
   workflow_dispatch:
 

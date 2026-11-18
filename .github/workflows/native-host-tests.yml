@@ -1,9 +1,10 @@
 name: Native host tests
 
 # The pure C++ core (core/) built with the runner's own g++ and run on the host: the render-thread
-# maths, the fluid engine, the sound engine and the other host tests in core/tests. Seconds, no
-# Android SDK. Split out of android.yml so a red host test does not hold back the APK build;
-# it runs on every pull request, from ship-apk.yml before a push to main publishes, and by hand.
+# maths, the fluid engine, the sound engine and the other host tests in core/tests.
+# Minutes, no Android SDK.
+# Its own workflow, so a red host test does not hold back the APK build.
+# It runs on every pull request, from ship-apk.yml before a push to main publishes, and by hand.
 
 on:
   workflow_dispatch:
@@ -453,7 +454,7 @@ jobs:
             core/viz/present/FieldGeometry.cpp -o field_present_test
           ./field_present_test
 
-      # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
+      # On every pull request: run only by hand, a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
       # meta rows, hence Params), ranges, the answers the shell asks for one at a time, and

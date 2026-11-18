@@ -70,7 +70,7 @@ jobs:
 
       - name: Install Android SDK 36, NDK and CMake
         shell: bash
-        # Same packages as android.yml's build job: libgeode.so is compiled from source.
+        # Same packages as build-lint.yml: libgeode.so is compiled from source.
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
@@ -210,7 +210,7 @@ jobs:
             fi
             echo
             echo "Note: this PR was opened with GITHUB_TOKEN, so it does not trigger CI on its own."
-            echo "Close and reopen it, or push an empty commit, to run android.yml before merging."
+            echo "Close and reopen it to run the pull-request checks (build-lint.yml, native-host-tests.yml, arch-map.yml) before merging."
           } > pr-body.md
           gh pr create --base "$BASE" --head "$branch" \
             --title "Style thumbnails (render ${{ github.run_id }})" \

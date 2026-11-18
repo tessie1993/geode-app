@@ -86,7 +86,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    # PRs only build and check; pushes to the two release branches deploy.
+    # PRs only build and check; pushes to main and manual runs deploy.
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest

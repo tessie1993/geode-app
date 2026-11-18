@@ -3,12 +3,17 @@ package dev.geode
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.os.Process
+import android.os.SystemClock
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.data.AppStateCodec
 import dev.geode.data.AppStateRepository
+import dev.geode.data.AtomicWrite
 import dev.geode.data.AutoDirectorCodec
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.BehaviourCodec
@@ -35,9 +40,12 @@ import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.SoundInputSettingsRepository
 import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
+import dev.geode.data.UnfinishedOutputs
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VisualsSettingsRepository
+import dev.geode.data.backup.BackupRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.data.releaseGrant
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +120,55 @@ class GeodeContainer(
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+        discardStaleRestore(context.applicationContext)
+        deleteUnfinishedOutputs(context.applicationContext)
+        sweepStaleTemps(context.applicationContext)
+    }
+
+    /**
+     * Deletes the `.tmp` files writes killed between their temp and their rename left in the app's own
+     * folders ([AtomicWrite.staleTemps]; native writes the same way). Only those last written before
+     * this process started: a write running now is never touched.
+     */
+    private fun sweepStaleTemps(context: Context) {
+        val startedAt = System.currentTimeMillis() - (SystemClock.uptimeMillis() - Process.getStartUptimeMillis())
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep stale temps") {
+                listOf(context.filesDir, context.noBackupFilesDir).forEach { dir ->
+                    AtomicWrite.staleTemps(dir, startedAt).forEach { it.delete() }
+                }
+            }
+        }
+    }
+
+    /**
+     * Deletes the files a render or a recording was writing into a place the user chose when its
+     * process died ([UnfinishedOutputs]): each is broken, and nothing else would ever remove it from
+     * the user's folder. A render's own grant on its picked file goes with it.
+     */
+    private fun deleteUnfinishedOutputs(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            val unfinished = UnfinishedOutputs(context)
+            unfinished.leftOver().forEach { raw ->
+                val uri = Uri.parse(raw)
+                bestEffort(TAG, "delete an unfinished render") { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                context.contentResolver.releaseGrant(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                unfinished.end(raw)
+            }
+        }
+    }
+
+    /**
+     * Drops a backup restore's staging (`no_backup/backup-restore`, up to the archive cap) that a
+     * previous process left: a restore is only ever finished by the process that inspected it, so
+     * staging found at start belongs to nobody. A swap the process did not outlive left the user's
+     * originals in its `aside` folder; [BackupRepository.discard] puts back every one with no file at
+     * its place before the folder goes, as the next inspect or restore would have.
+     */
+    private fun discardStaleRestore(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "discard stale restore staging") { BackupRepository(context, Dispatchers.IO).discard() }
+        }
     }
 
     /**
@@ -254,11 +311,12 @@ class GeodeContainer(
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
         /**
-         * Kept in step with AudioTranscoder, LoopRender and RecordFiles (`studio-record-`). `studio-`
+         * Kept in step with AudioTranscoder, LoopRender, RecordFiles (`studio-record-`) and the backup
+         * export's whole zip (`BackupRepository.export`, `backup*.zip`). `studio-`
          * also covers what the Studio project render left behind (`studio-scene-*`, `studio-*`) when
          * its process died before #227 removed it, which an upgraded install may still hold.
          */
-        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
+        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-", "backup")
 
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }

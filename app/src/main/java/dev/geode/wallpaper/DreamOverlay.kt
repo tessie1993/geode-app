@@ -13,7 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
 import dev.geode.audio.NowPlayingBridge
-import dev.geode.widget.WidgetState
+import dev.geode.widget.WidgetPublisher
 import java.util.Locale
 import kotlin.random.Random
 
@@ -25,11 +25,11 @@ import kotlin.random.Random
  * own 12/24-hour choice comes free with [TextClock] (both formats left unset), and the date
  * pattern is the locale's best one for weekday, day and month.
  *
- * Now playing is BeatRealms's own track first ([WidgetState], which the playback service publishes on
- * every player event, so reading it starts no session), else whatever another app plays through
- * [NowPlayingBridge], which only answers once the user has given notification access. Nothing
- * playing, the line goes away. It is read every [REFRESH_MS] while the dream runs: a lookup in a
- * cached prefs file and, with access, one binder call.
+ * Now playing is BeatRealms's own track first ([WidgetPublisher.nowPlaying], which the playback service
+ * keeps on every player event, widget placed or not, so reading it starts no session), else whatever
+ * another app plays through [NowPlayingBridge], which only answers once the user has given notification
+ * access. Nothing playing, the line goes away. It is read every [REFRESH_MS] while the dream runs: a
+ * field read and, with access, one binder call.
  *
  * It drifts. A dream runs for hours on a charger, and text that never moves burns into an OLED
  * panel; once a minute it steps to a new spot within [DRIFT_DP] of its home, the same trick the
@@ -104,7 +104,7 @@ class DreamOverlay(
     }
 
     private fun showNowPlaying() {
-        val own = WidgetState.load(context).takeIf { it.playing && it.title.isNotBlank() }
+        val own = WidgetPublisher.nowPlaying?.takeIf { it.playing && it.title.isNotBlank() }
         val text =
             if (own != null) {
                 joined(own.title, own.artist)

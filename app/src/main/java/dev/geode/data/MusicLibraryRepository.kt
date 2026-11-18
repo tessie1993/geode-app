@@ -64,7 +64,7 @@ internal fun Flow<Unit>.libraryRescans(quietMs: Long = RESCAN_QUIET_MS): Flow<Un
 
 private const val RESCAN_QUIET_MS = 1_000L
 
-private const val KEY_ROOTS = "roots"
+internal const val KEY_ROOTS = "roots"
 
 internal val MEDIA_ROOTS_PREF_KEYS =
     prefKeys(GeodePrefsFiles.LIBRARY) {

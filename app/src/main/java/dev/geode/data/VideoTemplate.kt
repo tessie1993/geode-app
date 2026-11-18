@@ -305,9 +305,13 @@ class TemplateRepository(
         return if (text == null) TemplateImport.Unreadable("that file could not be read") else importText(text)
     }
 
-    /** A nicely named copy in the cache, ready to hand to a share sheet. */
+    /**
+     * A nicely named copy in the cache, ready to hand to a share sheet. The copies of earlier shares
+     * go first: each name is the template's, so they would otherwise pile up one per template shared.
+     */
     suspend fun stageForShare(template: VideoTemplate): File? =
         withContext(Dispatchers.IO) {
+            shareDir.listFiles().orEmpty().forEach { it.delete() }
             File(shareDir, TemplateCodec.shareName(template)).takeIf { AtomicWrite.text(it, template.document) }
         }
 

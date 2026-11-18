@@ -130,21 +130,47 @@ class ProcessStoresRepositoryTest {
     @Test
     fun theKeepSetIsReadFromTheModulationFile() {
         val modulation = RecordingPrefs()
-        assertEquals("", KeepSetStore(modulation.prefs) { it }.document.value)
-        // The string set users have saved: handed to native as one key a line, and native's answer is kept.
+        val empty = HeldKeep { it }
+        assertEquals("", KeepSetStore(modulation.prefs, empty::load, empty::toggle, empty::held).document.value)
+        // The string set users have saved: handed to native as one key a line, and what native then holds is shown.
         modulation.values[KeepSetStore.KEY] = setOf("speed", "#CAMERA")
-        val normalized = KeepSetStore(modulation.prefs) { "#CAMERA\nspeed\n" }
+        val native = HeldKeep { "#CAMERA\nspeed\n" }
+        val normalized = KeepSetStore(modulation.prefs, native::load, native::toggle, native::held)
         assertEquals("#CAMERA\nspeed\n", normalized.document.value)
         assertEquals(setOf("speed", "#CAMERA"), normalized.keys.value)
     }
 
     @Test
-    fun aToggledKeepSetIsSavedAsAStringSet() {
+    fun aTappedKeepSetIsSavedAsAStringSet() {
         val modulation = RecordingPrefs()
-        val store = KeepSetStore(modulation.prefs) { it }
-        store.save("#LOOK\nspeed\n")
+        val native = HeldKeep { it }
+        val store = KeepSetStore(modulation.prefs, native::load, native::toggle, native::held)
+        // What native holds after the tap.
+        native.next = "#LOOK\nspeed\n"
+        store.tap("speed")
+        assertEquals("speed", native.tapped)
         assertEquals(setOf("#LOOK", "speed"), modulation.values[KeepSetStore.KEY])
         assertEquals(setOf("#LOOK", "speed"), store.keys.value)
         assertEquals("#LOOK\nspeed\n", store.document.value)
+    }
+
+    /** Native's keep set for a JVM test: [normalize] is what it holds after a load, [next] after a tap. */
+    private class HeldKeep(
+        private val normalize: (String) -> String,
+    ) {
+        var document = ""
+        var next = ""
+        var tapped: String? = null
+
+        fun load(text: String) {
+            document = normalize(text)
+        }
+
+        fun toggle(key: String) {
+            tapped = key
+            document = next
+        }
+
+        fun held(): String = document
     }
 }

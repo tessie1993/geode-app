@@ -201,20 +201,22 @@ void readRejectsWhatIsNotOffered() {
     check(exportFpsRead(50, 30) == 50, "stored 50");
     check(exportFpsRead(45, 30) == 30, "stored 45 falls back");
     check(exportFpsRead(std::nullopt, 60) == 60, "nothing stored is the fallback");
-    check(exportFpsRead(std::nullopt, 45) == 30 || exportFpsRead(std::nullopt, 45) == 45, "a bad fallback is returned as given");
     check(exportFpsRead(std::nullopt, 45) == 45, "fallback taken as is");
 }
 
-std::optional<geode::json::Value> parseObj(const std::string& t) { return geode::json::parse(t); }
+int fpsOf(const std::string& t, int fallback) {
+    const auto v = geode::json::parse(t);
+    return exportFpsFromJson(v ? &*v : nullptr, fallback);
+}
 
 void jsonRejectionMatchesOptInt() {
-    check(exportFpsFromJson(&*parseObj(R"({"fps":50})"), 30) == 50, "50");
-    check(exportFpsFromJson(&*parseObj(R"({"fps":45})"), 30) == 30, "45 refused");
-    check(exportFpsFromJson(&*parseObj(R"({"fps":"60"})"), 30) == 60, "a numeric string coerces as optInt does");
-    check(exportFpsFromJson(&*parseObj(R"({"fps":60.7})"), 30) == 60, "a fraction truncates");
-    check(exportFpsFromJson(&*parseObj(R"({"fps":null})"), 24) == 24, "null is the fallback");
-    check(exportFpsFromJson(&*parseObj(R"({"fps":true})"), 24) == 24, "a bool is the fallback");
-    check(exportFpsFromJson(&*parseObj(R"({})"), 25) == 25, "missing is the fallback");
+    check(fpsOf(R"({"fps":50})", 30) == 50, "50");
+    check(fpsOf(R"({"fps":45})", 30) == 30, "45 refused");
+    check(fpsOf(R"({"fps":"60"})", 30) == 60, "a numeric string coerces as optInt does");
+    check(fpsOf(R"({"fps":60.7})", 30) == 60, "a fraction truncates");
+    check(fpsOf(R"({"fps":null})", 24) == 24, "null is the fallback");
+    check(fpsOf(R"({"fps":true})", 24) == 24, "a bool is the fallback");
+    check(fpsOf(R"({})", 25) == 25, "missing is the fallback");
     check(exportFpsFromJson(nullptr, 25) == 25, "no object is the fallback");
 }
 

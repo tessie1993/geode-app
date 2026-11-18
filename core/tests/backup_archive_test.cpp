@@ -174,11 +174,11 @@ void roundTrip() {
     std::vector<std::string> paths;
     for (const auto& e : m.entries) paths.push_back(e.path);
     // Prefs of every section first (settings' seven, creative's two), then its files; the vanished one is not listed.
-    check(paths.size() == 7 + 2 + 1 + 0 + 1 && paths.back() == "presets/a.json", "entries in order: prefs then files");
+    check(paths.size() == 11 && paths[9] == "presets/a.json" && paths[10] == "prefs/geode-favourites.json", "entries in order, section by section: its prefs then its files");
     check(paths[0] == "prefs/geode-prefs.json" && paths[7] == "prefs/geode-mod.json" && paths[8] == "prefs/creative/geode-prefs.json",
           "settings prefs, then creative's own file and slice");
     check(plan.sources[0].inlineBytes && plan.sources[0].bytes.find("gui_opacity") != std::string::npos, "settings holds the opacity");
-    check(!plan.sources.back().inlineBytes && plan.sources.back().path == "presets/gone.json", "files are opened by the shell");
+    check(!plan.sources[10].inlineBytes && plan.sources[10].path == "presets/gone.json", "files are opened by the shell");
 }
 
 void exportRules() {

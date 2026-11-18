@@ -119,6 +119,9 @@ moment you stop sharing, the Wi-Fi changes or Pro ends.
 - **`MODIFY_AUDIO_SETTINGS`**: for bit-perfect USB audio output to an external DAC.
 - **`VIBRATE`**: haptic feedback for the app's controls.
 - **`WAKE_LOCK`**: keeps the music playing while the screen is off.
+- **`RECEIVE_BOOT_COMPLETED`**: added by Android's WorkManager library, which the home-screen
+  widget uses, so widget updates still pending when the phone restarts can run. The app starts
+  nothing of its own at boot.
 
 BeatRealms requests no camera, contacts or location permission.
 

@@ -45,7 +45,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
                 askConsent()
             } else {
-                viewModel.noteExternalAudioConsentDenied()
+                viewModel.noteExternalAudioPermissionDenied()
             }
         }
 
@@ -96,6 +96,12 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             else ->
                 external.failure?.let { failure ->
                     Text(stringResource(failureText(failure)), style = MaterialTheme.typography.bodySmall)
+                    // Once Android stops asking for the mic, its page in Settings is the only way back.
+                    if (failure == CaptureFailure.PERMISSION) {
+                        CrystalButton(onClick = { context.openAppSettings() }, compact = true, filled = false) {
+                            Text(stringResource(R.string.permission_open_settings))
+                        }
+                    }
                 }
         }
 

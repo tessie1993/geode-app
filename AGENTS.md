@@ -117,3 +117,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `PlaybackCaptureService.start` returns whether Android accepted the foreground start and logs a refusal; its two callers report a refusal as a denied consent (`audio/PlaybackCaptureService.kt`, `ui/ExternalAudioSettings.kt`, `ui/LibraryEmpty.kt`).
 - 2026-11-18: `AtomicWrite.stream` logs the throwable that made a write fail (`data/AtomicWrite.kt`).
 - 2026-11-18: `HistoryStore.writeNow` clears `dirty` before it snapshots and sets it again when the write fails or throws, so a listen added meanwhile is not lost (`data/HistoryStore.kt`).
+- 2026-11-18: Artwork cache: `ByteBudgetCache.clear()` also forgets recorded misses, and a decode that threw (lost grant, I/O error, out of memory) is no longer cached as "no picture" (`data/ByteBudgetCache.kt`, `playback/MediaArtwork.kt`, `ui/ArtworkCache.kt`, test in `ByteBudgetCacheTest`).

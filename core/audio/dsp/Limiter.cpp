@@ -31,7 +31,13 @@ void Limiter::reset() {
 }
 
 void Limiter::process(float* interleaved, size_t frames) {
-    if (!enabled_.load(std::memory_order_relaxed)) return;
+    if (!enabled_.load(std::memory_order_relaxed)) {
+        // Off: the delay line forgets what it held, so turning back on never plays old audio.
+        if (running_) reset();
+        running_ = false;
+        return;
+    }
+    running_ = true;
     const size_t ch = static_cast<size_t>(channels_);
     for (size_t i = 0; i < frames; ++i) {
         float* in = interleaved + i * ch;

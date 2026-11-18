@@ -18,7 +18,13 @@ void Crossfeed::reset() {
 }
 
 void Crossfeed::process(float* interleaved, size_t frames, int channels) {
-    if (channels != 2 || !enabled_.load(std::memory_order_relaxed)) return;
+    if (channels != 2 || !enabled_.load(std::memory_order_relaxed)) {
+        // Off: the filters forget what they held, so turning back on starts clean.
+        if (running_) reset();
+        running_ = false;
+        return;
+    }
+    running_ = true;
     for (size_t i = 0; i < frames; ++i) {
         float& left = interleaved[i * 2];
         float& right = interleaved[i * 2 + 1];

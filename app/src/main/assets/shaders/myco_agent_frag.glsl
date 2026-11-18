@@ -1,5 +1,6 @@
 #version 300 es
 precision highp float;
+precision highp sampler2D;
 
 // MYCELIUM - the agent pass. One texel = one agent: (x, y, heading, species),
 // positions in [0,1) toroidal trail space. The heading is STORED AS A TURN

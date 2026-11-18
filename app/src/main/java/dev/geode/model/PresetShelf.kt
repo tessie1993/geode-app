@@ -4,7 +4,7 @@ import dev.geode.engine.bridge.ShellNative
 
 /**
  * One preset as the Presets list sees it. The list never needs the look itself (params, shader
- * text, a MilkDrop file), only what decides which rows show, in which order and with which marks;
+ * text), only what decides which rows show, in which order and with which marks;
  * those rules are native's ([PresetFiltering]). The page builds these from `data/Preset`.
  *
  * [forThisStyle] is worked out by the page, since the style families (every Cymatics variant

@@ -34,7 +34,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 enum class ExportCodec(
     val mimeType: String,
@@ -379,9 +378,7 @@ class VideoExporter(
         VideoExportNative.videoExportSetScene(
             job,
             context.assets,
-            File(context.filesDir, "milk/textures").absolutePath,
             render.sceneFactory.sceneId,
-            render.sceneFactory.milkPresetPath,
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
         val look = render.look

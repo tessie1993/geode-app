@@ -112,14 +112,13 @@ object ShellNative {
 
     /**
      * An audio file another app opens in this one, "Open with" (core/shell/OpenedAudio). Routes a delivered
-     * intent from its action, its data uri's scheme and last path segment and the sender's declared type:
+     * intent from its action, its data uri's scheme and the sender's declared type:
      * one of [OPENED_NOT_OURS] and the rest (`geode_opened_audio_route`).
      */
     external fun openedAudioRoute(
         action: String?,
         scheme: String?,
         type: String?,
-        lastSegment: String?,
         fromHistory: Boolean,
     ): Int
 
@@ -152,7 +151,7 @@ object ShellNative {
     /**
      * Auto's remembered shape as the prefs keep it (core/shell/AutoVisuals). The entries a saved playlist text
      * holds, each scene id resolved by the catalogue, as [AUTO_ENTRY_FIELDS] texts per entry: scene id, preset
-     * name, milk path, label; a null preset name or milk path is none. A null [json] is no entries
+     * name, label; a null preset name is none. A null [json] is no entries
      * (`geode_auto_playlist_read`).
      */
     external fun autoPlaylistRead(json: String?): Array<String?>
@@ -173,15 +172,14 @@ object ShellNative {
     ): IntArray
 
     /** Texts per playlist entry in [autoPlaylistRead] and [autoPlaylistToJson] (`GEODE_AUTO_ENTRY_FIELDS`). */
-    const val AUTO_ENTRY_FIELDS: Int = 4
+    const val AUTO_ENTRY_FIELDS: Int = 3
 
     /** [autoVisualsApply]'s fields, in order (`GEODE_AUTO_SAVED_*`); the booleans are 0 or 1. */
     const val AUTO_SAVED_RANDOM_ON: Int = 0
     const val AUTO_SAVED_RANDOM_INTERVAL: Int = 1
     const val AUTO_SAVED_RANDOM_STYLES: Int = 2
     const val AUTO_SAVED_RANDOM_PRESETS: Int = 3
-    const val AUTO_SAVED_RANDOM_MILK: Int = 4
-    const val AUTO_SAVED_PLAYLIST_ON: Int = 5
-    const val AUTO_SAVED_PLAYLIST_INTERVAL: Int = 6
-    const val AUTO_SAVED_FIELDS: Int = 7
+    const val AUTO_SAVED_PLAYLIST_ON: Int = 4
+    const val AUTO_SAVED_PLAYLIST_INTERVAL: Int = 5
+    const val AUTO_SAVED_FIELDS: Int = 6
 }

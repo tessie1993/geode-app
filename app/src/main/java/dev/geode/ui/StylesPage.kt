@@ -46,15 +46,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
-import dev.geode.model.MilkFile
 import dev.geode.model.StyleCatalogue
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -70,7 +67,7 @@ import dev.geode.ui.theme.performStoneHaptic
  *
  * The families are one flat level, in the native catalogue's order ([StyleCatalogue.picker]): Silk,
  * Life, Mycelium, Morphing, Shaders (every shader style outside a shader family), each shader
- * family (Arbor, Bulb…), MilkDrop, Fluid, Cymatics. Which style is in which family is native.
+ * family (Arbor, Bulb…), Fluid, Cymatics. Which style is in which family is native.
  *
  * "Your styles" (on screen, favourites, recent) is the dropdown's first entry rather than a section
  * above the list, so the page stays one control over one list. The style on screen leads every list
@@ -81,8 +78,8 @@ import dev.geode.ui.theme.performStoneHaptic
  * screen, and a free user lands on a style they can keep while there is one. The "Family only" chip
  * beside it (off by default, kept by `data/StyleShelfStore`) holds the draw to the family of the style on
  * screen: the stage's family rather than the dropdown's, so it means the same from Your styles. It
- * never leaves that family (owner: "Random style within family"): in a family of one, MilkDrop rolls
- * one of its .milk presets the way Auto draws one, and any other style stays. The draw is native too.
+ * never leaves that family (owner: "Random style within family"): in a family of one the style stays.
+ * The draw is native too.
  * The dropdown opens on the family of the style on screen and keeps the last pick for the process.
  *
  * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
@@ -94,11 +91,7 @@ import dev.geode.ui.theme.performStoneHaptic
  * swipe on the visual steps through the styles in the catalogue's order.
  */
 @Composable
-internal fun StylesTab(
-    viewModel: PlayerViewModel,
-    visualizerView: StageView,
-    milkFiles: List<MilkFile>,
-) {
+internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val shelfStore = remember { context.geodeContainer.styleShelf }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
@@ -163,18 +156,8 @@ internal fun StylesTab(
     val view = LocalView.current
     val shuffle: () -> Unit = {
         val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
-        // MilkDrop's own variety, which Family only rolls inside when MilkDrop is its family's one style.
-        val milkPlays = visualizerView.stage.milkdropAvailable && gate.allowsStyle(CatalogueNative.STYLE_MILKDROP)
-        val milk = if (milkPlays && viz.sceneId == CatalogueNative.STYLE_MILKDROP) milkFiles else emptyList()
-        val milkHere = milk.indexOfFirst { it.path == viewModel.activeMilkPath.value }
-        val next = SoundNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)
-        if (next == SoundNative.STYLES_ROLL_INSIDE) {
-            // Auto's draw over the .milk list, never the one showing, loaded as the MilkDrop page's tap does.
-            milk.getOrNull(SoundNative.autoPick(milk.size, milkHere))?.let {
-                view.performStoneHaptic(StoneHapticCue.CONFIRM)
-                selectMilk(viewModel, visualizerView, it.path)
-            }
-        } else if (next >= 0) {
+        val next = SoundNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, 0, -1)
+        if (next >= 0) {
             view.performStoneHaptic(StoneHapticCue.CONFIRM)
             load(order[next])
         }

@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BuiltInPresets
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
@@ -133,7 +132,7 @@ internal fun PresetsTab(
         }
     val byName = remember(viz.presets) { viz.presets.associateBy { it.name } }
     val entries =
-        remember(viz.presets, viz.sceneId, viz.params, presetFolders, lastTapped) {
+        remember(viz.presets, viz.sceneId, viz.params, presetFolders) {
             viz.presets.map { p ->
                 val looks = p.sceneId == viz.sceneId && p.params == viz.params
                 PresetEntry(
@@ -142,9 +141,7 @@ internal fun PresetsTab(
                     builtIn = BuiltInPresets.isBuiltIn(p.name),
                     folder = presetFolders.folderOf(p.name),
                     forThisStyle = LooksNative.presetMatchesScene(p.sceneId, viz.sceneId),
-                    // Every MilkDrop preset shares the default params; only the file tells them
-                    // apart, so a MilkDrop row is marked only when the user tapped it.
-                    onStage = looks && (p.sceneId != CatalogueNative.STYLE_MILKDROP || p.name == lastTapped),
+                    onStage = looks,
                 )
             }
         }

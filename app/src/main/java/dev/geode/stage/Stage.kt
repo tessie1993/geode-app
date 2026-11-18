@@ -9,18 +9,13 @@ import android.view.Choreographer
 import android.view.Surface
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.DirectorNative
-import dev.geode.engine.bridge.MilkNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.export.SceneFactory
-import dev.geode.geodeContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 import java.lang.ref.Cleaner
 import java.nio.ByteBuffer
 
@@ -41,7 +36,6 @@ class Stage(
 
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets = appContext.assets
-    private val prefs = appContext.geodeContainer.prefsFiles.viz
     private val main = Handler(Looper.getMainLooper())
 
     // The Cleaner's copy of the handle: a stage nobody closed still ends its thread and renderer once this
@@ -51,7 +45,6 @@ class Stage(
             StageNative.stageCreate(
                 assets,
                 appContext.cacheDir.absolutePath,
-                File(appContext.filesDir, "milk/textures").absolutePath,
                 kind,
                 capFps,
             ),
@@ -86,7 +79,6 @@ class Stage(
         }
 
     var onShaderError: (String?) -> Unit = {}
-    var onMilkPresetLoaded: (String) -> Unit = {}
 
     /** The auto-director chose a new look at a new section or a drop; the app's Auto changes style on it. */
     var onDirectorStyleMoment: () -> Unit = {}
@@ -128,10 +120,8 @@ class Stage(
 
     init {
         CLEANER.register(this, owned)
-        MilkPathPrefs.seed(prefs)
         pushLook(look)
         performance = PerformanceSettings.HIGH
-        milkRestorePath()?.let { StageNative.stageLoadMilkPreset(handle, it) }
     }
 
     /** Ends the stage for good: its thread frees the renderer, and every later call does nothing. */
@@ -144,8 +134,6 @@ class Stage(
         heard = 0L
         StageNative.stageDestroy(h)
     }
-
-    val milkdropAvailable: Boolean get() = StageNative.stageKnows(handle, CatalogueNative.STYLE_MILKDROP)
 
     fun availableSceneIds(): List<String> = StageNative.stageSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
@@ -161,14 +149,6 @@ class Stage(
         force: String?,
         dye: String?,
     ) = StageNative.stageSetFluidInjection(handle, force, dye)
-
-    fun loadMilkPreset(path: String) {
-        MilkNative.milkMemoryRequest(path)
-        StageNative.stageLoadMilkPreset(handle, path)
-        poll()
-    }
-
-    fun reloadCurrentMilkPreset() = StageNative.stageReloadMilkPreset(handle)
 
     fun warmTransition(id: String) = StageNative.stageWarmTransition(handle, id)
 
@@ -278,15 +258,10 @@ class Stage(
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
-        val preset = milkRestorePath()
         return object : SceneFactory {
             override val sceneId: String = id
-
-            override val milkPresetPath: String? = preset
         }
     }
-
-    private fun milkRestorePath(): String? = MilkNative.milkMemoryRestorePath(assets, File(appContext.filesDir, "milk").path)
 
     private fun sized(
         width: Int,
@@ -344,21 +319,12 @@ class Stage(
         val events = StageNative.stageTakeEvents(h)
         if (events and StageNative.FRAME_LIQUID_CHANGED != 0) liquid.value = StageNative.stageLiquidMode(h)
         if (events and StageNative.FRAME_ERROR_CHANGED != 0) onShaderError(StageNative.stageError(h)?.ifEmpty { null })
-        if (events and StageNative.FRAME_MILK_LOADED != 0) milkLoaded(h)
         if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && StageNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
         if (events and StageNative.FRAME_STILL_READY != 0) deliverStill(h)
         val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
         if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
             posted = true
             Choreographer.getInstance().postFrameCallback(this)
-        }
-    }
-
-    private fun milkLoaded(h: Long) {
-        while (true) {
-            val path = StageNative.stageTakeMilkLoaded(h) ?: return
-            if (MilkNative.milkMemoryLoaded(path)) MilkPathPrefs.save(prefs, path)
-            onMilkPresetLoaded(path)
         }
     }
 

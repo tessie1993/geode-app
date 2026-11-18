@@ -21,7 +21,7 @@
 
     <!-- Visuals. -->
     <string name="tour_visuals_tabs_title">Pick a look</string>
-    <string name="tour_visuals_tabs_body">Styles picks a look. Customize changes it. Presets saves it. MilkDrop has the classic presets.</string>
+    <string name="tour_visuals_tabs_body">Styles picks a look. Customize changes it. Presets saves it.</string>
     <string name="tour_stage_arrows_title">Next style</string>
     <string name="tour_stage_arrows_body">The arrows step to the next or previous style.</string>
     <string name="tour_stage_tools_title">Up here</string>

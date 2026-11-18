@@ -96,11 +96,10 @@ class StudioViewModel
         fun keepNextRenderAsProject(
             track: TrackRef,
             sceneId: String,
-            milkPath: String?,
         ) {
             keepJob?.cancel()
             keepJob = null
-            keepWish = KeepWish(track, sceneId, milkPath)
+            keepWish = KeepWish(track, sceneId)
         }
 
         /**
@@ -119,14 +118,13 @@ class StudioViewModel
                     val done = ended.phase as? ExportPhase.Done ?: return@launch
                     val track = wish.track
                     val render = ProjectRender(done.resultUri.toString(), track.title, System.currentTimeMillis(), track.durationMs)
-                    session.editor.createWithLook(track, wish.sceneId, wish.milkPath, render)
+                    session.editor.createWithLook(track, wish.sceneId, render)
                 }
         }
 
         private class KeepWish(
             val track: TrackRef,
             val sceneId: String,
-            val milkPath: String?,
         )
     }
 

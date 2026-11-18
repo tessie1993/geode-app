@@ -101,7 +101,7 @@ class BackupArchiveTest {
 
     @Test
     fun `paths outside the allowlist are rejected`() {
-        for (path in listOf("takes/t.json", "analysis/a.bin", "crash-latest.txt", "milk/generated/g.png", "milk-builtin/a.milk")) {
+        for (path in listOf("takes/t.json", "analysis/a.bin", "crash-latest.txt")) {
             val archive = zip(manifest(listOf(entry(path, presetBytes))), path to presetBytes)
             assertProblem(BackupProblem.UNSAFE_PATH) { BackupArchive.unpack(archive, temp.newFolder()) }
         }
@@ -113,10 +113,8 @@ class BackupArchiveTest {
         assertEquals(BackupSection.CREATIVE, BackupFormat.sectionOf("prefs/geode-mod.json"))
         assertEquals(BackupSection.MUSIC, BackupFormat.sectionOf("history.json"))
         assertEquals(BackupSection.MUSIC, BackupFormat.sectionOf("prefs/geode-favourites.json"))
-        assertEquals(BackupSection.MILK, BackupFormat.sectionOf("milk/textures/cloud.png"))
         assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOf("prefs/geode-prefs.json"))
         assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOf("prefs/geode-wallpaper.json"))
-        assertNull(BackupFormat.sectionOf("milk/textures/.links/p/cloud.png"))
         assertNull(BackupFormat.sectionOf("presets/a.json.tmp"))
         assertNull(BackupFormat.sectionOf("prefs/geode-widget.json"))
         assertNull(BackupFormat.sectionOf("session.json"))

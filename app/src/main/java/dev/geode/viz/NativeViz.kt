@@ -6,7 +6,6 @@ import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.engine.bridge.VizNative
 import dev.geode.model.SceneParams
-import java.io.File
 import java.lang.ref.Cleaner
 
 /**
@@ -22,10 +21,9 @@ class NativeViz(
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
-    private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
 
     // Written on the GL thread (surfaceCreated) and read/written from composition-time call
-    // sites on the main thread (e.g. milkdropAvailable, loadMilkPreset); @Volatile keeps every
+    // sites on the main thread (e.g. a stage query); @Volatile keeps every
     // thread's read of a just-published handle current, and create()/destroy() are synchronised
     // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
@@ -35,7 +33,7 @@ class NativeViz(
     val nativeHandle: Long get() = handle
 
     // The handle again, for the Cleaner (#999): a renderer nobody destroyed would keep its scenes, sound
-    // engine and projectM heap for the life of the process. Once this object is unreachable the Cleaner
+    // engine and heap for the life of the process. Once this object is unreachable the Cleaner
     // destroys what is left. JNI's destroy waits for calls in flight and ignores a handle already gone; without a context
     // its GL deletes are no-ops, and the lost context took those objects with it.
     private val owned = Owned()
@@ -53,24 +51,15 @@ class NativeViz(
     private var underlaySent = false
     private var quality: () -> Unit = {}
 
-    /**
-     * Runs once per new handle, inside [create], on whichever thread created it. A handle is
-     * created again after every [destroy], and that new renderer knows none of the state the old
-     * one was given; this is where an owner re-applies what must survive (the MilkDrop preset).
-     */
-    var onCreated: () -> Unit = {}
-
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
             handle = VizNative.vizCreate(assets, cacheDir)
             owned.handle = handle
             if (handle != 0L) {
-                VizNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 quality()
                 underlaySent = false
                 look?.let(::pushLook)
-                onCreated()
             }
         }
         return handle != 0L
@@ -154,13 +143,6 @@ class NativeViz(
     ) {
         if (handle != 0L) VizNative.vizSetTransition(handle, id, durationMs)
     }
-
-    fun loadMilkPreset(path: String) {
-        if (handle != 0L) VizNative.vizLoadMilkPreset(handle, path)
-    }
-
-    /** The preset MilkDrop last compiled, handed out once; null until the next one. */
-    fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else VizNative.vizTakeMilkPresetLoaded(handle)
 
     /** The director's new-section and drop decisions since the last call (one Auto mode). */
     fun takeDirectorStyleMoments(): Int = if (handle == 0L) 0 else VizNative.vizTakeDirectorStyleMoments(handle)

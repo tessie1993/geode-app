@@ -610,7 +610,7 @@ internal fun TransitionPicker(
     if (transitionId == null || !sectionVisible()) return
     val ctx = LocalContext.current
     // Native leaves "cut" out (VisualSafety plays it as a fade) and offers "random", one per change, never
-    // the same twice running (core/viz/TransitionChoice, MilkDrop's habit).
+    // the same twice running (core/viz/TransitionChoice).
     val choices = remember { transitionChoices(ctx) }
     val library = choices.library
     val builtIn = choices.builtIn

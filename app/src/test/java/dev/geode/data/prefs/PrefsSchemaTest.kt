@@ -150,7 +150,6 @@ class PrefsSchemaTest {
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
                 StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf(favourites = setOf("plasma")))
             },
-            Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
                 PlayerPrefsStore(it[player]).save(PlayerPrefs())
                 BookmarkStore(it[player]).save("content://track", 20L * 60_000L)
@@ -212,7 +211,6 @@ class PrefsSchemaTest {
             "$DATA/PerformanceStore.kt" to "its first load and its fallback read the native tier table",
             "$DATA/LookStore.kt" to "VizStateStore writes these, and builds on the native bundled presets",
             "$DATA/MusicLibraryRepository.kt" to "needs an Application, MediaStore and a folder scan",
-            "$DATA/MilkPathPrefs.kt" to "the preset memory it saves for is native",
         )
 
     /**

@@ -4,12 +4,9 @@ import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
 import dev.geode.engine.bridge.TouchNative
 import dev.geode.model.SceneParams
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /** The style left on screen when the Styles grid closes over a preview of [shown]. */
 internal fun sceneAfterPreview(
@@ -20,19 +17,12 @@ internal fun sceneAfterPreview(
 
 internal class VisualSettingsController(
     private val vizStateStore: VizStateStore,
-    private val scope: CoroutineScope,
     private val host: Host,
 ) {
     interface Host {
         /** Settings › Visuals' blend between looks, in seconds. */
         val presetMorphSeconds: Float
-
-        /** The preset's MilkDrop file, written if it is missing or stale; it does its disk work off the caller's thread. */
-        suspend fun milkPathFor(preset: Preset): String?
     }
-
-    /** The newest preset's MilkDrop file on its way from disk; a later apply or pick replaces it. */
-    private var milkApply: Job? = null
 
     private val state get() = vizStateStore.state
 
@@ -41,12 +31,6 @@ internal class VisualSettingsController(
 
     private val _morphFade = MutableSharedFlow<Float>(extraBufferCapacity = 4)
     val morphFade: SharedFlow<Float> = _morphFade
-
-    fun emitApply(apply: VizApply) {
-        // A MilkDrop preset picked by hand is newer than one still being read for a preset apply.
-        if (apply.milkPath != null) milkApply?.cancel()
-        _vizApply.tryEmit(apply)
-    }
 
     fun selectScene(sceneId: String) {
         vizStateStore.committedSceneId = null
@@ -145,15 +129,6 @@ internal class VisualSettingsController(
         preset.customShader?.let {
             _vizApply.tryEmit(VizApply(customShader = it, sceneId = preset.sceneId))
         }
-        // The file is read, and written when stale, off the main thread; only the newest apply's
-        // file may load, so two quick applies cannot land in the wrong order.
-        milkApply?.cancel()
-        milkApply =
-            scope.launch {
-                host.milkPathFor(preset)?.let {
-                    _vizApply.tryEmit(VizApply(milkPath = it, sceneId = preset.sceneId))
-                }
-            }
     }
 
     /**

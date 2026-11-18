@@ -57,24 +57,23 @@ internal class EditorController(
         render: ProjectRender,
     ) {
         storeScope.launch {
-            newProject(render.label.ifBlank { nextName(store.list()) }, track, null, null, render)?.let(store::save)
+            newProject(render.label.ifBlank { nextName(store.list()) }, track, null, render)?.let(store::save)
             refreshLists()
         }
     }
 
     /**
      * A one-tap render the user added to My videos: [track] on an audio lane and the look on stage
-     * ([sceneId], plus [milkPath] for a MilkDrop preset) as one visual clip over the whole song,
+     * ([sceneId]) as one visual clip over the whole song,
      * listing the finished [render]. Made after the file exists, so a failed render leaves no folder.
      */
     fun createWithLook(
         track: TrackRef,
         sceneId: String,
-        milkPath: String?,
         render: ProjectRender,
     ) {
         storeScope.launch {
-            newProject(track.title.ifBlank { nextName(store.list()) }, track, sceneId, milkPath, render)?.let(store::save)
+            newProject(track.title.ifBlank { nextName(store.list()) }, track, sceneId, render)?.let(store::save)
             refreshLists()
         }
     }
@@ -84,12 +83,11 @@ internal class EditorController(
         name: String,
         track: TrackRef?,
         sceneId: String?,
-        milkPath: String?,
         render: ProjectRender,
     ): StudioProject? {
         val kind = StudioNative.studioKindRead(null) ?: return null
         val edit =
-            StudioNative.studioEditNew(track?.uri, track?.title.orEmpty(), track?.durationMs ?: 0L, sceneId, milkPath, render.durationMs)
+            StudioNative.studioEditNew(track?.uri, track?.title.orEmpty(), track?.durationMs ?: 0L, sceneId, render.durationMs)
                 ?: return null
         val now = store.clock()
         return StudioProject(

@@ -27,11 +27,10 @@ object OpenedAudio {
     }
 
     /**
-     * Routes a delivered intent from its action, its data uri's scheme and last path segment, and the
+     * Routes a delivered intent from its action, its data uri's scheme, and the
      * type the sender declared; nothing else in the intent is read. Only `content` is taken: a `file`
      * uri is how the app's own files would be reached (`FileUriExposedException` keeps honest senders
-     * off it since Android 7). The type only routes, the player sniffs the real format; an untyped view
-     * is taken unless its name ends in `.milk`, the one other file the app opens.
+     * off it since Android 7). The type only routes, the player sniffs the real format.
      */
     fun route(
         action: String?,
@@ -40,7 +39,7 @@ object OpenedAudio {
         lastSegment: String?,
         fromHistory: Boolean,
     ): Route =
-        when (ShellNative.openedAudioRoute(action, scheme, type, lastSegment, fromHistory)) {
+        when (ShellNative.openedAudioRoute(action, scheme, type, fromHistory)) {
             ShellNative.OPENED_OPEN -> Route.Open
             ShellNative.OPENED_STALE -> Route.Stale
             else -> Route.NotOurs

@@ -195,7 +195,7 @@ class BackupRepository
                 context.contentResolver.openInputStream(source)
                     ?: fail(BackupProblem.IO_FAILED, "no input stream for the chosen file")
             // The archive itself is compressed, so it can only exceed the uncompressed cap by
-            // zip overhead; the slack keeps an honest backup of incompressible textures inside it.
+            // zip overhead; the slack keeps an honest backup of incompressible files inside it.
             val cap = BackupLimits().maxTotalBytes + ARCHIVE_SLACK_BYTES
             input.use { stream -> archive.outputStream().use { BackupArchive.copyHashed(stream, it, cap) } }
         }

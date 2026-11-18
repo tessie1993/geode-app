@@ -24,7 +24,6 @@ object StudioNative {
         songTitle: String,
         songMs: Long,
         sceneId: String?,
-        milkPath: String?,
         renderMs: Long,
     ): String?
 

@@ -8,7 +8,6 @@ import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.CaptureFailure
 import dev.geode.data.Lyrics
-import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
@@ -61,8 +60,6 @@ class PlayerViewModel
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
 
-        val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
-
         val micState: StateFlow<MicState> get() = session.captureController.micState
 
         val externalAudio: StateFlow<ExternalAudioState> get() = session.externalAudio
@@ -106,25 +103,6 @@ class PlayerViewModel
 
         fun cycleRepeatMode() = session.settings.cycleRepeatMode()
 
-        fun importMilkPresetAsync(
-            uri: Uri,
-            onDone: (String?) -> Unit,
-        ) = session.importMilkPresetAsync(uri, onDone)
-
-        fun milkTextureLinksFor(path: String) = session.milkImport.textureLinksFor(path)
-
-        fun assignMilkTextureAsync(
-            path: String,
-            expected: String,
-            texture: String?,
-            onDone: (List<dev.geode.data.MilkTextureLink>) -> Unit,
-        ) = session.assignMilkTextureAsync(path, expected, texture, onDone)
-
-        fun importMilkFolderAsync(
-            treeUri: Uri,
-            onDone: (MilkPackImporter.Report) -> Unit,
-        ) = session.importMilkFolderAsync(treeUri, onDone)
-
         fun applyArtworkPalette() = session.trackColor.applyArtworkPalette()
 
         /** The playing track's artwork for the eyedropper, or null (nothing playing, no artwork). Off the main thread. */
@@ -149,8 +127,6 @@ class PlayerViewModel
         fun setRandomIncludeStyles(enabled: Boolean) = session.autoVisuals.setRandomIncludeStyles(enabled)
 
         fun setRandomIncludePresets(enabled: Boolean) = session.autoVisuals.setRandomIncludePresets(enabled)
-
-        fun setRandomIncludeMilk(enabled: Boolean) = session.autoVisuals.setRandomIncludeMilk(enabled)
 
         fun onDirectorStyleMoment() = session.autoVisuals.onDirectorMoment()
 

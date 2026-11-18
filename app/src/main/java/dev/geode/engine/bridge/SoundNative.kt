@@ -151,13 +151,12 @@ object SoundNative {
 
     /**
      * What the stage's next/previous style steps (core/viz/StageStep): [page] is the open Visuals page
-     * (STAGE_STEP_PAGE_*), [flags] the STAGE_STEP_* facts, [milkCount] the .milk presets listed and
-     * [lookCount] the saved looks the user may apply. One of [STAGE_STEP_STYLES], [STAGE_STEP_LOOKS], [STAGE_STEP_MILK].
+     * (STAGE_STEP_PAGE_*), [flags] the STAGE_STEP_* facts and
+     * [lookCount] the saved looks the user may apply. One of [STAGE_STEP_STYLES], [STAGE_STEP_LOOKS].
      */
     external fun stageStepTarget(
         page: Int,
         flags: Int,
-        milkCount: Int,
         lookCount: Int,
     ): Int
 
@@ -168,29 +167,15 @@ object SoundNative {
         step: Int,
     ): Int
 
-    /**
-     * The index in [paths] (the MilkDrop page's order) of the .milk [step] loads from [current] ("" when MilkDrop
-     * is not on screen), previous retracing the steps taken; -1 for none.
-     */
-    external fun stageStepMilk(
-        paths: Array<String>,
-        current: String,
-        step: Int,
-    ): Int
-
     const val STAGE_STEP_PAGE_STYLES = 0
     const val STAGE_STEP_PAGE_CUSTOMIZE = 1
     const val STAGE_STEP_PAGE_PRESETS = 2
-    const val STAGE_STEP_PAGE_MILKDROP = 3
     const val STAGE_STEP_PAGE_TEXTURES = 4
     const val STAGE_STEP_PAGE_SETTINGS = 5
     const val STAGE_STEP_SHEET_SHOWN = 1 shl 0
-    const val STAGE_STEP_ON_MILK = 1 shl 1
     const val STAGE_STEP_ON_LOOK = 1 shl 2
-    const val STAGE_STEP_MILK_OPEN = 1 shl 3
     const val STAGE_STEP_STYLES = 0
     const val STAGE_STEP_LOOKS = 1
-    const val STAGE_STEP_MILK = 2
 
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
@@ -251,7 +236,7 @@ object SoundNative {
     )
 
     /**
-     * Auto is about to bring [key] on (a style id or a .milk path): the switch to it plays Auto's longer
+     * Auto is about to bring [key] on (a style id): the switch to it plays Auto's longer
      * fade (native `core/viz/TransitionChoice`).
      */
     external fun autoMarkChange(key: String)
@@ -267,7 +252,7 @@ object SoundNative {
      * [family] each one's family index and [open] whether the entitlement keeps it; never [onScreen], every family
      * or with [familyOnly] the on-screen style's family alone, a kept style while there is one; -1 for none.
      * With [familyOnly] in a family of one style, [STYLES_ROLL_INSIDE] when that style has a variation to roll
-     * ([innerCount], the .milk presets for MilkDrop, [innerOnScreen] the one showing or -1).
+     * ([innerCount], [innerOnScreen] the one showing or -1).
      */
     external fun stylesRandom(
         family: IntArray,

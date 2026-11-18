@@ -8,6 +8,9 @@ import dev.geode.engine.bridge.CastNative
 /** True while the stream runs for the link (starting or live): the sheet has something to show. */
 internal val LinkState.running: Boolean get() = this is LinkState.Starting || this is LinkState.Live
 
+/** Whether a Stop sharing button is on offer: while the share is starting or live, never before or after. */
+internal fun linkStopShown(state: LinkState): Boolean = state.running
+
 /** The value Visuals › Settings shows beside "Show on a computer". */
 @StringRes
 internal fun linkRowValue(

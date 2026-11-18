@@ -52,7 +52,7 @@ One fact per line. Add a fact as a new bullet in its group.
 
 - `docs/store/README.md` is the owner's Play Console step list (data safety, permissions, rating, stats, each with code evidence).
 - The pasted store text is `fastlane/metadata/android/en-US/`.
-- `tools/store-check.sh` checks the store text's lengths.
+- `tools/store-check.sh` checks the store text's lengths, banned words, emoji and capitals; `arch-map.yml` runs it on every PR.
 - `tools/store-stats.sh` recounts the numbers.
 
 ## Local setup and agent tooling

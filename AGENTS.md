@@ -55,7 +55,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
 - `.github/actions/android-build-setup` is the setup every Gradle job uses: JDK 21, Gradle, SDK 36, NDK, CMake, optional ccache.
 - `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
-- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`, `hand-declaration-gate.sh`.
+- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`, `hand-declaration-gate.sh`, and `store-check.sh` on the Play listing text.
 - `build-lint.yml` and `native-host-tests.yml` skip their heavy job on a pull request whose changed paths are all documents (`tools/ci-docs-only.sh`); `arch-map.yml` never skips.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
 - A `ship-apk.yml` run on a commit that is no longer `main`'s tip when its tests finish publishes nothing; the tip's run ships.
@@ -203,3 +203,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The docs-only check diffs with `--no-renames`, so a source file moved under `docs/` or out of it still runs the build and host tests; `build-lint.yml`, `native-host-tests.yml`, `tools/ci-docs-only.sh`.
 - 2026-11-18: The architecture gates run on pull requests to any base, stacked ones included, not only to `main`; `arch-map.yml`, `docs/agents/kotlin-logic-map.md`.
 - 2026-11-18: `tools/no-bpm-bias-gate.sh` also reads `*.xml`, `*.java`, `*.toml`, `*.cmake`, fails a stand-in tempo (`bpm ?: n`, `??`, `||`, `or`, `${BPM:-n}`, a ternary with a number for the tempo, `max(bpm, n)`, `coerceAtLeast(n)`) everywhere tests included, and reads tests for the prior and preferred shapes too (only default and literal skip them); planted lines in `.github/workflows/arch-map.yml`.
+- 2026-11-18: `arch-map.yml` runs `tools/store-check.sh` on every pull request; `AGENTS.md` and `docs/agents/build-ci.md` say so.

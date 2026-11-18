@@ -18,9 +18,11 @@
 #include "util/Log.hpp"
 #include "viz/SurfaceRun.hpp"
 
-// Defined in core/api/geode_viz_api.cpp; not part of the C ABI. geode_viz_frame at a vsync's frame time (0: none).
+// Defined in core/api/geode_viz_api.cpp; not part of the C ABI. geode_viz_frame at a vsync's frame time (0: none),
+// and the still geode_viz_still_request asked for, its buffer handed over instead of copied (false: none ready).
 namespace geode::api {
 int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs);
+bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba);
 }  // namespace geode::api
 
 namespace stage = geode::stage;
@@ -116,12 +118,8 @@ public:
     int takeDirectorMoments() override { return geode_viz_take_director_style_moments(v_); }
     int liquidMode() override { return geode_viz_liquid_mode(v_); }
     bool readStill(stage::Still& out) override {
-        int width = 0, height = 0;
-        if (!geode_viz_still_size(v_, &width, &height) || width <= 0 || height <= 0) return false;
-        out.width = width;
-        out.height = height;
-        out.rgba.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
-        return geode_viz_still_read(v_, out.rgba.data(), out.rgba.size()) != 0;
+        // The renderer's buffer itself, not a copy of the whole frame into a second one.
+        return geode::api::takeVizStill(v_, out.width, out.height, out.rgba);
     }
     void requestStill() override { geode_viz_still_request(v_); }
 

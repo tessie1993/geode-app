@@ -1094,6 +1094,21 @@ int geode_viz_still_read(geode_viz* v, void* out, size_t capacity) {
     return 1;
 }
 
+namespace geode::api {
+
+// geode_viz_still_read without the copy (core/api/geode_stage_api.cpp declares it): the still's buffer itself is
+// handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
+bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
+    if (!v || v->still.empty()) return false;
+    width = v->stillWidth;
+    height = v->stillHeight;
+    rgba = std::move(v->still);
+    v->still.clear();
+    return true;
+}
+
+}  // namespace geode::api
+
 int geode_viz_tap_along(geode_viz* v, int64_t uptime_ns) {
     if (!v) return 0;
     std::lock_guard<std::mutex> lock(v->tapLock);

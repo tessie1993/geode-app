@@ -200,6 +200,26 @@ void onThread(geode_stage* handle, const char* what, Call call) {
 
 }  // namespace
 
+namespace geode::api {
+
+// Declared in geode_viz_internal.hpp, called from geode_memory_trim (geode_viz_api.cpp).
+void trimStages() {
+    std::vector<std::shared_ptr<Stage>> all;
+    {
+        std::lock_guard<std::mutex> guard(gLock);
+        for (const auto& entry : gStages) all.push_back(entry.second);
+    }
+    for (const auto& s : all) {
+        try {
+            s->thread->trim();
+        } catch (...) {
+            GEODE_LOGE(kTag, "trim failed");
+        }
+    }
+}
+
+}  // namespace geode::api
+
 extern "C" {
 
 geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps) {

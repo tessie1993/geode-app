@@ -10,5 +10,7 @@
 // handed over instead of copied (false: none ready).
 namespace geode::api {
 int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs);
+// A memory trim to every live stage, for the ones that draw no frame to read the process signal.
+void trimStages();
 bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba);
 }  // namespace geode::api

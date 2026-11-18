@@ -65,6 +65,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageQuit: lifecycle_.quit(); break;
         case kStageService: serviceDue_ = true; break;
+        case kStageTrim: lifecycle_.trimRequested(); break;
         default: break;
     }
 }

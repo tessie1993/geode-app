@@ -114,6 +114,12 @@ void StageThread::service() {
     push(c, Merge::LastWins);
 }
 
+void StageThread::trim() {
+    Command c;
+    c.kind = kStageTrim;
+    push(c, Merge::LastWins);
+}
+
 void StageThread::quitAndWait() {
     const auto until = std::chrono::steady_clock::now() + kQuitWait;
     quit_.store(true);

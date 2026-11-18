@@ -96,6 +96,8 @@ class WidgetPublisher(
         val position = player.currentPosition.coerceAtLeast(0L)
         val duration = durationOf(player)
         stateScope.launch {
+            // No widget placed: nothing to write or redraw. The next event with one placed brings the state up to date.
+            if (!hasWidgets()) return@launch
             WidgetState.update(appContext) {
                 it.copy(
                     title = title,
@@ -115,6 +117,11 @@ class WidgetPublisher(
             artJob?.cancel()
             artJob =
                 scope.launch {
+                    if (!hasWidgets()) {
+                        // Not decoded: forget the uri, so the next event with a widget placed decodes this art.
+                        if (uri == artUri) artUri = null
+                        return@launch
+                    }
                     val art = uri?.let { MediaArtwork.decodeEmbedded(appContext, it) }
                     if (uri != artUri) return@launch
                     val path = WidgetState.writeArt(appContext, art)

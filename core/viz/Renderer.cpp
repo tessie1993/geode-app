@@ -659,6 +659,7 @@ void Renderer::dropScene(const std::string& id) {
         s->release();
         scenes_.erase(it);
         residency_.remove(id);
+        appliedShaders_.erase(id);
         return;
     }
 }
@@ -707,6 +708,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
             scenes_.erase(it);
             break;
         }
+        appliedShaders_.erase(victim);
     }
 }
 
@@ -799,6 +801,7 @@ Scene* Renderer::attemptScene(const std::string& id) {
     errors.swap(heldErrors_);
     if (deferred) {
         if (scene) scene->release();
+        appliedShaders_.erase(id);
         // Placeholders are unlinked programs; whatever the setup asked of them raised GL errors.
         prober::drainErrors();
         return nullptr;
@@ -840,6 +843,7 @@ Scene* Renderer::admitBuilt(const std::string& id, std::unique_ptr<Scene> scene)
     if (!scene || scene->buildFailed()) {
         if (scene) scene->release();
         prep_.fail(id);
+        appliedShaders_.erase(id);
         return nullptr;
     }
     Scene* raw = scene.get();
@@ -894,6 +898,7 @@ void Renderer::releaseScenes() {
     prep_.done();
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
+    appliedShaders_.clear();
     residency_.clear();
     activeScene_ = nullptr;
     heldScene_ = nullptr;

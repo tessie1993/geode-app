@@ -480,7 +480,9 @@ private:
     // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     // GL thread: the shader override each built scene was last given ("" = its built-in source), and
-    // the ShaderOverrides generation syncShaderOverrides last applied.
+    // the ShaderOverrides generation syncShaderOverrides last applied. An entry lives as long as its
+    // scene: a scene built again reads its override afresh in buildScene, so a dropped, evicted, deferred
+    // or failed build takes its entry (and its copy of the edited source) with it.
     std::map<std::string, std::string> appliedShaders_;
     uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;

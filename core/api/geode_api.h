@@ -1123,6 +1123,11 @@ GEODE_API const char* geode_customize_rows(const char* style_id, const char* key
 /* 1 when the panel search query matches text (core/viz/CustomizeRows matches): blank matches all, else a case-blind substring
  * of the trimmed query. */
 GEODE_API int geode_customize_matches(const char* query, const char* text);
+/* 1 when the panel search query has nothing in it (only spaces and tabs), so whole sections show. */
+GEODE_API int geode_customize_query_blank(const char* query);
+/* A word or sentence of the panel's with its placeholders filled by the count texts of args (geode_panel_text's table,
+ * "%1$s" the first); "" for an unknown id. Valid until this thread's next call into core/api/geode_customize_rows_api.cpp. */
+GEODE_API const char* geode_panel_format(const char* id, const char* const* args, int count);
 /* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
 GEODE_API const char* geode_panel_text(const char* id);
 /* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */

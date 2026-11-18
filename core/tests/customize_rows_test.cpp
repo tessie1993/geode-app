@@ -198,6 +198,21 @@ void wordsAndNames() {
     check(catalogue::familyLabel("foam") == "Sphere Foam" && catalogue::familyLabel("arbor") == "Arbor", "family names");
     check(std::string(geode_style_label("fluid")) == "Original · Dye", "the C ABI's style name");
     check(std::strcmp(geode_panel_text("palette_save"), "Save palette") == 0, "the C ABI's words");
+    const char* reaction[] = {"Beat", "Zoom", "Add", "+25%"};
+    check(std::string(geode_panel_format("customize_reaction_summary", reaction, 4)) == "When Beat \xe2\x86\x92 Zoom \xc2\xb7 Add +25%",
+          "a reaction's summary line");
+    const char* target[] = {"Zoom"};
+    check(std::string(geode_panel_format("customize_target_inert", target, 1)) == "Zoom does nothing on this style.",
+          "a target the style ignores");
+    check(std::string(geode_panel_format("customize_target_inert_pick", target, 1)) ==
+              "Zoom does nothing on this style - pick another.",
+          "a wave's target the style ignores");
+    const char* labelled[] = {"Speed", "3"};
+    check(std::string(geode_panel_format("customize_label_value", labelled, 2)) == "Speed \xc2\xb7 3", "a label and its value");
+    check(std::string(geode_panel_format("no_such_id", labelled, 2)).empty(), "an unknown id formats to nothing");
+    check(geode_customize_query_blank(nullptr) == 1 && geode_customize_query_blank("") == 1 && geode_customize_query_blank(" \t ") == 1,
+          "a blank search");
+    check(geode_customize_query_blank(" x ") == 0, "a search with something in it");
 }
 
 // The panel's tab titles and group headers, which the shell used to hold.

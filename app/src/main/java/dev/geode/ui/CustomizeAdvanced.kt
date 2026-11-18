@@ -194,7 +194,7 @@ private fun ReactionCard(
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
             Text(
-                "When $sourceLabel → $targetLabel · $modeLabel $amountText",
+                panelFormat("customize_reaction_summary", sourceLabel, targetLabel, modeLabel, amountText),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f).clickable { expanded = !expanded },
             )
@@ -203,7 +203,11 @@ private fun ReactionCard(
                 onCheckedChange = { onSet(ModulationNative.MOD_ROUTE_ENABLED, it.wire()) },
             )
         }
-        if (target != 0 && !route.flagAt(ModulationNative.MOD_ROUTE_REACHES)) ControlHint("$targetLabel does nothing on this style.")
+        if (target != 0 &&
+            !route.flagAt(ModulationNative.MOD_ROUTE_REACHES)
+        ) {
+            ControlHint(panelFormat("customize_target_inert", targetLabel))
+        }
         if (expanded) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { picking = ReactionPick.SOURCE }) {
@@ -310,7 +314,7 @@ internal fun ModulatorCard(
         if (v.flagAt(ModulationNative.MOD_LFO_ENABLED)) {
             TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, targetLabel)) }
             if (target != 0 && !v.flagAt(ModulationNative.MOD_LFO_REACHES)) {
-                ControlHint("$targetLabel does nothing on this style - pick another.")
+                ControlHint(panelFormat("customize_target_inert_pick", targetLabel))
             }
             if (shows and ModulationNative.MOD_SHOWS_KNOB != 0) {
                 MacroKnobRow(v.intAt(ModulationNative.MOD_LFO_KNOB)) { onChange(ModulationNative.MOD_LFO_KNOB, it.toFloat()) }
@@ -633,7 +637,7 @@ internal fun TransitionPicker(
         singleLine = true,
         label = { Text(stringResource(R.string.customize_search_transitions)) },
     )
-    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.contains(query, ignoreCase = true) } }
+    val shown = remember(query, library) { library.filter { CustomizeNative.customizeMatches(query, it) } }
     val names = shown.take(TRANSITION_CHIP_LIMIT)
     DropdownRow(
         stringResource(R.string.transition_library),

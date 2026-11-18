@@ -343,6 +343,8 @@ void liquid(std::string& out, const Control& c, const SceneParams& p, const RowC
 
 const std::vector<Control>& controls() { return table(); }
 
+bool blank(std::string_view query) { return query.find_first_not_of(" \t") == std::string_view::npos; }
+
 bool matches(std::string_view query, std::string_view text) {
     const size_t first = query.find_first_not_of(" \t");
     if (first == std::string_view::npos) return true;

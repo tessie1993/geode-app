@@ -487,6 +487,17 @@ void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
     check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
 }
 
+// Every id of the listing is a real one: not empty, and listed once. (A null entry in a table never gets this
+// far: Catalogue.cpp's static_asserts refuse it.)
+void everyIdIsNonEmptyAndUnique() {
+    std::set<std::string> seen;
+    for (const auto& id : catalogue::allIds()) {
+        check(!id.empty(), "an id of the listing is empty");
+        check(seen.insert(id).second, id + " is listed once");
+    }
+    check(!seen.empty() && seen.size() == catalogue::allIds().size(), "the listing's ids are distinct");
+}
+
 // What the shell asks through core/api: every answer has to be the tables', in allIds() order.
 void theShellsQuestionsAgreeWithTheTables() {
     using catalogue::Trait;
@@ -637,6 +648,7 @@ int main(int argc, char** argv) {
     paramScopesMatchTheOldParamScope();
     everyStyleKeepsItsOldLookGroup();
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();
+    everyIdIsNonEmptyAndUnique();
     theShellsQuestionsAgreeWithTheTables();
     textRoundTrips();
     valuesTheShellReads();

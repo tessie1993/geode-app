@@ -701,7 +701,8 @@ void main() {
     float satCount = dmtSatelliteCount();
     // In world space: the bank orbits the cloud, not the camera. t is the
     // same in both frames, the basis being a rotation.
-    float satT = dmtMarchSatellites(roW, rdW, tNear + span, uSteps * 0.5, satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    dmtSatPrepare(satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    float satT = dmtMarchSatellites(roW, rdW, tNear + span, uSteps * 0.5);
     float tStop = satT > 0.0 ? satT : tNear + span;
 
     float volSteps = min(max(uSteps * NEB_STEP_SCALE, NEB_MIN_STEPS), float(NEB_MAX_STEPS));
@@ -913,8 +914,7 @@ void main() {
 
     // A satellite, through whatever the dye in front of it did not absorb.
     if (satT > 0.0) {
-        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble, satCount,
-                                      NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble);
         col += body * trans * glowGain * 0.6;
         trans = 0.0;
     }

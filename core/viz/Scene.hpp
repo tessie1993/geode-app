@@ -65,7 +65,7 @@ public:
     // The fluid scene runs its own flow field.
     virtual bool isFluid() const { return false; }
     virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
-    // The surface size in pixels, which MilkDrop renders at rather than the supersampled target.
+    // The surface size in pixels, which MilkDrop renders at rather than the render-scaled target.
     virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
     virtual void queueMilkPreset(const std::string& path) { (void) path; }
     // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls

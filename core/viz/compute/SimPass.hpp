@@ -49,7 +49,11 @@ using SimUniformBinder = std::function<void(SimUniforms&)>;
 // One simulation step per frame, on compute where proven and fragment ping-pong otherwise.
 class SimPass {
 public:
+    SimPass() = default;
     virtual ~SimPass() = default;
+    // A simulation pass owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    SimPass(const SimPass&) = delete;
+    SimPass& operator=(const SimPass&) = delete;
     virtual const std::string& label() const = 0;
     virtual int width() const = 0;
     virtual int height() const = 0;

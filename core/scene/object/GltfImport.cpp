@@ -71,6 +71,16 @@ bool decodeMeshopt(cgltf_data* data) {
         if (mc.buffer == nullptr || mc.buffer->data == nullptr || mc.stride == 0) return false;
         if (mc.count > kMaxDecodedBytes / mc.stride) return false;
         const std::size_t bytes = mc.count * mc.stride;
+        // The decoders trust their arguments: the compressed range must lie in its buffer, the view must be the
+        // size it decodes to, and the stride and count must be what the mode and the filter ask for.
+        if (mc.offset > mc.buffer->size || mc.size > mc.buffer->size - mc.offset) return false;
+        if (view.size != bytes) return false;
+        if (mc.mode == cgltf_meshopt_compression_mode_attributes && (mc.stride % 4 != 0 || mc.stride > 256)) return false;
+        if (mc.mode != cgltf_meshopt_compression_mode_attributes && mc.stride != 2 && mc.stride != 4) return false;
+        if (mc.mode == cgltf_meshopt_compression_mode_triangles && mc.count % 3 != 0) return false;
+        if (mc.filter == cgltf_meshopt_compression_filter_octahedral && mc.stride != 4 && mc.stride != 8) return false;
+        if (mc.filter == cgltf_meshopt_compression_filter_quaternion && mc.stride != 8) return false;
+        if (mc.filter == cgltf_meshopt_compression_filter_exponential && mc.stride % 4 != 0) return false;
         total += bytes;
         if (total > kMaxDecodedBytes) return false;
         void* out = std::malloc(bytes > 0 ? bytes : 1);

@@ -116,11 +116,9 @@ std::optional<SmartPlaylist> smartParse(const std::string& text) {
     if (const json::Value* rules = jsonread::optArray(*root, "rules")) {
         for (const json::Value& r : rules->array()) {
             if (r.kind() != json::Value::Kind::Object) continue;
-            const auto field = lookup(kFields, jsonread::optString(r, "field"));
-            if (!field) continue;
-            const auto op = lookup(kOps, jsonread::optString(r, "op"));
-            if (!op) continue;
-            p.rules.push_back({static_cast<RuleField>(*field), static_cast<RuleOp>(*op), jsonread::optString(r, "value", "")});
+            const auto field = jsonread::optString(r, "field");
+            const auto op = jsonread::optString(r, "op");
+            if (auto rule = smartRuleOf(field, op, jsonread::optString(r, "value", ""))) p.rules.push_back(std::move(*rule));
         }
     }
     return p;
@@ -193,19 +191,61 @@ std::vector<int> smartResolve(const SmartPlaylist& playlist, const std::vector<S
     return picked;
 }
 
-std::optional<std::vector<int>> smartResolveText(const std::string& smartJson, const std::vector<SmartTrack>& tracks,
-                                                 const std::string& historyJson, const std::vector<std::string>& favourites,
-                                                 long long nowMs) {
-    const auto playlist = smartParse(smartJson);
-    if (!playlist) return std::nullopt;
+std::vector<int> smartResolveHistory(const SmartPlaylist& playlist, const std::vector<SmartTrack>& tracks,
+                                     const std::string& historyJson, const std::vector<std::string>& favourites,
+                                     long long nowMs) {
     std::map<std::string, int> counts;
     for (const HistoryEntry& e : historyParse(historyJson).entries) counts[e.uri] = e.playCount;
-    return smartResolve(*playlist, tracks,
+    return smartResolve(playlist, tracks,
                         [&](const std::string& uri) {
                             const auto it = counts.find(uri);
                             return it == counts.end() ? 0 : it->second;
                         },
                         favourites, nowMs);
+}
+
+std::optional<std::vector<int>> smartResolveText(const std::string& smartJson, const std::vector<SmartTrack>& tracks,
+                                                 const std::string& historyJson, const std::vector<std::string>& favourites,
+                                                 long long nowMs) {
+    const auto playlist = smartParse(smartJson);
+    if (!playlist) return std::nullopt;
+    return smartResolveHistory(*playlist, tracks, historyJson, favourites, nowMs);
+}
+
+std::optional<SmartRule> smartRuleOf(const std::string& field, const std::string& op, const std::string& value) {
+    // entries.firstOrNull { it.name == token }: the field is looked up first, then the op.
+    const auto f = lookup(kFields, field);
+    if (!f) return std::nullopt;
+    const auto o = lookup(kOps, op);
+    if (!o) return std::nullopt;
+    return SmartRule{static_cast<RuleField>(*f), static_cast<RuleOp>(*o), value};
+}
+
+std::string smartWire(const std::vector<SmartPlaylist>& playlists) {
+    constexpr char kField = '\x1f';
+    constexpr char kRecord = '\x1e';
+    const auto text = [](std::string& out, const std::string& s) {
+        for (const char c : s) {
+            if (c != kField && c != kRecord) out += c;
+        }
+    };
+    std::string out;
+    for (const SmartPlaylist& p : playlists) {
+        text(out, p.name);
+        out += kField;
+        out += p.matchAll ? '1' : '0';
+        out += kField + std::to_string(p.limit);
+        for (const SmartRule& r : p.rules) {
+            out += kField;
+            out += nameOf(kFields, static_cast<int>(r.field));
+            out += kField;
+            out += nameOf(kOps, static_cast<int>(r.op));
+            out += kField;
+            text(out, r.value);
+        }
+        out += kRecord;
+    }
+    return out;
 }
 
 }  // namespace geode::library

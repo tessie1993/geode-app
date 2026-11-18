@@ -7,17 +7,23 @@ import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
+import dev.geode.data.TestBehaviourRules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 /** Behaviour's options on the one repository (#1009, PR 4): same keys and values, and a screen change writes only its key. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BehaviourRepositoryTest {
     private val file = RecordingPrefs()
+
+    // The last-screen rule a load and an update apply is native's (core/tests/shell_prefs_test.cpp).
+    @Before
+    fun rules() = TestBehaviourRules.install()
 
     private fun TestScope.repository() = PrefsSettingsRepository(file.prefs, BehaviourCodec, this, StandardTestDispatcher(testScheduler))
 

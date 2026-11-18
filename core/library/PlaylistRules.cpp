@@ -86,22 +86,24 @@ std::vector<MusicPlaylist> playlistList(const std::vector<std::string>& fileText
 }
 
 PlaylistOutcome playlistApply(const PlaylistFolder& folder, const PlaylistEdit& edit, const StemFn& stem) {
+    const auto takenNames = [&] {
+        std::vector<std::string> taken;
+        for (const auto& p : listed(folder.fileTexts)) taken.push_back(p.name);
+        return taken;
+    };
     switch (edit.kind) {
         case PlaylistEditKind::Create: {
-            // MusicLibraryRepository.createMusicPlaylist: a blank name does nothing; the rest is a plain save.
+            // MusicLibraryRepository.createMusicPlaylist: a blank name does nothing; a taken one gets a free name.
             if (jvm::isBlank(edit.name)) return unchanged({edit.name, {}});
-            MusicPlaylist p{jvm::trim(edit.name), {}};
+            MusicPlaylist p{playlistUniqueName(takenNames(), jvm::trim(edit.name), stem), {}};
             std::set<std::string> seen;
             for (const std::string& t : edit.tracks) {
                 if (seen.insert(t).second) p.tracks.push_back(t);  // List.distinct(): first of each, in order
             }
             return saved(std::move(p));
         }
-        case PlaylistEditKind::Import: {
-            std::vector<std::string> taken;
-            for (const auto& p : listed(folder.fileTexts)) taken.push_back(p.name);
-            return saved({playlistUniqueName(taken, edit.name), edit.tracks});
-        }
+        case PlaylistEditKind::Import:
+            return saved({playlistUniqueName(takenNames(), edit.name, stem), edit.tracks});
         case PlaylistEditKind::Rename: {
             PlaylistOutcome out;
             out.ok = false;
@@ -154,11 +156,13 @@ PlaylistOutcome playlistApply(const PlaylistFolder& folder, const PlaylistEdit& 
     return unchanged(std::move(current));
 }
 
-std::string playlistUniqueName(const std::vector<std::string>& takenNames, const std::string& base) {
-    const std::set<std::string> taken(takenNames.begin(), takenNames.end());
-    if (!taken.count(base)) return base;
+std::string playlistUniqueName(const std::vector<std::string>& takenNames, const std::string& base, const StemFn& stem) {
+    // Compared by file stem: two names that share one are the same playlist on disk.
+    std::set<std::string> taken;
+    for (const std::string& name : takenNames) taken.insert(stem(name));
+    if (!taken.count(stem(base))) return base;
     int suffix = 2;
-    while (taken.count(base + " (" + std::to_string(suffix) + ")")) ++suffix;
+    while (taken.count(stem(base + " (" + std::to_string(suffix) + ")"))) ++suffix;
     return base + " (" + std::to_string(suffix) + ")";
 }
 
@@ -186,6 +190,58 @@ std::vector<PlaylistRename> playlistMigrationPlan(const std::vector<PlaylistFile
         plan.push_back({f.fileName, target});
     }
     return plan;
+}
+
+namespace {
+
+constexpr char kField = '\x1f';
+constexpr char kRecord = '\x1e';
+
+void appendText(std::string& out, const std::string& text) {
+    for (const char c : text) {
+        if (c != kField && c != kRecord) out += c;
+    }
+}
+
+}  // namespace
+
+std::string playlistWire(const std::vector<MusicPlaylist>& playlists) {
+    std::string out;
+    for (const MusicPlaylist& p : playlists) {
+        appendText(out, p.name);
+        for (const std::string& uri : p.tracks) {
+            out += kField;
+            appendText(out, uri);
+        }
+        out += kRecord;
+    }
+    return out;
+}
+
+std::string playlistOutcomeWire(const PlaylistOutcome& outcome) {
+    std::string out;
+    out += outcome.write ? '1' : '0';
+    out += kField;
+    out += outcome.ok ? '1' : '0';
+    out += kField;
+    appendText(out, outcome.playlist.name);
+    out += kField;
+    appendText(out, outcome.deleteName);
+    out += kField;
+    appendText(out, outcome.json);
+    out += kRecord;
+    return out;
+}
+
+std::string playlistRenameWire(const std::vector<PlaylistRename>& plan) {
+    std::string out;
+    for (const PlaylistRename& r : plan) {
+        appendText(out, r.from);
+        out += kField;
+        appendText(out, r.to);
+        out += kRecord;
+    }
+    return out;
 }
 
 }  // namespace geode::library

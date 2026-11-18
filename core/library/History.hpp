@@ -59,4 +59,8 @@ std::vector<HistoryEntry> historyRecent(const std::string& state, int limit);
 // The entry for a uri.
 std::optional<HistoryEntry> historyEntry(const std::string& state, const std::string& uri);
 
+// The wire the shell splits: per entry its uri, last-played ms, play count, title, artist and listened ms split by
+// U+001F, each entry ended by U+001E; "" for none. Those two characters are dropped from the text fields.
+std::string historyWire(const std::vector<HistoryEntry>& entries);
+
 }  // namespace geode::library

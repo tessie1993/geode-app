@@ -400,6 +400,7 @@ private:
     bool sectionChangeOwed_ = false;  // a boundary: the next frame fires sectionChange, as the engine's step did
     sound::interp::FrameReader soundReader_;
     sound::interp::Hits soundHits_;
+    // On the analysis settings every engine here runs (SharedAnalysis's thread takes AnalysisSettings{}).
     sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};

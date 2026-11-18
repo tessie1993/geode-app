@@ -1,9 +1,13 @@
 package dev.geode.data
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
+import dev.geode.engine.bridge.LibraryNative
 
+/**
+ * The play history's file (history.json). Every rule (which plays count, the stamps, listened time, what is kept
+ * on disk, the newest-first order) is native's (core/library/History); this holds the file's text as the state,
+ * hands it to native and keeps what comes back, and does the lock, the quarantine and the write queue.
+ */
 class HistoryStore(
     context: Context,
 ) {
@@ -11,18 +15,20 @@ class HistoryStore(
 
     private val lock = Any()
 
-    private val entries = LinkedHashMap<String, Entry>()
+    // history.json's own schema; "" is no history.
+    @Volatile
+    private var state = ""
 
     @Volatile
     private var readable = true
 
     data class Entry(
         val uri: String,
-        var lastPlayedMs: Long,
-        var playCount: Int,
-        var title: String,
-        var artist: String = "",
-        var listenedMs: Long = 0L,
+        val lastPlayedMs: Long,
+        val playCount: Int,
+        val title: String,
+        val artist: String = "",
+        val listenedMs: Long = 0L,
     )
 
     init {
@@ -36,35 +42,11 @@ class HistoryStore(
             readable = false
             return
         }
-        if (text.isBlank()) return
-        if (runCatching { load(text) }.isSuccess) return
-        entries.clear()
-        AtomicWrite.quarantine(file)
-    }
-
-    private fun load(text: String) {
-        if (text.trimStart().startsWith("[")) {
-            readEntries(JSONArray(text))
+        if (!LibraryNative.historyCorrupt(text)) {
+            state = text
             return
         }
-        readEntries(JSONObject(text).optJSONArray("tracks") ?: JSONArray())
-    }
-
-    private fun readEntries(arr: JSONArray) {
-        for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i)
-            if (o == null || o.optString("uri").isBlank()) continue
-            val e =
-                Entry(
-                    uri = o.optString("uri"),
-                    lastPlayedMs = o.optLong("last"),
-                    playCount = o.optInt("count"),
-                    title = o.optString("title"),
-                    artist = o.optString("artist"),
-                    listenedMs = o.optLong("ms", 0L),
-                )
-            entries[e.uri] = e
-        }
+        AtomicWrite.quarantine(file)
     }
 
     fun recordPlay(
@@ -73,11 +55,7 @@ class HistoryStore(
         artist: String = "",
     ) {
         synchronized(lock) {
-            val e = entries.getOrPut(uri) { Entry(uri, 0L, 0, title) }
-            e.lastPlayedMs = maxOf(System.currentTimeMillis(), newestStamp() + 1)
-            e.playCount++
-            e.title = title
-            if (artist.isNotBlank()) e.artist = artist
+            state = LibraryNative.historyRecordPlay(state, uri, title, artist, System.currentTimeMillis()) ?: return
         }
         persist()
     }
@@ -88,7 +66,7 @@ class HistoryStore(
     ) {
         if (deltaMs <= 0) return
         synchronized(lock) {
-            entries[uri]?.let { it.listenedMs += deltaMs }
+            LibraryNative.historyAddListen(state, uri, deltaMs)?.let { state = it }
             dirty = true
         }
     }
@@ -108,14 +86,10 @@ class HistoryStore(
         java.util.concurrent.atomic
             .AtomicBoolean(false)
 
-    private fun newestStamp(): Long = entries.values.maxOfOrNull { it.lastPlayedMs } ?: 0L
+    fun recentlyPlayed(limit: Int = 20): List<Entry> = entriesOf(LibraryNative.historyRecent(state, limit))
 
-    fun recentlyPlayed(limit: Int = 20): List<Entry> = snapshot().sortedByDescending { it.lastPlayedMs }.take(limit)
-
-    // Copies, taken under the lock, so sorting and serialising happen outside it.
-    private fun snapshot(): List<Entry> = synchronized(lock) { entries.values.map { it.copy() } }
-
-    fun entryFor(uri: String): Entry? = synchronized(lock) { entries[uri] }
+    /** The history as native holds it (history.json's schema): what a smart playlist reads its play counts from. */
+    fun text(): String = state
 
     private fun persist() {
         if (!writeQueued.compareAndSet(false, true)) return
@@ -130,48 +104,35 @@ class HistoryStore(
     private fun writeNow() {
         if (!readable) return
         runCatching {
-            // Cleared before the snapshot: a listen added after it sets the flag again and is not lost.
+            // Cleared before the state is read: a listen added after it sets the flag again and is not lost.
             dirty = false
-            val all = snapshot()
-            val text =
-                run {
-                    val arr = JSONArray()
-                    // Persist the union of the 200 most recent and the 200 most-played entries
-                    // (deduped by uri) so a heavily played old track isn't dropped from disk even
-                    // though the recency cut alone would.
-                    val toPersist = LinkedHashMap<String, Entry>()
-                    all
-                        .sortedByDescending { it.lastPlayedMs }
-                        .take(200)
-                        .forEach { toPersist[it.uri] = it }
-                    all
-                        .filter { it.playCount > 0 }
-                        .sortedWith(compareByDescending<Entry> { it.playCount }.thenByDescending { it.listenedMs })
-                        .take(200)
-                        .forEach { toPersist[it.uri] = it }
-                    toPersist.values.forEach { e ->
-                        arr.put(
-                            JSONObject()
-                                .put("uri", e.uri)
-                                .put("last", e.lastPlayedMs)
-                                .put("count", e.playCount)
-                                .put("title", e.title)
-                                .put("artist", e.artist)
-                                .put("ms", e.listenedMs),
-                        )
-                    }
-                    JSONObject().put("tracks", arr).toString()
-                }
-            if (!AtomicWrite.text(file, text)) dirty = true
+            val text = LibraryNative.historyFileText(state)
+            if (text == null || !AtomicWrite.text(file, text)) dirty = true
         }.onFailure { dirty = true }
     }
 
     companion object {
         private const val AWAIT_WRITE_TIMEOUT_MS = 2_000L
 
+        private const val FIELD = '\u001F'
+        private const val RECORD = '\u001E'
+        private const val ENTRY_FIELDS = 6
+
         private val writer =
             java.util.concurrent.Executors.newSingleThreadExecutor { r ->
                 Thread(r, "geode-history").apply { isDaemon = true }
             }
+
+        // Native's wire (`geode_history_recent`): six fields per entry, each entry ended by U+001E.
+        private fun entriesOf(wire: String?): List<Entry> =
+            wire
+                .orEmpty()
+                .split(RECORD)
+                .filter { it.isNotEmpty() }
+                .mapNotNull { record ->
+                    val f = record.split(FIELD)
+                    if (f.size != ENTRY_FIELDS) return@mapNotNull null
+                    Entry(f[0], f[1].toLong(), f[2].toInt(), f[3], f[4], f[5].toLong())
+                }
     }
 }

@@ -12,8 +12,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDestination
+import dev.geode.data.ExportFps
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.RecordPrefs
 import dev.geode.data.RecordPrefsStore
@@ -76,7 +76,7 @@ internal fun RecordSection() {
     )
     SettingsChoiceRow(
         title = stringResource(R.string.export_frame_rate),
-        options = EXPORT_FPS_OPTIONS,
+        options = ExportFps.options,
         selected = prefs.fps,
         label = { proMarked(stringResource(R.string.record_fps, it), gate.blockingExportFeature(prefs.quality.shortSide, it) != null) },
         onSelect = { choose(prefs.copy(fps = it)) },

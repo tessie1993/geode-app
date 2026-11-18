@@ -395,9 +395,6 @@ private fun PlayerHero(
     val hasSource = foreign || roomOnly || state.hasMedia
     val isFavourite = uri != null && uri in favourites
     val showFavourite = state.hasMedia && !foreign
-    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its two twins).
-    val canDrive = state.hasMedia || external.driven != null
-    val playing = external.driven?.playing ?: state.isPlaying
     Column(
         modifier
             .fillMaxWidth()
@@ -568,6 +565,10 @@ private fun TransportCard(
     showAbLoop: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its two twins).
+    val external by viewModel.externalAudio.collectAsStateWithLifecycle()
+    val canDrive = state.hasMedia || external.driven != null
+    val playing = external.driven?.playing ?: state.isPlaying
     Column(
         modifier
             .fillMaxWidth()

@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "api/geode_api.h"
+#include "viz/frame/FrameGovernor.hpp"
 #include "viz/frame/Quality.hpp"
 
 namespace frame = geode::viz::frame;
@@ -32,6 +33,17 @@ int geode_perf_scale_choices(float* out, int capacity) {
     const int n = std::min(capacity, static_cast<int>(frame::kScaleChoices.size()));
     std::copy_n(frame::kScaleChoices.begin(), n, out);
     return n;
+}
+
+int geode_perf_adapt_now(float* out, int capacity) {
+    if (!out || capacity < GEODE_PERF_ADAPT_NOW_FLOATS) return 0;
+    const frame::AdaptNow& now = frame::adaptNow();
+    out[0] = now.fps.load(std::memory_order_relaxed);
+    out[1] = now.renderScale.load(std::memory_order_relaxed);
+    out[2] = now.marchScale.load(std::memory_order_relaxed);
+    out[3] = now.postFx.load(std::memory_order_relaxed) ? 1.0f : 0.0f;
+    out[4] = static_cast<float>(now.steps.load(std::memory_order_relaxed));
+    return GEODE_PERF_ADAPT_NOW_FLOATS;
 }
 
 }  // extern "C"

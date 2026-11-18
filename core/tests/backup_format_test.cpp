@@ -114,7 +114,7 @@ void keys() {
     for (const char* k : {"lfos", "adsrs", "reactions", "reactions_hand", "reactions_unread", "palette_stack", "customize_layer"}) {
         check(sectionOfKey("geode-prefs", k) == "creative", std::string("borrowed ") + k);
     }
-    for (const char* k : {"perf_render_scale", "perf_fps_cap", "perf_march_scale", "perf_post_fx", "perf_adaptive",
+    for (const char* k : {"perf_render_scale", "perf_fps_cap", "perf_march_scale", "perf_post_fx", "perf_adapt_frame_time", "perf_adaptive",
                           "perf_liquid_hot", "customize_open_groups", "customize_tab", "gui_setup_done",
                           "gui_tutorial_resume", "gui_tutorial_tips", "gui_tutorial_off", "gui_tutorial_done",
                           "gui_safety_acknowledged", "preset_mirror_uri"}) {

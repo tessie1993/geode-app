@@ -15,7 +15,7 @@
 
 // Auto visuals' decisions (geode_auto_*): when the playlist steps and to which entry, when the timed draw is
 // due, whether a director moment is the user's (they changed the look since Auto's last change) or Auto's,
-// and the pool a draw picks from. The shell lists its playlist, saved looks and .milk files, carries out the
+// and the pool a draw picks from. The shell lists its playlist, and saved looks, carries out the
 // change native names, and polls. Customize being open or nothing playing holds every change. Host-tested in
 // core/tests/auto_plan_test.cpp.
 namespace geode::viz::auto_plan {
@@ -28,16 +28,14 @@ inline int clampInterval(int seconds) { return std::clamp(seconds, kIntervalMinS
 // What a director moment brings.
 inline constexpr int kMomentNone = 0;
 inline constexpr int kMomentPlaylist = 1;  // the playlist's next entry
-inline constexpr int kMomentRandom = 2;    // a draw that keeps the look (styles and .milk only)
+inline constexpr int kMomentRandom = 2;    // a draw that keeps the look (styles only)
 
 // A draw's sources, and the kinds of entry it names.
 inline constexpr int kDrawStyles = 1;
 inline constexpr int kDrawPresets = 2;
-inline constexpr int kDrawMilk = 4;
 inline constexpr int kDrawKeepLook = 8;
 inline constexpr int kKindStyle = 0;
 inline constexpr int kKindPreset = 1;
-inline constexpr int kKindMilk = 2;
 
 // The look as Auto left it: style, params frame, saved palette id. Frames compare bit for bit, NaN equal to NaN.
 struct Look {
@@ -69,7 +67,7 @@ public:
         editing_ = on;
     }
 
-    // A style, a look or a .milk picked by hand: both waits start over.
+    // A style or a look picked by hand: both waits start over.
     void handPick(std::int64_t nowMs) { restartBoth(nowMs); }
 
     // The playlist's entry to put up now, or -1. Runs while it is on, has two entries or more and nothing holds.
@@ -119,7 +117,7 @@ private:
     std::optional<Look> leftAs_;
 };
 
-// One draw's pool, in its order: the styles, then the saved looks, then the .milk files. ids is each entry's style
+// One draw's pool, in its order: the styles, then the saved looks. ids is each entry's style
 // id a line (geode_auto_pick_among's pool); entries maps a pool index to {kind, index in its own list}.
 struct Pool {
     std::string ids;
@@ -129,10 +127,9 @@ struct Pool {
 
 // styles: Auto's draw list (Catalogue's AutoDraw trait); locked: the styles the entitlement refuses;
 // presetStyles: each saved look's style; presetOnScreen: the first saved look equal to the look on screen
-// (-1 none); milkOnScreen: the .milk playing (-1 none), counted only while milkStyle is on screen.
+// (-1 none).
 inline Pool pool(const std::vector<std::string>& styles, const std::set<std::string>& locked, const std::string& current,
-                 const std::vector<std::string>& presetStyles, int presetOnScreen, int milkCount, int milkOnScreen,
-                 const std::string& milkStyle, int sources) {
+                 const std::vector<std::string>& presetStyles, int presetOnScreen, int sources) {
     Pool p;
     auto add = [&](const std::string& id, int kind, int index, bool here) {
         if (here && p.onScreen < 0) p.onScreen = static_cast<int>(p.entries.size());
@@ -151,10 +148,6 @@ inline Pool pool(const std::vector<std::string>& styles, const std::set<std::str
             if (locked.count(presetStyles[i])) continue;
             add(presetStyles[i], kKindPreset, static_cast<int>(i), static_cast<int>(i) == presetOnScreen);
         }
-    }
-    if ((sources & kDrawMilk) && !locked.count(milkStyle)) {
-        const int playing = current == milkStyle ? milkOnScreen : -1;
-        for (int i = 0; i < milkCount; ++i) add(milkStyle, kKindMilk, i, i == playing);
     }
     if (!p.ids.empty()) p.ids.pop_back();
     return p;

@@ -22,7 +22,7 @@ import dev.geode.ui.theme.StoneIcon
  *
  * It takes an acknowledgement and nothing else. The engine's clamps are unconditional, so there is
  * no safety level to pick here — telling someone the visuals are intense, what the engine limits
- * and what it cannot (it does not measure the finished frame, so MilkDrop presets and imported
+ * and what it cannot (it does not measure the finished frame, so imported
  * shaders are not covered) is information they are owed, not a decision they are being asked to make.
  */
 @Composable

@@ -31,10 +31,7 @@ struct Setup {
     int64_t trackLength = 0;
 
     AAssetManager* assets = nullptr;
-    std::string milkTextureDir;
     std::string sceneId;
-    std::string milkPath;
-    bool hasMilkPath = false;
     bool entitled = false;
 
     std::vector<float> params;

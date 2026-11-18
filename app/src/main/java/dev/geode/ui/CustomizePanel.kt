@@ -70,7 +70,7 @@ import kotlinx.coroutines.flow.map
  * Everything about the controls is native (core/viz/CustomizeMap): which category and section
  * each sits in, which sections are Basics (open at the top, free) and which are Pro, which
  * categories and sections the style on screen has (Camera only on 3D styles,
- * Engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
+ * Engine on Fluid and Cymatics), and what a category's Randomize and Reset do.
  * This file wires that to the screen: the free tier through [ProLock] (a Pro control can be
  * tried, then springs back and the paywall offers it), the tab on screen and the groups open in
  * each (`CustomizeGroupsStore`, kept across restarts: a tab is no back step, so back leaves
@@ -421,7 +421,7 @@ private fun SavePresetDialog(
 }
 
 /**
- * ⋮ › Take a category from a preset: MilkDrop's mash-up, one part of another look laid over this
+ * ⋮ › Take a category from a preset: one part of another look laid over this
  * one. Only the list is drawn here; which fields the category owns is native.
  */
 @Composable

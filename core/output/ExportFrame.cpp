@@ -19,7 +19,6 @@ int64_t ExportFrames::begin(const ExportStart& start, ExportTarget& target) {
     target.setFrameRate(clock_.fps());
     target.surface(start.width, start.height);
     if (!target.setScene(start.sceneId)) return -1;
-    if (!start.milkPresetPath.empty()) target.loadMilkPreset(start.milkPresetPath);
     // Pinned before the look: the hand mask the pin returns is what the routes merge under (the export's, not the
     // live one), so live edits and the player moving on never reach the render.
     return target.pinEngineSettings(start.entitled, start.pinDurationMs);

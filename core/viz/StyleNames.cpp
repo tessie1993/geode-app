@@ -68,7 +68,6 @@ constexpr Name kStyles[] = {
 // The families whose name is not their catalogue name with a capital.
 constexpr Name kFamilies[] = {
     {"foam", "Sphere Foam"},
-    {"milkdrop", "MilkDrop"},
 };
 
 char upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c; }

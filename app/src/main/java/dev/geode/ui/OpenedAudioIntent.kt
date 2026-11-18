@@ -23,7 +23,7 @@ internal fun AudioFileOpened(appState: GeodeAppState) {
 
 /**
  * An audio file another app opened ("Open with", `ACTION_VIEW` on a content uri). Called from both
- * `onCreate` and `onNewIntent`, before the `.milk` handler, which would take any view. Reads the
+ * `onCreate` and `onNewIntent`. Reads the
  * action, the data uri and the declared type only, never an extra: the user chose to open the file
  * here, so playing it needs no confirm, and nothing else may follow from the intent. A view replayed
  * from Recents is dropped, as its grant may be gone. The uri is consumed here; the checks and the play
@@ -36,7 +36,7 @@ internal fun receiveAudioFile(
 ) {
     val uri = intent?.data ?: return
     val fromHistory = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-    val route = OpenedAudio.route(intent.action, uri.scheme, intent.type, uri.lastPathSegment, fromHistory)
+    val route = OpenedAudio.route(intent.action, uri.scheme, intent.type, fromHistory)
     if (route == OpenedAudio.Route.NotOurs) return
     intent.data = null
     if (route == OpenedAudio.Route.Stale) return
@@ -50,7 +50,7 @@ internal fun receiveAudioFile(
     }
 }
 
-/** Set once an audio file another app opened has started; `AppRoot` shows Player once. Process-wide like [MilkFileInbox]. */
+/** Set once an audio file another app opened has started; `AppRoot` shows Player once. Process-wide like [SharedLinkInbox]. */
 internal object OpenedAudioInbox {
     var opened by mutableStateOf(false)
 }

@@ -17,7 +17,7 @@ constexpr std::array<const char*, 2> kInterpNames = {"SMOOTH", "STEPS"};
 constexpr std::array<const char*, 2> kWrapNames = {"MIRROR", "LOOP"};
 constexpr std::array<const char*, 3> kSpaceNames = {"RGB", "HUE", "OKLAB"};
 constexpr std::array<const char*, 3> kSingleNames = {"SHADES", "FLAT", "TO_BLACK"};
-constexpr std::array<const char*, 6> kSourceNames = {"BUILT_IN", "COLOUR_MAP", "STYLE", "MILK", "ARTWORK", "YOURS"};
+constexpr std::array<const char*, 5> kSourceNames = {"BUILT_IN", "COLOUR_MAP", "STYLE", "ARTWORK", "YOURS"};
 constexpr std::array<const char*, 2> kBlendNames = {"SHARE", "MIX"};
 constexpr std::array<const char*, 2> kEdgeNames = {"SOFT", "HARD"};
 

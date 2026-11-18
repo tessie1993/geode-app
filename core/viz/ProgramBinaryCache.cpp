@@ -8,6 +8,7 @@
 
 #include "util/Log.hpp"
 #include "viz/CacheSentinels.hpp"
+#include "viz/CacheTouchPolicy.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/Sha256.hpp"
 
@@ -267,6 +268,11 @@ void ProgramBinaryCache::touch(const std::string& file, bool fromProbation) {
     submit([file, fromProbation, proven] {
         std::error_code ec;
         std::string landed = file;
+        if (!fromProbation) {
+            const auto stamped = fs::last_write_time(file, ec);
+            if (!ec && !touchDue(false, fs::file_time_type::clock::now() - stamped)) return;
+            ec.clear();
+        }
         if (fromProbation) {
             landed = proven + "/" + fs::path(file).filename().string();
             fs::rename(file, landed, ec);

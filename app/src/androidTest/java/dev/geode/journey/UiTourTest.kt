@@ -204,7 +204,6 @@ class UiTourTest {
         styles()
         customizeFree()
         presets()
-        milkDrop()
         backOrder()
         overlays()
     }
@@ -455,15 +454,8 @@ class UiTourTest {
         tour.back()
     }
 
-    private fun milkDrop() {
-        tour.step("milkdrop", "open", "the MilkDrop overview cards") { tour.tap(MILKDROP) }
-        tour.pages("milkdrop", "cards", pages = 3)
-        tour.step("milkdrop", "textures", "Textures, opened from MilkDrop") { tour.tap(TEXTURES) }
-        tour.pages("milkdrop", "textures-page", pages = 2)
-    }
-
     /**
-     * Back from the deepest point the walk reached (Textures, over MilkDrop, Presets, Customize
+     * Back from the deepest point the walk reached (Presets, Customize
      * and Styles), one press at a time, recording where each lands: the route in reverse, then
      * Visuals is left.
      */
@@ -707,8 +699,6 @@ class UiTourTest {
         const val STYLES = "Styles"
         const val CUSTOMIZE = "Customize"
         const val PRESETS = "Presets"
-        const val MILKDROP = "MilkDrop"
-        const val TEXTURES = "Textures"
         const val STYLE_FAMILY = "Style family"
         const val YOUR_STYLES = "Your styles"
         const val SILK = "Silk"

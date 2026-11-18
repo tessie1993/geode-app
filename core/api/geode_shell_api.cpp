@@ -44,7 +44,7 @@ int linesOut(const std::vector<std::string>& ids, char* out, int capacity) {
 
 shell::StyleShelf shelfApply(std::vector<std::string> favourites, std::vector<std::string> recents,
                              shell::StyleShelfEvent::Kind kind, const char* id) {
-    return shell::styleShelfApply({std::move(favourites), std::move(recents), false}, {kind, id ? id : "", false});
+    return shell::styleShelfApply({std::move(favourites), std::move(recents)}, {kind, id ? id : "", false});
 }
 
 std::vector<shell::PresetEntry> presetRows(const char* const* names, const char* const* folders, const int* flags,
@@ -179,7 +179,7 @@ int geode_style_shelf_remove_recent(const char* const* recents, int count, const
 
 int geode_style_shelf_yours(const char* const* favourites, int favourite_count, const char* const* recents, int recent_count,
                             const char* const* order, int order_count, const char* on_screen, char* out, int capacity) {
-    const shell::StyleShelf shelf{idsOf(favourites, favourite_count), idsOf(recents, recent_count), false};
+    const shell::StyleShelf shelf{idsOf(favourites, favourite_count), idsOf(recents, recent_count)};
     const std::optional<std::string> screen = on_screen ? std::optional<std::string>(on_screen) : std::nullopt;
     return linesOut(shell::styleShelfYours(shelf, idsOf(order, order_count), screen), out, capacity);
 }
@@ -212,10 +212,9 @@ int geode_preset_applied(const char* const* names, const int* flags, int count, 
     return shell::presetApplied(presetRows(names, nullptr, flags, count), tapped);
 }
 
-int geode_opened_audio_route(const char* action, const char* scheme, const char* type, const char* last_segment,
-                             int from_history) {
+int geode_opened_audio_route(const char* action, const char* scheme, const char* type, int from_history) {
     return static_cast<int>(
-        shell::openedAudioRoute(textOf(action), textOf(scheme), textOf(type), textOf(last_segment), from_history != 0));
+        shell::openedAudioRoute(textOf(action), textOf(scheme), textOf(type), from_history != 0));
 }
 
 int geode_opened_audio_refuses(const char* scheme, const char* authority, const char* own_package,
@@ -352,8 +351,7 @@ const char* geode_auto_playlist_field(const geode_auto_playlist* playlist, int i
     switch (field) {
         case 0: return e.sceneId.c_str();
         case 1: return e.presetName ? e.presetName->c_str() : nullptr;
-        case 2: return e.milkPath ? e.milkPath->c_str() : nullptr;
-        case 3: return e.label.c_str();
+        case 2: return e.label.c_str();
         default: return nullptr;
     }
 }
@@ -364,7 +362,7 @@ int geode_auto_playlist_to_json(const char* const* fields, int count, char* out,
     std::vector<shell::PlaylistEntry> entries;
     for (int i = 0; fields && i < count; ++i) {
         const char* const* f = fields + static_cast<std::ptrdiff_t>(i) * GEODE_AUTO_ENTRY_FIELDS;
-        entries.push_back({f[0] ? f[0] : "", textOf(f[1]), textOf(f[2]), f[3] ? f[3] : ""});
+        entries.push_back({f[0] ? f[0] : "", textOf(f[1]), f[2] ? f[2] : ""});
     }
     return geode::api::textOut(shell::autoVisualsEntriesToJson(entries), out, capacity);
 }
@@ -376,7 +374,6 @@ void geode_auto_visuals_apply(const int* state, const int* stored, const unsigne
     now.randomIntervalSec = state[GEODE_AUTO_SAVED_RANDOM_INTERVAL];
     now.randomIncludeStyles = state[GEODE_AUTO_SAVED_RANDOM_STYLES] != 0;
     now.randomIncludePresets = state[GEODE_AUTO_SAVED_RANDOM_PRESETS] != 0;
-    now.randomIncludeMilk = state[GEODE_AUTO_SAVED_RANDOM_MILK] != 0;
     now.playlistEnabled = state[GEODE_AUTO_SAVED_PLAYLIST_ON] != 0;
     now.playlistIntervalSec = state[GEODE_AUTO_SAVED_PLAYLIST_INTERVAL];
     // Only the playlist's size takes part in the rules here; its entries are read by geode_auto_playlist_read.
@@ -387,7 +384,6 @@ void geode_auto_visuals_apply(const int* state, const int* stored, const unsigne
     st.randomIntervalSec = saved(GEODE_AUTO_SAVED_RANDOM_INTERVAL);
     st.randomIncludeStyles = flag(GEODE_AUTO_SAVED_RANDOM_STYLES);
     st.randomIncludePresets = flag(GEODE_AUTO_SAVED_RANDOM_PRESETS);
-    st.randomIncludeMilk = flag(GEODE_AUTO_SAVED_RANDOM_MILK);
     st.playlistEnabled = flag(GEODE_AUTO_SAVED_PLAYLIST_ON);
     st.playlistIntervalSec = saved(GEODE_AUTO_SAVED_PLAYLIST_INTERVAL);
     const shell::AutoVisualsState read = shell::autoVisualsApply(now, st, [](const std::string& id) { return id; });
@@ -395,7 +391,6 @@ void geode_auto_visuals_apply(const int* state, const int* stored, const unsigne
     out[GEODE_AUTO_SAVED_RANDOM_INTERVAL] = read.randomIntervalSec;
     out[GEODE_AUTO_SAVED_RANDOM_STYLES] = read.randomIncludeStyles ? 1 : 0;
     out[GEODE_AUTO_SAVED_RANDOM_PRESETS] = read.randomIncludePresets ? 1 : 0;
-    out[GEODE_AUTO_SAVED_RANDOM_MILK] = read.randomIncludeMilk ? 1 : 0;
     out[GEODE_AUTO_SAVED_PLAYLIST_ON] = read.playlistEnabled ? 1 : 0;
     out[GEODE_AUTO_SAVED_PLAYLIST_INTERVAL] = read.playlistIntervalSec;
 }

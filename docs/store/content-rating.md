@@ -28,7 +28,7 @@ a music player and video tool, not a game, a social network or a news product).
 | Shares the user's location with others | No | No location permission (`AndroidManifest.xml`) |
 | Allows purchases of digital goods | **Yes** | One in-app product, `beatrealms3d_pro`, a one-time unlock through Google Play Billing (`pro/BillingRepository.kt`, `PRO_PRODUCT_ID`) |
 | Unrestricted internet access, a browser | No | The app opens the system browser for a lyrics search the user taps (`ui/LyricsSettings.kt:91-92`); it has no browser of its own |
-| Content the app itself supplies that is not rated | No | Bundled content is shaders, six MilkDrop presets and interface sounds |
+| Content the app itself supplies that is not rated | No | Bundled content is shaders and interface sounds |
 
 Expected result: the lowest band in each scheme (IARC 3+, ESRB Everyone, PEGI 3), with the
 "in-app purchases" descriptor. The rating is whatever the live form returns.

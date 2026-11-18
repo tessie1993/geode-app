@@ -24,16 +24,13 @@ int below(uint64_t& state, int n) {
     return n <= 1 ? 0 : static_cast<int>(state % static_cast<uint64_t>(n));
 }
 
-bool isMilk(const std::string& id) { return catalogue::kindOf(id) == catalogue::Kind::Milkdrop; }
-
 }  // namespace
 
 Pick pick(uint64_t seed, const std::string& current, const std::set<std::string>& lockedStyles,
-          const std::vector<std::string>& lookStyles, int milkCount) {
+          const std::vector<std::string>& lookStyles) {
     std::vector<std::string> open;
     for (const auto& id : catalogue::allIds()) {
         if (lockedStyles.count(id)) continue;
-        if (isMilk(id) && milkCount <= 0) continue;
         open.push_back(id);
     }
     Pick out;
@@ -51,11 +48,7 @@ Pick pick(uint64_t seed, const std::string& current, const std::set<std::string>
     for (int i = 0; i < static_cast<int>(lookStyles.size()); ++i) {
         if (lookStyles[static_cast<size_t>(i)] == out.style) fits.push_back(i);
     }
-    if (!fits.empty()) {
-        out.look = fits[static_cast<size_t>(below(state, static_cast<int>(fits.size())))];
-    } else if (isMilk(out.style)) {
-        out.milk = below(state, milkCount);
-    }
+    if (!fits.empty()) out.look = fits[static_cast<size_t>(below(state, static_cast<int>(fits.size())))];
     return out;
 }
 

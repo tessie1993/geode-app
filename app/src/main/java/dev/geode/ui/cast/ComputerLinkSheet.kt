@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.outlined.Computer
@@ -80,21 +82,28 @@ import kotlin.math.floor
 @Composable
 internal fun ComputerLinkRow(modifier: Modifier = Modifier) {
     ComputerLinkDoor { door ->
-        Row(
-            modifier
-                .fillMaxWidth()
-                .heightIn(min = GeodeSpacing.TouchTarget)
-                .clickable(role = Role.Button, onClick = door.tap),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-        ) {
-            Text(stringResource(R.string.link_row), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Text(
-                stringResource(linkRowValue(door.link, door.locked)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (door.locked) ProBadge()
+        Column(modifier) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = GeodeSpacing.TouchTarget)
+                    .clickable(role = Role.Button, onClick = door.tap),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+            ) {
+                Text(stringResource(R.string.link_row), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(linkRowValue(door.link, door.locked)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (door.locked) ProBadge()
+            }
+            if (linkStopShown(door.link)) {
+                CrystalButton(onClick = door.stop, modifier = Modifier.fillMaxWidth(), filled = false) {
+                    Text(stringResource(R.string.link_stop))
+                }
+            }
         }
     }
 }
@@ -146,6 +155,7 @@ internal class LinkDoor(
     val link: LinkState,
     val locked: Boolean,
     val tap: () -> Unit,
+    val stop: () -> Unit,
 )
 
 /**
@@ -163,7 +173,17 @@ internal fun ComputerLinkDoor(content: @Composable (LinkDoor) -> Unit) {
     var sheet by rememberSaveable { mutableStateOf(false) }
     val locked = !gate.allows(ProFeature.CAST)
     LaunchedEffect(link) { if (!link.running) sheet = false }
-    content(LinkDoor(link, locked) { sheet = tapComputerLink(context, link, locked, paywall) })
+    content(
+        LinkDoor(
+            link,
+            locked,
+            tap = { sheet = tapComputerLink(context, link, locked, paywall) },
+            stop = {
+                ComputerLink.stop(context)
+                sheet = false
+            },
+        ),
+    )
     if (sheet) {
         ComputerLinkSheet(
             state = link,
@@ -234,7 +254,7 @@ internal fun ComputerLinkSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -282,6 +302,9 @@ internal fun ComputerLinkSheet(
                 CircularProgressIndicator(Modifier.padding(GeodeSpacing.L))
             }
             linkSheetStatus(state)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
+            CrystalButton(onClick = onStop, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.link_stop))
+            }
             Text(
                 stringResource(R.string.link_sheet_sound),
                 style = MaterialTheme.typography.bodySmall,
@@ -297,9 +320,6 @@ internal fun ComputerLinkSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            CrystalButton(onClick = onStop, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.link_stop))
-            }
         }
     }
 }

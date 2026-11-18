@@ -489,6 +489,48 @@ void writerStops() {
 
 }  // namespace
 
+// The listen limit holds audio back: the writer's wakes change nothing then (the limit moves with time), so the thread
+// wakes about once a hop for the limit, not once more per write.
+std::atomic<int64_t> gHeldLimit{kAll};
+int64_t heldLimit(void*) { return gHeldLimit.load(); }
+
+void heldBackSleepsThroughWrites() {
+    const int rate = 48000;
+    const std::vector<float> pcm = clicks(rate, 133.0, 2.0);
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    gHeldLimit.store(kAll);
+    check(at.setListenLimit(heldLimit, nullptr) && at.start(), "the thread starts with a listen limit");
+    ring.writeFloat(pcm.data(), 8192, 2, rate);
+    at.ringWritten();
+    const auto deadline = Clock::now() + std::chrono::seconds(30);
+    while (at.newestPosition() < 8192 - 2048 && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    check(at.newestPosition() >= 8192 - 2048, "it hears what the limit lets by");
+    gHeldLimit.store(ring.headFrames());
+    int64_t done = 8192;
+    ring.writeFloat(pcm.data() + 2 * done, 256, 2, rate);
+    done += 256;
+    at.ringWritten();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const uint64_t before = at.passes();
+    const int64_t newest = at.newestPosition();
+    for (int i = 0; i < 40; i++) {
+        ring.writeFloat(pcm.data() + 2 * done, 256, 2, rate);
+        done += 256;
+        at.ringWritten();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    const uint64_t woke = at.passes() - before;
+    std::printf("  held back: %llu passes over 40 writes\n", static_cast<unsigned long long>(woke));
+    check(woke < 35, "audio the limit holds back wakes the thread no more than the limit's own wait does");
+    check(at.newestPosition() == newest, "and none of it is heard");
+    gHeldLimit.store(kAll);
+    at.notify();
+    while (at.newestPosition() < done - 2048 && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    check(at.newestPosition() >= done - 2048, "once the limit moves on, it hears all of it");
+    at.stop();
+}
+
 int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
@@ -497,6 +539,7 @@ int main() {
     threadedMatchesInline();
     startStop();
     writerStops();
+    heldBackSleepsThroughWrites();
     if (failures.load() == 0) std::printf("analysis_thread_test: all checks passed\n");
     return failures.load() == 0 ? 0 : 1;
 }

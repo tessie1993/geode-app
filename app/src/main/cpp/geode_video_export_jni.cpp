@@ -51,14 +51,11 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExpor
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetScene(JNIEnv* env, jobject, jlong job,
                                                                                     jobject assetManager,
-                                                                                    jstring milkTextureDir,
-                                                                                    jstring sceneId, jstring milkPath,
+                                                                                    jstring sceneId,
                                                                                     jboolean entitled) {
-    Utf8Chars textures(env, milkTextureDir);
     Utf8Chars scene(env, sceneId);
-    Utf8Chars milk(env, milkPath);
     geode_video_export_set_scene(jobOf(job), assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr,
-                                 textures.get(), scene.get(), milk.get(), entitled == JNI_TRUE ? 1 : 0);
+                                 scene.get(), entitled == JNI_TRUE ? 1 : 0);
 }
 
 // As vizSetLook: a look whose routes' text could not be read is not handed over.

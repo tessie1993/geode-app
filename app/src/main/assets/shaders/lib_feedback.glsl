@@ -1,5 +1,5 @@
-// MilkDrop's per-frame UV transform for the feedback pass: uvFor() and fold() of
-// core/viz/liquid/FeedbackMotion.hpp, term for term (MilkDrop3 milkdropfs.cpp:1699-1833). Change both
+// The per-frame UV transform for the feedback pass: uvFor() and fold() of
+// core/viz/liquid/FeedbackMotion.hpp, term for term. Change both
 // together. The C++ side sanitizes the values before LiquidPass uploads them, so nothing here checks
 // for non-finite input.
 

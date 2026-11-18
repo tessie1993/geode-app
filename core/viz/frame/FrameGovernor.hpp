@@ -138,10 +138,15 @@ public:
     void setEnabled(bool on) { enabled_.store(on, std::memory_order_relaxed); }
     bool enabled() const { return enabled_.load(std::memory_order_relaxed); }
 
+    // After a step, its own change (a render scale reallocates the targets) hitches the next frames: they are not
+    // counted, like a settling style's.
+    static constexpr float kStepHoldSeconds = 1.0f;
+
     // A new style: back to the user's own settings, the backoff and the measurement with it.
     void reset() {
         downgrade_.reset();
         monitor_.reset();
+        holdSeconds_ = 0.0f;
     }
 
     // One live frame. dt: its measured step. pacedFps: the rate the pacer really paces to (0 free-running).
@@ -156,13 +161,17 @@ public:
         } else {
             // Settings changed under the steps: never more steps than the ladder has now.
             if (downgrade_.steps > length) downgrade_.steps = length;
-            if (settling) {
+            if (settling || holdSeconds_ > 0.0f) {
                 // A deficit begun before the switch does not carry over it; a kept-up run only pauses.
                 monitor_.reset();
+                if (!settling) holdSeconds_ -= dt;
             } else {
                 monitor_.setPacedFps(pacedFps);
                 const int relief = monitor_.onFrame(dt);
-                if (downgrade_.onFrame(relief, monitor_.keepingUp(), dt, length)) monitor_.reset();
+                if (downgrade_.onFrame(relief, monitor_.keepingUp(), dt, length)) {
+                    monitor_.reset();
+                    holdSeconds_ = kStepHoldSeconds;
+                }
             }
         }
         governed_ = governor::governed(user, downgrade_.steps);
@@ -201,6 +210,7 @@ private:
     fluid::quality::AutoDowngrade downgrade_;
     Governed governed_;
     float followCeiling_ = 0.0f;
+    float holdSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz::frame

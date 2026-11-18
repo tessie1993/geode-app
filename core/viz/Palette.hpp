@@ -26,7 +26,7 @@ constexpr int kMaxStops = 16;
 constexpr int kMaxLayers = 8;
 // UTF-8 bytes, cut on a character boundary.
 constexpr int kMaxNameBytes = 40;
-// A style id or a .milk file name.
+// A style id.
 constexpr int kMaxRefBytes = 160;
 // What the renderer uploads: one texel per entry.
 constexpr int kRampSize = 256;
@@ -42,9 +42,8 @@ enum class Space { Rgb, Hue, Oklab };
 // How a palette of one colour draws: its shades from dark to light, the colour flat, or colour to black.
 enum class Single { Shades, Flat, ToBlack };
 // Where a palette came from. ref names it: a library id for BuiltIn and ColourMap, a catalogue style id
-// for Style (a style's own tint, its default palette), a .milk file name for Milk (derived from the
-// preset), nothing for Artwork and Yours.
-enum class Source { BuiltIn, ColourMap, Style, Milk, Artwork, Yours };
+// for Style (a style's own tint, its default palette), nothing for Artwork and Yours.
+enum class Source { BuiltIn, ColourMap, Style, Artwork, Yours };
 // How the stack's palettes share the ramp. Share: each takes its amount's share of t, in stack order, so
 // every colour stays as picked. Mix: every palette is drawn over the whole of t and blended by amount
 // (what an old look's second palette did).
@@ -111,7 +110,7 @@ Stack normalized(Stack s);
 
 // A palette from colours, in order (invalid ones skipped, the first kMaxStops kept), evenly spread, the
 // defaults otherwise. The one door for a palette made of colours: your colours, the artwork's, a style's
-// own tint, a .milk preset's. Empty stops when no colour was valid.
+// own tint. Empty stops when no colour was valid.
 Palette fromColours(Source source, std::string_view ref, std::string_view name, const int* rgb, int n);
 
 // The palette at t (wrapped into 0..1) by its wrap, interp and space. One stop draws by `single`.

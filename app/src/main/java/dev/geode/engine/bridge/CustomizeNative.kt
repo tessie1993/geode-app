@@ -57,6 +57,15 @@ object CustomizeNative {
         text: String,
     ): Boolean
 
+    /** Whether the panel search [query] has nothing in it, so whole sections show (core/viz/CustomizeRows `blank`). */
+    external fun customizeQueryBlank(query: String): Boolean
+
+    /** A panel sentence by its id with "%1$s".. filled by [args], at most four (core/viz/PanelText `format`); "" for an unknown id. */
+    external fun panelFormat(
+        id: String,
+        args: Array<String>,
+    ): String
+
     /** A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. */
     external fun panelText(id: String): String
 

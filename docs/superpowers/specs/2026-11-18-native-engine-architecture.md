@@ -61,7 +61,7 @@ As found at `10f984d`. Main has changed some of it since: the frame step comes f
 - About 100 string-keyed uniform lookups per shader scene draw (`core/viz/Program.cpp:10`, `ShaderScene.cpp:445`).
 - Up to about 30 whole `SceneParams` copies a frame (`core/viz/Lfo.cpp:173-180`, `Resolver.cpp:138-152`).
 - The sound texture is uploaded for every shader scene draw, read or not (`SoundUniforms.cpp:40-58`).
-- `glGetIntegerv`, `glGetError` and `glReadPixels` on the frame path in the MilkDrop, Life, Acid and fluid scenes.
+- `glGetIntegerv`, `glGetError` and `glReadPixels` on the frame path in the Life, Acid and fluid scenes.
 - The palette ramp is reallocated with `glTexImage2D` on every change (`RendererFrame.cpp:304`).
 - Each published hop is about 1.6 KB; a third of it is a waveform slot that is always zero.
 

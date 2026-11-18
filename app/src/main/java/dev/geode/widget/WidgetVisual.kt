@@ -16,7 +16,7 @@ import dev.geode.viz.ArtPalette
  * the style on screen as a still that changes on [WidgetPublisher]'s tick.
  *
  * A style with a rendered thumbnail (`assets/thumbs/<id>.webp`, see its README) shows that. Any
- * other (no thumbnail yet, MilkDrop, or no style published because no session ran) gets a
+ * other (no thumbnail yet, or no style published because no session ran) gets a
  * generated glow: three soft lights over black in the style's hue and the artwork's palette,
  * moved a little on every tick, so a playing widget breathes rather than freezing.
  */

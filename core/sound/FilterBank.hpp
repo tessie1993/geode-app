@@ -48,7 +48,7 @@ private:
 // The envelope is what keeps a 120 fps slice (8 ms, shorter than one cycle of 50 Hz) from rippling.
 //
 // It also measures punch at audio rate, for the drum triggers: the level over its own running mean
-// (~4 s, MilkDrop's 1.0 = typical), minus that ratio's own recent past (150 ms). The slice keeps the
+// (~4 s, 1.0 = typical), minus that ratio's own recent past (150 ms). The slice keeps the
 // highest punch it saw, so "did this band jump past the threshold" has the same answer at 30 fps as at
 // 120: a frame-rate reduction of a per-frame ratio would not (a longer slice's peak lifts its own mean).
 class SliceBand {

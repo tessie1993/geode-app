@@ -105,7 +105,7 @@ android {
             )
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
             buildConfigField("boolean", "USE_FAKE_BILLING", "false")
-            // Symbol tables for libgeode.so and libprojectM-4.so go into the bundle, so Play
+            // The symbol table for libgeode.so goes into the bundle, so Play
             // Console symbolicates native crashes and ANRs instead of warning that it cannot.
             ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
@@ -140,7 +140,7 @@ android {
         }
     }
 
-    // Builds libgeode.so and libprojectM-4.so from the root CMakeLists.txt; liboboe.so comes prebuilt
+    // Builds libgeode.so from the root CMakeLists.txt; liboboe.so comes prebuilt
     // from the Oboe AAR (Prefab), and libgeode.so links it.
     externalNativeBuild {
         cmake {

@@ -54,7 +54,7 @@ out vec4 fragColor;
 //   width            the arches stand wider with the stereo width (and the
 //                    fractal world's lights, as before). The pan no longer rolls
 //                    them (owner 2026-11-12, no style spins to the music);
-//   flatness         a frost on the reflections (the films go milky in noise).
+//   flatness         a frost on the reflections (the films go hazy in noise).
 //
 // ---- macros and knobs ---------------------------------------------------------
 //

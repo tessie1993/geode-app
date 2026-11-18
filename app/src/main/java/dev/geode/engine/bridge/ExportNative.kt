@@ -65,6 +65,58 @@ object ExportNative {
         soundtrackBytes: Long,
     ): Int
 
+    /**
+     * One repeat of a loop: the leading samples of [times] (their µs times and extractor flags) that land
+     * before [limitUs] once shifted by [offsetUs]. Fills [outPts] and [outFlags] (muxer flags), returns how many.
+     */
+    external fun loopRepeatSamples(
+        times: LongArray,
+        flags: IntArray,
+        offsetUs: Long,
+        limitUs: Long,
+        outPts: LongArray,
+        outFlags: IntArray,
+    ): Int
+
+    /** Where back-to-back clips of [durations] µs begin; one entry longer, the last is the total. */
+    external fun loopClipStarts(durations: LongArray): LongArray
+
+    /**
+     * The soundtrack samples due before [untilUs] as ([outClip], [outSample]) pairs with their time in the soundtrack ([outPts]), from [cursor] (clip, sample),
+     * which it advances. [samplePts] holds every clip's sample times, clip after clip. Returns how many; fewer than
+     * the arrays' length means the feed has caught up.
+     */
+    external fun loopAudioDue(
+        clipStarts: LongArray,
+        sampleCounts: IntArray,
+        samplePts: LongArray,
+        cursor: IntArray,
+        untilUs: Long,
+        outClip: IntArray,
+        outSample: IntArray,
+        outPts: LongArray,
+    ): Int
+
+    /** The progress bar once [done] of [repeats] repeats are copied. */
+    external fun loopCopyProgress(
+        done: Int,
+        repeats: Int,
+    ): Float
+
+    /** The progress bar while clip [index] of [clips] is [clipProgress] (0..1) transcoded. */
+    external fun loopTranscodeProgress(
+        index: Int,
+        clipProgress: Float,
+        clips: Int,
+    ): Float
+
+    /** The bytes one sample read can need for a video format of this declared maximum and size. */
+    external fun loopSampleBufferBytes(
+        declaredBytes: Int,
+        width: Int,
+        height: Int,
+    ): Int
+
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
 

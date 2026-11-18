@@ -173,8 +173,7 @@ are excluded; recordings are saved as videos, like exports, outside the backup. 
 
 Settings › Backup can also save one zip file, only when you ask it to, to a place you
 choose with the system file picker. It holds your settings, presets, palettes, templates,
-editor projects, playlists, library list and listening history, and your MilkDrop
-presets. BeatRealms never sends it anywhere; restoring reads it back from where you saved it.
+editor projects, playlists, library list and listening history. BeatRealms never sends it anywhere; restoring reads it back from where you saved it.
 
 ## Children
 
@@ -191,7 +190,7 @@ Exported videos, recordings and screenshots are ordinary files and are deleted l
 
 ## Third-party components
 
-BeatRealms bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3),
+BeatRealms bundles open-source libraries (including AndroidX/Jetpack and Media3),
 the Google Play Billing Library and the Google Cast SDK. None of them collect or transmit
 data in this app, apart from the Play purchase exchange and the Cast logging described
 above. The open-source notices are in the

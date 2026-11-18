@@ -46,9 +46,7 @@ object VideoExportNative {
     external fun videoExportSetScene(
         job: Long,
         assets: Any,
-        milkTextureDir: String,
         sceneId: String,
-        milkPath: String?,
         entitled: Boolean,
     )
 

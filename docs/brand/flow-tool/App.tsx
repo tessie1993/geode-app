@@ -9,7 +9,7 @@ import { useGlobalStyles } from './lib/globalStyles';
 import { isVideoKind, makeJob, runJob } from './lib/jobs';
 import { buildPrompt, taskLabel } from './lib/prompts';
 import { downloadZip } from './lib/zip';
-import type { MediaResult, ProjectMedia, Settings, Task } from './types';
+import type { MediaResult, ProjectAsset, Settings, Task } from './types';
 
 type FinishedTask = Task & { result: MediaResult };
 
@@ -31,7 +31,7 @@ export default function App() {
   useGlobalStyles();
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [logo, setLogo] = useState<ProjectMedia | null>(null);
+  const [logo, setLogo] = useState<ProjectAsset | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);

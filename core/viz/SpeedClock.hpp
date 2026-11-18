@@ -19,8 +19,11 @@ namespace speedclock {
 // One frame of a clock whose rate is known: rate (per second) times speed,
 // over dt, wrapped. At speed 1 this is bit-for-bit the unscaled clock
 // `fmod(clock + dt * rate, wrap)`, because 1 * rate == rate exactly.
-inline float advance(float clock, float speed, float rate, float dt, float wrap) {
-    return std::fmod(clock + dt * (speed * rate), wrap);
+//
+// The clock is a double and is wrapped as one; only the consumer casts it to float. A float clock past
+// 4096 s steps in 0.000488 s, so a slow rate (0.1 at 60 fps adds 0.0002 s a frame) stalls or lurches.
+inline double advance(double clock, float speed, float rate, float dt, float wrap) {
+    return std::fmod(clock + dt * (speed * rate), static_cast<double>(wrap));
 }
 
 // Follows a clock that something else integrates (the sound engine's band
@@ -30,17 +33,17 @@ inline float advance(float clock, float speed, float rate, float dt, float wrap)
 // (a new track); either way the true increment is at most one frame, so the
 // follower takes the source's new value as the increment and never jumps.
 struct Follower {
-    float value = 0.0f;
+    double value = 0.0;
     float last = 0.0f;
     bool primed = false;
 
-    float step(float source, float speed, float wrap) {
+    double step(float source, float speed, float wrap) {
         if (!primed) {
             primed = true;
             value = source;
         } else {
             const float delta = source >= last ? source - last : source;
-            value = std::fmod(value + delta * speed, wrap);
+            value = std::fmod(value + static_cast<double>(delta * speed), static_cast<double>(wrap));
         }
         last = source;
         return value;

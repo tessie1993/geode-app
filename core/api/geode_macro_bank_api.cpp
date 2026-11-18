@@ -190,10 +190,8 @@ float geode_macro_bank_modulated(float turn, float add) {
     return macrobank::modulated(turn, add);
 }
 
-const char* geode_macro_bank_live_mods(void) try {
-    return handOut(macrobank::liveModsText());
-} catch (...) {
-    return nullptr;
+int geode_macro_bank_live_mods(float* out, int capacity) {
+    return macrobank::liveModsPacked(out, capacity);
 }
 
 const char* geode_macro_bank_editor(const char* bank, const char* style_id) try {

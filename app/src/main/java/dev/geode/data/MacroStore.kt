@@ -96,7 +96,7 @@ class MacroStore internal constructor(
             .getOrDefault(emptyMap())
 
     /** What the waves and envelopes on each knob add to its turn on the visual now; the knob's second arc polls it. */
-    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.parse(MacroNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
+    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.read(MacroNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
 
     fun rename(
         id: Int,
@@ -269,7 +269,7 @@ class MacroStore internal constructor(
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
                 portable(PrefType.STRING, KEY_BANK)
-                // Read once to drop them, never restored: BackupFormat files them device-local.
+                // Read once to drop them, never restored: core/backup/Backup.cpp files them device-local.
                 retired(PrefType.STRING, "macro_knobs", "macro_presets", backup = BackupClass.DEVICE)
                 retired(PrefType.INT, "macro_locks", backup = BackupClass.DEVICE)
             }

@@ -16,7 +16,7 @@
 
 namespace geode::viz {
 
-enum class SceneFamily { Shader, Milkdrop, Fluid };
+enum class SceneFamily { Shader, Fluid };
 
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
@@ -42,6 +42,8 @@ public:
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 
+    // True for a scene that overrides acceptPcm / acceptPcmStereo: the renderer hands PCM on only while one is resident.
+    virtual bool readsPcm() const { return false; }
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
     // The same block with its side signal ((L - R) / 2, zero for a mono source), for a scene that draws
     // left against right. Every other scene takes the mono mix.
@@ -65,14 +67,6 @@ public:
     // The fluid scene runs its own flow field.
     virtual bool isFluid() const { return false; }
     virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
-    // The surface size in pixels, which MilkDrop renders at rather than the render-scaled target.
-    virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
-    virtual void queueMilkPreset(const std::string& path) { (void) path; }
-    // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls
-    // back to when the preset it was asked for fails, rather than projectM's idle preset.
-    virtual void setMilkFallbackPreset(const std::string& path) { (void) path; }
-    virtual void reloadMilkPreset() {}
-    virtual void setMilkTextureDir(const std::string& dir) { (void) dir; }
 };
 
 struct SceneHost {
@@ -80,7 +74,6 @@ struct SceneHost {
     std::function<void(const std::string&)> onShaderError;
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
-    std::function<void(const std::string& path)> onMilkPresetLoaded;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
     // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
@@ -102,6 +95,8 @@ struct SceneHost {
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
     // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
+    // "Adapt to frame time" is on (frame::FrameGovernor): it alone gives quality up for frame time. Unset reads as off.
+    std::function<bool()> adaptive;
 };
 
 }  // namespace geode::viz

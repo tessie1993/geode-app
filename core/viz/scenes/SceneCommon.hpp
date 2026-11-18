@@ -18,7 +18,7 @@ namespace geode::viz {
 // MotionField for the raw uEnergyRel/uBassRel/... uniform contract in
 // lib_scene_motion.glsl). Included here, alongside the other pieces every
 // scene shares, so the CPU-side families (viz/scenes/FluidScene.cpp,
-// CymaticsScene.cpp, MilkdropScene.cpp, ...) can hold their own instance too
+// CymaticsScene.cpp, ...) can hold their own instance too
 // once they are converted off their beat-splat/ripple-drop state.
 
 // Hue range and palette-cycle limits shared by the fluid scenes.

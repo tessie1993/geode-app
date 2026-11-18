@@ -46,10 +46,9 @@ int entriesOf(const std::vector<std::string_view>& pool, std::string_view id) {
     return n;
 }
 
-// The pool entry a step to `id` lands on, or -1. A style the shell lists once is that entry. MilkDrop is listed
-// once per .milk file, all under its one id: the step lands on one of them from the intent's `draw`, never the one
-// on screen while another is there. The first entry used to stand for them all, so every moment that reached
-// MilkDrop put up the same .milk.
+// The pool entry a step to `id` lands on, or -1. A style the shell lists once is that entry. One listed
+// more than once (a saved look of it, once per look), all under its one id: the step lands on one of them from the
+// intent's `draw`, never the one on screen while another is there.
 int entryOf(const std::vector<std::string_view>& pool, std::string_view id, int onScreen, uint64_t draw) {
     if (id.empty()) return -1;
     std::vector<int> at;
@@ -74,7 +73,7 @@ int familyOf(const std::string& id) {
 }
 
 // The next style along the catalogue's order from `from` that the pool holds and is not `from`. With none, and
-// `from` listed more than once (a pool of .milk files alone), another of its own entries.
+// `from` listed more than once (a pool of saved looks of one style alone), another of its own entries.
 int progress(const std::vector<std::string_view>& pool, const std::string& from, int onScreen, uint64_t draw) {
     const auto& all = catalogue::allIds();
     const int n = static_cast<int>(all.size());

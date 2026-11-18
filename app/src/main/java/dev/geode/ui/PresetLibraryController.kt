@@ -10,14 +10,12 @@ import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.PresetLink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal class PresetLibraryController(
     private val application: Application,
@@ -33,11 +31,6 @@ internal class PresetLibraryController(
         fun updatePresets(transform: (List<Preset>) -> List<Preset>)
 
         val presetMirrorUri: String?
-
-        val activeMilkPath: String?
-
-        /** A saved MilkDrop look writes its .milk beside the user's own; the session's .milk list reads again. */
-        fun onMilkFilesChanged()
     }
 
     val folders: StateFlow<PresetFolders> = presets.folders
@@ -77,7 +70,6 @@ internal class PresetLibraryController(
     private suspend fun relistPresets() {
         val listed = BuiltInPresets.ALL + presets.list()
         host.updatePresets { listed }
-        host.onMilkFilesChanged()
     }
 
     fun savePreset(
@@ -88,16 +80,8 @@ internal class PresetLibraryController(
         @Suppress("NAME_SHADOWING")
         val name = LooksNative.presetCleanName(name, application.getString(dev.geode.R.string.preset_untitled))
         val s = host.vizState.value
-        val milkPath = host.activeMilkPath
         storeScope.launch {
-            val milkSource =
-                if (s.sceneId == CatalogueNative.STYLE_MILKDROP) {
-                    milkPath?.let { src -> runCatching { java.io.File(src).readText() }.getOrNull() }
-                } else {
-                    null
-                }
-            milkSource?.let { source -> presets.materializeMilk(name, source) }
-            presets.save(Preset(name, s.sceneId, s.attack, s.decay, customShader, s.params, milkSource), folder)
+            presets.save(Preset(name, s.sceneId, s.attack, s.decay, customShader, s.params), folder)
             mirrorPresetToChosenFolder(name)
             relistPresets()
         }
@@ -108,21 +92,10 @@ internal class PresetLibraryController(
         scope.launch(Dispatchers.IO) {
             val files =
                 runCatching {
-                    listOfNotNull(presets.fileOf(name)?.let { it to "application/json" }, milkFileFor(name) to "text/plain")
+                    listOfNotNull(presets.fileOf(name)?.let { it to "application/json" })
                 }.getOrNull() ?: return@launch
             mediaStore.copyIntoFolder(Uri.parse(uriStr), files)
         }
-    }
-
-    private fun milkFileFor(presetName: String): java.io.File =
-        java.io.File(
-            java.io.File(application.filesDir, "milk").apply { mkdirs() },
-            PresetStore.milkFileName(presetName),
-        )
-
-    suspend fun milkPresetPathFor(preset: Preset): String? {
-        if (preset.sceneId != CatalogueNative.STYLE_MILKDROP) return null
-        return withContext(Dispatchers.IO) { presets.materializeMilk(preset.name, preset.milkPreset) }
     }
 
     fun presetShareLink(name: String): String? {
@@ -167,7 +140,7 @@ internal class PresetLibraryController(
 
     /**
      * Gives a user preset a new name, in the folder it was in. The store keys a preset's file
-     * (and its MilkDrop file) by name, so a rename is a save under the new name and then a delete
+     * by name, so a rename is a save under the new name and then a delete
      * of the old one, mirror copies included; the list changes at once so the grid does not show
      * the old name while the files move. Returns the name it was saved under, or null when there
      * was nothing to rename (a built-in, a name already gone).
@@ -187,15 +160,13 @@ internal class PresetLibraryController(
         host.updatePresets { list -> list.map { if (it.name == from) renamed else it } }
         storeScope.launch {
             val oldJson = presets.fileOf(from)?.name
-            milkSourceOf(renamed, from)?.let { presets.materializeMilk(name, it) }
             // The old file goes only once the new one is written: a failed write must not take the preset with it.
             if (presets.save(renamed, folder)) {
-                removeMirroredPreset(oldJson, milkFileFor(from).name)
-                presets.delete(from, preset.milkPreset.takeIf { milkFileFor(from) != milkFileFor(name) })
+                removeMirroredPreset(oldJson)
+                presets.delete(from)
             }
             mirrorPresetToChosenFolder(name)
             relistPresets()
-            if (preset.milkPreset != null) host.onMilkFilesChanged()
         }
         return name
     }
@@ -212,7 +183,6 @@ internal class PresetLibraryController(
         val folder = if (BuiltInPresets.isBuiltIn(name)) "" else presets.folders.value.folderOf(name)
         host.updatePresets { it + copy }
         storeScope.launch {
-            milkSourceOf(copy, name)?.let { presets.materializeMilk(copyName, it) }
             presets.save(copy, folder)
             mirrorPresetToChosenFolder(copyName)
             relistPresets()
@@ -220,38 +190,18 @@ internal class PresetLibraryController(
         return copyName
     }
 
-    /**
-     * The MilkDrop text a renamed or copied preset carries over. Older presets hold no text of
-     * their own, only the file saved beside them under their old name, so that file is read.
-     */
-    private fun milkSourceOf(
-        preset: Preset,
-        oldName: String,
-    ): String? {
-        if (preset.sceneId != CatalogueNative.STYLE_MILKDROP) return null
-        return preset.milkPreset ?: runCatching { milkFileFor(oldName).takeIf { it.isFile }?.readText() }.getOrNull()
-    }
-
     fun deletePreset(name: String) {
         if (BuiltInPresets.isBuiltIn(name)) return
-        val milk =
-            host.vizState.value.presets
-                .firstOrNull { it.name == name }
-                ?.milkPreset
         host.updatePresets { presets -> presets.filterNot { it.name == name } }
         storeScope.launch {
-            removeMirroredPreset(presets.fileOf(name)?.name, milkFileFor(name).name)
-            presets.delete(name, milk)
+            removeMirroredPreset(presets.fileOf(name)?.name)
+            presets.delete(name)
             relistPresets()
-            if (milk != null) host.onMilkFilesChanged()
         }
     }
 
-    private fun removeMirroredPreset(
-        jsonName: String?,
-        milkName: String?,
-    ) {
+    private fun removeMirroredPreset(jsonName: String?) {
         val uriStr = host.presetMirrorUri ?: return
-        scope.launch { mediaStore.deleteFromFolder(Uri.parse(uriStr), listOfNotNull(jsonName, milkName)) }
+        scope.launch { mediaStore.deleteFromFolder(Uri.parse(uriStr), listOfNotNull(jsonName)) }
     }
 }

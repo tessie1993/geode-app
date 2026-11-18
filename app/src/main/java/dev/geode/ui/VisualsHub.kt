@@ -47,7 +47,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -55,11 +54,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
-import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
@@ -90,7 +87,7 @@ import dev.geode.ui.tour.fits
  * - The options ([VisualsOptions], VisualsSheet.kt): matte glass over the visual. In portrait a
  *   bottom sheet of three heights; in landscape (the window wider than tall, from the medium width
  *   class) a side panel on the right, full height (V2 rule 5). Never a sheet stacked under the
- *   visual. Its pages (Styles first, then Customize, Presets and MilkDrop) are a Navigation 3 back
+ *   visual. Its pages (Styles first, then Customize and Presets) are a Navigation 3 back
  *   stack, and one [VisualsNavState] drives both layouts.
  * - The drop-in: the Macros drawer, over everything. Settings is a page of the options (the ⚙).
  *
@@ -181,42 +178,22 @@ private fun VisualsHubContent(
         viewModel.setCustomizing(customizing)
         onDispose { viewModel.setCustomizing(false) }
     }
-    // The .milk list the MilkDrop page shows, read here too: the step walks it from that tab even with the sheet
-    // hidden, when the page is not composed.
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val milkFiles by visualsViewModel.milkFiles.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { visualsViewModel.relistMilk() }
     // "Next / previous style" steps what the open tab lists (native core/viz/StageStep, owner 2026-11-12).
     val stepStyle: (Int) -> Unit = { step ->
-        stepStage(viewModel, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles, step)
+        stepStage(viewModel, gate, nav.top, nav.sheetShown && !pip, step)
     }
     val styleStepTarget by remember(visualizerView, pip) {
         derivedStateOf {
-            stageStepTarget(vizState.value, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles.size)
+            stageStepTarget(vizState.value, gate, nav.top, nav.sheetShown && !pip)
         }
     }
     val styleStepLabels = stageStepLabels(styleStepTarget)
     val context = LocalContext.current
-    val resources = LocalResources.current
     val view = LocalView.current
-    // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
-    // The MilkDrop page shows it itself.
-    val milkError by remember {
-        derivedStateOf { vizState.value.let { v -> v.shaderError?.takeIf { v.sceneId == CatalogueNative.STYLE_MILKDROP } } }
-    }
     val sceneId by remember { derivedStateOf { vizState.value.sceneId } }
-    val otherShaderError by remember {
-        derivedStateOf { vizState.value.let { v -> v.shaderError?.takeIf { v.sceneId != CatalogueNative.STYLE_MILKDROP } } }
-    }
-    LaunchedEffect(milkError) {
-        val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
-        val failed = milkError
-        if (failed != null && !pip && !onMilkPage) {
-            val text = resources.getString(R.string.milk_load_failed, failed.substringAfterLast('/'))
-            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-        }
-    }
-    StageBuildNote(otherShaderError, pip)
+    val shaderError by remember { derivedStateOf { vizState.value.shaderError } }
+    StageBuildNote(shaderError, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
@@ -479,9 +456,6 @@ private fun VisualsHubContent(
                                 VisualsPage.STYLES -> StylesTab(viewModel)
                                 VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
-                                VisualsPage.MILKDROP ->
-                                    MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
-                                VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
                                 VisualsPage.SETTINGS -> VisualsSettingsPage(viewModel)
                             }
                         }

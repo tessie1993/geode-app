@@ -52,7 +52,7 @@ The audio features of a whole track, computed ahead of time, so an export is fra
 _Avoid_: Analysis cache (that is where it is stored)
 
 **Scene**:
-One kind of visual the engine can draw (a fluid, cymatics, MilkDrop…), named by a scene id.
+One kind of visual the engine can draw (a fluid, cymatics…), named by a scene id.
 _Avoid_: Visualizer, effect, mode
 
 **Style**:
@@ -238,11 +238,8 @@ The engine choosing and switching scenes for you, on musical events.
 _Avoid_: Auto mode, autopilot
 
 **Preset**:
-A saved scene id plus its scene params (and optionally a custom shader or a MilkDrop preset), shareable as a link or file.
+A saved scene id plus its scene params (and optionally a custom shader), shareable as a link or file.
 _Avoid_: Profile, config
-
-**Milk preset**:
-A MilkDrop `.milk` file, drawn by the MilkDrop scene; a milk pack is a zip of them.
 
 **Theme pack**:
 The app's own look: palette, motion, material, sounds and per-component surface art, named after a stone.
@@ -356,7 +353,7 @@ The switch, labelled Auto Director, first in Visuals › Settings (and in Settin
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:

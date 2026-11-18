@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.model.ParamScope
 import dev.geode.model.SceneParams
 import dev.geode.model.StyleCatalogue
@@ -64,8 +63,6 @@ import kotlin.math.abs
  * Each style logs `<id> start` before it renders, so when a style takes the emulator down (#331:
  * both runs died on the style after vanishing) logcat names it; the workflow pulls the device
  * folder while the test runs, so the thumbnails already written survive such a crash.
- *
- * MilkDrop is skipped: its picture is whichever preset is loaded, so the picker uses its own art.
  */
 @RunWith(AndroidJUnit4::class)
 class StyleThumbnailRenderTest {
@@ -151,7 +148,7 @@ class StyleThumbnailRenderTest {
                 ?.toSet()
                 .orEmpty()
         val ids =
-            (StyleCatalogue.ids - CatalogueNative.STYLE_MILKDROP)
+            StyleCatalogue.ids
                 .filter { only == null || it in only }
                 .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())

@@ -118,8 +118,6 @@ void theCompositeLeavesARigScenesPictureAlone() {
     check(grade::gateFor(SceneFamily::Fluid).toVec4() == grade::gateFor(SceneFamily::Fluid, false).toVec4(), "flat by default");
     check(grade::gateFor(SceneFamily::Shader, true).toVec4() == none && grade::gateFor(SceneFamily::Shader, false).toVec4() == none,
           "a shader style is left alone either way");
-    check(grade::gateFor(SceneFamily::Milkdrop, false).toVec4() == (std::array<float, 4>{1.0f, 0.0f, 0.0f, 0.0f}),
-          "MilkDrop keeps its geometry from the composite");
 }
 
 }  // namespace

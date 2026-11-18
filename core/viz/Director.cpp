@@ -627,7 +627,7 @@ CameraRig::Moves Director::moves() const {
 
 namespace director {
 
-// Base plus modulation, MilkDrop's rule: the value it is given is the base and an axis adds to it. The
+// Base plus modulation: the value it is given is the base and an axis adds to it. The
 // offset is what takes the style's default to the end at a full turn, so an untouched look moves as the
 // old knobs moved it, and a slider the user moved carries its whole offset through. A slider already
 // between the default and the end has less room than that offset, so there the offset shrinks with the

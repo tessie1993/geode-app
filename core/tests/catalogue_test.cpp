@@ -2,8 +2,12 @@
 // (.github/workflows/android.yml, "Catalogue host tests") with the system compiler; no GL.
 //
 //   catalogue_test core/tests/catalogue.txt           checks, including text() against the fixture
-//   catalogue_test --write core/tests/catalogue.txt   rewrites the fixture after a deliberate change
+//   catalogue_test --update [core/tests/catalogue.txt]   rewrites the fixture from catalogue::text() after a
+//                                                        deliberate change (run from the repo root, built as in CI)
 //
+// The ids, counts and per-style flags are written once, in core/viz/styles/StyleTable.inc; the fixture is
+// what pins them, so a style added there is one --update away from a passing run, and the test lists none of
+// them by hand.
 // The fixture is the catalogue as one table, which the tools read (tools/store-stats.sh, tools/glslcheck).
 // The shell reads none of it: it asks one question at a time, and the answers it gets are checked here
 // against the same tables. The expectations below are the catalogue's numbers from before it lived in
@@ -177,32 +181,29 @@ void everyOldStyleKeepsItsNumbersAndKind() {
           "per-kind style counts");
 }
 
-void familiesCarryTheirOwnCountAndAnOpener() {
-    const char* const openers[] = {"arbor_grove", "bulb_classic", "chrys_bloom",  "lucid_weave", "dive_lattice",
-                                   "glass_orb",   "nebula_dust",  "terra_ridge", "truchet_arcs", "foam_fall",
-                                   "flame_veil",  "opal_bubbles", "hollow_sinew", "prism_portal", "fluor_whorl",
-                                   "loom_braid",  "shard_splinter", "petal_rose", "fold_lace"};
-    const char* const names[] = {"arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain", "truchet", "foam",
-                                 "flame", "opal",  "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
-    // The first ten families have twelve styles, the ones since ten: the count is the family's own.
-    const size_t counts[] = {12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+// The family list itself (names, counts, openers) is pinned by the fixture's family rows. What is checked here
+// is what the fixture cannot see: each family's ids carry its prefix, are shader styles, are distinct, and its
+// library is on the shader include allow-list (ShaderIncludes.inc, the list ShaderSource and the shader checks read).
+void familiesAreWellFormed() {
+    static const std::set<std::string> includes = {
+#include "viz/ShaderIncludes.inc"
+    };
     std::set<std::string> seen;
-    int i = 0;
+    size_t total = 0;
     for (const auto& family : catalogue::families()) {
-        check(std::string(family.name) == names[i], std::string("family order at ") + names[i]);
-        check(std::string(family.opener()) == openers[i], std::string("opener of ") + family.name);
-        check(family.ids.size() == counts[i], std::string("style count of ") + family.name);
+        check(!family.ids.empty(), std::string(family.name) + " has an opener");
         check(std::string(family.library) == std::string("lib_") + std::string(family.prefix).substr(0, std::strlen(family.prefix) - 1),
               std::string("library of ") + family.name);
+        check(includes.count(family.library) == 1, std::string(family.library) + " is on the include allow-list");
         for (const char* id : family.ids) {
             check(std::string(id).rfind(family.prefix, 0) == 0, std::string(id) + " starts with its prefix");
             check(catalogue::isShaderStyle(id) && catalogue::kindOf(id) == Kind::Shader, std::string(id) + " is a shader style");
+            check(catalogue::lookOf(id) == family.look, std::string(id) + " is in its family's look group");
             seen.insert(id);
+            ++total;
         }
-        ++i;
     }
-    check(i == 19, "nineteen families");
-    check(seen.size() == 10 * 12 + 9 * 10, "210 distinct family styles");
+    check(seen.size() == total, "every family style id is distinct");
 }
 
 void spinRateAndShaderStyleAgree() {
@@ -213,66 +214,16 @@ void spinRateAndShaderStyleAgree() {
         // The neon set's two turning looks, added after the port.
         "glow_vortex", "hex_hive"};
     std::set<std::string> spinning;
-    int shaders = 0;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::spinRate(id) != 0.0f) spinning.insert(id);
-        if (catalogue::isShaderStyle(id)) ++shaders;
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 272, "272 shader styles (62 loose + 210 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
-    for (const char* id : {"silk_web", "milkdrop", "fluid", "curlflow", "cymatics", "no_such_style"}) {
+    for (const char* id : {"silk_web", "fluid", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 334, "334 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
-}
-
-void marchedStylesMatchTheOldSet() {
-    const std::set<std::string> old = {
-        "arbor_bonsai", "arbor_canopy", "arbor_coral", "arbor_spire", "arbor_synapse", "arbor_willow", "aurora_ocean",
-        "bulb_cavern", "bulb_chrome", "bulb_classic", "bulb_contour", "bulb_glow", "bulb_hybrid", "bulb_ink", "bulb_julia",
-        "bulb_lotus", "bulb_prism", "bulb_shell", "bulb_slice", "chrome_nebula", "chrys_corolla", "crystal_canyon",
-        "curl_bloom", "dive_accordion", "dive_cycle", "dive_gyro", "dive_helix", "dive_jewel", "dive_lattice",
-        "dive_mandala", "dive_mushroom", "dive_neon", "dive_orbit", "dive_serpent", "dive_show", "fractal_dive", "fractal_tunnel",
-        "glass_cubes", "glass_gem", "glass_ice", "glass_knot", "gyroid_cavern", "jelly_abyss", "kifs", "menger_core",
-        "morphogen", "nebula", "nebula_flight", "nebula_pillars", "nebula_storm", "nebula_web", "nectar_flow", "neon_city",
-        "noneuclid", "particle_tunnel", "prism_rain", "rod_tunnel", "spectrum_terrain", "supershape", "terra_canyon", "terra_dunes",
-        "terra_glacier", "terra_isles", "terra_mesa", "terra_moon", "terra_night", "terra_ridge", "terra_terraces",
-        "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
-        "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
-        "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
-        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral", "morph_world",
-        "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
-        "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
-        "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
-        "blacklight_bloom", "fractal_temple", "glow_vortex",
-        "arbor_grove", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_rosette", "arbor_sakura", "chrys_bloom",
-        "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_glass", "chrys_ink", "chrys_neon",
-        "chrys_fall", "chrys_kaleido", "chrys_tunnel", "lucid_weave", "lucid_mandala", "lucid_spiral",
-        "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal",
-        "lucid_lattice", "lucid_vortex", "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops",
-        "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
-        "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
-        "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
-        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel",
-        // The last three that faked their depth, remade as marches.
-        "outrun_drive", "ringed_planet", "ribbon_storm"};
-    std::set<std::string> want = old;
-    // Every style of the families added since marches.
-    for (const char* family : {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"}) {
-        for (const auto& f : catalogue::families()) {
-            if (std::string(f.name) == family) want.insert(f.ids.begin(), f.ids.end());
-        }
-    }
-    // Life is presented as a marched field on the camera rig (core/viz/present/FieldPresent).
-    for (const auto& id : styles::lifeIds()) want.insert(id);
-    std::set<std::string> marched;
-    for (const auto& id : catalogue::allIds()) {
-        if (catalogue::isMarched(id)) marched.insert(id);
-    }
-    check(marched == want, "the marched styles are the old MARCHED_SCENES and the new families");
 }
 
 void paramScopesMatchTheOldParamScope() {
@@ -299,11 +250,11 @@ void paramScopesMatchTheOldParamScope() {
           "spin misses a style that holds still");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
-    check(!catalogue::reaches(Scope::ShaderLook, "milkdrop"), "milkdrop has no shader look");
-    check(catalogue::reaches(Scope::EndlessZoom, "milkdrop") && catalogue::reaches(Scope::EndlessZoom, "silk_web") &&
+    check(!catalogue::reaches(Scope::ShaderLook, "fluid_ink"), "a fluid style has no shader look");
+    check(catalogue::reaches(Scope::EndlessZoom, "silk_web") &&
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
-    check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
+    check(catalogue::reaches(Scope::SceneClock, "silk_web") && catalogue::reaches(Scope::SceneClock, "fluid_ink"), "every style takes the scene clock");
     // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
               catalogue::reaches(Scope::TrebleBand, "life_orbium"),
@@ -341,7 +292,6 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
 const std::map<Kind, std::string> kOldKindLooks = {
     {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"},
     {Kind::Life, "LIVING"},  {Kind::Mycelium, "LIVING"},   {Kind::Acid, "PSYCHEDELIC"}, {Kind::Cymatics, "PATTERNS"},
-    {Kind::Milkdrop, "CLASSIC"},
 };
 const std::map<std::string, std::string> kOldLooseLooks = [] {
     std::map<std::string, std::string> out;
@@ -452,8 +402,9 @@ void textRoundTrips() {
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
     // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
     // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
-    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 92 && overrides == 8, "row counts");
+    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own;
+    // 90 once the two controls of the removed preset-script style went.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 90 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.
@@ -484,7 +435,6 @@ void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
     std::vector<std::string> fluid = styles::fluidIds();
     fluid.emplace_back("curlflow");
     check(byName["fluid"] == fluid, "Fluid and Curl Flow are one picker family");
-    check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
 }
 
 // Every id of the listing is a real one: not empty, and listed once. (A null entry in a table never gets this
@@ -528,8 +478,7 @@ void theShellsQuestionsAgreeWithTheTables() {
     check(!follower.empty() && follower.size() < shader.size(), "followers are some of the shader styles");
     for (const auto& opener : openers) check(!catalogue::has(Trait::FamilyFollower, opener), opener + " opens its family");
     check(ids(Trait::AutoDraw) == autoDraw, "what Auto draws from");
-    check(!catalogue::has(Trait::AutoDraw, "milkdrop") && !catalogue::has(Trait::AutoDraw, "fluid"),
-          "Auto draws no MilkDrop or Fluid");
+    check(!catalogue::has(Trait::AutoDraw, "fluid"), "Auto draws no Fluid");
     check(ids(Trait::Fluid) == fluid && fluid == styles::fluidIds(), "the Fluid looks");
     check(!catalogue::has(Trait::Fluid, "curlflow"), "Curl Flow is not a Fluid look");
     check(ids(Trait::Cymatics) == cymatics && cymatics == styles::cymaticsIds(), "the cymatics styles");
@@ -620,7 +569,7 @@ void textEqualsTheFixture(const char* path) {
         const std::string g = i < got.size() ? got[i] : "<end>";
         if (w != g) {
             check(false, "text() differs from " + std::string(path) + " at line " + std::to_string(i + 1) + ": fixture [" + w +
-                             "] native [" + g + "]; after a deliberate change run catalogue_test --write " + path);
+                             "] native [" + g + "]; after a deliberate change run catalogue_test --update " + path);
             return;
         }
     }
@@ -637,14 +586,15 @@ void valuesTheShellReads() {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
-        std::ofstream(argv[2], std::ios::binary) << catalogue::text();
+    if (argc >= 2 && std::strcmp(argv[1], "--update") == 0) {
+        const char* path = argc > 2 ? argv[2] : "core/tests/catalogue.txt";
+        std::ofstream(path, std::ios::binary) << catalogue::text();
+        std::printf("wrote %s\n", path);
         return 0;
     }
     everyOldStyleKeepsItsNumbersAndKind();
-    familiesCarryTheirOwnCountAndAnOpener();
+    familiesAreWellFormed();
     spinRateAndShaderStyleAgree();
-    marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
     everyStyleKeepsItsOldLookGroup();
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();

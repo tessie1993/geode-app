@@ -10,7 +10,7 @@
 //   offered whole (the page previews it under the paywall), and the toggle's family is never left for that;
 // - an empty pool says -1;
 // - with "This family only" a family of one style never leaves the family ("Random style within family"): it
-//   rolls inside the style (MilkDrop's .milk presets) when that style has another variation to show, else -1;
+//   rolls inside the style (its own presets) when that style has another variation to show, else -1;
 // - every list leads with what is on screen and keeps the rest in order.
 #include <cstdio>
 #include <set>

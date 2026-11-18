@@ -792,19 +792,24 @@ void publishLive(const KnobMods& mods) {
     gLive = mods;
 }
 
-std::string liveModsText() {
+int liveModsPacked(float* out, int capacity) {
+    if (!out || capacity <= 0) return 0;
     KnobMods mods;
     {
         std::lock_guard<std::mutex> guard(gLiveLock);
         mods = gLive;
     }
-    std::string out;
-    for (int i = 0; i < mods.count; ++i) {
+    const int rows = std::min(mods.count, capacity);
+    for (int i = 0; i < rows; ++i) {
         const KnobMods::Mod& m = mods.mods[static_cast<size_t>(i)];
-        out += "mod|" + std::to_string(m.id) + "|" + tableNumber(m.add) + "|" + std::to_string(m.sources) + "|" + tableNumber(m.lo) + "|" +
-               tableNumber(m.hi) + "\n";
+        float* row = out + static_cast<size_t>(i) * kLiveModFloats;
+        row[0] = static_cast<float>(m.id);
+        row[1] = m.add;
+        row[2] = static_cast<float>(m.sources);
+        row[3] = m.lo;
+        row[4] = m.hi;
     }
-    return out;
+    return rows;
 }
 
 std::string encode(const Bank& bank) {

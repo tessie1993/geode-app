@@ -264,9 +264,7 @@ class LoopRender(
         LoopJobNative.loopJobSetScene(
             job,
             context.assets,
-            File(context.filesDir, "milk/textures").absolutePath,
             sceneFactory.sceneId,
-            sceneFactory.milkPresetPath,
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
         LoopJobNative.loopJobSetParams(job, look.params.frame())

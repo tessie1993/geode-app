@@ -1,14 +1,14 @@
-// Host-side checks for MilkDrop's raw-PCM hand-off (core/viz/PcmHandoff). Built and run by CI ("Native
+// Host-side checks for the raw-PCM hand-off (core/viz/PcmHandoff). Built and run by CI ("Native
 // host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
-// The renderer feeds projectM from the samples its own sound engine heard (Renderer::writeAudio), not from a
+// The renderer feeds its scenes from the samples its own sound engine heard (Renderer::writeAudio), not from a
 // second Kotlin ring and a push (#360). What is pinned:
-// - a frame with no new samples (paused, starved) hands projectM and the PCM scenes nothing;
+// - a frame with no new samples (paused, starved) hands the PCM scenes nothing;
 // - what a frame hands over is exactly the mono mix of the samples written since the last frame, in order,
 //   however the writes were chunked: the same values the deleted Kotlin mono ring (PcmRingBuffer, the mean
-//   of the channels) held, so MilkDrop sees what it saw in the app, now on every surface;
+//   of the channels) held, now on every surface;
 // - only the newest capacity() samples are kept, a new epoch drops what the old one left;
-// - a hi-res source (88.2-192 kHz) reaches projectM at 44.1-48 kHz, whatever the chunk sizes;
+// - a hi-res source (88.2-192 kHz) reaches the scenes at 44.1-48 kHz, whatever the chunk sizes;
 // - a PcmPulse fed nothing decays to 0 instead of holding its last peak.
 #include <algorithm>
 #include <cmath>
@@ -50,7 +50,7 @@ void noNewSamplesGivesNothing() {
     handoff.write(stereo, 3, 2);
     check(handoff.take(out.data()) == 3, "the frame takes the three samples written");
     check(near(out[0], 0.1f) && near(out[1], -0.9f) && near(out[2], 0.3f), "as their mono mix, (L + R) / 2");
-    check(handoff.take(out.data()) == 0, "a frame with no new samples gives projectM nothing");
+    check(handoff.take(out.data()) == 0, "a frame with no new samples gives the scenes nothing");
     handoff.write(stereo, 0, 2);
     handoff.write(nullptr, 3, 2);
     handoff.write(stereo, 3, 0);
@@ -106,7 +106,7 @@ void rawTailMatchesTheRingsMonoMix() {
     }
     check(emptyFramesEmpty, "frames with no writes take nothing");
     check(allMatched, "each frame's raw PCM is the mono mix of exactly the samples written since the last");
-    check(static_cast<long long>(taken.size()) == expectedFrames, "every written sample reaches projectM once");
+    check(static_cast<long long>(taken.size()) == expectedFrames, "every written sample reaches the scenes once");
 }
 
 void keepsTheNewestSamples() {
@@ -134,7 +134,7 @@ void newEpochDropsTheOld() {
     check(handoff.take(out.data()) == 1 && out[0] == 0.1f, "the new epoch's samples follow");
 }
 
-// Kills handing projectM source-rate PCM: its buffers are sized for 44.1-48 kHz, so at 96 kHz they would
+// Kills handing the scenes source-rate PCM: its buffers are sized for 44.1-48 kHz, so at 96 kHz they would
 // cover half the time and its bands shift an octave. A 1 kHz stereo sine at 96 kHz, written in odd chunks
 // (so most writes end half way through an output sample), comes out as 48 kHz: half the samples, each the
 // mean of two source frames, one period every 48 samples.
@@ -166,7 +166,7 @@ void hiResSourcesAreDecimated() {
         const int got = handoff.take(out.data());
         taken.insert(taken.end(), out.begin(), out.begin() + got);
     }
-    check(taken.size() == static_cast<size_t>(kFrames / 2), "96 kHz reaches projectM as 48 kHz: half the samples, none dropped");
+    check(taken.size() == static_cast<size_t>(kFrames / 2), "96 kHz reaches the scenes as 48 kHz: half the samples, none dropped");
     bool pairs = taken.size() == static_cast<size_t>(kFrames / 2);
     for (size_t k = 0; pairs && k < taken.size(); ++k) {
         if (!near(taken[k], 0.5f * (stereo[4 * k] + stereo[4 * k + 2]))) pairs = false;

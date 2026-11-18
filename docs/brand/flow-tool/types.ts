@@ -17,7 +17,7 @@ export interface MediaResult {
   mimeType: string;
 }
 
-export interface ProjectMedia extends MediaResult {
+export interface ProjectAsset extends MediaResult {
   type: 'image' | 'video' | 'audio';
   name: string;
 }

@@ -59,6 +59,10 @@ uniform float uDriftX;
 uniform float uDriftY;
 uniform float uTile;
 uniform float uTwist;
+// Where the twist turns from and how its angle grows with distance (core/viz/TwistShape.hpp); 0, 0 and 0 is the
+// plain twist about the middle.
+uniform vec2 uTwistCentre;
+uniform float uTwistBend;
 uniform float uTemperature;
 uniform float uSolarize;
 
@@ -229,8 +233,11 @@ vec2 view() {
 #ifndef VIEW_BENDS_IN_3D
     // Radial twist: rotate by an angle growing with radius.
     if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
+        vec2 tc = uv - uTwistCentre;
+        float tl = length(tc);
+        if (uTwistBend != 0.0) tl = pow(max(tl, 1e-5), 1.0 + uTwistBend);
+        float tr = tl * uTwist * 2.0;
+        uv = uTwistCentre + mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * tc;
     }
     // Tiling: repeat the plane into a uTile x uTile grid, every other tile
     // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the

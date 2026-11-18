@@ -13,7 +13,7 @@ namespace geode::viz::endless {
 // Endless zoom: travel through the picture that never arrives. Falling in, driving through, rising out.
 //
 // It is one stage of its own (viz/DivePass, dive_frag.glsl), drawn over the finished picture of whatever
-// style is on screen: a flat shader, a marched 3D scene, MilkDrop, a simulation, particles. The style
+// style is on screen: a flat shader, a marched 3D scene, a simulation, particles. The style
 // does not know about it, and nothing else moves it: not the style's Zoom, the camera, Trails or the
 // reactions. Its inputs are the switch, Dive speed (signed: in falls, out rises) and the Dive controls.
 //
@@ -26,7 +26,7 @@ namespace geode::viz::endless {
 // What it replaced, and why each failed (git log -- core/viz/EndlessZoom.hpp):
 //  - one magnification 2^phase popped at the wrap; its triangle fix zoomed in and back out;
 //  - two copies an octave apart, crossfaded: the scale only ran 1x..2x, a pulse, not travel;
-//  - MilkDrop's feedback zoom: the live style was poured over the smear at under 1% a frame and born in
+//  - a feedback zoom: the live style was poured over the smear at under 1% a frame and born in
 //    a disc a seventh of the frame wide, so the screen showed seconds-old blur magnified 7x, the style's
 //    own motion gone; and the bass, mids and treble pushed its zoom, turn and warp on every hit;
 //  - copies with a feathered rounded frame, a shadow thrown outside each edge and a mirrored border
@@ -239,7 +239,7 @@ inline float footprint(float s) { return s >= 1.0f ? 0.0f : std::min(1.0f / s - 
 
 // Sustain: Trails on a shader style. Those styles redraw the whole frame, so a trail kept in the
 // scene target was painted over and the four trail controls did nothing there. In the feedback pass
-// (viz/liquid/LiquidPass) they are MilkDrop's own three: Trail length is its sustain (how long a frame
+// (viz/liquid/LiquidPass) they are its own three: Trail length is its sustain (how long a frame
 // lingers), Trail zoom its video echo and Trail warp its warp (liquid::motion::trailBase).
 namespace feedback {
 

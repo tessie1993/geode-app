@@ -132,7 +132,7 @@ SoundEngine::SoundEngine(int sampleRateHz, AnalysisSettings settings)
       wavePrev_(GEODE_SOUND_WAVEFORM_POINTS) {
     hann(hann_);
     hann(pitchHann_);
-    // MilkDrop's tilt, -0.02·ln(1 - f/22.05 kHz): about +6 dB per octave, so the treble is not buried
+    // The tilt, -0.02·ln(1 - f/22.05 kHz): about +6 dB per octave, so the treble is not buried
     // under the bass's raw energy. Pinned to Hz rather than to bins so it means the same at every rate.
     for (size_t k = 0; k < tilt_.size(); k++) {
         const float f = std::min(static_cast<float>(k) * binHz_, kTiltTop * 511.0f / 512.0f);
@@ -460,7 +460,7 @@ void SoundEngine::setFadeGain(float gain) { fadeGain_ = std::isfinite(gain) ? st
 
 void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
     State& s = state_;
-    // The MilkDrop core: summed bands, each against its own running mean.
+    // The core: summed bands, each against its own running mean.
     for (int b = 0; b < kBands; b++) s.band[b].step(sum(tilted_, bandBins_[b]), dt, warm, silent);
     out.bass = s.band[kBass].ratio();
     out.mid = s.band[kMid].ratio();
@@ -491,11 +491,11 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
         // Presence: the same band over ~3 s, deaf to single hits.
         s.presence[b] = follow(s.presence[b], att, 3.0f, dt);
         *presence[b] = clamp01(0.5f * s.presence[b]);
-        s.bandTime[b] = std::fmod(s.bandTime[b] + t.speed * dt * att, kTimeWrap);
-        *time[b] = s.bandTime[b];
+        s.bandTime[b] = std::fmod(s.bandTime[b] + t.speed * dt * att, static_cast<double>(kTimeWrap));
+        *time[b] = static_cast<float>(s.bandTime[b]);
     }
-    s.curvedTime = std::fmod(s.curvedTime + t.speed * dt * std::pow(out.volAtt, 2.5f), kTimeWrap);
-    out.curvedTime = s.curvedTime;
+    s.curvedTime = std::fmod(s.curvedTime + t.speed * dt * std::pow(out.volAtt, 2.5f), static_cast<double>(kTimeWrap));
+    out.curvedTime = static_cast<float>(s.curvedTime);
 
     // level: the whole mix's RMS in dBFS, -60 dB = 0 ... 0 dB = 1. Absolute: a pad at -30 dBFS reads 0.5
     // however long it plays, it is never stretched to fill 0..1 against its own peak.
@@ -774,7 +774,7 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     State& s = state_;
     const GeodeSoundTuning& t = tuning_;
     const float silenceOn = std::pow(10.0f, t.silenceDb / 20.0f);
-    // MilkDrop's hard cut reads the unbounded ratios (Σ imm_rel > 3·T). `vol` is soft-limited below 4, and
+    // The hard cut reads the unbounded ratios (Σ imm_rel > 3·T). `vol` is soft-limited below 4, and
     // the threshold starts at 5 and doubles on each cut, so on `vol` no cut could fire until it had relaxed
     // for 40–65 s: a slow timer instead of "an even bigger moment".
     const float rawVol = (s.band[kBass].rawRatio() + s.band[kMid].rawRatio() + s.band[kTreble].rawRatio()) / 3.0f;

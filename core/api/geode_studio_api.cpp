@@ -17,10 +17,6 @@ geode_studio_text* made(std::string text) {
     return std::make_unique<geode_studio_text>(geode_studio_text{std::move(text)}).release();
 }
 
-std::optional<std::string> textOrNone(const char* text) {
-    return text ? std::optional<std::string>(text) : std::nullopt;
-}
-
 }  // namespace
 
 extern "C" {
@@ -46,12 +42,12 @@ geode_studio_text* geode_studio_kind_read(const char* json) {
 }
 
 geode_studio_text* geode_studio_edit_new(const char* song_uri, const char* song_title, long long song_ms,
-                                         const char* scene_id, const char* milk_path, long long render_ms) {
+                                         const char* scene_id, long long render_ms) {
     try {
         std::optional<geode::studio::Song> song;
         if (song_uri) song = geode::studio::Song{song_uri, song_title ? song_title : "", song_ms};
         std::optional<geode::studio::Look> look;
-        if (scene_id) look = geode::studio::Look{scene_id, textOrNone(milk_path), render_ms};
+        if (scene_id) look = geode::studio::Look{scene_id, render_ms};
         return made(geode::studio::writeEdit(geode::studio::newEdit(song, look, &geode::studio::randomId)));
     } catch (...) {
         return nullptr;

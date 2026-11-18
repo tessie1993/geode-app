@@ -3,7 +3,6 @@ package dev.geode.ui
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.app.SearchManager
-import android.content.ContentResolver
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -11,7 +10,6 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
-import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Rational
@@ -26,7 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -102,24 +99,6 @@ internal object SharedLinkInbox {
     var offer by mutableStateOf<SharedLinkOffer?>(null)
 }
 
-/**
- * A .milk a file manager opened in the app, imported and loaded: Visuals opens on its MilkDrop page,
- * once, from `AppRoot` (which holds the app state). Process-wide like [SharedLinkInbox].
- */
-internal object MilkFileInbox {
-    var opened by mutableStateOf(false)
-}
-
-/** Shows Visuals' MilkDrop page after [MilkFileInbox] took a .milk in. */
-@Composable
-internal fun MilkFileOpened(appState: GeodeAppState) {
-    if (!MilkFileInbox.opened) return
-    LaunchedEffect(Unit) {
-        MilkFileInbox.opened = false
-        appState.openVisualsPage(VisualsPage.MILKDROP)
-    }
-}
-
 /** "Import shared preset?" / "Replace template?" for the link waiting in [SharedLinkInbox]. */
 @Composable
 internal fun SharedLinkConfirm() {
@@ -131,7 +110,6 @@ internal fun SharedLinkConfirm() {
     val title =
         when {
             offer is SharedLinkOffer.Preset -> R.string.link_offer_preset_title
-            offer is SharedLinkOffer.MilkFile -> R.string.link_offer_milk_title
             replaces != null -> R.string.link_offer_replace_title
             else -> R.string.link_offer_template_title
         }
@@ -142,7 +120,6 @@ internal fun SharedLinkConfirm() {
                     R.string.link_offer_preset_body,
                     offer.name.ifBlank { stringResource(R.string.preset_shared_untitled) },
                 )
-            offer is SharedLinkOffer.MilkFile -> stringResource(R.string.link_offer_milk_body, offer.name)
             replaces != null -> stringResource(R.string.link_offer_replace_body, replaces)
             else ->
                 stringResource(
@@ -153,7 +130,6 @@ internal fun SharedLinkConfirm() {
     val confirm =
         when {
             replaces != null -> R.string.link_offer_replace
-            offer is SharedLinkOffer.MilkFile -> R.string.link_offer_open
             else -> R.string.link_offer_import
         }
     AlertDialog(
@@ -166,7 +142,6 @@ internal fun SharedLinkConfirm() {
                 when (offer) {
                     is SharedLinkOffer.Preset -> importSharedPreset(context, visualsViewModel, offer.link)
                     is SharedLinkOffer.Template -> importSharedTemplate(context, visualsViewModel, offer.link)
-                    is SharedLinkOffer.MilkFile -> openMilkFile(context, visualsViewModel, offer.link)
                 }
             }) { Text(stringResource(confirm)) }
         },
@@ -186,20 +161,6 @@ private fun importSharedPreset(
             PresetLinkImport.Unreadable -> context.getString(R.string.preset_link_unreadable)
         }
     Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-}
-
-private fun openMilkFile(
-    context: Context,
-    visualsViewModel: VisualsViewModel,
-    uri: String,
-) {
-    visualsViewModel.openMilkFile(Uri.parse(uri)) { ok ->
-        if (ok) {
-            MilkFileInbox.opened = true
-        } else {
-            Toast.makeText(context, R.string.milk_open_failed, Toast.LENGTH_LONG).show()
-        }
-    }
 }
 
 private fun importSharedTemplate(
@@ -263,26 +224,6 @@ class MainActivity : ComponentActivity() {
             importSharedPreset(this, visualsViewModel, data)
             importSharedTemplate(this, visualsViewModel, data)
             intent.data = null
-        }
-    }
-
-    /**
-     * A .milk opened from another app (ACTION_VIEW on a content or file uri). Anything can send one,
-     * so like a shared link it waits in [SharedLinkInbox] for the user's yes before anything is
-     * imported or loaded ([openMilkFile]). The uri is read only through the ContentResolver, only when
-     * its name ends in .milk, capped in size and under a sanitised name; a refused one gets a toast.
-     */
-    private fun receiveMilkFile(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_VIEW) return
-        val uri = intent.data ?: return
-        if (uri.scheme != ContentResolver.SCHEME_CONTENT && uri.scheme != ContentResolver.SCHEME_FILE) return
-        intent.data = null
-        visualsViewModel.offerMilkFile(uri) { offer ->
-            if (offer != null) {
-                SharedLinkInbox.offer = offer
-            } else {
-                Toast.makeText(this, R.string.milk_open_failed, Toast.LENGTH_LONG).show()
-            }
         }
     }
 
@@ -363,7 +304,6 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         receiveSharedLink(intent)
         receiveAudioFile(this, intent, playerViewModel)
-        receiveMilkFile(intent)
         playFromSearch(intent)
     }
 
@@ -408,7 +348,6 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
             receiveAudioFile(this, intent, playerViewModel)
-            receiveMilkFile(intent)
             playFromSearch(intent)
         }
     }

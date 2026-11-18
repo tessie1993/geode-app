@@ -39,7 +39,7 @@ enum class Show {
     Always,
     ThreeD,      // the styles on the camera rig (catalogue::fliesCamera)
     Particles,   // styles with a particle layer (Scope::ParticleSprite)
-    Engine,      // a style with an engine of its own to tune: Fluid, Cymatics, MilkDrop
+    Engine,      // a style with an engine of its own to tune: Fluid, Cymatics
     ShaderCode,  // a style with shader code the user can edit in Customize: Fluid's force and dye
 };
 
@@ -77,7 +77,7 @@ const char* name(Show show);
 const char* title(Category category);
 std::string sectionTitle(std::string_view sectionId);
 
-// A kept category, after MilkDrop's mash-up bins, each of which can be locked against the next
+// A kept category, each of which can be locked against the next
 // random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
 // such marker replaced by its category's controls; a marker naming no category is dropped.
 inline constexpr char kCategoryLockPrefix = '#';
@@ -140,8 +140,8 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, Category catego
 SceneParams randomizeAll(const SceneParams& current, uint64_t seed, const std::string& styleId,
                          const std::set<std::string>& locked);
 
-// current with every field the category's controls write taken from another look: MilkDrop's
-// mash-up, one bin loaded from another preset.
+// current with every field the category's controls write taken from another look: a mash-up,
+// one bin loaded from another preset.
 SceneParams borrow(const SceneParams& current, const SceneParams& from, Category category);
 
 // current with every field the category's controls write put back to its default.

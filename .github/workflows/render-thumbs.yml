@@ -124,9 +124,9 @@ jobs:
           if [ -f thumbs-out/failures.txt ]; then cat thumbs-out/failures.txt; fi
           # The test writes failures.txt only when it finishes; without it the run crashed, so
           # name the styles it did not reach (catalogue.txt is the native catalogue's text,
-          # checked by catalogue_test; MilkDrop has no thumbnail).
+          # checked by catalogue_test).
           if [ ! -f thumbs-out/failures.txt ]; then
-            grep '^style|' core/tests/catalogue.txt | grep -v '|MILKDROP' | cut -d'|' -f2 \
+            grep '^style|' core/tests/catalogue.txt | cut -d'|' -f2 \
               | while read -r id; do
                   if [ -n "$THUMBS_ONLY" ] && ! echo ",$THUMBS_ONLY," | tr -d ' ' | grep -q ",$id,"; then continue; fi
                   if echo ",$THUMBS_SKIP," | tr -d ' ' | grep -q ",$id,"; then continue; fi

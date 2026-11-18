@@ -264,6 +264,44 @@ void viewPaths() {
     check(lc.finished(), "and the stage may end");
 }
 
+// A system trim reaches a renderer that is alive but draws no frame to read the signal (a still picture, a
+// dark one, a stopped view with its context kept); one that paces reads it in its own frame.
+void trimReachesIdleStages() {
+    Lifecycle lc(Kind::View);
+    Model m;
+    lc.surfacelessSupported(true);
+    m.window = 1;
+    lc.windowSet(1080, 2340);
+    settle(lc, m);
+    lc.setMode(RunMode::Animated, 0);
+    same(settle(lc, m), {Act::StartVsync}, "a watched view paces");
+    lc.trimRequested();
+    same(settle(lc, m), {}, "a pacing stage leaves a trim to its own frame");
+    lc.setMode(RunMode::Still, 100);
+    settle(lc, m);
+    lc.tick(10000);
+    same(settle(lc, m), {Act::StopVsync}, "a still frame stops pacing");
+    lc.trimRequested();
+    same(settle(lc, m), {Act::ClientTrimSpares}, "a trim reaches the still stage with no frame to read it");
+    lc.trimRequested();
+    same(settle(lc, m), {Act::ClientTrimSpares}, "and every later trim does too");
+    lc.setMode(RunMode::Dark, 200);
+    settle(lc, m);
+    lc.trimRequested();
+    same(settle(lc, m), {Act::ClientTrimSpares}, "a dark stage sheds on a trim");
+    lc.pause();
+    settle(lc, m);
+    lc.trimRequested();
+    same(settle(lc, m), {}, "a paused stage has no surface to make current: nothing runs, nothing hangs");
+    lc.resume();
+    same(settle(lc, m), {Act::CreateSurface, Act::MakeCurrent, Act::ClientSurfaceChanged}, "and coming back cancels the owed trim");
+    lc.quit();
+    m.quit = true;
+    settle(lc, m);
+    lc.trimRequested();
+    same(settle(lc, m), {}, "a trim after quit does nothing");
+}
+
 void surfacePaths() {
     Lifecycle lc(Kind::Surface);
     Model m;
@@ -385,7 +423,7 @@ void eventsBeforeTheWindow() {
 
 enum Ev : int {
     kSetA, kSetB, kChange, kChangeEmpty, kGone, kAnimated, kStill, kStopped, kDark, kPause, kResume, kLost, kBad, kTick, kFrame,
-    kFailContext, kFailSurface, kLoseCurrent, kRedraw, kQuit, kEvents
+    kFailContext, kFailSurface, kLoseCurrent, kRedraw, kTrim, kQuit, kEvents
 };
 
 struct Run {
@@ -443,6 +481,7 @@ void apply(Run& r, int ev) {
         case kFailSurface: r.m.failNextSurface = true; break;
         case kLoseCurrent: r.m.loseOnNextCurrent = true; break;
         case kRedraw: r.lc.redrawNeeded(); break;
+        case kTrim: r.lc.trimRequested(); break;
         case kQuit:
             r.lc.quit();
             r.m.quit = true;
@@ -522,6 +561,7 @@ void randomLong() {
 
 int main() {
     viewPaths();
+    trimReachesIdleStages();
     surfacePaths();
     refusedAndLost();
     eventsBeforeTheWindow();

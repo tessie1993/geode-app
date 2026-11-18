@@ -136,8 +136,8 @@ typedef struct GeodeSoundFrame {
      * While beatConf is low the phases fall back to the hit clock (beat = one hit, bar = four) and the
      * beat, downbeat and phrase triggers stay silent. The tempo is the music's own: no tempo is preferred
      * or assumed, and before one is heard bpm is 0 and beatCount, barCount and the triggers stay still. */
-    float bpm;          /* tempo, beats per minute, 0 = none heard yet (never a stand-in number); the last heard
-                           while unlocked. Within GEODE_SOUND_BPM_SLOWEST..FASTEST, the detector's search limits */
+    float bpm;          /* tempo, beats per minute, 0 = none heard (never a stand-in number); the last heard
+                           while unlocked, and 0 again once a whole 6 s window has held no beat. Within GEODE_SOUND_BPM_SLOWEST..FASTEST, the detector's search limits */
     float beatPhase;    /* 0 on the beat … 1 just before the next: 1 - beatPhase is how soon it lands */
     float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above ~0.35) */
     float beat;         /* trigger on each beat the oscillator predicts */

@@ -364,6 +364,37 @@ void testStarvedGoesQuiet() {
     CHECK(f.rms == 0.0f, "rms after starving %f", f.rms);
 }
 
+// The tempo is the music's: after a whole window of audio with no beat in it the engine reads bpm 0 again,
+// not the last song's tempo.
+void testTempoIsLetGoWhenTheBeatIsGone() {
+    const int rate = 48000;
+    const double period = 60.0 / 93.0;
+    SoundEngine e(rate);
+    auto bed = std::make_shared<Noise>();
+    const double clickSeconds = 14.0;
+    float bpmWithBeat = 0.0f;
+    float bpmAfter = -1.0f;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            const double t = static_cast<double>(s) / rate;
+            if (t >= clickSeconds) {
+                l = r = 0.0f;
+                return;
+            }
+            const double phase = std::fmod(t, period);
+            const double k = phase < 0.15 ? std::sin(kTau * 55.0 * phase) * std::exp(-phase / 0.05) : 0.0;
+            l = r = static_cast<float>(0.8 * k) + 0.01f * bed->next();
+        },
+        clickSeconds + 24.0, 60.0,
+        [&](double t, const GeodeSoundFrame& f) {
+            if (t < clickSeconds) bpmWithBeat = f.bpm;
+            bpmAfter = f.bpm;
+        });
+    CHECK(bpmWithBeat > 0.0f, "a tempo is heard over the click track: %f", bpmWithBeat);
+    CHECK(bpmAfter == 0.0f, "and let go after the beat is gone: %f", bpmAfter);
+}
+
 // A pause holds the song: while the writer is away the zeros the engine feeds itself are not music, so no beat,
 // bar or phrase fires on them and the tempo lock is still there when the audio returns.
 void testStarvationHoldsTheRhythm() {
@@ -752,6 +783,7 @@ int main() {
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
     testStarvationHoldsTheRhythm();
+    testTempoIsLetGoWhenTheBeatIsGone();
     testLateBlocksAreNotStarvation();
     testSpectrumStaysGatedUnderNoise();
     testDcOffsetIsSilence();

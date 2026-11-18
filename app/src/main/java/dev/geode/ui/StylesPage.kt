@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +35,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -48,14 +46,14 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.geodeContainer
 import dev.geode.model.MilkFile
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.styleFamilyLabel
-import dev.geode.render.scene.styleLabel
 import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
@@ -114,8 +112,7 @@ internal fun StylesTab(
     val order = remember { StyleCatalogue.ids }
     // Each style's family index, for the native draw's "Family only".
     val familyOf = remember { IntArray(order.size) { i -> familyNames.indexOfFirst { order[i] in families.getValue(it) } } }
-    val resources = LocalResources.current
-    val labels = remember(resources) { order.associateWith { styleLabel(resources, it) } }
+    val labels = remember { order.associateWith { CustomizeNative.styleLabel(it) } }
     var picked by remember {
         mutableStateOf(
             StylesFamilyMemory.picked
@@ -125,9 +122,9 @@ internal fun StylesTab(
     }
     val mine = shelf.yours(order, viz.sceneId)
     val onScreenFamily = familyOf.getOrElse(order.indexOf(viz.sceneId)) { -1 }
-    val familyOptions = remember(onScreenFamily) { GeodeNative.stylesLead(familyNames.size, onScreenFamily).map(familyNames::get) }
+    val familyOptions = remember(onScreenFamily) { SoundNative.stylesLead(familyNames.size, onScreenFamily).map(familyNames::get) }
     val members = families[picked].orEmpty()
-    val familyIds = remember(picked, viz.sceneId) { GeodeNative.stylesLead(members.size, members.indexOf(viz.sceneId)).map(members::get) }
+    val familyIds = remember(picked, viz.sceneId) { SoundNative.stylesLead(members.size, members.indexOf(viz.sceneId)).map(members::get) }
     val ids = if (picked == YOURS) mine else familyIds
     // Leaving the page keeps the style the user may keep; only a locked one gives way.
     DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
@@ -167,13 +164,13 @@ internal fun StylesTab(
     val shuffle: () -> Unit = {
         val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
         // MilkDrop's own variety, which Family only rolls inside when MilkDrop is its family's one style.
-        val milkPlays = visualizerView.stage.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
-        val milk = if (milkPlays && viz.sceneId == GeodeNative.STYLE_MILKDROP) milkFiles else emptyList()
+        val milkPlays = visualizerView.stage.milkdropAvailable && gate.allowsStyle(CatalogueNative.STYLE_MILKDROP)
+        val milk = if (milkPlays && viz.sceneId == CatalogueNative.STYLE_MILKDROP) milkFiles else emptyList()
         val milkHere = milk.indexOfFirst { it.path == viewModel.activeMilkPath.value }
-        val next = GeodeNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)
-        if (next == GeodeNative.STYLES_ROLL_INSIDE) {
+        val next = SoundNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)
+        if (next == SoundNative.STYLES_ROLL_INSIDE) {
             // Auto's draw over the .milk list, never the one showing, loaded as the MilkDrop page's tap does.
-            milk.getOrNull(GeodeNative.autoPick(milk.size, milkHere))?.let {
+            milk.getOrNull(SoundNative.autoPick(milk.size, milkHere))?.let {
                 view.performStoneHaptic(StoneHapticCue.CONFIRM)
                 selectMilk(viewModel, visualizerView, it.path)
             }
@@ -186,7 +183,7 @@ internal fun StylesTab(
     // A new pick starts at its top, where the style on screen is when the pick holds it.
     LaunchedEffect(picked) { list.scrollToItem(0) }
     val yoursLabel = stringResource(R.string.styles_yours)
-    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else styleFamilyLabel(resources, it) }
+    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else CustomizeNative.styleFamilyLabel(it) }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, end = GeodeSpacing.XS),
@@ -398,10 +395,8 @@ private object StylesFamilyMemory {
     var picked: String? = null
 }
 
-/** A style's name as people read it, in the language on screen. */
-@Composable
-@ReadOnlyComposable
-internal fun sceneDisplayLabel(id: String): String = styleLabel(LocalResources.current, id)
+/** A style's name as people read it (core/viz/StyleNames). */
+internal fun sceneDisplayLabel(id: String): String = CustomizeNative.styleLabel(id)
 
 /** The dropdown's own entry for the user's shelf; never a catalogue family name (those are lowercase words). */
 private const val YOURS = "#yours"

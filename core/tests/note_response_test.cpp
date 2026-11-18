@@ -1,5 +1,6 @@
 // Host test of the note & key reactions (viz/NoteResponse): that the six style knobs each answer to at
-// least two fields of the sound frame, that a percussive track raises the drum weight and a tonal one
+// least two fields of the sound frame, that FLOW follows the song part, the feeling and the phrase and not the
+// loudness, that PULSE locks to the bar while the beat is sure, that a percussive track raises the drum weight and a tonal one
 // lowers it, that the knobs are all it hands on (no scene param, no colour), that it is deterministic,
 // that off is exactly 0.5 on every knob, that silence is stable, and that the user's amounts scale each
 // source.
@@ -111,9 +112,13 @@ void knobsAnswerSeveralFields() {
         {1, "centroid", [](GeodeSoundFrame& f, Emotion::State&) { f.centroid = 0.85f; }},
         {1, "densityFast", [](GeodeSoundFrame& f, Emotion::State&) { f.densityFast = 1.0f; }},
         {1, "flatness", [](GeodeSoundFrame& f, Emotion::State&) { f.flatness = 0.7f; }},
-        {2, "intensity", [](GeodeSoundFrame& f, Emotion::State&) { f.intensity = 1.0f; }},
-        {2, "level", [](GeodeSoundFrame& f, Emotion::State&) { f.level = 1.0f; }},
-        {2, "energyTrend", [](GeodeSoundFrame& f, Emotion::State&) { f.energyTrend = 1.0f; }},
+        {2, "sectionState", [](GeodeSoundFrame& f, Emotion::State&) { f.sectionState = GEODE_SECTION_DROP; }},
+        {2, "emotion energy", [](GeodeSoundFrame&, Emotion::State& e) { e.energy = 1.0f; }},
+        {2, "kind of feeling", [](GeodeSoundFrame&, Emotion::State& e) { e.gems[Emotion::kJoy] = 0.6f; }},
+        {2, "phrasePhase", [](GeodeSoundFrame& f, Emotion::State&) {
+             f.beatConf = 0.9f;
+             f.phrasePhase = 0.5f;
+         }},
         {3, "pitchHeight", [](GeodeSoundFrame& f, Emotion::State&) { f.pitchHeight = 0.95f; }},
         {3, "peakFreq", [](GeodeSoundFrame& f, Emotion::State&) { f.peakFreq = 0.95f; }},
         {4, "emotion tension", [](GeodeSoundFrame&, Emotion::State& e) { e.tension = 0.9f; }},
@@ -148,6 +153,62 @@ void knobsAnswerSeveralFields() {
         perKnob[5] += moved ? 1 : 0;
     }
     for (int k = 0; k < 6; ++k) check(perKnob[k] >= 2, "knob k" + std::to_string(k) + " answers at least two fields");
+}
+
+// The owner: visuals answer the music's content, not its volume. FLOW follows the song part, the feeling and
+// the phrase, so the loudness fields leave it exactly where it was; and the song part orders it: a drop flows
+// more than a verse, a verse more than a breakdown, and a build climbs as it builds.
+void flowFollowsTheSongNotTheVolume() {
+    const auto none = [](GeodeSoundFrame&, Emotion::State&) {};
+    const float rest = knobWith(2, none);
+    const auto loud = [](GeodeSoundFrame& f, Emotion::State&) {
+        f.intensity = 1.0f;
+        f.level = 1.0f;
+        f.energyTrend = 1.0f;
+        f.loudness = 1.0f;
+        f.vol = f.volAtt = 2.0f;
+    };
+    check(knobWith(2, loud) == rest, "FLOW does not follow the loudness");
+    const auto in = [](int state, float build) {
+        return knobWith(2, [state, build](GeodeSoundFrame& f, Emotion::State&) {
+            f.sectionState = static_cast<float>(state);
+            f.buildUp = build;
+        });
+    };
+    check(in(GEODE_SECTION_DROP, 0.0f) > in(GEODE_SECTION_VERSE, 0.0f) + 0.05f, "a drop flows more than a verse");
+    check(in(GEODE_SECTION_VERSE, 0.0f) > in(GEODE_SECTION_BREAKDOWN, 0.0f) + 0.05f, "a breakdown holds back");
+    check(in(GEODE_SECTION_BUILD, 1.0f) > in(GEODE_SECTION_BUILD, 0.0f) + 0.05f, "a build climbs as it builds");
+    // The phrase's arc only while the beat is sure: rising to the middle of the 8 bars, settling at the end.
+    const auto phrase = [](float conf, float phase) {
+        return knobWith(2, [conf, phase](GeodeSoundFrame& f, Emotion::State&) {
+            f.beatConf = conf;
+            f.phrasePhase = phase;
+        });
+    };
+    check(phrase(0.9f, 0.5f) > phrase(0.9f, 0.05f) + 0.05f, "mid-phrase flows more than the phrase's start");
+    check(phrase(0.0f, 0.5f) == phrase(0.0f, 0.05f), "with no beat heard the phrase is level");
+}
+
+// PULSE on a locked beat lands on the beat and hardest on the bar's first; with none it follows the drums.
+void pulseLocksToTheBar() {
+    // A percussive-leaning steady frame, so the pulse's weight is high.
+    const auto at = [](float conf, float beatPhase, float barPhase, float kick) {
+        return knobWith(0, [=](GeodeSoundFrame& f, Emotion::State&) {
+            f.flatness = 0.6f;
+            f.pitchConfidence = 0.1f;
+            f.keyClarity = 0.1f;
+            f.scaleFit = 0.1f;
+            f.beatConf = conf;
+            f.beatPhase = beatPhase;
+            f.barPhase = barPhase;
+            f.kickEnv = kick;
+        });
+    };
+    check(at(0.9f, 0.0f, 0.0f, 0.0f) > at(0.9f, 0.6f, 0.4f, 0.0f) + 0.1f, "locked: on the beat the pulse is up, between beats down");
+    check(at(0.9f, 0.0f, 0.0f, 0.0f) > at(0.9f, 0.0f, 0.5f, 0.0f) + 0.02f, "locked: the bar's first beat lands harder than its third");
+    check(at(0.9f, 0.6f, 0.4f, 1.0f) == at(0.9f, 0.6f, 0.4f, 0.0f), "locked: the bar leads, not the kick's envelope");
+    check(at(0.0f, 0.6f, 0.4f, 1.0f) > at(0.0f, 0.6f, 0.4f, 0.0f) + 0.1f, "no beat heard: the drums lead");
+    check(at(0.0f, 0.0f, 0.0f, 0.0f) == at(0.0f, 0.6f, 0.4f, 0.0f), "no beat heard: the phases mean nothing");
 }
 
 GeodeSoundFrame percussive(float t) {
@@ -398,6 +459,8 @@ void amountsScaleTheKnobs() {
 
 int main() {
     knobsAnswerSeveralFields();
+    flowFollowsTheSongNotTheVolume();
+    pulseLocksToTheBar();
     drumWeightFollowsTheInput();
     deterministic();
     chordChangesSwing();

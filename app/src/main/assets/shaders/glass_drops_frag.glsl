@@ -49,7 +49,7 @@ out vec4 fragColor;
 //   flatness   the mist: noise fogs the street and grains the veil, tones clear it;
 //   centroid   the drops' dispersion and the bokeh fringes;
 //   bass       swells the drops;
-//   pan        the city turns toward the louder side;
+
 //   pitch      raises the key light, which sets the crown highlights and the
 //              foot caustics (GlassLook, as in every glass style).
 //
@@ -107,27 +107,36 @@ float gFall;
 float gSwell;
 float gSplash;
 float gThresh;
-float gDrift;
+
 float gHue;
 float gFringe;
 float gTwinkle;
 float gRadius;
 float gGlow;
-/** Set by map(): the cell's drop (rebased world centre, radius; radius 0 when empty), the sphere distance, and the wake. */
-vec3 gC;
-float gR;
-float gDs;
-float gWake;
-float gWakeW;
+/**
+ * What the field holds at a point (lib_glass_field): the distance; the cell's drop (rebased world
+ * centre, radius; radius 0 when empty) and the distance to its sphere; the wake's distance and weight.
+ */
+struct GlassHit {
+    float d;
+    vec3 c;
+    float r;
+    float ds;
+    float wake;
+    float wakeW;
+};
 
-float map(vec3 p) {
+GlassHit glassMap(vec3 p) {
     // Outside the slab no drop can be nearer than the slab itself.
     float slab = max((GD_RAIN_LO - GD_RMAX - 0.12) - p.y, p.y - (GD_RAIN_HI + GD_RMAX + 0.12));
-    gR = 0.0;
-    gDs = 1e3;
-    gWakeW = 0.0;
-    gWake = 1e3;
-    if (slab > 0.0) return slab + 0.02;
+    GlassHit res;
+    res.c = vec3(0.0);
+    res.r = 0.0;
+    res.ds = 1e3;
+    res.wakeW = 0.0;
+    res.wake = 1e3;
+    res.d = slab + 0.02;
+    if (slab > 0.0) return res;
 
     float colX = floor(p.x);
     float colZ = floor(p.z);
@@ -158,16 +167,19 @@ float map(vec3 p) {
     if (r > 0.0) {
         vec3 v = f - jit;
         float ds = length(v) - r;
-        gDs = ds;
+        res.ds = ds;
         d = min(d, ds);
-        gC = c;
-        gR = r;
+        res.c = c;
+        res.r = r;
         // The wake: a thin lit thread above the drop, fading upward to the cell's top.
-        gWake = length(v.xz);
-        gWakeW = step(0.0, v.y) * (1.0 - smoothstep(0.0, 0.5 - jit.y, v.y)) * (r / GD_RMAX);
+        res.wake = length(v.xz);
+        res.wakeW = step(0.0, v.y) * (1.0 - smoothstep(0.0, 0.5 - jit.y, v.y)) * (r / GD_RMAX);
     }
-    return d;
+    res.d = d;
+    return res;
 }
+
+//#include lib_glass_field
 
 /**
  * One row of city lights: bokeh discs on the inside of a cylinder of radius R
@@ -186,7 +198,7 @@ vec3 cityLights(vec3 o, vec3 d, float R, float N, float seed, float blur, out fl
     if (fade <= 0.0) return vec3(0.0);
     vec3 hp = o + d * t;
     // N is whole, so the fract seam of the angle falls on a cell wall.
-    float u = fract(atan(hp.y, hp.x) / GD_TAU + gDrift) * N;
+    float u = fract(atan(hp.y, hp.x) / GD_TAU) * N;
     vec2 x = vec2(u, hp.z * 0.5);
     vec2 id = floor(x);
     id.y = mod(id.y, 32.0);
@@ -256,14 +268,15 @@ vec2 streetRipple(vec2 xz, float t) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
 
     GlassEar ear = glassListen();
     gHue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.12 * kTone;
@@ -274,19 +287,21 @@ void main() {
     gSwell = 0.2 * ear.bass * clamp(1.0 + 2.0 * kPulse, 0.0, 2.0);
     gSplash = glassBump(SND_SNARE_ENV) * glassEnergy();
     gThresh = 0.55 - 0.25 * glassComplexity();
-    gDrift = 0.012 * ear.pan;
+
     gFringe = 0.4 + 0.8 * ear.sharp;
     gTwinkle = ear.hat;
     gRadius = 22.0 * (1.0 + 0.6 * kSpace);
     gGlow = clamp(1.0 + 1.2 * kBuild, 0.2, 2.2);
     float mist = 0.55 + 0.45 * ear.frost;
-    float spread = 0.006 + 0.02 * ear.sharp;
+    float spread = glassSpread(0.006 + 0.02 * ear.sharp);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64 (see the header): exact, invisible, and z keeps its precision.
     ro.z = mod(ro.z, GD_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tGround = (rd.y < -1e-4 && ro.y > GD_GROUND) ? (GD_GROUND - ro.y) / rd.y : 1e4;
@@ -295,17 +310,23 @@ void main() {
     float tm = 0.02;
     float hitT = -1.0;
     float wake = 0.0;
+    // The field where the ray met a drop: its centre and radius, for the lens.
+    GlassHit hit;
+    hit.c = vec3(0.0);
+    hit.r = 0.0;
     for (int i = 0; i < GD_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (tm > tEnd) break;
-        float d = map(ro + rd * tm);
+        GlassHit at = glassField(ro + rd * tm);
+        float d = at.d;
         float eps = glassEps(tm);
-        if (gDs < eps) {
+        if (at.ds < eps) {
             hitT = tm;
+            hit = at;
             break;
         }
-        wake += gWakeW * exp(-gWake * 30.0 - tm * 0.12) * min(d, 0.3);
+        wake += at.wakeW * exp(-at.wake * 30.0 - tm * 0.12) * min(d, 0.3);
         tm += max(d, eps);
     }
 
@@ -319,17 +340,17 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalize(p - gC);
+        vec3 n = normalize(p - hit.c);
         n = glassWobble(n, p, glassChaos());
         float cosI = clamp(dot(n, -rd), 0.0, 1.0);
         // The ball lens: in, across the chord, out per wavelength. The far wall's exit inverts the city.
-        vec3 d1 = glassRefract(rd, n, 1.0 / GD_IOR);
-        vec3 oc = p - gC;
+        vec3 d1 = glassRefract(rd, n, 1.0 / glassIor(GD_IOR));
+        vec3 oc = p - hit.c;
         float b = dot(oc, d1);
-        float chord = max(-b + sqrt(max(b * b - (dot(oc, oc) - gR * gR), 0.0)), 0.0);
+        float chord = max(-b + sqrt(max(b * b - (dot(oc, oc) - hit.r * hit.r), 0.0)), 0.0);
         vec3 q = p + d1 * chord;
-        vec3 n2 = normalize(q - gC);
-        vec3 iors = glassIors(GD_IOR, spread);
+        vec3 n2 = normalize(q - hit.c);
+        vec3 iors = glassIors(glassIor(GD_IOR), spread);
         vec3 er = glassRefract(d1, -n2, iors.x);
         vec3 eg = glassRefract(d1, -n2, iors.y);
         vec3 eb = glassRefract(d1, -n2, iors.z);
@@ -345,7 +366,7 @@ void main() {
         img = img * 1.5 + pal(gHue + 0.6) * 0.05;
         float rim = 1.0 - cosI;
         img *= 1.0 - 0.7 * smoothstep(0.6, 1.0, rim);
-        float fres = glassFresnel(cosI, GD_IOR);
+        float fres = glassFresnel(cosI, glassIor(GD_IOR));
         float fy;
         vec3 rf = reflect(rd, n);
         img += cityLights(p, rf, gRadius, 64.0, 1.0, 1.0, fy) * 0.5 * fres * 3.0;
@@ -355,7 +376,7 @@ void main() {
         float foot = smoothstep(0.1, 0.7, -dot(n, uCamBasis[1]));
         img += mix(vec3(1.0, 0.8, 0.5), pal(gHue), 0.3) * 0.5 * smoothstep(0.45, 0.75, rim) * (1.0 - smoothstep(0.8, 0.97, rim)) * foot;
         img += glassRim(cosI, gHue, 0.25);
-        img += vec3(1.0) * glassGlint(n * 3.0 + gC * 9.0, 1.0, ear.hat * 0.4);
+        img += vec3(1.0) * glassGlint(n * 3.0 + hit.c * 9.0, 1.0, ear.hat * 0.4);
         // The mist takes the far drops back into the city's glow, gone before the march's far end so none pops.
         col = mix(back, img, exp(-hitT * density) * (1.0 - smoothstep(GD_FAR * 0.6, GD_FAR, hitT)));
     } else if (tGround < 1e3) {

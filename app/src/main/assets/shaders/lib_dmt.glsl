@@ -378,7 +378,9 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
     gDmtSatHue = 0.0;
     gDmtSatLife = 0.0;
     gDmtSatBand = 0.0;
-    float clock = uTime * 0.21 + uFlowPhase * 0.35;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level: no
+    // sound turns the orbits or the tumble (owner 2026-11-12, no style spins to the music).
+    float clock = uTime * 0.315;
     for (int i = 0; i < DMT_MAX_SATELLITES; i++) {
         if (float(i) >= count) break;
         float fi = float(i);

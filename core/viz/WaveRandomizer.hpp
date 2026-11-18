@@ -6,7 +6,7 @@
 #include "viz/Lfo.hpp"
 #include "viz/Params.hpp"
 
-// Randomize for the waves (Customize › Music › Waves): a whole set of LFO slots rolled at once. Pure:
+// Randomize for the waves (Customize › Expert › Waves): a whole set of LFO slots rolled at once. Pure:
 // no GL, no JNI, so the host tests build it (core/tests/lfo_random_test.cpp).
 //
 // A rolled set is meant to look good, not only to be legal:
@@ -28,10 +28,10 @@ using Set = std::array<LfoConfig, LfoEngine::kSlots>;
 
 enum class Roll {
     All,      // the wave editor's Randomize: every slot switched on and rolled
-    Running,  // a category roll: only the steady waves already on; nothing is switched on
+    Running,  // a roll of everything: only the steady waves already on; nothing is switched on
 };
 
-// The panel piece the waves are in CustomizeMap: kept (by itself or through "#MUSIC"), a category roll holds them.
+// The panel piece the waves are in CustomizeMap: kept (by itself or through "#EXPERT"), a roll holds them.
 inline constexpr const char* kLockKey = "@waves";
 
 // The same seed, style, params and waves give the same set. Returns current when nothing can be rolled.

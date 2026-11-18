@@ -33,20 +33,11 @@ const char* blendModeLabel(BlendMode mode) {
     return "Screen";
 }
 
-const std::string& blendModeLabels() {
-    static const std::string labels = [] {
-        std::string out;
-        for (int i = 0; i < kBlendModes; ++i) out += std::string(blendModeLabel(static_cast<BlendMode>(i))) + '\n';
-        return out;
-    }();
-    return labels;
-}
-
 namespace safety {
 
 SceneParams apply(const SceneParams& p, bool reducedMotion) {
     SceneParams out = p;
-    out.bloom = std::min(p.bloom, kMaxFlashDepth);
+    out.bloom = std::min(p.bloom, kMaxBloom);
     out.brightness = std::clamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
     out.intensity = std::clamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);
     out.contrast = std::clamp(p.contrast, 0.0f, 1.0f + kMaxFlashDepth);
@@ -57,12 +48,13 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
         out.driftY *= kReducedMotionScale;
         out.rotation *= kReducedMotionScale;
         out.turbulence *= kReducedMotionScale;
-        out.cycleSpeed *= kReducedMotionScale;
         // The two forward speeds, the fly-through and the dive, are scaled here and only here:
         // CameraRig and the dive stage take them as they arrive, so the one scale reaches every
         // render path once.
         out.camFly *= kReducedMotionScale;
         out.endlessZoomSpeed *= kReducedMotionScale;
+        // The physics layers' stir (viz/physics): the fluid's push and the particles' drift.
+        out.simForce *= kReducedMotionScale;
     }
     return out;
 }

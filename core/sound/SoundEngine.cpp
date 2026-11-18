@@ -7,6 +7,7 @@
 #include <numbers>
 
 #include "sound/DriveGain.hpp"
+#include "sound/OnsetFlux.hpp"
 #include "sound/Tuning.hpp"
 
 namespace geode::sound {
@@ -65,7 +66,7 @@ constexpr float GeodeSoundFrame::* kTriggerFields[] = {
 };
 static_assert(sizeof(kTriggerFields) / sizeof(kTriggerFields[0]) == SoundEngine::kTriggers, "every trigger, once");
 
-// TouchDesigner's Band EQ centres.
+// The Band EQ's centres: sixteen bands from 25 Hz to 22 kHz.
 constexpr std::array<float, GEODE_SOUND_EQ_BANDS> kEqCentres = {
     25, 40, 60, 90, 150, 240, 370, 590, 930, 1500, 2300, 3600, 5600, 8900, 14000, 22000};
 
@@ -165,6 +166,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
+    fluxReach_.resize(logMag_.size());
+    for (size_t k = 0; k < fluxReach_.size(); k++) fluxReach_[k] = onsetflux::reachOf(static_cast<int>(k));
     waveSrc_.assign(static_cast<size_t>((GEODE_SOUND_WAVEFORM_POINTS + kWaveSlack) * waveBlock_), 0.0f);
     harmony_.configure(static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_), n_ + 1);
     waveWeight_.resize(GEODE_SOUND_WAVEFORM_POINTS);
@@ -173,6 +176,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
         const float tri = i < GEODE_SOUND_WAVEFORM_POINTS / 2 ? 2.0f * i / c : 2.0f * (c - 1.0f - i) / c;
         waveWeight_[i] = clamp01(5.0f * tri - 3.2f);
     }
+    history_.resize(kHistoryHops);
     reset();
 }
 
@@ -216,6 +220,7 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         return y;
     };
     for (int i = 0; i < frames; i++) {
+        inputWritten_++;  // first, so a hop this sample completes is kept at it
         float l = clean(interleaved[static_cast<size_t>(i) * channels]);
         float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
         bool ready = true;
@@ -261,24 +266,27 @@ void SoundEngine::feedSilence(float dt) {
     for (int i = 0; i < count; i++) feed(0.0f, 0.0f);
 }
 
-void SoundEngine::readWindow(int count, float* mono, float* left, float* right) const {
+void SoundEngine::readWindow(int count, float* mono, float* left, float* right, int oldest) const {
     const size_t cap = ringL_.size();
-    for (int i = 0; i < count; i++) {
+    if (oldest < 0) oldest = count;
+    // The ring index of the oldest sample (age `count`), then one step on per sample.
+    size_t idx = (writePos_ + cap - static_cast<size_t>(count) % cap) % cap;
+    for (int i = 0; i < oldest; i++) {
         const int64_t age = count - i;  // 1 = newest
         float l = 0.0f;
         float r = 0.0f;
         if (!starved_ && age <= written_) {
-            const size_t idx = (writePos_ + cap - static_cast<size_t>(age)) % cap;
             l = ringL_[idx];
             r = ringR_[idx];
         }
+        if (++idx == cap) idx = 0;
         mono[i] = 0.5f * (l + r);
         if (left != nullptr) left[i] = l;
         if (right != nullptr) right[i] = r;
     }
 }
 
-void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+void SoundEngine::starve(float dtSeconds) {
     const float dt = std::clamp(dtSeconds, 1e-4f, 0.25f);
     starvedSeconds_ = fresh_ ? 0.0f : starvedSeconds_ + dt;
     fresh_ = false;
@@ -286,6 +294,10 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
         starved_ = true;
         feedSilence(dt);
     }
+}
+
+void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+    starve(dtSeconds);
     // The newest hop, as it is: at the same sample every frame rate reads the same frame.
     out = hopFrame_;
     for (int k = 0; k < kTriggers; k++) out.*kTriggerFields[k] = held_[k];
@@ -325,7 +337,7 @@ void SoundEngine::analyse() {
     for (float v : mono_) squares += static_cast<double>(v) * v;
     out.rms = static_cast<float>(std::sqrt(squares / n_));
     // The one gate: closed until the momentary loudness reaches -55 LUFS, open until 250 ms under -60. Every
-    // detector and stage below reads this flag (fosfora's R8), so they all agree on what silence is.
+    // detector and stage below reads this flag, so they all agree on what silence is.
     const bool silent = !meter_.open();
     if (starved_) {
         // Nothing arrived (a pause, a stall): a transport event, not the music going quiet, so it never
@@ -369,6 +381,47 @@ void SoundEngine::analyse() {
     emotion_.step(out, dt);
     accentHeld_ = std::max(accentHeld_, emotion_.state().degreeAccent);
     for (int k = 0; k < kTriggers; k++) held_[k] = std::max(held_[k], out.*kTriggerFields[k]);
+
+    Hop& kept = history_[static_cast<size_t>(historyHead_)];
+    kept.sample = inputWritten_;
+    kept.clock = rhythm_.clock();
+    kept.frame = out;
+    kept.emotion = emotion_.state();
+    hopsRun_++;
+    historyHead_ = (historyHead_ + 1) % kHistoryHops;
+    historyCount_ = std::min(historyCount_ + 1, kHistoryHops);
+}
+
+bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
+    if (historyCount_ == 0) return false;
+    // Newest first, so of hops sharing a position (a starved writer) the latest wins; none at or before
+    // samplePos leaves the oldest.
+    const Hop* hop = nullptr;
+    for (int age = 0; age < historyCount_; age++) {
+        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+        if (hop->sample <= samplePos) break;
+    }
+    out = hop->frame;
+    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
+    // step() moves the phases by the analysis samples since the hop; the input's halvings divide out here.
+    const int64_t since = samplePos > hop->sample ? (samplePos - hop->sample) >> halvings_ : 0;
+    Rhythm::phases(hop->clock, static_cast<int>(std::min<int64_t>(since, std::numeric_limits<int>::max())), out.hitTime, out);
+    return true;
+}
+
+const SoundEngine::Hop* SoundEngine::keptHop(int age) const {
+    if (age < 0 || age >= historyCount_) return nullptr;
+    return &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+}
+
+int64_t SoundEngine::newestHopSample() const {
+    if (historyCount_ == 0) return -1;
+    return history_[static_cast<size_t>((historyHead_ - 1 + kHistoryHops) % kHistoryHops)].sample;
+}
+
+int64_t SoundEngine::oldestHopSample() const {
+    if (historyCount_ == 0) return -1;
+    return history_[static_cast<size_t>((historyHead_ - historyCount_ + kHistoryHops) % kHistoryHops)].sample;
 }
 
 void SoundEngine::rewarm() {
@@ -413,7 +466,7 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.midHigh = s.band[kMidHigh].ratio();
     out.midHighAtt = s.band[kMidHigh].attRatio();
 
-    // The TouchDesigner layer: the filter bank's slice levels, made relative the same way, then Lag
+    // The shaped layer: the filter bank's slice levels, made relative the same way, then Lag
     // (attack/release), threshold, gain and offset into 0..1. Halving first puts "typical" (1.0) at 0.5
     // and a strong hit (2.0) at full scale.
     const GeodeSoundTuning& t = tuning_;
@@ -441,7 +494,8 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.level = out.loudness;
 
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, bandFloor);
+        eqSum_[i] = sum(mag_, eqBins_[i]);
+        s.eq[i].step(eqSum_[i], dt, warm, silent, bandFloor);
         out.eq[i] = s.eq[i].ratio();
     }
 }
@@ -557,8 +611,10 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got than fluxLag_ hops ago (~30 ms), on a log scale, as a relative
-    // level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (~30 ms), on a log scale, as a
+    // relative level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
+    // The earlier spectrum is kept maximum-filtered along frequency (sound/OnsetFlux), so a note whose pitch only
+    // wobbles (vibrato, a slide) does not read as a new start on every wobble.
     const size_t stride = logMag_.size();
     float* now = logMag_.data();
     const float* then = fluxCount_ >= fluxLag_ ? prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride : nullptr;
@@ -582,7 +638,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
             rise += band / static_cast<float>(to - from);
         }
     }
-    std::copy(logMag_.begin(), logMag_.end(), prevLogMag_.begin() + static_cast<std::ptrdiff_t>(fluxHead_ * stride));
+    onsetflux::maxFilter(now, prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride, fluxBins_.from, fluxBins_.to, fluxReach_.data());
     fluxHead_ = (fluxHead_ + 1) % fluxLag_;
     fluxCount_ = std::min(fluxCount_ + 1, fluxLag_);
     if (then) {
@@ -754,7 +810,9 @@ constexpr int kHarmonics = 5;  // partials in the pitch estimator's harmonic sum
 }  // namespace
 
 void SoundEngine::estimatePitch(float held, float& midi, float& confidence, float& evenness) {
-    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr);
+    // The newest n_ samples are the window analyse() read into mono_ this hop; only the older half is read here.
+    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr, n_);
+    std::copy(mono_.begin(), mono_.end(), pitchMono_.begin() + n_);
     for (int i = 0; i < 2 * n_; i++) pitchMono_[i] *= pitchHann_[i];
     pitchFft_.magnitudes(pitchMono_.data(), pitchMag_.data());
     const float binHz = static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_);
@@ -801,7 +859,7 @@ void SoundEngine::estimatePitch(float held, float& midi, float& confidence, floa
     const float delta = curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f;
     const float k0 = static_cast<float>(best) + delta;
     midi = 69.0f + 12.0f * std::log2(k0 * binHz / 440.0f);
-    // Evenness: the even harmonics' share of the first six (sigmund~'s measure). Square-ish, hollow
+    // Evenness: the even harmonics' share of the first six. Square-ish, hollow
     // tones (clarinet, square lead) read low; saw-like and vocal tones near half.
     float even = 0.0f;
     float all = 0.0f;
@@ -950,7 +1008,7 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
 
     Form::Input in{};
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / kEqReference);
+        const float db = 20.0f * std::log10(std::max(eqSum_[i], 1e-9f) / kEqReference);
         in.eq[i] = clamp01((db + 60.0f) / 60.0f);
     }
     in.centroid = out.centroid;
@@ -988,7 +1046,7 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
     const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
     s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
     out.drive = clamp01(s.drive);
-    // How far the loudness has just risen (fosfora's trend), eased: a build or a drop reads as more than the
+    // How far the loudness has just risen (the meter's trend), eased: a build or a drop reads as more than the
     // steady level, a fade as less. Intensity is the drive with that rise on top.
     s.rise = follow(s.rise, open ? meter_.trend() : 0.0f, 1.0f, dt);
     out.intensity = clamp01(0.75f * out.drive + 0.25f * s.rise);
@@ -1017,6 +1075,10 @@ void SoundEngine::reset() {
         for (HalfBand& channel : stage) channel.reset();
     }
     held_ = {};
+    historyHead_ = 0;
+    historyCount_ = 0;
+    hopsRun_ = 0;
+    inputWritten_ = 0;
     hopFrame_ = GeodeSoundFrame{};
     // What a silent engine says before its first hop, as Harmony leaves it.
     hopFrame_.keyMajor = 0.5f;

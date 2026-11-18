@@ -178,21 +178,18 @@ void Emotion::step(const GeodeSoundFrame& f, float dt) {
 
     const float conf = state_.confidence;
     const float loud = clamp01((f.loudness - 0.45f) / 0.45f);  // about -33 dBFS .. -6 dBFS
-    // An unknown tempo is no cue at all: the other live cues carry its share of the energy, and it adds
-    // nothing to the valence. No tempo is ever assumed.
-    const bool tempoKnown = f.beatConf > 0.25f && f.bpm > 0.0f;
-    const float tempo = clamp01((f.bpm - 70.0f) / 110.0f);
+    // The tempo is no cue here (owner's rule: the tempo never steers or weighs a visual choice, and this feeling
+    // steers the director's axes): the energy comes from the sound alone, and the live cues carry the share the
+    // literature gives the tempo.
     const float busy = clamp01(onsetRate_ / 6.0f);
     const float bright = clamp01((f.centroid - 0.35f) / 0.35f);
     const float rise = clamp01((f.energyTrend - 0.5f) * 2.0f);
 
-    // Energy (arousal): loudness, tempo, onset rate and brightness carry it (Eerola 2013, Juslin 2010).
+    // Energy (arousal): loudness, onset rate and brightness carry it (Eerola 2013, Juslin 2010).
     const float live = 0.3f * loud + 0.2f * busy + 0.1f * bright;
-    const float energy = clamp01(0.2f * print_.energy * conf + live + 0.2f * (tempoKnown ? tempo : live / 0.6f) +
-                                 0.15f * f.buildUp);
-    // Valence: the mode carries about half (sr² .48 happy, .54 sad); tempo and register add a little.
-    valence_ = std::clamp(print_.valence * conf + (tempoKnown ? 0.1f * (tempo - 0.5f) : 0.0f) + 0.05f * (bright - 0.5f) + 0.3f * state_.degreeValence,
-                          -1.0f, 1.0f);
+    const float energy = clamp01(0.2f * print_.energy * conf + live + 0.2f * (live / 0.6f) + 0.15f * f.buildUp);
+    // Valence: the mode carries about half (sr² .48 happy, .54 sad); the register adds a little.
+    valence_ = std::clamp(print_.valence * conf + 0.05f * (bright - 0.5f) + 0.3f * state_.degreeValence, -1.0f, 1.0f);
     // Tension: the scale's own, the chord's roughness, a rise in loudness (Farbood 2012: the trend, not the
     // level) and the build-up.
     const float tension = clamp01(0.35f * print_.tension * conf + 0.3f * f.tension + 0.2f * rise + 0.3f * f.buildUp +

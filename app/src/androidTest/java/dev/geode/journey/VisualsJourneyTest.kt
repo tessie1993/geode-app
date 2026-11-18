@@ -1,15 +1,14 @@
 package dev.geode.journey
 
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -20,7 +19,7 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
- * The Visuals tab: the Customize tab's switches work, and Presets saves the current look.
+ * The Visuals tab: the Customize tab's controls work, and Presets saves the current look.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)
@@ -50,31 +49,24 @@ class VisualsJourneyTest {
         compose.tap("Basics")
     }
 
-    /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */
-    private val kaleidoscopeBox = isToggleable() and hasText("Kaleidoscope")
+    /** The slider's name row, its label and its value merged into one node. */
+    private fun kaleidoscopeRow(value: String) = hasText("Kaleidoscope") and hasText(value)
 
-    @Test
-    fun kaleidoscopeCheckboxTogglesAndRevealsFolds() {
-        openCustomizeShape()
-        compose.awaitNode(kaleidoscopeBox)
-        val box = compose.onAllNodes(kaleidoscopeBox).onFirst()
-        box.performScrollTo()
-        box.assertIsOff()
-        box.performClick()
-        box.assertIsOn()
-        compose.awaitNode(hasText("Folds"))
-    }
+    /** The slider itself: named Kaleidoscope, and a slider (it takes a progress). */
+    private val kaleidoscopeSlider = hasContentDescription("Kaleidoscope") and SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)
 
     /**
-     * QA #13: the label used to be a separate, unclickable Text beside the Checkbox, so tapping
-     * the word (or an accessibility click on it) did nothing. The row is toggleable now.
+     * Kaleidoscope is one slider (owner, 2026-11-12), in place of the checkbox and its Folds menu: it starts
+     * Off, and a move to 8 reads "8", the folds the styles draw.
      */
     @Test
-    fun tappingTheKaleidoscopeLabelTogglesIt() {
+    fun kaleidoscopeSliderStartsOffAndSetsTheFolds() {
         openCustomizeShape()
-        compose.awaitNode(hasText("Kaleidoscope"))
-        compose.tap("Kaleidoscope")
-        compose.awaitNode(hasText("Folds"))
+        compose.awaitNode(kaleidoscopeRow("Off"))
+        val slider = compose.onAllNodes(kaleidoscopeSlider).onFirst()
+        slider.performScrollTo()
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(8f) }
+        compose.awaitNode(kaleidoscopeRow("8"))
     }
 
     /**

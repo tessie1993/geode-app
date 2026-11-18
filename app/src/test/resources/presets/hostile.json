@@ -10,6 +10,7 @@
   "endlessZoomSpeed": "abc",
   "trails": "true",
   "symmetry": 40,
+  "kaleidoscope": true,
   "palette": -3,
   "particleShape": 2.75,
   "reactSeed": 99999999,

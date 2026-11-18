@@ -20,16 +20,23 @@
 #include "api/geode_modulation_api.h"
 #include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
+#include "api/geode_viz_internal.hpp"
 #include "sound/Tuning.hpp"
+#include "sound/hop/SharedAnalysis.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
+#include "viz/AutoDraw.hpp"
+#include "viz/AutoPlan.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/LookSnapshot.hpp"
+#include "viz/MacroBank.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -45,8 +52,6 @@
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
 #include "viz/frame/Pacer.hpp"
-#include "viz/frame/Thermal.hpp"
-#include "viz/frame/ThermalSource.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -134,6 +139,8 @@ struct geode_viz {
     // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
     // shell never sends the look again for a new surface.
     geode::viz::frame::LiveFrame live;
+    // The time the last live frame was drawn at (seconds, CLOCK_BOOTTIME), so the next never runs back. GL thread only.
+    double liveSeconds = 0.0;
     // The shell's whole look as set last (geode_viz_set_look), so only the parts that differ reach the renderer; a new
     // handle starts with none, so it gets the whole look. lookLock: the compare and its sets never interleave.
     std::mutex lookLock;
@@ -152,6 +159,9 @@ struct geode_viz {
     // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
     std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
+    // This renderer listening to the ring's shared analysis; none while the mic is layered in, which only this
+    // renderer hears (Renderer::writeAudio analyses it on its own thread). Declared after feedRing.
+    geode::sound::SharedAnalysis::Listening feedListening;
     // Record (geode_viz_record_start): the recording's clock, shared with the encoder thread's handle, the
     // GL copy into the encoder and the frame's PTS, -1 for a frame the clock left out. Render thread only.
     std::shared_ptr<geode::output::record::Recorder> recorder;
@@ -198,12 +208,17 @@ static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
-
-// The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
-// between calls matter, and steady_clock never jumps with the wall clock.
-double monotonicSeconds() {
-    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-}
+static_assert(layer_state::kBlends == kBlendModes && layer_state::kDefaultBlend == GEODE_LAYER_BLEND_DEFAULT);
+static_assert(static_cast<int>(layer_state::Field::On) == GEODE_LAYER_ON);
+static_assert(static_cast<int>(layer_state::Field::Source) == GEODE_LAYER_SOURCE);
+static_assert(static_cast<int>(layer_state::Field::Knob) == GEODE_LAYER_KNOB);
+static_assert(static_cast<int>(layer_state::Field::Blend) == GEODE_LAYER_BLEND);
+static_assert(static_cast<int>(layer_state::Field::Mix) == GEODE_LAYER_MIX);
+static_assert(static_cast<int>(layer_state::Field::Style) == GEODE_LAYER_STYLE);
+static_assert(static_cast<int>(layer_state::Source::User) == GEODE_LAYER_SOURCE_USER);
+static_assert(static_cast<int>(layer_state::Source::Director) == GEODE_LAYER_SOURCE_DIRECTOR);
+static_assert(static_cast<int>(layer_state::Source::Macro) == GEODE_LAYER_SOURCE_MACRO);
+static_assert(layer_state::kSources == 3);
 
 // A live frame's time: CLOCK_BOOTTIME, since boot with deep sleep counted, the clock SystemClock.elapsedRealtimeNanos
 // reads, so the picture's clock runs on as it did when the shell stamped each frame.
@@ -214,6 +229,52 @@ double bootSeconds() {
 }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
+
+// Customize › Layers' texts: valid until this thread's next layer call, like the macro bank's.
+const char* layerOut(std::string out) {
+    thread_local std::string held;
+    held = std::move(out);
+    return held.c_str();
+}
+
+// The Macro source's choice: the knobs on screen, as the bank every live renderer reads has them.
+std::vector<std::pair<int, std::string>> layerKnobs() {
+    std::vector<std::pair<int, std::string>> knobs;
+    if (const auto bank = macrobank::global()) {
+        for (const macrobank::Knob& knob : bank->knobs) {
+            if (knob.shown) knobs.emplace_back(knob.id, knob.name);
+        }
+    }
+    return knobs;
+}
+
+// Customize › Layers' page over the style on screen, for the layer native keeps.
+layer_pick::Editor layerPage(const char* active_style, int family) {
+    std::vector<int> ids;
+    for (const auto& knob : layerKnobs()) ids.push_back(knob.first);
+    return layer_pick::editor(layer_state::get(), text(active_style), layer_state::shown(), family, ids);
+}
+
+// The ring's shared analysis, made on the first ask; null without memory for it.
+std::shared_ptr<geode::sound::SharedAnalysis> ringAnalysis(const geode_pcm_ring& ring) {
+    std::lock_guard<std::mutex> lock(ring.analysisLock);
+    if (!ring.analysis) {
+        try {
+            ring.analysis = std::make_shared<geode::sound::SharedAnalysis>(ring.ring);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+    return ring.analysis;
+}
+
+// One entry of a list that crosses the ABI a line each: no line break gets in from a name.
+void addLine(std::string& out, std::string entry) {
+    std::replace(entry.begin(), entry.end(), '\n', ' ');
+    std::replace(entry.begin(), entry.end(), '\r', ' ');
+    out += entry;
+    out += '\n';
+}
 
 }  // namespace
 
@@ -328,6 +389,8 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
         v->feedLayer.reset();
         v->feedLayerRing.reset();
         v->renderer.setLayerAlone(false);
+        v->renderer.hearAnalysis(nullptr);
+        v->feedListening = {};
         return;
     }
     if (auto layer = ring->layerRing(); layer != v->feedLayerRing) {
@@ -359,6 +422,16 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     // A ring no sink plays is not the player's: its engine never takes the player's source, fade or boundary.
     v->renderer.setFedPlayersRing(playout != nullptr);
     const int64_t limit = geode_playout_listen_limit(playout, nowNs);
+    // The ring is analysed once, on its own thread, ahead of the speaker, for every renderer hearing it; this
+    // frame reads it at the speaker's sample. The mic layered over it is heard by this renderer alone.
+    const bool shared = v->feedLayer == nullptr;
+    const auto& listening = v->feedListening.shared();
+    if (shared ? !(listening && listening->hears(*v->feedRing)) : listening != nullptr) {
+        geode::sound::SharedAnalysis::Listening next(shared ? ringAnalysis(*ring) : nullptr);
+        v->renderer.hearAnalysis(next.shared());
+        v->feedListening = std::move(next);
+    }
+    v->renderer.setListenPosition(limit);
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {
@@ -447,23 +520,11 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
     static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
     static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
     frame::PacerState s = frame::unpack(wire);
-    // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008); Follow device
-    // takes its cap from the panel the state has measured (frame::followCapFps).
-    const float cap = frame::pacerCapFps(s, cap_fps, geode::viz::ThermalState::process().fpsRungsDown());
+    // Follow device takes its cap from the panel the state has measured (frame::followCapFps).
+    const float cap = frame::pacerCapFps(s, cap_fps);
     const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
     frame::pack(s, wire);
     return dt;
-}
-
-float geode_pacer_effective_cap(float cap_fps) {
-    // Follow device states no rate, hot or cool: the system keeps choosing the panel's mode (setFrameRate(0)
-    // is the platform's "no preference"), and a hot phone's step is the pacer's divide of whatever it chose.
-    if (geode::viz::frame::isLiveFpsFollow(cap_fps)) return 0.0f;
-    return geode::viz::ThermalState::process().capFor(cap_fps);
-}
-
-int geode_thermal_take_warm_note(float cap_fps, float paced_fps) {
-    return geode::viz::ThermalState::process().takeWarmNote(cap_fps, paced_fps);
 }
 
 void geode_memory_trim(int android_level) {
@@ -505,16 +566,13 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring) : v_(v), ring_(ring) {}
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs) : v_(v), ring_(ring), vsyncNs_(vsyncNs) {}
 
-    void setPacedFps(float pacedFps, float capFps) override { v_.renderer.thermal().setPacedFps(pacedFps, capFps); }
+    void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
-        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx, q.adaptive);
-        v_.renderer.setLiquidHotPolicy(q.liquidHotPolicy);
+        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
     }
     void clearToBlack() override { v_.renderer.clearToBlack(0); }
-    bool claimThermal() override { return ThermalState::process().headroomDue(monotonicSeconds()); }
-    void sampleThermal() override { thermal_source::sampleHeadroom(monotonicSeconds()); }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
         const GyroLook::Look look = v_.gyro.reset();
@@ -526,15 +584,34 @@ public:
     }
     bool setScene(const std::string& id) override { return geode_viz_set_scene(&v_, id.c_str()) != 0; }
     void feedRing() override { geode_viz_feed_ring(&v_, ring_); }
-    void render() override { geode_viz_render(&v_, bootSeconds(), 0); }
+    void render() override { geode_viz_render(&v_, frameSeconds(), 0); }
     std::string lastError() override { return v_.renderer.lastError(); }
     bool milkPresetLoaded() override { return v_.renderer.milkPresetLoadedPending(); }
     bool directorMomentsPending() override { return v_.renderer.directorStyleMomentsPending(); }
     bool stillReady() override { return std::exchange(v_.stillFresh, false); }
 
 private:
+    // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
+    // not the thread hop's jitter; with no vsync (the cast's fallback) the clock at the draw. Never earlier than the
+    // last frame's, and never later than now.
+    double frameSeconds() {
+        const double boot = bootSeconds();
+        double seconds = boot;
+        if (vsyncNs_ > 0) {
+            timespec mono{};
+            clock_gettime(CLOCK_MONOTONIC, &mono);
+            const double ago = static_cast<double>(mono.tv_sec) + static_cast<double>(mono.tv_nsec) * 1e-9 -
+                               static_cast<double>(vsyncNs_) * 1e-9;
+            seconds = boot - std::max(ago, 0.0);
+        }
+        seconds = std::max(seconds, v_.liveSeconds);
+        v_.liveSeconds = seconds;
+        return seconds;
+    }
+
     geode_viz& v_;
     const geode_pcm_ring* ring_;
+    int64_t vsyncNs_;
 };
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -542,6 +619,33 @@ static_assert(kMusicActionCount == GEODE_MUSIC_ACTIONS);
 static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNCLAIMED);
 
 }  // namespace
+
+// The two below are defined by qualified name, so each must match its declaration in api/geode_viz_internal.hpp:
+// a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
+
+// geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
+// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
+    if (!v) return 0;
+    try {
+        VizStages stages(*v, ring, vsyncNs);
+        return static_cast<int>(v->live.run(stages, pacedFps, capFps));
+    } catch (...) {
+        // Nothing to tell the shell this frame; the next one starts over.
+        return 0;
+    }
+}
+
+// geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
+// handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
+bool geode::api::takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
+    if (!v || v->still.empty()) return false;
+    width = v->stillWidth;
+    height = v->stillHeight;
+    rgba = std::move(v->still);
+    v->still.clear();
+    return true;
+}
 
 extern "C" {
 
@@ -582,8 +686,10 @@ int geode_mod_reactions_edit(const char* style_id, int seed, const char* reactio
                              float value, char* out, int capacity, unsigned* out_mask) {
     ModDocument doc = reactionsOf(reactions, mask);
     if (style_id) doc.editReactions(dnaOf(style_id, seed), style_id, op, a, b, value);
-    if (out_mask) *out_mask = doc.handMask();
-    return geode::api::textOut(doc.reactionsText(), out, capacity);
+    const std::string routes = doc.reactionsText();
+    // No routes of the user's own: every moment is the style's DNA again.
+    if (out_mask) *out_mask = routes.empty() ? 0u : doc.handMask();
+    return geode::api::textOut(routes, out, capacity);
 }
 
 int geode_mod_music_state(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {
@@ -606,15 +712,159 @@ void geode_director_reach_set(int level) { director::setReach(level); }
 
 void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }
 
-void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
+void geode_director_tuning_set(const char* tuning) { director::setTuning(text(tuning)); }
 
-void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
-    layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+int geode_director_tuning_count(void) { return director::kTunes; }
+
+const char* geode_director_tuning_label(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].label : "";
 }
 
-const char* geode_layer_blend_names(void) {
+const char* geode_director_tuning_help(int index) {
+    return index >= 0 && index < director::kTunes ? director::tuneSpecs()[static_cast<size_t>(index)].help : "";
+}
+
+int geode_director_tuning_range(int index, float* out4) {
+    if (index < 0 || index >= director::kTunes || !out4) return 0;
+    const director::TuneSpec& s = director::tuneSpecs()[static_cast<size_t>(index)];
+    out4[0] = s.min;
+    out4[1] = s.max;
+    out4[2] = s.step;
+    out4[3] = director::isSwitch(s) ? 1.0f : 0.0f;
+    return 1;
+}
+
+float geode_director_tuning_value(const char* tuning, int index) {
+    if (index < 0 || index >= director::kTunes) return 0.0f;
+    return director::parseTuning(text(tuning)).v[static_cast<size_t>(index)];
+}
+
+const char* geode_director_tuning_value_text(const char* tuning, int index) {
+    return layerOut(director::valueText(director::parseTuning(text(tuning)), index));
+}
+
+const char* geode_director_tuning_with(const char* tuning, int index, float value) {
+    return layerOut(director::tuningWith(text(tuning), index, value));
+}
+
+int geode_auto_pick_among(const char* ids, int on_screen, int director_moment) {
+    const std::string pool = text(ids);
+    if (director_moment != 0) {
+        const int pick = director::pickStyle(pool, on_screen);
+        if (pick != director::kNoIntent) return pick;
+    }
+    const int count = pool.empty() ? 0 : static_cast<int>(std::count(pool.begin(), pool.end(), '\n')) + 1;
+    return auto_draw::pick(count, on_screen);
+}
+
+const char* geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
+                            int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style, int sources,
+                            long long now_ms, int* out2) {
+    thread_local std::string picked;
+    auto_timer::restart(auto_timer::kRandom, now_ms);
+    const auto lines = [](const char* s) {
+        std::vector<std::string> out;
+        const std::string all = text(s);
+        if (all.empty()) return out;
+        size_t at = 0;
+        for (size_t nl; (nl = all.find('\n', at)) != std::string::npos; at = nl + 1) out.push_back(all.substr(at, nl - at));
+        if (at < all.size()) out.push_back(all.substr(at));
+        return out;
+    };
+    const auto locked = lines(locked_styles);
+    const auto pool = auto_plan::pool(lines(geode_catalogue_style_ids(GEODE_STYLE_AUTO_DRAW)),
+                                      std::set<std::string>(locked.begin(), locked.end()), text(current_style),
+                                      lines(preset_styles), preset_on_screen, milk_count, milk_on_screen, text(milk_style),
+                                      sources);
+    const int pick = geode_auto_pick_among(pool.ids.c_str(), pool.onScreen, (sources & GEODE_AUTO_DRAW_KEEP_LOOK) ? 1 : 0);
+    if (pick < 0 || pick >= static_cast<int>(pool.entries.size())) return nullptr;
+    const auto [kind, index] = pool.entries[static_cast<size_t>(pick)];
+    if (out2) {
+        out2[0] = kind;
+        out2[1] = index;
+    }
+    const std::string_view ids = pool.ids;
+    size_t at = 0;
+    for (int i = 0; i < pick; ++i) at = ids.find('\n', at) + 1;
+    picked = std::string(ids.substr(at, ids.find('\n', at) - at));
+    return picked.c_str();
+}
+
+void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
+
+void geode_layer_set(const char* layer) { layer_state::set(layer_state::decode(text(layer))); }
+
+const char* geode_layer_edit(int field, float value, const char* style_id) {
     try {
-        return blendModeLabels().c_str();
+        if (field < GEODE_LAYER_ON || field > GEODE_LAYER_STYLE) return "";
+        if (field == GEODE_LAYER_KNOB) {
+            // The page hands back a place among the knobs it was shown; the layer keeps that knob's id.
+            const auto knobs = layerKnobs();
+            if (!std::isfinite(value) || value < 0.0f || value >= static_cast<float>(knobs.size())) return "";
+            value = static_cast<float>(knobs[static_cast<size_t>(value)].first);
+        }
+        if (!layer_state::change(static_cast<layer_state::Field>(field), value, text(style_id))) return "";
+        return layerOut(layer_state::encode(layer_state::get()));
+    } catch (...) {
+        return "";
+    }
+}
+
+int geode_layer_values(const char* active_style, int family, float* out, int capacity) {
+    if (!out || capacity < GEODE_LAYER_VALUES) return 0;
+    try {
+        const layer_pick::Editor page = layerPage(active_style, family);
+        out[GEODE_LAYER_ON] = page.layer.on ? 1.0f : 0.0f;
+        out[GEODE_LAYER_SOURCE] = static_cast<float>(page.layer.source);
+        out[GEODE_LAYER_KNOB] = static_cast<float>(page.knob);
+        out[GEODE_LAYER_BLEND] = static_cast<float>(page.layer.blend);
+        out[GEODE_LAYER_MIX] = page.layer.mix;
+        out[GEODE_LAYER_STYLE] = static_cast<float>(page.style);
+        out[GEODE_LAYER_FAMILY] = static_cast<float>(page.family);
+        out[GEODE_LAYER_PICKED] = page.layer.sceneId.empty() ? 0.0f : 1.0f;
+        return GEODE_LAYER_VALUES;
+    } catch (...) {
+        return 0;
+    }
+}
+
+const char* geode_layer_list(int list, const char* active_style, int family) {
+    try {
+        std::string out;
+        switch (list) {
+            case GEODE_LAYER_LIST_SOURCES:
+                for (int i = 0; i < layer_state::kSources; ++i) addLine(out, layer_pick::sourceLabel(static_cast<layer_state::Source>(i)));
+                break;
+            case GEODE_LAYER_LIST_BLENDS:
+                for (int i = 0; i < kBlendModes; ++i) addLine(out, blendModeLabel(static_cast<BlendMode>(i)));
+                break;
+            case GEODE_LAYER_LIST_FAMILIES: {
+                const layer_pick::Editor page = layerPage(active_style, family);
+                for (const std::string& name : page.families) addLine(out, name);
+                break;
+            }
+            case GEODE_LAYER_LIST_STYLES: {
+                const layer_pick::Editor page = layerPage(active_style, family);
+                for (const std::string& id : page.styles) addLine(out, id);
+                break;
+            }
+            case GEODE_LAYER_LIST_KNOBS: {
+                const auto knobs = layerKnobs();
+                for (const auto& knob : knobs) addLine(out, knob.second);
+                break;
+            }
+            default:
+                break;
+        }
+        return layerOut(std::move(out));
+    } catch (...) {
+        return "";
+    }
+}
+
+const char* geode_layer_shown(const char* active_style) {
+    try {
+        return layerOut(layerPage(active_style, -1).shown);
     } catch (...) {
         return "";
     }
@@ -650,7 +900,7 @@ void geode_viz_set_look(geode_viz* v, const geode_viz_look* look) {
         next.reactions = text(look->reactions);
         next.reducedMotion = look->reduced_motion != 0;
         next.transitionId = text(look->transition_id);
-        next.transitionMs = look->transition_ms;
+        next.transitionMs = clampTransitionMs(look->transition_ms);
         std::lock_guard<std::mutex> one(v->lookLock);
         const uint32_t parts = v->shellLook.take(std::move(next));
         const LookSnapshot& l = v->shellLook.look();
@@ -674,20 +924,12 @@ const char* geode_viz_look_defaults(void) {
     return defaults.c_str();
 }
 
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive,
-                           int liquid_hot_policy) {
-    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0, adaptive != 0, liquid_hot_policy});
+void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx) {
+    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
 }
 
 int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
-    if (!v) return 0;
-    try {
-        VizStages stages(*v, ring);
-        return static_cast<int>(v->live.run(stages, paced_fps, cap_fps));
-    } catch (...) {
-        // Nothing to tell the shell this frame; the next one starts over.
-        return 0;
-    }
+    return geode::api::vizFrameAt(v, ring, paced_fps, cap_fps, 0);
 }
 
 int geode_viz_liquid_mode(geode_viz* v) {
@@ -710,11 +952,6 @@ void geode_viz_set_offscreen(geode_viz* v, int on) {
     v->renderer.setOffscreen(on != 0);
     // And it keeps the Customize layer it started with: a live edit during a background render stays live.
     v->renderer.pinLayer(on != 0);
-    if (on) {
-        v->renderer.thermal().beginOffscreenRender();
-    } else {
-        v->renderer.thermal().endOffscreenRender();
-    }
 }
 
 void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float right, float bottom, float strength,
@@ -790,8 +1027,6 @@ void geode_viz_surface_created(geode_viz* v) {
     // A new surface starts its engine on a full window, not the tail of the last: the next frame's cursor is a
     // new one.
     geode_viz_feed_ring(v, nullptr);
-    // The platform's status listener, once for the process (the first surface to come up).
-    geode::viz::thermal_source::attach();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {
@@ -843,8 +1078,7 @@ void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (!v) return;
     syncReactions(v);
     v->recordPtsNs = v->recorder
-        ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height(),
-                             static_cast<int>(geode::viz::ThermalState::process().tier()))
+        ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height())
         : -1;
     v->renderer.render(time_seconds, target_fbo);
     const GeodeSoundFrame& heard = v->renderer.soundFrame();

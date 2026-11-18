@@ -69,7 +69,7 @@ vec3 stormFrame(vec3 p) {
     return p;
 }
 
-float density(vec3 p, float oct) {
+float nebDensity(vec3 p, float oct) {
     p = stormFrame(p);
     float rad = length(p.xz);
     float radial = smoothstep(0.14, 0.34, rad) * (1.0 - smoothstep(1.0, 1.6, rad));
@@ -88,6 +88,19 @@ float density(vec3 p, float oct) {
     return smoothstep(0.3, 0.7, n + 0.35 * (shape - 0.5));
 }
 
+/** What the field holds at a point (lib_nebula_field): the density alone. */
+struct NebHit {
+    float dens;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.dens = nebDensity(p, oct);
+    return h;
+}
+
+//#include lib_nebula_field
+
 /** Distance from p to the bolt segment. */
 float boltDist(vec3 p) {
     p = stormFrame(p);
@@ -98,6 +111,7 @@ float boltDist(vec3 p) {
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
@@ -135,7 +149,9 @@ void main() {
     vec3 boltCol = mix(nebEmission(0.78 + key, 0.6), vec3(1.0), 0.45);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65 + growSlack(1.65, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.035;
         for (int i = 0; i < NEB_VOL_MAX; i++) {
@@ -143,9 +159,9 @@ void main() {
             if (tt > tb.y) break;
             vec3 p = ro + rd * tt;
             float dt = nebVolDt(tt - tb.x, 0.022, 0.012);
-            float dens = density(p, oct);
+            float dens = nebField(p, oct).dens;
             if (dens > 0.002) {
-                float lit = nebLightTap(density(p + L * 0.2, 2.0), 4.0);
+                float lit = nebLightTap(nebField(p + L * 0.2, 2.0).dens, 4.0);
                 vec3 emit = body * 0.035 + tops * lit * 0.2 * (1.0 + kBuild);
                 float bd = boltDist(p);
                 emit += boltCol * snare * (exp(-bd * bd * 30.0) * 0.8 + exp(-bd * bd * 900.0) * 1.5);

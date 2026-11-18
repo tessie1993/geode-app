@@ -418,6 +418,11 @@ void textRoundTrips() {
             std::vector<std::string> perStyle;
             if (catalogue::isMarched(f[1])) perStyle.emplace_back("MARCH_DETAIL");
             if (catalogue::spinRate(f[1]) != 0.0f) perStyle.emplace_back("SPIN");
+            if (catalogue::drawsFamilyForm(f[1])) perStyle.emplace_back("FAMILY_FORM");
+            if (catalogue::hasFormulas(f[1])) perStyle.emplace_back("FORMULA");
+            if (catalogue::drawsShapes(f[1])) perStyle.emplace_back("SHAPES");
+            if (catalogue::castsShadows(f[1])) perStyle.emplace_back("SHADOW");
+            if (catalogue::colorsByEscape(f[1])) perStyle.emplace_back("ESCAPE");
             check(f.size() >= 4 && std::vector<std::string>(f.begin() + 4, f.end()) == perStyle, "per-style scopes of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
@@ -445,8 +450,10 @@ void textRoundTrips() {
     // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
-    // took over Spin drift's field on the turning styles' own scope.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 87 && overrides == 8, "row counts");
+    // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
+    // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
+    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 92 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.
@@ -478,6 +485,17 @@ void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
     fluid.emplace_back("curlflow");
     check(byName["fluid"] == fluid, "Fluid and Curl Flow are one picker family");
     check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
+}
+
+// Every id of the listing is a real one: not empty, and listed once. (A null entry in a table never gets this
+// far: Catalogue.cpp's static_asserts refuse it.)
+void everyIdIsNonEmptyAndUnique() {
+    std::set<std::string> seen;
+    for (const auto& id : catalogue::allIds()) {
+        check(!id.empty(), "an id of the listing is empty");
+        check(seen.insert(id).second, id + " is listed once");
+    }
+    check(!seen.empty() && seen.size() == catalogue::allIds().size(), "the listing's ids are distinct");
 }
 
 // What the shell asks through core/api: every answer has to be the tables', in allIds() order.
@@ -562,7 +580,7 @@ void theShellsQuestionsAgreeWithTheTables() {
         check(catalogue::scopeNamed(catalogue::name(scope)) == scope, std::string("scope by name: ") + catalogue::name(scope));
     }
     check(!catalogue::scopeNamed("") && !catalogue::scopeNamed("universal"), "any other text names no scope");
-    // The scopes a screen names outright (render/scene/StyleCatalogue.kt): a rename here would hide nothing there.
+    // The scopes a screen names outright (engine/bridge/StyleCatalogue.kt): a rename here would hide nothing there.
     const std::pair<const char*, Scope> shell[] = {
         {"UNIVERSAL", Scope::Universal},
         {"BAND_GAINS", Scope::BandGains},
@@ -630,6 +648,7 @@ int main(int argc, char** argv) {
     paramScopesMatchTheOldParamScope();
     everyStyleKeepsItsOldLookGroup();
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();
+    everyIdIsNonEmptyAndUnique();
     theShellsQuestionsAgreeWithTheTables();
     textRoundTrips();
     valuesTheShellReads();

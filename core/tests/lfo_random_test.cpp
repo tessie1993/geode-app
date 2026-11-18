@@ -293,8 +293,8 @@ void sameSeedSameWaves() {
     check(!sameWaves(a, c), "another seed rolls others");
 }
 
-// A category roll (Music's Randomize, randomize everything) only re-rolls the steady waves already
-// switched on: it never switches a wave on, and leaves a wave that follows the sound alone.
+// A roll of everything (the waves are Expert's, which has no roll of its own) only re-rolls the steady
+// waves already switched on: it never switches a wave on, and leaves a wave that follows the sound alone.
 void aCategoryRollOnlyMovesRunningWaves() {
     const SceneParams params{};
     const std::string style = catalogue::allIds().front();

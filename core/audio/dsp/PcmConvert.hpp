@@ -6,9 +6,9 @@
 namespace geode::audio {
 
 // Sample-format and channel conversions on the export's way into the AAC encoder and the loudness meter
-// (ADR 0006: int16 <-> float belongs in native ingest). Ported from the Kotlin AudioTranscoder (downmix,
+// (int16 <-> float belongs in native ingest). Ported from the Kotlin AudioTranscoder (downmix,
 // float decoder output to s16, written twice there, once per decoder path) and LoudnessMeter.readSigned16.
-// MediaCodec buffers stay Kotlin; the loops over their samples move here. Pure, any thread.
+// Their callers are native (output/AacTranscode, output/LoudnessScan). Pure, any thread.
 
 // Interleaved s16 from srcChannels to dstChannels (1 or 2), writing frames * dstChannels samples to out:
 //   mono: the integer mean of every channel (truncating, as Kotlin's Int division does);

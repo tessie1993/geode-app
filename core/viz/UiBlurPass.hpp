@@ -55,6 +55,8 @@ public:
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
     void releaseTargets();
+    // Once a frame, on the wall step: frees the targets once `idleSeconds` pass without a draw.
+    void releaseIdle(float wallDt, float idleSeconds);
     // After the composite, with `targetFbo` holding the finished frame of width × height pixels.
     void draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao);
 
@@ -66,6 +68,8 @@ private:
     Framebuffer half_{"uiBlurHalf"};
     Framebuffer quarterA_{"uiBlurQuarterA"};
     Framebuffer quarterB_{"uiBlurQuarterB"};
+    // Wall seconds since the last draw (releaseIdle).
+    float idleSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz

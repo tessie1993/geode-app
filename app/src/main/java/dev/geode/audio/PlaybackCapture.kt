@@ -1,10 +1,7 @@
 package dev.geode.audio
 
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioPlaybackCaptureConfiguration
-import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import dev.geode.engine.bridge.IngestNative
 
 enum class CaptureFailure {
     PERMISSION,
@@ -14,51 +11,34 @@ enum class CaptureFailure {
     UNAVAILABLE,
 }
 
+/**
+ * Another app's audio into [ring]. Native builds the `AudioRecord` over the consent token, reads it on its own
+ * thread and releases it (`core/audio/ingest/CapturePump`); the shell only hands down the [MediaProjection].
+ */
 class PlaybackCapture(
-    ring: Long,
-) : AudioCapturePump(ring, DEFAULT_RATE) {
-    @Volatile
-    private var channelCount: Int = 1
+    private val ring: Long,
+) {
+    private var handle = 0L
 
-    override val threadName = "geode-playback-capture"
+    val active: Boolean
+        @Synchronized get() = IngestNative.javaCaptureActive(handle)
+
+    /** Only digital zero for a while since the start (native `core/sound/Silence`): a refused capture. */
+    val quiet: Boolean
+        @Synchronized get() = IngestNative.javaCaptureQuiet(handle)
 
     @Synchronized
     fun start(projection: MediaProjection): CaptureFailure? {
         if (active) return null
-        val rec = openRecord(projection) ?: return CaptureFailure.UNAVAILABLE
-        if (!startPump(rec, channelCount)) return CaptureFailure.UNAVAILABLE
-        return null
+        stop()
+        handle = IngestNative.javaCapturePlayback(projection, ring)
+        return if (handle != 0L) null else CaptureFailure.UNAVAILABLE
     }
 
-    private fun openRecord(projection: MediaProjection): AudioRecord? {
-        val config =
-            AudioPlaybackCaptureConfiguration
-                .Builder(projection)
-                .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-                .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-                .build()
-        val (rec, channels) =
-            openFirst { rate, mask, encoding, bytes ->
-                @Suppress("MissingPermission")
-                AudioRecord
-                    .Builder()
-                    .setAudioPlaybackCaptureConfig(config)
-                    .setAudioFormat(
-                        AudioFormat
-                            .Builder()
-                            .setEncoding(encoding)
-                            .setSampleRate(rate)
-                            .setChannelMask(mask)
-                            .build(),
-                    ).setBufferSizeInBytes(bytes)
-                    .build()
-            } ?: return null
-        channelCount = channels
-        return rec
-    }
-
-    private companion object {
-        const val DEFAULT_RATE = 48_000
+    /** No write follows once this returns. */
+    @Synchronized
+    fun stop() {
+        IngestNative.javaCaptureStop(handle)
+        handle = 0L
     }
 }

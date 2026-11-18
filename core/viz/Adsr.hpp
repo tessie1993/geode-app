@@ -41,7 +41,8 @@ public:
     const std::array<float, kCount>& tick(float dt, const GeodeSoundFrame& sound, std::uint32_t moments = 0);
     static void lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
                            std::array<float, LfoEngine::kSlots>& rate, std::array<float, LfoEngine::kSlots>& depth);
-    static SceneParams apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);
+    // Adds each enabled envelope, times its amount, to every scene field it targets in `p`, in place.
+    static void apply(SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs);
 
     // The shortest stage the envelope runs: attack's control floor (the adsr_attack row), which decay
     // and release share although their controls start higher (0.01 s and 0.02 s), so a value saved
@@ -51,10 +52,11 @@ public:
     static constexpr float kMinGateThreshold = config::spec(config::Slot::adsr_gateThreshold).min;
 
 private:
-    static constexpr float kChainRateHz = 4.0f;
+    // Where an envelope is: at rest, rising to its peak, falling to the sustain, holding it, or letting go.
+    enum class Stage { Idle, Attack, Decay, Sustain, Release };
 
     std::array<float, kCount> level_{};
-    std::array<int, kCount> stage_{};
+    std::array<Stage, kCount> stage_{};
     std::array<float, kCount> out_{};
     std::array<float, kCount> peak_{1.0f, 1.0f};
 };

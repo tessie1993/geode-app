@@ -27,7 +27,6 @@ inline Gate gateFor(SceneFamily family, bool drawsCamera = false) {
 }
 
 float integrateRotation(float angle, float rotation, float dt);
-float integrateCyclePhase(float phase, float cycleSpeed, float dt, bool enabled);
 inline float brightness(float brightness, float intensity) { return brightness * intensity; }
 inline float paletteSpan(float hueRange, float paletteRange) { return std::max(hueRange, 0.0f) * std::clamp(paletteRange, 0.0f, 1.0f); }
 inline float paletteTintAmount(float tint) { return std::clamp(tint, 0.0f, 1.0f); }

@@ -35,9 +35,10 @@ out vec4 fragColor;
 //   bass         thickens the tube;
 //   centroid     dispersion through the tube;
 //   flatness     frost on the coating;
-//   pan, pitch   the key light's bearing and height (glassLook);
-//   hat          glints on the coating;
-//   pan          turns the kaleidoscope; the music's clock turns it continually.
+//   pitch        the key light's height (glassLook);
+//   hat          glints on the coating.
+// No sound turns the kaleidoscope: it turns on time alone (owner 2026-11-12, no
+// style spins to the music).
 //
 // ---- macros -----------------------------------------------------------------
 //
@@ -66,7 +67,7 @@ float gLip;
 float gPulse;
 float gBulge;
 
-float map(vec3 p) {
+float glassDist(vec3 p) {
     vec3 q = gOrient * p;
     float rho = length(q.xz);
     float phi = atan(q.z, q.x);
@@ -83,18 +84,26 @@ float map(vec3 p) {
     return (best + glassSurfaceWarp(q)) / (gLip * glassSurfaceLip());
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
+/** What the field holds at a point (lib_glass_field): the distance alone. */
+struct GlassHit {
+    float d;
+};
+
+GlassHit glassMap(vec3 p) {
+    GlassHit h;
+    h.d = glassDist(p);
+    return h;
 }
+
+//#include lib_glass_field
+
 
 float crossTube(vec3 q, vec3 dir, float eps) {
     // Start a little past the wall: just inside, the (Lipschitz-scaled) field is already under eps.
     float ti = 0.03;
     for (int i = 0; i < GLASS_MAX_INNER; i++) {
         if (float(i) >= glassInnerSteps()) break;
-        float d = -map(q + dir * ti);
+        float d = -glassField(q + dir * ti).d;
         if (d < eps) break;
         ti += max(d, eps);
     }
@@ -103,19 +112,20 @@ float crossTube(vec3 q, vec3 dir, float eps) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
     gGlassFlow = kFlow;
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     lk.glow *= 1.0 + kBuild;
-    float spread = 0.015 + 0.04 * ear.sharp;
+    float spread = glassSpread(0.015 + 0.04 * ear.sharp);
     float frost = ear.frost * 0.5;
     float coat = 200.0 + 450.0 * ear.height;
 
@@ -130,11 +140,11 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    // The kaleidoscope: fold the view into mirrored wedges that turn on the music's clock.
+    // The kaleidoscope: fold the view into mirrored wedges that turn on time alone.
     // Six wedges, eight with Complexity; each wedge looks at the knot from its centre, so
     // the knot repeats round the frame as a ring of glass.
     float wedges = glassComplexity() >= 0.5 ? 8.0 : 6.0;
-    vec2 kv = uv * glassRot(0.05 * SND_CURVED_TIME + 0.3 * ear.pan);
+    vec2 kv = uv * glassRot(0.05 * t);
     float ka = atan(kv.y, kv.x);
     float seg = GLASS_TAU / wedges;
     ka = abs(mod(ka, seg) - seg * 0.5);
@@ -145,14 +155,16 @@ void main() {
 
     float hitT = -1.0;
     float used = 0.0;
-    vec2 tb = glassSphere(ro, rd, vec3(0.0), KN_R + gWind + gTube + 0.25);
+    // The knot's bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a layer opened); as was at rest.
+    float boundR = KN_R + gWind + gTube + 0.25;
+    vec2 tb = glassSphere(ro, rd, vec3(0.0), boundR + growSlack(boundR, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tm = max(tb.x, 0.0);
         for (int i = 0; i < GLASS_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (tm > tb.y) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            float d = glassField(ro + rd * tm).d;
             float eps = glassEps(tm);
             if (d < eps) {
                 hitT = tm;
@@ -165,32 +177,32 @@ void main() {
     if (hitT > 0.0) {
         float eps = glassEps(hitT);
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, eps);
+        vec3 n = glassNormal(p, eps);
         n = glassGrain(n, p, frost);
         float cosI = max(dot(n, -rd), 0.0);
-        float fr = glassFresnel(cosI, KN_IOR);
+        float fr = glassFresnel(cosI, glassIor(KN_IOR));
         // The coating: interference colours on the reflection, strongest face on where plain glass reflects least.
         vec3 film = glassFilm(coat, cosI, 1.38);
         vec3 refl = glassEnvRough(reflect(rd, n), lk, frost * 0.1) * mix(vec3(1.0), film * 2.0, 0.7);
         float frC = fr + 0.12 * (1.0 - fr);
         vec3 tint = mix(vec3(1.0), pal(hue + 0.5), 0.15);
 
-        vec3 d1 = glassRefract(rd, n, 1.0 / KN_IOR);
+        vec3 d1 = glassRefract(rd, n, 1.0 / glassIor(KN_IOR));
         vec3 q = p - n * eps * 3.0;
         float ti = crossTube(q, d1, eps);
         vec3 pe = q + d1 * ti;
-        vec3 n2 = normalAt(pe, eps);
+        vec3 n2 = glassNormal(pe, eps);
         vec3 absorb = glassBeer(tint, ti, 0.8);
-        vec3 iors = glassIors(KN_IOR, spread);
-        float fx = glassFresnel(max(dot(d1, n2), 0.0), KN_IOR);
+        vec3 iors = glassIors(glassIor(KN_IOR), spread);
+        float fx = glassFresnel(max(dot(d1, n2), 0.0), glassIor(KN_IOR));
         vec3 refr = glassEnv3(glassRefract(d1, -n2, iors.x), glassRefract(d1, -n2, iors.y), glassRefract(d1, -n2, iors.z), lk) * absorb * (1.0 - fx);
         vec3 d2 = reflect(d1, n2);
         if (glassMarchBounces()) {
             vec3 q2 = pe - n2 * eps * 3.0;
             float t2 = crossTube(q2, d2, eps);
             vec3 pe2 = q2 + d2 * t2;
-            vec3 n3 = normalAt(pe2, eps);
-            refr += glassEnv(glassRefract(d2, -n3, KN_IOR), lk) * absorb * glassBeer(tint, t2, 0.8) * fx * 1.5;
+            vec3 n3 = glassNormal(pe2, eps);
+            refr += glassEnv(glassRefract(d2, -n3, glassIor(KN_IOR)), lk) * absorb * glassBeer(tint, t2, 0.8) * fx * 1.5;
         } else {
             refr += glassEnv(d2, lk) * absorb * absorb * fx * 0.8;
         }

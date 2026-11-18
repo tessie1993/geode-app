@@ -375,6 +375,22 @@ void retriesDiscontinuitiesAndNull() {
     geode_playout_destroy(nullptr);
 }
 
+// The shell's calls as PlayoutSink makes them: the ring head before and after a buffer, and every
+// position Media3 answers, CURRENT_POSITION_NOT_SET included (moved from the Kotlin sink).
+void theShellsSpanAndAnUnsetPosition() {
+    geode_playout* c = geode_playout_create();
+    geode_playout_ring_span(c, 0, 1'000, 1'480);
+    geode_playout_ring_span(c, 10'000, 1'480, 1'960);
+    geode_playout_position(c, GEODE_PLAYOUT_NO_POSITION, 0);
+    check(geode_playout_speaker_frame(c, 0) == 1'000, "an unset position is no report: the first sample stands");
+    geode_playout_position(c, 5'000, 0);
+    check(geode_playout_speaker_frame(c, 0) == 1'240, "a span from two heads is the anchor; 5 ms in is 240 past it");
+    geode_playout_position(c, GEODE_PLAYOUT_NO_POSITION, 0);
+    check(geode_playout_speaker_frame(c, 0) == 1'240, "an unset position after a report changes nothing");
+    geode_playout_destroy(c);
+    geode_playout_ring_span(nullptr, 0, 0, 480);
+}
+
 // ---- Scripts fed straight through the C ABI, for what the fake sink cannot play: a stalled sink,
 // retries, a gapless rate change, a sink clock that drifts, hours of uptime. Every expected value is
 // worked by hand from 48 kHz (480 samples per 10 ms, 48 per ms) or 44.1 kHz (441 per 10 ms). Each case
@@ -734,6 +750,7 @@ int main() {
     sameTimeSameSampleAt30_60_120fps();
     longPlayOutlivesTheAnchorWindow();
     retriesDiscontinuitiesAndNull();
+    theShellsSpanAndAnUnsetPosition();
     aStalledSinkHoldsAQuarterSecondPastItsLastReport();
     aPauseBetweenReportsKeepsWhatPlayedSinceTheLastOne();
     aRepeatedPlayOrPauseChangesNothing();

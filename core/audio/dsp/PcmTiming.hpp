@@ -5,8 +5,8 @@ namespace geode::audio {
 
 // Sample-clock maths on the export's way into the AAC encoder (#421): which rate the encoder gets, how long
 // a run of s16 bytes lasts, where a start time falls in the source, and how a decoded buffer is trimmed to
-// a start. Ported from the Kotlin AudioTranscoder and PcmResampler's companion; the MediaCodec calls and the
-// buffer positions stay Kotlin, every number they move by comes from here. Pure, integer only, any thread.
+// a start. Ported from the Kotlin AudioTranscoder and PcmResampler's companion; the transcode that uses it is
+// native too (output/AacTranscode). Pure, integer only, any thread.
 
 // The highest rate every Android AAC-LC encoder accepts, and the 44.1 kHz family's base.
 inline constexpr int kAacMaxRateHz = 48000;

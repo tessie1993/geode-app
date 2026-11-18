@@ -8,7 +8,7 @@ namespace geode::sound {
 
 namespace {
 
-// Noland's key profiles, as Essentia ships them ("noland"), tonic first. They replaced Krumhansl &
+// Noland's key profiles, tonic first. They replaced Krumhansl &
 // Kessler's probe-tone ratings (1982) after tools/sound_bench measured both on the same chroma: the key
 // at the end of a piece rose from MIREX 0.69-0.79 to 0.82-0.84 and the frames with the exact key from
 // 0.64-0.66 to 0.75-0.77 over three seeds of the bench's 48 pieces; Temperley's 2005 profiles came close.
@@ -23,28 +23,48 @@ constexpr std::array<float, 7> kIntervalRoughness = {0.0f, 1.0f, 0.55f, 0.15f, 0
 constexpr float kLowHz = 250.0f;
 constexpr float kHighHz = 2000.0f;
 
-// Pearson correlation of `c` with `profile` rotated to `tonic`.
-float correlate(const std::array<float, 12>& c, const std::array<float, 12>& profile, int tonic) {
-    float mc = 0.0f;
-    float mp = 0.0f;
-    for (int i = 0; i < 12; i++) {
-        mc += c[i];
-        mp += profile[i];
+// A key profile with its mean and centred values, which do not change from one correlation to the next.
+struct Profile {
+    std::array<float, 12> centred{};
+    float spread = 0.0f;  // the sum of the centred values squared
+    explicit Profile(const std::array<float, 12>& profile) {
+        float mp = 0.0f;
+        for (int i = 0; i < 12; i++) mp += profile[i];
+        mp /= 12.0f;
+        for (int i = 0; i < 12; i++) {
+            centred[i] = profile[i] - mp;
+            spread += centred[i] * centred[i];
+        }
     }
-    mc /= 12.0f;
-    mp /= 12.0f;
+};
+const Profile kMajor(kMajorProfile);
+const Profile kMinor(kMinorProfile);
+
+// The mean of a chroma, as correlate() centres it.
+float meanOf(const std::array<float, 12>& c) {
+    float mc = 0.0f;
+    for (int i = 0; i < 12; i++) mc += c[i];
+    return mc / 12.0f;
+}
+
+// Pearson correlation of `c` (its mean `mc`) with `profile` rotated to `tonic`.
+float correlate(const std::array<float, 12>& c, float mc, const Profile& profile, int tonic) {
     float num = 0.0f;
     float dc = 0.0f;
-    float dp = 0.0f;
     for (int i = 0; i < 12; i++) {
         const float a = c[(i + tonic) % 12] - mc;
-        const float b = profile[i] - mp;
-        num += a * b;
+        num += a * profile.centred[i];
         dc += a * a;
-        dp += b * b;
     }
-    return dc > 1e-12f ? num / std::sqrt(dc * dp) : 0.0f;
+    return dc > 1e-12f ? num / std::sqrt(dc * profile.spread) : 0.0f;
 }
+
+// The chord colour's circle of fifths: the cosine and sine of each class's angle.
+struct HueAngles {
+    std::array<float, 12> cos{};
+    std::array<float, 12> sin{};
+    HueAngles();
+};
 
 void normalise(const std::array<float, 12>& in, float* out) {
     float top = 0.0f;
@@ -76,6 +96,15 @@ float distance(const std::array<float, 12>& a, const std::array<float, 12>& b) {
 }
 
 float hueOf(int pitchClass) { return static_cast<float>((pitchClass * 7) % 12) / 12.0f; }
+
+HueAngles::HueAngles() {
+    for (int i = 0; i < 12; i++) {
+        const float a = 2.0f * std::numbers::pi_v<float> * hueOf(i);
+        cos[i] = std::cos(a);
+        sin[i] = std::sin(a);
+    }
+}
+const HueAngles kHueAngles;
 
 constexpr ScaleInfo kScales[] = {
 #include "sound/ScaleTable.inc"
@@ -224,8 +253,8 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             if (rawTop <= 0.0f) rawTop = 1.0f;
             for (float& v : raw) v /= rawTop;
             // Until a chroma has heard its own time constant of audio, it is the plain mean of every hop
-            // heard (Essentia's streaming Key averages all its HPCP frames the same way); after that the
-            // one-pole average takes over, where the two weights meet. Seeding with the first hop gave
+            // heard (a streaming key estimate commonly averages all its chroma frames the same way); after
+            // that the one-pole average takes over, where the two weights meet. Seeding with the first hop gave
             // one mostly empty window the weight of four seconds, and the key and scale read from it.
             constexpr float kFastTau = 0.1f;
             constexpr float kMediumTau = 0.5f;
@@ -265,9 +294,10 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         int best = 0;
         float bestMajor = -1.0f;
         float bestMinor = -1.0f;
+        const float slowMean = meanOf(slow_);
         for (int t = 0; t < 12; t++) {
-            r[t] = correlate(slow_, kMajorProfile, t);
-            r[12 + t] = correlate(slow_, kMinorProfile, t);
+            r[t] = correlate(slow_, slowMean, kMajor, t);
+            r[12 + t] = correlate(slow_, slowMean, kMinor, t);
             bestMajor = std::max(bestMajor, r[t]);
             bestMinor = std::max(bestMinor, r[12 + t]);
         }
@@ -300,9 +330,8 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         std::array<float, 12> above{};
         for (int i = 0; i < 12; i++) {
             above[i] = std::max(0.0f, medium_[i] - mean);
-            const float a = 2.0f * std::numbers::pi_v<float> * hueOf(i);
-            x += above[i] * std::cos(a);
-            y += above[i] * std::sin(a);
+            x += above[i] * kHueAngles.cos[i];
+            y += above[i] * kHueAngles.sin[i];
         }
         if (x * x + y * y > 1e-6f) {
             const float hue = std::atan2(y, x) / (2.0f * std::numbers::pi_v<float>);

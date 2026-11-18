@@ -459,7 +459,7 @@ void catalog() {
     for (const char* line : {
              "count|waves|3",
              "count|envelopes|2",
-             "count|routes|12",
+             "count|routes|16",
              "range|lfo.rateSeconds|2|0.05|60",
              "range|lfo.depth|0.3|0|1",
              "range|adsr.attack|0.05|0.005|1",

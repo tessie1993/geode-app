@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
  * What it cannot reach: the live visual. StageView is a SurfaceView, a surface of its own that
  * SurfaceFlinger composites under the window, so it is not in any RenderNode a view can sample. A
  * blurred visual under the sheet has to come from the renderer itself (a native pass over the sheet's
- * rectangle, ADR 0003), which keeps the visual's frame rate the renderer's business. Never wrap the
+ * rectangle), which keeps the visual's frame rate the renderer's business. Never wrap the
  * StageView in [glassBackdrop]: its hole would be recorded, and it would be drawn twice.
  *
  * The one rule: the glass must not sit inside its own backdrop, or the layer would draw itself.

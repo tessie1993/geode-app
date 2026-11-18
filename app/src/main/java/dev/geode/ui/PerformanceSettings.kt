@@ -19,10 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GeneralSettings
-import dev.geode.data.LiquidHotPolicy
 import dev.geode.data.PerformanceMode
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.PerfNative
 import dev.geode.geodeContainer
 
 /**
@@ -70,7 +69,7 @@ private fun PerformanceModeControls(
                 stringResource(R.string.perf_mode_high),
             ),
         selected = mode?.ordinal ?: -1,
-        onSelect = { onChange(PerformanceMode.entries[it].settings.copy(liquidHot = settings.liquidHot)) },
+        onSelect = { onChange(PerformanceMode.entries[it].settings) },
     )
     Hint(
         stringResource(
@@ -100,14 +99,14 @@ private fun PerformanceDetailControls(
         Choice(
             stringResource(R.string.perf_fps_cap),
             fpsCaps.map {
-                if (it == GeodeNative.LIVE_FPS_FOLLOW) {
+                if (it == PerfNative.LIVE_FPS_FOLLOW) {
                     stringResource(R.string.perf_fps_follow)
                 } else {
                     stringResource(R.string.perf_fps_value, it)
                 }
             },
             // The stored pick as this display runs it (a 120 picked on a foldable's inner screen reads 60 outside).
-            fpsCaps.indexOf(GeodeNative.liveFpsCap(settings.fpsCap, refreshRates)),
+            fpsCaps.indexOf(PerfNative.liveFpsCap(settings.fpsCap, refreshRates)),
         ) { onChange(settings.copy(fpsCap = fpsCaps[it])) }
         Spacer(Modifier.height(6.dp))
         Hint(stringResource(R.string.perf_fps_cap_hint))
@@ -128,27 +127,6 @@ private fun PerformanceDetailControls(
             onCheckedChange = { onChange(settings.copy(postFx = it)) },
         )
         Hint(stringResource(R.string.perf_post_fx_hint))
-    }
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.perf_adaptive),
-            checked = settings.adaptive,
-            onCheckedChange = { onChange(settings.copy(adaptive = it)) },
-        )
-        Hint(stringResource(R.string.perf_adaptive_hint))
-    }
-    Column {
-        Choice(
-            stringResource(R.string.perf_liquid_hot),
-            listOf(
-                stringResource(R.string.perf_liquid_hot_simplify),
-                stringResource(R.string.perf_liquid_hot_full),
-                stringResource(R.string.perf_liquid_hot_pause),
-            ),
-            settings.liquidHot.ordinal,
-        ) { onChange(settings.copy(liquidHot = LiquidHotPolicy.entries[it])) }
-        Spacer(Modifier.height(6.dp))
-        Hint(stringResource(R.string.perf_liquid_hot_hint))
     }
     Hint(stringResource(R.string.perf_export_note))
 }
@@ -174,8 +152,8 @@ internal fun rememberSeamlessRefreshRates(): FloatArray {
 
 /** The live caps Settings › Performance offers on a display with [refreshRates], ascending, then Follow device (native). */
 private fun liveFpsCaps(refreshRates: FloatArray): List<Int> {
-    val out = IntArray(GeodeNative.LIVE_FPS_MAX_CHOICES)
-    val count = GeodeNative.liveFpsChoices(refreshRates, out)
+    val out = IntArray(PerfNative.LIVE_FPS_MAX_CHOICES)
+    val count = PerfNative.liveFpsChoices(refreshRates, out)
     return out.take(count.coerceIn(0, out.size))
 }
 

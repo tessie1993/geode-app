@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Bead Vortex: a flight down a tube whose walls are strands of segmented
 // beads - crimson, chartreuse and violet - winding round the bore toward a
@@ -39,7 +40,8 @@ out vec4 fragColor;
 // ---- audio: one sound, one property -----------------------------------------
 //
 // Flow (uFlowPhase) and the bass clock (uSoundTimeSped.x) stream the beads
-//                      along their strands into the core and turn the weave.
+//                      along their strands into the core. The weave turns on
+//                      time alone (owner 2026-11-12, no style spins to the music).
 // Kick (SND_KICK_ENV)  a swell runs down the tunnel: the beads it passes grow
 //                      and glow, and the ring recedes as the envelope falls.
 // Snare (SND_SNARE_ENV) the outer layer's rims light in the contrasting hue.
@@ -56,7 +58,11 @@ out vec4 fragColor;
 //
 // Knobs: k0 PULSE the kick swell, k1 TEXTURE the kernel ridges on each bead
 // (a cob of corn, as the flat style faked), k2 FLOW the haze density, k3 TONE
-// the hue, k4 BUILD the core and halo, k5 SPACE the tube's width.
+// the depth between the two bead layers (a high melody pulls the inner layer
+// in and pushes the outer one out, so the vortex opens into two shells you
+// see between; a low one presses them into one dense wall; plus a small hue
+// offset; the outer layer stays clear of the wall), k4 BUILD the core and
+// halo, k5 SPACE the tube's width.
 //
 // ---- why the estimate is safe -----------------------------------------------
 //
@@ -106,6 +112,8 @@ float gRipple;
 float gRingZ;
 float gRingAmt;
 float gTouch;
+/** k3 TONE: the inner and outer layers' radius scales (1, 1 at rest). */
+vec2 gSpread = vec2(1.0);
 
 // ---- reported back by map(): capture before the normal taps overwrite them --
 
@@ -169,7 +177,7 @@ float strandLayer(vec3 p, float rr, float a, float r, float n, float turns, floa
     return d;
 }
 
-float map(vec3 p) {
+float bvField(vec3 p) {
     vec2 rel = p.xy - boreCentre(p.z);
     float rr = max(length(rel), 1e-4);
     float a = atan(rel.y, rel.x);
@@ -178,10 +186,28 @@ float map(vec3 p) {
     gStrand = 0.0;
     gBeadPhase = 0.0;
     gAround = 0.0;
-    d = min(d, strandLayer(p, rr, a, BV_R2 * gScale, BV_N2, BV_T2, BV_RB2, 2.0, d, 1.0));
-    d = min(d, strandLayer(p, rr, a, BV_R1 * gScale, BV_N1, BV_T1, BV_RB1, 1.0, d, 0.0));
+    d = min(d, strandLayer(p, rr, a, BV_R2 * gScale * gSpread.y, BV_N2, BV_T2, BV_RB2, 2.0, d, 1.0));
+    d = min(d, strandLayer(p, rr, a, BV_R1 * gScale * gSpread.x, BV_N1, BV_T1, BV_RB1, 1.0, d, 0.0));
     d = max(d, BV_BUBBLE - length(p - gEye));
     return d;
+}
+
+/** bvField through lib_shell's hooks: exactly bvField(p) at rest, and bvField read once, in a loop the compiler cannot unroll. */
+float bvFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, bvField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: bvField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return bvFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -212,16 +238,44 @@ void main() {
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
     float glow = max(uIntensity, 0.0);
 
-    // Integrated clocks only, so a change of rate never slides the beads.
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nRing = clamp(uKnob[0], 0.0, 1.0);
+    float nCob = clamp(uKnob[1], 0.0, 1.0);
+    float nHaze = clamp(uKnob[2], 0.0, 1.0);
+    float nLayers = clamp(uKnob[3], 0.0, 1.0);
+    float nCore = clamp(uKnob[4], 0.0, 1.0);
+    float nTube = clamp(uKnob[5], 0.0, 1.0);
+    float nCord = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    float nSway = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);
+    float nRipple = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);
+    // The kick ring's depth, the kernel ridges' depth, the haze, the inner and
+    // outer layers' radii, the core's light, and the tube's width.
+    float ringK = shellMap(nRing, 0.0, 1.0, 2.0);
+    float cobDepth = shellMap(nCob, 0.0, 0.35, 0.7);
+    float fogK = shellMap(nHaze, 0.045, 0.075, 0.105);
+    float build = shellMap(nCore, 0.5, 1.0, 1.5);
+    gScale = shellMap(nTube, 0.85, 1.0, 1.15) * (1.0 + 0.25 * dropBump);
+    gSpread = vec2(shellMap(nLayers, 1.3, 1.0, 0.7), shellMap(nLayers, 0.85, 1.0, 1.15));
+    // The cord between the beads (Morph), the strands' sway (Warp), the ripple (Turbulence).
+    gCord = shellMap(nCord, 0.32, 0.32, 1.0);
+    gSway = shellMap(nSway, 0.0, 0.0, 0.5);
+    gRipple = shellMap(nRipple, 0.0, 0.0, 0.1);
+
+    // The beads stream on integrated clocks, so a change of rate never slides
+    // them; the weave's turn is uTime's alone, which follows Speed and never
+    // the music (it used to ride the loudness clock too).
     float travel = uFlowPhase * 4.0 + uTime * 0.9;
-    gSpin = travel * 0.12;
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.252;
     gFlow = travel * 1.2 + uSoundTimeSped.x * 0.8;
-    gScale = (0.85 + 0.3 * uKnob[5]) * (1.0 + 0.25 * dropBump);
-    gCord = mix(0.32, 1.0, clamp(uMorph, 0.0, 1.0));
-    gSway = 0.5 * clamp(uWarp, 0.0, 1.0);
-    gRipple = 0.1 * clamp(uTurbulence, 0.0, 1.0);
     gTouch = touchFalloff(uv, 0.5);
-    gRingAmt = kick * 2.0 * uKnob[0];
+    gRingAmt = kick * ringK;
 
     vec3 ro;
     vec3 rd;
@@ -230,6 +284,8 @@ void main() {
     // rebase is exact, and z keeps its precision far down the 8192 travel.
     ro.z = mod(ro.z, BV_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
     // The swell leaves just ahead of the eye and recedes as the envelope falls.
     gRingZ = ro.z + 2.0 + 16.0 * (1.0 - kick);
 
@@ -258,8 +314,7 @@ void main() {
         t += max(d * BV_STEP, eps);
     }
 
-    float hue = 0.12 * pitchBump + 0.3 * (uKnob[3] - 0.5) + 0.25 * dropBump;
-    float fogK = 0.075 * (0.6 + 0.8 * uKnob[2]);
+    float hue = 0.12 * pitchBump + shellMap(nLayers, -0.15, 0.0, 0.15) + 0.25 * dropBump;
     vec3 coreDir = normalize(vec3(-ro.xy, 40.0));
     float ahead = max(dot(rd, coreDir), 0.0);
     float sceneT = hitT > 0.0 ? hitT : BV_FAR;
@@ -286,7 +341,7 @@ void main() {
             uint hp = uhash3(uvec3(uint(hitStrand), 3u, uint(hitMat) + 5u));
             vec3 base = beadColour(floor(uhashUnit(hp) * 3.0), hue);
             // Kernel ridges round each bead, like a cob; the flat style's fake, now on a real bead.
-            float cob = 1.0 - 0.35 * uKnob[1] * 2.0 * (0.5 + 0.5 * sin(hitAround * 9.0)) * (1.0 - abs(hitPhase) * 2.0);
+            float cob = 1.0 - cobDepth * (0.5 + 0.5 * sin(hitAround * 9.0)) * (1.0 - abs(hitPhase) * 2.0);
             float bulge = 0.5 + 0.5 * cos(BV_TAU * hitPhase);
             vec3 c = base * (0.15 + 0.8 * diff) * cob;
             c += vec3(0.5) * spec * 0.35;
@@ -318,7 +373,7 @@ void main() {
             float ti = (zi - ro.z) / rd.z;
             if (ti < 0.5 || ti > sceneT) continue;
             vec2 xy = ro.xy + rd.xy * ti;
-            if (length(xy - boreCentre(zi)) > BV_R1 * gScale - 0.25) continue;
+            if (length(xy - boreCentre(zi)) > BV_R1 * gScale * gSpread.x - 0.25) continue;
             vec2 cell = floor(xy / 0.6);
             int slice = int(mod(zi, BV_ZWRAP) * 0.5 + 0.5);
             float h = hashCell(ivec3(int(cell.x), int(cell.y), slice));
@@ -338,7 +393,6 @@ void main() {
     // that flares on a drop. Measured as the screen radius from the bore's end.
     float cosA = dot(rd, coreDir);
     float rs = sqrt(max(2.0 - 2.0 * cosA, 0.0)) * uCamFocal;
-    float build = 0.5 + uKnob[4];
     float seen = hitT > 0.0 ? 0.3 : 1.0;
     float core = exp(-rs * rs * 260.0) * seen;
     float sunRings = 0.6 + 0.4 * sin(rs * 110.0 - travel * 2.0);

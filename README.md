@@ -65,8 +65,6 @@ Gradle modules, package `dev.geode`:
 
 | Module | What it holds |
 |---|---|
-| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so` (the PCM rings, their kinds and lifetimes are native, in `core/audio/ingest`) |
-| `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, the style catalogue as Kotlin reads it |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root
@@ -76,7 +74,7 @@ dynamically linked):
 | Directory | What it holds |
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
-| `core/sound` | The sound engine: FFT bands (its own radix-2 `Fft`) and a per-sample filter bank, drums, onsets, melody, stereo field, stepped once per rendered frame into a `GeodeSoundFrame` |
+| `core/sound` | The sound engine: FFT bands (its own radix-2 `Fft`) and a per-sample filter bank, drums, onsets, melody, stereo field, analysed on a thread of its own per PCM ring (inline for an export), published as hops a renderer reads into a `GeodeSoundFrame` |
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the auto-director (`Director`), the reaction matrix (`Reactions`), the per-frame motion (`MotionField`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
 | `core/library` | TagLib tag reading and writing over a file descriptor |
@@ -89,10 +87,9 @@ the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
 
 ## Tests
 
-JVM unit tests live in `app/src/test` and `engine/*/src/test`, and CI runs
+JVM unit tests live in `app/src/test`, and CI runs
 every module's; instrumented tests live in `app/src/androidTest`. Checks that cannot run
-headless (GL behaviour, capture, wallpaper) are listed in
-[docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
+headless (GL behaviour, capture, wallpaper) need a device.
 `tools/glslcheck` compiles and renders every fragment style and every fluid
 display variant headlessly (`node check.mjs --all`), and
 `tools/hostlink/hostlink.sh` compiles and links the native renderer on the
@@ -114,10 +111,6 @@ portability, not device checks.
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) — version history, newest first.
-- [docs/AUDIO_CHAIN.md](docs/AUDIO_CHAIN.md) — where playback audio goes and
-  which stages the visuals see.
-- [docs/PARAM_MATRIX.md](docs/PARAM_MATRIX.md) — param × scene-family matrix.
-- [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md) — on-device checklist.
 - `tools/build-projectm.md` — how projectM is built from the submodule.
 - `THIRD_PARTY_NOTICES` — licences and attributions; the in-app notices asset
   mirrors this file.

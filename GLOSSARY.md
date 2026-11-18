@@ -34,7 +34,7 @@ What the analysis hears in one moment of audio: levels, bands, onsets, beat, bar
 _Avoid_: FFT data, spectrum (the spectrum is one feature)
 
 **Loudness (loudnessM / loudnessS)**:
-The music's absolute volume, measured as fosfora does: BS.1770 K-weighted LUFS over 400 ms (momentary) and 3 s (short-term), -60 LUFS = 0 … 0 LUFS = 1 on every song. Never relative to the song's own average (that is what the bass, mid and treble ratios are). `core/sound/LufsMeter`.
+The music's absolute volume: BS.1770 K-weighted LUFS over 400 ms (momentary) and 3 s (short-term), -60 LUFS = 0 … 0 LUFS = 1 on every song. Never relative to the song's own average (that is what the bass, mid and treble ratios are). `core/sound/LufsMeter`.
 _Avoid_: Level (the sound frame's `level` is the RMS in dBFS, also absolute, but not K-weighted)
 
 **Silence gate**:
@@ -44,7 +44,7 @@ The one flag every detector reads: opens when the momentary loudness reaches -55
 How dense the music is, 0..1, on fixed scales: onsets a second (8 = 1), kicks and snares a second, and how sure the beat is.
 
 **Drive**:
-How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.7 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
+How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`core/sound/DriveGain`: 0.15 at no drive, 1 at 0.5 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
 _Avoid_: Audio drive (the user's Customize amount, which scales the reach of the music further)
 
 **Feature timeline**:
@@ -130,6 +130,10 @@ The categories the scene params are edited in, one tab each (Quick knobs, Look, 
 **Advanced section**:
 One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field, Shader code), opening its own page. All Pro.
 
+**Kaleidoscope**:
+The Customize › Shape slider that folds the picture into mirrored wedges: 1 is Off, 2 to 16 the folds (`kaleidoFolds`). Waves, envelopes, reaction routes and knobs move it; the picture steps by whole folds.
+_Avoid_: Symmetry, Folds menu (the retired switch and count)
+
 **Pool**:
 The style of a swimming pool's tiled floor seen through moving water, at a slant or from above: waves that stand taller with the level, ripple rings the bass raises, caustics the treble's chop gathers on the floor, a wake where a finger lands. Morph turns the view, Warp deepens the water, Turbulence raises the chop, Intensity brightens the caustics. It replaced the Water style, whose saved looks open on it. Still in silence.
 _Avoid_: Water (the removed style), Ripples (a different style)
@@ -143,7 +147,7 @@ The per-control lock that holds a control still when Randomize rolls its page.
 _Avoid_: Lock (that word belongs to Pro)
 
 **Reaction route**:
-One line of the reaction matrix: a sound (band, level or event) moves one scene param, by following, stepping, spinning or jumping.
+One line of the reaction matrix: a sound (band, level, event or musical value) moves one scene param, by following, stepping, adding up, jumping or toggling.
 _Avoid_: Binding, mapping
 
 **Jump**:
@@ -152,12 +156,38 @@ A route mode: each hit holds a new random value for its target (sample and hold)
 **Toggle**:
 A route mode: each hit flips its target between rest and the full amount, such as a palette swap per phrase.
 
+**Jump, settled**:
+A route mode: a Jump that takes a hit only once its last value has had its glide (attack + release), so busy hits cannot flicker it.
+
+**Add up**:
+A route mode (saved as SPIN): the source is added up over time, so a held value carries the target on instead of pushing it out and back.
+
+**Bar count**:
+A reaction source counted on the music's own bars, every bar, 2, 4 or every phrase: a hold (a new value kept until the next count), a pulse or a flip (0 and 1 in turn). Only a locked beat counts; with none heard they stay still.
+_Avoid_: Beat timer, tempo clock (nothing here runs on a tempo it has not heard)
+
+**Melody contour**:
+Whether the tune is climbing or falling, -1..1: a fast follower of the pitch over a slow one, resting at 0 when no note sounds. A reaction source.
+
+**Kind of feeling**:
+Which of the nine GEMS feelings leads right now (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness), held until another clearly leads. A reaction source; five of the kinds also have a share of their own.
+
+**Section progress**:
+How far through its section the music is, 0..1, against how long the song's sections have run so far. A reaction source.
+_Avoid_: Song position (that is the player's time)
+
+**Section return**:
+A section heard before comes back: the analyser names a new section with an old section's number. A reaction source.
+
+**Chord motion**:
+How fast the chords move round the circle of fifths, 0..1. A reaction source.
+
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
 _Avoid_: Section (that is the analyser's structure boundary)
 
 **Style DNA**:
-The reaction routes a style plays until the user edits them, generated from the style id and a seed.
+The reaction routes a style plays until the user edits them, generated from the style id and a seed: the groove (its beat personalities, big moments, body, colour, texture and a transient route), then one route each on the bars, the tune, the harmony and form, and the feel and timbre. No default route follows the absolute loudness.
 
 **Macro**:
 One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Shape, Motion, Colour, Depth), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.
@@ -176,14 +206,14 @@ A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snar
 _Avoid_: Trigger preset
 
 **Event**:
-A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine; the kinds are one table (`core/signal/events/EventKinds.inc`).
+A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine.
 _Avoid_: Trigger (that is the sound frame's field an event comes from), moment (the Music page's groups of sources)
 
 **Event route**:
 A reaction route whose source is an event: on every Nth matching event, it does one thing to one param (set it, nudge it, glide it, step it, toggle it or pulse it). Event recipes are bundles of these. A pulse on a brightness-like param is slowed and limited to three a second.
 
 **Param phase**:
-What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives (`core/signal/params/ParamState.hpp`).
+What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives.
 _Avoid_: Param mode, lock state
 
 **Modulation**:
@@ -191,7 +221,14 @@ LFOs and ADSR envelopes that move scene params over time or on hits.
 
 **Layer**:
 A second scene drawn over the main one with a mix amount and blend mode.
+Its style comes from a layer source: the user's pick, Auto Director's pick at its style moments, or a macro knob's turn; native never draws the style on screen as its layer.
 _Avoid_: Overlay (overlay is a Studio lane)
+
+**Physics layers**:
+A fluid and particles any style can carry over its finished picture: the fluid behind or over the style, the particles in front.
+The picture is the fluid's ink and stirs it; the particles ride the fluid and take their colour from the picture.
+Waves, envelopes, reaction routes and macro knobs turn them on and move them (`simFluid`, `simParticles`, `simForce`, `simLayerOrder`; `core/viz/physics`).
+_Avoid_: Sim scene (the fluid styles are scenes of their own), overlay
 
 **Transition**:
 How one scene or clip hands over to the next.
@@ -315,11 +352,11 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
+The switch, labelled Auto Director, first in Visuals › Settings (and in Settings › Visual playback), that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:
@@ -327,15 +364,15 @@ One auto-director decision: a behaviour (axes, camera moves, motion dials), glid
 _Avoid_: Look (alone)
 
 **Director reach**:
-How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
+How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto Director). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
 _Avoid_: Auto level, auto-randomize, shuffle mode
 
 **Look snapshot**:
-Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `render/look/LookSnapshot`.
+Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `core/viz/LookSnapshot`.
 _Avoid_: Live state, look (that is the auto-director's)
 
 **Note & key reactions**:
-Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style.
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
@@ -360,7 +397,7 @@ _Avoid_: Emotion (it is a design reading, not a measurement)
 ## Code
 
 **Engine**:
-Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
+Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). Not the `:engine:*` Gradle modules, which hold only the JNI declarations.
 _Avoid_: Core logic, backend
 
 **Playout clock**:
@@ -372,7 +409,7 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:

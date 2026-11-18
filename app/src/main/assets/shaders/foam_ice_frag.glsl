@@ -28,7 +28,7 @@ void main() {
     vec2 uv = view();
     foamSetup();
     gFoamFall = 0.5;
-    gFoamShell = 0.02 * (1.0 + 0.6 * gFoamKick);
+    gFoamShell = 0.02 * gFoamThick * (1.0 + 0.6 * gFoamKick);
     gFoamHats = max(gFoamHats, gFoamSnare);
     vec3 ro;
     vec3 rd;

@@ -72,7 +72,8 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
 
     // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    director_.configure(settings.director);
+    // With its settings and the style on screen, which a section remembers and a style moment steps on from.
+    director_.configure(settings.director, settings.directorTuning, styleId);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
     if (heard != nullptr) {
         director_.step(sound, *heard, dt);
@@ -116,8 +117,9 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         notes_.step(sound, director_.emotion(), in, dt);
     }
     // The reaction matrix hears the frame before the waves and envelopes, so a slot set "On a moment" restarts or
-    // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them.
-    reactions_.tick(sound, dt);
+    // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them. It hears
+    // the feeling the director heard too (the degree accent, the mood and its tension are sources like any other).
+    reactions_.tick(sound, dt, &director_.emotion());
     const std::uint32_t moments = momentWatch_.step(reactions_.signals());
     const auto& envValues = adsr_.tick(dt, sound, moments);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
@@ -134,17 +136,13 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         reachKnown_ = true;
     }
     SceneParams p = director_.applyAxes(director_.apply(directorReach_.applyShuffle(displayed_)));
-    // A look without a palette stack: what moves Palette 2's amount moves its old Palette blend.
-    const bool ownColours = !settings.palettes;
-    const float ownAmount = p.paletteAmount1;
-    if (ownColours) p = viz::palette::carryBlend(p);
     p = directorReach_.applyModulation(p);
     if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_, &frame_.knobMods);
-    p = lfo_.apply(p, lfoValues);
-    p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
+    lfo_.apply(p, lfoValues);
+    viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
-    p = reactions_.apply(p);
+    reactions_.apply(p);
     // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound
     // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can
@@ -152,7 +150,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     motionField_.step(sound, dt);
     p = motionField_.apply(p, settings.reducedMotion, style.spin);
     p = viz::safety::apply(p, settings.reducedMotion);
-    if (ownColours) p = viz::palette::settleBlend(p, ownAmount);
     frame_.params = p;
     frame_.cameraMoves = director_.moves();
     return frame_;

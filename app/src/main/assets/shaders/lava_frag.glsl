@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_scene_uniforms
 //#include lib_scene_motion
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -61,12 +62,23 @@ out vec4 fragColor;
 //                            it glides in and out.
 // Pitch (SND_HELD_NOTE_CHANGE) slides the wax hue a little, as a hump.
 // Knobs                      k0 PULSE the rim, k1 TEXTURE the wobble depth,
-//                            k2 FLOW how far the blobs sway, k3 TONE the hue,
+//                            k2 FLOW how far the blobs sway, k3 TONE where
+//                            the wax lingers on its rise (a high melody holds
+//                            the blobs up under the cap, a low one keeps them
+//                            down by the pool; the travel itself is unchanged)
+//                            and a small hue offset,
 //                            k4 BUILD the core heat, k5 SPACE the fog (more
 //                            space, thinner liquid). Each is read as an offset
 //                            from 0.5, never as a clock rate.
 // Morph widens the blend (more merging), Warp deepens the wobble, Turbulence
 // raises its frequency.
+// Every one of these, and the lamp's floor and cap (SPACE), the pool's ripple
+// (FLOW) and how far rising wax stretches (BUILD), is one normalized input
+// (lib_shell) set in one block at the top of main and mapped there to its
+// range; at rest each is the constant the lamp was tuned with. The wax is the
+// field the grow hooks act on (its shell wrapper): Spawn slides a second lamp's wax
+// half a cell down the flight, Fractal grows blobs a third the size on the
+// wax, the layers open the near and far lamp.
 //
 // ---- why the distance estimate is safe ------------------------------------
 //
@@ -92,6 +104,7 @@ out vec4 fragColor;
 #define LV_ZCELLS 16.0
 /** The z rebase: LV_P * LV_ZCELLS, a power of two dividing 8192. */
 #define LV_ZWRAP 64.0
+/** The pool's and the cap's rest heights at rest (gFloor, gCeil: SPACE). */
 #define LV_FLOOR -2.7
 #define LV_CEIL 3.0
 /** The largest blob radius: 0.95 at full bass swell, 1.15x. */
@@ -109,8 +122,17 @@ float gFreq;
 float gBlend;
 float gSway;
 float gLip;
+/** TONE's bias of the rise curve: an exponent, 1 at rest. */
+float gLinger;
 /** The eye, z rebased into 0..64. */
 vec3 gEye;
+/** The lamp's floor and cap, the pool's ripple and the stretch of moving wax (see main's inputs). */
+float gFloor;
+float gCeil;
+float gRipple;
+float gStretch;
+/** The hue of the wax lavaField found, for map(). */
+float gLvHue;
 
 /** One blob's (distance, hue): `cell` is the integer cell on x and z. */
 vec2 blob(vec3 p, vec2 cell) {
@@ -128,7 +150,7 @@ vec2 blob(vec3 p, vec2 cell) {
     // Own slow clock: one full rise-and-sink takes 18-40 s, cosine eased.
     float period = mix(18.0, 40.0, h0);
     float u = fract(gT / period + h1 * 1.7);
-    float yc = (LV_FLOOR - 0.35) + (LV_CEIL - LV_FLOOR + 0.1) * (0.5 - 0.5 * cos(LV_TAU * u));
+    float yc = (gFloor - 0.35) + (gCeil - gFloor + 0.1) * pow(0.5 - 0.5 * cos(LV_TAU * u), gLinger);
 
     // Life envelope: dissolves to nothing and regrows in its own home.
     float lifePeriod = mix(45.0, 90.0, h2);
@@ -145,7 +167,7 @@ vec2 blob(vec3 p, vec2 cell) {
 
     vec3 q = vec3(p.x - c.x, p.y - yc, p.z - c.y);
     // Rising and sinking blobs stretch vertically like real wax.
-    float s = mix(0.95, 0.62, abs(sin(LV_TAU * u)));
+    float s = mix(0.95, gStretch, abs(sin(LV_TAU * u)));
     float d = length(vec3(q.x, q.y * s, q.z)) - r;
     // Smoke-like surface, scaled by the radius so a dying blob calms with it.
     float w = 0.6 * sin(gFreq * q.y + gT * 0.9 + h0 * 13.0)
@@ -154,11 +176,11 @@ vec2 blob(vec3 p, vec2 cell) {
     return vec2(d, 0.15 + 0.7 * h3);
 }
 
-/** (distance, hue) of the whole lamp. */
-vec2 map(vec3 p) {
+/** The wax, pool and cap (its hue left in gLvHue): the field the grow hooks act on (map() hands it to its shell wrapper). */
+float lavaField(vec3 p) {
     // The molten pool every blob is born from and returns to, breathing.
-    float pool = LV_FLOOR + 0.1 * gBass
-               + 0.18 * sin(p.x * 0.7 + gT * 0.5) * sin(p.z * (LV_TAU / 16.0) + gT * 0.23);
+    float pool = gFloor + 0.1 * gBass
+               + gRipple * sin(p.x * 0.7 + gT * 0.5) * sin(p.z * (LV_TAU / 16.0) + gT * 0.23);
     vec2 res = vec2(p.y - pool, 0.08);
 
     vec2 cell = floor(p.xz / LV_P);
@@ -178,13 +200,29 @@ vec2 map(vec3 p) {
     res = vec2(m.x, mix(res.y, b.y, m.y));
 
     // The cooler wax gathered under the cap.
-    float cap = LV_CEIL - 0.14 * sin(p.x * 0.6 - gT * 0.3) * cos(p.z * (LV_TAU / 32.0) + gT * 0.17);
+    float cap = gCeil - 0.14 * sin(p.x * 0.6 - gT * 0.3) * cos(p.z * (LV_TAU / 32.0) + gT * 0.17);
     m = sminMat(res.x, cap - p.y, gBlend);
     res = vec2(m.x, mix(res.y, 0.62, m.y));
 
-    float d = min(res.x / gLip, LV_CAP);
+    gLvHue = res.y;
+    return min(res.x / gLip, LV_CAP);
+}
+
+/** lavaField through lib_shell's hooks: exactly lavaField(p) at rest, and lavaField read once, in a loop the compiler cannot unroll. */
+float lavaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, lavaField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** (distance, hue) of the whole lamp. */
+vec2 map(vec3 p) {
+    float d = lavaFieldGrown(p);
     d = smax(d, LV_BUBBLE - length(p - gEye), 0.3);
-    return vec2(d, res.y);
+    return vec2(d, gLvHue);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -196,12 +234,32 @@ vec3 normalAt(vec3 p, float eps) {
 void main() {
     vec2 uv = view();
 
-    float k0 = uKnob[0];
-    float k1 = uKnob[1];
-    float k2 = uKnob[2];
-    float k3 = uKnob[3];
-    float k4 = uKnob[4];
-    float k5 = uKnob[5];
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the rim
+    float nTexture = shellKnob(1);                                 // TEXTURE  the wobble's depth
+    float nFlow = shellKnob(2);                                    // FLOW     the sway, the pool's ripple
+    float nTone = shellKnob(3);                                    // TONE     where the wax lingers, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    the core heat, the stretch
+    float nSpace = shellKnob(5);                                   // SPACE    the fog, the lamp's height
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    the blend
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the wobble's depth
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0);        // Turbulence the wobble's frequency
+    float rimK = shellMap(nPulse, 0.5, 1.0, 1.5);
+    float ampTex = shellMap(nTexture, -0.06, 0.0, 0.06);
+    gSway = shellMap(nFlow, 0.11, 0.22, 0.33);
+    // The pool's gradient stays under 0.2 (0.24 x 0.7).
+    gRipple = shellMap(nFlow, 0.12, 0.18, 0.24);
+    gLinger = exp2(shellMap(nTone, 1.2, 0.0, -1.2));
+    float hueTone = shellMap(nTone, -0.05, 0.0, 0.05);
+    float coreK = shellMap(nBuild, 0.6, 1.0, 1.4);
+    // At most 1 (a squash of y), so the blob stays 1-Lipschitz.
+    gStretch = shellMap(nBuild, 0.75, 0.62, 0.5);
+    float fogK = shellMap(nSpace, 0.078, 0.06, 0.042);
+    gFloor = shellMap(nSpace, -2.4, LV_FLOOR, -3.1);
+    gCeil = shellMap(nSpace, 2.7, LV_CEIL, 3.4);
+    gBlend = shellMap(nMorph, 0.35, 0.35, 0.7);
+    float ampWarp = shellMap(nWarp, 0.0, 0.0, 0.08);
+    gFreq = shellMap(nTurb, 3.5, 3.5, 5.0);
 
     gT = uTime * 0.55;
     gBass = sndLevel(SND_BASS_ATT);
@@ -214,10 +272,7 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
-    gAmp = clamp(0.10 + 0.06 * treble + 0.08 * clamp(uWarp, 0.0, 1.0) + 0.12 * (k1 - 0.5), 0.0, 0.32);
-    gFreq = 3.5 + 1.5 * clamp(uTurbulence, 0.0, 1.0);
-    gBlend = 0.35 + 0.35 * clamp(uMorph, 0.0, 1.0);
-    gSway = 0.22 * (0.5 + clamp(k2, 0.0, 1.0));
+    gAmp = clamp(0.10 + 0.06 * treble + ampWarp + ampTex, 0.0, 0.32);
     gLip = 1.0 + gAmp * LV_RMAX * gFreq * 1.06;
 
     vec3 ro;
@@ -228,6 +283,8 @@ void main() {
     // travel.
     ro.z = mod(ro.z, LV_ZWRAP);
     gEye = ro;
+    // The layers are measured from the eye; a spawned lamp's wax slides half a cell down the flight.
+    shellSetup3(ro, 3.0, 0.5 * LV_P, false);
 
     float t = 0.03;
     float hitT = -1.0;
@@ -246,12 +303,11 @@ void main() {
         t += max(d * 0.85, eps);
     }
 
-    float hueShift = 0.1 * (k3 - 0.5) + 0.12 * pitchBump;
+    float hueShift = hueTone + 0.12 * pitchBump;
     // The lamp's liquid: faint glass ambience, warmer looking down at the bulb.
     float down = clamp(-rd.y, 0.0, 1.0);
     vec3 fogCol = pal(0.85 + hueShift) * 0.045 * (1.2 + 0.6 * rd.y)
                 + pal(0.08 + hueShift) * (0.03 + 0.10 * down * down);
-    float fogK = 0.06 * (1.3 - 0.6 * clamp(k5, 0.0, 1.0));
     vec3 col = fogCol;
 
     if (hitT > 0.0) {
@@ -262,7 +318,7 @@ void main() {
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.3, 1.0);
         // Hot near the bulb, cool under the cap.
-        float heat = 1.0 - smoothstep(LV_FLOOR, LV_CEIL, p.y);
+        float heat = 1.0 - smoothstep(gFloor, gCeil, p.y);
         // Wrapped light from the bulb below, plus a dim key for the form.
         float under = 0.5 - 0.5 * n.y;
         float key = max(dot(n, normalize(vec3(-0.4, 0.7, -0.5))), 0.0);
@@ -273,9 +329,9 @@ void main() {
         // The translucent core: strongest face-on, where the wax is thickest
         // to the eye, and hotter low in the lamp and on a drop.
         vec3 core = pal(hue + 0.13) * pow(ndv, 2.0) * (0.15 + 0.4 * heat + 0.3 * dropBump)
-                  * (0.6 + 0.8 * clamp(k4, 0.0, 1.0));
+                  * coreK;
         // The beat on the rim only: a thin fresnel contour.
-        vec3 rim = vec3(1.0, 0.92, 0.75) * fres * (0.08 + 0.30 * kick) * (0.5 + clamp(k0, 0.0, 1.0));
+        vec3 rim = vec3(1.0, 0.92, 0.75) * fres * (0.08 + 0.30 * kick) * rimK;
         col = body + core + rim + pal(hue + 0.05) * spec * 0.2 * heat;
         col = mix(col, fogCol, 1.0 - exp(-hitT * fogK));
     }

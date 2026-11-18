@@ -3,7 +3,7 @@
 
 namespace geode::output {
 
-// What an export asks the encoder for (ADR 0006, core/output): the frame size and the bit rate that keeps
+// What an export asks the encoder for (core/output): the frame size and the bit rate that keeps
 // the file inside what MediaMuxer can write (the frame-rate retry is output/EncoderLadder). Ported from the
 // Kotlin MuxerBudget and ExportAspect.of; MediaCodec configuration stays Kotlin and calls this.
 namespace encode {

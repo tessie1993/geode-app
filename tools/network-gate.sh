@@ -2,13 +2,13 @@
 # Cast is the app's only internet use (owner, 2026-11-02), now with one native networking library, admitted on
 # 2026-11-12 for "Show on a computer" over WebRTC and for nothing else: libdatachannel (third_party/libdatachannel,
 # with its own libjuice, libsrtp and usrsctp) and Mbed TLS (third_party/mbedtls) for its DTLS. This gate holds the
-# code to that, on every pull request (arch-map.yml) and before an APK is built (android.yml):
+# code to that, on every pull request (arch-map.yml):
 #   1. Kotlin and Java: no socket or HTTP API outside dev.geode.cast.
 #   2. Native (core/, app/src/main/cpp): no socket, address or resolver header, and no WebRTC, ICE or TLS-socket
 #      header, outside core/cast/ (WebRtcLink, the one file that drives libdatachannel, and LiveServer, the
 #      cast's HTTP server on plain sockets).
 #   3. Submodules: no other networking, TLS, analytics or crash-reporting library under third_party/.
-# The release build's Maven dependencies are checked by android.yml (it needs Gradle). Usage: network-gate.sh [root]
+# The release build's Maven dependencies are checked by build-lint.yml (it needs Gradle). Usage: network-gate.sh [root]
 set -uo pipefail
 root=${1:-.}
 fail=0

@@ -17,17 +17,18 @@
 
 namespace geode::sound {
 
-// The sound engine: MilkDrop's architecture and TouchDesigner's side by side, both on one sample clock.
+// The sound engine: two analyses side by side, a windowed spectrum and a per-sample filter bank, both on one
+// sample clock.
 //
-// MilkDrop: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
+// The spectrum: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
 // window out of it, transforms it and sums the spectrum into bands measured against their own running means
-// (bass, mid, treble, their att envelopes, everything spectral).
+// (bass, mid, treble, their att envelopes, everything spectral: the levels MilkDrop presets read).
 //
-// TouchDesigner: every sample also runs through a filter bank as it is written (4-pole bands with a power
+// The filter bank: every sample also runs through a filter bank as it is written (4-pole bands with a power
 // envelope), and each hop reduces the slice since the last hop to one level per band, which then goes
 // through Lag and Trigger (low, middle, high and the drums).
 //
-// The clock is the samples, not the frame (fosfora's HopAnalyzer::process_hop model). write() counts
+// The clock is the samples, not the frame: one analysis per fixed hop of samples. write() counts
 // samples, and every kHop of them (Rhythm::kHopSeconds, 10 ms: 441 at 44.1 kHz, 480 at 48 kHz) it runs one
 // whole analysis hop with dt = hop / rate: the filter bank's slice, the window, the FFT, every level and
 // descriptor, the drums and events, the melody, then the musical layer (Rhythm, Harmony, Form) and the
@@ -43,10 +44,10 @@ namespace geode::sound {
 //               phrase phases moved on to the frame's own sample, and the waveform (a drawing, per frame)
 //
 // Why 10 ms: it is Rhythm's hop already (the onset envelope needs 100 Hz), so one clock serves everything
-// and a beat, its kick and the frame's levels come from the same instant; it is madmom's rate exactly (its
-// beat activations run at 100 fps, online on one 2048-sample frame, the window here), where librosa's
-// default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps ~78 %; and it is shorter than any
-// frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
+// and a beat, its kick and the frame's levels come from the same instant; it is the 100 frames a second
+// that online beat trackers in the literature run their activations at (on one 2048-sample frame, the window
+// here), where a common analysis default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps
+// ~78 %; and it is shorter than any frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
 // FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
 //
 // step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,
@@ -72,6 +73,42 @@ public:
     void write(const float* interleaved, int frames, int channels);
     // The newest hop's frame, as of the samples written so far; dt only times the writer's silence.
     void step(float dtSeconds, GeodeSoundFrame& out);
+    // step()'s clock alone: the writer's silence is counted and fed, no frame is read. The analysis thread's pass.
+    void starve(float dtSeconds);
+
+    // Hops by sample position. A position counts samples at the input rate (sampleRateHz(), before any
+    // halving), as handed to write() since construction or reset(): the count a ring of the source's own
+    // samples keeps. A hop's position is the count when its last sample was written. The silence step()
+    // feeds a starved engine is not written, so hops run on it share the position the writer stopped at.
+    //
+    // The hop at or before `samplePos`, with the beat, bar and phrase phases moved on to that sample as
+    // step() moves them; one older than every kept hop reads the oldest (at its own sample), one past the
+    // newest reads the newest. The triggers are that hop's own, not held; the waveform (a drawing step()
+    // makes per frame) is empty, and fadeGain reads as step() would now. False before the first hop.
+    bool frameAt(int64_t samplePos, GeodeSoundFrame& out) const;
+    // The newest and oldest kept hop's position, -1 before the first hop.
+    int64_t newestHopSample() const;
+    int64_t oldestHopSample() const;
+    // Hops kept: over a second at every rate (a hop is 10 ms, rounded to whole samples).
+    static constexpr int kHistoryHops = 128;
+    // One kept hop as the analysis computed it: its position, the oscillator its phases move on from
+    // (Rhythm::phases), its frame (phases at the hop's own sample, triggers its own) and the feeling after it
+    // (its own degree accent, not held). What a reader on another thread needs to answer frameAt itself
+    // (sound/hop/AnalysisThread).
+    struct Hop {
+        int64_t sample = 0;
+        Rhythm::Clock clock;
+        GeodeSoundFrame frame{};
+        Emotion::State emotion{};
+    };
+    // The kept hop `age` hops before the newest (0 = newest), null past the kept ones.
+    const Hop* keptHop(int age) const;
+    // Hops run since construction or reset(), the starved ones included (they can share a position).
+    int64_t hopsRun() const { return hopsRun_; }
+    // HalfBand stages between write() and the analysis: a position difference >> halvings() is analysis samples.
+    int halvings() const { return halvings_; }
+    // The silence rule fired and still holds (the frame's `silence` trigger was its start).
+    bool silent() const { return state_.silent; }
     // The feeling (Emotion), stepped every hop with the frame; its degree accent held like a trigger.
     const Emotion::State& emotion() const { return emotionOut_; }
     // A new play (the auto-director's seed changed): the feeling starts over, the analysis does not.
@@ -188,7 +225,7 @@ private:
 
     BinRange bins(float loHz, float hiHz) const;
     static float sum(const std::vector<float>& mag, BinRange r);
-    void readWindow(int count, float* mono, float* left, float* right) const;
+    void readWindow(int count, float* mono, float* left, float* right, int oldest = -1) const;
     void feed(float l, float r);
     void analyse();
     void feedSilence(float dt);
@@ -222,6 +259,7 @@ private:
     std::vector<float> pitchHann_;
     std::array<BinRange, kBands> bandBins_;
     std::array<BinRange, GEODE_SOUND_EQ_BANDS> eqBins_;
+    std::array<float, GEODE_SOUND_EQ_BANDS> eqSum_{};  // each EQ band's summed magnitude this hop
     std::array<BinRange, GEODE_SOUND_SPECTRUM_POINTS> spectrumBins_;
     BinRange audible_{};    // 20 Hz–20 kHz
     BinRange musical_{};    // 100 Hz–10 kHz
@@ -259,6 +297,12 @@ private:
     Emotion emotion_;
     Emotion::State emotionOut_{};
     float accentHeld_ = 0.0f;
+    // Every hop as it was computed, a ring of kHistoryHops, the newest at historyHead_ - 1.
+    std::vector<Hop> history_;
+    int historyHead_ = 0;
+    int historyCount_ = 0;
+    int64_t hopsRun_ = 0;
+    int64_t inputWritten_ = 0;  // samples at the input rate, before any halving
 
     // Per-hop scratch, overwritten every hop.
     std::vector<float> mono_;
@@ -269,7 +313,8 @@ private:
     std::vector<float> tilted_;
     // The last fluxLag_ hops' log spectra, so flux compares against the one ~30 ms old.
     std::vector<float> logMag_;      // this hop's, n/2 + 1
-    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_
+    std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_, each maximum-filtered (sound/OnsetFlux)
+    std::vector<int> fluxReach_;     // per bin, how far that filter reaches either way
     int fluxLag_ = 3;
     int fluxHead_ = 0;
     int fluxCount_ = 0;

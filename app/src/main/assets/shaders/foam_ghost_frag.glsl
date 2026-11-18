@@ -42,13 +42,13 @@ void main() {
     for (int i = 0; i < GH_STEPS; i++) {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
-        float d = foamMap(p);
-        float ad = abs(gFoamD);
+        FoamSample f = foamField(p);
+        float ad = abs(f.foamD);
         // Inside the bore step by the bore's distance; among the shells, by the
         // distance to the nearest one either side, floored so the walk goes on.
-        float stepLen = gFoamMask < 0.5 ? max(d, 0.03) : max(ad * 0.8, 0.025);
-        float trap = foamSat(sqrt(min(gFoamOrb.w, FOAM_TRAP_FAR)) * 0.75);
-        float shell = exp(-ad * 45.0) * gFoamMask;
+        float stepLen = f.mask < 0.5 ? max(f.d, 0.03) : max(ad * 0.8, 0.025);
+        float trap = foamSat(sqrt(min(f.orb.w, FOAM_TRAP_FAR)) * 0.75);
+        float shell = exp(-ad * 45.0) * f.mask;
         acc += foamColor(0.2 + 0.6 * trap) * shell * stepLen * (0.5 + 0.9 * sndSpectrum(trap)) * exp(-0.12 * t / gFoamReach);
         rings += foamRingAt(p) * shell * stepLen;
         t += stepLen;

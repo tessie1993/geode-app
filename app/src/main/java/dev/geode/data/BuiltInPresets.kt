@@ -1,24 +1,23 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
-import dev.geode.render.scene.ParamSchema
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.engine.bridge.SceneParams
 
 /**
  * The bundled looks, read from the engine. Which looks ship, on which styles, and every value they set
  * are native (core/viz/CataloguePresets, the catalogue's presets section, #648): the shell asks once
- * through [GeodeNative.cataloguePresetsText] and reads the rows. Each look is a set of values by param
- * name (#346's schema), laid over [SceneParams]'s defaults through the wire codec, so a look reads back
+ * through [CatalogueNative.cataloguePresetsText] and reads the rows. Each look is a set of values by param
+ * name, set over [SceneParams.DEFAULT] by native, so a look reads back
  * exactly the params the old Kotlin literal built; core/tests/presets_test.cpp pins those values.
  */
 object BuiltInPresets {
     /** The table version this shell reads; core/viz/CataloguePresets.hpp's `kPresetsTextVersion`. */
     private const val VERSION: Int = 1
 
-    val ALL: List<Preset> by lazy { parse(GeodeNative.cataloguePresetsText()) }
+    val ALL: List<Preset> by lazy { parse(CatalogueNative.cataloguePresetsText()) }
 
-    fun isBuiltIn(name: String): Boolean = name.contains(" · ")
+    fun isBuiltIn(name: String): Boolean = LooksNative.presetIsBuiltIn(name)
 
     /**
      * Reads the `geode_catalogue_presets_text` table: a `presets|<version>|<looks>|<presets>` header,
@@ -49,12 +48,9 @@ object BuiltInPresets {
         return presets
     }
 
-    private fun params(values: String): SceneParams {
-        val frame = SceneParamsCodec.pack(SceneParams())
-        for (pair in values.split(',').filter { it.isNotEmpty() }) {
+    private fun params(values: String): SceneParams =
+        values.split(',').filter { it.isNotEmpty() }.fold(SceneParams.DEFAULT) { p, pair ->
             val (name, value) = pair.split('=')
-            frame[checkNotNull(ParamSchema[name]) { "bundled look sets unknown param $name" }.slot] = value.toFloat()
+            p.with(name, value.toFloat())
         }
-        return SceneParamsCodec.unpack(frame, SceneParams())
-    }
 }

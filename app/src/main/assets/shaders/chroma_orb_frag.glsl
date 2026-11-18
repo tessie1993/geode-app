@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Chroma Orb: a flight through a string of glass orbs threaded on the travel
 // axis. Each orb is skinned with the old four-fold kaleidoscope of neon dot
@@ -46,14 +47,21 @@ out vec4 fragColor;
 // Pitch (SND_HELD_NOTE_CHANGE) slides the palette, as a hump, so it glides.
 // Band presences             light the bokeh between the orbs, as before.
 // SND_ENERGY_TREND           overall level.
-// uFlowPhase                 spins the kaleidoscope and drifts the bore rings:
-//                            loudness changes the RATE, never the angle.
+// uFlowPhase                 drifts the bore rings: loudness changes the RATE.
+//                            The kaleidoscope turns on time alone (owner
+//                            2026-11-12, no style spins to the music).
 //
 // Morph turns each sphere into a cut gem (an octahedron, its vertices on the
 // bore axis so the diamond hole still lines up). Warp twists the bore and the
 // skin about the axis, more toward the ends. Turbulence ripples the glass.
 // Intensity drives the dots' emission. Knobs: PULSE kick swell, TEXTURE
-// lattice density, FLOW extra twist, TONE hue, BUILD fringe width, SPACE fog.
+// lattice density, FLOW a ripple over the glass (it used to twist the bore,
+// which turned it to the music), TONE the orbs' figure and a small hue
+// offset (a high melody draws each orb out along the flight into a long egg,
+// a low one flattens it into a wide lens; the scale only ever shrinks a
+// coordinate, so the field stays a lower bound, and the longest orb still
+// ends before the gap), BUILD fringe width, SPACE fog. FLOW no longer twists
+// the bore (a knob is the notes', and no sound turns a style).
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -121,7 +129,10 @@ float polyR(vec2 q, float n) {
     return length(q) * cos(a);
 }
 
-float map(vec3 p) {
+/** k3 TONE: the orb's per-axis coordinate scale (1 at rest; never above 1). */
+vec3 gShape = vec3(1.0);
+
+float coField(vec3 p) {
     float idx = floor((p.z - CO_OFFSET) / CO_SPACING + 0.5);
     float cz = idx * CO_SPACING + CO_OFFSET;
     vec3 l = vec3(p.xy, p.z - cz);
@@ -129,8 +140,9 @@ float map(vec3 p) {
     // Only the orb just ahead of the eye answers the kick.
     float kick = gKick * exp(-abs(cz - gEye.z - 10.0) * 0.07);
     float r = CO_RADIUS + kick;
-    float sph = length(l) - r;
-    float gem = sdOctahedron(l, r * 1.32);
+    vec3 ls = l * gShape;
+    float sph = length(ls) - r;
+    float gem = sdOctahedron(ls, r * 1.32);
     float orb = mix(sph, gem, gGem);
     vec3 rp = l * 1.2;
     orb += gRipple * sin(rp.x + uTime * 0.4) * sin(rp.y - uTime * 0.3) * sin(rp.z + uTime * 0.2);
@@ -144,6 +156,24 @@ float map(vec3 p) {
     gCz = cz;
     gIdx = mod(idx, CO_ZWRAP / CO_SPACING);
     return max(d, CO_BUBBLE - length(p - gEye));
+}
+
+/** coField through lib_shell's hooks: exactly coField(p) at rest, and coField read once, in a loop the compiler cannot unroll. */
+float coFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, coField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: coField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return coFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -205,20 +235,43 @@ void main() {
     float presence = (SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0;
     float finger = touchFalloff(uv, 0.45);
     float glow = 0.5 + 0.5 * clamp(uIntensity, 0.0, 2.0);
-    float hue = 0.2 * pitchBump + 0.25 * knob(3);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nSwell = clamp(uKnob[0], 0.0, 1.0);
+    float nDensity = clamp(uKnob[1], 0.0, 1.0);
+    float nRipple = clamp(uKnob[2], 0.0, 1.0);
+    float nFigure = clamp(uKnob[3], 0.0, 1.0);
+    float nFringe = clamp(uKnob[4], 0.0, 1.0);
+    float nFog = clamp(uKnob[5], 0.0, 1.0);
+    float nTwist = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);
+    float nGlass = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);
+    float nGem = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
+    float hue = 0.2 * pitchBump + shellMap(nFigure, -0.125, 0.0, 0.125);
 
     gFolds = foldCount();
-    // Integrated, so loudness changes the spin RATE instead of jumping its angle.
-    gSpin = uFlowPhase * 0.55 + uTime * 0.03;
-    gTwist = 0.02 * (clamp(uWarp, 0.0, 1.0) * 3.0 + knob(2) * 2.0);
-    gTwistLip = sqrt(1.0 + gTwist * gTwist * CO_RMAX * CO_RMAX);
-    gRipple = 0.3 * clamp(uTurbulence / 1.5, 0.0, 1.0);
+    // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level.
+    gSpin = uTime * 0.195;
+    // Warp's twist of the bore and the skin (none at rest).
+    gTwist = shellMap(nTwist, 0.0, 0.0, 0.06);
+    // The orb's figure: a lens below the rest, an egg above it.
+    gShape = vec3(vec2(shellMap(nFigure, 0.71, 1.0, 1.0)), shellMap(nFigure, 1.0, 1.0, 0.71));
+    // A lens (TONE low) reaches further out in xy, where the bore's twist moves faster.
+    float rMax = CO_RMAX / gShape.x;
+    gTwistLip = sqrt(1.0 + gTwist * gTwist * rMax * rMax);
+    // The glass ripple: Turbulence's, and FLOW's on top.
+    gRipple = shellMap(nGlass, 0.0, 0.0, 0.3) + shellMap(nRipple, 0.0, 0.0, 0.15);
     gRippleLip = 1.0 + gRipple * 1.2 * 1.7320508;
-    gGem = clamp(uMorph, 0.0, 1.0);
-    gKick = CO_KICK * clamp(SND_KICK_ENV, 0.0, 1.0) * (1.0 + 1.6 * knob(0));
-    float density = 4.0 * (1.0 + 0.6 * knob(1));
-    float split = 0.035 + 0.03 * finger + 0.03 * snare + 0.04 * knob(4);
-    float fogK = 0.03 * (1.0 - 1.4 * knob(5));
+    gGem = shellMap(nGem, 0.0, 0.0, 1.0);
+    // The kick's swell, the skin lattice's density, the fringe split, the fog.
+    gKick = CO_KICK * clamp(SND_KICK_ENV, 0.0, 1.0) * shellMap(nSwell, 0.2, 1.0, 1.8);
+    float density = shellMap(nDensity, 2.8, 4.0, 5.2);
+    float split = shellMap(nFringe, 0.015, 0.035, 0.055) + 0.03 * finger + 0.03 * snare;
+    float fogK = shellMap(nFog, 0.051, 0.03, 0.009);
 
     vec3 ro;
     vec3 rd;
@@ -227,6 +280,8 @@ void main() {
     // and keeps highp z precise far down the 8192 travel.
     ro.z = mod(ro.z, CO_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * CO_SPACING, false);
 
     float t = 0.03;
     float hitT = -1.0;

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-// The PCM ingest ring (ADR 0006, core/audio/ingest/README.md): one ring per audio source (the player's
+// The PCM ingest ring (core/audio/ingest/README.md): one ring per audio source (the player's
 // tap, the mic, another app's audio, the wallpaper's output-mix capture). Ported from the Kotlin
 // SampleRing and SoundCursor, with the rate inside the ring instead of in a volatile beside it.
 //
@@ -37,6 +37,15 @@ enum Encoding : int {
 };
 
 class Cursor;
+
+// Told after every write that published frames, on the writer's thread: it must not block or allocate.
+class RingListener {
+public:
+    virtual void ringWritten() = 0;
+
+protected:
+    ~RingListener() = default;
+};
 
 class PcmRing {
 public:
@@ -89,6 +98,10 @@ public:
     // has not written that many yet, the ring cannot hold them, or the writer reached them during the copy.
     bool snapshotLatest(float* interleaved, int frames) const;
 
+    // The one listener (sound/hop/SharedAnalysis), null for none. Not the ring's state, so a reader may set it;
+    // it must outlive every write made while it is set.
+    void setListener(RingListener* listener) const { listener_.store(listener, std::memory_order_release); }
+
 private:
     friend class Cursor;
 
@@ -124,11 +137,13 @@ private:
     const int maxWrite_;
     const int64_t mask_;
     std::vector<std::atomic<float>> samples_;  // capacity_ frames, interleaved at channels_
-    std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
+    // On its own cache line: the writer stores it at every write, and the fields above are read by every reader.
+    alignas(64) std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
     std::atomic<uint64_t> epoch_{0};
     Mark marks_[kMarks];
     std::atomic<uint32_t> markCount_{0};
     std::atomic_flag markBusy_;  // held for the few stores of one append, so two writers cannot tear a slot
+    mutable std::atomic<RingListener*> listener_{nullptr};
 };
 
 // One reader's place in a ring: every frame once, in order (SoundCursor.take's rules). The sound engine
@@ -165,6 +180,8 @@ public:
     const float* interleaved() const { return out_.data(); }
     int channels() const { return ring_.channelCount(); }
     int maxFrames() const { return maxFrames_; }
+    // The ring position (headFrames() units) just past the last take's frames.
+    int64_t position() const { return read_; }
 
     // Forget the position: the next take starts from the newest audio and reports a restart.
     void reset() { pending_ = true; }

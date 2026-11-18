@@ -6,10 +6,12 @@
 #include <utility>
 
 #include "output/PreRoll.hpp"
+#include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/DirectorStyle.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
@@ -21,6 +23,11 @@ constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
 constexpr int kPcmCapacity = 512 * 8;
+// A renderer's own ring (Renderer::hearOwn): a second at the capture rate, published a runway at a time.
+constexpr int kOwnRingMs = 1000;
+constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
+static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
+constexpr int kOwnRingRunway = 1 << 14;
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -29,15 +36,15 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this] { return thermal_.pacedFps(); },
+                          [this] { return pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
-                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
+                          [this] { return marchScale_.load(std::memory_order_relaxed); },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
-                          [this] { return thermal_.settling(); },
-                          [this] { return paletteRamp_.active() ? paletteRampTex_ : GLuint{0}; }}),
+                          [this] { return settling(); },
+                          [this] { return paletteRamp_.active() ? paletteRampTex_ : GLuint{0}; },
+                          [this] { return &shapeGraph_.packed(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
@@ -63,15 +70,15 @@ void Renderer::pinLayer(bool on) {
 
 // Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
 // the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
-// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene and
-// trimScenes read layerSceneId_ as before, and an export's blocking build makes the layer scene whole
-// on the first frame that asks for it, like the main scene.
+// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene turns
+// the setting into this renderer's style (viz/LayerPick), and an export's blocking build makes the layer
+// scene whole on the first frame that asks for it, like the main scene.
 void Renderer::syncLayerLocked() {
     layer_state::Layer layer;
     if (!layerFollower_.poll(layer)) return;
-    layerSceneId_ = std::move(layer.sceneId);
     layerMix_ = layer.mix;
     layerBlend_ = layer.blend;
+    layerSetting_ = std::move(layer);
 }
 
 void Renderer::setTransition(const std::string& id, int64_t durationMs) {
@@ -84,6 +91,7 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 }
 
 void Renderer::beginParamMorph(float seconds) {
+    seconds = clampPresetMorphSec(seconds);
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
     morphRequested_ = true;
@@ -94,25 +102,71 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
-        if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
-            sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-            sound_->setTuning(soundTuning_);
-            // An export's track is the player from its first sample, the pre-roll's included (beginFrame).
-            if (offscreen_.load(std::memory_order_relaxed)) sound_->setPlayerSource(true);
-        }
-        sound_->write(interleaved, frames, channels);
+        soundWave_.write(interleaved, frames, channels, sampleRateHz);
+        if (!sharedSound_) hearOwn(interleaved, frames, channels, sampleRateHz);
     }
-    // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
+    // MilkDrop's raw PCM is what this renderer just heard (#360): one ring, one cursor, every surface.
     // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.write(interleaved, frames, channels, sampleRateHz);
 }
 
+// Under soundLock_: audio only this renderer hears, into its own ring and analysis.
+void Renderer::hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    const bool offscreen = offscreen_.load(std::memory_order_relaxed);
+    if (!ownSound_) {
+        try {
+            ownRing_ = std::make_shared<audio::ingest::PcmRing>(kOwnRingFrames, 2, kOwnRingRunway);
+            ownSound_ = std::make_shared<sound::SharedAnalysis>(ownRing_);
+        } catch (...) {
+            // No memory: this block is not analysed, the next one tries again.
+            ownSound_.reset();
+            ownRing_.reset();
+            return;
+        }
+        ownSound_->thread().setTuning(soundTuning_);
+        // An export's track is the player from its first sample, the pre-roll's included (beginFrame), and its
+        // analysis runs inline; a live one runs on its own thread.
+        if (offscreen) {
+            ownSound_->thread().setPlayerSource(true);
+        } else {
+            ownListening_ = sound::SharedAnalysis::Listening(ownSound_);
+        }
+        ownUnpumped_ = 0;
+        soundReader_.restart();
+    }
+    for (int done = 0; done < frames;) {
+        const int n = std::min(frames - done, kOwnRingRunway);
+        // An export's pre-roll is written whole before frame 0: pumped before the ring could lap the analysis.
+        if (offscreen && ownUnpumped_ + n > kOwnRingFrames / 2) {
+            ownSound_->thread().pump(0.0f);
+            ownUnpumped_ = 0;
+        }
+        ownRing_->writeFloat(interleaved + static_cast<size_t>(done) * static_cast<size_t>(channels), n, channels,
+                             sampleRateHz);
+        ownUnpumped_ += n;
+        done += n;
+    }
+}
+
+void Renderer::hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (analysis == sharedSound_) return;
+    sharedSound_ = std::move(analysis);
+    soundReader_.restart();
+    if (!sharedSound_) return;
+    sharedSound_->thread().setTuning(soundTuning_);
+    ownListening_ = {};
+    ownSound_.reset();
+    ownRing_.reset();
+}
+
 void Renderer::resetAudio() {
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        if (sound_) sound_->reset();
+        soundWave_.reset();
+        // The shared analysis restarts at the epoch on its own; the own ring starts one.
+        if (!sharedSound_ && ownRing_) ownRing_->beginEpoch();
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
@@ -121,7 +175,16 @@ void Renderer::resetAudio() {
 bool Renderer::endPreRoll(int64_t rangeStartMs) {
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        if (!output::endPreRoll(sound_.get(), output::preRollFor(rangeStartMs))) return false;
+        if (!ownSound_ || ownRing_->headFrames() <= 0) return false;
+        sound::AnalysisThread& analysis = ownSound_->thread();
+        analysis.pump(0.0f);
+        ownUnpumped_ = 0;
+        soundReader_.heardThrough(analysis, ownRing_->headFrames());
+        if (output::preRollFor(rangeStartMs).boundary) {
+            analysis.trackBoundary();
+            analysis.pump(0.0f);
+            sectionChangeOwed_ = true;
+        }
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
@@ -132,7 +195,9 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     // Clamped here, so a NaN Reactivity reaches the engine as the default one, not a NaN.
     soundTuning_ = sound::tuning::clamp(tuning);
-    if (sound_) sound_->setTuning(soundTuning_);
+    if (sharedSound_) sharedSound_->thread().setTuning(soundTuning_);
+    if (ownSound_) ownSound_->thread().setTuning(soundTuning_);
+    soundWave_.setTrimDb(soundTuning_.inputTrimDb);
 }
 
 double Renderer::monotonicSeconds() {
@@ -170,6 +235,15 @@ void Renderer::notePresetLoaded(const std::string& path) {
     milkPresetLoaded_ = path;
 }
 
+int Renderer::takeDirectorStyleMoments() {
+    const int moments = directorStyleMoments_.exchange(0, std::memory_order_acq_rel);
+    if (moments > 0) {
+        std::lock_guard<std::mutex> guard(directorIntentLock_);
+        director::publishStyleIntent(directorIntent_);
+    }
+    return moments;
+}
+
 bool Renderer::milkPresetLoadedPending() const {
     std::lock_guard<std::mutex> lock(stateLock_);
     return !milkPresetLoaded_.empty();
@@ -199,8 +273,8 @@ void Renderer::applyMilkRequests() {
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawFrames_ = 60;
-        thermal_.noteSettling();  // projectM compiles the preset's shaders on this thread
+        redrawSeconds_ = kRedrawSeconds;
+        noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
     if (!preset.empty()) milk->queueMilkPreset(preset);
@@ -355,7 +429,8 @@ void Renderer::syncShaderOverrides() {
 void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
-    thermal_.onSurfaceRecreated();
+    // A new surface rebuilds every program and texture on its first frames.
+    noteSettling();
     // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
     liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
@@ -375,6 +450,7 @@ void Renderer::onSurfaceCreated() {
     uiBlurPass_.release();
     liquidPass_.release();
     divePass_.release();
+    physicsLayers_.release();
     overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -393,6 +469,7 @@ void Renderer::onSurfaceCreated() {
     smearLinger_.reset();
     fboA_.release();
     fboB_.release();
+    fboL_.release();
     bornFbo_.release();
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
@@ -465,14 +542,13 @@ void Renderer::clearToBlack(GLuint targetFbo) {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
+void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx) {
     // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
     // resizing every frame; a corrupt pref means full quality instead.
     const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
     userScale_.store(unit(renderScale), std::memory_order_relaxed);
     marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
-    thermal_.setAdaptive(adaptive);
 }
 
 void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
@@ -500,17 +576,16 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 }
 
 void Renderer::applyRenderScale() {
-    appliedTier_ = thermal_.tier();
     appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
     // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
     // pixels did not mean 1.4x of fewer pixels.
     const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
-    const float scale = supersample * appliedUserScale_ * thermalTierInfo(appliedTier_).renderScale;
+    const float scale = supersample * appliedUserScale_;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
-    // A hotter tier keeps fewer spares: release them before anything is resized (#378). Then only the
-    // scenes drawn this frame are resized; a spare is resized when readyScene hands it out again, so
-    // a tier change costs one resize per scene shown, not one per scene ever built.
+    // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
+    // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
+    // resize per scene shown, not one per scene ever built.
     ++sizeStamp_;
     trimScenes({});
     for (auto& entry : scenes_) {
@@ -522,7 +597,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 float Renderer::supersampleFactor(int width, int height) {
@@ -622,21 +697,23 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     };
     if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
-        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
+        physicsLayers_.releaseTargets();
         bornFbo_.release();
     }
     if (shed.sceneTargets) {
         // ensureTargets builds them again on the next frame; a held scene or layer draws afresh into them.
         fboA_.release();
         fboB_.release();
+        fboL_.release();
         heldScene_ = nullptr;
         heldLayer_ = nullptr;
     }
-    const int budget = shed.spares ? 0 : SceneResidency::spareBudget(appliedTier_);
+    const int budget = shed.spares ? 0 : SceneResidency::kSpareBudget;
     for (const std::string& victim : residency_.evict(pinned, budget)) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;
@@ -648,15 +725,13 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
 }
 
 void Renderer::logResidency(float wallDt) {
-    const ThermalTier tier = thermal_.tier();
-    if (scenes_.size() == loggedResident_ && tier == loggedTier_) return;
+    if (scenes_.size() == loggedResident_) return;
     loggedResident_ = scenes_.size();
-    loggedTier_ = tier;
     int weight = 0;
     for (const auto& entry : residency_.entries()) weight += entry.weight;
-    GEODE_LOGI(kTag, "residency: scenes=%zu weight=%d spareBudget=%d stagerIdle=%d tier=%d settling=%d target=%dx%d frameMs=%.1f",
-               scenes_.size(), weight, SceneResidency::spareBudget(appliedTier_), stager_.idle() ? 1 : 0,
-               static_cast<int>(tier), thermal_.settling() ? 1 : 0, renderWidth_, renderHeight_, wallDt * 1000.0f);
+    GEODE_LOGI(kTag, "residency: scenes=%zu weight=%d spareBudget=%d stagerIdle=%d settling=%d target=%dx%d frameMs=%.1f",
+               scenes_.size(), weight, SceneResidency::kSpareBudget, stager_.idle() ? 1 : 0,
+               settling() ? 1 : 0, renderWidth_, renderHeight_, wallDt * 1000.0f);
 }
 
 Scene* Renderer::builtScene(const std::string& id) {
@@ -674,7 +749,7 @@ Scene* Renderer::readyScene(const std::string& id) {
     syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
-        // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
+        // Skipped by a scale change while it was not drawn: sized now, as it comes back.
         if (residency_.needsResize(id, sizeStamp_)) {
             scene->resize(renderWidth_, renderHeight_);
             scene->setWindowSize(width_, height_);

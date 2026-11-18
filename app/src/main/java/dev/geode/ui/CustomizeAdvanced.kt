@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -19,8 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -47,13 +45,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.RingLog
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.ModulationNative
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.ParamsNative
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.engine.bridge.VizNative
 import dev.geode.geodeContainer
-import dev.geode.render.fluid.FluidShaderTemplate
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -61,6 +61,7 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
@@ -112,10 +113,10 @@ internal fun ReactionsSection(
     // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
     // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
     val routes =
-        remember(sceneId, p.reactSeed, reactions, handMask) {
-            GeodeNative.modRoutesPlaying(sceneId, p.reactSeed, reactions, handMask)
+        remember(sceneId, p.int("reactSeed"), reactions, handMask) {
+            ModulationNative.modRoutesPlaying(sceneId, p.int("reactSeed"), reactions, handMask)
         }
-    val each = GeodeNative.MOD_ROUTE_VALUES
+    val each = ModulationNative.MOD_ROUTE_VALUES
     val count = routes.size / each
     val sounds = LocalUiSounds.current
     val tap: (() -> Unit) -> Unit = { action ->
@@ -125,12 +126,12 @@ internal fun ReactionsSection(
     FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
         FilledTonalButton(onClick = { tap(onReroll) }) { Text(stringResource(R.string.customize_reactions_shuffle)) }
         if (reactions != null) {
-            FilledTonalButton(onClick = { tap { onEdit(GeodeNative.MOD_EDIT_CLEAR, 0, 0, 0f) } }) {
+            FilledTonalButton(onClick = { tap { onEdit(ModulationNative.MOD_EDIT_CLEAR, 0, 0, 0f) } }) {
                 Text(stringResource(R.string.customize_reactions_use_style))
             }
         }
         if (count < ModCatalog.count("routes")) {
-            FilledTonalButton(onClick = { tap { onEdit(GeodeNative.MOD_EDIT_ROUTE_ADD, 0, 0, 0f) } }) {
+            FilledTonalButton(onClick = { tap { onEdit(ModulationNative.MOD_EDIT_ROUTE_ADD, 0, 0, 0f) } }) {
                 Text(stringResource(R.string.action_add))
             }
         }
@@ -138,8 +139,8 @@ internal fun ReactionsSection(
     repeat(count) { i ->
         ReactionCard(
             route = routes.copyOfRange(i * each, (i + 1) * each),
-            onSet = { field, value -> onEdit(GeodeNative.MOD_EDIT_ROUTE_SET, i, field, value) },
-            onRemove = { onEdit(GeodeNative.MOD_EDIT_ROUTE_REMOVE, i, 0, 0f) },
+            onSet = { field, value -> onEdit(ModulationNative.MOD_EDIT_ROUTE_SET, i, field, value) },
+            onRemove = { onEdit(ModulationNative.MOD_EDIT_ROUTE_REMOVE, i, 0, 0f) },
         )
     }
 }
@@ -167,7 +168,7 @@ private fun WordRow(
 
 private enum class ReactionPick { SOURCE, TARGET }
 
-/** One route as native reads it ([GeodeNative.MOD_ROUTE_VALUES] fields); [onSet] sends one field's new value. */
+/** One route as native reads it ([ModulationNative.MOD_ROUTE_VALUES] fields); [onSet] sends one field's new value. */
 @Composable
 private fun ReactionCard(
     route: FloatArray,
@@ -178,15 +179,18 @@ private fun ReactionCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     var picking by remember { mutableStateOf<ReactionPick?>(null) }
     val sceneId = LocalSceneId.current
-    val source = route.intAt(GeodeNative.MOD_ROUTE_SOURCE)
-    val target = route.intAt(GeodeNative.MOD_ROUTE_TARGET)
-    val amount = route.getOrElse(GeodeNative.MOD_ROUTE_AMOUNT) { 0f }
+    val source = route.intAt(ModulationNative.MOD_ROUTE_SOURCE)
+    val target = route.intAt(ModulationNative.MOD_ROUTE_TARGET)
+    val amount = route.getOrElse(ModulationNative.MOD_ROUTE_AMOUNT) { 0f }
     // The whole range native accepts: the style's own reactions draw drop surges above 1. Below zero, so signed.
     val amountRange = ModCatalog.range("route.amount")
-    val amountText = GeodeNative.paramText("", ParamUnit.PERCENT.ordinal, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
+    val amountText =
+        remember(amount, amountRange) {
+            ParamsNative.paramText("", ParamsNative.PARAM_UNIT_PERCENT, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
+        }
     val sourceLabel = ModCatalog.label("react", source)
     val targetLabel = ModCatalog.label("target", target)
-    val modeLabel = ModCatalog.label("mode", route.intAt(GeodeNative.MOD_ROUTE_MODE))
+    val modeLabel = ModCatalog.label("mode", route.intAt(ModulationNative.MOD_ROUTE_MODE))
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
             Text(
@@ -195,11 +199,11 @@ private fun ReactionCard(
                 modifier = Modifier.weight(1f).clickable { expanded = !expanded },
             )
             Switch(
-                checked = route.flagAt(GeodeNative.MOD_ROUTE_ENABLED),
-                onCheckedChange = { onSet(GeodeNative.MOD_ROUTE_ENABLED, it.wire()) },
+                checked = route.flagAt(ModulationNative.MOD_ROUTE_ENABLED),
+                onCheckedChange = { onSet(ModulationNative.MOD_ROUTE_ENABLED, it.wire()) },
             )
         }
-        if (target != 0 && !route.flagAt(GeodeNative.MOD_ROUTE_REACHES)) ControlHint("$targetLabel does nothing on this style.")
+        if (target != 0 && !route.flagAt(ModulationNative.MOD_ROUTE_REACHES)) ControlHint("$targetLabel does nothing on this style.")
         if (expanded) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { picking = ReactionPick.SOURCE }) {
@@ -209,25 +213,25 @@ private fun ReactionCard(
                     Text(stringResource(R.string.customize_moves, targetLabel))
                 }
             }
-            WordRow("Mode", "mode", route.intAt(GeodeNative.MOD_ROUTE_MODE)) { onSet(GeodeNative.MOD_ROUTE_MODE, it) }
-            LabeledSlider(REACT_DEPTH, amount, amountRange, scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
-                onSet(GeodeNative.MOD_ROUTE_AMOUNT, it)
+            WordRow("Mode", "mode", route.intAt(ModulationNative.MOD_ROUTE_MODE)) { onSet(ModulationNative.MOD_ROUTE_MODE, it) }
+            LabeledSlider(REACT_DEPTH, amount, amountRange, scope = ParamScope.UNIVERSAL, unit = ParamsNative.PARAM_UNIT_PERCENT) {
+                onSet(ModulationNative.MOD_ROUTE_AMOUNT, it)
             }
             LabeledSlider(
                 REACT_ATTACK,
-                route.getOrElse(GeodeNative.MOD_ROUTE_ATTACK_SECONDS) { 0f },
+                route.getOrElse(ModulationNative.MOD_ROUTE_ATTACK_SECONDS) { 0f },
                 ModCatalog.range("route.attackSeconds"),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.SECONDS,
-            ) { onSet(GeodeNative.MOD_ROUTE_ATTACK_SECONDS, it) }
+                unit = ParamsNative.PARAM_UNIT_SECONDS,
+            ) { onSet(ModulationNative.MOD_ROUTE_ATTACK_SECONDS, it) }
             LabeledSlider(
                 REACT_RELEASE,
-                route.getOrElse(GeodeNative.MOD_ROUTE_RELEASE_SECONDS) { 0f },
+                route.getOrElse(ModulationNative.MOD_ROUTE_RELEASE_SECONDS) { 0f },
                 ModCatalog.range("route.releaseSeconds"),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.SECONDS,
-            ) { onSet(GeodeNative.MOD_ROUTE_RELEASE_SECONDS, it) }
-            WordRow("Curve", "curve", route.intAt(GeodeNative.MOD_ROUTE_CURVE)) { onSet(GeodeNative.MOD_ROUTE_CURVE, it) }
+                unit = ParamsNative.PARAM_UNIT_SECONDS,
+            ) { onSet(ModulationNative.MOD_ROUTE_RELEASE_SECONDS, it) }
+            WordRow("Curve", "curve", route.intAt(ModulationNative.MOD_ROUTE_CURVE)) { onSet(ModulationNative.MOD_ROUTE_CURVE, it) }
             TextButton(onClick = onRemove) { Text(stringResource(R.string.action_remove)) }
         }
     }
@@ -250,7 +254,7 @@ private fun ReactionCard(
                             )
                             sources.filter { it.more.firstOrNull() == group.name }.forEach { s ->
                                 TextButton(onClick = {
-                                    onSet(GeodeNative.MOD_ROUTE_SOURCE, s.ordinal.toFloat())
+                                    onSet(ModulationNative.MOD_ROUTE_SOURCE, s.ordinal.toFloat())
                                     picking = null
                                 }) {
                                     val mark = if (s.ordinal == source) "▶ " else ""
@@ -260,11 +264,12 @@ private fun ReactionCard(
                         }
                     } else {
                         // Native lists what a route may move on this style.
-                        val offered = remember(sceneId) { GeodeNative.modTargetsOffered(sceneId, GeodeNative.MOD_PICKER_REACTION) }
+                        val offered =
+                            remember(sceneId) { ModulationNative.modTargetsOffered(sceneId, ModulationNative.MOD_PICKER_REACTION) }
                         offered.forEach { t ->
                             val label = ModCatalog.label("target", t)
                             TextButton(onClick = {
-                                onSet(GeodeNative.MOD_ROUTE_TARGET, t.toFloat())
+                                onSet(ModulationNative.MOD_ROUTE_TARGET, t.toFloat())
                                 picking = null
                             }) { Text(if (t == target) "▶ $label" else label) }
                         }
@@ -276,7 +281,7 @@ private fun ReactionCard(
     }
 }
 
-/** One wave of the saved [lfos], drawn from native's reading of it; [onChange] sends a `GeodeNative.MOD_LFO_*` field's new value. */
+/** One wave of the saved [lfos], drawn from native's reading of it; [onChange] sends a `ModulationNative.MOD_LFO_*` field's new value. */
 @Composable
 internal fun ModulatorCard(
     index: Int,
@@ -285,10 +290,10 @@ internal fun ModulatorCard(
 ) {
     var showTargetPicker by remember { mutableStateOf(false) }
     val sceneId = LocalSceneId.current
-    val v = remember(lfos, index, sceneId) { GeodeNative.modLfoValues(lfos, index, sceneId) }
+    val v = remember(lfos, index, sceneId) { ModulationNative.modLfoValues(lfos, index, sceneId) }
     // Native says which controls the slot reads as it stands: shape and timing, its own period, a knob.
-    val shows = remember(lfos, index) { GeodeNative.modLfoShows(lfos, index) }
-    val target = v.intAt(GeodeNative.MOD_LFO_TARGET)
+    val shows = remember(lfos, index) { ModulationNative.modLfoShows(lfos, index) }
+    val target = v.intAt(ModulationNative.MOD_LFO_TARGET)
     val targetLabel = ModCatalog.label("target", target)
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -297,35 +302,45 @@ internal fun ModulatorCard(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            Switch(checked = v.flagAt(GeodeNative.MOD_LFO_ENABLED), onCheckedChange = { onChange(GeodeNative.MOD_LFO_ENABLED, it.wire()) })
+            Switch(
+                checked = v.flagAt(ModulationNative.MOD_LFO_ENABLED),
+                onCheckedChange = { onChange(ModulationNative.MOD_LFO_ENABLED, it.wire()) },
+            )
         }
-        if (v.flagAt(GeodeNative.MOD_LFO_ENABLED)) {
+        if (v.flagAt(ModulationNative.MOD_LFO_ENABLED)) {
             TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, targetLabel)) }
-            if (target != 0 && !v.flagAt(GeodeNative.MOD_LFO_REACHES)) {
+            if (target != 0 && !v.flagAt(ModulationNative.MOD_LFO_REACHES)) {
                 ControlHint("$targetLabel does nothing on this style - pick another.")
             }
-            if (shows and GeodeNative.MOD_SHOWS_KNOB != 0) {
-                MacroKnobRow(v.intAt(GeodeNative.MOD_LFO_KNOB)) { onChange(GeodeNative.MOD_LFO_KNOB, it.toFloat()) }
+            if (shows and ModulationNative.MOD_SHOWS_KNOB != 0) {
+                MacroKnobRow(v.intAt(ModulationNative.MOD_LFO_KNOB)) { onChange(ModulationNative.MOD_LFO_KNOB, it.toFloat()) }
             }
             // Native also turns the wave the way a new source is useful.
-            WordRow("Follows", "source", v.intAt(GeodeNative.MOD_LFO_SOURCE)) { onChange(GeodeNative.MOD_LFO_SOURCE, it) }
-            if (shows and GeodeNative.MOD_SHOWS_WAVE != 0) {
-                WordRow("Wave shape", "wave", v.intAt(GeodeNative.MOD_LFO_WAVE)) { onChange(GeodeNative.MOD_LFO_WAVE, it) }
+            WordRow("Follows", "source", v.intAt(ModulationNative.MOD_LFO_SOURCE)) { onChange(ModulationNative.MOD_LFO_SOURCE, it) }
+            if (shows and ModulationNative.MOD_SHOWS_WAVE != 0) {
+                WordRow("Wave shape", "wave", v.intAt(ModulationNative.MOD_LFO_WAVE)) { onChange(ModulationNative.MOD_LFO_WAVE, it) }
                 val timing = ModCatalog.words("beats")
-                val beats = v.intAt(GeodeNative.MOD_LFO_BEATS)
+                val beats = v.intAt(ModulationNative.MOD_LFO_BEATS)
                 DropdownRow("Timing", timing.map { it.label }, timing.indexOfFirst { it.name.toIntOrNull() == beats }) {
-                    onChange(GeodeNative.MOD_LFO_BEATS, timing[it].name.toFloatOrNull() ?: 0f)
+                    onChange(ModulationNative.MOD_LFO_BEATS, timing[it].name.toFloatOrNull() ?: 0f)
                 }
-                val moment = v.intAt(GeodeNative.MOD_LFO_MOMENT)
-                MomentTriggerRow(moment, stringResource(R.string.mod_moment_free)) { onChange(GeodeNative.MOD_LFO_MOMENT, it.toFloat()) }
-                val rate = v.getOrElse(GeodeNative.MOD_LFO_RATE_SECONDS) { 0f }
-                if (shows and GeodeNative.MOD_SHOWS_RATE != 0) RateSecondsSlider(rate) { onChange(GeodeNative.MOD_LFO_RATE_SECONDS, it) }
+                val moment = v.intAt(ModulationNative.MOD_LFO_MOMENT)
+                MomentTriggerRow(
+                    moment,
+                    stringResource(R.string.mod_moment_free),
+                ) { onChange(ModulationNative.MOD_LFO_MOMENT, it.toFloat()) }
+                val rate = v.getOrElse(ModulationNative.MOD_LFO_RATE_SECONDS) { 0f }
+                if (shows and ModulationNative.MOD_SHOWS_RATE !=
+                    0
+                ) {
+                    RateSecondsSlider(rate) { onChange(ModulationNative.MOD_LFO_RATE_SECONDS, it) }
+                }
             }
-            LabeledSlider(MOD_DEPTH, v.getOrElse(GeodeNative.MOD_LFO_DEPTH) { 0f }, ModCatalog.range("lfo.depth")) {
-                onChange(GeodeNative.MOD_LFO_DEPTH, it)
+            LabeledSlider(MOD_DEPTH, v.getOrElse(ModulationNative.MOD_LFO_DEPTH) { 0f }, ModCatalog.range("lfo.depth")) {
+                onChange(ModulationNative.MOD_LFO_DEPTH, it)
             }
-            WordRow("Direction", "polarity", v.intAt(GeodeNative.MOD_LFO_POLARITY)) { onChange(GeodeNative.MOD_LFO_POLARITY, it) }
-            WordRow("Curve", "curve", v.intAt(GeodeNative.MOD_LFO_CURVE)) { onChange(GeodeNative.MOD_LFO_CURVE, it) }
+            WordRow("Direction", "polarity", v.intAt(ModulationNative.MOD_LFO_POLARITY)) { onChange(ModulationNative.MOD_LFO_POLARITY, it) }
+            WordRow("Curve", "curve", v.intAt(ModulationNative.MOD_LFO_CURVE)) { onChange(ModulationNative.MOD_LFO_CURVE, it) }
         }
     }
     if (showTargetPicker) {
@@ -335,11 +350,11 @@ internal fun ModulatorCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     // Native decides what this wave may move (a later wave, or what reaches the style).
-                    val offered = remember(sceneId, index) { GeodeNative.modTargetsOffered(sceneId, index) }
+                    val offered = remember(sceneId, index) { ModulationNative.modTargetsOffered(sceneId, index) }
                     offered.forEach { t ->
                         val label = ModCatalog.label("target", t)
                         TextButton(onClick = {
-                            onChange(GeodeNative.MOD_LFO_TARGET, t.toFloat())
+                            onChange(ModulationNative.MOD_LFO_TARGET, t.toFloat())
                             showTargetPicker = false
                         }) { Text(if (t == target) "▶ $label" else label) }
                     }
@@ -364,14 +379,14 @@ private fun RateSecondsSlider(
     val range = ModCatalog.range("lfo.rateSeconds")
     val lo = range.start
     val hi = range.endInclusive
-    val t = GeodeNative.sliderLogPosition(seconds, lo, hi)
-    val shown = GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN)
+    val t = remember(seconds, lo, hi) { ParamsNative.sliderLogPosition(seconds, lo, hi) }
+    val shown = remember(seconds) { ParamsNative.paramText("", ParamsNative.PARAM_UNIT_SECONDS, seconds, 0f, 0f, Float.NaN) }
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = t,
-            onValueChange = { onChange(GeodeNative.sliderLogValue(it, lo, hi)) },
+            onValueChange = { onChange(ParamsNative.sliderLogValue(it, lo, hi)) },
             valueRange = 0f..1f,
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
@@ -383,7 +398,7 @@ private fun RateSecondsSlider(
     }
 }
 
-/** One envelope of the saved [adsrs], drawn from native's reading of it; [onChange] sends a `GeodeNative.MOD_ADSR_*` field's new value. */
+/** One envelope of the saved [adsrs], drawn from native's reading of it; [onChange] sends a `ModulationNative.MOD_ADSR_*` field's new value. */
 @Composable
 internal fun AdsrCard(
     index: Int,
@@ -391,14 +406,17 @@ internal fun AdsrCard(
     onChange: (field: Int, value: Float) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
-    val v = remember(adsrs, index) { GeodeNative.modAdsrValues(adsrs, index) }
+    val v = remember(adsrs, index) { ModulationNative.modAdsrValues(adsrs, index) }
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        CheckRow("Envelope ${index + 1} on", v.flagAt(GeodeNative.MOD_ADSR_ENABLED)) { onChange(GeodeNative.MOD_ADSR_ENABLED, it.wire()) }
-        if (!v.flagAt(GeodeNative.MOD_ADSR_ENABLED)) return@Column
+        CheckRow(
+            "Envelope ${index + 1} on",
+            v.flagAt(ModulationNative.MOD_ADSR_ENABLED),
+        ) { onChange(ModulationNative.MOD_ADSR_ENABLED, it.wire()) }
+        if (!v.flagAt(ModulationNative.MOD_ADSR_ENABLED)) return@Column
         // What it moves: one row and a checkable menu, in place of a chip per target and a "+" chip.
         // The ones already chosen stay listed even where this style ignores them, so they can be unticked (native's list).
-        val targets = v.drop(GeodeNative.MOD_ADSR_VALUES).map { it.toInt() }
-        val offered = remember(adsrs, index, sceneId) { GeodeNative.modAdsrTargetsOffered(adsrs, index, sceneId) }
+        val targets = v.drop(ModulationNative.MOD_ADSR_VALUES).map { it.toInt() }
+        val offered = remember(adsrs, index, sceneId) { ModulationNative.modAdsrTargetsOffered(adsrs, index, sceneId) }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.envelope_moves), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             MultiPickButton(
@@ -407,32 +425,32 @@ internal fun AdsrCard(
                     targets.joinToString { ModCatalog.label("target", it) }.ifEmpty { stringResource(R.string.envelope_moves_nothing) },
                 picks = offered.map { MenuPick(ModCatalog.label("target", it), it in targets) },
                 modifier = Modifier.weight(1f, fill = false),
-            ) { i -> onChange(GeodeNative.MOD_ADSR_TARGET, offered[i].toFloat()) }
+            ) { i -> onChange(ModulationNative.MOD_ADSR_TARGET, offered[i].toFloat()) }
         }
-        val shows = remember(adsrs, index) { GeodeNative.modAdsrShows(adsrs, index) }
-        if (shows and GeodeNative.MOD_SHOWS_KNOB != 0) {
-            MacroKnobRow(v.intAt(GeodeNative.MOD_ADSR_KNOB)) { onChange(GeodeNative.MOD_ADSR_KNOB, it.toFloat()) }
+        val shows = remember(adsrs, index) { ModulationNative.modAdsrShows(adsrs, index) }
+        if (shows and ModulationNative.MOD_SHOWS_KNOB != 0) {
+            MacroKnobRow(v.intAt(ModulationNative.MOD_ADSR_KNOB)) { onChange(ModulationNative.MOD_ADSR_KNOB, it.toFloat()) }
         }
         CardSubHeader(stringResource(R.string.customize_envelope_shape))
-        AdsrSlider(ENV_ATTACK, v, GeodeNative.MOD_ADSR_ATTACK, "adsr.attack", ParamUnit.SECONDS, onChange)
-        AdsrSlider(ENV_DECAY, v, GeodeNative.MOD_ADSR_DECAY, "adsr.decay", ParamUnit.SECONDS, onChange)
-        AdsrSlider(ENV_SUSTAIN, v, GeodeNative.MOD_ADSR_SUSTAIN, "adsr.sustain", null, onChange)
-        AdsrSlider(ENV_RELEASE, v, GeodeNative.MOD_ADSR_RELEASE, "adsr.release", ParamUnit.SECONDS, onChange)
-        AdsrSlider(ENV_AMOUNT, v, GeodeNative.MOD_ADSR_AMOUNT, "adsr.amount", ParamUnit.PERCENT, onChange)
+        AdsrSlider(ENV_ATTACK, v, ModulationNative.MOD_ADSR_ATTACK, "adsr.attack", ParamsNative.PARAM_UNIT_SECONDS, onChange)
+        AdsrSlider(ENV_DECAY, v, ModulationNative.MOD_ADSR_DECAY, "adsr.decay", ParamsNative.PARAM_UNIT_SECONDS, onChange)
+        AdsrSlider(ENV_SUSTAIN, v, ModulationNative.MOD_ADSR_SUSTAIN, "adsr.sustain", ParamsNative.PARAM_UNIT_OWN, onChange)
+        AdsrSlider(ENV_RELEASE, v, ModulationNative.MOD_ADSR_RELEASE, "adsr.release", ParamsNative.PARAM_UNIT_SECONDS, onChange)
+        AdsrSlider(ENV_AMOUNT, v, ModulationNative.MOD_ADSR_AMOUNT, "adsr.amount", ParamsNative.PARAM_UNIT_PERCENT, onChange)
         CardSubHeader(stringResource(R.string.customize_envelope_hold))
         ControlHint(
             stringResource(R.string.customize_envelope_hold_hint),
         )
-        WordRow(ENV_GATE_SOURCE, "band", v.intAt(GeodeNative.MOD_ADSR_BAND), lockKey = ENV_GATE_SOURCE) {
-            onChange(GeodeNative.MOD_ADSR_BAND, it)
+        WordRow(ENV_GATE_SOURCE, "band", v.intAt(ModulationNative.MOD_ADSR_BAND), lockKey = ENV_GATE_SOURCE) {
+            onChange(ModulationNative.MOD_ADSR_BAND, it)
         }
-        AdsrSlider(ENV_GATE_LEVEL, v, GeodeNative.MOD_ADSR_GATE_THRESHOLD, "adsr.gateThreshold", null, onChange)
-        CheckRow(ENV_SUSTAIN_TRACK, v.flagAt(GeodeNative.MOD_ADSR_SUSTAIN_TRACK)) {
-            onChange(GeodeNative.MOD_ADSR_SUSTAIN_TRACK, it.wire())
+        AdsrSlider(ENV_GATE_LEVEL, v, ModulationNative.MOD_ADSR_GATE_THRESHOLD, "adsr.gateThreshold", ParamsNative.PARAM_UNIT_OWN, onChange)
+        CheckRow(ENV_SUSTAIN_TRACK, v.flagAt(ModulationNative.MOD_ADSR_SUSTAIN_TRACK)) {
+            onChange(ModulationNative.MOD_ADSR_SUSTAIN_TRACK, it.wire())
         }
-        CheckRow(ENV_RETRIGGER, v.flagAt(GeodeNative.MOD_ADSR_RETRIGGER)) { onChange(GeodeNative.MOD_ADSR_RETRIGGER, it.wire()) }
-        MomentTriggerRow(v.intAt(GeodeNative.MOD_ADSR_MOMENT), stringResource(R.string.mod_moment_note_start)) {
-            onChange(GeodeNative.MOD_ADSR_MOMENT, it.toFloat())
+        CheckRow(ENV_RETRIGGER, v.flagAt(ModulationNative.MOD_ADSR_RETRIGGER)) { onChange(ModulationNative.MOD_ADSR_RETRIGGER, it.wire()) }
+        MomentTriggerRow(v.intAt(ModulationNative.MOD_ADSR_MOMENT), stringResource(R.string.mod_moment_note_start)) {
+            onChange(ModulationNative.MOD_ADSR_MOMENT, it.toFloat())
         }
     }
 }
@@ -444,53 +462,77 @@ private fun AdsrSlider(
     values: FloatArray,
     field: Int,
     range: String,
-    unit: ParamUnit?,
+    unit: Int,
     onChange: (field: Int, value: Float) -> Unit,
 ) {
     LabeledSlider(label, values.getOrElse(field) { 0f }, ModCatalog.range(range), unit = unit) { onChange(field, it) }
 }
 
-/** Expert › Layers: a second style drawn under the active one. */
+/**
+ * Expert › Layers: a second style drawn over the active one. Native keeps the layer, process-wide, and decides which
+ * style it draws and everything this page offers (core/viz/LayerState, core/viz/LayerPick); the page draws the values
+ * and lists native hands it, hands each choice back, and saves the line native returns ([dev.geode.data.LookStore]).
+ */
 @Composable
 internal fun LayersPage() {
-    val layers by LayersBus.state.collectAsStateWithLifecycle()
-    val layerScenes by LayersBus.availableScenes.collectAsStateWithLifecycle()
-    val activeScene by LayersBus.activeSceneId.collectAsStateWithLifecycle()
-    ControlHint(
-        stringResource(R.string.customize_layers_hint),
-    )
-    CheckRow(LAYERS_ENABLED, layers.enabled, scope = ParamScope.UNIVERSAL) { on ->
-        val scene = layers.sceneId ?: layerScenes.firstOrNull { it != activeScene }
-        LayersBus.state.value = layers.copy(enabled = on, sceneId = scene)
-    }
-    if (!layers.enabled || !sectionVisible()) return
-    var showLayerPicker by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { showLayerPicker = true }) {
-            val layerStyle = layers.sceneId?.let { sceneDisplayLabel(it) } ?: stringResource(R.string.customize_layer_none)
-            Text(stringResource(R.string.customize_layer_style, layerStyle))
+    val looks = LocalContext.current.geodeContainer.looks
+    val active = LocalSceneId.current
+    var edits by remember { mutableIntStateOf(0) }
+    // Read again now and then too: what Auto Director or a knob draws moves without an edit here.
+    val shown by produceState(VizNative.layerShown(active), active, edits) {
+        while (true) {
+            value = VizNative.layerShown(active)
+            delay(LAYER_SHOWN_POLL_MS)
         }
-        DropdownMenu(expanded = showLayerPicker, onDismissRequest = { showLayerPicker = false }) {
-            layerScenes.filter { it != activeScene }.forEach { id ->
-                DropdownMenuItem(
-                    text = { Text(sceneDisplayLabel(id)) },
-                    onClick = {
-                        LayersBus.state.value = layers.copy(sceneId = id)
-                        showLayerPicker = false
-                    },
-                )
+    }
+    // The style picker's family as the user browses it; -1 is native's, the one holding the style drawn now.
+    var family by remember(shown) { mutableIntStateOf(-1) }
+    val values = remember(active, family, edits, shown) { VizNative.layerValues(active, family) }
+    val edit = { field: Int, value: Float, styleId: String ->
+        VizNative.layerEdit(field, value, styleId).takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
+        edits += 1
+    }
+    val list = { which: Int -> VizNative.layerList(which, active, values[VizNative.LAYER_FAMILY].toInt()).asList() }
+    ControlHint(stringResource(R.string.customize_layers_hint))
+    val on = values[VizNative.LAYER_ON] > 0f
+    CheckRow(LAYERS_ENABLED, on, scope = ParamScope.UNIVERSAL) { edit(VizNative.LAYER_ON, if (it) 1f else 0f, "") }
+    if (!on || !sectionVisible()) return
+    val source = values[VizNative.LAYER_SOURCE].toInt()
+    val sources = remember(active, values) { list(VizNative.LAYER_LIST_SOURCES) }
+    DropdownRow(stringResource(R.string.customize_layer_from), sources, source) {
+        edit(VizNative.LAYER_SOURCE, it.toFloat(), "")
+    }
+    when (source) {
+        VizNative.LAYER_SOURCE_USER -> {
+            val families = remember(active, values) { list(VizNative.LAYER_LIST_FAMILIES).map { CustomizeNative.styleFamilyLabel(it) } }
+            val styles = remember(active, values) { list(VizNative.LAYER_LIST_STYLES) }
+            val styleLabels = remember(styles) { styles.map { CustomizeNative.styleLabel(it) } }
+            DropdownRow(stringResource(R.string.customize_layer_family), families, values[VizNative.LAYER_FAMILY].toInt()) { family = it }
+            DropdownRow(
+                stringResource(R.string.customize_layer_pick),
+                styleLabels,
+                values[VizNative.LAYER_STYLE].toInt(),
+                placeholder = stringResource(R.string.customize_layer_suits),
+            ) { edit(VizNative.LAYER_STYLE, 0f, styles[it]) }
+            if (values[VizNative.LAYER_PICKED] > 0f) {
+                TextButton(onClick = { edit(VizNative.LAYER_STYLE, 0f, "") }) { Text(stringResource(R.string.customize_layer_suits)) }
             }
         }
-    }
-    if (layers.sceneId != null && layers.sceneId == activeScene) {
-        ControlHint(stringResource(R.string.customize_layer_idle_hint))
-    }
-    val blendNames =
-        remember {
-            runCatching { GeodeNative.layerBlendNames().lines().filter { it.isNotEmpty() } }.getOrDefault(emptyList())
+        VizNative.LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
+        VizNative.LAYER_SOURCE_MACRO -> {
+            val knob = values[VizNative.LAYER_KNOB].toInt()
+            val knobs = remember(active, values) { list(VizNative.LAYER_LIST_KNOBS) }
+            DropdownRow(stringResource(R.string.customize_layer_knob), knobs, knob) {
+                edit(VizNative.LAYER_KNOB, it.toFloat(), "")
+            }
+            ControlHint(stringResource(R.string.customize_layer_macro_hint))
         }
-    DropdownRow("Blend", blendNames, layers.blend) { LayersBus.state.value = layers.copy(blend = it) }
-    LabeledSlider(LAYER_MIX, layers.mix, 0f..1f, scope = ParamScope.UNIVERSAL) { LayersBus.state.value = layers.copy(mix = it) }
+    }
+    if (shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(shown)))
+    val blend = values[VizNative.LAYER_BLEND].toInt()
+    val blends = remember(active, values) { list(VizNative.LAYER_LIST_BLENDS) }
+    DropdownRow("Blend", blends, blend) { edit(VizNative.LAYER_BLEND, it.toFloat(), "") }
+    LabeledSlider(LAYER_MIX, values[VizNative.LAYER_MIX], 0f..1f, scope = ParamScope.UNIVERSAL) { edit(VizNative.LAYER_MIX, it, "") }
 }
 
 /**
@@ -507,7 +549,7 @@ private fun NoteKeySlider(
     onChange: (SceneParams) -> Unit,
 ) {
     val label = stringResource(name)
-    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
+    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamsNative.PARAM_UNIT_TIMES, onChange = onChange)
     if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
 }
 
@@ -543,7 +585,7 @@ private class TransitionChoices(
 
 /** Native's picker table (`core/viz/TransitionLibrary`, `encodeTransitionPicker`): two lists, split on RS then US. */
 private fun transitionChoices(context: Context): TransitionChoices {
-    val table = runCatching { String(GeodeNative.transitionPicker(context.assets), Charsets.UTF_8) }.getOrDefault("")
+    val table = runCatching { String(CatalogueNative.transitionPicker(context.assets), Charsets.UTF_8) }.getOrDefault("")
     val lists = table.split('\u001e')
 
     fun list(i: Int) =
@@ -604,15 +646,6 @@ internal fun TransitionPicker(
     }
 }
 
-/** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
-@Composable
-internal fun liquidHotNote(liquidMode: Int): String? =
-    when (liquidMode) {
-        2, 3 -> stringResource(R.string.customize_liquid_hot_simplified)
-        4 -> stringResource(R.string.customize_liquid_hot_paused)
-        else -> null
-    }
-
 /**
  * Expert › Shader code: the custom fluid shaders (force and dye) on Fluid. The style's own shader box
  * is no longer offered here (the owner's call, 2026-11-11); native's map shows this section on Fluid
@@ -628,6 +661,9 @@ internal fun ShaderCodePage(host: AdvancedHost) {
     }
 }
 
+/** The built-in splat shader the two editors open on; native compiles what the user sends back. */
+private const val FLUID_SPLAT_ASSET = "shaders/fluid_splat_frag.glsl"
+
 @Composable
 private fun InjectionShaderEditors(
     injectionError: String?,
@@ -642,7 +678,12 @@ private fun InjectionShaderEditors(
     val template by produceState<String?>(initialValue = null, ctx) {
         value =
             withContext(Dispatchers.IO) {
-                FluidShaderTemplate.splat(ctx).also {
+                runCatching {
+                    ctx.assets
+                        .open(FLUID_SPLAT_ASSET)
+                        .bufferedReader()
+                        .use { it.readText() }
+                }.getOrDefault("").also {
                     if (it.isEmpty()) RingLog.note("CustomizeAdvanced", "fluid splat asset read failed")
                 }
             }
@@ -705,3 +746,6 @@ private const val ENV_SUSTAIN_TRACK = "Sustain follows the sound"
 private const val ENV_RETRIGGER = "Restart on every hit"
 private const val LAYERS_ENABLED = "Layers enabled"
 private const val LAYER_MIX = "Layer mix"
+
+// How often Customize › Layers reads again what Auto Director or a knob draws.
+private const val LAYER_SHOWN_POLL_MS = 1000L

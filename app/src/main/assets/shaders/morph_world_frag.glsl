@@ -52,7 +52,9 @@ out vec4 fragColor;
 float worldJitter(vec2 frag) { return fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715)))); }
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
     vec3 ro;
     vec3 rd;
     worldCamera(uv, ro, rd);

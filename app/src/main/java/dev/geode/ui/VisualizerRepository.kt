@@ -8,7 +8,7 @@ interface VisualizerRepository {
 
     val activeMilkPath: StateFlow<String?>
 
-    /** What Liquid mode is doing right now (0 off, 1 full, 2 lite, 3 warp, 4 paused), from the live renderer. */
+    /** What Liquid mode is doing right now (0 off, 1 full), from the live renderer. */
     val liquidMode: StateFlow<Int>
 }
 

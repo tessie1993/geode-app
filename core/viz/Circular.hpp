@@ -8,7 +8,7 @@ namespace geode::viz {
 // bar or phrase phase. A smoother that treats one as a line goes the long way round at the seam: a
 // chord hue easing 0.95 -> 0.05 would sweep back through every colour on the wheel, and a beat phase
 // that wraps every beat would run backward once a beat. Every smoother of such a value goes through
-// these helpers, so the rule lives in one place (fosfora study, PR #300).
+// these helpers, so the rule lives in one place (PR #300).
 //
 // Two kinds, because they move differently:
 // - Hue: no direction is "forward"; take the shorter arc (0.95 -> 0.05 goes up through 1.0 = 0.0).

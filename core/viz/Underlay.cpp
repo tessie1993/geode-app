@@ -52,6 +52,18 @@ Rect cropRect(int srcW, int srcH, int targetW, int targetH) {
     return whole;
 }
 
+int sampleSize(int srcW, int srcH, int targetW, int targetH, bool fit) {
+    if (srcW <= 0 || srcH <= 0 || targetW <= 0 || targetH <= 0) return 1;
+    constexpr int kMaxSample = 1 << 30;
+    int s = 1;
+    if (fit) {
+        while (s < kMaxSample && (srcW / s > targetW || srcH / s > targetH)) s *= 2;
+    } else {
+        while (s < kMaxSample && srcW / (s * 2) >= targetW && srcH / (s * 2) >= targetH) s *= 2;
+    }
+    return s;
+}
+
 void blur(uint32_t* pixels, int width, int height, int radius) {
     if (!pixels || width <= 0 || height <= 0) return;
     const int divisor = std::clamp(1 + clampBlur(radius), 1, kMaxDivisor);

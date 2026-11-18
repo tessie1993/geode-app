@@ -5,7 +5,8 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.DirectorNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
 import dev.geode.util.bestEffort
@@ -33,9 +34,13 @@ import kotlin.random.Random
  * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
  * starts with the director part on. A free user gets the first minute of each song ([AutoDirectorPolicy]).
  *
- * How far it reaches past its look is [reach] (Visuals › Settings, under Auto): the levels and what each
+ * How far it reaches past its look is [reach] (Visuals › Settings, under Auto Director): the levels and what each
  * does are native (core/viz/DirectorReach); this store keeps the choice and hands it over, with Customize's
  * keep set, which the reach never moves.
+ *
+ * Its settings ([tuning], Visuals › Settings under Auto Director) are a native table (core/viz/DirectorTuning):
+ * the rows, their labels, ranges and values come from native, and this store keeps the text native hands
+ * back for an edit, and hands it over as it is.
  *
  * One instance per process, built by `GeodeContainer`: the switch and the reach are kept by
  * [AutoDirectorCodec] in a [SettingsRepository] (#1009, PR 6), read on IO, and nothing is pushed before
@@ -58,6 +63,12 @@ class AutoDirectorStore internal constructor(
             .map { it.reach }
             .stateIn(scope, SharingStarted.Eagerly, repository.value.value.reach)
 
+    /** The Auto Director's settings as native wrote them (DirectorNative.directorTuningWith); "" is every default. */
+    val tuning: StateFlow<String> =
+        repository.value
+            .map { it.tuning }
+            .stateIn(scope, SharingStarted.Eagerly, repository.value.value.tuning)
+
     private var seed = Random.nextLong()
     private var gate = FeatureGate.FREE
     private var positionMs = 0L
@@ -65,6 +76,7 @@ class AutoDirectorStore internal constructor(
     private var loaded = false
     private var pushed: Triple<Boolean, Float, Long>? = null
     private var pushedReach: Int? = null
+    private var pushedTuning: String? = null
 
     init {
         scope.launch {
@@ -74,25 +86,41 @@ class AutoDirectorStore internal constructor(
             repository.value.collect {
                 push()
                 pushReach()
+                pushTuning()
             }
         }
     }
 
-    /** The native level (GeodeNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
+    /** The native level (DirectorNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
     fun setReach(level: Int) {
         scope.launch { repository.update { it.copy(reach = level) } }
     }
 
-    /** Customize's locked controls and kept categories, as saved under [KEY_KEPT]. */
+    /**
+     * Customize's locked controls and kept categories, as saved under [KEY_KEPT]: the saved set at start, then
+     * each change `ModulationController` saves. The one writer of the native keep set.
+     */
     fun setKept(keys: Set<String>) {
-        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(keys.joinToString("\n")) }
+        bestEffort(TAG, "push keep set") { DirectorNative.directorKeepSet(keys.joinToString("\n")) }
+    }
+
+    /** The settings text as native wrote it for an edit; saved and handed over as it is. */
+    fun setTuning(text: String) {
+        scope.launch { repository.update { it.copy(tuning = text) } }
+    }
+
+    private fun pushTuning() {
+        val text = repository.value.value.tuning
+        if (text == pushedTuning) return
+        pushedTuning = text
+        bestEffort(TAG, "push tuning") { DirectorNative.directorTuningSet(text) }
     }
 
     private fun pushReach() {
         val level = repository.value.value.reach
         if (level == pushedReach) return
         pushedReach = level
-        bestEffort(TAG, "push reach") { GeodeNative.directorReachSet(level) }
+        bestEffort(TAG, "push reach") { DirectorNative.directorReachSet(level) }
     }
 
     fun setEnabled(on: Boolean) {
@@ -109,7 +137,7 @@ class AutoDirectorStore internal constructor(
         seed = Random.nextLong()
         this.gate = gate
         positionMs = 0L
-        bestEffort(TAG, "track boundary") { GeodeNative.soundTrackBoundary(seed) }
+        bestEffort(TAG, "track boundary") { SoundNative.soundTrackBoundary(seed) }
         push()
     }
 
@@ -144,7 +172,7 @@ class AutoDirectorStore internal constructor(
         val next = Triple(on, amount, seed)
         if (next == pushed) return
         pushed = next
-        bestEffort(TAG, "push director") { GeodeNative.directorSet(on, amount, seed) }
+        bestEffort(TAG, "push director") { DirectorNative.directorSet(on, amount, seed) }
     }
 
     companion object {
@@ -157,16 +185,18 @@ class AutoDirectorStore internal constructor(
     }
 }
 
-/** The director's switch and reach as the user set them. */
+/** The director's switch, reach and settings text as the user set them. */
 data class AutoDirectorSettings(
     val enabled: Boolean = AutoDirectorStore.DEFAULT_ENABLED,
     val reach: Int = AutoDirectorStore.DEFAULT_REACH,
+    val tuning: String = "",
 )
 
 /** How [AutoDirectorSettings] sit in `geode-prefs`. */
 object AutoDirectorCodec : PrefsCodec<AutoDirectorSettings> {
     private const val KEY_ENABLED = "auto_director_enabled"
     private const val KEY_REACH = "auto_director_reach"
+    private const val KEY_TUNING = "auto_director_tuning"
 
     override val defaults = AutoDirectorSettings()
 
@@ -174,16 +204,24 @@ object AutoDirectorCodec : PrefsCodec<AutoDirectorSettings> {
         prefKeys(GeodePrefsFiles.GENERAL) {
             portable(PrefType.BOOLEAN, KEY_ENABLED)
             portable(PrefType.INT, KEY_REACH)
+            portable(PrefType.STRING, KEY_TUNING)
         }
 
     override fun read(prefs: SharedPreferences) =
-        AutoDirectorSettings(prefs.getBoolean(KEY_ENABLED, defaults.enabled), prefs.getInt(KEY_REACH, defaults.reach))
+        AutoDirectorSettings(
+            prefs.getBoolean(KEY_ENABLED, defaults.enabled),
+            prefs.getInt(KEY_REACH, defaults.reach),
+            prefs.getString(KEY_TUNING, defaults.tuning).orEmpty(),
+        )
 
     override fun write(
         editor: SharedPreferences.Editor,
         value: AutoDirectorSettings,
     ) {
-        editor.putBoolean(KEY_ENABLED, value.enabled).putInt(KEY_REACH, value.reach)
+        editor
+            .putBoolean(KEY_ENABLED, value.enabled)
+            .putInt(KEY_REACH, value.reach)
+            .putString(KEY_TUNING, value.tuning)
     }
 
     /** Customize's keep set as `ModulationController` saved it in [modulation], for the store's start. */

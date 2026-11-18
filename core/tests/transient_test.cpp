@@ -16,6 +16,7 @@
 #include <numbers>
 #include <vector>
 
+#include "sound/OnsetFlux.hpp"
 #include "sound/SoundEngine.hpp"
 
 using geode::sound::SoundEngine;
@@ -205,9 +206,43 @@ void testRateIndependent() {
     same(play(plucked, seconds, 48000, 90.0), "90 fps");
 }
 
+// The flux's reference spectrum (sound/OnsetFlux, Böck & Widmer 2013's maximum filter): a partial that slid one
+// bin, as a vibrato's wobble does, finds its old self within reach and adds no rise; a new partial where the
+// neighbourhood was empty rises in full. Plain bin-by-bin arithmetic on hand-made log spectra.
+void testVibratoSlideIsNoRise() {
+    namespace of = geode::sound::onsetflux;
+    constexpr int kBins = 64;
+    int reach[kBins];
+    for (int k = 0; k < kBins; k++) reach[k] = of::reachOf(k);
+    CHECK(of::reachOf(0) == 1 && of::reachOf(10) == 1 && of::reachOf(40) == 2 && of::reachOf(400) == 24,
+          "the reach is a semitone of the bin's own frequency, at least one bin: %d %d %d %d", of::reachOf(0), of::reachOf(10),
+          of::reachOf(40), of::reachOf(400));
+    float before[kBins] = {};
+    float now[kBins] = {};
+    before[20] = 3.0f;  // a partial at bin 20
+    now[21] = 3.0f;     // ... a hop later, one bin up
+    float reference[kBins] = {};
+    of::maxFilter(before, reference, 1, kBins, reach);
+    float plain = 0.0f;
+    float filtered = 0.0f;
+    for (int k = 1; k < kBins; k++) {
+        plain += std::max(0.0f, now[k] - before[k]);
+        filtered += std::max(0.0f, now[k] - reference[k]);
+    }
+    CHECK(plain > 2.9f, "bin by bin, the slid partial reads as a rise of %.2f", static_cast<double>(plain));
+    CHECK(filtered == 0.0f, "against the filtered reference it reads none: %.2f", static_cast<double>(filtered));
+    now[50] = 2.0f;  // a new partial, far from the old one
+    filtered = 0.0f;
+    for (int k = 1; k < kBins; k++) filtered += std::max(0.0f, now[k] - reference[k]);
+    CHECK(std::fabs(filtered - 2.0f) < 1e-6f, "a new partial still rises in full: %.2f", static_cast<double>(filtered));
+    CHECK(reference[19] == 3.0f && reference[21] == 3.0f && reference[23] == 0.0f && reference[1] == 0.0f,
+          "the filter spreads a peak over its reach and no further");
+}
+
 }  // namespace
 
 int main() {
+    testVibratoSlideIsNoRise();
     testClicksFireEachTime();
     testSilenceNeverFires();
     testNoTransientsNearSilence();

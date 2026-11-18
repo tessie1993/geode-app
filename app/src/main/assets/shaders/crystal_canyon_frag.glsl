@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Crystal Canyon: a flight down a canyon whose walls are faceted crystal
 // pillars, hexagonal prisms with pointed tips standing on a grid. Short ones
@@ -25,10 +26,6 @@ out vec4 fragColor;
 // their tips shoot up and they thicken a little, and nothing gets brighter.
 // A pitch change (SND_HELD_NOTE_CHANGE) slides the crystal hue. Air (sndSpectrum(0.93)) thickens
 // and brightens the sparkle glints on the facets. Overall level rides SND_ENERGY_TREND.
-// The mids (SND_MIDDLE) turn the eye's look aside while the mids climb and ease
-// it back as they fall, as lib_terra's terraTurn and lib_truchet's truchetTurn
-// do: 0.1 x sndShaped x SND_DRIVE screen units (0.15 at most, 0 in silence),
-// the gFlameTurn band on a structure that holds still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -36,7 +33,34 @@ out vec4 fragColor;
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the height of the tips'
 // glowing band, k2 FLOW the canyon's bend (its width's wobble, 0.4..1.0, so a
 // neighbour one cell out stays inside hiN's 1.1), k3 TONE the palette
-// position, k4 BUILD the tips' glow, k5 SPACE the reach (far plane and haze).
+// position and how high the walls tower (a high melody raises them into tall
+// spires, a low one settles them into low mesas; hiN follows it), k4 BUILD
+// the tips' glow, k5 SPACE the reach (far plane and haze).
+//
+// ---- shape inputs (lib_shell) ----------------------------------------------
+//
+// Every tunable of the canyon is a normalized input, mapped to its range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off. Only knobs drive them
+// here: this style leaves Morph, Warp and Turbulence to view(), which already
+// bends its picture with them. Music reaches these only through the knobs (the
+// reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sKick       k0 PULSE         a full kick's tip growth 0.8 .. 1.5 .. 2.2
+//   sThick      k1 TEXTURE       the pillars' thickness 0.65 .. 1 .. 1.1
+//   sTip        k1 TEXTURE       the tips' point (face tilt) 0.6 .. 1.3 .. 2.4
+//   gBend       k2 FLOW          the width's wobble 0.4 .. 0.7 .. 1.0
+//   gRise       k3 TONE          the walls' height 5.7 .. 9.5 .. 13.3
+//   sCarpet     k4 BUILD         the floor crystals' spread of height 0.3 .. 0.7 .. 1.4
+//   sBank       k4 BUILD         the run up to the wall tops 4.4 .. 3.4 .. 2.4
+//   sWidth      k5 SPACE         the open floor's half-width 3.6 .. 4.4 .. 5.6
+//   reach       k5 SPACE         far plane and haze 0.8 .. 1 .. 1.2
+//
+// The cell (1) and its hash wrap (1024) stay constants: the wrap is the power
+// of two the eye's rebase relies on, and 1.1 keeps the widest pillar inside
+// its cell. The canyon goes through its shell wrapper, so the shell's spawn,
+// fractal, front and back hooks reach it.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -70,17 +94,26 @@ float gMat;
 vec3 gEye;
 /** k2 FLOW: the width's wobble, world units (0.7 at rest). */
 float gBend = 0.7;
+/** k3 TONE: how far the wall pillars rise (CC_RISE at rest). */
+float gRise = CC_RISE;
+/** Shape inputs (see the header). */
+float sKick;
+float sThick;
+float sTip;
+float sCarpet;
+float sBank;
+float sWidth;
 
 float canyonWidth(float z) {
-    return CC_WIDTH + gBend * sin(z * (CC_TAU / 64.0));
+    return sWidth + gBend * sin(z * (CC_TAU / 64.0));
 }
 
 float wallAt(float ax, float z) {
     float w = canyonWidth(z);
-    return smoothstep(w, w + CC_BANK, ax);
+    return smoothstep(w, w + sBank, ax);
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 cell = floor(p.xz);
     vec2 cc = cell + 0.5;
     vec2 f = p.xz - cc;
@@ -93,23 +126,24 @@ float map(vec3 p) {
     float kickAll = clamp(SND_KICK_ENV, 0.0, 1.0);
     // Only the crystals just ahead of the eye answer the kick.
     float kick = kickAll * exp(-abs(cc.y - gEye.z - 4.0) * 0.14);
-    float top = CC_FLOOR + 0.25 + 0.7 * h + CC_RISE * wall * (0.62 + 0.38 * h2)
-              + CC_KICK * kick * (0.3 + 0.7 * wall);
-    // Largest apothem 0.341 plus the 0.07 jitter stays inside the half-cell.
-    float r = (0.23 + 0.08 * h2) * (1.0 + 0.1 * kick);
+    float top = CC_FLOOR + 0.25 + sCarpet * h + gRise * wall * (0.62 + 0.38 * h2)
+              + sKick * kick * (0.3 + 0.7 * wall);
+    // Largest apothem 0.341 (0.375 at TEXTURE's thickest) plus the 0.07 jitter stays inside the half-cell.
+    float r = (0.23 + 0.08 * h2) * sThick * (1.0 + 0.1 * kick);
 
     vec2 q = rot2(h2 * CC_TAU) * (f - (vec2(h, h2) - 0.5) * 0.1);
     vec2 aq = abs(q);
     // Hexagonal cross-section (max of face planes: a lower bound at corners).
     float pr = max(aq.x * 0.8660254 + aq.y * 0.5, aq.y);
     float side = pr - r;
-    // Pointed tip: the face planes tilted by 1.3, normalised by sqrt(1 + 1.69).
-    float cap = (p.y - top + 1.3 * pr) / 1.64;
+    // Pointed tip: the face planes tilted by sTip (1.3 at rest), normalised by
+    // sqrt(1 + sTip^2) (1.64 at rest, where the ratio below is exactly 1).
+    float cap = (p.y - top + sTip * pr) / (1.64 * sqrt((1.0 + sTip * sTip) / (1.0 + 1.3 * 1.3)));
     float dc = max(side, cap);
 
     // A neighbour one cell further out (plus the width's z wobble) is the
     // tallest one could be.
-    float hiN = CC_FLOOR + 0.95 + CC_RISE * wallAt(ax + 1.1, cc.y) + CC_KICK * kickAll;
+    float hiN = CC_FLOOR + 0.25 + sCarpet + gRise * wallAt(ax + 1.1, cc.y) + sKick * kickAll;
     vec2 af = abs(f);
     float toEdge = 0.5 - max(af.x, af.y);
     float d = min(dc, max(toEdge + 0.02, p.y - hiN));
@@ -124,6 +158,21 @@ float map(vec3 p) {
     gWall = wall;
     gTop = top;
     return d;
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The canyon as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -146,25 +195,33 @@ vec3 skyColour(vec3 rd, float hueBase) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sKick = shellMap(shellKnob(0), 0.8, CC_KICK, 2.2);
+    sThick = shellMap(shellKnob(1), 0.65, 1.0, 1.1);
+    sTip = shellMap(shellKnob(1), 0.6, 1.3, 2.4);
+    gBend = shellMap(shellKnob(2), 0.4, 0.7, 1.0);
+    gRise = shellMap(shellKnob(3), CC_RISE * 0.6, CC_RISE, CC_RISE * 1.4);
+    sCarpet = shellMap(shellKnob(4), 0.3, 0.7, 1.4);
+    sBank = shellMap(shellKnob(4), 4.4, CC_BANK, 2.4);
+    sWidth = shellMap(shellKnob(5), 3.6, CC_WIDTH, 5.6);
+    float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gBend = 0.7 + 0.6 * kFlow;
-    float reach = 1.0 + 0.4 * kSpace;
     vec3 ro;
     vec3 rd;
-    // The mids turn the look aside (see the header).
-    camFly(uv - vec2(0.1 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0), 0.0), ro, rd);
+    camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left: every sample and the
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, CC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);

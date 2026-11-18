@@ -9,7 +9,6 @@
 #include <climits>
 
 #include "util/Log.hpp"
-#include "viz/frame/Thermal.hpp"
 
 namespace geode::stage::platform {
 
@@ -17,8 +16,10 @@ namespace {
 
 constexpr const char* kTag = "GeodeStage";
 
-// GLSurfaceView's GLThread sets no priority: a Java thread's default, nice 0.
-constexpr int kStageNice = 0;
+// android.os.Process.THREAD_PRIORITY_DISPLAY as a Linux nice value, the vsync thread's too (VsyncThread.cpp): the thread
+// that draws a frame never ranks below the one that wakes it. GLSurfaceView's GLThread set none (a Java thread's
+// default, nice 0).
+constexpr int kStageNice = -4;
 
 int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -225,7 +226,7 @@ void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
 
 void StageThread::vsyncCap(float capFps) { VsyncThread::process().setCap(sink_, capFps); }
 
-int StageThread::fpsRungsDown() { return viz::ThermalState::process().fpsRungsDown(); }
+void StageThread::presentAt(int64_t presentNs) { egl_.presentAt(presentNs); }
 
 void StageThread::windowApplied(int64_t sequence) {
     std::lock_guard<std::mutex> lock(ackLock_);

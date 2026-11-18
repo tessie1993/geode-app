@@ -43,13 +43,11 @@ float SceneParams::paletteRange() const {
     if (paletteStopCount() > 0) return colour::hueSpan(stops.data(), static_cast<int>(stops.size()));
     return paletteRangeOverride >= 0.0f ? paletteRangeOverride : paletteAt(palette).range;
 }
-float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
-float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
-// The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
-// but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs
-// rewriting (params_schema_test --write): a row added to viz/ParamTable.inc fails here first, on purpose.
-static_assert(SceneParams::kFieldCount == 187, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
+// The wire's float count. The shell's SceneParams reads the slots from the schema text, so it follows on its own,
+// but core/tests/params_schema.txt, the JVM tests' copy, needs rewriting (params_schema_test --write):
+// a row added to viz/ParamTable.inc fails here first, on purpose.
+static_assert(SceneParams::kFieldCount == 202, "a ParamTable.inc row was added or removed: update params_schema.txt too");
 
 namespace {
 

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeatRealms 3D 音楽ビジュアライザー</title>
+<meta name="description" content="曲に反応する 3D ビジュアルを備えた音楽プレーヤーと、それを動画にするスタジオ。オフラインで動作し、アカウント不要、広告なし、トラッキングなし。Android 13+。">
+<meta name="theme-color" content="#06050B">
+<link rel="canonical" href="https://beatrealms3d.pages.dev/ja/">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BeatRealms 3D 音楽ビジュアライザー">
+<meta property="og:description" content="音楽に合わせて動く 3D ビジュアル。動画として書き出せます。オフラインで動作し、広告なし、トラッキングなし。">
+<meta property="og:image" content="https://beatrealms3d.pages.dev/assets/og-image.png">
+<meta property="og:image:alt" content="音の波でできた BeatRealms 3D の目のロゴと、その背後に広がる光のスペクトル">
+<meta name="twitter:card" content="summary_large_image">
+<!-- i18n:alternates -->
+<link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/">
+<link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/">
+<link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/">
+<link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/">
+<link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/">
+<link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/">
+<link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/">
+<link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/">
+<!-- /i18n:alternates -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": [
+    "SoftwareApplication",
+    "MobileApplication"
+  ],
+  "name": "BeatRealms 3D",
+  "description": "A music player with 3D visuals that react to your songs, and a studio that renders them to video. Offline, no account, no ads.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 13 or newer",
+  "image": "https://beatrealms3d.pages.dev/assets/og-image.png",
+  "url": "https://beatrealms3d.pages.dev/",
+  "installUrl": "https://play.google.com/store/apps/details?id=com.beatrealms3d.app",
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">コンテンツへスキップ</a>
+
+<div class="splash" aria-hidden="true">
+  <img class="eye" src="../assets/eye.webp" alt="">
+  <img class="mark" src="../assets/wordmark.svg" alt="">
+</div>
+
+<nav class="nav" aria-label="メイン">
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="./"><img src="../assets/wordmark.svg" alt="BeatRealms 3D ホーム" width="100" height="40"></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="メニュー"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#menu"/></svg></button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#what"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg>What it does</a></li>
+      <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+      <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg>Styles</a></li>
+      <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+      <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>All features</a></li>
+      <li><a class="nav-cta" href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#download"/></svg>Get the app</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="shine"><img class="wordmark" src="../assets/wordmark.svg" alt="BeatRealms 3D" width="200" height="80"></span>
+      <h1 class="headline"><span>見えないものを、見えるように</span></h1>
+      <p class="subhead">曲に反応する 3D ビジュアルを備えた音楽プレーヤー。動画として書き出せます。</p>
+      <p class="lede">音楽そのものを聴き取る、生きた 334 のスタイル。ベース音、ドラムの一打、コード、ドロップのひとつひとつに反応します。自分好みに仕上げたら、最大 4K の動画にレンダリングできます。オフラインで動作し、アカウント不要、広告なし、トラッキングなしです。</p>
+      <div class="cta"><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"> <img src="../assets/badges/ja.png" alt="Google Play で手に入れよう" width="186" height="72"> </a> <small>Android 13 以降 · <a href="features.html">すべての機能</a></small></div>
+    </div>
+    <div>
+      <div class="hero-visual">
+        <canvas class="vortex" data-vortex aria-hidden="true"></canvas>
+        <div class="hero-phone" id="hero-phone">
+          <video id="hero-video" muted loop playsinline preload="auto" poster="../assets/hero-loop-poster.jpg" aria-label="アプリの起動時クリップ：光から形づくられるネオンの目">
+            <source src="../assets/hero-loop.mp4" type="video/mp4">
+          </video>
+        </div>
+        <span class="chip c1">334 のビジュアルスタイル</span>
+        <span class="chip c2">4K · 60 fps の動画</span>
+        <span class="chip c3">広告なし · オフラインで動作</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="stats" aria-label="数字で見る">
+  <div class="wrap stats-grid">
+    <div class="reveal"><b data-count="334">334</b><span>ビジュアルスタイル</span></div>
+    <div class="reveal"><b data-count="19">19</b><span>スタイルファミリー</span></div>
+    <div class="reveal"><b data-count="700" data-suffix="+">700+</b><span>収録ルック</span></div>
+    <div class="reveal"><b>4K</b><span>動画、最大 60 fps</span></div>
+  </div>
+</section>
+
+<section class="marquee" id="styles" aria-labelledby="styles-title">
+  <div class="wrap section-head">
+    <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg> 334 styles · 19 families</p>
+    <h2 id="styles-title">曲ごとに、新しい世界を</h2>
+    <p class="intro">飛び抜けていく 3D シーン、フラクタル、星雲、地形、ガラス、流体、パーティクル。どれも再生中の音楽に合わせて動きます。掲載している画像は、スマートフォンで撮影した実際のスクリーンショットです。</p>
+  </div>
+  <div class="marquee-track">
+      <img src="../assets/shots/visuals-glass.webp" alt="Visuals 画面の、緑のトンネルに浮かぶガラスのリング" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ember-spire.webp" alt="折り重なる光でできた、赤く燃える残り火の尖塔" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-blue.webp" alt="Visuals 画面の青いクリスタルのトンネル" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/teal-kaleido.webp" alt="ティールとアンバーの万華鏡トンネル" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/neon-flowers.webp" alt="闇へと渦を巻いて吸い込まれていく青いネオンの花" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-tunnel.webp" alt="Visuals 画面の、光の筋でできた金色のトンネル" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-vortex.webp" alt="内側へ渦を巻く緑と紫の光のリボン" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-kaleido.webp" alt="Visuals 画面の色とりどりの光のリング" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-player.webp" alt="再生コントロールが並ぶ Player 画面" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-gold.webp" alt="Visuals 画面で弾ける金色の万華鏡" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/fire-storm.webp" alt="炎のように流れるオレンジの光" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-studio.webp" alt="4K・60 fps で動画をレンダリングする準備ができた Studio" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/amber-web.webp" alt="光の線でできたアンバーの網" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-star.webp" alt="Visuals 画面で咲き広がるピンクとオレンジの星" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-storm.webp" alt="虹色のリボンの嵐" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/magenta-bloom.webp" alt="光る六角形を囲むマゼンタの光の花" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-glass.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ember-spire.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-blue.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/teal-kaleido.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/neon-flowers.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-tunnel.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-vortex.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-kaleido.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-player.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-gold.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/fire-storm.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-studio.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/amber-web.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-star.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-storm.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/magenta-bloom.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+  </div>
+</section>
+
+<main id="main">
+  <section id="what" aria-labelledby="what-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg> What it does</p>
+        <h2 id="what-title">再生して、眺めて、自分のものに。</h2>
+        <p class="intro">フル機能の音楽プレーヤー、音を聴くビジュアライザー、レンダリングするスタジオをひとつのアプリに。<a href="features.html">すべての機能の詳しい一覧を見る</a>。</p>
+      </div>
+      <div class="fcards">
+        <a class="fcard card reveal" href="features.html#player">
+          <div class="fcard-media"><img src="../assets/shots/screen-player.webp" alt="Player 画面" style="object-position:center 74%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg></span><h3>音楽を再生</h3><p>アルバム、アーティスト、フォルダ、プレイリストに対応。A–B ループ、クロスフェード、スリープタイマー、イコライザー、タイミング同期歌詞も備えています。</p><span class="more">The player <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#visuals">
+          <div class="fcard-media"><img src="../assets/shots/visuals-star.webp" alt="Visuals 画面のピンクとオレンジの星" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg></span><h3>動きを眺める</h3><p>ベース、ドラム、ノート、キー、ドロップを聴き取る 334 のスタイル。さらに Auto モードが、あなたに代わってそれらを演出します。</p><span class="more">The visuals <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#studio">
+          <div class="fcard-media"><img src="../assets/shots/screen-studio.webp" alt="4K・60 fps でレンダリングする準備ができた Studio" style="object-position:center 66%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#film"/></svg></span><h3>動画をつくる</h3><p>どの曲も最大 4K・60 fps の MP4 にレンダリング。YouTube、Shorts、TikTok 向けの画面比率はワンタップで選べます。</p><span class="more">The studio <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#beyond">
+          <div class="fcard-media"><img src="../assets/shots/neon-flowers.webp" alt="闇へと渦を巻いて吸い込まれていく青いネオンの花" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#cast"/></svg></span><h3>さらに広げる</h3><p>ライブ壁紙やスクリーンセーバーとして使ったり、テレビにキャストしたり、パソコンやセカンドスクリーンに表示したりできます。</p><span class="more">Beyond the phone <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="customize" class="customize" aria-labelledby="customize-title">
+    <div class="wrap custom-grid">
+      <div class="knob-panel card reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg> Quick knobs</p>
+        <div class="knobs">
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--cyan);--d:7s;--delay:0s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Glow</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--amber);--d:9s;--delay:-3s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Heat</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--violet-light);--d:8s;--delay:-5s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Bend</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--lilac);--d:10s;--delay:-2s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Flow</figcaption>
+        </figure>
+        </div>
+        <p class="knob-note">ノブをひとつ回せば、ルック全体がついてきます。Pro なら自分だけのノブもつくれます。</p>
+        <img class="knob-shot" src="../assets/shots/magenta-bloom.webp" alt="ルックのひとつ、マゼンタの光の花" loading="lazy" width="720" height="1403">
+      </div>
+      <div class="reveal">
+        <div class="section-head">
+          <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg> Customize</p>
+          <h2 id="customize-title">すべてのビジュアルを自分好みに</h2>
+          <p class="intro">ノブひとつから始めても、11 のグループまで深く踏み込んでも。変更した内容はすべて保存、共有し、あとから呼び出せます。</p>
+        </div>
+        <ul class="custom-list">
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg></span><div><b>4 つのクイックノブ</b><span>Glow、Heat、Bend、Flow をひと回しするだけで、全体の雰囲気が変わります。</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg></span><div><b>自分だけのノブ <span class="tag pro inline">Pro</span></b><span>好きなパラメーターをノブに結びつけ、カーブで効き方を整え、波形やエンベロープに自動で回させることができます。</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wave"/></svg></span><div><b>反応するものを選べる</b><span>キック、ノート、ドロップで何が動くかを確認して編集できます。シャッフルすることも、スタイル本来の設定に戻すこともできます。</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg></span><div><b>あなたの色</b><span>アルバムアートワークからパレットを取り込むことも、自分で選ぶこともできます。Auto モードがパレットの幅を狭めることはありません。</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#phone"/></svg></span><div><b>触って動かす</b><span>ピンチやひねりで映像を操作したり、指でにじませたり、リキッドモードを押し動かしたりできます。</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#library"/></svg></span><div><b>プリセットとテンプレート</b><span>どのルックも保存でき、別のルックから一部を借りたり、テンプレートとして共有したりできます。700+ のルックを収録。Pro なら手持ちの .milk プリセットも使えます。</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" aria-labelledby="why-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg> Why BeatRealms</p>
+        <h2 id="why-title">広告のためではなく、音楽のために</h2>
+      </div>
+      <div class="why">
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#offline"/></svg></span><b>オフラインで動作</b><span>再生、鑑賞、レンダリングに接続は不要です。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#no-ads"/></svg></span><b>広告は一切なし</b><span>無料版にも Pro にもありません。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#user-off"/></svg></span><b>アカウント不要</b><span>インストールして、再生を押すだけ。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#screen-4k"/></svg></span><b>4K・60 fps</b><span>スタジオ品質の動画を、スマートフォンから。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#lyrics"/></svg></span><b>タイミング同期歌詞</b><span>行をタップすると、その位置へジャンプします。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wallpaper"/></svg></span><b>ライブ壁紙</b><span>ホーム画面が音楽に合わせて動きます。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#tv"/></svg></span><b>大画面</b><span>テレビにキャストしたり、パソコンに表示したり。</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg></span><b>バックアップと復元</b><span>プレイリスト、お気に入り、設定、プリセットをひとつのファイルに。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pro" aria-labelledby="pro-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg> Free and Pro</p>
+        <h2 id="pro-title">無料で始めて、Pro は一度の購入でずっと。</h2>
+        <p class="intro">どちらにも広告はありません。Pro はサブスクリプションではなく 1 回限りのアプリ内購入で、まず 1 時間試すこともできます。</p>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg></span>Free</h3>
+          <ul class="checks">
+            <li>フル機能の音楽プレーヤー</li>
+            <li>60 を超えるスタイル（各ファミリーの先頭のもの）</li>
+            <li>Customize のクイックノブと基本コントロール</li>
+            <li>最大 1080p・30 fps、1 分間、ウォーターマーク付きの動画</li>
+            <li>各曲の最初の 1 分間の Auto モード</li>
+          </ul>
+        </article>
+        <article class="card pro reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg></span>Pro</h3>
+          <ul class="checks">
+            <li>334 のスタイルすべて、すべてのコントロール、自分だけのノブ</li>
+            <li>4K・60 fps、フルレングス、ウォーターマークなし</li>
+            <li>ループレンダリング、プレイリストのレンダリング、Record</li>
+            <li>ライブ壁紙、スクリーンセーバー、キャスト、外部ディスプレイ</li>
+            <li>曲全体での Auto モード</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap grid">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg> Privacy</p>
+        <h2 id="privacy-title">プライバシーを前提にした設計</h2>
+        <p class="intro">アカウントなし、広告なし、分析なし。音楽、再生履歴、設定、動画はスマートフォンの中にとどまります。インターネットを使うのは、テレビへのキャストと、パソコンでのビジュアル表示のときだけで、通信はご自身の Wi-Fi 上で行われます。このウェブサイトは Cookie を設定せず、外部からは何も読み込みません。</p>
+        <p><a href="../privacy-policy.html">プライバシーポリシーを読む</a></p>
+      </div>
+      <div class="warning reveal" role="note">
+        <h2>光過敏性発作に関する警告</h2>
+        <p>ビジュアルは明るく、動きが速く、全画面で表示され、点滅することがあります。ごく一部の方は、てんかんの既往歴がなくても、点滅する光や模様を見ると発作を起こすことがあります。アプリは、自らのエフェクトが明るさを変える幅と速さを制限し、Android の「アニメーションの削除」設定に従いますが、すべての方にとってビジュアルを安全にすることはできません。ご自身や一緒に見ている方が点滅する光に敏感な場合は、ビジュアルを使用しないでください。また、気分が悪くなった場合はただちに視聴を中止してください。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="wm" src="../assets/wordmark.svg" alt="BeatRealms 3D" width="100" height="40">
+        <p>音楽プレーヤー、音を聴くビジュアライザー、そして自分だけのミュージックビデオをつくるスタジオ。Android 13 以降に対応しています。</p>
+        <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="../assets/badges/ja.png" alt="Google Play で手に入れよう" width="155" height="60" style="height:60px;width:auto"></a>
+      </div>
+      <div>
+        <h4>詳しく見る</h4>
+        <ul>
+          <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>All features</a></li>
+          <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+          <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg>Styles</a></li>
+          <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>ヘルプ</h4>
+        <ul>
+          <li><a href="features.html#faq"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#lyrics"/></svg>Questions</a></li>
+          <li><a href="mailto:CONTACT_EMAIL"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#mail"/></svg>Contact</a></li>
+          <li><a href="../privacy-policy.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg>Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>入手する</h4>
+        <ul>
+          <li><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#android"/></svg>Google Play</a></li>
+          <li><a href="features.html#included"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#check"/></svg>What's included</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- i18n:switcher -->
+    <nav aria-label="言語">
+      <ul class="langs">
+        <li><a href="../../" lang="en" hreflang="en">English</a></li>
+        <li><a href="../../de/" lang="de" hreflang="de">Deutsch</a></li>
+        <li><a href="../../fr/" lang="fr" hreflang="fr">Français</a></li>
+        <li><a href="../../es/" lang="es" hreflang="es">Español</a></li>
+        <li><a href="../../pt-br/" lang="pt-BR" hreflang="pt-BR">Português (Brasil)</a></li>
+        <li><a href="../../ja/" lang="ja" hreflang="ja" aria-current="page">日本語</a></li>
+        <li><a href="../../it/" lang="it" hreflang="it">Italiano</a></li>
+      </ul>
+    </nav>
+    <!-- /i18n:switcher -->
+    <div class="foot-legal">
+      <p>BeatRealms 3D。Android 13 以降が必要です。</p>
+      <p>Google Play および Google Play ロゴは Google LLC の商標です。</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const seen = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('seen'); seen.unobserve(e.target); }
+  }), { threshold: .15 });
+  document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
+
+  // The hero loop is cut from before the splash's one bright flash (peak luma 63 of 255,
+  // no frame-to-frame jump above 5), so it may play by itself; never under reduced motion.
+  const heroVideo = document.getElementById('hero-video');
+  if (!still) heroVideo.play().catch(() => {});
+</script>
+<script src="../assets/nav.js"></script>
+<script type="module" src="../assets/vortex.js"></script>
+<script src="../assets/vendor/motion.min.js"></script>
+<script src="../assets/motion.js"></script>
+</body>
+</html>

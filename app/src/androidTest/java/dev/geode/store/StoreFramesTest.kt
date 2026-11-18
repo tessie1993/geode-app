@@ -12,7 +12,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.thumbs.SyntheticGroove
 import dev.geode.viz.NativeViz
 import org.junit.After
@@ -133,7 +133,7 @@ class StoreFramesTest {
             viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // The default look, as a new user first meets the style; native resolves its reaction DNA.
-            viz.setParams(SceneParams(fluidAutoQuality = false))
+            viz.setParams(SceneParams.DEFAULT.with("fluidAutoQuality", false))
 
             val groove = SyntheticGroove()
             val samplesPerFrame = groove.sampleRateHz / FPS

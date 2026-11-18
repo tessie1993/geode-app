@@ -38,6 +38,9 @@ vec3 camRayDir(vec2 uv) {
 void camFly(vec2 uv, out vec3 ro, out vec3 rd) {
     ro = uCamPos;
     rd = camRayDir(uv);
+    // Grow and layers (lib_grow): the few units round the eye are the front layer, the way ahead the back.
+    growSetup(ro, 3.0, false);
+    gGrowBasis = uCamBasis;
 }
 
 /**
@@ -54,4 +57,7 @@ void camAround(vec2 uv, float radius, float spin, out vec3 ro, out vec3 rd) {
     mat3 b = turn * uCamBasis;
     ro = -b[2] * radius * (1.0 - 0.35 * uCamDolly);
     rd = normalize(b * vec3(uv, uCamFocal));
+    // Grow and layers (lib_grow): the subject at the middle is the front layer, what lies beyond it the back.
+    growSetup(ro, 1.5 * radius, true);
+    gGrowBasis = b;
 }

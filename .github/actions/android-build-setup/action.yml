@@ -1,0 +1,70 @@
+name: Android build setup
+description: >-
+  The one recipe every job that runs Gradle shares: JDK 21, Gradle with its cache, the SDK packages
+  the build compiles with and, on request, ccache for the native build. Check out the repository first.
+
+inputs:
+  gradle-cache-read-only:
+    description: >-
+      true: read the Gradle cache and never write it. Empty keeps setup-gradle's own default:
+      written on the default branch, read-only on every other.
+    default: ""
+  ccache:
+    description: >-
+      true: route the native build (two ABIs, the third_party libraries) through ccache and restore its
+      cache. The caller saves it after the build, under ccache-debug-<run id>.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Java 21
+      uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+      with:
+        distribution: temurin
+        java-version: "21"
+
+    - name: Set up Gradle and cache
+      uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      with:
+        cache-read-only: ${{ inputs.gradle-cache-read-only != '' && inputs.gradle-cache-read-only || (github.event.repository != null && github.ref_name != github.event.repository.default_branch) }}
+
+    # sdkmanager is not on PATH on the ubuntu-24.04 runner image; it is resolved from the
+    # preinstalled SDK. The NDK and CMake versions match ndkVersion and
+    # externalNativeBuild.cmake.version in app/build.gradle.kts.
+    - name: Install Android SDK 36, NDK and CMake
+      shell: bash
+      run: |
+        SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+        SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+        yes | "$SDKMANAGER" --licenses >/dev/null || true
+        "$SDKMANAGER" \
+          "platform-tools" \
+          "platforms;android-36" \
+          "build-tools;36.0.0" \
+          "ndk;28.0.13004108" \
+          "cmake;3.22.1"
+
+    # CMake reads the launcher from the environment.
+    - name: Set up ccache for the native build
+      if: inputs.ccache == 'true'
+      shell: bash
+      run: |
+        command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
+        {
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+          echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+          echo "CCACHE_MAXSIZE=600M"
+          echo "CCACHE_NOHASHDIR=true"
+        } >> "$GITHUB_ENV"
+
+    # The newest cache this branch or main saved: build-lint.yml and ship-apk.yml build the same
+    # debug objects, so a pull request starts from main's last build.
+    - name: Restore the ccache
+      if: inputs.ccache == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ccache
+        key: ccache-debug-${{ github.run_id }}
+        restore-keys: ccache-debug-

@@ -11,7 +11,20 @@
 
 vec2 hollowField(vec3 p) {
     vec3 q = hollowBend(p);
-    vec2 m = hollowMap(q);
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the world, then Life's
+    // three births (lib_grow) while each lives, each the walls bent as the world's are, in its ball; the
+    // nearer wall is kept, so at Life 0 the field is the map at q alone.
+    vec2 m = vec2(0.0);
+    for (int i = min(int(uLife), 0); i < 4; i++) {
+        if (i > 0 && !growBorn(i - 1)) continue;
+        vec2 c = hollowMap(i == 0 ? q : hollowBend(growBirthAt(i - 1, p)));
+        if (i == 0) {
+            m = c;
+            continue;
+        }
+        c.x = growBirthDist(c.x);
+        if (c.x < m.x) m = c;
+    }
     vec3 s = sin(q * 4.0 + uTime * HOLLOW_RATE(1500) + vec3(0.0, 2.1, 4.2));
     m.x += gHollowChaos * 0.05 * (s.x * s.y + s.z);
     m.x += gHollowGroove * hollowCut(m.y);

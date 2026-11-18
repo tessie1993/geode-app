@@ -19,6 +19,9 @@ struct EngineSettings {
     // not the knobs. Null moves nothing.
     std::shared_ptr<const viz::macrobank::Bank> bank;
     viz::DirectorConfig director{};   // the auto-director's amount and play seed
+    // The Auto Director's settings (viz/DirectorTuning), shared and never edited in place. Null directs by
+    // the defaults.
+    std::shared_ptr<const viz::director::Tuning> directorTuning;
     viz::director::Reach reach = viz::director::Reach::Look;  // how far the director reaches past its look
     std::shared_ptr<const viz::director::Kept> kept;          // Customize's keep set; null keeps nothing
     // Customize › Look's palette stack (viz/Palette). Null: the look keeps none and its old colour params draw.
@@ -35,7 +38,7 @@ struct EngineSettings {
 EngineSettings globalSettings();
 
 // An export's settings (#350), taken once when it is prepared: the macro bank, the palette stack, the Note & key switch, the
-// hand mask and the director's reach and keep set as they are now; the director from the user's switch, `entitled` (Pro or the trial) and
+// hand mask and the director's reach, keep set and settings as they are now; the director from the user's switch, `entitled` (Pro or the trial) and
 // `durationMs` (director::forExport, never the live amount, which the live free taste may have cut); and
 // no note entropy, so an export is deterministic: the same play exported twice draws the same notes.
 EngineSettings exportSettings(bool entitled, long long durationMs);

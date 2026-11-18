@@ -35,7 +35,7 @@ std::set<std::string> lineSet(const char* text) {
 extern "C" {
 
 int geode_randomize_all_pick(uint64_t seed, const char* current_style, const char* locked_styles, const char* look_styles,
-                             int milk_count, char* style_out, int style_capacity, int* look_out, int* milk_out) {
+                             int milk_count, char* style_out, int style_capacity, int* look_out, int* milk_out) try {
     const randomize_all::Pick picked =
         randomize_all::pick(seed, current_style ? current_style : "", lineSet(locked_styles), lines(look_styles), milk_count);
     if (style_out && style_capacity > 0) {
@@ -46,10 +46,12 @@ int geode_randomize_all_pick(uint64_t seed, const char* current_style, const cha
     if (look_out) *look_out = picked.look;
     if (milk_out) *milk_out = picked.milk;
     return picked.style.empty() ? 0 : 1;
+} catch (...) {
+    return 0;
 }
 
 int geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories, const float* before,
-                             const float* base, float* out) {
+                             const float* base, float* out) try {
     const SceneParams start = SceneParams::fromWire(base);
     const SceneParams rolled =
         randomize_all::roll(SceneParams::fromWire(before), start, seed, style_id ? style_id : "", lineSet(locked), roll_categories != 0);
@@ -59,6 +61,9 @@ int geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t 
     for (int i = 0; i < SceneParams::kFieldCount; ++i) {
         if (was[i] != out[i]) return 1;
     }
+    return 0;
+} catch (...) {
+    if (base && out) std::copy_n(base, SceneParams::kFieldCount, out);
     return 0;
 }
 

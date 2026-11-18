@@ -3,6 +3,7 @@ package dev.geode.data.backup
 import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
+import dev.geode.data.LookStore
 import dev.geode.data.MacroStore
 import dev.geode.data.PaletteStackStore
 import dev.geode.data.PerformanceStore
@@ -85,7 +86,7 @@ enum class BackupSection(
         // EditorProjectStore deletes the old takes on the next start.
         listOf("presets", "palettes", "templates", "editor", "projects", "project-takes", "project-templates"),
         emptyList(),
-        mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS + PaletteStackStore.KEYS),
+        mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS + PaletteStackStore.KEYS + LookStore.LAYER_KEYS),
     ),
     MUSIC(
         "music",

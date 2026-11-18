@@ -49,8 +49,7 @@ out vec4 fragColor;
 // (lib_nebula's roles, offsets from 0.5 so off is the tuned look): k0 PULSE
 // the emission, k1 TEXTURE the filaments' width, k2 FLOW added to Warp's
 // bend, k3 TONE the palette position, k4
-// BUILD the knots' fire, k5 SPACE how far the glow reaches. The mids roll the
-// view about the way ahead (nebMidTurn), as lib_flame's turn does.
+// BUILD the knots' fire, k5 SPACE how far the glow reaches.
 
 #define WB_FAR 30.0
 /** World units per lattice cell: q = p * WB_SCALE, a power of two so the lattice wraps with the rig. */
@@ -78,8 +77,30 @@ vec2 web(vec3 p) {
     return min(a, b) / (WB_SCALE * 2.0);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the distances to the nearest filament and knot
+ * (world units, lower bounds the march skips by), and the filaments' density at their base width.
+ */
+struct NebHit {
+    float dens;
+    float edge;
+    float knot;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    vec2 d = web(p);
+    NebHit h;
+    h.edge = d.x;
+    h.knot = d.y;
+    h.dens = exp(-(d.x * d.x) / (gWidth * gWidth));
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -104,7 +125,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(nebRot(nebMidTurn()) * uv, ro, rd);
+    camFly(uv, ro, rd);
 
     vec3 filCol = nebEmission(0.6 + key, 0.1);
     vec3 knotCol = nebEmission(0.08 + 0.35 * knotHue, 0.55);
@@ -115,7 +136,8 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tt > WB_FAR) break;
         vec3 p = ro + rd * tt;
-        vec2 d = web(p);
+        NebHit at = nebField(p, gOct);
+        vec2 d = vec2(at.edge, at.knot);
         // Filaments widen a little with distance, so far ones stay sampled.
         float w = gWidth * (1.0 + tt * 0.05);
         float dt = nebVolDt(tt, 0.03, 0.012);

@@ -48,8 +48,7 @@ out vec4 fragColor;
 // roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission, k1
 // TEXTURE the columns' width, k2 FLOW added to Warp's swirl, k3 TONE the
 // palette position, k4 BUILD the gas wall's glow, k5 SPACE the reach of the
-// eye. The mids turn the group about its vertical axis (nebMidTurn), one 2x2
-// turn per sample; the cluster's light holds still.
+// eye.
 
 #define PL_CAM_R 3.6
 #define PL_BASE -2.3
@@ -60,8 +59,7 @@ const vec3 PL_CENTRE = vec3(0.0, -0.7, 0.1);
 
 float gT;
 float gOct;
-/** The mid band's turn of the group, and k1 TEXTURE's factor on the columns' width. */
-mat2 gTurn;
+/** k1 TEXTURE's factor on the columns' width. */
 float gWidth;
 
 /** A tapered, leaning capsule with a swollen head. Negative inside, roughly a distance. */
@@ -80,19 +78,29 @@ float shapeDist(vec3 p) {
     return min(a, min(b, c));
 }
 
-/** Dust density 0..1 and, through sd, the capsules' distance (for skipping empty space). */
-float density(vec3 p, float oct, out float sd) {
-    p.xz = gTurn * p.xz;
-    sd = shapeDist(p);
-    if (sd > 0.32) return 0.0;
+/** What the field holds at a point (lib_nebula_field): the dust density 0..1, and the capsules' distance (for skipping empty space). */
+struct NebHit {
+    float dens;
+    float sd;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.sd = shapeDist(p);
+    h.dens = 0.0;
+    if (h.sd > 0.32) return h;
     vec3 q = nebWarp3(p, gT) * 2.4 + vec3(0.0, 0.0, -gT * 0.02);
     float n = nebFbm3(q, oct);
-    float d = sd + (n - 0.5) * 0.5;
-    return 1.0 - smoothstep(-0.12, 0.06, d);
+    float d = h.sd + (n - 0.5) * 0.5;
+    h.dens = 1.0 - smoothstep(-0.12, 0.06, d);
+    return h;
 }
+
+//#include lib_nebula_field
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
@@ -106,7 +114,6 @@ void main() {
     float kSpace = nebKnob(5);
     float key = nebKeyShift(0.12) + 0.6 * kTone;
     gOct = nebVolOctaves(3.0);
-    gTurn = nebRot(nebMidTurn());
     gWidth = 1.0 + 0.25 * kTexture;
     gNebFlow = kFlow;
 
@@ -119,20 +126,22 @@ void main() {
     vec3 dustAmb = mix(vec3(0.05, 0.035, 0.03), pal(0.6 + key) * 0.04, 0.4);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3 + growSlack(2.3, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.04;
         for (int i = 0; i < NEB_VOL_MAX; i++) {
             if (float(i) >= uSteps) break;
             if (tt > tb.y) break;
             vec3 p = ro + rd * tt;
-            float sd;
-            float dens = density(p, gOct, sd);
+            NebHit at = nebField(p, gOct);
+            float sd = at.sd;
+            float dens = at.dens;
             float dt = nebVolDt(tt - tb.x, 0.025, 0.012);
             if (dens > 0.002) {
                 vec3 L = normalize(PL_LIGHT - p);
-                float sdL;
-                float dl = density(p + L * 0.25, 2.0, sdL);
+                float dl = nebField(p + L * 0.25, 2.0).dens;
                 float lit = nebLightTap(dl, 5.0);
                 float ph = nebPhase(dot(rd, L), 0.55);
                 float skin = smoothstep(0.03, 0.35, dens) * (1.0 - smoothstep(0.35, 0.9, dens));

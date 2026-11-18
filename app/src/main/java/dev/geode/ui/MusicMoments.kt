@@ -2,7 +2,8 @@ package dev.geode.ui
 
 import androidx.annotation.StringRes
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.DirectorNative
+import dev.geode.engine.bridge.ModulationNative
 import dev.geode.util.bestEffort
 
 /**
@@ -10,7 +11,7 @@ import dev.geode.util.bestEffort
  *
  * Only the row's label lives here. What a moment is (its sources, the one it follows, the one it fires
  * on, how long it is felt), which moments are the user's and how their routes merge with the live DNA
- * are native (ADR 0003): `Moment` and `hand::` in core/viz/Reactions.hpp, the rest in
+ * are native: `Moment` and `hand::` in core/viz/Reactions.hpp, the rest in
  * core/viz/ReactionDna. The ordinal is the wire value, so the order is the native enum's.
  */
 internal enum class MusicMoment(
@@ -62,7 +63,7 @@ internal data class MomentState(
     val fits: Set<MusicAction> = MusicAction.entries.toSet(),
 )
 
-/** One edit of the reactions, as `ModulationController.editReactions` takes it: a `GeodeNative.MOD_EDIT_*` and its values. */
+/** One edit of the reactions, as `ModulationController.editReactions` takes it: a `ModulationNative.MOD_EDIT_*` and its values. */
 internal typealias ReactionsEdit = (op: Int, a: Int, b: Int, value: Float) -> Unit
 
 /**
@@ -76,7 +77,7 @@ internal object MusicMoments {
     fun actionsFor(sceneId: String): List<ActionChip> {
         // Native unreachable: show every chip rather than none, and log it.
         var bits = -1
-        bestEffort(TAG, "musicActionsFor($sceneId)") { bits = GeodeNative.musicActionsFor(sceneId) }
+        bestEffort(TAG, "musicActionsFor($sceneId)") { bits = DirectorNative.musicActionsFor(sceneId) }
         return chips(bits)
     }
 
@@ -96,8 +97,8 @@ internal object MusicMoments {
         reactions: String?,
         mask: Int,
     ): List<MomentState> {
-        val f = runCatching { GeodeNative.modMusicState(sceneId, seed, reactions, mask) }.getOrDefault(FloatArray(0))
-        val n = GeodeNative.MOD_MUSIC_VALUES
+        val f = runCatching { ModulationNative.modMusicState(sceneId, seed, reactions, mask) }.getOrDefault(FloatArray(0))
+        val n = ModulationNative.MOD_MUSIC_VALUES
         return MusicMoment.entries.map { m ->
             val o = m.ordinal * n
             if (o + n > f.size) {

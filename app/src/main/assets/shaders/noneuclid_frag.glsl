@@ -21,6 +21,7 @@ out vec4 fragColor;
 //#include lib_sdf3
 //#include lib_touch
 //#include lib_dmt
+//#include lib_shell
 
 // NONEUCLID - space turning inside-out through a point.
 //
@@ -87,8 +88,10 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the struts' width
 // (0.75..1.25, still under half a cell, so the lattice stays exact), k2 FLOW
-// added to the fold planes' turn (the mids' steer), k3 TONE the palette
-// position, k4 BUILD the glow integrated along the ray, k5 SPACE the haze's
+// added to the fold offset (the mids' steer; neither turns anything: owner
+// rule, no style spins to the music), k3 TONE the palette position and the
+// inversion radius (a high melody turns more of the lattice inside out at
+// every fold, a low one less), k4 BUILD the glow integrated along the ray, k5 SPACE the haze's
 // reach.
 
 // ---- caps ------------------------------------------------------------------
@@ -337,7 +340,7 @@ float lattice(vec3 p) {
  * structure turns behind it - inverting after the rotation would drag the pole
  * around the screen once every world revolution.
  */
-float map(vec3 p) {
+float neField(vec3 p) {
     // Outside the ball the distance to the ball is already a valid lower bound
     // on the distance to anything in it, so the fold chain is never touched
     // and the empty half of the frame costs one length() per step.
@@ -411,6 +414,24 @@ float map(vec3 p) {
     // without the intersection the structure streaks off across the whole
     // frame and there is no silhouette and no space to see it in.
     return max(lattice(q) / s, bound);
+}
+
+/** neField through lib_shell's hooks: exactly neField(p) at rest, and neField read once, in a loop the compiler cannot unroll. */
+float neFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, neField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The field every march, normal and occlusion tap reads: neField, the style's
+ * own, through lib_shell's hook (the identity until the shell drives it).
+ */
+float map(vec3 p) {
+    return neFieldGrown(p);
 }
 
 /**
@@ -503,12 +524,29 @@ void main() {
     float midN = clamp(sndShaped(SND_MIDDLE), 0.0, 1.5) / 1.5;
     float trebN = clamp(sndShaped(SND_HIGH), 0.0, 1.5) / 1.5;
     float energyN = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) / 1.5;
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float fogRate = FOG_RATE / (1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
-    gStrut = CELL_STRUT * (1.0 + 0.5 * (clamp(uKnob[1], 0.0, 1.0) - 0.5));
-    gTone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nEmit = clamp(uKnob[0], 0.0, 1.0);
+    float nStrut = clamp(uKnob[1], 0.0, 1.0);
+    float nSlide = clamp(uKnob[2], 0.0, 1.0);
+    float nInvert = clamp(uKnob[3], 0.0, 1.0);
+    float nGlow = clamp(uKnob[4], 0.0, 1.0);
+    float nHaze = clamp(uKnob[5], 0.0, 1.0);
+    // The emission, the struts' radius (under half a cell, so the lattice
+    // stays exact), FLOW's slide of the fold offset, the palette position and
+    // the inversion radius, the glow along the ray, the haze's reach.
+    float emission = shellMap(nEmit, 0.75, 1.0, 1.25);
+    gStrut = shellMap(nStrut, 0.75 * CELL_STRUT, CELL_STRUT, 1.25 * CELL_STRUT);
+    float slideAdd = shellMap(nSlide, -0.06, 0.0, 0.06);
+    gTone = shellMap(nInvert, -0.3, 0.0, 0.3);
+    float invertK = shellMap(nInvert, -0.125, 0.0, 0.125);
+    float glowK = shellMap(nGlow, 0.5, 1.0, 1.5);
+    float fogRate = FOG_RATE / shellMap(nHaze, 0.8, 1.0, 1.2);
 
 
     // ---- touch -----------------------------------------------------------
@@ -545,6 +583,8 @@ void main() {
     // chosen mutually irrational-ish (0.061 / 0.043) so the two axes do not
     // relock into a straight line every few seconds.
     gCenter = vec3(0.22 * sin(uTime * 0.061), 0.17 * sin(uTime * 0.043 + 1.1), camZ);
+    // The grow hooks act round the ball the structure is clipped to, not round the eye at the origin.
+    shellSetup3(gCenter, BALL_R, 0.5 * BALL_R, true);
 
     // The pole. Idle, it drifts on its own inside the ball, which is the
     // ambient motion this style has to have with the audio at zero: a lens of
@@ -585,14 +625,16 @@ void main() {
     // fingertip, which is the gesture this style exists for.
     gPoleR2 = POLE_R2 * (1.0 + 0.30 * bassN + 0.85 * pinch + 0.65 * grab);
 
-    // The chain. Mids steer the fold planes: same argument as above about
-    // gain, and mids are the steering band by convention.
-    float foldAngle = uTime * 0.041 + midN * 0.45 + spin + 0.45 * kFlow;
+    // The chain. The fold planes turn on uTime and the user's swirl only
+    // (nothing turns to the music); the mids, the steering band by
+    // convention, and FLOW steer by sliding the fold offset instead, below.
+    float foldAngle = uTime * 0.041 + spin;
     gFoldRot = rotAxis(vec3(0.37, 0.78, -0.51), foldAngle);
     // The offset breathes slowly, so the group is never the same group twice
     // and the structure keeps reorganising with the audio at zero.
-    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029));
-    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN);
+    gFoldOff = vec3(0.62, -0.24, 0.41) * (1.0 + 0.06 * sin(uTime * 0.029))
+             + (0.12 * midN + slideAdd) * vec3(0.55, 0.62, -0.56);
+    gInvR2 = INV_R2 * (1.0 + 0.10 * bassN + invertK);
     gWorldRot = rotY(uTime * 0.083) * rotX(0.26 * sin(uTime * 0.037));
     gBead = CELL_BEAD + 0.030 * bassN;
 
@@ -632,6 +674,9 @@ void main() {
     // and this app has a photosensitivity budget.
     float jitter = hash13(vec3(gl_FragCoord.xy, 7.0));
     float t = 0.35 + jitter * 0.03;
+    // Past FAR nothing is drawn; a grown structure (a twin aside, a layer opened) reaches past the ball's
+    // far side by lib_shell's slack while a hook is on, FAR itself at rest.
+    float farT = FAR + SHELL_SLACK(BALL_R);
 
     float hitT = -1.0;
     float hitTrapO = 1.0;
@@ -674,7 +719,7 @@ void main() {
         glowTrapO += w * gTrapO;
         glowTrapA += w * gTrapA;
         t += step;
-        if (t > FAR) break;
+        if (t > farT) break;
     }
 
     // The bank, marched on its own around the ball's centre. Its hit is
@@ -780,7 +825,7 @@ void main() {
     // exists to keep out, quite apart from looking like dirt on the lens.
     float norm = max(glowSum, 1e-6);
     float glowHue = 0.10 + gTone + sqrt(glowTrapO / norm) * 0.62 + sqrt(glowTrapA / norm) * 0.30;
-    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN) * (1.0 + kBuild);
+    col += pal(glowHue + 0.18) * (1.0 - exp(-glowSum * 1.1)) * (0.18 + 0.34 * energyN) * glowK;
 
     // The wake: a soft lift under every finger, live and still fading.
     // touchWake() is unbounded above by design (five fingers sum to five), so
@@ -795,7 +840,7 @@ void main() {
     // flatten every rim and every filament into the same white; the tone map
     // keeps them apart and, more to the point, bounds the whole frame's
     // luminance whatever the music does.
-    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE * (1.0 + 0.5 * kPulse));
+    col = vec3(1.0) - exp(-max(col, vec3(0.0)) * EXPOSURE * emission);
 
     // Vignette in SCREEN space, off vUv rather than off view()'s uv. Off uv it
     // would be a function of the Zoom control: zoomed out far enough, dot(uv,

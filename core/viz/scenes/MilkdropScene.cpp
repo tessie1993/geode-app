@@ -12,6 +12,7 @@
 #include "viz/MilkProgress.hpp"
 #include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
@@ -106,7 +107,10 @@ void MilkdropScene::init() {
     lastCreateAttemptSeconds_ = 0.0;
     // A new context is a new chance for a preset that failed under the old one, and the scene
     // must not inherit the old context's load debounce either.
-    lastLoadSeconds_ = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(presetLock_);
+        lastLoadSeconds_ = 0.0;
+    }
     {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastLoggedError_.clear();
@@ -187,10 +191,9 @@ void MilkdropScene::armLastPreset() {
 void MilkdropScene::update(const GeodeSoundFrame& /*features*/, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     if (!engine_) return;
     const bool offscreen = host_.offscreen && host_.offscreen();
-    // Presets read the real rate: the paced one live (30 on the wallpaper, less on a hot phone), an
+    // Presets read the real rate: the paced one live (30 on the wallpaper), an
     // export's own from its fixed step.
     const float paced = host_.pacedFps ? host_.pacedFps() : 0.0f;
     const int fps = offscreen && dt > 0.0f ? static_cast<int>(std::lround(1.0f / dt)) : paced > 0.0f ? static_cast<int>(std::lround(paced)) : 60;
@@ -230,8 +233,8 @@ void MilkdropScene::loadPendingPreset(double now) {
         shared = sharedTextureDir_;
         if (rescanTextures_) textureDirs_.clear();
         rescanTextures_ = false;
+        lastLoadSeconds_ = now;
     }
-    lastLoadSeconds_ = now;
     const std::string dir = parentDir(path);
     // The per-preset link directory goes first: search order is the only precedence projectM has. Only
     // a preset with linked textures has one, and setting the paths makes projectM rebuild its texture
@@ -302,8 +305,7 @@ void MilkdropScene::loadPendingPreset(double now) {
 void MilkdropScene::draw(float timeSeconds) {
     (void) timeSeconds;
     if (!postProgramOk_) return;
-    GLint prevFbo = 0;
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
+    const GLint prevFbo = SceneTarget::fbo();
     // Reset before the engine as well as after: projectM assumes default GL state and restores little.
     resetFrameState();
     const double now = nowSeconds();
@@ -347,7 +349,7 @@ void MilkdropScene::draw(float timeSeconds) {
     set1f("uPalBase", p.paletteBase());
     set1f("uPalSpan", grade::paletteSpan(p.hueRange, p.paletteRange()));
     set1f("uPalTint", grade::paletteTintAmount(p.milkdropPaletteTint));
-    set1f("uHue", p.colorShift + cyclePhase_);
+    set1f("uHue", p.colorShift);
     set1f("uSat", p.saturation);
     set1f("uBright", p.brightness);
     set1f("uContrast", p.contrast);

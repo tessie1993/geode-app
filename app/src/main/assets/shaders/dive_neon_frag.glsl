@@ -44,6 +44,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
+    diveShape();
     diveCamera(DIVE_CAM_STRAIGHT, uv, ro, rd);
 
     vec3 glow = vec3(0.0);
@@ -51,8 +52,9 @@ void main() {
     for (int i = 0; i < NE_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (tm > NE_FAR * gDiveReach) break;
-        float d = diveMap(ro + rd * tm);
-        vec3 c = diveColor(0.35 * gDiveId + 0.25 * gDiveMat + 0.03 * tm + 0.4 * wave * exp(-0.15 * tm));
+        vec3 m = diveField(ro + rd * tm);
+        float d = m.x;
+        vec3 c = diveColor(0.35 * m.z + 0.25 * m.y + 0.03 * tm + 0.4 * wave * exp(-0.15 * tm));
         float fade = exp(-0.07 * tm / gDiveReach);
         glow += c * exp(-max(d, 0.0) * 14.0) * 0.06 * fade;
         if (d < 0.004) {

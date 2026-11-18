@@ -136,8 +136,11 @@ internal fun LibraryEmptyHost(
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
             if (result.resultCode == Activity.RESULT_OK && data != null) {
-                PlaybackCaptureService.start(context, result.resultCode, data)
-                onOpenVisuals()
+                if (PlaybackCaptureService.start(context, result.resultCode, data)) {
+                    onOpenVisuals()
+                } else {
+                    playerViewModel.noteExternalAudioConsentDenied()
+                }
             } else {
                 playerViewModel.noteExternalAudioConsentDenied()
             }

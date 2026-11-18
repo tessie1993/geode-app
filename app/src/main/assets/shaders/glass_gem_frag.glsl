@@ -35,9 +35,8 @@ out vec4 fragColor;
 //                         bright mix sprays wider rainbows;
 //   pitch height          raises the key light: the play of light walks across
 //                         the crown as the melody climbs;
-//   pan                   turns the key round the stone;
-//   onsets                each onset turns the stone one notch (glassGlide), on
-//                         top of its slow spin, so the flashes follow the beat;
+//   (no sound turns the stone or the key round it: its slow spin is time
+//                         alone, owner 2026-11-12, no style spins to the music);
 //   bass                  the IOR 1.95 -> 2.25: deeper stones sparkle harder;
 //   hat                   glints on the facets, and flickers the starburst of
 //                         spectral rays the stone throws into the dark round it.
@@ -131,26 +130,29 @@ float exitCut(vec3 p, vec3 rd, out vec3 n, out float id) {
 }
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
+    glassSetup();
     float t = glassTime();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
     gGlassFlow = kFlow;
     GlassEar ear = glassListen();
     float hue = 0.05 * sin(t * 0.02) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
     GlassLook lk = glassLook(GLASS_ENV_FRACTAL, hue, ear);
     lk.glow *= 1.0 + kBuild;
     lk.rough *= 0.5;
-    float ior = 1.95 + 0.3 * clamp(ear.bass, 0.0, 1.0);
-    float spread = 0.02 + 0.05 * ear.sharp;
+    float ior = glassIor(1.95 + 0.3 * clamp(ear.bass, 0.0, 1.0));
+    float spread = glassSpread(0.02 + 0.05 * ear.sharp);
     int bounces = 2 + int(floor(glassQuality() * 2.0 + 0.5));
 
     buildCut();
-    float turn = t * 0.18 + 0.45 * glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * min(glassEnergy(), 1.5);
+    float turn = t * 0.18;
     gRot = glassEuler(vec3(0.42 + 0.05 * sin(t * 0.3), turn, 0.08 * sin(t * 0.23)));
 
     vec3 ro;

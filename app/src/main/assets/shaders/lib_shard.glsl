@@ -38,23 +38,27 @@
 // lib_sound's shaped reads, in shardSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gShardTurn   the mid band, sndShaped(SND_MIDDLE), pushes space
-//   round about the way ahead while the mids climb and eases back as they
-//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
 //   gShardSwell  the low band, sndShaped(SND_LOW), deepens the Warp's bow,
 //   never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
 //
 // The world repeats along z every SHARD_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (SHARD_RATE).
+//
+// GROW AND LAYERS (lib_grow, shardField): Spawn slides a second hoard of
+// glass off the first along the way, Fractal splinters glass a third the size
+// off every face, Front layer opens the glass round the eye and Back layer
+// the glass down the way. Each costs nothing at 0.
 //
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
@@ -65,7 +69,7 @@
 
 #define SHARD_TAU 6.2831853
 #define SHARD_MAX_STEPS 100
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, as the Opal march spends it. */
+/** uSteps (64..128 by Detail, 102 at its default, less at a lower march scale) on this loop, as the Opal march spends it. */
 #define SHARD_STEPS (min(uSteps * 0.78, float(SHARD_MAX_STEPS)))
 #define SHARD_HITS 3
 #define SHARD_PERIOD 16.0
@@ -75,8 +79,7 @@
 float gShardForm;
 float gShardFlow;
 float gShardChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gShardTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gShardSwell;
 /** How far the trace reaches, world units. */
 float gShardFar;
@@ -157,7 +160,6 @@ void shardSetup() {
     gShardSkip = 0.06;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gShardTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gShardSwell = sndShaped(SND_LOW) * drive;
     gShardPal0 = pal(0.0);
     gShardPal1 = pal(0.25);
@@ -166,10 +168,10 @@ void shardSetup() {
     gShardPal4 = pal(1.0);
 }
 
-/** Warp on space: a twist about z that comes and goes along the way (and the mids' push), an upward bow (and the lows'), a shear along the way. */
+/** Warp on space: a twist about z that comes and goes along the way, an upward bow (and the lows'), a shear along the way. */
 vec3 shardBend(vec3 p) {
     float zc = p.z * (SHARD_TAU / SHARD_PERIOD);
-    p.xy = shardRot(gShardFlow * 0.8 * sin(zc + 0.5 * p.x + uTime * SHARD_RATE(130)) + gShardTurn) * p.xy;
+    p.xy = shardRot(gShardFlow * 0.8 * sin(zc + 0.5 * p.x + uTime * SHARD_RATE(130))) * p.xy;
     p.y += 0.45 * min(gShardFlow + 0.3 * gShardSwell, 1.0) * sin(2.0 * zc + 1.2 * p.x + uTime * SHARD_RATE(200));
     p.z += gShardFlow * 0.35 * sin(zc + 1.1 * p.y);
     return p;
@@ -180,6 +182,8 @@ vec3 shardEye(vec3 ro, float bore) {
     ro.z = mod(ro.z, SHARD_PERIOD);
     float r = length(ro.xy);
     if (r > bore) ro.xy *= bore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 
@@ -196,4 +200,21 @@ vec4 shardFinish(vec3 col, float exposure) {
     // No pixel leaves as a NaN or an infinity: the feedback pass would carry it for good.
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
+}
+
+/**
+ * A piece seen through lib_strata's fold of kind k (k < 0: no fold), `iters` folds about the
+ * corner c, in units of `span` world units: one piece becomes a cluster of its own mirror images,
+ * each fold's smaller. x the distance, y the edge's, both back in world units. The planes stay
+ * planes, so the faces stay flat and the edges exact. Needs lib_strata before this library.
+ */
+vec2 shardFolded(vec3 q, float k, float iters, float span, vec3 c, float h, float size, float thick) {
+    float dr = 1.0;
+    if (k >= 0.0) {
+        dr = 1.0 / span;
+        q = strataFold(q * dr, k, iters, c, shardRot(0.5 + 0.6 * h), dr);
+    }
+    float edge;
+    float d = shardPiece(q, h, size, thick, edge);
+    return vec2(d, edge) / dr;
 }

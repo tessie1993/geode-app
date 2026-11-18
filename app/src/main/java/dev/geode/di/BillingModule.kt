@@ -24,7 +24,7 @@ import javax.inject.Singleton
 /**
  * Billing wiring. Release builds talk to Play; debug builds get [FakeBillingRepository], whose
  * outcomes the paywall's debug panel switches. [BillingBuild.usesFake] decides (the
- * `USE_FAKE_BILLING` flag, and only in a debuggable build), and `-Pmuzviz.fakeBilling=false` turns
+ * `USE_FAKE_BILLING` flag, and never in the `release` build type), and `-Pmuzviz.fakeBilling=false` turns
  * the real client on in a debug build.
  */
 @Module

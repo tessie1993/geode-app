@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
 
 #include <set>
 #include <string>
+#include <string_view>
 
 #include "viz/BandTrim.hpp"
 #include "viz/BuildReport.hpp"
@@ -66,7 +68,8 @@ void followRouteTracksSource() {
     f.kickEnv = 0.8f;
     e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "follow with zero smoothing outputs amount * source");
-    const SceneParams p = e.apply(SceneParams{});
+    SceneParams p;
+    e.apply(p);
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
@@ -177,7 +180,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 121, "121 sources: append only, they are saved by name and ordinal");
+    static_assert(kReactSourceCount == 155, "155 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -211,6 +214,251 @@ void sourcesReadTheirFieldsInRange() {
         const float v = s.value(static_cast<ReactSource>(k));
         check(std::isfinite(v) && v >= -1.0f && v <= 1.0f, "every source stays finite and in range on a wild frame");
     }
+}
+
+// The bar counts (the owner: "react to transients but also to longer things like 8 beats or 16"): counted on the
+// music's own downbeats, the bar in the phrase read from the phrase phase, still while no beat is heard. Eight
+// bars of a locked beat at two seconds a bar (no tempo is meant: any bar length counts the same).
+void barCountsFollowTheMusicsBars() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.beatConf = 0.8f;
+    for (int i = 0; i < 120; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == 0.0f && s.value(ReactSource::BarFlip) == 0.0f && s.value(ReactSource::Bar2Pulse) == 0.0f,
+          "no downbeat, no count");
+    std::array<float, 8> barHolds{};
+    std::array<float, 8> bar4Holds{};
+    std::array<bool, 8> bar4Pulsed{};
+    std::array<bool, 8> bar2Pulsed{};
+    for (int bar = 0; bar < 8; ++bar) {
+        const float bar4Before = s.value(ReactSource::Bar4Pulse);
+        const float bar2Before = s.value(ReactSource::Bar2Pulse);
+        f.downbeat = 0.8f;
+        f.phrase = bar == 0 ? 0.8f : 0.0f;
+        f.phrasePhase = static_cast<float>(bar) / 8.0f + 0.002f;
+        f.barCount = static_cast<float>(37 + bar);
+        f.phraseIndex = 5.0f;
+        s.step(f, 1.0f / 60.0f);
+        barHolds[static_cast<size_t>(bar)] = s.value(ReactSource::BarHold);
+        bar4Holds[static_cast<size_t>(bar)] = s.value(ReactSource::Bar4Hold);
+        bar4Pulsed[static_cast<size_t>(bar)] = bar4Before < 0.5f && s.value(ReactSource::Bar4Pulse) >= 0.5f;
+        bar2Pulsed[static_cast<size_t>(bar)] = bar2Before < 0.5f && s.value(ReactSource::Bar2Pulse) >= 0.5f;
+        f.downbeat = 0.0f;
+        f.phrase = 0.0f;
+        for (int i = 0; i < 119; ++i) s.step(f, 1.0f / 60.0f);
+    }
+    for (int bar = 0; bar < 8; ++bar) {
+        const size_t b = static_cast<size_t>(bar);
+        check(bar4Pulsed[b] == (bar % 4 == 0), "every 4 bars pulses on bars 1 and 5 of the phrase");
+        check(bar2Pulsed[b] == (bar % 2 == 0), "every 2 bars pulses on the odd bars");
+        check(barHolds[b] >= 0.0f && barHolds[b] < 1.0f, "a hold stays in 0..1");
+        if (bar > 0) check(std::fabs(barHolds[b] - barHolds[b - 1]) > 0.2f, "every bar's hold lands somewhere new");
+        if (bar % 4 != 0) check(bar4Holds[b] == bar4Holds[b - 1], "every 4 bars' hold keeps its value in between");
+    }
+    check(bar4Holds[4] != bar4Holds[0], "every 4 bars' hold steps on the fifth bar");
+    check(s.value(ReactSource::BarFlip) == 0.0f && s.value(ReactSource::Bar2Flip) == 0.0f && s.value(ReactSource::Bar4Flip) == 0.0f &&
+              s.value(ReactSource::PhraseFlip) == 1.0f,
+          "flips toggle once per count: 8, 4 and 2 flips back to 0, one phrase to 1");
+    // A downbeat the tracker is not sure of, or no beat at all, counts nothing: the holds stay still.
+    const float held = s.value(ReactSource::Bar4Hold);
+    f.beatConf = 0.05f;
+    f.downbeat = 1.0f;
+    f.phrasePhase = 0.001f;
+    f.barCount = 45.0f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == held && s.value(ReactSource::PhraseFlip) == 1.0f, "an untrusted beat counts no bar");
+    f = silence();
+    for (int i = 0; i < 600; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Bar4Hold) == held && s.value(ReactSource::Bar4Pulse) < 0.01f, "silence: the counts stay still");
+}
+
+// The melody line: a rising tune reads a positive contour, a falling one negative, a note marks each new note,
+// presence follows whether a pitch sounds; the director's feeling reads through as it was heard.
+void melodyLineAndFeelingRead() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    for (int i = 0; i < 60; ++i) {
+        f.pitch = 60.0f + 7.0f * static_cast<float>(i) / 60.0f;  // up a fifth over a second
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::MelodyContour) > 0.3f, "a rising line reads a positive contour");
+    check(s.value(ReactSource::MelodyPresence) > 0.9f, "a sounding tune reads present");
+    for (int i = 0; i < 90; ++i) {
+        f.pitch = 67.0f - 7.0f * static_cast<float>(i) / 90.0f;
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::MelodyContour) < -0.2f, "a falling line reads a negative contour");
+    f.pitch = 0.0f;
+    for (int i = 0; i < 300; ++i) s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::MelodyContour)) < 0.01f && s.value(ReactSource::MelodyPresence) < 0.01f,
+          "no tune: the contour rests and presence falls");
+    f.pitch = 48.0f;  // a new line an octave below starts fresh, not as a fall
+    s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::MelodyContour)) < 0.01f, "a new line after a rest reads no leap");
+    f.noteChange = 0.3f;
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MelodyNote) >= 0.5f, "a new note is an event like a hit");
+    f.noteChange = 0.0f;
+    f.reattack = 0.4f;
+    for (int i = 0; i < 60; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::MelodyNote) >= 0.5f, "the same note struck again is a new note too");
+
+    geode::sound::Emotion::State feel;
+    feel.valence = -0.6f;
+    feel.tension = 0.7f;
+    feel.degreeAccent = 0.5f;
+    s.step(f, 1.0f / 60.0f, &feel);
+    check(std::fabs(s.value(ReactSource::Valence) + 0.6f) < 1e-6f && std::fabs(s.value(ReactSource::FeltTension) - 0.7f) < 1e-6f,
+          "the mood and its tension read as heard");
+    check(s.value(ReactSource::DegreeAccent) >= 0.5f, "a scale step change is an event");
+    s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::Valence) == 0.0f && s.value(ReactSource::FeltTension) == 0.0f, "without a feeling heard they rest");
+}
+
+// A settled Jump waits for its glide before the next edge counts: hats four a second cannot flicker it. Its output
+// can turn back only when its held value changes, so it turns back no more often than once a glide.
+void settledJumpWaitsForItsGlide() {
+    ReactionEngine e;
+    e.reset();
+    e.routes[0] = {true, ReactSource::Hat, LfoTarget::Warp, ReactMode::JumpSettled, 1.0f, ModCurve::Linear, 0.2f, 0.4f};
+    GeodeSoundFrame f = silence();
+    float last = 0.0f;
+    float lastStep = 0.0f;
+    int turns = 0;
+    for (int i = 0; i < 180; ++i) {  // three seconds, a hat every quarter second
+        f.hat = i % 15 == 0 ? 1.0f : 0.0f;
+        e.tick(f, 1.0f / 60.0f);
+        const float step = e.output(0) - last;
+        if (step * lastStep < 0.0f) ++turns;
+        if (step != 0.0f) lastStep = step;
+        last = e.output(0);
+    }
+    check(std::fabs(e.output(0)) > 0.0f, "a settled jump still jumps");
+    check(turns <= 5, "twelve hats in three seconds turn a 0.6 s settled jump at most five times");
+}
+
+// The tension's rise: tightening reads up, resolving reads down.
+void tensionRiseFollowsTheChords() {
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.tension = 0.2f;
+    for (int i = 0; i < 1800; ++i) s.step(f, 1.0f / 60.0f);
+    check(std::fabs(s.value(ReactSource::TensionRise)) < 0.01f, "steady tension neither rises nor eases");
+    for (int i = 0; i < 120; ++i) {
+        f.tension = 0.2f + 0.5f * static_cast<float>(i) / 120.0f;
+        s.step(f, 1.0f / 60.0f);
+    }
+    check(s.value(ReactSource::TensionRise) > 0.5f, "tension climbing over two seconds reads rising");
+    f.tension = 0.1f;
+    for (int i = 0; i < 60; ++i) s.step(f, 1.0f / 60.0f);
+    check(s.value(ReactSource::TensionRise) < -0.3f, "a chord resolving reads easing");
+}
+
+// The song part, a section coming back, how far through its section the music is and the chords' motion, all
+// derived from the frame's own Form and Harmony fields; and the feeling's energy, key character and kind as the
+// director heard them.
+void songFormSourcesRead() {
+    constexpr float kDt = 1.0f / 60.0f;
+    ReactSignals s;
+    GeodeSoundFrame f = silence();
+    f.sectionState = GEODE_SECTION_DROP;
+    s.step(f, kDt);
+    check(s.value(ReactSource::InDrop) == 1.0f && s.value(ReactSource::InBuild) == 0.0f && s.value(ReactSource::InIntro) == 0.0f,
+          "in a drop: the drop's state alone reads 1");
+    f.sectionState = GEODE_SECTION_BREAKDOWN;
+    s.step(f, kDt);
+    check(s.value(ReactSource::InBreakdown) == 1.0f && s.value(ReactSource::InDrop) == 0.0f, "the state follows the song part");
+
+    // A song: section 0 for 8 bars, section 1 for 12, then section 0 again. Form says a section began a bar after
+    // the fact (sectionChange on the next downbeat) and names it a bar later still; its state never changes here,
+    // so sectionBars keeps counting through. Two seconds a bar (no tempo is meant: any bar length reads the same).
+    s.reset();
+    f = silence();
+    f.beatConf = 0.8f;
+    f.sectionState = GEODE_SECTION_VERSE;
+    bool returned = false;
+    float progressMid0 = 0.0f;
+    float progressMid1 = 0.0f;
+    float progressLast = 0.0f;
+    bool rising = true;
+    float last = -1.0f;
+    const auto bar = [&](int n, int id, bool change) {
+        f.sectionBars = static_cast<float>(n);
+        f.sectionId = static_cast<float>(id);
+        f.sectionChange = change ? 0.8f : 0.0f;
+        for (int i = 0; i < 120; ++i) {
+            f.barPhase = static_cast<float>(i) / 120.0f;
+            s.step(f, kDt);
+            f.sectionChange = 0.0f;
+            returned = returned || s.value(ReactSource::SectionReturn) >= 0.5f;
+            const float p = s.value(ReactSource::SectionProgress);
+            check(p >= 0.0f && p <= 1.0f, "progress stays in 0..1");
+            if (p < last) rising = false;
+            last = p;
+        }
+    };
+    for (int n = 0; n < 9; ++n) bar(n, 0, false);
+    progressMid0 = s.value(ReactSource::SectionProgress);
+    check(rising, "progress only rises through a section");
+    check(progressMid0 > 0.5f && progressMid0 < 0.7f, "nine bars into a song read against two phrases until a section has ended");
+    check(!returned, "no section has come back yet");
+    bar(9, 0, true);  // the new section began a bar ago
+    check(s.value(ReactSource::SectionProgress) < 0.25f, "a new section starts its progress again");
+    bar(10, 1, false);  // and is named
+    check(!returned, "a new section is not a return");
+    for (int n = 11; n < 15; ++n) bar(n, 1, false);
+    progressMid1 = s.value(ReactSource::SectionProgress);
+    check(progressMid1 > 6.0f / 16.0f, "the first section's length (8 bars) shortens what the next is measured against");
+    for (int n = 15; n < 40; ++n) bar(n, 1, false);
+    check(s.value(ReactSource::SectionProgress) == 1.0f, "past its expected length a section holds at 1");
+    bar(40, 1, true);
+    bar(41, 0, false);
+    check(returned, "section 0 coming back fires a return");
+    progressLast = s.value(ReactSource::SectionProgress);
+    check(progressLast < 0.3f, "and its progress starts again");
+    returned = false;
+    bar(42, 1, false);  // renamed with no section change before it: Form started over (a seek, a new track)
+    check(!returned, "a section renamed with no section change is not a return");
+
+    // The chords' motion: still on a held chord, moving with chord changes, the same across the circle's seam.
+    const auto motion = [&](float from, float to) {
+        ReactSignals m;
+        GeodeSoundFrame g = silence();
+        for (int i = 0; i < 300; ++i) {
+            g.chordHue = (i / 30) % 2 == 0 ? from : to;  // a change every half second
+            m.step(g, kDt);
+        }
+        return m.value(ReactSource::ChordMotion);
+    };
+    check(motion(0.25f, 0.25f) < 0.01f, "a held chord does not move");
+    const float moving = motion(0.0f, 1.0f / 12.0f);
+    check(moving > 0.4f, "a fifth up and back every half second reads moving");
+    check(std::fabs(motion(11.0f / 12.0f, 0.0f) - moving) < 0.05f, "a fifth across the circle's seam reads the same, not a whole turn");
+
+    // The feeling as heard: its energy, the key's character, its kind and five kinds' shares.
+    geode::sound::Emotion::State feel;
+    feel.energy = 0.7f;
+    feel.sharpness = -0.4f;
+    feel.gems.fill(0.075f);
+    feel.gems[geode::sound::Emotion::kJoy] = 0.4f;
+    ReactSignals k;
+    GeodeSoundFrame g = silence();
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeltEnergy) - 0.7f) < 1e-6f && std::fabs(k.value(ReactSource::KeySharpness) + 0.4f) < 1e-6f,
+          "the felt energy and the key's character read as heard");
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 6.0f / 8.0f) < 1e-6f, "joy leads: the kind reads joy's place, 6 of 8");
+    check(k.value(ReactSource::FeelJoy) == 1.0f && std::fabs(k.value(ReactSource::FeelPeace) - 0.225f) < 1e-5f,
+          "a kind's share reads 1 at three times its even share");
+    feel.gems[geode::sound::Emotion::kPeace] = 0.41f;
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 6.0f / 8.0f) < 1e-6f, "a kind barely ahead does not take the lead");
+    feel.gems[geode::sound::Emotion::kPeace] = 0.45f;
+    k.step(g, kDt, &feel);
+    check(std::fabs(k.value(ReactSource::FeelingKind) - 4.0f / 8.0f) < 1e-6f, "a kind clearly ahead does");
+    k.step(g, kDt);
+    check(k.value(ReactSource::FeltEnergy) == 0.0f && k.value(ReactSource::FeelPeace) == 0.0f &&
+              std::fabs(k.value(ReactSource::FeelingKind) - 4.0f / 8.0f) < 1e-6f,
+          "without a feeling heard its levels rest and its kind holds");
 }
 
 void deterministicForExport() {
@@ -477,7 +725,8 @@ void oddFrameTimesStayFiniteAndBounded() {
         p.camShake = 1.0f;
         for (int i = 0; i < 120; ++i) {
             e.tick(busyFrame(i), dt);
-            const SceneParams q = e.apply(p);
+            SceneParams q = p;
+            e.apply(q);
             rig.step(q, {0.5f, -0.5f}, dt, false);
             for (int r = 0; r < 3; ++r) check(std::isfinite(e.output(r)) && std::fabs(e.output(r)) <= 1.0001f, "route output finite and bounded for odd dt");
         }
@@ -525,6 +774,89 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
 }
 
+// Every float of a CameraPose, in one list.
+std::array<float, 24> poseFloats(const CameraPose& c) {
+    std::array<float, 24> out{};
+    size_t n = 0;
+    for (const std::array<float, 3>* v : {&c.pos, &c.right, &c.up, &c.fwd}) {
+        for (float f : *v) out[n++] = f;
+    }
+    for (float f : {c.focal, c.travel, c.dolly, c.yaw, c.pitch, c.roll}) out[n++] = f;
+    for (float f : c.flat) out[n++] = f;
+    for (float f : c.tilt) out[n++] = f;
+    return out;
+}
+
+// One frame with a NaN or an infinity in a camera param, the look input or the director's moves must not
+// latch: std::clamp passed a NaN on into the springs, which kept it, and the pose stayed NaN for good.
+// The rig steps beside one that never saw the bad frame and must be back beside it a few seconds later.
+void nonFiniteCameraInputsDoNotLatch() {
+    using Poison = void (*)(SceneParams&, CameraRig::LookInput&, CameraRig::Moves&, float);
+    struct Case {
+        const char* name;
+        Poison poison;
+    };
+    const Case cases[] = {
+        {"camSmooth", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camSmooth = v; }},
+        {"camYaw", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camYaw = v; }},
+        {"camPitch", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPitch = v; }},
+        {"camRoll", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camRoll = v; }},
+        {"camFov", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFov = v; }},
+        {"camFly", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFly = v; }},
+        {"camPush", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPush = v; }},
+        {"camOrbit", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camOrbit = v; }},
+        {"camShake", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camShake = v; }},
+        {"motionAmount", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.motionAmount = v; }},
+        {"look yaw", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.yaw = v; }},
+        {"look pitch", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.pitch = v; }},
+        // Not sanitised by the rig: only the springs' own refusal stands between these and the pose.
+        {"moves dolly", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.dolly = v; }},
+        {"moves breath", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.breath = v; }},
+    };
+    SceneParams normal;
+    normal.camFly = 1.0f;
+    normal.camSmooth = 0.3f;
+    normal.camYaw = 0.3f;
+    normal.camPitch = -0.2f;
+    normal.camRoll = 0.25f;
+    normal.camFov = 1.2f;
+    normal.camPush = 0.4f;
+    normal.camOrbit = 0.6f;
+    normal.camShake = 0.3f;
+    normal.motionAmount = 0.8f;
+    normal.camTouch = true;
+    const CameraRig::LookInput look{0.4f, -0.3f};
+    GeodeSoundFrame sound = silence();
+    sound.presence = 0.6f;
+    sound.bassAtt = 1.4f;
+    sound.energyTrend = 0.8f;
+    const float dt = 1.0f / 60.0f;
+    for (const Case& c : cases) {
+        for (float bad : {NAN, INFINITY, -INFINITY}) {
+            const std::string what = std::string(c.name) + (std::isnan(bad) ? " = NaN" : bad > 0.0f ? " = +inf" : " = -inf");
+            CameraRig rig;
+            CameraRig reference;
+            bool finite = true;
+            for (int i = 0; i < 300; ++i) {
+                SceneParams p = normal;
+                CameraRig::LookInput l = look;
+                CameraRig::Moves m;
+                if (i == 60) c.poison(p, l, m, bad);
+                rig.setMoves(m);
+                rig.step(p, l, dt, false, true, &sound);
+                reference.step(normal, look, dt, false, true, &sound);
+                for (float f : poseFloats(rig.pose())) finite = finite && std::isfinite(f);
+            }
+            check(finite, ("the camera pose stays finite on every frame around one " + what).c_str());
+            const std::array<float, 24> a = poseFloats(rig.pose());
+            const std::array<float, 24> b = poseFloats(reference.pose());
+            float worst = 0.0f;
+            for (size_t k = 0; k < a.size(); ++k) worst = std::fmax(worst, std::fabs(a[k] - b[k]));
+            check(worst < 0.1f, ("the camera returns beside its normal course after one " + what).c_str());
+        }
+    }
+}
+
 // One kick per 0.5 s at 60 fps, for `beats` kicks.
 void playBeats(ReactionEngine& e, int beats, int& count) {
     for (int b = 0; b < beats; ++b) {
@@ -538,7 +870,7 @@ void playBeats(ReactionEngine& e, int beats, int& count) {
 }
 
 void jumpHoldsANewSeededValuePerHit() {
-    static_assert(kReactModeCount == 5, "dev.geode.render.ReactMode has 5 entries");
+    static_assert(kReactModeCount == 6, "Follow, Step, Add up, Jump, Toggle and Jump settled: the shell lists them from ModCatalog");
     ReactionEngine a;
     ReactionEngine b;
     a.reset();
@@ -626,12 +958,44 @@ void stylesGetDifferentPersonalities() {
     }
     check(leads.size() >= 6, "thirty styles draw at least six different pulse personalities");
     check(pulses * 4 <= kStyleCount, "at most a quarter of styles push in on the kick");
-    check(beatZooms * 3 <= kStyleCount, "most styles do not zoom on the kick at all");
+    check(beatZooms * 2 <= kStyleCount, "most styles do not zoom on the kick (only the pulse and lens personalities do)");
 }
 
-bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::Onset; }
+// A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
+void zoomPersonalitiesZoomOnTheBeat() {
+    int seen = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, true});
+            const auto zooms = [&dna](ReactSource beat) {
+                for (int r = 0; r < dna.count; ++r) {
+                    const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                    if (route.source == beat && route.target == LfoTarget::Zoom && route.amount == 0.2f) return true;
+                }
+                return false;
+            };
+            for (const Personality p : {dna.lead, dna.second}) {
+                if (p != Personality::Pulse && p != Personality::Lens) continue;
+                // Its own move is the first route on its target (the body's fisheye, if any, comes later).
+                const LfoTarget own = p == Personality::Pulse ? LfoTarget::CamPush : LfoTarget::Fisheye;
+                int first = -1;
+                for (int r = 0; r < dna.count && first < 0; ++r) {
+                    if (dna.routes[static_cast<size_t>(r)].target == own) first = r;
+                }
+                check(first >= 0 && zooms(dna.routes[static_cast<size_t>(first)].source), "a zoom personality zooms on its beat");
+                ++seen;
+            }
+        }
+    }
+    check(seen > 20, "zoom personalities were checked");
+}
+
+// What the pulse's two sides hear: the kick on every hit, every other one or as its envelope; the snare on every hit,
+// every other one or as its envelope, or the hats.
+bool kickSide(ReactSource s) { return s == ReactSource::Kick || s == ReactSource::Kick2 || s == ReactSource::KickEnv; }
 bool snareSide(ReactSource s) {
-    return s == ReactSource::Snare || s == ReactSource::Snare2 || s == ReactSource::Hat || s == ReactSource::NoteChange;
+    return s == ReactSource::Snare || s == ReactSource::Snare2 || s == ReactSource::SnareEnv || s == ReactSource::Hat ||
+           s == ReactSource::HatEnv;
 }
 
 void kickAndSnareSidesAnswerDifferently() {
@@ -647,6 +1011,57 @@ void kickAndSnareSidesAnswerDifferently() {
         check(!a.empty() && !b.empty(), "both sides of the groove move something");
         check(dna.lead != dna.second && a != b, "the two sides answer it differently");
     }
+}
+
+// The owner: "make sure all styles have capacity to react to drums", beside the musical layers. Every catalogue
+// style's DNA, with its real traits and on every seed, holds a route on the kick and one on the snare or the hats
+// (kickSide, snareSide: each the drum's own row on Customize › Music), each onto a target the style reads (its
+// catalogue scope reaches it, and style_reads_test holds every style to reading what Customize shows it) and never a
+// turn (the owner took sound-driven spin out). Across the catalogue the drums move many different things, in
+// different ways, so no drum reaction is the same for every style.
+void everyStyleAnswersTheDrums() {
+    using S = ReactSource;
+    for (const S s : {S::Kick, S::Kick2, S::KickEnv}) {
+        check(hand::momentOf(s) == static_cast<int>(Moment::Kick), "the kick side is the Kick row");
+    }
+    for (const S s : {S::Snare, S::Snare2, S::SnareEnv, S::Hat, S::HatEnv}) {
+        check(hand::momentOf(s) == static_cast<int>(Moment::Snare) || hand::momentOf(s) == static_cast<int>(Moment::Hat),
+              "the snare side is the Snare or the Hat row");
+    }
+    std::set<int> kickTargets;
+    std::set<int> snareTargets;
+    std::set<int> modes;
+    int styles = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        ++styles;
+        const StyleTraits traits{catalogue::spinRate(id), catalogue::isShaderStyle(id)};
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, traits);
+            bool kick = false;
+            bool snare = false;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                const bool shows = route.enabled && route.amount != 0.0f && route.target != LfoTarget::Rotation &&
+                                   route.target != LfoTarget::CamRoll && targetReaches(route.target, id);
+                if (!shows) continue;
+                if (kickSide(route.source)) {
+                    kick = true;
+                    kickTargets.insert(static_cast<int>(route.target));
+                    modes.insert(static_cast<int>(route.mode));
+                }
+                if (snareSide(route.source)) {
+                    snare = true;
+                    snareTargets.insert(static_cast<int>(route.target));
+                    modes.insert(static_cast<int>(route.mode));
+                }
+            }
+            check(kick, (id + ": the DNA moves nothing the style reads on the kick").c_str());
+            check(snare, (id + ": the DNA moves nothing the style reads on the snare or the hats").c_str());
+        }
+    }
+    check(styles > 100, "the catalogue's styles were checked");
+    check(kickTargets.size() >= 6 && snareTargets.size() >= 6, "the drums move many different things across styles");
+    check(modes.size() >= 3, "the drums follow, jump or settle, style by style");
 }
 
 void dnaSourcesVaryAcrossStyles() {
@@ -701,10 +1116,12 @@ void dnaLeavesRoomAndStaysInRange() {
 // transient detector, whatever its traits and seed, within the cap, and the layer comes last: without it the
 // routes before it are what they were.
 void everyStyleHearsTransients() {
+    // The transient layer is the groove's last; the four musical layers follow it (everyStyleHearsTheSongsTime and
+    // everyStyleHearsTheMusicNotTheVolume).
     const auto heard = [](const StyleDna& dna) {
         for (int r = 0; r < dna.count; ++r) {
             const ReactSource s = dna.routes[static_cast<size_t>(r)].source;
-            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 1;
+            if (s == ReactSource::Transient || s == ReactSource::TransientEnv) return r == dna.count - 5;
         }
         return false;
     };
@@ -714,7 +1131,7 @@ void everyStyleHearsTransients() {
         for (int seed = 0; seed < 4; ++seed) {
             for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
                 const StyleDna dna = buildStyleDna(id, seed, t);
-                check(heard(dna), "every style's DNA ends on one transient route");
+                check(heard(dna), "every style's groove ends on one transient route");
                 check(dna.count <= StyleDna::kMaxRoutes, "the transient layer keeps the DNA within its cap");
             }
         }
@@ -723,9 +1140,244 @@ void everyStyleHearsTransients() {
     std::set<int> targets;
     for (int i = 0; i < kStyleCount; ++i) {
         const StyleDna dna = buildStyleDna(kStyleIds[i], 0, traitsAt(i));
-        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 1)].target));
+        targets.insert(static_cast<int>(dna.routes[static_cast<size_t>(dna.count - 5)].target));
     }
     check(targets.size() >= 3, "the transient layer's target is the style's own, not one for every style");
+}
+
+// The owner: react to transients "but also to longer things like 8 beats or 16, or melody lines". Every style's DNA
+// ends on one route on the song's long time (every 4 bars or every phrase) and one on its tune, ordinary routes the
+// user sees and edits. Neither moves a colour or turns anything, and the groove before them keeps its room.
+void everyStyleHearsTheSongsTime() {
+    const auto longTime = [](ReactSource s) {
+        return s == ReactSource::Bar4Hold || s == ReactSource::PhraseHold || s == ReactSource::Bar4Pulse || s == ReactSource::Phrase ||
+               s == ReactSource::Bar2Flip || s == ReactSource::PhraseFlip;
+    };
+    const auto tune = [](ReactSource s) {
+        return s == ReactSource::MelodyContour || s == ReactSource::PitchHeight || s == ReactSource::MelodyNote ||
+               s == ReactSource::MelodyPresence;
+    };
+    const auto calm = [](LfoTarget t) {
+        return !isLuminanceTarget(t) && t != LfoTarget::Rotation && t != LfoTarget::CamRoll && t != LfoTarget::CamOrbit &&
+               t != LfoTarget::Twist && t != LfoTarget::Sway;
+    };
+    std::set<int> longSources;
+    std::set<int> longTargets;
+    std::set<int> tuneSources;
+    std::set<int> tuneTargets;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            for (const StyleTraits t : {StyleTraits{0.0f, false}, StyleTraits{0.0f, true}, StyleTraits{1.0f, true}, StyleTraits{-0.7f, false}}) {
+                const StyleDna dna = buildStyleDna(id, seed, t);
+                check(dna.count >= 5 && dna.count <= StyleDna::kMaxRoutes, "the DNA stays within its cap");
+                const ReactRoute& bars = dna.routes[static_cast<size_t>(dna.count - 4)];
+                const ReactRoute& line = dna.routes[static_cast<size_t>(dna.count - 3)];
+                check(bars.enabled && longTime(bars.source), "every style has a route on every 4 bars or every phrase");
+                check(line.enabled && tune(line.source), "every style has a route on the melody");
+                check(calm(bars.target) && calm(line.target), "the long and tune routes move no colour and turn nothing");
+                check(bars.attackSeconds >= 1.0f && bars.releaseSeconds >= 1.0f, "the long route glides over a second or more");
+                check(dna.count - 5 <= StyleDna::kGrooveRoutes, "the groove stays within its room");
+                longSources.insert(static_cast<int>(bars.source));
+                longTargets.insert(static_cast<int>(bars.target));
+                tuneSources.insert(static_cast<int>(line.source));
+                tuneTargets.insert(static_cast<int>(line.target));
+            }
+        }
+    }
+    check(longSources.size() >= 3 && longTargets.size() >= 2, "the long route's source and target are drawn per style");
+    check(tuneSources.size() >= 3 && tuneTargets.size() >= 3, "the tune route's source and target are drawn per style");
+}
+
+// The owner: "make the visual respond in varied ways to musical content rather than volume". Every style's DNA ends
+// on a harmony-and-form route and a feel-and-timbre route; no default route follows the absolute loudness; each
+// musical family of sources is heard by a fair share of styles; and no family of styles (the Styles page's groups)
+// hands every one of its styles the same musical routes.
+void everyStyleHearsTheMusicNotTheVolume() {
+    using S = ReactSource;
+    const auto in = [](S s, std::initializer_list<S> set) {
+        for (const S x : set) {
+            if (x == s) return true;
+        }
+        return false;
+    };
+    const std::initializer_list<S> harmony = {S::HarmonicChange, S::Tension, S::KeyClarity, S::TensionRise, S::ScaleBrightness,
+                                              S::ScaleTension, S::ChordMotion};
+    const std::initializer_list<S> form = {S::SectionChange, S::SectionReturn, S::Drop, S::BuildUp, S::Novelty, S::SectionProgress,
+                                           S::InBuild, S::InDrop, S::InBreakdown};
+    const std::initializer_list<S> feeling = {S::Valence, S::FeltTension, S::DegreeAccent, S::KeySharpness, S::FeelingKind, S::FeelWonder};
+    const std::initializer_list<S> timbre = {S::Flatness, S::Centroid, S::Rolloff, S::Evenness, S::StereoWidth};
+    const std::initializer_list<S> bars = {S::Bar4Hold, S::PhraseHold, S::Bar4Pulse, S::Phrase, S::Bar2Flip, S::PhraseFlip};
+    const std::initializer_list<S> melody = {S::MelodyContour, S::PitchHeight, S::MelodyNote, S::MelodyPresence, S::RunDensity,
+                                             S::Vibrato, S::Glide, S::Legato, S::Interval};
+    // The felt energy is a feeling, but it carries the loudness, so it is held to the same rule.
+    const std::initializer_list<S> loudness = {S::Level, S::Loudness, S::Vol, S::VolAtt, S::Intensity, S::FeltEnergy};
+    std::array<int, 6> heardBy{};
+    int styles = 0;
+    for (const catalogue::PickerFamily& fam : catalogue::pickerFamilies()) {
+        std::set<std::string> musical;  // each style's four musical routes, as one key
+        for (const std::string& id : fam.ids) {
+            ++styles;
+            const StyleDna dna = buildStyleDna(id, 0, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            const ReactRoute& form1 = dna.routes[static_cast<size_t>(dna.count - 2)];
+            const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
+            check(in(form1.source, harmony) || in(form1.source, form) || form1.source == S::DegreeAccent || form1.source == S::PhraseFlip,
+                  "every style has a harmony or form route");
+            check(in(feel.source, feeling) || in(feel.source, timbre) || in(feel.source, melody) || feel.source == S::ScaleBrightness,
+                  "every style has a feel or timbre route");
+            check(!isLuminanceTarget(form1.target) && !isLuminanceTarget(feel.target) && form1.target != LfoTarget::Rotation &&
+                      feel.target != LfoTarget::Rotation,
+                  "the harmony and feel routes move no colour and turn nothing");
+            check(feel.attackSeconds >= 0.8f && feel.releaseSeconds >= 1.5f, "feel and timbre are followed slowly");
+            std::array<bool, 6> uses{};
+            std::string key;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                check(!in(route.source, loudness), "no default route follows the absolute loudness");
+                uses[0] = uses[0] || in(route.source, harmony);
+                uses[1] = uses[1] || in(route.source, form);
+                uses[2] = uses[2] || in(route.source, feeling);
+                uses[3] = uses[3] || in(route.source, timbre);
+                uses[4] = uses[4] || in(route.source, bars);
+                uses[5] = uses[5] || in(route.source, melody);
+                if (r >= dna.count - 4) {
+                    key += std::to_string(static_cast<int>(route.source)) + ":" + std::to_string(static_cast<int>(route.target)) + ":" +
+                           std::to_string(static_cast<int>(route.mode)) + ";";
+                }
+            }
+            for (size_t k = 0; k < uses.size(); ++k) heardBy[k] += uses[k] ? 1 : 0;
+            musical.insert(key);
+        }
+        if (fam.ids.size() >= 2) check(musical.size() >= 2, ("a family's styles do not all get the same musical routes: " + fam.name).c_str());
+    }
+    check(styles > 100, "the catalogue's styles were checked");
+    const char* names[] = {"harmony", "form", "feeling", "timbre", "bar counts", "melody"};
+    for (size_t k = 0; k < heardBy.size(); ++k) {
+        check(heardBy[k] * 8 >= styles, (std::string("at least an eighth of the styles hear the ") + names[k]).c_str());
+    }
+    check(heardBy[4] == styles && heardBy[5] == styles, "every style hears the bars and the tune");
+
+    // The newer musical sources are each some styles' default: the song part, a section's return and progress,
+    // the chords' motion, the scale's tension, the key's character and the kind of feeling.
+    std::set<int> heard;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            for (int r = 0; r < dna.count; ++r) heard.insert(static_cast<int>(dna.routes[static_cast<size_t>(r)].source));
+        }
+    }
+    for (const S s : {S::ChordMotion, S::ScaleTension, S::SectionReturn, S::SectionProgress, S::InBuild, S::InDrop, S::InBreakdown,
+                      S::KeySharpness, S::FeelingKind, S::FeelWonder}) {
+        check(heard.count(static_cast<int>(s)) == 1, (std::string("some style hears ") + reactSourceInfo(s).name).c_str());
+    }
+}
+
+// The owner: "music changes shape but also shader formula". The raymarched families that switch distance-field
+// formulas (Shard, Prism, Fluor, Loom, Petal, Fold) hear their harmony or form in the formula: a section change or
+// return lands a settled jump, a chord change or a phrase flip steps, the tension slowly follows. Each style draws
+// its own; no other style's DNA moves the formula.
+void formulaFamiliesHearTheMusicInTheFormula() {
+    using S = ReactSource;
+    std::set<int> sources;
+    int formulaStyles = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        const bool formula = id.rfind("shard_", 0) == 0 || id.rfind("prism_", 0) == 0 || id.rfind("fluor_", 0) == 0 ||
+                             id.rfind("loom_", 0) == 0 || id.rfind("petal_", 0) == 0 || id.rfind("fold_", 0) == 0;
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            int onFormula = 0;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                if (route.target != LfoTarget::Formula) continue;
+                ++onFormula;
+                sources.insert(static_cast<int>(route.source));
+                const bool settled = (route.source == S::SectionChange || route.source == S::SectionReturn) && route.mode == ReactMode::JumpSettled;
+                const bool stepped = (route.source == S::HarmonicChange || route.source == S::PhraseFlip) && route.mode == ReactMode::Step;
+                const bool slow = route.source == S::Tension && route.mode == ReactMode::Follow && route.attackSeconds >= 2.0f &&
+                                  route.releaseSeconds >= 3.0f;
+                check(settled || stepped || slow, "a formula route is a settled section jump, a chord or phrase step, or a slow tension");
+            }
+            check(onFormula == (formula ? 1 : 0), "the formula families have one formula route, every other style none");
+            if (formula && seed == 0) ++formulaStyles;
+        }
+    }
+    check(formulaStyles >= 30, "the six formula families were checked");
+    check(sources.size() >= 4, "the formula routes' sources are drawn per style");
+}
+
+// The seeded stream a style's DNA draws from, replayed: the same seed (the id's FNV-1a, the seed, the mix) and
+// the same xorshift as ReactionDna.cpp's Draw, which that file keeps to itself. Draw k is the stream's k-th
+// value, so a test can say which draws a route's values came from.
+class DnaStream {
+public:
+    static constexpr int kLength = 256;
+
+    DnaStream(std::string_view id, int seed) {
+        std::uint32_t h = 2166136261u;
+        for (const char c : id) {
+            h ^= static_cast<std::uint8_t>(c);
+            h *= 16777619u;
+        }
+        h ^= static_cast<std::uint32_t>(seed) * 0x9E3779B9u;
+        h ^= h >> 16;
+        h *= 0x7feb352du;
+        h ^= h >> 15;
+        h *= 0x846ca68bu;
+        h ^= h >> 16;
+        std::uint32_t x = h != 0u ? h : 0x9E3779B9u;
+        for (std::uint32_t& v : x_) {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            v = x;
+        }
+    }
+
+    float range(int k, float from, float to) const {
+        return from + (to - from) * (static_cast<float>(x_[static_cast<size_t>(k)] >> 8) / 16777216.0f);
+    }
+
+private:
+    std::array<std::uint32_t, kLength> x_{};
+};
+
+bool sameDraw(float built, float replayed) { return std::fabs(built - replayed) <= 1e-6f; }
+
+// The DNA draws in the order its source is written, on every compiler. The feel-and-timbre layer used to draw its
+// amount, rise and fall as three arguments of one call, an order C++ leaves to the compiler: the phone's clang works
+// them out left to right, the host's g++ right to left, so the host tests checked another DNA than the phone builds.
+// Written order is the phone's: the amount (structuralAmount's range for the target), then the rise, then the fall,
+// three draws in a row and the DNA's last. Some draw k of the stream must give all three, in that order; drawn in any
+// other order no k does (three 24-bit draws would have to repeat). The accent's camera roll (a sign, then a size)
+// was re-sequenced the same way, but no DNA keeps it today: the accent always fills the groove's last slot, which the
+// transient layer takes, so no test can see its order through buildStyleDna.
+void dnaDrawsInWrittenOrder() {
+    struct Span {
+        float from;
+        float to;
+    };
+    const auto structural = [](LfoTarget t) -> Span {
+        switch (t) {
+            case LfoTarget::Zoom: return {0.1f, 0.2f};
+            case LfoTarget::CamFov: return {0.2f, 0.35f};
+            case LfoTarget::Morph: return {0.3f, 0.5f};
+            case LfoTarget::Turbulence: case LfoTarget::Warp: case LfoTarget::Ripple: return {0.2f, 0.4f};
+            default: return {0.15f, 0.3f};
+        }
+    };
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 8; ++seed) {
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
+            const DnaStream s(kStyleIds[i], seed);
+            const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
+            const Span amount = structural(feel.target);
+            bool found = false;
+            for (int k = 0; k + 2 < DnaStream::kLength && !found; ++k) {
+                found = sameDraw(feel.amount, s.range(k, amount.from, amount.to)) && sameDraw(feel.attackSeconds, s.range(k + 1, 0.8f, 1.5f)) &&
+                        sameDraw(feel.releaseSeconds, s.range(k + 2, 1.5f, 3.0f));
+            }
+            check(found, (std::string(kStyleIds[i]) + ": the feel layer draws its amount, then its rise, then its fall").c_str());
+        }
+    }
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -817,9 +1469,30 @@ void motionFieldVariantsDiffer() {
         MotionField m;
         m.setVariant(styleVariantSeed(kStyleIds[i]));
         for (int k = 0; k < 600; ++k) m.step(f, 1.0f / 30.0f);
-        hues.insert(static_cast<int>(std::lround(m.state().keyHue * 100.0f)));
+        hues.insert(static_cast<int>(std::lround(m.state().hue * 100.0f)));
     }
     check(hues.size() >= 3, "styles follow different hue drivers");
+}
+
+// The bar wave rides the music's own bar while the beat is sure, the style's clock while it is not, and eases
+// between them without a jump. The clocks stand still here, so the clock's wave reads 0.
+void motionFieldBarWaveFollowsTheHeardBar() {
+    MotionField m;
+    GeodeSoundFrame f = playing();
+    f.beatConf = 0.9f;
+    f.barPhase = 0.25f;  // a quarter into the bar: the wave's crest
+    for (int k = 0; k < 300; ++k) m.step(f, 1.0f / 60.0f);
+    check(m.state().barOsc > 0.95f, "a sure beat puts the bar wave on the heard bar");
+    float last = m.state().barOsc;
+    float jump = 0.0f;
+    f.beatConf = 0.0f;
+    for (int k = 0; k < 300; ++k) {
+        m.step(f, 1.0f / 60.0f);
+        jump = std::max(jump, std::fabs(m.state().barOsc - last));
+        last = m.state().barOsc;
+    }
+    check(std::fabs(m.state().barOsc - 0.5f) < 0.02f, "with no beat heard the wave is the clock's again, not a stand-in bar");
+    check(jump < 0.05f, "losing the beat eases the wave over, never jumps it");
 }
 // ---- Speed-integrated clocks (viz/SpeedClock, MotionField::State::flowTime) ----
 
@@ -891,7 +1564,7 @@ void followerScalesASoundClockWithoutJumps() {
 // wrapped drift angle itself: the spin climbed to the clamp, then reversed in one frame at the wrap.
 void motionFieldDriftSpinIsBoundedAndContinuous() {
     GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // the loudest mids: the fastest drift
+    f.midAtt = 2.0f;  // the loudest mids, which no longer speed the drift
     SceneParams p;
     p.rotation = 0.0f;
     p.motionDrift = 1.0f;
@@ -903,7 +1576,7 @@ void motionFieldDriftSpinIsBoundedAndContinuous() {
     bool bounded = true;
     bool smooth = true;
     for (int k = 0; k < 60 * 300; ++k) {   // five minutes at 60 fps: past two old wrap cycles
-        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // re-aim the drift's sign now and then
+        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // big moments, which no longer re-aim the drift
         m.step(f, 1.0f / 60.0f);
         const float r = m.apply(p, false, spin).rotation;
         if (!(std::fabs(r) <= bound)) bounded = false;
@@ -923,10 +1596,10 @@ void motionFieldReducedMotionScalesRatesOnce() {
     GeodeSoundFrame f = playing();
     f.midAtt = 1.0f;
     f.trebleAtt = 2.0f;
-    f.hitTime = 0.3f;  // a bar phase off zero, so sway has a term
+    f.hitTime = 0.3f;  // a bar phase off zero
     SceneParams p;
     p.rotation = 0.0f;
-    p.sway = 0.0f;
+    p.sway = 0.3f;  // the user's sway: the bar wave no longer adds to it (no sound turns a style)
     p.turbulence = 0.2f;
     p.motionAmount = 1.0f;
     p.motionDrift = 1.0f;
@@ -947,12 +1620,12 @@ void motionFieldReducedMotionScalesRatesOnce() {
 void motionFieldDriftWrapNeverPopsAStyle() {
     const float multipliers[] = {0.07f, 0.08f, 0.1f, 0.12f, 0.15f, 0.25f, 0.3f, 0.35f, 0.5f};
     GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // the fastest drift, so the wrap comes soonest
+    f.midAtt = 2.0f;  // loud mids, which no longer change the drift's one rate
     MotionField m;
     float prev = m.state().drift;
     bool wrapped = false;
     bool seamless = true;
-    for (int k = 0; k < 50000; ++k) {  // 5000 s at dt 0.1: past one wrap at the fastest rate
+    for (int k = 0; k < 70000; ++k) {  // 7000 s at dt 0.1: past one wrap at the drift's one rate (6283 s)
         m.step(f, 0.1f);
         const float d = m.state().drift;
         if (d < prev - 1.0f) wrapped = true;
@@ -1358,8 +2031,12 @@ void driveScalesTheMagnitudeOfMotion() {
     loudRoutes.tick(fat, 1.0f / 60.0f);
     quietRoutes.tick(pad, 1.0f / 60.0f);
     const float base = SceneParams{}.zoom;
-    const float loudMove = loudRoutes.apply(SceneParams{}).zoom - base;
-    const float quietMove = quietRoutes.apply(SceneParams{}).zoom - base;
+    SceneParams loudMoved;
+    SceneParams quietMoved;
+    loudRoutes.apply(loudMoved);
+    quietRoutes.apply(quietMoved);
+    const float loudMove = loudMoved.zoom - base;
+    const float quietMove = quietMoved.zoom - base;
     check(loudMove > 0.0f && quietMove > 0.0f && quietMove < 0.4f * loudMove, "a route's audio part follows the drive");
 
     MotionField loud;
@@ -1369,7 +2046,7 @@ void driveScalesTheMagnitudeOfMotion() {
         quiet.step(pad, 1.0f / 60.0f);
     }
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
-    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
+    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the mid level");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
     // Speed used to follow the loudness whatever the dial said. It is under the Motion dial like every
     // other term: at 0 the music leaves the user's Speed alone.
@@ -1398,19 +2075,19 @@ void driveScalesTheMagnitudeOfMotion() {
 
     SceneParams p;
     p.camFly = 1.0f;
+    // The bass's lens breath (bassAtt 2 above): no sound turns the view any more, so the breath is
+    // the camera's own move measured here.
     CameraRig loudRig;
     CameraRig quietRig;
-    float loudSwing = 0.0f;
-    float quietSwing = 0.0f;
-    fat.midTime = pad.midTime = 3.0f;
+    CameraRig deafRig;
     for (int k = 0; k < 600; ++k) {
-        fat.midTime = pad.midTime = 0.05f * static_cast<float>(k);
         loudRig.step(p, {}, 1.0f / 60.0f, false, true, &fat);
         quietRig.step(p, {}, 1.0f / 60.0f, false, true, &pad);
-        loudSwing = std::max(loudSwing, std::fabs(loudRig.pose().yaw));
-        quietSwing = std::max(quietSwing, std::fabs(quietRig.pose().yaw));
+        deafRig.step(p, {}, 1.0f / 60.0f, false, true, nullptr);
     }
-    check(loudSwing > 0.0f && quietSwing < 0.5f * loudSwing, "the camera's own moves follow the drive");
+    const float loudBreath = loudRig.pose().focal - deafRig.pose().focal;
+    const float quietBreath = quietRig.pose().focal - deafRig.pose().focal;
+    check(loudBreath > 0.0f && quietBreath < 0.5f * loudBreath, "the camera's own moves follow the drive");
 
     GeodeSoundFrame gone = pad;
     gone.drive = NAN;
@@ -2003,16 +2680,27 @@ int main() {
     luminanceRoutesAreSlewLimited();
     triggersHoldAndSilenceIsQuiet();
     sourcesReadTheirFieldsInRange();
+    barCountsFollowTheMusicsBars();
+    melodyLineAndFeelingRead();
+    settledJumpWaitsForItsGlide();
+    tensionRiseFollowsTheChords();
+    songFormSourcesRead();
     deterministicForExport();
     jumpHoldsANewSeededValuePerHit();
     toggleFlipsBetweenZeroAndAmount();
     dnaIsDeterministicAndSeeded();
     stylesGetDifferentPersonalities();
+    zoomPersonalitiesZoomOnTheBeat();
     kickAndSnareSidesAnswerDifferently();
+    everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();
     dnaRespectsStyleTraits();
     dnaLeavesRoomAndStaysInRange();
     everyStyleHearsTransients();
+    everyStyleHearsTheSongsTime();
+    everyStyleHearsTheMusicNotTheVolume();
+    formulaFamiliesHearTheMusicInTheFormula();
+    dnaDrawsInWrittenOrder();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();
@@ -2026,10 +2714,12 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    nonFiniteCameraInputsDoNotLatch();
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();
+    motionFieldBarWaveFollowsTheHeardBar();
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();

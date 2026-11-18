@@ -42,7 +42,7 @@ int main() {
     // The caps: the flash clamp's limits and Fly's stop; the LFO still reaches the schema's max.
     check(is("brightness", 0.2f, 1.25f), "brightness stops at 1 + the flash depth");
     check(is("intensity", 0.2f, 1.25f), "intensity stops at 1 + the flash depth");
-    check(is("bloom", 0.0f, 0.25f), "bloom stops at the flash depth");
+    check(is("bloom", 0.0f, 0.6f), "bloom stops at its safety cap");
     check(is("camFly", -2.0f, 2.0f), "camFly stops at 2 each way");
     // An unknown name has no range and leaves out alone.
     control::Range untouched{7.0f, 9.0f};

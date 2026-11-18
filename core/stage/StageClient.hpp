@@ -16,6 +16,9 @@ public:
     // One frame, context current: paced is the rate the pacer draws at now (0 every vsync), cap the surface's own.
     // Returns event bits the shell polls (geode_stage_take_events).
     virtual uint32_t frame(float pacedFps, float capFps) = 0;
+    // Called just before each frame: the vsync's frame time (CLOCK_MONOTONIC ns) the frame is for, 0 when no vsync
+    // asked for it. The frame's own time, so a thread hop between the vsync and the draw adds no jitter to its step.
+    virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
     // Shed the spare scenes before the surface pauses, context current.
     virtual void trimSpares() = 0;
     // The context is gone with every GL name in it: forget them, delete none. No context is current.

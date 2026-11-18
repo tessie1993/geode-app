@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import dev.geode.engine.bridge.SoundNative
 
 /**
  * Whether something covers the screen the dream is on: the proximity sensor reads near.
@@ -19,7 +20,7 @@ import android.hardware.SensorManager
  * Proximity is declared wake-up by default, so many phones have only the wake-up one; there it is
  * the fallback, and since it is registered only while the dream shows (screen on, CPU awake on the
  * charger) its wake-ups cost next to nothing. A phone with neither is never covered. Binary sensors report 0 or their maximum range; continuous ones report
- * centimetres, so near is anything under [NEAR_CM] or under the range, whichever is smaller.
+ * centimetres; what reads as near is native (`core/viz/SurfaceRun`).
  */
 class DreamCover(
     context: Context,
@@ -55,7 +56,7 @@ class DreamCover(
     override fun onSensorChanged(event: SensorEvent) {
         val sensor = proximity ?: return
         val distance = event.values.firstOrNull() ?: return
-        val near = distance < minOf(NEAR_CM, sensor.maximumRange)
+        val near = SoundNative.surfaceProximityNear(distance, sensor.maximumRange)
         if (near == covered) return
         covered = near
         onChanged()
@@ -65,8 +66,4 @@ class DreamCover(
         sensor: Sensor?,
         accuracy: Int,
     ) = Unit
-
-    private companion object {
-        const val NEAR_CM = 3f
-    }
 }

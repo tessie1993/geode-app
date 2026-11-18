@@ -1,6 +1,7 @@
 #include "viz/NoteResponse.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <initializer_list>
@@ -40,6 +41,19 @@ float tuning(float x) { return std::clamp(finite(x, 1.0f), 0.0f, 2.0f); }
 
 constexpr float kLeapOctaves = 5.0f / 12.0f;  // a fourth or more is a leap
 constexpr float kChordShiftMinSeconds = 1.5f;
+
+// How sure the beat is, 0..1: nothing below the tracker's unlock line, all of it once it is locked. PULSE and
+// FLOW lean on the bar and the phrase only as far as this, and on the drums and the song part for the rest, so
+// no tempo is assumed where none is heard.
+constexpr float kBeatUnsure = 0.2f;
+constexpr float kBeatSure = 0.45f;
+float beatLock(const GeodeSoundFrame& f) { return clamp01((finite(f.beatConf) - kBeatUnsure) / (kBeatSure - kBeatUnsure)); }
+
+// FLOW's song part, by GEODE_SECTION_*: how much a section of that kind carries on, from an intro's and an
+// outro's thin start and end through a verse to a drop's full flow; a breakdown holds back. A build climbs with
+// the build itself.
+constexpr std::array<float, 6> kSectionFlow{0.35f, 0.5f, 0.55f, 0.9f, 0.25f, 0.3f};
+constexpr float kBuildClimb = 0.35f;
 
 }  // namespace
 
@@ -141,17 +155,34 @@ void NoteResponse::stepIntervals(const GeodeSoundFrame& f, float dt) {
 }
 
 void NoteResponse::stepKnobs(const GeodeSoundFrame& f, const sound::Emotion::State& e, float dt) {
-    // k0 PULSE: the drums, weighted by how percussive the track is. A drum-led track pumps the knob on
-    // every hit; on a ballad the same soft onsets barely move it.
+    // k0 PULSE: locked to the bar while the beat is sure, the drums while it is not, weighted by how percussive
+    // the track is. On a locked beat it lands on every beat and hardest on the bar's first (the beat and bar phases
+    // fall away from 0 as each runs on); without one it follows the kick, snare and hat envelopes and the note
+    // starts. A drum-led track pumps the knob; on a ballad the same pulse barely moves it.
     const float drumEnv = std::max({f.kickEnv, 0.8f * f.snareEnv, 0.5f * f.hatEnv});
+    const float drums = clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv);
+    const float onBeat = std::exp(-5.0f * clamp01(f.beatPhase));
+    const float onBar = std::exp(-6.0f * clamp01(f.barPhase));
+    const float bars = clamp01(0.7f * onBeat + 0.3f * onBar);
+    const float lock = beatLock(f);
     gain_ = sound::driveGain(f);
-    drum_ = std::min(perc_ * in_.drums, 1.0f) * clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv) * gain_;
+    drum_ = std::min(perc_ * in_.drums, 1.0f) * (lock * bars + (1.0f - lock) * drums) * gain_;
     const float pulse = clamp01(0.15f + 0.85f * drum_ + 0.2f * perc_ * clamp01(f.bassAtt - 1.0f));
     // k1 TEXTURE: timbre: brightness (centroid, treble), how many partials sound, how noisy they are.
     const float texture = clamp01(0.35f * clamp01((f.centroid - 0.25f) / 0.5f) + 0.25f * clamp01(f.densityFast) +
                                   0.2f * clamp01(f.flatness * 1.5f) + 0.2f * clamp01(f.trebleAtt * 0.5f));
-    // k2 FLOW: sustained energy: the song's intensity, the level, the short-over-long loudness trend.
-    const float flow = clamp01(0.45f * clamp01(f.intensity) + 0.3f * clamp01(f.level) + 0.25f * clamp01(f.energyTrend));
+    // k2 FLOW: where the song is carrying, not how loud it is: the song part (a drop flows, a breakdown holds
+    // back, a build climbs), the feeling (its energy, and its vitality, power and joy, against its calm, peace and
+    // sadness) and the phrase's arc (rising to the middle of each 8 bars and settling at the end, while the beat is
+    // sure; level otherwise).
+    const int part = std::clamp(static_cast<int>(std::lround(finite(f.sectionState))), 0, static_cast<int>(kSectionFlow.size()) - 1);
+    const float section = clamp01(kSectionFlow[static_cast<size_t>(part)] + (part == GEODE_SECTION_BUILD ? kBuildClimb * clamp01(f.buildUp) : 0.0f));
+    const auto gem = [&e](sound::Emotion::Gems k) { return clamp01(e.gems[static_cast<size_t>(k)]); };
+    const float vitality = gem(sound::Emotion::kPower) + gem(sound::Emotion::kJoy) - gem(sound::Emotion::kPeace) - gem(sound::Emotion::kSadness);
+    const float feeling = clamp01(0.5f * clamp01(e.energy) + 0.5f * clamp01(0.5f + 1.5f * vitality));
+    const float arc = std::sin(0.5f * kTau * clamp01(f.phrasePhase));
+    const float phrase = 0.5f + lock * (arc - 0.5f);
+    const float flow = clamp01(0.4f * section + 0.35f * feeling + 0.25f * phrase);
     // k3 TONE: the melody's height, trusted as far as the pitch is, with the strongest partial for colour.
     if (f.pitch > 0.0f && f.pitchConfidence >= 0.3f) tone_ = ease(tone_, clamp01(f.pitchHeight), 0.12f, 0.12f, dt);
     const float trust = clamp01(pitchConf_ * 1.6f);

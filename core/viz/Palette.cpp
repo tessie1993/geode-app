@@ -582,6 +582,10 @@ const std::vector<Entry>& library() {
     return kLibrary;
 }
 
+bool offered(int index) {
+    return index >= 0 && index < static_cast<int>(library().size()) && (index < SceneParams::kListedPalettes || index >= kClassicCount);
+}
+
 int libraryIndex(std::string_view id) {
     const auto& lib = library();
     for (size_t i = 0; i < lib.size(); ++i) {
@@ -632,13 +636,6 @@ Stack fromLegacy(const SceneParams& p, Amounts& amounts) {
     // Old ramps never met another under Share; Hard keeps that so, whatever the look becomes later.
     s.edge = Edge::Hard;
     const auto& lib = library();
-    if (p.paletteLut >= 0) {
-        // A colour map replaced the whole ramp, the second palette with it.
-        const int index = kColourMapFirst + std::min(p.paletteLut, kColourMapCount - 1);
-        s.layers.push_back(lib[static_cast<size_t>(index)].palette);
-        amounts[0] = 1.0f;
-        return normalized(std::move(s));
-    }
     const auto stops = p.paletteStops();
     const int count = p.paletteStopCount();
     if (count > 0) {
@@ -654,18 +651,6 @@ Stack fromLegacy(const SceneParams& p, Amounts& amounts) {
         s.layers.push_back(own ? fromHueRamp("Gradient", Source::Yours, "", p.paletteBase(), p.paletteRange())
                                : fromHueRamp(SceneParams::palettes()[static_cast<size_t>(index)].name, Source::BuiltIn,
                                              lib[static_cast<size_t>(index)].id, p.paletteBase(), p.paletteRange()));
-    }
-    const float mix = std::isfinite(p.paletteMix) ? std::clamp(p.paletteMix, 0.0f, 1.0f) : 0.0f;
-    if (mix > 0.0f) {
-        // mix(first, second, paletteMix): the two drawn over the whole ramp, weighted 1 - mix and mix.
-        const bool own = p.palette2BaseOverride >= 0.0f || p.palette2RangeOverride >= 0.0f;
-        const int index = std::clamp(p.palette2, 0, kClassicCount - 1);
-        s.layers.push_back(own ? fromHueRamp("Gradient", Source::Yours, "", p.palette2Base(), p.palette2Range())
-                               : fromHueRamp(SceneParams::palettes()[static_cast<size_t>(index)].name, Source::BuiltIn,
-                                             lib[static_cast<size_t>(index)].id, p.palette2Base(), p.palette2Range()));
-        s.blend = Blend::Mix;
-        amounts[0] = 1.0f - mix;
-        amounts[1] = mix;
     }
     return normalized(std::move(s));
 }

@@ -11,7 +11,7 @@ namespace geode::sound {
 //
 //   key + scale ─► fingerprint (EmotionTable.inc: three quarters the mode's measured emotion, a quarter
 //                  the key's historical character) ─► glides over ~3 s
-//   loudness, tempo, onset rate, brightness, harmony tension, build-up ─► live energy and tension
+//   loudness, onset rate, brightness, harmony tension, build-up (never the tempo) ─► live energy and tension
 //   the strongest note against the tonic ─► scale-degree accent (Huron's qualia)
 //
 // The cues add (Eerola, Friberg & Bresin 2013: no interaction among six cues, linear models R² .77-.89),

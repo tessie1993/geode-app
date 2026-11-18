@@ -38,7 +38,7 @@ out vec4 fragColor;
 // Speed scales the ripples' wind drift. Complexity (uMorph) fades in
 // an octave of the bending field. Chaos (uWarp, uTurbulence, uTwist) bends
 // the crests (terraChaos). Energy (uIntensity) scales the hat shimmer and the
-// bass swell. Colour is pal() in the sand and sky. Space is the rig.
+// bass swell. Colour is terraPal() in the sand and sky. Space is the rig.
 
 #define DN_MAX_STEPS 112
 #define DN_FAR 38.0
@@ -51,7 +51,7 @@ const vec2 DN_RIPPLE = vec2(4.0, 6.0);
 float gOct;
 float gSwellAmp;
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     xz = terraChaos(terraWrap(xz));
     float f = terraFbm(xz, gOct);
     float u = fract(dot(xz * TERRA_FREQ, DN_WAVE) + 0.4 * f);
@@ -61,8 +61,13 @@ float height(vec2 xz) {
     return gSwellAmp * (0.85 * w * (0.6 + 0.4 * f) + 0.2 * f);
 }
 
+//#include lib_terra_field
+
 void main() {
     vec2 uv = view();
+    terraSetup();
+    // This style's own inputs (lib_terra's shell), mapped once: TEXTURE the ripples' relief.
+    float ripple = 0.10 * gTerraWidth;
     float t0 = terraTime();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float energy = terraEnergy();
@@ -77,8 +82,8 @@ void main() {
 
     vec3 sun = normalize(vec3(0.9, 0.3, 0.25));
     vec3 sunCol = vec3(1.0, 0.86, 0.66);
-    vec3 zenith = mix(vec3(0.10, 0.28, 0.62), pal(0.6) * 0.5, 0.15);
-    vec3 horizon = mix(vec3(0.80, 0.74, 0.62), pal(0.1), 0.15);
+    vec3 zenith = mix(vec3(0.10, 0.28, 0.62), terraPal(0.6) * 0.5, 0.15);
+    vec3 horizon = mix(vec3(0.80, 0.74, 0.62), terraPal(0.1), 0.15);
 
     float hitT = -1.0;
     vec2 span = terraSlab(ro, rd, hMax, DN_FAR);
@@ -90,7 +95,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > span.y) break;
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -107,18 +112,18 @@ void main() {
     vec3 col = terraSky(rd, sun, zenith, horizon, sunCol);
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.003 * hitT + 0.01);
+        vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.01);
         // Ripples: a bump on the normal across DN_RIPPLE, wandering with a
         // fine noise, drifting downwind, fading out before they would alias.
         vec2 q = terraWrap(p.xz) * TERRA_FREQ;
         float ph = TERRA_TAU * (dot(q, DN_RIPPLE) + 0.8 * terraNoise(q * 4.0)) - t0 * 0.6;
         float fade = exp(-hitT * 0.09) * smoothstep(0.2, 0.7, n.y);
         vec2 dir = normalize(DN_RIPPLE);
-        n = normalize(n + vec3(dir.x, 0.0, dir.y) * cos(ph) * (0.10 + 0.22 * hat) * fade);
+        n = normalize(n + vec3(dir.x, 0.0, dir.y) * cos(ph) * (ripple + 0.22 * hat) * fade);
 
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
-        vec3 sand = mix(vec3(0.92, 0.58, 0.30), pal(0.08 + 0.1 * (p.y / hMax)), 0.12);
+        vec3 sand = mix(vec3(0.92, 0.58, 0.30), terraPal(0.08 + 0.1 * (p.y / hMax)), 0.12);
         col = sand * dif * sunCol * 1.4;
         col += sand * sky * zenith * 0.3;
         // Mica: a glint per tiny cell, only on hats and only where the sun lands.

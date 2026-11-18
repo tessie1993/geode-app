@@ -1,7 +1,7 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.VizNative
 
 /**
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value
@@ -41,12 +41,32 @@ data class LookSnapshot(
     fun gentleFlight(): LookSnapshot = copy(reducedMotion = true)
 }
 
-/** Native's look before one is set (`geode_viz_look_defaults`), read once. */
-private object NativeLookDefaults {
-    private val lines = GeodeNative.vizLookDefaults().lines()
-    val sceneId: String = lines[0]
-    val transitionId: String = lines[1]
-    val transitionMs: Long = lines[2].toLong()
+/**
+ * Native's look before one is set and the shell's visual defaults (`geode_viz_look_defaults`,
+ * core/viz/LookSnapshot.hpp), read once. JVM tests cannot load libgeode, so they [install] text in native's shape.
+ */
+object NativeLookDefaults {
+    @Volatile
+    private var read: () -> String = { VizNative.vizLookDefaults() }
+
+    @Volatile
+    private var lines: List<String>? = null
+
+    fun install(next: () -> String) {
+        read = next
+        lines = null
+    }
+
+    private fun line(i: Int): String = (lines ?: read().lines().also { lines = it })[i]
+
+    val sceneId: String get() = line(0)
+    val transitionId: String get() = line(1)
+    val transitionMs: Long get() = line(2).toLong()
+    val attack: Float get() = line(3).toFloat()
+    val decay: Float get() = line(4).toFloat()
+    val styleTimerSec: Int get() = line(5).toInt()
+    val playlistTimerSec: Int get() = line(6).toInt()
+    val presetMorphSecondsMax: Float get() = line(7).toFloat()
 }
 
 /**

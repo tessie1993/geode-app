@@ -2,7 +2,7 @@
 
 #include "sound/SoundFrame.h"
 
-// The frame graph's unit of work (ADR 0006, core/viz/frame/README.md): one step of the frame every surface
+// The frame graph's unit of work (core/viz/frame/README.md): one step of the frame every surface
 // runs, after the scene and before the swap. Trail, Liquid, Composite, UiBlur and the export
 // post-passes are to implement it; EdgeGlowPass (the wallpaper's edge look, #439) is the first.
 //
@@ -42,7 +42,11 @@ struct PassTarget {
 
 class Pass {
 public:
+    Pass() = default;
     virtual ~Pass() = default;
+    // A pass owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    Pass(const Pass&) = delete;
+    Pass& operator=(const Pass&) = delete;
     virtual bool wants(const FrameCtx&) const = 0;                // false: skipped
     virtual void prepare(const FrameCtx&) = 0;                    // CPU only, no GL
     virtual void draw(const PassInputs&, const PassTarget&) = 0;  // GL thread

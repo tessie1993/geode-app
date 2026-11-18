@@ -1,3 +1,41 @@
+# The PCM ring every audio source writes and every reader takes from (audio/ingest/PcmRing): no dependency of
+# its own, so the sound analysis can be a library below everything else that hears.
+add_library(geode_pcm STATIC
+    audio/ingest/PcmRing.cpp
+)
+target_include_directories(geode_pcm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_pcm PRIVATE ${GEODE_COMPILE_OPTIONS})
+
+# The sound analysis, a module of its own: the engine, its detectors, its thread (sound/hop) and the reads of
+# its published hops (sound/interp). It includes core/sound and the ring only (tools/sound-module-gate.sh), and
+# links nothing but the ring, so it builds and tests with no renderer, no player and no Android.
+add_library(geode_sound STATIC
+    sound/Fft.cpp
+    sound/Emotion.cpp
+    sound/Form.cpp
+    sound/Harmony.cpp
+    sound/Rhythm.cpp
+    sound/SoundEngine.cpp
+    sound/hop/AnalysisThread.cpp
+    sound/interp/FrameBlend.cpp
+    sound/interp/PlayoutClock.cpp
+    sound/interp/Waveform.cpp
+    sound/Tuning.cpp
+)
+target_include_directories(geode_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_sound PRIVATE ${GEODE_COMPILE_OPTIONS})
+target_link_libraries(geode_sound PUBLIC geode_pcm)
+
+# The player (docs/superpowers/specs/2026-11-18-native-engine-architecture.md, step 2.1): the queue and the
+# transport as pure logic. It includes only itself, reads no clock and opens no file; nothing calls it yet.
+add_library(geode_player STATIC
+    player/Queue.cpp
+    player/Transport.cpp
+    player/Player.cpp
+)
+target_include_directories(geode_player PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_player PRIVATE ${GEODE_COMPILE_OPTIONS})
+
 add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_perf_api.cpp
@@ -8,12 +46,18 @@ add_library(geode_core STATIC
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_gesture_api.cpp
     api/geode_params_json_api.cpp
     viz/ParamsJson.cpp
+    viz/ParamsPalette.cpp
+    api/geode_looks_api.cpp
+    viz/LookFiles.cpp
+    viz/TemplateFile.cpp
     api/geode_param_text_api.cpp
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
+    api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
@@ -42,31 +86,40 @@ add_library(geode_core STATIC
     stage/StageLifecycle.cpp
     stage/StagePacing.cpp
     api/geode_auto_api.cpp
+    api/geode_param_history_api.cpp
     api/geode_stage_step_api.cpp
     api/geode_style_pick_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
     api/geode_capture_api.cpp
     api/geode_mic_api.cpp
+    api/geode_capture_java_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/ArtPalette.cpp
+    viz/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
-    sound/Fft.cpp
-    sound/Emotion.cpp
-    sound/Form.cpp
-    sound/Harmony.cpp
-    sound/Rhythm.cpp
-    sound/SoundEngine.cpp
-    sound/interp/PlayoutClock.cpp
-    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     library/Lyrics.cpp
     library/Playlist.cpp
+    library/TrackRules.cpp
+    library/TrackLibraryDoc.cpp
+    library/PlaylistRules.cpp
+    library/SmartPlaylist.cpp
+    library/History.cpp
+    library/SessionDoc.cpp
+    shell/Tour.cpp
+    shell/StyleShelf.cpp
+    shell/PresetList.cpp
+    shell/OpenedAudio.cpp
+    shell/Behaviour.cpp
+    shell/AutoVisuals.cpp
+    shell/ExportFps.cpp
+    shell/Text.cpp
+    backup/Backup.cpp
     audio/ingest/AiffReader.cpp
-    audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/TrackPump.cpp
     audio/ingest/android/TrackDecoder.cpp
@@ -75,6 +128,8 @@ add_library(geode_core STATIC
     audio/ingest/CapturePlan.cpp
     audio/ingest/MicInput.cpp
     audio/ingest/android/OboeMic.cpp
+    audio/ingest/CapturePump.cpp
+    audio/ingest/android/JavaCapture.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -102,6 +157,8 @@ add_library(geode_core STATIC
     output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
+    output/AacTranscode.cpp
+    output/VideoExport.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
@@ -110,8 +167,11 @@ add_library(geode_core STATIC
     output/EncodeSink.cpp
     output/RecordSession.cpp
     output/android/MediaCodecSink.cpp
+    output/android/EncoderGl.cpp
     output/android/LoopRenderHost.cpp
     api/geode_loop_job_api.cpp
+    output/android/VideoExportHost.cpp
+    api/geode_video_export_api.cpp
     api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp
@@ -145,6 +205,9 @@ add_library(geode_core STATIC
     viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
+    viz/DirectorStyle.cpp
+    viz/DirectorTuning.cpp
+    viz/LayerPick.cpp
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
@@ -154,15 +217,14 @@ add_library(geode_core STATIC
     viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
-    viz/frame/ThermalSource.cpp
     api/geode_cast_tee_api.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/ShapeGraph.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
@@ -172,6 +234,10 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/CustomizeRows.cpp
+    viz/PanelText.cpp
+    viz/PalettePanel.cpp
+    viz/StyleNames.cpp
     viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
@@ -195,6 +261,8 @@ add_library(geode_core STATIC
     viz/pool/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/physics/PhysicsLayers.cpp
+    viz/physics/PhysicsPlan.cpp
     viz/world/WorldGenome.cpp
     viz/world/MorphDriver.cpp
     viz/world/WorldAssets.cpp
@@ -213,11 +281,13 @@ add_library(geode_core STATIC
     viz/scenes/MilkdropScene.cpp
     viz/MilkMemory.cpp
     viz/MilkStarterPack.cpp
+    viz/MilkTextures.cpp
     viz/android/AssetStarterSource.cpp
     api/geode_milk_api.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(geode_core PUBLIC geode_sound geode_pcm geode_player)
 # TagLib only exports its include paths for the install tree; the generated taglib_config.h sits in its binary dir.
 target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib
@@ -319,6 +389,9 @@ target_link_libraries(geode_core PRIVATE LibDataChannel::LibDataChannelStatic)
 # Cast's live stream: the segment window and playlist (cast/LiveSegments) and what one HTTP connection gets
 # (cast/LiveHttp). No socket in either; both run on the host (live_segments_test, live_http_test).
 target_sources(geode_core PRIVATE cast/LiveSegments.cpp)
+target_sources(geode_core PRIVATE cast/Fmp4Writer.cpp)
+target_sources(geode_core PRIVATE cast/CastEncoder.cpp)
+target_sources(geode_core PRIVATE api/geode_cast_watch_api.cpp)
 target_sources(geode_core PRIVATE cast/LiveHttp.cpp)
 # The cast's HTTP server: the sockets and threads around them (cast/LiveServer; plain POSIX, no library).
 target_sources(geode_core PRIVATE cast/LiveServer.cpp)

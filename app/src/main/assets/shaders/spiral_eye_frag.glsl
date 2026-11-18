@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_scene_grade
 //#include lib_sdf3
 //#include lib_touch
+//#include lib_shell
 
 // Spiral Eye: a flight down the throat of a galaxy that is also an eye. The
 // 2D style wound a turbulent cloud into a logarithmic spiral around a small
@@ -42,9 +43,12 @@ out vec4 fragColor;
 // steep edges of the dye. A spike never brightens anything at once: it re-aims
 // the flow (uMoveDir, through the abcFlow drift) and the pupil, and moves the
 // arm count to a new plateau
-// (uFormPhase), crossfaded so no frame steps. The winding runs on uFlowPhase,
-// which only moves forward, so a loud passage spins the galaxy faster and
-// never backwards. Knobs: k0 density, k1 filament sharpness, k2 flow, k3 hue,
+// (uFormPhase), crossfaded so no frame steps. The galaxy, its cloud and the
+// mandala's spokes turn on time alone, at the rate the loudness clock
+// (uFlowPhase) used to add at a typical level: no sound spins them (owner
+// 2026-11-12, no style spins to the music). Knobs: k0 density, k1 filament sharpness, k2 flow, k3 the
+// arms' pitch and a small hue offset (a high melody winds them into tight
+// coils round the throat, a low one lets them run out in long open sweeps),
 // k4 the eye's halo, k5 the channel's width; each is an offset from 0.5.
 //
 // ---- why the march is safe ------------------------------------------------------
@@ -116,7 +120,7 @@ vec3 seWarp(vec3 p, float amount) {
 
 /** Gated arm mask for `n` arms (an integer, so the seam at atan's +-pi is closed). */
 float seArm(float n, float a, float lr, float tw, float pitch, float sharp) {
-    float phase = n * (a + pitch * lr - tw) + uFlowPhase * 1.6;
+    float phase = n * (a + pitch * lr - tw) + uTime * 0.48;
     float c = 0.5 + 0.5 * cos(phase);
     return smoothstep(0.5 - 0.42 * sharp, 0.5 + 0.42 * sharp, c);
 }
@@ -138,7 +142,7 @@ float dens(vec3 p, float armsA, float armsB, float armBlend, float pitch, float 
 
     // The cloud turns with the arms (the rotation's z period is 8) and is
     // folded by the flow; then it is read stretched 2:1 along z, the streak.
-    vec2 xy = rot2(tw + uFlowPhase * 0.4) * p.xy;
+    vec2 xy = rot2(tw + uTime * 0.12) * p.xy;
     vec3 q = seWarp(vec3(xy, p.z), flowAmt);
     float n1 = seNoise(q * vec3(0.9, 0.9, 0.5), 8);
     float n2 = seNoise(q * vec3(2.1, 2.1, 1.0) + vec3(5.1, 2.7, 0.0), 16);
@@ -150,6 +154,40 @@ float dens(vec3 p, float armsA, float armsB, float armBlend, float pitch, float 
     float fil = smoothstep(lo, lo + 0.20, cloud) * (1.0 - smoothstep(lo + 0.20, lo + 0.34, cloud));
     gFil = fil * arm * shell;
     return shell * body * (0.12 + 0.88 * arm);
+}
+
+/** dens()'s per-frame arguments, set once in main, so the field is a function of p alone. */
+float gArmsA;
+float gArmsB;
+float gArmBlend;
+float gPitch;
+float gSharp;
+float gFlowAmt;
+float gSwellD;
+float gFilSharp;
+float gR0;
+
+/** The dye's density as a field of p alone. */
+float seField(vec3 p) {
+    return dens(p, gArmsA, gArmsB, gArmBlend, gPitch, gSharp, gFlowAmt, gSwellD, gFilSharp, gR0);
+}
+
+/** The density seField through lib_shell's hooks: exactly seField(p) at rest, and seField read once, in a loop the compiler cannot unroll. */
+float seFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, seField(shellAt3(i)));
+    }
+    return r;
+}
+
+/**
+ * The density the march reads: seField through lib_shell's density hook (the identity at rest), so a
+ * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
+ */
+float seDensity(vec3 p) {
+    return seFieldGrown(p);
 }
 
 /** Larger root of |o + t d| = R in the xy plane, or -1 when the ray never meets it. */
@@ -175,7 +213,7 @@ vec3 seEye(vec3 rd, float swell, float halo) {
     float cr = r * 7.0;
     float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0);
     float spokesA = 8.0 + 4.0 * floor(uFormPhase * 3.0);
-    float spokes = 0.5 + 0.5 * cos(a * spokesA + uFlowPhase * 2.0);
+    float spokes = 0.5 + 0.5 * cos(a * spokesA + uTime * 0.6);
     float coreMask = exp(-cr * cr * 0.30);
     vec3 iris = pal(fract(0.15 + cr * 0.10 + uFormPhase * 0.2));
     vec3 col = iris * coreMask * (0.35 + 0.65 * rings * spokes) * 1.4;
@@ -189,12 +227,32 @@ vec3 seEye(vec3 rd, float swell, float halo) {
 void main() {
     vec2 uv = view();
 
-    float k0 = uKnob[0] - 0.5;
-    float k1 = uKnob[1] - 0.5;
-    float k2 = uKnob[2] - 0.5;
-    float k3 = uKnob[3] - 0.5;
-    float k4 = uKnob[4] - 0.5;
-    float k5 = uKnob[5] - 0.5;
+    // ---- the shell: this style's shape as normalized inputs ---------------
+    //
+    // Every tunable of the shape is a 0..1 input here, set from the params and
+    // the six knobs and 0.5 at their defaults, and mapped to its range in this
+    // one place: lib_shell's shellMap(n, lo, rest, hi) puts 0.5 exactly on the
+    // value the style was tuned at, so the default look is unchanged, and the
+    // shell's hooks can later fractal out, move and manipulate any of them.
+    float nDensity = clamp(uKnob[0], 0.0, 1.0);
+    float nFil = clamp(uKnob[1], 0.0, 1.0);
+    float nStir = clamp(uKnob[2], 0.0, 1.0);
+    float nPitch = clamp(uKnob[3], 0.0, 1.0);
+    float nHalo = clamp(uKnob[4], 0.0, 1.0);
+    float nChannel = clamp(uKnob[5], 0.0, 1.0);
+    float nArmEdge = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.5) / 1.5;
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.5) / 1.5;
+    // The cloud's density, the filaments' sharpness, the stir's depth, the
+    // arms' pitch and their edge, the eye's halo, the clear channel's radius.
+    float densityK = shellMap(nDensity, 0.6, 1.0, 1.4);
+    float filSharp = shellMap(nFil, -0.5, 0.0, 0.5);
+    float stirK = shellMap(nStir, 0.6, 1.0, 1.4);
+    float stirBase = shellMap(nTurb, 0.18, 0.18, 0.51);
+    float pitchAdd = shellMap(nPitch, -0.8, 0.0, 0.8);
+    float sharp = shellMap(nArmEdge, 1.0, 1.0, 0.325);
+    float halo = shellMap(nHalo, 0.4, 1.0, 1.6);
+    float r0 = shellMap(nChannel, SE_R0 * 0.85, SE_R0, SE_R0 * 1.15);
+    float hue = shellMap(nPitch, -0.06, 0.0, 0.06);
 
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
@@ -210,14 +268,18 @@ void main() {
 
     // Bass tightens the wind; Warp leans it further. pitch multiplies log r,
     // never z, so it is free to move continuously.
-    float pitch = 1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0);
-    float sharp = clamp(1.0 - 0.45 * clamp(uMorph, 0.0, 1.5), 0.25, 1.0);
-    float flowAmt = (0.18 + 0.22 * clamp(uTurbulence, 0.0, 1.5)) * (1.0 + 0.8 * k2) * (0.8 + 0.3 * swell);
-    float filSharp = k1;
-    float r0 = SE_R0 * (1.0 + 0.3 * k5);
-    float density = (1.1 + 1.0 * swell) * (1.0 + 0.8 * k0);
-    float hue = 0.12 * k3;
-    float halo = 1.0 + 1.2 * k4;
+    float pitch = max(1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0) + pitchAdd, 0.2);
+    float flowAmt = stirBase * stirK * (0.8 + 0.3 * swell);
+    float density = (1.1 + 1.0 * swell) * densityK;
+    gArmsA = armsA;
+    gArmsB = armsB;
+    gArmBlend = armBlend;
+    gPitch = pitch;
+    gSharp = sharp;
+    gFlowAmt = flowAmt;
+    gSwellD = swell;
+    gFilSharp = filSharp;
+    gR0 = r0;
 
     vec3 ro;
     vec3 rd;
@@ -225,6 +287,12 @@ void main() {
     // Every z term tiles with a period dividing 16 (see the header), so this
     // rebase is exact and invisible.
     ro.z = mod(ro.z, SE_ZWRAP);
+    // The grow hooks open round this eye, in the rebased frame the dye is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
+    // The two skips below are exact for the dye as drawn; a grown dye (a copy slid along, children, a
+    // layer opened) reaches past them by lib_shell's slack, so they relax that much while a hook is on.
+    float rIn = r0 - SHELL_SLACK(r0);
+    float rOut = SE_R1 + SHELL_SLACK(SE_R1);
 
     vec3 warm = pal(0.10 + hue);
     vec3 cool = pal(0.55 + hue);
@@ -245,8 +313,8 @@ void main() {
         vec3 p = ro + rd * t;
         float r = length(p.xy);
         // Exact skips: across the clear channel, and out past the shell.
-        if (r < r0 - 0.05) {
-            float tx = cylExit(ro.xy, rd.xy, r0);
+        if (r < rIn - 0.05) {
+            float tx = cylExit(ro.xy, rd.xy, rIn);
             if (tx < 0.0) {
                 t = SE_FAR + 1.0;
                 break;
@@ -254,11 +322,11 @@ void main() {
             t = max(t + 0.01, tx) + base * 0.35 * jit;
             continue;
         }
-        if (r > SE_R1 && dot(p.xy, rd.xy) > 0.0) break;
+        if (r > rOut && dot(p.xy, rd.xy) > 0.0) break;
 
         // Short steps near the eye, longer far off.
         float dt = base * (0.45 + 1.1 * t / SE_FAR);
-        float d = dens(p, armsA, armsB, armBlend, pitch, sharp, flowAmt, swell, filSharp, r0) * density;
+        float d = seDensity(p) * density;
         if (d > 0.002 || gFil > 0.002) {
             float edge = r - r0;
             // The inner rim catches the eye's light; the far side sinks to cool.

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeatRealms 3D – Visualizzatore musicale</title>
+<meta name="description" content="Un lettore musicale con effetti visivi 3D che reagiscono alle tue canzoni e uno studio che li trasforma in video. Offline, senza account, senza pubblicità, senza tracciamento. Android 13+.">
+<meta name="theme-color" content="#06050B">
+<link rel="canonical" href="https://beatrealms3d.pages.dev/it/">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BeatRealms 3D – Visualizzatore musicale">
+<meta property="og:description" content="Effetti visivi 3D che si muovono con la tua musica. Esportali come video. Offline, senza pubblicità, senza tracciamento.">
+<meta property="og:image" content="https://beatrealms3d.pages.dev/assets/og-image.png">
+<meta property="og:image:alt" content="Il logo di BeatRealms 3D, un occhio fatto di onde sonore, su uno spettro di luce">
+<meta name="twitter:card" content="summary_large_image">
+<!-- i18n:alternates -->
+<link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/">
+<link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/">
+<link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/">
+<link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/">
+<link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/">
+<link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/">
+<link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/">
+<link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/">
+<!-- /i18n:alternates -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": [
+    "SoftwareApplication",
+    "MobileApplication"
+  ],
+  "name": "BeatRealms 3D",
+  "description": "A music player with 3D visuals that react to your songs, and a studio that renders them to video. Offline, no account, no ads.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 13 or newer",
+  "image": "https://beatrealms3d.pages.dev/assets/og-image.png",
+  "url": "https://beatrealms3d.pages.dev/",
+  "installUrl": "https://play.google.com/store/apps/details?id=com.beatrealms3d.app",
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Vai al contenuto</a>
+
+<div class="splash" aria-hidden="true">
+  <img class="eye" src="../assets/eye.webp" alt="">
+  <img class="mark" src="../assets/wordmark.svg" alt="">
+</div>
+
+<nav class="nav" aria-label="Principale">
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="./"><img src="../assets/wordmark.svg" alt="Home di BeatRealms 3D" width="100" height="40"></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#menu"/></svg></button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#what"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg>What it does</a></li>
+      <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+      <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg>Styles</a></li>
+      <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+      <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>All features</a></li>
+      <li><a class="nav-cta" href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#download"/></svg>Get the app</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="shine"><img class="wordmark" src="../assets/wordmark.svg" alt="BeatRealms 3D" width="200" height="80"></span>
+      <h1 class="headline"><span>Visualizza l'invisibile</span></h1>
+      <p class="subhead">Un lettore musicale con effetti visivi 3D che reagiscono alle tue canzoni. Esportali come video.</p>
+      <p class="lede">334 stili vivi che ascoltano la musica stessa: ogni nota di basso, colpo di batteria, accordo e drop. Rendili tuoi, poi trasformali in video fino a 4K. Offline, senza account, senza pubblicità e senza tracciamento.</p>
+      <div class="cta"><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"> <img src="../assets/badges/it.png" alt="Disponibile su Google Play" width="186" height="72"> </a> <small>Android 13 o versioni successive · <a href="features.html">Tutte le funzioni</a></small></div>
+    </div>
+    <div>
+      <div class="hero-visual">
+        <canvas class="vortex" data-vortex aria-hidden="true"></canvas>
+        <div class="hero-phone" id="hero-phone">
+          <video id="hero-video" muted loop playsinline preload="auto" poster="../assets/hero-loop-poster.jpg" aria-label="La clip di avvio dell'app: un occhio al neon che prende forma dalla luce">
+            <source src="../assets/hero-loop.mp4" type="video/mp4">
+          </video>
+        </div>
+        <span class="chip c1">334 stili visivi</span>
+        <span class="chip c2">Video 4K · 60 fps</span>
+        <span class="chip c3">Niente pubblicità · funziona offline</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="stats" aria-label="In cifre">
+  <div class="wrap stats-grid">
+    <div class="reveal"><b data-count="334">334</b><span>stili visivi</span></div>
+    <div class="reveal"><b data-count="19">19</b><span>famiglie di stili</span></div>
+    <div class="reveal"><b data-count="700" data-suffix="+">700+</b><span>look inclusi</span></div>
+    <div class="reveal"><b>4K</b><span>video, fino a 60 fps</span></div>
+  </div>
+</section>
+
+<section class="marquee" id="styles" aria-labelledby="styles-title">
+  <div class="wrap section-head">
+    <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg> 334 styles · 19 families</p>
+    <h2 id="styles-title">Un mondo nuovo per ogni canzone</h2>
+    <p class="intro">Scene 3D da attraversare in volo, frattali, nebulose, paesaggi, vetro, fluidi e particelle. Ognuna si muove con ciò che ascolti. Sono screenshot reali da un telefono.</p>
+  </div>
+  <div class="marquee-track">
+      <img src="../assets/shots/visuals-glass.webp" alt="Anelli di vetro in un tunnel verde nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ember-spire.webp" alt="Una guglia rosso brace di luce ripiegata" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-blue.webp" alt="Un tunnel di cristallo blu nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/teal-kaleido.webp" alt="Un tunnel caleidoscopico verde acqua e ambra" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/neon-flowers.webp" alt="Fiori al neon blu che girano a spirale nel buio" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-tunnel.webp" alt="Un tunnel dorato di scie luminose nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-vortex.webp" alt="Nastri di luce verde e viola che girano a spirale verso il centro" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-kaleido.webp" alt="Anelli di luce colorata nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-player.webp" alt="La schermata Player con i controlli di riproduzione" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-gold.webp" alt="Un'esplosione caleidoscopica dorata nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/fire-storm.webp" alt="Luce arancione che scorre come fuoco" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-studio.webp" alt="Studio, pronto a esportare un video in 4K a 60 fps" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/amber-web.webp" alt="Una rete ambrata di linee di luce" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-star.webp" alt="Una stella rosa e arancione che sboccia nella schermata Visuals" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-storm.webp" alt="Una tempesta di nastri arcobaleno" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/magenta-bloom.webp" alt="Un fiore di luce magenta attorno a un esagono luminoso" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-glass.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ember-spire.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-blue.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/teal-kaleido.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/neon-flowers.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-tunnel.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-vortex.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-kaleido.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-player.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-gold.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/fire-storm.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/screen-studio.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/amber-web.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/visuals-star.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/ribbon-storm.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+      <img src="../assets/shots/magenta-bloom.webp" alt="" aria-hidden="true" loading="lazy" width="720" height="1403">
+  </div>
+</section>
+
+<main id="main">
+  <section id="what" aria-labelledby="what-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg> What it does</p>
+        <h2 id="what-title">Ascoltala. Guardala. Falla tua.</h2>
+        <p class="intro">Un lettore musicale completo, un visualizzatore che ascolta e uno studio che crea video, in un'unica app. <a href="features.html">Scopri tutte le funzioni nel dettaglio</a>.</p>
+      </div>
+      <div class="fcards">
+        <a class="fcard card reveal" href="features.html#player">
+          <div class="fcard-media"><img src="../assets/shots/screen-player.webp" alt="La schermata Player" style="object-position:center 74%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg></span><h3>Ascolta la tua musica</h3><p>Album, artisti, cartelle e playlist, con loop A–B, dissolvenza incrociata, timer di spegnimento, equalizzatore e testi sincronizzati.</p><span class="more">The player <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#visuals">
+          <div class="fcard-media"><img src="../assets/shots/visuals-star.webp" alt="Una stella rosa e arancione nella schermata Visuals" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#eye"/></svg></span><h3>Guardala muoversi</h3><p>334 stili che sentono il basso, la batteria, le note, la tonalità e i drop, e la modalità Auto che li dirige per te.</p><span class="more">The visuals <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#studio">
+          <div class="fcard-media"><img src="../assets/shots/screen-studio.webp" alt="Studio, pronto a esportare in 4K a 60 fps" style="object-position:center 66%" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#film"/></svg></span><h3>Crea un video</h3><p>Esporta qualsiasi canzone in MP4 fino a 4K a 60 fps, con formati in un tocco per YouTube, Shorts e TikTok.</p><span class="more">The studio <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+        <a class="fcard card reveal" href="features.html#beyond">
+          <div class="fcard-media"><img src="../assets/shots/neon-flowers.webp" alt="Fiori al neon blu che girano a spirale nel buio" loading="lazy" width="720" height="1403"></div>
+          <div class="fcard-body"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#cast"/></svg></span><h3>Vai oltre</h3><p>Sfondo animato e salvaschermo, Cast sulla TV, oppure su un computer o un secondo schermo.</p><span class="more">Beyond the phone <svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#arrow"/></svg></span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="customize" class="customize" aria-labelledby="customize-title">
+    <div class="wrap custom-grid">
+      <div class="knob-panel card reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg> Quick knobs</p>
+        <div class="knobs">
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--cyan);--d:7s;--delay:0s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Glow</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--amber);--d:9s;--delay:-3s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Heat</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--violet-light);--d:8s;--delay:-5s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Bend</figcaption>
+        </figure>
+        <figure class="knob-wrap">
+          <svg class="knob" viewBox="0 0 100 100" aria-hidden="true" style="--c:var(--lilac);--d:10s;--delay:-2s">
+            <circle class="k-track" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-val" cx="50" cy="50" r="38" pathLength="100"/>
+            <circle class="k-cap" cx="50" cy="50" r="27"/>
+            <line class="k-ptr" x1="50" y1="50" x2="50" y2="31"/>
+          </svg>
+          <figcaption>Flow</figcaption>
+        </figure>
+        </div>
+        <p class="knob-note">Gira una manopola e tutto il look la segue. Con Pro, crea manopole tutte tue.</p>
+        <img class="knob-shot" src="../assets/shots/magenta-bloom.webp" alt="Un fiore di luce magenta, uno dei look" loading="lazy" width="720" height="1403">
+      </div>
+      <div class="reveal">
+        <div class="section-head">
+          <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg> Customize</p>
+          <h2 id="customize-title">Ogni effetto visivo, a modo tuo</h2>
+          <p class="intro">Parti da una sola manopola o scendi fino a undici gruppi di controlli. Tutto ciò che cambi si può salvare, condividere e ripristinare.</p>
+        </div>
+        <ul class="custom-list">
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg></span><div><b>Quattro manopole rapide</b><span>Glow, Heat, Bend e Flow cambiano tutta l'atmosfera con un solo giro.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg></span><div><b>Manopole tutte tue <span class="tag pro inline">Pro</span></b><span>Collega qualsiasi parametro a una manopola, modellala con una curva e lascia che un'onda o un inviluppo la giri per te.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wave"/></svg></span><div><b>Scegli tu cosa reagisce</b><span>Guarda e modifica cosa si muove su una cassa, una nota o un drop. Mescolalo a caso, o torna alle impostazioni dello stile.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg></span><div><b>I tuoi colori</b><span>Prendi la tavolozza dalla copertina dell'album o scegli la tua. La modalità Auto non la restringe mai.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#phone"/></svg></span><div><b>Toccala</b><span>Pizzica e ruota l'immagine, spalmala con le dita o spingi in giro la modalità liquida.</span></div></li>
+          <li><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#library"/></svg></span><div><b>Preset e modelli</b><span>Salva qualsiasi look, prendi parti da un altro, condividilo come modello. Oltre 700 look inclusi, e con Pro i tuoi preset .milk.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" aria-labelledby="why-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg> Why BeatRealms</p>
+        <h2 id="why-title">Fatta per la musica, non per la pubblicità</h2>
+      </div>
+      <div class="why">
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#offline"/></svg></span><b>Funziona offline</b><span>Nessuna connessione necessaria per ascoltare, guardare o esportare.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#no-ads"/></svg></span><b>Niente pubblicità, mai</b><span>Né nella versione gratuita, né in Pro.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#user-off"/></svg></span><b>Nessun account</b><span>Installala e premi play.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#screen-4k"/></svg></span><b>4K a 60 fps</b><span>Video da studio, dal tuo telefono.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#lyrics"/></svg></span><b>Testi sincronizzati</b><span>Tocca una riga per saltarci.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#wallpaper"/></svg></span><b>Sfondo animato</b><span>La tua schermata Home si muove con la musica.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#tv"/></svg></span><b>Grandi schermi</b><span>Trasmetti sulla TV o mostralo su un computer.</span></div>
+        <div class="reveal"><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg></span><b>Backup e ripristino</b><span>Playlist, preferiti, impostazioni e preset in un unico file.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pro" aria-labelledby="pro-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg> Free and Pro</p>
+        <h2 id="pro-title">Gratis per iniziare. Pro si paga una volta, per sempre.</h2>
+        <p class="intro">Niente pubblicità in nessuna delle due. Pro è un unico acquisto in-app, non un abbonamento, e puoi prima provarlo per un'ora.</p>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#music"/></svg></span>Free</h3>
+          <ul class="checks">
+            <li>Il lettore musicale completo</li>
+            <li>Più di 60 stili, il primo di ogni famiglia</li>
+            <li>Le manopole rapide e i controlli di base in Customize</li>
+            <li>Video fino a 1080p a 30 fps, un minuto, con filigrana</li>
+            <li>Modalità Auto per il primo minuto di ogni canzone</li>
+          </ul>
+        </article>
+        <article class="card pro reveal">
+          <h3><span class="ibadge"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg></span>Pro</h3>
+          <ul class="checks">
+            <li>Tutti i 334 stili, ogni controllo e manopole tutte tue</li>
+            <li>4K e 60 fps, durata completa, senza filigrana</li>
+            <li>Esportazioni in loop, di playlist e registrazione dal vivo</li>
+            <li>Sfondo animato, salvaschermo, Cast e schermi esterni</li>
+            <li>Modalità Auto per tutta la canzone</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap grid">
+      <div class="reveal">
+        <p class="eyebrow"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg> Privacy</p>
+        <h2 id="privacy-title">Privacy fin dalla progettazione</h2>
+        <p class="intro">Nessun account, niente pubblicità, nessuno strumento di analisi. La tua musica, la cronologia, le impostazioni e i video restano sul tuo telefono. Internet si usa solo per Cast sulla TV e per mostrare l'effetto visivo su un computer, tramite la tua rete Wi-Fi. Questo sito non imposta cookie e non carica nulla da altre fonti.</p>
+        <p><a href="../privacy-policy.html">Leggi l'informativa sulla privacy</a></p>
+      </div>
+      <div class="warning reveal" role="note">
+        <h2>Avviso di fotosensibilità</h2>
+        <p>Gli effetti visivi sono luminosi, veloci e a schermo intero, e possono lampeggiare. Un piccolo numero di persone può avere una crisi convulsiva quando vede luci o motivi lampeggianti, anche senza precedenti di epilessia. L'app limita quanto e quanto velocemente i suoi effetti cambiano la luminosità e rispetta l'impostazione "Rimuovi animazioni" di Android, ma non può rendere gli effetti visivi sicuri per tutti. Se tu o chiunque stia guardando siete sensibili alle luci lampeggianti, non usare gli effetti visivi e interrompi subito se non ti senti bene.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="wm" src="../assets/wordmark.svg" alt="BeatRealms 3D" width="100" height="40">
+        <p>Un lettore musicale, un visualizzatore che ascolta e uno studio per i tuoi video musicali. Per Android 13 e versioni successive.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><img src="../assets/badges/it.png" alt="Disponibile su Google Play" width="155" height="60" style="height:60px;width:auto"></a>
+      </div>
+      <div>
+        <h4>Esplora</h4>
+        <ul>
+          <li><a href="features.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sparkles"/></svg>All features</a></li>
+          <li><a href="#customize"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#sliders"/></svg>Customize</a></li>
+          <li><a href="#styles"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#palette"/></svg>Styles</a></li>
+          <li><a href="#pro"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#star"/></svg>Free and Pro</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Aiuto</h4>
+        <ul>
+          <li><a href="features.html#faq"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#lyrics"/></svg>Questions</a></li>
+          <li><a href="mailto:CONTACT_EMAIL"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#mail"/></svg>Contact</a></li>
+          <li><a href="../privacy-policy.html"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#shield"/></svg>Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Scaricala</h4>
+        <ul>
+          <li><a href="https://play.google.com/store/apps/details?id=com.beatrealms3d.app"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#android"/></svg>Google Play</a></li>
+          <li><a href="features.html#included"><svg class="ico" aria-hidden="true"><use href="../assets/icons.svg#check"/></svg>What's included</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- i18n:switcher -->
+    <nav aria-label="Lingua">
+      <ul class="langs">
+        <li><a href="../../" lang="en" hreflang="en">English</a></li>
+        <li><a href="../../de/" lang="de" hreflang="de">Deutsch</a></li>
+        <li><a href="../../fr/" lang="fr" hreflang="fr">Français</a></li>
+        <li><a href="../../es/" lang="es" hreflang="es">Español</a></li>
+        <li><a href="../../pt-br/" lang="pt-BR" hreflang="pt-BR">Português (Brasil)</a></li>
+        <li><a href="../../ja/" lang="ja" hreflang="ja">日本語</a></li>
+        <li><a href="../../it/" lang="it" hreflang="it" aria-current="page">Italiano</a></li>
+      </ul>
+    </nav>
+    <!-- /i18n:switcher -->
+    <div class="foot-legal">
+      <p>BeatRealms 3D. Richiede Android 13 o versioni successive.</p>
+      <p>Google Play e il logo Google Play sono marchi di Google LLC.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const seen = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('seen'); seen.unobserve(e.target); }
+  }), { threshold: .15 });
+  document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
+
+  // The hero loop is cut from before the splash's one bright flash (peak luma 63 of 255,
+  // no frame-to-frame jump above 5), so it may play by itself; never under reduced motion.
+  const heroVideo = document.getElementById('hero-video');
+  if (!still) heroVideo.play().catch(() => {});
+</script>
+<script src="../assets/nav.js"></script>
+<script type="module" src="../assets/vortex.js"></script>
+<script src="../assets/vendor/motion.min.js"></script>
+<script src="../assets/motion.js"></script>
+</body>
+</html>

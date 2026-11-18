@@ -1,6 +1,6 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.PerfNative
 
 /**
  * Settings › Performance: how much GPU a live surface (screen, wallpaper, dream) may spend.
@@ -8,81 +8,50 @@ import dev.geode.engine.bridge.GeodeNative
  * A mode is only a named preset of these values; the user can then change any one of them, and
  * the tab shows "Custom" once the values no longer match a preset. Export never reads this: it
  * renders offline, so it always takes the full-quality path.
- *
- * Every value multiplies what the renderer would otherwise do, under the thermal tier, so a hot
- * phone still steps down from wherever the user put it.
  */
 data class PerformanceSettings(
     /** Fraction of the surface's pixels the scene is drawn at, then upscaled. Below 1 also drops supersampling. */
     val renderScale: Float,
-    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`GeodeNative.LIVE_FPS_FOLLOW`). */
+    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
     /** Flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
-    /** Measured frame time steps quality down when frames run slow, and back up when they keep up. */
-    val adaptive: Boolean,
-    /**
-     * What Liquid mode does once the phone runs hot. Not part of any preset: it is a taste (keep the
-     * look flowing, or protect the battery), not a cost level, so picking Saver or High leaves it
-     * alone and it never makes the tab read "Custom".
-     */
-    val liquidHot: LiquidHotPolicy = LiquidHotPolicy.SIMPLIFY,
 ) {
     /** The preset these values match natively, or null when the user has customised them. */
     val mode: PerformanceMode?
         get() =
             PerformanceMode.entries.getOrNull(
-                runCatching { GeodeNative.perfModeOf(renderScale, fpsCap, marchScale, postFx, adaptive) }.getOrDefault(-1),
+                runCatching { PerfNative.perfModeOf(renderScale, fpsCap, marchScale, postFx) }.getOrDefault(-1),
             )
 
     companion object {
-        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps; ADR 0008).
+        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps).
         val SAVER get() = PerformanceMode.SAVER.settings
         val BALANCED get() = PerformanceMode.BALANCED.settings
         val HIGH get() = PerformanceMode.HIGH.settings
 
         /** The render and march scales the tab offers, ascending. */
-        val SCALES: List<Float> by lazy { runCatching { GeodeNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
+        val SCALES: List<Float> by lazy { runCatching { PerfNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
 
         internal val tiers by lazy {
             PerformanceMode.entries.map { mode ->
-                val v = FloatArray(GeodeNative.PERF_TIER_FLOATS)
-                check(GeodeNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
-                PerformanceSettings(v[0], v[1].toInt(), v[2], postFx = v[3] != 0f, adaptive = v[4] != 0f)
+                val v = FloatArray(PerfNative.PERF_TIER_FLOATS)
+                check(PerfNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
+                PerformanceSettings(v[0], v[1].toInt(), v[2], postFx = v[3] != 0f)
             }
         }
 
-        /** The first-run pick (RAM, low-RAM flag, media performance class); adaptive mode fixes a bad guess. */
+        /** The first-run pick (RAM, low-RAM flag, media performance class). */
         fun modeForDevice(
             totalRamBytes: Long,
             lowRamDevice: Boolean,
             mediaPerformanceClass: Int,
         ): PerformanceMode =
-            PerformanceMode.entries.getOrElse(GeodeNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
+            PerformanceMode.entries.getOrElse(PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
                 PerformanceMode.BALANCED
             }
-    }
-}
-
-/**
- * Settings > Performance > Liquid on a hot phone. [native] is the wire value of `liquid::HotPolicy`
- * (core/viz/liquid/LiquidMath.hpp): the thermal tier decides when the phone is hot, this decides
- * what Liquid does about it. Simplify is the default because the flowing look is the point of the
- * mode; Full is for people who would rather throttle than lose it; Pause is the battery-first choice.
- */
-enum class LiquidHotPolicy(
-    val native: Int,
-) {
-    SIMPLIFY(0),
-    FULL(1),
-    PAUSE(2),
-    ;
-
-    companion object {
-        /** The policy for a stored int, as native reads it: anything unknown (a newer build's) is the default. */
-        fun fromNative(value: Int): LiquidHotPolicy = entries[runCatching { GeodeNative.perfLiquidHot(value) }.getOrDefault(0)]
     }
 }
 

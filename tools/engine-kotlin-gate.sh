@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when a PR grows the Kotlin in the engine. Owner rule (AGENTS.md, ADR 0003, ADR 0006): Kotlin
+# Fails when a PR grows the Kotlin in the engine. Owner rule (CLAUDE.md): Kotlin
 # is the main-thread shell and Android glue only; engine logic, audio code, params, modulation,
 # clocks, render-loop and export maths are C++ in core/. Until the port finishes, the Kotlin still in
 # the watched paths below may only shrink: a PR's net added lines across them must be <= 0. A UI or
@@ -42,15 +42,9 @@
 # Self-test: the "Self-test the engine Kotlin gate" step of .github/workflows/arch-map.yml.
 set -euo pipefail
 
-S='engine/scenes/src/main/kotlin/dev/geode'
-C='engine/audio-core/src/main/kotlin/dev/geode/engine'
-allowed=(
-    "$C/bridge/GeodeNative.kt"
-    "$S/render/bridge/SceneParamsCodec.kt"
-    "$S/render/scene/ParamKeys.kt"
-    "$S/render/scene/ParamSchema.kt"
-    "$S/render/scene/SceneParams.kt"
-)
+# Empty: the declarations file moved into :app (app/src/main/java/dev/geode/engine/bridge/*Native.kt), so no
+# Kotlin is left under engine/ and none may start there.
+allowed=()
 
 if [ "${1:-}" = "--files" ]; then
     root="${2:-.}"
@@ -105,7 +99,7 @@ watched=(
     "$A/ui/ExportController"
 )
 engine="^($(IFS='|'; printf '%s' "${watched[*]}"))\.kt$"
-exempt='/GeodeNative\.kt$'
+exempt='/bridge/[A-Za-z]+Native\.kt$'
 
 net=0
 report=""
@@ -122,7 +116,7 @@ while IFS=$'\t' read -r add del path; do
 done
 
 if [ "$net" -gt 0 ]; then
-    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/ (AGENTS.md, ADR 0006); call it through core/api/geode_api.h instead."
+    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/ (CLAUDE.md); call it through core/api/geode_api.h instead."
     printf '%s' "$report"
     exit 1
 fi

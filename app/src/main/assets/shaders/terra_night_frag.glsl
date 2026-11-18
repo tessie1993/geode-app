@@ -37,7 +37,7 @@ out vec4 fragColor;
 // Speed scales the curtain's drift. Complexity (uMorph) fades in an
 // octave of hill. Chaos (uWarp, uTurbulence, uTwist) bends the hills
 // (terraChaos). Energy (uIntensity) scales how far the highs light the
-// aurora. Colour is pal() in the aurora and the night sky. Space is the rig.
+// aurora. Colour is terraPal() in the aurora and the night sky. Space is the rig.
 
 #define NT_MAX_STEPS 100
 #define NT_FAR 40.0
@@ -47,10 +47,12 @@ out vec4 fragColor;
 
 float gOct;
 
-float height(vec2 xz) {
+float terraMap(vec2 xz) {
     float f = terraFbm(terraChaos(terraWrap(xz)), gOct);
     return NT_AMP * f * f * (3.0 - 2.0 * f);
 }
+
+//#include lib_terra_field
 
 /**
  * The aurora seen along rd (eye-relative): NT_SHEETS curtains, each a vertical
@@ -74,7 +76,7 @@ vec3 aurora(vec3 rd, float t, float glow, float fold) {
         float v = slope.y * z - 4.5;
         float prof = smoothstep(-0.6, 0.4, v) * exp(-max(v, 0.0) / 3.0);
         float rays = 0.5 + 0.5 * sin(x * 1.3 + 3.0 * terraNoise(vec2(x * 0.4 - t * 0.2, 11.0 + k)));
-        vec3 c = mix(mix(vec3(0.15, 1.0, 0.45), pal(0.38), 0.3), mix(vec3(0.6, 0.2, 0.9), pal(0.8), 0.3), smoothstep(0.0, 5.0, v));
+        vec3 c = mix(mix(vec3(0.15, 1.0, 0.45), terraPal(0.38), 0.3), mix(vec3(0.6, 0.2, 0.9), terraPal(0.8), 0.3), smoothstep(0.0, 5.0, v));
         acc += c * prof * (0.35 + 0.65 * rays) * (1.0 - 0.25 * k);
     }
     return acc * glow * 0.45 * smoothstep(0.02, 0.1, rd.y);
@@ -82,6 +84,7 @@ vec3 aurora(vec3 rd, float t, float glow, float fold) {
 
 void main() {
     vec2 uv = view();
+    terraSetup();
     float t0 = terraTime();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float energy = terraEnergy();
@@ -94,13 +97,13 @@ void main() {
     vec3 rd;
     terraFly(uv, NT_EYE, 0.12, ro, rd);
 
-    vec3 zenith = mix(vec3(0.005, 0.01, 0.03), pal(0.65) * 0.02, 0.4);
-    vec3 horizon = mix(vec3(0.02, 0.04, 0.07), pal(0.55) * 0.05, 0.4);
+    vec3 zenith = mix(vec3(0.005, 0.01, 0.03), terraPal(0.65) * 0.02, 0.4);
+    vec3 horizon = mix(vec3(0.02, 0.04, 0.07), terraPal(0.55) * 0.05, 0.4);
     vec3 col = mix(horizon, zenith, pow(clamp(rd.y, 0.0, 1.0), 0.5));
     col += vec3(0.85, 0.9, 1.0) * terraStars(rd, 0.006) * smoothstep(0.0, 0.25, rd.y);
-    col += aurora(rd, t0, glow, fold);
+    col += aurora(rd, t0, glow * gTerraEmit, fold);
     // The aurora's light on the land: its colour, straight down.
-    vec3 skyLight = mix(vec3(0.15, 1.0, 0.45), pal(0.38), 0.3) * glow * 0.12 + vec3(0.02, 0.03, 0.05);
+    vec3 skyLight = mix(vec3(0.15, 1.0, 0.45), terraPal(0.38), 0.3) * glow * 0.12 + vec3(0.02, 0.03, 0.05);
 
     float hitT = -1.0;
     vec2 span = terraSlab(ro, rd, NT_AMP, NT_FAR);
@@ -112,7 +115,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > span.y) break;
             vec3 p = ro + rd * t;
-            float dy = p.y - height(p.xz);
+            float dy = p.y - terraField(p.xz);
             if (dy < terraEps(t)) {
                 hitT = terraRefine(tPrev, dyPrev, t, dy);
                 break;
@@ -128,14 +131,14 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = TERRA_NORMAL(height, p.xz, 0.004 * hitT + 0.01);
+        vec3 n = terraNormal(p.xz, 0.004 * hitT + 0.01);
         float top = max(n.y, 0.0);
         float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
         vec3 ground = vec3(0.10, 0.11, 0.11);
         col = ground * skyLight * (0.4 + 2.2 * top * top) * 6.0;
         col += ground * vec3(0.25, 0.3, 0.45) * max(dot(n, normalize(vec3(0.6, 0.5, -0.3))), 0.0);
         col += skyLight * rim * 0.25;
-        col = mix(col, horizon, 1.0 - exp(-hitT * 0.05));
+        col = mix(col, horizon, 1.0 - exp(-hitT * 0.05 / gTerraReach));
     }
 
     col *= 0.85 + 0.17 * swell;

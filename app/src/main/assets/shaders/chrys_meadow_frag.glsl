@@ -57,7 +57,8 @@ out vec4 fragColor;
 // uWarp vary petal lengths and fray their edges; uTwist curls every flower.
 // Energy: uIntensity scales how far the spectrum opens them. Colour: pal()
 // throughout. Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the
-// opening gain, k1 TEXTURE the fray, k2 FLOW the drift and turning, k3 TONE the
+// opening gain, k1 TEXTURE the fray, k2 FLOW the drift (not the turning: a
+// knob is the notes', and no sound turns a style), k3 TONE the
 // hue, k4 BUILD the stem height, k5 SPACE the mist (positive clears it).
 //
 // ---- why the distance estimate is safe ----------------------------------------
@@ -102,13 +103,6 @@ float gLip;
 /** The highest point any flower can reach. */
 float gTop;
 
-/** Set by map() for the shading: material (0 ground, 1 stem, 2 outer ring, 3 inner ring, 4 centre). */
-float gMat;
-vec4 gPet;
-float gH1;
-float gH2;
-float gOpen;
-float gHeadY;
 
 /** How far this flower opens: the spectrum at its centre's place across the screen. */
 float openAt(vec3 centre) {
@@ -119,10 +113,11 @@ float openAt(vec3 centre) {
     return 0.22 + 0.78 * clamp(sndSpectrum(freq) * gOpenGain, 0.0, 1.15);
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 ground, 1 stem, 2 outer ring, 3 inner ring, 4 centre; a.x and a.y the cell's hashes, a.z how open the flower is, a.w its head's height, b the petal frame (d, u, v, id)). */
+float mapAt(vec3 p, inout ChrysHit found) {
     float dg = p.y - CM_GROUND;
     float bubble = CM_BUBBLE - length(p - gEye);
-    gMat = 0.0;
+    found.mat = 0.0;
     // Far above the flowers: only the vertical gap matters.
     if (p.y > gTop + 0.3) return max(min(p.y - gTop, dg), bubble);
 
@@ -133,8 +128,8 @@ float map(vec3 p) {
     float h1 = chrysHash(hc);
     float h2 = chrysHash(hc + 19.7);
     float h3 = chrysHash(hc + vec2(7.3, 41.1));
-    gH1 = h1;
-    gH2 = h2;
+    found.a.x = h1;
+    found.a.y = h2;
 
     // Neighbours keep inside their own cells (see the header).
     float toEdge = 0.5 - max(abs(f.x), abs(f.y));
@@ -144,10 +139,10 @@ float map(vec3 p) {
         vec2 jitter = (vec2(h1, h2) - 0.5) * 0.08;
         vec2 q = f - jitter;
         float open = openAt(vec3(cell.x + 0.5 + jitter.x - gDriftX, CM_GROUND + 0.6, cell.y + 0.5 + jitter.y));
-        gOpen = open;
+        found.a.z = open;
         float bloom = clamp(open, 0.0, 1.0);
         float headY = CM_GROUND + (0.45 + 0.5 * h2) * gStemK + 0.12 * bloom;
-        gHeadY = headY;
+        found.a.w = headY;
 
         float count = 8.0 + floor(h1 * 9.0);
         float len = 0.3 * open;
@@ -172,11 +167,11 @@ float map(vec3 p) {
 
         float best = d1;
         float mat = 2.0;
-        gPet = pet;
+        found.b = pet;
         if (d2 < best) {
             best = d2;
             mat = 3.0;
-            gPet = pet2;
+            found.b = pet2;
         }
         if (dc < best) {
             best = dc;
@@ -188,22 +183,26 @@ float map(vec3 p) {
         }
         if (best < d) {
             d = best;
-            gMat = mat;
+            found.mat = mat;
         }
     }
 
     if (dg < d) {
         d = dg;
-        gMat = 0.0;
+        found.mat = 0.0;
     }
     return max(d, bubble);
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_chrys_field
 
 vec3 skyColour(vec3 rd, float hue) {
     float up = clamp(rd.y, -1.0, 1.0);
@@ -218,28 +217,27 @@ vec3 skyColour(vec3 rd, float hue) {
 }
 
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
     gAspect = uResolution.x / uResolution.y;
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    // This style's older knob roles: PULSE opens the flowers, BUILD raises the stems.
+    ChrysIn N = chrysIn();
+    float mist = chrysSpan(N.reach, 0.07, 0.098, 0.042);
 
     float swell = clamp(0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE), 0.0, 1.5);
     float t0 = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float hue = 0.75 + 0.02 * sin(t0 * 0.02) + 0.12 * kTone;
+    float hue = 0.75 + 0.02 * sin(t0 * 0.02) + chrysSpan(N.tone, 0.0, -0.06, 0.06);
     float keyHue = mix(hue + 0.12, uKeyHue, clamp(uKeyStrength, 0.0, 1.0) * 0.8);
 
-    gOpenGain = uIntensity * (1.0 + kPulse);
-    gChaos = clamp(uTurbulence + uWarp + 1.2 * kTexture, 0.0, 2.0);
-    gTwist = 3.0 * clamp(uTwist, -1.0, 1.0);
-    gKeep = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);
-    gStemK = 1.0 + 0.8 * kBuild;
-    gTurnK = 1.0 + 1.4 * kFlow;
-    gDriftX = 1.7 * sin(t0 * 0.031) * (1.0 + kFlow);
+    gOpenGain = uIntensity * chrysSpan(N.emit, 1.0, 0.5, 1.5);
+    gChaos = clamp(chrysSpan(N.chaos, 0.0, 0.0, 2.0) + chrysSpan(N.fray, 0.0, -0.6, 0.6), 0.0, 2.0);
+    gTwist = chrysSpan(N.curl, 0.0, -3.0, 3.0);
+    gKeep = chrysSpan(N.rings, 0.5, 0.5, 1.0);
+    gStemK = chrysSpan(N.glow, 1.0, 0.6, 1.4);
+    gTurnK = 1.0;
+    gDriftX = 1.7 * sin(t0 * 0.031) * chrysSpan(N.sway, 1.0, 0.5, 1.5);
     gLip = 1.6 + 0.4 * abs(gTwist) + 0.6 * gChaos;
     // Stem top plus the bloom lift, the bowl's rise and the centre.
     gTop = CM_GROUND + 0.95 * gStemK + 0.12 + 0.25;
@@ -250,19 +248,24 @@ void main() {
     // Every z term tiles with a period dividing 256, so this shift is exact
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, CM_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     vec3 sky = skyColour(rd, hue);
     vec3 col = sky;
 
-    // Skip the empty air above the flowers; a ray rising from up there is sky.
+    // Skip the empty air above the flowers; a ray rising from up there is sky. A grown meadow (lib_grow:
+    // a layer drawn in lifts it toward the eye, children reach above it) rises past gTop by growSlack
+    // while a control is on; gTop itself at rest.
+    float topY = gTop + growSlack(abs(gTop - ro.y), 1.0, 0.2);
     float t = 0.03;
     bool march = true;
-    if (ro.y > gTop) {
+    if (ro.y > topY) {
         if (rd.y > -1e-3) {
             march = false;
         } else {
-            t = max(t, (ro.y - gTop) / -rd.y);
+            t = max(t, (ro.y - topY) / -rd.y);
         }
     }
 
@@ -275,8 +278,9 @@ void main() {
             used = float(i);
             vec3 p = ro + rd * t;
             // Climbing out above the flowers: nothing left to hit.
-            if (rd.y > 0.0 && p.y > gTop) break;
-            float d = map(p);
+            if (rd.y > 0.0 && p.y > topY) break;
+            fld = chrysField(p);
+            float d = fld.d;
             float eps = 0.0008 * t + 0.0008;
             if (d < eps) {
                 hitT = t;
@@ -289,50 +293,49 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
+        vec3 n = chrysNormal(p, max(0.0015, 0.001 * hitT));
         float occ = 0.0;
         float sc = 1.0;
         for (int k = 0; k < 2; k++) {
             float hk = 0.06 + 0.12 * float(k);
-            occ += (hk - map(p + n * hk)) * sc;
+            occ += (hk - chrysField(p + n * hk).d) * sc;
             sc *= 0.6;
         }
         float ao = clamp(1.0 - 2.0 * occ, 0.3, 1.0) * clamp(1.0 - used / max(uSteps, 1.0) * 0.5, 0.5, 1.0);
-        // Restore the hit cell's globals after the normal and AO taps.
-        map(p);
+        // The hit cell again for the shading, after the normal and AO taps.
+        fld = chrysField(p);
 
         vec3 L = normalize(vec3(-0.3, 0.85, 0.45));
         float ndl = dot(n, L);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
-        vec3 ground = pal(hue + 0.36) * 0.035 * (0.7 + 0.6 * gH2);
+        vec3 ground = pal(hue + 0.36) * 0.035 * (0.7 + 0.6 * fld.a.y);
         // World size of one pixel at this depth: petal detail fades before it shimmers.
         float foot = hitT * 2.0 / (uResolution.y * uCamFocal);
         float detail = smoothstep(0.05, 0.015, foot);
         vec3 c;
-        if (gMat < 0.5) {
+        if (fld.mat < 0.5) {
             c = ground * (0.6 + 0.6 * max(ndl, 0.0)) * ao;
-        } else if (gMat < 1.5) {
+        } else if (fld.mat < 1.5) {
             c = pal(hue + 0.36) * 0.09 * (0.4 + 0.6 * max(ndl, 0.0)) * ao;
-        } else if (gMat < 3.5) {
-            bool outer = gMat < 2.5;
+        } else if (fld.mat < 3.5) {
+            bool outer = fld.mat < 2.5;
             float cupS = outer ? 0.35 : 0.6;
-            vec3 base = pal(hue + 0.35 * gH1 + (outer ? 0.0 : 0.06)) * (outer ? 1.0 : 0.85);
-            vec3 petCol = base * mix(0.55, 1.0, clamp(gPet.y, 0.0, 1.0)) * chrysPetalShade(gPet, cupS);
+            vec3 base = pal(hue + 0.35 * fld.a.x + (outer ? 0.0 : 0.06)) * (outer ? 1.0 : 0.85);
+            vec3 petCol = base * mix(0.55, 1.0, clamp(fld.b.y, 0.0, 1.0)) * chrysPetalShade(fld.b, cupS);
             // Thin petals: lit from either side, the far side a little dimmer.
             float lit = 0.3 + 0.55 * abs(ndl) + 0.15 * max(ndl, 0.0);
             c = petCol * lit * ao
-              + petCol * (0.12 + 0.3 * clamp(gOpen, 0.0, 1.0))
+              + petCol * (0.12 + 0.3 * clamp(fld.a.z, 0.0, 1.0))
               + base * pow(1.0 - ndv, 3.0) * 0.12;
-            vec3 avg = mix(ground, pal(hue + 0.35 * gH1) * 0.6, 0.25 + 0.4 * clamp(gOpen, 0.0, 1.0));
+            vec3 avg = mix(ground, pal(hue + 0.35 * fld.a.x) * 0.6, 0.25 + 0.4 * clamp(fld.a.z, 0.0, 1.0));
             c = mix(avg, c, detail);
         } else {
             vec3 core = pal(keyHue);
             float spec = pow(max(dot(reflect(rd, n), L), 0.0), 24.0);
-            c = core * (0.35 + 0.5 * max(ndl, 0.0)) * ao + core * 0.25 * clamp(gOpen, 0.0, 1.0) + vec3(spec) * 0.15;
+            c = core * (0.35 + 0.5 * max(ndl, 0.0)) * ao + core * 0.25 * clamp(fld.a.z, 0.0, 1.0) + vec3(spec) * 0.15;
             c = mix(mix(ground, core * 0.6, 0.5), c, detail);
         }
-        // Mist toward the horizon; SPACE thins or thickens it.
-        float mist = 0.07 * (1.0 - 0.8 * kSpace);
+        // Mist toward the horizon; SPACE thins or thickens it (mist, above).
         col = mix(sky, c, exp(-hitT * mist));
     }
 

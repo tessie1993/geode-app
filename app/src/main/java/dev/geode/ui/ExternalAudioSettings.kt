@@ -30,7 +30,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
             if (result.resultCode == Activity.RESULT_OK && data != null) {
-                PlaybackCaptureService.start(context, result.resultCode, data)
+                if (!PlaybackCaptureService.start(context, result.resultCode, data)) viewModel.noteExternalAudioConsentDenied()
             } else {
                 viewModel.noteExternalAudioConsentDenied()
             }

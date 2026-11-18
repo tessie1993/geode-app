@@ -14,6 +14,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
+//#include lib_shell
 
 // Spectrum Tunnel: a real tube, flown through. The old style drew glowing
 // rings on a closed-form cylinder; now the rings are ribs, a solid ribbed
@@ -51,8 +52,36 @@ out vec4 fragColor;
 // the spectrum spiral and bends the bore, Turbulence wobbles the cross-section,
 // Intensity and the palette reach through lib_scene_grade and pal().
 // Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the ripple's
-// strength, k1 TEXTURE the groove wave, k2 FLOW the rib light, k3 TONE the hue,
-// k4 BUILD the far glow, k5 SPACE the bore radius.
+// strength, k1 TEXTURE the groove wave, k2 FLOW the rib light, k3 TONE the
+// ribs' depth (a high melody carves them into deep fins, a low one smooths the
+// bore toward a plain pipe; and a small hue offset), k4 BUILD the far glow,
+// k5 SPACE the bore radius.
+//
+// ---- shape inputs (lib_shell) -------------------------------------------------
+//
+// Every tunable of the tube is a normalized input, mapped to its range in one
+// place (the top of main) and read from globals. 0.5 is the look as tuned: the
+// knobs rest there exactly while Note & key is off, and a param at its default
+// 0 maps to its rest through shellMapS. Music reaches these only through the
+// knobs and params (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   sReach      k0 PULSE         how far down the tube the ripple runs 9 .. 14 .. 20
+//   sShell      k1 TEXTURE       the shell's half-thickness 0.18 .. 0.3 .. 0.5
+//   sLobes      k1 TEXTURE       the wobble's lobes round the bore 2 .. 3 .. 5 (whole)
+//   gRibAmp     k3 TONE          rib depth 0.036 .. 0.18 .. 0.324
+//   gRadius     k5 SPACE         bore radius 3.8 .. 4.4 .. 5.0
+//   sFog        k5 SPACE         fog density 0.07 .. 0.045 .. 0.025
+//   gMorph      Morph            sharp crests to broad swells 0 .. 1
+//   gTwist      Warp             the spectrum spiral's twist 0 .. 0.25
+//   gBend       Warp             the bore's bend 0 .. 0.7
+//   gWobble     Turbulence       the cross-section's wobble 0 .. 0.4
+//
+// The rib spacing (2) and every other z period stay constants: each divides
+// the 64 the eye is rebased by. The lobes are a whole number, so the wobble
+// closes round the bore without a seam. The shell goes through its shell wrapper,
+// so the shell's spawn, fractal, front and back hooks reach it; the empty-
+// middle skip holds only while those hooks are at rest.
 //
 // ---- why the distance estimate is safe ----------------------------------------
 //
@@ -62,7 +91,8 @@ out vec4 fragColor;
 // the kick ripple at full PULSE, so the 0.3-high ribs slope at most ~1.6 along
 // z. The kick squeeze (0.36), the wobble (0.08) and the bend (0.14) add theirs,
 // ~2.2 along z in all, and the band swell and the wobble ~0.6 around the wall:
-// sqrt(1 + 2.2^2 + 0.6^2) < 2.5. The spectrum lookup is
+// sqrt(1 + 2.2^2 + 0.6^2) < 2.5; when TONE deepens the ribs past 0.3 the
+// bound grows in proportion (gLip). The spectrum lookup is
 // mirrored, so the band height has no seam to cliff on. A sphere around the
 // eye is carved out of the shell, so the eye is never inside it. The march
 // starts where the ray leaves the inner cylinder no part of the shell can
@@ -95,6 +125,13 @@ float gTwist;
 float gBend;
 float gWobble;
 float gRadius;
+/** Shape inputs (see the header): the ripple's reach, the shell's half-thickness, the wobble's lobes, fog. */
+float sReach;
+float sShell;
+float sLobes;
+float sFog;
+/** The radial field's gradient bound: TN_LIP, scaled up when TONE deepens the ribs. */
+float gLip;
 /** Set by map(): the rib cosine (1 on a crest), the band under the point, its angle 0..1. */
 float gC;
 float gBand;
@@ -111,7 +148,7 @@ float bandAt(float ang, float z) {
     return clamp(0.5 * sndEq(abs(2.0 * x - 1.0)), 0.0, 1.0);
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 q = p.xy - boreCentre(p.z);
     float r = length(q);
     float ang = atan(q.y, q.x) / TN_TAU + 0.5;
@@ -120,7 +157,7 @@ float map(vec3 p) {
     // The kick ripple: 1 at the hit, so the front starts at the eye and runs
     // away down the tube as the envelope decays. Measured from the eye, so the
     // rebase shifts both sides alike.
-    float dF = (p.z - gEye.z) - (1.0 - gKick) * TN_REACH;
+    float dF = (p.z - gEye.z) - (1.0 - gKick) * sReach;
     float env = exp(-abs(dF) * 0.6);
     float ripple = gKickAmp * 0.12 * sin(dF * 1.5) * env;
 
@@ -131,10 +168,25 @@ float map(vec3 p) {
     float prof = mix(c * c * c, c, gMorph);
     float inward = prof * (gRibAmp + 0.12 * band)
                  + gKickAmp * 0.4 * env
-                 + gWobble * (0.5 + 0.5 * sin(ang * TN_TAU * 3.0 + p.z * (TN_TAU / 16.0) + uTime * 0.3));
+                 + gWobble * (0.5 + 0.5 * sin(ang * TN_TAU * sLobes + p.z * (TN_TAU / 16.0) + uTime * 0.3));
     float wall = gRadius - inward;
-    float d = (abs(wall - r) - TN_SHELL) / TN_LIP;
+    float d = (abs(wall - r) - sShell) / gLip;
     return max(d, TN_BUBBLE - length(p - gEye));
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The tube as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -144,6 +196,18 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    sReach = shellMap(shellKnob(0), 9.0, TN_REACH, 20.0);
+    sShell = shellMap(shellKnob(1), 0.18, TN_SHELL, 0.5);
+    sLobes = floor(shellMap(shellKnob(1), 2.0, 3.0, 5.0) + 0.5);
+    gRibAmp = shellMap(shellKnob(3), 0.036, 0.18, 0.324);
+    gRadius = shellMap(shellKnob(5), TN_RADIUS - 0.6, TN_RADIUS, TN_RADIUS + 0.6);
+    sFog = shellMap(shellKnob(5), 0.07, 0.045, 0.025);
+    gMorph = shellMapS(clamp(uMorph, 0.0, 1.0), -1.0, 0.0, 1.0);
+    gTwist = shellMapS(clamp(uWarp, 0.0, 1.0), -0.25, 0.0, 0.25);
+    gBend = shellMapS(clamp(uWarp, 0.0, 1.0), -0.7, 0.0, 0.7);
+    gWobble = shellMapS(clamp(uTurbulence, 0.0, 1.0), -0.4, 0.0, 0.4);
+
     vec2 uv = view();
 
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
@@ -151,7 +215,6 @@ void main() {
     float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
     float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
     float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float high = sndShaped(SND_HIGH);
@@ -160,13 +223,7 @@ void main() {
 
     gKick = clamp(SND_KICK_ENV, 0.0, 1.0);
     gKickAmp = gKick * clamp(1.0 + kPulse, 0.5, 1.5);
-    gMorph = clamp(uMorph, 0.0, 1.0);
-    float warp = clamp(uWarp, 0.0, 1.0);
-    gTwist = 0.25 * warp;
-    gBend = 0.7 * warp;
-    gWobble = 0.4 * clamp(uTurbulence, 0.0, 1.0);
-    gRibAmp = 0.18;
-    gRadius = TN_RADIUS + 1.2 * kSpace;
+    gLip = TN_LIP * max(1.0, (gRibAmp + 0.12) / 0.3);
 
     vec3 ro;
     vec3 rd;
@@ -175,14 +232,18 @@ void main() {
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, TN_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * TN_RIB, false);
 
     // Skip the empty middle: no part of the shell comes nearer the axis than
-    // the bore minus every inward term at its current size.
-    float rin = gRadius - (gRibAmp + 0.12 + gKickAmp * 0.4 + gWobble + gBend + TN_SHELL + 0.05);
+    // the bore minus every inward term at its current size. Only while the
+    // shell's hooks rest: a spawned or folded copy can stand in the middle.
+    float rin = gRadius - (gRibAmp + 0.12 + gKickAmp * 0.4 + gWobble + gBend + sShell + 0.05);
     float t = 0.03;
     float a = dot(rd.xy, rd.xy);
     float cc = dot(ro.xy, ro.xy) - rin * rin;
-    if (rin > 0.5 && cc < 0.0) {
+    bool shellAtRest = abs(SHELL_SPAWN) + abs(SHELL_FRACTAL) + abs(SHELL_FRONT) + abs(SHELL_BACK) == 0.0;
+    if (rin > 0.5 && cc < 0.0 && shellAtRest) {
         if (a < 1e-6) {
             t = TN_FAR;
         } else {
@@ -243,7 +304,7 @@ void main() {
         float wave = sndWave01(fract(gAng * 2.0));
         wall += pal(0.6 + hue0) * wave * high * 0.6 * groove * clamp(1.0 + 1.2 * kTexture, 0.2, 2.0);
 
-        col = mix(wall, fogCol, 1.0 - exp(-hitT * 0.045));
+        col = mix(wall, fogCol, 1.0 - exp(-hitT * sFog));
     }
 
     col += pal(hue0 + 0.1) * haze * 0.03 * lightK;

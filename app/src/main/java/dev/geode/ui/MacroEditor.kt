@@ -606,7 +606,7 @@ private fun Note(text: String) {
 }
 
 /**
- * A target's label: the modulation pickers' own, else the Customize control that sets it ([control], its ParamKeys
+ * A target's label: the modulation pickers' own, else the Customize control that sets it ([control], its control
  * key, which is its name on screen), else its wire name.
  */
 private fun targetLabel(

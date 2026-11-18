@@ -107,20 +107,65 @@ float bandGap(float r, float lo, float hi) {
     return max(lo - r, r - hi);
 }
 
+/**
+ * The frame's shells, set in main() before the march: the current front's radius, finger reach and
+ * width; the previous shell's finger reach, width and weight, and whether it still shows.
+ */
+float gShellR;
+float gShellFa;
+float gShellW;
+float gOldFa;
+float gOldW;
+float gOldK;
+bool gOldOn;
+
+/**
+ * What the field holds at a point (lib_nebula_field): the shells' density (the previous one by its
+ * weight), and each shell's own, which the march lights in its own colour.
+ */
+struct NebHit {
+    float dens;
+    float cur;
+    float old;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    float r = length(p);
+    vec3 dir = p / max(r, 1e-4);
+    float fing = fingersAt(dir);
+    vec3 q = nebWarp3(p, gT) * 3.5 + vec3(gSect, -gT * 0.03, 0.0);
+    float tex = clamp(0.5 + gTexK * (nebFbm3(q, oct) - 0.5) * 2.0, 0.0, 1.0);
+    float texW = 0.5 + 0.9 * tex;
+    NebHit h;
+    float rr = gShellR * (1.0 + fing * gShellFa);
+    h.cur = shellAt(r, rr, gShellW) * texW;
+    h.old = 0.0;
+    h.dens = h.cur;
+    if (gOldOn) {
+        float rOld = NV_RFULL * (1.0 + fing * gOldFa);
+        h.old = shellAt(r, rOld, gOldW) * texW;
+        h.dens += h.old * gOldK;
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     gE = nebEnergy();
     float swell = clamp(0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive), 0.0, 1.5);
     float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     gOct = nebVolOctaves(3.0);
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gNebIn.pulse - 0.5;
+    float kTexture = gNebIn.texture - 0.5;
+    float kFlow = gNebIn.flow - 0.5;
+    float kTone = gNebIn.tone - 0.5;
+    float kBuild = gNebIn.build - 0.5;
+    float kSpace = gNebIn.space - 0.5;
 
     float key = nebKeyShift(0.1) + 0.12 * kTone;
     gTexK = 0.9 * (1.0 + 0.8 * kTexture);
@@ -149,6 +194,13 @@ void main() {
     float oldHi = NV_RFULL * (1.0 + 0.5 * faOld) + 2.2 * wOld;
     vec3 coolK = nebEmission(0.02 + key, 0.0) * 0.55 * 0.2 / wOld * oldK;
     bool oldOn = oldK > 0.004;
+    gShellR = R;
+    gShellFa = fa;
+    gShellW = w;
+    gOldFa = faOld;
+    gOldW = wOld;
+    gOldK = oldK;
+    gOldOn = oldOn;
 
     vec3 ro;
     vec3 rd;
@@ -157,7 +209,9 @@ void main() {
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
     float tc = -dot(ro, rd);
     float aMid = -1.0;
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), NV_BOUND);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), NV_BOUND + growSlack(NV_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.03;
         for (int i = 0; i < NEB_VOL_MAX; i++) {
@@ -178,22 +232,10 @@ void main() {
                 tt += max(gap * 0.9, 0.01);
                 continue;
             }
-            vec3 dir = p / max(r, 1e-4);
-            float fing = fingersAt(dir);
-            vec3 q = nebWarp3(p, gT) * 3.5 + vec3(gSect, -gT * 0.03, 0.0);
-            float tex = clamp(0.5 + gTexK * (nebFbm3(q, gOct) - 0.5) * 2.0, 0.0, 1.0);
-            float texW = 0.5 + 0.9 * tex;
-
-            float rr = R * (1.0 + fing * fa);
-            float dCur = shellAt(r, rr, w) * texW;
-            vec3 emit = hotK * dCur;
-            float dens = dCur;
-            if (oldOn) {
-                float rOld = NV_RFULL * (1.0 + fing * faOld);
-                float dOld = shellAt(r, rOld, wOld) * texW;
-                emit += coolK * dOld;
-                dens += dOld * oldK;
-            }
+            NebHit at = nebField(p, gOct);
+            vec3 emit = hotK * at.cur;
+            if (oldOn) emit += coolK * at.old;
+            float dens = at.dens;
             float dt = min(nebVolDt(tt - tb.x, 0.02, 0.008), max(0.5 * wIn, 0.012));
             nebVolEmit(acc, emit, dens * NV_SIGMA, dt);
             if (acc.a < NEB_TRANS_MIN) break;

@@ -8,7 +8,7 @@
 #include "audio/ingest/TrackPump.hpp"
 #include "output/FrameClock.hpp"
 
-// An export's render driven from inside core (ADR 0003, ADR 0006): the prepare order once, then one call per
+// An export's render driven from inside core: the prepare order once, then one call per
 // video frame, so live, export and loop renders share one rule and the shell only presents what is drawn.
 //
 // begin(): the renderer pinned for an export (full tier, cut transitions, fixed fluid quality), its fixed step of

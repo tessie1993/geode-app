@@ -17,7 +17,7 @@ constexpr std::string_view kVersion = "reactions/2";
 constexpr size_t kFields = 8;
 constexpr int kFloats = ReactionEngine::kConfigFloats;
 
-constexpr std::array<std::string_view, kReactModeCount> kModeNames = {"FOLLOW", "STEP", "SPIN", "JUMP", "TOGGLE"};
+constexpr std::array<std::string_view, kReactModeCount> kModeNames = {"FOLLOW", "STEP", "SPIN", "JUMP", "TOGGLE", "JUMP_SETTLED"};
 constexpr std::array<std::string_view, 4> kCurveNames = {"LINEAR", "EXPONENTIAL", "LOGARITHMIC", "SMOOTH"};
 static_assert(kCurveNames.size() == static_cast<size_t>(ModCurve::Smooth) + 1);
 

@@ -32,21 +32,25 @@
 //   k0 PULSE the emission, k1 TEXTURE the paint line's width, k2 FLOW the bend,
 //   k3 TONE the palette position, k4 BUILD the paint's glow, k5 SPACE the reach.
 //
+// GROW AND LAYERS (lib_grow, fluorField): Spawn slides a second carving off
+// the first along the way, Fractal carves the relief again a third the size
+// on its raised faces, Front layer opens the carving round the eye and Back
+// layer the carving down the way. Each costs nothing at 0.
+//
 // THE SOUND, heard the way the older families hear it (lib_dive, lib_neon):
 // lib_sound's shaped reads, in fluorSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gFluorTurn   the mid band, sndShaped(SND_MIDDLE), pushes the carving
-//   round about the way ahead while the mids climb and eases back as they
-//   fall, as lib_dive's gDiveSpin does. Mid gain scales it.
 //   gFluorSwell  the low band, sndShaped(SND_LOW), deepens the Warp's swell
 //   and sink, never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -64,7 +68,7 @@
 
 #define FLUOR_TAU 6.2831853
 #define FLUOR_MAX_STEPS 90
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop, as in lib_hollow. */
+/** uSteps (64..128 by Detail, 102 at its default, less at a lower march scale) on this loop, as in lib_hollow. */
 #define FLUOR_STEPS (min(uSteps * 0.7, float(FLUOR_MAX_STEPS)))
 #define FLUOR_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
@@ -73,8 +77,7 @@
 float gFluorForm;
 float gFluorFlow;
 float gFluorChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gFluorTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gFluorSwell;
 /** How far the trace reaches, world units. */
 float gFluorFar;
@@ -155,7 +158,6 @@ void fluorSetup() {
     gFluorBore = 0.3;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gFluorTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFluorSwell = sndShaped(SND_LOW) * drive;
     gFluorPal0 = pal(0.0);
     gFluorPal1 = pal(0.25);
@@ -164,11 +166,11 @@ void fluorSetup() {
     gFluorPal4 = pal(1.0);
 }
 
-/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes (and the mids' push), and a swell and sink (and the lows'). */
+/** Warp on space, about the axis so the way ahead stays open: a twist that comes and goes, and a swell and sink (and the lows'). */
 vec3 fluorBend(vec3 p) {
     float zc = p.z * (FLUOR_TAU / FLUOR_PERIOD);
     float r = length(p.xy);
-    p.xy = fluorRot(gFluorFlow * 1.1 * sin(zc + 0.5 * r + uTime * FLUOR_RATE(130)) + gFluorTurn) * p.xy;
+    p.xy = fluorRot(gFluorFlow * 1.1 * sin(zc + 0.5 * r + uTime * FLUOR_RATE(130))) * p.xy;
     p.xy *= 1.0 + 0.3 * min(gFluorFlow + 0.3 * gFluorSwell, 1.0) * sin(2.0 * zc + 1.5 * p.y + uTime * FLUOR_RATE(170));
     return p;
 }
@@ -178,6 +180,8 @@ vec3 fluorEye(vec3 ro) {
     ro.z = mod(ro.z, FLUOR_PERIOD);
     float r = length(ro.xy);
     if (r > gFluorBore) ro.xy *= gFluorBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 
@@ -194,4 +198,21 @@ vec4 fluorFinish(vec3 col, float exposure) {
     // No pixel leaves as a NaN or an infinity: the feedback pass would carry it for good.
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
+}
+
+/**
+ * A fractal ornament raised on the stone: u the place on the stone, h the height above it. u is
+ * folded gStrataIters times by lib_strata's fold `kind` (turned `turn` a fold) in units of `span`
+ * world units, and a raised frame runs along every outline the folds make, `top` high at the
+ * first scale and narrower and lower at each finer one: rings for kind 2 (the Apollonian),
+ * squares for the others, so a frame is nested in frames at every scale. x the distance, y a
+ * paint step for each scale. Needs lib_strata before this library.
+ */
+vec2 fluorOrnament(vec2 u, float h, float kind, vec2 c, float turn, float span, float top) {
+    float dr = 1.0 / span;
+    vec2 f = strataFold2(u * dr, kind, gStrataIters, c, fluorRot(turn), dr);
+    float outline = kind > 1.5 && kind < 2.5 ? abs(length(f) - 0.8) : abs(max(abs(f.x), abs(f.y)) - 0.6);
+    // A finer frame is narrower and lower, never under 0.01 wide, so its paint does not shimmer.
+    float fine = inversesqrt(max(dr * span, 1.0));
+    return vec2(fluorStrip(h, outline / dr, max(0.03 * fine, 0.01), top * fine), 0.381966 * floor(log2(max(dr * span, 1.0))));
 }

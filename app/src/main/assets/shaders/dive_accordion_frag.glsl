@@ -41,6 +41,7 @@ void main() {
 
     vec3 ro;
     vec3 rd;
+    diveShape();
     diveCamera(DIVE_CAM_ACCORDION, uv, ro, rd);
 
     float used;

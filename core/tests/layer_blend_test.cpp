@@ -1,5 +1,5 @@
 // Host-side checks for Customize › Layers' blends (core/viz/VisualSafety's BlendMode), the list the shell shows
-// from geode_layer_blend_names. Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml)
+// from geode_layer_list (GEODE_LAYER_LIST_BLENDS). Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml)
 // from the repository root, with the system compiler; no GL.
 //
 // What is pinned: one label per blend, in ordinal order, none empty or repeated; a new layer starts on the
@@ -30,24 +30,13 @@ void check(bool ok, const std::string& what) {
     }
 }
 
-std::vector<std::string> lines(const std::string& text) {
-    std::vector<std::string> out;
-    std::istringstream in(text);
-    std::string line;
-    while (std::getline(in, line)) out.push_back(line);
-    return out;
-}
-
 void labels() {
-    const std::string& text = blendModeLabels();
-    check(!text.empty() && text.back() == '\n', "every label ends in a newline");
-    const std::vector<std::string> names = lines(text);
-    check(static_cast<int>(names.size()) == kBlendModes, "one label per blend");
     std::set<std::string> seen;
-    for (int i = 0; i < static_cast<int>(names.size()); ++i) {
-        check(!names[i].empty(), "label " + std::to_string(i) + " is not empty");
-        check(names[i] == blendModeLabel(static_cast<BlendMode>(i)), "label " + std::to_string(i) + " is in ordinal order");
-        check(seen.insert(names[i]).second, names[i] + " is listed once");
+    for (int i = 0; i < kBlendModes; ++i) {
+        const std::string name = blendModeLabel(static_cast<BlendMode>(i));
+        check(!name.empty(), "label " + std::to_string(i) + " is not empty");
+        check(name.find('\n') == std::string::npos, "label " + std::to_string(i) + " is one line");
+        check(seen.insert(name).second, name + " is listed once");
     }
 }
 

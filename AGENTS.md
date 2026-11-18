@@ -1,199 +1,157 @@
 # AGENTS.md: BeatRealms 3D (internal name Geode)
 
-Android music player, reactive visualizer and video studio. Kotlin and Compose with Hilt, plus a C++20 native core (`libgeode.so`).
+This file describes the repository. It holds no rules.
+The owner's rules are in `CLAUDE.md`.
+Every line here was true when it was written and may have gone stale: check the code before you rely on one, and correct the line when it is wrong.
 
-- The product name is BeatRealms 3D ("BeatRealms" in running text, "BeatRealms Pro" for the unlock).
-- applicationId `com.beatrealms3d.app` (debug adds `.debug`); product id `beatrealms3d_pro`.
-- The old name MuzViz Studio Pro survives only in names the owner sets by hand or old data needs: the `MUZVIZ_UPLOAD_*` secrets, `muzviz.*` Gradle properties, the backup format id, the old `Movies/MuzViz` folder.
-- Kotlin packages stay `dev.geode.*`.
-- minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
+## What it is
 
-This file is a map. Detail lives in `docs/agents/`, one fact per line:
+- Android music player, reactive visualizer and video studio.
+- Kotlin and Compose with Hilt, plus a C++20 native core built as `libgeode.so`.
+- The product name is BeatRealms 3D; the unlock is BeatRealms Pro.
+- applicationId `com.beatrealms3d.app`; the debug build adds `.debug`.
+- Kotlin packages are `dev.geode.*`.
+- minSdk 33, targetSdk 36, compileSdk 37.
 
-- [`docs/agents/modules.md`](docs/agents/modules.md): Gradle modules and what each holds.
-- [`docs/agents/native-core.md`](docs/agents/native-core.md): `core/`, the per-frame chain, safety, shaders, endless zoom.
-- [`docs/agents/app-packages.md`](docs/agents/app-packages.md): every `:app` package.
-- [`docs/agents/entry-points.md`](docs/agents/entry-points.md): the manifest's activities, services, receivers and the intents the app takes.
-- [`docs/agents/data-flow.md`](docs/agents/data-flow.md): sound in, render, export, persistence, by thread.
-- [`docs/agents/navigation.md`](docs/agents/navigation.md): screens, back order, gestures, the tour.
-- [`docs/agents/pro.md`](docs/agents/pro.md): the unlock, the free tier, every gate.
-- [`docs/agents/build-ci.md`](docs/agents/build-ci.md): CI workflows, ktlint, versions, release, agent tooling.
-- [`docs/agents/tests.md`](docs/agents/tests.md): every test file and where tests go.
-- [`docs/agents/large-files.md`](docs/agents/large-files.md): Kotlin files to split, with line counts.
+## Gradle modules (`settings.gradle.kts`)
 
-## Owner's standing rules
+- `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
+- `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
+- The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
 
-- No bias on BPM, ever: tempo never steers or weights a visual choice (details under Conventions; `tools/no-bpm-bias-gate.sh` fails the PR).
-- No colour narrowing: the palette, saturation, brightness, temperature and contrast are the style's and the user's (`core/viz/Director.hpp`, `core/viz/NoteResponse.hpp`).
-- No hardcoded reactions: what moves on a kick, a note or a drop is the reaction matrix alone, which the user can see and edit.
-- Smallest fix possible.
-- Always ask why: before deleting a caller or a file, understand what it did, how its absence breaks things and why.
-- If the build breaks because a file was cut, do not put the file back; edit the test (or caller) so it no longer asks for it, after understanding what it asked for and why.
-- No building, compiling, linting or testing in an agent container: CI tests; prechecks are done by reading.
-- Clean room for ideas from other projects: take no code, names or strings from them, and the repo names no such project.
-- Dead code may be deleted once verified unreferenced.
-- Macros: 4 base knobs (`core/viz/MacroBank`: Glow, Heat, Bend, Flow), global, editable and saveable (`MacroStore`).
-- Record is Pro (`ProFeature.STUDIO`); screenshots are free.
-- No flash limiter on output: safety limits params only (`core/viz/VisualSafety`).
-- Goal: Play Store ready.
+## Native core (`core/`)
 
-## Owner's hard rule: Kotlin is the shell, C++ is the app (read first)
+- Directories: `api`, `audio`, `cast`, `library`, `output`, `scene`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
+- `core/api/geode_api.h` is the C interface the JNI files call.
+- `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
+- `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
+- `core/audio/dsp`: playback and export DSP.
+- `core/player`: the queue and transport as pure logic (`geode_player`); nothing calls it yet.
+- `core/signal`: the scene parameter resolver (`Resolver`).
+- `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
+- `core/output`: export and Record planning and timing.
+- `core/stage`: the surface threads (`core/stage/android/StageThread.cpp`, `VsyncThread.cpp`).
+- `core/tests`: host tests, built by `.github/workflows/native-host-tests.yml`.
+- Shaders are in `app/src/main/assets/shaders`.
+- The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
+- Live analysis runs on its own thread per ring (`core/sound/hop/AnalysisThread.cpp`); an export runs it inline. The parameter resolver runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 
-- **Kotlin only for the main-thread shell**: Compose screens, ViewModels, Android services and platform APIs, stores, and the JNI declarations in `GeodeNative`.
-- Kotlin draws what native says and hands values across. It decides nothing about a parameter, a sound or a picture.
-- **Everything inside is C++ (`core/`), never Kotlin**: all logic off the main thread, all parameter code (rolls, resets, which control is where, modulation, LFOs, envelopes, reactions), the audio engine and DSP, shaders and the renderer, every engine internal.
-- That includes "small" helpers and tables: if it computes or decides, it is C++, with a host test in `core/tests/`.
-- **Why:** one implementation for live, wallpaper, dream and export (no Kotlin copy to drift), testable on the host without a device, and the GL and audio threads never wait on the JVM.
-- ADR `0003` is the plan. Any Kotlin engine code still left is debt to port, never a pattern to copy.
-- If you are about to write engine logic in Kotlin, stop and put it in `core/` instead.
+## App packages (`app/src/main/java/dev/geode/`)
 
-## Read before you change structure
-
-- **Target rules: the official Android architecture guidance** (<https://developer.android.com/topic/architecture>; `android docs search "<keywords>"` fetches a page).
-- UI layer: one `StateFlow<UiState>` per ViewModel, one-shot events as state consumed once.
-- Data layer: repositories and data sources that are main-safe (suspend, injected dispatcher) and own every `ContentResolver`, prefs and file call.
-- Hilt owns the graph. Navigation 3 back stacks. Modules split leaf first (`:core:model`, `:core:designsystem`, `:core:data`).
-- Where the code disagrees, the code is the debt; issues #888–#899 are the phased plan (7 splits `PlayerSession`, 8 moves data out of `ui/`, 9 is Navigation 3 and adaptive, 10 the module split).
-- The ADRs are decisions; their files are no longer in the tree, `git log -- docs/adr` has them.
-- ADR `0001`: the target module split and the Nav3 plan.
-- ADR `0002`: the Play release before steps 2–6.
-- ADR `0003`: every engine internal in C++, Kotlin only as the shell, with the port order.
-- ADR `0005`: wave 1 rebuilds Studio, Visuals and Customize before the release (overrides 0002's order) and sets the Studio project model.
-- ADR `0006` (proposed): the fosfora-shaped target: a hop chain on the sample clock, one feature and one param schema, a binding bus with base vs modulation, one frame graph for every surface, one typed command channel.
-- ADR `0007`: drops video editing from Studio.
-- ADR `0008`: frame pacing, heat and rest are one native rule (fps goes first on a hot phone).
-- [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
-- The playback audio path: the tap is first, before any DSP, and the chain never outputs float. The write-up is `git show '8b4b5fa6^:docs/AUDIO_CHAIN.md'`; read it before touching that path.
-
-## Where code lives (owner rule, no exceptions)
-
-- **Kotlin runs on the main thread only:** Compose UI, ViewModels' UI state, and the thin Android glue that has to be Kotlin.
-- That glue is Activity and Service lifecycle, Media3 session and player wiring, permissions, the MediaStore and MediaCodec calls, billing IPC, and the widget, tile, wallpaper and dream shells.
-- **Everything else is C++ in `core/`, behind `core/api/geode_api.h`, never Kotlin.** That means:
-  - every worker, GL, audio and export thread
-  - all logic and decisions
-  - all audio code: DSP, the PCM ring, clocks, analysis
-  - params: definitions, ranges, defaults, randomizing, clamping, modulation, routing
-  - the catalogue, scheduling, export maths and timing
-  - shaders, which `core/viz` drives
-  - the engine's inner workings
-- **Where:**
-  - `core/sound`: hearing, analysis and the musical layer
-  - `core/viz`: the renderer, scenes, params, Director, NoteResponse, Reactions, CameraRig, Catalogue and safety
-  - `core/audio/dsp`: playback and export DSP
-  - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads (`PcmRing`, `Cursor`)
-  - `core/output`: export and Record planning and timing (`FrameClock`, `PreRoll`, `Recorder`, `RecordPlan`)
-  - `core/signal`: the scene params resolver (`Resolver`), the per-frame chain from requested to drawn params, and the engine settings it reads (`EngineSettings`: `SettingsLatch` hands it the process globals live, or an export's copy pinned once at prepare)
-  - `app/src/main/cpp/*_jni.cpp`: only marshals values
-- **Why:**
-  - One engine serves live, export, wallpaper and dream, so they can't drift apart.
-  - It is deterministic and testable on the host in `core/tests`.
-  - There are no GC pauses or chatty JNI calls on real-time threads.
-  - There is one source of truth instead of a Kotlin copy and a C++ copy.
-  - See ADR 0003 and ADR 0006.
-- **When a change touches logic that is still in Kotlin,** put the new logic in C++ and leave Kotlin as a thin caller. Never add logic to Kotlin. The leftovers are listed under "Where the code breaks the architecture guide".
-- **Never build, compile or lint in an agent container,** and never run Gradle, the APK build or the emulator. Push and let GitHub CI test it.
-
-## Modules
-
-```
-:app ──► :engine:scenes ──api──► :engine:audio-core (JVM, pure Kotlin)
-   └───► :engine:audio-android ──api──┘
-:app ──externalNativeBuild──► CMakeLists.txt ──► libgeode.so + libprojectM-4.so
-```
-
-- `:engine:audio-core`: `GeodeNative` (every JNI `external fun`), the PCM ring's handle, the sound frame layout, user sound tuning.
-- `:engine:audio-android`: the Media3 PCM tap (`PcmTap`).
-- `:engine:scenes`: the GL adapter, the look snapshot, scene ids and params, the shell's reads of the native schema, catalogue and modulation table.
-- `:app`: everything else: UI, playback service, stores, editor model, export, wallpaper, widget.
-- Detail: [modules.md](docs/agents/modules.md), [native-core.md](docs/agents/native-core.md), [app-packages.md](docs/agents/app-packages.md).
+- `audio`, `billing`, `cast`, `data`, `di`, `editor`, `engine`, `export`, `model`, `playback`, `pro`, `render`, `stage`, `tile`, `ui`, `util`, `viz`, `wallpaper`, `widget`.
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
-- `GeodeApp` (`@HiltAndroidApp`) installs the crash handler; its lazy `GeodeContainer` sweeps leftover render scratch and pending MediaStore rows.
-- `ui.MainActivity` is the only `@AndroidEntryPoint`: the phone and Android TV launcher, PiP of Visuals, and every intent the app takes (presets, templates, `.milk` files, audio files, play-from-search).
-- Services: `playback.PlaybackService` (Media3 library service, Android Auto), `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
-- Also declared: `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`, `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, `FileProvider` `${applicationId}.presets`.
-- Every entry point, intent and service type: [entry-points.md](docs/agents/entry-points.md).
+- Application: `GeodeApp`.
+- Activities: `ui.MainActivity`, `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`.
+- Services: `playback.PlaybackService`, `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
+- Receivers and providers: `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, a `FileProvider`.
+- `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; there are eight `@HiltViewModel` classes.
 
-## Data flow, navigation, Pro
+## CI (`.github/workflows/`)
 
-- Sound: source → one native ring (`SampleRing`) → each renderer's own `core/sound` engine on its GL thread. No analysis thread. See [data-flow.md](docs/agents/data-flow.md).
-- Navigation: `GeodeDestination` enum and `when` at the top level; only the Visuals panel runs on Navigation 3. See [navigation.md](docs/agents/navigation.md).
-- Pro: one-time unlock; every gate asks a `FeatureGate` from `GetFeatureGateUseCase`; the free tier is `pro/FreeTier.kt` alone. See [pro.md](docs/agents/pro.md).
+- `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
+- `.github/actions/android-build-setup` is the setup every Gradle job uses: JDK 21, Gradle, SDK 36, NDK, CMake, optional ccache.
+- `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
+- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`, `hand-declaration-gate.sh`.
+- `build-lint.yml` and `native-host-tests.yml` skip their heavy job on a pull request whose changed paths are all documents (`tools/ci-docs-only.sh`); `arch-map.yml` never skips.
+- `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
+- A `ship-apk.yml` run on a commit that is no longer `main`'s tip when its tests finish publishes nothing; the tip's run ships.
+- `ship-apk.yml` builds and publishes the debug APK; the `sideload` build type (release-optimised, not debuggable, debug key, id suffix `.debug`) exists in `app/build.gradle.kts` but is not published.
 
-## DI
+## Other documents
 
-- Hilt: `GeodeApp`, `MainActivity` and eight `@HiltViewModel`s, resolved through `geodeViewModel()` in `ui/GeodeViewModelFactory.kt`.
-- `DataModule` provides `GeodePrefsFiles`, `@GeneralPrefs SharedPreferences` and `AppStateRepository` (the tour's), all taken from `GeodeContainer`, plus `@IoDispatcher`.
-- `BackupRepository` is constructor-injected.
-- `PlayerSessionProvider` (`@Singleton`) builds one `PlayerSession` by hand.
-- That session builds its repositories and controllers itself, and the ViewModels get repositories from it: `session.playbackRepository`, `session.visualizerRepository`; the settings repositories are the container's (`SettingsViewModel` reads them through `session.container`).
-- Services, the wallpaper and the widget don't inject. They use `PlaybackEngine.acquireForService`, `AudioBus`, `context.geodeContainer` or construct stores directly.
+- `GLOSSARY.md`: the domain words.
+- `docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`: the proposed pipeline refactor; its section 7 lists documents that disagree with the code.
+- `docs/superpowers/specs/2026-11-18-native-engine-architecture.md`: the proposed native player, thread model, module split and end-to-end plan; newer than the pipeline refactor design where they disagree.
+- `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`); treat them as history, not as a map.
 
-## Build, test, CI
+## Edit log
 
-- **Don't build locally.** Push a branch and open a PR; `build-lint.yml`, `native-host-tests.yml` and `arch-map.yml` gate it.
-- **Before you push Kotlin, run `tools/ktlint-changed.sh`**: CI's `ktlintCheck` without Gradle, in seconds.
-- Every workflow, version and release step: [build-ci.md](docs/agents/build-ci.md). Every test: [tests.md](docs/agents/tests.md).
+One line per change, newest last: date, what changed, where.
+A line records what was done; it is not a rule.
 
-## Conventions
+- 2026-11-17: Added the pipeline refactor design (`docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`).
+- 2026-11-17: Rewrote `AGENTS.md` as facts plus this log and moved the owner's rules to `CLAUDE.md`; removed every decision-record reference, the dead document links and the mentions of another project from comments and docs.
+- 2026-11-17: `ship-apk.yml` ships an optimised APK from a new `sideload` build type instead of the debug build (`app/build.gradle.kts`, #1214).
+- 2026-11-17: The `sideload` build uses fake billing so Pro can be unlocked in it; the guard is the flag plus a build type other than `release` (`billing/BillingBuild.kt`).
+- 2026-11-17: `SoundEngine` keeps the last 128 analysis hops by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).
+- 2026-11-17: CI speed: host tests compile each source once per flag set, in parallel, through `tools/hostcc/g++`, and check out only the four submodules they use (`native-host-tests.yml`); the native build in `ship-apk.yml` and `build-lint.yml` runs through ccache, kept by `actions/cache`.
+- 2026-11-17: `ship-apk.yml` publishes the debug APK again (as before #1214); the optimised `sideload` build closed at launch and stays in `app/build.gradle.kts` unpublished until it boots.
+- 2026-11-18: CI duplicates: `android.yml` keeps only the emulator tests and the real-music frame-rate check (its build, lint and unit-test job repeated `build-lint.yml`; its last job published a pre-release); the release build's banned-SDK check moved to `build-lint.yml`; `ship-apk.yml` lost its `workflow_call` trigger.
+- 2026-11-18: `ship-apk.yml` skips the build and the release when a newer commit is on `main` by the time its tests pass (the step "Is this still main's newest commit"); `tools/release-number.sh` prints why the last tag push was refused.
+- 2026-11-18: Pull requests that change only documents skip the build and the host tests through a `Changed paths` job (`tools/ci-docs-only.sh`, `build-lint.yml`, `native-host-tests.yml`, self-test in `arch-map.yml`); a pull request's `pages.yml` run cancels the one it replaces.
+- 2026-11-18: Workflow comments, headers and the pre-release notes match what the workflows do: the debug APK's own application id in the release notes, no mention of jobs `android.yml` no longer has (`.github/workflows/*.yml`).
+- 2026-11-18: One Android build setup for every Gradle job (`.github/actions/android-build-setup`, used by seven workflows); `build-lint.yml` and `ship-apk.yml` share one ccache (`ccache-debug-`); `tools/actions-pin-gate.sh` and Dependabot cover `.github/actions`; `ship-apk.yml` and `render-thumbs.yml` give write permission to the one job that writes.
+- 2026-11-18: Added the native engine architecture and plan (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md`); corrected the line on where analysis runs (`AGENTS.md` › Native core).
+- 2026-11-18: Native engine plan: module interfaces and seams added, `surface` became the one frame driver `run`, `shader` narrowed to catalogue and source (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md` sections 4.1, 4.7, phase 4).
 
-- detekt is baselined per module (`*/detekt-baseline.xml`, config `config/detekt/detekt.yml`); ktlint has no baseline. New code must pass both clean.
-- KDoc explains *why*, at length. Match the density of the file you're in.
-- Use `bestEffort(TAG, "what")` (`dev.geode.util`) for best-effort failures. Failures go to `RingLog`.
-- Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them.
-- Renders insert with `IS_PENDING` into `Movies/BeatRealms` as `beatrealms_*.mp4`.
-- `Movies/MuzViz` from before the rename is still listed and swept, never moved.
-- The tap stays first in the audio chain, and the chain never gets float output.
-- No bias on BPM, ever (owner's rule; `tools/no-bpm-bias-gate.sh` fails the PR): the tempo comes from the music alone; nothing prefers, weights or centres on a tempo.
-- A tempo not yet heard is unknown (`bpm` 0, no beats, clocks run in seconds), never a stand-in number. Do not copy a beat tracker's prior or a library's start tempo from the literature.
-- No 120 as a tempo anywhere, tests included: a test's stimulus plays other tempos (77, 93, 141, 174).
-- Android TV is the same APK: no `uses-feature` may be required (touchscreen, faketouch, microphone, leanback are `required="false"`), checked by `TelevisionManifestTest` and `tools/check-manifest.sh`; how a TV differs is in [navigation.md](docs/agents/navigation.md).
-- Cast (to a TV or a computer) is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`); the one admitted networking library is libdatachannel with Mbed TLS, for Show on a computer (owner 2026-11-12).
-- CI fails if INTERNET appears without `CastService`, if a socket or HTTP API is used outside `cast/` or a socket or WebRTC header outside `core/cast/` (`tools/network-gate.sh`), if a networking, analytics or ads SDK joins the release build or a networking submodule joins `third_party/`, or if AD_ID appears.
-- Everything else is offline; Play Billing works over IPC to the Play Store app.
-- Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking).
-- First run is the safety notice alone (`SafetyConsent` on `OnboardingScaffold`; `FirstRunGate` passes straight through).
-- Music access is asked the first time Library opens.
+- 2026-11-18: The sound analysis is a library of its own: `geode_sound` and `geode_pcm` split from `geode_core` (`core/CMakeLists.txt`), `tools/sound-module-gate.sh` and its steps in `arch-map.yml`, `tools/hostlink/hostlink.sh` reads both source lists.
+- 2026-11-18: Compose: native calls in slider, route and layer rows are remembered, the player screen reads the scene id and sleep state narrowly, playlist results are keyed (`ui/CustomizeTabs.kt`, `ui/CustomizeAdvanced.kt`, `ui/PlayerScreen.kt`, `ui/AppShell.kt`); the play history sorts and serialises outside its lock (`data/HistoryStore.kt`).
+- 2026-11-18: Folded `:engine:audio-core` and the empty `:engine:scenes` into `:app`: `GeodeNative.kt` moved to `app/src/main/java/dev/geode/engine/bridge/` with its package unchanged; `settings.gradle.kts`, `app/build.gradle.kts`, `build-lint.yml`, `ship-apk.yml`, `native-host-tests.yml`, `arch-map.yml`, `tools/engine-kotlin-gate.sh` (its list is empty now), `tools/audio-kotlin-allowlist.txt`, `README.md` follow.
+- 2026-11-18: Added `core/player` (queue, transport, `Player`; library `geode_player` in `core/CMakeLists.txt`) with `player_queue_test` and `player_transport_test` in `native-host-tests.yml`; not wired to the app.
+- 2026-11-18: Removed the convention plugins nothing applies since the module fold (`build-logic/src/main/kotlin/geode.jvm-library.gradle.kts`, `geode.android-library.gradle.kts`).
+- 2026-11-18: Corrected documents to the code: sound analysis runs on its own thread per ring (`geode_sound`), `:app` is the only Gradle module, and dead file paths and a thermal governor that no longer exists were removed from `GLOSSARY.md`, `README.md`, `core/*/README.md`, the sound-engine skill and `docs/agents/`.
 
-## Large files to split
-
-- The Kotlin files to split, with line counts, are in [large-files.md](docs/agents/large-files.md).
-
-## Where the code breaks the architecture guide
-
-- **God object.** Every ViewModel reads `PlayerSession`, which builds 15 controllers and its repositories by hand.
-- That's a service locator (`GeodeContainer`, `context.geodeContainer`) sitting beside Hilt.
-- **Layer rule (enforced).** Nothing outside `ui/` and `di/` may name `dev.geode.ui`; `tools/layer-gate.sh` fails the PR otherwise. Move a type down instead: `model` if it is pure, `data` if it touches storage.
-- The same script holds the prefs files to one owner (#1009): `data/GeodePrefsFiles` names every file, `GeodeContainer` builds it once, everything else reads `context.geodeContainer.prefsFiles`; only `data/` and the container call `getSharedPreferences` or build a `GeodePrefsFiles`.
-- **Engine Kotlin only shrinks (enforced).** `tools/engine-kotlin-gate.sh` fails a PR whose net Kotlin lines grow under `engine/*/src/main/`, `export/` or `audio/dsp/`, or in the Spec 3.0 areas (#461).
-- The Spec 3.0 areas: Record (`ui/RecordController`, `record/`; the deleted `ui/TakeController` and `data/PerformanceTake` stay listed only until #1035 lands) and the timeline (`editor/{Timeline,Keyframes,AnimatableParams}`), the Scene model (`scene/`), glTF and pack import (`gltf/`, `*Gltf*`, `*Glb*`, `*Pack*Import*`) and the render job (`ui/ExportController`); the script header lists them.
-- A UI edit in a watched file lands if it removes as much as it adds; only `GeodeNative.kt` and `NativeViz.kt`, the JNI declarations, are exempt. Write the logic in `core/` and call it through `geode_api.h`.
-- **Data layer lives in `ui`.** Stores and MediaStore access in the `*Controller`s sit there (`VizStateStore`, `AutoVisualsPrefsStore` and `BuiltInPresets` now live in `data`).
-- `MyVideosTab` (thumbnails), `TrackInfoEditor`, `DuplicatesTab`, `FolderSettings` and `LoopRenderSheet` go through `data/MediaStoreSource` (`context.geodeContainer.mediaStore`).
-- **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
-- **Engine logic in Kotlin (ADR 0003).** Engine internals belong in `core/`; GLOSSARY › Code has the words.
-- Native already runs the touch field, the pinch and twist (`core/viz/TouchTransform`, #654), the smear (`core/viz/TouchSmear`), Customize's randomizer, reset and category map, the flash clamp, the cymatics plate, the export resampler and the BS.1770 loudness meter (their Kotlin copies are gone).
-- Native also runs the export's track audio and AIFF reads (`core/audio/ingest/TrackFeed`, `AiffReader`; `TrackAudio` only drives MediaCodec), the loop render's drift stops and the export loudness advice (`core/output`), the built-in palettes' hues and the artwork palette (`core/viz/ArtPalette`).
-- The playout clock is native (`core/sound/interp/PlayoutClock`; the dead Kotlin clock is gone) and wired: the sink feeds it, the live feed reads it.
-- The PCM ring is native (`core/audio/ingest`, read on the GL threads until `core/sound/hop` exists).
-- Still Kotlin: the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.
-- **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin.
-- `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`). There is no `kotlinx.serialization` yet.
-- **Navigation.** Enum and `when` at the top level; only the Visuals panel runs on Nav3 so far.
-- **Quality items not set up:** two use cases so far (`pro/GetFeatureGateUseCase`, `render/scene/BuildStyleReactionsUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
-
-## Gates
-
-- `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above), `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh` (the tempo rule under Conventions), `tools/network-gate.sh` (the internet rule under Conventions) and `tools/actions-pin-gate.sh` on every PR; see [build-ci.md](docs/agents/build-ci.md).
-- There is no AGENTS.md check; keep this map current by hand.
-
-## Keeping this map current
-
-- **One fact per line.** Every bullet here and in `docs/agents/` holds one fact. Add a fact as a new line in its group; never grow a line into a paragraph or a table cell.
-- **Why:** when one line holds many facts, every PR edits it and every PR conflicts with every other. Separate lines let two PRs add different facts without touching the same line.
-- **Where detail goes:** AGENTS.md stays a short map under 200 lines. Put detail in the matching `docs/agents/*.md` file; add a new file there (and a link above) for a new area.
-- **When you refactor,** update the module, package, entry point, thread and large-file lines in the same PR. Then update the "breaks the guide" list.
-- When a split step from ADR 0001 lands, rewrite the Modules section and `docs/agents/modules.md` to match, and record any change of plan as a new ADR.
-- Verify every path you name.
+- 2026-11-18: Sound analysis cost, output unchanged except the FFT: the analysis thread no longer runs a discarded `step()` (`SoundEngine::starve`), published hops skip the empty waveform words, the transient median and the onset maximum slide, one window read is shared, constant trig and profile means are computed once (`core/sound/SoundEngine.*`, `hop/AnalysisThread.*`, `Transient.hpp`, `OnsetFlux.hpp`, `Harmony.cpp`); `Fft` uses the real-input transform, which changes magnitudes at float rounding.
+- 2026-11-18: Render path: uniform lookups take a `string_view` with no string built on a hit, sound uniforms and the sound texture upload only where a program reads them, the palette ramp updates in place, modulation writes params in place, and the redraw, feedback-idle and physics-idle windows are seconds, not frames (`core/viz/Program.*`, `SoundUniforms.cpp`, `RendererFrame.cpp`, `Renderer.cpp`, `Lfo.*`, `Adsr.cpp`, `Reactions.cpp`, `physics/`).
+- 2026-11-18: Frame timing: a live frame is stepped by its vsync time and swapped with its expected presentation time, the stage thread runs at display priority, the encoder surface swaps at interval 0, and an export decode that never tells its rate gives up after 10 s (`core/stage/**`, `core/api/geode_stage_api.cpp`, `geode_viz_api.cpp`, `core/output/android/EncoderGl.cpp`, `core/audio/ingest/TrackPump.cpp`).
+- 2026-11-18: Kotlin rules ported to C++, step 1 (not called by the app yet): tracks and the library document, playlists, smart playlists, play history, the saved session (`core/library/TrackRules.*`, `TrackLibraryDoc.*`, `PlaylistRules.*`, `SmartPlaylist.*`, `History.*`, `SessionDoc.*`, five `library_*_test` in `native-host-tests.yml`).
+- 2026-11-18: Kotlin rules ported to C++, step 1 (not called by the app yet): the tour, style shelf, preset filtering, opened-audio routing, notification buttons, saved Auto visuals and the export fps list (`core/shell/**`, four `shell_*_test`), and the backup's sections, path and size checks, migration, manifest and plans (`core/backup/Backup.*`, three `backup_*_test`), all in `native-host-tests.yml`.
+- 2026-11-18: `docs/superpowers/specs/2026-11-18-native-engine-architecture.md` section 4 opens with a Mermaid diagram of the target modules, the Kotlin shell and the data between threads.
+- 2026-11-18: `core/tests/backup_restore_test.cpp` holds `layout()` in a local before looping its first section's prefs files; the loop over the temporary's member dangled and failed "settings' seven files in order" in CI.
+- 2026-11-18: dead C++ removed: the by-value `applyLfoTarget` (`core/viz/Lfo`), `physics::kIdleFrames` and the default step of `physics::Keep::step`, `compareUtf16` (`core/library/TrackRules`), `Renderer::soundHits()`. `params_schema_test` and `physics_layers_test` call `applyLfoTargetInPlace` on a copy and pass the wall step.
+- 2026-11-18: dead Kotlin removed: `applyCustomShader` (`ui/PlayerViewModel`, `ui/VisualSettingsController`), `slowSpatialSpec` and `GeodeMotion.SPATIAL_SLOW` (`ui/theme`), `PresetLink.SCHEME`/`HOST`, `PaletteStackStore.MAX_STOPS`, `SceneParams.usesCustomPalette`/`paletteStops`, `StyleCatalogue.isCymatics`. None had a caller in main, test or androidTest.
+- 2026-11-18: the Kotlin `render` package is gone. Its two rules are native: which saved palette id a look keeps on a frame native wrote (`files::framePaletteId`, `geode_saved_palette_frame_id`) and whether a style has a trait (`geode_catalogue_style_has`). `ParamUnit` became `GeodeNative.PARAM_UNIT_*`; the fluid splat asset read is in `ui/CustomizeAdvanced.kt`; `SceneParams`, `StyleCatalogue` and `ParamScope` (opaque holders of native answers) and their test doubles moved to `dev.geode.engine.bridge`.
+- 2026-11-18: buffers and memory: the trail echo trades textures with the scene target (`Framebuffer::swap`, `core/viz/TrailPass`) where it copied the whole frame each frame; ring sizes come from durations (`core/sound/Budget.hpp`: the player's, mic's, output mix's and a renderer's own ring, each held to its old size by a static_assert); `OutputFifo::read` copies without a per-frame gain branch once the gain has settled; `PcmRing`'s write position has its own cache line.
+- 2026-11-18: `ui/CustomizeAdvanced.kt`: the sustain and gate-level envelope sliders pass `GeodeNative.PARAM_UNIT_OWN` where they passed null for the unit (a compile error since the unit became an Int).
+- 2026-11-18: `GeodeNative` split into one Kotlin `object` per JNI source file (31 `*Native` objects in `app/src/main/java/dev/geode/engine/bridge/`; `geode_viz_jni.cpp`: split by name prefix; `GeodeNative` keeps `geode_jni.cpp`: its functions and `ensureLoaded()`), the JNI symbols renamed to `Java_dev_geode_engine_bridge_<X>Native_<name>` in `app/src/main/cpp/*_jni.cpp`, every call site and import rewritten; `app/proguard-rules.pro`, `config/detekt/detekt.yml`, `tools/audio-kotlin-allowlist.txt`, `tools/engine-kotlin-gate.sh`, `arch-map.yml`, `native-host-tests.yml` and `core/tests/dsp_bytes_test.cpp` follow.
+- 2026-11-18: "hear other apps" keeps the capture consent as its way in (Settings, the empty library, the player's quick action). While that capture hears only digital zero (an app that refuses capture, such as most streaming apps), `CaptureController.hearDeviceMix` starts the phone's output mix (`audio/OutputMixCapture`, moved from `wallpaper/`) and the stage and cast read it through `AudioBus.heard`; it stops when the capture hears sound again. `NowPlayingBridge` gained the other app's transport (`playPause`, `next`, `previous`, through its media session, which needs notification access), shown beside "stop" on the player screen.
+- 2026-11-18: `tools/audio-kotlin-allowlist.txt` names `audio/OutputMixCapture.kt` (the file moved from `wallpaper/`).
+- 2026-11-18: waves and envelopes, step 1 (no behaviour change): `LfoEngine::apply`, `AdsrEngine::apply` and `ReactionEngine::apply` move the params in place; one `kChainRateHz` (`core/viz/Lfo.hpp`); `chainOf` reads the slot and field from the ordinal; the envelope stages are `AdsrEngine::Stage`; `DirectorReach`, `resolver_test`'s `OldChain` and `viz_math_test` call them in place.
+- 2026-11-18: while another app is the sound source and its media session answers (`ExternalAudioState.driven`), the player's own previous / play-pause / next drive that app (`PlayerViewModel.next`, `previous`, `togglePlayPause`), on the player, both mini players and the visuals stage; the play glyph shows that app's state; the second set of transport buttons beside "stop" on the player screen is gone.
+- 2026-11-18: `CaptureController.refreshExternalAudio` clears its in-flight flag in a `finally`, so a throw or a cancelled refresh no longer stops every later one.
+- 2026-11-18: The outgoing style's target (`fboB_`) is made only while a style transition runs and released the frame after it ends (`core/viz/RendererFrame.cpp` `ensureTargets`, `Renderer.cpp` `applyRenderScale`, `Renderer.hpp`).
+- 2026-11-18: The trail echo's target (`TrailPass::trail_`) is freed after 2 s without an echo draw, the feedback pass's idle window (`TrailPass::releaseIdle`, called from `Renderer::render` in `core/viz/RendererFrame.cpp`).
+- 2026-11-18: The UI blur's three targets are freed after 1 s without a blur draw (`UiBlurPass::releaseIdle`, `Renderer::drawUiBlur` in `core/viz/RendererFrame.cpp`).
+- 2026-11-18: The liquid pass's two sides share one RGBA8 display attachment instead of one each (`core/viz/liquid/LiquidPass.*`; the size note in `Renderer::trimScenes`, `core/viz/Renderer.cpp`).
+- 2026-11-18: Cast's tee no longer waits up to 2 ms on the stage thread for the cast's last blit where EGL has no server wait: a blit not done yet skips the copy (`CastTee::publish`, `core/viz/frame/CastTee.cpp`).
+- 2026-11-18: `GlVersion::parse` reads the version numbers with `std::from_chars`: a number too long for an int makes the string unparseable instead of throwing (`core/viz/GlCaps.cpp`).
+- 2026-11-18: Morph World frees its shape and map bytes once they are uploaded or refused (`ShaderScene::uploadWorld`, `core/viz/scenes/ShaderScene.cpp`).
+- 2026-11-18: `ShaderScene::set1f` makes no `glUniform1f` call for a uniform the style linked away (location -1); the comment above `uploadMotion` says what that costs (`core/viz/scenes/ShaderScene.cpp`).
+- 2026-11-18: The Life census reads its five probes into a pixel pack buffer and maps them once a fence has passed, a frame or more later, instead of five blocking `glReadPixels` (`LifeScene::startCensus` / `finishCensus`, `core/viz/scenes/LifeScene.*`).
+- 2026-11-18: while another app is the sound source and its media session answers (`ExternalAudioState.driven`), the player's own previous / play-pause / next drive that app (`PlayerViewModel.next`, `previous`, `togglePlayPause`), on the player, both mini players and the visuals stage; the play glyph shows that app's state; the second set of transport buttons beside "stop" on the player screen is gone.
+- 2026-11-18: `CaptureController.refreshExternalAudio` clears its in-flight flag in a `finally`, so a throw or a cancelled refresh no longer stops every later one.
+- 2026-11-18: A recording in progress is finished and kept when the session shuts down: `RecordController` runs in `container.appScope` and `shutdown()` stops it (`ui/PlayerSession.kt`).
+- 2026-11-18: Loop extend discards its half-written file on any failure, including the plain `RuntimeException` `MediaMuxer.stop()` throws on a full disk, and no longer turns a cancellation into a failure (`export/LoopExtend.kt`).
+- 2026-11-18: Backup export packs the zip into `cacheDir` and copies it over the destination only once it is whole, so a failed pack no longer truncates the previous backup (`data/backup/BackupRepository.kt`).
+- 2026-11-18: A batch render that throws outside a track (pinning the look, building its state) ends as failed instead of crashing the process (`ui/ExportController.kt`).
+- 2026-11-18: A refused `ExportService` foreground start is logged to `RingLog` (`export/ExportService.kt`).
+- 2026-11-18: `PlaybackCaptureService.start` returns whether Android accepted the foreground start and logs a refusal; its two callers report a refusal as a denied consent (`audio/PlaybackCaptureService.kt`, `ui/ExternalAudioSettings.kt`, `ui/LibraryEmpty.kt`).
+- 2026-11-18: `AtomicWrite.stream` logs the throwable that made a write fail (`data/AtomicWrite.kt`).
+- 2026-11-18: `HistoryStore.writeNow` clears `dirty` before it snapshots and sets it again when the write fails or throws, so a listen added meanwhile is not lost (`data/HistoryStore.kt`).
+- 2026-11-18: Artwork cache: `ByteBudgetCache.clear()` also forgets recorded misses, and a decode that threw (lost grant, I/O error, out of memory) is no longer cached as "no picture" (`data/ByteBudgetCache.kt`, `playback/MediaArtwork.kt`, `ui/ArtworkCache.kt`, test in `ByteBudgetCacheTest`).
+- 2026-11-18: `LiveSegments` clears its header when a new `ftyp` starts, so a second init is not appended to the first; `live_segments_test` covers it (`core/cast/LiveSegments.cpp`, `core/tests/live_segments_test.cpp`).
+- 2026-11-18: `JavaReader::end` attaches the thread to the VM when `begin` could not, so the `AudioRecord` and its global references are released (`core/audio/ingest/android/JavaCapture.cpp`).
+- 2026-11-18: `LiveServer` closes the process-wide typed-path pairing only when it is the server that opened it, so a Cast stream still stopping cannot close the pairing a new one opened (`core/cast/LiveServer.cpp`; no host test reaches it, it is POSIX-socket code outside `native-host-tests.yml`).
+- 2026-11-18: Loop extend opens every loop reader on one shared direct sample buffer instead of one buffer per loop (`export/LoopExtend.kt`).
+- 2026-11-18: `RecordController` waits at most 5 s for the stage to let go before finishing the file (the handles are kept, not freed, when it never does), and a stop that arrives while the recording is still opening takes effect once it exists (`ui/RecordController.kt`).
+- 2026-11-18: glTF import charges the vertices and indices it unpacks against one `kMaxDecodedBytes` budget before allocating them; the cap is unchanged and the one `malloc` was already checked (`core/scene/object/GltfImport.cpp`).
+- 2026-11-18: `geode_stage_create_live` calls `geode_viz_create` inside its `try`, so a C++ throw from it returns null instead of reaching the JNI frame (`core/api/geode_stage_api.cpp`).
+- 2026-11-18: every text the JNI hands back in `geode_viz_jni.cpp`, `geode_jni.cpp` and `geode_export_audio_jni.cpp` crosses through `geode::jni::utf8String` (standard UTF-8) instead of `NewStringUTF`; `geode_stage_jni.cpp` kept one `NewStringUTF` (`stageSceneIds`, converted in a later entry).
+- 2026-11-18: `app/src/main/cpp/jni_util.hpp`: `Utf8Chars`, `utf8String` and `utf8Lines` look up `java.lang.String`, its two methods and the "UTF-8" name once per process (`detail::stringCalls`, global refs, lazy and thread-safe) instead of on every string.
+- 2026-11-18: Kept the Kotlin in the watched export paths at no net growth for this branch: `ExportController` builds its `MixClip`s through one `mixClip` helper, and a comment was dropped from `LoopExtend` and `RecordController` (`ui/ExportController.kt`, `export/LoopExtend.kt`, `ui/RecordController.kt`).
+- 2026-11-18: Added `core/viz/SceneTarget.hpp`: the renderer records the framebuffer and viewport it bound around each scene `draw()` (`RendererFrame.cpp`), and Life, Acid, Myco, Milkdrop, the fluid scenes (`FluidSceneBase`), `FieldPresent` and the fragment `SimPass` read them from it instead of `glGetIntegerv`; outside a renderer scene draw they still ask the driver. The fluid scenes' blend-state queries stay.
+- 2026-11-18: A stage's screenshot takes the renderer's still buffer by move (`geode::api::takeVizStill`, defined in `core/api/geode_viz_api.cpp`, declared in `core/api/geode_viz_internal.hpp`, used by `Viz::readStill` in `core/api/geode_stage_api.cpp`) instead of a zero-filled second buffer and a copy; the C ABI is unchanged.
+- 2026-11-18: `canDrive` and `playing` are read in `TransportCard`, where the transport uses them, not in `PlayerHero` (main did not compile); `ui/PlayerScreen.kt`.
+- 2026-11-18: `AnalysisThread::notify` makes the wake syscall only while the thread is in its untimed wait (`waiting_`); `core/sound/hop/AnalysisThread.cpp`, `.hpp`.
+- 2026-11-18: `geode::api::takeVizStill` moved out of the `extern "C"` block in `core/api/geode_viz_api.cpp` (it had a C symbol name, so `libgeode.so` did not link); detekt: `LoopExtend.write` catches `CancellationException` on its own, `ArtworkCache.load` names its catch-all, `AppContent` hosts the second screen's canvas in one line (`ui/AppShell.kt`).
+- 2026-11-18: GL names have one owner: new `core/viz/GlHandle.hpp` (`GlHandle`, move-only, deletes a non-zero name once, `forget()` after context loss; `GlProgram`, `GlVertexArray`, `GlBuffer`, `GlTexture`, `GlFramebuffer`). `ComputeProgram` (no `released_` flag), `ComputePass` and `FullscreenTriangle` hold handles and move instead of copy (`core/viz/Compute.hpp`, `Compute.cpp`, `Quad.hpp`, `Quad.cpp`); `Scene`, `frame::Pass`, `sim::SimPass`, `TransitionPrograms`, `liquid::LiquidPass` and the prober's `GlArena` delete copy. `core/tests/gl_ownership_test.cpp` (fake GL grows `GLES3/gl31.h`) checks it.
+- 2026-11-18: Tilt phone to look and Drag to look are input preferences, no longer part of a look: their meta rows carry the new `kInput` flag (`core/viz/ParamTable.inc`, `Params.hpp`), `SceneParams::keepInputs` / `geode_params_keep_inputs` / `ParamsNative.paramsKeepInputs` / `SceneParams.keepingInputsOf` keep the live value when a preset, Reset all or a borrowed category replaces the params (`ParamsFields.cpp`, `geode_params_api.cpp`, `geode_viz_jni.cpp`, `ui/VisualSettingsController.kt`, `ui/ModulationController.kt`), and `ParamRandomizer::neverRolled` lists the `kInput` rows from the flag; `StageView.syncTilt` counts the tilt sensor on only when its registration succeeds (`stage/StageView.kt`); host test in `core/tests/params_schema_test.cpp`.
+- 2026-11-18: The style DNA draws in written order on every compiler: the accent's camera roll and the feel-and-timbre layer each draw one value per statement, and `Draw`'s draws are `[[nodiscard]]` (`core/viz/ReactionDna.cpp`); `dnaDrawsInWrittenOrder` in `core/tests/viz_math_test.cpp` replays the seeded stream.
+- 2026-11-18: An export's track pump gives up on a source that puts no audio in the feed for `TrackPump::kStuckAfter` (10 s) while hearing, not only while waiting for the rate, the wait starting again on each step that decodes audio and measured on a clock the pump takes (`core/audio/ingest/TrackPump.{hpp,cpp}`); the video export finishes on an end-of-stream sample of size 0 handed with no buffer, under the encode sink's rule now written once as `sink::brokenSample` (`core/output/EncodeSink.{hpp,cpp}`, `core/output/VideoExport.cpp`); tests in `core/tests/track_pump_test.cpp` and `core/tests/video_export_test.cpp`.
+- 2026-11-18: Text from Java crosses through `geode::jni::Utf8Chars` and text to Java through `geode::jni::utf8String` in `dspRestoreBandsText`, `dspSetStreamTags`, `dspBeginStream` (`geode_jni.cpp`), `autoMarkChange` (`geode_sound_jni.cpp`) and `stageSceneIds` (`geode_stage_jni.cpp`); `jni_util.hpp` ends with `#pragma GCC poison` on `GetStringUTFChars`, `ReleaseStringUTFChars`, `NewStringUTF` and `GetStringUTFRegion`. `geode::api::vizFrameAt` and `takeVizStill` are declared once in `core/api/geode_viz_internal.hpp`, included by `geode_viz_api.cpp` (which defines them by qualified name) and `geode_stage_api.cpp`; `tools/hand-declaration-gate.sh` and its self-test in `arch-map.yml` fail on a function declared by hand at namespace scope in a `.cpp` under `core/api` or `app/src/main/cpp`.
+- 2026-11-18: The tap-along test plays its song at 93 BPM, not 120: `Song` has a constexpr constructor that will not compile a constant 120 and stops the run on a computed one, and the stale-frame check taps on that song's beats (`core/tests/easter_eggs_test.cpp`); `tools/no-bpm-bias-gate.sh` also fails a 120 passed to a tempo carrier (`Song{120.0}`, `checkGroove({"x", 120.0, ...})`, `clicks`/`metronome`/`clockAt`/`musicAt`, `Tempo(...)`, `bpm{...}`, `TapAlong::frame`'s third argument), with planted lines in `.github/workflows/arch-map.yml`.
+- 2026-11-18: `MilkdropScene` writes its load-debounce clock `lastLoadSeconds_` only under `presetLock_` (after a load and in `init()` it was written outside it), and the header names the members `presetLock_` guards; `core/viz/scenes/MilkdropScene.{hpp,cpp}`.
+- 2026-11-18: The camera rig cannot latch a NaN or an infinity: `CameraRig::step` reads every camera param and the look input through `finiteOr` (a move reads as none, the lens as 1, the smoothing as its default), and `Spring::step` / `Spring::reset` refuse a non-finite target, value or result; `core/viz/CameraRig.{hpp,cpp}`, test `nonFiniteCameraInputsDoNotLatch` in `core/tests/viz_math_test.cpp`.
+- 2026-11-18: The id tables in `core/viz/Catalogue.cpp` that had a hand-written size (`kLooseShaders`, `kLooseMarched`, `kMarchedOffRig`, `kLooseLooks`, `kFormLoose`, `kSpinning`) take it from their entries (`std::to_array`, same sizes as before), and a `static_assert` per table next to `listed()` refuses a null entry; test `everyIdIsNonEmptyAndUnique` in `core/tests/catalogue_test.cpp`.

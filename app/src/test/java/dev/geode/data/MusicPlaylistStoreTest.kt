@@ -16,6 +16,11 @@ import java.io.File
  */
 @RunWith(RobolectricTestRunner::class)
 class MusicPlaylistStoreTest {
+    init {
+        // The file stem rule is native (core/tests/look_files_test.cpp); "Road" is its own stem there too.
+        PresetStore.fileStem = { it }
+    }
+
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     private val dir = File(context.filesDir, "music-playlists")

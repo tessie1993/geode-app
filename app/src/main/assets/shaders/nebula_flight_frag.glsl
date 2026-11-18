@@ -59,14 +59,28 @@ float gThresh;
 /** k1 TEXTURE: how wide the banks' soft edge is, in noise units. */
 float gEdge;
 
-float density(vec3 p, float oct) {
+float nebDensity(vec3 p, float oct) {
     vec3 q = nebWarp3(p, gT) * 0.5 + vec3(0.0, gT * 0.01, 0.0);
     float n = nebFbm3(q, oct);
     return smoothstep(gThresh, gThresh + gEdge, n);
 }
 
+/** What the field holds at a point (lib_nebula_field): the density alone. */
+struct NebHit {
+    float dens;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    NebHit h;
+    h.dens = nebDensity(p, oct);
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
@@ -99,9 +113,9 @@ void main() {
         if (tt > FL_FAR * reach) break;
         vec3 p = ro + rd * tt;
         float dt = nebVolDt(tt, 0.1, 0.03);
-        float dens = density(p, oct) * smoothstep(0.4, 2.2, tt);
+        float dens = nebField(p, oct).dens * smoothstep(0.4, 2.2, tt);
         if (dens > 0.002) {
-            float dl = density(p + L * 0.6, 2.0);
+            float dl = nebField(p + L * 0.6, 2.0).dens;
             float lit = nebLightTap(dl, 3.0);
             float hue = 0.1 + key + 0.12 * sin(p.z * FL_Z_FREQ + 1.3) + spread * dens;
             vec3 gas = nebEmission(hue, 0.0);

@@ -19,7 +19,11 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.StageNative
+import dev.geode.engine.bridge.TouchNative
+import dev.geode.engine.bridge.VizNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.stage.Stage
@@ -98,7 +102,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Reused across touch events: a wallpaper is touched at the panel's rate, and this
          * runs on the main thread the launcher is also drawing on.
          */
-        private val touchPoints = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
+        private val touchPoints = FloatArray(CatalogueNative.catalogueValue("touchPoints").toInt() * 2)
 
         /**
          * The surface, not the display: a wallpaper surface is often wider than the screen
@@ -119,7 +123,7 @@ class VisualizerWallpaperService : WallpaperService() {
             // this line — which is why the wallpaper had no touch at all.
             setTouchEventsEnabled(true)
             val engine =
-                Stage(this@VisualizerWallpaperService, GeodeNative.STAGE_KIND_SURFACE, GeodeNative.SURFACE_DEFAULT_FPS.toFloat())
+                Stage(this@VisualizerWallpaperService, StageNative.STAGE_KIND_SURFACE, SoundNative.SURFACE_DEFAULT_FPS.toFloat())
             stage = engine
             restoreLook(engine)
             settings = prefsStore.load()
@@ -144,7 +148,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Settings › Performance's cap is the live visual's, not this.
          */
         private fun applyFps() {
-            stage?.capFps = GeodeNative.surfaceFpsChoice(settings.fps).toFloat()
+            stage?.capFps = SoundNative.surfaceFpsChoice(settings.fps).toFloat()
         }
 
         /** The app's saved look (LookStore), as it is; the MilkDrop preset is the stage's own (core/viz/MilkMemory). */
@@ -157,7 +161,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper paces
-         * to its own choice instead (applyFps, ADR 0008). A new store reads the file afresh.
+         * to its own choice instead (applyFps). A new store reads the file afresh.
          */
         private fun applyPerformance(engine: Stage) {
             engine.performance = PerformanceStore(generalPrefs, this@VisualizerWallpaperService).settings.value
@@ -249,12 +253,12 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * Android 11+ zooms the wallpaper out behind the notification shade, recents and some
-         * launchers' app drawers, which leave it "visible" under a blur. Past [COVER_ZOOM] it
-         * stops: nobody watches a visual through a frosted shade.
+         * launchers' app drawers, which leave it "visible" under a blur. Past the native cover point
+         * (`core/viz/SurfaceRun`) it stops: nobody watches a visual through a frosted shade.
          */
         override fun onZoomChanged(zoom: Float) {
             super.onZoomChanged(zoom)
-            val nowCovered = zoom >= COVER_ZOOM
+            val nowCovered = SoundNative.surfaceZoomCovers(zoom)
             if (nowCovered == covered) return
             covered = nowCovered
             syncRunState()
@@ -317,7 +321,7 @@ class VisualizerWallpaperService : WallpaperService() {
             val metrics = resources.displayMetrics
             val displayWidth = metrics.widthPixels.toFloat()
             val displayHeight = metrics.heightPixels.toFloat()
-            GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
+            VizNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
             pushGlow(glow.copy(left = window[0], top = window[1], width = window[2], height = window[3]))
         }
 
@@ -345,11 +349,12 @@ class VisualizerWallpaperService : WallpaperService() {
             var live = 0
             for (i in 0 until event.pointerCount) {
                 if (i != leaving && live * 2 < touchPoints.size) {
-                    touchPoints[live * 2] = event.getX(i) / surfaceWidth * 2f - 1f
-                    touchPoints[live * 2 + 1] = 1f - event.getY(i) / surfaceHeight * 2f
+                    touchPoints[live * 2] = event.getX(i)
+                    touchPoints[live * 2 + 1] = event.getY(i)
                     live++
                 }
             }
+            TouchNative.touchToNdc(touchPoints, live, surfaceWidth, surfaceHeight)
             engine.submitTouchPoints(touchPoints, live)
         }
 
@@ -378,8 +383,5 @@ class VisualizerWallpaperService : WallpaperService() {
 
     private companion object {
         const val TAG = "VisualizerWallpaper"
-
-        /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
-        const val COVER_ZOOM = 0.9f
     }
 }

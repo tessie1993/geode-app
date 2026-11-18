@@ -38,8 +38,6 @@ bool offsettable(int slot) {
     const ParamMeta& meta = SceneParams::meta(at);
     const ParamSpec& spec = SceneParams::spec(at);
     const bool glides = (spec.kind == ParamKind::Float || spec.kind == ParamKind::Circular) && spec.fade == ParamFade::Fade;
-    // The old Palette blend is linked through Palette 2's amount, which carries it (palette::carryBlend).
-    if (at == ParamSlot::paletteMix) return false;
     return meta.live && glides && meta.label != nullptr && meta.label[0] != '\0' && meta.label[0] != '@';
 }
 
@@ -175,7 +173,7 @@ struct Seed {
 // The built-in knobs: four jobs that do not overlap (no target is on two knobs), its shape, its motion,
 // its colour and its depth. Each spends a full turn on params every engine shows strongly (the view's
 // geometry, the clocks and the camera, a hue turn, zoom and the lens), not on the ones the safety clamp
-// keeps small (Bloom and Intensity stop at 0.25 over neutral, so a knob made of them barely shows), and
+// keeps small (Intensity stops at 0.25 over neutral and Bloom at 0.6, so a knob made of them shows less), and
 // most of each param's range, so a full turn is a different picture on every style. Weights are
 // fractions of rangeOf, which already stops at the safety maxima; the motion fields are the ones
 // safety::apply scales under reduced motion. core/tests/macro_bank_test.cpp pins their strength.

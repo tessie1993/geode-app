@@ -3,16 +3,15 @@
 #include <cmath>
 #include <vector>
 
-// The sound engine's absolute loudness, as fosfora measures it (crates/fosfora-app/src/audio/loudness.rs):
-// ITU-R BS.1770 K-weighting on each channel at the engine's own rate, left² + right² summed, momentary (400 ms)
-// and short-term (3 s) windows as running sums. Nothing here is relative to the song: -60 LUFS reads 0 and
+// The sound engine's absolute loudness: ITU-R BS.1770 K-weighting on each channel at the engine's own
+// rate, left² + right² summed, momentary (400 ms) and short-term (3 s) windows as running sums. Nothing here is relative to the song: -60 LUFS reads 0 and
 // 0 LUFS reads 1 on every track, so an ambient pad and a mastered kick read as the different loudnesses they
 // are. The K-weighting constants are the export meter's (core/audio/dsp/Loudness.cpp).
 //
 // The windows are summed per analysis hop (the engine's fixed 10 ms), not per sample: 40 hops are exactly
 // 400 ms, 300 are 3 s, and the numbers depend on the samples alone, never on the frame rate.
 //
-// The one silence gate (fosfora R8) lives here too, so every detector reads one flag: it opens when the
+// The one silence gate lives here too, so every detector reads one flag: it opens when the
 // momentary loudness reaches -55 LUFS, closes after 250 ms under -60 LUFS, and starts closed.
 namespace geode::sound {
 
@@ -94,7 +93,7 @@ public:
     static float unit(double lufs) { return static_cast<float>(std::clamp((lufs - kFloorLufs) / -kFloorLufs, 0.0, 1.0)); }
     float momentary() const { return unit(momentary_); }
     float shortTerm() const { return unit(shortTerm_); }
-    // fosfora's trend: how far the momentary loudness is above the short-term one, 0..8 LU onto 0..1.
+    // The trend: how far the momentary loudness is above the short-term one, 0..8 LU onto 0..1.
     float trend() const { return static_cast<float>(std::clamp(momentary_ - shortTerm_, 0.0, kMaxLu) / kMaxLu); }
     bool open() const { return open_; }
 

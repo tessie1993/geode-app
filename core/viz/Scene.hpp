@@ -11,6 +11,7 @@
 #include "viz/CameraRig.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
+#include "viz/ShapeGraph.hpp"
 #include "viz/TouchField.hpp"
 
 namespace geode::viz {
@@ -20,7 +21,11 @@ enum class SceneFamily { Shader, Milkdrop, Fluid };
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
+    Scene() = default;
     virtual ~Scene() = default;
+    // A scene owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
     virtual const std::string& id() const = 0;
     virtual SceneFamily family() const = 0;
     virtual void init() = 0;
@@ -88,11 +93,15 @@ struct SceneHost {
     // Whether this renderer draws an export (geode_viz_set_offscreen): its frames are on the render clock,
     // so nothing in a scene may wait on the wall clock. Unset reads as live.
     std::function<bool()> offscreen;
-    // A style is being built or blended in (ThermalGovernor::settling): slow frames are not this scene's.
+    // A style is being built or blended in (Renderer::settling): slow frames are not this scene's.
     std::function<bool()> settling;
     // The look's palette stack as a kRampSize × 1 texture (viz/Palette), 0 while the look keeps none and
     // its old colour params draw.
     std::function<GLuint()> paletteRamp;
+    // The shape graph (viz/ShapeGraph) as this frame uploads it: the renderer ticks one graph once a frame after
+    // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
+    // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
+    std::function<const shapes::Packed*()> shapeGraph;
 };
 
 }  // namespace geode::viz

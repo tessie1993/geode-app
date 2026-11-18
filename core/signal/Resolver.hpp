@@ -39,12 +39,12 @@ namespace geode::signal {
 // same bits, and every renderer (live, wallpaper, dream, export) runs the same chain.
 //
 // Single-threaded: no mutex, no atomics. The renderer keeps its lock and atomics and hands the resolver
-// copies at its frame latch. Device policy (thermal tier, post-FX, Liquid's hot policy), the camera rig
+// copies at its frame latch. Device policy (post-FX), the camera rig
 // and the post pass's integrators stay in the renderer, after the step.
 //
 // It depends on core/sound (the frame) and on the GL-free stage code still in core/viz (Director,
 // NoteResponse, Lfo, Adsr, Reactions, MacroBank, MotionField, VisualSafety, Catalogue); never on a GL header.
-// ADR 0006's later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
+// Later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
 
 // The chain reads one EngineSettings value a frame (signal/EngineSettings.hpp): the renderer's SettingsLatch
 // hands it the process globals live, or an export's copy pinned at prepare (#350).

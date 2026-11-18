@@ -63,6 +63,36 @@ constexpr bool everyLiveRowHasOneMeta() {
 }
 static_assert(everyLiveRowHasOneMeta(), "ParamTable.inc: every live row needs exactly one GEODE_PARAM_META row, a retired row none");
 
+// A mod row (a modulation target, viz/ModTable.hpp) only under a live Float or Circular row that fades and has a
+// Customize label (not "@": a field read before the modulation runs), at most one per field, and kMod in the field's meta
+// flags exactly when it has one: an offset on a pick, a count, a switch or a held value would jump, not glide.
+constexpr bool modRowsOnContinuousFields() {
+    constexpr int n = SceneParams::kFieldCount;
+    std::array<bool, n> continuous{};
+    std::array<bool, n> labelled{};
+    std::array<bool, n> modFlag{};
+    std::array<int, n> mods{};
+#define GEODE_PARAM(kind, name, def, lo, hi, fade)                \
+    continuous[static_cast<size_t>(ParamSlot::name)] =            \
+        (ParamKind::kind == ParamKind::Float || ParamKind::kind == ParamKind::Circular) && ParamFade::fade == ParamFade::Fade;
+#define GEODE_PARAM_META(name, label, scope, flags, lo, hi)                                    \
+    labelled[static_cast<size_t>(ParamSlot::name)] = (label)[0] != '\0' && (label)[0] != '@'; \
+    modFlag[static_cast<size_t>(ParamSlot::name)] = ((flags) & kMod) != 0;
+#define GEODE_PARAM_MOD(name, scale, flags) ++mods[static_cast<size_t>(ParamSlot::name)];
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM_MOD
+#undef GEODE_PARAM_META
+#undef GEODE_PARAM
+    for (int slot = 0; slot < n; ++slot) {
+        const auto i = static_cast<size_t>(slot);
+        if (mods[i] > 1) return false;
+        if (mods[i] == 1 && (!continuous[i] || !labelled[i] || SceneParams::retired(static_cast<ParamSlot>(slot)))) return false;
+        if (modFlag[i] != (mods[i] == 1)) return false;
+    }
+    return true;
+}
+static_assert(modRowsOnContinuousFields(), "ParamTable.inc: a GEODE_PARAM_MOD row only on a live, labelled Float or Circular row that fades, kMod with it");
+
 // A tier added without a label (or the other way round) does not build; CameraRig.cpp holds camPath the same way.
 static_assert(choiceCount(ParamSlot::fluidQuality) == fluid::quality::kTierCount, "fluidQuality: one label per tier");
 
@@ -96,6 +126,11 @@ const std::array<ParamMeta, SceneParams::kFieldCount>& SceneParams::metaTable() 
     return kMeta;
 }
 
+void SceneParams::keepInputs(const float* current, const float* incoming, float* out) {
+    const auto& meta = metaTable();
+    for (size_t i = 0; i < meta.size(); ++i) out[i] = (meta[i].flags & kInput) != 0 ? current[i] : incoming[i];
+}
+
 const std::string& SceneParams::schemaText() {
     static const std::string kText = [] {
         std::string out = "params|" + std::to_string(kSchemaTextVersion) + "|" + std::to_string(kFieldCount) + "\n";
@@ -106,8 +141,9 @@ const std::string& SceneParams::schemaText() {
                    "|" + tableNumber(s.min) + "|" + tableNumber(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") +
                    (retired(static_cast<ParamSlot>(slot)) ? "|RETIRED\n" : "|LIVE\n");
         }
-        // The built-in palettes' names: Customize's labels for the `palette` index, so Kotlin keeps no copy.
-        for (size_t i = 0; i < palettes().size(); ++i) out += "palette|" + std::to_string(i) + "|" + palettes()[i].name + "\n";
+        // The listed built-in palettes' names: Customize's labels for the `palette` index, so Kotlin keeps no copy.
+        // The retired rows after them are not offered, so not named.
+        for (int i = 0; i < kListedPalettes; ++i) out += "palette|" + std::to_string(i) + "|" + palettes()[static_cast<size_t>(i)].name + "\n";
         // Every picker's labels, the same way.
         for (int slot = 0; slot < kFieldCount; ++slot) {
             const auto& labels = choices(static_cast<ParamSlot>(slot));
@@ -118,16 +154,6 @@ const std::string& SceneParams::schemaText() {
         return out;
     }();
     return kText;
-}
-
-std::string SceneParams::kaleidoscopeMenu(bool on, int symmetry) {
-    int selected = -1;
-    std::string labels;
-    for (size_t i = 0; i < kSymmetryFolds.size(); ++i) {
-        if (kSymmetryFolds[i] == symmetry) selected = static_cast<int>(i);
-        labels += "\n" + std::to_string(kSymmetryFolds[i]);
-    }
-    return std::string(on ? "1|" : "0|") + std::to_string(selected) + "|" + std::to_string(kaleidoscopeFolds(!on, symmetry)) + labels;
 }
 
 }  // namespace geode::viz

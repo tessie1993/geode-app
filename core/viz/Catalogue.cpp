@@ -1,6 +1,7 @@
 #include "viz/Catalogue.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 
 #include "viz/Params.hpp"
@@ -15,7 +16,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 62> kLooseShaders = {
+constexpr auto kLooseShaders = std::to_array<const char*>({
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -40,11 +41,11 @@ constexpr std::array<const char*, 62> kLooseShaders = {
     "morph_world",
     // Pool (kPool): a pool's floor under moving water, its surface stepped by core/viz/pool.
     "pool",
-};
+});
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Pool and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 61> kLooseMarched = {
+constexpr auto kLooseMarched = std::to_array<const char*>({
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
@@ -62,12 +63,12 @@ constexpr std::array<const char*, 61> kLooseMarched = {
     "morph_world",
     // The last three that faked their depth, remade as marches on the Flame, Opal and Hollows pattern.
     "outrun_drive", "ringed_planet", "ribbon_storm",
-};
+});
 
 // Marching and flying the camera rig (lib_camera's uCamBasis) go together but for these five, which
 // march from a view of their own, so the Camera framing and feel controls have nothing to move. No
 // style flies the rig without a march.
-constexpr std::array<const char*, 5> kMarchedOffRig = {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow"};
+constexpr auto kMarchedOffRig = std::to_array<const char*>({"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow"});
 
 // The look group of each loose shader style (the owner's tags, first drafted in the Styles page's
 // StyleLookTags). Every loose style is listed; catalogue_test fails a loose style missing here, so a
@@ -76,7 +77,7 @@ struct LooseLook {
     const char* id;
     Look look;
 };
-constexpr std::array<LooseLook, 62> kLooseLooks = {{
+constexpr auto kLooseLooks = std::to_array<LooseLook>({
     {"julia", Look::Fractals},           {"tunnel", Look::FlyThrough},       {"mandel", Look::Fractals},
     {"kaleido", Look::Patterns},         {"plasma", Look::Flowing},          {"bars", Look::Classic},
     {"ring", Look::Classic},             {"scope", Look::Classic},           {"liss", Look::Classic},
@@ -98,7 +99,7 @@ constexpr std::array<LooseLook, 62> kLooseLooks = {{
     {"fractal_tunnel", Look::FlyThrough}, {"glow_vortex", Look::Glass},      {"neon_chrome_sea", Look::Glass},
     {"black_hole", Look::Space},         {"hex_hive", Look::Patterns},       {"mandelbox_cathedral", Look::Fractals},
     {"morph_world", Look::FlyThrough}, {"pool", Look::Flowing},
-}};
+});
 
 // Each family lists its own styles, so it carries its own count; the opener is first.
 // Fractal trees: branching folded distance fields, flown through or orbited.
@@ -236,6 +237,90 @@ constexpr std::array kFamilyMarched = {
 // one word here: Fractal Flame, Opal, Hollows, and the six after them.
 constexpr std::array kMarchedFamilies = {"flame", "opal", "hollow", "prism", "fluor", "loom", "shard", "petal", "fold"};
 
+// The families whose library draws Spawn, Fractal, Front layer and Back layer (Scope::FamilyForm), by name: the
+// families whose library reads the style's map through one field of its own (prismField, fluorField, loomField,
+// shardField, petalField, Fold's FOLD_AT, and the older ten's <FAM>_GROW), where lib_grow's rules go in once. A
+// family joins with one word here once its lib_<family> reads all four (lib_scene_uniforms' uSpawn ..). Flame,
+// Opal and Hollows stay as they are (owner).
+constexpr std::array kFormFamilies = {"prism", "fluor", "loom", "shard", "petal", "fold",
+                                      // The ten older families, once each grew a field of its own: their
+                                      // <FAM>_GROW hook (lib_<family>_field, lib_foam, lib_dive) applies
+                                      // lib_grow's rules.
+                                      "arbor", "bulb", "chrysanthemum", "lucid", "dive", "glass", "nebula", "terrain",
+                                      "truchet", "foam"};
+
+// The family styles that draw no Grow although their family does: Glass Gem and Prism trace their bodies in
+// closed form (planes, a 2D prism), with no distance field for the hooks to grow.
+constexpr std::array kFormSkipped = {"glass_gem", "glass_prism"};
+
+// The loose styles that draw Grow (Scope::FamilyForm) through lib_shell: each hands its field to the shell's
+// hooks through a wrapper of its own, so Spawn, Fractal and the two layers reach it. Every loose style that
+// includes lib_shell, in picker order; style_reads_test holds each to reading the four uniforms.
+constexpr auto kFormLoose = std::to_array<const char*>({
+    "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+    "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+    "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "orb_lattice", "rod_tunnel", "neon_tiles",
+    "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye", "blacklight_bloom", "fractal_temple",
+    "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
+    "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain", "supershape",
+    "fractal_tunnel", "glow_vortex", "neon_chrome_sea", "hex_hive", "mandelbox_cathedral",
+});
+
+// The styles that keep two to four distance formulas of their own and step or crossfade through them by Formula
+// (uFormula, Scope::Formula), by id. A style joins here in the commit that gives it its formulas, and
+// style_reads_test then holds it to reading uFormula. Shard, Prism and Fluor pick theirs through lib_strata
+// (strataSetup's strataFormula), Loom, Petal and Fold through lib_layers (layerSetup's layerPickOf): three each.
+// prism_rain is a loose style, not one of the Prism family, and keeps one formula.
+constexpr std::array kFormulaStyles = {
+    "shard_burst",    "shard_needles",   "shard_panes",   "shard_ring",     "shard_rods",
+    "shard_spires",   "shard_splinter",  "shard_stair",   "shard_tunnel",   "shard_wall",
+    "prism_arcade",   "prism_braid",     "prism_crown",   "prism_facet",    "prism_fan",
+    "prism_jewel",    "prism_mercury",   "prism_nest",    "prism_portal",   "prism_rosette",
+    "fluor_coffer",   "fluor_coil",      "fluor_column",  "fluor_filigree", "fluor_honeycomb",
+    "fluor_lattice",  "fluor_orb",       "fluor_scales",  "fluor_weave",    "fluor_whorl",
+    "loom_basket",    "loom_braid",      "loom_cloth",    "loom_cocoon",    "loom_curtain",
+    "loom_net",       "loom_rope",       "loom_sail",     "loom_spokes",    "loom_spool",
+    "petal_bells",    "petal_buds",      "petal_drift",   "petal_fern",     "petal_garland",
+    "petal_gates",    "petal_rose",      "petal_scales",  "petal_seed",     "petal_stair",
+    "fold_lace",      "fold_nerve",      "fold_onion",    "fold_quartz",    "fold_scaffold",
+    "fold_spire",     "fold_strata",     "fold_thorn",    "fold_twin",      "fold_vault",
+};
+static_assert(kFormulaStyles.size() == 60, "the six formula families' sixty styles");
+
+// The raymarched styles that melt the shape graph (viz/ShapeGraph) into their own form through lib_shapes'
+// shapesInto, by Shapes (uShapeMix, Scope::Shapes), by id. A style joins here in the commit that hooks it up,
+// and style_reads_test then holds it to reading uShapeMix. The first three are loose styles built round one
+// subject at the origin, where the graph stands: the sun, the chrome blobs and the vectorscope's beam.
+constexpr std::array kShapeStyles = {"chrome_nebula", "liss", "solar"};
+
+// The raymarched styles whose lit surface casts the key light's soft shadows (lib_shade, by Soft shadows: uShadow,
+// Scope::Shadow), by id: every Shard, Prism, Fluor, Loom and Petal style (their marches shadow the first surface a
+// ray meets), the Fold styles that draw a surface (the cone, pair and probe marches, through lib_fold_shade; the
+// glow and slice marches draw threads and sections, which have no lit surface), and the Bulb members lit by a key
+// or a lamp (Classic, Ink, and Shell's sun, through lib_bulb_shade). style_reads_test holds each to reading uShadow.
+constexpr std::array kShadowStyles = {
+    "shard_burst",    "shard_needles",   "shard_panes",   "shard_ring",     "shard_rods",
+    "shard_spires",   "shard_splinter",  "shard_stair",   "shard_tunnel",   "shard_wall",
+    "prism_arcade",   "prism_braid",     "prism_crown",   "prism_facet",    "prism_fan",
+    "prism_jewel",    "prism_mercury",   "prism_nest",    "prism_portal",   "prism_rosette",
+    "fluor_coffer",   "fluor_coil",      "fluor_column",  "fluor_filigree", "fluor_honeycomb",
+    "fluor_lattice",  "fluor_orb",       "fluor_scales",  "fluor_weave",    "fluor_whorl",
+    "loom_basket",    "loom_braid",      "loom_cloth",    "loom_cocoon",    "loom_curtain",
+    "loom_net",       "loom_rope",       "loom_sail",     "loom_spokes",    "loom_spool",
+    "petal_bells",    "petal_buds",      "petal_drift",   "petal_fern",     "petal_garland",
+    "petal_gates",    "petal_rose",      "petal_scales",  "petal_seed",     "petal_stair",
+    "fold_spire",     "fold_vault",      "fold_twin",     "fold_scaffold",  "fold_thorn",
+    "fold_quartz",
+    "bulb_classic",   "bulb_ink",        "bulb_shell",
+};
+static_assert(kShadowStyles.size() == 59, "fifty surface styles, six Fold surfaces and three lit Bulbs");
+
+// The families whose fractal folds colour by escape (lib_shade, by Escape colour: uEscapeColor, Scope::Escape), by
+// name: Shard, Prism and Fluor through lib_strata's far fractal, Loom, Petal and Fold through lib_layers' haze and
+// far layer (and Fold's own orbit traps), Bulb through its smoothed escape count. A family joins here once every
+// one of its styles reads uEscapeColor; style_reads_test holds it to that.
+constexpr std::array kEscapeFamilies = {"shard", "prism", "fluor", "loom", "petal", "fold", "bulb"};
+
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
 // creeps, tunnels counter. The user's Spin control scales the rate, and at 0 these hold still too.
@@ -244,7 +329,7 @@ struct Spin {
     const char* id;
     float rate;
 };
-constexpr std::array<Spin, 22> kSpinning = {{
+constexpr auto kSpinning = std::to_array<Spin>({
     {"kaleido", 1.0f},        {"mandala_dome", 0.45f},  {"orb_lattice", 0.7f},   {"chroma_orb", -0.6f},
     {"kifs", 0.8f},           {"spiral", 1.2f},         {"spiral_eye", -0.9f},   {"bead_vortex", 1.4f},
     {"merkaba_grid", 0.4f},   {"tunnel", -0.5f},        {"rod_tunnel", 0.6f},    {"particle_tunnel", -0.8f},
@@ -253,11 +338,11 @@ constexpr std::array<Spin, 22> kSpinning = {{
     // The neon set's two turning looks: the vortex winds against its own arms, the hive's bore rolls slowly.
     // The sea, the hole and the nave keep still: a horizon, a disc plane or a nave axis only tips over in a roll.
     {"glow_vortex", -1.1f},   {"hex_hive", 0.3f},
-}};
+});
 
 constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
-// The Customize control a cymatics style can hold (its ParamKeys string).
+// The Customize control a cymatics style can hold (its Customize key).
 constexpr const char* kGeometryKey = "Geometry";
 
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",
@@ -266,7 +351,8 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "UNIVERSAL",    "SCENE_CLOCK",     "AUDIO_DRIVE", "BASS_BAND", "MID_BAND",     "TREBLE_BAND", "BAND_GAINS", "SHADER_LOOK",
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
     "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
-    "FLOW_FIELD_SIM",  "SPIN",
+    "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",   "FORMULA",
+    "SHAPES",          "SHADOW",          "ESCAPE",
 };
 
 constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
@@ -296,6 +382,47 @@ bool listed(const Table& table, const std::string& id) {
     return false;
 }
 
+// listed() and the lookups compare a std::string with each entry, which is undefined for a null one. The
+// tables' sizes are deduced from their entries (or are an enum's count), and none may hold a null.
+constexpr const char* idOf(const char* id) { return id; }
+constexpr const char* idOf(const LooseLook& look) { return look.id; }
+constexpr const char* idOf(const Spin& spin) { return spin.id; }
+
+template <typename Table>
+constexpr bool noneNull(const Table& table) {
+    for (const auto& entry : table) {
+        if (idOf(entry) == nullptr) return false;
+    }
+    return true;
+}
+
+// Every family has a name and at least one id (its opener), none of them null.
+constexpr bool familiesNoneNull() {
+    for (const Family& family : kFamilies) {
+        if (family.name == nullptr || family.ids.empty() || !noneNull(family.ids)) return false;
+    }
+    return true;
+}
+
+static_assert(noneNull(kLooseShaders), "kLooseShaders: no null id");
+static_assert(noneNull(kLooseMarched), "kLooseMarched: no null id");
+static_assert(noneNull(kMarchedOffRig), "kMarchedOffRig: no null id");
+static_assert(noneNull(kLooseLooks), "kLooseLooks: no null id");
+static_assert(familiesNoneNull(), "kFamilies: a name and ids, no null");
+static_assert(noneNull(kFamilyMarched), "kFamilyMarched: no null id");
+static_assert(noneNull(kMarchedFamilies), "kMarchedFamilies: no null name");
+static_assert(noneNull(kFormFamilies), "kFormFamilies: no null name");
+static_assert(noneNull(kFormSkipped), "kFormSkipped: no null id");
+static_assert(noneNull(kFormLoose), "kFormLoose: no null id");
+static_assert(noneNull(kFormulaStyles), "kFormulaStyles: no null id");
+static_assert(noneNull(kShapeStyles), "kShapeStyles: no null id");
+static_assert(noneNull(kShadowStyles), "kShadowStyles: no null id");
+static_assert(noneNull(kEscapeFamilies), "kEscapeFamilies: no null name");
+static_assert(noneNull(kSpinning), "kSpinning: no null id");
+static_assert(noneNull(kKindNames), "kKindNames: one name per Kind");
+static_assert(noneNull(kScopeNames), "kScopeNames: one name per Scope");
+static_assert(noneNull(kLookNames), "kLookNames: one name per Look");
+
 bool familyStyle(const std::string& id) {
     for (const auto& family : kFamilies) {
         if (listed(family.ids, id)) return true;
@@ -323,7 +450,8 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
 
-// Whether a scope reaches every style of a kind. MarchDetail and Spin are per style, so no kind has them.
+// Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
+// are per style, so no kind has them.
 bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
@@ -350,7 +478,12 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::Journey: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Cymatics: return k == Kind::Cymatics;
         case Scope::FlowFieldSim: return k != Kind::Fluid;
-        case Scope::Spin: return false;
+        case Scope::Spin:
+        case Scope::FamilyForm:
+        case Scope::Formula:
+        case Scope::Shapes:
+        case Scope::Shadow:
+        case Scope::Escape: return false;
     }
     return false;
 }
@@ -398,6 +531,11 @@ std::string build() {
         out += "style|" + id + "|" + name(kindOf(id)) + "|" + name(lookOf(id));
         if (isMarched(id)) out += "|MARCH_DETAIL";
         if (spinRate(id) != 0.0f) out += "|SPIN";
+        if (drawsFamilyForm(id)) out += "|FAMILY_FORM";
+        if (hasFormulas(id)) out += "|FORMULA";
+        if (drawsShapes(id)) out += "|SHAPES";
+        if (castsShadows(id)) out += "|SHADOW";
+        if (colorsByEscape(id)) out += "|ESCAPE";
         out += '\n';
     }
     for (const auto& r : kRetired) out += std::string("retired|") + r.id + "|" + r.now + "\n";
@@ -597,6 +735,28 @@ float spinRate(const std::string& id) {
     return 0.0f;
 }
 
+bool drawsFamilyForm(const std::string& id) {
+    if (listed(kFormLoose, id)) return true;
+    if (listed(kFormSkipped, id)) return false;
+    for (const auto& family : kFamilies) {
+        if (listed(kFormFamilies, family.name) && listed(family.ids, id)) return true;
+    }
+    return false;
+}
+
+bool hasFormulas(const std::string& id) { return listed(kFormulaStyles, id); }
+
+bool drawsShapes(const std::string& id) { return listed(kShapeStyles, id); }
+
+bool castsShadows(const std::string& id) { return listed(kShadowStyles, id); }
+
+bool colorsByEscape(const std::string& id) {
+    for (const auto& family : kFamilies) {
+        if (listed(kEscapeFamilies, family.name) && listed(family.ids, id)) return true;
+    }
+    return false;
+}
+
 std::span<const Family> families() { return kFamilies; }
 
 Look lookOf(const std::string& id) {
@@ -622,6 +782,11 @@ Scope scopeOf(const std::string& paramKey) {
 bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::MarchDetail) return isMarched(styleId);
     if (scope == Scope::Spin) return spinRate(styleId) != 0.0f;
+    if (scope == Scope::FamilyForm) return drawsFamilyForm(styleId);
+    if (scope == Scope::Formula) return hasFormulas(styleId);
+    if (scope == Scope::Shapes) return drawsShapes(styleId);
+    if (scope == Scope::Shadow) return castsShadows(styleId);
+    if (scope == Scope::Escape) return colorsByEscape(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
 

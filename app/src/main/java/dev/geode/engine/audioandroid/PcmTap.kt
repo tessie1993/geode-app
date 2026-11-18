@@ -4,7 +4,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.IngestNative
 import java.nio.ByteBuffer
 
 /**
@@ -21,7 +21,6 @@ class PcmTap(
     private var sampleRateHz = 0
     private var channelCount = 0
     private var encoding = C.ENCODING_INVALID
-    private var staging: ByteBuffer? = null
 
     @Volatile
     var owns = true
@@ -32,7 +31,7 @@ class PcmTap(
         encoding: Int,
     ) {
         // Every flush starts a ring epoch, before a sample of the new format is written.
-        if (owns) GeodeNative.pcmRingBeginEpoch(ring)
+        if (owns) IngestNative.pcmRingBeginEpoch(ring)
         this.sampleRateHz = sampleRateHz
         this.channelCount = channelCount
         this.encoding = encoding
@@ -40,17 +39,6 @@ class PcmTap(
 
     override fun handleBuffer(buffer: ByteBuffer) {
         if (!owns || channelCount <= 0 || sampleRateHz <= 0) return
-        val block = if (buffer.isDirect) buffer else staged(buffer)
-        GeodeNative.pcmRingWriteDirect(ring, block, block.position(), block.remaining(), encoding, channelCount, sampleRateHz)
-    }
-
-    /** A heap buffer has no address native can read, so its bytes go through a direct one in a single bulk copy. */
-    private fun staged(buffer: ByteBuffer): ByteBuffer {
-        val bytes = buffer.remaining()
-        val copy = staging?.takeIf { it.capacity() >= bytes } ?: ByteBuffer.allocateDirect(bytes).also { staging = it }
-        copy.clear()
-        copy.put(buffer.duplicate())
-        copy.flip()
-        return copy
+        IngestNative.pcmRingWriteDirect(ring, buffer, buffer.position(), buffer.remaining(), encoding, channelCount, sampleRateHz)
     }
 }

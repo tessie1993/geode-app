@@ -84,7 +84,7 @@ If the owner takes the other reading, the whole form is: collects or shares data
 | Device backup | Android's own backup of app data to the user's Google account, limited by `res/xml/data_extraction_rules.xml` | `AndroidManifest.xml:103-107` | No: the system's transfer, not the app's or an SDK's |
 
 There is no analytics, advertising or crash-reporting SDK (CI fails the release build if one is
-added, AGENTS.md › Conventions), and no network code outside `cast/`.
+added, CLAUDE.md), and no network code outside `cast/`.
 
 ## Target audience and this form
 

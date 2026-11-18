@@ -18,6 +18,7 @@ enum class ParamUnit : int {
     Hertz,         // 110 Hz, 2.3 kHz
     TurnDegrees,   // a fraction of a turn (hue shift): 90°
     Plain,         // no natural unit and a range past 0..1 (fluid curl)
+    Folds,         // the kaleidoscope's folds: "Off" below 2 whole folds, else the whole count (8)
 };
 
 // The unit the control named `key` reads in: its own where it has one, else by its range lo..hi (inside

@@ -1,5 +1,7 @@
 # Engine deep scan: everything under `engine/` on origin/main
 
+**Historical, as of the scanned commit.** The `engine/` modules and most of the Kotlin rendering files named below (`render/*`, `ThermalGovernor`, `VisualizerRenderer` and the rest of that stack) no longer exist: the rendering, sound analysis and modulation are C++ in `core/`, and `:app` is the only Gradle module. Check the code, and see `AGENTS.md` for what is true now.
+
 Scanned commit: origin/main = a019454626940c143a5e14e8f52cf7e16bae59d2 (the Graphify index is built from the same commit). Read-only: nothing in the repository was touched.
 How the numbers were taken: line counts by `git show origin/main:<path> | wc -l`; "callers outside the module" are counts of files that reference the type, taken with `git grep` on origin/main (Graphify `file_neighbors` was used to confirm the picture for `NativeViz` and `VisualizerRenderer`); tests were listed, not run.
 Not compared: the port branch `ccr-0a1f1dcf-87b4sp-engine-to-cpp` is not on origin, so its progress is unknown to this scan.
@@ -100,7 +102,7 @@ Columns: lines; declarations; what it does; thread; category; native counterpart
 | File | Row |
 |---|---|
 | `S/render/Adsr.kt` | 32. `enum EnvBand(label)`, `data class AdsrConfig` (attack .05, decay .25, sustain .5, release .35, amount .5, band BASS, gate .25), `object AdsrEngine { COUNT = 2 }`. **Value holder**; defaults duplicate `core/viz/Adsr`. Saved: `LfoStore` JSON by enum NAME. No own test (`WireLayoutTest` covers the wire). |
-| `S/render/BlendMode.kt` | 24. `enum BlendMode` (8), ordinal is the wire for `layerSet`, `fromOrdinal` defaults to SCREEN. **Value holder.** Append only. |
+| `S/render/BlendMode.kt` | 24. `enum BlendMode` (8), ordinal was the wire for `layerSet` (since deleted; native owns the blends), `fromOrdinal` defaults to SCREEN. **Value holder.** Append only. |
 | `S/render/CyclicPalettes.kt` | 6. Five names of the rows in `shaders/cyclic_palettes.bin`. **Presentation.** |
 | `S/render/EventRecipe.kt` | 86. `enum EventRecipe` (30; title, sentence; ordinal is the wire, append only); `routesFor`, `isOn`, `fits`, `toggle` call `eventRecipe*`. Main. **Read of a native table** plus titles. Native: `core/viz/ReactionDna`. Test: native `viz_math_test`. |
 | `S/render/FramePacer.kt` | 248. `FrameSink`, `PacedRate`, `FrameRatePolicy` (Native, Capped), `FramePacer`, private `PacerThread` (a HandlerThread "GeodeFramePacer" at display priority with its own Choreographer). The clock maths is native (`pacerOnVsync`, `pacerResume`, `pacerEffectiveCap`); Kotlin owns the thread, the vsync callback, start/stop and `Surface.setFrameRate`. **Off the main thread: LOGIC, breaks the owner's rule.** Native: `core/viz/frame/Pacer`. Callers: VisualizerView, the wallpaper service, the dream, Cast (`PacedRate`). NDK: `AChoreographer_postVsyncCallback` (API 33 = minSdk) and `ANativeWindow_setFrameRate` (30). |
@@ -117,7 +119,7 @@ Columns: lines; declarations; what it does; thread; category; native counterpart
 | `S/render/TransitionCatalog.kt` | 79. `Def`, `Param`, built-in ids, `library(context)` parses `transitionsTable(assets)`. Main. **Read of a native table.** Native: `core/viz/TransitionLibrary.hpp`. |
 | `S/render/TransitionStyle.kt` | 9. `enum` CUT, FADE, MELT, SLIDE, ZOOM; lowercase name is the saved transition id. **Value holder.** |
 | `S/render/UnderlayBlend.kt` | 22. `enum` SCREEN, MULTIPLY, ADD; ordinal is wire and saved (`BackgroundPrefsStore`). **Value holder.** |
-| `S/render/VisualizerRenderer.kt` | 313. `class VisualizerRenderer : GLSurfaceView.Renderer`. The `look` setter bumps per-part versions by identity; `onDrawFrame`: `frameBegin` and its due bits, `LookApplier.apply`, gyro session reset, `feedRing`, `render`, `pollError`, the milk-loaded and director-moment hand-backs; `liquidMode` StateFlow; `submitShader`, `submitLayer`. **Every frame on the GL thread in Kotlin: LOGIC, against ADR 0003.** Native: the `core/viz` renderer. Callers: wallpaper service, `WallpaperRenderer`, `cast/CastStream`, `ui/EnginePlumbing`, `ExportHost`, `StudioRender` and others. NDK: a native render thread with its own EGL context. |
+| `S/render/VisualizerRenderer.kt` | 313. `class VisualizerRenderer : GLSurfaceView.Renderer`. The `look` setter bumps per-part versions by identity; `onDrawFrame`: `frameBegin` and its due bits, `LookApplier.apply`, gyro session reset, `feedRing`, `render`, `pollError`, the milk-loaded and director-moment hand-backs; `liquidMode` StateFlow; `submitShader`, `submitLayer` (since gone: native keeps the layer). **Every frame on the GL thread in Kotlin: LOGIC, against .** Native: the `core/viz` renderer. Callers: wallpaper service, `WallpaperRenderer`, `cast/CastStream`, `ui/EnginePlumbing`, `ExportHost`, `StudioRender` and others. NDK: a native render thread with its own EGL context. |
 | `S/render/VisualizerView.kt` | 220. `class VisualizerView : GLSurfaceView` (GLES3, preserved context, render when dirty), owns the pacer and gyro; `syncPacer` visibility rule, `trimSpares` on hide, release on detach behind a 200 ms latch, `setUiBlurRegion` by `queueEvent`; top-level `gyroListens`. Main, queues to GL. **Platform hand-over** with a visibility rule (native relative: `core/viz/StageRun`). Callers: 23 files. NDK: a plain `SurfaceView` handing `ANativeWindow_fromSurface` to native EGL; the View itself stays Kotlin. |
 
 ### `engine/scenes`: `render/bridge`, `fluid`, `look`, `offscreen`
@@ -203,7 +205,7 @@ Cast
 
 Record, wallpaper, viz, playback
 - `wallpaper/VisualizerWallpaperService.kt` (472): its own GLSurfaceView subclass and FramePacer; `VisualizerDreamService.kt` (352); `WallpaperRenderer.kt` (36).
-- `wallpaper/OutputMixCapture.kt` (126): `Visualizer` capture into the ring; `SoundSource.kt` (148); `WallpaperRunState.kt` (83).
+- `audio/OutputMixCapture.kt` (126): `Visualizer` capture into the ring; `SoundSource.kt` (148); `WallpaperRunState.kt` (83).
 - `viz/BackgroundImage.kt` (119): decode and crop on a worker.
 - `playback/PlaybackEngine.kt` (301), `ReplayGain.kt` (92), `SleepTimer.kt` (126), `TrackCrossfade.kt` (52), `AutoDirectorFeed.kt` (77): hand targets to native; `PlaybackQueue` and `QueueOps` are pure queue rules.
 

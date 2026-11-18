@@ -9,8 +9,21 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 
-/** Where a project's folder is, whatever its id says, and that a delete reaches that folder alone. */
+/**
+ * Where a project's folder is, whatever its id says, and that a delete reaches that folder alone. The file stem rule
+ * itself is native (`core/tests/look_files_test.cpp` holds these same hostile ids to it); a JVM test has no libgeode,
+ * so a stand-in that keeps a plain id and renames any other stands in for it here.
+ */
 class EditorProjectStoreFoldersTest {
+    init {
+        PresetStore.fileStem = ::standInStem
+    }
+
+    private fun standInStem(id: String): String {
+        val plain = id.isNotEmpty() && id.all { it in 'a'..'z' || it in '0'..'9' }
+        return if (plain) id else "id-${id.hashCode().toUInt()}"
+    }
+
     @get:Rule
     val tmp = TemporaryFolder()
 

@@ -53,17 +53,16 @@
 // lib_sound's shaped reads, in foldSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
 //
-//   gFoldTurn   the mid band, sndShaped(SND_MIDDLE), pushes space round about
-//   the way ahead while the mids climb and eases back as they fall, as
-//   lib_dive's gDiveSpin does. Mid gain scales it.
 //   gFoldSwell  the low band, sndShaped(SND_LOW), widens the Warp's sway (or a
 //   corridor's swell), never past the Warp's own reach.
 //
-// Both are times SND_DRIVE, the music's absolute magnitude (lib_sound): how
+// It is times SND_DRIVE, the music's absolute magnitude (lib_sound): how
 // MUCH moves follows how loud and dense the music is, never the song's own
-// average, and the band only shapes the push. sndShaped scales both by Audio
+// average, and the band only shapes the push. sndShaped scales it by Audio
 // drive (uSoundDrive). Like Dive and Glass, no style here has a spin rate
 // (catalogue::spinRate, owner 2026-11-12), so Spin drift does not turn it.
+// No sound band turns it either: the mids' push round the way ahead is gone
+// (owner 2026-11-12, no style spins to the music).
 //
 // What moves on a hit is the reaction matrix, through the params above. uTime
 // stops in silence and SND_DRIVE falls to 0, so everything here comes to rest.
@@ -75,16 +74,33 @@
 // scale is clamped, no root or log sees a negative number or zero, and every
 // iterated fold keeps a fixed point, so its fractal is never empty.
 //
+// GROW AND LAYERS (lib_grow, foldGrow): every march reads the map through
+// FOLD_AT. Spawn slides a second fractal off the first along the way, Fractal
+// grows the fractal again a third the size within a shell round its surface,
+// Front layer opens the fractal round the eye and Back layer down the way.
+// Each costs nothing at 0.
+//
+// THE SHADING PASS (lib_shade). Every march colours by escape: the two orbit traps (foldMap's zw) as one
+// value (shadeTrapPair) move the hue along the palette by Escape colour (uEscapeColor), on a surface, a
+// section and a thread alike. The three surface marches (cone, pair, probe) shadow the key light softly
+// (lib_fold_shade's foldShadow, by Soft shadows, uShadow) on the sun's light and the gloss, never on the
+// seams' own glow; the cone and pair marches add the step glow (by Bloom) where a ray crept along the crust.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec4 foldMap(vec3 p) and after it includes one
 // lib_fold_march_<kind>, which calls it.
 
+// The shading pass's rules (soft shadows, step glow, escape colour); lib_layers, at the end, reads them too.
+//#include lib_shade
+
 #define FOLD_TAU 6.2831853
 #define FOLD_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define FOLD_RATE(k) (FOLD_TAU * float(k) / 7100.0)
-// uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on each march's loop.
+/** The key light a surface march lights by (foldLit) and shadows from (lib_fold_shade). */
+#define FOLD_KEY normalize(vec3(0.45, 0.8, -0.35))
+// uSteps (64..128 by Detail, 102 at its default, less at a lower march scale) on each march's loop.
 #define FOLD_GLOW_MAX 64
 #define FOLD_GLOW_STEPS (min(uSteps * 0.5, float(FOLD_GLOW_MAX)))
 #define FOLD_CONE_MAX 60
@@ -99,8 +115,7 @@
 float gFoldForm;
 float gFoldFlow;
 float gFoldChaos;
-/** The mid band's push on the twist about z, radians, and the low band's swell of the bend, 0..1.5 (see the header). */
-float gFoldTurn;
+/** The low band's swell of the bend, 0..1.5 (see the header). */
 float gFoldSwell;
 /** How far a march reaches, world units. */
 float gFoldFar;
@@ -214,7 +229,6 @@ void foldSetup() {
     gFoldDense = 0.5;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
-    gFoldTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFoldSwell = sndShaped(SND_LOW) * drive;
     gFoldPal0 = pal(0.0);
     gFoldPal1 = pal(0.25);
@@ -224,14 +238,14 @@ void foldSetup() {
 }
 
 /**
- * Warp and Turbulence on space: a twist about z that comes and goes along the way (and the mids' push),
+ * Warp and Turbulence on space: a twist about z that comes and goes along the way,
  * a sideways sway (and the lows' swell), or for a corridor a swell and pinch about the axis, and a ripple.
  */
 vec3 foldBend(vec3 p) {
     float zc = p.z * (FOLD_TAU / FOLD_PERIOD);
     float reach = min(gFoldFlow + 0.3 * gFoldSwell, 1.0);
     float side = 1.0 - gFoldAxial;
-    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160)) + gFoldTurn) * p.xy;
+    p.xy = foldRot(gFoldFlow * sin(zc + uTime * FOLD_RATE(160))) * p.xy;
     p.xy *= 1.0 + gFoldAxial * 0.3 * reach * sin(3.0 * zc + uTime * FOLD_RATE(200));
     p.x += side * 0.5 * reach * sin(2.0 * zc + 0.9 * p.y + uTime * FOLD_RATE(230));
     p.y += side * gFoldFlow * 0.4 * cos(zc - 0.7 * p.x);
@@ -239,11 +253,45 @@ vec3 foldBend(vec3 p) {
     return p;
 }
 
+/**
+ * Grow and layers (lib_grow) on one foldMap reading m at p: `spawn` is the map a slid copy reads and
+ * `child` the map in Fractal's child space (FOLD_AT reads each only while its param is on, else passes
+ * 1.0e9). Spawn's copy is the nearer where it is; Fractal's child, a third the size, grows within its
+ * shell round the fractal; the layers open the fractal round the eye (front) and down the way (back), the
+ * distance taken back to world units by the same scale foldQ read the map at. At the defaults m comes back
+ * as it went in.
+ */
+vec4 foldGrow(vec3 p, vec4 m, vec4 spawn, vec4 child) {
+    spawn.x = growClearEye(spawn.x, p, 0.5);
+    if (spawn.x < m.x) m = spawn;
+    float reach = growFractalReach(0.15);
+    if (reach > 0.0) {
+        child.x = growClearEye(growFractalChild(child.x / 3.0, m.x, reach), p, 0.5);
+        child.zw /= 3.0;
+        if (child.x < m.x) m = child;
+    }
+    m.x *= growOpen(p, 0.18);
+    return m;
+}
+
+/** Where the style's map is read for world point p: bent, and opened by the layers (q itself at rest). */
+vec3 foldQ(vec3 p) {
+    return growOpened(foldBend(p), growOpen(p, 0.18));
+}
+
+/**
+ * The style's foldMap at world point p, bent, and grown (foldGrow): lib_fold_at's foldAt, which each
+ * Fold march includes after the style's map. A macro, so the marches keep one name for it.
+ */
+#define FOLD_AT(p) foldAt(p)
+
 /** A corridor's eye, held where the air is. */
 vec3 foldEye(vec3 ro) {
     ro.z = mod(ro.z, FOLD_PERIOD);
     float r = length(ro.xy);
     if (r > gFoldBore) ro.xy *= gFoldBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 
@@ -265,20 +313,22 @@ float foldSeams(vec2 v, float w) {
 
 /**
  * A surface point lit: a lamp at the eye that falls off with distance, one key light, a rim on every edge
- * that turns away, the glowing seams, a gloss. `nor` is unit, m is foldMap there, occ its occlusion 0..1.
+ * that turns away, the glowing seams, a gloss. `nor` is unit, m is foldMap there, occ its occlusion 0..1,
+ * `keyLight` the key's light there 0..1 (lib_fold_shade's soft shadow), on the sun and the gloss alone. The
+ * hue moves with the orbit traps by Escape colour (lib_shade).
  */
-vec3 foldLit(vec3 nor, vec3 rd, float t, vec4 m, float occ) {
-    vec3 key = normalize(vec3(0.45, 0.8, -0.35));
+vec3 foldLit(vec3 nor, vec3 rd, float t, vec4 m, float occ, float keyLight) {
+    vec3 key = FOLD_KEY;
     float ndv = clamp(dot(nor, -rd), 0.0, 1.0);
     float rim = (1.0 - ndv) * (1.0 - ndv) * (1.0 - ndv);
-    float hue = gFoldTone + m.y + 0.3 * t / gFoldFar;
+    float hue = gFoldTone + m.y + 0.3 * t / gFoldFar + shadeEscape(shadeTrapPair(m.zw));
     float lamp = ndv / (1.0 + 0.08 * t * t);
-    float sun = clamp(dot(nor, key), 0.0, 1.0);
+    float sun = clamp(dot(nor, key), 0.0, 1.0) * keyLight;
     vec3 col = foldCol(hue) * (0.04 + 0.5 * lamp + 0.4 * sun) * (0.25 + 0.75 * occ);
     col += foldCol(hue + 0.45) * rim * (0.15 + 0.7 * occ);
     col += foldCol(hue + 0.25) * foldSeams(m.zw, foldWidth(t)) * gFoldBuild * gFoldSeam * (0.5 + 0.5 * occ);
     float gloss = clamp(dot(reflect(rd, nor), key), 0.0, 1.0);
-    col += foldCol(hue + 0.6) * pow(gloss, 24.0) * gFoldGloss;
+    col += foldCol(hue + 0.6) * pow(gloss, 24.0) * gFoldGloss * keyLight;
     return col;
 }
 
@@ -299,3 +349,6 @@ vec4 foldFinish(vec3 col, float exposure) {
     if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
     return vec4(col, 1.0);
 }
+
+// The depth layers round the style's form and its formulas (uFormula): see lib_layers.
+//#include lib_layers

@@ -30,7 +30,7 @@ out vec4 fragColor;
 // colonies carry the colour of the line that grew them, by the age and by the
 // height; new births glow at the palette's far side (BUILD). TONE moves the
 // position, Intensity and PULSE the emission (lib_field3d). Nothing here hears
-// a hit: the lows lift the relief and the mids turn it, through lib_field3d.
+// a hit: the lows lift the relief, through lib_field3d.
 //
 // Cost: lib_field3d's march (up to 110 steps of up to three field reads) and
 // five distances at the hit.
@@ -49,7 +49,9 @@ vec3 fieldGlow(vec4 f) {
 //#include lib_field3d_march
 
 void main() {
-    vec2 uv = view();
+    // Life's births (lib_grow): no field loop here to run them in, so each is the picture's middle again,
+    // small, at its spawn point; uv itself at Life 0.
+    vec2 uv = growBirths2(view());
     fieldSetup();
     vec3 ro;
     vec3 rd;

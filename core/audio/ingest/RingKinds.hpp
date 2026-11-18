@@ -23,12 +23,19 @@ struct RingSpec {
     bool perProcess;     // one for the process, never freed; else one per owner, freed by it
 };
 
+// The mic's ring: half a second at the capture rate.
+inline constexpr int kMicRingMs = 500;
+inline constexpr int kMicRingFrames = sound::budget::ringFrames(kMicRingMs, sound::budget::kCaptureRateHz);
+// The output mix's ring: its runway (a quarter of it) is the longest gap between captures the stitch fills.
+inline constexpr int kStitchGapMs = 170;
+inline constexpr int kMixRingFrames = 4 * sound::budget::ringFrames(kStitchGapMs, sound::budget::kCaptureRateHz);
+static_assert(kMicRingFrames == 1 << 15 && kMixRingFrames == 1 << 15, "a capture ring changed size");
+
 inline constexpr RingSpec kRingSpecs[kRingKinds] = {
     // Sized so a reader at the speaker is not overrun (sound/interp/SpeakerSync).
     {sound::interp::kPlayerRingFrames, 2, sound::interp::kPlayerRingRunway, false, true},
-    {1 << 15, 1, 0, false, true},
-    // Its runway (a quarter) is the longest gap between captures the stitch fills: 170 ms at 48 kHz.
-    {1 << 15, 2, 0, true, false},
+    {kMicRingFrames, 1, 0, false, true},
+    {kMixRingFrames, 2, 0, true, false},
 };
 
 inline const RingSpec* ringSpec(int kind) { return kind >= 0 && kind < kRingKinds ? &kRingSpecs[kind] : nullptr; }

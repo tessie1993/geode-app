@@ -61,13 +61,21 @@ object ArtworkCache {
         px: Int,
     ) = "$uri@$px"
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun load(
         context: Context,
         uri: String,
         px: Int = LARGE_PX,
     ): ImageBitmap? =
-        cache.get(key(uri, px)) {
-            withContext(decodeDispatcher) { MediaArtwork.decodeEmbedded(context, uri, px)?.asImageBitmap() }
+        // A decode that threw (lost grant, I/O error, out of memory) is not cached as "no picture", so it is tried again.
+        try {
+            cache.get(key(uri, px)) {
+                withContext(decodeDispatcher) { MediaArtwork.decodeEmbeddedOrThrow(context, uri, px)?.asImageBitmap() }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            null
         }
 
     fun peek(

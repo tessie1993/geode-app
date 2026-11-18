@@ -5,10 +5,9 @@
 #include <cstdint>
 #include <numbers>
 
-// The TouchDesigner half of the engine. TouchDesigner analyses audio time-sliced: each band is a filter
-// running over every sample (its Audio Filter CHOP, 4-pole), an envelope follows the filtered power
-// (Envelope CHOP), and once per frame the slice of samples since the last frame is reduced to one number
-// (Analyze CHOP), which then goes through Lag and Trigger. The filters see every sample as it is written,
+// The time-sliced half of the engine: each band is a filter running over every sample (4-pole), an envelope
+// follows the filtered power, and once per hop the slice of samples since the last hop is reduced to one
+// number, which then goes through Lag and Trigger. The filters see every sample as it is written,
 // so a hit lands on the frame it happened in, with none of a long FFT window's smear.
 namespace geode::sound {
 

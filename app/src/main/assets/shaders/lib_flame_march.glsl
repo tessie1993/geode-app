@@ -25,7 +25,8 @@ vec3 flameMarch(vec3 ro, vec3 rd) {
         vec2 f;
         vec2 hue;
         vec2 wt;
-        flameField(flameBend(ro + rd * t), f, hue, wt);
+        // Life's births (lib_grow): inside a birth's ball the one read is the birth's; ro + rd * t at Life 0.
+        flameField(flameBend(growBirthsAt(ro + rd * t)), f, hue, wt);
         vec2 a = flameAnti(f, w);
         // Short steps by the eye, longer ones in the distance.
         float stride = pace * max(pow(t / gFlameFar, 0.3333), 0.25);

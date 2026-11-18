@@ -12,6 +12,7 @@ out vec4 fragColor;
 #define VIEW_OWNS_SHAPE
 //#include lib_scene_uniforms
 //#include lib_camera
+//#include lib_shell
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_sdf3
@@ -56,9 +57,19 @@ out vec4 fragColor;
 // ---- knobs -----------------------------------------------------------------
 //
 // k0 PULSE the kick's thickening; k1 TEXTURE the ring density on the blades;
-// k2 FLOW extra radial winding; k3 TONE the hue; k4 BUILD the eye's glow;
-// k5 SPACE the width of the open core. All read as continuous offsets around
+// k2 FLOW extra radial winding; k3 TONE how the arms curl (a high melody
+// winds them into tight whorls round the eye, a low one straightens them into
+// long rifling; plus a small hue offset); k4 BUILD the eye's glow and the
+// blades' own thickness, so tension closes the vortex walls in around the
+// flight; k5 SPACE the width of the open core. All read as continuous offsets around
 // 0.5, never multiplying a clock, so a knob move never jumps the picture.
+// Every one of these, and the outer wall's radius and the fog (SPACE) and the
+// filament's width (BUILD), is one normalized input (lib_shell) set in one
+// block at the top of main and mapped there to its range; at rest each is the
+// constant the vortex was tuned with. The vanes are the field the grow hooks
+// act on (its shell wrapper): Spawn slides a second set of vanes along the flight,
+// Fractal grows vanes a third the size on the blades, the layers open the near
+// and far vortex.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -81,9 +92,11 @@ out vec4 fragColor;
 #define SP_KZ (SP_TAU * 3.0 / 16.0)
 /** Blade wobble along z: 1 period per 8 world units. */
 #define SP_KW (SP_TAU / 8.0)
+/** The outer wall's radius at rest (gSpOut: SPACE). */
 #define SP_OUT 5.6
 #define SP_BUBBLE 0.8
 #define SP_SHEET_CAP 0.9
+/** The fog at rest (SPACE). */
 #define SP_FOG 0.045
 
 float gSpArmsA;
@@ -94,6 +107,7 @@ float gSpTh;
 float gSpIn;
 float gSpTurb;
 float gSpSpin;
+float gSpOut;
 vec3 gSpEye;
 
 /** Signed distance to the blades of an `arms`-armed spiral at phase base, radius r. */
@@ -104,7 +118,8 @@ float spSheet(float ang, float base, float arms, float r, float wobGrad) {
     return (u - gSpTh) / g;
 }
 
-float map(vec3 w) {
+/** The vanes and the wall: the field the grow hooks act on (map() hands it to its shell wrapper). */
+float spiralField(vec3 w) {
     float r = max(length(w.xy), 1e-3);
     // atan(0, 0) is undefined in GLSL ES; the guard only matters on the axis,
     // deep in the open core where the max below makes the angle irrelevant.
@@ -119,9 +134,21 @@ float map(vec3 w) {
     // Blades only outside the core, with a rounded inner edge.
     d = smax(d, gSpIn - r, 0.25);
     // The outer tube wall.
-    d = min(d, SP_OUT - r);
-    d = max(d, SP_BUBBLE - length(w - gSpEye));
-    return d;
+    return min(d, gSpOut - r);
+}
+
+/** spiralField through lib_shell's hooks: exactly spiralField(p) at rest, and spiralField read once, in a loop the compiler cannot unroll. */
+float spiralFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, spiralField(shellAt3(i)));
+    }
+    return r;
+}
+
+float map(vec3 w) {
+    return max(spiralFieldGrown(w), SP_BUBBLE - length(w - gSpEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -144,17 +171,41 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop);
     float pitchBump = 4.0 * pitch * (1.0 - pitch);
 
+    // ---- the shape inputs (lib_shell): each 0..1, 0.5 the tuned look --------------------
+    float nPulse = shellKnob(0);                                   // PULSE    the kick's thickening
+    float nTexture = shellKnob(1);                                 // TEXTURE  ring density on the blades
+    float nFlow = shellKnob(2);                                    // FLOW     extra radial winding
+    float nTone = shellKnob(3);                                    // TONE     how the arms curl, the hue
+    float nBuild = shellKnob(4);                                   // BUILD    blade thickness, the eye's glow
+    float nSpace = shellKnob(5);                                   // SPACE    the core's and the wall's radius, fog
+    float nMorph = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);            // Morph    the arm count
+    float nWarp = 0.5 + 0.5 * clamp(uWarp, 0.0, 1.0);              // Warp     the arms curl harder
+    float nTurb = 0.5 + 0.5 * clamp(uTurbulence / 1.5, 0.0, 1.0);  // Turbulence the blades' wobble
+    float kickTh = shellMap(nPulse, 0.2, 0.45, 0.7);
+    float ringK = shellMap(nTexture, 5.0, 9.0, 13.0);
+    float windFlow = shellMap(nFlow, -1.0, 0.0, 1.0);
+    float windTone = shellMap(nTone, -2.0, 0.0, 2.0);
+    float hueTone = shellMap(nTone, -0.2, 0.0, 0.2);
+    float th = shellMap(nBuild, 0.189, 0.42, 0.651);
+    float eyeK = shellMap(nBuild, 0.6, 1.0, 1.4);
+    float filK = shellMap(nBuild, 3.6, 3.0, 2.4);
+    float coreR = shellMap(nSpace, 2.4, 2.8, 3.2);
+    gSpOut = shellMap(nSpace, 5.0, SP_OUT, 6.4);
+    float fogK = shellMap(nSpace, 0.06, SP_FOG, 0.03);
+    float morph = shellMap(nMorph, 0.0, 0.0, 1.0);
+    float windWarp = shellMap(nWarp, 0.0, 0.0, 3.0);
+    gSpTurb = shellMap(nTurb, 0.0, 0.0, 1.5);
+
     // Morph picks the arm count as the 2D style did (2 + floor(morph * 4)),
     // crossfading into the next count over the last fifth of each step.
-    float m = clamp(uMorph, 0.0, 1.0) * 4.0;
+    float m = morph * 4.0;
     float mf = floor(min(m, 3.999));
     gSpArmsA = 2.0 + mf;
     gSpArmsB = gSpArmsA + 1.0;
     gSpArmMix = smoothstep(0.8, 1.0, m - mf);
-    gSpWind = 2.5 + 3.0 * clamp(bass, 0.0, 1.2) + 3.0 * clamp(uWarp, 0.0, 2.0) + 2.0 * (uKnob[2] - 0.5);
-    gSpTh = 0.42 + (0.45 + 0.5 * (uKnob[0] - 0.5)) * kick;
-    gSpIn = 2.8 + 0.8 * (uKnob[5] - 0.5) + 0.9 * dropBump;
-    gSpTurb = clamp(uTurbulence, 0.0, 2.0);
+    gSpWind = max(2.5 + 3.0 * clamp(bass, 0.0, 1.2) + windWarp + windFlow + windTone, 0.3);
+    gSpTh = th + kickTh * kick;
+    gSpIn = coreR + 0.9 * dropBump;
     // The 2D arms' own spin, a plain multiple of uTime.
     gSpSpin = uTime * 1.8;
 
@@ -164,6 +215,8 @@ void main() {
     // Every z term tiles with a period dividing 16, so this rebase is exact.
     ro.z = mod(ro.z, SP_ZWRAP);
     gSpEye = ro;
+    // The layers are measured from the eye; a spawned set of vanes slides one unit along the flight.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     float t = 0.03;
     float hitT = -1.0;
@@ -182,7 +235,7 @@ void main() {
         t += max(d * 0.7, eps);
     }
 
-    float hue = 0.04 * sin(uTime * 0.02) + 0.5 * dropBump + 0.22 * pitchBump + (uKnob[3] - 0.5) * 0.4;
+    float hue = 0.04 * sin(uTime * 0.02) + 0.5 * dropBump + 0.22 * pitchBump + hueTone;
     float ahead = pow(max(rd.z, 0.0), 10.0);
     vec3 fogCol = pal(hue + 0.5) * (0.03 + 0.18 * ahead) + vec3(0.004, 0.003, 0.008);
     vec3 col = fogCol;
@@ -206,7 +259,6 @@ void main() {
         vec3 base = pal(ch);
         // Rings travelling inward along the blades toward the eye, sharpened
         // by the level exactly as the 2D arms were.
-        float ringK = 5.0 + 8.0 * uKnob[1];
         float v = 0.5 + 0.5 * sin(log(r) * ringK * 2.0 + uTime * 2.2);
         v = pow(v, 3.0 - clamp(level, 0.0, 1.0) * 1.6);
         vec3 surf = base * (0.08 + 0.55 * ndv) * ao
@@ -217,8 +269,8 @@ void main() {
         float edge = 1.0 - smoothstep(0.0, 0.45, r - gSpIn);
         surf += pal(ch + 0.5) * edge * (0.12 + 1.1 * snare);
         // The outer wall sits back in shadow so the blades read in front of it.
-        surf *= mix(1.0, 0.35, smoothstep(SP_OUT - 0.5, SP_OUT - 0.05, r));
-        col = mix(surf, fogCol, 1.0 - exp(-hitT * SP_FOG));
+        surf *= mix(1.0, 0.35, smoothstep(gSpOut - 0.5, gSpOut - 0.05, r));
+        col = mix(surf, fogCol, 1.0 - exp(-hitT * fogK));
     }
 
     // The eye: a glowing filament on the z axis, integrated analytically along
@@ -228,11 +280,11 @@ void main() {
     float s = max(length(rd.xy), 1e-4);
     float dPerp = abs(ro.x * rd.y - ro.y * rd.x) / s;
     float t0 = -dot(ro.xy, rd.xy) / (s * s);
-    float k = 3.0;
+    float k = filK;
     float along = min(1.7725 / (k * s), sceneT);
     float seen = smoothstep(-1.0, 1.0, t0 * s * k) * smoothstep(-1.0, 1.0, (sceneT - t0) * s * k);
     float fil = exp(-k * k * dPerp * dPerp) * along * seen;
-    float eyeGain = (0.12 + 0.6 * bass) * (0.6 + 0.8 * uKnob[4]);
+    float eyeGain = (0.12 + 0.6 * bass) * eyeK;
     vec3 eyeCol = mix(pal(hue + 0.5), vec3(1.0), 0.3);
     col += eyeCol * (1.0 - exp(-fil * eyeGain * 0.5)) * 0.9;
 

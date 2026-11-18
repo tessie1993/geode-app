@@ -110,8 +110,10 @@ class HistoryStore(
 
     private fun newestStamp(): Long = entries.values.maxOfOrNull { it.lastPlayedMs } ?: 0L
 
-    fun recentlyPlayed(limit: Int = 20): List<Entry> =
-        synchronized(lock) { entries.values.sortedByDescending { it.lastPlayedMs }.take(limit) }
+    fun recentlyPlayed(limit: Int = 20): List<Entry> = snapshot().sortedByDescending { it.lastPlayedMs }.take(limit)
+
+    // Copies, taken under the lock, so sorting and serialising happen outside it.
+    private fun snapshot(): List<Entry> = synchronized(lock) { entries.values.map { it.copy() } }
 
     fun entryFor(uri: String): Entry? = synchronized(lock) { entries[uri] }
 
@@ -128,18 +130,21 @@ class HistoryStore(
     private fun writeNow() {
         if (!readable) return
         runCatching {
+            // Cleared before the snapshot: a listen added after it sets the flag again and is not lost.
+            dirty = false
+            val all = snapshot()
             val text =
-                synchronized(lock) {
+                run {
                     val arr = JSONArray()
                     // Persist the union of the 200 most recent and the 200 most-played entries
                     // (deduped by uri) so a heavily played old track isn't dropped from disk even
                     // though the recency cut alone would.
                     val toPersist = LinkedHashMap<String, Entry>()
-                    entries.values
+                    all
                         .sortedByDescending { it.lastPlayedMs }
                         .take(200)
                         .forEach { toPersist[it.uri] = it }
-                    entries.values
+                    all
                         .filter { it.playCount > 0 }
                         .sortedWith(compareByDescending<Entry> { it.playCount }.thenByDescending { it.listenedMs })
                         .take(200)
@@ -157,8 +162,8 @@ class HistoryStore(
                     }
                     JSONObject().put("tracks", arr).toString()
                 }
-            if (AtomicWrite.text(file, text)) dirty = false
-        }
+            if (!AtomicWrite.text(file, text)) dirty = true
+        }.onFailure { dirty = true }
     }
 
     companion object {

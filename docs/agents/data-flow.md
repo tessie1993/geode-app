@@ -7,10 +7,8 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - ExoPlayer runs `MvzAudioProcessorChain` on its playback thread.
 - The `PcmTap` there comes first, before any DSP.
 - `NativeDspProcessor` sits after the tap and steps aside (inactive, not throwing) for formats its chain cannot run, such as 5.1 files; native decides which (`geode_dsp_runs`).
-- A capture of another app uses one `AudioCapturePump` worker thread.
+- A capture of another app is read on a native thread of its own (`core/audio/ingest/CapturePump`).
 - The mic has no JVM thread: a native input stream (`core/audio/ingest/MicInput`, Oboe) writes its ring from the audio callback.
-- The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
-- Mic and capture use one `AudioCapturePump` worker thread each.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, the process's player ring (`geode_pcm_ring_shared`, `core/audio/ingest/RingKinds`); stereo, what every sound engine hears.
 - The player's and the mic's rings are made on first use and never freed, so a surface or writer that outlives its session never reaches a freed ring.
 - The wallpaper's and dream's output-mix ring is made on the capture's first start and freed by `SoundSource.release` once its stage has closed.
@@ -28,7 +26,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - `SpeakerSync` reads the process's one playout clock, `PlaybackEngine.playout`, which `audio/PlayoutSink` reports the sink to.
 - The mic, a capture and a cast read the newest sample instead.
 - Cast's sound reads the player's ring through its own native cursor, resamples, holds and pads it to each frame's cut (`core/output/CastAudioPump`, `geode_cast_audio_*`); `CastStream` only hands each block to the encoders.
-- There is no analysis thread: every renderer's own `core/sound` engine hears the ring on its GL thread through its own native cursor (`geode_viz_feed_ring`).
+- Live, one analysis thread per ring (`core/sound/hop/AnalysisThread`) hears it through its own native cursor and publishes each hop (`core/sound/hop/SharedAnalysis.hpp`); an export's engine hears its track inline.
 - The cursor resets the engine on a new epoch (a tap flush, a source switch).
 
 ## 3. Render
@@ -47,18 +45,30 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The hand mask is `hand::` in `core/viz/Reactions`; `mergeHand` and the Music page's edits are in `core/viz/ReactionDna`; `LfoStore.pushHand` pushes it process-wide (`geode_hand_set`).
 - The hand mask to push on load is native's (`geode_mod_hand_load`, `core/api/geode_modulation_api.cpp`): 0 with no routes, `HAND_ALL` for routes saved without a mask, -1 for unreadable routes, which `LfoStore` then deletes.
 - The style's DNA is built natively by `core/viz/ReactionDna`: a personality for each side of the groove plus layers, each drawing its source from the sound frame.
-- DNA draws from the 121 reaction sources (`ReactSource` in `core/viz/Reactions`), one per `GeodeSoundFrame` value.
+- DNA draws from the 155 reaction sources (`ReactSource` in `core/viz/Reactions`): one per `GeodeSoundFrame` value, then sources `ReactSignals` derives from the frame and the director's feeling.
+- The derived sources are the bar counts (hold, pulse, flip on every 1, 2, 4 bars and every phrase, from Rhythm's downbeats only), the melody contour, note and presence, the degree accent, valence, felt tension and the tension's rise.
+- The derived sources also include the felt energy, the key's character (`KEY_SHARPNESS`), the kind of feeling (the leading GEMS kind, held until another clearly leads) and five kinds' shares (wonder, peace, power, joy, sadness).
+- The derived sources also include the song part as six states (`IN_INTRO` … `IN_OUTRO`, from Form's `sectionState`).
+- `SECTION_RETURN` fires when Form names a new section with the number of one heard before.
+- `SECTION_PROGRESS` runs 0..1 through a section against how long the song's sections have run so far (16 bars until one has ended), holding at 1 past it.
+- `CHORD_MOTION` is how fast `chordHue` moves round the circle of fifths, eased over 1.5 s; a quarter of the circle a second reads 1.
+- The resolver hands the reaction matrix the Emotion state the director heard (`ReactionEngine::tick`'s `feeling`).
 - A renderer is handed the user's saved routes (`geode_viz_set_reactions`), reads the hand mask itself before each render, and resolves what plays from those, the style and `reactSeed`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
-- DNA draws from the 121 `ReactSource`s, one per `GeodeSoundFrame` value.
-- Every style's DNA ends on one route from the transient detector (`Transient` or `TransientEnv`), drawn last so the routes before it keep their draws.
+- DNA draws from the 155 `ReactSource`s.
+- Every style's groove ends on one route from the transient detector (`Transient` or `TransientEnv`).
+- Every style's groove starts on the drums: the kick side hears `KICK`, `KICK_2` or `KICK_ENV`, the snare side `SNARE`, `SNARE_2`, `SNARE_ENV` or `HAT` (`viz_math_test` pins it per catalogue style).
+- No pulse personality turns the picture: the kick or snare side moves a target every style reads, never a rotation.
+- After the groove every style's DNA has four musical routes: the bars, the tune, harmony and form, feel and timbre (`viz_math_test` pins each).
+- No default route's continuous source is the absolute loudness (`Level`, `Loudness`, `Vol`, `VolAtt`, `Intensity`), nor the felt energy, which carries it.
+- The DNA's harmony-and-form layer is harmony for half the styles (chords, their motion, tension, key, scale tension) and form for the other half (sections, their return and progress, the song part, builds, drops, novelty).
+- The DNA's feel layer can draw the key's character, the kind of feeling or its wonder, beside the mood, the felt tension and the scale's brightness.
+- The groove fills at most `StyleDna::kGrooveRoutes` (8, plus one for a zoom personality's beat zoom); the DNA at most `kMaxRoutes` (13 of the matrix's 16).
 - A DNA already at its cap gives the transient route the slot of its last-drawn layer.
-- DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
-- Each frame the GL thread has the native renderer take the ring's new PCM (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) into its own `core/sound` engine.
-- The engine analyses every 10 ms of samples inside `write`; `beginFrame` only reads.
+- The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every 10 ms of samples; `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).
@@ -83,7 +93,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Frames go through `EncoderSurface` (EGL on the export thread) into MediaCodec and MediaMuxer.
 - Exports write MediaStore rows with `IS_PENDING` set.
 - The one-tap Render (`ExportController.startExport`) is one visual over the song or a part of it, straight through `VideoExporter` under `ExportRun` + `ExportService`.
-- The Studio project render, its plan, Transformer composition and clip effects went with video editing (ADR 0007, #999 F7).
+- The Studio project render, its plan, Transformer composition and clip effects went with video editing (#999 F7).
 
 ## 5. Persistence
 

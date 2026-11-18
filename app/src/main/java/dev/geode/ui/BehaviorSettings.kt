@@ -29,6 +29,7 @@ import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
+import dev.geode.engine.bridge.TouchNative
 import dev.geode.geodeContainer
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
@@ -385,33 +386,17 @@ private fun bestEffortStart(
 }
 
 /**
- * The actions a gesture can take: a sideways swipe steps through something (a style, a preset or
- * the playlist's look); a two-finger drag and a pinch move over the visual; the taps, the other swipes, the
- * hold and the swirl each open or do one thing. Its current action always stays on the list, so a
- * choice made elsewhere is never hidden.
+ * The actions a gesture can take, as native lists them (`core/viz/GestureMap`): which suit which
+ * gesture, with its current action always kept, so a choice made elsewhere is never hidden.
  */
 private fun gestureChoices(
     gesture: CanvasGesture,
     current: GestureAction,
 ): List<GestureAction> {
-    val suited =
-        when (gesture) {
-            CanvasGesture.SWIPE_SIDEWAYS -> listOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
-            CanvasGesture.TWO_FINGER_DRAG, CanvasGesture.PINCH_TWIST -> listOf(GestureAction.TOUCH_PLAY)
-            else -> ONE_SHOT_ACTIONS
-        }
-    return (suited + GestureAction.OFF).let { if (current in it) it else listOf(current) + it }
+    val out = IntArray(TouchNative.GESTURE_MAX_CHOICES)
+    val count = TouchNative.gestureChoices(gesture.ordinal, current.ordinal, out).coerceAtMost(out.size)
+    return List(count) { GestureAction.entries[out[it]] }
 }
-
-private val ONE_SHOT_ACTIONS =
-    listOf(
-        GestureAction.SHOW_MINI_PLAYER,
-        GestureAction.TOGGLE_SHEET,
-        GestureAction.MACROS,
-        GestureAction.RECORD,
-        GestureAction.RANDOMIZE_ALL,
-        GestureAction.PLAY_PAUSE,
-    )
 
 @StringRes
 private fun gestureLabel(gesture: CanvasGesture): Int =

@@ -126,6 +126,18 @@ android {
             val fakeBilling = (findProperty("muzviz.fakeBilling") as String?)?.toBoolean() ?: true
             buildConfigField("boolean", "USE_FAKE_BILLING", fakeBilling.toString())
         }
+        // The APK ship-apk.yml hands out (#1214): release in everything that decides speed (R8,
+        // resource shrinking, not debuggable, so ART compiles it and installs the baseline
+        // profile), but signed with the committed debug key, never the Play upload key. It keeps
+        // the debug build's application id, so it installs beside a Play copy and over the debug
+        // pre-releases shipped before it, keeping their data. Play does not know that id, so
+        // it bills against FakeBillingRepository like the debug build.
+        create("sideload") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "USE_FAKE_BILLING", "true")
+        }
     }
 
     // Builds libgeode.so and libprojectM-4.so from the root CMakeLists.txt; liboboe.so comes prebuilt
@@ -248,14 +260,11 @@ fun maxLoadAlignment(bytes: ByteArray): Long {
     return max
 }
 
-listOf("assembleRelease", "bundleRelease").forEach { name ->
+listOf("assembleRelease", "bundleRelease", "assembleSideload").forEach { name ->
     tasks.matching { it.name == name }.configureEach { finalizedBy(checkNativePageAlignment) }
 }
 
 dependencies {
-    // What the removed :engine:runtime aggregator re-exported to :app via api(...).
-    implementation(project(":engine:scenes"))
-
     implementation(libs.core.splashscreen)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.common)

@@ -23,8 +23,8 @@ out vec4 fragColor;
 // one per 4-unit cell (the z key wraps at 64 cells, so the lattice repeats
 // every 256 units and the rig's 8192 travel wrap is seamless), turned and
 // nudged by a cell hash so the lattice never reads as a grid. The signal
-// sparks read the fold's own depth record (gArbLevel + gArbAlong) and branch
-// id (gArbPath): a spark is a window of that depth sliding outward, and only
+// sparks read the fold's own depth record (its level + along) and branch
+// id (the hit's path): a spark is a window of that depth sliding outward, and only
 // some branches carry one.
 //
 // ---- audio ------------------------------------------------------------------
@@ -57,15 +57,14 @@ float gGrow;
 float gSoma;
 float gChaos;
 vec3 gEye;
-float gIsSoma;
-float gCellH;
 
 /** The octant's diagonal onto +y, as an orthonormal frame (rows). */
 const vec3 SY_E1 = vec3(0.70710678, -0.70710678, 0.0);
 const vec3 SY_N = vec3(0.57735027, 0.57735027, 0.57735027);
 const vec3 SY_E2 = vec3(0.40824829, 0.40824829, -0.81649658);
 
-float map(vec3 p) {
+/** The world: a neuron to a cell. mat.x is the soma share (0 dendrite, 1 soma), mat.y the cell's hash. */
+ArborHit arborMap(vec3 p) {
     vec3 c = floor(p / SY_CELL + 0.5);
     ivec3 key = ivec3(int(c.x), int(c.y), int(mod(c.z, 64.0)));
     float h = hashCell(key);
@@ -79,18 +78,16 @@ float map(vec3 p) {
     ArborForm f = gF;
     f.tilt += (h - 0.5) * 0.3 * gChaos;
     f.twist += (fract(h * 7.1) - 0.5) * 1.5 * gChaos;
-    float tree = arborTree(b, f, gGrow);
+    ArborHit hit = arborTree(b, f, gGrow);
+    float tree = hit.d;
     float d = smin(soma, tree, 0.12);
-    gIsSoma = smoothstep(0.05, -0.05, soma - tree);
-    gCellH = h;
-    return smax(d, 0.6 - length(p - gEye), 0.3);
+    hit.mat.x = smoothstep(0.05, -0.05, soma - tree);
+    hit.mat.y = h;
+    hit.d = smax(d, 0.6 - length(p - gEye), 0.3);
+    return hit;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_arbor_field
 
 /** A spark sliding outward along the dendrite, on some branches only. */
 float spark(float level, float along, float path, float cellH, float phase) {
@@ -102,12 +99,14 @@ float spark(float level, float along, float path, float cellH, float phase) {
 
 void main() {
     vec2 uv = arbView();
-    float kPulse = arbKnob(0);
-    float kTexture = arbKnob(1);
-    float kFlow = arbKnob(2);
-    float kTone = arbKnob(3);
-    float kBuild = arbKnob(4);
-    float kSpace = arbKnob(5);
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    gChaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float somaR = arbSpan(N.density, 0.26, 0.2, 0.32);
+    float reach = arbSpan(N.reach, 1.0, 0.8, 1.2);
+    float glowK = arbSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = arbSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = arbSpan(N.tone, 0.0, -0.3, 0.3);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
@@ -116,17 +115,16 @@ void main() {
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
     float phase = uFlowTime * 0.6;
 
-    gChaos = max(arbChaos() + 0.5 * kFlow, 0.0);
     gGrow = arbLevels(5.0, 1.0);
-    gSoma = 0.26 + 0.10 * dropBump;
-    gF = ArborForm(3.0, 0.52, arbMidBow(), 0.55 + 0.45 * flux + 0.6 * uTwist, 0.64, 0.70, 0.07 * (1.0 + 0.5 * kTexture), 0.64);
+    gSoma = somaR + 0.10 * dropBump;
+    gF = arborShape(ArborForm(3.0, 0.52, arbMidBow(), 0.55 + 0.45 * flux, 0.64, 0.70, 0.07, 0.64), N);
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
 
-    float hue = 0.62 + 0.002 * t + 0.6 * kTone;
+    float hue = 0.62 + 0.002 * t + hueShift;
     vec3 voidCol = pal(hue) * 0.025 + vec3(0.002, 0.003, 0.008);
 
     float tm = 0.05;
@@ -143,27 +141,28 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > SY_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        ArborHit h = arborField(ro + rd * tm);
+        float d = h.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
-            isSoma = gIsSoma;
-            level = gArbLevel;
-            along = gArbAlong;
-            path = gArbPath;
-            cellH = gCellH;
+            isSoma = h.mat.x;
+            level = h.level;
+            along = h.along;
+            path = h.path;
+            cellH = h.mat.y;
             break;
         }
         float near = exp(-d * 14.0);
-        glow += sparkCol * spark(gArbLevel, gArbAlong, gArbPath, gCellH, phase) * near * 0.03 * (1.0 - gIsSoma);
-        glow += pal(hue + 0.15) * gIsSoma * exp(-d * 5.0) * 0.006;
+        glow += sparkCol * spark(h.level, h.along, h.path, h.mat.y, phase) * near * 0.03 * (1.0 - h.mat.x);
+        glow += pal(hue + 0.15) * h.mat.x * exp(-d * 5.0) * 0.006;
         tm += d * 0.8;
     }
 
     vec3 col = voidCol;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, 0.001 * hitT + 0.0005);
+        vec3 n = arborNormal(p, 0.001 * hitT + 0.0005);
         vec3 lit = arbLight(n, rd, -rd, 0.0, 20.0);
         float ao = arbStepAO(used, uSteps);
         vec3 membrane = pal(hue + 0.05 * cellH);
@@ -172,13 +171,13 @@ void main() {
         vec3 core = mix(pal(hue + 0.15), vec3(1.0, 0.9, 0.95), 0.3);
         col = mix(col, core * (0.35 + 0.5 * (1.0 - lit.y)), isSoma);
         col += sparkCol * spark(level, along, path, cellH, phase) * (1.0 - isSoma) * 1.2;
-        col = mix(col, voidCol, 1.0 - exp(-hitT * 0.14 / (1.0 + 0.4 * kSpace)));
+        col = mix(col, voidCol, 1.0 - exp(-hitT * 0.14 / reach));
     }
-    col += glow * (0.8 + 0.3 * swell) * (1.0 + kBuild);
+    col += glow * (0.8 + 0.3 * swell) * glowK;
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
     // k0 PULSE: the emission, as lib_flame's finish.
-    col *= 1.0 + 0.5 * kPulse;
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

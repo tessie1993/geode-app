@@ -8,16 +8,16 @@
 # ---------------------------------------------------------------------------
 # JNI bridge to libgeode.so
 # ---------------------------------------------------------------------------
-# geode_jni.cpp and geode_viz_jni.cpp use static symbol registration
-# (Java_dev_geode_engine_bridge_GeodeNative_*), so both the class name and the
+# The geode_*jni.cpp files use static symbol registration
+# (Java_dev_geode_engine_bridge_<X>Native_*), so both the class name and the
 # method names have to survive minification exactly.
--keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.GeodeNative {
+-keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.*Native {
     native <methods>;
 }
 # Anything else that grows a native method later is covered by the default
 # file's own -keepclasseswithmembernames rule. No native code calls back into
 # Kotlin (no FindClass/GetMethodID in app/src/main/cpp or core), so nothing
-# else in GeodeNative needs keeping.
+# else in the *Native objects needs keeping.
 
 # ---------------------------------------------------------------------------
 # Media3 / ExoPlayer
@@ -45,17 +45,6 @@
 # obfuscating names; the mapping file is uploaded to Play alongside the AAB.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
-
-# ---------------------------------------------------------------------------
-# SceneParams reflection (the native wire codec)
-# ---------------------------------------------------------------------------
-# SceneParamsCodec finds SceneParams' fields BY NAME (declaredFields filtered
-# against the native layout's names) to pack and unpack the wire buffer. With
-# the fields renamed by R8, no name matches and every param reads its default,
-# in release builds only, invisible to the JVM test suite. Keeping the NAMES
-# (not the members wholesale) costs no shrinking: the fields are all live. Only
-# instance fields: the layout's NAMES never hold a static one.
--keepclassmembernames class dev.geode.render.scene.SceneParams { !static <fields>; }
 
 # ---------------------------------------------------------------------------
 # Glance widget

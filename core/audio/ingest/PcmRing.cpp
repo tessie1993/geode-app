@@ -137,6 +137,7 @@ PcmRing::Written PcmRing::put(const unsigned char* data, int frames, int sourceC
         }
         out.frames += block;
     }
+    if (RingListener* listener = listener_.load(std::memory_order_acquire)) listener->ringWritten();
     return out;
 }
 

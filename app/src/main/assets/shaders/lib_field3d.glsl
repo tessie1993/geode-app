@@ -22,7 +22,7 @@
 //   Morph       gFieldForm    folds every finer copy toward a ridge, and lets it push the next
 //   Warp        gFieldFlow    bends where the field is read along the surface (and k2)
 //   Turbulence  gFieldChaos   how loud the finer copies are
-//   Detail      uSteps        the step budget, and with it how many copies (one on a hot phone)
+//   Detail      uSteps        the step budget, and with it how many copies (one at the lowest budgets)
 //   Intensity   neonGlow()    the emission
 //   Kaleidoscope, Twist, Tile and Ripple bend the SHAPE, not the finished picture: the terrain is
 //   folded into wedges and twisted about the eye's place on the ground, an object about its own axis,
@@ -36,10 +36,11 @@
 // THE SOUND, on the motion only, never on a colour, a brightness or a beat (lib_opal's rule):
 //
 //   gFieldSwell  the low band, sndShaped(SND_LOW), lifts the relief while the lows hold
-//   gFieldTurn   the mid band, sndShaped(SND_MIDDLE), turns an object about its axis and winds the
-//                terrain's twist, easing back as the mids fall
 //
-// Both are times SND_DRIVE (how MUCH follows the music's absolute magnitude). What moves on a hit is
+// No sound band turns an object or winds the terrain's twist (owner 2026-11-12, no style spins to
+// the music): Twist alone does.
+//
+// It is times SND_DRIVE (how MUCH follows the music's absolute magnitude). What moves on a hit is
 // the reaction matrix, through the params above. uTime stops in silence and SND_DRIVE falls to 0, so
 // the present comes to rest with the field.
 //
@@ -57,7 +58,7 @@
 #define FIELD_TORUS 1
 #define FIELD_SPHERE 2
 #define FIELD_MAX_STEPS 110
-/** uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on this loop. */
+/** uSteps (64..128 by Detail, 102 at its default, less at a lower march scale) on this loop. */
 #define FIELD_STEPS (min(uSteps * 0.85, float(FIELD_MAX_STEPS)))
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define FIELD_RATE(k) (FIELD_TAU * float(k) / 7100.0)
@@ -87,9 +88,8 @@ float gFieldChaos;
 /** How many copies of the field make its height, 1..3 (fractional: the last one fades in). */
 float gFieldOctaves;
 float gFieldGain;
-/** The low band's lift and the mid band's turn (see the header). */
+/** The low band's lift (see the header). */
 float gFieldSwell;
-float gFieldTurn;
 float gFieldRelief;
 float gFieldRipple;
 float gFieldFolds;
@@ -124,13 +124,12 @@ void fieldSetup() {
     gFieldForm = neonForm();
     gFieldFlow = clamp(neonFlow() + 0.5 * neonKnob(2), 0.0, 1.0);
     gFieldChaos = neonChaos();
-    // Detail and the hot-phone cut reach the copies through the step budget: one at its floor, all three from 96 steps.
+    // Detail and the march scale reach the copies through the step budget: one at its floor, all three from 96 steps.
     gFieldOctaves = 1.0 + 2.0 * clamp((uSteps - 32.0) / 64.0, 0.0, 1.0);
     gFieldGain = 0.3 + 0.4 * gFieldChaos;
     // The sound (see the header): the absolute drive sets how much, the band only the shape.
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
     gFieldSwell = sndShaped(SND_LOW) * drive;
-    gFieldTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     // Up to 1.45 of the relief, and the ripple a quarter more: within the ceiling FieldGeometry keeps the eye above.
     gFieldRelief = uFieldShape.z * (1.0 + 0.3 * gFieldSwell);
     gFieldRipple = 0.25 * uFieldShape.z * clamp(uRipple, 0.0, 1.0);
@@ -180,15 +179,15 @@ vec2 fieldFold(vec2 c, float n) {
     return vec2(cos(a), sin(a)) * r;
 }
 
-/** Kaleidoscope and Twist (and the mids' turn) on space: the terrain about the eye's place on the ground, an object about its axis. */
+/** Kaleidoscope and Twist on space: the terrain about the eye's place on the ground, an object about its axis. */
 vec3 fieldBend(vec3 p) {
     if (gFieldSurface == FIELD_TERRAIN) {
         vec2 c = p.xz - gFieldEye.xz;
         if (gFieldFolds >= 2.0) c = fieldFold(c, gFieldFolds);
-        c = fieldRot((gFieldTwist + 0.1 * gFieldTurn) * length(c)) * c;
+        c = fieldRot(gFieldTwist * length(c)) * c;
         p.xz = gFieldEye.xz + c;
     } else {
-        p.xz = fieldRot(gFieldTwist * p.y + gFieldTurn) * p.xz;
+        p.xz = fieldRot(gFieldTwist * p.y) * p.xz;
         if (gFieldFolds >= 2.0) p.xz = fieldFold(p.xz, gFieldFolds);
     }
     return p;

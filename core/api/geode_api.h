@@ -20,7 +20,7 @@ typedef struct geode_pcm_ring geode_pcm_ring;   /* the audio ring (declared agai
 #define GEODE_LFO_CONFIG_FLOATS 11  /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free),
                                        knob (the macro knob's id a MACRO target turns; 0 none), moment (-1 free, else the Moment that restarts it) */
 #define GEODE_ADSR_SLOTS 2
-#define GEODE_REACT_ROUTES 12
+#define GEODE_REACT_ROUTES 16
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
 #define GEODE_ADSR_CONFIG_FLOATS 12 /* enabled, attack, decay, sustain, release, amount, band, gate_threshold,
                                        sustain_track, retrigger, knob (as the LFO's), moment (-1 a note start, else the
@@ -63,18 +63,75 @@ GEODE_API void        geode_director_reach_set(int level);
 /* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
  * geode_params_randomize takes). Null or "" keeps nothing. */
 GEODE_API void        geode_director_keep_set(const char* keys);
+/* The Auto Director's settings (core/viz/DirectorTuning): every number it tunes itself by, as a table native
+ * lists. The shell stores the text native gives it and draws the rows as given. set: process-wide like
+ * geode_director_set and pinned with it by an export (null or "" is every default). count: the rows; label,
+ * help: row i's, static ("" outside the table); range: writes min, max, step (0 continuous) and 1 for a
+ * switch (an on/off row) or 0 into out, returns 0 outside the table; value: row i in a saved text; value_text:
+ * as the page shows it; with: the saved text with row i set to value, held to its range. The returned
+ * texts are valid until this thread's next tuning call. */
+GEODE_API void        geode_director_tuning_set(const char* text);
+GEODE_API int         geode_director_tuning_count(void);
+GEODE_API const char* geode_director_tuning_label(int index);
+GEODE_API const char* geode_director_tuning_help(int index);
+GEODE_API int         geode_director_tuning_range(int index, float* out4);
+GEODE_API float       geode_director_tuning_value(const char* text, int index);
+GEODE_API const char* geode_director_tuning_value_text(const char* text, int index);
+GEODE_API const char* geode_director_tuning_with(const char* text, int index, float value);
+/* Auto's pick at a director moment or a timer tick (core/viz/DirectorStyle, core/viz/AutoDraw): ids is the
+ * shell's pool, one style id a line in its order (a saved look or a .milk preset by its style's id);
+ * on_screen the entry showing (-1 none). With director_moment, the style the moment's director asks for: a
+ * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
+ * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
+GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
  * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
-/* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like
- * geode_director_set, so live, export, the wallpaper and the dream all draw it. "" (or null) = no layer; mix
- * 0..1; blend_mode is an index into geode_layer_blend_names. An export pins the layer it started with
- * (geode_viz_set_offscreen). */
-GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend_mode);
-/* The blends a layer takes (core/viz/VisualSafety), in blend_mode order, each label followed by '\n'. Static. */
-#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on */
-GEODE_API const char* geode_layer_blend_names(void);
+/* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
+ * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. Native keeps the
+ * layer; the shell only saves the line edit hands back ("layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|
+ * <mix>") and hands it to set at the next start. Where its style comes from (GEODE_LAYER_SOURCE_USER, the user's
+ * pick or one native picks to suit the style on screen; _DIRECTOR, Auto Director's pick at its style moments;
+ * _MACRO, a knob's turn) is turned into a style by each renderer.
+ * set: the saved line (any other text is the default layer, off); every renderer draws it from its next frame,
+ *   and an export pins the layer it started with (geode_viz_set_offscreen).
+ * edit: one field of the layer changed, `field` GEODE_LAYER_ON..GEODE_LAYER_STYLE: ON 0/1, SOURCE a
+ *   GEODE_LAYER_SOURCE_*, KNOB a place in the KNOBS list, BLEND a place in the BLENDS list (Screen,
+ *   GEODE_LAYER_BLEND_DEFAULT, for a new layer), MIX 0..1, STYLE `style_id` ("" for native's pick). Returns the
+ *   line to save, "" when nothing changed.
+ * values: what Customize › Layers draws over active_style, out[GEODE_LAYER_VALUES] by GEODE_LAYER_*: ON, SOURCE,
+ *   KNOB, BLEND and MIX as edit takes them; FAMILY the style picker's family, a place in the FAMILIES list (`family`
+ *   as the page holds it, or -1 for the one holding the style drawn now); STYLE the picked style's place in that
+ *   family's STYLES (-1 none); PICKED 1 when the user picked a style. Returns the count written, 0 when it cannot.
+ * list: a GEODE_LAYER_LIST_* list over active_style, each entry followed by '\n': the sources' labels, the blends'
+ *   labels, the Styles page families with a style other than active_style (by name), `family`'s styles but
+ *   active_style (by id; `family` as values takes it), the knobs on screen (by name).
+ * shown: the style the layer draws now over active_style, "" for none.
+ * The returned texts are valid until this thread's next layer call. */
+#define GEODE_LAYER_ON 0
+#define GEODE_LAYER_SOURCE 1
+#define GEODE_LAYER_KNOB 2
+#define GEODE_LAYER_BLEND 3
+#define GEODE_LAYER_MIX 4
+#define GEODE_LAYER_STYLE 5
+#define GEODE_LAYER_FAMILY 6
+#define GEODE_LAYER_PICKED 7
+#define GEODE_LAYER_VALUES 8
+#define GEODE_LAYER_SOURCE_USER 0
+#define GEODE_LAYER_SOURCE_DIRECTOR 1
+#define GEODE_LAYER_SOURCE_MACRO 2
+#define GEODE_LAYER_LIST_SOURCES 0
+#define GEODE_LAYER_LIST_BLENDS 1
+#define GEODE_LAYER_LIST_FAMILIES 2
+#define GEODE_LAYER_LIST_STYLES 3
+#define GEODE_LAYER_LIST_KNOBS 4
+#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on (core/viz/VisualSafety) */
+GEODE_API void        geode_layer_set(const char* layer);
+GEODE_API const char* geode_layer_edit(int field, float value, const char* style_id);
+GEODE_API int         geode_layer_values(const char* active_style, int family, float* out, int capacity);
+GEODE_API const char* geode_layer_list(int list, const char* active_style, int family);
+GEODE_API const char* geode_layer_shown(const char* active_style);
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
@@ -130,19 +187,19 @@ typedef struct geode_viz_look {
 /* Any thread. Only the parts that differ from the look set last on this renderer reach it (all of them on a new
    renderer), so a transition or a scene set again restarts nothing. The scene is a request, as above. */
 GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
-/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n". Static. */
+/* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n", then the
+   shell's visual defaults a line each: attack, decay, style timer s, playlist interval s, preset morph max s.
+   Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
-   changed, and again on a new surface): scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0
-   simplify, 1 full, 2 pause (liquid::HotPolicy). Never set, the renderer keeps full quality (an export). */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive,
-                                            int liquid_hot_policy);
+   changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
+   quality (an export). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
-   only a fixed rate paces it, Cast's) to the thermal step; the latched quality; a new surface's first frame
-   cleared to black and nothing else; on the frame that wins the process's thermal slot, the platform's
-   headroom asked natively; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
+   only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
+   cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
    hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
    Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
@@ -152,8 +209,7 @@ GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, floa
 #define GEODE_FRAME_DIRECTOR_MOMENT 0x20 /* director moments wait: geode_viz_take_director_style_moments */
 #define GEODE_FRAME_STILL_READY     0x40 /* the still asked for is ready: geode_viz_still_size / _read */
 GEODE_API int         geode_viz_frame(geode_viz*, const geode_pcm_ring* ring, float paced_fps, float cap_fps);
-/* What Liquid mode ran when a frame last said GEODE_FRAME_LIQUID_CHANGED: 0 off, 1 full, 2 lite, 3 warp,
-   4 paused (liquid::Mode). Any thread. */
+/* What Liquid mode ran when a frame last said GEODE_FRAME_LIQUID_CHANGED: 0 off, 1 full (liquid::Mode). Any thread. */
 GEODE_API int         geode_viz_liquid_mode(geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
@@ -295,6 +351,10 @@ GEODE_API int        geode_dsp_configure(geode_dsp*, int sample_rate, int channe
 /* 1 when the chain runs a format: `encoding` 16-bit or float (numbered as Android's ENCODING_PCM_*, see
  * GEODE_PCM_S16), 1 or 2 channels. 0 for any other; the shell then steps aside and the track passes through. */
 GEODE_API int        geode_dsp_runs(int encoding, int channels);
+/* The shell's configure: geode_dsp_configure for a format geode_dsp_runs takes, else pass-through staged so the
+ * next flush never leaves the old format's chain live. 1 when the chain runs it; 0 (and for a NULL dsp) when the
+ * shell's processor steps aside. */
+GEODE_API int        geode_dsp_configure_input(geode_dsp*, int encoding, int sample_rate, int channels);
 GEODE_API void       geode_dsp_flush(geode_dsp*);                              /* commits, then clears filter state */
 GEODE_API float      geode_dsp_band_center_hz(int band);
 /* The built-in equalizer curves (audio/dsp/EqPresets). The settings store a curve by its index, so the order
@@ -345,6 +405,12 @@ GEODE_API int        geode_playback_crossfade_ms(float seconds);
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
 
+/* The A-B loop (audio/dsp/PlaybackControls), -1 for a point not set. cycle: A-B pressed at at_ms, out2 = the new
+ * start and end (none set marks A; A alone and more than 1 s past it marks B, else moves A; both set clears).
+ * seek: the ms to seek to at position_ms (A once B is reached), or -1. Pure, any thread. */
+GEODE_API void       geode_ab_loop_cycle(int64_t start_ms, int64_t end_ms, int64_t at_ms, int64_t* out2);
+GEODE_API int64_t    geode_ab_loop_seek(int64_t start_ms, int64_t end_ms, int64_t position_ms);
+
 /* Which track positions are remembered (audio/dsp/TrackBookmark). Pure, any thread. Verdict: 0 ignore (a track
  * under 20 minutes, or of unknown length), 1 clear (within 10 s of either end), 2 save this position. */
 GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);
@@ -358,6 +424,8 @@ GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
 #define GEODE_DSP_SILENCE_DB (-80.0f)
 /* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
 GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The shell's UI fade: to full level (0 dB) when audible, else to silence, over ms. */
+GEODE_API void       geode_dsp_ramp_audible(geode_dsp*, int audible, int ms);
 /* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
  * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
 GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
@@ -365,6 +433,10 @@ GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
  * track that followed on. A skip, seek or pick starts at full level. */
 GEODE_API void       geode_dsp_set_crossfade(geode_dsp*, int ms);
 GEODE_API void       geode_dsp_set_follows_on(geode_dsp*, int follows_on);  /* a next item, or repeat one */
+/* The player's queue as it stands: something follows on when there is a next item or repeat_mode is
+ * GEODE_REPEAT_ONE (numbered as Media3's Player.REPEAT_MODE_*). */
+#define GEODE_REPEAT_ONE 1
+GEODE_API void       geode_dsp_set_up_next(geode_dsp*, int has_next, int repeat_mode);
 GEODE_API void       geode_dsp_set_speed(geode_dsp*, float speed);          /* what Sonic plays at, upstream */
 /* ReplayGain. mode: 0 off, 1 track, 2 album; clip_guard keeps the tagged peak below full scale. */
 GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, int mode, float preamp_db, int clip_guard);
@@ -391,6 +463,10 @@ GEODE_API void       geode_dsp_process_pcm16(geode_dsp*, int16_t* interleaved, s
  * Any other encoding, or no channels, returns all of `bytes` untouched; a NULL dsp or pcm runs nothing but
  * still answers (capacity then unused). 0 for bytes <= 0. */
 GEODE_API int        geode_dsp_process_bytes(geode_dsp*, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels);
+/* The shell's queued block: copies `in_bytes` of `in` (held to out_capacity) into `out`, then runs it there as
+ * geode_dsp_process_bytes does and returns the bytes to pass on. NULL in or out copies nothing and returns 0. */
+GEODE_API int        geode_dsp_process_into(geode_dsp*, const void* in, int in_bytes, void* out, size_t out_capacity,
+                                            int encoding, int channels);
 /* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
  * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
  * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
@@ -489,7 +565,7 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
  * _picker_names / _picker_ids: the Styles page's families in order, then one family's styles.
  * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
  * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
- * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
+ * _scope_of: the name of the scope a Customize control (its Customize key) has; "UNIVERSAL" if none.
  * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
  * _override: the value a style holds a control at, NaN when the control is the user's.
  * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
@@ -501,6 +577,8 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
 #define GEODE_STYLE_FLUID 4
 #define GEODE_STYLE_CYMATICS 5
 GEODE_API const char* geode_catalogue_style_ids(int trait);
+/* 1 when the style has the trait; 0 for an unknown trait or id. */
+GEODE_API int         geode_catalogue_style_has(int trait, const char* style_id);
 GEODE_API const char* geode_catalogue_picker_names(void);
 GEODE_API const char* geode_catalogue_picker_ids(const char* family);
 GEODE_API const char* geode_catalogue_resolve(const char* style_id);
@@ -517,7 +595,7 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
- * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
+ * handle; the same arguments always give the same result. Controls are named by their Customize keys, tabs
  * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
  * style_id NULL or empty = any style; tab NULL = every tab; locked = newline-joined control names, NULL = none.
  * Returns 1 when the roll changed something, 0 when out is a copy of in. */
@@ -528,6 +606,10 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
+/* A look's frame `in` (a preset, a template, Reset all) as it replaces the live frame `current`: every slot whose
+ * meta row has kInput (viz/ParamTable.inc: an input preference such as Tilt phone to look, not part of a look) keeps
+ * current's value, every other slot is in's (viz/Params SceneParams::keepInputs). Same wire; out may alias either. */
+GEODE_API void        geode_params_keep_inputs(const float* current, const float* in, float* out);
 /* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
  * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
  * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling
@@ -546,7 +628,8 @@ GEODE_API int         geode_params_read_json(const char* document, const char* p
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Then palette|<index>|<name> per built-in
  * palette and choice|<name>|<index>|<label> per picker label (Params.hpp). Static: the pointer stays valid for the
- * process; the shell parses it once. Page placement stays in Kotlin. */
+ * process. The shell does not read it (it asks geode_params_get and _set by name); its JVM tests read the
+ * checked-in copy, core/tests/params_schema.txt. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
@@ -559,12 +642,116 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
-/* Customize's Kaleidoscope control, its switch `on` at `symmetry` (viz/Params kaleidoscopeMenu): a first line
- * "<shown>|<selected>|<flipped>" (1 when the Folds menu shows; the menu row of `symmetry`, -1 for a count not on
- * it; the symmetry the switch leaves when flipped), then the menu's labels, one per line. The pointer stays valid
- * until this thread's next call. pick: the symmetry menu row `row` sets, held to the menu. Pure, any thread. */
-GEODE_API const char* geode_customize_kaleidoscope(int on, int symmetry);
-GEODE_API int         geode_params_kaleidoscope_pick(int row);
+/* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
+ * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
+ * then). palette_stops: how many stops are set from the first, into out[0..4]. clear_custom_palette: both overrides
+ * and every stop unset. apply_stops: cleared, then the first `count` (at most five) of `stops`. apply_gradient: no
+ * stops, base and span held to 0..1 as the overrides. Same wire in and out; in and out may alias. Pure, any thread. */
+GEODE_API int         geode_params_uses_custom_palette(const float* frame);
+GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
+GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
+GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
+GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
+/* The look files (viz/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
+ * the calling thread's next call of the same function. Pure, any thread.
+ * file_safe_name: a name as a file stem (A-Z a-z 0-9 - _ space kept, anything else '_', and a changed or blank name
+ * gets '-' and four SHA-256 bytes in hex); file_safe_chars the same without the hash (a preset folder). looks_order: the indices of `names` in list order into out (count ints),
+ * caseless or by code point, ties kept; returns count.
+ * Saved palettes (files/palettes/<id>.json): read gives the file's text as this build writes it, or NULL when it is
+ * no palette; sanitize the same, the id, name, hues and colours made safe; create a new palette's text (a hue
+ * gradient, or your colours when count > 0); migrate the text the file should hold under its current id; id_for a
+ * name's id (its file stem); string its "id" or "name"; hues writes base and span to out[2]; stops writes its colours
+ * to out (at most max_stops) and returns how many; apply makes it the params frame's own palette (1, or 0 and a copy
+ * when the text is no palette); kept_id the saved palette id a look keeps once deleted_id is deleted. */
+GEODE_API const char* geode_file_safe_name(const char* name);
+GEODE_API const char* geode_file_safe_chars(const char* name);
+GEODE_API int         geode_looks_order(const char* const* names, int count, int caseless, int* out);
+GEODE_API const char* geode_saved_palette_read(const char* text);
+GEODE_API const char* geode_saved_palette_sanitize(const char* text);
+GEODE_API const char* geode_saved_palette_create(const char* name, float base, float span, const int* stops, int count);
+GEODE_API const char* geode_saved_palette_migrate(const char* text);
+GEODE_API const char* geode_saved_palette_id_for(const char* name);
+GEODE_API const char* geode_saved_palette_string(const char* text, const char* key);
+GEODE_API int         geode_saved_palette_hues(const char* text, float* out);
+GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
+GEODE_API int         geode_saved_palette_max_stops(void);
+GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
+GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
+/* The saved palette id a look keeps on a params frame native wrote (a roll, a reset): `look_id` while the frame
+ * still draws its own palette, "" once it does not. Thread-local text. */
+GEODE_API const char* geode_saved_palette_frame_id(const char* look_id, const float* frame);
+/* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
+ * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
+ * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
+ * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay
+ * valid until the calling thread's next read. write: the file text org.json wrote (toString(2)); custom_shader and
+ * milk_preset NULL to leave them out; NULL for a short frame. milk_file_name: the .milk file a preset mirrors to. */
+GEODE_API int         geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay,
+                                         const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                         const char* custom_palette_id);
+GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
+/* Preset names (viz/LookFiles). is_built_in: 1 when the name holds the built-ins' " · ". clean_name: the separator
+ * as " - ", trimmed, `fallback` when nothing is left; folder_name: trimmed. rename_problem and folder_name_problem:
+ * 0 fine, 1 blank, 2 taken (another of the `count` names, case ignored); `current` NULL for a new folder.
+ * copy_name: a duplicate's free "<name> copy" ("... 2" on, case ignored); import_name: cleaned (`fallback` when
+ * blank) and free in `taken` exactly. replace_target: the user preset a save under `raw` overwrites, or NULL.
+ * built_in_clash: 1 when `raw` names a built-in, case ignored. matches_scene: 1 when a built-in of style `preset`
+ * is made for style `active`. Text out valid until the calling thread's next call of the same function. Pure. */
+GEODE_API int         geode_preset_is_built_in(const char* name);
+GEODE_API const char* geode_preset_clean_name(const char* raw, const char* fallback);
+GEODE_API const char* geode_preset_folder_name(const char* raw);
+GEODE_API int         geode_preset_rename_problem(const char* raw, const char* current, const char* const* taken, int count);
+GEODE_API int         geode_preset_folder_name_problem(const char* raw, const char* current, const char* const* folders,
+                                                       int count);
+GEODE_API const char* geode_preset_copy_name(const char* name, const char* const* taken, int count);
+GEODE_API const char* geode_preset_import_name(const char* raw, const char* fallback, const char* const* taken, int count);
+GEODE_API const char* geode_preset_replace_target(const char* raw, const char* const* names, int count);
+GEODE_API int         geode_preset_built_in_clash(const char* raw, const char* const* names, int count);
+GEODE_API int         geode_preset_matches_scene(const char* preset_scene_id, const char* active_scene_id);
+/* A geode://preset link's framing (viz/LookFiles); the shell gzips and base64s the payload. frame: the link for a
+ * payload; fits: 1 when a link is short enough to share; is: 1 when the trimmed text starts with the prefix, case
+ * ignored; payload: what follows it, a '#' or '?' tail cut, or NULL when it is no link or too long; find: the first
+ * link in pasted text up to whitespace, or NULL; body_accepted: 1 when an inflated payload is not blank;
+ * max_inflated: the most bytes a payload may inflate to. Text out as above. Pure, any thread. */
+GEODE_API const char* geode_preset_link_frame(const char* payload);
+GEODE_API int         geode_preset_link_fits(const char* link);
+GEODE_API int         geode_preset_link_is(const char* text);
+GEODE_API const char* geode_preset_link_payload(const char* text);
+GEODE_API const char* geode_preset_link_find(const char* text);
+GEODE_API int         geode_preset_link_body_accepted(const char* body);
+GEODE_API int         geode_preset_link_max_length(void);
+GEODE_API int         geode_preset_link_max_inflated(void);
+/* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
+ * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
+ * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and
+ * starter(i): the bundled starter set, each a whole template file ("" past the end); is_starter: 1 for a starter's
+ * id. Text out valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API const char* geode_template_file_name(const char* name, const char* id, const char* suffix);
+GEODE_API const char* geode_template_file_tail(const char* id, const char* suffix);
+GEODE_API const char* geode_template_unique_name(const char* base, const char* const* taken, int count);
+GEODE_API int         geode_template_starter_count(void);
+GEODE_API const char* geode_template_starter(int index);
+GEODE_API int         geode_template_is_starter(const char* id);
+/* The template file (viz/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
+ * template, out_text[7] = the file text this build writes for it, id, name, scene id, custom shader and milk preset
+ * (NULL when absent), saved palette id, the params into out_frame (n at least geode_viz_param_count) and attack and
+ * decay into out_envelope[2]; 0 when it is JSON but no template and -1 when it cannot be read, out_text[0] the reason
+ * either way. create: a new template's text (fresh id, every other section at its default) for the look given;
+ * NULL for a short frame. renamed: the text with `name`; new_copy: with a fresh id, `name`, no author and
+ * created_at_ms (NULL when `text` is no template). link_in: the geode://template link in `text` as the
+ * geode://preset link of the same payload, or NULL; link_of: a geode://preset link as the template link, NULL when
+ * it is no preset link or longer than max_length. share_name: the file name a shared copy arrives under. Text out
+ * valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API int         geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack,
+                                            float decay, const char* custom_shader, const char* milk_preset,
+                                            const float* frame, int n, const char* custom_palette_id);
+GEODE_API const char* geode_template_renamed(const char* text, const char* name);
+GEODE_API const char* geode_template_new_copy(const char* text, const char* name, long long created_at_ms);
+GEODE_API const char* geode_template_link_in(const char* text);
+GEODE_API const char* geode_template_link_of(const char* preset_link, int max_length);
+GEODE_API const char* geode_template_share_name(const char* name);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
@@ -583,12 +770,12 @@ GEODE_API int         geode_colour_palette_accent(float base, float range);
 GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, float* out);
 /* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
  * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
- * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the
+ * placed where ramp() puts them. params_palette_preview: what the look's own palette in the
  * geode_viz_set_params frame `params` paints before Hue shift and Hue range: its stops when set, else the
  * cosine ramp of its hue base and span. */
 GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
 GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
-GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
+GEODE_API void        geode_params_palette_preview(const float* params, int samples, int* out);
 /* The palette stack (viz/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
  * up to 16 colours with its options (SMOOTH|STEPS, MIRROR|LOOP, RGB|HUE|OKLAB, a position per stop, and for one
  * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, meeting at a
@@ -667,6 +854,14 @@ GEODE_API float       geode_touch_rotation(float current, float degrees);
  * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
  * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
 GEODE_API int         geode_params_control_range(const char* name, float* out);
+/* One scene param by its name in a geode_viz_set_params frame (viz/Params SceneParams::get and ::set), so the shell
+ * keeps no slot, kind or default of its own. defaults: every row at its default, geode_viz_param_count floats into
+ * out. get: the param's value, an int or a flag as a float; NaN for a NULL frame or a name with no live row (unknown
+ * or retired). set: `in` with the param at `value` (an int rounds, a flag is value > 0.5) into out and 1; 0, out
+ * untouched, for a name with no live row. in and out may alias. Pure, any thread. */
+GEODE_API void        geode_params_defaults(float* out);
+GEODE_API float       geode_params_get(const float* frame, const char* name);
+GEODE_API int         geode_params_set(const float* in, const char* name, float value, float* out);
 
 /* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
  * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each
@@ -676,6 +871,59 @@ GEODE_API int         geode_params_control_range(const char* name, float* out);
 GEODE_API void        geode_touch_to_ndc(float* xy, int points, float width, float height);
 GEODE_API void        geode_touch_pair(const float* start, const float* last, const float* now, float* out);
 GEODE_API int         geode_touch_pulse(int step, float* xy);
+/* The gestures on the visual and their actions (core/viz/GestureMap); gestures and actions are the shell's
+ * CanvasGesture and GestureAction ordinals. _default_action: the owner's map, -1 for no such gesture. _choices: the
+ * actions Settings offers gesture (the current one kept, first, when unsuited), up to capacity into out; returns
+ * how many (at most GEODE_GESTURE_MAX_CHOICES), 0 for no such gesture. _for_key: an Android key code's gesture on
+ * the stage, -1 for none (the key is someone else's); a sideways step's direction (+1 next, -1 previous, else 0)
+ * into step_out. */
+#define GEODE_GESTURE_COUNT 10
+#define GEODE_GESTURE_ACTION_COUNT 12
+#define GEODE_GESTURE_MAX_CHOICES 8
+GEODE_API int         geode_gesture_default_action(int gesture);
+GEODE_API int         geode_gesture_choices(int gesture, int current, int* out, int capacity);
+GEODE_API int         geode_gesture_for_key(int key_code, int options_shown, int* step_out);
+/* The gesture reader on the visual (core/viz/GestureRead), one per stage, reused for every gesture; no call
+ * allocates but _create. The shell keeps the pointer loop and feeds it in px of the stage and its uptime ms.
+ * _configure: the platform's touch slop, double-tap slop (px), density (px per dp), long-press timeout, double-tap
+ * min time and timeout (ms); _area: the window size, the system's gesture strips (px from each window edge), the
+ * stage's top-left in the window and whether that is known yet. Both are read at the next _down. _down: a first
+ * finger at (x, y) at t_ms; actions holds each gesture's action ordinal (GEODE_GESTURE_COUNT of them), armed
+ * whether the hold may run. Then, until GEODE_GESTURE_OVER: _wait_ms (-1 no timer; else wait that long for the next
+ * event and call _tick if none comes) and _event: t_ms (< 0 keeps the last), the pressed fingers' (x, y) in the
+ * event's order, live of them (only the first two are read), whether the first finger is still down, a pinch step's
+ * factor and degrees into pinch[2]. Both answer GEODE_GESTURE_* bits. _release: 1 when touch play holds fingers that
+ * must now lift (call it when following ends, cancelled or not). _end: the gesture to fire, -1 none, and into out[3]
+ * a sideways step, 1 for a tap (the double tap may follow), and how long to wait for a second tap's down (0 not at
+ * all). Then _second_down for each down in that wait and _second_move for the followed down's change (present 0 when
+ * the event has none) answer GEODE_GESTURE_SECOND_*. */
+typedef struct geode_gesture geode_gesture;
+#define GEODE_GESTURE_RING         (1u << 0)   /* the ring shows, at the first down */
+#define GEODE_GESTURE_HOLD         (1u << 1)   /* the hold fired */
+#define GEODE_GESTURE_SWIRL        (1u << 2)   /* the swirl fired */
+#define GEODE_GESTURE_OVER         (1u << 3)   /* the fingers are gone: call _end */
+#define GEODE_GESTURE_PUBLISH      (1u << 4)   /* hand the fingers down now to touch play */
+#define GEODE_GESTURE_RELEASE      (1u << 5)   /* touch play's fingers lift */
+#define GEODE_GESTURE_PINCH        (1u << 6)   /* a pinch step in pinch[2] */
+#define GEODE_GESTURE_SECOND_BOUNCE    0       /* too soon after the first lift: wait on */
+#define GEODE_GESTURE_SECOND_FOLLOW    1       /* follow this down */
+#define GEODE_GESTURE_SECOND_DOUBLE    2       /* a double tap */
+#define GEODE_GESTURE_SECOND_NEW_TOUCH 3       /* no second tap: read it again as a new gesture from its own down */
+#define GEODE_GESTURE_HOLD_FILL_MS 800         /* the ring's fill after the long-press timeout */
+GEODE_API geode_gesture* geode_gesture_create(void);
+GEODE_API void        geode_gesture_destroy(geode_gesture*);
+GEODE_API void        geode_gesture_configure(geode_gesture*, float touch_slop, float double_tap_slop, float density,
+                                              long long long_press_ms, long long double_tap_min_ms, long long double_tap_timeout_ms);
+GEODE_API void        geode_gesture_area(geode_gesture*, float window_w, float window_h, float left, float top, float right,
+                                         float bottom, float origin_x, float origin_y, int placed);
+GEODE_API void        geode_gesture_down(geode_gesture*, float x, float y, long long t_ms, const int* actions, int armed);
+GEODE_API long long   geode_gesture_wait_ms(const geode_gesture*);
+GEODE_API unsigned    geode_gesture_tick(geode_gesture*);
+GEODE_API unsigned    geode_gesture_event(geode_gesture*, long long t_ms, const float* xy, int live, int primary_down, float* pinch);
+GEODE_API int         geode_gesture_release(geode_gesture*);
+GEODE_API int         geode_gesture_end(geode_gesture*, float split_y, int* out);
+GEODE_API int         geode_gesture_second_down(geode_gesture*, float x, float y, long long t_ms);
+GEODE_API int         geode_gesture_second_move(geode_gesture*, int present, float x, float y, int pressed);
 
 /* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -683,13 +931,13 @@ GEODE_API int         geode_touch_pulse(int step, float* xy);
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines, plus "CATEGORY:roll" where the category's roll has
  * something to move); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
- * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * nothing), holding every other control and the newline-joined Customize keys in locked; 1 when it changed something.
  * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category and
  * "#PRO" every control below a Basics (the roll without Pro). With tab NULL geode_params_randomize rolls what the
  * panel offers on the style, as every category's roll does.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
-/* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
+/* 1 when the control named key (a Customize key) is one a roll can move, so the panel offers to keep it. */
 GEODE_API int         geode_customize_lockable(const char* key);
 /* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
 GEODE_API const char* geode_customize_lockable_keys(void);
@@ -702,6 +950,40 @@ GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* Customize's rows (core/viz/CustomizeRows): what each control in keys (one CustomizeMap key a line, a section's order)
+ * draws as on the look params (the geode_viz_set_params wire) and style_id: the widget, field, words, value, range,
+ * default, unit, steps, or nothing where it does not draw. query is the panel's search text, transition 1 while a style
+ * transition is chosen, liquid_mode the renderer's Liquid mode. Rows in CustomizeRows.hpp. Valid until this thread's
+ * next customize rows call. */
+GEODE_API const char* geode_customize_rows(const char* style_id, const char* keys, const char* query, int transition, int liquid_mode,
+                                           const float* params);
+/* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
+GEODE_API const char* geode_panel_text(const char* id);
+/* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
+GEODE_API const char* geode_style_label(const char* style_id);
+GEODE_API const char* geode_style_family_label(const char* family);
+/* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
+ * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
+ * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
+ * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
+ * palette panel call. */
+GEODE_API const char* geode_palette_maker_start(const float* params);
+GEODE_API const char* geode_palette_maker_from_look(const float* params);
+GEODE_API const char* geode_palette_maker_open(const int* stops, int count, float base, float span);
+GEODE_API const char* geode_palette_maker_edit(const char* state, int op, int arg);
+GEODE_API int         geode_palette_maker_stops(const char* state, int* out, int capacity);
+GEODE_API const char* geode_palette_maker_view(const char* state);
+/* A saved palette's colours as a stack layer (its stops, else its ramp) into out; returns how many. */
+GEODE_API int         geode_palette_saved_colours(const int* stops, int count, float base, float span, int* out, int capacity);
+/* A saved palette's strip in Your palettes: "RRGGBB" joined by ','. */
+GEODE_API const char* geode_palette_saved_swatch(const int* stops, int count, float base, float span);
+/* Look's palette list on a style the stack does not draw: saved_ids and saved_names one a line, the shell's order. */
+GEODE_API const char* geode_palette_list_view(const float* params, const char* custom_id, const char* saved_ids,
+                                              const char* saved_names);
+/* The palette stack card on the look params: its rows (core/viz/PalettePanel.hpp). saved_count is how many palettes
+ * the user has saved. */
+GEODE_API const char* geode_palette_stack_card(const char* stack, const float* params, int saved_count);
 /* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
  * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
  * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
@@ -719,6 +1001,31 @@ GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* curren
                                                int* look_out, int* milk_out);
 GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
                                                const float* before, const float* base, float* out);
+/* Customize's dice (core/viz/PanelRoll), seeded natively per roll. kept is the user's lock set (keys and "#CATEGORY"
+ * lines); basics_only is the roll without Pro. geode_panel_roll rolls category (a CustomizeMap name), or with NULL
+ * everything, as geode_customize_randomize / geode_params_randomize. geode_panel_roll_all is geode_randomize_all_roll
+ * with roll_categories 1 and the gesture's seed. Both return GEODE_PANEL_ROLL_* bits: CHANGED when out differs from
+ * the look, WAVES when the steady waves are to roll next (geode_mod_waves_roll with all 0). */
+#define GEODE_PANEL_ROLL_CHANGED 1
+#define GEODE_PANEL_ROLL_WAVES   2
+GEODE_API int         geode_panel_roll(const char* style_id, const char* category, const char* kept, int basics_only,
+                                       const float* in, float* out);
+GEODE_API int         geode_panel_roll_all(const char* style_id, const char* kept, int basics_only, uint64_t seed,
+                                           const float* before, const float* base, float* out);
+/* Music's "new personality": in with the reaction DNA's seed one further, into out. */
+GEODE_API void        geode_params_reroll_reactions(const float* in, float* out);
+/* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
+ * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
+ * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
+ * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
+ * (record returns them too). */
+#define GEODE_PARAM_HISTORY_UNDO 1
+#define GEODE_PARAM_HISTORY_REDO 2
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
+                                                 int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
@@ -733,7 +1040,7 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
  * geode_macro_bank_move_knob steps a knob delta places along the screen. geode_macro_bank_set_curve sets how a link
  * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
- * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
+ * makes a knob that moves one Customize control (a Customize key), named by native after it; geode_macro_bank_controls
  * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
  * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_roll_values
  * gives every knob on screen that moves something on style_id a new turn (the same seed, the same turns).
@@ -779,6 +1086,9 @@ GEODE_API const char* geode_macro_bank_live_mods(void);
  * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
  * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
 GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+/* The power-of-two decode subsample for a src picture: fit 0, the largest leaving both sides at least the target
+   (the underlay); fit 1, the smallest bringing both within it (the artwork). 1 for a non-positive size. */
+GEODE_API int         geode_underlay_sample_size(int src_w, int src_h, int target_w, int target_h, int fit);
 GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
 GEODE_API float       geode_underlay_clamp_amount(float amount);
 GEODE_API float       geode_underlay_clamp_dim(float dim);
@@ -982,19 +1292,16 @@ GEODE_API void            geode_cast_format(int* out);
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
-#define GEODE_PERF_TIER_FLOATS 5
-/* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */
+#define GEODE_PERF_TIER_FLOATS 4
+/* Writes render scale, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
 /* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
 GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
-/* The mode these values are (the tier's fps cap as an int, flags 0/1), or -1 for none: the tab reads "Custom".
-   Liquid's hot-phone policy is not part of a mode. */
-GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx, int adaptive);
+/* The mode these values are (the tier's fps cap as an int, post_fx 0/1), or -1 for none: the tab reads "Custom". */
+GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx);
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* A stored Liquid hot-phone policy as the renderer reads it (liquid::HotPolicy): 0..2, anything else 0. */
-GEODE_API int             geode_perf_liquid_hot(int stored);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
@@ -1038,6 +1345,11 @@ GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
 GEODE_API int             geode_surface_fps_choice(int requested_fps);
 /* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
+/* What sets GEODE_SURFACE_COVERED, 1 = covered. _zoom_covers: the wallpaper's zoom (0 none, 1 fully out behind the
+ * shade or recents) past the cover point. _proximity_near: the dream's proximity reading, in cm, near against the
+ * sensor's maximum range. */
+GEODE_API int             geode_surface_zoom_covers(float zoom);
+GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
 
 /* Auto's style timer (core/viz/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
@@ -1055,6 +1367,46 @@ GEODE_API void            geode_auto_mark_change(const char* key);
 /* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
  * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
+/* Auto visuals' decisions (core/viz/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
+ * (nothing plays) and Customize open (editing_set 1) hold every change.
+ * interval_s: a timer interval held to its range. editing_set: Customize opened (1) or closed (0, both waits start
+ * over). hand_pick: a style, a look or a .milk picked by hand (both waits start over). playlist_tick: the playlist
+ * entry (of count) to put up now, or -1; it runs while enabled with two entries or more. playlist_step: a step by
+ * hand or a moment's (step < 0 back): the entry, or -1 with fewer than two. random_tick: 1 when the timed draw is due.
+ * moment: a director moment on the look on screen (style, count floats of its params, its saved palette id): a
+ * GEODE_AUTO_MOMENT_*; NONE when the user changed the look since Auto's last change. left_as: Auto's own change is on
+ * screen now (after the shell put it up).
+ * draw: Auto's draw (restarting the timed wait) among the sources (GEODE_AUTO_DRAW_* bits): the AutoDraw styles,
+ * the saved looks (preset_styles, each one's style id a line), the .milk files (milk_count, shown as milk_style),
+ * none in locked_styles (one a line, what the entitlement refuses). preset_on_screen is the first saved look equal
+ * to the one on screen, milk_on_screen the .milk playing (-1 for none). KEEP_LOOK is a moment's draw: no saved look,
+ * and the style the director asks for (geode_auto_pick_among). Writes the entry's kind (GEODE_AUTO_KIND_*) and its
+ * index in that list (the AutoDraw list for a style) to out2 and returns its style id, valid until this thread's
+ * next draw; NULL for none. */
+#define GEODE_AUTO_MOMENT_NONE               0
+#define GEODE_AUTO_MOMENT_PLAYLIST           1
+#define GEODE_AUTO_MOMENT_RANDOM             2
+#define GEODE_AUTO_DRAW_STYLES               1
+#define GEODE_AUTO_DRAW_PRESETS              2
+#define GEODE_AUTO_DRAW_MILK                 4
+#define GEODE_AUTO_DRAW_KEEP_LOOK            8
+#define GEODE_AUTO_KIND_STYLE                0
+#define GEODE_AUTO_KIND_PRESET               1
+#define GEODE_AUTO_KIND_MILK                 2
+#define GEODE_AUTO_INTERVAL_MIN_S 5
+#define GEODE_AUTO_INTERVAL_MAX_S 300
+GEODE_API int             geode_auto_interval_s(int requested_s);
+GEODE_API void            geode_auto_editing_set(int on, long long now_ms);
+GEODE_API void            geode_auto_hand_pick(long long now_ms);
+GEODE_API int             geode_auto_playlist_tick(int count, int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_playlist_step(int count, int step, long long now_ms);
+GEODE_API int             geode_auto_random_tick(int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_moment(const char* style, const float* frame, int count, const char* palette_id,
+                                            int playing, int playlist_enabled);
+GEODE_API void            geode_auto_left_as(const char* style, const float* frame, int count, const char* palette_id);
+GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
+                                          int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style,
+                                          int sources, long long now_ms, int* out2);
 /* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
@@ -1135,9 +1487,8 @@ GEODE_API int             geode_stage_step_milk(const char* const* paths, int co
 GEODE_API void            geode_stage_step_milk_reset(void);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is nine int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS); slot 8 is native's
-   own (the rate "Follow device" last followed while cool). */
-#define GEODE_PACER_STATE_LONGS 9
+   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 8
 /* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
    Surface.setFrameRate when it moves. */
 #define GEODE_PACER_CAP_SLOT 6
@@ -1146,30 +1497,17 @@ GEODE_API void            geode_stage_step_milk_reset(void);
    it to geode_viz_frame as paced_fps. */
 #define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync); the pacer applies the thermal step to it (geode_pacer_effective_cap). GEODE_LIVE_FPS_FOLLOW
-   follows the panel: every vsync of the rate the display runs now while cool, a rung under the rate it
-   last ran at while cool when hot (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
+   every vsync). GEODE_LIVE_FPS_FOLLOW follows the panel: every vsync of the rate the display runs now
+   (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
-/* The cap a surface asking for cap_fps runs at now: cap_fps stepped down a rung per hot thermal tier (120 to
-   90, 60, 30; a cap of 60 or under to min(cap_fps, 30)); 0 = none. For Surface.setFrameRate, so
-   GEODE_LIVE_FPS_FOLLOW answers 0 at every tier: the surface states no rate and the system chooses. */
-GEODE_API float           geode_pacer_effective_cap(float cap_fps);
-
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. Native
-   reads the platform itself (viz/frame/ThermalSource): the status from the NDK's listener when it changes,
-   and the forecast headroom on the frame that wins the process's slot, every ten seconds. */
-/* The Visuals stage's "Phone is warm" note: the fps to name, once per process, the first time the thermal state
-   has stepped the stage (cap_fps, its own cap; paced_fps, what its pacer runs now) below its cap; else 0. */
-GEODE_API int             geode_thermal_take_warm_note(float cap_fps, float paced_fps);
-
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
    that is paused draws no frame: it sheds them at its pause instead (geode_viz_trim_spares). Any thread. */
 GEODE_API void            geode_memory_trim(int android_level);
-/* ── Export planning and PCM maths (ADR 0006: core/output; ADR 0003 ports) ──────────────────────────────────
+/* ── Export planning and PCM maths (core/output; ports) ──────────────────────────────────
  * Pure functions, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender, LoopExtend,
  * AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are
  * output/FrameClock, LoopPlan, EncodePlan, audio/dsp/PcmConvert and PcmTiming. */
@@ -1363,7 +1701,12 @@ GEODE_API void           geode_playout_destroy(geode_playout*);
  * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
 GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
                                                       int64_t frames);
-/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+/* The same from the ring's head (geode_pcm_ring_head) read before and after the sink handled the buffer. */
+GEODE_API void           geode_playout_ring_span(geode_playout*, int64_t presentation_us, int64_t head_before,
+                                                 int64_t head_after);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns.
+ * GEODE_PLAYOUT_NO_POSITION (Media3's AudioSink.CURRENT_POSITION_NOT_SET) is no report and changes nothing. */
+#define GEODE_PLAYOUT_NO_POSITION INT64_MIN
 GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
 GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
 GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
@@ -1569,16 +1912,23 @@ typedef struct geode_audio_out geode_audio_out;
 #define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
 #define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
                                          the output stalled, so the sink builds a new one */
-GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
-/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened and
- * asks before each open; 1 = try the stream, 0 = the platform track plays for 60 s. now_ms is one monotonic
- * clock for both calls. Process-wide. */
+/* The back-off after a stream failed for good (GEODE_AUDIO_OUT_FAILED): the shell tells when it happened, and
+ * for 60 s after it geode_audio_out_takes answers 0. now_ms is one monotonic clock for both calls. Process-wide. */
 GEODE_API void             geode_audio_out_note_failed(int64_t now_ms);
-GEODE_API int              geode_audio_out_may_open(int64_t now_ms);
-/* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
- * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
- * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
-GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes,
+/* Whether the native output is wanted at all: the user chose it, and bit-perfect USB (which needs the
+ * platform track) is not both on and supported. 1 or 0. */
+GEODE_API int              geode_audio_out_wanted(int chosen, int bit_perfect, int bit_perfect_supported);
+/* Whether the output plays one of Media3's output configs (audio/output/OutputChoice), its fields passed as
+ * they are: channel_mask an AudioFormat.CHANNEL_OUT_* mask, usage C.USAGE_*, virtual_device_id C.INDEX_UNSET
+ * for none. 0 for anything but plain PCM it supports, and within the back-off; the platform track plays it. */
+GEODE_API int              geode_audio_out_takes(int64_t now_ms, int offload, int tunneling, int offload_gapless,
+                                                 int playback_parameters, int virtual_device_id, int usage,
+                                                 int channel_mask, int encoding, int sample_rate);
+/* Opens the stream for writes of `encoding` at channel_mask's channels. buffer_bytes is the sink's buffer for
+ * this output (the FIFO and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio
+ * session (0 or below = allocate one). NULL when the format is not supported or the device gave no stream
+ * that is exactly it. */
+GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channel_mask, int encoding, int buffer_bytes,
                                                 int session_id);
 /* Silences the stream at once and closes it on a thread of its own; the handle is gone when this returns. */
 GEODE_API void             geode_audio_out_release(geode_audio_out*);
@@ -1832,6 +2182,38 @@ GEODE_API void            geode_cast_server_admit(int64_t handle, uint32_t tv, i
 GEODE_API void            geode_cast_server_write(int64_t handle, const uint8_t* data, size_t size);
 GEODE_API int             geode_cast_server_text(int64_t handle, int which, char* out, int cap);
 GEODE_API void            geode_cast_server_state(int64_t handle, int64_t* out);
+/* The cast's encoders (core/cast/CastEncoder, Fmp4Writer; MediaCodec): H.264 from the surface the cast's render
+ * thread draws into and AAC from the player's ring (output/CastAudioPump, as geode_cast_audio_* reads it), written
+ * as fragmented MP4 into the server's stream and, as they leave the codec, to WebRTC, with Opus while a browser
+ * listens; on a thread of their own. Android build only.
+ *   open:   server and webrtc are the stream's handles (0 = none), which must outlive this one; music the
+ *           player's ring (NULL: silence throughout). NULL when an encoder would not start.
+ *   window: the video encoder's input surface (an ANativeWindow*), the encoder's own.
+ *   pump:   one video frame's sound, on the render thread: current the ring the visuals hear now, until_us
+ *           geode_frame_clock_audio_until_us.
+ *   failed: 1 once the video or AAC encoder failed: the cast should end.
+ *   close:  stops the thread and releases every codec; after nothing draws into the surface any more. */
+typedef struct geode_cast_encoder geode_cast_encoder;
+GEODE_API geode_cast_encoder* geode_cast_encoder_open(int64_t server, int64_t webrtc, const geode_pcm_ring* music);
+GEODE_API void*           geode_cast_encoder_window(const geode_cast_encoder*);
+GEODE_API void            geode_cast_encoder_pump(geode_cast_encoder*, const geode_pcm_ring* current, int64_t until_us);
+GEODE_API int             geode_cast_encoder_failed(const geode_cast_encoder*);
+GEODE_API void            geode_cast_encoder_close(geode_cast_encoder*);
+/* When a cast is given up on (core/cast/CastWatch): one verdict per poll, GEODE_CAST_WATCH_*. announced: the
+ * stream was handed over already; now_ms and waiting_since_ms on one clock; playlist_ready: enough segments to
+ * start on; segment_age_ms: since the last cut (0 before the first); address_here: the phone still holds the
+ * address it serves from. next_ms: when to poll again. fallback_release: 1 when the cast's own renderer, last
+ * drawing at drew_ns, should be freed now that the stage leads. Pure. */
+#define GEODE_CAST_WATCH_WAIT          0
+#define GEODE_CAST_WATCH_READY         1
+#define GEODE_CAST_WATCH_START_TIMEOUT 2
+#define GEODE_CAST_WATCH_PLAYING       3
+#define GEODE_CAST_WATCH_FROZEN        4
+#define GEODE_CAST_WATCH_NETWORK_GONE  5
+GEODE_API int             geode_cast_watch(int announced, int64_t now_ms, int64_t waiting_since_ms, int playlist_ready,
+                                           int64_t segment_age_ms, int address_here);
+GEODE_API int64_t         geode_cast_watch_next_ms(int announced);
+GEODE_API int             geode_cast_fallback_release(int64_t now_ns, int64_t drew_ns);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

@@ -160,12 +160,13 @@ void resetTabRestoresExactlyItsFields() {
 void rollsStayUnderTheFlashClamp() {
     for (uint64_t seed = 0; seed < 300; ++seed) {
         const SceneParams p = randomizer::randomize(kDefaults, seed, std::nullopt, "", {});
-        check(p.bloom <= 0.25f, "bloom stays under the flash depth");
+        check(p.bloom <= 0.6f, "bloom stays under its safety cap");
         check(p.brightness <= 1.25f && p.contrast <= 1.25f && p.intensity <= 1.25f, "levels stay under 1 + flash depth");
         check(p.reactSeed >= 1 && p.reactSeed < (1 << 24), "the DNA seed survives the float wire");
-        check(p.symmetry >= 0 && p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");
+        check(p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");
         const auto& folds = SceneParams::kSymmetryFolds;
-        check(!p.kaleidoscope || std::find(folds.begin(), folds.end(), p.symmetry) != folds.end(), "a kaleidoscope gets a fold on the menu");
+        check(p.kaleidoFolds == 1.0f || std::find(folds.begin(), folds.end(), static_cast<int>(p.kaleidoFolds)) != folds.end(),
+              "a kaleidoscope is off or gets a whole fold count from kSymmetryFolds");
     }
 }
 
@@ -184,7 +185,7 @@ void rollsStayInsideTheSchemasRanges() {
 // A choice roll picks from the whole schema range, so a value added to ParamTable.inc is rolled too
 // (the camera's drive, fall and rise paths were left out by a count kept beside the schema).
 void choiceRollsReachEverySchemaValue() {
-    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::palette2, ParamSlot::camPath}) {
+    for (const ParamSlot slot : {ParamSlot::camPath}) {
         const ParamSpec& spec = SceneParams::spec(slot);
         std::set<int> rolled;
         for (uint64_t seed = 0; seed < 2000; ++seed) {
@@ -196,6 +197,18 @@ void choiceRollsReachEverySchemaValue() {
         check(*rolled.begin() == static_cast<int>(spec.min) && *rolled.rbegin() == static_cast<int>(spec.max),
               std::string(spec.name) + " rolls from min to max");
     }
+}
+
+// The palette roll deals every listed built-in and never a retired one (rows 12..20 stay in the table only so
+// a saved index still draws).
+void thePaletteRollDealsTheListedPalettesOnly() {
+    std::set<int> rolled;
+    for (uint64_t seed = 0; seed < 2000; ++seed) rolled.insert(randomizer::randomize(kDefaults, seed, std::nullopt, "", {}).palette);
+    check(static_cast<int>(rolled.size()) == SceneParams::kListedPalettes && *rolled.begin() == 0 &&
+              *rolled.rbegin() == SceneParams::kListedPalettes - 1,
+          "palette rolls " + std::to_string(rolled.size()) + " of the " + std::to_string(SceneParams::kListedPalettes) + " listed");
+    check(SceneParams::spec(ParamSlot::palette).max == static_cast<float>(SceneParams::palettes().size() - 1),
+          "a saved retired index is still in the field's range");
 }
 
 void aPaletteRollDropsACustomPalette() {
@@ -233,11 +246,10 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
         {"warp", -kInf},
         {"endlessZoomSpeed", kNaN},
         {"trails", 1.0f},
-        {"symmetry", 40.0f},
+        {"kaleidoFolds", 40.0f},
         {"palette", -3.0f},
         {"particleShape", 2.0f},
         {"reactSeed", 99999999.0f},
-        {"paletteLut", 9.0f},
         {"brightness", 1.875f},
         {"bloom", 0.625f},
         {"intensity", 3.0f},
@@ -250,10 +262,10 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
     check(p.rotation == kDefaults.rotation && p.warp == kDefaults.warp, "hostile: infinities read as the default");
     check(p.endlessZoomSpeed == kDefaults.endlessZoomSpeed && p.camFov == kDefaults.camFov, "hostile: NaN reads as the default");
     check(p.trails, "hostile: a flag over 0.5 is on");
-    check(p.symmetry == 16 && p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
-    check(p.reactSeed == 16777215 && p.paletteLut == 4, "hostile: wide ints held to their ranges");
+    check(p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
+    check(p.reactSeed == 16777215, "hostile: wide ints held to their ranges");
     check(p.brightness == 1.875f && p.bloom == 0.625f && p.intensity == 2.0f, "hostile: the schema's range, not the slider's");
-    check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f, "hostile: floats held to their ranges");
+    check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f && p.kaleidoFolds == 16.0f, "hostile: floats held to their ranges");
     check(p.colorShift == 1.5f, "hostile: a circular value wraps where it is drawn and is not clamped");
     const auto once = wire(p);
     check(wire(SceneParams::sanitized(once.data())) == once, "a sanitized frame saves and reads back the same");
@@ -274,6 +286,24 @@ void aRetiredSlotReadsAsItsDefault() {
     check(wire(SceneParams::sanitized(in.data()))[slot] == wire(kDefaults)[slot], "a retired slot reads as its default");
 }
 
+// What geode_params_get and geode_params_set do with a frame: the shell names a param and keeps no slot of its own.
+void aNamedEditMovesOneSlotOfTheFrame() {
+    const auto before = wire(kDefaults);
+    SceneParams edited = SceneParams::fromWire(before.data());
+    check(edited.set("speed", 2.5f), "a live name is set");
+    const auto after = wire(edited);
+    const auto slot = static_cast<size_t>(SceneParams::slotOf("speed"));
+    for (size_t i = 0; i < after.size(); ++i) {
+        check(i == slot ? after[i] == 2.5f : after[i] == before[i], "only the named slot moves: slot " + std::to_string(i));
+    }
+    check(SceneParams::fromWire(after.data()).get("speed") == 2.5f, "the name reads back what was set");
+    check(edited.set("reactSeed", 6.6f) && edited.get("reactSeed") == 7.0f, "an int rounds");
+    check(!edited.set("pulse", 1.0f), "a retired name is not a param");
+    check(SceneParams::slotOf("noSuchParam") < 0 && !edited.set("noSuchParam", 1.0f), "an unknown name is not a param");
+    const auto retiredSlot = static_cast<size_t>(ParamSlot::pulse);
+    check(wire(edited)[retiredSlot] == before[retiredSlot], "a refused edit changes nothing");
+}
+
 }  // namespace
 
 int main() {
@@ -287,11 +317,13 @@ int main() {
     rollsStayUnderTheFlashClamp();
     rollsStayInsideTheSchemasRanges();
     choiceRollsReachEverySchemaValue();
+    thePaletteRollDealsTheListedPalettesOnly();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
     aHostilePresetIsClampedToTheSchemaRanges();
     overflowingNumbersReadAsTheDefaults();
     aRetiredSlotReadsAsItsDefault();
+    aNamedEditMovesOneSlotOfTheFrame();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

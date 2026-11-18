@@ -52,7 +52,7 @@ out vec4 fragColor;
 // roles, offsets from 0.5 so off is the tuned look): k0 PULSE the emission,
 // k1 TEXTURE the petals' width, k2 FLOW added to Warp's share of the shag, k3
 // TONE the palette position, k4 BUILD the near-miss glow, k5 SPACE the reach
-// of the orbit. The mids turn the head on its axis (chrysMidTurn).
+// of the orbit.
 
 #define CO_MAX_STEPS 112
 #define CO_BOUND 1.8
@@ -66,12 +66,12 @@ float gOpen;
 float gSpin;
 float gBass;
 bool gLowQ;
-float gMat;
-float gU;
 float gChaos;
 float gRings;
 /** k1 TEXTURE on the petals' width. */
 float gWide;
+/** Twist's spiral of the petals, radians per unit out from the axis. */
+float gCurl;
 
 vec3 toFlower(vec3 p) {
     // The head's visual mass sits up its axis from the core, so the core is
@@ -85,7 +85,7 @@ vec3 toFlower(vec3 p) {
 // One ring of petals. Returns (distance, u along the petal).
 vec2 petalRing(vec3 q, float count, float r0, float len, float width, float elev, float bend, float twist) {
     float rho = length(q.xz);
-    float phi = atan(q.z, q.x) + twist + uTwist * rho;
+    float phi = atan(q.z, q.x) + twist + gCurl * rho;
     float sector = CHRYS_TAU / count;
     float id = floor(phi / sector + 0.5);
     float across = (phi - id * sector) * rho;
@@ -109,13 +109,14 @@ vec2 petalRing(vec3 q, float count, float r0, float len, float width, float elev
     return vec2(d, u);
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (mat 0 core, 1 + ring index on a petal; a.x the petal's u). */
+float mapAt(vec3 p, inout ChrysHit found) {
     vec3 q = toFlower(p);
     float core = (length(vec3(q.x, q.y * 1.6, q.z)) - 0.3 * (1.0 + 0.06 * gBass)) / 1.6;
     core += 0.006 * sin(q.x * 42.0) * sin(q.z * 42.0);
     float d = core;
-    gMat = 0.0;
-    gU = 0.0;
+    found.mat = 0.0;
+    found.a.x = 0.0;
     float rings = gLowQ ? 2.0 : gRings;
     for (int i = 0; i < 4; i++) {
         float k = float(i);
@@ -127,48 +128,57 @@ float map(vec3 p) {
         vec2 pr = petalRing(q, count, 0.26 - 0.045 * k, max(1.3 - 0.3 * k, 0.45), (0.42 + 0.04 * k) * gWide, elev, bend, k * 0.37);
         if (pr.x < d) {
             d = pr.x;
-            gMat = 1.0 + k;
-            gU = pr.y;
+            found.mat = 1.0 + k;
+            found.a.x = pr.y;
         }
     }
     return d;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_chrys_field. */
+ChrysHit chrysMap(vec3 p) {
+    ChrysHit h = chrysHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
 
+//#include lib_chrys_field
+
 void main() {
+    ChrysHit fld = chrysHit(0.0);
     vec2 uv = view();
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
-    gWide = 1.0 + 0.4 * kTexture;
+    // The normalization shell (lib_chrys): every variable from its driver, mapped to its range here, once.
+    ChrysIn N = chrysIn();
+    gWide = chrysSpan(N.width, 1.0, 0.8, 1.2);
+    gCurl = chrysSpan(N.curl, 0.0, -1.0, 1.0);
+    gChaos = clamp(chrysSpan(N.chaos, 0.0, 0.0, 2.0) + chrysSpan(N.sway, 0.0, -0.25, 0.25), 0.0, 2.0);
+    gRings = 3.0 + step(0.5, N.rings);
+    float orbit = chrysSpan(N.reach, 3.6, 3.06, 4.14);
+    float glowK = chrysSpan(N.glow, 1.0, 0.5, 1.5);
+    float emit = chrysSpan(N.emit, 1.0, 0.75, 1.25);
+    float hueShift = chrysSpan(N.tone, 0.0, -0.3, 0.3);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     gBass = clamp(sndLevel(SND_BASS_ATT) * uIntensity, 0.0, 1.5);
     gOpen = clamp(0.55 + 0.12 * swell + 0.4 * uIntensity * chrysBump(drop), 0.0, 1.0);
-    gSpin = t * 0.04 + uDrift * 0.1 + chrysMidTurn();
+    gSpin = t * 0.04 + uDrift * 0.1;
     gLowQ = uSteps < 72.0;
-    gChaos = clamp(uTurbulence + max(uWarp + 0.5 * kFlow, 0.0), 0.0, 2.0);
-    gRings = 3.0 + step(0.5, uMorph);
-    float hue = 0.04 + 0.03 * sin(t * 0.025) + 0.6 * kTone;
+    float hue = 0.04 + 0.03 * sin(t * 0.025) + hueShift;
 
     vec3 ro;
     vec3 rd;
-    camAround(uv, 3.6 * (1.0 + 0.3 * kSpace), 6.0 * CAM_SPIN_UNIT, ro, rd);
+    camAround(uv, orbit, 6.0 * CAM_SPIN_UNIT, ro, rd);
 
     vec3 bg = pal(hue + 0.6) * 0.025 + pal(hue + 0.52) * 0.09 * exp(-length(uv) * 1.4);
     vec3 col = bg;
 
     float b = dot(ro, rd);
-    float h = b * b - (dot(ro, ro) - CO_BOUND * CO_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = CO_BOUND + growSlack(CO_BOUND, 1.0, 0.2);
+    float h = b * b - (dot(ro, ro) - boundR * boundR);
     if (h > 0.0) {
         float sq = sqrt(h);
         float t = max(-b - sq, 0.01);
@@ -180,7 +190,8 @@ void main() {
             if (float(i) >= uSteps) break;
             if (t > tEnd) break;
             used = float(i);
-            float d = map(ro + rd * t);
+            fld = chrysField(ro + rd * t);
+            float d = fld.d;
             float eps = 0.0008 * t + 0.0005;
             if (d < eps) {
                 hitT = t;
@@ -191,10 +202,10 @@ void main() {
         }
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
-            vec3 n = normalAt(p, 0.0012 * hitT + 0.0006);
-            map(p);
-            float mat = gMat;
-            float u = clamp(gU, 0.0, 1.0);
+            vec3 n = chrysNormal(p, 0.0012 * hitT + 0.0006);
+            fld = chrysField(p);
+            float mat = fld.mat;
+            float u = clamp(fld.a.x, 0.0, 1.0);
             // A petal has two faces; light the one we are looking at.
             vec3 nf = dot(n, rd) > 0.0 ? -n : n;
             vec3 lightDir = normalize(vec3(0.45, 0.85, -0.3));
@@ -217,10 +228,10 @@ void main() {
             col *= ao;
             col = mix(col, bg, smoothstep(2.0, 6.0, hitT) * 0.5);
         }
-        col += pal(hue + 0.08) * glow * (1.0 + kBuild);
+        col += pal(hue + 0.08) * glow * glowK;
     }
 
     col *= 0.85 + 0.15 * swell;
-    col *= 1.0 + 0.5 * kPulse;
+    col *= emit;
     fragColor = vec4(grade(col), 1.0);
 }

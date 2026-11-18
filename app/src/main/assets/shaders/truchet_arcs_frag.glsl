@@ -125,7 +125,12 @@ vec3 bend(vec3 p) {
     return p;
 }
 
-float map(vec3 p) {
+/** What the field holds at a point (lib_truchet_field): the distance alone. */
+struct TruchetHit {
+    float d;
+};
+
+TruchetHit truchetMap(vec3 p) {
     vec3 q = bend(p) * (1.0 / TA_CELL);
     vec3 id = floor(q);
     vec3 f = q - id - 0.5;
@@ -145,14 +150,12 @@ float map(vec3 p) {
 
     float d = min(tubes(f, gR), walls + TA_SLACK);
     d *= TA_CELL / gLip;
-    return max(d, TA_BUBBLE - length(p - gEye));
+    TruchetHit h;
+    h.d = max(d, TA_BUBBLE - length(p - gEye));
+    return h;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 /** A smooth, slowly moving field of position, about -1..1, for hue variation; z periods divide TA_ZWRAP. */
 float hueField(vec3 p, float t) {
@@ -163,15 +166,16 @@ float hueField(vec3 p, float t) {
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
     float t = truchetTime();
     float e = truchetEnergy();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
@@ -179,11 +183,11 @@ void main() {
     gT = t;
     gHits = floor(SND_HIT_TIME);
     gEnv = SND_ONSET_ENV;
-    gWarpA = 0.9 * clamp(uWarp, 0.0, 2.0);
-    gTurbB = 0.25 * clamp(uTurbulence, 0.0, 2.0);
+    gWarpA = 0.9 * (2.0 * gTruchetIn.warp);
+    gTurbB = 0.25 * (2.0 * gTruchetIn.chaos);
     // 1 + amplitude * |gradient of the sine's argument| for each of bend()'s four terms.
     gLip = (1.0 + 0.232 * gWarpA) * (1.0 + 0.273 * gWarpA) * (1.0 + 1.14 * gTurbB) * (1.0 + 0.88 * gTurbB);
-    float r0 = mix(0.16, 0.1, truchetMorph());
+    float r0 = mix(0.16, 0.1, gTruchetIn.detail);
     gR = min(r0 * (1.0 + 0.3 * bass * e * clamp(1.0 + 2.0 * kPulse, 0.0, 2.0)), 0.17);
 
     vec3 ro;
@@ -191,6 +195,8 @@ void main() {
     camFly(uv, ro, rd);
     // Exact and invisible (see the header); keeps z's precision far down the travel.
     ro.z = mod(ro.z, TA_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.05;
@@ -202,7 +208,7 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > TA_FAR) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        float d = truchetField(ro + rd * tm).d;
         // The pipes glow faintly into the air the ray grazes.
         haze += exp(-max(d, 0.0) * 5.0) * 0.02;
         float eps = 0.001 + 0.001 * tm;
@@ -226,7 +232,7 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        vec3 n = truchetNormal(p, max(0.0015, 0.0012 * hitT));
         float h = hue + 0.07 * hueField(p, t);
         vec3 warm = pal(h + 0.08) * 0.85;
         vec3 deep = pal(h + 0.58) * 0.28;
@@ -240,7 +246,7 @@ void main() {
         float seam = 1.0 - smoothstep(seamW - soft, seamW + soft, abs(side));
         vec3 albedo = mix(deep, warm, tone) * (1.0 - 0.75 * seam);
 
-        float occ = clamp(map(p + n * 0.35) / 0.35, 0.0, 1.0);
+        float occ = clamp(truchetField(p + n * 0.35).d / 0.35, 0.0, 1.0);
         float ao = (0.45 + 0.55 * occ) * clamp(1.0 - used / max(uSteps, 1.0) * 0.7, 0.35, 1.0);
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         // Headlight on the eye, falling off into the lattice, plus the key light.

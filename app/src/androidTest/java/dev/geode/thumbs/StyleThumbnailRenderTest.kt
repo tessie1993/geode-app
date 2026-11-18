@@ -12,10 +12,10 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.viz.NativeViz
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -151,7 +151,7 @@ class StyleThumbnailRenderTest {
                 ?.toSet()
                 .orEmpty()
         val ids =
-            (StyleCatalogue.ids - GeodeNative.STYLE_MILKDROP)
+            (StyleCatalogue.ids - CatalogueNative.STYLE_MILKDROP)
                 .filter { only == null || it in only }
                 .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())
@@ -204,7 +204,7 @@ class StyleThumbnailRenderTest {
             viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // Default Customize values: the thumb shows the style as a new user first meets it.
-            val params = SceneParams(fluidAutoQuality = false)
+            val params = SceneParams.DEFAULT.with("fluidAutoQuality", false)
             // No user routes: native resolves the style's DNA for this scene and reactSeed before the first render.
             viz.setParams(params)
 

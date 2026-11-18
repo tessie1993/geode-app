@@ -32,11 +32,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The DROP twists the cave. On a drop (SND_HELD_SURGE) the whole room wrings about
-// the vertical axis - the twist grows with height, so floor and ceiling turn
-// opposite ways - on a bump envelope that rises and settles over the drop's
-// 2.5 s, and the march shortens its steps by the twist's stretch while it
-// lasts. The veins breathe gently with (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)). Nothing on a hit changes
+// No sound turns the cave: the drop's twist is gone (owner 2026-11-12, no style
+// spins to the music). The veins breathe gently with (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)). Nothing on a hit changes
 // brightness.
 //
 // ---- macros -----------------------------------------------------------------
@@ -44,7 +41,7 @@ out vec4 fragColor;
 // Speed scales the vein drift. Complexity (uMorph) adds up to two
 // fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the bulb before it is inverted (bulbChaos in q, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is tone(),
+// bulbChaosLip). Colour is tone(),
 // the grotto ramp pal() tints;
 // Space is the rig (travel and look drive the eye; its lateral wander offsets
 // the loop).
@@ -62,35 +59,24 @@ vec3 tone(float t) {
     return bulbRamp(t, vec3(0.32, 0.50, 0.52), vec3(0.30, 0.32, 0.30), vec3(1.0), vec3(0.55, 0.35, 0.25));
 }
 
-float gTwist;
-float gTwistLip;
-int gIters;
-vec4 gTrap;
 
-float map(vec3 p) {
-    p.xz = rot2(gTwist * p.y) * p.xz;
+int gIters;
+
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     float r2 = max(dot(p, p), 1e-4);
     vec3 q = p * (BV_K / r2);
     vec4 tr;
     float d = bulbDE(bulbChaos(q), 12.0, 12.0, vec2(0.0), gIters, tr) / bulbChaosLip();
-    gTrap = tr;
-    return d * (r2 / BV_K) * 0.6 / gTwistLip;
+    return BulbHit(d * (r2 / BV_K) * 0.6, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 void main() {
     vec2 uv = view();
     float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
-    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
-    float dropBump = 4.0 * drop * (1.0 - drop);
-    gTwist = 0.32 * dropBump * bulbEnergy();
-    // Twisting by k*y stretches by at most sqrt(1 + (k*rho)^2); rho stays under ~4 in the room.
-    gTwistLip = 1.0 + abs(gTwist) * 4.0;
+
     // Four iterations, not six: inverted, the finest crust lands as a fur of
     // pixel-sized stalactites the march crawls through and never resolves.
     // Fewer iterations leave wet, rounded stone the lantern can light.
@@ -104,6 +90,8 @@ void main() {
     mat3 frame = bulbFrame(tang, vec3(0.0, 1.0, 0.0));
     vec3 ro = path + frame * vec3(clamp(uCamPos.xy, -2.0, 2.0) * 0.12, 0.0);
     vec3 rd = normalize(frame * (uCamBasis * vec3(uv, uCamFocal)));
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.48 + 0.03 * sin(bulbTime() * 0.019);
     vec3 fog = tone(hue) * 0.09 + vec3(0.01, 0.05, 0.06);
@@ -112,15 +100,19 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
+    // The last step's trap, for a ray that ran out of steps at a wall.
+    vec4 lastTrap = vec4(1.0);
     for (int i = 0; i < BV_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > BV_FAR) break;
         used = float(i);
-        float d = map(ro + rd * t);
+        BulbHit h = bulbField(ro + rd * t);
+        float d = h.d;
+        lastTrap = h.trap;
         float eps = bulbEps(t) * 2.5;
         if (d < eps) {
             hitT = t;
-            trap = gTrap;
+            trap = h.trap;
             break;
         }
         t += max(d, eps * 0.5);
@@ -130,13 +122,13 @@ void main() {
     // shade them as hits, or half the room paints as empty fog.
     if (hitT < 0.0 && t < BV_FAR) {
         hitT = t;
-        trap = gTrap;
+        trap = lastTrap;
     }
 
     vec3 col = fog;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
+        vec3 n = bulbNormal(p, bulbEps(hitT) * 1.5);
         // The lantern: at the eye, falling off with distance.
         // Warm and strong: the cave is the one Bulb seen from INSIDE, and it
         // has to read as a lit room, amber stone against teal depth, not as
@@ -151,7 +143,8 @@ void main() {
         col += vec3(0.9, 0.95, 1.0) * wet * lamp * 0.5 * ao;
         // Veins: where the orbit hugged the equatorial plane, the rock glows.
         float vein = (1.0 - smoothstep(0.0, 0.05, trap.y)) * (0.6 + 0.4 * sin(sqrt(trap.x) * 9.0 + bulbTime() * 0.3));
-        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x)) * vein * (0.6 + 0.2 * swell);
+        // Escape colour (lib_shade): the smoothed escape count moves the veins along the ramp.
+        col += tone(hue + 0.12 + 0.2 * sqrt(trap.x) + shadeEscape(trap.w)) * vein * (0.6 + 0.2 * swell);
         col = mix(col, fog, 1.0 - exp(-hitT * 0.22));
     }
 

@@ -14,16 +14,24 @@ out vec4 fragColor;
 //#include lib_neon
 //#include lib_petal
 
-// Petal Bells: a nest of five bell cups hung one inside another, turned
-// about. Each bell is the one outside it shrunk by the same share about the
-// same top, so their mouths hang in tiers, each mouth flared and scalloped
-// into five lobes and every bell turned by the golden angle from the one
-// outside it; the lamp hangs inside the outer two.
+// Petal Bells: bell cups hung from their tops, turned about. Each mouth is
+// flared and scalloped into five lobes, every bell turned by the golden angle
+// from the last; the lamp hangs inside the largest.
+//
+// Three formulas (Formula, lib_layers), each a different hanging:
+//   0  a nest of five bells one inside another, each the one outside it
+//      shrunk by the same share about the same top, so their mouths hang in
+//      tiers
+//   1  a chandelier: two nested bells in the middle and five smaller ones
+//      hung round them on a ring, each tipped out
+//   2  a bell tree: a bell with a smaller one inside it, and three more hung
+//      from its mouth, a generation down, that grow with the iteration
+//      (Detail, k1 TEXTURE, k4 BUILD)
 //
 // Morph flares the mouths and lengthens the bells. Worst case 96 steps and 4
 // sheets, three bells to a point, no noise.
 
-/** Bell k of the nest (0 the outermost), hung from its top at the origin, opening down. */
+/** Bell k of the nest (0 the outermost; k may be fractional), hung from its top at the origin, opening down. */
 vec3 bell(vec3 p, float k) {
     // 0.72 to the k.
     float s = exp(-0.3285 * k);
@@ -38,13 +46,38 @@ vec3 bell(vec3 p, float k) {
     return vec3(petalCut((length(q.xz) - rad) * 0.7 * s, o * s), h / mouth, 10.0 * phi / PETAL_TAU);
 }
 
-vec3 petalMap(vec3 p) {
-    p.xz = petalRot(uTime * PETAL_RATE(55)) * p.xz;
-    p.y -= 1.0;
+vec3 bellNest(vec3 p) {
     // Which bells lie about this distance from the top: each is 0.72 the one outside it.
     float k = clamp(floor(log(max(length(p), 1.0e-4) / 1.3) / -0.3285), 0.0, 4.0);
     vec3 m = petalNear(bell(p, k), bell(p, min(k + 1.0, 4.0)));
     return petalNear(m, bell(p, max(k - 1.0, 0.0)));
+}
+
+vec3 bellChandelier(vec3 p) {
+    vec3 m = petalNear(bell(p - vec3(0.0, 0.3, 0.0), 0.6), bell(p - vec3(0.0, 0.3, 0.0), 1.8));
+    // Five on a ring, hung lower and tipped out from the middle.
+    vec3 q = p + vec3(0.0, 0.35, 0.0);
+    q.xz = layerSector(q.xz, 5.0) - vec2(1.75, 0.0);
+    q.xy = petalRot(-0.3) * q.xy;
+    return petalNear(m, bell(q, 2.4));
+}
+
+vec3 bellTree(vec3 p) {
+    vec3 m = petalNear(bell(p, 0.3), bell(p, 1.6));
+    // A generation down: three bells hung from the mouth, grown in by the iteration.
+    vec3 q = p + vec3(0.0, 1.45, 0.0);
+    q.xz = layerSector(q.xz, 3.0) - vec2(0.75, 0.0);
+    return petalNear(m, bell(q, mix(3.6, 2.2, gLayerIter)));
+}
+
+vec3 petalMap(vec3 p) {
+    p.xz = petalRot(uTime * PETAL_RATE(55)) * p.xz;
+    p.y -= 1.0;
+    vec3 m = vec3(0.0);
+    if (gLayerPick.x > 0.0) m += gLayerPick.x * bellNest(p);
+    if (gLayerPick.y > 0.0) m += gLayerPick.y * bellChandelier(p);
+    if (gLayerPick.z > 0.0) m += gLayerPick.z * bellTree(p);
+    return m;
 }
 
 //#include lib_petal_march

@@ -23,7 +23,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.geode.R
-import dev.geode.render.scene.ParamKeys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -81,8 +80,8 @@ class CustomizeBrowserTest {
         assertEquals(CustomizeCategory.LOOK, tab)
         compose.onNodeWithText("Basics").assertIsDisplayed()
         compose.onNodeWithText("Colour detail").assertIsDisplayed()
-        compose.onNodeWithText(ParamKeys.PALETTE).assertDoesNotExist()
-        compose.onNodeWithText(ParamKeys.HUE_SHIFT).assertDoesNotExist()
+        compose.onNodeWithText("Palette").assertDoesNotExist()
+        compose.onNodeWithText("Hue shift").assertDoesNotExist()
     }
 
     @Test
@@ -90,17 +89,17 @@ class CustomizeBrowserTest {
         setBrowser()
         openTab(CustomizeCategory.LOOK)
         compose.onNodeWithText("Basics").performClick()
-        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
+        compose.onNodeWithText("Palette").assertIsDisplayed()
         scrollTo("Colour detail")
         compose.onNodeWithText("Colour detail").performClick()
-        scrollTo(ParamKeys.HUE_SHIFT)
-        compose.onNodeWithText(ParamKeys.HUE_SHIFT).assertIsDisplayed()
+        scrollTo("Hue shift")
+        compose.onNodeWithText("Hue shift").assertIsDisplayed()
         // Another tab and back: a tab is not a back step, and what was open is open again.
         openTab(CustomizeCategory.SHAPE)
-        compose.onNodeWithText(ParamKeys.MORPH).assertDoesNotExist()
+        compose.onNodeWithText("Morph").assertDoesNotExist()
         openTab(CustomizeCategory.LOOK)
-        scrollTo(ParamKeys.PALETTE)
-        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
+        scrollTo("Palette")
+        compose.onNodeWithText("Palette").assertIsDisplayed()
         assertEquals(setOf("LOOK/basics", "LOOK/colour_detail"), open)
     }
 
@@ -111,11 +110,11 @@ class CustomizeBrowserTest {
         compose.onNodeWithText("Basics").performClick()
         openTab(CustomizeCategory.LOOK)
         compose.onNodeWithText("Basics").performClick()
-        compose.onNodeWithText(ParamKeys.PALETTE).assertIsDisplayed()
+        compose.onNodeWithText("Palette").assertIsDisplayed()
         // The label is the app's own string, as TalkBack reads it, not a copy of its English.
         val collapse = compose.activity.getString(R.string.customize_collapse_all_in, CustomizeCategory.LOOK.title)
         compose.onNodeWithContentDescription(collapse).performClick()
-        compose.onNodeWithText(ParamKeys.PALETTE).assertDoesNotExist()
+        compose.onNodeWithText("Palette").assertDoesNotExist()
         compose.onNodeWithContentDescription(collapse).assertIsNotEnabled()
         assertEquals(setOf("SHAPE/basics"), open)
     }

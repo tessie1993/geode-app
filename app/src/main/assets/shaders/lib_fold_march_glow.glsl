@@ -13,8 +13,11 @@
 //
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
+//#include lib_fold_at
+
 /** The light gathered along one ray. */
 vec3 foldGlow(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = FOLD_GLOW_STEPS;
     // The step that reaches gFoldFar in n steps.
     float pace = gFoldFar / n;
@@ -23,7 +26,7 @@ vec3 foldGlow(vec3 ro, vec3 rd) {
     float t = pace * (0.2 + 0.5 * foldDither());
     for (int i = 0; i < FOLD_GLOW_MAX; i++) {
         if (float(i) >= n || t > gFoldFar || through < 0.03) break;
-        vec4 m = foldMap(foldBend(ro + rd * t));
+        vec4 m = FOLD_AT((ro + rd * t));
         float span = clamp(m.x * gFoldStride * gFoldSlack, 0.35 * pace, 2.5 * pace);
         float w = foldWidth(t);
         float wide = max(w, 0.5 * span);
@@ -32,11 +35,13 @@ vec3 foldGlow(vec3 ro, vec3 rd) {
         float near = 1.0 - smoothstep(0.0, gFoldEdge, m.x);
         // Nothing lights right at the eye: flying through a thread must not fill the frame.
         float fade = smoothstep(0.05, 0.8, t) * exp(-2.4 * t / gFoldFar) * near * span;
-        float hue = gFoldTone + m.y + 0.2 * t / gFoldFar;
+        // Escape colour (lib_shade): the two traps as one value move the threads' hue along the palette.
+        float hue = gFoldTone + m.y + 0.2 * t / gFoldFar + shadeEscape(shadeTrapPair(m.zw));
         vec3 e = foldCol(hue) * prof.x + foldCol(hue + 0.35) * 0.5 * prof.y;
         acc += through * fade * (0.07 * gFoldBuild * e + 0.06 * foldCol(hue + 0.6));
         through *= exp(-gFoldDense * near * span);
         t += span;
     }
-    return acc;
+    // The haze in front, the far layer through what the threads' haze lets by (lib_layers).
+    return layerCompose(acc, ro, rd, gFoldFar, gFoldFar, through);
 }

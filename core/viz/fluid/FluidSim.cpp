@@ -226,6 +226,25 @@ void FluidSim::queueSplat(const Splat& s) {
     if (available_) pending_.push_back(s);
 }
 
+void FluidSim::applyField(Field field, UniformCache& program, const std::function<void(UniformCache&)>& uniforms) {
+    std::optional<DoubleFbo>& grid = field == Field::Velocity ? velocity_ : dye_;
+    if (!available_ || !grid || !grid->ok() || program.program() == 0) return;
+    DoubleFbo& target = *grid;
+    glDisable(GL_BLEND);
+    quad_.bind();
+    glUseProgram(program.program());
+    glUniform2f(program.loc("uInvRes"), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
+    glUniform1f(program.loc("uAspect"), aspect_);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, target.read().tex());
+    glUniform1i(program.loc("uTarget"), 0);
+    uniforms(program);
+    blitDiscarding(target.write());
+    target.swap();
+    quad_.unbind();
+    glActiveTexture(GL_TEXTURE0);
+}
+
 void FluidSim::step(float dtRaw) {
     // The whole frame is simulated, in equal steps the solver is stable under (#383): the splats queued
     // this frame go into the first step, which clears them.

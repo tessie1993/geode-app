@@ -127,16 +127,21 @@ float tineDist(vec3 p) {
     return min(max(w.x, w.y), 0.0) + length(max(w, 0.0));
 }
 
-float map(vec3 p) {
+/** The style's world at p: its distance, and in `found` what is there (no slots). */
+float mapAt(vec3 p, inout LucidHit found) {
     float d = min((p.y - waterH(p.xz)) / gLip, tineDist(p));
     return max(d, LI_BUBBLE - length(p - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p as a hit, for lib_lucid_field. */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_lucid_field
 
 /** The paper sky, and the fog below the horizon, so the bath fades into the page. */
 vec3 skyCol(vec3 dir, vec3 fogCol, vec3 paper, vec3 L) {
@@ -145,16 +150,13 @@ vec3 skyCol(vec3 dir, vec3 fogCol, vec3 paper, vec3 L) {
 }
 
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(true);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
 
-    float kPulse = uKnob[0] - 0.5;
-    float kTex = uKnob[1] - 0.5;
-    float kFlow = uKnob[2] - 0.5;
-    float kTone = uKnob[3] - 0.5;
-    float kBuild = uKnob[4] - 0.5;
-    float kSpace = uKnob[5] - 0.5;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
 
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * uIntensity;
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
@@ -165,11 +167,11 @@ void main() {
     int depth = lucidBudget(5, 3);
     int oct = lucidDetail(2, 1);
 
-    gS = 0.35 * (1.0 + 0.8 * kTex);
-    gTeeth = 5.0 + 4.0 * clamp(uMorph, 0.0, 1.0);
+    gS = 0.35 * lucidSpan(N.scale, 1.0, 0.6, 1.4);
+    gTeeth = lucidSpan(N.depth, 5.0, 5.0, 9.0);
     gTinePh = t * 0.11;
-    gWY = -3.4 * (1.0 + 0.25 * kSpace);
-    gB = clamp((0.14 + 0.1 * min(bass, 1.0)) * (1.0 + 0.9 * kFlow), 0.0, 0.4);
+    gWY = -3.4 * lucidSpan(N.reach, 1.0, 0.875, 1.125);
+    gB = clamp((0.14 + 0.1 * min(bass, 1.0)) * lucidSpan(N.flow, 1.0, 0.55, 1.45), 0.0, 0.4);
     gPh = flow * 0.3 + t * 0.04;
     gLip = 1.0 + gB;
 
@@ -179,6 +181,8 @@ void main() {
     // Every march term repeats every 32 in z (see the header): exact and invisible.
     float zBase = LI_ZWRAP * floor(ro.z / LI_ZWRAP);
     ro.z -= zBase;
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;
@@ -187,7 +191,8 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (tm > LI_FAR) break;
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -199,8 +204,8 @@ void main() {
     vec3 paper = mix(vec3(0.86, 0.82, 0.74), pal(0.1), 0.12);
     vec3 fogCol = paper * 0.97;
     vec3 L = normalize(vec3(-0.3, 0.7, 0.6));
-    vec3 inkCol = pal(0.6 + 0.4 * kTone) * 0.06 + vec3(0.02, 0.02, 0.03);
-    vec3 washCol = mix(inkCol, pal(0.3 + 0.4 * kTone) * 0.5, 0.25);
+    vec3 inkCol = pal(0.6 + lucidSpan(N.tone, 0.0, -0.2, 0.2)) * 0.06 + vec3(0.02, 0.02, 0.03);
+    vec3 washCol = mix(inkCol, pal(0.3 + lucidSpan(N.tone, 0.0, -0.2, 0.2)) * 0.5, 0.25);
     vec3 col = skyCol(rd, fogCol, paper, L);
 
     if (hitT > 0.0) {
@@ -210,7 +215,7 @@ void main() {
         if (onTine) {
             // Lacquered black stylus: a little diffuse, a hard highlight, the
             // paper sky along its rim.
-            vec3 nrm = normalAt(p, max(0.001, 0.0008 * hitT));
+            vec3 nrm = lucidNormal(p, max(0.001, 0.0008 * hitT));
             float ndv = clamp(dot(nrm, -rd), 0.0, 1.0);
             float dif = max(dot(nrm, L), 0.0);
             vec3 r = reflect(rd, nrm);
@@ -242,7 +247,7 @@ void main() {
             float xn = p.x * gS;
             // The rake: crests at the tines pull the ink forward along z, and
             // a long wave (64 per turn) sways it sideways, and back.
-            float rake = (0.18 + 0.16 * swell * uIntensity * (1.0 + kPulse));
+            float rake = (0.18 + 0.16 * swell * uIntensity * lucidSpan(N.emit, 1.0, 0.5, 1.5));
             float th = th0 + (rake / R) * sin(xn * gTeeth + gTinePh);
             xn += 0.35 * rake * sin(64.0 * th0 - t * 0.07);
             vec2 q = (R + xn) * vec2(cos(th), sin(th));
@@ -263,7 +268,7 @@ void main() {
             float farK = smoothstep(14.0, LI_FAR, hitT);
 
             float ridge = 0.5 + 0.5 * n.z;
-            float lines = smoothstep(0.72 - 0.12 * kBuild - aa, 0.95 + aa * 0.3, ridge);
+            float lines = smoothstep(0.72 - lucidSpan(N.glow, 0.0, -0.06, 0.06) - aa, 0.95 + aa * 0.3, ridge);
             float wash = smoothstep(0.25 - 0.1 * clamp(mid, 0.0, 1.0), 0.8, ridge) * (0.35 + 0.25 * n.w);
             lines = mix(lines, 0.12, farK);
             wash = mix(wash, 0.3, farK);

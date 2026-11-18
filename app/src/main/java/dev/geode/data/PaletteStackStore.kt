@@ -1,16 +1,20 @@
 package dev.geode.data
 
+import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.engine.bridge.PaletteNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /** A palette of the native library, by its place in it. */
 data class PalettePick(
@@ -31,13 +35,13 @@ data class PaletteStackState(
  * The palette stack (Customize › Look › Palettes): the palettes every style takes its colours from, in
  * order, process-wide like the macro bank. The stack is native's text and every edit is a native call;
  * this store keeps the text and hands it to native on load and after each edit. An unset stack draws
- * the look's own palette. Each layer's amount is the look's (`SceneParams.paletteAmount0..7`).
+ * the look's own palette. Each layer's amount is the look's (its `paletteAmount0..7` params).
  */
 class PaletteStackStore internal constructor(
     private val repository: SettingsRepository<String>,
     private val scope: CoroutineScope,
-    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push palette stack") { GeodeNative.paletteStackSet(text) } },
-    private val editorOf: (String) -> String = { GeodeNative.paletteStackEditor(it) },
+    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push palette stack") { PaletteNative.paletteStackSet(text) } },
+    private val editorOf: (String) -> String = { PaletteNative.paletteStackEditor(it) },
 ) {
     private val _state = MutableStateFlow(PaletteStackState())
     val state: StateFlow<PaletteStackState> = _state
@@ -50,21 +54,21 @@ class PaletteStackStore internal constructor(
         }
     }
 
-    fun add(libraryIndex: Int) = edit { GeodeNative.paletteStackAddLibrary(it, libraryIndex) }
+    fun add(libraryIndex: Int) = edit { PaletteNative.paletteStackAddLibrary(it, libraryIndex) }
 
     fun addColours(
         name: String,
         rgb: List<Int>,
-    ) = edit { GeodeNative.paletteStackAddColours(it, name, rgb.toIntArray()) }
+    ) = edit { PaletteNative.paletteStackAddColours(it, name, rgb.toIntArray()) }
 
-    fun remove(layer: Int) = edit { GeodeNative.paletteStackRemove(it, layer) }
+    fun remove(layer: Int) = edit { PaletteNative.paletteStackRemove(it, layer) }
 
     fun move(
         layer: Int,
         delta: Int,
-    ) = edit { GeodeNative.paletteStackMove(it, layer, delta) }
+    ) = edit { PaletteNative.paletteStackMove(it, layer, delta) }
 
-    fun setBlend(blend: String) = edit { GeodeNative.paletteStackSetBlend(it, blend) }
+    fun setBlend(blend: String) = edit { PaletteNative.paletteStackSetBlend(it, blend) }
 
     private fun edit(change: (String) -> String) {
         val text = runCatching { change(_state.value.text) }.getOrNull() ?: return
@@ -116,7 +120,7 @@ class PaletteStackStore internal constructor(
 
 /** The saved stack in `geode-prefs`: one string, normalized by native when it is read. */
 class PaletteStackCodec(
-    private val normalize: (String) -> String = { GeodeNative.paletteStackNormalize(it) },
+    private val normalize: (String) -> String = { PaletteNative.paletteStackNormalize(it) },
 ) : PrefsCodec<String> {
     override val defaults = ""
 
@@ -132,5 +136,88 @@ class PaletteStackCodec(
         value: String,
     ) {
         editor.putString(PaletteStackStore.KEY_STACK, value)
+    }
+}
+
+/**
+ * A saved palette (Customize › Look's your colours), held as its file's text; every field is native's read
+ * of it (core/viz/LookFiles: the id rule, the defaults, the five-colour cap).
+ */
+class CustomPalette(
+    val text: String,
+) {
+    val id: String by lazy { LooksNative.savedPaletteString(text, "id") }
+    val name: String by lazy { LooksNative.savedPaletteString(text, "name") }
+    val stops: List<Int> by lazy { LooksNative.savedPaletteStops(text).toList() }
+    private val hues: FloatArray by lazy { LooksNative.savedPaletteHues(text) }
+    val baseHue: Float get() = hues[0]
+    val hueSpan: Float get() = hues[1]
+
+    override fun equals(other: Any?): Boolean = other is CustomPalette && other.text == text
+
+    override fun hashCode(): Int = text.hashCode()
+}
+
+/** Saved palette [palette] as the look's own palette. */
+fun SceneParams.withSavedPalette(palette: CustomPalette): SceneParams = withSavedPalette(palette.text, palette.id)
+
+/** The saved palettes' files as Customize reads and writes them: [PaletteStore], or a JVM test's stand-in (no libgeode there). */
+interface SavedPaletteFiles {
+    fun list(): List<CustomPalette>
+
+    fun save(palette: CustomPalette): CustomPalette
+
+    fun delete(id: String)
+}
+
+/**
+ * The saved palettes' folder (files/palettes/<id>.json): bytes in and out. What a file holds, its name, its
+ * migration to the current id rule and the list's order are native (core/viz/LookFiles).
+ */
+class PaletteStore(
+    context: Context,
+) : SavedPaletteFiles {
+    private val dir = File(context.filesDir, "palettes").apply { mkdirs() }
+
+    init {
+        files().forEach { f ->
+            val text = f.text()?.let(LooksNative::savedPaletteMigrate) ?: return@forEach
+            val target = File(dir, CustomPalette(text).id + ".json")
+            if (target.name != f.name && !target.exists() && AtomicWrite.text(target, text)) f.delete()
+        }
+    }
+
+    override fun list(): List<CustomPalette> {
+        val read = files().mapNotNull { it.text()?.let(LooksNative::savedPaletteRead) }.map(::CustomPalette)
+        return LooksNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
+    }
+
+    override fun save(palette: CustomPalette): CustomPalette {
+        val clean = sanitized(palette)
+        AtomicWrite.text(File(dir, clean.id + ".json"), clean.text)
+        return clean
+    }
+
+    override fun delete(id: String) {
+        File(dir, LooksNative.savedPaletteIdFor(id) + ".json").delete()
+    }
+
+    private fun files(): List<File> = dir.listFiles().orEmpty().filter { it.isFile && it.extension == "json" }
+
+    private fun File.text(): String? = runCatching { readText() }.getOrNull()
+
+    companion object {
+        fun create(
+            name: String,
+            baseHue: Float,
+            hueSpan: Float,
+        ): CustomPalette = CustomPalette(LooksNative.savedPaletteCreate(name, baseHue, hueSpan, IntArray(0)))
+
+        fun create(
+            name: String,
+            stops: List<Int>,
+        ): CustomPalette = CustomPalette(LooksNative.savedPaletteCreate(name, 0f, 0f, stops.toIntArray()))
+
+        fun sanitized(palette: CustomPalette): CustomPalette = CustomPalette(LooksNative.savedPaletteSanitize(palette.text) ?: palette.text)
     }
 }

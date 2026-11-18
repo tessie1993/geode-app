@@ -47,16 +47,33 @@ float facingOf(float speed) {
 
 float wobble(float t, float a, float b) { return 0.6f * std::sin(t * a) + 0.4f * std::sin(t * b + 1.7f); }
 
+// An input the rig reads, with a NaN or an infinity read as the given neutral value: std::clamp passes a NaN
+// through, and a spring that takes one keeps it.
+float finiteOr(float v, float neutral) { return std::isfinite(v) ? v : neutral; }
+
 }  // namespace
 
+// A non-finite target or result is refused: the spring holds where it is and stops, so one bad frame
+// cannot latch the pose.
 void CameraRig::Spring::step(float target, float dt, float seconds) {
     const float omega = 2.0f / std::max(seconds, 1e-3f);
     const float k = omega * dt;
     const float e = std::exp(-k);
     const float d = x - target;
     const float t = (v + omega * d) * dt;
-    x = target + (d + t) * e;
-    v = (v - omega * t) * e;
+    const float nx = target + (d + t) * e;
+    const float nv = (v - omega * t) * e;
+    if (!std::isfinite(target) || !std::isfinite(nx) || !std::isfinite(nv)) {
+        v = 0.0f;
+        return;
+    }
+    x = nx;
+    v = nv;
+}
+
+void CameraRig::Spring::reset(float to) {
+    if (std::isfinite(to)) x = to;
+    v = 0.0f;
 }
 
 void CameraRig::reset() {
@@ -68,11 +85,7 @@ void CameraRig::reset() {
     trauma_ = 0.0f;
     traumaClock_ = 0.0f;
     sinceCut_ = kCutGapSeconds;
-    sinceReframe_ = kReframeGapSeconds;
-    sinceNoteLook_ = 1.0f;
-    noteLook_ = 0.0f;
     dollyKick_ = 0.0f;
-    lissPhase_ = 0.0f;
     cuts_ = 0;
     seed_ = 0x2545F491u;
 }
@@ -148,23 +161,28 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Same frame-time rule as viz/Reactions: non-finite is no time at all.
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
-    const float soft = 0.08f + 0.72f * std::clamp(p.camSmooth, 0.0f, 1.0f);
-    const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);
-    const float lookPitch = p.camPitch * kMaxPitch + (p.camTouch || p.camGyro ? look.pitch * kTouchLook : 0.0f);
-    float fovTarget = std::clamp(p.camFov, 0.5f, 2.0f);
+    // Every float read from p and look goes through finiteOr: a move reads as none, the lens as plain (1),
+    // the smoothing as its default.
+    const float camSmooth = finiteOr(p.camSmooth, SceneParams::spec(ParamSlot::camSmooth).defaultValue);
+    const float camOrbit = finiteOr(p.camOrbit, 0.0f);
+    const float soft = 0.08f + 0.72f * std::clamp(camSmooth, 0.0f, 1.0f);
+    const float lookYaw = finiteOr(p.camYaw, 0.0f) * kMaxYaw + (p.camTouch || p.camGyro ? finiteOr(look.yaw, 0.0f) * kTouchLook : 0.0f);
+    const float lookPitch = finiteOr(p.camPitch, 0.0f) * kMaxPitch + (p.camTouch || p.camGyro ? finiteOr(look.pitch, 0.0f) * kTouchLook : 0.0f);
+    float fovTarget = std::clamp(finiteOr(p.camFov, 1.0f), 0.5f, 2.0f);
     // camFly arrives already scaled for reduced motion by safety::apply, its one owner, so forward
     // travel takes it as it is; g is for the rig's own moves below. Endless zoom is not the rig's: it is
     // a stage of its own over every style's picture (EndlessZoom.hpp).
-    float speedTarget = std::clamp(p.camFly, -2.5f, 2.5f) * kBaseSpeed;
+    float speedTarget = std::clamp(finiteOr(p.camFly, 0.0f), -2.5f, 2.5f) * kBaseSpeed;
     const int path = std::clamp(p.camPath, 0, kPathCount - 1);
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
-    // Sources: MilkDrop's zoom on bass_att and its slow rot on time; TouchDesigner's lag-shaped
+    // Sources: the zoom on bass_att that MilkDrop presets use; lag-shaped
     // levels; Eiserloh (GDC 2016) for trauma shake. Every offset is eased by the springs below and
     // scaled by amp, so quiet passages move little, silence fades it all out, and the Motion dial
     // and reduced motion turn it down like the rest of the motion layer.
-    float soundYaw = 0.0f;
-    float soundPitch = 0.0f;
-    float soundRoll = 0.0f;
+    // No sound turns the view (owner 2026-11-12, no style spins to the music): the mid-clock
+    // Lissajous look, the roll sway on the loudness clock, the lean with the stereo pan and the
+    // melody, the note look and the counted reframe that moved them are gone. The music still
+    // pushes, breathes, shakes and cuts the camera.
     float soundDolly = 0.0f;
     bool cut = false;
     if (sound != nullptr) {
@@ -172,13 +190,11 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         auto val = [](float v) { return std::isfinite(v) ? v : 0.0f; };
         // The reach is the absolute drive (core/sound/DriveGain), not the song's own rise over its average:
         // an ambient pad moves the camera a little, a loud dense track fully, whatever either is mastered at.
-        const float amp = std::clamp(p.motionAmount, 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
+        const float amp = std::clamp(finiteOr(p.motionAmount, 0.0f), 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
                           sound::driveGain(s);
         sinceCut_ += dt;
-        sinceReframe_ += dt;
-        sinceNoteLook_ += dt;
 
-        // A hard cut: a new place on the path and a new orbit phase, with no tween (the springs are
+        // A hard cut: a new place on the path, with no tween (the springs are
         // snapped below) and the shake and dolly kick cleared, at most once per kCutGapSeconds.
         const Moves& m = moves_;
         // The director's Chaos axis shortens the gap between cuts (cut 2 = half) or stops them (cut 0).
@@ -186,39 +202,11 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         if (val(s.hardCut) > 0.0f && sinceCut_ >= cutGap && amp > 0.0f) {
             cut = true;
             sinceCut_ = 0.0f;
-            sinceReframe_ = 0.0f;
             travel_ = std::fmod(travel_ + 40.0f + 160.0f * nextRandom(), kTravelWrap);
-            lissPhase_ = std::fmod(lissPhase_ + 1.0f + 4.0f * nextRandom(), kTwoPi * 8.0f);
             trauma_ = 0.0f;
             dollyKick_ = 0.0f;
             ++cuts_;
         }
-        // Every sixteenth kick, a new framing: the orbit's phase moves by up to 1.5 rad and the
-        // springs ease there. Held off after a cut and spaced, so it reads as phrasing.
-        if (val(s.kick16) > 0.0f && m.reframe > 0.0f && sinceReframe_ >= kReframeGapSeconds && sinceCut_ >= kReframeHoldSeconds) {
-            sinceReframe_ = 0.0f;
-            lissPhase_ += 1.5f * std::min(m.reframe, 2.0f) * (2.0f * std::clamp(val(s.kickRandom), 0.0f, 1.0f) - 1.0f);
-        }
-
-        // The orbit on the mid clock: a Lissajous look path whose rates never line up, so it never
-        // repeats, and whose speed follows the mids. A slow roll sway on the loudness clock, for
-        // styles that turn.
-        const float c = std::fmod(val(s.midTime), kTwoPi * 100.0f) + lissPhase_;
-        soundYaw += 0.15f * amp * m.orbit * std::sin(0.6f * c);
-        soundPitch += 0.09f * amp * m.orbit * (0.75f * std::sin(0.4f * c) + 0.25f * std::sin(1.324f * c));
-        if (bankFlat) {
-            const float k = std::fmod(val(s.curvedTime), kTwoPi * 100.0f);
-            soundRoll += 0.05f * amp * m.orbit * (0.6f * std::sin(0.31f * k) + 0.4f * std::sin(0.73f * k));
-        }
-        // Lean with the stereo field; rise with the melody while there is one.
-        soundYaw += 0.08f * amp * m.lean * std::clamp(val(s.stereoPan), -1.0f, 1.0f);
-        soundPitch += 0.1f * amp * m.lean * (std::clamp(val(s.pitchHeight), 0.0f, 1.0f) - 0.5f) * std::clamp(val(s.pitchConfidence), 0.0f, 1.0f);
-        // A new note looks somewhere a little different, at most twice a second.
-        if (val(s.noteChange) > 0.0f && sinceNoteLook_ >= 0.5f) {
-            sinceNoteLook_ = 0.0f;
-            noteLook_ = 0.05f * (2.0f * std::clamp(val(s.noteRandom), 0.0f, 1.0f) - 1.0f);
-        }
-        soundYaw += noteLook_ * amp * m.lean;
 
         // A surge pushes in; sound coming back after silence pulls back out; both settle over ~2 s.
         // A rise (energyTrend over 0.5) creeps in until a big moment releases it.
@@ -238,12 +226,12 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         trauma_ = std::max(0.0f, trauma_ - 1.2f * dt);
         traumaClock_ = std::fmod(traumaClock_ + dt * (8.0f + 5.0f * std::clamp(val(s.flux), 0.0f, 2.0f)), kPathPeriod);
     }
-    const float lookYawTarget = lookYaw + soundYaw;
+    const float lookYawTarget = lookYaw;
     // Fall tips the nose down and rise up, eased by the pitch spring like any look.
     const float pathPitch = path == 5 ? -kFallPitch * g : (path == 6 ? kFallPitch * g : 0.0f);
-    const float lookPitchTarget = lookPitch + soundPitch + pathPitch;
-    const float rollTarget = p.camRoll * kMaxRoll * g + soundRoll;
-    const float dollyTarget = std::clamp(p.camPush + soundDolly, -1.0f, 1.0f);
+    const float lookPitchTarget = lookPitch + pathPitch;
+    const float rollTarget = finiteOr(p.camRoll, 0.0f) * kMaxRoll * g;
+    const float dollyTarget = std::clamp(finiteOr(p.camPush, 0.0f) + soundDolly, -1.0f, 1.0f);
     fovTarget = std::clamp(fovTarget, 0.5f, 2.0f);
     if (!primed_ || cut) {
         yaw_.reset(lookYawTarget);
@@ -255,19 +243,20 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
             speed_.reset(speedTarget);
             facing_.reset(facingOf(speedTarget));
         }
-        orbit_.reset(p.camOrbit * g);
+        orbit_.reset(camOrbit * g);
         primed_ = true;
     }
     yaw_.step(lookYawTarget, dt, soft);
     pitch_.step(lookPitchTarget, dt, soft);
     roll_.step(rollTarget, dt, soft * 1.5f);
-    dolly_.step(dollyTarget, dt, soft * 0.6f);
+    // The dolly springs faster than the look, so a push lands on the beat it answers.
+    dolly_.step(dollyTarget, dt, soft * 0.25f);
     fov_.step(fovTarget, dt, soft);
     // Speed eases slower than the look: a surge should feel like thrust.
     speed_.step(speedTarget, dt, soft * 2.0f);
     // Swing sets the size of a wander that already takes tens of seconds to cross; a slow spring on
     // top of that hid the slider for seconds more.
-    orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft);
+    orbit_.step(std::clamp(camOrbit, 0.0f, 1.0f) * g, dt, soft);
     facing_.step(facingOf(speed_.x), dt, kTurnAroundSeconds);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);
@@ -311,7 +300,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         const float th = 96.0f * kW * travel_;
         bank += std::atan2(g * std::sin(th), 1.0f - g + g * std::cos(th));
     }
-    const float shake = std::clamp(p.camShake, 0.0f, 1.0f) * kShakeRadians * g;
+    const float shake = std::clamp(finiteOr(p.camShake, 0.0f), 0.0f, 1.0f) * kShakeRadians * g;
     // The trauma shake goes on the view only, after the springs, so it never feeds back into the pose.
     const float trauma = trauma_ * trauma_ * kTraumaRadians;
     const float sYaw = shake * wobble(time_, 7.3f, 11.9f) + trauma * wobble(traumaClock_, 1.0f, 1.618f);
@@ -339,7 +328,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     pose_.roll = roll;
     // Flat projection: the path's lateral wander becomes a gentle pan, the
     // dolly and FOV become zoom, and the look tilts the image plane.
-    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.35f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
+    pose_.flat = {0.05f * here[0], 0.05f * here[1], (1.0f + 0.6f * dolly_.x) / std::max(fov_.x, 0.25f), bankFlat ? roll : roll_.x};
     pose_.tilt = {std::clamp(yaw, -1.0f, 1.0f) * kFlatTilt, std::clamp(pitch, -1.0f, 1.0f) * kFlatTilt};
 }
 

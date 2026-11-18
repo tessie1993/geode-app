@@ -192,7 +192,8 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
     check(kept.count("Bloom"), "a control's own lock passes through");
     check(!kept.count("#MOTION") && !kept.count("#NO_SUCH"), "markers do not stay in the set");
     check(!kept.count("Palette") && !kept.count("Camera path"), "other categories stay free");
-    check(customize::expandLocks({"#MUSIC"}).count("@waves"), "a kept Music keeps the waves, which its roll re-rolls");
+    check(customize::expandLocks({"#EXPERT"}).count("@waves"), "a kept Expert keeps the waves, which a roll of everything re-rolls");
+    check(!customize::expandLocks({"#MUSIC"}).count("@waves"), "the waves are Expert's, not Music's");
 
     const SceneParams start;
     const auto motion = fieldsOfCategory(Category::Motion);
@@ -384,7 +385,7 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     p.speed = defaults.speed + 1.0f;
     check(customize::changedCount(p) == 1, "one moved float counts once");
     p.flowEnabled = true;
-    p.symmetry = defaults.symmetry + 1;
+    p.camPath = defaults.camPath + 1;
     check(customize::changedCount(p) == 3, "a flag and a pick count too");
     p.speed = defaults.speed;
     check(customize::changedCount(p) == 2, "a value put back stops counting");

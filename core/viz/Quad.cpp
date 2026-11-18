@@ -3,11 +3,18 @@
 namespace geode::viz {
 
 void FullscreenTriangle::create() {
-    glGenVertexArrays(1, &vao_);
-    glGenBuffers(1, &vbo_);
+    // Names an earlier create() made are dropped, not deleted, as before handles; a caller frees them with release() first.
+    vao_.forget();
+    vbo_.forget();
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    vao_.reset(vao);
+    vbo_.reset(vbo);
     const float quad[6] = {-1.0f, -1.0f, 3.0f, -1.0f, -1.0f, 3.0f};
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof quad, quad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
@@ -15,22 +22,20 @@ void FullscreenTriangle::create() {
 }
 
 void FullscreenTriangle::draw() {
-    if (vao_ == 0) create();
-    glBindVertexArray(vao_);
+    if (!vao_) create();
+    glBindVertexArray(vao_.get());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
 
 void FullscreenTriangle::release() {
-    if (vbo_ != 0) glDeleteBuffers(1, &vbo_);
-    if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
-    vbo_ = 0;
-    vao_ = 0;
+    vbo_.reset();
+    vao_.reset();
 }
 
 void FullscreenTriangle::forget() {
-    vao_ = 0;
-    vbo_ = 0;
+    vao_.forget();
+    vbo_.forget();
 }
 
 void resetFrameState() {

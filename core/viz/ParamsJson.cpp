@@ -91,6 +91,13 @@ bool readObject(const json::Value& doc, SceneParams& out, std::string& customPal
             }
         }
     }
+    // A look saved before kaleidoFolds names the retired Kaleidoscope switch and its count instead: it opens as it
+    // was, off as 1 and on at its count (SceneParams::kaleidoFoldsOf). Read here, before sanitized() drops them.
+    if (doc.get(SceneParams::spec(ParamSlot::kaleidoFolds).name) == nullptr) {
+        const float count = std::clamp(wire[static_cast<int>(ParamSlot::symmetry)], 0.0f, 16.0f);
+        wire[static_cast<int>(ParamSlot::kaleidoFolds)] =
+            SceneParams::kaleidoFoldsOf(wire[static_cast<int>(ParamSlot::kaleidoscope)] > 0.5f, static_cast<int>(count));
+    }
     out = SceneParams::sanitized(wire);
     const auto idOf = [&doc](const char* key) {
         const json::Value* v = doc.get(key);

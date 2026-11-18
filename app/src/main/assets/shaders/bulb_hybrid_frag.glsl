@@ -35,10 +35,8 @@ out vec4 fragColor;
 //
 // ---- audio ------------------------------------------------------------------
 //
-// The BEAT nods the room. Each beat (SND_KICK_TOGGLE, 0.3 s) tips the vessel
-// about the eye and back on a bump envelope, so the walls bob in time, while
-// the accumulated rotation uDrift (eased across sections) turns the room
-// slowly round. Tonal passages (uHarmony) multiply the brushwork, percussive
+// No beat tips the room any more (owner 2026-11-12, no style spins to the
+// music); the accumulated rotation uDrift turns the room slowly round. Tonal passages (uHarmony) multiply the brushwork, percussive
 // ones thin it. Brightness follows SND_ENERGY_TREND only.
 //
 // ---- macros -----------------------------------------------------------------
@@ -46,7 +44,7 @@ out vec4 fragColor;
 // Speed scales the room's idle turn. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps
 // the clay before it is inverted (bulbChaos in q, estimate divided by
-// bulbChaosLip). Energy (uIntensity) scales the beat nod. Colour is tone(),
+// bulbChaosLip). Colour is tone(),
 // the delft ramp pal() tints. Space is the rig: travel drifts the eye round a
 // small loop at the room's centre, look and shake ride on top (bulbAim).
 
@@ -58,7 +56,6 @@ const float BY_LOOP_RATE = 5.0 * CAM_SPIN_UNIT;
 
 mat3 gPose;
 int gIters;
-vec4 gTrap;
 
 // Its own ramp: delft cobalt, ultramarine and an ink violet.
 vec3 tone(float t) {
@@ -90,21 +87,17 @@ float hybridDE(vec3 p, out vec4 tr) {
     return 0.5 * log(r) * r / dr;
 }
 
-float map(vec3 p) {
+/** The style's body: its distance and orbit trap (mat unused). */
+BulbHit bulbMap(vec3 p) {
     p = gPose * p;
     float r2 = max(dot(p, p), 1e-4);
     vec3 q = p * (BY_K / r2);
     vec4 tr;
     float d = hybridDE(bulbChaos(q), tr) / bulbChaosLip();
-    gTrap = tr;
-    return d * (r2 / BY_K) * 0.6;
+    return BulbHit(d * (r2 / BY_K) * 0.6, tr, 0.0);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
-}
+//#include lib_bulb_field
 
 /** A thin line on every integer of f, `w` pixels wide, antialiased. */
 float lineOn(float f, float w) {
@@ -116,10 +109,9 @@ float lineOn(float f, float w) {
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
-    float beat = clamp(SND_KICK_TOGGLE, 0.0, 1.0);
-    float nod = 4.0 * beat * (1.0 - beat);
+
     float harmony = clamp(uHarmony, 0.0, 1.0);
-    gPose = rotX(-0.18 * nod * bulbEnergy() - 0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
+    gPose = rotX(-0.3) * rotY(uDrift * 0.5 + 0.06 * bulbTime());
     // Four iterations, as in Cavern: inverted, the finest crust is a fur the
     // march never resolves; fewer leave smooth porcelain to draw on.
     gIters = bulbIters(4);
@@ -131,6 +123,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye + fwd, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.02 * sin(bulbTime() * 0.01);
     vec3 paper = vec3(0.93, 0.92, 0.89);
@@ -139,15 +133,19 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     vec4 trap = vec4(1.0);
+    // The last step's trap, for a ray that ran out of steps at a wall.
+    vec4 lastTrap = vec4(1.0);
     for (int i = 0; i < BY_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (t > BY_FAR) break;
         used = float(i);
-        float d = map(ro + rd * t);
+        BulbHit h = bulbField(ro + rd * t);
+        float d = h.d;
+        lastTrap = h.trap;
         float eps = bulbEps(t) * 2.5;
         if (d < eps) {
             hitT = t;
-            trap = gTrap;
+            trap = h.trap;
             break;
         }
         t += max(d, eps * 0.5);
@@ -156,7 +154,7 @@ void main() {
     // a crease: shade it as a hit (Cavern's rule).
     if (hitT < 0.0 && t < BY_FAR) {
         hitT = t;
-        trap = gTrap;
+        trap = lastTrap;
     }
 
     // Brush coordinates for every pixel (fwidth needs the whole quad).
@@ -167,11 +165,12 @@ void main() {
     vec3 col = paper;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, bulbEps(hitT) * 1.5);
+        vec3 n = bulbNormal(p, bulbEps(hitT) * 1.5);
         float ndv = dot(n, -rd);
         // Porcelain: white, with only a whisper of light to tell the walls apart.
         vec3 body = paper * (0.86 + 0.14 * max(dot(n, normalize(vec3(-0.3, 0.8, -0.4))), 0.0));
-        vec3 cobalt = tone(hue + 0.1 * trap.w);
+        // Escape colour (lib_shade): the smoothed escape count moves the cobalt along its ramp.
+        vec3 cobalt = tone(hue + 0.1 * trap.w + shadeEscape(trap.w));
         body = mix(body, cobalt, brush * 0.85);
         body = mix(body, tone(hue + 0.3), rings * 0.45);
         // Ink: where a wall turns away from the eye, and in the deepest creases.

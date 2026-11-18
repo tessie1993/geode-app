@@ -530,6 +530,9 @@ SceneParams resolve(Resolver& r, const EngineSettings& s, float seconds, float& 
         GeodeSoundFrame f = song(t, dt);
         if (n > 0 && n % 600 == 0) f.drop = 1.0f;
         if (n % 600 == 300) f.sectionChange = 1.0f;
+        // Form's name for each section, the frame after it reports it (the director decides there): 1, 2,
+        // 3, then the first sections come back.
+        f.sectionId = n > 300 ? static_cast<float>(((n - 301) / 600 + 1) % 4) : 0.0f;
         out = r.step(requested, f, dt, s, style).params;
         if (safe != nullptr) *safe = *safe && sameBits(out, safety::apply(out, s.reducedMotion));
     }
@@ -566,7 +569,7 @@ void testResolver() {
     check(sameBits(pb, pg), "and the same one every time: an export equals the screen");
     check(safe, "safety::apply is still last: every frame is already inside its limits");
     const float top = 1.0f + safety::kMaxFlashDepth + 1e-6f;
-    check(pb.brightness <= top && pb.intensity <= top && pb.bloom <= safety::kMaxFlashDepth + 1e-6f, "the luminance caps hold");
+    check(pb.brightness <= top && pb.intensity <= top && pb.bloom <= safety::kMaxBloom + 1e-6f, "the luminance caps hold");
 }
 
 void testExportPin() {

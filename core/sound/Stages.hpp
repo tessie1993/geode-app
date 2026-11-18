@@ -88,7 +88,7 @@ private:
     float attRatio_ = 1.0f;
 };
 
-// TouchDesigner's Trigger: fires once when x rises past `on`, then re-arms only after x falls below half
+// A trigger with hysteresis: fires once when x rises past `on`, then re-arms only after x falls below half
 // of it (hysteresis) and `refractory` seconds have passed (re-trigger delay). Returns the strength, 0..1.
 class Trigger {
 public:

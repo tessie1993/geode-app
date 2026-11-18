@@ -35,7 +35,7 @@ uniform vec2 uRes;
 uniform int uStyle;       // warp recipe, 0..9 (the style's own, or its hard-cut alternate)
 uniform int uSource;      // audio source layer recipe, 0..3
 uniform float uZoom;      // per-frame feedback zoom (1 = none), already pushed by a surge or a hard cut
-uniform float uRotate;    // per-frame feedback rotation, radians (never reverses: the sound clock)
+uniform float uRotate;    // per-frame feedback rotation, radians (the style's own rate at Speed)
 uniform float uHueShift;  // per-frame hue rotation, turns
 uniform float uFeedback;  // survival gain, < 1 (echo length follows the energy trend)
 uniform float uModulate;  // how far source brightness displaces the resample

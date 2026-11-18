@@ -4,10 +4,32 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
 geode_dsp* dspOf(jlong handle) { return reinterpret_cast<geode_dsp*>(handle); }
+
+// ByteBuffer.put(ByteBuffer) and position(int), looked up once (a boot class, never unloaded).
+struct BulkPutIds {
+    jmethodID put = nullptr;
+    jmethodID position = nullptr;
+};
+
+const BulkPutIds& bulkPutIds(JNIEnv* env) {
+    static const BulkPutIds ids = [env] {
+        BulkPutIds k;
+        jclass c = env->FindClass("java/nio/ByteBuffer");
+        if (c) {
+            k.put = env->GetMethodID(c, "put", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;");
+            if (k.put) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
+            env->DeleteLocalRef(c);
+        }
+        env->ExceptionClear();
+        return k;
+    }();
+    return ids;
+}
 
 }  // namespace
 
@@ -19,8 +41,9 @@ Java_dev_geode_engine_bridge_GeodeNative_dspCreate(JNIEnv*, jobject) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint sampleRate, jint channels) {
-    return geode_dsp_configure(dspOf(handle), sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
+Java_dev_geode_engine_bridge_GeodeNative_dspConfigure(JNIEnv*, jobject, jlong handle, jint encoding, jint sampleRate,
+                                                      jint channels) {
+    return geode_dsp_configure_input(dspOf(handle), encoding, sampleRate, channels) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -36,11 +59,6 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFlush(JNIEnv*, jobject, jlong handle
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDestroy(JNIEnv*, jobject, jlong handle) {
     geode_dsp_destroy(dspOf(handle));
-}
-
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspBandCenterHz(JNIEnv*, jobject, jint band) {
-    return geode_dsp_band_center_hz(band);
 }
 
 JNIEXPORT jint JNICALL
@@ -80,10 +98,9 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFxClamp(JNIEnv*, jobject, jint contr
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBandsText(JNIEnv* env, jobject, jint preset, jstring csv, jintArray out) {
     if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
-    const char* text = csv ? env->GetStringUTFChars(csv, nullptr) : nullptr;
+    const geode::jni::Utf8Chars text(env, csv);
     int32_t levels[GEODE_DSP_BANDS] = {};
-    const int n = geode_dsp_restore_bands_text(preset, text, levels, GEODE_DSP_BANDS);
-    if (text) env->ReleaseStringUTFChars(csv, text);
+    const int n = geode_dsp_restore_bands_text(preset, text.get(), levels, GEODE_DSP_BANDS);
     env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
     return n;
 }
@@ -95,21 +112,21 @@ Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, ji
     if (count > 0) env->GetIntArrayRegion(levels, 0, count, values.data());
     std::string text(static_cast<size_t>(geode_dsp_encode_bands(values.data(), count, nullptr, 0)) + 1, '\0');
     geode_dsp_encode_bands(values.data(), count, text.data(), static_cast<int>(text.size()));
-    return env->NewStringUTF(text.c_str());
+    return geode::jni::utf8String(env, text.c_str());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspBandLabel(JNIEnv* env, jobject, jint band) {
     char text[32] = {};
     geode_dsp_band_label(band, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDbLabel(JNIEnv* env, jobject, jint millibels) {
     char text[32] = {};
     geode_dsp_db_label(millibels, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT void JNICALL
@@ -133,8 +150,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLoudnessMb(JNIEnv*, jobject, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspRampTo(JNIEnv*, jobject, jlong handle, jfloat db, jint ms) {
-    geode_dsp_ramp_to(dspOf(handle), db, ms);
+Java_dev_geode_engine_bridge_GeodeNative_dspRampAudible(JNIEnv*, jobject, jlong handle, jboolean audible, jint ms) {
+    geode_dsp_ramp_audible(dspOf(handle), audible == JNI_TRUE, ms);
 }
 
 JNIEXPORT jlong JNICALL
@@ -148,8 +165,8 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetCrossfade(JNIEnv*, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspSetFollowsOn(JNIEnv*, jobject, jlong handle, jboolean followsOn) {
-    geode_dsp_set_follows_on(dspOf(handle), followsOn == JNI_TRUE);
+Java_dev_geode_engine_bridge_GeodeNative_dspSetUpNext(JNIEnv*, jobject, jlong handle, jboolean hasNext, jint repeatMode) {
+    geode_dsp_set_up_next(dspOf(handle), hasNext == JNI_TRUE, repeatMode);
 }
 
 JNIEXPORT void JNICALL
@@ -168,19 +185,17 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetStreamTags(JNIEnv* env, jobject, 
                                                           jfloat trackGainDb, jfloat trackPeak, jfloat albumGainDb,
                                                           jfloat albumPeak) {
     if (!stream) return;
-    const char* name = env->GetStringUTFChars(stream, nullptr);
-    if (!name) return;
-    geode_dsp_set_stream_tags(dspOf(handle), name, mask, trackGainDb, trackPeak, albumGainDb, albumPeak);
-    env->ReleaseStringUTFChars(stream, name);
+    const geode::jni::Utf8Chars name(env, stream);
+    if (!name.get()) return;
+    geode_dsp_set_stream_tags(dspOf(handle), name.get(), mask, trackGainDb, trackPeak, albumGainDb, albumPeak);
 }
 
 // Playback thread, at the processor's flush (not per block), so the string copy here is not on the hot path.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspBeginStream(JNIEnv* env, jobject, jlong handle, jstring stream, jlong positionUs,
                                                         jlong durationUs) {
-    const char* name = stream ? env->GetStringUTFChars(stream, nullptr) : nullptr;
-    geode_dsp_begin_stream(dspOf(handle), name, positionUs, durationUs);
-    if (name) env->ReleaseStringUTFChars(stream, name);
+    const geode::jni::Utf8Chars name(env, stream);
+    geode_dsp_begin_stream(dspOf(handle), name.get(), positionUs, durationUs);
 }
 
 JNIEXPORT void JNICALL
@@ -242,19 +257,52 @@ Java_dev_geode_engine_bridge_GeodeNative_playbackErrorAction(JNIEnv*, jobject, j
     return geode_playback_error_action(consecutiveFailures, hasNext == JNI_TRUE);
 }
 
+// The A-B loop's next points as a new long[2] (start, end; -1 not set).
+JNIEXPORT jlongArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_abLoopCycle(JNIEnv* env, jobject, jlong startMs, jlong endMs, jlong atMs) {
+    int64_t next[2] = {-1, -1};
+    geode_ab_loop_cycle(startMs, endMs, atMs, next);
+    const jlong out[2] = {static_cast<jlong>(next[0]), static_cast<jlong>(next[1])};
+    jlongArray result = env->NewLongArray(2);
+    if (result) env->SetLongArrayRegion(result, 0, 2, out);
+    return result;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_abLoopSeek(JNIEnv*, jobject, jlong startMs, jlong endMs, jlong positionMs) {
+    return geode_ab_loop_seek(startMs, endMs, positionMs);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspSetBitPerfect(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_dsp_set_bit_perfect(dspOf(handle), on == JNI_TRUE);
 }
 
-// The buffer must be direct: the audio thread must not copy or allocate here. Its capacity goes along so
-// native can never walk past it (issue #356).
+// Media3's direct buffers where they lie; the output's capacity goes along so native can never walk past it
+// (issue #356). An input with no address (a heap block; every processor before this one hands out direct
+// buffers) is copied by the JVM's bulk put, then run in place as any other.
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspProcessBytes(JNIEnv* env, jobject, jlong handle, jobject buffer, jint bytes, jint encoding,
-                                                         jint channels) {
-    void* address = buffer ? env->GetDirectBufferAddress(buffer) : nullptr;
-    const jlong capacity = address ? env->GetDirectBufferCapacity(buffer) : 0;
-    return geode_dsp_process_bytes(dspOf(handle), address, capacity > 0 ? static_cast<size_t>(capacity) : 0, bytes, encoding, channels);
+Java_dev_geode_engine_bridge_GeodeNative_dspProcessInto(JNIEnv* env, jobject, jlong handle, jobject input, jint position,
+                                                        jint bytes, jobject output, jint encoding, jint channels) {
+    if (!input || !output || position < 0 || bytes <= 0) return 0;
+    auto* out = env->GetDirectBufferAddress(output);
+    const jlong capacity = out ? env->GetDirectBufferCapacity(output) : 0;
+    if (capacity <= 0) return 0;
+    const auto* in = static_cast<const unsigned char*>(env->GetDirectBufferAddress(input));
+    if (in) {
+        if (env->GetDirectBufferCapacity(input) < static_cast<jlong>(position) + bytes) return 0;
+        return geode_dsp_process_into(dspOf(handle), in + position, bytes, out, static_cast<size_t>(capacity), encoding,
+                                      channels);
+    }
+    const BulkPutIds& ids = bulkPutIds(env);
+    if (!ids.position || bytes > capacity) return 0;
+    env->DeleteLocalRef(env->CallObjectMethod(output, ids.put, input));
+    if (!env->ExceptionCheck()) env->DeleteLocalRef(env->CallObjectMethod(output, ids.position, 0));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return 0;
+    }
+    return geode_dsp_process_bytes(dspOf(handle), out, static_cast<size_t>(capacity), bytes, encoding, channels);
 }
 
 }

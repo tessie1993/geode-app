@@ -13,6 +13,7 @@ out vec4 fragColor;
 //#include lib_palette
 //#include lib_scene_grade
 //#include lib_neon
+//#include lib_shell
 
 // Glow Vortex: a flight down the throat of a neon whirlpool. The bore is a
 // tube of dark glass whose wall is wound with the style's web of thin, glassy
@@ -63,10 +64,32 @@ out vec4 fragColor;
 // - depth: SND_BUILD_UP narrows the throat, zooms the central eye in and lifts
 //   the fog; the drop (SND_HELD_SURGE) narrows it further and wakes the pits
 //   (deeper, brighter) while the rig itself dives.
-// - spread: the pits orbit around the bore on SND_MID_TIME; the bore widens
+// - spread: the pits orbit around the bore on time alone (owner 2026-11-12,
+//   no style spins to the music); the bore widens
 //   in silence (neonQuiet). A hard cut (SND_CUT_COUNT) re-deals their orbits.
 // - SND_HAT_ENV sparkles the ribbons. Intensity (neonGlow) is the emission.
 // - The six style knobs (neonKnob) ride on the looks they name.
+//
+// ---- shape inputs (lib_shell) ------------------------------------------------
+//
+// The vortex's own constants are normalized inputs, mapped to their range in
+// one place (the top of main) and read from globals. 0.5 is the look as tuned:
+// the knobs rest there exactly while Note & key is off, and Morph at its
+// default 0 maps to its rest through shellMapS. Music reaches these only
+// through the knobs and params (the reaction matrix); none reads the sound.
+//
+//   input       driver           lo .. rest .. hi
+//   gAmp        Morph            the helix ridges' height 0.12 .. 0.22 (a displacement, smooth in place)
+//   sLineK      k1 TEXTURE       a line core's falloff 1.6 .. 0.9 .. 0.45 (higher is thinner)
+//   sRibW       k1 TEXTURE       the glass ribbons' width 0.12 .. 0.22 .. 0.35
+//   sCoreK      k0 PULSE         the white-hot cores' falloff 1.5 .. 1 .. 0.6 (times 9 at a pit, 6 at the far eye)
+//   gDim        k4 BUILD         the pits' depth 0.6 .. 1.1 .. 1.6
+//   gDimS       k5 SPACE         the pits' width 0.6 .. 0.85 .. 1.2
+//
+// Every angular count and z rate stays a whole number on the tile (see "the
+// world wrap"), and gLip follows gAmp, gDim and gDimS. The bore goes through
+// its shell wrapper and the far eye's web through its shell wrapper, so the shell's
+// spawn, fractal, front and back hooks reach both.
 //
 // ---- why the distance estimate is safe ---------------------------------------
 //
@@ -121,6 +144,13 @@ float gLip;
 float gBendLip;
 /** Per pit: angle around the bore, z within the tile, wake 0..1. */
 vec3 gEye[GV_EYES];
+/** Shape inputs (see the header). */
+float sLineK;
+float sRibW;
+float sCoreK;
+/** The far eye's spiral twist and the ramp's base hue, for gvEyeWeb(). */
+float gEyeTwist;
+float gHue0;
 
 vec3 neon(float t) {
     // Violet -> electric blue -> cyan -> acid green -> gold -> magenta, with a
@@ -139,7 +169,7 @@ vec3 neon(float t) {
 vec2 lines(float x, float grad) {
     float spacingPx = 1.0 / max(grad * gPx, 1e-6);
     float d = abs(fract(x) - 0.5) * spacingPx; // pixels to the nearest line
-    float core = exp(-d * d * 0.9);
+    float core = exp(-d * d * sLineK);
     float glow = 1.0 / (1.0 + d * 0.35);
     glow *= glow;
     float resolve = smoothstep(1.5, 6.0, spacingPx);
@@ -191,7 +221,7 @@ vec2 bore(vec3 p) {
     return vec2(r, ang);
 }
 
-float map(vec3 p) {
+float mapField(vec3 p) {
     vec2 ra = bore(p);
     float wall = gR - gAmp * (0.5 + 0.5 * cos(phase1(ra.y, p.z)));
     for (int i = 0; i < GV_EYES; i++) {
@@ -202,6 +232,37 @@ float map(vec3 p) {
     // clearance nearer the axis (over the bend's slope, since the axis curves
     // under a moving point): both are lower bounds, so take the larger.
     return max((wall - ra.x) / gLip, (gR - gAmp - ra.x) / gBendLip);
+}
+
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 7; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
+/** The bore as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
+float map(vec3 p) {
+    return mapFieldGrown(p);
+}
+
+/**
+ * The far eye's web at its log-polar plane point pp: the two spiral families
+ * as one 2D pattern (its shell wrapper). Reads gPx, gArms, gFlow, gEyeTwist, gHue0.
+ */
+vec3 gvEyeWeb(vec2 pp) {
+    float lp = max(length(pp), 1e-4);
+    vec2 w = vec2(log(lp), atan(pp.y, pp.x + step(lp, 1.001e-4) * 1e-6));
+    float u = w.x * gEyeTwist - gFlow;
+    float n2 = floor(gArms * 0.62 + 0.5);
+    float gr = 1.0 / lp;
+    vec2 l1 = lines((u * gArms + w.y * gArms) / GV_TAU, gr * gArms * length(vec2(gEyeTwist, 1.0)) / GV_TAU);
+    vec2 l2 = lines((u * gArms * 0.62 - w.y * n2) / GV_TAU, gr * length(vec2(gEyeTwist * gArms * 0.62, n2)) / GV_TAU);
+    float hue = 0.07 * w.x + gHue0;
+    return neon(hue) * (l1.x * 0.9 + l1.y * 0.22) + neon(hue + 0.33) * (l2.x * 0.7 + l2.y * 0.18);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -219,7 +280,27 @@ vec3 swirlCol(vec2 sp) {
     return mix(vec3(0.035, 0.01, 0.08), vec3(0.0, 0.05, 0.06), swirl) * (0.6 + 0.8 * swirl);
 }
 
+/** The pattern gvEyeWeb through lib_shell's hooks: exactly gvEyeWeb(uv) at rest, and gvEyeWeb read once, in a loop the compiler cannot unroll. */
+vec3 gvEyeWebGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    vec3 r = vec3(0.0);
+    for (int i = SHELL_FROM; i < 6; i++) {
+        if (!shellPass2(i)) continue;
+        vec3 v = gvEyeWeb(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
+}
+
 void main() {
+    // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
+    gAmp = shellMapS(neonForm(), 0.02, 0.12, 0.22);
+    sLineK = shellMap(shellKnob(1), 1.6, 0.9, 0.45);
+    sRibW = shellMap(shellKnob(1), 0.12, 0.22, 0.35);
+    sCoreK = shellMap(shellKnob(0), 1.5, 1.0, 0.6);
+    gDim = shellMap(shellKnob(4), 0.6, 1.1, 1.6);
+    gDimS = shellMap(shellKnob(5), 0.6, 0.85, 1.2);
+
     vec2 uv = view();
 
     // The six looks, each 0..1 with 0.5 as tuned: see "what moves it" above.
@@ -246,7 +327,6 @@ void main() {
 
     // ---- the vortex's shape for this frame ----
     gR = mix(2.5, 3.6, kSpace) * (1.0 - 0.14 * clamp(kBuild, 0.0, 1.0));
-    gAmp = 0.12;
     // A count, so it changes only on a hard cut (lib_neon: never a count on Morph).
     // Always a multiple of 3, so the ribbons (a third of the arms) close too.
     gArms = 12.0 + 3.0 * mod(cut, 3.0);
@@ -255,15 +335,13 @@ void main() {
     gBend = 0.0035 * bendAmt;
     gBendDir = vec2(cos(uTime * 0.05 + deal), sin(uTime * 0.05 + deal));
     float wake = clamp(0.45 + 0.55 * surge + 0.2 * neonBuild(), 0.0, 1.0);
-    gDim = 1.1;
-    gDimS = 0.85;
     float rMin = gR - gAmp;
     float ridgeLip = 0.5 * gAmp * length(vec2(gArms / rMin, GV_M1 * GV_ZK));
     gBendLip = 1.0 + 2.0 * gBend * GV_FAR;
     gLip = 1.1 * (1.0 + ridgeLip + 0.86 * gDim / gDimS) * gBendLip;
 
     // The pits orbit around the bore (2D: the secondary eyes' orbits).
-    float tOrb = uTime * 0.03 + SND_MID_TIME * 0.05 + deal;
+    float tOrb = uTime * 0.08 + deal;
     for (int i = 0; i < GV_EYES; i++) {
         float fi = float(i);
         float a = tOrb * (0.7 + 0.2 * fi) + fi * 2.1 + chaos * 0.25 * sin(uTime * 2.3 + fi * 4.1);
@@ -283,6 +361,8 @@ void main() {
     float er = length(ro.xy);
     float maxR = max(gR - 1.3, 0.3);
     if (er > maxR) ro.xy *= maxR / er;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     float t = 0.05;
     bool hit = false;
@@ -355,7 +435,7 @@ void main() {
             float eh = hue + 0.12 * (fi + 1.0) + 0.07 * w.x;
             pits += (neon(eh) * (e1.x * 0.9 + e1.y * 0.22) + neon(eh + 0.33) * (e2.x * 0.7 + e2.y * 0.18)) * nearE;
             pitNear += nearE;
-            cores += exp(-lv * 9.0) * gEye[i].z;
+            cores += exp(-lv * 9.0 * sCoreK) * gEye[i].z;
         }
         float wallFade = 1.0 - 0.75 * clamp(pitNear, 0.0, 1.0);
 
@@ -368,7 +448,7 @@ void main() {
                 + (mix(c2, vec3(1.0), hot) * l2.x * 0.7 + c2 * l2.y * 0.18) * vary2
                 + c3 * (l3.x * 0.5 + l3.y * 0.12);
         // A few broad glass ribbons ride the first family at a third of its pitch.
-        float rib = ribbon(u1 / (3.0 * GV_TAU) + 0.67, g1 / 3.0, 0.22) * vary;
+        float rib = ribbon(u1 / (3.0 * GV_TAU) + 0.67, g1 / 3.0, sRibW) * vary;
         em += neon(hue + 0.15) * rib * (0.55 + 0.8 * neonSparkle()) * (0.4 + 0.6 * kTex);
         em = em * wallFade * 0.8 + pits * 0.8;
         em += eyeCol * cores * (0.3 + 1.6 * kPulse);
@@ -395,17 +475,11 @@ void main() {
         vec2 pp = (rd.xy / rd.z - endOff) * scale;
         gPx = 2.0 / (max(uCamFocal, 0.1) * uResolution.y * rd.z) * scale;
         float lp = max(length(pp), 1e-4);
-        vec2 w = vec2(log(lp), atan(pp.y, pp.x + step(lp, 1.001e-4) * 1e-6));
-        float twist = mix(0.55, 1.6, kFlow);
-        float u = w.x * twist - gFlow;
-        float n2 = floor(gArms * 0.62 + 0.5);
-        float gr = 1.0 / lp;
-        vec2 l1 = lines((u * gArms + w.y * gArms) / GV_TAU, gr * gArms * length(vec2(twist, 1.0)) / GV_TAU);
-        vec2 l2 = lines((u * gArms * 0.62 - w.y * n2) / GV_TAU, gr * length(vec2(twist * gArms * 0.62, n2)) / GV_TAU);
-        float hue = 0.07 * w.x + hue0;
-        vec3 web = neon(hue) * (l1.x * 0.9 + l1.y * 0.22) + neon(hue + 0.33) * (l2.x * 0.7 + l2.y * 0.18);
+        gEyeTwist = mix(0.55, 1.6, kFlow);
+        gHue0 = hue0;
+        vec3 web = gvEyeWebGrown(pp);
         web *= smoothstep(1.3, 0.25, lp) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
-        float core = exp(-lp * 6.0);
+        float core = exp(-lp * 6.0 * sCoreK);
         col += (web * 0.7 * glow + eyeCol * core * (0.15 + 1.0 * kPulse)) * esc;
     }
 

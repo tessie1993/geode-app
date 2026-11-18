@@ -4,17 +4,20 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <random>
 
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/BandTrim.hpp"
+#include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
@@ -31,8 +34,25 @@ constexpr float kSwirlRadius = 0.07f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
-// About two seconds at 60 Hz.
-constexpr int kFeedbackIdleFrames = 120;
+// Wall seconds the feedback pass may sit unused before its targets are freed.
+constexpr float kFeedbackIdleSeconds = 2.0f;
+// Wall seconds the UI blur may sit unused (no sheet over the visual) before its targets are freed.
+constexpr float kUiBlurIdleSeconds = 1.0f;
+// A sum of frame steps lands within this of its whole seconds (60 steps of 1/60 in float).
+constexpr float kStepSumSlack = 1e-4f;
+// A speaker that stands this long is paused (the sound engine's own starve time).
+constexpr float kListenStillSeconds = 0.25f;
+
+// Customize › Layers' Macro source: the turn of the knob it names (0: the first on screen) with what the
+// waves and envelopes add this frame; NaN when the bank has no such knob on screen.
+float layerKnobTurn(const signal::EngineSettings& settings, int id, const macrobank::KnobMods& mods) {
+    if (settings.bank) {
+        for (const macrobank::Knob& knob : settings.bank->knobs) {
+            if (knob.shown && (id == 0 || knob.id == id)) return macrobank::effective(knob, &mods);
+        }
+    }
+    return std::nanf("");
+}
 }  // namespace
 
 float Renderer::beginFrame(double timeSeconds) {
@@ -40,13 +60,15 @@ float Renderer::beginFrame(double timeSeconds) {
     frameNowS_ = timeSeconds;
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
-    thermal_.onFrame(dt);
+    if (settleHoldSeconds_ > 0.0f) settleHoldSeconds_ -= dt;
     {
-        // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
+        // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
         // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
-        // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
+        sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
+        float fade = 1.0f;
+        // What the player told the analysis (core/sound/PlayerSignals), live renderers only: an export hears
         // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
         // counts as the player, so a silent stretch in the track holds the song like a pause does live.
         if (!offscreen_.load(std::memory_order_relaxed)) {
@@ -56,20 +78,22 @@ float Renderer::beginFrame(double timeSeconds) {
             const sound::player::Boundary boundary = sound::player::boundary();
             if (boundary.epoch != boundarySeen_) {
                 boundarySeen_ = boundary.epoch;
-                if (sound_ && player) sound_->trackBoundary();
+                if (heard && player) {
+                    heard->trackBoundary(boundary.epoch);
+                    sectionChangeOwed_ = true;
+                }
             }
-            if (sound_) {
-                sound_->setPlayerSource(player);
-                sound_->setFadeGain(sound::player::fadeGain());
+            if (heard) {
+                heard->thread().setPlayerSource(player);
+                heard->thread().setFadeGain(sound::player::fadeGain());
             }
-        } else if (sound_) {
-            sound_->setPlayerSource(true);
+            if (player) fade = sound::player::fadeGain();
+        } else if (ownSound_) {
+            // An export's analysis runs here, inline, on exactly the audio written up to this frame.
+            ownSound_->thread().pump(dt);
+            ownUnpumped_ = 0;
         }
-        if (sound_) {
-            sound_->step(dt, soundFrame_);
-            soundEmotion_ = sound_->emotion();
-        }
-        soundHeard_ = sound_ != nullptr;
+        if (heard) readSound(*heard, dt, fade);
     }
     // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
     // nothing feeds stays still.
@@ -106,8 +130,35 @@ float Renderer::beginFrame(double timeSeconds) {
     return dt;
 }
 
+void Renderer::readSound(const sound::SharedAnalysis& heard, float dt, float fadeGain) {
+    const sound::AnalysisThread& analysis = heard.thread();
+    const int64_t head = heard.ring().headFrames();
+    // Live: the speaker's sample (never past what was written); an own ring: everything written to it.
+    int64_t position = sharedSound_ ? std::min(listenPosition_, head) : head;
+    listenStillSeconds_ = position == lastListen_ ? listenStillSeconds_ + dt : 0.0f;
+    lastListen_ = position;
+    // A paused speaker, once its writer has stopped and the analysis runs on silence: the frame is that silence, as
+    // the renderer's own engine heard it, not the last sample played held forever. The hops not yet played fire now.
+    const bool paused =
+        position >= 0 && listenStillSeconds_ > kListenStillSeconds && sound::interp::FrameReader::starved(analysis);
+    if (paused) position = std::max(position, analysis.newestPosition());
+    if (soundReader_.read(analysis, position, soundFrame_, soundEmotion_, soundHits_)) soundHeard_ = true;
+    if (sectionChangeOwed_ && soundHeard_) {
+        // A boundary is the event (the engine's step fired it): Form was reset and cannot fire for eight bars.
+        soundFrame_.sectionChange = 1.0f;
+        soundHits_.at[offsetof(GeodeSoundFrame, sectionChange) / sizeof(float)] = position;
+        sectionChangeOwed_ = false;
+    }
+    soundFrame_.fadeGain = std::isfinite(fadeGain) ? std::clamp(fadeGain, 0.0f, 1.0f) : 1.0f;
+    if (paused) {
+        std::fill(std::begin(soundFrame_.waveform), std::end(soundFrame_.waveform), 0.0f);
+    } else {
+        soundWave_.draw(soundFrame_.waveform);
+    }
+}
+
 Scene* Renderer::resolveActiveScene() {
-    std::string requestedId;
+    std::string& requestedId = requestedIdScratch_;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         requestedId = requestedSceneId_;
@@ -147,7 +198,7 @@ Scene* Renderer::resolveActiveScene() {
         activeScene_ = requested;
         sceneJustSwitched_ = true;
         // A new style gets about a second of draws even in silence: its build and first load span frames.
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         // The resolver's motion field takes the new style's variant at its next step.
         styleSwitchPending_ = true;
     }
@@ -188,10 +239,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     if (soundHeard_) {
         if (emotionSeeded_ && frameSettings_.director.seed != emotionSeed_) {
             std::lock_guard<std::mutex> lock(soundLock_);
-            if (sound_) {
-                sound_->resetEmotion();
-                soundEmotion_ = sound_->emotion();
-            }
+            sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
+            if (heard) heard->newPlay(frameSettings_.director.seed);
         }
         emotionSeed_ = frameSettings_.director.seed;
         emotionSeeded_ = true;
@@ -202,23 +251,47 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
         resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
-    if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    if (out.styleMoments > 0) {
+        // The intent first, so a take that sees the count finds the moment's intent with it.
+        {
+            std::lock_guard<std::mutex> guard(directorIntentLock_);
+            directorIntent_ = resolver_.director().styleIntent();
+        }
+        directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    }
     // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
     if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;
     // Settings › Performance's extra effects.
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
-    // Liquid mode is a mode the user switched on, not an optional pass: a hot phone simplifies or pauses
-    // it as Settings › Performance says, and says so (liquidMode), but never drops it silently.
-    const auto hot = liquid::hotPolicyFrom(liquidHotPolicy_.load(std::memory_order_relaxed));
-    liveLiquid_ = p.flowEnabled ? liquid::modeFor(thermal_.tier(), hot) : liquid::Mode::Off;
+    // Liquid mode is a mode the user switched on, not an optional pass.
+    liveLiquid_ = p.flowEnabled ? liquid::Mode::Full : liquid::Mode::Off;
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
     if (!userPostFx) p.fluidBloom = false;
     uploadPaletteRamp(p);
+    stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
-    postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
+    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, kTimeWrapSeconds);
     return p;
+}
+
+// Once a frame, after the params resolve: the shape graph follows the drawn params (Spawn, Morph, Formula,
+// Fractal, Shapes, Speed), so the reaction matrix, the waves, the envelopes, the macro knobs and the Auto
+// Director move it and nothing else does. Its glides and crossfades run on the wall step, as the resolver's
+// slider glides do; its drift on the music's step times Speed, the uTime rule, so a pause or silence holds it.
+// The seed is the frame's latched play seed (what settingsLatch_.directorSeed() answers, an export's pinned
+// one), so a new play gives the graph new shapes and an export replays the screen's.
+void Renderer::stepShapeGraph(const SceneParams& p, float dt, float wallDt) {
+    shapes::Inputs in;
+    in.seed = frameSettings_.director.seed;
+    in.spawn = p.spawn;
+    in.morph = p.morph;
+    in.formula = p.formula;
+    in.fractal = p.fractal;
+    in.shapes = p.shapes;
+    in.speed = p.speed;
+    shapeGraph_.tick(in, wallDt, dt);
 }
 
 void Renderer::uploadPaletteRamp(const SceneParams& p) {
@@ -226,14 +299,20 @@ void Renderer::uploadPaletteRamp(const SceneParams& p) {
     // A still frame is drawn again with the new colours.
     if (changed) redrawFrames_ = std::max(redrawFrames_, 1);
     if (!paletteRamp_.active() || (!changed && paletteRampTex_ != 0)) return;
-    if (paletteRampTex_ == 0) glGenTextures(1, &paletteRampTex_);
+    // The storage and the sampler are made once; a change only rewrites the texels.
+    const bool created = paletteRampTex_ == 0;
+    if (created) glGenTextures(1, &paletteRampTex_);
     glBindTexture(GL_TEXTURE_2D, paletteRampTex_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, palette::kRampSize, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    if (created) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, palette::kRampSize, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    } else {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, palette::kRampSize, 1, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -244,24 +323,60 @@ void Renderer::resolveLayerScene() {
     bornAskedBefore_ = std::move(bornAsked_);
     bornAsked_.clear();
     layerAsked_.clear();
-    std::string layerId;
-    std::string requestedId;
+    layer_state::Layer setting;
+    std::string& requestedId = requestedIdScratch_;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
-        layerId = layerSceneId_;
+        setting = layerSetting_;
         requestedId = requestedSceneId_;
     }
-    layerScene_ = nullptr;
-    // The layer is staged too, but only once the requested scene is built: one target at a time.
-    if (outgoingScene_ || layerId.empty() || layerId == requestedId || requestedPending_) return;
-    layerAsked_ = layerId;
-    Scene* layer = readySecondary(layerId, bornAskedBefore_);
-    if (layer && layer != activeScene_) layerScene_ = layer;
+    // The setting's source made this renderer's style (viz/LayerPick): the user's pick, Auto Director's at its
+    // style moments or a knob's turn, never the style on screen while there is another to draw.
+    const signal::Resolver::Frame& heard = resolver_.frame();
+    std::string layerId = layerPicker_.pick(setting, requestedId, heard.styleMoments, frameSettings_.director.seed,
+                                            layerKnobTurn(frameSettings_, setting.knob, heard.knobMods));
+    if (!registry_.knows(layerId)) layerId.clear();
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        layerSceneId_ = layerId;
+    }
+    if (!offscreen_.load(std::memory_order_relaxed) && layerId != layerShown_) {
+        layerShown_ = layerId;
+        layer_state::publishShown(layerId);
+    }
+    if (layerId.empty()) {
+        layerScene_ = nullptr;
+        fboL_.release();
+        return;
+    }
+    // A built layer draws at once, whatever else is staging. One not built yet is staged only once the
+    // requested scene is built and no transition runs (one target at a time); until then the layer it drew
+    // last keeps drawing, so a style change or a new pick never blanks it.
+    Scene* layer = builtScene(layerId) ? readyScene(layerId) : nullptr;
+    if (!layer && !outgoingScene_ && !requestedPending_) {
+        layerAsked_ = layerId;
+        layer = readySecondary(layerId, bornAskedBefore_);
+    }
+    if (layer) layerScene_ = layer;
+    // A scene draws once a frame: never the one on screen or the one leaving it.
+    if (layerScene_ == activeScene_ || layerScene_ == outgoingScene_) layerScene_ = nullptr;
+    if (!layerScene_) return;
+    // Its own target: a fresh one (new, or at a new size) holds nothing yet, so the layer draws into it.
+    const bool kept = fboL_.ok() && fboL_.width() == renderWidth_ && fboL_.height() == renderHeight_;
+    if (!fboL_.ensure(renderWidth_, renderHeight_)) {
+        layerScene_ = nullptr;
+    } else if (!kept) {
+        heldLayer_ = nullptr;
+    }
 }
 
 bool Renderer::ensureTargets() {
     if (!fboA_.ensure(renderWidth_, renderHeight_)) return false;
-    if (!fboB_.ensure(renderWidth_, renderHeight_)) {
+    // The outgoing style's target lives only while a transition runs, as the layer's (fboL_) lives only
+    // while a layer draws: made when one starts, released on the frame after it ends.
+    if (!outgoingScene_) {
+        fboB_.release();
+    } else if (!fboB_.ensure(renderWidth_, renderHeight_)) {
         layerScene_ = nullptr;
         outgoingScene_ = nullptr;
         outgoingParams_.reset();
@@ -283,13 +398,16 @@ void Renderer::bindSecondaryTarget() {
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
     if (layerScene_ && holds(*layerScene_, heldLayer_)) {
-        // fboB_ keeps the layer's last frame.
+        // fboL_ keeps the layer's last frame.
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
-        bindSecondaryTarget();
+        glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
+        glViewport(0, 0, renderWidth_, renderHeight_);
+        glClear(GL_COLOR_BUFFER_BIT);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         layerScene_->update(bandTrimmed(soundFrame_, p), dt);
+        const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -303,6 +421,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
             outgoingScene_->update(bandTrimmed(soundFrame_, op), dt);
+            const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -339,6 +458,8 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.setParams(p);
     deliverPcm(scene);
     scene.update(bandTrimmed(soundFrame_, p), dt);
+    // After the trail pass: its echo trades fboA_'s framebuffer for its own.
+    const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(timeSeconds_);
 }
 
@@ -348,7 +469,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     glDisable(GL_BLEND);
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
-    in.texB = fboB_.tex();
+    in.texB = physicsOutgoingTex_ != 0 ? physicsOutgoingTex_ : fboB_.tex();
     if (liquidTex != 0) in.texA = liquidTex;
     // The smear bends the finished picture by the flow field; Liquid mode rides that field itself.
     fluid::FlowField* ff = overlays_.flow();
@@ -356,9 +477,11 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.flowTex = smear ? ff->velocityTex() : compositePass_.zeroTex();
     in.flowStrength = smear ? smearWarp_ : 0.0f;
     in.progress = progress;
-    in.layerMix = safety::layerMix(frameLayerMix_, blendModeFromOrdinal(frameLayerBlend_));
+    // The Layers page's mix (base) plus what waves, envelopes, routes and knobs add (the layerMix param).
+    in.layerMix = safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_));
     in.blendOrdinal = frameLayerBlend_;
     in.hasLayer = layerScene_ != nullptr;
+    in.texL = layerScene_ ? fboL_.tex() : compositePass_.zeroTex();
     in.hasOutgoing = outgoingScene_ != nullptr;
     const std::string& transitionId = outgoingScene_ ? switchTransitionId_ : frameTransitionId_;
     in.transitionId = transitionId;
@@ -367,12 +490,15 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.timeSeconds = timeSeconds_;
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
-    in.postCyclePhase = postCyclePhase_;
+    in.postBirths = births::compute(lifeClock_, fx.life);
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
-    Scene* other = layerScene_ ? layerScene_ : outgoingScene_ ? outgoingScene_ : activeScene_;
+    Scene* other = outgoingScene_ ? outgoingScene_ : activeScene_;
     in.gateB = grade::gateFor(other->family(), other->drawsCamera()).toVec4();
+    Scene* layer = layerScene_ ? layerScene_ : activeScene_;
+    in.gateL = grade::gateFor(layer->family(), layer->drawsCamera()).toVec4();
+    in.camGateL = layer->drawsCamera() ? 0.0f : 1.0f;
     // The rig's flat projection, for every scene that does not march the 3D pose itself.
     const CameraPose& cam = camera_.pose();
     in.camFlat = cam.flat;
@@ -397,10 +523,10 @@ void Renderer::stepSmear(float dt) {
     smearWarp_ = 0.0f;
     const touch::SmearSettings s{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
     fluid::FlowField* ff = overlays_.flow();
-    // Never in an export, never beside Liquid mode (paused included: its field keeps its place), and,
-    // as flow distortion, one of the optional passes: off on a hot phone or without Performance's extra effects.
+    // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
+    // without Performance's extra effects.
     const bool can = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                     thermal_.tierInfo().optionalPasses && userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
+                     userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
                      ff->available();
     if (!can) {
         smearTrail_.reset();
@@ -439,9 +565,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
-    if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
-        applyRenderScale();
-    }
+    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) applyRenderScale();
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
@@ -450,7 +574,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
     const bool staging = requestedPending_ && prep_.active() && prep_.attempts() < ScenePrep::kMaxAttempts;
-    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) thermal_.noteSettling();
+    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) noteSettling();
     if (!offscreen_.load(std::memory_order_relaxed)) logResidency(wallDt);
     if (!scene || !ensureTargets()) {
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
@@ -468,7 +592,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     p.toWire(wire.data());
     const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
     if (redrawFrames_ > 0) redrawFrames_--;
-    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && !outgoingScene_;
+    if (redrawSeconds_ > 0.0f) {
+        redrawSeconds_ -= wallDt;
+        if (redrawSeconds_ < kStepSumSlack) redrawSeconds_ = 0.0f;
+    }
+    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && redrawSeconds_ == 0.0f && !outgoingScene_;
     heldWire_ = wire;
     heldWidth_ = renderWidth_;
     heldHeight_ = renderHeight_;
@@ -476,28 +604,33 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
-    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention). A paused
-    // Liquid holds the pass's targets.
+    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
     const bool trails = liveLiquid_ == liquid::Mode::Off && p.trails && scene->family() == SceneFamily::Shader &&
                         scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_);
     if (!trails) trailsWereOn_ = false;
-    // A paused Liquid keeps its place, so only Off counts as unused.
     if (trails || liveLiquid_ != liquid::Mode::Off) {
-        feedbackIdleFrames_ = 0;
-    } else if (++feedbackIdleFrames_ == kFeedbackIdleFrames) {
-        liquidPass_.releaseTargets();
-        bornFbo_.release();
+        feedbackIdleSeconds_ = 0.0f;
+    } else if (feedbackIdleSeconds_ < kFeedbackIdleSeconds - kStepSumSlack) {
+        feedbackIdleSeconds_ += wallDt;
+        if (feedbackIdleSeconds_ >= kFeedbackIdleSeconds - kStepSumSlack) {
+            liquidPass_.releaseTargets();
+            bornFbo_.release();
+        }
     }
     drawSceneTarget(*scene, p, dt);
+    // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
+    trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
+    shown = drawPhysics(p, dt, wallDt, shown);
     composite(p, progress, targetFbo, shown);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(targetFbo, width_, height_);
-    drawUiBlur(targetFbo);
+    drawUiBlur(targetFbo, wallDt);
 }
 
-void Renderer::drawUiBlur(GLuint targetFbo) {
+void Renderer::drawUiBlur(GLuint targetFbo, float wallDt) {
+    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
     if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return;
     UiBlurRegion region;
     {
@@ -529,8 +662,7 @@ void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     if (!liquidOn()) {
-        // Paused keeps its place: the liquid comes back as it was once the phone cools.
-        if (liveLiquid_ == liquid::Mode::Off) liquidWasOn_ = false;
+        liquidWasOn_ = false;
         return;
     }
     if (!liquidWasOn_) {
@@ -604,7 +736,10 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         glViewport(0, 0, renderWidth_, renderHeight_);
         glClear(GL_COLOR_BUFFER_BIT);
         scene.setParams(bornParams_);
-        scene.draw(timeSeconds_);
+        {
+            const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
+            scene.draw(timeSeconds_);
+        }
         scene.setParams(p);
         return bornFbo_.tex();
     }
@@ -630,6 +765,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     next->setParams(p);
     deliverPcm(*next);
     next->update(bandTrimmed(soundFrame_, p), dt);
+    const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
 }
@@ -692,6 +828,26 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
                       diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_);
     return dived != 0 ? dived : shown;
+}
+
+GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown) {
+    physicsOutgoingTex_ = 0;
+    physics::PhysicsLayers::Frame f;
+    f.styleTex = shown != 0 ? shown : fboA_.tex();
+    f.width = renderWidth_;
+    f.height = renderHeight_;
+    // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
+    f.dt = dt;
+    f.wallDt = wallDt;
+    f.time = timeSeconds_;
+    f.zeroTex = compositePass_.zeroTex();
+    f.quadVao = quadVao_;
+    f.blocking = blockingBuilds_.load(std::memory_order_relaxed);
+    const GLuint layered = physicsLayers_.run(physics::planFor(p), f);
+    if (physicsLayers_.building()) noteSettling();
+    if (layered == f.styleTex) return shown;
+    if (outgoingScene_) physicsOutgoingTex_ = physicsLayers_.over(fboB_.tex());
+    return layered;
 }
 
 GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {

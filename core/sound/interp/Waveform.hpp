@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 
+#include "sound/AnalysisSettings.hpp"
 #include "sound/SoundFrame.h"
 
 namespace geode::sound::interp {
@@ -13,7 +14,8 @@ namespace geode::sound::interp {
 // One thread; no allocation.
 class Waveform {
 public:
-    Waveform();
+    // `settings` are the analysis's (sound/AnalysisSettings): the block is the engine's, n / 512 analysis samples.
+    explicit Waveform(AnalysisSettings settings = {});
     // Interleaved PCM in play order; channels past the second are ignored, mono feeds both.
     void write(const float* interleaved, int frames, int channels, int sampleRateHz);
     void draw(float* out);
@@ -30,6 +32,7 @@ private:
     std::array<float, kHistory> mono_{};
     int head_ = 0;
     int rateHz_ = 0;
+    int fftSize_ = 0;
     int block_ = 1;
     float dcR_ = 0.0f;
     float dcX_ = 0.0f;

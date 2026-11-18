@@ -416,6 +416,8 @@ GEODE_API int64_t    geode_ab_loop_seek(int64_t start_ms, int64_t end_ms, int64_
 GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);
 /* 1 when a track that just started at current_position_ms is still within 10 s of its start, so it may jump to its bookmark. */
 GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
+/* At most this many tracks keep a bookmark; past it the shell drops the one saved longest ago. */
+#define GEODE_BOOKMARK_MAX 200
 
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;

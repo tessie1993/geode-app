@@ -94,23 +94,27 @@ struct geode_viz {
     void stillFrame(GLuint fbo, int width, int height) {
         if (!stillWanted.exchange(false) || width <= 0 || height <= 0) return;
         const size_t row = static_cast<size_t>(width) * 4u;
-        still.assign(row * static_cast<size_t>(height), 0);
+        std::vector<uint8_t> pixels(row * static_cast<size_t>(height), 0);
         GLint previous = 0;
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
         glPixelStorei(GL_PACK_ALIGNMENT, 4);
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, still.data());
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous));
         std::vector<uint8_t> swap(row);
         for (int y = 0; y < height / 2; ++y) {
-            uint8_t* a = still.data() + row * static_cast<size_t>(y);
-            uint8_t* b = still.data() + row * static_cast<size_t>(height - 1 - y);
+            uint8_t* a = pixels.data() + row * static_cast<size_t>(y);
+            uint8_t* b = pixels.data() + row * static_cast<size_t>(height - 1 - y);
             std::memcpy(swap.data(), a, row);
             std::memcpy(a, b, row);
             std::memcpy(b, swap.data(), row);
         }
-        stillWidth = width;
-        stillHeight = height;
+        {
+            std::lock_guard<std::mutex> lock(stillLock);
+            still = std::move(pixels);
+            stillWidth = width;
+            stillHeight = height;
+        }
         stillFresh = true;
     }
 
@@ -173,6 +177,8 @@ struct geode_viz {
     std::atomic<bool> castSource{false};
     std::shared_ptr<geode::viz::frame::CastTee> castTee;
     std::atomic<bool> stillWanted{false};
+    // The still and its size: written by the render thread, read by the shell's thread (stillLock).
+    std::mutex stillLock;
     std::vector<uint8_t> still;
     int stillWidth = 0;
     int stillHeight = 0;
@@ -287,6 +293,8 @@ geode_viz* geode_viz_create(AAssetManager* assets, const char* cache_dir) {
 
 void geode_viz_destroy(geode_viz* v) {
     std::unique_ptr<geode_viz> owned(v);
+    // The tee outlives this renderer while a cast runs: its writer names go with this stage's context.
+    if (owned && owned->castTee) owned->castTee->forgetWriter();
 }
 
 int geode_viz_param_count(void) {
@@ -639,7 +647,9 @@ int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float paced
 // geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
 // handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
 bool geode::api::takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
-    if (!v || v->still.empty()) return false;
+    if (!v) return false;
+    std::lock_guard<std::mutex> lock(v->stillLock);
+    if (v->still.empty()) return false;
     width = v->stillWidth;
     height = v->stillHeight;
     rgba = std::move(v->still);
@@ -1023,6 +1033,8 @@ const char* geode_viz_last_error(geode_viz* v) {
 void geode_viz_surface_created(geode_viz* v) {
     if (!v) return;
     v->renderer.onSurfaceCreated();
+    // The tee's writer names belong to the context that just went; a reused handle value must not revive them.
+    if (v->castTee) v->castTee->forgetWriter();
     v->live.surfaceCreated();
     // A new surface starts its engine on a full window, not the tail of the last: the next frame's cursor is a
     // new one.
@@ -1092,14 +1104,18 @@ void geode_viz_still_request(geode_viz* v) {
 }
 
 int geode_viz_still_size(geode_viz* v, int* width, int* height) {
-    if (!v || v->still.empty()) return 0;
+    if (!v) return 0;
+    std::lock_guard<std::mutex> lock(v->stillLock);
+    if (v->still.empty()) return 0;
     if (width) *width = v->stillWidth;
     if (height) *height = v->stillHeight;
     return 1;
 }
 
 int geode_viz_still_read(geode_viz* v, void* out, size_t capacity) {
-    if (!v || !out || v->still.empty() || capacity < v->still.size()) return 0;
+    if (!v || !out) return 0;
+    std::lock_guard<std::mutex> lock(v->stillLock);
+    if (v->still.empty() || capacity < v->still.size()) return 0;
     std::memcpy(out, v->still.data(), v->still.size());
     std::vector<uint8_t>().swap(v->still);
     return 1;

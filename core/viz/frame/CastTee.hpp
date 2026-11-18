@@ -52,6 +52,9 @@ public:
     bool draw(int64_t nowNs, int width, int height);
     void releaseReader();
     void releaseWriter();
+    // The stage's context is gone or replaced: drop the writer's names without a GL call, so a new context that
+    // reuses the handle value is never taken for the old one.
+    void forgetWriter() { forget(writer_); }
 
     // The tee the stage publishes into: the running cast's, or null. Any thread.
     static std::shared_ptr<CastTee> current();

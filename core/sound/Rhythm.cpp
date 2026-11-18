@@ -29,6 +29,10 @@ constexpr float kFlatEnvelope = 1e-6f;  // mean square per hop under which there
 // A lag's periodicity is its own autocorrelation plus this share of its double's: a true period repeats
 // at twice itself, a chance alignment does not.
 constexpr float kComb = 0.5f;
+// A level is as plausible as the most periodic one when its periodicity reaches this share of it, ...
+constexpr float kLevel = 0.45f;
+// ... and of its family when its period is a whole multiple or divisor of that one's, within this share.
+constexpr float kFamily = 0.04f;
 constexpr float kLockOn = 0.35f;
 constexpr float kLockOff = 0.2f;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
@@ -209,19 +213,33 @@ void Rhythm::estimateTempo() {
         }
         return std::abs(sum);
     };
-    // The beat is the peak with the most evidence, and nothing else decides. A pulse repeats at every
-    // multiple of its period, so the autocorrelation alone scores the slower levels as high as the beat;
-    // the Fourier coefficient alone scores the faster ones as high. Their product is high only where both
-    // hold: a slower level's onsets fall on several of its phases and cancel, a faster level's lag does
-    // not repeat. Neither the order of the lags nor any tempo enters the choice.
+    auto isPeak = [&](int lag) {
+        const float s = score(lag);
+        return s > 0.0f && s >= score(lag - 1) && s >= score(lag + 1);
+    };
+    // The evidence picks the level: first the most periodic peak, then, among the levels of its family (its
+    // multiples and divisors, any of which a pulse repeats at) about as periodic as it, the one whose onsets
+    // fall most on one phase. A slower level's onsets spread over several of its phases and cancel; a
+    // faster level's grid holds every onset only if the music plays on it. Neither the order of the lags nor
+    // any tempo enters the choice.
+    float strongest = 0.0f;
+    float strongestAt = 0.0f;
+    for (int lag = cfg_.lagMin; lag <= hi; lag++) {
+        if (isPeak(lag) && score(lag) > strongest) {
+            strongest = score(lag);
+            strongestAt = refine(lag);
+        }
+    }
     int best = -1;
     float found = 0.0f;
-    float most = 0.0f;
-    for (int lag = cfg_.lagMin; lag <= hi; lag++) {
-        const float s = score(lag);
-        if (s <= 0.0f || s < score(lag - 1) || s < score(lag + 1)) continue;
+    float most = -1.0f;
+    for (int lag = cfg_.lagMin; lag <= hi && strongest > 0.0f; lag++) {
+        if (!isPeak(lag) || score(lag) < kLevel * strongest) continue;
         const float at = refine(lag);
-        const float evidence = s * pulse(at);
+        const float ratio = std::max(at / strongestAt, strongestAt / at);
+        const float k = std::round(ratio);
+        if (std::fabs(ratio - k) >= kFamily * k) continue;
+        const float evidence = pulse(at);
         if (evidence > most) {
             most = evidence;
             best = lag;

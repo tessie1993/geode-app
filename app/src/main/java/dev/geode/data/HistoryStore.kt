@@ -88,7 +88,8 @@ class HistoryStore(
 
     fun recentlyPlayed(limit: Int = 20): List<Entry> = entriesOf(LibraryNative.historyRecent(state, limit))
 
-    fun entryFor(uri: String): Entry? = entriesOf(LibraryNative.historyEntry(state, uri)).firstOrNull()
+    /** The history as native holds it (history.json's schema): what a smart playlist reads its play counts from. */
+    fun text(): String = state
 
     private fun persist() {
         if (!writeQueued.compareAndSet(false, true)) return

@@ -40,9 +40,38 @@ object LibraryNative {
         limit: Int,
     ): String?
 
-    /** [uri]'s entry in the wire of [historyRecent], "" when none (`geode_history_entry`). */
-    external fun historyEntry(
-        state: String,
-        uri: String,
+    /**
+     * The smart playlists among smart-playlists/' file [texts], sorted by lower-case name (core/library/SmartPlaylist,
+     * `geode_smart_list`): per playlist its name, matchAll ("1" or "0"), limit, then each rule's field token, op token
+     * and value, split by U+001F, each playlist ended by U+001E.
+     */
+    external fun smartList(texts: Array<String>): String?
+
+    /**
+     * The file text for a smart playlist, null for a blank [name] (`geode_smart_save_text`). [rules] holds three
+     * strings per rule: field token, op token, value.
+     */
+    external fun smartSaveText(
+        name: String,
+        matchAll: Boolean,
+        limit: Int,
+        rules: Array<String>,
     ): String?
+
+    /**
+     * The rows of [tracks] a smart playlist picks, in order (`geode_smart_resolve`). [rules] as in [smartSaveText];
+     * [tracks] holds five strings per track (uri, title, artist, album, folder), [durationsMs] and [addedSec] one
+     * value per track; [history] is the play history's state (its play counts); [nowMs] the wall clock.
+     */
+    external fun smartResolve(
+        matchAll: Boolean,
+        limit: Int,
+        rules: Array<String>,
+        tracks: Array<String>,
+        durationsMs: LongArray,
+        addedSec: LongArray,
+        history: String,
+        favourites: Array<String>,
+        nowMs: Long,
+    ): IntArray
 }

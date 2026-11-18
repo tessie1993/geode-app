@@ -5,6 +5,7 @@
 #include "api/geode_api.h"
 #include "library/History.hpp"
 #include "library/Search.hpp"
+#include "library/SmartPlaylist.hpp"
 
 namespace {
 
@@ -15,6 +16,28 @@ std::string textOf(const char* s) { return s ? s : ""; }
 const char* hold(std::string& slot, std::string value) {
     slot = std::move(value);
     return slot.c_str();
+}
+
+std::vector<std::string> textsOf(const char* const* texts, int count) {
+    std::vector<std::string> out;
+    for (int i = 0; texts && i < count; ++i) out.push_back(textOf(texts[i]));
+    return out;
+}
+
+// A smart playlist as it crosses: the flag, the limit and 3 strings per rule (field, op, value).
+geode::library::SmartPlaylist smartOf(const char* name, int match_all, int limit, const char* const* rules,
+                                      int rule_count) {
+    geode::library::SmartPlaylist p;
+    p.name = textOf(name);
+    p.matchAll = match_all != 0;
+    p.limit = limit;
+    for (int i = 0; rules && i < rule_count; ++i) {
+        const char* const* cell = rules + static_cast<size_t>(i) * 3;
+        if (auto rule = geode::library::smartRuleOf(textOf(cell[0]), textOf(cell[1]), textOf(cell[2]))) {
+            p.rules.push_back(std::move(*rule));
+        }
+    }
+    return p;
 }
 
 static_assert(geode::library::kMaxSheetTracks == GEODE_SEARCH_SHEET_TRACKS);
@@ -176,12 +199,45 @@ const char* geode_history_recent(const char* state, int limit) try {
     return nullptr;
 }
 
-const char* geode_history_entry(const char* state, const char* uri) try {
+// Smart playlists: the module's own calls; the ABI only gathers the arrays.
+const char* geode_smart_list(const char* const* texts, int count) try {
     thread_local std::string out;
-    const auto entry = geode::library::historyEntry(textOf(state), textOf(uri));
-    return hold(out, entry ? geode::library::historyWire({*entry}) : std::string());
+    return hold(out, geode::library::smartWire(geode::library::smartList(textsOf(texts, count))));
 } catch (...) {
     return nullptr;
+}
+
+const char* geode_smart_save_text(const char* name, int match_all, int limit, const char* const* rules,
+                                  int rule_count) try {
+    thread_local std::string out;
+    const auto text = geode::library::smartSaveText(smartOf(name, match_all, limit, rules, rule_count));
+    return text ? hold(out, *text) : nullptr;
+} catch (...) {
+    return nullptr;
+}
+
+int geode_smart_resolve(int match_all, int limit, const char* const* rules, int rule_count, const char* const* tracks,
+                        const long long* durations_ms, const long long* added_sec, int track_count, const char* history,
+                        const char* const* favourites, int favourite_count, long long now_ms, int* out,
+                        int max_out) try {
+    if (track_count < 0 || (track_count > 0 && !tracks)) return 0;
+    std::vector<geode::library::SmartTrack> library;
+    library.reserve(static_cast<size_t>(track_count));
+    for (int i = 0; i < track_count; ++i) {
+        const char* const* cell = tracks + static_cast<size_t>(i) * 5;
+        library.push_back({textOf(cell[0]), textOf(cell[1]), textOf(cell[2]), textOf(cell[3]), textOf(cell[4]),
+                           durations_ms ? durations_ms[i] : 0, added_sec ? added_sec[i] : 0});
+    }
+    const std::vector<int> rows =
+        geode::library::smartResolveHistory(smartOf(nullptr, match_all, limit, rules, rule_count), library,
+                                            textOf(history), textsOf(favourites, favourite_count), now_ms);
+    const int n = static_cast<int>(rows.size());
+    if (out) {
+        for (int i = 0; i < n && i < max_out; ++i) out[i] = rows[static_cast<size_t>(i)];
+    }
+    return n;
+} catch (...) {
+    return 0;
 }
 
 }  // extern "C"

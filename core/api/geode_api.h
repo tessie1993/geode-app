@@ -564,16 +564,36 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
  * record_play: the state once `uri` starts playing at now_ms (made if new, count up, title set, artist unless
  * blank, stamped after every play held). add_listen: the state with delta_ms (ignored at 0 or less, and for a uri
  * not held) added to the track's listened time. file_text: the text to write (the 200 most recent and the 200 most
- * played). recent: at most `limit` entries, newest first; entry: the entry for `uri` ("" when none). Entries go out
- * as History's wire: uri, last-played ms, play count, title, artist and listened ms split by U+001F, each entry
- * ended by U+001E. */
+ * played). recent: at most `limit` entries, newest first, as History's wire: uri, last-played ms, play count,
+ * title, artist and listened ms split by U+001F, each entry ended by U+001E. */
 GEODE_API int         geode_history_corrupt(const char* text);
 GEODE_API const char* geode_history_record_play(const char* state, const char* uri, const char* title,
                                                 const char* artist, long long now_ms);
 GEODE_API const char* geode_history_add_listen(const char* state, const char* uri, long long delta_ms);
 GEODE_API const char* geode_history_file_text(const char* state);
 GEODE_API const char* geode_history_recent(const char* state, int limit);
-GEODE_API const char* geode_history_entry(const char* state, const char* uri);
+
+/* Smart playlists (core/library/SmartPlaylist). The shell lists smart-playlists/ and reads and writes the files'
+ * text. A playlist crosses as match_all (1 or 0), limit and `rules`, 3 UTF-8 strings per rule: the field and op
+ * tokens the files hold (TITLE ... FAVOURITE, CONTAINS ... AT_MOST) and the value; a rule with an unknown token is
+ * dropped. Text out is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * smart_list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given), as
+ * SmartPlaylist's wire: per playlist its name, match_all ("1" or "0"), limit, then each rule's field token, op token
+ * and value, split by U+001F, each playlist ended by U+001E.
+ * smart_save_text: the text to write for a playlist named `name`, NULL for a blank name (nothing is saved).
+ * smart_resolve: the rows of `tracks` the playlist picks, in order (every track when no rule with a value is left,
+ * then the first `limit` when limit > 0). `tracks` holds 5 UTF-8 strings per track: uri, title, artist, album,
+ * folder; durations_ms and added_sec one value per track (NULL = zeros); `history` the play history's state (the
+ * play counts, see geode_history_*); `favourites` the favourite uris; now_ms the wall clock. Writes up to max_out rows
+ * to out and returns how many are picked. */
+GEODE_API const char* geode_smart_list(const char* const* texts, int count);
+GEODE_API const char* geode_smart_save_text(const char* name, int match_all, int limit, const char* const* rules,
+                                            int rule_count);
+GEODE_API int         geode_smart_resolve(int match_all, int limit, const char* const* rules, int rule_count,
+                                          const char* const* tracks, const long long* durations_ms,
+                                          const long long* added_sec, int track_count, const char* history,
+                                          const char* const* favourites, int favourite_count, long long now_ms,
+                                          int* out, int max_out);
 
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid

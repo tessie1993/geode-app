@@ -1283,7 +1283,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/RecordSaveStore.kt` (78) | shell | none | caller | none | n/a | persisted URI grants |
 | `data/SessionRepository.kt` (22) | shell | none | IO | none | n/a | n/a |
 | `data/SessionStore.kt` (107) | shell | none (queue + position) | IO | none | n/a | filesDir |
-| `data/SmartPlaylistStore.kt` (167) | shell | none about engine (`SmartPlaylistMatcher.resolve` `:53-71` filters library tracks) | caller (`ui/PlayerSession`) | none | n/a | library feature |
+| `data/SmartPlaylistStore.kt` | shell | none: the file format, the order and which tracks a rule set picks are native (`core/library/SmartPlaylist`, `geode_smart_*`); it lists and writes the files and splits the wire | caller (`ui/PlayerSession`) | `LibraryNative.smartList`, `smartSaveText`, `smartResolve` | done | library feature |
 | `data/SoundInputSettings.kt` (59) | shell | none; the tuning is a float list made and read by `engine/audio-core` `SoundTuning` (`savedFloats`, `fromFloats`) `:45-46`, `:50-58` | IO | none direct | sound engine tuning schema (`core/sound`, via `SoundTuning`) | prefs |
 | `data/StillFiles.kt` (49) | shell | none | worker | none | n/a | MediaStore, `Bitmap.compress` |
 | `data/StudioPrefsStore.kt` (42) | shell | none | caller | none | n/a | prefs |
@@ -1427,7 +1427,7 @@ None in this scope. The nearest:
 | `project-templates/<id>/template.json` | same shape minus renders, plus `lengthMs` (`data/EditorProjectJson.kt:86-99`); **read only: no writer in this scope** | `data/EditorProjectStore.kt:106`, `:108` | Kotlin |
 | `editor/`, `takes/`, `project-takes/` | legacy; deleted on store construction | `data/EditorProjectStore.kt:110-122` | n/a |
 | `music-playlists/<safeFileName(name)>.json` | `{name, tracks:[uri…]}` | `data/MusicPlaylistStore.kt:16`, `:127-131` | Kotlin |
-| `smart-playlists/<safeFileName(name)>.json` | `{name, matchAll, limit, rules:[{field: RuleField name, op: RuleOp name, value}]}` | `data/SmartPlaylistStore.kt:121`, `:138-146` | Kotlin |
+| `smart-playlists/<safeFileName(name)>.json` | `{name, matchAll, limit, rules:[{field: RuleField name, op: RuleOp name, value}]}` | `core/library/SmartPlaylist.cpp` (`smartParse`, `smartToJson`); the file name `data/SmartPlaylistStore.kt` | native |
 | `library.json` | `{version: 3, tracks:[{uri,title,artist,durationMs,album,genre,year,trackNo,comment,fileName,sizeBytes}]}`; a bare array is also read | `data/TrackLibrary.kt:12`, `:64`, `:125-150` | Kotlin |
 | `history.json` | `{tracks:[{uri,last,count,title,artist,ms}]}`; a bare array is also read | `core/library/History.cpp` (`historyParse`, `fileOf`); `data/HistoryStore.kt` reads and writes the text | native |
 | `session.json` | `{version: 1, tracks:[{uri,title,artist}], index, positionMs}`; newer version → quarantined | `data/SessionStore.kt:93-103` | Kotlin |

@@ -87,7 +87,8 @@ jobs:
         shell: bash
         run: bash tools/no-bpm-bias-gate.sh
 
-      # Pins the action pin gate: a tag must fail it, a SHA and a local workflow must pass.
+      # Pins the action pin gate: a tag must fail it, in a workflow and in a composite action; a SHA, a local
+      # workflow and a local action must pass.
       - name: Self-test the action pin gate
         shell: bash
         run: |
@@ -95,10 +96,16 @@ jobs:
           t=$(mktemp -d)
           mkdir -p "$t/.github/workflows"
           printf '%s\n' '      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1' \
-            '    uses: ./.github/workflows/ship-apk.yml' > "$t/.github/workflows/a.yml"
+            '    uses: ./.github/workflows/ship-apk.yml' \
+            '        uses: ./.github/actions/android-build-setup' > "$t/.github/workflows/a.yml"
+          mkdir -p "$t/.github/actions/x"
+          echo '      uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0' > "$t/.github/actions/x/action.yml"
           bash tools/actions-pin-gate.sh "$t" >/dev/null || { echo "::error::pin gate self-test: pinned tree failed"; exit 1; }
           echo '      - uses: actions/checkout@v7' > "$t/.github/workflows/b.yml"
           if bash tools/actions-pin-gate.sh "$t" >/dev/null; then echo "::error::pin gate self-test: tag passed"; exit 1; fi
+          rm "$t/.github/workflows/b.yml"
+          echo '      uses: actions/setup-java@v6' > "$t/.github/actions/x/action.yml"
+          if bash tools/actions-pin-gate.sh "$t" >/dev/null; then echo "::error::pin gate self-test: tag in a composite action passed"; exit 1; fi
           echo "action pin gate self-test passed"
 
       - name: Every action is pinned to a commit SHA

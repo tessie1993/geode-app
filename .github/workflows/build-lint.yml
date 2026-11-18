@@ -60,53 +60,11 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 21
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - name: Set up the Android build
+        uses: ./.github/actions/android-build-setup
         with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up Gradle and cache
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
-
-      - name: Install Android SDK 36, NDK and CMake
-        shell: bash
-        run: |
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;28.0.13004108" \
-            "cmake;3.22.1"
-
-      # The native build (two ABIs, the third_party libraries) through ccache: CMake reads the
-      # launcher from the environment, and the cache carries over from the last run.
-      - name: Set up ccache for the native build
-        shell: bash
-        run: |
-          command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
-          {
-            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
-            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
-            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
-            echo "CCACHE_MAXSIZE=600M"
-            echo "CCACHE_NOHASHDIR=true"
-          } >> "$GITHUB_ENV"
-
-      - name: Restore the ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ccache
-          key: ccache-debug-${{ github.run_id }}
-          restore-keys: ccache-debug-
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          ccache: true
 
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
@@ -114,6 +72,12 @@ jobs:
       - name: ccache statistics
         if: always()
         run: ccache -s || true
+
+      - name: Save the ccache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-debug-${{ github.run_id }}
 
       # The APK this gate just built, downloadable from the run's Summary page, so every
       # pull request has an installable debug build.

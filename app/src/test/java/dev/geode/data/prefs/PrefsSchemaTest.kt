@@ -145,7 +145,7 @@ class PrefsSchemaTest {
                 AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ]).save(VizUiState())
             },
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
-                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
+                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf(favourites = setOf("plasma")))
             },
             Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {

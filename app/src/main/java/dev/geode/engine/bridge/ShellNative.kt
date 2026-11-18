@@ -39,4 +39,36 @@ object ShellNative {
         start: Int,
         last: Int,
     ): Int
+
+    /**
+     * The Styles page's own shelf (core/shell/StyleShelf): favourites in the order they were starred, recents
+     * newest first. [favourites] with [id] starred if it was not, unstarred if it was (`geode_style_shelf_toggle_favourite`).
+     */
+    external fun styleShelfToggleFavourite(
+        favourites: Array<String>,
+        id: String,
+    ): Array<String>
+
+    /** [recents] with [id] in front, no repeats, at most the recent limit (`geode_style_shelf_push_recent`). */
+    external fun styleShelfPushRecent(
+        recents: Array<String>,
+        id: String,
+    ): Array<String>
+
+    /** [recents] without [id], its first place only (`geode_style_shelf_remove_recent`). */
+    external fun styleShelfRemoveRecent(
+        recents: Array<String>,
+        id: String,
+    ): Array<String>
+
+    /**
+     * Your styles: [onScreen] (null for none), then the favourites in [order]'s order, then the recents, each of
+     * [order]'s ids once (`geode_style_shelf_yours`).
+     */
+    external fun styleShelfYours(
+        favourites: Array<String>,
+        recents: Array<String>,
+        order: Array<String>,
+        onScreen: String?,
+    ): Array<String>
 }

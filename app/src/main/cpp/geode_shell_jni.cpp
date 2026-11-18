@@ -1,12 +1,68 @@
 // JNI for the shell's rules (core/shell through api/geode_shell_api.h): marshalling only.
 #include <jni.h>
 
+#include <string>
 #include <vector>
 
 #include "api/geode_shell_api.h"
 #include "jni_util.hpp"
 
 namespace {
+
+using geode::jni::Utf8Chars;
+using geode::jni::utf8Lines;
+
+// A Java String[] as the standard UTF-8 texts and pointers the C ABI takes. Not ok() when an entry could not be
+// read (out of memory, with the exception pending for the caller's Java frame).
+class Ids {
+public:
+    Ids(JNIEnv* env, jobjectArray array) {
+        if (env->ExceptionCheck()) {
+            ok_ = false;
+            return;
+        }
+        const jsize count = array ? env->GetArrayLength(array) : 0;
+        texts_.reserve(static_cast<size_t>(count));
+        for (jsize i = 0; i < count; ++i) {
+            auto* entry = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+            {
+                const Utf8Chars chars(env, entry);
+                if (entry && !chars.get()) ok_ = false;
+                texts_.emplace_back(chars.get() ? chars.get() : "");
+            }
+            env->DeleteLocalRef(entry);
+            if (!ok_ || env->ExceptionCheck()) {
+                ok_ = false;
+                return;
+            }
+        }
+        for (const std::string& text : texts_) pointers_.push_back(text.c_str());
+    }
+    Ids(const Ids&) = delete;
+    Ids& operator=(const Ids&) = delete;
+    bool ok() const { return ok_; }
+    const char* const* get() const { return pointers_.data(); }
+    int count() const { return static_cast<int>(pointers_.size()); }
+
+private:
+    std::vector<std::string> texts_;
+    std::vector<const char*> pointers_;
+    bool ok_ = true;
+};
+
+// A Java String that could not be read must not reach native as "absent".
+bool unread(jstring str, const Utf8Chars& chars) { return str && !chars.get(); }
+
+// A text-out list call's whole list as a String[]; `call(out, capacity)` returns the length it needs.
+template <typename Call>
+jobjectArray linesOf(JNIEnv* env, Call call) {
+    char fixed[1024];
+    const int need = call(fixed, static_cast<int>(sizeof fixed));
+    if (need < static_cast<int>(sizeof fixed)) return utf8Lines(env, fixed);
+    std::vector<char> whole(static_cast<size_t>(need) + 1);
+    call(whole.data(), need + 1);
+    return utf8Lines(env, whole.data());
+}
 
 jintArray intsOf(JNIEnv* env, const std::vector<int>& values) {
     const auto count = static_cast<jsize>(values.size());
@@ -48,6 +104,52 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_behaviourLastScr
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_behaviourOpensOn(JNIEnv*, jobject, jint start, jint last) {
     return geode_behaviour_opens_on(start, last);
+}
+
+JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_styleShelfToggleFavourite(JNIEnv* env, jobject,
+                                                                                                jobjectArray favourites,
+                                                                                                jstring id) {
+    const Ids ids(env, favourites);
+    const Utf8Chars chars(env, id);
+    if (!ids.ok() || unread(id, chars)) return nullptr;
+    return linesOf(env, [&](char* out, int capacity) {
+        return geode_style_shelf_toggle_favourite(ids.get(), ids.count(), chars.get(), out, capacity);
+    });
+}
+
+JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_styleShelfPushRecent(JNIEnv* env, jobject,
+                                                                                           jobjectArray recents, jstring id) {
+    const Ids ids(env, recents);
+    const Utf8Chars chars(env, id);
+    if (!ids.ok() || unread(id, chars)) return nullptr;
+    return linesOf(env, [&](char* out, int capacity) {
+        return geode_style_shelf_push_recent(ids.get(), ids.count(), chars.get(), out, capacity);
+    });
+}
+
+JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_styleShelfRemoveRecent(JNIEnv* env, jobject,
+                                                                                             jobjectArray recents, jstring id) {
+    const Ids ids(env, recents);
+    const Utf8Chars chars(env, id);
+    if (!ids.ok() || unread(id, chars)) return nullptr;
+    return linesOf(env, [&](char* out, int capacity) {
+        return geode_style_shelf_remove_recent(ids.get(), ids.count(), chars.get(), out, capacity);
+    });
+}
+
+JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_styleShelfYours(JNIEnv* env, jobject,
+                                                                                      jobjectArray favourites,
+                                                                                      jobjectArray recents,
+                                                                                      jobjectArray order, jstring onScreen) {
+    const Ids favouriteIds(env, favourites);
+    const Ids recentIds(env, recents);
+    const Ids orderIds(env, order);
+    const Utf8Chars screen(env, onScreen);
+    if (!favouriteIds.ok() || !recentIds.ok() || !orderIds.ok() || unread(onScreen, screen)) return nullptr;
+    return linesOf(env, [&](char* out, int capacity) {
+        return geode_style_shelf_yours(favouriteIds.get(), favouriteIds.count(), recentIds.get(), recentIds.count(),
+                                       orderIds.get(), orderIds.count(), screen.get(), out, capacity);
+    });
 }
 
 }  // extern "C"

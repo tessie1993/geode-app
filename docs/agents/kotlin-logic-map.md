@@ -1287,7 +1287,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/SoundInputSettings.kt` (59) | shell | none; the tuning is a float list made and read by `engine/audio-core` `SoundTuning` (`savedFloats`, `fromFloats`) `:45-46`, `:50-58` | IO | none direct | sound engine tuning schema (`core/sound`, via `SoundTuning`) | prefs |
 | `data/StillFiles.kt` (49) | shell | none | worker | none | n/a | MediaStore, `Bitmap.compress` |
 | `data/StudioPrefsStore.kt` (42) | shell | none | caller | none | n/a | prefs |
-| `data/StyleShelfStore.kt` (78) | shell | none (favourites/recents; rules in `model/StyleShelf`) | container scope | none | n/a | prefs |
+| `data/StyleShelfStore.kt` (78) | shell | none (favourites/recents; rules native's, asked by `model/StyleShelf`) | container scope | none | n/a | prefs |
 | `data/SystemMotion.kt` (38) | shell | `reducedAt` `:30`: reduced motion only when the animator scale is exactly 0 (a platform reading; the engine gets a boolean) | caller | none | n/a | `Settings.Global` |
 | `data/TemplateFormat.kt` (607) | mixed (format codec) | `readLook` `:320-337`: scene-id aliasing + default `SceneIds.DEFAULT` `:328`, attack/decay clamp to `PresetStore` ranges `:329-330`, params through `PresetStore.paramsFromJson`; the rest is the carry-unknown-keys codec | `Dispatchers.Default` for import `data/TemplateRepository.kt:597`; main for the link confirm dialog (`:179-181`); IO for files | none | the look part belongs with the native preset codec (see `PresetStore`); layout/text/export are not rendered (`data/VideoTemplate.kt:9-10`) | sharing, files |
 | `data/TemplateRepository.kt` (717) | mixed | `BundledTemplates` `:163-501`: **six built-in looks defined as Kotlin `SceneParams` literals** with attack/decay, palette index, bloom, speed etc. (`reelNeon` `:176-211`, `loFiLoop` `:213-272`, `vinylSpin` `:274-323`, `albumTeaser` `:325-380`, `podcastBars` `:382-437`, `master4K` `:439-473`). Storage part `:77-155`, `:561-717` is shell | IO; `BundledTemplates.ALL` built at class init | none | `core/viz/CataloguePresets.*` (the place bundled looks already live) | template files, share staging |
@@ -1582,7 +1582,7 @@ Columns: File (lines) | Class | Engine logic | Thread | Native calls | Native ow
 | `QueueTrack.kt` (12) | shell | none | n/a | none | n/a | data classes |
 | `ScreenRotation.kt` (17) | shell | none | n/a | none | n/a | UI pref enum |
 | `StyleLook.kt` (28) | duplicate, dead in production | mirrors `enum class Look` at `core/viz/Catalogue.hpp:57` (same nine entries, upper snake case). No production code names `StyleLook.` (Grep: only comments in `engine/scenes/.../render/scene/Catalogue.kt:13,125` and `StyleLookTest`). | n/a | none | `core/viz/Catalogue.hpp:57` | nothing |
-| `StyleShelf.kt` (43) | shell | none; favourites and recents rules, `RECENT_LIMIT` 12 `:35` | main | none | n/a | UI shelf |
+| `StyleShelf.kt` | shell | none; the favourites, recents and "yours" rules are native's (`StyleShelf.Rules` over `ShellNative.styleShelf*`, core/shell/StyleShelf) | main | none | n/a | UI shelf |
 | `TabLabels.kt` (30) | shell | none | n/a | none | n/a | UI pref enum |
 | `Tour.kt` (304) | shell | none; the tour's pure rules and card placement `:144-296` | main | none | n/a | UI onboarding |
 | `TrackTap.kt` (21) | shell | none | n/a | none | n/a | UI pref enum |
@@ -1796,7 +1796,7 @@ All under `app/src/test/java/dev/geode/`; none under `app/src/androidTest` targe
 | `model/PresetLinkTest.kt` (9) | link round trip, length and inflate caps, bad payloads decode to null |
 | `model/PresetShelfTest.kt` (8) | preset list order, filters, the applied mark, rename and unique-name rules |
 | `model/StyleLookTest.kt` (1) | every native catalogue look is a `StyleLook` and every group has styles |
-| `model/StyleShelfTest.kt` (5) | recents order and limit, favourites, the "yours" row |
+| `model/StyleShelfTest.kt` (deleted) | its cases are `core/tests/shell_lists_test.cpp`'s |
 | `model/TourTest.kt` (23) | the tour's step, skip, resume, replay and card placement rules |
 | `pro/AutoDirectorPolicyTest.kt` (6) | the live director amount per entitlement; the taste equals the free export cap and the native constant |
 | `pro/FeatureGateTest.kt` (11) | what free, trial and Pro allow; free styles are the shader family; family openers are free; export blocks, resolution first |
@@ -3342,7 +3342,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/model/PresetShelfTest.kt` (87, 8) | `PresetFiltering`, `PresetFilter`, `PresetEntry` | list order (mine first, then built-ins for this style), filters, rename errors, `cleanName` replaces `·` with `-`, `uniqueName` | UI | – | stays |
 | `test/model/ScreenRotationTest.kt` (17, 2) | `ScreenRotation.fromName` | unknown → `FOLLOW` | FMT | – | stays |
 | `test/model/StyleLookTest.kt` (19, 1) | `main/model/StyleLook` vs `Catalogue.styles[].look` (reads `core/tests/catalogue.txt`) | the set of `StyleLook` enum names equals the set of look names in the native catalogue | JNI parity (enum mirror) | `core/tests/catalogue_test.cpp` keeps `catalogue.txt` | delete with the `StyleLook` mirror when the Styles page groups by the native look column directly; else stays |
-| `test/model/StyleShelfTest.kt` (54, 5) | `main/model/StyleShelf` | recents newest first, no repeats, `RECENT_LIMIT`; favourites toggle; `randomFamilyOnly`; `yours(order, onScreen)` = on screen, favourites, recents, each once, unknown ids dropped | UI + FMT (shelf) | `core/tests/style_pick_test.cpp` (the random pick itself) | stays |
+| `test/model/StyleShelfTest.kt` (deleted) | `main/model/StyleShelf` | its cases are `core/tests/shell_lists_test.cpp`'s; the rules are native's | UI + FMT (shelf) | `core/tests/shell_lists_test.cpp` | gone |
 | `test/model/TabLabelsTest.kt` (32, 3) | `TabLabels` | `AUTO/ALWAYS/SELECTED/NEVER.shows`; unknown name → `AUTO` | UI + FMT | – | stays |
 | `test/model/TourTest.kt` (236, 23) | `main/model/Tour`, `TourProgress`, `TourChapter`, `TourSpot` | tour step rules; `placeCard` geometry; `TourProgress.decode(done, resume, tips, legacySeen, off)`: unknown names ignored; legacy chapter names map (`WELCOME`→`START`; `PLAYER`, `LIBRARY`, `LIVE_VIEW`, `PRO`, `SETTINGS` dropped); legacy resume `"CUSTOMIZE:3"` → none; `legacySeen=true` → every chapter done | UI + FMT (tour progress strings) | – | stays |
 | `test/playback/PlayRecorderTest.kt` (123, 3) | `main/playback/PlayRecorder`, `HistoryStore`, `SessionStore` | a restored paused queue is not a play; queue re-read only on timeline change; service alone keeps session (tracks, index 5, 42 000 ms) and history newest first | shell (Media3 listener, storage) | – | stays |

@@ -38,6 +38,7 @@
 #include "viz/LookSnapshot.hpp"
 #include "viz/MacroBank.hpp"
 #include "viz/ModDocument.hpp"
+#include "viz/ModState.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/ReactionResolve.hpp"
@@ -700,6 +701,17 @@ int geode_mod_reactions_edit(const char* style_id, int seed, const char* reactio
     // No routes of the user's own: every moment is the style's DNA again.
     if (out_mask) *out_mask = routes.empty() ? 0u : doc.handMask();
     return geode::api::textOut(routes, out, capacity);
+}
+
+void geode_mod_state_reactions_edit(const char* style_id, int seed, int op, int a, int b, float value) try {
+    if (!style_id) return;
+    const StyleDna dna = dnaOf(style_id, seed);
+    auto& s = modstate::shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    s.state.editReactions(dna, style_id, op, a, b, value);
+    const modstate::Hand held = s.state.hand();
+    hand::setGlobal(held.mask, held.user);
+} catch (...) {
 }
 
 int geode_mod_music_state(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {

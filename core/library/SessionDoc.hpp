@@ -35,4 +35,8 @@ struct SessionWrite {
 // The text to write for a session (index and position clamped), or `clear` when it holds no tracks.
 SessionWrite sessionWrite(const SavedSession& session);
 
+// The wire the shell splits: one record of index, positionMs, then each track's uri, title and artist, split by
+// U+001F and ended by U+001E. Those two characters are dropped from the text.
+std::string sessionWire(const SavedSession& session);
+
 }  // namespace geode::library

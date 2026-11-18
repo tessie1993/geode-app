@@ -1,18 +1,19 @@
 package dev.geode.ui
 
-import android.content.SharedPreferences
 import android.os.SystemClock
-import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
-import dev.geode.data.prefs.PrefType
-import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.engine.bridge.PanelNative
 import dev.geode.model.SceneParams
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 
 /** What the panel's undo/redo buttons should look like right now. */
 data class ParamHistoryState(
@@ -26,15 +27,21 @@ data class ParamHistoryState(
  * Modulation slots and envelopes, the per-parameter randomize locks and the panel's undo/redo
  * history. They live together because they all edit the SAME thing — the
  * one live parameter set — and splitting them would mean three places that each have to remember
- * to record history. The history, the rolls and the edits are native (core/viz/ParamHistory,
- * core/viz/PanelRoll, core/viz/ModDocument); this carries the look there and back.
+ * to record history. The history and the rolls are native (core/viz/ParamHistory, core/viz/PanelRoll);
+ * this carries the look there and back while the look itself is still the shell's (VizStateStore).
+ *
+ * The modulation (the waves, the envelopes, the reaction routes with their hand mask) and the keep set
+ * are native's (core/viz/ModState): an edit here is an event sent there that returns nothing, and native
+ * applies it with every rule. [lfos], [adsrs], [reactions] and [handMask] are read-only mirrors of what
+ * native holds, read back after each event for the editors and the renderer's look.
  */
+@OptIn(FlowPreview::class)
 internal class ModulationController(
     private val lfoStore: LfoStore,
-    private val prefs: SharedPreferences,
+    /** Customize's keep set: native holds it and applies a tap (core/viz/ModState); the store saves and shows it. */
+    private val keepSet: KeepSetStore,
     private val host: Host,
-    /** Hands the saved lock set to the director's keep set: `AutoDirectorStore.setKept`, its one writer. */
-    private val pushKept: (Set<String>) -> Unit,
+    scope: CoroutineScope,
 ) {
     interface Host {
         val params: SceneParams
@@ -44,35 +51,39 @@ internal class ModulationController(
         fun setSceneParams(params: SceneParams)
     }
 
-    // The waves, the envelopes and the routes as saved: native reads and edits them (core/viz/ModDocument).
-    private val _lfos = MutableStateFlow(lfoStore.load())
+    // What was saved goes to native once; native pushes the hand mask process-wide, where every renderer merges
+    // the user's routes with the live DNA and every director keeps off the moments they own.
+    init {
+        ModulationNative.modStateLoad(lfoStore.load(), lfoStore.loadAdsrs(), lfoStore.loadReactions(), lfoStore.loadHandMask())
+    }
+
+    private val _lfos = MutableStateFlow(held(ModulationNative.MOD_STATE_LFOS).orEmpty())
     val lfos: StateFlow<String> = _lfos
 
-    private val _adsrs = MutableStateFlow(lfoStore.loadAdsrs())
+    private val _adsrs = MutableStateFlow(held(ModulationNative.MOD_STATE_ADSRS).orEmpty())
     val adsrs: StateFlow<String> = _adsrs
 
-    // Null while the style's DNA plays; the first edit copies the DNA into a list of the user's own.
-    private val _reactions = MutableStateFlow(lfoStore.loadReactions())
+    // Null while the style's DNA plays; the first edit makes native copy the DNA into a list of the user's own.
+    private val _reactions = MutableStateFlow(held(ModulationNative.MOD_STATE_REACTIONS))
     val reactions: StateFlow<String?> = _reactions
 
-    // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
-    // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
-    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { lfoStore.pushHand(it, _reactions.value != null) })
+    // Which moments that list owns (Customize › Music: the hand wins per moment), saved beside it.
+    private val _handMask = MutableStateFlow(ModulationNative.modStateHandMask())
     val handMask: StateFlow<Int> = _handMask
 
-    private val _lockedParams =
-        MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
-    val lockedParams: StateFlow<Set<String>> = _lockedParams
+    init {
+        // A drag sends an event per frame: the prefs are written once it settles, not per event.
+        scope.launch { _lfos.drop(1).debounce(SAVE_QUIET_MS).collect { lfoStore.save(it) } }
+        scope.launch { _adsrs.drop(1).debounce(SAVE_QUIET_MS).collect { lfoStore.saveAdsrs(it) } }
+    }
+
+    val lockedParams: StateFlow<Set<String>> get() = keepSet.keys
 
     private val _history = MutableStateFlow(ParamHistoryState())
     val history: StateFlow<ParamHistoryState> = _history
 
-    fun toggleParamLock(label: String) {
-        _lockedParams.update { if (label in it) it - label else it + label }
-        prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
-        // The director's reach leaves a kept control alone too; its store pushes the set, here and at start.
-        pushKept(_lockedParams.value)
-    }
+    /** A Keep tap: native toggles [label] in the set it holds and hands the director the new set. */
+    fun toggleParamLock(label: String) = keepSet.tap(label)
 
     /**
      * The single write path for a panel edit, so undo covers the whole panel. Native folds a slider
@@ -137,9 +148,8 @@ internal class ModulationController(
 
     /** Randomize for the waves (core/viz/WaveRandomizer): [all] is the wave editor's button. Native. */
     fun randomizeWaves(all: Boolean) {
-        val rolled = PanelNative.modWavesRoll(host.sceneId, kept(), all, host.params.frame(), _lfos.value) ?: return
-        _lfos.value = rolled
-        lfoStore.save(rolled)
+        PanelNative.modStateWavesRoll(host.sceneId, all, host.params.frame())
+        _lfos.value = held(ModulationNative.MOD_STATE_LFOS).orEmpty()
     }
 
     /** Puts up what a roll [out] wrote and rolls the waves when native asks; true when the look changed. */
@@ -153,7 +163,7 @@ internal class ModulationController(
         return changed
     }
 
-    private fun kept(): String = _lockedParams.value.joinToString("\n")
+    private fun kept(): String = keepSet.document.value
 
     /**
      * Puts one category's controls back to their defaults (native: every field its controls
@@ -181,32 +191,30 @@ internal class ModulationController(
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT.keepingInputsOf(host.params))
 
-    /** One [field] (a `ModulationNative.MOD_ADSR_*`) of the envelope at [index]; native sets it and keeps it in range. */
+    /** One [field] (a `ModulationNative.MOD_ADSR_*`) of the envelope at [index]: an event; native sets it and keeps it in range. */
     fun setAdsr(
         index: Int,
         field: Int,
         value: Float,
     ) {
-        val next = ModulationNative.modAdsrEdit(_adsrs.value, index, field, value)
-        _adsrs.value = next
-        lfoStore.saveAdsrs(next)
+        ModulationNative.modStateAdsrSet(index, field, value)
+        _adsrs.value = held(ModulationNative.MOD_STATE_ADSRS).orEmpty()
     }
 
-    /** One [field] (a `ModulationNative.MOD_LFO_*`) of the wave at [index]; native sets it and keeps it in range. */
+    /** One [field] (a `ModulationNative.MOD_LFO_*`) of the wave at [index]: an event; native sets it and keeps it in range. */
     fun setLfo(
         index: Int,
         field: Int,
         value: Float,
     ) {
-        val next = ModulationNative.modLfoEdit(_lfos.value, index, field, value)
-        _lfos.value = next
-        lfoStore.save(next)
+        ModulationNative.modStateLfoSet(index, field, value)
+        _lfos.value = held(ModulationNative.MOD_STATE_LFOS).orEmpty()
     }
 
     /**
-     * One edit of the reactions (a `ModulationNative.MOD_EDIT_*` [op] with its [a], [b] and [value]). Native works
-     * out the user's routes and the moments they own from what plays on this style; null hands the matrix
-     * back to the style's DNA.
+     * One edit of the reactions (a `ModulationNative.MOD_EDIT_*` [op] with its [a], [b] and [value]): an event.
+     * Native works out the user's routes and the moments they own from what plays on this style, hands the
+     * matrix back to the style's DNA when no route is the user's, and pushes the hand mask. A tap: saved at once.
      */
     fun editReactions(
         op: Int,
@@ -214,13 +222,11 @@ internal class ModulationController(
         b: Int = 0,
         value: Float = 0f,
     ) {
-        val outMask = IntArray(1)
-        val seed = host.params.int("reactSeed")
-        val routes = ModulationNative.modReactionsEdit(host.sceneId, seed, _reactions.value, _handMask.value, op, a, b, value, outMask)
-        val mask = outMask[0]
+        ModulationNative.modStateReactionsEdit(host.sceneId, host.params.int("reactSeed"), op, a, b, value)
+        val routes = held(ModulationNative.MOD_STATE_REACTIONS)
+        val mask = ModulationNative.modStateHandMask()
         _reactions.value = routes
         _handMask.value = mask
-        lfoStore.pushHand(mask, routes != null)
         lfoStore.saveReactions(routes, mask)
     }
 
@@ -232,18 +238,16 @@ internal class ModulationController(
         commitSceneParams(SceneParams.read(out, host.params.customPaletteId))
     }
 
+    private fun held(which: Int): String? = ModulationNative.modStateText(which)
+
     companion object {
+        /** How long a wave or envelope drag rests before what native holds is saved. */
+        private const val SAVE_QUIET_MS = 400L
+
         private fun historyOf(bits: Int) =
             ParamHistoryState(
                 canUndo = bits and PanelNative.PARAM_HISTORY_UNDO != 0,
                 canRedo = bits and PanelNative.PARAM_HISTORY_REDO != 0,
             )
-
-        private const val KEY_LOCKED_PARAMS = "locked_params"
-
-        val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.MODULATION) {
-                portable(PrefType.STRING_SET, KEY_LOCKED_PARAMS)
-            }
     }
 }

@@ -38,10 +38,13 @@ const HeapBufferIds& heapBufferIds(JNIEnv* env) {
 
 // A heap buffer, read-only or not, has no address: its bytes are copied by the JVM's bulk get (on a
 // duplicate, so its position stays the shell's) into one array native keeps, grown only when too small,
-// then written from that array pinned. The tap is the one writer, so the lock is never contended.
+// then copied out of it (GetByteArrayRegion) into native memory kept the same way and written from there:
+// the ring's write and its listener never run inside a JNI critical region. The tap is the one writer, so
+// the lock is never contended.
 std::mutex gHeapLock;
 jbyteArray gHeapBytes = nullptr;
 jsize gHeapLength = 0;
+std::vector<jbyte> gHeapCopy;
 
 int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes) {
     const HeapBufferIds& ids = heapBufferIds(env);
@@ -67,11 +70,19 @@ int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, 
         env->ExceptionClear();  // a position or length past the buffer: nothing to write
         return 0;
     }
-    void* data = env->GetPrimitiveArrayCritical(gHeapBytes, nullptr);
-    if (!data) return 0;
-    const int written = geode_pcm_ring_tap_write(ring, data, static_cast<size_t>(bytes));
-    env->ReleasePrimitiveArrayCritical(gHeapBytes, data, JNI_ABORT);
-    return written;
+    if (gHeapCopy.size() < static_cast<size_t>(bytes)) {
+        try {
+            gHeapCopy.resize(static_cast<size_t>(bytes));
+        } catch (...) {
+            return 0;  // nothing may throw through JNI
+        }
+    }
+    env->GetByteArrayRegion(gHeapBytes, 0, bytes, gHeapCopy.data());
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return 0;
+    }
+    return geode_pcm_ring_tap_write(ring, gHeapCopy.data(), static_cast<size_t>(bytes));
 }
 }  // namespace
 

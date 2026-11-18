@@ -402,12 +402,6 @@ Java_dev_geode_engine_bridge_DirectorNative_directorReachSet(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_DirectorNative_directorKeepSet(JNIEnv* env, jobject, jstring keys) {
-    Utf8Chars text(env, keys);
-    geode_director_keep_set(text.get());
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_directorTuningSet(JNIEnv* env, jobject, jstring text) {
     Utf8Chars chars(env, text);
     geode_director_tuning_set(chars.get());

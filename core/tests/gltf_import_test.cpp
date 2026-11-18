@@ -393,6 +393,30 @@ void instancesCountTowardTheCap() {
     check(r.instances.size() == 3 && r.instances[2].world[12] == 4.0f, "each placement keeps its node's world matrix");
 }
 
+// Placements are counted as the scene is walked and stored only up to the triangle cap, so a file of cheap nodes
+// cannot ask for gigabytes of them: past the cap it is refused, whether or not its placements draw anything.
+void placementsPastTheCapAreRefused() {
+    ImportLimits limits;
+    limits.flagship.maxTriangles = 100;
+    limits.maxFitRatio = 1.0f;
+    const ImportResult many = run(gridModel(1, 60), limits);  // 2 triangles placed 60 times
+    check(!many.ok && many.refusedFor(Refusal::TooManyTriangles) && many.counts.instances == 60,
+          "placements past the cap are refused, all of them counted");
+
+    // A primitive that draws nothing (two positions, no indices), placed past the cap beside one that draws.
+    Glb glb;
+    const Grid g = grid(1);
+    const int drawn = glb.addMesh(trianglesPrimitive(glb.addPositions(g.positions), glb.addIndices(g.indices)));
+    glb.addNode("\"mesh\":" + std::to_string(drawn));
+    const int empty = glb.addMesh("{\"attributes\":{\"POSITION\":" +
+                                  std::to_string(glb.addPositions({0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f})) + "}}");
+    for (int i = 0; i < 101; ++i) glb.addNode("\"mesh\":" + std::to_string(empty));
+    const ImportResult idle = run(glb, limits);
+    check(!idle.ok && idle.refusedFor(Refusal::TooManyTriangles) && idle.counts.trianglesSource == 2 &&
+              idle.counts.instances == 102 && idle.instances.empty(),
+          "placements that draw nothing still count toward the cap");
+}
+
 void materialLimits() {
     auto withMaterials = [](int count) {
         Glb glb;
@@ -876,6 +900,7 @@ int main() {
     decimatesUpToFourTimesOver();
     refusesBeyondFourTimesOver();
     instancesCountTowardTheCap();
+    placementsPastTheCapAreRefused();
     materialLimits();
     skinLimits();
     morphLimits();

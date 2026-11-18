@@ -1,6 +1,7 @@
 package dev.geode.data.prefs
 
 import android.content.SharedPreferences
+import dev.geode.RingLog
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -95,7 +96,7 @@ class PrefsSettingsRepository<T>(
 
     init {
         scope.launch {
-            val read = withContext(io) { codec.normalize(codec.read(prefs)) }
+            val read = withContext(io) { readFile() }
             writeLock.withLock {
                 state.value = read
                 firstLoad.complete(read)
@@ -105,7 +106,23 @@ class PrefsSettingsRepository<T>(
 
     override suspend fun loaded(): T = firstLoad.await()
 
-    override fun current(): T = if (firstLoad.isCompleted) state.value else codec.normalize(codec.read(prefs))
+    override fun current(): T = if (firstLoad.isCompleted) state.value else readFile()
+
+    /**
+     * The saved value, or the defaults when a key holds a type other than the one the codec reads
+     * it as (the getter throws), as a hand-edited backup can leave, until an update writes over it.
+     */
+    private fun readFile(): T =
+        try {
+            codec.normalize(codec.read(prefs))
+        } catch (e: ClassCastException) {
+            RingLog.note(TAG, "a key of ${codec.keys.firstOrNull()?.file} has the wrong type; using the defaults", e)
+            codec.normalize(codec.defaults)
+        }
+
+    private companion object {
+        const val TAG = "Settings"
+    }
 
     override suspend fun update(transform: (T) -> T) {
         firstLoad.await()

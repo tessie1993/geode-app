@@ -6,6 +6,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.CustomizeGroups
 import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.CustomizeGroupsStore
+import dev.geode.data.KeepSetStore
 import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleShelf
@@ -15,6 +16,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -25,6 +27,39 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProcessStoresRepositoryTest {
     private val file = RecordingPrefs()
+
+    /**
+     * The shelf's rules are native's (core/tests/shell_lists_test.cpp); here the two the store case uses are
+     * stand-ins, so the case proves the store and the file.
+     */
+    @Before
+    fun shelfRules() {
+        StyleShelf.Rules.install(
+            object : StyleShelf.Rules.Reads {
+                override fun toggleFavourite(
+                    favourites: List<String>,
+                    id: String,
+                ): List<String> = if (id in favourites) favourites - id else favourites + id
+
+                override fun pushRecent(
+                    recents: List<String>,
+                    id: String,
+                ): List<String> = listOf(id) + (recents - id)
+
+                override fun removeRecent(
+                    recents: List<String>,
+                    id: String,
+                ): List<String> = throw UnsupportedOperationException("native's (shell_lists_test)")
+
+                override fun yours(
+                    favourites: List<String>,
+                    recents: List<String>,
+                    order: List<String>,
+                    onScreen: String?,
+                ): List<String> = throw UnsupportedOperationException("native's (shell_lists_test)")
+            },
+        )
+    }
 
     private fun TestScope.shelf() =
         StyleShelfStore(
@@ -95,8 +130,47 @@ class ProcessStoresRepositoryTest {
     @Test
     fun theKeepSetIsReadFromTheModulationFile() {
         val modulation = RecordingPrefs()
-        assertEquals(emptySet<String>(), AutoDirectorCodec.readKept(modulation.prefs))
-        modulation.values[AutoDirectorStore.KEY_KEPT] = setOf("speed", "#CAMERA")
-        assertEquals(setOf("speed", "#CAMERA"), AutoDirectorCodec.readKept(modulation.prefs))
+        val empty = HeldKeep { it }
+        assertEquals("", KeepSetStore(modulation.prefs, empty::load, empty::toggle, empty::held).document.value)
+        // The string set users have saved: handed to native as one key a line, and what native then holds is shown.
+        modulation.values[KeepSetStore.KEY] = setOf("speed", "#CAMERA")
+        val native = HeldKeep { "#CAMERA\nspeed\n" }
+        val normalized = KeepSetStore(modulation.prefs, native::load, native::toggle, native::held)
+        assertEquals("#CAMERA\nspeed\n", normalized.document.value)
+        assertEquals(setOf("speed", "#CAMERA"), normalized.keys.value)
+    }
+
+    @Test
+    fun aTappedKeepSetIsSavedAsAStringSet() {
+        val modulation = RecordingPrefs()
+        val native = HeldKeep { it }
+        val store = KeepSetStore(modulation.prefs, native::load, native::toggle, native::held)
+        // What native holds after the tap.
+        native.next = "#LOOK\nspeed\n"
+        store.tap("speed")
+        assertEquals("speed", native.tapped)
+        assertEquals(setOf("#LOOK", "speed"), modulation.values[KeepSetStore.KEY])
+        assertEquals(setOf("#LOOK", "speed"), store.keys.value)
+        assertEquals("#LOOK\nspeed\n", store.document.value)
+    }
+
+    /** Native's keep set for a JVM test: [normalize] is what it holds after a load, [next] after a tap. */
+    private class HeldKeep(
+        private val normalize: (String) -> String,
+    ) {
+        var document = ""
+        var next = ""
+        var tapped: String? = null
+
+        fun load(text: String) {
+            document = normalize(text)
+        }
+
+        fun toggle(key: String) {
+            tapped = key
+            document = next
+        }
+
+        fun held(): String = document
     }
 }

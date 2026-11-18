@@ -57,23 +57,26 @@ float TouchField::spread() const {
 }
 
 void TouchField::adoptLive(int n, float dt) {
+    // A non-finite point is dropped, not counted: the live points stay packed from slot 0.
+    int live = 0;
     for (int i = 0; i < n; i++) {
         const float nx = scratch_[i * 2];
         const float ny = scratch_[i * 2 + 1];
         if (!std::isfinite(nx) || !std::isfinite(ny)) continue;
-        if (i < liveCount_ && dt > 0.0f) {
-            prevX_[i] = liveX_[i];
-            prevY_[i] = liveY_[i];
+        if (live < liveCount_ && dt > 0.0f) {
+            prevX_[live] = liveX_[live];
+            prevY_[live] = liveY_[live];
         } else {
-            prevX_[i] = nx;
-            prevY_[i] = ny;
+            prevX_[live] = nx;
+            prevY_[live] = ny;
         }
-        liveX_[i] = std::clamp(nx, -1.0f, 1.0f);
-        liveY_[i] = std::clamp(ny, -1.0f, 1.0f);
-        strength_[i] = 1.0f;
-        age_[i] = 0.0f;
+        liveX_[live] = std::clamp(nx, -1.0f, 1.0f);
+        liveY_[live] = std::clamp(ny, -1.0f, 1.0f);
+        strength_[live] = 1.0f;
+        age_[live] = 0.0f;
+        ++live;
     }
-    liveCount_ = n;
+    liveCount_ = live;
 }
 
 void TouchField::decay(float dt) {

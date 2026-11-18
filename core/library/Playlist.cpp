@@ -287,7 +287,11 @@ struct Element {
 
 // The first element named `tag` from `from`, closed by the nearest closing tag (the farthest when `greedy`).
 Element findElement(std::string_view t, std::string_view tag, size_t from, bool greedy) {
+    size_t nextGt = t.find('>', from);
     for (size_t pos = t.find('<', from); pos != std::string_view::npos; pos = t.find('<', pos + 1)) {
+        // No '>' left: no opening tag from here on can end, and each would search to the end for one.
+        if (nextGt != std::string_view::npos && nextGt < pos) nextGt = t.find('>', pos);
+        if (nextGt == std::string_view::npos) return {};
         const size_t gt = openTagEnd(t, pos, tag);
         if (gt == std::string_view::npos) continue;
         const size_t contentStart = gt + 1;

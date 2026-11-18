@@ -6,14 +6,15 @@ object PanelNative {
         GeodeNative.ensureLoaded()
     }
 
-    /** Randomize for the waves (core/viz/WaveRandomizer), seeded natively; [all] is the wave editor's button. Null when it changed nothing. */
-    external fun modWavesRoll(
-        styleId: String?,
-        locked: String?,
+    /**
+     * Randomize for the waves native holds (core/viz/WaveRandomizer, geode_mod_state_waves_roll), seeded natively, with the
+     * keep set it holds, on the look [params]; [all] is the wave editor's button. An event: nothing comes back.
+     */
+    external fun modStateWavesRoll(
+        styleId: String,
         all: Boolean,
         params: FloatArray,
-        lfos: String,
-    ): String?
+    )
 
     /**
      * Customize's dice (core/viz/PanelRoll), seeded natively: [category] (a CustomizeMap name) or everything when null,

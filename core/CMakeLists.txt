@@ -42,6 +42,7 @@ add_library(geode_core STATIC
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
+    api/geode_library_docs_api.cpp
     api/geode_lyrics_api.cpp
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp
@@ -61,6 +62,8 @@ add_library(geode_core STATIC
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
+    api/geode_mod_state_api.cpp
+    viz/ModState.cpp
     api/geode_mod_controls_api.cpp
     viz/ModControls.cpp
     api/geode_studio_api.cpp
@@ -117,6 +120,7 @@ add_library(geode_core STATIC
     shell/Behaviour.cpp
     shell/AutoVisuals.cpp
     shell/ExportFps.cpp
+    api/geode_shell_api.cpp
     shell/Text.cpp
     backup/Backup.cpp
     audio/ingest/AiffReader.cpp

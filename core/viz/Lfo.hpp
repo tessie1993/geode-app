@@ -146,8 +146,8 @@ private:
     std::array<float, kSlots> out_{};
     std::array<float, kSlots> rateAdd_{};
     std::array<float, kSlots> depthAdd_{};
-    // Beat timing: the free clock's phase (cycles), the last measured tempo (0 until the music gives one;
-    // a beat-timed slot runs on its own period till then), whether the music clock held last frame, and
+    // Beat timing: the free clock's phase (cycles), the tempo the music gives now (0 while it gives none;
+    // a beat-timed slot runs on its own period then), whether the music clock held last frame, and
     // the offset still being eased out after it came back.
     std::array<float, kSlots> syncFree_{};
     std::array<float, kSlots> syncJump_{};

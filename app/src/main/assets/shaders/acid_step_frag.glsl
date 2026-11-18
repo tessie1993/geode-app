@@ -143,7 +143,7 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
         float h = fract(sin(seg * 12.99) * 437.585);
         float level = mix(uBass, mix(uMid, uTreble, step(0.66, h)), step(0.33, h));
         float bar = step(r, 0.15 + 0.55 * level) * step(0.12, r);
-        float edge = smoothstep(0.5, 0.0, abs(fract(mod(ang / TAU + 1.0, 1.0) * 24.0) - 0.5));
+        float edge = 1.0 - smoothstep(0.0, 0.5, abs(fract(mod(ang / TAU + 1.0, 1.0) * 24.0) - 0.5));
         return hsv2rgb(vec3(fract(uBaseHue + uHueSpan * h * 0.4), 0.8, 1.0)) * bar * edge * 0.8;
     }
     float ph = uClock * 0.9;

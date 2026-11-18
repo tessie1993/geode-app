@@ -337,6 +337,6 @@ void main() {
     col += sapCol * glow * sapOn * 0.2 * glowK;
 
     col *= 0.9 + 0.12 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

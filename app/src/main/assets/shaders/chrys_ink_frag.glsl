@@ -271,7 +271,7 @@ float mapAt(vec3 p, inout ChrysHit found) {
             float sr = length(cc + 0.5) * IK_CELL;
             float seed = chrysHash(cc.xy + cc.z * vec2(7.13, 3.71) + gOnset * vec2(0.37, 0.71));
             vec3 jit = (vec3(seed, fract(seed * 13.7), fract(seed * 71.3)) - 0.5) * 0.3;
-            float rr = min(0.16 * gSplat * step(0.72, seed) * smoothstep(2.4, 1.6, sr) * smoothstep(1.0, 1.4, sr), 0.3);
+            float rr = min(0.16 * gSplat * step(0.72, seed) * (1.0 - smoothstep(1.6, 2.4, sr)) * smoothstep(1.0, 1.4, sr), 0.3);
             vec3 f = abs(fract(sp) - 0.5);
             float toEdge = (0.5 - max(max(f.x, f.y), f.z)) * IK_CELL;
             float raw = rr > 0.001 ? (length(sp - (cc + 0.5 + jit)) - rr) * IK_CELL : 1e9;
@@ -416,12 +416,12 @@ void main() {
                 float brk = smoothstep(0.45, 1.0, u) * min(dryAmt, 1.0);
                 float tone = mix(0.95, 0.5, u) * mix(1.0, smoothstep(0.25 * dryAmt, 0.6, dry), brk);
                 ink = tone * (0.62 + 0.38 * (1.0 - lit)) + 0.3 * rim * tone;
-                heart = step(1.5, ring) * smoothstep(0.35, 0.0, u) * 0.7;
+                heart = step(1.5, ring) * (1.0 - smoothstep(0.0, 0.35, u)) * 0.7;
             } else if (mat < 5.5) {
                 float dry = motionNoise(vec2(p.x * 40.0, p.y * 2.0));
                 ink = 0.8 * mix(1.0, smoothstep(0.2, 0.55, dry), 0.35 * u) * (0.75 + 0.25 * (1.0 - lit)) + 0.2 * rim;
             } else if (mat < 6.5) {
-                float vein = smoothstep(0.08, 0.0, abs(fld.a.y)) * step(u, 0.95);
+                float vein = (1.0 - smoothstep(0.0, 0.08, abs(fld.a.y))) * step(u, 0.95);
                 float tone = 0.32 + 0.25 * u + 0.3 * vein;
                 ink = tone * (0.7 + 0.3 * (1.0 - lit)) + 0.25 * rim;
             } else {

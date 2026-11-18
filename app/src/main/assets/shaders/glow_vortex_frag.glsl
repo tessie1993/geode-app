@@ -478,7 +478,7 @@ void main() {
         gEyeTwist = mix(0.55, 1.6, kFlow);
         gHue0 = hue0;
         vec3 web = gvEyeWebGrown(pp);
-        web *= smoothstep(1.3, 0.25, lp) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
+        web *= (1.0 - smoothstep(0.25, 1.3, lp)) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
         float core = exp(-lp * 6.0 * sCoreK);
         col += (web * 0.7 * glow + eyeCol * core * (0.15 + 1.0 * kPulse)) * esc;
     }

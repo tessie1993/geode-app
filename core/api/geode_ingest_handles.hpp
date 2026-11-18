@@ -27,6 +27,12 @@ struct geode_pcm_ring {
     // geode_pcm_ring_set_snapshots: the writes are a capture's snapshots, stitched onto the capture clock.
     // Writer thread only, like the writes.
     std::unique_ptr<geode::audio::ingest::SnapshotStitch> snapshots{};
+    // geode_pcm_ring_tap_*: the Media3 tap's gate and the format its last flush announced. The tap's thread
+    // writes the format and reads the gate; the shell sets the gate from the main thread.
+    std::atomic<bool> tapOwns{true};
+    std::atomic<int> tapSampleRate{0};
+    std::atomic<int> tapChannels{0};
+    std::atomic<int> tapEncoding{0};
     // A ring kept for the process (geode_pcm_ring_shared): geode_pcm_ring_destroy leaves it alone.
     bool kept = false;
     // The ring's one analysis (sound/hop/SharedAnalysis), made when the first renderer hears the ring

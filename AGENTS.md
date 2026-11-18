@@ -27,6 +27,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
 - `core/audio/dsp`: playback and export DSP.
 - `core/player`: the queue and transport as pure logic (`geode_player`); nothing calls it yet.
+- `core/backup`: the backup's rules (sections, paths, caps, migration, manifest, plans). The app calls them through `core/api/geode_backup_api.cpp`, `geode_backup_jni.cpp` and `BackupNative`; the shell does the zip and file I/O.
 - `core/shell`: the shell's own rules ported from Kotlin. The app calls them through `core/api/geode_shell_api.h`, `geode_shell_jni.cpp` and `ShellNative`: the export frame rates (`ExportFps`), the notification buttons and start screen (`Behaviour`), the Styles page's shelf (`StyleShelf`), the Presets list (`PresetList`), opened audio (`OpenedAudio`), the saved Auto visuals (`AutoVisuals`). Not called by the app yet: the tour.
 - `core/signal`: the scene parameter resolver (`Resolver`).
 - `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
@@ -330,3 +331,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
 - 2026-11-18: Customize's search match for hand-placed controls asks native (`customize::matches`, `geode_customize_matches`) instead of a Kotlin substring test (`ui/CustomizeTabs.kt`, `core/api/geode_customize_rows_api.cpp`).
+- 2026-11-18: The backup is native's: `core/api/geode_backup_api.cpp` (`geode_backup_*` in `geode_api.h`, one call per plan, lists as string arrays), `geode_backup_jni.cpp`, `engine/bridge/BackupNative.kt`; `data/backup` keeps only the zip, SHA-256, file and prefs I/O (`BackupArchive`, `BackupWire`, `BackupRepository`) and the stores' declared key types (`BackupFormat.declaredKeys`); `BackupManifest`, `BackupMigrations`, `PrefsJson`, the section table and `BackupArchiveTest` are gone (cases in `backup_archive_test`), `core/tests/backup_api_test.cpp` added, and two `PrefsSchemaTest` cases that read the Kotlin section table are dropped (`backup_format_test` holds the table).

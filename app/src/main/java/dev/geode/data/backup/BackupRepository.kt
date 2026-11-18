@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.geode.BuildConfig
 import dev.geode.RingLog
 import dev.geode.di.IoDispatcher
+import dev.geode.engine.bridge.BackupNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -29,8 +30,9 @@ data class BackupPreview(
 
 /**
  * The manual backup: a zip the user saves and opens through the system file picker, so nothing
- * here needs a network or a permission. Format and checks are in [BackupArchive]; this class
- * only moves bytes between the picker, filesDir and SharedPreferences, on [io].
+ * here needs a network or a permission. The rules (what goes in, where it lives, what a restore
+ * accepts, the caps, the migration) are core/backup's and arrive as plans through [BackupNative];
+ * this class and [BackupArchive] only move bytes between the picker, filesDir and SharedPreferences, on [io].
  *
  * A restore is two calls. [inspect] copies the chosen file in, unpacks it into a staging
  * directory and runs every check, touching no app data. [restore] then swaps the chosen
@@ -54,21 +56,30 @@ class BackupRepository
         private val stagedDir: File get() = File(workDir, "staged")
         private val asideDir: File get() = File(workDir, "aside")
 
+        private val layout by lazy { BackupLayout.read() }
+
         @Volatile private var staged: BackupPreview? = null
 
         /** Writes every section to [destination]. */
         suspend fun export(destination: Uri) =
             withContext(io) {
                 guarded("export") {
-                    val sources = BackupSection.entries.flatMap(::sourcesFor)
+                    val plan = exportPlan()
                     val now = System.currentTimeMillis()
                     // Packed aside first: opening the destination in "wt" truncates the previous backup at
                     // once, so it is touched only after the new zip is whole.
                     val temp = File.createTempFile("backup", ".zip", context.cacheDir)
                     try {
-                        val manifest =
+                        val entries =
                             temp.outputStream().use {
-                                BackupArchive.pack(it, sources, BackupSection.entries, BuildConfig.VERSION_CODE, now)
+                                BackupArchive.pack(
+                                    it,
+                                    plan.sources,
+                                    plan.budget,
+                                    layout.manifestPath,
+                                    BuildConfig.VERSION_CODE,
+                                    now,
+                                ) { path -> openOrNull(File(filesDir, path)) }
                             }
                         val out =
                             context.contentResolver.openOutputStream(destination, "wt")
@@ -84,7 +95,7 @@ class BackupRepository
                             }
                             throw e
                         }
-                        RingLog.note(TAG, "exported ${manifest.entries.size} files")
+                        RingLog.note(TAG, "exported $entries files")
                     } finally {
                         temp.delete()
                     }
@@ -99,9 +110,12 @@ class BackupRepository
                     val archive = File(workDir, "import.zip")
                     try {
                         copyIn(source, archive)
-                        val manifest = BackupArchive.unpack(archive, stagedDir)
-                        BackupPreview(manifest.createdAtMs, manifest.appVersionCode, manifest.knownSections())
-                            .also { staged = it }
+                        val unpacked = BackupArchive.unpack(archive, stagedDir, layout)
+                        BackupPreview(
+                            unpacked.createdAtMs,
+                            unpacked.appVersionCode,
+                            unpacked.sections.mapNotNull(BackupSection::fromId).toSet(),
+                        ).also { staged = it }
                     } finally {
                         archive.delete()
                         // Any failure, checked or not, leaves no half-unpacked staging behind.
@@ -114,14 +128,13 @@ class BackupRepository
         suspend fun restore(sections: Set<BackupSection>) =
             withContext(io) {
                 guarded("restore") {
-                    val preview = staged ?: fail(BackupProblem.IO_FAILED, "nothing staged")
                     var wrote = false
                     try {
-                        for (section in BackupSection.entries.filter { it in sections && it in preview.sections }) {
+                        for (section in restorePlan(staged, sections)) {
                             swapFiles(section)
                             // Files are on disk from here: the stores still hold the old copy in memory.
                             wrote = true
-                            BackupFormat.prefsEntries(section).forEach { (name, path) -> restorePrefs(section, name, path) }
+                            section.prefs.forEach(::restorePrefs)
                             RingLog.note(TAG, "restored ${section.id}")
                         }
                     } catch (e: BackupException) {
@@ -162,21 +175,39 @@ class BackupRepository
                 }
         }
 
-        private fun sourcesFor(section: BackupSection): List<BackupSource> {
-            val prefs =
-                BackupFormat.prefsEntries(section).map { (name, path) ->
-                    val values = prefsFile(name).all.filterKeys { BackupFormat.sectionOfKey(name, it) == section }
-                    val bytes = PrefsJson.encode(values).toByteArray(Charsets.UTF_8)
-                    BackupSource(path) { bytes.inputStream() }
+        private class ExportPlan(
+            val budget: Long,
+            val sources: List<BackupArchive.Source>,
+        )
+
+        /** Hands native every prefs value the phone holds and every regular file under the roots; it answers what goes in. */
+        private fun exportPlan(): ExportPlan {
+            val prefs = arrayListOf(layout.prefsFiles.size.toString())
+            for (name in layout.prefsFiles) {
+                val all = prefsFile(name).all
+                prefs += listOf(name, all.size.toString())
+                all.forEach { (key, value) -> prefs.addPref(key, value) }
+            }
+            val found = ArrayList<String>()
+            for (section in layout.sections) {
+                for (root in section.roots) {
+                    File(filesDir, root)
+                        .walkTopDown()
+                        .filter { it.isFile && !Files.isSymbolicLink(it.toPath()) }
+                        .forEach { found += listOf(section.id, it.relativeTo(filesDir).invariantSeparatorsPath) }
                 }
-            val files =
-                (section.dirs + section.files)
-                    .map { File(filesDir, it) }
-                    .flatMap { root -> root.walkTopDown().filter { it.isFile && !Files.isSymbolicLink(it.toPath()) } }
-                    .map { it.relativeTo(filesDir).invariantSeparatorsPath to it }
-                    .filter { (path, _) -> BackupFormat.sectionOf(path) == section }
-                    .map { (path, file) -> BackupSource(path) { openOrNull(file) } }
-            return prefs + files
+            }
+            val answer = BackupWire.of(BackupNative.planExport(prefs.toTypedArray(), found.toTypedArray()))
+            answer.failure()
+            val budget = answer.long()
+            val sources =
+                List(answer.int()) {
+                    val path = answer.str()
+                    val inline = answer.flag()
+                    val bytes = answer.str()
+                    BackupArchive.Source(path, if (inline) bytes.toByteArray(Charsets.UTF_8) else null)
+                }
+            return ExportPlan(budget, sources)
         }
 
         private fun openOrNull(file: File): FileInputStream? =
@@ -195,19 +226,78 @@ class BackupRepository
                 context.contentResolver.openInputStream(source)
                     ?: fail(BackupProblem.IO_FAILED, "no input stream for the chosen file")
             // The archive itself is compressed, so it can only exceed the uncompressed cap by
-            // zip overhead; the slack keeps an honest backup of incompressible textures inside it.
-            val cap = BackupLimits().maxTotalBytes + ARCHIVE_SLACK_BYTES
-            input.use { stream -> archive.outputStream().use { BackupArchive.copyHashed(stream, it, cap) } }
+            // zip overhead; native's cap includes the slack that keeps an honest backup of
+            // incompressible textures inside it.
+            val hashed = input.use { stream -> archive.outputStream().use { BackupArchive.copyHashed(stream, it, layout.maxArchiveBytes) } }
+            if (hashed.overBudget) fail(BackupProblem.TOO_LARGE, "over the size cap")
+        }
+
+        private class PrefsPlan(
+            val file: String,
+            val remove: List<String>,
+            val put: List<Pair<String, Any?>>,
+        )
+
+        private class SectionPlan(
+            val id: String,
+            val targets: List<String>,
+            val carryOver: List<String>,
+            val ensureDirs: List<String>,
+            val prefs: List<PrefsPlan>,
+        )
+
+        /** Hands native what was staged, what the user ticked and the keys the phone holds; it answers per section what to do. */
+        private fun restorePlan(
+            preview: BackupPreview?,
+            sections: Set<BackupSection>,
+        ): List<SectionPlan> {
+            val request = arrayListOf(if (preview != null) "1" else "0")
+            val stagedIds = preview?.sections.orEmpty().map { it.id }
+            request += stagedIds.size.toString()
+            request += stagedIds
+            request += sections.size.toString()
+            request += sections.map { it.id }
+            val stagedPrefs =
+                layout.sections
+                    .flatMap {
+                        it.prefs.map { (_, path) ->
+                            path
+                        }
+                    }.distinct()
+                    .filter { File(stagedDir, it).isFile }
+            request += stagedPrefs.size.toString()
+            stagedPrefs.forEach { request += listOf(it, File(stagedDir, it).readText()) }
+            for (name in layout.prefsFiles) {
+                val keys = prefsFile(name).all.keys
+                request += listOf(name, keys.size.toString())
+                request += keys
+            }
+            val answer = BackupWire.of(BackupNative.planRestore(request.toTypedArray()))
+            answer.failure()
+            return List(answer.int()) {
+                SectionPlan(
+                    id = answer.str(),
+                    targets = answer.strs(),
+                    carryOver = answer.strs(),
+                    ensureDirs = answer.strs(),
+                    prefs =
+                        List(answer.int()) {
+                            val file = answer.str()
+                            answer.str() // the staged path, which the plan already read
+                            PrefsPlan(file, answer.strs(), List(answer.int()) { answer.prefValue() })
+                        },
+                )
+            }
         }
 
         /**
          * Renames every target of [section] aside, then every staged target into place. If a
          * rename fails part-way, what was placed is removed and what was set aside goes back, so
-         * the section is either all old or all new. Cache subtrees ([BackupFormat.excludedSubtrees])
-         * move from the old copy into the new one before the old one is deleted.
+         * the section is either all old or all new. Cache subtrees ([SectionPlan.carryOver]) move
+         * from the old copy into the new one before the old one is deleted.
          */
-        private fun swapFiles(section: BackupSection) {
-            val targets = section.dirs + section.files
+        private fun swapFiles(section: SectionPlan) {
+            val targets = section.targets
             val setAside = mutableListOf<String>()
             val placed = mutableListOf<String>()
             try {
@@ -227,14 +317,14 @@ class BackupRepository
                 }
                 throw e
             }
-            for (subtree in BackupFormat.excludedSubtrees) {
+            for (subtree in section.carryOver) {
                 val old = File(asideDir, subtree)
-                if (old.exists() && targets.any { subtree.startsWith("$it/") }) {
+                if (old.exists()) {
                     runCatching { move(old, File(filesDir, subtree)) }
                         .onFailure { RingLog.note(TAG, "cache not carried over: $subtree", it) }
                 }
             }
-            section.dirs.forEach { File(filesDir, it).mkdirs() }
+            section.ensureDirs.forEach { File(filesDir, it).mkdirs() }
             setAside.forEach { File(asideDir, it).deleteRecursively() }
         }
 
@@ -248,30 +338,16 @@ class BackupRepository
         }
 
         /**
-         * Replaces [section]'s keys of one prefs file with the backup's, read from [path]. Device-local
-         * keys and other sections' keys on this phone are left as they are, and any in the backup are
-         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. A value of
-         * another type than its key's ([BackupFormat.hasDeclaredType]) is skipped, so the key reads as its
-         * default. commit(), not apply(): the restore must know the write landed before it reports success.
+         * Writes one prefs file's part of a restore: removes the keys native named, then puts the backup's values.
+         * A value of another type than its key's ([BackupFormat.hasDeclaredType]) is skipped, so the key reads as
+         * its default. commit(), not apply(): the restore must know the write landed before it reports success.
          */
         @SuppressLint("ApplySharedPref")
-        private fun restorePrefs(
-            section: BackupSection,
-            name: String,
-            path: String,
-        ) {
-            val file = File(stagedDir, path)
-            if (!file.isFile) return
-            val values =
-                PrefsJson.decode(file.readText()).filter { (key, value) ->
-                    BackupFormat.sectionOfKey(name, key) == section && BackupFormat.hasDeclaredType(name, key, value)
-                }
-            val prefs = prefsFile(name)
-            val editor = prefs.edit()
-            for (key in prefs.all.keys) {
-                if (BackupFormat.sectionOfKey(name, key) == section) editor.remove(key)
-            }
-            for ((key, value) in values) {
+        private fun restorePrefs(plan: PrefsPlan) {
+            val editor = prefsFile(plan.file).edit()
+            plan.remove.forEach(editor::remove)
+            for ((key, value) in plan.put) {
+                if (value == null || !BackupFormat.hasDeclaredType(plan.file, key, value)) continue
                 when (value) {
                     is String -> editor.putString(key, value)
                     is Int -> editor.putInt(key, value)
@@ -281,7 +357,7 @@ class BackupRepository
                     is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
                 }
             }
-            if (!editor.commit()) fail(BackupProblem.IO_FAILED, "could not write $name")
+            if (!editor.commit()) fail(BackupProblem.IO_FAILED, "could not write ${plan.file}")
         }
 
         // The framework caches one instance per name for the process, so this is the same
@@ -305,6 +381,5 @@ class BackupRepository
 
         private companion object {
             const val TAG = "Backup"
-            const val ARCHIVE_SLACK_BYTES = 64L * 1024 * 1024
         }
     }

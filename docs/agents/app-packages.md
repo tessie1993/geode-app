@@ -256,7 +256,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Settings › Export's per-destination defaults are `ExportPrefsStore` and `ExportDestination`.
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
-- `PREF_KEYS` is read by nothing at run time yet; `PrefsSchemaTest` holds it to the stores and `BackupFormat`.
+- `PREF_KEYS` is read by nothing at run time yet; `PrefsSchemaTest` holds it to the stores and `BackupFormat.declaredKeys`.
 - `data/prefs/SettingsRepository` is the one settings repository shape: `PrefsSettingsRepository` over a `PrefsCodec`, a `StateFlow`, `loaded()`, `update(transform)` under one lock, IO inside; `current()` for the few synchronous readers on main.
 - So far on it: Playback's (`PlayerPrefsRepository`).
 - So far on it: Settings › Preferences' watermark (`WatermarkPrefsRepository`, `WatermarkPrefsCodec`; general prefs, portable).
@@ -279,11 +279,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `data/backup`
 
-- Open first: `BackupFormat`, `BackupArchive`, `BackupRepository`.
+- Open first: `BackupRepository`, `BackupArchive`, `BackupWire`.
 - The manual backup zip (Settings › Backup).
-- Format, allowlist, checks and migrations are pure Kotlin.
-- Creative borrows the macro bank, LFO and reaction keys of `geode-prefs` (`BackupSection.borrowedKeys`, its own slice); the old knobs' keys are skipped.
-- `BackupRepository` does the picker, filesDir and prefs I/O.
+- Format, allowlist, checks, migrations and the plans are native's (`core/backup`, through `geode_backup_*` and `BackupNative`): one call per plan.
+- Creative borrows the macro bank, LFO and reaction keys of `geode-prefs` (its own slice); the old knobs' keys are skipped.
+- `BackupRepository` and `BackupArchive` do the picker, zip, SHA-256, filesDir and prefs I/O; `BackupFormat` keeps the stores' declared key types (`hasDeclaredType`).
 
 ## `editor`
 

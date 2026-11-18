@@ -274,7 +274,7 @@ private:
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
     // a short spell without a draw (wallDt, the frame's wall step).
-    void drawUiBlur(GLuint targetFbo, float wallDt);
+    bool uiBlurWanted(UiBlurRegion& region);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);

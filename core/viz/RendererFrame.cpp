@@ -647,21 +647,27 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
     shown = drawPhysics(p, dt, wallDt, shown);
-    composite(p, progress, targetFbo, shown);
-    drawEdgeGlow(targetFbo, timeSeconds, dt);
-    if (compositeHook_) compositeHook_(targetFbo, width_, height_);
-    drawUiBlur(targetFbo, wallDt);
+    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+    // With a blur running the frame is drawn into the blur's own image, which draw() then copies to the
+    // window: the window is written once and never read back.
+    UiBlurRegion blurRegion;
+    GLuint frameFbo = targetFbo;
+    if (uiBlurWanted(blurRegion)) {
+        if (const GLuint f = uiBlurPass_.beginFrame(blurRegion, width_, height_)) frameFbo = f;
+    }
+    composite(p, progress, frameFbo, shown);
+    drawEdgeGlow(frameFbo, timeSeconds, dt);
+    if (compositeHook_) compositeHook_(frameFbo, width_, height_);
+    if (frameFbo != targetFbo || blurRegion.active()) uiBlurPass_.draw(blurRegion, targetFbo, width_, height_, quadVao_.get());
 }
 
-void Renderer::drawUiBlur(GLuint targetFbo, float wallDt) {
-    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
-    if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return;
-    UiBlurRegion region;
+bool Renderer::uiBlurWanted(UiBlurRegion& region) {
+    if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return false;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         region = uiBlurRegion_;
     }
-    uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_.get());
+    return region.active();
 }
 
 void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {

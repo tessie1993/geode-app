@@ -36,6 +36,8 @@ void UiBlurPass::release() {
     half_.release();
     quarterA_.release();
     quarterB_.release();
+    frame_.release();
+    framePending_ = false;
 }
 
 void UiBlurPass::forget() {
@@ -44,27 +46,57 @@ void UiBlurPass::forget() {
     half_.forget();
     quarterA_.forget();
     quarterB_.forget();
+    frame_.forget();
+    framePending_ = false;
 }
 
 void UiBlurPass::releaseTargets() {
     half_.release();
     quarterA_.release();
     quarterB_.release();
+    frame_.release();
+    framePending_ = false;
 }
 
 void UiBlurPass::releaseIdle(float wallDt, float idleSeconds) {
-    if (!half_.ok() && !quarterA_.ok() && !quarterB_.ok()) return;
+    if (!half_.ok() && !quarterA_.ok() && !quarterB_.ok() && !frame_.ok()) return;
     idleSeconds_ += wallDt;
     if (idleSeconds_ >= idleSeconds) releaseTargets();
 }
 
+GLuint UiBlurPass::beginFrame(const UiBlurRegion& region, int width, int height) {
+    framePending_ = false;
+    if (blurUniforms_.program() == 0 || maskUniforms_.program() == 0 || !region.active() || width < 8 || height < 8) return 0;
+    idleSeconds_ = 0.0f;
+    if (!frame_.ensure(width, height)) return 0;
+    framePending_ = true;
+    return frame_.fbo();
+}
+
+void UiBlurPass::copyFrame(GLuint srcFbo, GLuint dstFbo, int width, int height) {
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_BLEND);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFbo);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+}
+
 void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao) {
-    if (blurUniforms_.program() == 0 || maskUniforms_.program() == 0 || !region.active() || width < 8 || height < 8) return;
+    // A frame drawn into frame_ (beginFrame) reaches the window here, once, and the window is only ever
+    // written: the blur reads frame_, never the window.
+    const bool framed = framePending_;
+    framePending_ = false;
+    const GLuint srcFbo = framed ? frame_.fbo() : targetFbo;
+    if (!drawBlur(region, srcFbo, targetFbo, width, height, quadVao) && framed) copyFrame(srcFbo, targetFbo, width, height);
+}
+
+bool UiBlurPass::drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targetFbo, int width, int height, GLuint quadVao) {
+    if (blurUniforms_.program() == 0 || maskUniforms_.program() == 0 || !region.active() || width < 8 || height < 8) return false;
     const int qw = width / 4;
     const int qh = height / 4;
     // The textures span the whole viewport, so a sheet that slides or resizes never reallocates them.
     idleSeconds_ = 0.0f;
-    if (!half_.ensure(qw * 2, qh * 2) || !quarterA_.ensure(qw, qh) || !quarterB_.ensure(qw, qh)) return;
+    if (!half_.ensure(qw * 2, qh * 2) || !quarterA_.ensure(qw, qh) || !quarterB_.ensure(qw, qh)) return false;
 
     // The rect in window pixels, GL y-up (the region is y-down, as Android lays out views).
     const auto px = [](float v, int size) { return static_cast<float>(size) * std::clamp(v, 0.0f, 1.0f); };
@@ -76,7 +108,7 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
     const int sy0 = std::clamp(static_cast<int>(std::floor(fy0)), 0, height);
     const int sx1 = std::clamp(static_cast<int>(std::ceil(fx1)), 0, width);
     const int sy1 = std::clamp(static_cast<int>(std::ceil(fy1)), 0, height);
-    if (sx1 <= sx0 || sy1 <= sy0) return;
+    if (sx1 <= sx0 || sy1 <= sy0) return false;
 
     // The source: the rect plus the margin, 4-aligned, inside the part of the frame the quarter
     // texture covers (a frame not a multiple of 4 wide loses at most 3 pixels at its far edges, which
@@ -85,12 +117,12 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
     const int y0 = floor4(std::max(sy0 - kMarginPx, 0));
     const int x1 = std::min(ceil4(sx1 + kMarginPx), qw * 4);
     const int y1 = std::min(ceil4(sy1 + kMarginPx), qh * 4);
-    if (x1 <= x0 || y1 <= y0) return;
+    if (x1 <= x0 || y1 <= y0) return false;
 
     // The scissor clips a blit too, so it is off for the two copies.
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_BLEND);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, targetFbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, half_.fbo());
     glBlitFramebuffer(x0, y0, x1, y1, x0 / 2, y0 / 2, x1 / 2, y1 / 2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, half_.fbo());
@@ -119,7 +151,9 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
         glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
-    // Back over the finished frame, inside the rounded rect only.
+    // Back over the finished frame, inside the rounded rect only. A framed frame is copied to the window
+    // right before, so the window's pass is one write with no readback.
+    if (srcFbo != targetFbo) copyFrame(srcFbo, targetFbo, width, height);
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width, height);
     glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0);
@@ -138,6 +172,7 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
+    return true;
 }
 
 }  // namespace geode::viz

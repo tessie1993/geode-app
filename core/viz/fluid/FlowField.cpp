@@ -37,12 +37,18 @@ void FlowField::setGrid(int cells, bool macCormack) {
 
 void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
     if (!sim_.available()) return;
+    // The whole frame; FluidSim::step splits it into stable steps (#383). A stopped clock solves nothing: the
+    // liquid holds its picture then (LiquidPass::run), so a solve would be read by nobody. A push or whirlpool
+    // queued over no time is dropped, so a held swirl does not pile up kicks until the clock runs again.
+    const float simDt = math::frameSimDt(dt);
+    if (!(simDt > 0.0f)) {
+        sim_.dropSplats();
+        return;
+    }
     sim_.curlStrength = std::clamp(p.flowCurl, 0.0f, 50.0f);
     sim_.velocityDissipation = kVelocityDissipation;
     emitters_.forceScale = std::clamp(p.flowForce, 0.0f, 3.0f);
     emitters_.stirrerSpeed = std::clamp(p.speed, 0.1f, 2.0f);
-    // The whole frame; FluidSim::step splits it into stable steps (#383).
-    const float simDt = math::frameSimDt(dt);
     emitters_.tick(features, simDt, sim_.aspect(), 0.0f, 1.0f, splats_);
     for (const Splat& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);

@@ -81,6 +81,8 @@ public:
     bool applyResolution(int newSimRes, int newDyeRes);
     void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void queueSplat(const Splat& s);
+    // Forgets the splats queued for the next step (a frame that steps no time).
+    void dropSplats() { pending_.clear(); }
     // The fields applyField writes.
     enum class Field { Velocity, Dye };
     // Runs `program` (built on fluid_base_vert.glsl) once over one field, outside step(): the field's state is its

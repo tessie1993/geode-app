@@ -42,7 +42,7 @@
 # Self-test: the "Self-test the engine Kotlin gate" step of .github/workflows/arch-map.yml.
 set -euo pipefail
 
-# Empty: the declarations file moved into :app (app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt), so no
+# Empty: the declarations file moved into :app (app/src/main/java/dev/geode/engine/bridge/*Native.kt), so no
 # Kotlin is left under engine/ and none may start there.
 allowed=()
 
@@ -99,7 +99,7 @@ watched=(
     "$A/ui/ExportController"
 )
 engine="^($(IFS='|'; printf '%s' "${watched[*]}"))\.kt$"
-exempt='/GeodeNative\.kt$'
+exempt='/bridge/[A-Za-z]+Native\.kt$'
 
 net=0
 report=""

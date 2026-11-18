@@ -2,6 +2,7 @@ package dev.geode.playback
 
 import androidx.media3.common.Player
 import dev.geode.audio.dsp.NativeDspProcessor
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Settings › Playback › Crossfade. One track fades out and the next fades in, back to back on the

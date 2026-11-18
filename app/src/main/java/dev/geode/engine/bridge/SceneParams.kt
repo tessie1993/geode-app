@@ -46,25 +46,25 @@ class SceneParams private constructor(
     }
 
     /** The hue base of the look's palette: the override when set, else the built-in palette's (native). */
-    val paletteBase: Float get() = ParamsNative.paramsPaletteBase(int("palette"), get("paletteBaseOverride"))
+    val paletteBase: Float get() = GeodeNative.paramsPaletteBase(int("palette"), get("paletteBaseOverride"))
 
-    val paletteRange: Float get() = ParamsNative.paramsPaletteRange(int("palette"), get("paletteRangeOverride"))
+    val paletteRange: Float get() = GeodeNative.paramsPaletteRange(int("palette"), get("paletteRangeOverride"))
 
     /** The built-in palette again: overrides, stops and the saved palette's id gone. */
-    fun withoutCustomPalette(): SceneParams = SceneParams(ParamsNative.paramsClearCustomPalette(frame), NO_CUSTOM_PALETTE)
+    fun withoutCustomPalette(): SceneParams = SceneParams(GeodeNative.paramsClearCustomPalette(frame), NO_CUSTOM_PALETTE)
 
     /** A hue gradient as the look's own palette, from saved palette [id] if any. */
     fun withGradient(
         base: Float,
         span: Float,
         id: String = NO_CUSTOM_PALETTE,
-    ): SceneParams = SceneParams(ParamsNative.paramsApplyGradient(frame, base, span), id)
+    ): SceneParams = SceneParams(GeodeNative.paramsApplyGradient(frame, base, span), id)
 
     /** Your [stops] (the first five) as the look's own palette, from saved palette [id] if any. */
     fun withStops(
         stops: List<Int>,
         id: String = NO_CUSTOM_PALETTE,
-    ): SceneParams = SceneParams(ParamsNative.paramsApplyStops(frame, stops.toIntArray()), id)
+    ): SceneParams = SceneParams(GeodeNative.paramsApplyStops(frame, stops.toIntArray()), id)
 
     /** The same frame naming saved palette [id]. */
     fun withPaletteId(id: String): SceneParams = SceneParams(frame, id)
@@ -73,10 +73,10 @@ class SceneParams private constructor(
     fun withSavedPalette(
         paletteText: String,
         id: String,
-    ): SceneParams = SceneParams(LooksNative.savedPaletteApply(paletteText, frame), id)
+    ): SceneParams = SceneParams(GeodeNative.savedPaletteApply(paletteText, frame), id)
 
     /** These params once saved palette [deletedId] is deleted: native says which id the look keeps. */
-    fun forgetPalette(deletedId: String): SceneParams = withPaletteId(LooksNative.savedPaletteKeptId(customPaletteId, deletedId))
+    fun forgetPalette(deletedId: String): SceneParams = withPaletteId(GeodeNative.savedPaletteKeptId(customPaletteId, deletedId))
 
     override fun equals(other: Any?): Boolean =
         other is SceneParams && other.customPaletteId == customPaletteId && other.frame.contentEquals(frame)
@@ -108,23 +108,23 @@ class SceneParams private constructor(
     }
 
     private object Native : Reads {
-        override fun defaults(): FloatArray = ParamsNative.paramsDefaults()
+        override fun defaults(): FloatArray = GeodeNative.paramsDefaults()
 
         override fun get(
             frame: FloatArray,
             name: String,
-        ): Float = ParamsNative.paramsGet(frame, name)
+        ): Float = GeodeNative.paramsGet(frame, name)
 
         override fun set(
             frame: FloatArray,
             name: String,
             value: Float,
-        ): FloatArray? = ParamsNative.paramsSet(frame, name, value)
+        ): FloatArray? = GeodeNative.paramsSet(frame, name, value)
 
         override fun paletteIdOn(
             frame: FloatArray,
             lookId: String,
-        ): String = LooksNative.savedPaletteFrameId(lookId, frame)
+        ): String = GeodeNative.savedPaletteFrameId(lookId, frame)
     }
 
     companion object {

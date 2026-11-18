@@ -17,6 +17,7 @@ import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
 import dev.geode.engine.audioandroid.PcmTap
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,7 @@ class PlaybackSession internal constructor(
      * native player ring, MilkDrop's raw PCM included. Each block carries its source's rate. Native keeps
      * it for the process and sizes it, so a surface still reading it after [release] is safe.
      */
-    val sampleRing: Long = IngestNative.pcmRingShared(IngestNative.PCM_RING_PLAYER)
+    val sampleRing: Long = GeodeNative.pcmRingShared(GeodeNative.PCM_RING_PLAYER)
 
     private val prefsFiles = context.geodeContainer.prefsFiles
 
@@ -52,7 +53,7 @@ class PlaybackSession internal constructor(
      * fed [sampleRing] hears the music and the room mixed, and the room alone while nothing plays. The
      * mic never writes the player's ring, so turning it on or off leaves playback alone.
      */
-    val micRing: Long = IngestNative.pcmRingShared(IngestNative.PCM_RING_MIC)
+    val micRing: Long = GeodeNative.pcmRingShared(GeodeNative.PCM_RING_MIC)
 
     /**
      * Settings › Playback › Native audio output, as it applies now: on, and bit-perfect USB off (that
@@ -146,7 +147,7 @@ class PlaybackSession internal constructor(
         player.addListener(autoDirector)
         player.addListener(crossfade)
         player.addListener(recorder)
-        IngestNative.pcmRingSetPlayout(sampleRing, PlaybackEngine.playout)
+        GeodeNative.pcmRingSetPlayout(sampleRing, PlaybackEngine.playout)
         dev.geode.audio.AudioBus.soundInput = sampleRing
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
@@ -178,8 +179,8 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
-        PlayoutNative.playoutSetOffsetMs(PlaybackEngine.playout, p.pictureDelayMs)
-        val oboe = AudioOutNative.audioOutWanted(p.nativeOutput, p.bitPerfect, BitPerfectOutput.supported)
+        GeodeNative.playoutSetOffsetMs(PlaybackEngine.playout, p.pictureDelayMs)
+        val oboe = GeodeNative.audioOutWanted(p.nativeOutput, p.bitPerfect, BitPerfectOutput.supported)
         if (oboe != nativeOutput) {
             nativeOutput = oboe
             // The output already open was built under the old choice. A playing item is seeked to where
@@ -230,14 +231,14 @@ object PlaybackEngine {
      * and every renderer fed the player's ring reads only up to the sample it says the speaker plays.
      * Never freed, so a ring or renderer that outlives a session cannot reach a dead one.
      */
-    val playout: Long by lazy { PlayoutNative.playoutCreate() }
+    val playout: Long by lazy { GeodeNative.playoutCreate() }
 
     /**
      * How long, from now, until the newest sample the sink took is heard: the sink's buffer and the
      * output's latency, as the playout clock measures them. A pause after a fade-out waits this long so
      * it never cuts the fade short.
      */
-    fun sinkLagMs(): Long = PlayoutNative.playoutLagMs(playout, System.nanoTime()).toLong()
+    fun sinkLagMs(): Long = GeodeNative.playoutLagMs(playout, System.nanoTime()).toLong()
 
     private var app: Context? = null
     private var session: PlaybackSession? = null

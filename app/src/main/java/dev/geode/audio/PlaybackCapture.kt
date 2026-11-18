@@ -1,6 +1,7 @@
 package dev.geode.audio
 
 import android.media.projection.MediaProjection
+import dev.geode.engine.bridge.GeodeNative
 
 enum class CaptureFailure {
     PERMISSION,
@@ -20,24 +21,24 @@ class PlaybackCapture(
     private var handle = 0L
 
     val active: Boolean
-        @Synchronized get() = IngestNative.javaCaptureActive(handle)
+        @Synchronized get() = GeodeNative.javaCaptureActive(handle)
 
     /** Only digital zero for a while since the start (native `core/sound/Silence`): a refused capture. */
     val quiet: Boolean
-        @Synchronized get() = IngestNative.javaCaptureQuiet(handle)
+        @Synchronized get() = GeodeNative.javaCaptureQuiet(handle)
 
     @Synchronized
     fun start(projection: MediaProjection): CaptureFailure? {
         if (active) return null
         stop()
-        handle = IngestNative.javaCapturePlayback(projection, ring)
+        handle = GeodeNative.javaCapturePlayback(projection, ring)
         return if (handle != 0L) null else CaptureFailure.UNAVAILABLE
     }
 
     /** No write follows once this returns. */
     @Synchronized
     fun stop() {
-        IngestNative.javaCaptureStop(handle)
+        GeodeNative.javaCaptureStop(handle)
         handle = 0L
     }
 }

@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.Context
 import android.system.Os
 import dev.geode.RingLog
+import dev.geode.engine.bridge.GeodeNative
 import org.json.JSONObject
 import java.io.File
 
@@ -92,8 +93,8 @@ class MilkTextureLinks(
     fun relinkAll(): Int {
         // Link directories for presets that no longer exist are swept here rather than leaked:
         // this is the one place that sees the whole set.
-        MilkNative.milkTextureStaleLinkDirs(milkDir.path).forEach { File(linksRoot, it).deleteRecursively() }
-        return MilkNative.milkTextureLinkedPresets(milkDir.path).count { relinked(File(milkDir, it)).needsYou }
+        GeodeNative.milkTextureStaleLinkDirs(milkDir.path).forEach { File(linksRoot, it).deleteRecursively() }
+        return GeodeNative.milkTextureLinkedPresets(milkDir.path).count { relinked(File(milkDir, it)).needsYou }
     }
 
     /** What [relink] would decide right now, without touching the filesystem links. */
@@ -133,8 +134,8 @@ class MilkTextureLinks(
     private fun resolution(preset: File): Resolution {
         val overrides = overridesFor(preset.name)
         val answer =
-            MilkNative.milkTextureLinks(preset.path, textureDir.path, overrides.keys.toTypedArray(), overrides.values.toTypedArray())
-        val rows = answer.drop(1).chunked(MilkNative.MILK_LINK_FIELDS).filter { it.size == MilkNative.MILK_LINK_FIELDS }
+            GeodeNative.milkTextureLinks(preset.path, textureDir.path, overrides.keys.toTypedArray(), overrides.values.toTypedArray())
+        val rows = answer.drop(1).chunked(GeodeNative.MILK_LINK_FIELDS).filter { it.size == GeodeNative.MILK_LINK_FIELDS }
         return Resolution(
             needsYou = answer.firstOrNull() == "1",
             links =

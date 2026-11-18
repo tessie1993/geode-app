@@ -2,6 +2,7 @@ package dev.geode.cast
 
 import android.os.Handler
 import android.os.Looper
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,7 @@ object CastMirror {
      * (core/viz/StageRun).
      */
     fun directorMoment() {
-        val leads = SoundNative.stageRun(stageFlags or SoundNative.STAGE_CASTING) and SoundNative.STAGE_CAST_LEADS_AUTO != 0
+        val leads = GeodeNative.stageRun(stageFlags or GeodeNative.STAGE_CASTING) and GeodeNative.STAGE_CAST_LEADS_AUTO != 0
         if (leads) main.post { onDirectorMoment?.invoke() }
     }
 

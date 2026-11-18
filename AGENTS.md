@@ -16,7 +16,7 @@ Every line here was true when it was written and may have gone stale: check the 
 ## Gradle modules (`settings.gradle.kts`)
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
-- `:app` is the only module. `GeodeNative.kt`, the JNI declarations, is `app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt`.
+- `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
 - The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
 
 ## Native core (`core/`)

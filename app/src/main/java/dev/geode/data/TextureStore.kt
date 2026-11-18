@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 
 data class MilkTexture(
@@ -39,7 +40,7 @@ class TextureStore(
     private val appContext = context.applicationContext
     private val dir = File(context.filesDir, "milk/textures").apply { mkdirs() }
 
-    fun list(): List<MilkTexture> = MilkNative.milkTextureList(dir.path).map { MilkTexture(it, File(dir, it).absolutePath) }
+    fun list(): List<MilkTexture> = GeodeNative.milkTextureList(dir.path).map { MilkTexture(it, File(dir, it).absolutePath) }
 
     fun import(uris: List<Uri>): List<MilkTexture> = importDetailed(uris).textures
 
@@ -48,13 +49,13 @@ class TextureStore(
     private fun importOne(uri: Uri): TextureImportResult {
         val name = displayName(uri) ?: "texture_${System.currentTimeMillis()}.png"
         val skipped = TextureImportResult(name, null)
-        if (!MilkNative.milkTextureAdmits(name, declaredSize(uri) ?: 0L)) return skipped
+        if (!GeodeNative.milkTextureAdmits(name, declaredSize(uri) ?: 0L)) return skipped
         // Null when it could not be read, or ran past the cap while reading.
         val bytes = readBounded(uri) ?: return skipped
         // Native judges a DDS or TGA by its header and any other picture by the size this decode reads.
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds) }
-        val storedName = MilkNative.milkTextureStoredName(name, bytes, bounds.outWidth, bounds.outHeight) ?: return skipped
+        val storedName = GeodeNative.milkTextureStoredName(name, bytes, bounds.outWidth, bounds.outHeight) ?: return skipped
         val ok = runCatching { AtomicWrite.stream(File(dir, storedName)) { out -> out.write(bytes) } }.getOrDefault(false)
         return if (ok) TextureImportResult(name, storedName) else skipped
     }
@@ -64,7 +65,7 @@ class TextureStore(
     fun removeDetailed(name: String): TextureRemoveOutcome {
         val removed = runCatching { File(dir, name).delete() }.getOrDefault(false)
         val gone =
-            MilkNative
+            GeodeNative
                 .milkTextureRemovedPresets(name, dir.path)
                 .map { File(generatedDir(), it) }
                 .filter { runCatching { it.isFile && it.delete() }.getOrDefault(false) }
@@ -85,7 +86,7 @@ class TextureStore(
      */
     private fun readBounded(uri: Uri): ByteArray? =
         runCatching {
-            val cap = MilkNative.milkTextureMaxBytes()
+            val cap = GeodeNative.milkTextureMaxBytes()
             appContext.contentResolver.openInputStream(uri)?.use { input ->
                 val out = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(READ_BUFFER_BYTES)
@@ -114,8 +115,8 @@ class TextureStore(
 
     fun generateDisplayPreset(textureName: String): String {
         generatedDir().mkdirs()
-        val file = File(generatedDir(), MilkNative.milkTextureShowPresetName(textureName))
-        AtomicWrite.text(file, MilkNative.milkTextureShowPresetText(textureName))
+        val file = File(generatedDir(), GeodeNative.milkTextureShowPresetName(textureName))
+        AtomicWrite.text(file, GeodeNative.milkTextureShowPresetText(textureName))
         return file.absolutePath
     }
 

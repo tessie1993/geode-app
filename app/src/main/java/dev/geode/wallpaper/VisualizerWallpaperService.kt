@@ -19,6 +19,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.stage.Stage
@@ -97,7 +98,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Reused across touch events: a wallpaper is touched at the panel's rate, and this
          * runs on the main thread the launcher is also drawing on.
          */
-        private val touchPoints = FloatArray(CatalogueNative.catalogueValue("touchPoints").toInt() * 2)
+        private val touchPoints = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
 
         /**
          * The surface, not the display: a wallpaper surface is often wider than the screen
@@ -118,7 +119,7 @@ class VisualizerWallpaperService : WallpaperService() {
             // this line — which is why the wallpaper had no touch at all.
             setTouchEventsEnabled(true)
             val engine =
-                Stage(this@VisualizerWallpaperService, StageNative.STAGE_KIND_SURFACE, SoundNative.SURFACE_DEFAULT_FPS.toFloat())
+                Stage(this@VisualizerWallpaperService, GeodeNative.STAGE_KIND_SURFACE, GeodeNative.SURFACE_DEFAULT_FPS.toFloat())
             stage = engine
             restoreLook(engine)
             settings = prefsStore.load()
@@ -143,7 +144,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Settings › Performance's cap is the live visual's, not this.
          */
         private fun applyFps() {
-            stage?.capFps = SoundNative.surfaceFpsChoice(settings.fps).toFloat()
+            stage?.capFps = GeodeNative.surfaceFpsChoice(settings.fps).toFloat()
         }
 
         /** The app's saved look (LookStore), as it is; the MilkDrop preset is the stage's own (core/viz/MilkMemory). */
@@ -253,7 +254,7 @@ class VisualizerWallpaperService : WallpaperService() {
          */
         override fun onZoomChanged(zoom: Float) {
             super.onZoomChanged(zoom)
-            val nowCovered = SoundNative.surfaceZoomCovers(zoom)
+            val nowCovered = GeodeNative.surfaceZoomCovers(zoom)
             if (nowCovered == covered) return
             covered = nowCovered
             syncRunState()
@@ -316,7 +317,7 @@ class VisualizerWallpaperService : WallpaperService() {
             val metrics = resources.displayMetrics
             val displayWidth = metrics.widthPixels.toFloat()
             val displayHeight = metrics.heightPixels.toFloat()
-            VizNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
+            GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
             pushGlow(glow.copy(left = window[0], top = window[1], width = window[2], height = window[3]))
         }
 
@@ -349,7 +350,7 @@ class VisualizerWallpaperService : WallpaperService() {
                     live++
                 }
             }
-            TouchNative.touchToNdc(touchPoints, live, surfaceWidth, surfaceHeight)
+            GeodeNative.touchToNdc(touchPoints, live, surfaceWidth, surfaceHeight)
             engine.submitTouchPoints(touchPoints, live)
         }
 

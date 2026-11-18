@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.media.audiofx.Visualizer
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Whatever any app is playing, as a native ring the wallpaper's renderer can hear.
@@ -46,16 +47,16 @@ class OutputMixCapture {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return false
         }
-        if (soundInput == 0L) soundInput = IngestNative.pcmRingCreateKind(IngestNative.PCM_RING_OUTPUT_MIX)
+        if (soundInput == 0L) soundInput = GeodeNative.pcmRingCreateKind(GeodeNative.PCM_RING_OUTPUT_MIX)
         if (soundInput == 0L) return false
-        handle = IngestNative.javaCaptureOutputMix(soundInput)
+        handle = GeodeNative.javaCaptureOutputMix(soundInput)
         if (handle == 0L) RingLog.note(TAG, "output mix refused")
         return handle != 0L
     }
 
     /** The poll ends and the effect is released before this returns. */
     fun stop() {
-        IngestNative.javaCaptureStop(handle)
+        GeodeNative.javaCaptureStop(handle)
         handle = 0L
     }
 
@@ -64,7 +65,7 @@ class OutputMixCapture {
         stop()
         val ring = soundInput
         soundInput = 0L
-        IngestNative.pcmRingDestroy(ring)
+        GeodeNative.pcmRingDestroy(ring)
     }
 
     private companion object {

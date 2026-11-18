@@ -56,6 +56,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinkKind
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -139,7 +140,7 @@ internal fun MilkDropTab(
         Text(stringResource(R.string.milk_unavailable), Modifier.padding(GeodeSpacing.L), style = MaterialTheme.typography.bodyMedium)
         return
     }
-    val onMilk = viz.sceneId == CatalogueNative.STYLE_MILKDROP
+    val onMilk = viz.sceneId == GeodeNative.STYLE_MILKDROP
     val toCheck = if (onMilk) textureLinks.filter { it.kind != MilkTextureLinkKind.MATCHED } else emptyList()
     Column(
         Modifier
@@ -450,7 +451,7 @@ internal fun selectMilk(
     visualizerView: StageView,
     path: String,
 ) {
-    viewModel.selectScene(CatalogueNative.STYLE_MILKDROP)
+    viewModel.selectScene(GeodeNative.STYLE_MILKDROP)
     visualizerView.stage.loadMilkPreset(path)
 }
 

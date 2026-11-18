@@ -13,6 +13,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -323,7 +324,7 @@ class PlayerViewModel
             capMs: Long?,
         ): ExportRange? {
             val out = LongArray(2)
-            RenderPlanNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
+            GeodeNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
             return if (out[1] > 0) ExportRange(out[0], out[1]) else null
         }
 

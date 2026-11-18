@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.engine.bridge.GeodeNative
 
 data class PlaylistEntry(
     val location: String,
@@ -40,7 +41,7 @@ object PlaylistFormats {
         fileName: String,
         bytes: ByteArray,
     ): PlaylistParse {
-        val records = String(TagsNative.playlistParse(fileName.toByteArray(), bytes), Charsets.UTF_8).split(RECORD)
+        val records = String(GeodeNative.playlistParse(fileName.toByteArray(), bytes), Charsets.UTF_8).split(RECORD)
         val head = records.first().split(FIELD)
         if (head.first() != "O") return PlaylistParse.Unreadable(head.getOrElse(1) { "" })
         val entries =

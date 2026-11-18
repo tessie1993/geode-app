@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.ParamScope
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.StyleCatalogue
@@ -150,7 +151,7 @@ class StyleThumbnailRenderTest {
                 ?.toSet()
                 .orEmpty()
         val ids =
-            (StyleCatalogue.ids - CatalogueNative.STYLE_MILKDROP)
+            (StyleCatalogue.ids - GeodeNative.STYLE_MILKDROP)
                 .filter { only == null || it in only }
                 .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())

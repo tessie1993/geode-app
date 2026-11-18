@@ -1,5 +1,6 @@
 package dev.geode.di
 
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.ui.ArtworkCache
 
 /**
@@ -19,7 +20,7 @@ object MemoryTrim {
 
     fun onTrim(level: Int) {
         if (level != UI_HIDDEN && level != BACKGROUND) return
-        PerfNative.memoryTrim(level)
+        GeodeNative.memoryTrim(level)
         ArtworkCache.clear()
     }
 }

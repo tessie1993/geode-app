@@ -5,6 +5,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
+import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
 
 /**
@@ -25,41 +26,41 @@ internal class PlayoutSink(
         presentationTimeUs: Long,
         encodedAccessUnitCount: Int,
     ): Boolean {
-        val before = IngestNative.pcmRingHead(ring)
+        val before = GeodeNative.pcmRingHead(ring)
         val handled = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
-        PlayoutNative.playoutRingSpan(clock, presentationTimeUs, before, IngestNative.pcmRingHead(ring))
+        GeodeNative.playoutRingSpan(clock, presentationTimeUs, before, GeodeNative.pcmRingHead(ring))
         return handled
     }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
         val positionUs = super.getCurrentPositionUs(sourceEnded)
-        PlayoutNative.playoutPosition(clock, positionUs, System.nanoTime())
+        GeodeNative.playoutPosition(clock, positionUs, System.nanoTime())
         return positionUs
     }
 
     override fun play() {
         super.play()
-        PlayoutNative.playoutPlaying(clock, true, System.nanoTime())
+        GeodeNative.playoutPlaying(clock, true, System.nanoTime())
     }
 
     override fun pause() {
         super.pause()
-        PlayoutNative.playoutPlaying(clock, false, System.nanoTime())
+        GeodeNative.playoutPlaying(clock, false, System.nanoTime())
     }
 
     override fun flush() {
         super.flush()
-        PlayoutNative.playoutFlush(clock)
+        GeodeNative.playoutFlush(clock)
     }
 
     override fun reset() {
         super.reset()
-        PlayoutNative.playoutPlaying(clock, false, System.nanoTime())
-        PlayoutNative.playoutFlush(clock)
+        GeodeNative.playoutPlaying(clock, false, System.nanoTime())
+        GeodeNative.playoutFlush(clock)
     }
 
     override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
         super.setPlaybackParameters(playbackParameters)
-        PlayoutNative.playoutSpeed(clock, getPlaybackParameters().speed)
+        GeodeNative.playoutSpeed(clock, getPlaybackParameters().speed)
     }
 }

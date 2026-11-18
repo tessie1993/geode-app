@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.viz.ArtPalette
 
 /**
@@ -79,7 +80,7 @@ internal object WidgetVisual {
      * fixed lights; the maths is pinned by `widget_glow_test`.
      */
     internal var lightsOf: (WidgetState) -> FloatArray = { state ->
-        PaletteNative.widgetGlow(state.artHue, state.artSpan, state.styleId != null, state.styleId.hashCode(), state.tick)
+        GeodeNative.widgetGlow(state.artHue, state.artSpan, state.styleId != null, state.styleId.hashCode(), state.tick)
     }
 
     private fun glow(state: WidgetState): Bitmap {

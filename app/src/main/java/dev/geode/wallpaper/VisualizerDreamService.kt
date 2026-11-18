@@ -18,6 +18,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.stage.StageView
@@ -64,7 +65,7 @@ class VisualizerDreamService : DreamService() {
     private val generalPrefs by lazy { geodeContainer.prefsFiles.general }
 
     /** Behaviour's dream frame rate, read at attach; [applyPerformance] restates it after the cap. */
-    private var dreamFps = SoundNative.SURFACE_DEFAULT_FPS
+    private var dreamFps = GeodeNative.SURFACE_DEFAULT_FPS
 
     /**
      * Settings › Performance, followed live like the wallpaper's: the app shares this process and
@@ -113,7 +114,7 @@ class VisualizerDreamService : DreamService() {
         val behaviour = geodeContainer.behaviour.current()
         isScreenBright = behaviour.dreamScreenBright
         settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)
-        val view = StageView(this, StageNative.STAGE_KIND_SURFACE, SoundNative.SURFACE_DEFAULT_FPS.toFloat())
+        val view = StageView(this, GeodeNative.STAGE_KIND_SURFACE, GeodeNative.SURFACE_DEFAULT_FPS.toFloat())
         visualizerView = view
         // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
         // moves, because a dream is watched from across a room. The MilkDrop preset is the stage's own.
@@ -162,7 +163,7 @@ class VisualizerDreamService : DreamService() {
     private fun applyPerformance() {
         val stage = visualizerView?.stage ?: return
         stage.performance = PerformanceStore(generalPrefs, this).settings.value
-        stage.capFps = SoundNative.surfaceFpsChoice(dreamFps).toFloat()
+        stage.capFps = GeodeNative.surfaceFpsChoice(dreamFps).toFloat()
     }
 
     override fun onDreamingStarted() {
@@ -187,7 +188,7 @@ class VisualizerDreamService : DreamService() {
     /** The entitlement as the native rule reads it: Pro forever, a trial its end, free 0. */
     private fun animateUntilMs(): Long = ProSnapshot.animateUntilMs(this, ProFeature.SCREENSAVER)
 
-    private fun entitled(): Boolean = SoundNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
+    private fun entitled(): Boolean = GeodeNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
 
     override fun onDetachedFromWindow() {
         generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)

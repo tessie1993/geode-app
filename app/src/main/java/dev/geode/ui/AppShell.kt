@@ -109,6 +109,7 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
 import dev.geode.model.TabLabels
@@ -284,7 +285,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
-            val onMilk = viz.sceneId == CatalogueNative.STYLE_MILKDROP
+            val onMilk = viz.sceneId == GeodeNative.STYLE_MILKDROP
             if (onMilk) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
     }
@@ -878,7 +879,7 @@ private fun paletteAccent(
     base: Float,
     range: Float,
 ): Color {
-    val rgb = PaletteNative.colourPaletteAccent(base, range)
+    val rgb = GeodeNative.colourPaletteAccent(base, range)
     return if (rgb < 0) VisualAccent.Fallback else Color(0xFF000000.toInt() or rgb)
 }
 
@@ -1042,7 +1043,7 @@ private class SearchSheetRows(
     private val presetNames = utf8(presets)
 
     /** Three counts (tracks, playlists, presets), then those rows, best first. */
-    fun search(query: String): IntArray = TagsNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
+    fun search(query: String): IntArray = GeodeNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
 
     private fun utf8(texts: List<String>): Array<ByteArray?> = Array(texts.size) { texts[it].encodeToByteArray() }
 }

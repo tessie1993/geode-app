@@ -9,6 +9,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import dev.geode.data.PerformanceSettings
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * The surface a [Stage] draws into. It tells native what Android tells it (the surface, its size, whether the
@@ -20,7 +21,7 @@ import dev.geode.data.PerformanceSettings
  */
 class StageView(
     context: Context,
-    private val kind: Int = StageNative.STAGE_KIND_VIEW,
+    private val kind: Int = GeodeNative.STAGE_KIND_VIEW,
     capFps: Float = DEFAULT_CAP_FPS,
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
@@ -128,12 +129,12 @@ class StageView(
 
     /** What the view sees of itself, as is; a surface stage's rule is its host's ([Stage.setSurface]). */
     private fun restate(attached: Boolean) {
-        if (kind != StageNative.STAGE_KIND_VIEW) return
+        if (kind != GeodeNative.STAGE_KIND_VIEW) return
         val flags =
-            (if (attached) StageNative.STAGE_VIEW_ATTACHED else 0) or
-                (if (windowVisibility == VISIBLE) StageNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
-                (if (isShown) StageNative.STAGE_VIEW_SHOWN else 0) or
-                (if (alpha > 0f) StageNative.STAGE_VIEW_OPAQUE else 0)
+            (if (attached) GeodeNative.STAGE_VIEW_ATTACHED else 0) or
+                (if (windowVisibility == VISIBLE) GeodeNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
+                (if (isShown) GeodeNative.STAGE_VIEW_SHOWN else 0) or
+                (if (alpha > 0f) GeodeNative.STAGE_VIEW_OPAQUE else 0)
         stage.setView(flags)
         syncTilt()
     }

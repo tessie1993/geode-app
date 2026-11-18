@@ -7,6 +7,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
 
 /** Everything the native chain is told; re-applied whenever a format change builds a new chain. */

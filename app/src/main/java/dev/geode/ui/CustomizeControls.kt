@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.ParamScope
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
@@ -39,7 +40,7 @@ internal fun CustomizeControls(
     val transition = viz.transitionId != null
     val rows =
         remember(keys, sceneId, query, viz.params, transition, liquidMode) {
-            CustomizeNative
+            GeodeNative
                 .customizeRows(sceneId, keys.joinToString("\n"), query, transition, liquidMode, viz.params.frame())
                 .lines()
                 .drop(1)

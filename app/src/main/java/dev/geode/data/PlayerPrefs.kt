@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.GeodeNative
 
 data class PlayerPrefs(
     val shuffle: Boolean = false,
@@ -36,7 +37,7 @@ data class PlayerPrefs(
     /**
      * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
      * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
-     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.PlayoutNative.playoutMaxOffsetMs]).
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
      */
     val pictureDelayMs: Int = 0,
 ) {

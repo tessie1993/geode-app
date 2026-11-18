@@ -17,6 +17,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.LookSnapshot
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.LoudnessAdvice
 import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
@@ -63,7 +64,7 @@ enum class ExportCodec(
     }
 }
 
-/** The part of a track a render covers, as native picked it (`RenderPlanNative.exportRangeOf`, `exportRangeCapped`). */
+/** The part of a track a render covers, as native picked it (`GeodeNative.exportRangeOf`, `exportRangeCapped`). */
 data class ExportRange(
     val startMs: Long,
     val durationMs: Long,
@@ -107,7 +108,7 @@ class ExportAspect(
             ratio: ExportRatio,
         ): ExportAspect {
             val size = IntArray(2)
-            ExportNative.exportFrameSize(quality.shortSide, ratio.wRatio, ratio.hRatio, size)
+            GeodeNative.exportFrameSize(quality.shortSide, ratio.wRatio, ratio.hRatio, size)
             return ExportAspect(size[0], size[1], quality.bitRate)
         }
     }
@@ -271,7 +272,7 @@ class VideoExporter(
      * inside a container the platform extractor opens, unlike [AudioTranscoder]'s raw `.bin`. Geode
      * does not yet apply the resulting gain: [AudioTranscoder] owns the only PCM Geode ever holds for
      * this file, so today this only reports what a platform would do to the file as exported. The
-     * decode, the meter and the advice are native (`ExportAudioNative.exportLoudnessMeasure`).
+     * decode, the meter and the advice are native (`GeodeNative.exportLoudnessMeasure`).
      *
      * A file the encoder just finished writing successfully is not allowed to be reported as a
      * failed export over a problem in this purely-informational re-read, so any exception here is
@@ -289,7 +290,7 @@ class VideoExporter(
                     val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
                     val out = DoubleArray(LOUDNESS_DOUBLES)
                     val fd = afd.parcelFileDescriptor.detachFd()
-                    val sentence = ExportAudioNative.exportLoudnessMeasure(fd, offset, length, target.nativeIndex, out)
+                    val sentence = GeodeNative.exportLoudnessMeasure(fd, offset, length, target.nativeIndex, out)
                     if (sentence < 0) {
                         null
                     } else {
@@ -323,12 +324,12 @@ class VideoExporter(
                 maxDurationMs = render.range?.durationMs ?: 0L,
                 startMs = render.range?.startMs ?: 0L,
                 isCancelled = isCancelled,
-            ) { onProgress(VideoExportNative.videoExportLeadIn(it), false) }
-        val job = VideoExportNative.videoExportCreate()
+            ) { onProgress(GeodeNative.videoExportLeadIn(it), false) }
+        val job = GeodeNative.videoExportCreate()
         try {
             check(job != 0L) { "export job not created" }
             val aspect = render.aspect
-            VideoExportNative.videoExportSetOutput(
+            GeodeNative.videoExportSetOutput(
                 job,
                 pfd.fd,
                 context.cacheDir.absolutePath,
@@ -337,7 +338,7 @@ class VideoExporter(
                 aspect.bitRate,
                 render.requestedFps,
             )
-            render.codec.candidates().forEach { VideoExportNative.videoExportAddCodec(job, it.mimeType, it.topFps(aspect)) }
+            render.codec.candidates().forEach { GeodeNative.videoExportAddCodec(job, it.mimeType, it.topFps(aspect)) }
             setScene(job, render)
             setTrack(job, render)
             setMark(job, render)
@@ -347,23 +348,23 @@ class VideoExporter(
                     launch {
                         try {
                             while (isActive) {
-                                if (isCancelled()) VideoExportNative.videoExportCancel(job)
-                                onProgress(VideoExportNative.videoExportProgress(job), true)
+                                if (isCancelled()) GeodeNative.videoExportCancel(job)
+                                onProgress(GeodeNative.videoExportProgress(job), true)
                                 delay(POLL_MS)
                             }
                         } finally {
                             // A cancel of the caller ends this poll while the run below still blocks its
                             // thread: only this stops the job. After the run has ended it changes nothing.
-                            VideoExportNative.videoExportCancel(job)
+                            GeodeNative.videoExportCancel(job)
                         }
                     }
                 // Blocks this worker thread for the whole render; the poll above runs on another.
-                VideoExportNative.videoExportRun(job)
+                GeodeNative.videoExportRun(job)
                 poll.cancelAndJoin()
             }
             return keptOrThrow(job, aspect, isCancelled)
         } finally {
-            VideoExportNative.videoExportDestroy(job)
+            GeodeNative.videoExportDestroy(job)
             aac.release()
         }
     }
@@ -373,7 +374,7 @@ class VideoExporter(
         job: Long,
         render: Render,
     ) {
-        VideoExportNative.videoExportSetScene(
+        GeodeNative.videoExportSetScene(
             job,
             context.assets,
             File(context.filesDir, "milk/textures").absolutePath,
@@ -382,7 +383,7 @@ class VideoExporter(
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
         val look = render.look
-        VideoExportNative.videoExportSetLook(
+        GeodeNative.videoExportSetLook(
             job,
             look.params.frame(),
             look.lfos,
@@ -394,7 +395,7 @@ class VideoExporter(
             look.transitionMs,
         )
         val u = look.underlay
-        VideoExportNative.videoExportSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+        GeodeNative.videoExportSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
     }
 
     // What MediaExtractor and the AIFF reader were each handed for a content URI: the declared span, or the whole
@@ -407,7 +408,7 @@ class VideoExporter(
             requireNotNull(context.contentResolver.openAssetFileDescriptor(render.audioUri, "r")) { "the track cannot be opened" }
         val length = afd.declaredLength
         val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
-        VideoExportNative.videoExportSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length, render.range?.startMs ?: 0L)
+        GeodeNative.videoExportSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length, render.range?.startMs ?: 0L)
     }
 
     /** The wordmark's tile, when these frames carry one; a free render never ships unmarked. */
@@ -416,7 +417,7 @@ class VideoExporter(
         render: Render,
     ) {
         val tile = WatermarkOverlay(render.watermark, context).tile(render.aspect.width, render.aspect.height) ?: return
-        check(VideoExportNative.videoExportSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)) {
+        check(GeodeNative.videoExportSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)) {
             "watermark pass failed: out of memory"
         }
     }
@@ -433,7 +434,7 @@ class VideoExporter(
             samples[i * SAMPLE_LONGS + 2] = s.presentationTimeUs
             samples[i * SAMPLE_LONGS + 3] = s.flags.toLong()
         }
-        check(VideoExportNative.videoExportSetAudio(job, aac.file.absolutePath, samples)) { "the audio track cannot be read back" }
+        check(GeodeNative.videoExportSetAudio(job, aac.file.absolutePath, samples)) { "the audio track cannot be read back" }
         val f = aac.format
         for (key in f.keys) {
             val type = f.getValueTypeForKey(key)
@@ -446,7 +447,7 @@ class VideoExporter(
             val real = if (type == MediaFormat.TYPE_FLOAT) f.getFloat(key) else 0f
             val text = if (type == MediaFormat.TYPE_STRING) f.getString(key) else null
             val bytes = if (type == MediaFormat.TYPE_BYTE_BUFFER) f.getByteBuffer(key)?.duplicate()?.let(::bytesOf) else null
-            VideoExportNative.videoExportAddAudioKey(job, key, type, whole, real, text, bytes)
+            GeodeNative.videoExportAddAudioKey(job, key, type, whole, real, text, bytes)
         }
     }
 
@@ -458,20 +459,20 @@ class VideoExporter(
         aspect: ExportAspect,
         isCancelled: () -> Boolean,
     ): Boolean {
-        val state = VideoExportNative.videoExportState(job)
+        val state = GeodeNative.videoExportState(job)
         // A cancel that lands after the last frame still discards the file, as the button promised.
-        if (state == VideoExportNative.VIDEO_EXPORT_RENDERED) return !isCancelled()
-        if (state == VideoExportNative.VIDEO_EXPORT_CANCELLED) return false
-        val detail = VideoExportNative.videoExportDetail(job).orEmpty()
-        val failure = VideoExportNative.videoExportFailure(job)
+        if (state == GeodeNative.VIDEO_EXPORT_RENDERED) return !isCancelled()
+        if (state == GeodeNative.VIDEO_EXPORT_CANCELLED) return false
+        val detail = GeodeNative.videoExportDetail(job).orEmpty()
+        val failure = GeodeNative.videoExportFailure(job)
         RingLog.note(TAG, "video export failed ($failure): $detail")
         val message =
             when (failure) {
-                VideoExportNative.VIDEO_FAILURE_ENCODER_REJECTED ->
+                GeodeNative.VIDEO_FAILURE_ENCODER_REJECTED ->
                     context.getString(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
-                VideoExportNative.VIDEO_FAILURE_NO_OUTPUT -> context.getString(R.string.export_error_encoder_no_output)
-                VideoExportNative.VIDEO_FAILURE_STALLED -> context.getString(R.string.export_error_encoder_stalled)
-                VideoExportNative.VIDEO_FAILURE_EMPTY_BUFFER -> context.getString(R.string.export_error_encoder_buffer_null)
+                GeodeNative.VIDEO_FAILURE_NO_OUTPUT -> context.getString(R.string.export_error_encoder_no_output)
+                GeodeNative.VIDEO_FAILURE_STALLED -> context.getString(R.string.export_error_encoder_stalled)
+                GeodeNative.VIDEO_FAILURE_EMPTY_BUFFER -> context.getString(R.string.export_error_encoder_buffer_null)
                 else -> detail.ifEmpty { context.getString(R.string.export_error_no_message) }
             }
         error(message)

@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import androidx.compose.runtime.Immutable
+import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 
 /**
@@ -58,7 +59,7 @@ internal object CustomizeMapTable {
     const val TEXT_FILE_PROPERTY: String = "geode.customize"
 
     private val text: String by lazy {
-        System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: CustomizeNative.customizeText()
+        System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.customizeText()
     }
 
     val categories: List<CustomizeCategory> by lazy { fields("category").map { CustomizeCategory(it[1], it[3]) } }
@@ -78,7 +79,7 @@ internal object CustomizeMapTable {
 
     /** What the panel offers on [styleId] (`CATEGORY` and `CATEGORY/id` lines). Native. */
     fun shownOn(styleId: String): Set<String> =
-        CustomizeNative
+        GeodeNative
             .customizeShown(styleId)
             .lines()
             .filterTo(mutableSetOf()) { it.isNotBlank() }
@@ -91,6 +92,6 @@ internal object CustomizeMapTable {
 }
 
 /** A word the Customize panel draws, by its id (core/viz/PanelText), asked of native once. */
-internal fun panelText(id: String): String = panelWords.getOrPut(id) { CustomizeNative.panelText(id) }
+internal fun panelText(id: String): String = panelWords.getOrPut(id) { GeodeNative.panelText(id) }
 
 private val panelWords = java.util.concurrent.ConcurrentHashMap<String, String>()

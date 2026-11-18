@@ -62,6 +62,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.geode.R
 import dev.geode.appLaunchIntent
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.PlaybackService
 import dev.geode.util.bestEffort
@@ -309,7 +310,7 @@ private fun LargeLayout(snapshot: WidgetSnapshot) {
                 snapshot.state,
                 titleSize = 15.sp,
                 artistSize = 12.sp,
-                styleLabel = snapshot.state.styleId?.let { CustomizeNative.styleLabel(it) },
+                styleLabel = snapshot.state.styleId?.let { GeodeNative.styleLabel(it) },
                 modifier = GlanceModifier.defaultWeight().padding(start = GAP),
             )
         }
@@ -374,7 +375,7 @@ private fun VisualTile(
             }
             snapshot.state.styleId?.let { id ->
                 Text(
-                    text = CustomizeNative.styleLabel(id),
+                    text = GeodeNative.styleLabel(id),
                     style = TextStyle(color = TEXT, fontSize = 12.sp, fontWeight = FontWeight.Medium),
                     maxLines = 1,
                     modifier =

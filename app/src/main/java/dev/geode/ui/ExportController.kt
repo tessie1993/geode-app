@@ -8,6 +8,7 @@ import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookSource
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -371,7 +372,7 @@ internal class ExportController(
      * always this one: a single scene clip over a single song clip of the same span, which the plan
      * always made direct. The plan, the composition and the Studio exporter went with the editor.
      *
-     * The checks keep the plan's order: a range shorter than [StudioNative.studioMinClipMs] has no stretch of
+     * The checks keep the plan's order: a range shorter than [GeodeNative.studioMinClipMs] has no stretch of
      * song to draw over (the plan skipped it), then the style is checked against the entitlement.
      */
     private suspend fun renderOneTap(
@@ -384,7 +385,7 @@ internal class ExportController(
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
     ): RenderResult {
-        if (range != null && range.durationMs < StudioNative.studioMinClipMs()) return RenderResult.NothingToRender
+        if (range != null && range.durationMs < GeodeNative.studioMinClipMs()) return RenderResult.NothingToRender
         val pinned = host.look.pin()
         if (!host.allowsStyle(sceneFactory.sceneId)) return RenderResult.Locked
         val result =
@@ -620,5 +621,5 @@ data class RenderBatch(
     fun cancelRest(): RenderBatch = copy(outcomes = outcomes + List(tracks.size - outcomes.size) { BatchOutcome.Cancelled })
 
     /** The whole batch's progress, with [withinCurrent] the share of the current track done (native). */
-    fun progress(withinCurrent: Float): Float = RenderPlanNative.renderBatchProgress(outcomes.size, tracks.size, withinCurrent)
+    fun progress(withinCurrent: Float): Float = GeodeNative.renderBatchProgress(outcomes.size, tracks.size, withinCurrent)
 }

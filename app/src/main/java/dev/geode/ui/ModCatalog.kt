@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import java.io.File
 
@@ -30,7 +31,7 @@ internal object ModCatalog {
 
     private val rows: Map<String, List<List<String>>> by lazy {
         var text = System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() }.orEmpty()
-        if (text.isEmpty()) bestEffort(TAG, "modCatalogText") { text = ModulationNative.modCatalogText() }
+        if (text.isEmpty()) bestEffort(TAG, "modCatalogText") { text = GeodeNative.modCatalogText() }
         text.lines().map { it.split('|') }.groupBy { it[0] }
     }
 

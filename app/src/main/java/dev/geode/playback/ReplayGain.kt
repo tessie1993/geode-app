@@ -6,6 +6,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.NativeTags
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

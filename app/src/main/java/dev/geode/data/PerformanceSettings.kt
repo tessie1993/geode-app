@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Settings › Performance: how much GPU a live surface (screen, wallpaper, dream) may spend.
@@ -11,7 +12,7 @@ package dev.geode.data
 data class PerformanceSettings(
     /** Fraction of the surface's pixels the scene is drawn at, then upscaled. Below 1 also drops supersampling. */
     val renderScale: Float,
-    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
+    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`GeodeNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
@@ -22,7 +23,7 @@ data class PerformanceSettings(
     val mode: PerformanceMode?
         get() =
             PerformanceMode.entries.getOrNull(
-                runCatching { PerfNative.perfModeOf(renderScale, fpsCap, marchScale, postFx) }.getOrDefault(-1),
+                runCatching { GeodeNative.perfModeOf(renderScale, fpsCap, marchScale, postFx) }.getOrDefault(-1),
             )
 
     companion object {
@@ -32,12 +33,12 @@ data class PerformanceSettings(
         val HIGH get() = PerformanceMode.HIGH.settings
 
         /** The render and march scales the tab offers, ascending. */
-        val SCALES: List<Float> by lazy { runCatching { PerfNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
+        val SCALES: List<Float> by lazy { runCatching { GeodeNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
 
         internal val tiers by lazy {
             PerformanceMode.entries.map { mode ->
-                val v = FloatArray(PerfNative.PERF_TIER_FLOATS)
-                check(PerfNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
+                val v = FloatArray(GeodeNative.PERF_TIER_FLOATS)
+                check(GeodeNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
                 PerformanceSettings(v[0], v[1].toInt(), v[2], postFx = v[3] != 0f)
             }
         }
@@ -48,7 +49,7 @@ data class PerformanceSettings(
             lowRamDevice: Boolean,
             mediaPerformanceClass: Int,
         ): PerformanceMode =
-            PerformanceMode.entries.getOrElse(PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
+            PerformanceMode.entries.getOrElse(GeodeNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
                 PerformanceMode.BALANCED
             }
     }

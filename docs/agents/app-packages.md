@@ -28,13 +28,13 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ## `ui`
 
 - Open first: `MainActivity`, `AppShell`, `ShellChrome`, `GeodeAppState`, `PlayerSession`, `StudioHub`, `ExportHost`, `*ViewModel`.
-- Every screen, the eight ViewModels, settings screens, theme glue.
-- `PlayerSession` builds the 15 `*Controller`s.
+- Every screen, the ViewModels, settings screens, theme glue.
+- `PlayerSession` builds the `*Controller`s.
 
 ### Settings
 
 - Settings (`AppSettingsTab`) is a list, then pages.
-- It is a list of fifteen tabs (`SettingsGroupKey`: icon, name, one-line summary).
+- It is a list of tabs (`SettingsGroupKey`: icon, name, one-line summary).
 - The tabs: Playback, Sound & equalizer, Output & devices, Library, Visual playback, Sound reaction, Photosensitivity & motion, Displays & casting, Wallpaper & screen saver, Gestures & controls, Look, Performance, Export & recording, Preferences, Backup, help & about.
 - Visual playback has the same Auto Director and style-timer rows as Visuals' quick settings, on the same stores.
 - Preferences is the home of small choices with no other tab: the watermark's placement (tiled, a corner or an end card) and Pro's switch to add it (`PreferencesSettings`).
@@ -49,7 +49,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of eleven category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
+- It is a scrollable row of category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list per style: the Palettes card on the shader styles (they draw the stack), else `PaletteDropdown` (the listed built-ins, then the user's own).
@@ -97,7 +97,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Record (`RecordController`, Pro) is a live video of the visual and what it hears, until the user stops or Settings › Export › Record's maximum length (`ui/RecordSettings`).
 - The stage's GL thread copies each frame its clock keeps into an H.264 surface (`core/viz/frame/RecordTap`).
 - Every block the stage's sound engine took goes into `core/output/Recorder`, which times the file: frame slots and PTS, A/V placement, the stop.
-- Record's capture fps drops first on a hot phone.
 - Record's encoders and MP4 run native on their own thread (`core/output/RecordSession` on `core/output/EncodeSink`); `RecordController` opens the fd, starts, stops and polls.
 - `data/RecordFiles` writes into the place asked once (`RecordSaveSheet`), or a scratch file before that.
 - `EditorController` only keeps the project list My videos reads (recordings and kept renders).
@@ -153,7 +152,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Press feedback, haptics and interface sounds live here.
 - Haptics (`StoneHaptics`) are off with Settings › Look's Vibrate on touch.
 - The TV seam is `Television`: `isTelevision` by `FEATURE_LEANBACK`, `LocalTelevision` provided by `AppRoot`, the accent focus ripple and the overscan margins a TV gets.
-- No screen code; ready to move into `:core:designsystem`.
+- No screen code.
 
 ## `playback`
 
@@ -164,7 +163,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `BitPerfectOutput` is USB DAC bit-perfect via `setPreferredMixerAttributes`, API 34+.
 - `PlaybackService` is a MediaLibraryService.
 - Media browsers (Bluetooth, Assistant; Android Auto is not declared in 1.0) browse `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
-- Android Auto browses `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Queue, sleep timer and ReplayGain live here.
 - `AutoDirectorFeed` is the auto-director's play feed: a seed per track, the position for the free taste.
 - The Behaviour options that run with the app closed live here.
@@ -180,7 +178,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `audio`
 
-- Open first: `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
+- Open first: `AudioBus`, `PlaybackCapture`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
 - Capture sources: mic, other apps' audio.
 - `AudioBus` holds the session's player ring handle (0 for none) for the wallpaper and dream.
 - Platform FX and the media chain live here.
@@ -198,10 +196,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
 - `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
 
-## `render`
+## `render` (removed)
 
-- The engine module's package, for the shell's own pieces of it.
-- `fluid/FluidShaderTemplate` reads the fluid splat shader asset that Expert › Shader code starts from.
+- There is no `render` package. Its pieces are native or sit in `engine/bridge` (`SceneParams`, `StyleCatalogue`); the fluid splat shader asset that Expert › Shader code starts from is read in `ui/CustomizeAdvanced.kt`.
 
 ## `audio/dsp`
 
@@ -233,7 +230,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The minimum is `MinTrackLength`, 30 s by default, kept by `LibraryPrefsStore` in `geode-library` and set in Settings › Library.
 - Library shows how many tracks the minimum hid.
 - Settings › Performance is `PerformanceStore`: live, wallpaper and dream only, never export, never restored from Backup.
-- `PerformanceSettings` is the value it keeps, with `PerformanceMode` and `LiquidHotPolicy`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
+- `PerformanceSettings` is the value it keeps, with `PerformanceMode`; the tiers, preset match and first-run pick are native (`core/viz/frame/Quality`).
 - The app-wide choices and canvas gesture map are `BehaviourPrefs`, kept by `BehaviourCodec` behind the container's one `behaviour` repository, with rows on seven Settings tabs; the defaults are the owner's.
 - `BehaviourPrefs` has rows only for the choices that are read: start screen (`ui/GeodeAppState.startDestination`), keep-screen-on in Visuals, headphones, queue end, shuffle/repeat, notification buttons, gestures, the dream's.
 - Reduced motion is `SystemMotion`: Android's "Remove animations" alone, read by the UI, renderer, paywall, exports, cast and wallpaper.
@@ -293,7 +290,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `editor`
 
-- Open first: `StudioProject`, `Timeline`, `Keyframes`, `Markers`.
+- Open first: `StudioProject`.
 - The Studio project model: pure Kotlin, no `android.*`.
 - A project is a folder (`StudioProject`: edit, kind Standard or Loop, its own export settings, its renders).
 - A template is a project minus audio (`ProjectTemplate`, fitted to a new track; batch = template × tracks).
@@ -302,7 +299,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`.
 - Visualizer export: MediaCodec + offscreen GL.
-- `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
+- `VideoExporter` and `LoopRender` open the track's descriptor and hand the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render.
 - `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
@@ -384,7 +381,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
-- Cast's sound (the ring read, the resample to 48 kHz, the hold and the silence pad) is native in `core/output/CastAudioPump`; `CastStream`'s `AudioPump` hands each block to `CastEncoder` and `OpusFeed`.
+- Cast's sound (the ring read, the resample to 48 kHz, the hold and the silence pad) is native in `core/output/CastAudioPump`; `CastStream` only hands each block's cut to `CastEncoder`, which runs the Opus encoder while a browser listens.
 - `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
 - `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.
@@ -397,7 +394,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - The link it shows has the host as one number (`geode_link_share_url`, the WHATWG IPv4 parser; hides the dotted address from the eye only) and a two-word label.
 - The page (`core/viz/frame/LinkPage`, plain HTTP) tries WebRTC first: it POSTs a receive-only offer to `rtc` and plays the answer from `core/cast/WebRtcLink` with a 0.5 s `jitterBufferTarget`.
 - `core/cast/WebRtcLink` is libdatachannel + Mbed TLS, the one native networking code; the media is DTLS-SRTP encrypted, the page and signalling are not.
-- Its rules are in `core/viz/frame/WebRtcRule`: the encoder's own H.264 via `CastEncoder`'s video tap, Opus from `OpusFeed` while a browser is on, host candidates on the bound address only, no STUN or TURN, mDNS names dropped.
+- Its rules are in `core/viz/frame/WebRtcRule`: the encoder's own H.264 via `CastEncoder`'s video tap, Opus from `CastEncoder`'s Opus encoder while a browser is on, host candidates on the bound address only, no STUN or TURN, mDNS names dropped.
 - Without WebRTC the page reads one long-lived `stream.mp4` into MSE with half a second in hand, or plays the HLS natively.
 - Show on a computer's state is native (`geode_link_step`); it stops on Stop, a network change or Pro's end.
 - A TV that errors, goes idle or never fetches ends the TV's part (`geode_link_receiver_health`).

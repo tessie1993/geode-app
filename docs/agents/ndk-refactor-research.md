@@ -1,5 +1,7 @@
 # NDK refactor research: moving the audio-to-visual path out of Kotlin
 
+**Historical: the port it researches is done.** The Kotlin it names (`ThermalGovernor` and the rest of the rendering stack) no longer exists; check the code, and see `AGENTS.md` for what is true now.
+
 Read-only research for the port in `engine-deep-scan.md`. Nothing in the repository was touched, nothing was built or installed.
 
 ## How to read the source marks

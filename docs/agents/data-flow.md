@@ -32,7 +32,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 ## 3. Render
 
 - The native stage thread (`core/stage`, one per surface) draws each paced vsync through `LiveClient`: `geode_viz_frame` (`core/viz/frame/LiveFrame`) and the `core/viz` renderer.
-- Built scenes stay resident only while `core/viz/SceneResidency.hpp` allows: the ones drawn plus a few recent spares, fewer as the phone heats.
+- Built scenes stay resident only while `core/viz/SceneResidency.hpp` allows: the ones drawn plus a few recent spares, none under memory pressure (`onTrimMemory`).
 - A spare is resized when drawn again.
 - A new scene is built across frames, never in one (`core/viz/ScenePrep.hpp`, `ProgramStager`), while the old scene keeps drawing.
 - `ProgramStager` runs a bounded slice of program compiles per frame, polled through `GL_KHR_parallel_shader_compile` where the driver has it.
@@ -45,7 +45,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The hand mask is `hand::` in `core/viz/Reactions`; `mergeHand` and the Music page's edits are in `core/viz/ReactionDna`; `LfoStore.pushHand` pushes it process-wide (`geode_hand_set`).
 - The hand mask to push on load is native's (`geode_mod_hand_load`, `core/api/geode_modulation_api.cpp`): 0 with no routes, `HAND_ALL` for routes saved without a mask, -1 for unreadable routes, which `LfoStore` then deletes.
 - The style's DNA is built natively by `core/viz/ReactionDna`: a personality for each side of the groove plus layers, each drawing its source from the sound frame.
-- DNA draws from the 155 reaction sources (`ReactSource` in `core/viz/Reactions`): one per `GeodeSoundFrame` value, then sources `ReactSignals` derives from the frame and the director's feeling.
+- DNA draws from the reaction sources (`ReactSource` in `core/viz/Reactions`): one per `GeodeSoundFrame` value, then sources `ReactSignals` derives from the frame and the director's feeling.
 - The derived sources are the bar counts (hold, pulse, flip on every 1, 2, 4 bars and every phrase, from Rhythm's downbeats only), the melody contour, note and presence, the degree accent, valence, felt tension and the tension's rise.
 - The derived sources also include the felt energy, the key's character (`KEY_SHARPNESS`), the kind of feeling (the leading GEMS kind, held until another clearly leads) and five kinds' shares (wonder, peace, power, joy, sadness).
 - The derived sources also include the song part as six states (`IN_INTRO` … `IN_OUTRO`, from Form's `sectionState`).
@@ -55,7 +55,6 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The resolver hands the reaction matrix the Emotion state the director heard (`ReactionEngine::tick`'s `feeling`).
 - A renderer is handed the user's saved routes (`geode_viz_set_reactions`), reads the hand mask itself before each render, and resolves what plays from those, the style and `reactSeed`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
-- DNA draws from the 155 `ReactSource`s.
 - Every style's groove ends on one route from the transient detector (`Transient` or `TransientEnv`).
 - Every style's groove starts on the drums: the kick side hears `KICK`, `KICK_2` or `KICK_ENV`, the snare side `SNARE`, `SNARE_2`, `SNARE_ENV` or `HAT` (`viz_math_test` pins it per catalogue style).
 - No pulse personality turns the picture: the kick or snare side moves a target every style reads, never a rotation.
@@ -83,7 +82,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 ## 4. Export
 
 - `VideoExporter` and `LoopRender` run on Default inside `ExportRun.scope`.
-- They draw one `LookSnapshot` pinned when the render starts (`ExportController.Host.look`) through `export/ExportScene`, which hands it to the native export job (`core/output/ExportFrame`).
+- They draw one `LookSnapshot` pinned when the render starts (`ExportController.Host.look`) to the native export job (`core/output/ExportFrame`).
 - The export job pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the Note & key switch, the hand mask and the director, no note entropy.
 - So live edits never reach a render in progress.
 - Its own sound engine hears the track frame by frame (`core/audio/ingest/TrackPump`, decoded natively, stepped at 1/fps), so export equals live.

@@ -705,17 +705,15 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
     }
 }
 
-SceneParams ReactionEngine::apply(const SceneParams& p) const {
+void ReactionEngine::apply(SceneParams& p) const {
     const float scale = std::clamp(p.reactAmount, 0.0f, 2.0f) * gain_;
-    SceneParams o = p;
-    if (scale <= 0.0f) return o;
+    if (scale <= 0.0f) return;
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
         ModChain chain{};
         if (!r.enabled || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
-        o = applyLfoTarget(o, r.target, out_[static_cast<size_t>(i)] * scale);
+        applyLfoTargetInPlace(p, r.target, out_[static_cast<size_t>(i)] * scale);
     }
-    return o;
 }
 
 namespace hand {

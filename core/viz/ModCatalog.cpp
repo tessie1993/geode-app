@@ -15,21 +15,6 @@ struct Words {
     const char* label;
 };
 
-// One label per LfoTarget, in wire order; a retired target has none.
-constexpr std::array<const char*, modtargets::kTargetCount> kTargetLabels{{
-    "None", "Speed", "Zoom", "Rotation", "Sway", "", "Drift X", "Drift Y", "Warp", "Ripple", "Morph", "Twist", "Tile",
-    "Pixelate", "Posterize", "Hue shift", "Palette 2 amount", "Saturation", "Brightness", "Intensity", "Bloom",
-    "Temperature", "Turbulence", "Chroma AB", "Vignette", "", "Fisheye", "Particle size", "Trail length", "Fluid curl",
-    "Fluid splat radius", "Fluid splat force", "Fluid glow", "Fluid fade", "Catch pull", "Catch radius", "Flow strength",
-    "", "", "Wave 1 speed", "Wave 1 depth", "Wave 2 speed", "Wave 2 depth", "Wave 3 speed", "Wave 3 depth",
-    "Camera speed", "Camera swing", "Camera push", "Camera turn", "Camera tilt", "Camera roll", "Camera FOV",
-    "Camera shake", "Swirl", "Push", "Dive", "Dive twist", "Dive aim sideways", "Dive aim up and down", "Macro knob",
-    "Palette 1 amount", "Palette 3 amount", "Palette 4 amount", "Palette 5 amount", "Palette 6 amount",
-    "Palette 7 amount", "Palette 8 amount", "Palette position", "Kaleidoscope", "Layer mix",
-    "Fluid layer", "Particle field", "Physics force", "Fluid in front", "Spawn", "Fractal", "Front layer", "Back layer",
-    "Formula", "Shapes", "Soft shadows", "Escape colour", "Life",
-}};
-
 constexpr std::array<const char*, kSourceCount> kSourceLabels{{
     "Steady wave", "Bass band", "Mid band", "Treble band", "Level", "Brightness", "Note starts", "Stereo width",
     "L/R movement",
@@ -270,9 +255,12 @@ int bandNamed(std::string_view name) {
     return ordinalNamed(kBandCount, name, [](int i) { return kBands[static_cast<size_t>(i)].name; });
 }
 
+// A legacy target's frozen label (a retired one has none); a later one is its field's Customize label.
 const char* targetLabel(LfoTarget target) {
     const int i = static_cast<int>(target);
-    return i >= 0 && i < modtargets::kTargetCount ? kTargetLabels[static_cast<size_t>(i)] : "";
+    if (i < 0 || i >= modtargets::kTargetCount) return "";
+    return i < modtable::kLegacyCount ? modtable::kLegacy[static_cast<size_t>(i)].label
+                                      : SceneParams::meta(static_cast<ParamSlot>(paramSlotOf(target))).label;
 }
 
 const std::string& text() {

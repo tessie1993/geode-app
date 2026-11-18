@@ -13,7 +13,7 @@ import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetStore
 import dev.geode.data.StillFiles
-import dev.geode.data.TemplateFormat
+import dev.geode.data.TemplateCodec
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateParse
@@ -21,9 +21,9 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.PresetLink
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -249,9 +249,9 @@ class VisualsViewModel
             onDone: (Boolean) -> Unit,
         ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
             if (path != null) {
-                session.selectScene(GeodeNative.STYLE_MILKDROP)
-                if (session.allowsStyle(GeodeNative.STYLE_MILKDROP)) {
-                    session.visual.emitApply(VizApply(milkPath = path, sceneId = GeodeNative.STYLE_MILKDROP))
+                session.selectScene(CatalogueNative.STYLE_MILKDROP)
+                if (session.allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
+                    session.visual.emitApply(VizApply(milkPath = path, sceneId = CatalogueNative.STYLE_MILKDROP))
                 }
             }
             onDone(path != null)
@@ -341,8 +341,8 @@ class VisualsViewModel
                 val preset = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
                 return SharedLinkOffer.Preset(data, preset.name.trim())
             }
-            val link = TemplateFormat.linkIn(data) ?: return null
-            val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
+            if (!TemplateCodec.hasLink(data)) return null
+            val template = (TemplateCodec.read(data) as? TemplateParse.Parsed)?.template ?: return null
             val replaces =
                 session.templateLibrary.library.value
                     .firstOrNull { it.id == template.id }
@@ -351,7 +351,7 @@ class VisualsViewModel
         }
 
         /** Whether [data] carries a template link at all, before the async import runs. */
-        fun isTemplateLink(data: String): Boolean = TemplateFormat.linkIn(data) != null
+        fun isTemplateLink(data: String): Boolean = TemplateCodec.hasLink(data)
 
         fun importSharedTemplate(
             data: String,

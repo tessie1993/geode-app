@@ -7,10 +7,8 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - ExoPlayer runs `MvzAudioProcessorChain` on its playback thread.
 - The `PcmTap` there comes first, before any DSP.
 - `NativeDspProcessor` sits after the tap and steps aside (inactive, not throwing) for formats its chain cannot run, such as 5.1 files; native decides which (`geode_dsp_runs`).
-- A capture of another app uses one `AudioCapturePump` worker thread.
+- A capture of another app is read on a native thread of its own (`core/audio/ingest/CapturePump`).
 - The mic has no JVM thread: a native input stream (`core/audio/ingest/MicInput`, Oboe) writes its ring from the audio callback.
-- The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
-- Mic and capture use one `AudioCapturePump` worker thread each.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, the process's player ring (`geode_pcm_ring_shared`, `core/audio/ingest/RingKinds`); stereo, what every sound engine hears.
 - The player's and the mic's rings are made on first use and never freed, so a surface or writer that outlives its session never reaches a freed ring.
 - The wallpaper's and dream's output-mix ring is made on the capture's first start and freed by `SoundSource.release` once its stage has closed.
@@ -28,7 +26,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - `SpeakerSync` reads the process's one playout clock, `PlaybackEngine.playout`, which `audio/PlayoutSink` reports the sink to.
 - The mic, a capture and a cast read the newest sample instead.
 - Cast's sound reads the player's ring through its own native cursor, resamples, holds and pads it to each frame's cut (`core/output/CastAudioPump`, `geode_cast_audio_*`); `CastStream` only hands each block to the encoders.
-- There is no analysis thread: every renderer's own `core/sound` engine hears the ring on its GL thread through its own native cursor (`geode_viz_feed_ring`).
+- Live, one analysis thread per ring (`core/sound/hop/AnalysisThread`) hears it through its own native cursor and publishes each hop (`core/sound/hop/SharedAnalysis.hpp`); an export's engine hears its track inline.
 - The cursor resets the engine on a new epoch (a tap flush, a source switch).
 
 ## 3. Render
@@ -67,12 +65,10 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The DNA's feel layer can draw the key's character, the kind of feeling or its wonder, beside the mood, the felt tension and the scale's brightness.
 - The groove fills at most `StyleDna::kGrooveRoutes` (8, plus one for a zoom personality's beat zoom); the DNA at most `kMaxRoutes` (13 of the matrix's 16).
 - A DNA already at its cap gives the transient route the slot of its last-drawn layer.
-- DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
-- Each frame the GL thread has the native renderer take the ring's new PCM (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) into its own `core/sound` engine.
-- The engine analyses every hop of samples (fftSize / overlap, `sound/AnalysisSettings`) inside `write`; `beginFrame` only reads.
+- The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every hop of samples (fftSize / overlap, `sound/AnalysisSettings`); `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).

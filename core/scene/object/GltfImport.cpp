@@ -180,11 +180,20 @@ Gathered gather(const cgltf_data* data) {
 
 // Reads one primitive into a triangle list over its own vertices. False when the data is not what
 // its accessors claim (unreadable, short, or an index past the last vertex: meshoptimizer trusts
-// indices, so an unchecked one would read out of bounds).
-bool readMesh(const cgltf_data* data, const cgltf_primitive& p, ModelMesh& m) {
+// indices, so an unchecked one would read out of bounds). `budget` is what is left of the bytes the whole
+// import may unpack (kMaxDecodedBytes at the start): the counts come from the file, so they are charged
+// before anything is allocated for them.
+bool readMesh(const cgltf_data* data, const cgltf_primitive& p, ModelMesh& m, std::size_t& budget) {
     const cgltf_accessor* pos = attribute(p, cgltf_attribute_type_position, 0);
     if (!readable(pos) || pos->type != cgltf_type_vec3) return false;
     const std::size_t vertices = pos->count;
+    // Positions, normals and UVs: 8 floats a vertex. Then the index list, 4 bytes an entry.
+    constexpr std::size_t kVertexBytes = 8 * sizeof(float);
+    if (vertices > budget / kVertexBytes) return false;
+    budget -= vertices * kVertexBytes;
+    const std::size_t entries = p.indices != nullptr ? p.indices->count : vertices;
+    if (entries > budget / sizeof(uint32_t)) return false;
+    budget -= entries * sizeof(uint32_t);
     m.positions.resize(vertices * 3);
     if (cgltf_accessor_unpack_floats(pos, m.positions.data(), m.positions.size()) != m.positions.size()) return false;
 
@@ -534,8 +543,9 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
     if (maxTargets > low.maxMorphTargets) warn(r, Warning::SimplifiedMorphTargetsOff, countOf(maxTargets, "morph targets"));
 
     std::vector<ModelMesh> meshes(g.prims.size());
+    std::size_t unpackBudget = kMaxDecodedBytes;
     for (std::size_t i = 0; i < g.prims.size(); ++i) {
-        if (!readMesh(data.get(), *g.prims[i], meshes[i])) {
+        if (!readMesh(data.get(), *g.prims[i], meshes[i], unpackBudget)) {
             refuse(r, Refusal::Malformed, "mesh " + std::to_string(i));
             return r;
         }

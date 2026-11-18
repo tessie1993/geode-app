@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "output/PreRoll.hpp"
+#include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
@@ -22,6 +23,11 @@ constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
 constexpr int kPcmCapacity = 512 * 8;
+// A renderer's own ring (Renderer::hearOwn): a second at the capture rate, published a runway at a time.
+constexpr int kOwnRingMs = 1000;
+constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
+static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
+constexpr int kOwnRingRunway = 1 << 14;
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -96,25 +102,71 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
-        if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
-            sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-            sound_->setTuning(soundTuning_);
-            // An export's track is the player from its first sample, the pre-roll's included (beginFrame).
-            if (offscreen_.load(std::memory_order_relaxed)) sound_->setPlayerSource(true);
-        }
-        sound_->write(interleaved, frames, channels);
+        soundWave_.write(interleaved, frames, channels, sampleRateHz);
+        if (!sharedSound_) hearOwn(interleaved, frames, channels, sampleRateHz);
     }
-    // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
+    // MilkDrop's raw PCM is what this renderer just heard (#360): one ring, one cursor, every surface.
     // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.write(interleaved, frames, channels, sampleRateHz);
 }
 
+// Under soundLock_: audio only this renderer hears, into its own ring and analysis.
+void Renderer::hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    const bool offscreen = offscreen_.load(std::memory_order_relaxed);
+    if (!ownSound_) {
+        try {
+            ownRing_ = std::make_shared<audio::ingest::PcmRing>(kOwnRingFrames, 2, kOwnRingRunway);
+            ownSound_ = std::make_shared<sound::SharedAnalysis>(ownRing_);
+        } catch (...) {
+            // No memory: this block is not analysed, the next one tries again.
+            ownSound_.reset();
+            ownRing_.reset();
+            return;
+        }
+        ownSound_->thread().setTuning(soundTuning_);
+        // An export's track is the player from its first sample, the pre-roll's included (beginFrame), and its
+        // analysis runs inline; a live one runs on its own thread.
+        if (offscreen) {
+            ownSound_->thread().setPlayerSource(true);
+        } else {
+            ownListening_ = sound::SharedAnalysis::Listening(ownSound_);
+        }
+        ownUnpumped_ = 0;
+        soundReader_.restart();
+    }
+    for (int done = 0; done < frames;) {
+        const int n = std::min(frames - done, kOwnRingRunway);
+        // An export's pre-roll is written whole before frame 0: pumped before the ring could lap the analysis.
+        if (offscreen && ownUnpumped_ + n > kOwnRingFrames / 2) {
+            ownSound_->thread().pump(0.0f);
+            ownUnpumped_ = 0;
+        }
+        ownRing_->writeFloat(interleaved + static_cast<size_t>(done) * static_cast<size_t>(channels), n, channels,
+                             sampleRateHz);
+        ownUnpumped_ += n;
+        done += n;
+    }
+}
+
+void Renderer::hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    if (analysis == sharedSound_) return;
+    sharedSound_ = std::move(analysis);
+    soundReader_.restart();
+    if (!sharedSound_) return;
+    sharedSound_->thread().setTuning(soundTuning_);
+    ownListening_ = {};
+    ownSound_.reset();
+    ownRing_.reset();
+}
+
 void Renderer::resetAudio() {
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        if (sound_) sound_->reset();
+        soundWave_.reset();
+        // The shared analysis restarts at the epoch on its own; the own ring starts one.
+        if (!sharedSound_ && ownRing_) ownRing_->beginEpoch();
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
@@ -123,7 +175,16 @@ void Renderer::resetAudio() {
 bool Renderer::endPreRoll(int64_t rangeStartMs) {
     {
         std::lock_guard<std::mutex> lock(soundLock_);
-        if (!output::endPreRoll(sound_.get(), output::preRollFor(rangeStartMs))) return false;
+        if (!ownSound_ || ownRing_->headFrames() <= 0) return false;
+        sound::AnalysisThread& analysis = ownSound_->thread();
+        analysis.pump(0.0f);
+        ownUnpumped_ = 0;
+        soundReader_.heardThrough(analysis, ownRing_->headFrames());
+        if (output::preRollFor(rangeStartMs).boundary) {
+            analysis.trackBoundary();
+            analysis.pump(0.0f);
+            sectionChangeOwed_ = true;
+        }
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
@@ -134,7 +195,9 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     // Clamped here, so a NaN Reactivity reaches the engine as the default one, not a NaN.
     soundTuning_ = sound::tuning::clamp(tuning);
-    if (sound_) sound_->setTuning(soundTuning_);
+    if (sharedSound_) sharedSound_->thread().setTuning(soundTuning_);
+    if (ownSound_) ownSound_->thread().setTuning(soundTuning_);
+    soundWave_.setTrimDb(soundTuning_.inputTrimDb);
 }
 
 double Renderer::monotonicSeconds() {
@@ -210,7 +273,7 @@ void Renderer::applyMilkRequests() {
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
@@ -534,7 +597,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 float Renderer::supersampleFactor(int width, int height) {
@@ -634,7 +697,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     };
     if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
-        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
         trailPass_.releaseTargets();

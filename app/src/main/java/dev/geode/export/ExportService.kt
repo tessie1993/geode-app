@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import dev.geode.RingLog
 import dev.geode.appLaunchIntent
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
@@ -126,6 +127,7 @@ class ExportService : Service() {
 
         fun start(context: Context) {
             runCatching { context.startForegroundService(Intent(context, ExportService::class.java)) }
+                .onFailure { RingLog.note(TAG, "start refused: $it") }
         }
     }
 }

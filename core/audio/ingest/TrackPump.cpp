@@ -1,5 +1,6 @@
 #include "audio/ingest/TrackPump.hpp"
 
+#include <chrono>
 #include <cstring>
 #include <stdexcept>
 #include <unistd.h>
@@ -21,7 +22,7 @@ bool DecodeSource::step(TrackFeed& feed) {
     return !ended_;
 }
 
-std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, const DecoderOpener& openDecoder) {
+std::unique_ptr<AiffReader> openAiff(const TrackSpan& span) {
     const int own = ::dup(span.fd);
     if (own < 0) throw std::runtime_error("track descriptor not duplicated");
     // Back to the file's start: an earlier open of the same span left the shared position where it stopped, and a
@@ -29,9 +30,11 @@ std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, c
     // span's start itself; with none declared it reads from here, as ParcelFileDescriptor's stream does.
     ::lseek(own, 0, SEEK_SET);
     const int64_t start = span.length < 0 ? 0 : span.offset;
-    if (auto aiff = AiffReader::open(std::make_unique<FdSource>(own, start, span.length))) {
-        return std::make_unique<AiffSource>(std::move(aiff));
-    }
+    return AiffReader::open(std::make_unique<FdSource>(own, start, span.length));
+}
+
+std::unique_ptr<TrackSource> openTrack(const TrackSpan& span, int64_t startMs, const DecoderOpener& openDecoder) {
+    if (auto aiff = openAiff(span)) return std::make_unique<AiffSource>(std::move(aiff));
     std::unique_ptr<DecodePort> port;
     if (openDecoder) port = openDecoder(span, startMs);
     if (!port) return nullptr;
@@ -42,16 +45,34 @@ void TrackPump::step() {
     if (!source_->step(feed_)) ended_ = true;
 }
 
+// One step, false once the source is stuck: `until` passed with no audio put in the feed. Both loops step only
+// with nothing held (no rate yet, or the listener emptied the held chunk), so frames held after the step are what
+// it decoded, and they start the wait again; a step that only waited on the codec, or handed over an empty
+// buffer, does not.
+bool TrackPump::stepWithin(std::chrono::steady_clock::time_point& until) {
+    step();
+    const auto now = now_();
+    if (feed_.heldFrames() > 0) {
+        until = now + kStuckAfter;
+        return true;
+    }
+    return now < until;
+}
+
 bool TrackPump::rateKnown() {
     // The rate is only known once the source has produced something.
-    while (!feed_.hasRate() && !ended_) step();
+    auto until = now_() + kStuckAfter;
+    while (!feed_.hasRate() && !ended_) {
+        if (!stepWithin(until)) return false;
+    }
     return feed_.hasRate();
 }
 
 bool TrackPump::hearUntilTarget(TrackListener& listener) {
+    auto until = now_() + kStuckAfter;
     while (!listener.hear(feed_)) {
         if (ended_) return false;
-        step();
+        if (!stepWithin(until)) return false;
     }
     return true;
 }

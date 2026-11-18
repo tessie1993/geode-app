@@ -33,7 +33,7 @@ int pack(const std::vector<std::vector<int>>& lists, int* out, int max_out) {
 extern "C" {
 
 int geode_library_search(const char* const* rows, int track_count, const char* query, const char* focus,
-                         const char* artist, const char* album, const char* title, int* out, int max_out) {
+                         const char* artist, const char* album, const char* title, int* out, int max_out) try {
     if (track_count < 0 || (track_count > 0 && !rows)) return 0;
     std::vector<geode::library::SearchRow> library;
     library.reserve(static_cast<size_t>(track_count));
@@ -48,6 +48,8 @@ int geode_library_search(const char* const* rows, int track_count, const char* q
         for (int i = 0; i < n && i < max_out; ++i) out[i] = hits[static_cast<size_t>(i)];
     }
     return n;
+} catch (...) {
+    return 0;
 }
 
 struct geode_library_index {
@@ -55,7 +57,7 @@ struct geode_library_index {
 };
 
 geode_library_index* geode_library_index_create(const char* const* rows, const long long* durations_ms,
-                                                const long long* added_sec, int track_count) {
+                                                const long long* added_sec, int track_count) try {
     if (track_count < 0 || (track_count > 0 && !rows)) return nullptr;
     const auto n = static_cast<size_t>(track_count);
     std::vector<geode::library::SearchRow> library;
@@ -66,11 +68,13 @@ geode_library_index* geode_library_index_create(const char* const* rows, const l
     if (durations_ms) durations.assign(durations_ms, durations_ms + n);
     if (added_sec) added.assign(added_sec, added_sec + n);
     return new geode_library_index{geode::library::SearchIndex(library, durations, added)};
+} catch (...) {
+    return nullptr;
 }
 
 void geode_library_index_destroy(geode_library_index* index) { delete index; }
 
-int geode_library_index_order(const geode_library_index* index, int sort, int* out, int max_out) {
+int geode_library_index_order(const geode_library_index* index, int sort, int* out, int max_out) try {
     if (!index) return 0;
     using geode::library::Sort;
     const Sort by = sort >= static_cast<int>(Sort::Title) && sort <= static_cast<int>(Sort::Added)
@@ -82,9 +86,11 @@ int geode_library_index_order(const geode_library_index* index, int sort, int* o
         for (int i = 0; i < n && i < max_out; ++i) out[i] = rows[static_cast<size_t>(i)];
     }
     return n;
+} catch (...) {
+    return 0;
 }
 
-int geode_library_index_search(const geode_library_index* index, const char* query, int* out, int max_out) {
+int geode_library_index_search(const geode_library_index* index, const char* query, int* out, int max_out) try {
     if (!index) return 0;
     const geode::library::SearchHits hits = index->index.search(view(query));
     std::vector<int> packed = {static_cast<int>(hits.tracks.size()), static_cast<int>(hits.albums.size()),
@@ -97,11 +103,13 @@ int geode_library_index_search(const geode_library_index* index, const char* que
         for (int i = 0; i < n && i < max_out; ++i) out[i] = packed[static_cast<size_t>(i)];
     }
     return n;
+} catch (...) {
+    return 0;
 }
 
 int geode_search_sheet(const char* const* tracks, const unsigned char* preferred, int track_count,
                        const char* const* playlists, int playlist_count, const char* const* presets, int preset_count,
-                       const char* query, int* out, int max_out) {
+                       const char* query, int* out, int max_out) try {
     using geode::library::SheetTrack;
     const bool counted = track_count >= 0 && playlist_count >= 0 && preset_count >= 0;
     const bool held = (track_count <= 0 || tracks) && (playlist_count <= 0 || playlists) && (preset_count <= 0 || presets);
@@ -118,6 +126,8 @@ int geode_search_sheet(const char* const* tracks, const unsigned char* preferred
                                            view(query));
     }
     return pack({hits.tracks, hits.playlists, hits.presets}, out, max_out);
+} catch (...) {
+    return 0;
 }
 
 }  // extern "C"

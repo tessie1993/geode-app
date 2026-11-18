@@ -47,16 +47,33 @@ float facingOf(float speed) {
 
 float wobble(float t, float a, float b) { return 0.6f * std::sin(t * a) + 0.4f * std::sin(t * b + 1.7f); }
 
+// An input the rig reads, with a NaN or an infinity read as the given neutral value: std::clamp passes a NaN
+// through, and a spring that takes one keeps it.
+float finiteOr(float v, float neutral) { return std::isfinite(v) ? v : neutral; }
+
 }  // namespace
 
+// A non-finite target or result is refused: the spring holds where it is and stops, so one bad frame
+// cannot latch the pose.
 void CameraRig::Spring::step(float target, float dt, float seconds) {
     const float omega = 2.0f / std::max(seconds, 1e-3f);
     const float k = omega * dt;
     const float e = std::exp(-k);
     const float d = x - target;
     const float t = (v + omega * d) * dt;
-    x = target + (d + t) * e;
-    v = (v - omega * t) * e;
+    const float nx = target + (d + t) * e;
+    const float nv = (v - omega * t) * e;
+    if (!std::isfinite(target) || !std::isfinite(nx) || !std::isfinite(nv)) {
+        v = 0.0f;
+        return;
+    }
+    x = nx;
+    v = nv;
+}
+
+void CameraRig::Spring::reset(float to) {
+    if (std::isfinite(to)) x = to;
+    v = 0.0f;
 }
 
 void CameraRig::reset() {
@@ -144,14 +161,18 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Same frame-time rule as viz/Reactions: non-finite is no time at all.
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
-    const float soft = 0.08f + 0.72f * std::clamp(p.camSmooth, 0.0f, 1.0f);
-    const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);
-    const float lookPitch = p.camPitch * kMaxPitch + (p.camTouch || p.camGyro ? look.pitch * kTouchLook : 0.0f);
-    float fovTarget = std::clamp(p.camFov, 0.5f, 2.0f);
+    // Every float read from p and look goes through finiteOr: a move reads as none, the lens as plain (1),
+    // the smoothing as its default.
+    const float camSmooth = finiteOr(p.camSmooth, SceneParams::spec(ParamSlot::camSmooth).defaultValue);
+    const float camOrbit = finiteOr(p.camOrbit, 0.0f);
+    const float soft = 0.08f + 0.72f * std::clamp(camSmooth, 0.0f, 1.0f);
+    const float lookYaw = finiteOr(p.camYaw, 0.0f) * kMaxYaw + (p.camTouch || p.camGyro ? finiteOr(look.yaw, 0.0f) * kTouchLook : 0.0f);
+    const float lookPitch = finiteOr(p.camPitch, 0.0f) * kMaxPitch + (p.camTouch || p.camGyro ? finiteOr(look.pitch, 0.0f) * kTouchLook : 0.0f);
+    float fovTarget = std::clamp(finiteOr(p.camFov, 1.0f), 0.5f, 2.0f);
     // camFly arrives already scaled for reduced motion by safety::apply, its one owner, so forward
     // travel takes it as it is; g is for the rig's own moves below. Endless zoom is not the rig's: it is
     // a stage of its own over every style's picture (EndlessZoom.hpp).
-    float speedTarget = std::clamp(p.camFly, -2.5f, 2.5f) * kBaseSpeed;
+    float speedTarget = std::clamp(finiteOr(p.camFly, 0.0f), -2.5f, 2.5f) * kBaseSpeed;
     const int path = std::clamp(p.camPath, 0, kPathCount - 1);
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
     // Sources: the zoom on bass_att that MilkDrop presets use; lag-shaped
@@ -169,7 +190,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         auto val = [](float v) { return std::isfinite(v) ? v : 0.0f; };
         // The reach is the absolute drive (core/sound/DriveGain), not the song's own rise over its average:
         // an ambient pad moves the camera a little, a loud dense track fully, whatever either is mastered at.
-        const float amp = std::clamp(p.motionAmount, 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
+        const float amp = std::clamp(finiteOr(p.motionAmount, 0.0f), 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
                           sound::driveGain(s);
         sinceCut_ += dt;
 
@@ -209,8 +230,8 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Fall tips the nose down and rise up, eased by the pitch spring like any look.
     const float pathPitch = path == 5 ? -kFallPitch * g : (path == 6 ? kFallPitch * g : 0.0f);
     const float lookPitchTarget = lookPitch + pathPitch;
-    const float rollTarget = p.camRoll * kMaxRoll * g;
-    const float dollyTarget = std::clamp(p.camPush + soundDolly, -1.0f, 1.0f);
+    const float rollTarget = finiteOr(p.camRoll, 0.0f) * kMaxRoll * g;
+    const float dollyTarget = std::clamp(finiteOr(p.camPush, 0.0f) + soundDolly, -1.0f, 1.0f);
     fovTarget = std::clamp(fovTarget, 0.5f, 2.0f);
     if (!primed_ || cut) {
         yaw_.reset(lookYawTarget);
@@ -222,7 +243,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
             speed_.reset(speedTarget);
             facing_.reset(facingOf(speedTarget));
         }
-        orbit_.reset(p.camOrbit * g);
+        orbit_.reset(camOrbit * g);
         primed_ = true;
     }
     yaw_.step(lookYawTarget, dt, soft);
@@ -235,7 +256,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     speed_.step(speedTarget, dt, soft * 2.0f);
     // Swing sets the size of a wander that already takes tens of seconds to cross; a slow spring on
     // top of that hid the slider for seconds more.
-    orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft);
+    orbit_.step(std::clamp(camOrbit, 0.0f, 1.0f) * g, dt, soft);
     facing_.step(facingOf(speed_.x), dt, kTurnAroundSeconds);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);
@@ -279,7 +300,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         const float th = 96.0f * kW * travel_;
         bank += std::atan2(g * std::sin(th), 1.0f - g + g * std::cos(th));
     }
-    const float shake = std::clamp(p.camShake, 0.0f, 1.0f) * kShakeRadians * g;
+    const float shake = std::clamp(finiteOr(p.camShake, 0.0f), 0.0f, 1.0f) * kShakeRadians * g;
     // The trauma shake goes on the view only, after the springs, so it never feeds back into the pose.
     const float trauma = trauma_ * trauma_ * kTraumaRadians;
     const float sYaw = shake * wobble(time_, 7.3f, 11.9f) + trauma * wobble(traumaClock_, 1.0f, 1.618f);

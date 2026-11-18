@@ -30,8 +30,9 @@
 //            lock key and the search term); rows of one control share it ("Palette" is the palette and
 //            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
-//   flags    kMod: an LfoTarget writes the field, so the modulation pickers and the macro bank offer
-//            it (ModTargets). 0: none.
+//   flags    kMod: an LfoTarget writes the field (it has a mod row below), so the modulation pickers and the macro bank offer
+//            it (ModTargets). kInput: an input preference, not part of a look, so a look that replaces the
+//            live params keeps it (SceneParams::keepInputs). 0: none.
 //   rollLo, rollHi
 //            the range the Randomize roll draws a number from (ParamRandomizer); 0, 0 where the roll
 //            draws none: a switch, a pick over the whole schema range, or a field no roll writes.
@@ -44,8 +45,19 @@
 //
 //   GEODE_PARAM_CHOICES(name, "first", "second", ...)
 //
-// params_schema_test holds each row's count to its field's min..max. Each includer defines the macros
-// it reads; the others expand to nothing.
+// params_schema_test holds each row's count to its field's min..max.
+//
+// Under a field a wave, an envelope, a reaction route or a macro knob can move, its mod row (viz/ModTable.hpp):
+//
+//   GEODE_PARAM_MOD(name, scale, flags)
+//
+//   scale    how far one unit of modulation moves the field, in its own units (a full-depth wave swings it
+//            +-scale); the clamp is the field's min..max, and a Circular field adds unclamped.
+//   flags    kModLight: the field changes the picture's light or colour, so a wave on it is held to
+//            the flash rate (VisualSafety) and a route's smoothing has the luminance floors. 0: none.
+//
+// Only a live Float or Circular row that fades, with a Customize label, has one (ParamsFields.cpp asserts it), and
+// its meta row's flags then hold kMod. Each includer defines the macros it reads; the others expand to nothing.
 #ifndef GEODE_PARAM
 #define GEODE_PARAM(kind, name, def, lo, hi, fade)
 #define GEODE_PARAM_TABLE_OWN_PARAM
@@ -58,26 +70,37 @@
 #define GEODE_PARAM_CHOICES(name, ...)
 #define GEODE_PARAM_TABLE_OWN_CHOICES
 #endif
+#ifndef GEODE_PARAM_MOD
+#define GEODE_PARAM_MOD(name, scale, flags)
+#define GEODE_PARAM_TABLE_OWN_MOD
+#endif
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
 GEODE_PARAM_META(speed, "Speed", SceneClock, kMod, 0.2f, 2.5f)
+GEODE_PARAM_MOD(speed, 1.0f, 0)
 // A pinch scales Zoom and a twist turns Rotation, held to the catalogue's touch ranges.
 GEODE_PARAM(Float, zoom, 1.0f, catalogue::kTouchZoom.min, catalogue::kTouchZoom.max, Fade)
 GEODE_PARAM_META(zoom, "Zoom", Universal, kMod, 0.6f, 2.0f)
+GEODE_PARAM_MOD(zoom, 1.0f, 0)
 GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTouchRotation.max, Fade)
 GEODE_PARAM_META(rotation, "Rotation", Universal, kMod, -1.5f, 1.5f)
+GEODE_PARAM_MOD(rotation, 1.5f, 0)
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
 GEODE_PARAM_META(endlessZoom, "Endless zoom", EndlessZoom, 0, 0, 0)
 GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, -1.2f, 1.2f, Fade)
 GEODE_PARAM_META(endlessZoomSpeed, "Dive speed", EndlessZoom, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(endlessZoomSpeed, 0.5f, 0)
 GEODE_PARAM(Float, sway, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(sway, "Sway", Universal, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(sway, 1.0f, 0)
 // Retired (SceneParams::retired): no reader since wave three.
 GEODE_PARAM(Float, pulse, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, driftX, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(driftX, "Drift X", Universal, kMod, -0.5f, 0.5f)
+GEODE_PARAM_MOD(driftX, 1.0f, 0)
 GEODE_PARAM(Float, driftY, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(driftY, "Drift Y", Universal, kMod, -0.5f, 0.5f)
+GEODE_PARAM_MOD(driftY, 1.0f, 0)
 // Retired (SceneParams::retired): no reader since wave three.
 GEODE_PARAM(Float, shake, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, audioDrive, 1.0f, 0.2f, 2.5f, Fade)
@@ -88,6 +111,7 @@ GEODE_PARAM_META(audioDrive, "Audio drive", AudioDrive, 0, 0.6f, 1.8f)
 GEODE_PARAM(Float, beatResponse, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM(Float, turbulence, 0.0f, 0.0f, 1.5f, Fade)
 GEODE_PARAM_META(turbulence, "Turbulence", Turbulence, kMod, 0.1f, 1.0f)
+GEODE_PARAM_MOD(turbulence, 1.0f, 0)
 GEODE_PARAM(Float, density, 1.0f, 0.1f, 1.0f, Fade)
 GEODE_PARAM_META(density, "Density", DyeDensity, 0, 0.4f, 1.0f)
 // The user's Detail control; ShaderScene turns it into the march step budget.
@@ -97,6 +121,7 @@ GEODE_PARAM(Bool, trails, true, 0, 1, Hold)
 GEODE_PARAM_META(trails, "Trails", TrailToggle, 0, 0, 0)
 GEODE_PARAM(Float, trailLength, 0.5f, 0.05f, 0.98f, Fade)
 GEODE_PARAM_META(trailLength, "Trail length", TrailLength, kMod, 0.3f, 0.9f)
+GEODE_PARAM_MOD(trailLength, 1.0f, 0)
 GEODE_PARAM(Float, trailZoom, 0.0f, -0.5f, 0.5f, Fade)
 GEODE_PARAM_META(trailZoom, "Trail zoom (echo in/out)", TrailEcho, 0, -0.3f, 0.3f)
 GEODE_PARAM(Float, trailWarp, 0.0f, 0.0f, 1.0f, Fade)
@@ -105,8 +130,10 @@ GEODE_PARAM(Bool, mirror, false, 0, 1, Hold)
 GEODE_PARAM_META(mirror, "Mirror", Universal, 0, 0, 0)
 GEODE_PARAM(Float, warp, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(warp, "Domain warp", Universal, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(warp, 1.0f, 0)
 GEODE_PARAM(Float, ripple, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(ripple, "Ripple", Universal, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(ripple, 1.0f, 0)
 // Retired (SceneParams::retired): the old Kaleidoscope switch and its fold count, replaced by kaleidoFolds (one
 // slider a wave, an envelope, a route and a knob can move). A look saved with them still opens as it was: on
 // load, readParamsJson turns them into kaleidoFolds (SceneParams::kaleidoFoldsOf).
@@ -114,20 +141,26 @@ GEODE_PARAM(Int, symmetry, SceneParams::kDefaultSymmetryFolds, 0, 16, Hold)
 GEODE_PARAM(Bool, kaleidoscope, false, 0, 1, Hold)
 GEODE_PARAM(Float, morph, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(morph, "Morph", ShaderLook, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(morph, 1.0f, 0)
 GEODE_PARAM(Float, pixelate, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(pixelate, "Pixelate", Universal, kMod, 0.2f, 0.6f)
+GEODE_PARAM_MOD(pixelate, 1.0f, 0)
 GEODE_PARAM(Float, posterize, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(posterize, "Posterize", Universal, kMod, 0.2f, 0.6f)
+GEODE_PARAM_MOD(posterize, 1.0f, 0)
 // Seven sprite shapes: Dot, Ring, Star, Square, Spark, Hex, Bubble.
 GEODE_PARAM(Int, particleShape, 0, 0, 6, Hold)
 GEODE_PARAM_META(particleShape, "Particle shape", ParticleSprite, 0, 0, 6)
 GEODE_PARAM_CHOICES(particleShape, "Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
 GEODE_PARAM(Float, particleSize, 1.0f, 0.3f, 2.5f, Fade)
 GEODE_PARAM_META(particleSize, "Particle size", ParticleSprite, kMod, 0.5f, 1.8f)
+GEODE_PARAM_MOD(particleSize, 1.0f, 0)
 GEODE_PARAM(Float, tile, 1.0f, 1.0f, 6.0f, Fade)
 GEODE_PARAM_META(tile, "Tile", Universal, kMod, 2.0f, 4.0f)
+GEODE_PARAM_MOD(tile, 2.0f, 0)
 GEODE_PARAM(Float, twist, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(twist, "Twist", Universal, kMod, -0.8f, 0.8f)
+GEODE_PARAM_MOD(twist, 1.0f, 0)
 // An index into SceneParams::palettes().
 GEODE_PARAM(Int, palette, 0, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
 GEODE_PARAM_META(palette, "Palette", Universal, 0, 0, 0)
@@ -154,13 +187,16 @@ GEODE_PARAM_META(milkdropBlendPresets, "Blend preset changes", Milkdrop, 0, 0, 0
 // A hue turn: 1 is the full circle, and the LFO adds to it unclamped.
 GEODE_PARAM(Circular, colorShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(colorShift, "Hue shift", Universal, kMod, 0.0f, 1.0f)
+GEODE_PARAM_MOD(colorShift, 0.5f, kModLight)
 GEODE_PARAM(Float, hueRange, 1.0f, 0.0f, 1.5f, Fade)
 GEODE_PARAM_META(hueRange, "Hue range", Universal, 0, 0.5f, 1.5f)
 GEODE_PARAM(Float, saturation, 1.0f, 0.0f, 1.5f, Fade)
 GEODE_PARAM_META(saturation, "Saturation", Universal, kMod, 0.4f, 1.4f)
+GEODE_PARAM_MOD(saturation, 1.0f, kModLight)
 // The slider and keyframes stop at 1.25 (1 + the flash clamp's depth); the LFO and the routes reach 2.
 GEODE_PARAM(Float, brightness, 1.0f, 0.2f, 2.0f, Fade)
 GEODE_PARAM_META(brightness, "Brightness", Universal, kMod, 0.7f, 1.25f)
+GEODE_PARAM_MOD(brightness, 1.0f, kModLight)
 GEODE_PARAM(Float, contrast, 1.0f, 0.3f, 1.25f, Fade)
 GEODE_PARAM_META(contrast, "Contrast", Universal, 0, 0.8f, 1.25f)
 GEODE_PARAM(Float, gamma, 1.0f, 0.3f, 2.5f, Fade)
@@ -174,13 +210,16 @@ GEODE_PARAM_META(invert, "Invert", Universal, 0, 0, 0)
 // As brightness: the slider stops at 1.25, the LFO reaches 2.
 GEODE_PARAM(Float, intensity, 1.0f, 0.2f, 2.0f, Fade)
 GEODE_PARAM_META(intensity, "Intensity", Universal, kMod, 0.7f, 1.25f)
+GEODE_PARAM_MOD(intensity, 1.0f, kModLight)
 GEODE_PARAM(Bool, duotone, false, 0, 1, Hold)
 GEODE_PARAM_META(duotone, "Duotone", ShaderLook, 0, 0, 0)
 // The slider and keyframes stop at 0.25 (the flash clamp's depth); the LFO and the routes reach 1.
 GEODE_PARAM(Float, bloom, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(bloom, "Bloom", Universal, kMod, 0.1f, 0.25f)
+GEODE_PARAM_MOD(bloom, 1.0f, kModLight)
 GEODE_PARAM(Float, temperature, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(temperature, "Temperature", Universal, kMod, -0.6f, 0.6f)
+GEODE_PARAM_MOD(temperature, 1.0f, kModLight)
 GEODE_PARAM(Bool, solarize, false, 0, 1, Hold)
 GEODE_PARAM_META(solarize, "Solarize", Universal, 0, 0, 0)
 GEODE_PARAM(Float, bassGain, 1.0f, 0.0f, 2.0f, Fade)
@@ -193,8 +232,10 @@ GEODE_PARAM_META(trebGain, "Treble gain", TrebleBand, 0, 0.8f, 1.4f)
 GEODE_PARAM(Float, flash, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, chromaAb, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(chromaAb, "Chromatic aberration", Universal, kMod, 0.1f, 0.5f)
+GEODE_PARAM_MOD(chromaAb, 1.0f, 0)
 GEODE_PARAM(Float, vignette, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(vignette, "Vignette", Universal, kMod, 0.1f, 0.6f)
+GEODE_PARAM_MOD(vignette, 1.0f, kModLight)
 GEODE_PARAM(Float, scanlines, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(scanlines, "Scanlines", Universal, 0, 0.15f, 0.5f)
 GEODE_PARAM(Float, grain, 0.0f, 0.0f, 1.0f, Fade)
@@ -203,6 +244,7 @@ GEODE_PARAM_META(grain, "Film grain", Universal, 0, 0.1f, 0.4f)
 GEODE_PARAM(Float, glitch, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, fisheye, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(fisheye, "Fisheye", Universal, kMod, -0.5f, 0.5f)
+GEODE_PARAM_MOD(fisheye, 1.0f, 0)
 // Retired (SceneParams::retired): the composite's strobe is gone.
 GEODE_PARAM(Float, strobe, 0.0f, 0.0f, 1.0f, Fade)
 // Customize › Advanced › Glide between settings, in seconds: the fade's own length, never faded.
@@ -220,16 +262,20 @@ GEODE_PARAM(Float, fluidPressure, 0.8f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(fluidPressure, "Pressure", FluidSim, 0, 0.5f, 0.95f)
 GEODE_PARAM(Float, fluidCurl, 30.0f, 0.0f, 50.0f, Fade)
 GEODE_PARAM_META(fluidCurl, "Fluid curl", FluidSim, kMod, 5.0f, 45.0f)
+GEODE_PARAM_MOD(fluidCurl, 25.0f, 0)
 GEODE_PARAM(Float, fluidVelocityDissipation, 0.2f, 0.0f, 4.0f, Fade)
 GEODE_PARAM_META(fluidVelocityDissipation, "Motion fade", FluidSim, 0, 0.02f, 0.6f)
 GEODE_PARAM(Float, fluidDensityDissipation, 1.0f, 0.0f, 4.0f, Fade)
 GEODE_PARAM_META(fluidDensityDissipation, "Fluid fade", FluidSim, kMod, 0.2f, 2.2f)
+GEODE_PARAM_MOD(fluidDensityDissipation, 1.5f, 0)
 GEODE_PARAM(Float, fluidChromaticAging, 0.3f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(fluidChromaticAging, "Chromatic aging", FluidSim, 0, 0.0f, 0.8f)
 GEODE_PARAM(Float, fluidSplatRadius, 0.12f, 0.02f, 0.4f, Fade)
 GEODE_PARAM_META(fluidSplatRadius, "Fluid splat radius", Emitters, kMod, 0.05f, 0.25f)
+GEODE_PARAM_MOD(fluidSplatRadius, 0.15f, 0)
 GEODE_PARAM(Float, fluidSplatForce, 1.0f, 0.0f, 3.0f, Fade)
 GEODE_PARAM_META(fluidSplatForce, "Fluid splat force", Emitters, kMod, 0.5f, 2.0f)
+GEODE_PARAM_MOD(fluidSplatForce, 1.5f, 0)
 // Center, Ring, Random, Spectrum (FluidEmitters clamps to the same).
 GEODE_PARAM(Int, fluidBeatPattern, 1, 0, 3, Hold)
 GEODE_PARAM_META(fluidBeatPattern, "Hit pattern", Emitters, 0, 0, 3)
@@ -258,8 +304,10 @@ GEODE_PARAM(Int, fluidCatchPoints, 2, 0, 4, Hold)
 GEODE_PARAM_META(fluidCatchPoints, "Catch points", Journey, 0, 0, 3)
 GEODE_PARAM(Float, fluidCatchPull, 1.0f, 0.0f, 3.0f, Fade)
 GEODE_PARAM_META(fluidCatchPull, "Catch pull", Journey, kMod, 0.4f, 1.8f)
+GEODE_PARAM_MOD(fluidCatchPull, 1.5f, 0)
 GEODE_PARAM(Float, fluidCatchRadius, 0.12f, 0.03f, 0.3f, Fade)
 GEODE_PARAM_META(fluidCatchRadius, "Catch radius", Journey, kMod, 0.06f, 0.2f)
+GEODE_PARAM_MOD(fluidCatchRadius, 0.12f, 0)
 GEODE_PARAM(Bool, fluidParticlesEnabled, true, 0, 1, Hold)
 GEODE_PARAM_META(fluidParticlesEnabled, "Particle layer", FluidSim, 0, 0, 0)
 GEODE_PARAM(Float, fluidParticleLife, 6.0f, 1.0f, 20.0f, Fade)
@@ -276,6 +324,7 @@ GEODE_PARAM(Bool, fluidBloom, true, 0, 1, Hold)
 GEODE_PARAM_META(fluidBloom, "Glow (fluid)", FluidSim, 0, 0, 0)
 GEODE_PARAM(Float, fluidBloomIntensity, 0.8f, 0.1f, 2.0f, Fade)
 GEODE_PARAM_META(fluidBloomIntensity, "Fluid glow", FluidSim, kMod, 0.4f, 1.4f)
+GEODE_PARAM_MOD(fluidBloomIntensity, 1.0f, 0)
 GEODE_PARAM(Float, fluidBloomThreshold, 0.6f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(fluidBloomThreshold, "Glow threshold", FluidSim, 0, 0.4f, 0.8f)
 GEODE_PARAM(Bool, fluidSunrays, true, 0, 1, Hold)
@@ -297,10 +346,13 @@ GEODE_PARAM(Bool, flowEnabled, false, 0, 1, Hold)
 GEODE_PARAM_META(flowEnabled, "Flow field on", Universal, 0, 0, 0)
 GEODE_PARAM(Float, flowStrength, 0.35f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(flowStrength, "Flow strength", Universal, kMod, 0.1f, 0.7f)
+GEODE_PARAM_MOD(flowStrength, 1.0f, 0)
 GEODE_PARAM(Float, flowForce, 1.0f, 0.0f, 3.0f, Fade)
 GEODE_PARAM_META(flowForce, "Flow force", FlowFieldSim, kMod, 0.4f, 2.0f)
+GEODE_PARAM_MOD(flowForce, 1.5f, 0)
 GEODE_PARAM(Float, flowCurl, 25.0f, 0.0f, 50.0f, Fade)
 GEODE_PARAM_META(flowCurl, "Flow curl", FlowFieldSim, kMod, 5.0f, 40.0f)
+GEODE_PARAM_MOD(flowCurl, 25.0f, 0)
 // Retired (SceneParams::retired): the Water style's knobs. Pool replaced Water and reads none of them.
 GEODE_PARAM(Float, waterWaveSpeed, 1.0f, 0.2f, 2.0f, Fade)
 GEODE_PARAM(Float, waterDamping, 0.985f, 0.9f, 0.999f, Fade)
@@ -369,6 +421,7 @@ GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 // Travel speed along the path, negative backward: the slider stops at -2..2, the LFO and the routes reach 2.5.
 GEODE_PARAM(Float, camFly, 0.5f, -2.5f, 2.5f, Fade)
 GEODE_PARAM_META(camFly, "Fly speed", Universal, kMod, 0.2f, 1.4f)
+GEODE_PARAM_MOD(camFly, 1.0f, 0)
 // 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise, 7 weave, 8 corkscrew, 9 swoop, 10 strafe,
 // 11 pendulum (CameraRig clamps to the same).
 GEODE_PARAM(Int, camPath, 0, 0, 11, Hold)
@@ -378,31 +431,38 @@ GEODE_PARAM_CHOICES(camPath, "Glide", "Spiral", "Orbit", "Hover", "Drive", "Fall
 // Sideways swing, or the orbit's radius.
 GEODE_PARAM(Float, camOrbit, 0.35f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camOrbit, "Swing", Universal, kMod, 0.1f, 0.8f)
+GEODE_PARAM_MOD(camOrbit, 1.0f, 0)
 // The dolly offset.
 GEODE_PARAM(Float, camPush, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(camPush, "Push in", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(camPush, 1.0f, 0)
 // The look offsets.
 GEODE_PARAM(Float, camYaw, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(camYaw, "Look turn", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(camYaw, 1.0f, 0)
 GEODE_PARAM(Float, camPitch, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(camPitch, "Look tilt", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(camPitch, 1.0f, 0)
 GEODE_PARAM(Float, camRoll, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(camRoll, "Roll", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(camRoll, 1.0f, 0)
 // A field-of-view multiplier.
 GEODE_PARAM(Float, camFov, 1.0f, 0.5f, 2.0f, Fade)
 GEODE_PARAM_META(camFov, "Field of view", Universal, kMod, 0.8f, 1.4f)
+GEODE_PARAM_MOD(camFov, 1.0f, 0)
 // Handheld wobble.
 GEODE_PARAM(Float, camShake, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camShake, "Handheld shake", Universal, kMod, 0.1f, 0.5f)
+GEODE_PARAM_MOD(camShake, 1.0f, 0)
 // Spring softness: 0 tight .. 1 floaty.
 GEODE_PARAM(Float, camSmooth, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camSmooth, "Camera smoothing", Universal, 0, 0, 0)
 // Drag to look around.
 GEODE_PARAM(Bool, camTouch, false, 0, 1, Hold)
-GEODE_PARAM_META(camTouch, "Drag to look", Universal, 0, 0, 0)
+GEODE_PARAM_META(camTouch, "Drag to look", Universal, kInput, 0, 0)
 // Phone tilt steers the view (never in an export).
 GEODE_PARAM(Bool, camGyro, false, 0, 1, Hold)
-GEODE_PARAM_META(camGyro, "Tilt phone to look", Universal, 0, 0, 0)
+GEODE_PARAM_META(camGyro, "Tilt phone to look", Universal, kInput, 0, 0)
 // The global scale of every reaction route.
 GEODE_PARAM(Float, reactAmount, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(reactAmount, "Reaction strength", Universal, 0, 0, 0)
@@ -479,11 +539,14 @@ GEODE_PARAM_META(diveSpacing, "Ring spacing", EndlessZoom, 0, 0.7f, 1.6f)
 // Quarter turns a copy makes per octave it grows: the tunnel as a spiral.
 GEODE_PARAM(Float, diveTwist, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(diveTwist, "Dive twist", EndlessZoom, kMod, -0.6f, 0.6f)
+GEODE_PARAM_MOD(diveTwist, 0.5f, 0)
 // The vanishing point, -1..1 across the frame. Where the user points the dive: no roll draws it.
 GEODE_PARAM(Float, diveAimX, 0.0f, -0.6f, 0.6f, Fade)
 GEODE_PARAM_META(diveAimX, "Dive aim X", EndlessZoom, kMod, 0, 0)
+GEODE_PARAM_MOD(diveAimX, 0.5f, 0)
 GEODE_PARAM(Float, diveAimY, 0.0f, -0.6f, 0.6f, Fade)
 GEODE_PARAM_META(diveAimY, "Dive aim Y", EndlessZoom, kMod, 0, 0)
+GEODE_PARAM_MOD(diveAimY, 0.5f, 0)
 // A copy's outline: 0 round, 0.5 the rounded frame, 1 nearly square.
 GEODE_PARAM(Float, diveShape, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(diveShape, "Tunnel shape", EndlessZoom, 0, 0.0f, 1.0f)
@@ -508,24 +571,33 @@ GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
 // what LfoTarget::PaletteMix writes (the old Palette blend's slot), on shader styles.
 GEODE_PARAM(Float, paletteAmount0, 1.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount0, "Palette 1 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount0, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount1, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount1, "Palette 2 amount", ShaderLook, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount1, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount2, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount2, "Palette 3 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount2, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount3, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount3, "Palette 4 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount3, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount4, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount4, "Palette 5 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount4, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount5, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount5, "Palette 6 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount5, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount6, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount6, "Palette 7 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount6, 1.0f, kModLight)
 GEODE_PARAM(Float, paletteAmount7, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteAmount7, "Palette 8 amount", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteAmount7, 1.0f, kModLight)
 // Where along the stack's ramp the colours sit: the walk Hue shift and moment colours will drive, so colour
 // moves stay inside the palettes. A turn of 1 is the whole ramp; the LFO adds unclamped.
 GEODE_PARAM(Circular, paletteShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(paletteShift, 0.5f, kModLight)
 
 // The kaleidoscope as one slider (Customize › Shape): 1 is off, 2..16 the folds. Appended so every wire index
 // survives; it replaces the retired kaleidoscope switch and symmetry count. A float, so a wave, an envelope, a
@@ -534,6 +606,7 @@ GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 // keeps the old switch's odds and deals a count from kSymmetryFolds (ParamRandomizer), so no roll range here.
 GEODE_PARAM(Float, kaleidoFolds, 1.0f, 1.0f, 16.0f, Fade)
 GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(kaleidoFolds, 8.0f, 0)
 
 // Customize › Layers' mix as a modulation target (LfoTarget::LayerMix): what waves, envelopes, reaction routes and
 // macro knobs add to the mix the Layers page sets (viz/LayerState), which stays the base. A look holds 0 here, so
@@ -541,6 +614,7 @@ GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 // every wire index survives. No roll deals it (the layer is the user's), and no style reads it.
 GEODE_PARAM(Float, layerMix, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(layerMix, 1.0f, kModLight)
 
 // The physics layers (viz/physics): a low-res fluid the finished picture seeds and stirs, drawn behind or over
 // it, and particles that ride that fluid (or a curl drift with the fluid off), drawn in front: back fluid | style
@@ -550,14 +624,18 @@ GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
 // survives; no roll deals them (they are the user's), and no style reads them.
 GEODE_PARAM(Float, simFluid, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(simFluid, "Fluid layer", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(simFluid, 1.0f, kModLight)
 GEODE_PARAM(Float, simParticles, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(simParticles, "Particle field", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(simParticles, 1.0f, kModLight)
 // How hard the picture stirs the fluid and how fast the particles drift: 1 as designed, 2 twice, 0 still.
 GEODE_PARAM(Float, simForce, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(simForce, "Physics force", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(simForce, 1.0f, 0)
 // Where the fluid sits: 0 behind the style (it shows through the style's darks), 1 over it (screened on).
 GEODE_PARAM(Float, simLayerOrder, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(simLayerOrder, "Fluid in front", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(simLayerOrder, 1.0f, kModLight)
 
 // Grow and layers (Customize › Shape): four shape params the music can drive, each a modulation target
 // (LfoTarget::Spawn .. BackLayer), so a reaction route, a wave, an envelope or a macro knob can move it. Drawn
@@ -570,10 +648,12 @@ GEODE_PARAM_META(simLayerOrder, "Fluid in front", Universal, kMod, 0, 0)
 // it rises (the petals, shards, threads or rosettes double, then drift between the first).
 GEODE_PARAM(Float, spawn, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(spawn, "Spawn", FamilyForm, kMod, 0, 0)
+GEODE_PARAM_MOD(spawn, 1.0f, 0)
 // Fractal: the subject fractals out. Smaller self-similar copies of it grow on its own surface, out to a
 // shell that thickens as it rises.
 GEODE_PARAM(Float, fractal, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(fractal, "Fractal", FamilyForm, kMod, 0, 0)
+GEODE_PARAM_MOD(fractal, 1.0f, 0)
 // Front layer and Back layer: how far the foreground and the background open or draw in. 0 is as designed;
 // up opens that layer, down draws it in. The layers are depth (lib_grow): flown through, what is round
 // the eye and what lies down the way; turned about, the subject and what lies beyond it; a family with a
@@ -581,8 +661,10 @@ GEODE_PARAM_META(fractal, "Fractal", FamilyForm, kMod, 0, 0)
 // move one layer alone: the subject pulses with the kick while only the backdrop breathes with the chord.
 GEODE_PARAM(Float, frontLayer, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(frontLayer, "Front layer", FamilyForm, kMod, 0, 0)
+GEODE_PARAM_MOD(frontLayer, 1.0f, 0)
 GEODE_PARAM(Float, backLayer, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
+GEODE_PARAM_MOD(backLayer, 1.0f, 0)
 
 // Formula (Customize › Shape › Grow): which of a raymarched style's own distance formulas draws it, 0 the
 // style's first. A style that keeps two to four alternatives (another fold operator, primitive or iteration
@@ -592,6 +674,7 @@ GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
 // (Scope::Formula): the Shard, Prism, Fluor, Loom, Petal and Fold styles; at 0 every style draws its first formula, as before.
 GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
+GEODE_PARAM_MOD(formula, 1.0f, 0)
 
 // Shapes (Customize › Shape › Grow): how far a raymarched style's own form takes in the morphing shape graph
 // (viz/ShapeGraph; ShaderScene uploads it as uShapeMix): up to eight primitives that union, melt, cut and mask one another, whose colours
@@ -603,6 +686,7 @@ GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
 // wire slot 198 so every wire index survives.
 GEODE_PARAM(Float, shapes, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(shapes, "Shapes", Shapes, kMod, 0, 0)
+GEODE_PARAM_MOD(shapes, 1.0f, 0)
 
 // Soft shadows (Customize › Look › Light detail): how dark the key light's soft shadows fall on a raymarched
 // style's lit surface (lib_shade: a shadow ray toward the key keeps min(k d / t), so the penumbra widens with
@@ -614,6 +698,7 @@ GEODE_PARAM_META(shapes, "Shapes", Shapes, kMod, 0, 0)
 // key-lit surface. No roll deals it. Appended at wire slot 199 so every wire index survives.
 GEODE_PARAM(Float, shadow, 0.6f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(shadow, "Soft shadows", Shadow, kMod, 0, 0)
+GEODE_PARAM_MOD(shadow, 1.0f, kModLight)
 
 // Escape colour (Customize › Look › Colour detail): how far a fractal fold's escape (the iteration its orbit
 // left at, smoothed) or its orbit trap moves the colour along the style's own palette (lib_shade's shadeEscape):
@@ -623,6 +708,7 @@ GEODE_PARAM_META(shadow, "Soft shadows", Shadow, kMod, 0, 0)
 // (Catalogue.cpp's kEscapeFamilies, Scope::Escape). No roll deals it. Appended at wire slot 200.
 GEODE_PARAM(Float, escapeColor, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(escapeColor, "Escape colour", Escape, kMod, 0, 0)
+GEODE_PARAM_MOD(escapeColor, 1.0f, kModLight)
 
 // Life (Customize › Shape › Form): how much the picture is born and dies on its own. At 0 nothing is born and
 // every style draws exactly as before. Above 0, up to three births (viz/Births: native, on the Speed clock alone,
@@ -636,6 +722,7 @@ GEODE_PARAM_META(escapeColor, "Escape colour", Escape, kMod, 0, 0)
 // at wire slot 201 so every wire index survives.
 GEODE_PARAM(Float, life, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(life, "Life", Universal, kMod, 0, 0)
+GEODE_PARAM_MOD(life, 1.0f, 0)
 
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
@@ -648,4 +735,8 @@ GEODE_PARAM_META(life, "Life", Universal, kMod, 0, 0)
 #ifdef GEODE_PARAM_TABLE_OWN_CHOICES
 #undef GEODE_PARAM_CHOICES
 #undef GEODE_PARAM_TABLE_OWN_CHOICES
+#endif
+#ifdef GEODE_PARAM_TABLE_OWN_MOD
+#undef GEODE_PARAM_MOD
+#undef GEODE_PARAM_TABLE_OWN_MOD
 #endif

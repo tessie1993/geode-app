@@ -23,7 +23,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.stage.StageView
@@ -65,10 +65,10 @@ internal object ConnectedDisplays {
         entitled: Boolean,
     ): Display? {
         val display = available ?: return null
-        var flags = GeodeNative.STAGE_PRESENT_FOUND
-        if (wanted) flags = flags or GeodeNative.STAGE_PRESENT_WANTED
-        if (entitled) flags = flags or GeodeNative.STAGE_PRESENT_ENTITLED
-        return display.takeIf { GeodeNative.stagePresents(flags) }
+        var flags = SoundNative.STAGE_PRESENT_FOUND
+        if (wanted) flags = flags or SoundNative.STAGE_PRESENT_WANTED
+        if (entitled) flags = flags or SoundNative.STAGE_PRESENT_ENTITLED
+        return display.takeIf { SoundNative.stagePresents(flags) }
     }
 
     fun failed(displayId: Int) {
@@ -95,20 +95,20 @@ internal object ConnectedDisplays {
         failures.keys.retainAll(displays.map { it.displayId }.toSet())
         val hostId = runCatching { context.display.displayId }.getOrDefault(Display.DEFAULT_DISPLAY)
         val flags = IntArray(displays.size) { flagsOf(displays[it], hostId) }
-        val picked = GeodeNative.stagePickDisplay(IntArray(displays.size) { displays[it].displayId }, flags, preferredId)
+        val picked = SoundNative.stagePickDisplay(IntArray(displays.size) { displays[it].displayId }, flags, preferredId)
         available = displays.getOrNull(picked)
-        choices = displays.filterIndexed { i, _ -> GeodeNative.stageDisplayEligible(flags[i]) }
+        choices = displays.filterIndexed { i, _ -> SoundNative.stageDisplayEligible(flags[i]) }
     }
 
     private fun flagsOf(
         display: Display,
         hostId: Int,
     ): Int {
-        var flags = (failures[display.displayId] ?: 0).coerceAtMost(MAX_FAILURE_COUNT) shl GeodeNative.STAGE_DISPLAY_FAILURE_SHIFT
-        if (display.flags and Display.FLAG_PRESENTATION != 0) flags = flags or GeodeNative.STAGE_DISPLAY_PRESENTATION
-        if (display.displayId == Display.DEFAULT_DISPLAY) flags = flags or GeodeNative.STAGE_DISPLAY_DEFAULT
-        if (display.displayId == hostId) flags = flags or GeodeNative.STAGE_DISPLAY_HOST
-        if (display.state == Display.STATE_ON) flags = flags or GeodeNative.STAGE_DISPLAY_ON
+        var flags = (failures[display.displayId] ?: 0).coerceAtMost(MAX_FAILURE_COUNT) shl SoundNative.STAGE_DISPLAY_FAILURE_SHIFT
+        if (display.flags and Display.FLAG_PRESENTATION != 0) flags = flags or SoundNative.STAGE_DISPLAY_PRESENTATION
+        if (display.displayId == Display.DEFAULT_DISPLAY) flags = flags or SoundNative.STAGE_DISPLAY_DEFAULT
+        if (display.displayId == hostId) flags = flags or SoundNative.STAGE_DISPLAY_HOST
+        if (display.state == Display.STATE_ON) flags = flags or SoundNative.STAGE_DISPLAY_ON
         return flags
     }
 

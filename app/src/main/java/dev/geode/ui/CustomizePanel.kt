@@ -45,14 +45,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.scene.SceneParams
 import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
@@ -189,7 +189,7 @@ internal fun CustomizePanel(
     }
 }
 
-private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(params.frame())
+private fun changedCount(params: SceneParams): Int = CustomizeNative.customizeChangedCount(params.frame())
 
 /**
  * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo

@@ -164,14 +164,18 @@ void OutputFifo::read(float* out, int frames) {
     if (gain_ < 0.0f) gain_ = target;
     const size_t channels = static_cast<size_t>(channels_);
     size_t o = 0;
-    for (int i = 0; i < take; ++i) {
-        if (gain_ < target) {
-            gain_ = std::min(target, gain_ + rampStep_);
-        } else if (gain_ > target) {
-            gain_ = std::max(target, gain_ - rampStep_);
-        }
+    int i = 0;
+    // While the gain ramps, a frame at a time; it stops moving once it meets the target.
+    for (; i < take && gain_ != target; ++i) {
+        gain_ = gain_ < target ? std::min(target, gain_ + rampStep_) : std::max(target, gain_ - rampStep_);
         const size_t slot = static_cast<size_t>((start + i) & mask_) * channels;
         for (size_t c = 0; c < channels; ++c) out[o++] = samples_[slot + c].load(std::memory_order_relaxed) * gain_;
+    }
+    // Settled, which is nearly every callback: the same copy with nothing to decide per frame.
+    const float gain = gain_;
+    for (; i < take; ++i) {
+        const size_t slot = static_cast<size_t>((start + i) & mask_) * channels;
+        for (size_t c = 0; c < channels; ++c) out[o++] = samples_[slot + c].load(std::memory_order_relaxed) * gain;
     }
 
     // A flush while copying: those frames are gone and the producer may have reused their slots, so

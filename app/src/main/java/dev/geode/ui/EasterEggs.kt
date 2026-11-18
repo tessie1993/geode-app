@@ -12,7 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TouchNative
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.performStoneHaptic
@@ -49,13 +49,13 @@ internal fun ShakeToScreenshot(
     LifecycleResumeEffect(context, enabled) {
         val sensors = context.getSystemService(SensorManager::class.java)
         val sensor = sensors?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val shake = if (enabled && sensor != null) GeodeNative.shakeCreate() else 0L
+        val shake = if (enabled && sensor != null) TouchNative.shakeCreate() else 0L
         if (sensors == null || shake == 0L) return@LifecycleResumeEffect onPauseOrDispose {}
         val listener =
             object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     val v = event.values
-                    if (GeodeNative.shakeSample(shake, event.timestamp, v[0], v[1], v[2])) shot()
+                    if (TouchNative.shakeSample(shake, event.timestamp, v[0], v[1], v[2])) shot()
                 }
 
                 override fun onAccuracyChanged(
@@ -67,7 +67,7 @@ internal fun ShakeToScreenshot(
         sensors.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
         onPauseOrDispose {
             sensors.unregisterListener(listener)
-            GeodeNative.shakeDestroy(shake)
+            TouchNative.shakeDestroy(shake)
         }
     }
 }

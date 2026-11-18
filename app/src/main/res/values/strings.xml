@@ -482,7 +482,7 @@
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
-    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. An app that blocks capture is heard through the phone\'s own sound output instead, which is rougher. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="ext_waiting_permission">Waiting for the capture permission…</string>
     <string name="ext_listening_to">Listening to %1$s.</string>
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>

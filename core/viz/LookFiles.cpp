@@ -107,6 +107,12 @@ std::string trimmed(std::string_view text) {
 
 bool blank(std::string_view text) { return trimmed(text).empty(); }
 
+size_t whitespaceAt(std::string_view text, size_t i) {
+    if (i >= text.size()) return 0;
+    const CodePoint cp = codePointAt(text, i);
+    return whitespace(cp.value) ? cp.length : 0;
+}
+
 std::string safeChars(std::string_view name) {
     std::string out;
     for (size_t i = 0; i < name.size();) {
@@ -201,6 +207,10 @@ SceneParams applyPalette(const SceneParams& params, const SavedPalette& p) {
 
 std::string keptPaletteId(std::string_view lookId, std::string_view deletedId) {
     return !deletedId.empty() && lookId == deletedId ? std::string() : std::string(lookId);
+}
+
+std::string framePaletteId(std::string_view lookId, const SceneParams& frame) {
+    return palette_params::usesCustomPalette(frame) ? std::string(lookId) : std::string();
 }
 
 std::optional<std::string> migratedPalette(std::string_view text) {

@@ -55,14 +55,14 @@ import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.TestCatalogue
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
 import dev.geode.model.StyleShelf
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.TestCatalogue
 import dev.geode.ui.ModulationController
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
@@ -100,7 +100,7 @@ class PrefsSchemaTest {
                 GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
             },
             Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
-                val tuning = List(GeodeNative.SOUND_TUNING_FLOATS) { 0f }
+                val tuning = List(SoundNative.SOUND_TUNING_FLOATS) { 0f }
                 SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
             },
             Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {

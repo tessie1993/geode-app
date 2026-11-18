@@ -50,11 +50,18 @@ void UiBlurPass::releaseTargets() {
     quarterB_.release();
 }
 
+void UiBlurPass::releaseIdle(float wallDt, float idleSeconds) {
+    if (!half_.ok() && !quarterA_.ok() && !quarterB_.ok()) return;
+    idleSeconds_ += wallDt;
+    if (idleSeconds_ >= idleSeconds) releaseTargets();
+}
+
 void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao) {
     if (blurProgram_ == 0 || maskProgram_ == 0 || !region.active() || width < 8 || height < 8) return;
     const int qw = width / 4;
     const int qh = height / 4;
     // The textures span the whole viewport, so a sheet that slides or resizes never reallocates them.
+    idleSeconds_ = 0.0f;
     if (!half_.ensure(qw * 2, qh * 2) || !quarterA_.ensure(qw, qh) || !quarterB_.ensure(qw, qh)) return;
 
     // The rect in window pixels, GL y-up (the region is y-down, as Android lays out views).

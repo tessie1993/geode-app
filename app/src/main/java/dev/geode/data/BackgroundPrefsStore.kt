@@ -3,7 +3,7 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 
 /**
  * The background image behind the scene: which picture, how it blends into the composite, and
@@ -15,7 +15,7 @@ import dev.geode.engine.bridge.GeodeNative
  */
 data class BackgroundPrefs(
     val uri: String? = null,
-    /** The blend's saved name; `GeodeNative.underlayBlendOf` gives the int the renderer takes. */
+    /** The blend's saved name; `VizNative.underlayBlendOf` gives the int the renderer takes. */
     val blend: String = "SCREEN",
     val amount: Float = 0.6f,
     val blurRadius: Int = 0,
@@ -30,9 +30,9 @@ class BackgroundPrefsStore(
         return BackgroundPrefs(
             uri = prefs.getString(KEY_URI, null),
             blend = prefs.getString(KEY_BLEND, null) ?: d.blend,
-            amount = GeodeNative.underlayClampAmount(prefs.getFloat(KEY_AMOUNT, d.amount)),
-            blurRadius = GeodeNative.underlayClampBlur(prefs.getInt(KEY_BLUR, d.blurRadius)),
-            dim = GeodeNative.underlayClampDim(prefs.getFloat(KEY_DIM, d.dim)),
+            amount = VizNative.underlayClampAmount(prefs.getFloat(KEY_AMOUNT, d.amount)),
+            blurRadius = VizNative.underlayClampBlur(prefs.getInt(KEY_BLUR, d.blurRadius)),
+            dim = VizNative.underlayClampDim(prefs.getFloat(KEY_DIM, d.dim)),
         )
     }
 
@@ -49,7 +49,7 @@ class BackgroundPrefsStore(
 
     companion object {
         /** The blur slider's range; the clamps and the bake are native (core/viz/Underlay), and this reads its bound. */
-        val BLUR_RANGE: IntRange by lazy { 0..GeodeNative.underlayBlurMax() }
+        val BLUR_RANGE: IntRange by lazy { 0..VizNative.underlayBlurMax() }
 
         private const val KEY_URI = "background_uri"
         private const val KEY_BLEND = "background_blend"

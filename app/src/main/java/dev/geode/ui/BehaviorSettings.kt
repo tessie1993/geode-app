@@ -29,7 +29,7 @@ import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TouchNative
 import dev.geode.geodeContainer
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
@@ -393,8 +393,8 @@ private fun gestureChoices(
     gesture: CanvasGesture,
     current: GestureAction,
 ): List<GestureAction> {
-    val out = IntArray(GeodeNative.GESTURE_MAX_CHOICES)
-    val count = GeodeNative.gestureChoices(gesture.ordinal, current.ordinal, out).coerceAtMost(out.size)
+    val out = IntArray(TouchNative.GESTURE_MAX_CHOICES)
+    val count = TouchNative.gestureChoices(gesture.ordinal, current.ordinal, out).coerceAtMost(out.size)
     return List(count) { GestureAction.entries[out[it]] }
 }
 

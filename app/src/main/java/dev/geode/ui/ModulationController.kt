@@ -6,12 +6,13 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.ModulationNative
+import dev.geode.engine.bridge.PanelNative
+import dev.geode.engine.bridge.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlin.random.Random
 
 /** What the panel's undo/redo buttons should look like right now. */
 data class ParamHistoryState(
@@ -25,7 +26,8 @@ data class ParamHistoryState(
  * Modulation slots and envelopes, the per-parameter randomize locks and the panel's undo/redo
  * history. They live together because they all edit the SAME thing — the
  * one live parameter set — and splitting them would mean three places that each have to remember
- * to record history.
+ * to record history. The history, the rolls and the edits are native (core/viz/ParamHistory,
+ * core/viz/PanelRoll, core/viz/ModDocument); this carries the look there and back.
  */
 internal class ModulationController(
     private val lfoStore: LfoStore,
@@ -65,10 +67,6 @@ internal class ModulationController(
     private val _history = MutableStateFlow(ParamHistoryState())
     val history: StateFlow<ParamHistoryState> = _history
 
-    private val undoStack = ArrayDeque<SceneParams>()
-    private val redoStack = ArrayDeque<SceneParams>()
-    private var lastCheckpointMs = 0L
-
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
         prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
@@ -77,84 +75,56 @@ internal class ModulationController(
     }
 
     /**
-     * The single write path for a panel edit.
-     *
-     * Every control goes through here so undo covers the whole panel rather than the handful of
-     * places somebody remembered to wire. Consecutive edits inside [CHECKPOINT_GAP_MS] fold into
-     * one entry, because a slider drag is one gesture and one undo, not four hundred.
+     * The single write path for a panel edit, so undo covers the whole panel. Native folds a slider
+     * drag into one entry (core/viz/ParamHistory).
      */
-    fun editSceneParams(params: SceneParams) {
-        val previous = host.params
-        if (params == previous) return
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastCheckpointMs > CHECKPOINT_GAP_MS) {
-            pushUndo(previous)
-        }
-        lastCheckpointMs = now
-        host.setSceneParams(params)
-    }
+    fun editSceneParams(params: SceneParams) = write(params, discrete = false)
 
     /** A discrete edit — a preset load, a randomize, a reset — always its own undo entry. */
-    fun commitSceneParams(params: SceneParams) {
+    fun commitSceneParams(params: SceneParams) = write(params, discrete = true)
+
+    fun undo() = step(redo = false)
+
+    fun redo() = step(redo = true)
+
+    private fun write(
+        params: SceneParams,
+        discrete: Boolean,
+    ) {
         val previous = host.params
         if (params == previous) return
-        pushUndo(previous)
-        lastCheckpointMs = 0L
+        _history.value =
+            historyOf(PanelNative.paramHistoryRecord(previous.frame(), previous.customPaletteId, SystemClock.elapsedRealtime(), discrete))
         host.setSceneParams(params)
     }
 
-    fun undo() {
-        val previous = undoStack.removeLastOrNull() ?: return
-        redoStack.addLast(host.params)
-        trim(redoStack)
-        lastCheckpointMs = 0L
-        host.setSceneParams(previous)
-        publishHistory()
-    }
-
-    fun redo() {
-        val next = redoStack.removeLastOrNull() ?: return
-        undoStack.addLast(host.params)
-        trim(undoStack)
-        lastCheckpointMs = 0L
-        host.setSceneParams(next)
-        publishHistory()
+    private fun step(redo: Boolean) {
+        val current = host.params
+        val out = FloatArray(SceneParams.FIELDS)
+        val palette = PanelNative.paramHistoryStep(redo, current.frame(), current.customPaletteId, out) ?: return
+        host.setSceneParams(SceneParams.read(out, palette))
+        _history.value = historyOf(PanelNative.paramHistoryState())
     }
 
     /**
-     * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
-     * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
-     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
-     * rolls their turns through MacroStore, and has no roll here. [basicsOnly] is the roll
-     * without Pro: native holds everything below a Basics (its `#PRO` lock) and the waves stay.
-     * The waves are Expert's, which has no roll of its own, so only the roll of everything re-rolls
-     * the running ones. True when the look changed.
+     * Rolls [category], or everything when null; [basicsOnly] is the roll without Pro. The roll, its seed,
+     * the locks and whether the waves follow are native (core/viz/PanelRoll); this carries the frame there
+     * and back. The knobs are not params: Quick knobs rolls their turns through MacroStore, and has no
+     * roll here. True when the look changed.
      */
     fun randomizeParams(
         category: CustomizeCategory? = null,
         basicsOnly: Boolean = false,
     ): Boolean {
         if (category == CustomizeCategory.QUICK_KNOBS) return false
-        val input = host.params.frame()
         val out = FloatArray(SceneParams.FIELDS)
-        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
-        val seed = Random.nextLong()
-        val changed =
-            if (category == null) {
-                GeodeNative.paramsRandomize(host.sceneId, null, locked, seed, input, out)
-            } else {
-                GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
-            }
-        if (changed) commitSceneParams(SceneParams.fromFrame(out, host.params))
-        if (!basicsOnly && category == null) randomizeWaves(all = false)
-        return changed
+        val bits = PanelNative.panelRoll(host.sceneId, category?.name, kept(), basicsOnly, host.params.frame(), out)
+        return follow(bits, out)
     }
 
     /**
-     * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen:
-     * the controls Customize keeps go back to their values in [before], then every category is rolled
-     * from [seed] and the steady waves already on with it. One undo entry. [basicsOnly] is the dice's
-     * free rule, as in [randomizeParams]: native's `#PRO` lock rolls the free Basics only, and the waves stay.
+     * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen: the
+     * kept controls go back to their values in [before], then every category is rolled from [seed]. Native.
      */
     fun randomizeAllRoll(
         before: SceneParams,
@@ -162,26 +132,28 @@ internal class ModulationController(
         basicsOnly: Boolean,
     ) {
         val out = FloatArray(SceneParams.FIELDS)
-        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
-        val base = host.params.frame()
-        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, true, before.frame(), base, out)) {
-            commitSceneParams(SceneParams.fromFrame(out, host.params))
-        }
-        if (!basicsOnly) randomizeWaves(all = false)
+        follow(PanelNative.panelRollAll(host.sceneId, kept(), basicsOnly, seed, before.frame(), host.params.frame(), out), out)
     }
 
-    /**
-     * Randomize for the waves. The roll is native (core/viz/WaveRandomizer): [all] is the wave editor's
-     * button, every wave switched on and rolled; otherwise a category roll, which only re-rolls the
-     * steady waves already on and holds them when Expert is kept. This only carries the waves there and back.
-     */
+    /** Randomize for the waves (core/viz/WaveRandomizer): [all] is the wave editor's button. Native. */
     fun randomizeWaves(all: Boolean) {
-        val locked = _lockedParams.value.joinToString("\n")
-        val params = host.params.frame()
-        val rolled = GeodeNative.modWavesRandomize(host.sceneId, locked, Random.nextLong(), !all, params, _lfos.value) ?: return
+        val rolled = PanelNative.modWavesRoll(host.sceneId, kept(), all, host.params.frame(), _lfos.value) ?: return
         _lfos.value = rolled
         lfoStore.save(rolled)
     }
+
+    /** Puts up what a roll [out] wrote and rolls the waves when native asks; true when the look changed. */
+    private fun follow(
+        bits: Int,
+        out: FloatArray,
+    ): Boolean {
+        val changed = bits and PanelNative.PANEL_ROLL_CHANGED != 0
+        if (changed) commitSceneParams(SceneParams.fromFrame(out, host.params))
+        if (bits and PanelNative.PANEL_ROLL_WAVES != 0) randomizeWaves(all = false)
+        return changed
+    }
+
+    private fun kept(): String = _lockedParams.value.joinToString("\n")
 
     /**
      * Puts one category's controls back to their defaults (native: every field its controls
@@ -190,9 +162,9 @@ internal class ModulationController(
      */
     fun resetCategory(category: CustomizeCategory) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
-        if (category == CustomizeCategory.MUSIC) editReactions(GeodeNative.MOD_EDIT_CLEAR)
+        if (category == CustomizeCategory.MUSIC) editReactions(ModulationNative.MOD_EDIT_CLEAR)
         val out = FloatArray(SceneParams.FIELDS)
-        GeodeNative.customizeReset(category.name, host.params.frame(), out)
+        CustomizeNative.customizeReset(category.name, host.params.frame(), out)
         commitSceneParams(SceneParams.fromFrame(out, host.params))
     }
 
@@ -203,36 +175,36 @@ internal class ModulationController(
     ) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
         val out = FloatArray(SceneParams.FIELDS)
-        GeodeNative.customizeBorrow(category.name, host.params.frame(), from.frame(), out)
+        CustomizeNative.customizeBorrow(category.name, host.params.frame(), from.keepingInputsOf(host.params).frame(), out)
         commitSceneParams(SceneParams.fromFrame(out, host.params))
     }
 
-    fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
+    fun resetAll() = commitSceneParams(SceneParams.DEFAULT.keepingInputsOf(host.params))
 
-    /** One [field] (a `GeodeNative.MOD_ADSR_*`) of the envelope at [index]; native sets it and keeps it in range. */
+    /** One [field] (a `ModulationNative.MOD_ADSR_*`) of the envelope at [index]; native sets it and keeps it in range. */
     fun setAdsr(
         index: Int,
         field: Int,
         value: Float,
     ) {
-        val next = GeodeNative.modAdsrEdit(_adsrs.value, index, field, value)
+        val next = ModulationNative.modAdsrEdit(_adsrs.value, index, field, value)
         _adsrs.value = next
         lfoStore.saveAdsrs(next)
     }
 
-    /** One [field] (a `GeodeNative.MOD_LFO_*`) of the wave at [index]; native sets it and keeps it in range. */
+    /** One [field] (a `ModulationNative.MOD_LFO_*`) of the wave at [index]; native sets it and keeps it in range. */
     fun setLfo(
         index: Int,
         field: Int,
         value: Float,
     ) {
-        val next = GeodeNative.modLfoEdit(_lfos.value, index, field, value)
+        val next = ModulationNative.modLfoEdit(_lfos.value, index, field, value)
         _lfos.value = next
         lfoStore.save(next)
     }
 
     /**
-     * One edit of the reactions (a `GeodeNative.MOD_EDIT_*` [op] with its [a], [b] and [value]). Native works
+     * One edit of the reactions (a `ModulationNative.MOD_EDIT_*` [op] with its [a], [b] and [value]). Native works
      * out the user's routes and the moments they own from what plays on this style; null hands the matrix
      * back to the style's DNA.
      */
@@ -244,8 +216,8 @@ internal class ModulationController(
     ) {
         val outMask = IntArray(1)
         val seed = host.params.int("reactSeed")
-        val routes = GeodeNative.modReactionsEdit(host.sceneId, seed, _reactions.value, _handMask.value, op, a, b, value, outMask)
-        val mask = if (routes == null) 0 else outMask[0]
+        val routes = ModulationNative.modReactionsEdit(host.sceneId, seed, _reactions.value, _handMask.value, op, a, b, value, outMask)
+        val mask = outMask[0]
         _reactions.value = routes
         _handMask.value = mask
         lfoStore.pushHand(mask, routes != null)
@@ -254,32 +226,18 @@ internal class ModulationController(
 
     /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */
     fun rerollReactions() {
-        editReactions(GeodeNative.MOD_EDIT_CLEAR)
-        commitSceneParams(host.params.with("reactSeed", host.params.int("reactSeed") + 1))
-    }
-
-    private fun pushUndo(params: SceneParams) {
-        undoStack.addLast(params)
-        trim(undoStack)
-        redoStack.clear()
-        publishHistory()
-    }
-
-    private fun trim(stack: ArrayDeque<SceneParams>) {
-        while (stack.size > HISTORY_DEPTH) stack.removeFirst()
-    }
-
-    private fun publishHistory() {
-        _history.value = ParamHistoryState(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty())
+        editReactions(ModulationNative.MOD_EDIT_CLEAR)
+        val out = FloatArray(SceneParams.FIELDS)
+        PanelNative.paramsRerollReactions(host.params.frame(), out)
+        commitSceneParams(SceneParams.read(out, host.params.customPaletteId))
     }
 
     companion object {
-        /** Native's lock for every control below a Basics (core/viz/CustomizeMap `kProLock`). */
-        const val PRO_LOCK = "#PRO"
-
-        private const val HISTORY_DEPTH = 64
-
-        private const val CHECKPOINT_GAP_MS = 700L
+        private fun historyOf(bits: Int) =
+            ParamHistoryState(
+                canUndo = bits and PanelNative.PARAM_HISTORY_UNDO != 0,
+                canRedo = bits and PanelNative.PARAM_HISTORY_REDO != 0,
+            )
 
         private const val KEY_LOCKED_PARAMS = "locked_params"
 

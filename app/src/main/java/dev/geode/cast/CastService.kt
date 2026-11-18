@@ -22,7 +22,7 @@ import dev.geode.RingLog
 import dev.geode.ServiceWakeLock
 import dev.geode.appLaunchIntent
 import dev.geode.billing.ProSnapshot
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
@@ -104,7 +104,7 @@ class CastService : Service() {
             Toast.makeText(this, R.string.cast_trial_ended, Toast.LENGTH_LONG).show()
             CastController.get(this).onTrialEnded()
         }
-        if (forLink) ComputerLink.onFailed(GeodeNative.LINK_REASON_TRIAL)
+        if (forLink) ComputerLink.onFailed(CastNative.LINK_REASON_TRIAL)
         stopSelf()
     }
 
@@ -184,7 +184,7 @@ class CastService : Service() {
         wakeLock.acquire(LONG_WORK_WAKE_MS)
         bestEffort(TAG, "wifiLock.acquire()") { wifiLock?.acquire() }
         waitingSinceMs = SystemClock.elapsedRealtime()
-        handler.post(waitForStream)
+        handler.post(watch)
         handler.postDelayed(recheckPro, PRO_RECHECK_MS)
     }
 
@@ -211,22 +211,37 @@ class CastService : Service() {
             }
         }
 
-    private val watchFreeze: Runnable =
+    /**
+     * Until the stream is ready: hand it over when it is, end the cast when it never gets there. Then: end the cast
+     * when it froze or its network went away, else check the TV. When is native (core/cast/CastWatch).
+     */
+    private val watch: Runnable =
         object : Runnable {
             override fun run() {
                 val s = stream ?: return
-                if (s.isFrozen) {
-                    RingLog.note(TAG, "no segment for ${CastStream.FROZEN_MS / 1000} s: ending the cast")
-                    fail()
-                } else if (s.address !in CastStream.lanAddresses(this@CastService)) {
-                    RingLog.note(TAG, "the network the stream serves from went away: ending the cast")
-                    fail(CastFailure.NETWORK_CHANGED)
-                } else {
-                    checkReceiver(s)
-                    handler.postDelayed(this, POLL_MS * 4)
+                val here = ready && s.address in CastStream.lanAddresses(this@CastService)
+                val now = SystemClock.elapsedRealtime()
+                when (CastNative.castWatch(ready, now, waitingSinceMs, s.isReady, s.segmentAgeMs, here)) {
+                    CastNative.CAST_WATCH_READY -> {
+                        ready = true
+                        announceReady()
+                    }
+                    CastNative.CAST_WATCH_START_TIMEOUT -> return failNoted("stream never ready", CastFailure.STREAM)
+                    CastNative.CAST_WATCH_FROZEN -> return failNoted("stream froze", CastFailure.STREAM)
+                    CastNative.CAST_WATCH_NETWORK_GONE -> return failNoted("its network went away", CastFailure.NETWORK_CHANGED)
+                    CastNative.CAST_WATCH_PLAYING -> checkReceiver(s)
                 }
+                handler.postDelayed(this, CastNative.castWatchNextMs(ready))
             }
         }
+
+    private fun failNoted(
+        why: String,
+        reason: CastFailure,
+    ) {
+        RingLog.note(TAG, "$why: ending the cast")
+        fail(reason)
+    }
 
     /**
      * Ends the TV's part when the TV is not playing the stream (native, `geode_link_receiver_health`): its
@@ -239,41 +254,22 @@ class CastService : Service() {
         val controller = CastController.get(this)
         controller.receiverStatus(receiverStatus)
         val health =
-            GeodeNative.linkReceiverHealth(
+            CastNative.linkReceiverHealth(
                 SystemClock.elapsedRealtime(),
                 tvLoadAtMs,
                 s.lastReceiverFetchMs,
                 receiverStatus[0],
                 receiverStatus[1],
             )
-        if (health == GeodeNative.LINK_RECEIVER_OK) return
+        if (health == CastNative.LINK_RECEIVER_OK) return
         RingLog.note(TAG, "the TV is not playing the stream ($health, player ${receiverStatus[0]}, idle ${receiverStatus[1]})")
         tvLoadAtMs = 0L
         when (health) {
-            GeodeNative.LINK_RECEIVER_ERROR -> controller.onStreamFailed(CastFailure.TV_COULD_NOT_PLAY)
-            GeodeNative.LINK_RECEIVER_UNREACHABLE -> controller.onStreamFailed(CastFailure.TV_UNREACHABLE)
+            CastNative.LINK_RECEIVER_ERROR -> controller.onStreamFailed(CastFailure.TV_COULD_NOT_PLAY)
+            CastNative.LINK_RECEIVER_UNREACHABLE -> controller.onStreamFailed(CastFailure.TV_UNREACHABLE)
             else -> controller.stop()
         }
     }
-
-    private val waitForStream: Runnable =
-        object : Runnable {
-            override fun run() {
-                val s = stream ?: return
-                when {
-                    s.isReady -> {
-                        ready = true
-                        announceReady()
-                        handler.post(watchFreeze)
-                    }
-                    SystemClock.elapsedRealtime() - waitingSinceMs > START_TIMEOUT_MS -> {
-                        RingLog.note(TAG, "stream not ready after ${START_TIMEOUT_MS / 1000} s")
-                        fail()
-                    }
-                    else -> handler.postDelayed(this, POLL_MS)
-                }
-            }
-        }
 
     private fun mutePhone() {
         val session = PlaybackEngine.acquireForService(this)
@@ -369,11 +365,7 @@ class CastService : Service() {
         private const val ACTION_LINK = "dev.geode.cast.LINK"
         private const val ACTION_RELEASE_TV = "dev.geode.cast.RELEASE_TV"
         private const val ACTION_RELEASE_LINK = "dev.geode.cast.RELEASE_LINK"
-        private const val POLL_MS = 250L
         private const val PRO_RECHECK_MS = 60_000L
-
-        /** Enough for the three segments the receiver starts on, with room for a slow first encode. */
-        private const val START_TIMEOUT_MS = 15_000L
 
         @Volatile
         private var running = false

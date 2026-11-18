@@ -53,7 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.Preset
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.ui.theme.GeodeSpacing
 
@@ -151,9 +151,9 @@ internal fun SavePresetDialog(
     var name by rememberSaveable { mutableStateOf("") }
     var folder by rememberSaveable { mutableStateOf(initialFolder) }
     val names = presets.map { it.name }.toTypedArray()
-    val cleaned = GeodeNative.presetCleanName(name, "")
-    val replaces = GeodeNative.presetReplaceTarget(name, names)
-    val builtInClash = GeodeNative.presetBuiltInClash(name, names)
+    val cleaned = LooksNative.presetCleanName(name, "")
+    val replaces = LooksNative.presetReplaceTarget(name, names)
+    val builtInClash = LooksNative.presetBuiltInClash(name, names)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.presets_save_current_look)) },
@@ -328,9 +328,9 @@ internal fun folderNameError(
 ): String? =
     nameProblemText(
         resources,
-        GeodeNative.presetFolderNameProblem(raw, current, folders.toTypedArray()),
+        LooksNative.presetFolderNameProblem(raw, current, folders.toTypedArray()),
         R.string.presets_folder_taken,
-        GeodeNative.presetFolderName(raw),
+        LooksNative.presetFolderName(raw),
     )
 
 /** Why [raw] cannot be preset [current]'s new name among [taken], or null. */
@@ -342,9 +342,9 @@ internal fun presetRenameError(
 ): String? =
     nameProblemText(
         resources,
-        GeodeNative.presetRenameProblem(raw, current, taken.toTypedArray()),
+        LooksNative.presetRenameProblem(raw, current, taken.toTypedArray()),
         R.string.presets_name_taken,
-        GeodeNative.presetCleanName(raw, ""),
+        LooksNative.presetCleanName(raw, ""),
     )
 
 private fun nameProblemText(
@@ -354,8 +354,8 @@ private fun nameProblemText(
     name: String,
 ): String? =
     when (problem) {
-        GeodeNative.NAME_BLANK -> resources.getString(R.string.presets_name_blank)
-        GeodeNative.NAME_TAKEN -> resources.getString(takenText, name)
+        LooksNative.NAME_BLANK -> resources.getString(R.string.presets_name_blank)
+        LooksNative.NAME_TAKEN -> resources.getString(takenText, name)
         else -> null
     }
 

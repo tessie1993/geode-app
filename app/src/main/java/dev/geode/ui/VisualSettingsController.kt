@@ -2,8 +2,8 @@ package dev.geode.ui
 
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.TouchNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -110,19 +110,13 @@ internal class VisualSettingsController(
         val p = state.value.params
         val next =
             p
-                .with("zoom", GeodeNative.touchZoom(p["zoom"], zoomFactor))
-                .with("rotation", GeodeNative.touchRotation(p["rotation"], degrees))
+                .with("zoom", TouchNative.touchZoom(p["zoom"], zoomFactor))
+                .with("rotation", TouchNative.touchRotation(p["rotation"], degrees))
         if (next != p) setSceneParams(next)
     }
 
     fun reportShaderError(error: String?) {
         state.update { it.copy(shaderError = error) }
-    }
-
-    fun applyCustomShader(source: String) {
-        val sceneId = state.value.sceneId
-        state.update { it.copy(shaderError = null) }
-        _vizApply.tryEmit(VizApply(customShader = source, sceneId = sceneId))
     }
 
     fun setTransitionId(id: String) {
@@ -141,7 +135,7 @@ internal class VisualSettingsController(
         state.update {
             it.copy(
                 sceneId = preset.sceneId,
-                params = preset.params,
+                params = preset.params.keepingInputsOf(it.params),
                 attack = preset.attack,
                 decay = preset.decay,
             )

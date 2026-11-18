@@ -6,9 +6,11 @@
 
 extern "C" {
 
-int geode_lyrics_parse(const char* text, char* out, int capacity) {
+int geode_lyrics_parse(const char* text, char* out, int capacity) try {
     const std::string wire = geode::library::lyricsWire(geode::library::parseLyrics(text ? text : ""));
     return geode::api::textOut(wire, out, capacity);
+} catch (...) {
+    return geode::api::textOut(std::string(), out, capacity);
 }
 
 int geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms) {

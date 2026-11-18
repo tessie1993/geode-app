@@ -1,8 +1,10 @@
 package dev.geode.data
 
+import dev.geode.engine.bridge.MilkNative
 import java.io.File
 import java.io.InputStream
 
+/** Copies a picked folder's presets and textures in; what each file is and is written as is native (core/viz/MilkTextures). */
 object MilkPackImporter {
     class Entry(
         val name: String,
@@ -18,8 +20,6 @@ object MilkPackImporter {
         val total: Int get() = presets + textures
     }
 
-    private val TEXTURE_EXTENSIONS = setOf("png", "jpg", "jpeg", "bmp", "tga", "dds")
-
     fun import(
         entries: List<Entry>,
         milkDir: File,
@@ -32,12 +32,14 @@ object MilkPackImporter {
         var skipped = 0
         val importedPresets = mutableListOf<File>()
         for (entry in entries) {
-            val extension = entry.name.substringAfterLast('.', "").lowercase()
-            val target = targetFor(entry.name, extension, milkDir, textureDir) ?: continue
-            val written = if (target.exists()) false else copy(entry, target)
+            val kind = MilkNative.milkPackEntryKind(entry.name)
+            if (kind != MilkNative.MILK_PACK_PRESET && kind != MilkNative.MILK_PACK_TEXTURE) continue
+            val preset = kind == MilkNative.MILK_PACK_PRESET
+            val target = File(if (preset) milkDir else textureDir, MilkNative.milkPackTargetName(entry.name))
+            val written = if (target.exists()) false else copy(entry, target, if (preset) ReadCap.MILK else ReadCap.TEXTURE)
             when {
                 !written -> skipped++
-                extension == "milk" -> {
+                preset -> {
                     presets++
                     importedPresets += target
                 }
@@ -52,41 +54,17 @@ object MilkPackImporter {
         )
     }
 
-    private fun targetFor(
-        name: String,
-        extension: String,
-        milkDir: File,
-        textureDir: File,
-    ): File? =
-        when {
-            extension == "milk" -> File(milkDir, PresetStore.milkFileName(name))
-            extension in TEXTURE_EXTENSIONS -> File(textureDir, name.substringAfterLast('/'))
-            else -> null
-        }
-
     private fun copy(
         entry: Entry,
         target: File,
+        cap: ReadCap,
     ): Boolean =
         runCatching {
-            val cap = if (target.extension == "milk") ReadCap.MILK else ReadCap.TEXTURE
             entry.open()?.use { input -> AtomicWrite.stream(target) { out -> cap.copy(input, out) } } ?: false
         }.getOrDefault(false)
 
     fun missesATexture(
         preset: File,
         textureDir: File,
-    ): Boolean {
-        val text = runCatching { preset.readText() }.getOrDefault("")
-        if (text.isEmpty()) return false
-        val available = textureDir.listFiles().orEmpty().mapTo(HashSet()) { it.nameWithoutExtension.lowercase() }
-        // The sampler grammar lives in MilkTextureLinks so the importer and the linker can
-        // never drift apart on what counts as a texture reference.
-        return MilkTextureLinks.SAMPLER_REFERENCE
-            .findAll(text)
-            .map { it.groupValues[1].lowercase() }
-            .filterNot { it in MilkTextureLinks.BUILTIN_SAMPLERS }
-            .filterNot { it.startsWith("rand") }
-            .any { it !in available }
-    }
+    ): Boolean = MilkNative.milkPresetMissesTexture(preset.path, textureDir.path)
 }

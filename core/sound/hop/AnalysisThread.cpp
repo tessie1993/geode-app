@@ -74,9 +74,13 @@ void AnalysisThread::stop() {
     idle_.store(false, std::memory_order_release);
 }
 
+// No lost wake (every access below and in run()'s untimed wait is seq_cst, so they fall in one order): if this
+// load of waiting_ misses the flag, it comes before the thread's store of it, so the thread's wait then compares
+// against the signal this call already moved and returns at once. If it sees the flag, the notify follows the
+// add, which reaches a wait that compared against an older value.
 void AnalysisThread::notify() {
     signal_.fetch_add(1, std::memory_order_seq_cst);
-    signal_.notify_one();
+    if (waiting_.load(std::memory_order_seq_cst)) signal_.notify_one();
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
@@ -101,7 +105,9 @@ void AnalysisThread::run() {
                 break;
             case Next::kWait:
                 idle_.store(true, std::memory_order_release);
+                waiting_.store(true, std::memory_order_seq_cst);
                 signal_.wait(seen, std::memory_order_seq_cst);
+                waiting_.store(false, std::memory_order_seq_cst);
                 idle_.store(false, std::memory_order_release);
                 break;
         }
@@ -147,9 +153,9 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         quietSeconds_ = 0.0f;
     }
     if (engine_ && silenceWhenStarved_ && flowing_ && !heldBack) {
-        // step() is what feeds a starved engine silence (> 0.25 s without audio); the frame it reads is unused. Only
-        // from audio until the engine says silence, so an idle thread woken by a control publishes nothing.
-        engine_->step(dtSeconds, stepped_);
+        // starve() is what feeds a starved engine silence (> 0.25 s without audio), step()'s clock without its frame.
+        // Only from audio until the engine says silence, so an idle thread woken by a control publishes nothing.
+        engine_->starve(dtSeconds);
         publishNew();
     }
     // The timed waits run only from audio until the engine says silence (or a cap), then the thread sleeps untimed.
@@ -322,7 +328,10 @@ void AnalysisThread::publish(const SoundEngine::Hop& hop) {
     // Release on every store after the odd seq: a reader that loads any of them (acquire) then sees seq odd or
     // newer, so its check fails. No standalone fence, which ThreadSanitizer cannot follow.
     slot.position.store(h.position, std::memory_order_release);
-    for (int i = 0; i < kWords; ++i) slot.words[static_cast<size_t>(i)].store(staging_[static_cast<size_t>(i)], std::memory_order_release);
+    for (int i = 0; i < kWords; ++i) {
+        if (i >= kWaveFirst && i < kWaveEnd) continue;
+        slot.words[static_cast<size_t>(i)].store(staging_[static_cast<size_t>(i)], std::memory_order_release);
+    }
     slot.seq.store(seq + 2, std::memory_order_release);
     published_.store(index + 1, std::memory_order_release);
 }
@@ -334,9 +343,11 @@ bool AnalysisThread::read(uint64_t index, Heard& out) const {
         const uint32_t before = slot.seq.load(std::memory_order_acquire);
         if ((before & 1u) != 0) continue;
         for (int i = 0; i < kWords; ++i) {
+            if (i >= kWaveFirst && i < kWaveEnd) continue;
             const uint32_t word = slot.words[static_cast<size_t>(i)].load(std::memory_order_acquire);
             std::memcpy(bytes + static_cast<size_t>(i) * sizeof word, &word, sizeof word);
         }
+        std::memset(bytes + static_cast<size_t>(kWaveFirst) * sizeof(uint32_t), 0, GEODE_SOUND_WAVEFORM_POINTS * sizeof(uint32_t));
         // After the acquire loads above, so it cannot be read before them.
         if (slot.seq.load(std::memory_order_relaxed) != before) continue;
         // A whole copy, but of a later lap when the writer passed this slot again.
@@ -366,6 +377,18 @@ bool AnalysisThread::hopAt(int64_t position, Heard& out) const {
         if (published_.load(std::memory_order_acquire) <= pick + capacity_) return true;
     }
     // Lapped on every try: the reader stalled for about a whole window. No hop it could trust.
+    return false;
+}
+
+bool AnalysisThread::hopAfter(int64_t position, Heard& out) const {
+    for (int attempt = 0; attempt < kLapTries; ++attempt) {
+        const uint64_t count = published_.load(std::memory_order_acquire);
+        const uint64_t after = firstAfter(position, count);
+        if (after >= count) return false;
+        if (!read(after, out) || out.position <= position) continue;
+        // As hopAt: the slots the search read (after - 1 … count - 1) were the hops they stood for.
+        if (published_.load(std::memory_order_acquire) < after + capacity_) return true;
+    }
     return false;
 }
 

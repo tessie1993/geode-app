@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -15,7 +16,8 @@
 // The pump owns a TrackFeed and a TrackSource. Asked for audio up to a target (a millisecond or a video frame's
 // exact end, both counted from the feed's start), it steps the source until the feed knows its rate, aims the
 // feed, then hands the listener the feed's frames, stepping the source each time the held chunk runs out, until
-// the target is reached or the track has ended.
+// the target is reached, the track has ended, or the source is stuck: kStuckAfter on its clock with no audio
+// put in the feed (a codec that answers "later" for ever).
 //
 // Two sources: an AIFF through AiffReader (the platform extractor does not read AIFF), and a platform decoder
 // behind DecodePort (audio/ingest/android/TrackDecoder: AMediaExtractor and AMediaCodec), whose pump rule is
@@ -84,10 +86,18 @@ struct DecodedChunk {
     bool endOfStream = false;
 };
 
+// What the container says of the track before anything is decoded; 0 where it does not say.
+struct DeclaredTrack {
+    int64_t durationUs = 0;
+    int sampleRate = 0;
+    int channels = 0;
+};
+
 // A platform decoder over its extractor. A failure of the codec itself throws (std::runtime_error).
 class DecodePort {
 public:
     virtual ~DecodePort() = default;
+    virtual DeclaredTrack declared() const { return {}; }
     // When the codec has an input buffer free: the extractor's next sample into it, or end of stream once the
     // extractor has none. True once end of stream is queued; never called again after that.
     virtual bool feedInput() = 0;
@@ -113,6 +123,10 @@ private:
 // can decode.
 using DecoderOpener = std::function<std::unique_ptr<DecodePort>(const TrackSpan& span, int64_t startMs)>;
 
+// The span as an AIFF, through its own duplicate of the descriptor read from the span's start; null when the bytes
+// are not one (the duplicate is closed then).
+std::unique_ptr<AiffReader> openAiff(const TrackSpan& span);
+
 // The track at `span` from startMs: an AIFF through its own reader when the bytes are one, else the platform
 // decoder; null when neither reads it. Each open reads from the span's start again, through its own duplicate of
 // the descriptor (the duplicates share one file position: open the next only once the last is done with).
@@ -128,10 +142,18 @@ public:
 
 class TrackPump {
 public:
-    TrackPump(int64_t startMs, std::unique_ptr<TrackSource> source) : feed_(startMs), source_(std::move(source)) {}
+    using Clock = std::function<std::chrono::steady_clock::time_point()>;
+
+    // How long a source may go without putting audio in the feed before it is stuck. Each step that does starts
+    // the wait again, so a slow decode is never cut off, only one that has stopped producing.
+    static constexpr std::chrono::seconds kStuckAfter{10};
+
+    // `now` is the clock the wait is measured on (a host test scripts it).
+    TrackPump(int64_t startMs, std::unique_ptr<TrackSource> source, Clock now = std::chrono::steady_clock::now)
+        : feed_(startMs), source_(std::move(source)), now_(std::move(now)) {}
 
     // Everything up to endMs into the range, or to the exact end of video frame n at fps (FrameClock's
-    // samplesThrough). False once the track ran out first (or never told its rate).
+    // samplesThrough). False once the track ran out first (or never told its rate, or its source was stuck).
     bool deliverMs(int64_t endMs, TrackListener& listener);
     bool deliverFrame(int64_t n, int fps, TrackListener& listener);
 
@@ -142,9 +164,11 @@ private:
     bool rateKnown();
     bool hearUntilTarget(TrackListener& listener);
     void step();
+    bool stepWithin(std::chrono::steady_clock::time_point& until);
 
     TrackFeed feed_;
     std::unique_ptr<TrackSource> source_;
+    Clock now_;
     bool ended_ = false;
 };
 

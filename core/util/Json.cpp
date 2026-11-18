@@ -36,6 +36,11 @@ public:
         return v;
     }
 
+    std::optional<Value> leading() {
+        skipSpace();
+        return value();
+    }
+
 private:
     void skipSpace() {
         while (pos_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[pos_]))) pos_++;
@@ -59,8 +64,14 @@ private:
     std::optional<Value> value() {
         if (pos_ >= text_.size()) return std::nullopt;
         const char c = text_[pos_];
-        if (c == '{') return object();
-        if (c == '[') return array();
+        if (c == '{' || c == '[') {
+            // Nesting this deep is no file the app writes, and recursing on would end a hostile link in a crash.
+            if (depth_ >= kMaxDepth) return std::nullopt;
+            ++depth_;
+            auto nested = c == '{' ? object() : array();
+            --depth_;
+            return nested;
+        }
         if (c == '"') {
             auto s = string();
             if (!s) return std::nullopt;
@@ -232,8 +243,11 @@ private:
     }
 
     const std::string& text_;
+    static constexpr int kMaxDepth = 256;
+
     const bool standard_;
     size_t pos_ = 0;
+    int depth_ = 0;
 };
 
 }  // namespace
@@ -244,6 +258,10 @@ std::optional<Value> parse(const std::string& text) {
 
 std::optional<Value> parseStandard(const std::string& text) {
     return Parser(text, true).document();
+}
+
+std::optional<Value> parseLeading(const std::string& text) {
+    return Parser(text, false).leading();
 }
 
 namespace {
@@ -301,6 +319,15 @@ std::optional<int> asInt(const Value& v) {
     return std::nullopt;
 }
 
+std::optional<long long> asLong(const Value& v) {
+    if (v.kind() == Value::Kind::Number) return v.integral() ? v.integer() : javaLong(v.number());
+    if (v.kind() == Value::Kind::String) {
+        const auto d = javaParseDouble(v.string());
+        if (d) return javaLong(*d);
+    }
+    return std::nullopt;
+}
+
 std::optional<std::string> asString(const Value& v) {
     switch (v.kind()) {
         case Value::Kind::String: return v.string();
@@ -342,6 +369,25 @@ std::optional<std::string> orgJsonText(const Value& v) {
         }
     }
     return std::nullopt;
+}
+
+std::optional<std::string> orgJsonIndented(const Value& v, int indent, int level) {
+    const bool object = v.kind() == Value::Kind::Object;
+    if (!object && v.kind() != Value::Kind::Array) return orgJsonText(v);
+    const size_t count = object ? v.keys().size() : v.array().size();
+    if (count == 0) return std::string(object ? "{}" : "[]");
+    const std::string inner(static_cast<size_t>(indent) * static_cast<size_t>(level + 1), ' ');
+    std::string out = object ? "{" : "[";
+    for (size_t i = 0; i < count; ++i) {
+        const Value& item = object ? v.object().at(v.keys()[i]) : v.array()[i];
+        const auto text = orgJsonIndented(item, indent, level + 1);
+        if (!text) return std::nullopt;
+        out += (i == 0 ? "\n" : ",\n") + inner;
+        if (object) out += quoted(v.keys()[i]) + ": ";
+        out += *text;
+    }
+    out += "\n" + std::string(static_cast<size_t>(indent) * static_cast<size_t>(level), ' ');
+    return out + (object ? "}" : "]");
 }
 
 std::optional<double> javaParseDouble(std::string_view text) {

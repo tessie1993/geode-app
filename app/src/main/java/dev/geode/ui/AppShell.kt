@@ -109,7 +109,9 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.PaletteNative
+import dev.geode.engine.bridge.TagsNative
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
 import dev.geode.model.TabLabels
@@ -243,15 +245,15 @@ private fun AppContent(tourViewModel: TourViewModel) {
         value = withContext(Dispatchers.IO) { BootAnimationStore(context.geodeContainer.prefsFiles.general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val external by viewModel.externalAudio.collectAsStateWithLifecycle()
+    val playing = external.driven?.playing ?: state.isPlaying
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
     val proGate by paywallViewModel.gate.collectAsStateWithLifecycle()
     val secondScreen = ConnectedDisplays.target(wanted = visualsSettings.secondScreen, entitled = proGate.allows(ProFeature.CAST))
     val onSecondScreen = secondScreen != null
-    if (secondScreen != null) {
-        SecondScreenCanvas(secondScreen, visualizerView)
-    }
+    secondScreen?.let { SecondScreenCanvas(it, visualizerView) }
     StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
     // The Visuals screen's bounds, in root pixels. The one StageView is hosted once below and
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
@@ -285,7 +287,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
-            val onMilk = viz.sceneId == GeodeNative.STYLE_MILKDROP
+            val onMilk = viz.sceneId == CatalogueNative.STYLE_MILKDROP
             if (onMilk) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
     }
@@ -313,7 +315,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 title = state.title,
                 artist = state.artist,
                 artworkUri = viewModel.currentTrackUri(),
-                isPlaying = state.isPlaying,
+                isPlaying = playing,
                 positionMs = { position.value },
                 durationMs = state.durationMs,
                 onSeek = viewModel::seekTo,
@@ -329,7 +331,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
         val dockedPlayer: @Composable (Modifier) -> Unit = { modifier ->
             DockedMiniPlayer(
                 title = state.title,
-                isPlaying = state.isPlaying,
+                isPlaying = playing,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
@@ -879,7 +881,7 @@ private fun paletteAccent(
     base: Float,
     range: Float,
 ): Color {
-    val rgb = GeodeNative.colourPaletteAccent(base, range)
+    val rgb = PaletteNative.colourPaletteAccent(base, range)
     return if (rgb < 0) VisualAccent.Fallback else Color(0xFF000000.toInt() or rgb)
 }
 
@@ -1043,7 +1045,7 @@ private class SearchSheetRows(
     private val presetNames = utf8(presets)
 
     /** Three counts (tracks, playlists, presets), then those rows, best first. */
-    fun search(query: String): IntArray = GeodeNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
+    fun search(query: String): IntArray = TagsNative.searchSheet(cells, preferred, playlistNames, presetNames, query.encodeToByteArray())
 
     private fun utf8(texts: List<String>): Array<ByteArray?> = Array(texts.size) { texts[it].encodeToByteArray() }
 }
@@ -1193,7 +1195,7 @@ fun SearchScreen(
                                 Modifier.padding(top = 8.dp),
                             )
                         }
-                        items(playlistResults) { pl ->
+                        items(playlistResults, key = { "p:${it.name}" }) { pl ->
                             Column(
                                 Modifier
                                     .fillMaxWidth()

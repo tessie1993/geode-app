@@ -1,5 +1,7 @@
 #pragma once
+#include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "output/EncodeSink.hpp"
 
@@ -11,5 +13,9 @@ namespace geode::output::sink {
 // made; fd must be open for reading and writing (MPEG-4 seeks back to write its index).
 // Android only: kept out of every host-test compile line.
 std::unique_ptr<Codecs> mediaCodecs(int fd);
+
+// What an audio encoder's output format (from one of these Codecs) names: its rate, channels and codec-specific
+// data (csd-0), for a muxer elsewhere. False when it names no rate or channels.
+bool audioTrackInfo(const TrackFormat& format, int* rateHz, int* channels, std::vector<uint8_t>* csd);
 
 }  // namespace geode::output::sink

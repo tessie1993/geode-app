@@ -6,8 +6,9 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.engine.bridge.PaletteNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,8 +40,8 @@ data class PaletteStackState(
 class PaletteStackStore internal constructor(
     private val repository: SettingsRepository<String>,
     private val scope: CoroutineScope,
-    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push palette stack") { GeodeNative.paletteStackSet(text) } },
-    private val editorOf: (String) -> String = { GeodeNative.paletteStackEditor(it) },
+    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push palette stack") { PaletteNative.paletteStackSet(text) } },
+    private val editorOf: (String) -> String = { PaletteNative.paletteStackEditor(it) },
 ) {
     private val _state = MutableStateFlow(PaletteStackState())
     val state: StateFlow<PaletteStackState> = _state
@@ -53,21 +54,21 @@ class PaletteStackStore internal constructor(
         }
     }
 
-    fun add(libraryIndex: Int) = edit { GeodeNative.paletteStackAddLibrary(it, libraryIndex) }
+    fun add(libraryIndex: Int) = edit { PaletteNative.paletteStackAddLibrary(it, libraryIndex) }
 
     fun addColours(
         name: String,
         rgb: List<Int>,
-    ) = edit { GeodeNative.paletteStackAddColours(it, name, rgb.toIntArray()) }
+    ) = edit { PaletteNative.paletteStackAddColours(it, name, rgb.toIntArray()) }
 
-    fun remove(layer: Int) = edit { GeodeNative.paletteStackRemove(it, layer) }
+    fun remove(layer: Int) = edit { PaletteNative.paletteStackRemove(it, layer) }
 
     fun move(
         layer: Int,
         delta: Int,
-    ) = edit { GeodeNative.paletteStackMove(it, layer, delta) }
+    ) = edit { PaletteNative.paletteStackMove(it, layer, delta) }
 
-    fun setBlend(blend: String) = edit { GeodeNative.paletteStackSetBlend(it, blend) }
+    fun setBlend(blend: String) = edit { PaletteNative.paletteStackSetBlend(it, blend) }
 
     private fun edit(change: (String) -> String) {
         val text = runCatching { change(_state.value.text) }.getOrNull() ?: return
@@ -119,7 +120,7 @@ class PaletteStackStore internal constructor(
 
 /** The saved stack in `geode-prefs`: one string, normalized by native when it is read. */
 class PaletteStackCodec(
-    private val normalize: (String) -> String = { GeodeNative.paletteStackNormalize(it) },
+    private val normalize: (String) -> String = { PaletteNative.paletteStackNormalize(it) },
 ) : PrefsCodec<String> {
     override val defaults = ""
 
@@ -145,10 +146,10 @@ class PaletteStackCodec(
 class CustomPalette(
     val text: String,
 ) {
-    val id: String by lazy { GeodeNative.savedPaletteString(text, "id") }
-    val name: String by lazy { GeodeNative.savedPaletteString(text, "name") }
-    val stops: List<Int> by lazy { GeodeNative.savedPaletteStops(text).toList() }
-    private val hues: FloatArray by lazy { GeodeNative.savedPaletteHues(text) }
+    val id: String by lazy { LooksNative.savedPaletteString(text, "id") }
+    val name: String by lazy { LooksNative.savedPaletteString(text, "name") }
+    val stops: List<Int> by lazy { LooksNative.savedPaletteStops(text).toList() }
+    private val hues: FloatArray by lazy { LooksNative.savedPaletteHues(text) }
     val baseHue: Float get() = hues[0]
     val hueSpan: Float get() = hues[1]
 
@@ -180,15 +181,15 @@ class PaletteStore(
 
     init {
         files().forEach { f ->
-            val text = f.text()?.let(GeodeNative::savedPaletteMigrate) ?: return@forEach
+            val text = f.text()?.let(LooksNative::savedPaletteMigrate) ?: return@forEach
             val target = File(dir, CustomPalette(text).id + ".json")
             if (target.name != f.name && !target.exists() && AtomicWrite.text(target, text)) f.delete()
         }
     }
 
     override fun list(): List<CustomPalette> {
-        val read = files().mapNotNull { it.text()?.let(GeodeNative::savedPaletteRead) }.map(::CustomPalette)
-        return GeodeNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
+        val read = files().mapNotNull { it.text()?.let(LooksNative::savedPaletteRead) }.map(::CustomPalette)
+        return LooksNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
     }
 
     override fun save(palette: CustomPalette): CustomPalette {
@@ -198,7 +199,7 @@ class PaletteStore(
     }
 
     override fun delete(id: String) {
-        File(dir, GeodeNative.savedPaletteIdFor(id) + ".json").delete()
+        File(dir, LooksNative.savedPaletteIdFor(id) + ".json").delete()
     }
 
     private fun files(): List<File> = dir.listFiles().orEmpty().filter { it.isFile && it.extension == "json" }
@@ -206,19 +207,17 @@ class PaletteStore(
     private fun File.text(): String? = runCatching { readText() }.getOrNull()
 
     companion object {
-        val MAX_STOPS: Int get() = GeodeNative.savedPaletteMaxStops()
-
         fun create(
             name: String,
             baseHue: Float,
             hueSpan: Float,
-        ): CustomPalette = CustomPalette(GeodeNative.savedPaletteCreate(name, baseHue, hueSpan, IntArray(0)))
+        ): CustomPalette = CustomPalette(LooksNative.savedPaletteCreate(name, baseHue, hueSpan, IntArray(0)))
 
         fun create(
             name: String,
             stops: List<Int>,
-        ): CustomPalette = CustomPalette(GeodeNative.savedPaletteCreate(name, 0f, 0f, stops.toIntArray()))
+        ): CustomPalette = CustomPalette(LooksNative.savedPaletteCreate(name, 0f, 0f, stops.toIntArray()))
 
-        fun sanitized(palette: CustomPalette): CustomPalette = CustomPalette(GeodeNative.savedPaletteSanitize(palette.text) ?: palette.text)
+        fun sanitized(palette: CustomPalette): CustomPalette = CustomPalette(LooksNative.savedPaletteSanitize(palette.text) ?: palette.text)
     }
 }

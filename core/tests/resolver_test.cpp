@@ -686,10 +686,10 @@ struct OldChain {
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
         SceneParams p = director.applyAxes(director.apply(displayedParams));
         if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
-        p = lfo.apply(p, lfoValues);
-        p = AdsrEngine::apply(p, adsr.configs, envValues);
+        lfo.apply(p, lfoValues);
+        AdsrEngine::apply(p, adsr.configs, envValues);
         reactions.tick(soundFrame, dt, &director.emotion());
-        p = reactions.apply(p);
+        reactions.apply(p);
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);

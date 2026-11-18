@@ -3,7 +3,7 @@ package dev.geode.ui.cast
 import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.cast.LinkState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 
 /** True while the stream runs for the link (starting or live): the sheet has something to show. */
 internal val LinkState.running: Boolean get() = this is LinkState.Starting || this is LinkState.Live
@@ -46,9 +46,9 @@ internal fun linkSheetStatus(state: LinkState): Int? =
 @StringRes
 internal fun linkEndedMessage(reason: Int): Int =
     when (reason) {
-        GeodeNative.LINK_REASON_NO_LAN -> R.string.link_ended_no_lan
-        GeodeNative.LINK_REASON_BACKGROUND -> R.string.link_ended_background
-        GeodeNative.LINK_REASON_NETWORK -> R.string.link_ended_network
-        GeodeNative.LINK_REASON_TRIAL -> R.string.link_ended_trial
+        CastNative.LINK_REASON_NO_LAN -> R.string.link_ended_no_lan
+        CastNative.LINK_REASON_BACKGROUND -> R.string.link_ended_background
+        CastNative.LINK_REASON_NETWORK -> R.string.link_ended_network
+        CastNative.LINK_REASON_TRIAL -> R.string.link_ended_trial
         else -> R.string.link_ended_stream
     }

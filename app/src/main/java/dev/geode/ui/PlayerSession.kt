@@ -43,7 +43,12 @@ import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
 import dev.geode.data.prefs.PrefsSettingsRepository
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.IngestNative
+import dev.geode.engine.bridge.ParamsNative
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -58,8 +63,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CompletableDeferred
@@ -121,8 +124,8 @@ class PlayerSession internal constructor(
                 override fun resetSound(playerOwnsRing: Boolean) {
                     // The tap first: once this returns it writes nothing while another source has the ring.
                     playback.tap.owns = playerOwnsRing
-                    GeodeNative.pcmRingBeginEpoch(playback.sampleRing)
-                    bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
+                    IngestNative.pcmRingBeginEpoch(playback.sampleRing)
+                    bestEffort("PlayerSession", "player source") { SoundNative.soundSetPlayerSource(playerOwnsRing) }
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -325,7 +328,7 @@ class PlayerSession internal constructor(
     internal val record: RecordController =
         RecordController(
             application,
-            scope,
+            container.appScope,
             dev.geode.data.RecordFiles(application),
             object : RecordController.Host {
                 override fun canRecord(): Boolean = allowsRecording()
@@ -714,7 +717,7 @@ class PlayerSession internal constructor(
      */
     fun randomizeEverything(basicsOnly: Boolean) {
         // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
-        if (allowsStyle(GeodeNative.STYLE_MILKDROP)) {
+        if (allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
             milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
         } else {
             randomizeEverything(basicsOnly, emptyList())
@@ -730,7 +733,7 @@ class PlayerSession internal constructor(
         val locked = StyleCatalogue.ids.filterNot(allowsStyle)
         val picks = IntArray(2)
         val style =
-            GeodeNative.randomizeAllPick(
+            ParamsNative.randomizeAllPick(
                 seed,
                 chosenSceneId,
                 locked.joinToString("\n"),
@@ -846,6 +849,7 @@ class PlayerSession internal constructor(
             storeScope.coroutineContext.job.children
                 .toList()
 
+        record.stop()
         captureController.shutdown()
         playerListener?.let { player.removeListener(it) }
         queueController.release()
@@ -902,7 +906,7 @@ class PlayerSession internal constructor(
                 // The widget has no tab: it steps the styles, by the stage's native walk.
                 val order = stageStyleOrder()
                 val next =
-                    GeodeNative.stageStepIndex(BooleanArray(order.size) { allowsStyle(order[it]) }, order.indexOf(chosenSceneId), step)
+                    SoundNative.stageStepIndex(BooleanArray(order.size) { allowsStyle(order[it]) }, order.indexOf(chosenSceneId), step)
                 if (next >= 0) selectScene(order[next])
             }
         }

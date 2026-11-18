@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.PlayerPrefs
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.PlayoutNative
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.ReplayGain
 
@@ -73,7 +74,7 @@ private fun PictureDelaySlider(
     prefs: PlayerPrefs,
     onChange: (PlayerPrefs) -> Unit,
 ) {
-    val max = GeodeNative.playoutMaxOffsetMs().toFloat()
+    val max = PlayoutNative.playoutMaxOffsetMs().toFloat()
     Column {
         CrystalSlider(
             label = stringResource(R.string.playback_picture_delay, prefs.pictureDelayMs),

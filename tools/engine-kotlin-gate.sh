@@ -42,10 +42,9 @@
 # Self-test: the "Self-test the engine Kotlin gate" step of .github/workflows/arch-map.yml.
 set -euo pipefail
 
-C='engine/audio-core/src/main/kotlin/dev/geode/engine'
-allowed=(
-    "$C/bridge/GeodeNative.kt"
-)
+# Empty: the declarations file moved into :app (app/src/main/java/dev/geode/engine/bridge/*Native.kt), so no
+# Kotlin is left under engine/ and none may start there.
+allowed=()
 
 if [ "${1:-}" = "--files" ]; then
     root="${2:-.}"
@@ -100,7 +99,7 @@ watched=(
     "$A/ui/ExportController"
 )
 engine="^($(IFS='|'; printf '%s' "${watched[*]}"))\.kt$"
-exempt='/GeodeNative\.kt$'
+exempt='/bridge/[A-Za-z]+Native\.kt$'
 
 net=0
 report=""

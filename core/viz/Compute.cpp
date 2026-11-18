@@ -208,14 +208,8 @@ std::optional<ComputeProgram> ComputeProgram::build(const std::string& label, co
     return checked(program);
 }
 
-void ComputeProgram::release() {
-    if (released_) return;
-    released_ = true;
-    glDeleteProgram(program_);
-}
-
 ComputePass::ComputePass(std::string label, ComputeProgram program, GLbitfield barrierMask)
-    : label_(std::move(label)), program_(program), barrierMask_(barrierMask) {
+    : label_(std::move(label)), program_(std::move(program)), barrierMask_(barrierMask) {
     if (barrierMask_ == 0) GEODE_LOGW(kPassTag, "%s declares no readers, so no memory barrier will be issued after its dispatch", label_.c_str());
 }
 

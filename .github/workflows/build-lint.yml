@@ -1,9 +1,11 @@
 name: Build and lint
 
-# The pull-request gate: compile and build the debug APK (Kotlin and the native core through
-# CMake), the manifest promise checks, the JVM unit tests of every module, then the linters
-# (detekt, Android lint, ktlint). The native host tests run beside it (native-host-tests.yml, also
-# on every pull request). Only the emulator job in android.yml stays manual: it takes minutes to boot.
+# The pull-request gate: the debug APK (Kotlin and the native core through CMake).
+# Then the manifest promise checks and the release build's banned-SDK scan.
+# Then the JVM unit tests of every module.
+# Then the linters: detekt, Android lint, ktlint.
+# The native host tests (native-host-tests.yml) and the gates (arch-map.yml) run beside it.
+# Only the emulator tests stay manual (android.yml): the emulator takes minutes to boot.
 
 on:
   workflow_dispatch:
@@ -17,8 +19,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A pull request that changes only documents (tools/ci-docs-only.sh) skips the heavy job below.
+  # The heavy job is skipped, not filtered out by `paths`, so its check still reports on the pull
+  # request and a required check is never left waiting. It runs unless this job said "true".
+  changed:
+    name: Changed paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.docs.outputs.docs_only }}
+    steps:
+      # The merge commit and its two parents: the first parent is the base, so the diff is the pull request's.
+      - name: Check out tools/ at the merge commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          sparse-checkout: tools
+      - name: Only documents changed
+        id: docs
+        shell: bash
+        run: |
+          docs_only=false
+          if git rev-parse -q --verify HEAD^2 >/dev/null; then
+            docs_only=$(git diff --name-only HEAD^1 HEAD | bash tools/ci-docs-only.sh)
+          fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only"
+
   build-lint:
     name: Build and lint
+    needs: changed
+    if: ${{ !cancelled() && needs.changed.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -28,66 +60,29 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 21
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - name: Set up the Android build
+        uses: ./.github/actions/android-build-setup
         with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up Gradle and cache
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
-
-      - name: Install Android SDK 36, NDK and CMake
-        shell: bash
-        run: |
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;28.0.13004108" \
-            "cmake;3.22.1"
-
-      # The native build (two ABIs, the third_party libraries) through ccache: CMake reads the
-      # launcher from the environment, and the cache carries over from the last run.
-      - name: Set up ccache for the native build
-        shell: bash
-        run: |
-          command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
-          {
-            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
-            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
-            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
-            echo "CCACHE_MAXSIZE=600M"
-            echo "CCACHE_NOHASHDIR=true"
-          } >> "$GITHUB_ENV"
-
-      - name: Restore the ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ccache
-          key: ccache-debug-${{ github.run_id }}
-          restore-keys: ccache-debug-
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          ccache: true
 
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
-      # The APK this gate just built, downloadable from the run's Summary page, so every
-      # pull request has an installable debug build without waiting for the tests in
-      # android.yml (now manual). Uploaded before the linters, so a lint finding still
-      # leaves the APK to try. Debug-signed with app/debug.keystore, so it installs over
-      # the other CI builds.
       - name: ccache statistics
         if: always()
         run: ccache -s || true
 
+      - name: Save the ccache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-debug-${{ github.run_id }}
+
+      # The APK this gate just built, downloadable from the run's Summary page, so every
+      # pull request has an installable debug build.
+      # Uploaded before the linters, so a lint finding still leaves the APK to try.
+      # Debug-signed with app/debug.keystore, so it installs over the other CI builds.
       - name: Upload debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -96,23 +91,38 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Same checks as android.yml, from one script, so the promise in release.yml holds.
+      # The promises Play and the privacy policy rest on, from one script, so the promise in release.yml holds.
       - name: Check the merged manifest against the app's promises
         run: tools/check-manifest.sh
+
+      # Cast is the app's only internet use. tools/network-gate.sh (arch-map.yml) reads the code and the
+      # submodules; this reads what Gradle resolves for the release build.
+      # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only
+      # serialises its anonymous log records and opens no connection (Data safety declares it).
+      # No WebRTC SDK from Maven: Show on a computer uses the native libdatachannel submodule.
+      - name: No networking, analytics or ads SDK in the release build
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          deps=$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon -q)
+          banned='okhttp|retrofit|ktor|cronet|volley|firebase-(analytics|crashlytics|messaging|perf|config|installations|auth|firestore|database|storage|appcheck|inappmessaging|dynamic-links|ml)|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust|webrtc|libjingle|io\.getstream|livekit|twilio|agora|org\.jitsi'
+          if echo "$deps" | grep -iE "$banned"; then
+            echo "::error::A networking, analytics or ads SDK is in the release build; Cast to TV is the only internet use."; exit 1
+          fi
 
       # A red unit test fails the pull request here, not a day later in a manual run.
       - name: Run unit tests
         if: success() || failure()
-        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest --continue --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --continue --stacktrace --no-daemon
 
       - name: detekt
         if: success() || failure()
-        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt --continue --stacktrace --no-daemon
+        run: ./gradlew :app:detekt --continue --stacktrace --no-daemon
 
       - name: Show detekt findings
         if: failure()
         run: |
-          for module in app engine/audio-core engine/scenes; do
+          for module in app; do
             f=$module/build/reports/detekt/detekt.txt
             [ -f "$f" ] && { echo "::group::detekt findings ($module)"; cat "$f"; echo "::endgroup::"; }
           done

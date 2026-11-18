@@ -9,7 +9,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.geode.cast.CastMirror
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.stage.StageView
 
 /**
@@ -65,14 +65,14 @@ private class StageRun(
 
     fun restate() {
         var flags = 0
-        if (state.isAtLeast(Lifecycle.State.STARTED)) flags = flags or GeodeNative.STAGE_STARTED
-        if (state.isAtLeast(Lifecycle.State.RESUMED)) flags = flags or GeodeNative.STAGE_RESUMED
-        if (pip) flags = flags or GeodeNative.STAGE_PIP
-        if (secondScreen) flags = flags or GeodeNative.STAGE_SECOND_SCREEN
+        if (state.isAtLeast(Lifecycle.State.STARTED)) flags = flags or SoundNative.STAGE_STARTED
+        if (state.isAtLeast(Lifecycle.State.RESUMED)) flags = flags or SoundNative.STAGE_RESUMED
+        if (pip) flags = flags or SoundNative.STAGE_PIP
+        if (secondScreen) flags = flags or SoundNative.STAGE_SECOND_SCREEN
         if (flags == stated) return
         stated = flags
         CastMirror.stageFlags = flags
-        val now = GeodeNative.stageRun(flags) and GeodeNative.STAGE_DRAWS != 0
+        val now = SoundNative.stageRun(flags) and SoundNative.STAGE_DRAWS != 0
         if (now == draws) return
         draws = now
         if (now) view.onResume() else view.onPause()

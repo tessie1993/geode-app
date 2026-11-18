@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.geode.data.GeneralSettings
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
@@ -205,8 +205,8 @@ fun VisualizerCanvasHost(
     val area = androidx.compose.runtime.remember { IntArray(4) }
     val rect = androidx.compose.runtime.remember { IntArray(4) }
     var flags = 0
-    if (shown) flags = flags or GeodeNative.STAGE_HOST_SHOWN
-    if (keepDrawing) flags = flags or GeodeNative.STAGE_HOST_CASTING
+    if (shown) flags = flags or SoundNative.STAGE_HOST_SHOWN
+    if (keepDrawing) flags = flags or SoundNative.STAGE_HOST_CASTING
     AndroidView(
         factory = {
             (view.parent as? android.view.ViewGroup)?.removeView(view)
@@ -224,9 +224,9 @@ fun VisualizerCanvasHost(
                 val windowW = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
                 val windowH = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
                 val alpha =
-                    when (GeodeNative.stageHost(flags, area, windowW, windowH, rect)) {
-                        GeodeNative.STAGE_HOST_OPAQUE -> 1f
-                        GeodeNative.STAGE_HOST_FAINT -> KEEP_DRAWING_ALPHA
+                    when (SoundNative.stageHost(flags, area, windowW, windowH, rect)) {
+                        SoundNative.STAGE_HOST_OPAQUE -> 1f
+                        SoundNative.STAGE_HOST_FAINT -> KEEP_DRAWING_ALPHA
                         else -> 0f
                     }
                 if (view.alpha != alpha) view.alpha = alpha

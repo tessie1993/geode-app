@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
@@ -97,10 +98,9 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFxClamp(JNIEnv*, jobject, jint contr
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBandsText(JNIEnv* env, jobject, jint preset, jstring csv, jintArray out) {
     if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
-    const char* text = csv ? env->GetStringUTFChars(csv, nullptr) : nullptr;
+    const geode::jni::Utf8Chars text(env, csv);
     int32_t levels[GEODE_DSP_BANDS] = {};
-    const int n = geode_dsp_restore_bands_text(preset, text, levels, GEODE_DSP_BANDS);
-    if (text) env->ReleaseStringUTFChars(csv, text);
+    const int n = geode_dsp_restore_bands_text(preset, text.get(), levels, GEODE_DSP_BANDS);
     env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
     return n;
 }
@@ -112,21 +112,21 @@ Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, ji
     if (count > 0) env->GetIntArrayRegion(levels, 0, count, values.data());
     std::string text(static_cast<size_t>(geode_dsp_encode_bands(values.data(), count, nullptr, 0)) + 1, '\0');
     geode_dsp_encode_bands(values.data(), count, text.data(), static_cast<int>(text.size()));
-    return env->NewStringUTF(text.c_str());
+    return geode::jni::utf8String(env, text.c_str());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspBandLabel(JNIEnv* env, jobject, jint band) {
     char text[32] = {};
     geode_dsp_band_label(band, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDbLabel(JNIEnv* env, jobject, jint millibels) {
     char text[32] = {};
     geode_dsp_db_label(millibels, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT void JNICALL
@@ -185,19 +185,17 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetStreamTags(JNIEnv* env, jobject, 
                                                           jfloat trackGainDb, jfloat trackPeak, jfloat albumGainDb,
                                                           jfloat albumPeak) {
     if (!stream) return;
-    const char* name = env->GetStringUTFChars(stream, nullptr);
-    if (!name) return;
-    geode_dsp_set_stream_tags(dspOf(handle), name, mask, trackGainDb, trackPeak, albumGainDb, albumPeak);
-    env->ReleaseStringUTFChars(stream, name);
+    const geode::jni::Utf8Chars name(env, stream);
+    if (!name.get()) return;
+    geode_dsp_set_stream_tags(dspOf(handle), name.get(), mask, trackGainDb, trackPeak, albumGainDb, albumPeak);
 }
 
 // Playback thread, at the processor's flush (not per block), so the string copy here is not on the hot path.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspBeginStream(JNIEnv* env, jobject, jlong handle, jstring stream, jlong positionUs,
                                                         jlong durationUs) {
-    const char* name = stream ? env->GetStringUTFChars(stream, nullptr) : nullptr;
-    geode_dsp_begin_stream(dspOf(handle), name, positionUs, durationUs);
-    if (name) env->ReleaseStringUTFChars(stream, name);
+    const geode::jni::Utf8Chars name(env, stream);
+    geode_dsp_begin_stream(dspOf(handle), name.get(), positionUs, durationUs);
 }
 
 JNIEXPORT void JNICALL

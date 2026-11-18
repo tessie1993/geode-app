@@ -104,23 +104,31 @@ int geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count,
     return Equalizer::kBands;
 }
 
-int geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity) {
+int geode_dsp_restore_bands_text(int preset, const char* csv, int32_t* out, int capacity) try {
     if (!out || capacity < Equalizer::kBands) return 0;
     geode::audio::fx::restoreBandsText(preset, csv ? csv : "", out);
     return Equalizer::kBands;
+} catch (...) {
+    return 0;
 }
 
-int geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity) {
+int geode_dsp_encode_bands(const int32_t* levels, int count, char* out, int capacity) try {
     return geode::api::textOut(geode::audio::fx::encodeBandLevels(levels, count), out, capacity);
+} catch (...) {
+    return geode::api::textOut(std::string(), out, capacity);
 }
 
-int geode_dsp_band_label(int band, char* out, int capacity) {
+int geode_dsp_band_label(int band, char* out, int capacity) try {
     const int milliHz = static_cast<int>(geode_dsp_band_center_hz(band) * 1000.0f);
     return geode::api::textOut(geode::audio::fx::freqLabel(milliHz), out, capacity);
+} catch (...) {
+    return geode::api::textOut(std::string(), out, capacity);
 }
 
-int geode_dsp_db_label(int millibels, char* out, int capacity) {
+int geode_dsp_db_label(int millibels, char* out, int capacity) try {
     return geode::api::textOut(geode::audio::fx::dbLabel(millibels), out, capacity);
+} catch (...) {
+    return geode::api::textOut(std::string(), out, capacity);
 }
 
 void geode_dsp_set_enabled(geode_dsp* d, int enabled) {

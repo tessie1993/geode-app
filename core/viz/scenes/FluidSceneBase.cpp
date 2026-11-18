@@ -6,6 +6,7 @@
 #include "viz/fluid/FluidMath.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/LiveSignal.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
@@ -87,8 +88,7 @@ void FluidSceneBase::applyChoreographyTo(fluid::Particles& particles) {
 }
 
 void FluidSceneBase::saveFramebufferAndViewport() {
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo_);
-    glGetIntegerv(GL_VIEWPORT, prevViewport_.data());
+    SceneTarget::read(prevFbo_, prevViewport_.data());
 }
 
 void FluidSceneBase::saveGlState() {

@@ -37,9 +37,11 @@ permissions:
 
 # One deployment at a time, and never cancel one half-way: a cancelled deploy can
 # leave Pages serving nothing.
+# A pull request only assembles and checks the site, in a group of its own: a newer
+# push to it replaces the older run, and it never waits behind a deployment.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.event_name == 'pull_request' && github.head_ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -84,7 +86,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    # PRs only build and check; pushes to the two release branches deploy.
+    # PRs only build and check; pushes to main and manual runs deploy.
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest

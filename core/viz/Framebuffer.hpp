@@ -23,6 +23,9 @@ public:
     bool ensure(int w, int h);
     void release();
     void forget();
+    // Trades the texture and FBO with `other` (the labels stay): a pass that needs last frame's picture takes
+    // it without copying a pixel.
+    void swap(Framebuffer& other);
     void discardContents(GLenum bindTarget = GL_FRAMEBUFFER) const;
     static void discardColorAttachments(GLenum bindTarget, int count);
 

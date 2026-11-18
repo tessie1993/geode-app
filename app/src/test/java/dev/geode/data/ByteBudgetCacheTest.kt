@@ -88,7 +88,7 @@ class ByteBudgetCacheTest {
         }
 
     @Test
-    fun clearDropsValuesButRemembersMisses() =
+    fun clearDropsValuesAndMisses() =
         runTest {
             val c = cache()
             c.get("art") { ByteArray(40) }
@@ -97,10 +97,19 @@ class ByteBudgetCacheTest {
             assertNull(c.peek("art"))
             assertEquals(0L, c.sizeBytes)
             assertEquals(0, c.count)
-            assertTrue(c.isKnownMissing("artless"))
-            assertNull(c.get("artless") { error("a known miss is not decoded again") })
+            assertFalse(c.isKnownMissing("artless"))
+            assertNotNull(c.get("artless") { ByteArray(10) })
             assertNotNull(c.get("art") { ByteArray(40) })
-            assertEquals(40L, c.sizeBytes)
+            assertEquals(50L, c.sizeBytes)
+        }
+
+    @Test
+    fun aDecodeThatThrowsIsNotRememberedAsAMiss() =
+        runTest {
+            val c = cache()
+            runCatching { c.get("flaky") { error("grant lost") } }
+            assertFalse(c.isKnownMissing("flaky"))
+            assertNotNull(c.get("flaky") { ByteArray(10) })
         }
 
     @Test

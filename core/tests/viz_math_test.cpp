@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
 
 #include <set>
 #include <string>
+#include <string_view>
 
 #include "viz/BandTrim.hpp"
 #include "viz/BuildReport.hpp"
@@ -66,7 +68,8 @@ void followRouteTracksSource() {
     f.kickEnv = 0.8f;
     e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "follow with zero smoothing outputs amount * source");
-    const SceneParams p = e.apply(SceneParams{});
+    SceneParams p;
+    e.apply(p);
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
@@ -722,7 +725,8 @@ void oddFrameTimesStayFiniteAndBounded() {
         p.camShake = 1.0f;
         for (int i = 0; i < 120; ++i) {
             e.tick(busyFrame(i), dt);
-            const SceneParams q = e.apply(p);
+            SceneParams q = p;
+            e.apply(q);
             rig.step(q, {0.5f, -0.5f}, dt, false);
             for (int r = 0; r < 3; ++r) check(std::isfinite(e.output(r)) && std::fabs(e.output(r)) <= 1.0001f, "route output finite and bounded for odd dt");
         }
@@ -768,6 +772,89 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     }
     check(maxStill < 1e-6f, "a still style's flat picture never rolls on its own");
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
+}
+
+// Every float of a CameraPose, in one list.
+std::array<float, 24> poseFloats(const CameraPose& c) {
+    std::array<float, 24> out{};
+    size_t n = 0;
+    for (const std::array<float, 3>* v : {&c.pos, &c.right, &c.up, &c.fwd}) {
+        for (float f : *v) out[n++] = f;
+    }
+    for (float f : {c.focal, c.travel, c.dolly, c.yaw, c.pitch, c.roll}) out[n++] = f;
+    for (float f : c.flat) out[n++] = f;
+    for (float f : c.tilt) out[n++] = f;
+    return out;
+}
+
+// One frame with a NaN or an infinity in a camera param, the look input or the director's moves must not
+// latch: std::clamp passed a NaN on into the springs, which kept it, and the pose stayed NaN for good.
+// The rig steps beside one that never saw the bad frame and must be back beside it a few seconds later.
+void nonFiniteCameraInputsDoNotLatch() {
+    using Poison = void (*)(SceneParams&, CameraRig::LookInput&, CameraRig::Moves&, float);
+    struct Case {
+        const char* name;
+        Poison poison;
+    };
+    const Case cases[] = {
+        {"camSmooth", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camSmooth = v; }},
+        {"camYaw", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camYaw = v; }},
+        {"camPitch", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPitch = v; }},
+        {"camRoll", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camRoll = v; }},
+        {"camFov", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFov = v; }},
+        {"camFly", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFly = v; }},
+        {"camPush", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPush = v; }},
+        {"camOrbit", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camOrbit = v; }},
+        {"camShake", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camShake = v; }},
+        {"motionAmount", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.motionAmount = v; }},
+        {"look yaw", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.yaw = v; }},
+        {"look pitch", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.pitch = v; }},
+        // Not sanitised by the rig: only the springs' own refusal stands between these and the pose.
+        {"moves dolly", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.dolly = v; }},
+        {"moves breath", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.breath = v; }},
+    };
+    SceneParams normal;
+    normal.camFly = 1.0f;
+    normal.camSmooth = 0.3f;
+    normal.camYaw = 0.3f;
+    normal.camPitch = -0.2f;
+    normal.camRoll = 0.25f;
+    normal.camFov = 1.2f;
+    normal.camPush = 0.4f;
+    normal.camOrbit = 0.6f;
+    normal.camShake = 0.3f;
+    normal.motionAmount = 0.8f;
+    normal.camTouch = true;
+    const CameraRig::LookInput look{0.4f, -0.3f};
+    GeodeSoundFrame sound = silence();
+    sound.presence = 0.6f;
+    sound.bassAtt = 1.4f;
+    sound.energyTrend = 0.8f;
+    const float dt = 1.0f / 60.0f;
+    for (const Case& c : cases) {
+        for (float bad : {NAN, INFINITY, -INFINITY}) {
+            const std::string what = std::string(c.name) + (std::isnan(bad) ? " = NaN" : bad > 0.0f ? " = +inf" : " = -inf");
+            CameraRig rig;
+            CameraRig reference;
+            bool finite = true;
+            for (int i = 0; i < 300; ++i) {
+                SceneParams p = normal;
+                CameraRig::LookInput l = look;
+                CameraRig::Moves m;
+                if (i == 60) c.poison(p, l, m, bad);
+                rig.setMoves(m);
+                rig.step(p, l, dt, false, true, &sound);
+                reference.step(normal, look, dt, false, true, &sound);
+                for (float f : poseFloats(rig.pose())) finite = finite && std::isfinite(f);
+            }
+            check(finite, ("the camera pose stays finite on every frame around one " + what).c_str());
+            const std::array<float, 24> a = poseFloats(rig.pose());
+            const std::array<float, 24> b = poseFloats(reference.pose());
+            float worst = 0.0f;
+            for (size_t k = 0; k < a.size(); ++k) worst = std::fmax(worst, std::fabs(a[k] - b[k]));
+            check(worst < 0.1f, ("the camera returns beside its normal course after one " + what).c_str());
+        }
+    }
 }
 
 // One kick per 0.5 s at 60 fps, for `beats` kicks.
@@ -1215,6 +1302,82 @@ void formulaFamiliesHearTheMusicInTheFormula() {
     }
     check(formulaStyles >= 30, "the six formula families were checked");
     check(sources.size() >= 4, "the formula routes' sources are drawn per style");
+}
+
+// The seeded stream a style's DNA draws from, replayed: the same seed (the id's FNV-1a, the seed, the mix) and
+// the same xorshift as ReactionDna.cpp's Draw, which that file keeps to itself. Draw k is the stream's k-th
+// value, so a test can say which draws a route's values came from.
+class DnaStream {
+public:
+    static constexpr int kLength = 256;
+
+    DnaStream(std::string_view id, int seed) {
+        std::uint32_t h = 2166136261u;
+        for (const char c : id) {
+            h ^= static_cast<std::uint8_t>(c);
+            h *= 16777619u;
+        }
+        h ^= static_cast<std::uint32_t>(seed) * 0x9E3779B9u;
+        h ^= h >> 16;
+        h *= 0x7feb352du;
+        h ^= h >> 15;
+        h *= 0x846ca68bu;
+        h ^= h >> 16;
+        std::uint32_t x = h != 0u ? h : 0x9E3779B9u;
+        for (std::uint32_t& v : x_) {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            v = x;
+        }
+    }
+
+    float range(int k, float from, float to) const {
+        return from + (to - from) * (static_cast<float>(x_[static_cast<size_t>(k)] >> 8) / 16777216.0f);
+    }
+
+private:
+    std::array<std::uint32_t, kLength> x_{};
+};
+
+bool sameDraw(float built, float replayed) { return std::fabs(built - replayed) <= 1e-6f; }
+
+// The DNA draws in the order its source is written, on every compiler. The feel-and-timbre layer used to draw its
+// amount, rise and fall as three arguments of one call, an order C++ leaves to the compiler: the phone's clang works
+// them out left to right, the host's g++ right to left, so the host tests checked another DNA than the phone builds.
+// Written order is the phone's: the amount (structuralAmount's range for the target), then the rise, then the fall,
+// three draws in a row and the DNA's last. Some draw k of the stream must give all three, in that order; drawn in any
+// other order no k does (three 24-bit draws would have to repeat). The accent's camera roll (a sign, then a size)
+// was re-sequenced the same way, but no DNA keeps it today: the accent always fills the groove's last slot, which the
+// transient layer takes, so no test can see its order through buildStyleDna.
+void dnaDrawsInWrittenOrder() {
+    struct Span {
+        float from;
+        float to;
+    };
+    const auto structural = [](LfoTarget t) -> Span {
+        switch (t) {
+            case LfoTarget::Zoom: return {0.1f, 0.2f};
+            case LfoTarget::CamFov: return {0.2f, 0.35f};
+            case LfoTarget::Morph: return {0.3f, 0.5f};
+            case LfoTarget::Turbulence: case LfoTarget::Warp: case LfoTarget::Ripple: return {0.2f, 0.4f};
+            default: return {0.15f, 0.3f};
+        }
+    };
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 8; ++seed) {
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
+            const DnaStream s(kStyleIds[i], seed);
+            const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
+            const Span amount = structural(feel.target);
+            bool found = false;
+            for (int k = 0; k + 2 < DnaStream::kLength && !found; ++k) {
+                found = sameDraw(feel.amount, s.range(k, amount.from, amount.to)) && sameDraw(feel.attackSeconds, s.range(k + 1, 0.8f, 1.5f)) &&
+                        sameDraw(feel.releaseSeconds, s.range(k + 2, 1.5f, 3.0f));
+            }
+            check(found, (std::string(kStyleIds[i]) + ": the feel layer draws its amount, then its rise, then its fall").c_str());
+        }
+    }
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -1868,8 +2031,12 @@ void driveScalesTheMagnitudeOfMotion() {
     loudRoutes.tick(fat, 1.0f / 60.0f);
     quietRoutes.tick(pad, 1.0f / 60.0f);
     const float base = SceneParams{}.zoom;
-    const float loudMove = loudRoutes.apply(SceneParams{}).zoom - base;
-    const float quietMove = quietRoutes.apply(SceneParams{}).zoom - base;
+    SceneParams loudMoved;
+    SceneParams quietMoved;
+    loudRoutes.apply(loudMoved);
+    quietRoutes.apply(quietMoved);
+    const float loudMove = loudMoved.zoom - base;
+    const float quietMove = quietMoved.zoom - base;
     check(loudMove > 0.0f && quietMove > 0.0f && quietMove < 0.4f * loudMove, "a route's audio part follows the drive");
 
     MotionField loud;
@@ -2533,6 +2700,7 @@ int main() {
     everyStyleHearsTheSongsTime();
     everyStyleHearsTheMusicNotTheVolume();
     formulaFamiliesHearTheMusicInTheFormula();
+    dnaDrawsInWrittenOrder();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();
@@ -2546,6 +2714,7 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    nonFiniteCameraInputsDoNotLatch();
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();

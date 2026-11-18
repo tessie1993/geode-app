@@ -2667,6 +2667,11 @@ void bandTrimsReachEveryBandRead() {
     check(t.mid == 0.6f && t.midAtt == 0.45f && t.middle == 0.3f && t.midPresence == 0.2f && t.fluxMid == 0.75f, "Mid gain trims every mid read");
     check(t.treble == 0.0f && t.high == 0.0f && t.treblePresence == 0.0f && t.fluxHigh == 0.0f, "Treble gain trims every treble read");
     check(t.kickEnv == f.kickEnv && t.bassTime == f.bassTime, "the trims leave drums and clocks alone");
+    GeodeSoundFrame into{};
+    bandTrimInto(f, p, into);
+    check(into.bass == t.bass && into.fluxMid == t.fluxMid && into.high == t.high && into.bassTime == t.bassTime,
+          "trimming into a held frame gives the frame bandTrimmed returns");
+    check(bandTrimsAreIdentity(SceneParams{}) && !bandTrimsAreIdentity(p), "only a trim away from 1 is not the identity");
 }
 
 int main() {

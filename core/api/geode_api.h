@@ -1675,6 +1675,24 @@ GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, 
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
+/* What a loop extend decides while it copies encoded samples (output/LoopExtend); the shell only reads and
+ * writes them. geode_loop_repeat_samples: the leading samples of one repeat, times shifted by offset_us, that
+ * land before limit_us; fills out_pts_us and out_flags (muxer flags from the extractor's) and returns how many.
+ * geode_loop_clip_starts: where back-to-back clips begin, then the total, in out[clip_count + 1].
+ * geode_loop_audio_due: the soundtrack samples due before until_us as (clip, sample) pairs with their time in the
+ * soundtrack, from and advancing cursor[2] = {clip, sample}; sample_pts_us holds every clip's sample times, clip after clip. Returns how many
+ * it wrote (fewer than capacity = caught up). The progress calls give the 0..1 bar position; the sample buffer
+ * is the bytes one sample read may need. */
+GEODE_API int     geode_loop_repeat_samples(const int64_t* sample_times_us, const int* extractor_flags, int count,
+                                            int64_t offset_us, int64_t limit_us, int64_t* out_pts_us, int* out_flags);
+GEODE_API void    geode_loop_clip_starts(const int64_t* durations_us, int clip_count, int64_t* out);
+GEODE_API int     geode_loop_audio_due(const int64_t* clip_starts_us, const int* sample_counts, int clip_count,
+                                       const int64_t* sample_pts_us, int* cursor, int64_t until_us, int* out_clip,
+                                       int* out_sample, int64_t* out_pts_us, int capacity);
+GEODE_API float   geode_loop_copy_progress(int done, int repeats);
+GEODE_API float   geode_loop_transcode_progress(int index, float clip_progress, int clip_count);
+GEODE_API int     geode_loop_sample_buffer_bytes(int declared_bytes, int width, int height);
+
 /* Loudness advice (output/LoudnessAdvice): what an export's measured loudness asks of a platform target
  * (0 Leave as-is, 1 YouTube, 2 Shorts and TikTok). geode_loudness_window fills aim, low, high (LUFS) and the
  * true-peak ceiling (dBTP) and returns 1 for a target that normalises, else 0. geode_loudness_advise returns

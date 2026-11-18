@@ -31,7 +31,7 @@ BASISU="third_party/basis_universal"
 BASISU_DEFS="-DBASISU_SUPPORT_SSE=0 -DBASISU_SUPPORT_OPENCL=0 -DBASISD_SUPPORT_KTX2=1 -DBASISD_SUPPORT_KTX2_ZSTD=1"
 INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp \
     core/audio/ingest/SnapshotStitch.cpp core/api/geode_ingest_api.cpp core/output/FrameClock.cpp"
-EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp \
+EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/LoopExtend.cpp \
     core/output/LoudnessAdvice.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp \
     core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
 EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
@@ -235,6 +235,8 @@ transition_library_test | core | core/tests/transition_library_test.cpp core/uti
 transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/Transition.cpp \
     core/viz/Program.cpp core/viz/ShaderSource.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
     core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp |
+# The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
+uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
 # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
 quality_test | stub | core/tests/quality_test.cpp core/api/geode_perf_api.cpp core/viz/liquid/LiquidMath.cpp |
 # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
@@ -273,6 +275,8 @@ stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp
 look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
 live_client_test | mt | core/tests/live_client_test.cpp core/stage/LiveClient.cpp |
+# The ADPF wrapper (core/util/WorkHint): a no-op off Android, the target is the paced frame's length.
+work_hint_test | core | core/tests/work_hint_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
 # The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
@@ -491,6 +495,7 @@ track_bookmark_test | stub | core/tests/track_bookmark_test.cpp core/audio/dsp/T
 # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
 # take's limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
 output_test | stub | core/tests/output_test.cpp $EXPORT_SRCS |
+loop_extend_test | stub | core/tests/loop_extend_test.cpp $EXPORT_SRCS |
 record_plan_test | stub | core/tests/record_plan_test.cpp $EXPORT_SRCS |
 export_pcm_test | stub | core/tests/export_pcm_test.cpp $EXPORT_SRCS |
 # A render's range and time left (core/output/ExportRange, RenderEta): the segment clamp and its
@@ -615,7 +620,7 @@ analysis_thread_tsan | tsan | core/tests/analysis_thread_test.cpp core/sound/hop
 frame_blend_test | mt | core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
     core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp |
 # The drawn waveform (core/sound/interp/Waveform): its block is the engine's configured FFT size / 512 at every rate.
-waveform_test | core | core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp core/sound/*.cpp |
+waveform_test | mt | core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp core/sound/*.cpp |
 
 # --- Export pre-roll
 # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first

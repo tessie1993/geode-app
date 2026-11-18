@@ -8,6 +8,7 @@
 #include "audio/dsp/PcmTiming.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
+#include "output/LoopExtend.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/LoudnessAdvice.hpp"
 #include "output/PreRoll.hpp"
@@ -112,6 +113,37 @@ int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t lo
 
 int geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes) {
     return out::LoopExtendPlan::of(total_us, total_us, 1).fittingBitRate(limit_bytes, soundtrack_bytes);
+}
+
+int geode_loop_repeat_samples(const int64_t* sample_times_us, const int* extractor_flags, int count, int64_t offset_us,
+                              int64_t limit_us, int64_t* out_pts_us, int* out_flags) {
+    return out::loopext::repeatSamples(sample_times_us, extractor_flags, count, offset_us, limit_us, out_pts_us, out_flags);
+}
+
+void geode_loop_clip_starts(const int64_t* durations_us, int clip_count, int64_t* out) {
+    out::loopext::clipStarts(durations_us, clip_count, out);
+}
+
+int geode_loop_audio_due(const int64_t* clip_starts_us, const int* sample_counts, int clip_count,
+                         const int64_t* sample_pts_us, int* cursor, int64_t until_us, int* out_clip, int* out_sample,
+                         int64_t* out_pts_us, int capacity) {
+    if (!cursor) return 0;
+    out::loopext::AudioCursor c{cursor[0], cursor[1]};
+    const int n = out::loopext::audioDue(clip_starts_us, sample_counts, clip_count, sample_pts_us, c, until_us, out_clip,
+                                         out_sample, out_pts_us, capacity);
+    cursor[0] = c.clip;
+    cursor[1] = c.sample;
+    return n;
+}
+
+float geode_loop_copy_progress(int done, int repeats) { return out::loopext::copyProgress(done, repeats); }
+
+float geode_loop_transcode_progress(int index, float clip_progress, int clip_count) {
+    return out::loopext::transcodeProgress(index, clip_progress, clip_count);
+}
+
+int geode_loop_sample_buffer_bytes(int declared_bytes, int width, int height) {
+    return out::loopext::sampleBufferBytes(declared_bytes, width, height);
 }
 
 int geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes, int64_t limit_bytes) {

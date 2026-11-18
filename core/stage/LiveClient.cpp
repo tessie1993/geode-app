@@ -83,6 +83,11 @@ void LiveClient::release(bool glCurrent) {
         released_ = true;
         left.swap(jobs_);
     }
+    {
+        // A picture nobody asked for is not kept for a stage that has no renderer left.
+        std::lock_guard<std::mutex> state(stateLock_);
+        still_.reset();
+    }
     if (!viz_) return;
     // No frame will come: a tee still waiting to open fails, and every tee asked for is closed, so no recording
     // waits on a stage that is gone.

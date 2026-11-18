@@ -279,6 +279,9 @@ class PlayerSession internal constructor(
 
     fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkImport.milkPresetFilesAsync(onDone)
 
+    /** Deletes an imported .milk; the stage, Auto and the saved look forget it, as for a removed texture's presets. */
+    fun removeMilkPreset(path: String) = milkImport.removeMilkAsync(path) { vizStateStore.dropRemovedMilkPaths(listOf(it)) }
+
     fun importMilkPresetAsync(
         uri: Uri,
         onDone: (String?) -> Unit,

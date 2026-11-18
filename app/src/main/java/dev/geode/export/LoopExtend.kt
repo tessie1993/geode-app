@@ -179,7 +179,7 @@ class LoopExtend(
         ) : Target
     }
 
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "TooGenericExceptionCaught")
     private fun write(
         reel: LoopReel,
         soundtrack: Soundtrack,
@@ -201,9 +201,11 @@ class LoopExtend(
         return try {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
+        } catch (e: CancellationException) {
+            discard(target)
+            throw e
         } catch (e: Exception) {
             discard(target)
-            if (e is CancellationException) throw e
             Result.Failed(
                 when (e) {
                     is IllegalArgumentException -> context.getString(R.string.export_error_extend_copy, e.message)

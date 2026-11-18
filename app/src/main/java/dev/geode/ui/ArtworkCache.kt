@@ -61,6 +61,7 @@ object ArtworkCache {
         px: Int,
     ) = "$uri@$px"
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun load(
         context: Context,
         uri: String,

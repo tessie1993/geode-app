@@ -86,7 +86,12 @@ void MycoScene::draw(float timeSeconds) {
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
     SceneTarget::read(prevFbo, prevViewport);
-    if (!ensureBuffers()) return;
+    if (!ensureBuffers()) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
     fluid::DoubleFbo& colony = *agents_;
     fluid::DoubleFbo& field = *trail_;
     const SceneParams& p = params_;

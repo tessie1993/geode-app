@@ -232,9 +232,15 @@ Java_dev_geode_engine_bridge_TagsNative_searchSheet(JNIEnv* env, jobject, jobjec
 JNIEXPORT jbyteArray JNICALL
 Java_dev_geode_engine_bridge_TagsNative_lyricsParse(JNIEnv* env, jobject, jbyteArray text) {
     const std::string source = textOf(env, text);
-    std::string wire(static_cast<size_t>(geode_lyrics_parse(source.c_str(), nullptr, 0)), '\0');
-    geode_lyrics_parse(source.c_str(), wire.data(), static_cast<int>(wire.size()) + 1);
-    return utf8Bytes(env, wire.c_str());
+    const int len = static_cast<int>(source.size());
+    std::string wire(static_cast<size_t>(geode_lyrics_parse(source.data(), len, nullptr, 0)), '\0');
+    geode_lyrics_parse(source.data(), len, wire.data(), static_cast<int>(wire.size()) + 1);
+    // By its length: a NUL in the lyrics stays in their text.
+    jbyteArray out = env->NewByteArray(static_cast<jsize>(wire.size()));
+    if (out && !wire.empty()) {
+        env->SetByteArrayRegion(out, 0, static_cast<jsize>(wire.size()), reinterpret_cast<const jbyte*>(wire.data()));
+    }
+    return out;
 }
 
 JNIEXPORT jint JNICALL

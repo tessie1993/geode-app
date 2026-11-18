@@ -88,7 +88,7 @@ internal object EditorProjectJson {
         val d = ExportDefaults()
         return ExportDefaults(
             quality = enumOr(o.optString("quality"), d.quality),
-            fps = o.optInt("fps", d.fps).let { if (it in EXPORT_FPS_OPTIONS) it else d.fps },
+            fps = ExportFps.read(o.optInt("fps", d.fps), d.fps),
             ratio = enumOr(o.optString("ratio"), d.ratio),
             loopSafe = o.optBoolean("loopSafe", d.loopSafe),
             codec = enumOr(o.optString("codec"), ExportCodec.H264),

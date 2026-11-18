@@ -2,7 +2,8 @@ package dev.geode.data.prefs
 
 // The schema of everything the app keeps in SharedPreferences (#1009, PR 1). Each store lists its
 // keys as PREF_KEYS; `PrefsSchemaTest` holds the stores to those lists, the lists to each other
-// and to the manual backup. Nothing reads the lists at run time yet.
+// and to the manual backup. At run time a restore skips a value of another type than its key's
+// (`BackupFormat.hasDeclaredType`).
 
 /** The `putX` call a key is written with. */
 enum class PrefType {

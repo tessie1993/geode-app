@@ -35,7 +35,7 @@ How to read them, and what the listing says:
 | 11 Customize categories | `ui/CustomizeCategory.kt:30-40`; which show on a style and which have free Basics is `core/viz/CustomizeMap.cpp` (Basics rows at :22-90; Engine's sections show only where a style has an engine, :105-107) | the script | "up to eleven groups"; free is "the basic controls in Customize (quick knobs included)", not "every group", because Engine and Expert have no Basics |
 | Export: 720p, 1080p, 4K | `ExportQuality`, `export/VideoExporter.kt` | the script | as written |
 | Export: H.264, HEVC | `ExportCodec`, same file. HEVC falls back to H.264 on a device with no HEVC encoder | the script | "H.264 or HEVC" |
-| Export: 24, 25, 30, 50, 60 fps | `EXPORT_FPS_OPTIONS`, `data/ExportPrefs.kt` | the script | "24 to 60 frames per second" |
+| Export: 24, 25, 30, 50, 60 fps | `kOptions`, `core/shell/ExportFps.cpp` (its `static_assert`) | the script | "24 to 60 frames per second" |
 | Export: six shapes | `ExportRatio`, `export/VideoExporter.kt` | the script | "widescreen, vertical, square and other shapes" |
 | Container | MP4 only (`MediaMuxer`, `export/`) | | "an MP4 file" |
 | Free export | 1080p, 30 fps, one minute, watermark (`pro/FreeTier.kt:76-82`) | the script | as written |

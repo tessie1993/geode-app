@@ -50,9 +50,15 @@ class TrackLibrary(
         val text = runCatching { file.readText() }.getOrNull() ?: return null
         if (text.isBlank()) return emptyList()
         parseOrNull(text)?.let { return it }
-        runCatching { file.renameTo(File(file.parentFile, "${file.name}.corrupt")) }
+        runCatching { file.renameTo(quarantineFile()) }
         return emptyList()
     }
+
+    /** `library.json.corrupt`, else the first free `library.json.<n>.corrupt`: an earlier copy is never written over. */
+    private fun quarantineFile(): File =
+        generateSequence(1) { it + 1 }
+            .map { n -> File(file.parentFile, if (n == 1) "${file.name}.corrupt" else "${file.name}.$n.corrupt") }
+            .first { !it.exists() }
 
     private fun writeLocked(tracks: List<LibraryTrack>) {
         AtomicWrite.text(file, serialize(tracks))
@@ -120,12 +126,18 @@ class TrackLibrary(
 
         internal fun parse(json: String): List<LibraryTrack> = parseOrNull(json) ?: emptyList()
 
-        internal fun parseOrNull(json: String): List<LibraryTrack>? =
-            runCatching {
-                val trimmed = json.trim()
-                val arr = if (trimmed.startsWith("[")) JSONArray(trimmed) else JSONObject(trimmed).getJSONArray("tracks")
-                (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
-            }.getOrNull()
+        /**
+         * Null only when the container cannot be read; an entry that cannot be read (no uri, not an
+         * object) drops itself, not the library.
+         */
+        internal fun parseOrNull(json: String): List<LibraryTrack>? {
+            val arr =
+                runCatching {
+                    val trimmed = json.trim()
+                    if (trimmed.startsWith("[")) JSONArray(trimmed) else JSONObject(trimmed).getJSONArray("tracks")
+                }.getOrNull() ?: return null
+            return (0 until arr.length()).mapNotNull { runCatching { fromJson(arr.getJSONObject(it)) }.getOrNull() }
+        }
 
         internal fun serialize(tracks: List<LibraryTrack>): String {
             val arr = JSONArray()

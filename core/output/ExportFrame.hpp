@@ -64,6 +64,9 @@ public:
     // Frame n of the range into targetFbo (0: the default framebuffer). False once the track has run out before
     // the frame's end; the frame is drawn all the same, on what the engine has heard.
     bool frame(int64_t n, uint32_t targetFbo, ExportTarget& target);
+    // True once the range's track has run out: a frame() false is then the track's end, not a decoder that is
+    // stuck (TrackPump::kStuckAfter) or a range never opened, either of which fails the render.
+    bool trackEnded() const { return range_ && range_->ended(); }
 
     const FrameClock& clock() const { return clock_; }
 

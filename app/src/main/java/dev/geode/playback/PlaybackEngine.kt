@@ -132,7 +132,7 @@ class PlaybackSession internal constructor(
 
     /** Saves the resumption queue and records plays whoever holds the player, UI or service alone (#371). */
     private val recorder =
-        PlayRecorder(PlayRecorder.sourceOf(player), history, scope) { saved ->
+        PlayRecorder(PlayRecorder.sourceOf(player), PlayRecorder.historyOf(history), scope) { saved ->
             runCatching { sessionWriter.execute { sessionStore.save(saved) } }
         }
 

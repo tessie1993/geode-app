@@ -244,6 +244,8 @@ surface_run_test | stub | core/tests/surface_run_test.cpp core/api/geode_surface
 underlay_test | stub | core/tests/underlay_test.cpp core/viz/Underlay.cpp core/api/geode_underlay_api.cpp |
 # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
 surface_motion_test | stub | core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp |
+# A used program binary is stamped again only when its stamp is a day old (or it is on probation), not on every load.
+cache_touch_policy_test | core | core/tests/cache_touch_policy_test.cpp |
 # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the random draw never repeating what is on screen.
 auto_timer_test | stub | core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp |
 # Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.

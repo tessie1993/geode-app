@@ -3,10 +3,13 @@ package dev.geode.data
 import android.content.SharedPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+<<<<<<< HEAD
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+=======
+import kotlinx.coroutines.flow.StateFlow
+>>>>>>> origin/claude/save-sweep
 
 internal class VizStateStore(
     private val prefs: SharedPreferences,
@@ -25,10 +28,11 @@ internal class VizStateStore(
     @Volatile
     var committedSceneId: String? = null
 
-    @Volatile
-    private var dirty = false
+    // What the last write put on disk: an unchanged look is not written again.
+    private var written: List<Any?>? = null
 
-    private val scheduled = AtomicBoolean(false)
+    private val coalescer =
+        WriteCoalescer(scope, PERSIST_QUIET_MS, PERSIST_MAX_WAIT_MS, Dispatchers.IO) { write() }
 
     private fun restore(store: AutoVisualsPrefsStore): VizUiState {
         var base = store.applyTo(VizUiState(presets = BuiltInPresets.ALL))
@@ -44,25 +48,19 @@ internal class VizStateStore(
         }.getOrDefault(base)
     }
 
-    fun persist() {
-        dirty = true
-        if (!scheduled.compareAndSet(false, true)) return
-        scope.launch(Dispatchers.IO) {
-            delay(PERSIST_WINDOW_MS)
-            scheduled.set(false)
-            write()
-        }
-    }
+    /** A look change: written once the changes pause, and at least every [PERSIST_MAX_WAIT_MS] through a long drag. */
+    fun persist() = coalescer.request()
 
-    fun flushIfDirty() {
-        if (dirty) write()
-    }
+    fun flushIfDirty() = coalescer.flush()
 
+    @Synchronized
     private fun write() {
-        dirty = false
         val s = state.value
         val sceneId = committedSceneId ?: s.sceneId
         val json = PresetStore.toJson(Preset("__live__", sceneId, s.attack, s.decay, null, s.params))
+        val now = listOf(json, s.transitionId, s.transitionDurationSec)
+        if (now == written) return
+        written = now
         prefs
             .edit()
             .putString(KEY_LIVE_STATE, json)
@@ -76,6 +74,7 @@ internal class VizStateStore(
         const val KEY_LIVE_STATE = LookStore.KEY_LIVE_STATE
         const val KEY_TRANSITION_ID = LookStore.KEY_TRANSITION_ID
         const val KEY_TRANSITION_DURATION_SEC = LookStore.KEY_TRANSITION_DURATION_SEC
-        const val PERSIST_WINDOW_MS = 400L
+        const val PERSIST_QUIET_MS = 400L
+        const val PERSIST_MAX_WAIT_MS = 2_000L
     }
 }

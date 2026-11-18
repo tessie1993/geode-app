@@ -932,7 +932,10 @@ class PlayerSession internal constructor(
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    if (!isPlaying) return
+                    if (!isPlaying) {
+                        bookmarks.flush(player)
+                        return
+                    }
                     if (externalAudio.value.active) stopExternalAudio()
                     fades.ensureAudibleAfterExternalPlay()
                     PlaybackService.ensureRunning(application)

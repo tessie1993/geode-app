@@ -69,22 +69,8 @@ class StudioViewModel
 
         // ---------------------------------------------------------------- My videos
 
-        /** Takes the video off its project's list and deletes the file itself. */
-        fun deleteRender(
-            projectId: ProjectId,
-            uri: String,
-        ) {
-            session.editor.removeRender(projectId, uri)
-            session.deleteStudioClip(uri) {}
-        }
-
-        /**
-         * My videos' deletes waiting out their Undo snackbar. They wait in [viewModelScope] (the
-         * Activity's store), not in the tab's composition, so leaving the tab mid-snackbar still
-         * deletes the item (#322) instead of bringing it back.
-         */
-        private val videoDeletes =
-            PendingDeletes<VideoDelete>(viewModelScope, keyOf = VideoDelete::key) { deleteRender(it.projectId, it.uri) }
+        /** My videos' deletes waiting out their Undo snackbar, in the session ([PlayerSession.videoDeletes]). */
+        private val videoDeletes get() = session.videoDeletes
 
         /** Keys of My videos items hidden while their Undo is offered. */
         val pendingVideoDeletes: StateFlow<Set<String>> get() = videoDeletes.pending

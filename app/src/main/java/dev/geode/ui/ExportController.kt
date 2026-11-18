@@ -323,14 +323,14 @@ internal class ExportController(
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
     }
 
-    /** Deletes a finished render's file (My videos' delete); [onResult] says whether it went. */
+    /** Deletes a finished render's file (My videos' delete), to the end if the session ends; [onResult] says whether it went. */
     fun deleteStudioClip(
         uri: String,
         onResult: (Boolean) -> Unit,
     ) {
         scope.launch {
             val ok =
-                withContext(Dispatchers.IO) {
+                withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                     dev.geode.export.StudioClips
                         .delete(application, uri)
                 }

@@ -11,7 +11,6 @@ import dev.geode.editor.TrackRef
 import dev.geode.stage.Stage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -70,22 +69,8 @@ class StudioViewModel
 
         // ---------------------------------------------------------------- My videos
 
-        /** Takes the video off its project's list and deletes the file itself. */
-        fun deleteRender(
-            projectId: ProjectId,
-            uri: String,
-        ) {
-            session.editor.removeRender(projectId, uri)
-            session.deleteStudioClip(uri) {}
-        }
-
-        /**
-         * My videos' deletes waiting out their Undo snackbar. They wait in [viewModelScope] (the
-         * Activity's store), not in the tab's composition, so leaving the tab mid-snackbar still
-         * deletes the item (#322) instead of bringing it back.
-         */
-        private val videoDeletes =
-            PendingDeletes<VideoDelete>(viewModelScope, keyOf = VideoDelete::key) { deleteRender(it.projectId, it.uri) }
+        /** My videos' deletes waiting out their Undo snackbar, in the session ([PlayerSession.videoDeletes]). */
+        private val videoDeletes get() = session.videoDeletes
 
         /** Keys of My videos items hidden while their Undo is offered. */
         val pendingVideoDeletes: StateFlow<Set<String>> get() = videoDeletes.pending
@@ -100,6 +85,9 @@ class StudioViewModel
 
         private var keepJob: Job? = null
 
+        /** The keep wish for the render about to start, until [renderStartTried] says whether it started. */
+        private var keepWish: KeepWish? = null
+
         /**
          * The user answered "keep it as a project too" for the render about to start: once that
          * render finishes, the song and [sceneId]'s look become a project listing the new file. A
@@ -111,16 +99,35 @@ class StudioViewModel
             milkPath: String?,
         ) {
             keepJob?.cancel()
+            keepJob = null
+            keepWish = KeepWish(track, sceneId, milkPath)
+        }
+
+        /**
+         * The render the wish was for was asked to start, or its folder picker came back empty. Only a
+         * render that is running now takes the wish: one that never started (the paywall opened, no
+         * folder was chosen) drops it, so it cannot land on a later render of another song.
+         */
+        fun renderStartTried() {
+            val wish = keepWish ?: return
+            keepWish = null
+            val exportState = session.exportController.exportState
+            if (!exportState.value.phase.isBusy) return
             keepJob =
                 viewModelScope.launch {
-                    // The render about to start resets the state first; wait for it to run, then end.
-                    val exportState = session.exportController.exportState
-                    val ended = exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
+                    val ended = exportState.first { !it.phase.isBusy }
                     val done = ended.phase as? ExportPhase.Done ?: return@launch
+                    val track = wish.track
                     val render = ProjectRender(done.resultUri.toString(), track.title, System.currentTimeMillis(), track.durationMs)
-                    session.editor.createWithLook(track, sceneId, milkPath, render)
+                    session.editor.createWithLook(track, wish.sceneId, wish.milkPath, render)
                 }
         }
+
+        private class KeepWish(
+            val track: TrackRef,
+            val sceneId: String,
+            val milkPath: String?,
+        )
     }
 
 /** A My videos item to delete: a video's file and the project that lists it. [key] matches the grid's item key. */

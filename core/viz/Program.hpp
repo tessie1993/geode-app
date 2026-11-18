@@ -1,6 +1,8 @@
 #pragma once
 #include <GLES3/gl3.h>
 
+#include <algorithm>
+#include <array>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -8,6 +10,7 @@
 
 #include "viz/GlHandle.hpp"
 #include "viz/ProgramBinaryCache.hpp"
+#include "viz/UniformId.hpp"
 
 namespace geode::viz {
 
@@ -19,13 +22,34 @@ struct UniformNameHash {
 
 class UniformCache {
 public:
-    explicit UniformCache(GLuint program = 0) : program_(program) {}
+    explicit UniformCache(GLuint program = 0) : program_(program) {
+        slots_.fill(kUnresolved);
+        arraySlots_.fill(kUnresolved);
+    }
     GLuint program() const { return program_; }
     GLint loc(std::string_view name);
     GLsizei arrayCount(std::string_view name, GLsizei declared);
+    // The per-frame path: an interned name (viz/UniformId.hpp) is looked up in this program once, then read from
+    // a slot. A rebuilt program is a new UniformCache, so its slots start empty.
+    GLint loc(Uniform id) {
+        GLint& slot = slots_[static_cast<size_t>(id)];
+        if (slot == kUnresolved) slot = loc(std::string_view(kUniformNames[static_cast<size_t>(id)]));
+        return slot;
+    }
+    GLsizei arrayCount(Uniform id, GLsizei declared) {
+        GLsizei& slot = arraySlots_[static_cast<size_t>(id)];
+        if (slot == kUnresolved) slot = arraySize(kUniformNames[static_cast<size_t>(id)], declared);
+        return std::min(slot, declared);
+    }
 
 private:
+    static constexpr GLint kUnresolved = -2;
+    // The live length of an array uniform, or `declared` when the program does not report one.
+    GLsizei arraySize(std::string_view name, GLsizei declared);
+
     GLuint program_;
+    std::array<GLint, static_cast<size_t>(Uniform::kCount)> slots_;
+    std::array<GLsizei, static_cast<size_t>(Uniform::kCount)> arraySlots_;
     std::unordered_map<std::string, GLint, UniformNameHash, std::equal_to<>> locations_;
     std::unordered_map<std::string, GLsizei, UniformNameHash, std::equal_to<>> arraySizes_;
 };

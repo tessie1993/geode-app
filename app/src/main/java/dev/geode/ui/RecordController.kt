@@ -99,9 +99,9 @@ internal class RecordController(
     private var ticker: Job? = null
     private var stopRequested = false
 
-    /** The stage on screen, or null once it goes; a recording without its stage stops. */
+    /** The stage on screen, or null once it goes; a recording without its stage stops (one still opening, once open). */
     fun attach(next: Stage?) {
-        if (next == null && active?.stage === stage) stop()
+        if (next == null && (active?.stage ?: stage) === stage) stop()
         stage = next
     }
 

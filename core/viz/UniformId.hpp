@@ -1,0 +1,173 @@
+#pragma once
+#include <cstdint>
+
+namespace geode::viz {
+
+// The uniform names the per-frame uploads of ShaderScene and CompositePass write, interned as ids at compile
+// time. UniformCache::loc(Uniform) resolves each name against its program once and then reads a slot, so a
+// frame never hashes a name. A new per-frame uniform in those uploads is one X() line here.
+#define GEODE_FRAME_UNIFORMS(X) \
+    X(uBackLayer) \
+    X(uBarOsc) \
+    X(uBassRel) \
+    X(uBirths) \
+    X(uBlendMode) \
+    X(uBloom) \
+    X(uBreath) \
+    X(uBright) \
+    X(uCamBasis) \
+    X(uCamDolly) \
+    X(uCamFlat) \
+    X(uCamFocal) \
+    X(uCamGate) \
+    X(uCamGateL) \
+    X(uCamPos) \
+    X(uCamTilt) \
+    X(uCamTravel) \
+    X(uChroma) \
+    X(uColorShift) \
+    X(uContrast) \
+    X(uDither) \
+    X(uDrift) \
+    X(uDriftX) \
+    X(uDriftY) \
+    X(uDuotone) \
+    X(uEnergyRel) \
+    X(uEscapeColor) \
+    X(uField) \
+    X(uFieldGeom) \
+    X(uFieldLook) \
+    X(uFieldRes) \
+    X(uFieldShape) \
+    X(uFisheye) \
+    X(uFlow) \
+    X(uFlowPhase) \
+    X(uFlowStrength) \
+    X(uFlowTime) \
+    X(uFormPhase) \
+    X(uFormula) \
+    X(uFractal) \
+    X(uFrontLayer) \
+    X(uGamma) \
+    X(uGateA) \
+    X(uGateB) \
+    X(uGateL) \
+    X(uGrain) \
+    X(uHarmony) \
+    X(uHasLayer) \
+    X(uHueRange) \
+    X(uIntensity) \
+    X(uInvert) \
+    X(uKaleido) \
+    X(uKeyHue) \
+    X(uKeyStrength) \
+    X(uKnob) \
+    X(uLayerMix) \
+    X(uLife) \
+    X(uMidRel) \
+    X(uMirrorX) \
+    X(uMorph) \
+    X(uMotionBright) \
+    X(uMoveDir) \
+    X(uNoise) \
+    X(uOrbit) \
+    X(uPalBase) \
+    X(uPalLut) \
+    X(uPalLutMix) \
+    X(uPalLutRow) \
+    X(uPalRange) \
+    X(uPalStopCount) \
+    X(uPalStops) \
+    X(uPixelate) \
+    X(uPoolLook) \
+    X(uPoolRings) \
+    X(uPoolView) \
+    X(uPoolWakes) \
+    X(uPoolWaves) \
+    X(uPostBirths) \
+    X(uPostBloom) \
+    X(uPostBright) \
+    X(uPostContrast) \
+    X(uPostDriftX) \
+    X(uPostDriftY) \
+    X(uPostGamma) \
+    X(uPostHue) \
+    X(uPostInvert) \
+    X(uPostKaleido) \
+    X(uPostLife) \
+    X(uPostMirror) \
+    X(uPostPixelate) \
+    X(uPostPosterize) \
+    X(uPostRipple) \
+    X(uPostRotation) \
+    X(uPostSat) \
+    X(uPostSolarize) \
+    X(uPostSway) \
+    X(uPostSymmetry) \
+    X(uPostTemp) \
+    X(uPostTile) \
+    X(uPostTwist) \
+    X(uPostWarp) \
+    X(uPostZoom) \
+    X(uPosterize) \
+    X(uProgress) \
+    X(uRatio) \
+    X(uResolution) \
+    X(uRipple) \
+    X(uRotation) \
+    X(uSat) \
+    X(uScanline) \
+    X(uShadow) \
+    X(uShapeCount) \
+    X(uShapeFold) \
+    X(uShapeMelt) \
+    X(uShapeMix) \
+    X(uShapes) \
+    X(uSolarize) \
+    X(uSoundTimeSped) \
+    X(uSpawn) \
+    X(uSpawnAge) \
+    X(uSpawnSeed) \
+    X(uSteps) \
+    X(uStyle) \
+    X(uSway) \
+    X(uSymmetry) \
+    X(uTemperature) \
+    X(uTexA) \
+    X(uTexB) \
+    X(uTexL) \
+    X(uTile) \
+    X(uTime) \
+    X(uTouchAnchor) \
+    X(uTouchAxis) \
+    X(uTouchCount) \
+    X(uTouchGesture) \
+    X(uTouchPoints) \
+    X(uTouchSpin) \
+    X(uTrebRel) \
+    X(uTurbulence) \
+    X(uTwist) \
+    X(uUnderlay) \
+    X(uUnderlayAmount) \
+    X(uUnderlayBlend) \
+    X(uVignette) \
+    X(uWarp) \
+    X(uWorld) \
+    X(uWorldShapes) \
+    X(uWorldTex) \
+    X(uZoom)
+
+enum class Uniform : uint16_t {
+#define GEODE_UNIFORM_ENUM(name) name,
+    GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_ENUM)
+#undef GEODE_UNIFORM_ENUM
+    kCount
+};
+
+inline constexpr const char* kUniformNames[] = {
+#define GEODE_UNIFORM_NAME(name) #name,
+    GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_NAME)
+#undef GEODE_UNIFORM_NAME
+};
+
+}  // namespace geode::viz

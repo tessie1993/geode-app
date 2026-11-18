@@ -10,7 +10,7 @@ Sections 1, 2 and 7 state what the code was at that commit; where main has moved
 
 - The APK published for testing is a debug build (`.github/workflows/ship-apk.yml`, the `:app:assembleDebug` step), which slows the Kotlin screens and start-up.
 - A style averaging under 50 fps for 2.5 s was capped at 30 fps for 45 s up to 12 min (`ThermalGovernor`, `frame/Thermal.hpp`); both are gone, and the pacer divides by the fps cap only (`core/viz/frame/Pacer.hpp`).
-- Scenes render at 1.25x or 1.4x per axis on screens under 2200 px or 1600 px (`Renderer::applyRenderScale` and `supersampleFactor`, `core/viz/Renderer.cpp`).
+- Scenes rendered at 1.25x or 1.4x per axis on screens under 2200 px or 1600 px; that is gone, and the scene target is the surface's pixels times the user's render scale (`Renderer::applyRenderScale`, `core/viz/Renderer.cpp`).
 - 260 of 321 style programs march rays, 102 steps by default, with secondary marches per pixel.
 - The engine listens only up to the sample the speaker plays at frame start (`core/sound/interp/SpeakerSync.hpp`).
 - The frame was not told when it will be shown; it is now: the vsync callback's expected presentation time reaches the frame (`core/stage/android/VsyncThread.cpp`) and the swap (`StageThread::presentAt`).

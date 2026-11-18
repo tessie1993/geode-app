@@ -74,3 +74,4 @@ A line records what was done; it is not a rule.
 - 2026-11-17: `SoundEngine` keeps the last 128 analysis hops by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).
 - 2026-11-17: CI speed: host tests compile each source once per flag set, in parallel, through `tools/hostcc/g++`, and check out only the four submodules they use (`native-host-tests.yml`); the native build in `ship-apk.yml` and `build-lint.yml` runs through ccache, kept by `actions/cache`.
 - 2026-11-17: `ship-apk.yml` publishes the debug APK again (as before #1214); the optimised `sideload` build closed at launch and stays in `app/build.gradle.kts` unpublished until it boots.
+- 2026-11-18: Added a read-only scan of how the app works today, one fact per line with `path:line` evidence at commit `c26b41d` (`docs/agents/app-as-built.md`).

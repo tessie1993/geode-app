@@ -504,9 +504,12 @@ SceneParams reset(const SceneParams& current, Category category) { return borrow
 
 int changedCount(const SceneParams& current) {
     float now[SceneParams::kFieldCount];
+    float defaults[SceneParams::kFieldCount];
     float was[SceneParams::kFieldCount];
     current.toWire(now);
-    SceneParams{}.toWire(was);
+    SceneParams{}.toWire(defaults);
+    // Reset keeps the input preferences (drag to look, tilt), so they are not a change from what Reset gives.
+    SceneParams::keepInputs(now, defaults, was);
     int changed = 0;
     for (int i = 0; i < SceneParams::kFieldCount; ++i) {
         if (now[i] != was[i]) ++changed;

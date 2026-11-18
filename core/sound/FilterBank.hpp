@@ -54,7 +54,10 @@ private:
 class SliceBand {
 public:
     SliceBand() = default;
-    void set(float loHz, float hiHz, int sampleRateHz) {
+    // punch: whether this band measures punch at all; one whose punch nobody reads skips that work per sample, and
+    // its takePunch() is 0. The level, the hop power and the filtered sample are the same either way.
+    void set(float loHz, float hiHz, int sampleRateHz, bool punch) {
+        punchOn_ = punch;
         hasLow_ = loHz > 0.0f;
         hasHigh_ = hiHz > 0.0f && hiHz < 0.45f * static_cast<float>(sampleRateHz);
         for (auto& f : hp_) f.set(Biquad::kHighPass, std::max(loHz, 1.0f), sampleRateHz);
@@ -78,7 +81,7 @@ public:
         powerSum_ += power_;
         powerCount_++;
         // Digital silence freezes the mean, so the first hit after a pause is measured against the music.
-        if (power_ < 1e-12f) return;
+        if (!punchOn_ || power_ < 1e-12f) return;
         const float level = std::sqrt(power_);
         if (heard_ == 0) mean_ = level;
         mean_ += (heard_ < warmSamples_ ? meanWarm_ : meanSteady_) * (level - mean_);
@@ -121,7 +124,7 @@ public:
 private:
     // A copy with the filter design kept and every running value back at rest.
     SliceBand(const SliceBand& design, int)
-        : hasLow_(design.hasLow_), hasHigh_(design.hasHigh_), follow_(design.follow_),
+        : punchOn_(design.punchOn_), hasLow_(design.hasLow_), hasHigh_(design.hasHigh_), follow_(design.follow_),
           meanWarm_(design.meanWarm_), meanSteady_(design.meanSteady_), refFollow_(design.refFollow_),
           warmSamples_(design.warmSamples_), settleSamples_(design.settleSamples_) {
         hp_ = design.hp_;
@@ -132,6 +135,7 @@ private:
 
     std::array<Biquad, 2> hp_;
     std::array<Biquad, 2> lp_;
+    bool punchOn_ = true;
     bool hasLow_ = false;
     bool hasHigh_ = false;
     float follow_ = 0.0f;

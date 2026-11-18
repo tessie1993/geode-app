@@ -154,7 +154,9 @@ SoundEngine::SoundEngine(int sampleRateHz, AnalysisSettings settings)
     // The filter bank: low/middle/high on the same edges as bass/mid/treble, then the drum bands.
     static constexpr std::array<std::array<float, 2>, kSlices> kSliceHz = {{
         {0, 250}, {250, 4000}, {4000, 0}, {40, 120}, {150, 300}, {2500, 6000}, {7000, 16000}, {0, 0}}};
-    for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_);
+    // Punch is read for the drum bands (drums()) and the whole mix (melody()'s level jump) only.
+    static constexpr std::array<bool, kSlices> kSlicePunch = {false, false, false, true, true, true, true, true};
+    for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_, kSlicePunch[i]);
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
@@ -242,7 +244,7 @@ void SoundEngine::feed(float l, float r) {
     const size_t cap = ringL_.size();
     ringL_[writePos_] = l;
     ringR_[writePos_] = r;
-    writePos_ = (writePos_ + 1) % cap;
+    if (++writePos_ == cap) writePos_ = 0;  // writePos_ < cap always: the same as % cap, without a divide
     written_++;
     const float m = 0.5f * (l + r);
     for (auto& band : bank_) band.process(m);

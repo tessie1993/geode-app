@@ -52,6 +52,9 @@ public:
     // The vsync time (CLOCK_MONOTONIC ns) of the frame that follows, 0: none (StageClient::frameTime).
     virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
     virtual void trimSpares() = 0;
+    // Drawing stopped: the renderer stops listening to its ring, so the ring's analysis thread runs only while a
+    // surface still draws from it. The next frame listens again.
+    virtual void letSoundGo() = 0;
     virtual void releaseScenes() = 0;
     virtual void warmTransition(const std::string& id) = 0;
     // Context current: builds the mark and opens the tee. False when either would not.

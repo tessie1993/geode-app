@@ -39,6 +39,7 @@ public:
         int height = 1;
         float dt = 0.0f;      // the frame's step on the music clock: 0 holds every layer
         float wallDt = 0.0f;  // the frame's wall step: the idle window's clock
+        bool live = false;    // a live surface: its simulated time per frame is capped (fluid::math::liveFrameSimDt)
         float time = 0.0f;    // the picture's clock (the particles' respawn hash)
         GLuint zeroTex = 0;   // samples as zero: no velocity and no ink with the fluid off
         GLuint quadVao = 0;   // the renderer's attribute-less VAO for fade_vert.glsl

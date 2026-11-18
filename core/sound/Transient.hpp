@@ -119,10 +119,14 @@ public:
             const float r = (fast_[b] + kFloorPower) / (slow_[b] + kFloorPower);
             ratio[b] = r;
             hopPeak_[b] = std::max(hopPeak_[b], r);
-            const float over = r / threshold_[b];
-            if (over > bestOver) {
-                bestOver = over;
-                best = b;
+            // Divided only past the threshold: for positive finite values r / t > 1 exactly when r > t, and
+            // bestOver is never under 1, so a band at or under its threshold could never win.
+            if (r > threshold_[b]) {
+                const float over = r / threshold_[b];
+                if (over > bestOver) {
+                    bestOver = over;
+                    best = b;
+                }
             }
         }
         if (attackLeft_ > 0) {

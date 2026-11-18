@@ -16,6 +16,7 @@
 #include <numbers>
 #include <vector>
 
+#include "sound/FilterBank.hpp"
 #include "sound/OnsetFlux.hpp"
 #include "sound/SoundEngine.hpp"
 
@@ -246,9 +247,41 @@ void testVibratoSlideIsNoRise() {
           "the filter spreads a peak over its reach and no further");
 }
 
+// A band that skips punch (SliceBand::set's punch false: the engine's low, middle and high, whose punch nobody
+// reads) hands out the very same level, hop power and filtered sample as one that measures it, bit for bit; only
+// its punch is 0. A tone with clicks over it, so the measuring band's punch really moves.
+void testPunchOffLeavesTheBandAlone() {
+    constexpr int kRate = 48000;
+    constexpr int kHop = 512;
+    geode::sound::SliceBand on;
+    geode::sound::SliceBand off;
+    on.set(0.0f, 250.0f, kRate, true);
+    off.set(0.0f, 250.0f, kRate, false);
+    bool same = true;
+    float punchOn = 0.0f;
+    float punchOff = 0.0f;
+    for (int i = 0; i < 4 * kRate; i++) {
+        const double t = static_cast<double>(i) / kRate;
+        float x = static_cast<float>(0.2 * std::sin(kTau * 110.0 * t));
+        if (i % 14123 < 24) x += 0.9f;  // a click about every 0.29 s
+        on.process(x);
+        off.process(x);
+        same = same && on.out() == off.out();
+        if ((i + 1) % kHop == 0) {
+            same = same && on.take() == off.take() && on.takeHopPower() == off.takeHopPower();
+            punchOn = std::max(punchOn, on.takePunch());
+            punchOff = std::max(punchOff, off.takePunch());
+        }
+    }
+    CHECK(same, "a band without punch filters, levels and powers exactly as one with it");
+    CHECK(punchOn > 0.0f && punchOff == 0.0f, "only the measuring band has punch: %.3f, %.3f", static_cast<double>(punchOn),
+          static_cast<double>(punchOff));
+}
+
 }  // namespace
 
 int main() {
+    testPunchOffLeavesTheBandAlone();
     testVibratoSlideIsNoRise();
     testClicksFireEachTime();
     testSilenceNeverFires();

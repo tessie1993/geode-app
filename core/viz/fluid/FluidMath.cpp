@@ -114,6 +114,8 @@ float frameSimDt(float dt) {
     return std::min(dt, kMaxSimStep * static_cast<float>(kMaxSubsteps));
 }
 
+float liveFrameSimDt(float dt) { return std::min(frameSimDt(dt), kMaxSimStep * static_cast<float>(kLiveMaxSubsteps)); }
+
 Substeps substeps(float dt) {
     const float total = frameSimDt(dt);
     // A hair under 1 so a step of exactly kMaxSimStep (a 30 fps frame) stays one step after rounding.

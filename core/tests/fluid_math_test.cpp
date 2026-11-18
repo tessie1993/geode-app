@@ -470,6 +470,27 @@ void frameTimeSplitsAtTheEdges() {
     check(tiny.count == 1 && near(tiny.step, 1e-6f, 1e-9f), "a tiny frame is one tiny step");
 }
 
+// A live surface's slow frame gets at most kLiveMaxSubsteps solves (the fluid slows instead of the phone); a frame
+// at or above 15 fps keeps all its time, and an export (frameSimDt) still keeps every frame whole.
+void liveFramesCapTheirSteps() {
+    using math::frameSimDt;
+    using math::kMaxSimStep;
+    using math::liveFrameSimDt;
+    using math::substeps;
+    const float cap = kMaxSimStep * static_cast<float>(math::kLiveMaxSubsteps);
+    check(math::kLiveMaxSubsteps < math::kMaxSubsteps, "live runs fewer steps than the export cap");
+    const auto slow = substeps(liveFrameSimDt(0.1f));
+    check(slow.count == math::kLiveMaxSubsteps && near(slow.step, kMaxSimStep, 1e-6f), "a 10 fps live frame is capped at two steps");
+    check(liveFrameSimDt(1.0f) == cap && liveFrameSimDt(INFINITY) == cap, "a stall live is the cap");
+    check(substeps(liveFrameSimDt(1.0f / 15.0f)).count == math::kLiveMaxSubsteps, "15 fps live is two whole steps");
+    for (int fps : {15, 20, 24, 25, 30, 50, 60, 90}) {
+        const float dt = 1.0f / static_cast<float>(fps);
+        check(near(liveFrameSimDt(dt), dt, 1e-7f), "a live frame at 15 fps or more keeps all its time");
+    }
+    check(liveFrameSimDt(0.0f) == 0.0f && liveFrameSimDt(-1.0f) == 0.0f && liveFrameSimDt(NAN) == 0.0f, "no time live, no step");
+    check(substeps(frameSimDt(0.1f)).count == 3 && near(frameSimDt(0.1f), 0.1f, 1e-7f), "an export's long frame keeps all its time");
+}
+
 }  // namespace
 
 // A fluid scene's auto quality over a long session: a hot spell's deficits step it down, and once the
@@ -524,6 +545,7 @@ int main() {
     tiersDescendAndKeepTheLowEndCheap();
     substepsKeepTheFluidAtTrueSpeed();
     frameTimeSplitsAtTheEdges();
+    liveFramesCapTheirSteps();
     if (failures == 0) std::printf("fluid_math_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

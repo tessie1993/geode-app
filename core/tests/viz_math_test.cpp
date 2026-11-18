@@ -2700,7 +2700,20 @@ void bandTrimsReachEveryBandRead() {
     check(bandTrimsAreIdentity(SceneParams{}) && !bandTrimsAreIdentity(p), "only a trim away from 1 is not the identity");
 }
 
+// The renderer skips a shader layer's draw when its mix is 0 (RendererFrame drawSecondaryTargets): the mix the
+// composite weighs it by must then be exactly 0 in every blend, and any mix above 0 must stay above 0.
+void layerMixAtZeroHidesTheLayer() {
+    for (int i = 0; i < kBlendModes; i++) {
+        const BlendMode mode = blendModeFromOrdinal(i);
+        check(safety::layerMix(0.5f + -0.5f, mode) == 0.0f, "a base mix taken to 0 by its modulation is 0");
+        check(safety::layerMix(0.2f + -0.9f, mode) == 0.0f, "a mix taken below 0 is 0");
+        check(safety::layerMix(0.0f, mode) == 0.0f, "a base mix of 0 is 0");
+        check(safety::layerMix(0.001f, mode) > 0.0f, "a mix just above 0 still shows the layer");
+    }
+}
+
 int main() {
+    layerMixAtZeroHidesTheLayer();
     bandTrimsReachEveryBandRead();
     foldIsBoundedAndContinuous();
     followRouteTracksSource();

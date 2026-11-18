@@ -49,6 +49,20 @@ object PlaybackQueue {
         return listOf(QueueTrack(uri))
     }
 
+    /**
+     * A playlist's [uris] as queue tracks: the title from the library, else from the device scan,
+     * else blank for the queue to resolve. One map per list, so a long playlist costs no scan per track.
+     */
+    fun playlistTracks(
+        uris: List<String>,
+        libraryTracks: List<LibraryTrack>,
+        deviceTracks: List<DeviceTrack>,
+    ): List<QueueTrack> {
+        val inLibrary = libraryTracks.associateBy { it.uri }
+        val onDevice by lazy(LazyThreadSafetyMode.NONE) { deviceTracks.associateBy { it.uri } }
+        return uris.map { u -> inLibrary[u]?.let(::queueTrack) ?: onDevice[u]?.let(::queueTrack) ?: QueueTrack(u) }
+    }
+
     fun queueTrack(track: DeviceTrack): QueueTrack = QueueTrack(track.uri, track.title, track.artist)
 
     fun queueTrack(track: LibraryTrack): QueueTrack = QueueTrack(track.uri, track.title, track.artist)

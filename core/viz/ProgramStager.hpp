@@ -58,8 +58,10 @@ public:
     // old context and is forgotten without GL calls.
     void onContext(bool parallelCompile);
     // Inside an Attempt. 0 with `error` set when the program failed to build, as program::build
-    // reports it; `placeholder` (optional) says the result is a stand-in.
-    GLuint obtain(const std::vector<ShaderStage>& stages, std::string* error, bool* placeholder = nullptr);
+    // reports it; `placeholder` (optional) says the result is a stand-in. `cached` false keeps the
+    // program out of the binary cache (program::build with a null cache).
+    GLuint obtain(const std::vector<ShaderStage>& stages, std::string* error, bool* placeholder = nullptr,
+                  bool cached = true);
     // Outside attempts, once per frame while the stager is not idle.
     void step(double nowS);
     // Nothing queued and nothing compiling.
@@ -88,7 +90,7 @@ private:
         std::string error;
     };
 
-    Entry& entryFor(const std::vector<ShaderStage>& stages);
+    Entry& entryFor(const std::vector<ShaderStage>& stages, bool cached);
     Job kick(const Entry& entry) const;
     void finish(Entry& entry, Job job);
     void startQueued(double nowS);

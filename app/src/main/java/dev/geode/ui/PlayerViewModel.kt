@@ -267,7 +267,9 @@ class PlayerViewModel
             if (openPaywallIfLocked(aspect, fps)) return
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
+            val idle = !ExportRun.running
             session.startExport(aspect, fps, sceneFactory, destination, capped, codec, pinnedWatermark())
+            if (idle) session.followRender(destination)
         }
 
         /**
@@ -320,7 +322,7 @@ class PlayerViewModel
                 destination,
                 pinnedWatermark(),
             )
-            if (idle) session.followRender(audioClips)
+            if (idle) session.followRender(destination, audioClips)
         }
 
         /** The entitlement's wordmark, placed as Settings › Preferences says now; the render keeps this one. */

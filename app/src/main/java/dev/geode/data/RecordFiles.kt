@@ -33,6 +33,7 @@ class RecordFiles(
 ) {
     private val appContext = context.applicationContext
     private val resolver get() = appContext.contentResolver
+    private val unfinished = UnfinishedOutputs(appContext)
 
     /** One recording's file while the muxer writes it. */
     class Output internal constructor(
@@ -191,18 +192,18 @@ class RecordFiles(
                 val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
                 DocumentsContract.createDocument(resolver, parent, MIME, name)
             }.onFailure { RingLog.note(TAG, "recording folder unavailable, saving to Videos", it) }.getOrNull() ?: return null
+        // Noted until it ends, so a recording the process does not outlive leaves no broken file in the folder.
+        unfinished.begin(doc.toString())
         val pfd = runCatching { resolver.openFileDescriptor(doc, "rw") }.getOrNull()
         if (pfd == null) {
             bestEffort(TAG, "delete the recording document") { DocumentsContract.deleteDocument(resolver, doc) }
+            unfinished.end(doc.toString())
             return null
         }
         return Output(pfd, null) { keep ->
-            if (keep) {
-                doc
-            } else {
-                bestEffort(TAG, "delete the recording document") { DocumentsContract.deleteDocument(resolver, doc) }
-                null
-            }
+            if (!keep) bestEffort(TAG, "delete the recording document") { DocumentsContract.deleteDocument(resolver, doc) }
+            unfinished.end(doc.toString())
+            doc.takeIf { keep }
         }
     }
 

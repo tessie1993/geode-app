@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
@@ -39,10 +40,13 @@ import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
+import dev.geode.data.UnfinishedOutputs
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
+import dev.geode.data.persistGrant
 import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.data.releaseGrant
 import dev.geode.editor.ProjectId
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.IngestNative
@@ -839,13 +843,27 @@ class PlayerSession internal constructor(
 
     /**
      * Follows the render just started (only when [ExportRun] runs one) on the app's scope, so a render
-     * that outlives this screen is still followed: once it ends, however it ends, the read grants on
+     * that outlives this screen is still followed. The file it writes at a picked [destination] is
+     * noted ([UnfinishedOutputs], with a grant that outlives the process) until it ends, so one the process
+     * does not outlive is deleted at the next start. Once it ends, however it ends, the read grants on
      * the loop render's [clips] go back, except a song the library holds.
      */
-    fun followRender(clips: List<Uri>) {
-        if (!ExportRun.running || clips.isEmpty()) return
-        container.appScope.launch {
+    fun followRender(
+        destination: Uri?,
+        clips: List<Uri> = emptyList(),
+    ) {
+        if (!ExportRun.running || (destination == null && clips.isEmpty())) return
+        container.appScope.launch(Dispatchers.IO) {
+            val unfinished = UnfinishedOutputs(application)
+            destination?.let {
+                application.contentResolver.persistGrant(it, RENDER_GRANT)
+                unfinished.begin(it.toString())
+            }
             ExportRun.state.first { !it.running }
+            destination?.let {
+                unfinished.end(it.toString())
+                application.contentResolver.releaseGrant(it, RENDER_GRANT)
+            }
             container.mediaStore.releaseReadAccess(clips, library.value.tracks.mapTo(HashSet()) { it.uri })
         }
     }
@@ -1029,5 +1047,8 @@ class PlayerSession internal constructor(
         const val STORE_FLUSH_BUDGET_MS = 2_000L
         const val POLL_INTERVAL_MS = 500L
         const val WIDGET_STYLE_SETTLE_MS = 400L
+
+        /** A picked render destination's grant, kept while it renders so the next start can delete a broken one. */
+        const val RENDER_GRANT = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
     }
 }

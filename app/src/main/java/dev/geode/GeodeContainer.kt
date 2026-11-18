@@ -3,9 +3,11 @@ package dev.geode
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.data.AppStateCodec
 import dev.geode.data.AppStateRepository
@@ -35,10 +37,12 @@ import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.SoundInputSettingsRepository
 import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
+import dev.geode.data.UnfinishedOutputs
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VisualsSettingsRepository
 import dev.geode.data.backup.BackupRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.data.releaseGrant
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +118,24 @@ class GeodeContainer(
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
         discardStaleRestore(context.applicationContext)
+        deleteUnfinishedOutputs(context.applicationContext)
+    }
+
+    /**
+     * Deletes the files a render or a recording was writing into a place the user chose when its
+     * process died ([UnfinishedOutputs]): each is broken, and nothing else would ever remove it from
+     * the user's folder. A render's own grant on its picked file goes with it.
+     */
+    private fun deleteUnfinishedOutputs(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            val unfinished = UnfinishedOutputs(context)
+            unfinished.leftOver().forEach { raw ->
+                val uri = Uri.parse(raw)
+                bestEffort(TAG, "delete an unfinished render") { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                context.contentResolver.releaseGrant(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                unfinished.end(raw)
+            }
+        }
     }
 
     /**

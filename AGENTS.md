@@ -21,7 +21,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## Native core (`core/`)
 
-- Directories: `api`, `audio`, `cast`, `library`, `output`, `scene`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
+- Directories: `api`, `audio`, `backup`, `cast`, `library`, `output`, `player`, `scene`, `shell`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
 - `core/api/geode_api.h` is the C interface the JNI files call.
 - `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
@@ -38,7 +38,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## App packages (`app/src/main/java/dev/geode/`)
 
-- `audio`, `billing`, `cast`, `data`, `di`, `editor`, `engine`, `export`, `model`, `playback`, `pro`, `render`, `stage`, `tile`, `ui`, `util`, `viz`, `wallpaper`, `widget`.
+- `audio`, `billing`, `cast`, `data`, `di`, `editor`, `engine`, `export`, `model`, `playback`, `pro`, `stage`, `tile`, `ui`, `util`, `viz`, `wallpaper`, `widget`.
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
@@ -46,7 +46,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - Activities: `ui.MainActivity`, `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`.
 - Services: `playback.PlaybackService`, `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
 - Receivers and providers: `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, a `FileProvider`.
-- `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; there are eight `@HiltViewModel` classes.
+- `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; the ViewModels are `@HiltViewModel`.
 
 ## CI (`.github/workflows/`)
 
@@ -64,7 +64,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `GLOSSARY.md`: the domain words.
 - `docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`: the proposed pipeline refactor; its section 7 lists documents that disagree with the code.
 - `docs/superpowers/specs/2026-11-18-native-engine-architecture.md`: the proposed native player, thread model, module split and end-to-end plan; newer than the pipeline refactor design where they disagree.
-- `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`); treat them as history, not as a map.
+- `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`, `ndk-refactor-research.md`); treat them as history, not as a map.
 
 ## Edit log
 
@@ -75,7 +75,7 @@ A line records what was done; it is not a rule.
 - 2026-11-17: Rewrote `AGENTS.md` as facts plus this log and moved the owner's rules to `CLAUDE.md`; removed every decision-record reference, the dead document links and the mentions of another project from comments and docs.
 - 2026-11-17: `ship-apk.yml` ships an optimised APK from a new `sideload` build type instead of the debug build (`app/build.gradle.kts`, #1214).
 - 2026-11-17: The `sideload` build uses fake billing so Pro can be unlocked in it; the guard is the flag plus a build type other than `release` (`billing/BillingBuild.kt`).
-- 2026-11-17: `SoundEngine` keeps the last 128 analysis hops by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).
+- 2026-11-17: `SoundEngine` keeps the last 1.25 s of analysis hops (`SoundEngine::historyHops()`) by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).
 - 2026-11-17: CI speed: host tests compile each source once per flag set, in parallel, through `tools/hostcc/g++`, and check out only the four submodules they use (`native-host-tests.yml`); the native build in `ship-apk.yml` and `build-lint.yml` runs through ccache, kept by `actions/cache`.
 - 2026-11-17: `ship-apk.yml` publishes the debug APK again (as before #1214); the optimised `sideload` build closed at launch and stays in `app/build.gradle.kts` unpublished until it boots.
 - 2026-11-18: CI duplicates: `android.yml` keeps only the emulator tests and the real-music frame-rate check (its build, lint and unit-test job repeated `build-lint.yml`; its last job published a pre-release); the release build's banned-SDK check moved to `build-lint.yml`; `ship-apk.yml` lost its `workflow_call` trigger.
@@ -155,6 +155,9 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `MilkdropScene` writes its load-debounce clock `lastLoadSeconds_` only under `presetLock_` (after a load and in `init()` it was written outside it), and the header names the members `presetLock_` guards; `core/viz/scenes/MilkdropScene.{hpp,cpp}`.
 - 2026-11-18: The camera rig cannot latch a NaN or an infinity: `CameraRig::step` reads every camera param and the look input through `finiteOr` (a move reads as none, the lens as 1, the smoothing as its default), and `Spring::step` / `Spring::reset` refuse a non-finite target, value or result; `core/viz/CameraRig.{hpp,cpp}`, test `nonFiniteCameraInputsDoNotLatch` in `core/tests/viz_math_test.cpp`.
 - 2026-11-18: The id tables in `core/viz/Catalogue.cpp` that had a hand-written size (`kLooseShaders`, `kLooseMarched`, `kMarchedOffRig`, `kLooseLooks`, `kFormLoose`, `kSpinning`) take it from their entries (`std::to_array`, same sizes as before), and a `static_assert` per table next to `listed()` refuses a null entry; test `everyIdIsNonEmptyAndUnique` in `core/tests/catalogue_test.cpp`.
+- 2026-11-18: The analysis hop is a sample count, `AnalysisSettings` fftSize / overlap (512 by default at every rate), not 10 ms: `Rhythm`, `Transient`, `LufsMeter` and `SoundEngine` take the hop's duration at `configure` and count their own seconds in it, `FilterBank::takeHopPower` gives the hop's mean power, and `AnalysisThread` sizes its slots from `kPublishedSeconds` (`core/sound/`, `core/tests/sound_hop_test.cpp`, #1246).
+- 2026-11-18: `core/tests/sound_golden.txt` is rewritten for the 512-sample hop (`sound_golden_test --write`, run on CI), so every pinned value moved by the hop's new length.
+- 2026-11-18: GL names have one owner, part two: `GlHandle` gains `swap()`, the `gl_gen` helpers and `GlSampler`; `OwnedProgram` (a `UniformCache` that owns its program, `core/viz/Program.hpp`); `Framebuffer`, `Texture`, `TrailPass`, `UiBlurPass`, `DivePass`, `CompositePass` and `TransitionPrograms` hold handles instead of raw names and `glDelete*` calls, and the passes gain `forget()` (nothing calls it yet: `Renderer::onSurfaceCreated` still releases first). `core/tests/gl_ownership_test.cpp` checks them.
 - 2026-11-18: The scene target is the surface times the user's render scale and nothing more: the small-screen supersample (1.25x under 2200 px, 1.4x under 1600 px, per axis) is gone, so High draws each pixel once; `Renderer::applyRenderScale` in `core/viz/Renderer.cpp`, `supersampleFactor` removed from `core/viz/Renderer.{hpp,cpp}`, comments in `core/viz/Scene.hpp` and `data/PerformanceSettings.kt`.
 - 2026-11-18: A fluid base program that fails to build no longer leaks the programs built before it: `FluidSim::release` deletes every non-zero program (the `programsBuilt_` flag is gone); `core/viz/fluid/FluidSim.{hpp,cpp}`.
 - 2026-11-18: The palette stop array upload is bounded by the declared size like every other array: `uPalStops` goes through `uniforms_.arrayCount` (an absent uniform still reads as the full count and is skipped at location -1); `core/viz/scenes/ShaderScene.cpp`.
@@ -188,3 +191,6 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `core/tests/sound_golden.txt` rewritten from the CI `sound-golden` artifact: the onset flux now counts each distinct bin range once, which moved flux, onset and the values derived from them.
 - 2026-11-18: `PcmRing::setListener` returns only once no write is inside the old listener's `ringWritten` (the write counts itself in `notifying_` around the call, the setter spins on it), so `~SharedAnalysis` can no longer be destroyed under a writer; `core/audio/ingest/PcmRing.{hpp,cpp}`, case `testSetListenerWaitsForTheWriteInside` in `core/tests/pcm_ring_test.cpp`.
 - 2026-11-18: `LifeScene` remembers the EGL context that made its census fence and deletes the fence only on that context, so releasing after a context loss no longer calls `glDeleteSync` on a dead context's sync object; `core/viz/scenes/LifeScene.{hpp,cpp}`. No test: no host test links `LifeScene`.
+- 2026-11-18: `PresetRepository.save` returns whether the file was written, which `PresetLibraryController.renamePreset` already tested; `data/PresetRepository.kt`.
+- 2026-11-18: Documents corrected to the code: no `render` package, no thermal or load-shedding step in the pacer (the pacer divides by the fps cap only), the stage thread's priority, `ExportScene`, the Android Auto and minSdk lines in `README.md`, Studio without a timeline, counts replaced by descriptions, and `core/player`, `core/shell`, `core/backup` added to the directory list (`AGENTS.md`, `README.md`, `GLOSSARY.md`, `docs/agents/*.md`, `.claude/skills/geode-*/SKILL.md`, `core/viz/frame/README.md`, `tools/glslcheck/README.md`, the two specs under `docs/superpowers/specs/`).
+- 2026-11-18: `Rhythm` measures its beatless window as `cfg_.ring * cfg_.hopSeconds` now that the ring and hop are configured, not constants; `core/sound/Rhythm.cpp`.

@@ -116,13 +116,14 @@ class MediaStoreSource(
     suspend fun displayName(uri: Uri): String? = withContext(io) { resolver.displayNameOf(uri) }
 
     /**
-     * Whether [uri], handed over by another app, is one the app may read: a content uri, or a file
-     * uri outside this app's own data (another app must never make us read our own files).
+     * Whether [uri], handed over by another app, is one the app may read: a content uri the sender
+     * granted that is not one of this app's own providers ([refusesSentUri], the opened-audio checks),
+     * or a file uri outside this app's own data (another app must never make us read our own files).
      */
     suspend fun isForeignDocument(uri: Uri): Boolean =
         withContext(io) {
             when (uri.scheme) {
-                ContentResolver.SCHEME_CONTENT -> true
+                ContentResolver.SCHEME_CONTENT -> !refusesSentUri(context, uri)
                 ContentResolver.SCHEME_FILE -> {
                     val path = uri.path
                     val own = File(context.applicationInfo.dataDir).canonicalPath

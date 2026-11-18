@@ -19,7 +19,7 @@ One fact per line. The design of the native host every live surface draws throug
 - It owns an `ALooper` and the `AChoreographer` of that looper, and serves every stage's pacer, so a preview wallpaper beside the app costs no second clock thread.
 - It never draws, so a slow frame on one surface never delays another surface's vsync and never stops the pacer from hearing every vsync.
 - That is why the clock is not merged into the render thread: `AChoreographer` delivers one callback per looper turn, so a frame longer than a vsync would make the pacer miss vsyncs and change its period estimate and divide (`core/viz/frame/Pacer`), which the owner fixed as unchanged.
-- Each stage thread is named `GeodeStage` and runs at nice 0, the default priority of `GLSurfaceView`'s `GLThread`, which sets none.
+- Each stage thread is named `GeodeStage` and runs at nice -4, Android's display priority (`kStageNice` in `core/stage/android/StageThread.cpp`), as the vsync thread does.
 - One stage thread per surface, not one render thread for all: the app view and a live wallpaper (or its preview) can run at once, each `geode_viz` has its own GL objects in its own context, and one thread would switch contexts every frame and let one surface's slow frame stall the other.
 - A stage thread owns an `ALooper` too: it sleeps in `ALooper_pollOnce` and is woken by `ALooper_wake` when a command arrives.
 - `ALooper_pollAll` is not used: the NDK hides it because it may ignore wakes; every `ALooper_pollOnce` return is treated as a wake.
@@ -69,7 +69,7 @@ One fact per line. The design of the native host every live surface draws throug
 - It holds the `StageCommand` kinds, the command-to-lifecycle mapping, the window references, the hand-over sequence and its acknowledgement, the frame-due gate and the frame-rate restate.
 - A vsync's frame is drawn only while the lifecycle's vsync runs and a frame can be drawn; a request in flight across a stop is dropped.
 - A hand-over is acknowledged after the lifecycle's actions for it ran, so a window that went has no surface left on it.
-- The platform is a `StagePort` (EGL, the window, the vsync thread, the thermal rung, the acknowledgement), which `core/stage/android/StageThread` implements and a model implements in the test.
+- The platform is a `StagePort` (EGL, the window, the frame-rate hint, the vsync thread, the presentation time, the acknowledgement), which `core/stage/android/StageThread` implements and a model implements in the test.
 - A `kStageService` command has the stage thread call the client's `service(ready)` once, between frames.
 
 ## Commands (`core/stage/CommandQueue`)
@@ -87,7 +87,7 @@ One fact per line. The design of the native host every live surface draws throug
 - `AChoreographer_postFrameCallback64` (API 29) on the vsync thread's own choreographer, re-posted from each callback.
 - The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback`, so pacing stays exactly as it was.
 - `AChoreographer_postVsyncCallback` (API 33) adds frame timelines and an expected presentation time; feeding that instead would change the dt the pacer sees, so any switch is a separate, later decision.
-- `StagePacing` owns the nine-int64 `PacerState` and applies the process thermal step as `geode_pacer_on_vsync` does (`frame::pacerCapFps`).
+- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap and nothing lowers it for heat or load.
 - A callback re-posts first, before the pacer runs, so the cadence survives a slow frame and a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
 - A start while a callback is still pending posts nothing, so two starts never double the callback and halve every dt.
@@ -98,8 +98,8 @@ One fact per line. The design of the native host every live surface draws throug
 ## Frame-rate hint
 
 - `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate`.
-- The rate is the effective cap (`StagePacing::frameRateFor`): the surface's cap under the thermal step, 0 for Follow device; 0 is the platform's no preference.
-- It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (the thermal step moved).
+- The rate is the effective cap (`StagePacing::frameRateFor`): the surface's cap, 0 for Follow device; 0 is the platform's no preference.
+- It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (a new panel rate under Follow device).
 - It is called on the stage thread, which holds the window; a hint from a vsync reaches it as a last-wins command.
 
 ## EGL

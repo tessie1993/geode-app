@@ -846,7 +846,7 @@ private fun QuickActions(
                         .createScreenCaptureIntent(),
                 )
             } else {
-                viewModel.noteExternalAudioConsentDenied()
+                viewModel.noteExternalAudioPermissionDenied()
             }
         }
     LazyRow(

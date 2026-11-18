@@ -10,9 +10,11 @@
 # (docs/privacy-policy.md and its two copies) in the same change. Remove a line when its
 # permission leaves the manifest.
 #
-# From app/src/main/AndroidManifest.xml, plus two that libraries add: com.android.vending.BILLING
-# (Play Billing) and <applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION (androidx.core's
-# own signature permission for its unexported receivers; it reaches nothing outside the app).
+# From app/src/main/AndroidManifest.xml, plus three that libraries add: com.android.vending.BILLING
+# (Play Billing), <applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION (androidx.core's
+# own signature permission for its unexported receivers; it reaches nothing outside the app) and
+# android.permission.RECEIVE_BOOT_COMPLETED (WorkManager, which Glance brings for the widget: its
+# RescheduleReceiver puts pending work back after a restart; the app has no boot receiver of its own).
 android.permission.ACCESS_NETWORK_STATE
 android.permission.FOREGROUND_SERVICE
 android.permission.FOREGROUND_SERVICE_DATA_SYNC
@@ -24,6 +26,7 @@ android.permission.INTERNET
 android.permission.MODIFY_AUDIO_SETTINGS
 android.permission.POST_NOTIFICATIONS
 android.permission.READ_MEDIA_AUDIO
+android.permission.RECEIVE_BOOT_COMPLETED
 android.permission.RECORD_AUDIO
 android.permission.VIBRATE
 android.permission.WAKE_LOCK
